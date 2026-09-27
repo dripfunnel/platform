@@ -1,0 +1,23 @@
+{
+  "name": "@dripfunnel/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./ui": "./ui/index.ts",
+    "./ui/tokens.css": "./ui/tokens.css",
+    "./graphql": "./graphql/index.ts",
+    "./format": "./format/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0"
+  }
+}

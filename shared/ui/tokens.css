@@ -1,0 +1,19 @@
+:root {
+  --df-color-brand: #4f46e5;
+  --df-color-brand-contrast: #ffffff;
+  --df-color-surface: #ffffff;
+  --df-color-text: #111827;
+  --df-color-muted: #6b7280;
+  --df-radius: 8px;
+  --df-space-2: 8px;
+  --df-space-4: 16px;
+  --df-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --df-color-surface: #0f1115;
+    --df-color-text: #f3f4f6;
+    --df-color-muted: #9ca3af;
+  }
+}

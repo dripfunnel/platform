@@ -1,0 +1,36 @@
+{
+  "name": "@dripfunnel/api",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#core/*": "./src/core/*.ts",
+    "#db/*": "./src/db/*.ts",
+    "#auth/*": "./src/auth/*.ts",
+    "#engine/*": "./src/engine/*.ts",
+    "#integrations/*": "./src/integrations/*.ts",
+    "#saas/*": "./src/saas/*.ts",
+    "#apis/*": "./src/apis/*.ts",
+    "#hooks/*": "./src/hooks/*.ts",
+    "#jobs/*": "./src/jobs/*.ts"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "schema": "tsx scripts/print-schema.ts"
+  },
+  "dependencies": {
+    "@pothos/core": "^4.15.1",
+    "graphql": "^17.0.2",
+    "graphql-yoga": "^5.24.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260926.1",
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "wrangler": "^4.141.0"
+  }
+}

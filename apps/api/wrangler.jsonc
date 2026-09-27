@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dripfunnel-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "vars": {
+    "PLATFORM_HOST": "platform.dripfunnel.com",
+    "HOOKS_HOST": "hooks.dripfunnel.com"
+  }
+}

@@ -1,0 +1,9 @@
+packages:
+  - apps/*
+  - shared
+  - packages/*
+  - templates/*
+
+allowBuilds:
+  esbuild: true
+  workerd: true

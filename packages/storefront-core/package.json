@@ -1,0 +1,32 @@
+{
+  "name": "@dripfunnel/storefront-core",
+  "version": "0.0.0",
+  "description": "The locked commerce core every DripFunnel storefront runs on.",
+  "type": "module",
+  "repository": { "type": "git", "url": "https://github.com/dripfunnel/platform.git", "directory": "packages/storefront-core" },
+  "publishConfig": { "registry": "https://npm.pkg.github.com" },
+  "files": ["dist", "presets"],
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+    "./tsconfig": "./presets/tsconfig.json",
+    "./eslint": "./presets/eslint.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0"
+  },
+  "dependencies": {
+    "@eslint/js": "^10.0.1",
+    "globals": "^17.12.0",
+    "typescript-eslint": "^8.70.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0"
+  }
+}
