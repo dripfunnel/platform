@@ -1,6 +1,6 @@
 packages:
   - apps/*
-  - shared
+  - apps/ui/*
   - packages/*
   - templates/*
 

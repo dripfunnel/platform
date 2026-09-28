@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { resolveArea } from './router'
 
-const config = { PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
+const config = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
 const area = (href: string) => resolveArea(new URL(href), config)
 
 describe('resolveArea', () => {
+  it('serves the Admin API only on the admin host', () => {
+    expect(area('https://admin.dripfunnel.com/api')).toBe('admin')
+    expect(area('https://admin.dripfunnel.com/shop-api')).toBeUndefined()
+    expect(area('https://platform.dripfunnel.com/api')).not.toBe('admin')
+  })
+
   it('serves the Platform API only on the platform host', () => {
     expect(area('https://platform.dripfunnel.com/api')).toBe('platform')
     expect(area('https://platform.dripfunnel.com/shop-api')).toBeUndefined()

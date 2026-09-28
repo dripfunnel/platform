@@ -1,7 +1,7 @@
 # api
 
-The one Cloudflare Worker: the Store, Platform and Shop APIs, webhooks and background jobs,
-and all server code. Layout and layer rules: [docs/code/ARCHITECTURE.md](../../docs/code/ARCHITECTURE.md) §2–3.
+The one Cloudflare Worker: the Store, Platform, Admin and Shop APIs, webhooks and background jobs,
+and all server code. Guide: [docs/api/README.md](../../docs/api/README.md) (APIs, layout, layers, how to add code).
 
 ```bash
 pnpm --filter ./apps/api dev      # wrangler dev

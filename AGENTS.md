@@ -1,28 +1,38 @@
 # AGENTS.md: platform
 
 The whole DripFunnel platform in one repo: one API Worker (`apps/api`: the commerce engine,
-the Store, Platform and Shop APIs, webhooks and background jobs on Queues, Workflows and
-Cron), two static SPAs on Cloudflare Pages (`apps/store` for merchants and vendors,
-`apps/platform` for Admin and Partners), the one published package (`storefront-core`) and
+the Store, Platform, Admin and Shop APIs, webhooks and background jobs on Queues, Workflows and
+Cron), three static SPAs on Cloudflare Pages in `apps/ui/` (`store` for merchants and
+vendors, `platform` for Partners, `admin` for DripFunnel staff), the one published package (`storefront-core`) and
 the storefront template every store's own repo is created from. Postgres on Neon via
 Hyperdrive; files on R2.
 
-**Status: skeleton.** The apps, `shared/`, `storefront-core` and the template build and pass
+**Status: skeleton.** The apps, `apps/ui/shared/`, `storefront-core` and the template build and pass
 every gate; no database, business logic or features yet.
 
 ## Read first
 
-Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[docs/USERS-AND-DOMAINS.md](docs/USERS-AND-DOMAINS.md). They win wherever another document
-disagrees. Then open only the part your task touches:
+Start with [docs/README.md](docs/README.md) (the map), then
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
+[docs/USERS-AND-DOMAINS.md](docs/USERS-AND-DOMAINS.md). Those two win wherever another
+document disagrees. Then open only the part your task touches:
 
 | Task touches | Read |
 |---|---|
-| Engine, APIs, tenancy, identity, commerce | [docs/platform/PLATFORM-PROMPT.md](docs/platform/PLATFORM-PROMPT.md) |
-| Where code goes, `apps/api` layers, `shared/`, conventions | [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md), [DESIGN.md](docs/code/DESIGN.md) |
+| Any code in `apps/api`: APIs, callers, layout, layers, how to add code | [docs/api/README.md](docs/api/README.md) |
+| Engine, commerce modules, public APIs | [docs/api/PLATFORM-PROMPT.md](docs/api/PLATFORM-PROMPT.md) |
+| Identity, sessions, roles and permissions, invitations, vendors, support access | [docs/api/ACCESS.md](docs/api/ACCESS.md) |
+| Partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet | [docs/api/SAAS.md](docs/api/SAAS.md) |
+| Any SPA: structure, API calls, text, navigation, states, adding a screen | [docs/ui/README.md](docs/ui/README.md) |
+| Merchant portal (`apps/ui/store`) | [docs/ui/store/](docs/ui/store/README.md) and its DESIGN-BRIEF, CATALOG-DESIGN, OFFERS-DESIGN |
+| Partner console (`apps/ui/platform`) | [docs/ui/platform/](docs/ui/platform/README.md) |
+| Admin console (`apps/ui/admin`) | [docs/ui/admin/](docs/ui/admin/README.md) and its CONSOLE-DESIGN |
+| `apps/ui/shared` | [docs/ui/shared/](docs/ui/shared/README.md) |
+| Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
-| Platform console (Admin and Partner), partners, billing, fleet | [docs/platform/CONSOLE-DESIGN.md](docs/platform/CONSOLE-DESIGN.md) |
-| Product decisions and UX specs from before | `../df-store-archived/*.md` (their Vendure facts are obsolete) |
+
+`../df-store-archived/` is history: everything in it that still holds is ported into
+`docs/` (docs/README.md §7). Don't take a Vendure fact from it.
 
 Read-only references outside this repo: `../vendure-backend/`, `../community-plugins/`,
 `../vendure-storefront-template/`, `../df-store-archived/`. Never edit them.
@@ -32,7 +42,8 @@ Read-only references outside this repo: `../vendure-backend/`, `../community-plu
 ```bash
 pnpm install
 pnpm turbo run build typecheck lint test         # every gate, only what changed
-pnpm --filter ./apps/<app> dev                   # wrangler dev (api) or vite dev (store, platform)
+pnpm --filter ./apps/api dev                     # wrangler dev
+pnpm --filter ./apps/ui/<app> dev                # vite dev (store, platform, admin)
 pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.graphql
 pnpm changeset                                   # required when storefront-core changes
 ```
@@ -45,17 +56,17 @@ Run the gates before reporting a change as done.
 ## Where things go
 
 - **`apps/api`** holds all server code, in layered folders; a folder imports only from its
-  own layer or lower (docs/code/ARCHITECTURE.md §3).
-- **`apps/store`, `apps/platform`** are browser apps. They know the API only through its
+  own layer or lower (docs/api/README.md §4).
+- **`apps/ui/store`, `apps/ui/platform`, `apps/ui/admin`** are browser apps. They know the API only through its
   generated schema files (`apps/api/schema/`), never by importing `apps/api`.
-- **`shared/`** holds only code both SPAs use. Add to it when a second app needs something,
+- **`apps/ui/shared/`** holds only code more than one SPA uses. Add to it when a second app needs something,
   never in advance; something one app uses stays in that app.
 - **`packages/storefront-core`** is the only published package. It imports nothing from
   the rest of the repo.
 - **`templates/storefront/`** is copied into each new store repo by provisioning. Commerce
   logic belongs in `storefront-core`, never in the template.
-- **`docs/`** is the specification. Update the relevant document in the same change as the
-  code it describes.
+- **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
+  relevant document in the same change as the code it describes, following docs/README.md §6.
 
 ## Area rules
 
@@ -68,12 +79,15 @@ Run the gates before reporting a change as done.
 - The router decides by hostname first: each API answers 404 on hosts it doesn't belong to
   (docs/ARCHITECTURE.md §2). A schema change regenerates `apps/api/schema/` in the same change.
 
-**The SPAs (`apps/store`, `apps/platform`)**
+**The SPAs (`apps/ui/store`, `apps/ui/platform`, `apps/ui/admin`)**
 - Static SPAs with no server code. They talk only to their API at `/api` on the same
-  hostname, through `shared/graphql`.
+  hostname, through `@dripfunnel/shared/graphql`.
 - Every portal screen renders in its partner's look (white label) using `shared/ui`
-  tokens. The console at `platform.dripfunnel.com` is DripFunnel-branded for every user.
-- The console at `platform.dripfunnel.com` serves Admin and Partner users, separate from
+  tokens. The consoles at `platform.dripfunnel.com` and `admin.dripfunnel.com` are
+  DripFunnel-branded for every user.
+- The console at `platform.dripfunnel.com` (`apps/ui/platform`) serves Partner users only;
+  the console at `admin.dripfunnel.com` (`apps/ui/admin`) serves DripFunnel staff only, and
+  never shares screens or endpoints with the partner console. Both are separate from
   merchant identity. A partner sees only its own merchants, at account level, and enters a
   merchant's portal only through audited, consented, read-only support access. Every console
   write is audited with the actor, target and reason; destructive actions restate their
@@ -123,7 +137,7 @@ Run the gates before reporting a change as done.
 ### Code
 
 1. **Reusable first.** Before writing anything, look for it in the app's own modules and in
-   `shared/`. Logic needed by more than one app belongs in `shared/`, never copied between
+   `apps/ui/shared/`. Logic needed by more than one app belongs in `shared/`, never copied between
    apps. Extract a shared function or component once the same logic appears a second time,
    not in anticipation of it.
 2. **No unnecessary comments.** Names and types say what the code does. Comment only *why*,
@@ -135,7 +149,7 @@ Run the gates before reporting a change as done.
 4. **TypeScript strict.** No `any`, no non-null assertions to silence the compiler, no
    `@ts-ignore` without a linked reason. Validate every input that crosses a trust boundary
    with zod and derive its type from the schema.
-5. **Respect boundaries.** Follow the layer and import rules (docs/code/ARCHITECTURE.md §3); they are
+5. **Respect boundaries.** Follow the layer and import rules (docs/api/README.md §4); they are
    enforced by lint and tests, and a change that needs to break one is a design discussion.
 6. **Consistent style.** Formatting and lint come from the root `eslint.config.js` and
    `tsconfig.base.json`; don't add local overrides.

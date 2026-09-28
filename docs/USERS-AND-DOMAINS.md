@@ -1,8 +1,9 @@
 # USERS-AND-DOMAINS.md
 
 Who uses the platform, where each of them signs in, and which hostnames exist. **Decided
-2026-09-27.** Where older documents say "brand" they mean a **partner**'s white-label
-identity, and where they say "DF Admin" they mean the console at `platform.dripfunnel.com`.
+2026-09-27; Admin moved to its own console and host 2026-09-28.** Where older documents say
+"brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
+mean the admin console at `admin.dripfunnel.com`.
 
 ---
 
@@ -10,7 +11,7 @@ identity, and where they say "DF Admin" they mean the console at `platform.dripf
 
 | User | Who | Signs in at | Does | Never sees |
 |---|---|---|---|---|
-| **Admin** | DripFunnel staff | `platform.dripfunnel.com` | Runs the whole platform: approves and manages partners, sees every partner and merchant at account level, fleet, billing, integrations | Nothing is hidden, but store-level access follows the same audited support rules as partners (§4) |
+| **Admin** | DripFunnel staff | `admin.dripfunnel.com` (staff only) | Runs the whole platform: approves and manages partners, sees every partner and merchant at account level, fleet, billing, integrations | Nothing is hidden, but store-level access follows the same audited support rules as partners (§4) |
 | **Partner** | A company that white-labels the platform and sells it to its merchants. **DripFunnel is also a partner** (the house partner) and onboards its own merchants the same way | `platform.dripfunnel.com` (the same host for every partner; not white-labeled) | Self-onboards, sets its branding and domains, its plans and prices, and manages its merchants at account level | Other partners; merchants' customers, orders and catalogues (§4) |
 | **Merchant** | Owns a store, with their staff (Owner, Manager, Staff) | The partner's **portal host**, e.g. `store.partnerdomain.com`, in the partner's look | Lists products, sets up the storefront and its domain, runs orders and offers, invites vendors | Other merchants; the partner's other data |
 | **Vendor** (seller) | A supplier the merchant invites to list products in the merchant's store | The same partner portal host as the merchant | Manages only their own products, stock and (by tier) their order lines | The merchant's and other vendors' data (unchanged from the archived design) |
@@ -25,8 +26,9 @@ separate customer accounts, because each is the merchant's customer, not the pla
 
 | Hostname | Serves | Who uses it | Set up by |
 |---|---|---|---|
-| `platform.dripfunnel.com` | The platform console (`apps/platform`) and the Platform API at `/api` | Admin and partner users | Fixed |
-| **Partner portal host**, chosen by the partner (suggested `store.<partnerdomain>`) | The merchant portal (`apps/store`) in the partner's look, and the Store API at `/api` | Merchants, their staff, vendors | Partner, on `platform.dripfunnel.com` |
+| `admin.dripfunnel.com` | The admin console (`apps/ui/admin`) and the Admin API at `/api` | DripFunnel staff (Admin) only | Fixed |
+| `platform.dripfunnel.com` | The platform console (`apps/ui/platform`) and the Platform API at `/api` | Partner users only | Fixed |
+| **Partner portal host**, chosen by the partner (suggested `store.<partnerdomain>`) | The merchant portal (`apps/ui/store`) in the partner's look, and the Store API at `/api` | Merchants, their staff, vendors | Partner, on `platform.dripfunnel.com` |
 | `{shop}.preview.<partnerdomain>` | Each merchant's storefront **preview** (client-rendered SPA, live data) | The merchant and their team | Partner adds one wildcard DNS record |
 | `{shop}.<partner shop domain>`, e.g. `{shop}.shops.<partnerdomain>` | Each merchant's **live** storefront until they connect their own domain | Customers | Partner adds one wildcard DNS record |
 | The merchant's own domain, e.g. `www.merchantbrand.com` | The merchant's **live** storefront (static build) | Customers | Merchant, in the portal |
@@ -47,7 +49,7 @@ portal host.
 2. Sets up branding, portal host, preview and shop wildcard domains, email sender domain,
    plans and prices, and its billing with DripFunnel. Each domain shows the DNS records to add
    and live verification status.
-3. **Admin approves** the partner (contract, KYC, billing). Until then the partner can set
+3. **Admin approves** the partner, on `admin.dripfunnel.com` (contract, KYC, billing). Until then the partner can set
    everything up, but **merchants can't sign up under it**.
 4. Admin can also create a partner directly.
 
@@ -129,7 +131,7 @@ checks it, and reports progress (the archived domain flow, DESIGN-BRIEF flow 58)
 
 | Hostnames | How many | Risk for "Pages + `/api` Worker route on the same host" |
 |---|---|---|
-| `platform.dripfunnel.com` | One, on our own zone | Low: standard Pages custom domain plus a Worker route |
+| `admin.dripfunnel.com`, `platform.dripfunnel.com` | Two, on our own zone | Low: standard Pages custom domain plus a Worker route |
 | Partner portal hosts | One per partner, on partners' domains | **Test this**: Pages custom domains on Cloudflare for SaaS custom hostnames, and per-project domain limits. Fallback: serve the portal through Workers static assets |
 | Previews and live storefronts | One or more per merchant | Already planned on Workers and Cloudflare for SaaS |
 
