@@ -14,8 +14,10 @@ const allApiFolders = ['core', 'db', 'auth', 'engine', 'integrations', 'saas', '
 
 const forbidFolders = (folders) => ({
   regex: `^(#(${folders.join('|')})(/|$)|(\\.\\./)+(${folders.join('|')})(/|$))`,
-  message: 'Layer rule: import only from your own layer or lower (docs/code/ARCHITECTURE.md §3).',
+  message: 'Layer rule: import only from your own layer or lower (docs/api/README.md §4).',
 })
+
+const uiApps = ['admin', 'platform', 'store']
 
 const noApiImports = {
   regex: '^(@dripfunnel/api|(\\.\\./)+(apps/)?api)(/|$)',
@@ -56,15 +58,15 @@ export default tseslint.config(
     },
   })),
   {
-    files: ['apps/store/**/*.{ts,tsx}', 'apps/platform/**/*.{ts,tsx}'],
+    files: uiApps.map((app) => `apps/ui/${app}/**/*.{ts,tsx}`),
     languageOptions: { globals: { ...globals.browser } },
     rules: { 'no-restricted-imports': ['error', { patterns: [noApiImports] }] },
   },
   {
-    files: ['shared/**/*.{ts,tsx}'],
+    files: ['apps/ui/shared/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser } },
     rules: {
-      'no-restricted-imports': ['error', { patterns: [{ group: ['**/apps/**', '@dripfunnel/api', '@dripfunnel/store', '@dripfunnel/platform'], message: 'shared/ never imports from apps/.' }] }],
+      'no-restricted-imports': ['error', { patterns: [{ group: ['**/apps/**', ...['api', ...uiApps].flatMap((app) => [`@dripfunnel/${app}`, `**/${app}`, `**/${app}/**`])], message: 'shared/ never imports from the apps.' }] }],
     },
   },
   {

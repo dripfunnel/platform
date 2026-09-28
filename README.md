@@ -1,19 +1,21 @@
 # platform
 
 The DripFunnel platform: a headless, multi-tenant commerce engine with white-label brands,
-vendors, an AI-designed storefront per store, the merchant portal and the platform console, in one repo
-and deployed on Cloudflare.
+vendors, an AI-designed storefront per store, the merchant portal, the partner console and
+the admin console, in one repo and deployed on Cloudflare.
 
-**Status: skeleton**, no features yet. Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+**Status: skeleton**, no features yet. Start with [docs/README.md](docs/README.md), the
+map of the specification: every portal, its users and roles, and what to read for a task.
 
 | Folder | What |
 |---|---|
-| `apps/api` | The one Worker: engine, Store, Platform and Shop APIs, webhooks, jobs |
-| `apps/store` | Merchant and vendor portal (Pages SPA) |
-| `apps/platform` | Admin and Partner console (Pages SPA) |
-| `shared/` | Code both SPAs use |
+| `apps/api` | The one Worker: engine, Admin, Platform, Store and Shop APIs, webhooks, jobs |
+| `apps/ui/store` | Merchant and vendor portal (Pages SPA) |
+| `apps/ui/platform` | Partner console (Pages SPA), `platform.dripfunnel.com` |
+| `apps/ui/admin` | DripFunnel staff console (Pages SPA), `admin.dripfunnel.com` |
+| `apps/ui/shared/` | Code more than one SPA uses |
 | `packages/storefront-core` | The one published package, installed by store repos |
 | `templates/storefront/` | The template copied into each store's own repo |
-| `docs/` | The specification |
+| `docs/` | The specification, laid out like the code |
 
 Working rules for people and agents: [AGENTS.md](AGENTS.md).

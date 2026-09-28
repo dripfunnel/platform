@@ -5,7 +5,7 @@ How DripFunnel's storefronts are built. The template's source lives in the `plat
 supplies all commerce behaviour through the **Shop API**.
 
 Companion documents: [DESIGN.md](DESIGN.md) covers what the AI may design and the rules every
-design keeps. `../platform/PLATFORM-PROMPT.md` covers the platform and the engine behind the
+design keeps. `../api/PLATFORM-PROMPT.md` covers the platform and the engine behind the
 Shop API. The reference implementation is `../../../vendure-storefront-template/` (Vendure's
 Next.js starter as customised by us), and §11 says what to take from it.
 
@@ -204,13 +204,13 @@ the theme, so a page is written once.
      - **"Publish now"**: the merchant presses it in the portal and a live catalogue build
        runs. Each press uses one **catalogue build from the plan's monthly allowance**
        (an entitlement, e.g. "30 catalogue publishes a month"). **The allowance is set per
-       brand (partner) and per plan in DF Admin** (CONSOLE-DESIGN G2), within the
-       platform ceiling. The button shows what is
+       plan by the partner** in the partner console (or by DripFunnel staff on its behalf),
+       within the platform ceiling DripFunnel sets (../api/SAAS.md §6.1, CONSOLE-DESIGN G2). The button shows what is
        waiting ("12 products changed since 10:40"), how many publishes are left this month,
        and when the next automatic publish is due. At zero it explains itself and points to
        the automatic publish and the upgrade (Owner only).
      - **Automatic publishing**: every store with unpublished changes is published on a
-       **schedule configured in DF Admin** (CONSOLE-DESIGN R5): a platform default
+       **schedule configured in the admin console** (CONSOLE-DESIGN R5): a platform default
        interval, which DripFunnel staff can set differently per plan. It runs whether or not
        anyone presses the button. Automatic publishes do **not** use the monthly allowance.
        Stores with no changes aren't rebuilt.

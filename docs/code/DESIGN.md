@@ -56,10 +56,10 @@ How modules are written, so the codebase reads as one. Read with
 - Cache keys include the store (and seller, language, currency where relevant). A cache key
   without a tenant is a bug.
 
-## 5. `shared/ui` (both SPAs)
+## 5. `apps/ui/shared/ui` (every SPA)
 
 - **Tokens first**: colour, type, spacing, radius, elevation and motion as CSS variables.
-  Partners override the brand-level tokens in `apps/store` (CONSOLE-DESIGN §3 fact 17); the
+  Partners override the brand-level tokens in `apps/ui/store` (CONSOLE-DESIGN §3 fact 17); the
   components never hard-code a colour.
 - **Accessible by default**: WCAG 2.2 AA, keyboard and screen-reader support built into every
   component, focus visible, reduced motion respected.

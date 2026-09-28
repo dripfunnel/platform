@@ -1,3 +1,4 @@
+import { adminSchema } from '#apis/admin/schema'
 import { createServer } from '#apis/graphql/server'
 import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
@@ -6,6 +7,7 @@ import { parseConfig } from '#core/config'
 import { resolveArea } from './router'
 
 const servers = {
+  admin: createServer(adminSchema, '/api'),
   platform: createServer(platformSchema, '/api'),
   store: createServer(storeSchema, '/api'),
   shop: createServer(shopSchema, '/shop-api'),

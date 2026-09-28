@@ -70,24 +70,28 @@ Paste §1 to start a session. Everything after §1 is also specification.
 > Stripe Billing), now with **GraphQL** for the public APIs as in
 > Vendure. **Storefronts move to Cloudflare.**
 >
-> **Read first**, in this order. They were written against Vendure, so their *Vendure facts*
-> are obsolete, but their product decisions, lessons and UX specifications are not:
-> 1. `../../../df-store-archived/SAAS-PLAN.md`: what the platform is. §2 (edit boundary), §5 (fleet),
->    §6 (catalogue changes without rebuilds), §7 (AI loop), §10 (billing), §14 (metrics).
-> 2. `../../../df-store-archived/ARCHITECTURE.md`: how DF Store was built. §1 (decisions), §4
->    (tenancy and scope), §6.3 (audit), §7–12 (sessions, jobs, config, deploy, tests).
-> 3. `../../../df-store-archived/AUTH-PLAN.md`: identity, roles, invitations, vendors. §3, §4, §5.3,
->    §7, §8.3–8.6, §9 and §11 carry over. §2 and §6 are Vendure-specific.
-> 4. `../../../df-store-archived/DESIGN-BRIEF.md`: the portal's users and the complete list of flows.
-> 5. `../../../df-store-archived/CATALOG-DESIGN-PROMPT.md` and `OFFERS-DESIGN-PROMPT.md`: the
->    catalogue and offers UX. Their "needs backend" items are now **engine requirements**.
-> 6. `CONSOLE-DESIGN.md`: white-label brands and DF Admin.
-> 6a. `../code/`: where code lives (`apps/api` layers, `shared/`, the one published package). Decided.
+> **Read first**, in this order. The archived documents were written against Vendure; what
+> still holds of them has been ported into this repo (2026-09-28), with Vendure facts
+> replaced by engine facts:
+> 1. [`SAAS.md`](SAAS.md): partners, merchant accounts, provisioning, plans, billing,
+>    domains, publishing, fleet, metrics (was `../../../df-store-archived/SAAS-PLAN.md`).
+> 2. [`ACCESS.md`](ACCESS.md): identity, sessions, roles, invitations, vendors, tenancy and
+>    the authorization checks (was AUTH-PLAN §3–5, §7–9, §11 and the archived ARCHITECTURE §4,
+>    §6.3, §7).
+> 3. [`../ui/store/DESIGN-BRIEF.md`](../ui/store/DESIGN-BRIEF.md): the portal's users and
+>    the complete list of flows.
+> 4. [`../ui/store/CATALOG-DESIGN.md`](../ui/store/CATALOG-DESIGN.md) and
+>    [`OFFERS-DESIGN.md`](../ui/store/OFFERS-DESIGN.md): the catalogue and offers UX. Their
+>    *(release: decide)* items are **engine requirements**.
+> 5. [`../ui/admin/CONSOLE-DESIGN.md`](../ui/admin/CONSOLE-DESIGN.md): partners (white label)
+>    and the admin console, with each part's partner-console counterpart.
+> 6. [`README.md`](README.md) and `../code/`: where code lives (`apps/api` layers,
+>    `apps/ui/shared/`, the one published package). Decided.
 > 6b. `../storefront/`: the storefront's architecture and design (core
 >    package, theme contract, preview and live modes). Already decided; design the engine
 >    and hosting to serve it.
-> 7. `../../../df-store-archived/README.md` and `BUILD-PROMPT.md`: what was actually built, and the
->    ground rules.
+> 7. `../../../df-store-archived/README.md` and `BUILD-PROMPT.md`: what the first version
+>    actually built (history), and the ground rules (carried into `../../AGENTS.md`).
 > 8. `../../../vendure-backend/`: **the reference for how a headless commerce platform works.**
 >    Read its `ARCHITECTURE.md` (§4 lists the commerce features the new engine must cover:
 >    shipping charge strategy, Stripe/Razorpay, Shiprocket, email, assets, import/export),
@@ -131,7 +135,10 @@ Paste §1 to start a session. Everything after §1 is also specification.
 
 ## 2. What carries over (binding)
 
-Each item is a decision already made. Its source is in brackets.
+Each item is a decision already made. Its source is in brackets; archive sources now live
+in this repo: AUTH-PLAN and the archived ARCHITECTURE §4 in [ACCESS.md](ACCESS.md), SAAS-PLAN
+in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PROMPT in
+`../ui/store/` (as DESIGN-BRIEF, CATALOG-DESIGN, OFFERS-DESIGN).
 
 **Product and people**
 1. **Merchants, vendors and shoppers.** A merchant owns a store; vendors supply products into
@@ -154,7 +161,7 @@ Each item is a decision already made. Its source is in brackets.
 8. **Signup is automated, under two minutes, with no staff**, with a real progress experience
    and no half-made store on failure. [SAAS-PLAN §4]
 9. **Stores are global**: region-driven tax, units, formats, languages, currencies and product
-   compliance, never hard-coded to India. [CATALOG-DESIGN-PROMPT §3 facts 36–48]
+   compliance, never hard-coded to India. [CATALOG-DESIGN §3 facts 36–48]
 10. **White label**: brands above stores, DripFunnel as the house brand, DF Admin for staff.
     [CONSOLE-DESIGN]
 
@@ -193,7 +200,7 @@ Each item is a decision already made. Its source is in brackets.
     browser may hold.
 17. **Every endpoint declares its scope, structurally.** The archived design did it with tRPC
     procedure bases and a test walking the router tree [ARCHITECTURE §4.2]. In GraphQL the
-    same rule applies to resolvers: each one declares its API (Shop or Admin), its
+    same rule applies to resolvers: each one declares its API (Shop, Store, Platform or Admin), its
     permission and its tenant scope (like Vendure's `@Allow`, but tenant- and seller-aware),
     and a test walks the schema to prove no field is missing one.
 18. **`SellerScope` is a discriminated union with no default**, so a forgotten vendor filter is
@@ -282,8 +289,8 @@ Deployables, hostnames, repository layout and the Workers runtime rules are in
 
 | Deployable | Where |
 |---|---|
-| Portal (`apps/store`) and DF Admin (`apps/platform`) | Static SPAs on **Cloudflare Pages** |
-| Store API, Platform API, Shop API, inbound webhooks (one Worker, `apps/api`) | **Cloudflare Workers**, at `/api` on each UI's own hostname |
+| Portal (`apps/ui/store`), partner console (`apps/ui/platform`) and DF Admin (`apps/ui/admin`) | Static SPAs on **Cloudflare Pages** |
+| Store API, Platform API, Admin API, Shop API, inbound webhooks (one Worker, `apps/api`) | **Cloudflare Workers**, at `/api` on each UI's own hostname |
 | Jobs, event delivery, schedules (`apps/api/src/jobs`) | **Queues**, **Workflows** and **Cron Triggers** |
 | Postgres | **Neon**, through **Hyperdrive** |
 | Files | **R2** |
@@ -425,8 +432,8 @@ engine. Each has its own schema, its own auth and its own rate limits.
   depend on it. Additive changes only; deprecation with a published timeline; schema diffs
   checked in CI.
 
-**Store API** (`/api`), for the portal, DF Admin's store-level views, integrations and
-apps:
+**Store API** (`/api`), for the portal, read-only support sessions opened from the partner
+or admin console (ACCESS.md §8), integrations and apps:
 - Everything a merchant can do in the portal, and nothing more: **the portal is a Store API
   client** (as the Vendure Dashboard is), so any screen can be automated by an integration
   with the right key.
@@ -434,7 +441,7 @@ apps:
   seller-scoped by the context (§5.1), unlike Vendure's per-channel permissions. A vendor
   caller can only ever see and change its own rows.
 - Platform operations above a store (brands, plans, billing, provisioning, staff) are **not**
-  in the Store API. They live in the Platform API (§4).
+  in the Store API. They live in the Platform API (partners) and the Admin API (staff) (§4).
 
 **API keys, webhooks and apps** *(design all three now; §10 asks which ship first)*:
 - **API keys**: created by an Owner in Settings, with named permission scopes, an optional
@@ -563,7 +570,9 @@ commerce engine. Study them before designing the engine, and copy these ideas de
 
 ## 6. Design deliverables
 
-The UX specifications in the archive remain the design source. Update them, don't restart:
+The UX specifications remain the design source. **Done 2026-09-28**: each is ported into
+`../ui/` with the changes below applied; keep updating them there as the engine is
+designed, don't restart:
 
 - **DESIGN-BRIEF.md** (archived): keep §2 users and §3 flows 1–69. Replace "Vendure" with the
   engine. Remove India-only assumptions ("prices tax-inclusive in rupees", flow 24; "HSN
@@ -697,13 +706,14 @@ State what the smallest sellable first release is, and what is explicitly deferr
 - White label's money model (partner billed, merchants billed on the partner's behalf, or
   both) and which comes first.
 - A person with stores under two brands: which look do they see after sign-in?
-- Plans and their entitlements: names and contents. (Decided: the monthly "Publish now"
-  allowance is set per brand and plan in DF Admin, the automatic publish interval is a DF
-  Admin setting with per-plan overrides, and failed builds never count.)
+- Plans and their entitlements: names and contents. (Decided: the partner sets the monthly
+  "Publish now" allowance per plan within DripFunnel's ceiling; the automatic publish
+  interval is an admin console setting with per-plan overrides; failed builds never count.
+  See SAAS.md §6, §9.)
 
 **Carried from the archive, still open**
 - Does editing an approved vendor product send it back for approval?
 - What happens to a removed or suspended vendor's products?
 - 2-factor for Owners only, or everyone?
-- Does past due block sign-in, and what happens to that store's vendors?
+- What happens to a past-due store's vendors? (Past due never blocks sign-in: §2 item 7.)
 - Retention and export on cancellation (SAAS-PLAN §15).
