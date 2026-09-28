@@ -22,20 +22,22 @@ document disagrees. Then open only the part your task touches:
 | Any code in `apps/api`: APIs, callers, layout, layers, how to add code | [docs/api/README.md](docs/api/README.md) |
 | Engine, commerce modules, public APIs | [docs/api/PLATFORM-PROMPT.md](docs/api/PLATFORM-PROMPT.md) |
 | Identity, sessions, roles and permissions, invitations, vendors, support access | [docs/api/ACCESS.md](docs/api/ACCESS.md) |
+| Tables, tenancy tree, users and roles storage, row-level security | [docs/api/DATA-MODEL.md](docs/api/DATA-MODEL.md) |
 | Partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet | [docs/api/SAAS.md](docs/api/SAAS.md) |
+| Activity (audit) log, technical logs, anything users can search about who did what | [docs/api/LOGGING.md](docs/api/LOGGING.md) |
 | Any SPA: structure, API calls, text, navigation, states, adding a screen | [docs/ui/README.md](docs/ui/README.md) |
 | Merchant portal (`apps/ui/store`) | [docs/ui/store/](docs/ui/store/README.md) and its DESIGN-BRIEF, CATALOG-DESIGN, OFFERS-DESIGN |
 | Partner console (`apps/ui/platform`) | [docs/ui/platform/](docs/ui/platform/README.md) |
-| Admin console (`apps/ui/admin`) | [docs/ui/admin/](docs/ui/admin/README.md) and its CONSOLE-DESIGN |
+| Admin console (`apps/ui/admin`) | [docs/ui/admin/](docs/ui/admin/README.md), its FIRST-RELEASE (what to build now) and CONSOLE-DESIGN |
 | `apps/ui/shared` | [docs/ui/shared/](docs/ui/shared/README.md) |
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 
-`../df-store-archived/` is history: everything in it that still holds is ported into
-`docs/` (docs/README.md §7). Don't take a Vendure fact from it.
+The first, Vendure-based platform's documents are ported into `docs/` and its repository is
+gone; `docs/` is the only specification (docs/README.md §7).
 
 Read-only references outside this repo: `../vendure-backend/`, `../community-plugins/`,
-`../vendure-storefront-template/`, `../df-store-archived/`. Never edit them.
+`../vendure-storefront-template/`. Never edit them.
 
 ## Commands
 
@@ -173,7 +175,8 @@ Run the gates before reporting a change as done.
   CSRF protection for cookie sessions. SSRF protection on every user-supplied URL
   (webhooks, imports, image fetches). Rate-limit authentication and public endpoints.
 - Never reveal whether an account or email exists.
-- Audit every privileged or destructive action with the real actor, target and reason.
+- Log every write and sign-in, by every caller, in the activity log with the real actor,
+  scope, target and reason (docs/api/LOGGING.md). Never put secrets or payloads in it.
 
 **Data**
 - Money is integer minor units with a currency. Never floats, never a bare number.

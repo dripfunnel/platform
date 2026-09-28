@@ -53,8 +53,7 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   reason, read-only. The `?state=` helper that makes every designed state reachable without
   a backend moves here once a second app uses it (../README.md §6).
 - **Words are props**: every string comes from the calling app's messages.
-- **Visual baseline**: the archived portal's components and
-  `../../../../.design/settings-tabs.html` (PLATFORM-PROMPT §6).
+- **Visual baseline**: `../../../../.design/settings-tabs.html` (PLATFORM-PROMPT §6).
 - **Tests** beside the code (`money.test.ts`), especially for formatting across currencies
   and locales (zero- and three-decimal currencies).
 

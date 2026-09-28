@@ -2,11 +2,9 @@
 
 Identity, sessions, roles and permissions, invitations, vendors, support access, tenancy and
 authorization in the DripFunnel engine: **who can sign in, where, how they get an account,
-what they may do, and how every resolver proves it**. Ported on 2026-09-28 from
-[`../../../df-store-archived/AUTH-PLAN.md`](../../../df-store-archived/AUTH-PLAN.md) (§3, §4,
-§5.3, §7, §8.3–8.6, §9, §11) and
-[`../../../df-store-archived/ARCHITECTURE.md`](../../../df-store-archived/ARCHITECTURE.md) (§4,
-§6.3, §7), with Vendure facts replaced by engine facts; AUTH-PLAN §2 and §6 were
+what they may do, and how every resolver proves it**. Ported on 2026-09-28 from the
+first (Vendure-based) platform's AUTH-PLAN (§3, §4, §5.3, §7, §8.3–8.6, §9, §11) and
+ARCHITECTURE (§4, §6.3, §7), with Vendure facts replaced by engine facts; AUTH-PLAN §2 and §6 were
 Vendure-specific and survive only as §12's lessons. Where this document and
 [`../ARCHITECTURE.md`](../ARCHITECTURE.md) or
 [`../USERS-AND-DOMAINS.md`](../USERS-AND-DOMAINS.md) disagree, those two win. Engine
@@ -28,7 +26,7 @@ Last updated: 2026-09-28.
 | Decision | Rejected | Why |
 |---|---|---|
 | **Four identity pools, kept separate**: merchant and vendor people; partner users; DripFunnel staff; shoppers per store (§2) | One users table with flags; staff as merchants with a superuser flag | Each pool signs in on its own host with its own rules. A staff or partner identity can never be a merchant session with a flag (PLATFORM-PROMPT §5.2), and a bug in one pool's checks can't grant another pool's power. |
-| **One account per person in the merchant/vendor pool**, email unique across that pool | An account per store | One person, one login, many stores (PLATFORM-PROMPT §2 item 3). Joining another store adds a membership, not an account. |
+| **One account per person per partner** in the merchant/vendor pool: `user` unique by `(partner_id, email)` (decided 2026-09-28) | An account per store; one account platform-wide | One person, one login, many stores **within a partner** (PLATFORM-PROMPT §2 item 3). Accounts never cross partners, so no password, 2-factor, Google sign-in, reset or "you already have an account" email reveals that two brands run on one platform. The cost: someone with stores under two partners has two unrelated logins. |
 | **`membership(user_id, store_id, seller_id, role_key)`**; vendor identity is a property of the pair (user, store) | Vendor identity on the user | A person can be Staff in one store and a vendor in two others, with a different `seller_id` in each. |
 | **Roles are fixed permission sets in code**, keyed by `role_key` | Role rows per store; cloning at provisioning; a role editor | Nothing to clone or drift; a change is reviewed and deployed like code; a role change takes effect on the next request. |
 | **Permissions are checked per resolver and per row** | Per-store permissions only | A vendor's "write catalogue" means its own products. The scoped query layer applies `store_id` and `SellerScope` to every read and write (PLATFORM-PROMPT §5.1, §5.5). |
@@ -39,7 +37,8 @@ Last updated: 2026-09-28.
 | **Support access is its own caller kind**, read-only, consented, time-limited, on the merchant's portal host | "Sign in as" a person | It never acts as a person, so it can't change passwords, payment methods, payouts or ownership, and every action is attributed to the real support agent (USERS-AND-DOMAINS §4.1). |
 | **Every resolver declares its API, permission and tenant scope**, and a test walks the schema | Review discipline | An unscoped field can't exist (PLATFORM-PROMPT §2 item 17; ARCHITECTURE §1 Pothos decision). |
 | **Audit rows are written in the same transaction as the change**, append-only | Logs; a best-effort async write | A privileged change without its audit row can't commit. |
-| **Postgres row-level security as defence in depth** *(recommend, then ask)* | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores' rows (PLATFORM-PROMPT §5.1). |
+| **Postgres row-level security as the backstop** (decided 2026-09-28; policies in [DATA-MODEL.md](DATA-MODEL.md) §5) | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores', suppliers' and partners' rows (PLATFORM-PROMPT §5.1). |
+| **Suppliers manage their own team** (decided 2026-09-28): the merchant sets the supplier's access level; Supplier admins manage its users' team roles within it | The merchant manages every supplier user | The merchant decides what a supplier may do, not who works there ([DATA-MODEL.md](DATA-MODEL.md) §4.2). |
 
 ---
 
@@ -50,14 +49,15 @@ merchant with the same address are two unrelated accounts.
 
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
-| **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, optional 2-factor *(ask: Owners only, or everyone)* | Email, across the pool |
+| **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, optional 2-factor *(ask: Owners only, or everyone)* | `(partner, email)`: the same email under two partners is two unrelated accounts |
 | **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password, 2-factor *(ask: required or optional)* | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
-| **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | The Shop API's customer sign-in (specified with the Shop API) | Email, **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
+| **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
 
 Rules for the **people** pool:
 
-- `user(id, email, email_verified_at, password_hash null, status, created_at)`. `password_hash`
+- `user(id, partner_id, email, email_verified_at, password_hash null, status, created_at)`,
+  unique `(partner_id, email)`. `password_hash`
   is null for an invited person who hasn't accepted yet (§6). Email and phone verification
   codes are stored hashed with an attempt counter (PLATFORM-PROMPT §5.2).
 - Google sign-in authenticates an existing account whose email matches Google's verified
@@ -65,10 +65,33 @@ Rules for the **people** pool:
 - **The portal resolves the partner from the hostname before sign-in**; sign-in, signup,
   reset and invitation pages and emails are in that partner's look and from its sender
   domain (PLATFORM-PROMPT §5.3).
-- **PROPOSED 2026-09-28: a session on a portal host lists only that partner's stores.** The
-  cookie is host-only, so a person with stores under two partners signs in on each host
-  separately with the same account and password, and neither partner's portal reveals the
-  other's stores (CONSOLE-DESIGN §3 fact 14). Open until confirmed (§13).
+- **Accounts belong to one partner** (decided 2026-09-28). A person with stores under two
+  partners has two accounts, one on each portal host, with their own passwords, 2-factor
+  and emails in each partner's look. A session on a portal host only ever lists that
+  partner's stores, and signing up with an email another partner already has is an
+  ordinary new sign-up (CONSOLE-DESIGN §3 fact 14). Every membership's store belongs to the
+  user's partner (a check constraint through `store.partner_id`).
+- Staff can see that two accounts share an email in the admin console (search by email);
+  partners never can.
+
+### 2.1 Shopper sign-in (decided 2026-09-28)
+
+- **Each store chooses** how its shoppers register and sign in: **email + password**,
+  **mobile + one-time code** (SMS or WhatsApp), or **both**. The setting lives in the
+  merchant portal (Settings › Customer accounts); the partner may limit the choices per
+  plan *(ask)*.
+- `customer(id, store_id, email null, email_verified_at, phone null, phone_verified_at,
+  password_hash null, ...)`, unique `(store_id, email)` and unique `(store_id, phone)` where
+  set. Phone numbers are stored in E.164. At least one verified identifier is required.
+- With **both**, one customer may hold an email and a phone; adding the second one verifies
+  it. Whether a guest checkout with a phone later links to an account with that phone is
+  *(decide)*.
+- **The same email or mobile may register in any number of stores**: each store's account is
+  separate, with its own password, addresses and orders, and no store can see another's.
+- Codes are hashed, short-lived, attempt-counted and rate-limited per number, per store and
+  per IP; sign-up and "send code" respond identically whether or not the account exists.
+- Changing the setting never locks existing customers out: a store that drops mobile sign-in
+  asks phone-only customers to add an email at their next sign-in *(confirm)*.
 
 Two more **caller kinds** reach the engine without being a pool of people (§3):
 
@@ -119,7 +142,7 @@ interface TenantContext {
 }
 ```
 
-The properties that do the work (archived ARCHITECTURE §4.1, PLATFORM-PROMPT §2 item 18):
+The properties that do the work (the first platform's ARCHITECTURE §4.1, PLATFORM-PROMPT §2 item 18):
 
 - **`SellerScope` is a discriminated union with no default.** Forgetting the vendor filter is a
   type error; every `{ kind: 'all' }` is a deliberate, greppable statement.
@@ -133,7 +156,7 @@ The properties that do the work (archived ARCHITECTURE §4.1, PLATFORM-PROMPT §
 ### 3.1 Resolver scope declarations
 
 Each GraphQL field is defined with a scope declaration beside it (Pothos, ARCHITECTURE §1).
-The declaration replaces the archive's tRPC procedure bases:
+The declaration replaces the first platform's tRPC procedure bases:
 
 | Declaration | Archive base | Guarantees |
 |---|---|---|
@@ -190,10 +213,11 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 - **The membership set** is the user's active memberships in stores of the host's partner.
   One membership goes straight in; several show the store chooser, with the last store
   offered as one button above the full list. The remembered store id is a client-side
-  convenience only (archived AUTH-PLAN §11, settled by the build).
-- **Every request** names its acting store in a header (`X-Store`, name proposed). The engine
-  reads the session, checks the idle and absolute bounds, **looks up the membership row for
-  (user, acting store)** and builds the `TenantContext` from it. Memberships and role
+  convenience only (the first platform's AUTH-PLAN §11, settled by the build).
+- **Every request** names its acting store, and for a person who works for more than one
+  supplier in that store the acting supplier, in a header (`X-Store`, name proposed). The
+  engine reads the session, checks the idle and absolute bounds, **looks up the membership
+  row for (user, acting store, acting supplier)** and builds the `TenantContext` from it. Memberships and role
   permission sets are read per request (or from a cache invalidated by every membership
   write), so a role change, a vendor tier change or a removal applies on the next request.
 - **A request naming a store the session doesn't hold** is not a 404: it is an attempted
@@ -206,7 +230,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 - **CSRF**: `SameSite=Lax` plus a check that `Origin` matches the host on every mutation, and
   GraphQL accepting only `application/json` POSTs for mutations.
 - **Redirects after sign-in** (`next`) are same-origin only: parse against the host and compare
-  origins; a protocol-relative `//host` is refused (the archived Google callback bug, §12).
+  origins; a protocol-relative `//host` is refused (the first platform's Google callback bug, §12).
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
@@ -229,7 +253,7 @@ In the vendor columns, every permission is limited to the vendor's own rows by `
 
 ### 5.1 Merchant roles: Owner `owner`, Manager `manager`, Staff `staff`
 
-From archived AUTH-PLAN §5.3 and DESIGN-BRIEF §2.
+From the first platform's AUTH-PLAN §5.3 and DESIGN-BRIEF §2.
 
 | Permission | Owner | Manager | Staff |
 |---|:--:|:--:|:--:|
@@ -260,8 +284,14 @@ the resolver refuses regardless of the screen.
 
 ### 5.2 Vendor tiers
 
-The merchant picks one per vendor and can change it later (§7.5). The Supplier tab offers the
-first three; `vendor-orders-read` is defined but not offered, for a merchant who wants a
+The merchant picks one **access level per supplier** (`seller.access_level`) and can change it
+later (§7.5); it applies to every user of that supplier. **Inside it, the supplier manages its
+own team** with the team roles **Supplier admin** `supplier-admin` (the access level plus
+inviting, changing and removing its own users) and **Supplier member** `supplier-member`
+(the access level only) *(proposed)*; the membership's `role_key` holds the team role
+([DATA-MODEL.md](DATA-MODEL.md) §4.2). The merchant's Owner still sees, suspends and removes any
+supplier user. The Supplier tab offers the
+first three levels; `vendor-orders-read` is defined but not offered, for a merchant who wants a
 supplier who can look and not touch.
 
 | Permission (own rows only) | Stock only `vendor-stock` | Products and stock `vendor-catalogue` | Products, stock and their orders `vendor-orders-fulfil` | Read-only orders `vendor-orders-read` |
@@ -277,7 +307,7 @@ supplier who can look and not touch.
   stock is meaningless without finding the version to count. It must never grant catalogue
   write; mapping it onto `vendor-catalogue` would let a supplier add and edit products while
   the screen promised otherwise.
-- **Unlike the archive, these ticks are the enforced boundary.** Because permissions apply per
+- **Unlike the first platform, these ticks are the enforced boundary.** Because permissions apply per
   row, `catalog.write` for a vendor is "write my own products" at the engine, not only in the
   portal.
 - A vendor's warehouses are the vendor's: the merchant sees them in their own labelled group
@@ -327,7 +357,7 @@ staff write is audited (§10).
 
 ### 5.5 Never in any merchant or vendor role
 
-Rewritten from the archive's list of Vendure permissions as engine rules. Each has a structural
+Rewritten from the first platform's list of Vendure permissions as engine rules. Each has a structural
 test (§11.2).
 
 - **No permission above the store.** Partners, plans, entitlements, provisioning, billing
@@ -360,8 +390,9 @@ test (§11.2).
   secret is shown once, stored hashed, and carries a visible prefix for identification.
   Scopes can't exceed the creator's role when created; what happens to a key when its creator
   leaves or is demoted is *(ask)*.
-- Whether **vendors create their own keys** is open (PLATFORM-PROMPT §10); today only the
-  merchant's Owner creates a vendor-bound key.
+- **Vendors' own keys: later** (decided 2026-09-28). Until then only the merchant's Owner
+  creates a vendor-bound key; when they come, a Supplier admin creates them within the
+  supplier's access level.
 - **App grants** are per store, with the scopes the merchant approved at install, revocable on
   uninstall; the app runs out of process and reaches the Store API like any other caller.
 - Creating, rotating and revoking keys, and installing and uninstalling apps, are audited.
@@ -476,7 +507,7 @@ stock totals (PLATFORM-PROMPT §2 item 5).
 
 The engine owns orders, so an order is split into **per-vendor sub-orders** with their own
 lines, fulfilment and (later) payouts (PLATFORM-PROMPT §3.3, §5.4). This replaces the
-archive's constructed view.
+first platform's constructed view.
 
 - **Read** (`vendor-orders-read`, `vendor-orders-fulfil`): the vendor lists its own sub-orders
   through the scoped layer. **A vendor never sees an order total**: shipping, discounts and tax
@@ -501,8 +532,12 @@ another vendor holds (DESIGN-BRIEF fact 10).
 ### 7.5 Lifecycle
 
 - **Create** (`manage-vendors`): the vendor row and its first user's invitation, one
-  transaction (§6.2).
-- **Change tier**: write the vendor users' `role_key`. It applies on the next request; there is
+  transaction (§6.2). That first user becomes its **Supplier admin**.
+- **Team** (Supplier admin): invite colleagues into its own supplier, change their team
+  role, remove them. The invitation's `seller_id` comes from the inviter's membership. A
+  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one.
+- **Change access level**: write `seller.access_level`. It applies to all of the supplier's
+  users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
   few minutes").
 - **Suspend**: the vendor's memberships stop resolving and its API keys stop working; its
@@ -510,8 +545,10 @@ another vendor holds (DESIGN-BRIEF fact 10).
 - **Remove**: what happens to its products is open (§13). They sit in the merchant's store
   already, so leaving them is probably right, but the merchant then owns products no vendor
   maintains.
-- **Same person, vendor and merchant staff in one store**: today one membership per (user,
-  store), so no. Keep that as a deliberate constraint (§13).
+- **One role per membership** (decided 2026-09-28): one merchant-side membership per person
+  per store, and one per supplier. A person **may work for two suppliers in the same store**
+  (two memberships, and the store chooser lists "Store · Supplier"), but is **never both the
+  merchant's staff and a supplier in the same store** (DATA-MODEL.md §3.3).
 
 ---
 
@@ -572,7 +609,7 @@ Browser → https://<store's portal host>/support/enter?token=…
 ## 9. Authorization checks
 
 Every resolver path makes these, through the scope declaration (§3.1) and the scoped layer,
-not by hand. Numbering 1–9 follows the archived AUTH-PLAN §9 so cross-references stay valid;
+not by hand. Numbering 1–9 follows the first platform's AUTH-PLAN §9 so cross-references stay valid;
 0 and 10–14 are new.
 
 0. **Host and API**: the router serves each API only on its hosts and answers 404 elsewhere
@@ -621,30 +658,18 @@ acting in A.
 
 ## 10. Audit
 
-There is no service account any more, but the need is unchanged: for a platform hosting other
-people's businesses, who invited a user, approved a product, changed a vendor's tier, published
-a storefront or looked inside a store must be answerable, for support, for disputes and for
-partners' trust.
+Specified in [LOGGING.md](LOGGING.md): the **activity log** is the audit log. In short:
 
-- **`audit_log`**: time (UTC), actor (kind and id: person, API key, app grant, support session
-  with its real agent, partner user, staff member, system job), partner, store, seller, action,
-  target, before and after where meaningful, reason (required for support sessions and every
-  staff or partner write to a store's account), request id.
-- **Written in the same transaction** as the change it records, from the resolver's `audit`
-  declaration (§3.1). If the audit row can't be written, the change doesn't commit.
-- **Append-only**: the application's database role can insert but not update or delete; a test
-  proves it. Entries can't be edited or deleted from any console (CONSOLE-DESIGN P2).
-- **What is audited**: every capability-gated write in the Store API (§5.1); every Platform and
-  Admin API write; every support session (opened, elevated, ended) and every write inside one;
-  role and tier changes, invitations and removals; vendor lifecycle; approvals; publishing;
-  API keys and app grants; sign-in method and 2-factor changes.
-- **Security events** (sign-in success and failure, rate-limit hits, attempted tenant crossings
-  from §4) go to the security log with the same ids and no personal data.
-- **Who sees what**: the merchant sees their store's entries and the Support access log; a
-  partner sees its own console's entries and the support sessions its users opened; staff see
-  everything, filterable by staff member, partner, store and action, with export, and the same
-  entries on the store and partner pages they concern (CONSOLE-DESIGN P1–P3). Whether vendors
-  see any audit entries is *(ask)*.
+- Every write and every sign-in by every caller (staff, partner users, merchants, vendors,
+  API keys, apps, support sessions, shoppers, jobs) writes one entry in `activity_log`, in
+  the same transaction as the change, from the resolver's scope declaration (§3.1).
+- Each entry records the real actor (and, for a support session, the agent behind it), the
+  partner, store, seller and customer it concerns, the action, target, changes, reason and
+  request id. Secrets and payloads never go in.
+- Append-only; 13 months searchable, then archived for 7 years.
+- Who sees what, and the search by person, are in LOGGING.md §6–7. Security events
+  (failed sign-ins for unknown accounts, rate-limit hits, attempted tenant crossings) are
+  entries with staff-only visibility.
 
 ---
 
@@ -656,7 +681,7 @@ layer and a real Postgres (Testcontainers), never a mocked data layer.
 ### 11.1 Isolation matrix
 
 Fixtures: **two partners**, each with **two stores**, each store with **two vendors**; a person
-who is Staff in store A1 and a vendor in store A2; a person with stores under both partners;
+who is Staff in store A1 and a vendor in store A2; the same email with an account under each partner (two unrelated accounts);
 store-wide and vendor-bound API keys; an app grant; read-only and elevated support sessions
 opened by a partner user and by staff; a partner user of each partner; each staff role.
 
@@ -699,7 +724,7 @@ and existing account), and a support session with its banner.
 
 ## 12. Lessons from the Vendure build
 
-The archived design was shaped by Vendure's limits (AUTH-PLAN §2, §6). The workarounds are gone
+The first platform's design was shaped by Vendure's limits (AUTH-PLAN §2, §6). The workarounds are gone
 (PLATFORM-PROMPT §3.1); the lessons they taught are product rules here.
 
 - **Unscoped list queries leak.** Vendure's `administrators`, `Seller` and `TaxRate` lists
@@ -735,7 +760,7 @@ The archived design was shaped by Vendure's limits (AUTH-PLAN §2, §6). The wor
 
 ## 13. Open questions
 
-Carried from archived AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this port raised.
+Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this port raised.
 
 **Carried, still open**
 - **2-factor**: Owners only, or everyone? And for partner users?
@@ -751,13 +776,15 @@ Carried from archived AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this p
   so nothing leaks by default; a "sell this in my other store" feature needs its own design.
 - **Past due and vendors**: past due never locks the merchant out (decided); what happens to
   that store's vendors, and does a suspended store allow sign-in at all? (§9 check 11)
-- **Can vendors have their own API keys?** (§5.6)
+- ~~Can vendors have their own API keys?~~ Later (§5.6).
 
 **Raised by this port**
-- **A person with stores under two partners**: confirm the proposal that each portal host lists
-  only its own partner's stores (§2), and which look they see.
+- ~~A person with stores under two partners~~ **Settled 2026-09-28**: accounts are per
+  partner, so each partner's portal is its own account in its own look (§2).
+- Shopper sign-in: may partners restrict the per-store choice by plan? Which SMS/WhatsApp
+  provider? (§2.1)
 - **Partner roles**: confirm the proposed matrix (§5.3).
-- **Invitation expiry**: 7 days, carried from the archive's default (§6.3).
+- **Invitation expiry**: 7 days, carried from the first platform's default (§6.3).
 - **Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).
 - **Stock only vendors**: how their products come to exist (§7.1).
 - **Support sessions**: default length; the email notice; who in the store may allow write

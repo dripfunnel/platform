@@ -19,6 +19,12 @@ mean the admin console at `admin.dripfunnel.com`.
 
 **Customer accounts are per store** (decided): a person who buys from two merchants has two
 separate customer accounts, because each is the merchant's customer, not the platform's.
+Each store chooses whether shoppers sign in by email, mobile number or both (decided
+2026-09-28, api/ACCESS.md §2.1).
+
+**Merchant and supplier accounts are per partner** (decided 2026-09-28): one login covers
+every store a person belongs to under one partner; the same email under another partner is
+a separate, unrelated account, so white label never leaks (api/ACCESS.md §2).
 
 ---
 

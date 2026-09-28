@@ -17,6 +17,7 @@ Last updated: 2026-09-28.
 | Document | Covers |
 |---|---|
 | This guide | Purpose, users, roles, navigation, code specifics, rules |
+| [FIRST-RELEASE.md](FIRST-RELEASE.md) | **What we build first**: a simple console with Dashboard, Partners, Stores and the few menus needed to manage them; what waits |
 | [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md) | The design prompt: vocabulary, platform facts, staff roles, sample data, parts A–S with scenarios, states, never-do rules, open questions; each part marks its partner-console counterpart |
 | [../README.md](../README.md) | How every SPA is built |
 | [../../api/ACCESS.md](../../api/ACCESS.md) | Staff identity, roles, support sessions, audit |
@@ -44,8 +45,9 @@ a store). Every screen is clear about which level it is on.
   publishing (and publishing for a store without using its allowance).
 - **Platform**: integration health (never secret values), feature flags, platform ceilings
   partners can't exceed, the automatic publish schedule, legal documents.
-- **Staff and audit**: staff and their roles; an audit log of every write and every support
-  session, which can't be edited.
+- **Staff and activity**: staff and their roles; the platform-wide activity log of every write
+  and sign-in at every level, searchable by person across all stores and partners
+  ([../../api/LOGGING.md](../../api/LOGGING.md)), which can't be edited.
 
 ---
 
@@ -74,7 +76,7 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |
 | Platform settings, flags, ceilings | ✓ | | | | | |
 | Staff and roles | ✓ | | | | | |
-| Audit log | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Activity log (security entries and IPs included) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 - At least two Super admins; never a shared account; the last Super admin can't be removed
   or demoted.
@@ -89,7 +91,9 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 
 ## 3. Navigation
 
-From the parts of CONSOLE-DESIGN §6:
+**First release**: Dashboard, Partners, Stores, then Approvals, Provisioning, Support
+sessions, Activity log and Staff ([FIRST-RELEASE.md](FIRST-RELEASE.md) §2). The full
+navigation below, from the parts of CONSOLE-DESIGN §6, is the target:
 
 | Row | Part | Contents |
 |---|---|---|
@@ -104,7 +108,7 @@ From the parts of CONSOLE-DESIGN §6:
 | Usage | N | Costs vs revenue, outliers |
 | Communication | Q | Announcements, incident banners |
 | Settings | O, R, S | Staff and roles, integrations, flags, ceilings, publish schedule, data and compliance |
-| Audit log | P | Every write and support session |
+| Activity log | P | Every write and sign-in at every level; search by person (LOGGING.md §7) |
 
 Always visible: the **environment marker** (Production in red, Staging), the signed-in
 staff member's name and role, and the **current partner filter**, which is never silently
@@ -121,7 +125,7 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 - **Re-authentication** before dangerous actions (suspend, refund, delete, support session,
   change a price); the Admin API enforces it, the UI prompts for it.
 - **Reasons are required input** for suspend, refund, support sessions and moves; the API
-  records them in the audit log.
+  records them in the activity log.
 - **Money previews**: every billing action shows its effect before confirming ("Refund
   ₹4,999.00 to card ending 4242").
 - **Desktop first**; on a phone an on-call engineer must still find a store and see its

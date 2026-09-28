@@ -48,10 +48,13 @@ docs/
     README.md               guide: the four APIs and callers, apps/api layout, layers, how to add code, testing
     PLATFORM-PROMPT.md      spec: the engine (tenancy, identity, commerce modules, public APIs, jobs), open questions
     ACCESS.md               spec: identity, sessions, roles and permissions for every portal, invitations, vendors, support access, authorization checks
+    DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security
+    LOGGING.md              spec: the activity (audit) log at every level, who sees what, search by person, retention
     SAAS.md                 spec: partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet, metrics
   ui/
     README.md               guide: how every SPA is built (structure, API calls, text, navigation, states, adding a screen)
     admin/README.md         guide: the admin console: purpose, staff roles, navigation, code, rules
+    admin/FIRST-RELEASE.md  what the admin console's first release contains: Dashboard, Partners, Stores and the menus to manage them
     admin/CONSOLE-DESIGN.md design prompt: every admin console part, with its partner-console counterpart
     platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules
     store/README.md         guide: the merchant portal: purpose, roles and permissions, navigation, code, rules
@@ -84,11 +87,13 @@ for the part you'll touch.
 | Any server code | [api/README.md](api/README.md), [code/DESIGN.md](code/DESIGN.md) |
 | Engine, commerce modules, public APIs | [api/PLATFORM-PROMPT.md](api/PLATFORM-PROMPT.md) |
 | Sign-in, sessions, roles, permissions, invitations, vendors, support access | [api/ACCESS.md](api/ACCESS.md) |
+| Tables, tenancy, where users and roles are stored, row-level security | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
 | Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md) |
+| Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
 | Any SPA code | [ui/README.md](ui/README.md), then the app's guide |
 | Merchant portal screens | [ui/store/](ui/store/README.md), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md) |
 | Partner console screens | [ui/platform/](ui/platform/README.md), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines |
-| Admin console screens | [ui/admin/](ui/admin/README.md), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) |
+| Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) |
 | Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md) |
 | Storefront template, `storefront-core`, AI design | [storefront/ARCHITECTURE.md](storefront/ARCHITECTURE.md), [storefront/DESIGN.md](storefront/DESIGN.md), [code/ARCHITECTURE.md](code/ARCHITECTURE.md) §5 |
 
@@ -127,11 +132,11 @@ for the part you'll touch.
 
 ---
 
-## 7. The archive
+## 7. The first platform
 
-`../../df-store-archived/` is the first version of the platform, built on Vendure. It is
-read-only history. Everything in it that still holds has been ported here (2026-09-28):
-AUTH-PLAN and the archived ARCHITECTURE §4 into `api/ACCESS.md`, SAAS-PLAN into
-`api/SAAS.md`, DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PROMPT into
-`ui/store/`. Each ported document names its source. Read the archive only for history or a
-detail the port left out, and never take a Vendure fact from it.
+The first version of the platform was built on Vendure. Everything in its documents that
+still holds was ported here on 2026-09-28: AUTH-PLAN and its ARCHITECTURE §4 into
+`api/ACCESS.md`, SAAS-PLAN into `api/SAAS.md`, DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and
+OFFERS-DESIGN-PROMPT into `ui/store/`. Its repository was then removed from the workspace
+and is **not a reference any more**. Citations such as "the first platform's AUTH-PLAN §8.5"
+are history, kept to explain a decision; this repo's documents are the only source.

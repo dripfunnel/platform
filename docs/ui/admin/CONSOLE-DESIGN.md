@@ -86,8 +86,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > five kinds of user, hostnames, partner onboarding and approval, what a partner can see,
 > support access), [`../../api/SAAS.md`](../../api/SAAS.md) (partners, provisioning, plans,
 > billing, domains, publishing, fleet, metrics) and [`../../api/ACCESS.md`](../../api/ACCESS.md)
-> (identity, staff identity, roles, tenancy). The archived `df-store-archived/` documents are
-> history only. §3 below states what the platform provides and why it shapes the interface.
+> (identity, staff identity, roles, tenancy). §3 below states what the platform provides and why it shapes the interface.
 > **Nothing is built yet.** Where a screen depends on something whose release is undecided,
 > design it and **label it "(release: decide)"**, so it is a decision rather than a surprise.
 >
@@ -168,10 +167,11 @@ why it shapes the interface. The engine is specified in
    words and emails before anything renders, including sign-in, sign-up, password reset and
    invitation emails. The portal host a merchant signs up on decides which partner the new
    store belongs to. The two consoles are DripFunnel-branded for every user.
-5. **One person, one login, many stores** (DESIGN-BRIEF fact 1; email unique platform-wide,
-   PLATFORM-PROMPT §5.2). A person can own a store under Northstar and be a vendor in a
-   store under DripFunnel. Which brand's look they see, and whether one brand's sign-in can
-   reveal another's stores, is **open (§9)** and a privacy question, not a styling one.
+5. **One person, one login, many stores, within a partner** (DESIGN-BRIEF fact 1;
+   ACCESS.md §2). Accounts are per partner (decided 2026-09-28): someone who owns a store
+   under Northstar and supplies a store under DripFunnel has two unrelated accounts, and no
+   brand's sign-in can reveal another's stores. Staff search by email finds both; C3 lists
+   each account with its stores.
 6. **Email goes through Amazon SES** with one verified sender domain per partner (DKIM, SPF,
    DMARC records the partner adds). While a partner's domain is not verified, a fallback
    sender is used, and the screens say so.
@@ -663,9 +663,7 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
   minimums? (§3 fact 20)
 - Can a partner hide DripFunnel completely (portal, emails, storefront, invoices), or is
   "Powered by" sometimes required?
-- **One login across brands**: when a person has stores under two brands, which look do they
-  see after sign-in, and may one brand's sign-in page list the other brand's stores? (§3
-  fact 5)
+- ~~One login across brands~~ **Settled**: accounts are per partner (§3 fact 5).
 - ~~Can a partner own several brands?~~ **Settled**: no; one partner has exactly one brand,
   one look and one portal host (USERS-AND-DOMAINS §2). Still open: can a brand span several
   countries and currencies?

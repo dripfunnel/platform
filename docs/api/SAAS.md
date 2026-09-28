@@ -1,12 +1,11 @@
 # SAAS.md: the platform layer
 
-The specification of the SaaS layer, `apps/api/src/saas/` ([../code/ARCHITECTURE.md](../code/ARCHITECTURE.md)
-§2): partners, merchants' accounts, plans and entitlements, "Publish now" allowances and the
+The specification of the SaaS layer, `apps/api/src/saas/` ([README.md](README.md) §3): partners, merchants' accounts, plans and entitlements, "Publish now" allowances and the
 publish schedule, billing, provisioning, domains, storefront publishing, the AI designer, the
-fleet, support access, the audit log and the platform metrics. It sits above the commerce
+fleet, support access, the activity (audit) log ([LOGGING.md](LOGGING.md)) and the platform metrics. It sits above the commerce
 engine (`src/engine`) and below the entry points (`src/apis`, `src/hooks`, `src/jobs`). It was
-ported from [`../../../df-store-archived/SAAS-PLAN.md`](../../../df-store-archived/SAAS-PLAN.md)
-(with the job, domain and `ai_run` parts of the archived `ARCHITECTURE.md`) on 2026-09-28, with
+ported from the first (Vendure-based) platform's SAAS-PLAN (with the job, domain and
+`ai_run` parts of its ARCHITECTURE) on 2026-09-28, with
 Vendure, AWS and tRPC facts replaced by engine facts. Where this document disagrees with
 [../ARCHITECTURE.md](../ARCHITECTURE.md) or [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md),
 those two win.
@@ -33,7 +32,7 @@ Recorded so they aren't relitigated.
 | **Provisioning is a Cloudflare Workflow** with a compensation per step, mirrored in the `job` table | A polling job runner; one database transaction | Workers have no always-on process. Provisioning spans Postgres, GitHub and Cloudflare, so no single transaction covers it; failure midway is normal and must leave nothing behind (§5). |
 | **Plans and entitlements are a first-class, server-enforced model** | Feature checks scattered through the UI | Hiding a button is not access control. Every limit is checked where the write happens (§6). |
 | **Platform billing is its own Stripe Billing integration**, separate from merchants' checkout payments | Reusing the checkout payment adapters | Checkout Stripe takes shoppers' money on each merchant's own keys; platform billing charges partners and merchants. Mixing them mixes two ledgers. |
-| **Custom hostnames through Cloudflare for SaaS** | AWS ACM + CloudFront (built in the archive) | The whole platform is on Cloudflare ([../ARCHITECTURE.md](../ARCHITECTURE.md) §1). The verify, certificate, live flow and the portal's step-by-step experience carry over (§8). |
+| **Custom hostnames through Cloudflare for SaaS** | AWS ACM + CloudFront (built in the first platform) | The whole platform is on Cloudflare ([../ARCHITECTURE.md](../ARCHITECTURE.md) §1). The verify, certificate, live flow and the portal's step-by-step experience carry over (§8). |
 | **A GitHub App** for every repo operation, short-lived tokens per request | A personal access token per store | A token per store means a secret per store; it breaks long before 1,000 stores. Done before onboarding in volume, because retrofitting credentials across a live fleet is much harder. |
 | **Catalogue changes don't rebuild on every edit**; they are published by "Publish now" (limited per plan) and an automatic schedule | Rebuild on every product change (the old deployment tracker) | Build volume would dominate cost at 1,000 stores. New pages still work at once through a client-rendered fallback (§9). |
 
@@ -65,7 +64,7 @@ layer's tables, by scope:
 | **Partner** (`partner_id`) | `partner`, `partner_user`, `partner_look` (versioned), `partner_words`, `partner_domain`, `partner_email_sender`, `email_template`, `plan`, `plan_entitlement`, `plan_price`, partner billing account and invoices | Platform API for that partner; Admin API for staff |
 | **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_entitlement_override`, `store_usage` (meters per period), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_access_setting`, `support_session`, `job` rows for the store | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
 | **Store and seller** | None of its own. Audit entries and usage attributed to a vendor carry `seller_id` for filtering | n/a |
-| **Cross-scope, append-only** | `audit_log` (actor, partner, store, seller where relevant), `billing_event` (Stripe event ids), `job` (platform-wide rows such as fleet rollouts carry no `store_id`) | Written by the SaaS layer only; read per scope |
+| **Cross-scope, append-only** | `activity_log` (actor, partner, store, seller, customer where relevant; [LOGGING.md](LOGGING.md)), `billing_event` (Stripe event ids), `job` (platform-wide rows such as fleet rollouts carry no `store_id`) | Written by the SaaS layer only; read per scope |
 
 A partner reads its stores **at account level**: plan, status, usage, domains, provisioning and
 publishing state, never catalogue, orders or customers (USERS-AND-DOMAINS §4). The scoped data
@@ -216,12 +215,12 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | # | Step | Compensation |
 |---|---|---|
 | 1 | **Account and store**: the user (if new), the `store` row under the partner, the Owner `membership`, `store_subscription` in Trial on the chosen plan. One database transaction | Delete the store and its rows; delete the user only if this signup created it |
-| 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the archive's `TaxRate` lesson) | Deleted with the store |
+| 2 | **Defaults**: store settings from the partner's defaults for new stores (region, currency, languages, tax behaviour, units, sample product), default warehouse, shipping and payment placeholders. **Per-store rows only**, never a shared one (the first platform's `TaxRate` lesson) | Deleted with the store |
 | 3 | **Hostnames**: reserve `{shop}` and register `{shop}.preview.<partnerdomain>` and `{shop}.shops.<partnerdomain>` under the partner's wildcards | Release the reservation and routes |
 | 4 | **Repo**: the GitHub App creates an empty repo in the `dripfunnel` org and copies `templates/storefront/` into it through the GitHub API | Delete the repo |
 | 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version; set the repo's variables. **No platform secret goes into the repo**: the Cloudflare deploy token stays with the platform (PLATFORM-PROMPT §5.6) | Revert the commit (removed with the repo) |
 | 6 | **Hosting target**: the store's Cloudflare project or worker (the hosting model is open, PLATFORM-PROMPT §10) | Delete it |
-| 7 | **First build**: preview deploy (seconds, no catalogue), then the first live build, dispatched explicitly and **confirmed complete** from the deploy result, not assumed from a push (the archive's gap at this step) | Nothing to undo; a failed first build leaves the store usable and shows "storefront build failed, retrying" |
+| 7 | **First build**: preview deploy (seconds, no catalogue), then the first live build, dispatched explicitly and **confirmed complete** from the deploy result, not assumed from a push (the first platform's gap at this step) | Nothing to undo; a failed first build leaves the store usable and shows "storefront build failed, retrying" |
 | 8 | **Done**: write `storefront.core_version` and the repo name, emit `store.provisioned`, send the welcome email through the outbox, delete the `signup` row | n/a |
 
 - Steps 1–3 make a usable store: the merchant can enter the portal once they finish. Steps
@@ -395,7 +394,7 @@ owns the state and the rules:
 - **Design changes** go live only when the merchant approves them (§9.2).
 - **Degraded store** (past due, suspended): an edge rule, no rebuild.
 - Publishing is a capability, **separate from settings**: holding it grants nothing else
-  (the lesson of the archive's `UpdateChannel` trap, where one permission both published and
+  (the lesson of the first platform's `UpdateChannel` trap, where one permission both published and
   could rewrite deploy credentials). Deploy credentials are never on a row a merchant can
   write.
 
@@ -473,14 +472,14 @@ USERS-AND-DOMAINS §4.1. In short, and not to be restated elsewhere:
   **read-only, time-limited, need a reason or ticket**, show a banner to everyone in the store,
   and appear in the merchant's support access log and the audit log. Write access is a
   one-session elevation the merchant approves. Partner support and Admin follow the same rules.
-- **Every privileged or destructive write is audited** with the real actor (staff, partner
-  user or merchant user), partner, store, seller where relevant, action, target, before and
-  after where meaningful, and reason. The audit log can't be edited or deleted, and its
-  entries appear on the store and partner pages they concern (CONSOLE-DESIGN P1–P3).
+- **Every write and every sign-in is logged** with the real actor, scope, action, target,
+  changes and reason, in the activity log ([LOGGING.md](LOGGING.md)). It can't be edited or
+  deleted, and its entries appear on the store and partner pages they concern
+  (CONSOLE-DESIGN P1–P3).
 
-The SaaS layer owns the `support_access_setting`, `support_session` and `audit_log` tables
+The SaaS layer owns the `support_access_setting`, `support_session` and `activity_log` tables
 and the services that write them; every Platform and Admin API write goes through a resolver
-scope that writes the audit entry structurally, so "did this write audit?" is never a review
+scope that writes the activity entry structurally, so "did this write log?" is never a review
 question.
 
 ---
@@ -526,7 +525,7 @@ store (§5.5 there).
 | AI designer runs, undo | Own store | Usage only | Usage and runs for support |
 | Fleet: core releases, rollouts, drift | | | Engineer on call, Super admin |
 | Support access setting and log | Owner: setting; everyone: log | Start a session (own stores) | Start a session (any) |
-| Audit log | Own store's entries | Own partner and stores | Everything |
+| Activity log ([LOGGING.md](LOGGING.md) §6) | The store's entries, shoppers' included (Owner); own actions (everyone) | Own users, own partner account and merchants' accounts; never inside stores or shoppers | Everything |
 | Metrics and usage | Own usage against plan | Own partner and stores | Everything |
 | Integration credentials | | | Status only, never the value |
 

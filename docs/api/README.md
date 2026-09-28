@@ -15,6 +15,8 @@ Last updated: 2026-09-28.
 | This guide | The APIs, callers, code layout, layers, how to add code, testing |
 | [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) | The engine specification: what carries over, what we now own, tenancy, commerce modules, public APIs, jobs, testing, open questions |
 | [ACCESS.md](ACCESS.md) | Identity, sessions, roles and permissions for every portal, invitations, vendors, support access, the authorization checks |
+| [DATA-MODEL.md](DATA-MODEL.md) | Tables: the tenancy tree and table scopes, every identity pool, roles and supplier teams, row-level security policies (commerce tables added per module) |
+| [LOGGING.md](LOGGING.md) | The activity (audit) log at every level: what is recorded, the entry, who sees what, search by person, retention; and technical logs |
 | [SAAS.md](SAAS.md) | The platform layer: partners, merchant accounts, provisioning, plans and entitlements, billing, domains, publishing, fleet, metrics |
 
 ---
@@ -47,7 +49,7 @@ doesn't belong to, and a test proves it (`src/router.test.ts`, `src/index.test.t
 
 | Put it in | When the operation… | Examples |
 |---|---|---|
-| **Admin API** | spans partners, or is DripFunnel's decision | Approve or pause a partner; every store across partners; staff and staff roles; fleet rollouts; platform settings and ceilings; integration health; platform audit log; partner (wholesale) billing as the biller |
+| **Admin API** | spans partners, or is DripFunnel's decision | Approve or pause a partner; every store across partners; staff and staff roles; fleet rollouts; platform settings and ceilings; integration health; platform-wide activity log; partner (wholesale) billing as the biller |
 | **Platform API** | is a partner managing itself or its merchants' accounts | Its branding, domains, email sender; its plans, prices and entitlements (within platform ceilings); its merchants' accounts, plans, trials, suspend and restore; its billing with DripFunnel as the payer; its team; start a support session |
 | **Store API** | happens inside one store | Catalogue, stock, orders, customers, offers, storefront, settings, people and vendors, the store's own subscription |
 | **Shop API** | a shopper or storefront needs it | Catalogue, search, cart, checkout, customer account, store content |
@@ -114,7 +116,7 @@ apps/api/
       storage-r2/  search-postgres/  email-ses/  cloudflare/  github/
     saas/                   partners, merchants' accounts, plans and entitlements ("Publish now"
                             allowances, publish schedule), billing, provisioning, domains,
-                            storefront publishing, support access, audit log, ai-designer/
+                            storefront publishing, support access, activity/ (the activity log), ai-designer/
     apis/
       graphql/              Workers-compatible GraphQL server (Yoga + Pothos), scope.ts
                             (per-resolver API, permission and scope declaration)
@@ -225,7 +227,7 @@ tables (PLATFORM-PROMPT §4, §5.10).
 **A table**: schema in `db/schema/<area>.ts`, a reviewed SQL migration in `migrations/`,
 backward-compatible with the running release. Declare the table's scope: platform, partner,
 store, or store-and-seller. Tenant tables get `store_id` (and `seller_id` where vendors own
-rows), RLS policies, and per-store unique constraints (PLATFORM-PROMPT §5.1).
+rows), RLS policies for its scope (DATA-MODEL.md §2, §5), and per-store unique constraints.
 
 **An integration**: a folder in `integrations/` implementing an engine interface, with its
 credentials passed in from `env` or the store's encrypted settings, a timeout on every call,
@@ -257,7 +259,8 @@ The full list is [AGENTS.md](../../AGENTS.md) "SaaS platform rules" and
 - **Money** is `Money` (integer minor units + currency); timestamps are UTC.
 - **Errors** are `DfError` with stable codes; expected outcomes are typed results, not
   throws; nothing internal leaks to a client.
-- **Every privileged write is audited** with the real actor, target and reason.
+- **Every write and sign-in is logged** in the activity log with the real actor, scope,
+  target and reason, by the resolver's declaration, in the same transaction (LOGGING.md).
 - **Public APIs stay backward-compatible**: the Shop API above all, since every storefront
   depends on it. Schema diffs are checked in CI.
 
@@ -287,7 +290,6 @@ Run `pnpm turbo run build typecheck lint test` before reporting any change as do
 Carried from PLATFORM-PROMPT §10 where they decide API shape:
 
 - Is the Platform API GraphQL like the others? *(Today all four are GraphQL; confirm.)*
-- Postgres row-level security as defence in depth: yes or no?
 - How a support session opened from the admin or partner console reaches the merchant's
   portal host (§2.1).
 - Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.

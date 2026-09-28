@@ -38,7 +38,7 @@ Last updated: 2026-09-28.
   with a reason, time-limited and logged (USERS-AND-DOMAINS.md §4.1).
 - **Money**: its bill from DripFunnel (invoices, what each counts), and, depending on the
   money model, its merchants' billing *(ask which model first, SAAS.md §7)*.
-- **Team**: its own users and their roles; its audit log.
+- **Team**: its own users and their roles; its activity log (LOGGING.md §6).
 
 **Never**: another partner's anything; a merchant's customers, orders or catalogue outside a
 support session; any change inside a merchant's store; platform-wide settings; whether a
@@ -73,9 +73,9 @@ rules by screen area and must stay in step with it.
 | Partner billing with DripFunnel: invoices, payment method | ✓ | | | ✓ | |
 | Team: invite, change role, remove | ✓ | not Owners | | | |
 | Close or offboard the partner, transfer partner ownership | ✓ | | | | |
-| Audit log | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Activity log (own users, own account, merchants' accounts) | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-"view" rows and the audit log are this guide's reading of the proposal; ACCESS.md §5.3
+"view" rows and the activity log are this guide's reading of the proposal; ACCESS.md §5.3
 lists only the actions.
 
 - **The last Owner** can't be removed or demoted.
@@ -97,7 +97,7 @@ lists only the actions.
 | Plans | Plan catalogue, entitlement matrix (including the "Publish now" allowance) within platform ceilings, grandfathering | G (within ceilings) |
 | Billing | Its invoices from DripFunnel; its merchants' billing if it bills them | H (payer side) |
 | Announcements | Messages and incident banners to its own merchants, in its look | Q (scoped) |
-| Settings | Partner details, contacts, legal pages, team, audit log | O, P (scoped) |
+| Settings | Partner details, contacts, legal pages, team, activity log (search by person) | O, P (scoped) |
 
 While the partner is *Draft* or *Awaiting approval*, Home is the **setup checklist** (the
 admin console's part E seen from the partner's side), with each failed go-live check linked

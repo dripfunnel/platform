@@ -3,9 +3,8 @@
 The prompt for a design session on the **Offers** part of the merchant portal
 (`apps/ui/store`): automatic discounts, coupon codes, buy-one-get-one, free shipping, who an
 offer is for, when it runs, how often it can be used, how offers combine, what the shopper
-sees, and how an offer performed. It was ported from
-[`../../../../df-store-archived/OFFERS-DESIGN-PROMPT.md`](../../../../df-store-archived/OFFERS-DESIGN-PROMPT.md)
-on 2026-09-28, with its Vendure facts replaced by the requirements of our own engine's
+sees, and how an offer performed. It was ported from the first (Vendure-based)
+platform's OFFERS-DESIGN-PROMPT on 2026-09-28, with its Vendure facts replaced by the requirements of our own engine's
 promotions module ([PLATFORM-PROMPT](../../api/PLATFORM-PROMPT.md) §3.2, §3.3, §5.4, §5.10).
 The vocabulary, principles, parts, scenarios, states, "never do" rules and open questions
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
@@ -120,7 +119,7 @@ written) fixes them.
 ## 3. Engine facts that shape the interface
 
 Each of these changes what a screen can show or promise. Nothing is built yet: each fact is
-a requirement on the engine's promotions module, and the numbering is kept from the archive
+a requirement on the engine's promotions module, and the numbering is kept from the first platform
 so citations such as "OFFERS §3 fact 10" stay valid. Once the Store API exists, verify
 anything doubtful against its generated schema (`apps/api/schema/`) and the engine's
 promotions tests before relying on it.
@@ -155,7 +154,7 @@ promotions tests before relying on it.
    | Buys X of these, gets Y of those | `buy_x_get_y` (pairs with the action below) | Engine provides (first release) | |
    | Buys from this collection | `contains_collection` | Engine provides (§5.4, §5.10) | Fact 5. |
    | First order only | `first_order` | `(release: decide)` | PLATFORM-PROMPT §3.3, §5.10. |
-   | Specific customers | `specific_customers` | `(release: decide)` | PLATFORM-PROMPT §3.3. Replaces the archive's "hidden group" workaround *(ask whether it is still wanted)*. |
+   | Specific customers | `specific_customers` | `(release: decide)` | PLATFORM-PROMPT §3.3. Replaces the first platform's "hidden group" workaround *(ask whether it is still wanted)*. |
    | Shipping country / region | `shipping_country` | `(release: decide)` | PLATFORM-PROMPT §5.10. |
 
    Also engine requirements, all `(release: decide)`: a minimum *quantity* across the whole
@@ -169,7 +168,7 @@ promotions tests before relying on it.
    | $ off the whole order | `order_fixed_discount` | Engine provides (first release) | Capped at the order subtotal, so it never goes negative. Amount per currency (fact 10). |
    | % off chosen products | `products_percentage_discount` | Engine provides (first release) | Product targets: fact 5. |
    | % off products tagged … | `filter_value_discount` | Engine provides (first release) | Follows the catalogue's filter values, so new matching products are included. |
-   | $ off chosen products | `line_fixed_discount` | Engine provides (first release) | **Per cart line or per unit is ours to decide** *(decide)*: per line means 2 × T-shirt = one $5 off; per unit means $10. Word it exactly as built; the archive's Vendure action was per line. |
+   | $ off chosen products | `line_fixed_discount` | Engine provides (first release) | **Per cart line or per unit is ours to decide** *(decide)*: per line means 2 × T-shirt = one $5 off; per unit means $10. Word it exactly as built; the first platform's Vendure action was per line. |
    | % or $ off a collection | `collection_discount` | Engine provides (§5.4, §5.10) | Fact 5. |
    | Free shipping | `free_shipping` | Engine provides (first release) | Removes **all** shipping on the order. |
    | Y free when buying X | `buy_x_get_y` | Engine provides (first release) | **Which items are made free when several qualify (cheapest?) and whether it repeats are ours to decide** *(decide)*; state the rule in the summary. |
@@ -209,7 +208,7 @@ promotions tests before relying on it.
      for each (part O).
 7. **Combining offers: deterministic order and combination rules.** PLATFORM-PROMPT §5.4
    requires **combination rules** and a **deterministic application order**, so "everything
-   stacks, in an order the merchant can't see" (the archived Vendure behaviour) is not the
+   stacks, in an order the merchant can't see" (the first platform's Vendure behaviour) is not the
    target.
    - The application order is fixed and documented by the engine (for example product
      discounts before order discounts before shipping *(decide)*), and the same cart always

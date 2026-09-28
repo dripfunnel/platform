@@ -1,8 +1,8 @@
 # PLATFORM-PROMPT.md
 
 The prompt for the session that designs the **new DripFunnel platform**: its architecture, data
-model, build order and product design. It replaces the Vendure-based plan in
-`../../../df-store-archived/`.
+model, build order and product design. It replaces the first, Vendure-based plan
+(removed from the workspace 2026-09-28; what still held is ported into this repo).
 
 **The change, in one line:** DripFunnel no longer runs on Vendure. **We build our own
 headless commerce engine, architected like Vendure** (a GraphQL Shop API and a Store API like Vendure's Admin API,
@@ -74,9 +74,9 @@ Paste §1 to start a session. Everything after §1 is also specification.
 > still holds of them has been ported into this repo (2026-09-28), with Vendure facts
 > replaced by engine facts:
 > 1. [`SAAS.md`](SAAS.md): partners, merchant accounts, provisioning, plans, billing,
->    domains, publishing, fleet, metrics (was `../../../df-store-archived/SAAS-PLAN.md`).
+>    domains, publishing, fleet, metrics (was the first platform's SAAS-PLAN).
 > 2. [`ACCESS.md`](ACCESS.md): identity, sessions, roles, invitations, vendors, tenancy and
->    the authorization checks (was AUTH-PLAN §3–5, §7–9, §11 and the archived ARCHITECTURE §4,
+>    the authorization checks (was AUTH-PLAN §3–5, §7–9, §11 and the first platform's ARCHITECTURE §4,
 >    §6.3, §7).
 > 3. [`../ui/store/DESIGN-BRIEF.md`](../ui/store/DESIGN-BRIEF.md): the portal's users and
 >    the complete list of flows.
@@ -90,8 +90,7 @@ Paste §1 to start a session. Everything after §1 is also specification.
 > 6b. `../storefront/`: the storefront's architecture and design (core
 >    package, theme contract, preview and live modes). Already decided; design the engine
 >    and hosting to serve it.
-> 7. `../../../df-store-archived/README.md` and `BUILD-PROMPT.md`: what the first version
->    actually built (history), and the ground rules (carried into `../../AGENTS.md`).
+> 7. `../../AGENTS.md`: the ground rules (carried over from the first platform's BUILD-PROMPT).
 > 8. `../../../vendure-backend/`: **the reference for how a headless commerce platform works.**
 >    Read its `ARCHITECTURE.md` (§4 lists the commerce features the new engine must cover:
 >    shipping charge strategy, Stripe/Razorpay, Shiprocket, email, assets, import/export),
@@ -108,7 +107,7 @@ Paste §1 to start a session. Everything after §1 is also specification.
 >    public APIs, storefront hosting on Cloudflare, jobs and events, billing,
 >    config and secrets, deploy, observability, testing, and risks (§4–5 below are the
 >    requirements). Record each decision with the alternative rejected and why, as the
->    archived ARCHITECTURE.md §1 does.
+>    the first platform's ARCHITECTURE.md §1 does.
 > 3. **`DATA-MODEL.md`**: every table, grouped by module, with its tenant and seller scoping,
 >    money and currency columns, translation strategy, soft-delete and audit behaviour, and
 >    the indexes the main list screens need.
@@ -136,7 +135,7 @@ Paste §1 to start a session. Everything after §1 is also specification.
 ## 2. What carries over (binding)
 
 Each item is a decision already made. Its source is in brackets; archive sources now live
-in this repo: AUTH-PLAN and the archived ARCHITECTURE §4 in [ACCESS.md](ACCESS.md), SAAS-PLAN
+in this repo: AUTH-PLAN and the first platform's ARCHITECTURE §4 in [ACCESS.md](ACCESS.md), SAAS-PLAN
 in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PROMPT in
 `../ui/store/` (as DESIGN-BRIEF, CATALOG-DESIGN, OFFERS-DESIGN).
 
@@ -146,8 +145,9 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
 2. **Roles**: merchant **Owner**, **Manager**, **Staff**; vendor **Stock only**, **Products and
    stock**, **Products, stock and their orders** (and a read-only orders tier). Fixed
    templates; **there is no role editor**. [AUTH-PLAN §5.3]
-3. **One person, one login, many stores.** A person can be Staff in one store and a vendor in
-   another. Everything is scoped to the **acting store**, checked on every request against the
+3. **One person, one login, many stores, within a partner.** A person can be Staff in one
+   store and a vendor in another. Accounts never cross partners (decided 2026-09-28,
+   ACCESS.md §2). Everything is scoped to the **acting store**, checked on every request against the
    session's membership set, never to the user. [AUTH-PLAN §3–4, ARCHITECTURE §4.1]
 4. **Never reveal whether an email has an account**: invitations, sign-up and password reset
    respond identically either way. [AUTH-PLAN §7.2]
@@ -198,7 +198,7 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     behind an `httpOnly` cookie; idle 2 h, absolute 12 h. [ARCHITECTURE §7] API keys belong to
     servers, never to browsers; the Shop API's public store key is the only credential a
     browser may hold.
-17. **Every endpoint declares its scope, structurally.** The archived design did it with tRPC
+17. **Every endpoint declares its scope, structurally.** The first platform's design did it with tRPC
     procedure bases and a test walking the router tree [ARCHITECTURE §4.2]. In GraphQL the
     same rule applies to resolvers: each one declares its API (Shop, Store, Platform or Admin), its
     permission and its tenant scope (like Vendure's `@Allow`, but tenant- and seller-aware),
@@ -241,8 +241,8 @@ These existed only because of Vendure. None of them may reappear in the new desi
 
 ### 3.2 Now ours to build (the cost)
 
-Vendure provided these, and the new engine must replace each one. The archived docs describe
-what the portal expects of them.
+Vendure provided these, and the new engine must replace each one. The ported design docs
+(`../ui/store/`) describe what the portal expects of them.
 
 | Area | Must cover in the first release | Reference |
 |---|---|---|
@@ -323,7 +323,7 @@ leaks structurally hard:
 - **A scoped query layer** is the only way application code reads or writes tenant tables. It
   takes the `TenantContext` (acting store, `SellerScope`) and applies both filters. Raw table
   access is importable only by that layer, enforced by lint and a test.
-- **Postgres Row-Level Security as defence in depth** *(recommend, then ask)*: the request sets
+- **Postgres Row-Level Security as the backstop** (decided 2026-09-28, DATA-MODEL.md §5): the request sets
   `app.store_id` and `app.seller_id` for its transaction, and policies refuse other rows even
   if the application forgets. Evaluate connection pooling, performance and migration impact.
 - **Vendor scoping reaches every derived read**: stock totals, search facets and counts,
@@ -334,7 +334,8 @@ leaks structurally hard:
 
 ### 5.2 Identity, sessions, roles
 
-- Our own users table: one account per person (email unique platform-wide), password hashes
+- Our own users table: one account per person per partner (email unique within a partner,
+  ACCESS.md §2), password hashes
   (argon2id), Google sign-in, email and phone verification codes stored hashed with attempt
   counters, optional 2-factor *(ask: Owners only, or everyone)*.
 - `membership(user_id, store_id, seller_id, role_key)`: role keys map to **permission sets in
@@ -346,8 +347,8 @@ leaks structurally hard:
 - **Staff (DF Admin) are a separate identity**: company SSO with 2-factor, their own roles,
   and every action audited. Never a merchant session with a flag.
 - **Brand-aware auth**: the portal resolves the brand from the hostname before sign-in; emails
-  and links use that brand's domain. Decide what a person with stores under two brands sees
-  (CONSOLE-DESIGN §3 fact 5, §10 here).
+  and links use that brand's domain. A person with stores under two brands has two accounts
+  (decided, ACCESS.md §2).
 - Rate limits on sign-in, sign-up, invitation, password reset and code entry.
 - **Four kinds of caller** reach the engine, and each resolves to the same `TenantContext`
   (acting store, `SellerScope`, permissions) before any resolver runs:
@@ -481,7 +482,7 @@ or admin console (ACCESS.md §8), integrations and apps:
   run-time catalogue fetches and caching work. **Verify every limit against Cloudflare's
   current documentation**; don't rely on memory.
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
-  certificates), replacing the archived AWS ACM + CloudFront work (`provision-domain`). Keep
+  certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
   the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
   storefront wildcards (`*.shops.partner.com`).
 - **Builds** still run in GitHub Actions through the GitHub App, and deploy with the
@@ -586,8 +587,8 @@ designed, don't restart:
   not Vendure channels; storefronts and domains are on Cloudflare; DF Admin replaces the
   Vendure Dashboard completely.
 - **Built screens** (signup, sign-in, choose store, invitations, profile, the eight Settings
-  tabs, suppliers, custom domain; `../../../.design/settings-tabs.html` and the archive's
-  `src/client/`) are the visual baseline. Keep their look and words unless the engine
+  tabs, suppliers, custom domain; `../../../.design/settings-tabs.html`) are the visual
+  baseline. Keep their look and words unless the engine
   changes what they can say.
 - Every portal screen renders in the **brand's look** (white label), and every design shows a
   US, an EU and an Indian store where the screen differs by region.
@@ -606,7 +607,7 @@ designed, don't restart:
 
 ---
 
-## 7. Reuse from the archive
+## 7. Reuse from the first platform
 
 | Take across (adapt) | Rewrite | Drop |
 |---|---|---|
@@ -675,7 +676,7 @@ State what the smallest sellable first release is, and what is explicitly deferr
 **Architecture**
 - Does tRPC survive for portal-only screens, or does the portal use the Store API alone?
 - Is the Platform API GraphQL too, or internal only?
-- Postgres RLS as defence in depth: yes or no?
+- ~~Postgres RLS as defence in depth?~~ Decided: yes, the backstop (DATA-MODEL.md §5).
 - One database for all brands and stores, or a shard or database per brand later?
 - Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?
 - Cloudflare Images or our own image variants?
@@ -687,7 +688,7 @@ State what the smallest sellable first release is, and what is explicitly deferr
   first.)
 - Own storefronts: our hosted checkout, their own checkout on the Shop API, or both?
 - Can a store switch between an AI storefront and its own, and do plans differ?
-- Can vendors have their own API keys?
+- ~~Can vendors have their own API keys?~~ Later (ACCESS.md §5.6).
 - Apps: public marketplace or private per-store apps first? Embedded UI in the portal?
 - Developer docs and the SDK: branded per white-label brand, or always DripFunnel?
 - API rate limits and quotas per plan?
@@ -705,13 +706,14 @@ State what the smallest sellable first release is, and what is explicitly deferr
 **Brand and billing**
 - White label's money model (partner billed, merchants billed on the partner's behalf, or
   both) and which comes first.
-- A person with stores under two brands: which look do they see after sign-in?
+- ~~A person with stores under two brands: which look?~~ Settled: one account per partner
+  (ACCESS.md §2).
 - Plans and their entitlements: names and contents. (Decided: the partner sets the monthly
   "Publish now" allowance per plan within DripFunnel's ceiling; the automatic publish
   interval is an admin console setting with per-plan overrides; failed builds never count.
   See SAAS.md §6, §9.)
 
-**Carried from the archive, still open**
+**Carried from the first platform, still open**
 - Does editing an approved vendor product send it back for approval?
 - What happens to a removed or suspended vendor's products?
 - 2-factor for Owners only, or everyone?
