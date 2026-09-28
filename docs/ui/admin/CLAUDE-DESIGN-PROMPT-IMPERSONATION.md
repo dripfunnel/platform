@@ -49,7 +49,7 @@ anything that already exists.
 
 ## 2. Screens and states to design
 
-### 2.1 Impersonate (sidebar menu item 6)
+### 2.1 Impersonate (its sidebar menu item)
 
 A new page in the admin console with two tabs.
 

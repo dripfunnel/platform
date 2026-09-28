@@ -20,6 +20,7 @@ Last updated: 2026-09-28.
 | [FIRST-RELEASE.md](FIRST-RELEASE.md) | **What we build first**: a simple console with Dashboard, Partners, Stores and the few menus needed to manage them; what waits |
 | [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md) | The self-contained prompt to paste into Claude Design for the first release's screens |
 | [CLAUDE-DESIGN-PROMPT-IMPERSONATION.md](CLAUDE-DESIGN-PROMPT-IMPERSONATION.md) | The follow-up Claude Design prompt for the Impersonate feature only |
+| [CLAUDE-DESIGN-PROMPT-CUSTOMERS.md](CLAUDE-DESIGN-PROMPT-CUSTOMERS.md) | The follow-up Claude Design prompt for the Customers menu only |
 | [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md) | The design prompt: vocabulary, platform facts, staff roles, sample data, parts A–S with scenarios, states, never-do rules, open questions; each part marks its partner-console counterpart |
 | [../README.md](../README.md) | How every SPA is built |
 | [../../api/ACCESS.md](../../api/ACCESS.md) | Staff identity, roles, support sessions, audit |
@@ -73,6 +74,8 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Stores: detail | ✓ | ✓ (their partners) | ✓ | ✓ | ✓ | ✓ |
 | Stores: suspend, restore | ✓ | | | | emergency only | |
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
+| Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Customers: full email and phone *(proposed)* | ✓ | | ✓ | | | |
 | Impersonate partner and store users (full access, 30 min) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
 | Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
@@ -94,7 +97,7 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 
 ## 3. Navigation
 
-**First release**: Dashboard, Partners, Stores, then Approvals, Provisioning, Impersonate, Activity log and Staff ([FIRST-RELEASE.md](FIRST-RELEASE.md) §2). The full
+**First release**: Dashboard, Partners, Stores, Customers, then Approvals, Provisioning, Impersonate, Activity log and Staff ([FIRST-RELEASE.md](FIRST-RELEASE.md) §2). The full
 navigation below, from the parts of CONSOLE-DESIGN §6, is the target:
 
 | Row | Part | Contents |
@@ -103,6 +106,7 @@ navigation below, from the parts of CONSOLE-DESIGN §6, is the target:
 | Search (everywhere, keyboard shortcut) | C | Stores, people, partners, invoices, jobs; a person's result lists every store in every partner |
 | Partners | D, E, F, G | List, overview, onboarding and approval, branding, plans |
 | Stores | I | List across partners, store detail, actions |
+| Customers | new | Shoppers across every store, masked contact details, read-only (FIRST-RELEASE §5.4) |
 | Impersonate | J | Every partner and store user; sign in as them; open and past sessions |
 | Billing | H | Partner billing and merchant billing, never mixed without labels |
 | Jobs | K | Provisioning and job health |

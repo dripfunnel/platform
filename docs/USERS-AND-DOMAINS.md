@@ -135,6 +135,10 @@ partner and merchant.
   to that store, or that partner's console): "Support (Arjun) is signed in as Priya. Ends in
   28 min." Always "Support", never "DripFunnel", so white label holds. The staff member sees an unremovable bar
   naming the user, the store or partner, and the time left.
+- **Customer accounts** (shoppers) are the one kind of store data staff also see directly,
+  read-only, in the admin console's Customers menu, without impersonating (decided
+  2026-09-28): contact details masked in lists, every detail view logged, never addresses,
+  order contents or payment details. Shoppers are never impersonated.
 - **Logged as both**: every action is recorded as "Arjun as Priya" (the user as actor, the
   staff member as the real agent), on the platform activity log, the store's or partner's
   log, and the user's own "My activity".

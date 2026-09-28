@@ -353,7 +353,10 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
 | **Read-only** | Sees everything Support sees, changes nothing. |
 
-Staff have **account-level** access to every partner and merchant through the Admin API. Inside
+Staff have **account-level** access to every partner and merchant through the Admin API,
+and **read-only access to customer accounts** across every store (decided 2026-09-28;
+masked contact details in lists, full on the detail page for Super admin and Support
+*(proposed)*, each detail view logged; never addresses, order contents or payment details). Inside
 a store or a partner console they act only by impersonating a user (§8.1): Super admin and
 Support only. Every
 staff write is audited (§10).

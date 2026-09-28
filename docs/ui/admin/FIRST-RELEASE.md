@@ -37,11 +37,12 @@ and store states).
 | 1 | **Dashboard** | Everyone | none | decided |
 | 2 | **Partners** | Everyone | partners awaiting approval | decided |
 | 3 | **Stores** | Everyone | none | decided |
-| 4 | **Approvals** | Super admin, Partner manager | partners awaiting approval | *(proposed)* |
-| 5 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | *(proposed)* |
-| 6 | **Impersonate** | Super admin, Support | sessions open now | decided |
-| 7 | **Activity log** | Everyone | none | *(proposed)* |
-| 8 | **Staff** | Super admin | none | *(proposed)* |
+| 4 | **Customers** (§5.4) | Everyone | none | decided |
+| 5 | **Approvals** | Super admin, Partner manager | partners awaiting approval | *(proposed)* |
+| 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | *(proposed)* |
+| 7 | **Impersonate** | Super admin, Support | sessions open now | decided |
+| 8 | **Activity log** | Everyone | none | *(proposed)* |
+| 9 | **Staff** | Super admin | none | *(proposed)* |
 
 Always visible in the header: the environment marker, a search box (partners and stores by
 name, domain, code or owner email), and the signed-in staff member's name and role.
@@ -147,7 +148,8 @@ Header: name, partner, status, live link, and the actions (§5.3). Tabs:
 | **Activity** | Audit entries about this store |
 | **Notes** | Internal staff notes, never shown to the partner or merchant |
 
-No catalogue, orders or customers here: staff see them only by impersonating a store user (§8).
+No catalogue or orders here: staff see them only by impersonating a store user (§8). The
+store's customers are listed in Customers (§5.4), pre-filtered to this store.
 
 ### 5.3 Store actions
 
@@ -164,6 +166,41 @@ Change plan, move to another partner, transfer ownership and close are **not** i
 release; changing a plan is the partner's job.
 
 ---
+
+### 5.4 Customers (its own menu)
+
+Decided 2026-09-28: staff see **shoppers' accounts directly**, across every partner and
+store, without impersonating. Catalogue and orders stay behind impersonation. **Read-only.**
+
+**List**: one row per customer account. Accounts are per store, so the same person appears
+once for each store they buy from.
+
+| Column | Notes |
+|---|---|
+| Name | |
+| Email | **Masked**: `pr***@gmail.com` |
+| Phone | **Masked**: `+91 ***** 43210` |
+| Store | Linked to the store page |
+| Partner | Linked to the partner page |
+| Signs in with | Email, mobile, or both |
+| Status | Active · Unverified · Deleted (pseudonymised) |
+| Orders | Count only |
+| Created, Last sign-in | Dates |
+
+- **Search** by name, **exact** email or **exact** phone (full values are matched but never
+  shown in the list), store or partner. Filters: partner, store, status, sign-in method,
+  created, last sign-in. In the URL.
+- The same list appears on each store's page as a **Customers** tab, pre-filtered.
+
+**Customer detail**: name, **full email and phone** (Super admin and Support only
+*(proposed)*; other roles see them masked), verified or not, store and partner, sign-in
+method, created, last sign-in, order count, **other accounts with the same email** in other
+stores (Super admin and Support *(proposed)*), and the **Activity** tab: this customer's
+sign-ins, failed sign-ins, account changes and orders placed (LOGGING.md §3). **Opening a
+detail page is logged** ("Neha viewed customer Priya S. at Mehta Textiles").
+
+**Never shown**: addresses, order contents, payment details, passwords. **No actions** in
+this release: no password reset, block, export or delete.
 
 ## 6. Approvals *(proposed)*
 
@@ -277,6 +314,7 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Partners | `partners(filter, page)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `resendPartnerOwnerInvite`, `recheckDomain` |
 | Stores | `stores(filter, page)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
 | Provisioning | `provisioningJobs(filter, page)` | `retryJob`, `undoJob` |
+| Customers | `customers(filter, after)`, `customer(id)` (logs the view) | |
 | Impersonate | `impersonationTargets(filter, after)`, `impersonations(filter, after)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
 | Activity log | `activityLog(filter, after)`, `personTimeline(personRef, filter, after)`, `activityPeople(query)` | `exportActivity(filter)` |
 | Staff | `staff(page)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |

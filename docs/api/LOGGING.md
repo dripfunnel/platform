@@ -51,7 +51,9 @@ the categories; each API's resolvers declare their own action codes (§5).
 | **Security** (any level) | Anyone, or unknown | Failed sign-ins for unknown accounts, rate-limit hits, attempted tenant crossings (ACCESS.md §4), denied authorizations. Visibility: staff only |
 
 **Reads are not logged**, with one exception: every support session logs what it opened,
-because the merchant has a right to know what support looked at (ACCESS.md §8). Staff
+because the merchant has a right to know what support looked at (ACCESS.md §8). A second
+exception: **staff opening a customer's detail page** in the admin console is logged
+(`customer.viewed`, staff-only visibility). Staff
 impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the staff member
 `on_behalf_of`.
 

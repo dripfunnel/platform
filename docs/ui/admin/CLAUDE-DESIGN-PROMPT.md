@@ -81,11 +81,12 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 | 1 | Dashboard | |
 | 2 | Partners | partners awaiting approval |
 | 3 | Stores | |
-| 4 | Approvals | partners awaiting approval |
-| 5 | Provisioning | failed or stuck signups |
-| 6 | Impersonate | sessions open now |
-| 7 | Activity log | |
-| 8 | Staff (Super admin only) | |
+| 4 | Customers | |
+| 5 | Approvals | partners awaiting approval |
+| 6 | Provisioning | failed or stuck signups |
+| 7 | Impersonate | sessions open now |
+| 8 | Activity log | |
+| 9 | Staff (Super admin only) | |
 
 ## 5. Screens to design
 
@@ -290,8 +291,8 @@ storefront. Staff: Priya (Support), Arjun (Super admin), Lena (Engineer on call)
 - Let an action on one partner's stores quietly affect another; anything platform-wide says
   "every partner".
 - Confuse Past due, Suspended and Cancelled.
-- Show a store's catalogue, orders or customers anywhere in this console (staff see them
-  only by impersonating a store user).
+- Show a store's catalogue or orders anywhere in this console (staff see them only by
+  impersonating a store user), or a customer's addresses, order contents or payment details.
 - Let an impersonation be silent, run past its time, or go unlogged.
 - Treat DripFunnel as special beyond the "House partner" badge and not being pausable.
 - Show raw error codes or technical terms first.
