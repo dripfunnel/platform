@@ -115,6 +115,7 @@ and **never** to a `TenantContext`, except through a support session.
 | **Shopper** | Shop API | Public store key or storefront hostname, plus an optional customer session | The key's store | `all`, visibility-filtered to what shoppers may see | The fixed shopper set |
 | **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes, never more than its creator's role allows (§5.6) |
 | **App grant** | Store API | The app's grant token | The grant's store | `all` *(ask whether apps can be vendor-bound)* | The scopes the merchant approved |
+| **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
 | **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The read-only support set; the write set only after the merchant allows it |
 | **Partner user** | Platform API | Session cookie on `platform.dripfunnel.com` | None: a `PartnerContext` (partner, user, partner role) | none | Partner role (§5.3) |
 | **Staff** | Admin API | SSO session on `admin.dripfunnel.com` | None: a `StaffContext` (staff member, staff role) | none | Staff role (§5.4) |
@@ -129,6 +130,7 @@ type StoreCaller =
   | { kind: 'shopper'; customerId: string | null }
   | { kind: 'api-key'; keyId: string; createdByUserId: string }
   | { kind: 'app'; grantId: string; appId: string }
+  | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
   | { kind: 'support'; supportSessionId: string;
       actor: { kind: 'partner-user' | 'staff'; id: string }; access: 'read' | 'write' };
 
@@ -346,13 +348,14 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
 | **Partner manager** | Create, approve and configure partners, their plans and prices; see their partners' stores and billing. |
-| **Support** | Search everything; see store detail; **open a support session** under §8's rules (read-only by default); retry failed jobs; resend emails. No billing changes, no suspensions. |
+| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions. |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
 | **Read-only** | Sees everything Support sees, changes nothing. |
 
 Staff have **account-level** access to every partner and merchant through the Admin API. Inside
-a store they follow the same support-access rules as partners (USERS-AND-DOMAINS §4). Every
+a store or a partner console they act only by impersonating a user (§8.1): Super admin and
+Support only. Every
 staff write is audited (§10).
 
 ### 5.5 Never in any merchant or vendor role
@@ -588,8 +591,8 @@ Browser → https://<store's portal host>/support/enter?token=…
   a new reason.
 - **Visible**: while it is open, every person signed in to that store sees a banner: "[Partner]
   support (Priya) is viewing your store. Read-only. Ends in 28 min." The support agent sees an
-  unremovable bar naming the store, their role and the time left (J3). What a staff session's
-  banner calls DripFunnel under a white-label partner is *(ask, §13)*.
+  unremovable bar naming the store, their role and the time left (J3). Staff don't use
+  support sessions; their impersonation banner says "Support", never "DripFunnel" (§8.1).
 - **Logged**: every session appears in the store's *Support access log* (who, when, why, how
   long) and in the platform audit log; the merchant is emailed when one starts *(confirm)*.
   Every read in the session is attributed to the real agent, not to the merchant.
@@ -599,10 +602,52 @@ Browser → https://<store's portal host>/support/enter?token=…
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
   ownership or roles; create API keys or install apps. A support session is not a person, so it
   can't act as one.
-- **Staff** follow the same rules. A suspended store or a legally required investigation is the
-  only exception, audited with the reason *(confirm)*.
+- **Staff don't use support sessions**: they impersonate (§8.1).
 - A partner's support session never reaches a store of another partner; the host check (§9
   check 0) and the partner check at opening both refuse it.
+
+### 8.1 Staff impersonation (decided 2026-09-28, USERS-AND-DOMAINS §4.2)
+
+Staff sign in **as a specific user** with that user's full permissions. It is the only way
+staff act inside a store or a partner console.
+
+- **Targets**: any `partner_user`, and any store user (`user` with a membership: Owner,
+  Manager, Staff, supplier admin or member). Never a `staff_user`, never a `customer`.
+- **Who**: `staff-super-admin` and `staff-support` only. Re-authentication (A2) and a reason
+  or ticket are required. **No consent check**: the store's Support access setting doesn't
+  apply.
+- **Access**: the target's own permissions in full, including writes. For a store user,
+  within the membership chosen (one store, and one supplier where relevant).
+- **Flow**:
+
+```
+Admin console: Impersonate → pick a user (and, for a store user, which membership)
+   │  checks: staff role; re-auth; reason
+   ▼
+impersonation(staff_user_id, target_kind, target_id, membership_id NULL, reason,
+              started_at, expires_at = +30 min, ended_at)  + activity entry
+   │  one-time handoff token, short-lived, single use
+   ▼
+Browser → target's host: the partner console (platform.dripfunnel.com) or the store's
+          portal host → /impersonate/enter?token=…
+   → the host's API exchanges it for an impersonation cookie (separate from any real session)
+   → PartnerContext, or TenantContext, built from the target exactly as for the real user,
+     with caller { kind: 'impersonation', staffId, targetId, impersonationId }
+```
+
+- **Visible** on the impersonated side (a banner to everyone signed in to that store or
+  partner console) and to the staff member (an unremovable bar with the time left).
+- **Logged**: every entry has the target as `actor` and the staff member as `on_behalf_of`,
+  with the impersonation id (LOGGING.md §4). Starting and ending are entries too.
+- **Ends** at 30 minutes, when the staff member ends it, or when the target's account or
+  membership is suspended or removed.
+- *(proposed)* Only **active** users can be impersonated (not invited-but-not-accepted, not
+  suspended), and a staff member has **one open impersonation at a time**.
+- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). These resolvers
+  refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
+  and a structural test lists them.
+- The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
+  merchants' terms disclose staff impersonation (wording by legal).
 
 ---
 

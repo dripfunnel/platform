@@ -43,7 +43,7 @@ the categories; each API's resolvers declare their own action codes (§5).
 
 | Level | Who acts | Recorded |
 |---|---|---|
-| **Admin console** (Admin API) | DripFunnel staff | Sign-in, sign-out, failed sign-in, re-authentication; every write: partner created, approved, sent back, paused; store suspended, restored, trial extended; job retried or undone; staff invited, role changed, removed; support session opened, elevated, ended; exports |
+| **Admin console** (Admin API) | DripFunnel staff | Sign-in, sign-out, failed sign-in, re-authentication; every write: partner created, approved, sent back, paused; store suspended, restored, trial extended; job retried or undone; staff invited, role changed, removed; impersonation started and ended (and every action inside it, as the user with the staff member on behalf); exports |
 | **Partner console** (Platform API) | Partner users | Sign-in, sign-out, failed sign-in; every write: branding, domains, email sender, plans and prices, merchant created, plan changed, trial extended, suspended, restored; team changes; support sessions; submission for approval |
 | **Merchant portal** (Store API) | Owner, Manager, Staff, vendors, API keys, apps, support sessions | Sign-in, sign-out, failed sign-in, store switched; every write in every area: products, stock, collections, orders, fulfilments, refunds, customers edited by staff, offers, storefront changes and publishes, settings, people, vendors, approvals, API keys, webhooks, app installs, support access setting |
 | **Storefront** (Shop API) | Shoppers | Account created, email verified, sign-in, sign-out, failed sign-in, password reset, password or email changed, address added, changed or removed, order placed, order cancelled or return requested by the shopper, account deleted. **Not** page views, searches or carts |
@@ -51,7 +51,9 @@ the categories; each API's resolvers declare their own action codes (§5).
 | **Security** (any level) | Anyone, or unknown | Failed sign-ins for unknown accounts, rate-limit hits, attempted tenant crossings (ACCESS.md §4), denied authorizations. Visibility: staff only |
 
 **Reads are not logged**, with one exception: every support session logs what it opened,
-because the merchant has a right to know what support looked at (ACCESS.md §8).
+because the merchant has a right to know what support looked at (ACCESS.md §8). Staff
+impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the staff member
+`on_behalf_of`.
 
 ---
 
@@ -65,7 +67,7 @@ because the merchant has a right to know what support looked at (ACCESS.md §8).
 | `result` | `success`, `denied`, `failed` |
 | `actor_kind`, `actor_id` | `staff`, `partner_user`, `person` (merchant or vendor), `customer`, `api_key`, `app_grant`, `support_session`, `job`, `provider`, `anonymous` |
 | `actor_label` | Name and email at the time, so the entry reads well after renames (§8 on erasure) |
-| `on_behalf_of` | For a support session: the real agent (staff member or partner user) |
+| `on_behalf_of` | The real agent: the partner user behind a support session, or the staff member impersonating a user (with the impersonation id) |
 | `partner_id`, `store_id`, `seller_id` | The scope the action happened in; null where it doesn't apply |
 | `customer_id` | The shopper the action concerns, as actor or subject |
 | `target_type`, `target_id`, `target_label` | What was acted on (`product`, `order #1042`, `partner Northstar`) |

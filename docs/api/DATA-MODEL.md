@@ -138,6 +138,12 @@ api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, cre
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
 support_session (id, store_id, agent_kind, agent_id, reason, access, started_at, ends_at,
                  elevated_at NULL, elevation_approved_by NULL, ended_at NULL)
+                 -- partner support into a store (ACCESS.md §8)
+
+impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, reason,
+                 started_at, expires_at, ended_at NULL, ended_by NULL)
+                 -- staff signed in as a partner user or store user (ACCESS.md §8.1);
+                 -- platform scope: written and listed by the Admin API only
 ```
 
 ---
@@ -196,7 +202,8 @@ A test checks every set against the matrices in ACCESS.md §5.
 | Supplier user | `roles[seller.access_level]` (+ team management if `supplier-admin`), `SellerScope = seller` |
 | Customer | the fixed shopper set, in `customer.store_id` |
 | API key / app | its scopes, never more than its creator's permissions |
-| Support session | the read-only support set, or the write set after the merchant approves |
+| Support session (partner) | the read-only support set, or the write set after the merchant approves |
+| Staff impersonation | exactly the target user's permissions, as above; RLS settings are the target's, plus `app.impersonation_id` |
 
 ---
 
@@ -217,6 +224,7 @@ request input:
 | `app.seller_id` | The supplier, or empty for the merchant side |
 | `app.customer_id` | The signed-in customer (shop scope), or empty |
 | `app.support` | `read` or `write` during a support session, else empty |
+| `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
 
 `SET LOCAL` lives only for the transaction, so it is safe with Hyperdrive's pooled
 connections; every request's work runs inside a transaction for this reason.

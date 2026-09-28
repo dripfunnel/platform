@@ -39,7 +39,7 @@ and store states).
 | 3 | **Stores** | Everyone | none | decided |
 | 4 | **Approvals** | Super admin, Partner manager | partners awaiting approval | *(proposed)* |
 | 5 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | *(proposed)* |
-| 6 | **Support sessions** | Super admin, Support | sessions open now | *(proposed)* |
+| 6 | **Impersonate** | Super admin, Support | sessions open now | decided |
 | 7 | **Activity log** | Everyone | none | *(proposed)* |
 | 8 | **Staff** | Super admin | none | *(proposed)* |
 
@@ -92,7 +92,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Branding** | Read-only preview of its look, words and "Powered by" setting |
 | **Domains** | Portal host, preview and shop wildcards, email sender domain: each with the expected DNS records and status, and "Re-check now" |
 | **Plans** | Read-only list of its plans, prices and entitlements (the partner edits them in its console) |
-| **Team** | Its partner users and roles, last sign-in (read-only) |
+| **Team** | Its partner users and roles, last sign-in, with **Impersonate** on each (§8) |
 | **Activity** | Audit entries about this partner |
 
 ### 4.3 Partner actions
@@ -105,6 +105,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
 | **Resume** | Super admin | | Sign-ups open again |
 | **Resend Owner invitation** | Super admin, Partner manager, Support | | New link, old one stops working |
+| **Impersonate a partner user** | Super admin, Support | A user from the Team tab; reason or ticket; re-authentication | "Full access as Maya in Northstar's console for 30 minutes; Northstar's team sees a banner." (§8) |
 
 - The house partner has no Pause action.
 - Offboarding, closing and moving stores between partners are **not** in this release.
@@ -141,11 +142,12 @@ Header: name, partner, status, live link, and the actions (§5.3). Tabs:
 | **Storefront** | Kind (AI or own), last build and publish, live and preview links, core version |
 | **Domains** | Custom domain and its status, expected vs found DNS records, "Re-check now" |
 | **Provisioning** | Signup steps and their results; retry from here (§6) |
-| **Support** | Whether the merchant allows support access; past and open support sessions |
+| **Users** | Everyone in the store: merchant side (Owner, Manager, Staff) and each supplier's users, with role, last sign-in, status and **Impersonate** |
+| **Support** | The merchant's Support access setting (it governs partner support, not staff); partner support sessions; staff impersonations of this store's users |
 | **Activity** | Audit entries about this store |
 | **Notes** | Internal staff notes, never shown to the partner or merchant |
 
-No catalogue, orders or customers here: those are seen only inside a support session.
+No catalogue, orders or customers here: staff see them only by impersonating a store user (§8).
 
 ### 5.3 Store actions
 
@@ -155,7 +157,7 @@ No catalogue, orders or customers here: those are seen only inside a support ses
 | **Restore** | Super admin | Reason | Back to its previous status |
 | **Extend trial** | Super admin | New end date | New trial end date |
 | **Retry provisioning** | Super admin, Support, Engineer on call | A failed step | Runs the failed step again |
-| **Open support session** | Super admin, Support | Merchant allows it; reason or ticket | Read-only, 30 minutes, visible to the merchant (§7) |
+| **Impersonate a user** | Super admin, Support | A user from the Users tab; reason or ticket; re-authentication | "Full access as Priya for 30 minutes; everyone in the store sees a banner." (§8) |
 | **Resend Owner invitation** | Super admin, Support | | New link, old one stops working |
 
 Change plan, move to another partner, transfer ownership and close are **not** in this
@@ -181,14 +183,41 @@ Filters: partner, state, step.
 
 ---
 
-## 8. Support sessions *(proposed)*
+## 8. Impersonate
 
-Open sessions now, and a log of past ones: store, partner, staff member, reason, started,
-ends, read-only or elevated. Staff start a session from a store (§5.3); the rules are
-ACCESS.md §8 and USERS-AND-DOMAINS.md §4.1: merchant consent setting, reason required,
-read-only, time-limited, banner in the merchant's portal, write access only with the
-merchant's approval for that session. Actions: **End session** (own sessions; Super admin
-any).
+Decided 2026-09-28 (USERS-AND-DOMAINS §4.2, ACCESS.md §8.1): staff can sign in as any
+partner user or store user, with that user's full access, without consent, **except**
+changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). **Super admin and Support only.** The banner always says "Support".
+
+**Users list**: every person staff can impersonate, in one searchable list.
+
+| Column | Notes |
+|---|---|
+| Name and email | |
+| Type | Partner user, or Store user (merchant side or supplier) |
+| Partner | Which partner they belong to |
+| Store and role | For store users: each store (and supplier) they're in, with the role, e.g. "Mehta Textiles · Owner"; for partner users: their partner role |
+| Last sign-in | Date |
+| Status | Active, invited, suspended |
+| Action | **Impersonate** |
+
+Filters: type, partner, store, role, status. Search: name or email. Never lists staff or
+shoppers.
+
+**Starting one**: pick the user; for a store user in several stores (or suppliers), pick
+which one; give a reason or ticket; re-authenticate. Confirmation: "You'll be signed in as
+Priya Mehta (Owner, Mehta Textiles) with her full access for 30 minutes. Everyone signed in
+to Mehta Textiles sees a banner. Everything you do is logged as you, acting as Priya." Then
+the target's console or portal opens in a new tab with an unremovable bar and "End now".
+
+**Sessions**: open now (user, where, staff member, reason, time left, **End**) and history,
+filterable by staff member, partner, store and date. Each links to its activity-log entries.
+
+The same **Impersonate** button is on each partner's Team tab (§4.2) and each store's Users
+tab (§5.2).
+
+Partner support sessions into stores (read-only, consented, from the partner console) are
+listed on each store's Support tab, not here.
 
 ---
 
@@ -248,7 +277,7 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Partners | `partners(filter, page)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `resendPartnerOwnerInvite`, `recheckDomain` |
 | Stores | `stores(filter, page)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
 | Provisioning | `provisioningJobs(filter, page)` | `retryJob`, `undoJob` |
-| Support sessions | `supportSessions(filter, page)` | `startSupportSession`, `endSupportSession` |
+| Impersonate | `impersonationTargets(filter, after)`, `impersonations(filter, after)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
 | Activity log | `activityLog(filter, after)`, `personTimeline(personRef, filter, after)`, `activityPeople(query)` | `exportActivity(filter)` |
 | Staff | `staff(page)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |
 | Header | `search(query)`, `me` | |

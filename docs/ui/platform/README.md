@@ -17,6 +17,8 @@ them (§5).
 
 Last updated: 2026-09-28.
 
+The design prompt for Claude Design is [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md).
+
 ---
 
 ## 1. What it does
@@ -36,8 +38,12 @@ Last updated: 2026-09-28.
   publishing status; usage against plan; suspend and restore.
 - **Support**: open a merchant's portal **read-only**, under the merchant's consent setting,
   with a reason, time-limited and logged (USERS-AND-DOMAINS.md §4.1).
-- **Money**: its bill from DripFunnel (invoices, what each counts), and, depending on the
-  money model, its merchants' billing *(ask which model first, SAAS.md §7)*.
+- **Money**: DripFunnel collects merchants' subscriptions on the partner's behalf and pays
+  the partner out monthly (first); a "bill my own merchants" setting follows (SAAS.md §7.1).
+  Plus its own invoices from DripFunnel.
+- **Reports**: signups, active stores, trial conversion, churn, plan mix, subscription
+  revenue and payouts, usage, setup health, and each store's monthly sales and order totals
+  (never orders, customers or products).
 - **Team**: its own users and their roles; its activity log (LOGGING.md §6).
 
 **Never**: another partner's anything; a merchant's customers, orders or catalogue outside a
@@ -161,8 +167,6 @@ remove the partner lines from the admin one.
 ## 7. Open questions
 
 - Confirm the partner roles above (§2).
-- The money model: does DripFunnel bill only the partner, bill merchants on the partner's
-  behalf, or both, and which first? (SAAS.md §7)
 - Can a partner hide DripFunnel completely, or is "Powered by" sometimes required?
 - Can a partner override the automatic publish interval for its plans? (The "Publish now"
   allowance is the partner's, within DripFunnel's ceiling: SAAS.md §6.1.)

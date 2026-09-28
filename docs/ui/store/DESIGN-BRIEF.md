@@ -396,7 +396,9 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     everyone for the banner. "Allow [partner name] support to view my store: On / Off" (on
     by default), the Support access log, and the banner every signed-in person sees while a
     read-only support session is open, with the "Allow / Deny" prompt when support asks for
-    write access (USERS-AND-DOMAINS §4.1).
+    write access (USERS-AND-DOMAINS §4.1). Easy to miss: the setting covers the partner's
+    support only; the screen must say that DripFunnel staff can still sign in as a user
+    for support, and show the banner the store sees when they do (USERS-AND-DOMAINS §4.2).
 80. **Catalogue "Publish now" and publishing status**: Owner (and Manager *(ask)*), for a
     store with an AI storefront. What is waiting ("12 products changed since 10:40"),
     publishes left this month, when the next automatic publish is due, and a real status

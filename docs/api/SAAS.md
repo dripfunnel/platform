@@ -294,7 +294,10 @@ charges it (fact 20, H1–H2):
 | **Partner billing** | Partner | DripFunnel | Contract terms: per store, per plan, revenue share, minimum commitment or flat fee *(ask)*; usage over allowance |
 | **Merchant billing** | Merchant | Either **the partner** (it invoices its merchants itself; DripFunnel never sees them as payers) or **DripFunnel on the partner's behalf** (Stripe Connect or similar, paying the partner out) | The store's plan, overage (AI, builds) |
 
-These are different products. **Which comes first is open *(ask which first)*.** For the house
+These are different products. **Decided 2026-09-28: both are designed; DripFunnel billing on
+the partner's behalf ships first** (merchant payments, monthly payouts to the partner, the
+partner's margin shown against DripFunnel's wholesale cost), and "the partner bills its own
+merchants" follows as a per-partner setting. For the house
 partner, DripFunnel bills its merchants directly, which is the second model with DripFunnel as
 the partner.
 

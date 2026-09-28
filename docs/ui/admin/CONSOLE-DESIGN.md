@@ -480,23 +480,30 @@ brand, and no view of customers, orders or catalogue outside a support session.
   - open the store's raw data view (engineers only, audited, §3 fact 11) *(ask)*.
 - I4. Suspended vs past due vs cancelled vs closed, each unmistakable (§3 fact 8).
 
-### J. Sign in as (support impersonation)
+### J. Impersonate (sign in as a user)
 
-**Partner console:** scoped counterpart: support access to its own merchants' portals under
-exactly the same rules (USERS-AND-DOMAINS §4.1), started from the store's page.
+**Partner console:** partners don't impersonate. Their support opens the merchant's portal
+through a read-only, consented support session (USERS-AND-DOMAINS §4.1), started from the
+store's page.
 
-- J1. Starts from a store, requires a reason (or a ticket number), and is time-limited (30
-  minutes by default *(confirm)*). Only possible while the merchant's *Support access*
-  setting is on; when it is off, support can only ask the merchant to switch it on.
-- J2. **Read-only by default**; write access for one session needs the merchant's approval
-  ("Allow" or "Deny" in their portal), and the elevation is logged.
-- J3. The portal shows a bright, unremovable banner to everyone signed in to that store:
-  "DripFunnel support (Priya) is viewing your store. Read-only. Ends in 28 min."
-- J4. The session appears in the merchant's *Support access log* and in the audit log; the
-  merchant is emailed when a session starts *(confirm)*. The exception for suspended stores
-  or legally required investigations is audited with the reason *(confirm)*.
-- J5. Impersonation never works on another staff account, and never changes passwords,
-  payment methods, payouts or ownership.
+Decided 2026-09-28 (USERS-AND-DOMAINS §4.2, ACCESS.md §8.1):
+
+- J1. **Impersonate** lists the users staff can sign in as: every partner user and every
+  store user (Owner, Manager, Staff, supplier admins and members), searchable by name or
+  email, filterable by partner, store and role. Never staff, never shoppers. The same action
+  is on each partner's Team tab and each store's Users tab.
+- J2. **Super admin and Support only**; re-authentication and a reason or ticket first; 30
+  minutes, no silent extension. **No consent needed**: the merchant's Support access setting
+  doesn't apply to staff.
+- J3. **Full access as the user**: the staff member sees and does exactly what that user can,
+  **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); those controls show disabled with "Only Priya can change this".
+  For a person in several stores (or several suppliers in one store), staff pick which one.
+- J4. An unremovable bar for the staff member ("You are signed in as Priya Mehta (Owner,
+  Mehta Textiles). Ends in 28 min. End now"), and a banner on the impersonated side for
+  everyone signed in to that store or partner console ("Support (Arjun) is signed in as
+  Priya. Ends in 28 min."). Always "Support", never "DripFunnel".
+- J5. Every action is logged as "Arjun as Priya" in the activity log, the store's or
+  partner's log, and the user's own activity.
 
 ### K. Provisioning and jobs
 
