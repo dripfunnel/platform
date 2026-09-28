@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -69,7 +69,8 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 | `result` | `success`, `denied`, `failed` |
 | `actor_kind`, `actor_id` | `staff`, `partner_user`, `person` (merchant or vendor), `customer`, `api_key`, `app_grant`, `support_session`, `job`, `provider`, `anonymous` |
 | `actor_label` | Name and email at the time, so the entry reads well after renames (§8 on erasure) |
-| `on_behalf_of` | The real agent: the partner user behind a support session, or the staff member impersonating a user (with the impersonation id) |
+| `on_behalf_of` | The real agent: the partner user behind a support session, or the staff member impersonating a user (with the impersonation id). Null for a staff setup session (ACCESS.md §8.2), where the staff member is the `actor` |
+| `access_ref` | The support session, impersonation or setup session the action ran under, as an id; null for a person's own session |
 | `partner_id`, `store_id`, `seller_id` | The scope the action happened in; null where it doesn't apply |
 | `customer_id` | The shopper the action concerns, as actor or subject |
 | `target_type`, `target_id`, `target_label` | What was acted on (`product`, `order #1042`, `partner Northstar`) |

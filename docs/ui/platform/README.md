@@ -15,7 +15,7 @@ partner** (the house partner) and uses this console exactly like the others.
 part of the admin console's design marks its partner counterpart, and this guide lists
 them (§5).
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 The design prompt for Claude Design is [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md).
 
@@ -23,7 +23,8 @@ The design prompt for Claude Design is [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-P
 
 ## 1. What it does
 
-- **Onboard**: sign up, verify email, and set everything up while in *Draft*; submit for
+- **Onboard**: invite only, no sign-up. The Owner accepts DripFunnel's invitation, then
+  sets everything up while in *Draft*; submit for
   approval; go live once DripFunnel's Admin approves (contract, KYC, billing). Until then,
   merchants can't sign up under the partner.
 - **Brand**: the portal's look (logo, colours, font, favicon, sign-in page), words (product

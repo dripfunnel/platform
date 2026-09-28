@@ -12,7 +12,7 @@ platform; there is no other operations console.
 **Status: skeleton** (sign-in and home routes). The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 | Document | Covers |
 |---|---|
@@ -34,8 +34,8 @@ The hierarchy is **Platform** (this console) → **Partner** (a white-label rese
 DripFunnel as the house partner) → **Store** (one merchant) → **Vendor** (a supplier inside
 a store). Every screen is clear about which level it is on.
 
-- **Partners**: review and approve partner sign-ups (contract, KYC, billing), create a
-  partner directly, pause, offboard and close; see each partner's setup, health, stores and
+- **Partners**: create a partner and invite its Owner (partners are invite only; there is
+  no partner sign-up), review and approve it (contract, KYC, billing), pause, offboard and close; see each partner's setup, health, stores and
   revenue. The house partner looks the same but can't be paused, offboarded or deleted.
 - **Stores**: every store across partners, at account level: plan, subscription status,
   storefront and domain status, usage, provisioning history; suspend and restore, move a

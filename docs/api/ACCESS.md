@@ -17,7 +17,7 @@ requirements are in [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) (§2 items 2–5 an
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -50,7 +50,7 @@ merchant with the same address are two unrelated accounts.
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
 | **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, optional 2-factor *(ask: Owners only, or everyone)* | `(partner, email)`: the same email under two partners is two unrelated accounts |
-| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password, 2-factor *(ask: required or optional)* | Email, within the partner |
+| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password, 2-factor *(ask: required or optional)*. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
 
@@ -117,6 +117,7 @@ and **never** to a `TenantContext`, except through a support session.
 | **App grant** | Store API | The app's grant token | The grant's store | `all` *(ask whether apps can be vendor-bound)* | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
 | **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The read-only support set; the write set only after the merchant allows it |
+| **Staff setup session** | Platform API, on `platform.dripfunnel.com` | Setup cookie from a handoff (§8.2) | None: a `PartnerContext` for the one partner, with no partner user | none | The partner Owner's set, minus payment method, payout details and team ownership |
 | **Partner user** | Platform API | Session cookie on `platform.dripfunnel.com` | None: a `PartnerContext` (partner, user, partner role) | none | Partner role (§5.3) |
 | **Staff** | Admin API | SSO session on `admin.dripfunnel.com` | None: a `StaffContext` (staff member, staff role) | none | Staff role (§5.4) |
 
@@ -347,7 +348,7 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 | Staff role | Can |
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
-| **Partner manager** | Create, approve and configure partners, their plans and prices; see their partners' stores and billing. |
+| **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. |
 | **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions. |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
@@ -651,6 +652,35 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
   merchants' terms disclose staff impersonation (wording by legal).
+
+### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
+
+For staff doing a partner's onboarding, or any part of it, when the partner needs help.
+Impersonation (§8.1) can't do this: it needs an active partner user, and a partner being set
+up by DripFunnel may have none yet because the Owner's invitation is held or not accepted.
+
+- **Who**: Super admin and Partner manager. Started from the partner's page in the admin
+  console, with a reason or ticket and re-authentication.
+- **Where**: the real partner console on `platform.dripfunnel.com`, on the same screens the
+  partner uses, through a one-time handoff exactly as in §8.1. The session is recorded as
+  `partner_setup_session(staff_user_id, partner_id, reason, started_at, expires_at = +2 h,
+  ended_at)`. The caller is `{ kind: 'staff_setup', staffId, partnerId, setupSessionId }`.
+  It acts as staff, never as a partner user.
+- **Access**: everything the partner's Owner can do in the console (the checklist, look,
+  words, domains, email sender, plans and prices, legal pages, test merchant signup, and
+  **Submit for approval**), in any state except Closed. **Blocked**: the partner's payment
+  method and payout details, and changing the Owner or ownership. These resolvers refuse a
+  `staff_setup` caller with "The partner enters this itself", and a structural test lists
+  them. Staff may invite partner users (the Owner and others).
+- **Visible**: a bar for the staff member with the partner's name and the time left; a
+  banner to any partner user signed in at the same time ("DripFunnel is setting up your
+  console: Priya, until 16:30"). The partner is DripFunnel's own customer, so the banner
+  names DripFunnel. Checklist items show who completed them.
+- **Logged**: every entry has the staff member as `actor` and the setup session id in
+  `access_ref` (LOGGING.md §4); starting and ending are entries too, on both the partner's and the
+  platform's activity log.
+- **Ends** after 2 hours *(proposed)*, when the staff member ends it, or when the partner is
+  closed. One open setup session per staff member at a time.
 
 ---
 

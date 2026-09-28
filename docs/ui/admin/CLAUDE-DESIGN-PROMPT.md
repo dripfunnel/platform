@@ -7,7 +7,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -130,7 +130,7 @@ Tabs:
 | Stores | This partner's stores (the Stores list, pre-filtered) |
 | Branding | **Read-only** preview of the partner's look: logo, colours, product name, a thumbnail of their sign-in page, "Powered by DripFunnel" on or off |
 | Domains | Portal host, preview and shop wildcards (`*.preview.northstar.com`, `*.shops.northstar.com`), email sender domain: each with the DNS records expected, what was found, a status, and "Re-check now" |
-| Plans | **Read-only** list of the partner's plans, prices and limits (partners edit these in their own console; say so) |
+| Plans | **Read-only** list of the partner's plans, prices and limits (edited in the partner console, by the partner or by staff through "Set up for partner"; say so) |
 | Team | The partner's users and their roles, last sign-in, with an **Impersonate** button on each |
 | Activity | Everything done about this partner (see 5.8) |
 
@@ -138,7 +138,9 @@ Tabs:
 
 | Action | Needs | Confirmation says |
 |---|---|---|
-| Create partner | Name, Owner email, country | "Creates Kaufladen Digital as a draft and invites its owner to the partner console." |
+| Create partner | Name, Owner email, country; send the owner invitation now or hold it until setup is done | "Creates Kaufladen Digital as a draft and invites its owner to the partner console." (or "…and holds the owner's invitation") |
+| Set up for partner | A reason or ticket; re-enter password or 2-factor | "Opens Northstar's partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with Northstar." |
+| Send owner invitation | (only when held) | "Sends Kaufladen Digital's owner their invitation. They'll see the setup you've done." |
 | Approve | Go-live checks pass, a note on contract and KYC | "Merchants can sign up at store.northstar.com from now on." |
 | Send back | A reason, shown to the partner | "Northstar goes back to Draft with your reason." |
 | Pause | A reason | "No new merchant signups. Its 86 stores keep running." |

@@ -8,7 +8,7 @@ DripFunnel staff need to **manage partners and stores**. Everything else in
 Partners and Stores; the other menus in §2 are *(proposed)* as the minimum needed to manage
 those two.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -19,8 +19,9 @@ and store states).
 
 ## 1. Principles for this release
 
-- **Manage, not configure.** Staff see and act on partners and stores. Partners configure
-  their own branding, domains and plans in the partner console; staff only view them here.
+- **Manage, not configure, here.** Staff see and act on partners and stores. Branding,
+  domains and plans are configured in the partner console, by the partner or by staff in a
+  setup session (§4.3, ACCESS §8.2); the admin console only shows them.
 - **Every screen is a list or a detail page**, with the same patterns everywhere: search,
   filters in the URL, a status column, a detail page with tabs, actions in one place.
 - **Every action states its consequence, asks for a reason where it changes someone's
@@ -100,7 +101,9 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 
 | Action | Who | Needs | Consequence stated before confirming |
 |---|---|---|---|
-| **Create partner** | Super admin, Partner manager | Name, Owner email, country | Creates a Draft partner and invites its Owner to the partner console |
+| **Create partner** | Super admin, Partner manager | Name, Owner email, country; send the Owner invitation now, or hold it until setup is done *(proposed)* | Creates a Draft partner and invites its Owner to the partner console (or holds the invitation) |
+| **Set up for partner** | Super admin, Partner manager | Reason or ticket; re-authentication | "Opens Northstar's partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with Northstar." (ACCESS §8.2) |
+| **Send Owner invitation** | Super admin, Partner manager | A held invitation | Sends it; the Owner sees whatever setup is already done |
 | **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC | "Merchants can sign up at store.northstar.com from now on." |
 | **Send back** | Super admin, Partner manager | Reason (shown to the partner) | Back to Draft with the reason |
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
@@ -291,7 +294,7 @@ From CONSOLE-DESIGN §6, deliberately left out; each stays specified there:
 
 | Part | What waits |
 |---|---|
-| F, G | Editing a partner's branding or plans on its behalf (view only here) |
+| F, G | Editing a partner's branding or plans inside the admin console (staff do it in the partner console through **Set up for partner** instead) |
 | H | Billing: partner invoices, merchant billing, dunning, refunds, payouts |
 | I3 | Change plan, move a store between partners, transfer ownership, close |
 | D (Offboarding, Closed) | Offboarding and closing a partner |
@@ -311,7 +314,7 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Menu | Queries | Mutations |
 |---|---|---|
 | Dashboard | `dashboard(partnerId)` | |
-| Partners | `partners(filter, page)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `resendPartnerOwnerInvite`, `recheckDomain` |
+| Partners | `partners(filter, page)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
 | Stores | `stores(filter, page)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
 | Provisioning | `provisioningJobs(filter, page)` | `retryJob`, `undoJob` |
 | Customers | `customers(filter, after)`, `customer(id)` (logs the view) | |
@@ -329,6 +332,7 @@ say so, and writes an audit entry.
 
 - Confirm the proposed menus 4–8, or fold Approvals into Partners and Provisioning into
   Stores to keep the menu at three.
-- Does a partner's approval need a second approver?
+- Does a partner's approval need a second approver? In particular, may the staff member who
+  set a partner up in a setup session also approve it?
 - May Partner managers pause a partner, or only Super admins?
 - What does a suspended store's storefront show (SAAS.md §4.2)?

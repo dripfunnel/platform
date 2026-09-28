@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -28,7 +28,7 @@ Recorded so they aren't relitigated.
 | **Live storefront is a static build on Cloudflare**; preview is a client-rendered SPA | One runtime multi-tenant server-rendered storefront | Static plus edge is fast and cheap; SSR would trade that away. The cost is fleet maintenance and build volume, which §9 and §10 exist to control. |
 | **A partner is a row above stores**, and DripFunnel is the **house partner**, configured on the same screens | DripFunnel special-cased; per-partner deployments | One code path for every partner; the house partner differs only in a badge and in not being deletable (CONSOLE-DESIGN §8). |
 | **One partner, one brand, one look, one portal host** | Several brands per partner | Decided in [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §2. |
-| **Partners self-sign-up; Admin approves** before merchants can sign up under them | Staff create every partner | Partners are our customers and set themselves up; approval is where contract, KYC and billing are checked (USERS-AND-DOMAINS §3). |
+| **Partners are invite only: Admin creates the partner and invites its Owner**, the partner sets itself up, and Admin approves before merchants can sign up under it (decided 2026-09-29) | Partner self-sign-up on `platform.dripfunnel.com` | Every partner is a business relationship DripFunnel has already started, so there is no public sign-up to abuse or screen. The partner still does its own setup; approval is where contract, KYC and billing are checked (USERS-AND-DOMAINS §3). |
 | **Provisioning is a Cloudflare Workflow** with a compensation per step, mirrored in the `job` table | A polling job runner; one database transaction | Workers have no always-on process. Provisioning spans Postgres, GitHub and Cloudflare, so no single transaction covers it; failure midway is normal and must leave nothing behind (§5). |
 | **Plans and entitlements are a first-class, server-enforced model** | Feature checks scattered through the UI | Hiding a button is not access control. Every limit is checked where the write happens (§6). |
 | **Platform billing is its own Stripe Billing integration**, separate from merchants' checkout payments | Reusing the checkout payment adapters | Checkout Stripe takes shoppers' money on each merchant's own keys; platform billing charges partners and merchants. Mixing them mixes two ledgers. |
@@ -90,10 +90,13 @@ can't be paused, offboarded or closed.
 
 ### 3.2 Onboarding
 
-On `platform.dripfunnel.com` (USERS-AND-DOMAINS §3):
+Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.com` has no sign-up:
 
-1. The partner signs up and verifies email. This creates the `partner` (Draft) and its first
-   `partner_user` as **Owner**.
+1. **Admin creates the partner** in the Admin API (Partner manager or Super admin): name,
+   Owner email, country. This creates the `partner` (Draft) and an invitation for its first
+   `partner_user` as **Owner**. The Owner accepts it on `platform.dripfunnel.com`, sets a
+   password and 2-factor, and signs in. Admin can resend the invitation; the old link stops
+   working.
 2. It works through a **checklist that can be saved and resumed** (CONSOLE-DESIGN E1): partner
    details, look, words, portal host, preview and shop wildcard domains, email sender domain,
    plans and prices, billing with DripFunnel. Each domain shows the records to add and live
@@ -103,8 +106,14 @@ On `platform.dripfunnel.com` (USERS-AND-DOMAINS §3):
    one priced plan, legal pages set, a test signup completed.
 4. **Admin approves** in the Admin API (Partner manager or Super admin), or sends it back with
    a reason. Approval moves the partner to Live and opens merchant sign-up on its portal host.
-5. **Admin can also create a partner directly**, on the partner's behalf; it still passes the
-   go-live checks.
+5. **Staff-assisted onboarding** (decided 2026-09-29): Partner managers and Super admins can
+   do any or all of steps 2 and 3 for the partner, including submitting it, through a
+   **setup session** into the partner console (ACCESS §8.2). It uses the same screens and
+   the same go-live checks, needs no partner user to exist, and every write is attributed
+   to the staff member. At creation, Admin chooses whether to send the Owner invitation now
+   or hold it until the setup is done *(proposed)*. The partner's payment method and payout
+   details are the one exception: only a partner user can enter them. They aren't go-live
+   checks, but payouts wait for them.
 
 Partner users hold one of **Owner, Admin, Support, Finance, Read-only** (proposed 2026-09-28);
 their permissions are fixed sets in code, as for merchants ([ACCESS.md](ACCESS.md)).
@@ -512,7 +521,8 @@ store (§5.5 there).
 
 | Capability | **Store API** (merchant, portal host) | **Platform API** (partner, `platform.dripfunnel.com`) | **Admin API** (staff, `admin.dripfunnel.com`) |
 |---|---|---|---|
-| Partner signup, checklist, go-live checks | | Own partner | Any; create a partner directly |
+| Create a partner and invite its Owner (no partner sign-up) | | | Partner manager, Super admin |
+| Partner checklist, go-live checks, submit for approval | | Own partner | Any, through a setup session (ACCESS §8.2): Partner manager, Super admin |
 | **Approve** or send back a partner; pause, offboard, close | | Request only | Partner manager, Super admin |
 | Look, words, email templates, email sender | | Own | Any |
 | Partner domains (portal host, wildcards) | | Own | Any; re-check |

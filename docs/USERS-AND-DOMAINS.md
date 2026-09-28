@@ -50,14 +50,22 @@ portal host.
 
 ## 3. Onboarding
 
-**Partner** (on `platform.dripfunnel.com`)
-1. Signs up, verifies email.
+**Partner** (invite only, decided 2026-09-29: there is **no partner sign-up** on
+`platform.dripfunnel.com`)
+1. **Admin creates the partner** on `admin.dripfunnel.com` (name, Owner email, country) as
+   *Draft*, and its Owner gets an invitation to the partner console. The Owner accepts it,
+   sets a password and 2-factor (never a password sent by email), and signs in.
 2. Sets up branding, portal host, preview and shop wildcard domains, email sender domain,
    plans and prices, and its billing with DripFunnel. Each domain shows the DNS records to add
    and live verification status.
 3. **Admin approves** the partner, on `admin.dripfunnel.com` (contract, KYC, billing). Until then the partner can set
    everything up, but **merchants can't sign up under it**.
-4. Admin can also create a partner directly.
+4. The Owner invites the rest of the partner's team; nobody joins a partner any other way.
+5. **DripFunnel staff can do all of this for the partner** (decided 2026-09-29), in part or
+   in full, when the partner needs help: every step from 2 onward, including submitting for
+   approval, through a **setup session** opened from the admin console (ACCESS §8.2). It
+   works before the Owner has accepted, and the Owner's invitation can be held until the
+   setup is done. The partner enters its own payment method and payout details.
 
 Partner states: *Draft → Awaiting approval → Live → Paused (no new merchant signups) →
 Offboarding → Closed*.

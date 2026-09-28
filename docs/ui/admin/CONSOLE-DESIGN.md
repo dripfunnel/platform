@@ -21,14 +21,15 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > every partner and the platform. The **partner console** is `apps/ui/platform` at
 > **`platform.dripfunnel.com`**, for Partner users only, calling the Platform API; the two
 > never share screens or endpoints. "Brand" in this document means a **partner**'s
-> white-label identity; DripFunnel is also a partner. Partners **self-sign-up**, and **Admin
-> approves** them before merchants can sign up under them. Partners manage their merchants
+> white-label identity; DripFunnel is also a partner. Partners are **invite only**: **Admin
+> creates** a partner and invites its Owner (there is no partner sign-up), the partner sets
+> itself up, and **Admin approves** it before merchants can sign up under it. Partners manage their merchants
 > **at account level, plus audited, consented, read-only support access**. Every part in §6
 > is designed for the admin console and carries a **"Partner console:"** line saying what
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-09-28.
+> Last updated: 2026-09-29.
 
 ---
 
@@ -301,8 +302,8 @@ Numbered so coverage can be ticked off. *(ask)* marks a decision needed first (�
 ### A. Signing in and staying safe
 
 **Partner console:** scoped counterpart: Partner users sign in at `platform.dripfunnel.com`
-with their own identity, separate from staff and merchants, and partners self-sign-up
-(USERS-AND-DOMAINS §3). Re-authentication before dangerous actions and disabled-with-reason
+with their own identity, separate from staff and merchants. No self-signup: partner users
+arrive only by invitation (USERS-AND-DOMAINS §3). Re-authentication before dangerous actions and disabled-with-reason
 controls work the same way; no SSO requirement and no environment marker for partners
 *(ask)*.
 
@@ -356,10 +357,12 @@ this partner, never that they have stores elsewhere (§3 fact 14).
 
 ### E. Create a brand (partner onboarding)
 
-**Partner console:** scoped counterpart: the partner's own self-onboarding checklist
-(USERS-AND-DOMAINS §3), ending in "Submit for approval" instead of going live. Contract and
-billing terms are shown read-only once Admin sets them; Admin approves or creates the partner
-here in the admin console.
+**Partner console:** scoped counterpart: the partner's own onboarding checklist, which its
+invited Owner sees on first sign-in (USERS-AND-DOMAINS §3), ending in "Submit for approval"
+instead of going live. Contract and billing terms are shown read-only once Admin sets them;
+Admin creates the partner (invite only) and approves it here in the admin console. When staff
+work through the checklist for the partner (E5), the partner console shows DripFunnel's
+banner and marks the items staff completed.
 
 - E1. A guided checklist, not a wizard: partner details, contract and billing terms, look,
   addresses, messages, offer, go live. It can be saved and resumed; the brand stays **Draft**
@@ -370,6 +373,12 @@ here in the admin console.
   itself and links to the fix. Approval also covers contract, KYC and billing.
 - E4. The go-live moment: "Northstar Shops is live at store.northstarcommerce.com. New
   signups there become Northstar stores."
+- E5. **Staff-assisted onboarding** (decided 2026-09-29): **Set up for partner** opens the
+  partner console for that partner in a staff setup session (ACCESS §8.2). Staff can do any
+  or all of the checklist and submit for approval, on the same screens the partner uses,
+  before or after the Owner has accepted. **Create partner** offers "Send the Owner
+  invitation now" or "Hold it until setup is done" *(proposed)*, and a held invitation is sent
+  later with one action. The partner enters its own payment method and payout details.
 
 ### F. Branding studio (look, addresses, messages)
 
@@ -662,9 +671,10 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
 - ~~Do partners get their own console in the first release?~~ **Settled**: yes, the partner
   console at `platform.dripfunnel.com` (USERS-AND-DOMAINS §1). Which parts ship in its first
   release is still open; each part's "Partner console:" line says what it would contain.
-- ~~How do partners join?~~ **Settled**: partners self-sign-up and Admin approves them
-  (contract, KYC, billing) before merchants can sign up under them; Admin can also create a
-  partner directly (USERS-AND-DOMAINS §3).
+- ~~How do partners join?~~ **Settled (2026-09-29)**: invite only. Admin creates the partner
+  and invites its Owner; there is no partner sign-up. The partner sets itself up and Admin
+  approves it (contract, KYC, billing) before merchants can sign up under it
+  (USERS-AND-DOMAINS §3).
 - **Money model**: does DripFunnel bill the partner only, bill merchants on the partner's
   behalf (Stripe Connect), or both? Wholesale pricing: per store, per plan, revenue share,
   minimums? (§3 fact 20)

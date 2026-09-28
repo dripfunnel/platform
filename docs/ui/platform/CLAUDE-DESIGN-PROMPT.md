@@ -9,7 +9,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -109,17 +109,27 @@ Partner roles (show the signed-in role in the header; design the permission-deni
 
 ## 6. Screens to design
 
-### 6.1 Sign up, sign in and onboarding
+### 6.1 Invitation, sign in and onboarding
 
-- **Sign up**: company name, your name, work email, password, country; verify email with a
-  6-digit code. **Sign in** with email and password, then 2-factor. Forgot password. States:
-  wrong code, expired code, locked after too many attempts. Never reveal whether an email
-  already has an account.
+There is **no sign-up**: partners are invite only. DripFunnel creates the partner and emails
+its Owner an invitation; the Owner invites the rest of the team.
+
+- **Accept invitation**: the invitation link opens a screen showing the partner's name and the
+  invited email; set your name and password, then set up 2-factor. States: link expired,
+  link already used, link replaced by a newer one (each says to ask whoever invited you).
+- **Sign in** with email and password, then 2-factor. Forgot password. No "create an
+  account" link anywhere. States: wrong code, expired code, locked after too many attempts.
+  Never reveal whether an email already has an account.
 - **Onboarding** (while the partner is *Draft*): the Dashboard becomes a **setup checklist**
   that can be left and resumed: company details → branding → portal address → preview and
   shop addresses → email sender → at least one priced plan → legal pages → payout details →
   a test merchant signup → **Submit for approval**. Each item shows done, in progress, or
   what's missing, and links to its screen.
+- **DripFunnel setting up for you**: DripFunnel staff can do any or all of the checklist for
+  the partner, in this same console. Design the staff member's bar (partner name, time left,
+  End) and the banner a partner user sees meanwhile ("DripFunnel is setting up your console:
+  Priya, until 16:30"). Checklist items show who completed them ("Done by DripFunnel").
+  Payment method and payout details say "Northstar enters this itself" to staff.
 - **Awaiting approval**: DripFunnel reviews the contract and KYC. Show what happens next and
   that merchants can't sign up yet. **Sent back**: DripFunnel's reason, and what to fix.
 - **Live**: a one-time moment: "Northstar Shops is live at store.northstar.com. New signups
@@ -345,8 +355,8 @@ sender pending DNS.
 1. Restate in your own words what a partner, a merchant and a store are, and what the partner
    can and can't see. List anything this brief leaves unclear, then wait for my go-ahead.
 2. Design the shell, then in this order: Dashboard, Stores (list, detail, create, actions),
-   Plans, Branding, Domains, Reports, Billing, Support, Activity log, Settings, then sign-up,
-   onboarding and approval.
+   Plans, Branding, Domains, Reports, Billing, Support, Activity log, Settings, then accepting
+   an invitation, onboarding and approval.
 3. For each screen, show the happy path, then the states in §7.
 4. Keep one visual system: the same list, filter chips, detail header, tabs, status badges,
    money formatting, confirmation dialog and activity row everywhere.
