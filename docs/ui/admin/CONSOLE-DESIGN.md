@@ -86,8 +86,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > five kinds of user, hostnames, partner onboarding and approval, what a partner can see,
 > support access), [`../../api/SAAS.md`](../../api/SAAS.md) (partners, provisioning, plans,
 > billing, domains, publishing, fleet, metrics) and [`../../api/ACCESS.md`](../../api/ACCESS.md)
-> (identity, staff identity, roles, tenancy). The archived `df-store-archived/` documents are
-> history only. §3 below states what the platform provides and why it shapes the interface.
+> (identity, staff identity, roles, tenancy). §3 below states what the platform provides and why it shapes the interface.
 > **Nothing is built yet.** Where a screen depends on something whose release is undecided,
 > design it and **label it "(release: decide)"**, so it is a decision rather than a surprise.
 >
@@ -168,10 +167,11 @@ why it shapes the interface. The engine is specified in
    words and emails before anything renders, including sign-in, sign-up, password reset and
    invitation emails. The portal host a merchant signs up on decides which partner the new
    store belongs to. The two consoles are DripFunnel-branded for every user.
-5. **One person, one login, many stores** (DESIGN-BRIEF fact 1; email unique platform-wide,
-   PLATFORM-PROMPT §5.2). A person can own a store under Northstar and be a vendor in a
-   store under DripFunnel. Which brand's look they see, and whether one brand's sign-in can
-   reveal another's stores, is **open (§9)** and a privacy question, not a styling one.
+5. **One person, one login, many stores, within a partner** (DESIGN-BRIEF fact 1;
+   ACCESS.md §2). Accounts are per partner (decided 2026-09-28): someone who owns a store
+   under Northstar and supplies a store under DripFunnel has two unrelated accounts, and no
+   brand's sign-in can reveal another's stores. Staff search by email finds both; C3 lists
+   each account with its stores.
 6. **Email goes through Amazon SES** with one verified sender domain per partner (DKIM, SPF,
    DMARC records the partner adds). While a partner's domain is not verified, a fallback
    sender is used, and the screens say so.
@@ -480,23 +480,30 @@ brand, and no view of customers, orders or catalogue outside a support session.
   - open the store's raw data view (engineers only, audited, §3 fact 11) *(ask)*.
 - I4. Suspended vs past due vs cancelled vs closed, each unmistakable (§3 fact 8).
 
-### J. Sign in as (support impersonation)
+### J. Impersonate (sign in as a user)
 
-**Partner console:** scoped counterpart: support access to its own merchants' portals under
-exactly the same rules (USERS-AND-DOMAINS §4.1), started from the store's page.
+**Partner console:** partners don't impersonate. Their support opens the merchant's portal
+through a read-only, consented support session (USERS-AND-DOMAINS §4.1), started from the
+store's page.
 
-- J1. Starts from a store, requires a reason (or a ticket number), and is time-limited (30
-  minutes by default *(confirm)*). Only possible while the merchant's *Support access*
-  setting is on; when it is off, support can only ask the merchant to switch it on.
-- J2. **Read-only by default**; write access for one session needs the merchant's approval
-  ("Allow" or "Deny" in their portal), and the elevation is logged.
-- J3. The portal shows a bright, unremovable banner to everyone signed in to that store:
-  "DripFunnel support (Priya) is viewing your store. Read-only. Ends in 28 min."
-- J4. The session appears in the merchant's *Support access log* and in the audit log; the
-  merchant is emailed when a session starts *(confirm)*. The exception for suspended stores
-  or legally required investigations is audited with the reason *(confirm)*.
-- J5. Impersonation never works on another staff account, and never changes passwords,
-  payment methods, payouts or ownership.
+Decided 2026-09-28 (USERS-AND-DOMAINS §4.2, ACCESS.md §8.1):
+
+- J1. **Impersonate** lists the users staff can sign in as: every partner user and every
+  store user (Owner, Manager, Staff, supplier admins and members), searchable by name or
+  email, filterable by partner, store and role. Never staff, never shoppers. The same action
+  is on each partner's Team tab and each store's Users tab.
+- J2. **Super admin and Support only**; re-authentication and a reason or ticket first; 30
+  minutes, no silent extension. **No consent needed**: the merchant's Support access setting
+  doesn't apply to staff.
+- J3. **Full access as the user**: the staff member sees and does exactly what that user can,
+  **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); those controls show disabled with "Only Priya can change this".
+  For a person in several stores (or several suppliers in one store), staff pick which one.
+- J4. An unremovable bar for the staff member ("You are signed in as Priya Mehta (Owner,
+  Mehta Textiles). Ends in 28 min. End now"), and a banner on the impersonated side for
+  everyone signed in to that store or partner console ("Support (Arjun) is signed in as
+  Priya. Ends in 28 min."). Always "Support", never "DripFunnel".
+- J5. Every action is logged as "Arjun as Priya" in the activity log, the store's or
+  partner's log, and the user's own activity.
 
 ### K. Provisioning and jobs
 
@@ -663,9 +670,7 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
   minimums? (§3 fact 20)
 - Can a partner hide DripFunnel completely (portal, emails, storefront, invoices), or is
   "Powered by" sometimes required?
-- **One login across brands**: when a person has stores under two brands, which look do they
-  see after sign-in, and may one brand's sign-in page list the other brand's stores? (§3
-  fact 5)
+- ~~One login across brands~~ **Settled**: accounts are per partner (§3 fact 5).
 - ~~Can a partner own several brands?~~ **Settled**: no; one partner has exactly one brand,
   one look and one portal host (USERS-AND-DOMAINS §2). Still open: can a brand span several
   countries and currencies?

@@ -19,6 +19,12 @@ mean the admin console at `admin.dripfunnel.com`.
 
 **Customer accounts are per store** (decided): a person who buys from two merchants has two
 separate customer accounts, because each is the merchant's customer, not the platform's.
+Each store chooses whether shoppers sign in by email, mobile number or both (decided
+2026-09-28, api/ACCESS.md §2.1).
+
+**Merchant and supplier accounts are per partner** (decided 2026-09-28): one login covers
+every store a person belongs to under one partner; the same email under another partner is
+a separate, unrelated account, so white label never leaks (api/ACCESS.md §2).
 
 ---
 
@@ -79,6 +85,8 @@ A partner **can**, for its own merchants only:
 - see and manage merchant accounts: plans, prices, limits and entitlements (including
   "Publish now" allowances), billing status, trials, suspend and restore;
 - see domain, provisioning and publishing status, and usage against the plan;
+- see **each store's aggregate sales and order count per month** in reports (decided
+  2026-09-28): totals only, never an order, customer or product;
 - **open a merchant's portal read-only for support**, under the consent rules in §4.1.
 
 A partner **can't**:
@@ -106,8 +114,34 @@ partner and merchant.
 - **Changing anything** (for example fixing a product for the merchant) needs the merchant's
   approval for that one session: support requests write access, the merchant clicks
   "Allow" or "Deny", and the elevation is logged.
-- **Admin** (DripFunnel staff) follows the same rules. A suspended or legally required
-  investigation is the only exception, and it's audited with the reason *(confirm)*.
+- These rules are for **partner support**. DripFunnel staff don't use support sessions; they
+  impersonate users (§4.2).
+
+### 4.2 Staff impersonation (decided 2026-09-28)
+
+- **DripFunnel staff can sign in as any partner user or any store user** (Owner, Manager,
+  Staff, supplier users), from the admin console, to see and do exactly what that person can.
+  Never as another staff member, never as a shopper.
+- **Full access as the user**: the staff member acts with that person's permissions,
+  including writes, **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). Those stay blocked even while impersonating, so
+  the real user can never be locked out and money can never be redirected.
+- **No consent needed**: it works whatever the merchant's Support access setting says. **The
+  platform's terms must say so**: partners' and merchants' terms state that DripFunnel
+  staff may sign in as their users for support, without asking (decided; exact wording by
+  legal).
+- **Only Super admin and Support** can start one, with a **reason or ticket**, after
+  re-authentication; it lasts **30 minutes**, with no silent extension.
+- **Visible**: the impersonated side sees a banner while it's open (every person signed in
+  to that store, or that partner's console): "Support (Arjun) is signed in as Priya. Ends in
+  28 min." Always "Support", never "DripFunnel", so white label holds. The staff member sees an unremovable bar
+  naming the user, the store or partner, and the time left.
+- **Customer accounts** (shoppers) are the one kind of store data staff also see directly,
+  read-only, in the admin console's Customers menu, without impersonating (decided
+  2026-09-28): contact details masked in lists, every detail view logged, never addresses,
+  order contents or payment details. Shoppers are never impersonated.
+- **Logged as both**: every action is recorded as "Arjun as Priya" (the user as actor, the
+  staff member as the real agent), on the platform activity log, the store's or partner's
+  log, and the user's own "My activity".
 
 ---
 

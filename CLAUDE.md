@@ -11,8 +11,8 @@
 - **Read narrowly**: start with `docs/README.md` and `docs/ARCHITECTURE.md`, then only the documents in the
   "Read first" table that the task touches, then only the source files it needs. Don't
   re-survey the whole repo for each task.
-- **References are read-only**: `../vendure-backend`, `../community-plugins`,
-  `../vendure-storefront-template` and `../df-store-archived` are for reading. Never edit
+- **References are read-only**: `../vendure-backend`, `../community-plugins` and
+  `../vendure-storefront-template` are for reading. Never edit
   them.
 - **Right place first**: in `apps/api`, put a change in the lowest layer it belongs to
   (docs/api/README.md §4). In an SPA, keep it in that app unless the other SPA needs

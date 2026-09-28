@@ -91,7 +91,8 @@ platform/
     ARCHITECTURE.md         this file
     USERS-AND-DOMAINS.md    users, sign-in hosts, onboarding, partner reach
     api/                    apps/api: README.md (guide), PLATFORM-PROMPT.md (engine),
-                            ACCESS.md (identity and roles), SAAS.md (platform layer)
+                            ACCESS.md (identity and roles), SAAS.md (platform layer),
+                            DATA-MODEL.md (tenancy, users, roles, RLS), LOGGING.md (activity log)
     ui/                     README.md (every SPA), then one folder per app:
       admin/                README.md, CONSOLE-DESIGN.md
       platform/             README.md
@@ -186,8 +187,11 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 ## 7. Observability and security
 
-- Workers logs and traces with request, partner, store and seller ids; Logpush to long-term
-  storage *(confirm destination)*; the platform metrics (build minutes, AI cost,
+- **Activity log**: every write and sign-in at every level, shoppers included, in an
+  append-only Postgres table, searchable per person in each console within its scope; 13
+  months online, 7 years archived on R2 (api/LOGGING.md).
+- Workers logs and traces with request, partner, store and seller ids and no personal data;
+  Logpush to long-term storage *(confirm destination)*; the platform metrics (build minutes, AI cost,
   provisioning success, time to first store).
 - Secrets in Workers secrets (or Cloudflare Secrets Store), never in the repo or a bundle.
   The one Worker holds every secret, so each is scoped to the least the provider allows.

@@ -5,9 +5,8 @@ The prompt for a design session on the **Catalogue** part of the merchant portal
 collections, filters, menus, import/export and the vendor side of all of it, plus
 multi-language and multi-currency listing and rich listings (A+ content, size charts,
 specifications, FAQs, legal information), all of which follow store settings and the billing
-plan. It was ported from
-[`../../../../df-store-archived/CATALOG-DESIGN-PROMPT.md`](../../../../df-store-archived/CATALOG-DESIGN-PROMPT.md)
-on 2026-09-28, with its Vendure facts replaced by engine facts: what our own commerce engine
+plan. It was ported from the first (Vendure-based) platform's
+CATALOG-DESIGN-PROMPT on 2026-09-28, with its Vendure facts replaced by engine facts: what our own commerce engine
 (`apps/api`, specified in [PLATFORM-PROMPT.md](../../api/PLATFORM-PROMPT.md)) must provide,
 and the product rules that hold whatever the engine looks like. Parts, scenario ids and fact
 numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") still resolve.
@@ -32,7 +31,7 @@ It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §3 D (flows 20–29) and the cata
 > The portal is a static SPA that talks only to the **Store API** (GraphQL, at `/api` on the
 > partner's portal host). Every screen renders in the **partner's look** (white label), so
 > never hard-code DripFunnel's brand, colours or name. Nothing is built in the new portal yet;
-> the archived portal's screens (sign-in, store settings, people, suppliers, warehouses) are
+> the first platform's portal's screens (sign-in, store settings, people, suppliers, warehouses) are
 > the visual baseline, and their look and words carry over unless the engine changes what they
 > can say. The left bar has **Products**, **Collections** (with three tabs: Collections,
 > Filters and Menus) and, when approval is on, **To approve**.
@@ -226,7 +225,7 @@ against them before relying on it, and fix this document where they differ.
     collections, with background recomputation (PLATFORM-PROMPT §5.4). Rules cover filter
     choices (any / all), product name contains, and specific products and versions.
     Collections nest. If a child collection can be limited to its parent's products (the
-    archived behaviour, "inherit parent's filters"; `(release: decide)` whether the engine keeps
+    the first platform's behaviour, "inherit parent's filters"; `(release: decide)` whether the engine keeps
     it), explain it as "Only show products that are also in [Parent]". Because contents are
     recomputed in the background, after saving show "Updating… 42 products so far", not a stale
     count.
@@ -278,7 +277,7 @@ against them before relying on it, and fix this document where they differ.
 
 ### Languages
 
-The archived portal specified Settings › Store info › Languages, including a per-language
+The first platform's portal specified Settings › Store info › Languages, including a per-language
 translation progress count; those screens are the baseline. The engine must store the store's
 main language and offered languages, and translations per language with fallback
 (PLATFORM-PROMPT §5.4).
@@ -324,7 +323,7 @@ main language and offered languages, and translations per language with fallback
 
 ### Currencies
 
-The archived portal specified Settings › Store info › Currencies: multi-currency on or off,
+The first platform's portal specified Settings › Store info › Currencies: multi-currency on or off,
 per-currency pricing (`convert` | `manual`), rounding (`none` | `nearest` | `ends-99`), rate
 source, and the rule that the pricing currency cannot change after the first order. The engine
 must store all of it per store, and enforce the pricing-currency lock.
@@ -423,7 +422,7 @@ must store all of it per store, and enforce the pricing-currency lock.
 These are a design starting point for a worldwide catalogue. The legal items are **not legal
 advice**: each must be confirmed by whoever owns compliance before the copy is final.
 
-36. **Store settings must be global, and the catalogue reads them.** The archived Settings ›
+36. **Store settings must be global, and the catalogue reads them.** The first platform's Settings ›
     Store info was shaped for India (PIN code, state code, GSTIN and PAN fields; delivery
     serviceability as a list of 6-digit PIN codes; one Indian courier; a mandatory HSN code).
     None of that carries over as a default. The engine's store must hold (PLATFORM-PROMPT §3.3):
@@ -568,7 +567,7 @@ per supplier.
 | **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Not shown |
 | **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown *(ask whether they may pick a collection)* | Their own products only *(ask)* |
 
-The navigation differs per role (the archived `nav.ts` model carries over, PLATFORM-PROMPT §7).
+The navigation differs per role (the first platform's `nav.ts` model carries over, PLATFORM-PROMPT §7).
 Vendors see "Your products".
 
 ---

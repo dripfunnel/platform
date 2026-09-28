@@ -9,7 +9,7 @@ Shoppers never see it; they see the store's storefront (docs/storefront/). DripF
 and partner users never sign in to it; they reach a store only through an audited, read-only
 support session (§6).
 
-**Status: skeleton** (sign-in and home routes). The archived portal built sign-up, sign-in,
+**Status: skeleton** (sign-in and home routes). The first platform's portal built sign-up, sign-in,
 store choice, invitations, profile and the eight Settings tabs; those screens are the visual
 baseline (PLATFORM-PROMPT §6).
 
@@ -54,8 +54,11 @@ under two minutes, and runs it here:
 | **Staff** | Handles orders and customers | Catalogue read-only |
 | **Vendor** ("Supplier" on screen) | A supplier the merchant invited, at one of four access levels | **Only their own** products, stock, warehouses and (by level) order lines |
 
-- **One person, one login, many stores.** A person can be Staff in one store and a vendor in
-  another, even under different partners. Every screen is scoped to one **acting store**;
+- **One person, one login, many stores, within this partner.** A person can be Staff in one
+  store and a vendor in another, and can work for several suppliers in the same store (the
+  store chooser then lists "Store · Supplier"), but is never both the merchant's staff and
+  a supplier in one store. One role per membership. Accounts belong to one partner: the same email under
+  another partner is a different account (ACCESS.md §2). Every screen is scoped to one **acting store**;
   when a person has more than one, the portal never picks for them, and the current store
   is always visible.
 - **Roles are fixed templates**; there is no role editor. Changing a role takes effect on
@@ -84,10 +87,17 @@ authoritative; this table must match it).
 | Settings (all tabs) | ✓ | | | | | |
 | Billing, plan prompts | ✓ | | | | | |
 | Own warehouses and stock | | | | ✓ | ✓ | ✓ |
+| Own supplier team (Supplier admin only) | | | | ✓ | ✓ | ✓ |
+| Activity log: whole store, shoppers included (Settings) | ✓ | *(confirm)* | | | | |
+| Activity on a customer's page | ✓ | ✓ | | | | |
+| Own activity (profile) | ✓ | ✓ | ✓ | ✓ *(proposed)* | ✓ *(proposed)* | ✓ *(proposed)* |
 | Your sales (own lines, **no totals**) | | | | | | ✓ |
 | To ship (fulfil own lines) | | | | | | ✓ |
 
-Keys: `owner`, `manager`, `staff`, `vendor-stock`, `vendor-catalogue`, `vendor-orders-fulfil`.
+Keys: `owner`, `manager`, `staff`; supplier access levels `vendor-stock`, `vendor-catalogue`,
+`vendor-orders-fulfil`, set by the merchant **per supplier**. Inside a supplier, its own
+team roles: **Supplier admin** (manages the supplier's team) and **Supplier member**
+*(proposed, DATA-MODEL.md §4.2)*.
 A fourth vendor tier, `vendor-orders-read` (own sales, no fulfilment), is defined but not
 offered on the Suppliers screen (ACCESS.md §5).
 
@@ -98,7 +108,7 @@ publish the storefront, billing, settings.
 
 ## 4. Navigation
 
-Rows per role, from the archived portal's navigation (kept as the design baseline). Items a
+Rows per role, from the first platform's portal's navigation (kept as the design baseline). Items a
 role can't use are **absent**.
 
 | Role | Rows |
@@ -109,6 +119,7 @@ role can't use are **absent**.
 | **Vendor · Stock only / Products and stock** (1) | Your products |
 | **Vendor · + read-only orders** (2) | Your products · Your sales |
 | **Vendor · + their orders** (3) | To ship · Your products · Your sales |
+| + **Supplier admin**, any level | + Your team |
 
 ¹ Only when the store requires approval; badge = products waiting.
 ² Hidden on plans without vendors; shown with zero vendors, because the empty state is how
@@ -120,7 +131,8 @@ the feature is found.
   in Settings too.
 - **Collections, Filters and Menus** are three tabs of one destination.
 - Settings tabs, in order: Store info, People, Supplier, Payment setup, Shipping,
-  Warehouse, Tax setup, Custom domain, then Developers and Support access (new).
+  Warehouse, Tax setup, Custom domain, then Customer accounts (email, mobile or both for
+  shopper sign-in, ACCESS.md §2.1), Developers, Support access and Activity log (new).
 - Where vendors manage their own warehouses *(decide)*; the merchant sees them in the
   Warehouse tab in a labelled group but can't rename or remove them.
 
@@ -141,6 +153,7 @@ the feature is found.
 | Store settings | I, 54–58 | CATALOG-DESIGN part T (tax, regions) |
 | Billing | J, 59–64 | SAAS.md §4, §7 |
 | Cross-cutting states | K, 65–69 | §7 below; ../README.md §6 |
+| Activity log: store log, customer activity, own activity | new | ../../api/LOGGING.md §6–7 |
 | Added by the new platform | L, 70+ | DESIGN-BRIEF §3 L |
 
 ---
@@ -216,4 +229,4 @@ they change this portal:
 - Vendors: import/export, translations, other-currency prices, collections?
 - 2-factor for Owners only, or everyone.
 - Whether past due blocks sign-in, and what happens to the store's vendors.
-- A person with stores under two partners: which look after sign-in?
+- Shopper sign-in options may be limited by the partner's plans? (ACCESS.md §2.1)

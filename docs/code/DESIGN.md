@@ -66,12 +66,11 @@ How modules are written, so the codebase reads as one. Read with
 - **Composition over configuration**: small components that compose (`Field`, `Label`,
   `Input`, `Hint`, `Error`) rather than one component with forty props.
 - **Every component has its states**: empty, loading (skeleton), error, disabled with a reason,
-  read-only. The archived portal's `?state=` approach, which makes every designed state
+  read-only. The first platform's portal's `?state=` approach, which makes every designed state
   reachable without a backend, is a shared helper.
 - **Words are props, never baked in**: every string comes from the app's messages, so the
   portal can be translated and rebranded.
-- Built on the archived portal's components and `../../../.design/settings-tabs.html` as the
-  visual baseline (PLATFORM-PROMPT §6).
+- `../../../.design/settings-tabs.html` is the visual baseline (PLATFORM-PROMPT §6).
 
 ## 6. `storefront-core`
 

@@ -1,9 +1,8 @@
 # DESIGN-BRIEF.md: the merchant portal
 
 The prompt to give Claude when designing the **merchant portal** (`apps/ui/store`), plus the
-full list of flows to work through one at a time. It was ported from
-[`../../../../df-store-archived/DESIGN-BRIEF.md`](../../../../df-store-archived/DESIGN-BRIEF.md)
-on 2026-09-28, with its Vendure facts replaced by facts about our own headless engine
+full list of flows to work through one at a time. It was ported from the
+first (Vendure-based) platform's DESIGN-BRIEF on 2026-09-28, with its Vendure facts replaced by facts about our own headless engine
 ([`../../api/PLATFORM-PROMPT.md`](../../api/PLATFORM-PROMPT.md) §6). Users, flows 1–69, their
 numbers and section letters are kept so that citations such as "flow 58" or "§E" stay valid;
 new flows start at 70 in part L. Where this document disagrees with
@@ -19,8 +18,8 @@ Paste §1 to start a design session, then name a flow from §3.
 ## 1. The prompt
 
 > You are designing the **DripFunnel merchant portal**: the web app merchants and
-> vendors use to run their store. It is a new build on a new engine; the archived portal's
-> screens are the visual baseline, but nothing in this repo is built yet.
+> vendors use to run their store. It is a new build on a new engine; the visual baseline is
+> `.design/settings-tabs.html`, but nothing in this repo is built yet.
 >
 > **Read these first.** They are the specification, and they settle questions you
 > would otherwise have to guess at:
@@ -54,8 +53,8 @@ Paste §1 to start a design session, then name a flow from §3.
 > **Fourteen facts that shape the interface.** These are not implementation trivia:
 > each one changes what a screen must show.
 >
-> 1. **A person can belong to several stores at once**, and can be staff in
->    one and a vendor in another. Every screen is scoped to one store, and
+> 1. **A person can belong to several stores at once** under the same partner, and can be
+>    staff in one and a vendor in another (under another partner it is a separate account). Every screen is scoped to one store, and
 >    the app must never pick for them when more than one is available. There is a
 >    store switcher, and the current one must always be visible.
 > 2. **Vendors and staff appear in the same user list** and must be visually
@@ -131,6 +130,7 @@ Paste §1 to start a design session, then name a flow from §3.
 | **Supplier · Products and stock** | `vendor-catalogue` | Supplies products and their stock. Never sees orders. | Merchant portal |
 | **Supplier · Products, stock and their orders** | `vendor-orders-fulfil` | As above, plus sees and fulfils their own order lines. | Merchant portal |
 | **Supplier · Read-only orders** (defined, not offered) | `vendor-orders-read` | As Products and stock, plus sees which of their products sold, without fulfilling. Not offered in the Supplier tab today. | Merchant portal |
+| **Supplier admin / Supplier member** (team roles, *proposed*) | `supplier-admin`, `supplier-member` | Inside one supplier, at whatever access level the merchant set: the admin also manages the supplier's own team; the member doesn't. The merchant's first invited supplier user is its admin. | Merchant portal |
 | **DripFunnel staff and partner users** | Admin: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only. Partner: Owner, Admin, Support, Finance, Read-only (proposed) | Staff run the platform from the **admin console** (`admin.dripfunnel.com`); partner users manage their merchants at account level from the **partner console** (`platform.dripfunnel.com`). Neither signs in to the merchant portal. They reach a store only through audited, read-only support access that the Owner controls ([USERS-AND-DOMAINS](../../USERS-AND-DOMAINS.md) §4.1; flow 79). | Admin console / partner console, **not** this portal |
 
 Roles are fixed templates, permission sets in code. There is no role editor, and nothing is
@@ -140,15 +140,15 @@ cloned per store.
 
 ## 3. The flows
 
-**Nothing in this repo is built yet.** Where a flow is marked *Built in the archived portal*,
-the archived portal had working screens for it, and those screens (the archive's `src/client/`
-and [`../../../../.design/settings-tabs.html`](../../../../.design/settings-tabs.html)) are the
+**Nothing in this repo is built yet.** Where a flow is marked *Built in the first platform*,
+the first platform had working screens for it; their design survives in
+[`../../../../.design/settings-tabs.html`](../../../../.design/settings-tabs.html), which is the
 visual baseline: keep their look and words unless the engine changes what they can say
 (PLATFORM-PROMPT §6). That covers flows 1–13 (§A *Getting in* and §B *People*), flows 14–19
 (§C *Vendors*, bar the vendor's own product list), flows 30–32 (§E, the warehouse list and its
 default) and flows 54–58 (§I *Store settings*, including the custom domain).
 
-Two structural decisions from the archived Settings design (`Portal G Settings Tabs`) carry
+Two structural decisions from the first platform's Settings design (`Portal G Settings Tabs`) carry
 over:
 
 - **People is a Settings tab, not a screen with its own nav row.** Owner's left bar is 11 rows.
@@ -160,7 +160,7 @@ line says who it is for and the thing most likely to be missed.
 
 ### A. Getting in
 
-*Built in the archived portal; its screens are the visual baseline (PLATFORM-PROMPT §6).*
+*Built in the first platform; its screens are the visual baseline (PLATFORM-PROMPT §6).*
 
 1. **Sign up / store provisioning**: new merchant, on their partner's portal host and in
    the partner's look. Under two minutes, no staff. Needs a genuine progress state and a
@@ -181,7 +181,7 @@ line says who it is for and the thing most likely to be missed.
 
 ### B. People
 
-*Built in the archived portal; its screens are the visual baseline (PLATFORM-PROMPT §6).*
+*Built in the first platform; its screens are the visual baseline (PLATFORM-PROMPT §6).*
 
 8. **User list**: Owner. Staff and vendors together, visibly distinct, with
    pending invitations shown alongside active people.
@@ -196,7 +196,7 @@ line says who it is for and the thing most likely to be missed.
 
 ### C. Vendors
 
-*Flows 14–19: built in the archived portal; its screens are the visual baseline
+*Flows 14–19: built in the first platform's portal; its screens are the visual baseline
 (PLATFORM-PROMPT §6).*
 
 14. **Vendor list**: Owner. Each vendor's access level and product count.
@@ -235,7 +235,7 @@ line says who it is for and the thing most likely to be missed.
 
 ### E. Inventory and warehouses
 
-*Flows 30–32: built in the archived portal; its screens are the visual baseline
+*Flows 30–32: built in the first platform's portal; its screens are the visual baseline
 (PLATFORM-PROMPT §6).*
 
 30. **Warehouse list**: merchant sees every warehouse in their store with its
@@ -268,7 +268,7 @@ line says who it is for and the thing most likely to be missed.
 39. **What a vendor may see of a customer**: they need a delivery address to ship;
     they should not have email or phone (settled, see §4). Design 37 with that rule.
 40. **Customer list and detail**: merchant only.
-41. **Refunds, cancellations and returns**: undesigned in the archive, deliberately,
+41. **Refunds, cancellations and returns**: undesigned in the first platform, deliberately,
     because they span several vendors and need a decision before any screen exists. The
     engine must design them or scope them out explicitly (PLATFORM-PROMPT §5.4); see flow 71.
 
@@ -307,7 +307,7 @@ catalogue publishing status (flow 80) only where it applies.
 
 ### I. Store settings
 
-*Built in the archived portal; its screens are the visual baseline (PLATFORM-PROMPT §6).* It
+*Built in the first platform; its screens are the visual baseline (PLATFORM-PROMPT §6).* It
 had eight tabs (`Portal G Settings Tabs`): Store info, People, Supplier, Payment setup,
 Shipping, Warehouse, Tax setup, and custom domain (58). The new platform adds Settings ›
 Developers (flow 76) and Settings › Support access (flow 78).
@@ -389,20 +389,29 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     app can see; the consent screen must say in plain words what the app can read and
     change, and uninstall must say what stops working *(ask: embedded pages or links
     only, and where Apps sits in the nav)*.
-78. **Vendor's own API key**: vendor, if allowed *(ask)*. A key for their stock or
+78. **Vendor's own API key** (*later*, decided 2026-09-28): Supplier admin. A key for their stock or
     catalogue integration, bound to their own `seller_id` and never more than their tier
     allows; the merchant must be able to see and revoke it.
 79. **Settings › Support access and the support-session banner**: Owner for the setting,
     everyone for the banner. "Allow [partner name] support to view my store: On / Off" (on
     by default), the Support access log, and the banner every signed-in person sees while a
     read-only support session is open, with the "Allow / Deny" prompt when support asks for
-    write access (USERS-AND-DOMAINS §4.1).
+    write access (USERS-AND-DOMAINS §4.1). Easy to miss: the setting covers the partner's
+    support only; the screen must say that DripFunnel staff can still sign in as a user
+    for support, and show the banner the store sees when they do (USERS-AND-DOMAINS §4.2).
 80. **Catalogue "Publish now" and publishing status**: Owner (and Manager *(ask)*), for a
     store with an AI storefront. What is waiting ("12 products changed since 10:40"),
     publishes left this month, when the next automatic publish is due, and a real status
     (queued, building, deploying, live, failed); a failed build keeps the old live site and
     never uses up an allowance, and at zero the button explains itself
     ([storefront ARCHITECTURE](../../storefront/ARCHITECTURE.md) §4.2).
+81. **Customer accounts**: Owner. Settings › Customer accounts: shoppers sign in by email,
+    mobile number or both (ACCESS.md §2.1). Easy to miss: what happens to existing customers
+    when the choice changes.
+82. **Supplier team**: Supplier admin. Invite colleagues into their own supplier, choose
+    Supplier admin or member, resend, remove. Easy to miss: they can never grant more than
+    the access level the merchant set, the merchant's Owner still sees and can remove every
+    supplier user, and a supplier can't lose its last admin (DATA-MODEL.md §4.2).
 
 ---
 
@@ -413,7 +422,7 @@ will probably settle them; flag them when you hit one rather than assuming:
 
 - ~~What a vendor may see of a customer (flow 39).~~ **Settled:** name and delivery address
   to ship, not email or phone, applied in the engine's serializer rather than the UI
-  (PLATFORM-PROMPT §5.4, from archived AUTH-PLAN §8.5).
+  (PLATFORM-PROMPT §5.4, from the first platform's AUTH-PLAN §8.5).
 - Whether editing an approved product sends it back for re-approval, which would
   let a vendor pull a live product off the storefront by editing it (flow 23).
 - What happens to a removed or suspended vendor's products (flow 17).
@@ -421,27 +430,27 @@ will probably settle them; flag them when you hit one rather than assuming:
   returns and cancellations across vendors are in the first release (flows 41, 71;
   PLATFORM-PROMPT §10).
 - ~~Whether the portal remembers the last store or asks every time (flow 3).~~ **Settled by
-  the archived build:** the portal remembers the last store and offers it as one button with
+  the first platform's build:** the portal remembers the last store and offers it as one button with
   the full list underneath, an offer rather than a choice made for the person; one membership
   skips the screen. The remembered id is a client-side convenience only; the server checks
-  the acting store against the session's memberships on every request (archived AUTH-PLAN
+  the acting store against the session's memberships on every request (the first platform's AUTH-PLAN
   §3.2 and its settled questions, now [ACCESS.md](../../api/ACCESS.md)).
 - Whether two-factor authentication applies to Owners only or everyone (flow 13).
 - ~~Whether a vendor may create their own warehouses, or the merchant creates them on
-  the vendor's behalf (flow 31).~~ **Settled by the archived Settings design and build:** a
+  the vendor's behalf (flow 31).~~ **Settled by the first platform's Settings design and build:** a
   supplier's locations are the supplier's. The merchant sees them in the Warehouse tab, in
   their own labelled group (they need to know where their catalogue ships from) but cannot
   rename or remove one, and supplier locations are never offered as the default for new
   products, because a supplier product is stocked by its supplier.
 - Whether stock can move between warehouses at all (flows 35, 73).
-- Whether the archive's one-active-shipping-method rule survives (flow 54).
+- Whether the first platform's one-active-shipping-method rule survives (flow 54).
 - How the portal offers the AI-or-own storefront choice, and whether plans differ (flow 75;
   PLATFORM-PROMPT §5.6, §10).
-- Whether vendors can have their own API keys (flow 78; PLATFORM-PROMPT §10).
+- ~~Whether vendors can have their own API keys~~: later (flow 78; ACCESS.md §5.6).
 - Apps: embedded UI in the portal or links only (flow 77; PLATFORM-PROMPT §5.5).
 - Support session length and the email notice when a session starts (flow 79;
   USERS-AND-DOMAINS §4.1, §7).
-- A person with stores under two partners: which look do they see after sign-in (flows 2–4;
-  PLATFORM-PROMPT §10).
+- ~~A person with stores under two partners: which look?~~ **Settled 2026-09-28**: accounts
+  are per partner, so each partner's portal is a separate account (ACCESS.md §2).
 - Does past due block sign-in, and what happens to that store's vendors (flows 62, 68;
   PLATFORM-PROMPT §10).
