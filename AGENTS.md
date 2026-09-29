@@ -66,6 +66,12 @@ Run the gates before reporting a change as done.
   logic belongs in `storefront-core`, never in the template.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
+- **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →
+  `apps/ui/store`, `DF Platform Prototype` → `apps/ui/platform`, `DF Admin Prototype` →
+  `apps/ui/admin`), the public pricing page with what each plan includes, and the style
+  guide the `--df-*` tokens come from. `designs/design.md` maps every screen to its file.
+  `docs/` decides scope and rules; the prototype decides behaviour — layout, states,
+  interactions, wording, the order of steps in a flow.
 
 ## Area rules
 
@@ -81,6 +87,9 @@ Run the gates before reporting a change as done.
 **The SPAs (`apps/ui/store`, `apps/ui/platform`, `apps/ui/admin`)**
 - Static SPAs with no server code. They talk only to their API at `/api` on the same
   hostname, through `@dripfunnel/shared/graphql`.
+- **Open the screen in its prototype before building it** (`designs/`, docs/ui/README.md
+  §7 step 1), and check `designs/MISSING-FEATURES.md` and `designs/INCOMPLETE-FEATURES.md`
+  so you don't implement a dead end.
 - Every portal screen renders in its partner's look (white label) using `shared/ui`
   tokens. The consoles at `platform.dripfunnel.com` and `admin.dripfunnel.com` are
   DripFunnel-branded for every user.

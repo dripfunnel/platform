@@ -14,6 +14,14 @@
 - **Right place first**: in `apps/api`, put a change in the lowest layer it belongs to
   (docs/api/README.md §4). In an SPA, keep it in that app unless the other SPA needs
   it too, then move it to `apps/ui/shared/` and say so.
+- **UI work opens `designs/` first.** Before building or changing any screen, component or
+  style, read the app's prototype (`DF Store` → `apps/ui/store`, `DF Platform` →
+  `apps/ui/platform`, `DF Admin` → `apps/ui/admin`; `designs/design.md` maps every screen
+  to its file) and `DripFunnel Style Guide.dc.html` for anything touching colour, type,
+  spacing, radius or a component's look. Check the screen in `designs/MISSING-FEATURES.md`
+  and `designs/INCOMPLETE-FEATURES.md` so you don't build a dead end. The prototype decides
+  **behaviour**; `docs/` decides **scope and rules** (docs/README.md §3). When they disagree
+  about behaviour, ask. Name in your reply which prototype and which of its screens you read.
 - **Done means verified**: run the commands in AGENTS.md "Commands" before saying a change
   works, and report each one's result. If you couldn't run something, say that.
 - **Stop at the diff**: no commits, branches or pushes unless the user asks in that

@@ -13,6 +13,12 @@ support session (§6).
 store choice, invitations, profile and the eight Settings tabs; those screens are the visual
 baseline (PLATFORM-PROMPT §6).
 
+**The prototype is `designs/DF Store Prototype.dc.html`** — open it in a browser and click
+through the screen you are building before you build it; its Role, Plan, Region and Scenario
+controls reach the states. `designs/DF Store Pricing.dc.html` says what each plan includes,
+which is what the portal's plan gates and upgrade prompts follow. The prototype decides
+**behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
+
 Last updated: 2026-09-28.
 
 | Document | Covers |

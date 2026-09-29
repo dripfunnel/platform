@@ -15,6 +15,12 @@ partner** (the house partner) and uses this console exactly like the others.
 part of the admin console's design marks its partner counterpart, and this guide lists
 them (§5).
 
+**The prototype is `designs/DF Platform Prototype.dc.html`** — open it in a browser and click
+through the screen you are building before you build it; its Partner control carries the
+live, draft, awaiting and sent-back cases. With no design document of its own, this console's
+prototype is the most detailed design it has. The prototype decides **behaviour**, `docs/`
+decides **scope and rules** ([../../README.md](../../README.md) §3).
+
 Last updated: 2026-09-29.
 
 The design prompt for Claude Design is [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md).

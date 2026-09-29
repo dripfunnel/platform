@@ -12,6 +12,12 @@ platform; there is no other operations console.
 **Status: skeleton** (sign-in and home routes). The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
+**The prototype is `designs/DF Admin Prototype.dc.html`** — open it in a browser and click
+through the screen you are building before you build it. It has Dashboard, Partners, Stores,
+Customers, Approvals, Provisioning, Impersonate, Activity log and Staff; the first release
+ships only what [FIRST-RELEASE.md](FIRST-RELEASE.md) §2 lists. The prototype decides
+**behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
+
 Last updated: 2026-09-29.
 
 | Document | Covers |
