@@ -1,4 +1,4 @@
 import postgres from 'postgres'
-import type { Config } from '#core/config'
 
-export const getClient = (config: Config): postgres.Sql => postgres(config.HYPERDRIVE.connectionString, { max: 5, fetch_types: false })
+export const getClient = (hyperdrive: { connectionString: string }, opts?: { max?: number }): postgres.Sql =>
+  postgres(hyperdrive.connectionString, { max: opts?.max ?? 5, fetch_types: false })

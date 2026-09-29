@@ -6,19 +6,29 @@ const env = {
   PLATFORM_HOST: 'platform.dripfunnel.com',
   HOOKS_HOST: 'hooks.dripfunnel.com',
   HYPERDRIVE: { connectionString: 'not-a-postgres-url' },
+  HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
+const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 const call = (href: string, init?: RequestInit) =>
-  worker.fetch(new Request(href, init) as Parameters<typeof worker.fetch>[0], env)
+  worker.fetch(new Request(href, init) as Parameters<typeof worker.fetch>[0], env, ctx)
 
 const query = (href: string) =>
   call(href, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{ health }' }) })
 
 describe('worker', () => {
-  it('reports health per area, returning ok: false on a misconfigured database', async () => {
+  it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
     const response = await call('https://platform.dripfunnel.com/api/health')
+    expect(response.status).toBe(503)
     expect(await response.json()).toEqual({ ok: false, area: 'platform' })
     const admin = await call('https://admin.dripfunnel.com/api/health')
+    expect(admin.status).toBe(503)
     expect(await admin.json()).toEqual({ ok: false, area: 'admin' })
+  })
+
+  it('rate-limits /health', async () => {
+    const limited = { ...env, HEALTH_RATE_LIMITER: { limit: async () => ({ success: false }) } }
+    const response = await worker.fetch(new Request('https://platform.dripfunnel.com/api/health') as Parameters<typeof worker.fetch>[0], limited, ctx)
+    expect(response.status).toBe(429)
   })
 
   it('answers GraphQL on each API', async () => {

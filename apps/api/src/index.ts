@@ -16,13 +16,22 @@ const servers = {
 
 const notFound = () => new Response('Not found', { status: 404 })
 
+interface Env extends Record<string, unknown> {
+  HEALTH_RATE_LIMITER: RateLimit
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
     const config = parseConfig(env)
     const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
-    if (url.pathname.endsWith('/health')) return Response.json({ ok: await checkHealth(config), area })
+    if (url.pathname.endsWith('/health')) {
+      const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: request.headers.get('cf-connecting-ip') ?? 'unknown' })
+      if (!success) return new Response('Too many requests', { status: 429 })
+      const ok = await checkHealth(config, ctx)
+      return Response.json({ ok, area }, { status: ok ? 200 : 503 })
+    }
     return servers[area].fetch(request)
   },
-} satisfies ExportedHandler<Record<string, unknown>>
+} satisfies ExportedHandler<Env>

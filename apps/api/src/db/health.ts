@@ -11,10 +11,16 @@ export const ping = async (sql: postgres.Sql): Promise<boolean> => {
   }
 }
 
-export const checkHealth = async (config: Config): Promise<boolean> => {
+export const checkHealth = async (config: Config, ctx: ExecutionContext): Promise<boolean> => {
+  const { HYPERDRIVE } = config
+  if (!HYPERDRIVE) return false
+  let sql: postgres.Sql | undefined
   try {
-    return await ping(getClient(config))
+    sql = getClient(HYPERDRIVE, { max: 1 })
+    return await ping(sql)
   } catch {
     return false
+  } finally {
+    if (sql) ctx.waitUntil(sql.end())
   }
 }

@@ -51,6 +51,11 @@ export default tseslint.config(
       'no-restricted-globals': ['error', { name: 'process', message: 'Bindings arrive through env; never read process.env.' }],
     },
   },
+  {
+    files: ['apps/api/src/**/*.test.ts'],
+    languageOptions: { globals: { ...globals.node } },
+    rules: { 'no-restricted-globals': 'off' },
+  },
   ...apiLayers.map(([layer, allowed]) => ({
     files: [`apps/api/src/${layer}/**/*.ts`],
     rules: {
