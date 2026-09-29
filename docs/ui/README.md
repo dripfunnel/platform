@@ -138,20 +138,26 @@ screen file's header comment. The helper lives in `shared/ui` once a second app 
 
 ## 7. How to add a screen
 
-1. Find the flow or part in the app's design document (for example
+1. **Open the screen in its prototype** and click through it: the entry files are listed in
+   [../../designs/design.md](../../designs/design.md), which maps every screen to its file,
+   and the prototype controls let you reach each state. Check the screen's entries in
+   `designs/MISSING-FEATURES.md` and `designs/INCOMPLETE-FEATURES.md` so you don't build a
+   dead end. The prototype decides **behaviour**; `docs/` decides **scope and rules**
+   ([../README.md](../README.md) §3).
+2. Find the flow or part in the app's design document (for example
    [store/DESIGN-BRIEF.md](store/DESIGN-BRIEF.md) flow 21, or
    [admin/CONSOLE-DESIGN.md](admin/CONSOLE-DESIGN.md) part I). If it isn't specified, ask.
-2. Check the roles that may see it in the app's guide (and docs/api/ACCESS.md §5).
-3. Add the API operations in `src/api/<area>.ts`. If the API lacks a field, add it in
+3. Check the roles that may see it in the app's guide (and docs/api/ACCESS.md §5).
+4. Add the API operations in `src/api/<area>.ts`. If the API lacks a field, add it in
    `apps/api` first (docs/api/README.md §6) and regenerate the schema.
-4. Add the screen in `src/features/<area>/`, its words in `messages/`, and every state (§6).
-5. Add the route file in `src/routes/_app/...` rendering the screen, and the nav row in
+5. Add the screen in `src/features/<area>/`, its words in `messages/`, and every state (§6).
+6. Add the route file in `src/routes/_app/...` rendering the screen, and the nav row in
    `src/nav.ts` for the roles that may use it.
-6. Reuse from `shared/ui` first; if you write something a second app already has, move it
+7. Reuse from `shared/ui` first; if you write something a second app already has, move it
    to `shared/` in the same change and say so.
-7. Tests: unit tests for any logic (formatting, state mapping, nav per role); a Playwright
+8. Tests: unit tests for any logic (formatting, state mapping, nav per role); a Playwright
    journey for key flows *(planned: `test:e2e`)*.
-8. Run `pnpm turbo run build typecheck lint test`.
+9. Run `pnpm turbo run build typecheck lint test`.
 
 ---
 

@@ -75,9 +75,34 @@ docs/
     DESIGN.md               what the AI may design and the rules every design keeps
 ```
 
+**Outside `docs/`, at the repo root, is [`designs/`](../designs/design.md)**: one clickable
+prototype per portal, plus a pricing page and the style guide. All dummy data, no backend.
+Open the entry file in a browser.
+
+| File | Is | For |
+|---|---|---|
+| `designs/DF Store Prototype.dc.html` | Merchant portal | `apps/ui/store` |
+| `designs/DF Platform Prototype.dc.html` | Partner console | `apps/ui/platform` |
+| `designs/DF Admin Prototype.dc.html` | Admin console | `apps/ui/admin` |
+| `designs/DF Store Pricing.dc.html` | Public pricing page: the plans, what each one includes, the feature comparison, FAQ, month/year toggle | Plan limits and entitlements ([api/SAAS.md](api/SAAS.md)), and any screen that gates a feature by plan |
+| `designs/DripFunnel Style Guide.dc.html` | The brand specimen: colour, type, buttons, forms, cards, badges, icons, light and dark | The `--df-*` tokens in `apps/ui/shared/ui/tokens.css` |
+
+[`designs/design.md`](../designs/design.md) maps every screen to its file.
+[`MISSING-FEATURES.md`](../designs/MISSING-FEATURES.md) and
+[`INCOMPLETE-FEATURES.md`](../designs/INCOMPLETE-FEATURES.md) say what the prototypes leave
+out or leave half-done — read the relevant entry before building a screen, so you don't
+implement a dead end.
+
 **Precedence**: `ARCHITECTURE.md` and `USERS-AND-DOMAINS.md` win wherever another document
 disagrees. Then the specs (`api/*.md`, `storefront/ARCHITECTURE.md`), then the guides, then
 the design prompts.
+
+**The prototypes and the docs answer different questions** (decided 2026-09-29). `docs/`
+decides **scope and rules**: what is in a release, who may see it, what the server enforces.
+The prototype decides **behaviour**: layout, states, interactions, wording, and the order of
+steps in a flow. So when a prototype shows a screen this release doesn't include, the doc
+wins and the screen waits; when a screen is in the release, it is built to match the
+prototype. If the prototype and a doc disagree about *behaviour*, ask — don't pick one.
 
 ---
 
@@ -95,13 +120,13 @@ touch.
 | Engine, commerce modules, public APIs | [api/PLATFORM-PROMPT.md](api/PLATFORM-PROMPT.md) |
 | Sign-in, sessions, roles, permissions, invitations, vendors, support access | [api/ACCESS.md](api/ACCESS.md) |
 | Tables, tenancy, where users and roles are stored, row-level security | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
-| Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md) |
+| Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md), and `designs/DF Store Pricing.dc.html` for what each plan includes |
 | Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
-| Any SPA code | [ui/README.md](ui/README.md), then the app's guide |
-| Merchant portal screens | [ui/store/](ui/store/README.md), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md) |
-| Partner console screens | [ui/platform/](ui/platform/README.md), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines |
-| Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) |
-| Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md) |
+| Any SPA code | [ui/README.md](ui/README.md), then the app's guide, then the screen in its prototype ([../designs/design.md](../designs/design.md)) |
+| Merchant portal screens | [ui/store/](ui/store/README.md), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
+| Partner console screens | [ui/platform/](ui/platform/README.md), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
+| Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md), and `designs/DF Admin Prototype.dc.html` |
+| Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md), and `designs/DripFunnel Style Guide.dc.html` for the tokens themselves |
 | Storefront template, `storefront-core`, AI design | [storefront/ARCHITECTURE.md](storefront/ARCHITECTURE.md), [storefront/DESIGN.md](storefront/DESIGN.md), [code/ARCHITECTURE.md](code/ARCHITECTURE.md) §5 |
 
 ---
