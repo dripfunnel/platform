@@ -1,6 +1,13 @@
-import type postgres from 'postgres'
-import { describe, expect, it, vi } from 'vitest'
+import postgres from 'postgres'
+import { afterAll, describe, expect, it } from 'vitest'
 import { assertExtensionsAvailable, requiredExtensions } from './extensions'
+
+const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
+const sql = postgres(DATABASE_URL, { max: 1 })
+
+afterAll(async () => {
+  await sql.end()
+})
 
 describe('requiredExtensions', () => {
   it('extracts extension names from create extension statements', () => {
@@ -20,18 +27,14 @@ describe('requiredExtensions', () => {
 
 describe('assertExtensionsAvailable', () => {
   it('passes when nothing is required', async () => {
-    const sql = vi.fn() as unknown as postgres.Sql
     await expect(assertExtensionsAvailable(sql, [])).resolves.toBeUndefined()
-    expect(sql).not.toHaveBeenCalled()
   })
 
   it('throws naming a missing extension and how to install it', async () => {
-    const sql = vi.fn().mockResolvedValue([]) as unknown as postgres.Sql
-    await expect(assertExtensionsAvailable(sql, ['pgcrypto'])).rejects.toThrow(/pgcrypto/)
+    await expect(assertExtensionsAvailable(sql, ['not_a_real_extension'])).rejects.toThrow(/not_a_real_extension/)
   })
 
   it('passes when the required extension is available', async () => {
-    const sql = vi.fn().mockResolvedValue([{ name: 'pgcrypto' }]) as unknown as postgres.Sql
-    await expect(assertExtensionsAvailable(sql, ['pgcrypto'])).resolves.toBeUndefined()
+    await expect(assertExtensionsAvailable(sql, ['plpgsql'])).resolves.toBeUndefined()
   })
 })

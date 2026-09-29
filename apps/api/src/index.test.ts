@@ -23,10 +23,18 @@ describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
     const response = await call('https://platform.dripfunnel.com/api/health')
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ ok: false, area: 'platform' })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down' })
     const admin = await call('https://admin.dripfunnel.com/api/health')
     expect(admin.status).toBe(503)
-    expect(await admin.json()).toEqual({ ok: false, area: 'admin' })
+    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down' })
+  })
+
+  it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
+    const withoutHyperdrive = { ADMIN_HOST: env.ADMIN_HOST, PLATFORM_HOST: env.PLATFORM_HOST, HOOKS_HOST: env.HOOKS_HOST, HEALTH_RATE_LIMITER: env.HEALTH_RATE_LIMITER }
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured' })
   })
 
   it('rate-limits /health', async () => {
@@ -46,6 +54,17 @@ describe('worker', () => {
       const response = await query(href)
       expect(await response.json()).toEqual({ data: { health: 'ok' } })
     }
+  })
+
+  it('returns 500 without a payload when required config is missing', async () => {
+    const broken = { ...env, PLATFORM_HOST: undefined }
+    const response = await worker.fetch(
+      new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } }) as Parameters<typeof worker.fetch>[0],
+      broken,
+      ctx,
+    )
+    expect(response.status).toBe(500)
+    expect(await response.text()).toBe('')
   })
 
   it('returns 404 outside the known routes', async () => {

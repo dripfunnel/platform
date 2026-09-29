@@ -250,9 +250,11 @@ read it from a global.
 last one committed), reviewed SQL only, backward-compatible with the running release. Run
 `pnpm --filter ./apps/api migrate` (needs `DATABASE_URL` in the environment, e.g. `set -a;
 source .dev.vars; set +a`) to apply every pending file in order against your local database;
-it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Global"
-rule 3). Applied migrations are recorded in the `schema_migrations` table so re-running is
-a no-op.
+it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
+with the user" rule 3). Each file runs inside its own transaction, so statements that
+cannot run in one (`create index concurrently`, `alter type ... add value`) must be their
+own migration file with no other statements. Applied migrations are recorded in the
+`schema_migrations` table so re-running is a no-op.
 
 ---
 
@@ -301,12 +303,13 @@ required extension is installed on the server before applying anything
 (`scripts/migrate/extensions.ts`) and fails with the missing extension's name and how to
 install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partially applying.
 
-This is local only (AGENTS.md "Global" rule 3): nothing in `.dev.vars.example` or
-`wrangler.jsonc` ever points at `dbpg01.softobotics.org`.
+This is local only (AGENTS.md "Working with the user" rule 3): nothing in
+`.dev.vars.example` or `wrangler.jsonc` ever points at `dbpg01.softobotics.org`.
 
-`pnpm test` needs this same database up: `src/db/health.test.ts` and
-`scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
-default above when unset), the way CI's `postgres:17` service does (`.github/workflows/ci.yml`).
+`pnpm test` needs this same database up: `scripts/health-check.test.ts`,
+`scripts/migrate/extensions.test.ts` and `scripts/migrate/runner.test.ts` run against it via
+`DATABASE_URL` (falling back to the default above when unset), the way CI's `postgres:17`
+service does (`.github/workflows/ci.yml`).
 
 `/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
 (30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm

@@ -14,16 +14,22 @@ export const ping = async (sql: postgres.Sql): Promise<boolean> => {
   }
 }
 
-export const checkHealth = async (config: Config, ctx: ExecutionContext): Promise<boolean> => {
+export type DbStatus = 'ok' | 'down' | 'unconfigured'
+
+interface WaitUntil {
+  waitUntil: (promise: Promise<unknown>) => void
+}
+
+export const checkHealth = async (config: Config, ctx: WaitUntil): Promise<DbStatus> => {
   const { HYPERDRIVE } = config
-  if (!HYPERDRIVE) return false
+  if (!HYPERDRIVE) return 'unconfigured'
   let sql: postgres.Sql | undefined
   try {
     sql = getClient(HYPERDRIVE, { max: 1, statementTimeoutMs: PING_TIMEOUT_MS })
-    return await ping(sql)
+    return (await ping(sql)) ? 'ok' : 'down'
   } catch {
     console.error(JSON.stringify({ code: 'db_health_check_failed' }))
-    return false
+    return 'down'
   } finally {
     if (sql) ctx.waitUntil(sql.end())
   }

@@ -51,13 +51,6 @@ export default tseslint.config(
       'no-restricted-globals': ['error', { name: 'process', message: 'Bindings arrive through env; never read process.env.' }],
     },
   },
-  {
-    // Reads process.env.DATABASE_URL to run against a real Postgres (docs/api/README.md §7);
-    // `pnpm test` for apps/api therefore depends on a live database, same as scripts/migrate/runner.test.ts.
-    files: ['apps/api/src/db/health.test.ts'],
-    languageOptions: { globals: { ...globals.node } },
-    rules: { 'no-restricted-globals': 'off' },
-  },
   ...apiLayers.map(([layer, allowed]) => ({
     files: [`apps/api/src/${layer}/**/*.ts`],
     rules: {

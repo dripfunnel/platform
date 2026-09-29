@@ -25,7 +25,13 @@ interface Env extends Record<string, unknown> {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
-    const config = parseConfig(env)
+    let config
+    try {
+      config = parseConfig(env)
+    } catch {
+      console.error(JSON.stringify({ code: 'config_invalid' }))
+      return new Response(null, { status: 500 })
+    }
     const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
     if (url.pathname === healthPath[area]) {
@@ -33,8 +39,9 @@ export default {
       if (!ip) return new Response('Bad request', { status: 400 })
       const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: `${area}:${ip}` })
       if (!success) return new Response('Too many requests', { status: 429 })
-      const ok = await checkHealth(config, ctx)
-      return Response.json({ ok, area }, { status: ok ? 200 : 503 })
+      const db = await checkHealth(config, ctx)
+      const ok = db !== 'down'
+      return Response.json({ ok, area, db }, { status: ok ? 200 : 503 })
     }
     return servers[area].fetch(request)
   },

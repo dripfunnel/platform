@@ -14,30 +14,26 @@ export const migrate = async (connectionString: string, migrationsDir: string): 
     assertPostgresMajor(Number(server_version_num))
 
     await sql`select pg_advisory_lock(hashtext(${LOCK_KEY}))`
-    try {
-      const [{ exists }] = await sql<[{ exists: boolean }]>`select exists (
-        select 1 from information_schema.tables where table_schema = current_schema() and table_name = 'schema_migrations'
-      ) as exists`
-      const applied = exists ? await sql<{ name: string }[]>`select name from schema_migrations` : []
-      const pending = pendingMigrations(readdirSync(migrationsDir), new Set(applied.map((row) => row.name)))
-      const withContents = pending.map((name) => ({ name, contents: readFileSync(path.join(migrationsDir, name), 'utf8') }))
+    const [{ exists }] = await sql<[{ exists: boolean }]>`select exists (
+      select 1 from information_schema.tables where table_schema = current_schema() and table_name = 'schema_migrations'
+    ) as exists`
+    const applied = exists ? await sql<{ name: string }[]>`select name from schema_migrations` : []
+    const pending = pendingMigrations(readdirSync(migrationsDir), new Set(applied.map((row) => row.name)))
+    const withContents = pending.map((name) => ({ name, contents: readFileSync(path.join(migrationsDir, name), 'utf8') }))
 
-      await assertExtensionsAvailable(
-        sql,
-        requiredExtensions(withContents.map((m) => m.contents)),
-      )
+    await assertExtensionsAvailable(
+      sql,
+      requiredExtensions(withContents.map((m) => m.contents)),
+    )
 
-      for (const { name, contents } of withContents) {
-        await sql.begin(async (tx) => {
-          await tx.unsafe(contents)
-          await tx`insert into schema_migrations (name) values (${name})`
-        })
-        console.log(`Applied ${name}`)
-      }
-      if (pending.length === 0) console.log('No pending migrations.')
-    } finally {
-      await sql`select pg_advisory_unlock(hashtext(${LOCK_KEY}))`
+    for (const { name, contents } of withContents) {
+      await sql.begin(async (tx) => {
+        await tx.unsafe(contents)
+        await tx`insert into schema_migrations (name) values (${name})`
+      })
+      console.log(`Applied ${name}`)
     }
+    if (pending.length === 0) console.log('No pending migrations.')
   } finally {
     await sql.end()
   }

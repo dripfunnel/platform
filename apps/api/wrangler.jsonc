@@ -14,7 +14,8 @@
   ],
   // No top-level `hyperdrive` binding yet: production has no Hyperdrive resource
   // provisioned (`wrangler hyperdrive create`, then add `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }`
-  // here). Until then, `wrangler deploy` ships without HYPERDRIVE and /health reports db-down (§7).
+  // here). Until then, `wrangler deploy` ships without HYPERDRIVE; /health reports
+  // `{ ok: true, db: "unconfigured" }` (200), not a failure, so no monitor alarms (§7).
   "env": {
     // `wrangler dev --env dev` only: no Hyperdrive resource is provisioned yet
     // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
