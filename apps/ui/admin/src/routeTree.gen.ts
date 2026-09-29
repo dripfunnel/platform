@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 
 const AppRoute = AppRouteImport.update({
@@ -27,6 +28,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppStatesRoute = AppStatesRouteImport.update({
+  id: '/states',
+  path: '/states',
+  getParentRoute: () => AppRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -35,25 +41,34 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/states': typeof AppStatesRoute
   '/sign-in': typeof AuthSignInRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/states': typeof AppStatesRoute
   '/sign-in': typeof AuthSignInRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/states': typeof AppStatesRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths: '/' | '/states' | '/sign-in'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in'
-  id: '__root__' | '/_app' | '/_auth' | '/_auth/sign-in' | '/_app/'
+  to: '/' | '/states' | '/sign-in'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_auth'
+    | '/_app/states'
+    | '/_auth/sign-in'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -84,6 +99,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/states': {
+      id: '/_app/states'
+      path: '/states'
+      fullPath: '/states'
+      preLoaderRoute: typeof AppStatesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
@@ -95,10 +117,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppStatesRoute: typeof AppStatesRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppStatesRoute: AppStatesRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

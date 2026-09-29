@@ -1,12 +1,27 @@
 :root {
+  color-scheme: light dark;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
   --df-color-brand: #4f46e5;
   --df-color-brand-contrast: #ffffff;
   --df-color-surface: #ffffff;
   --df-color-text: #111827;
   --df-color-muted: #6b7280;
+  --df-color-link: #4f46e5;
+  --df-color-border: #d1d5db;
+  --df-color-focus: #2563eb;
+  --df-color-skeleton: #e5e7eb;
+  --df-color-backdrop: rgb(17 24 39 / 0.5);
+  --df-color-danger: #b91c1c;
+  --df-color-danger-surface: #fef2f2;
+  --df-color-warning: #92400e;
+  --df-color-warning-surface: #fffbeb;
   --df-radius: 8px;
+  --df-space-1: 4px;
   --df-space-2: 8px;
+  --df-space-3: 12px;
   --df-space-4: 16px;
+  --df-space-6: 24px;
   --df-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -15,5 +30,14 @@
     --df-color-surface: #0f1115;
     --df-color-text: #f3f4f6;
     --df-color-muted: #9ca3af;
+    --df-color-link: #a5b4fc;
+    --df-color-border: #374151;
+    --df-color-focus: #60a5fa;
+    --df-color-skeleton: #1f2937;
+    --df-color-backdrop: rgb(0 0 0 / 0.6);
+    --df-color-danger: #fca5a5;
+    --df-color-danger-surface: #2a1215;
+    --df-color-warning: #fcd34d;
+    --df-color-warning-surface: #2a2110;
   }
 }
