@@ -28,7 +28,7 @@ export const CodeForm = ({ onVerify, onSendToPhone }: { onVerify: () => void; on
           autoComplete="one-time-code"
           pattern="[0-9]{6}"
           maxLength={6}
-          placeholder="000000"
+          placeholder={words.codePlaceholder}
           aria-describedby={hintId}
           value={code}
           onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}

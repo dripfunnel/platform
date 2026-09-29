@@ -88,6 +88,7 @@
         "body": "Open Microsoft Authenticator and enter the 6-digit code shown for your DripFunnel account.",
         "codeLabel": "6-digit code from Microsoft Authenticator",
         "codeHint": "Verify and sign in turns on once all 6 digits are in.",
+        "codePlaceholder": "000000",
         "verify": "Verify and sign in",
         "sendToPhone": "Send the request to my phone instead"
       },

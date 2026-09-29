@@ -10,8 +10,17 @@ const words = messages.signIn
 const approvalNumberFixture = '47'
 
 // Seam: #13 replaces every onChange('signing') with the redirect to Microsoft Entra ID, and
-// Microsoft's answer picks the next state. Nothing here calls an API.
-export const SignInStep = ({ state, onChange }: { state: SignInState; onChange: (next: SignInState) => void }) => {
+// Microsoft's answer picks the next state; onSignedIn becomes the Worker's callback. Nothing
+// here calls an API.
+export const SignInStep = ({
+  state,
+  onChange,
+  onSignedIn,
+}: {
+  state: SignInState
+  onChange: (next: SignInState) => void
+  onSignedIn: () => void
+}) => {
   if (isProblemState(state)) {
     return (
       <>
@@ -47,8 +56,8 @@ export const SignInStep = ({ state, onChange }: { state: SignInState; onChange: 
         </>
       )
     case 'code':
-      return <CodeForm onVerify={() => onChange('signing')} onSendToPhone={() => onChange('approve')} />
+      return <CodeForm onVerify={onSignedIn} onSendToPhone={() => onChange('approve')} />
     case 'refused':
-      return <MicrosoftButton label={words.states.refused.action} onClick={() => onChange('signing')} />
+      return <MicrosoftButton label={words.states.refused.action} onClick={() => onChange('start')} />
   }
 }
