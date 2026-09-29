@@ -42,6 +42,16 @@
   color: var(--df-color-warning);
 }
 
+.df-state--info {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+}
+
+.df-state--info h2,
+.df-state--info p {
+  color: var(--df-color-info);
+}
+
 .df-state details summary {
   cursor: pointer;
 }
@@ -249,4 +259,28 @@
 
 .df-gallery a:hover {
   color: var(--df-color-link-hover);
+}
+
+.df-dialog-notes {
+  margin: 0;
+  padding-left: var(--df-space-4);
+  display: grid;
+  gap: var(--df-space-1);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-field input {
+  height: var(--df-control-height);
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+}
+
+.df-field input:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
 }

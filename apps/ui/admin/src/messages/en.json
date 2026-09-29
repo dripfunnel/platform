@@ -1,6 +1,11 @@
 {
-  "home": { "title": "DripFunnel Admin", "signIn": "Sign in" },
-  "signIn": { "title": "Sign in" },
+  "home": {
+    "title": "DripFunnel Admin",
+    "signIn": "Sign in"
+  },
+  "signIn": {
+    "title": "Sign in"
+  },
   "states": {
     "gallery": {
       "title": "Screen states",
@@ -20,7 +25,9 @@
       "body": "Partners are the companies that resell DripFunnel under their own brand. Create the first one and invite its owner.",
       "action": "Create partner"
     },
-    "loading": { "label": "Loading partners" },
+    "loading": {
+      "label": "Loading partners"
+    },
     "error": {
       "title": "We couldn't load the partners",
       "body": "The admin API didn't answer. Nothing you entered was lost. Try again in a moment.",
@@ -40,13 +47,20 @@
       "body": "Your role can see everything here but can't change anything. Ask a Super admin if you need to."
     },
     "confirm": {
-      "open": "Pause partner…",
-      "title": "Pause this partner?",
+      "open": "Close partner…",
+      "title": "Close this partner?",
       "target": "Northstar Commerce",
-      "consequence": "No new merchant signups. Its 86 stores keep running.",
+      "consequence": "Closes Northstar Commerce. Its portal host store.northstar.com stops working.",
+      "notes": [
+        "This can't be undone here.",
+        "Its 86 stores stop being reachable on that host."
+      ],
       "reason": "Reason (saved in the activity log)",
-      "reasonHint": "Required. Pause partner turns on once you give a reason.",
-      "confirm": "Pause partner",
+      "reasonHint": "Required. Close partner turns on once you give a reason.",
+      "typeLabel": "Type Northstar Commerce to confirm",
+      "typeHint": "Type the partner name exactly to confirm.",
+      "typeExpected": "Northstar Commerce",
+      "confirm": "Close partner",
       "cancel": "Cancel"
     }
   }
