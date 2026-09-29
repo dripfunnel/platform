@@ -52,7 +52,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['apps/api/src/**/*.test.ts'],
+    // Reads process.env.DATABASE_URL to run against a real Postgres (docs/api/README.md §7);
+    // `pnpm test` for apps/api therefore depends on a live database, same as scripts/migrate/runner.test.ts.
+    files: ['apps/api/src/db/health.test.ts'],
     languageOptions: { globals: { ...globals.node } },
     rules: { 'no-restricted-globals': 'off' },
   },

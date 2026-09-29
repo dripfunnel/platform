@@ -14,6 +14,8 @@ const servers = {
   shop: createServer(shopSchema, '/shop-api'),
 }
 
+const healthPath = { admin: '/api/health', platform: '/api/health', store: '/api/health', shop: '/shop-api/health' } as const
+
 const notFound = () => new Response('Not found', { status: 404 })
 
 interface Env extends Record<string, unknown> {
@@ -26,8 +28,8 @@ export default {
     const config = parseConfig(env)
     const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
-    if (url.pathname.endsWith('/health')) {
-      const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: request.headers.get('cf-connecting-ip') ?? 'unknown' })
+    if (url.pathname === healthPath[area]) {
+      const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: `${area}:${request.headers.get('cf-connecting-ip') ?? 'unknown'}` })
       if (!success) return new Response('Too many requests', { status: 429 })
       const ok = await checkHealth(config, ctx)
       return Response.json({ ok, area }, { status: ok ? 200 : 503 })

@@ -304,6 +304,10 @@ install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partiall
 This is local only (AGENTS.md "Global" rule 3): nothing in `.dev.vars.example` or
 `wrangler.jsonc` ever points at `dbpg01.softobotics.org`.
 
+`pnpm test` needs this same database up: `src/db/health.test.ts` and
+`scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
+default above when unset), the way CI's `postgres:17` service does (`.github/workflows/ci.yml`).
+
 ---
 
 ## 8. Rules that apply to every line in `apps/api`
