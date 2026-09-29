@@ -8,7 +8,7 @@ disagrees.
 **Status: skeleton.** The router, the four GraphQL endpoints (one `health` field each) and
 the layer rules exist and pass every gate. There is no database, engine or feature code yet.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 | Document | Covers |
 |---|---|
@@ -27,8 +27,9 @@ Last updated: 2026-09-28.
 layer, four GraphQL APIs, inbound webhooks, and background work on Queues, Workflows and
 Cron. The SPAs and storefronts are clients of it; none of them contains business logic.
 
-It follows Vendure's shape (an engine exposing a Shop API and an admin-side API) but is
-multi-tenant, vendor-aware and white-label from the first line (PLATFORM-PROMPT §5.10).
+It follows the usual headless-commerce shape (an engine exposing a Shop API and an admin-side
+API) but is multi-tenant, vendor-aware and white-label from the first line
+(PLATFORM-PROMPT §5.10).
 
 ---
 

@@ -24,8 +24,8 @@ How modules are written, so the codebase reads as one. Read with
 - **Dependency injection over singletons.** Services receive their collaborators (database,
   clock, logger, event bus) through `createEngine(...)`, so tests and tenants never share
   hidden state.
-- **Extensibility through registered operations and strategies**, as Vendure does it
-  (PLATFORM-PROMPT §5.10): an integration exports a definition (`defineShippingCalculator`,
+- **Extensibility through registered operations and strategies**, as established headless
+  engines do it (PLATFORM-PROMPT §5.10): an integration exports a definition (`defineShippingCalculator`,
   `definePaymentHandler`, `definePromotionCondition`) that the engine registers. Typed args,
   UI hints for the portal, and validation live in the definition.
 - **Pure where possible.** Pricing, tax, promotion and money logic are pure functions of their
@@ -40,8 +40,8 @@ How modules are written, so the codebase reads as one. Read with
   the caller handles; a lost database connection is an exception.
 - **Nothing internal leaks.** Error messages that reach a client never contain SQL, stack
   traces, secrets, other tenants' identifiers or whether an account exists.
-- **GraphQL errors** map codes to typed result unions for expected outcomes (as Vendure's
-  `ErrorResult` types do) and to a generic error with a code for unexpected ones. The SPAs
+- **GraphQL errors** map codes to typed result unions for expected outcomes (error-result
+  union types) and to a generic error with a code for unexpected ones. The SPAs
   and `storefront-core` handle them by code, never by message.
 
 ## 4. Data and multi-tenancy conventions

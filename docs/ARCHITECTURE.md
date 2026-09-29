@@ -30,7 +30,7 @@ Last updated: 2026-09-29.
 | **Files on Cloudflare R2** | S3 | Product photos, brand assets, imports, exports and invoices, with zero egress cost and a Worker binding. |
 | **Email through Amazon SES** (HTTP API) | SMTP; Postmark; Resend | Workers can't use SMTP libraries; SES supports many verified sender domains (one per partner) at low cost. |
 | **The storefront template lives in this repo** (`templates/storefront`), and provisioning **copies it into each new store repo through the GitHub API** | A separate template repo | The template is developed and tested with the package it depends on; no second repo to keep in sync. |
-| **GraphQL is code-first with Pothos, served by GraphQL Yoga**; `.graphql` files are generated into `apps/api/schema/` | Schema-first `.graphql` files, like Vendure | A field's scope declaration sits where the field is defined, so an unscoped field can't exist; the generated files still give clients and CI a readable contract. |
+| **GraphQL is code-first with Pothos, served by GraphQL Yoga**; `.graphql` files are generated into `apps/api/schema/` | Schema-first `.graphql` files | A field's scope declaration sits where the field is defined, so an unscoped field can't exist; the generated files still give clients and CI a readable contract. |
 | **Unit tests beside the code** (`service.test.ts` next to `service.ts`); integration tests in `apps/api/tests/` | Everything under `tests/` | Tests move and are deleted with the code they cover. |
 | **Everything in the `dripfunnel` GitHub org**, `storefront-core` on GitHub Packages | `SoftoboticsTechnologies`; npmjs.com | See `code/ARCHITECTURE.md` §5. |
 

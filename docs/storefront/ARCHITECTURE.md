@@ -6,12 +6,13 @@ supplies all commerce behaviour through the **Shop API**.
 
 Companion documents: [DESIGN.md](DESIGN.md) covers what the AI may design and the rules every
 design keeps. `../api/PLATFORM-PROMPT.md` covers the platform and the engine behind the
-Shop API. The reference implementation is `../../../vendure-storefront-template/` (Vendure's
-Next.js starter as customised by us), and §11 says what to take from it.
+Shop API. **"The reference"** below means the first platform's storefront template (a
+Next.js commerce starter as customised by us, now removed from the workspace); §11 records
+what was taken from it.
 
 **Status: specification only.** No code exists yet.
 
-Last updated: 2026-09-27.
+Last updated: 2026-09-29.
 
 ---
 
@@ -19,7 +20,7 @@ Last updated: 2026-09-27.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Internal, fully automated.** Merchants never see this template, its repos or any code. | A public starter merchants' developers fork (as Vendure's is) | The merchant is non-technical. The split between core and theme exists so the AI can produce a completely different design for every store without being able to break commerce. Merchants who want their own frontend use the Shop API and SDK directly (PLATFORM-PROMPT §5.5), not this template. |
+| **Internal, fully automated.** Merchants never see this template, its repos or any code. | A public starter merchants' developers fork (as open-source commerce starters are) | The merchant is non-technical. The split between core and theme exists so the AI can produce a completely different design for every store without being able to break commerce. Merchants who want their own frontend use the Shop API and SDK directly (PLATFORM-PROMPT §5.5), not this template. |
 | **Commerce behaviour ships as a versioned package, `@dripfunnel/storefront-core`.** | A `core/` folder inside each repo, guarded by a CI path check (SAAS-PLAN §2) | The AI physically cannot edit a dependency. A fleet upgrade is a version bump rather than a merge into 1,000 diverged folders. The CI path guard stays as a second line of defence for the few locked files in the repo (§3). |
 | **The AI changes look, not logic.** It may restyle and rearrange every page, checkout included, using core's hooks and components. It can't change flow order, pricing, payments, validation or data. | Checkout fully locked; or the AI adding its own features | Checkout is where design differences matter to a merchant. Checkout *behaviour* is where mistakes cost money, so behaviour stays in core. New features arrive through core releases, not per-store code. |
 | **Two render modes from one codebase.** **Preview** is a client-rendered SPA on the brand's preview subdomain, with no SSR or SSG. **Live** is a static site (SSG) on the customer's domain. | One mode for both | The preview must show every AI edit and every catalogue change immediately, with builds that take seconds. The live site must be fast, cheap to host, crawlable, and immune to API load spikes. §4 covers both, and how the live site stays current. |
@@ -194,8 +195,8 @@ the theme, so a page is written once.
      by a **client-rendered fallback**: the edge serves the SPA shell for unknown catalogue
      URLs, and the page renders from the Shop API. It works immediately, but without
      prerendered SEO until the next build.
-  2. **Catalogue publishing** works as the Vendure deployment tracker does today
-     (`../../../vendure-backend/ARCHITECTURE.md` §5), rebuilt properly on the engine:
+  2. **Catalogue publishing** works as the first platform's deployment tracker did, rebuilt
+     properly on the engine:
      - **Change detection**: engine events (product, version, collection, filter, menu,
        content, store settings that appear on the storefront) mark the store's live site
        **"has unpublished changes"**, with what changed and when (the old
@@ -218,7 +219,7 @@ the theme, so a page is written once.
        rather than starting a second; changes made during a build are picked up by the next.
      - **Status is real, not estimated**: queued, building, deploying, live, failed, from the
        job and the Cloudflare deploy, never from polling GitHub with a cache (the old
-       tracker's gap, §5.5 there). A failed build keeps the previous live site and tells
+       tracker's gap). A failed build keeps the previous live site and tells
        the merchant plainly. **A failed build never uses up an allowance** (decided).
      - Build minutes per store per month stay a platform metric (SAAS-PLAN §14), shown in DF
        Admin.
@@ -230,7 +231,7 @@ the theme, so a page is written once.
 
 ### 4.3 Pitfalls the reference already hit (carry the fixes)
 
-From `../../../vendure-storefront-template/docs/decisions.md`:
+From the reference's recorded decisions:
 
 - A component reading search params directly (`useSearchParams()`) in a static build turns
   the whole enclosing boundary client-only and blanks it from the HTML. Isolate that read in
@@ -300,8 +301,7 @@ merchant describes a change in the portal
   rebuild both modes.
 - **Major** releases may change the contract. Each ships **upgrade notes** in the reference's
   structured format (`.upgrades/changes/*.md`: intent, affected areas, invariants,
-  integration guidance, verification; see `../../../vendure-storefront-template/docs/upgrades.md`
-  and its ADR 0001). An AI agent reconciles each store's theme against the notes, runs the
+  integration guidance, verification). An AI agent reconciles each store's theme against the notes, runs the
   gates, and produces a preview and visual diff. Unchanged visuals auto-merge; changed ones
   go to the merchant or to DripFunnel staff *(ask who approves)*.
 - DF Admin shows fleet core-version drift and rollout state (CONSOLE-DESIGN part L).
@@ -352,12 +352,12 @@ for providers the store doesn't use.
 
 ---
 
-## 11. What to take from `vendure-storefront-template`
+## 11. What to take from the reference
 
 | Take (adapt) | Change | Drop |
 |---|---|---|
 | Feature-module layout and the boundary rules (thin `app/`, features imported only through top-level files, colocated operations and messages) | Features move **into the core package**; the store repo keeps only theme and shims | Everything developer-owned-by-default: here the theme is AI-owned and core is locked |
-| The architecture tests, i18n message composition and its duplicate-namespace test | Vendure transport (`platform/vendure/*`, channel token headers) → our SDK and store key | Vendure-specific workarounds (`withCartModificationRetry`, `ORDER_MODIFICATION_ERROR`, the hard-coded root `parentId: "1"`) |
+| The architecture tests, i18n message composition and its duplicate-namespace test | The reference's transport (its channel token headers) → our SDK and store key | Framework-specific workarounds (`withCartModificationRetry`, `ORDER_MODIFICATION_ERROR`, the hard-coded root `parentId: "1"`) |
 | The protected-commerce list in its `CLAUDE.md` and `docs/commerce.md` (active order as the only cart, checkout order, async payment settlement, facet OR/AND, validated currency) as core invariants | Server Actions and `'use cache'` notes (already stale there) → the render-mode adapter (§4) | The S3 + CloudFront workflows and committed `.env.*` build config |
 | Static-export lessons (§4.3), the live-price supersede pattern, per-version pages | Payment clients (Stripe, Razorpay, Cashfree) → core payment adapters against our engine | The `USD` default in the price component |
 | The upgrade-note protocol for core majors (§7) | Upgrade reconciliation done by our agent per store, not by a merchant's developer | `upgrade:init` provenance for human forks (the sync bot owns provenance) |

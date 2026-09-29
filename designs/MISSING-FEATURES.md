@@ -1,8 +1,8 @@
 # DF Store: missing features
 
 This compares the DF Store merchant portal, as designed in this folder, with **Shopify**,
-**Wix eCommerce** and the first **Vendure-based DripFunnel** (`../../vendure-backend`,
-`../../community-plugins` and `../../vendure-storefront-template`).
+**Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
+commerce framework and has since been removed from the workspace.
 
 Last updated: 2026-09-29.
 
@@ -41,7 +41,7 @@ Compared with Shopify and Wix, the biggest gaps are:
 7. **Trust and admin.** There is no activity log, no granular permissions and no profile or
    two-step (2FA) settings.
 
-Vendure's core, or the old DripFunnel built on it, already had some of this: draft orders,
+The first DripFunnel platform already had some of this, through its commerce framework: draft orders,
 order modification, customer groups, customer history, a stock movement ledger, API keys,
 zones, shopper email templates, an audit log, storefront customer accounts and Shiprocket
 fulfilment. **Those features were designed away when the engine was replaced.** They are
@@ -54,7 +54,7 @@ shows what is needed.
 
 ### 2.1 Storefront and content
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Theme library / choose a theme | ✓ | ✓ | ~ (one Next.js template) | — |
 | Edit the whole site: sections, pages, header and footer | ✓ | ✓ | — | — (AI edits the hero only) |
@@ -73,7 +73,7 @@ shows what is needed.
 
 ### 2.2 Checkout and shopper accounts
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Checkout settings: guest vs account, required fields, tipping, notes | ✓ | ✓ | ~ (guest-checkout strategy) | — |
 | Shopper accounts: sign-in, order history, addresses ⚑ | ✓ | ✓ | ✓ (template account pages) | — (guests are matched by email) |
@@ -88,7 +88,7 @@ shows what is needed.
 
 ### 2.3 Orders and fulfilment
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Draft or manual orders (phone, WhatsApp sales) ⚑ | ✓ | ✓ | ✓ | — |
 | Edit an order: items, quantities, address ⚑ | ✓ | ~ | ✓ (OrderModification) | — |
@@ -104,7 +104,7 @@ shows what is needed.
 
 ### 2.4 Customers and marketing
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Create or edit customers, notes, tags | ✓ | ✓ | ✓ | — (a read-only list built from orders) |
 | Customer groups ⚑ | ✓ (segments) | ✓ | ✓ | — (Offers refers to groups, but no screen manages them) |
@@ -122,7 +122,7 @@ shows what is needed.
 
 ### 2.5 Catalogue and inventory
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Barcode / GTIN field | ✓ | ✓ | ~ | — (the import template has it, the editor doesn't) |
 | Bundles and kits | ✓ | ✓ | — | — |
@@ -142,7 +142,7 @@ shows what is needed.
 
 ### 2.6 Shipping, payments and tax
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Shipping zones with several methods (Standard, Express) ⚑ | ✓ | ✓ | ✓ (zones and methods; old DF allowed one active) | — (one charge rule; Offers refers to Express) |
 | Rate tables by weight or order value | ✓ | ✓ | ~ | — |
@@ -155,7 +155,7 @@ shows what is needed.
 
 ### 2.7 Analytics
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Traffic, sessions and conversion funnel | ✓ | ✓ | — | — ("Visitor sources need analytics — not shown") |
 | Custom date range, trends over time | ✓ | ✓ | — | — (7 / 30 / 90 days only) |
@@ -165,7 +165,7 @@ shows what is needed.
 
 ### 2.8 Sales channels and integrations
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Google Shopping / Merchant Center feed | ✓ | ✓ | — | — |
 | Meta and Instagram shop, catalogue sync | ✓ | ✓ | — | — |
@@ -179,7 +179,7 @@ shows what is needed.
 
 ### 2.9 Notifications
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Shopper email templates: order confirmation, shipped, refund, password ⚑ | ✓ | ✓ | ✓ (email plugin, branded templates) | — |
 | Merchant notifications: new order, low stock ⚑ | ✓ | ✓ | ✓ ("fulfil order" admin email) | — |
@@ -188,12 +188,12 @@ shows what is needed.
 
 ### 2.10 Account, team and security
 
-| Feature | Shopify | Wix | Vendure (old DF) | DF Store design |
+| Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | My profile: name, email, password, 2FA set-up | ✓ | ✓ | ✓ | — (a toast only) |
 | Authenticator app / passkeys | ✓ | ✓ | — | — (SMS code only) |
 | Granular or custom staff permissions ⚑ | ✓ | ✓ | ✓ (per-entity permissions) | — (3 fixed roles) |
-| Activity / audit log for the merchant ⚑ | ~ | ~ | ✓ (vendure-audit-log) | — (per-object histories only) |
+| Activity / audit log for the merchant ⚑ | ~ | ~ | ✓ (audit-log plugin) | — (per-object histories only) |
 | Store time zone, units, order-number format | ✓ | ✓ | ~ | — (Offers depends on a time zone that doesn't exist) |
 | Dark mode | ✓ | — | ✓ | — |
 
