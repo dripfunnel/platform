@@ -12,7 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
+import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 
 const AppRoute = AppRouteImport.update({
@@ -28,9 +31,24 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPartnersRoute = AppPartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStatesRoute = AppStatesRouteImport.update({
   id: '/states',
   path: '/states',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresRoute = AppStoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -41,32 +59,45 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/partners': typeof AppPartnersRoute
   '/states': typeof AppStatesRoute
+  '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/partners': typeof AppPartnersRoute
   '/states': typeof AppStatesRoute
+  '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/partners': typeof AppPartnersRoute
   '/_app/states': typeof AppStatesRoute
+  '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/states' | '/sign-in'
+  fullPaths:
+    '/' | '/dashboard' | '/partners' | '/states' | '/stores' | '/sign-in'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/states' | '/sign-in'
+  to: '/' | '/dashboard' | '/partners' | '/states' | '/stores' | '/sign-in'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/dashboard'
+    | '/_app/partners'
     | '/_app/states'
+    | '/_app/stores'
     | '/_auth/sign-in'
     | '/_app/'
   fileRoutesById: FileRoutesById
@@ -99,11 +130,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/partners': {
+      id: '/_app/partners'
+      path: '/partners'
+      fullPath: '/partners'
+      preLoaderRoute: typeof AppPartnersRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/states': {
       id: '/_app/states'
       path: '/states'
       fullPath: '/states'
       preLoaderRoute: typeof AppStatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores': {
+      id: '/_app/stores'
+      path: '/stores'
+      fullPath: '/stores'
+      preLoaderRoute: typeof AppStoresRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/sign-in': {
@@ -117,12 +169,18 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppPartnersRoute: typeof AppPartnersRoute
   AppStatesRoute: typeof AppStatesRoute
+  AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppDashboardRoute: AppDashboardRoute,
+  AppPartnersRoute: AppPartnersRoute,
   AppStatesRoute: AppStatesRoute,
+  AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

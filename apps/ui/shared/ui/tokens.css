@@ -40,6 +40,16 @@
   --df-color-side: #0a2a4a;
   --df-color-side-text: #b8c7d6;
   --df-color-side-focus: #2e7bd1;
+  --df-color-side-row: #d6dee7;
+  --df-color-side-strong: #ffffff;
+  --df-color-side-hover: rgb(255 255 255 / 0.06);
+  --df-color-side-active: rgb(255 255 255 / 0.1);
+  --df-color-side-control: rgb(255 255 255 / 0.08);
+  --df-color-side-control-border: rgb(255 255 255 / 0.14);
+  --df-color-side-divider: rgb(255 255 255 / 0.2);
+  --df-color-env-production: #b42318;
+  --df-color-env-staging: #4a5360;
+  --df-color-env-text: #ffffff;
   --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
   --df-radius-small: 6px;
   --df-radius: 8px;
@@ -54,6 +64,10 @@
   --df-font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --df-font-heading: Manrope, Inter, system-ui, sans-serif;
   --df-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+body {
+  margin: 0;
 }
 
 @media (prefers-color-scheme: dark) {

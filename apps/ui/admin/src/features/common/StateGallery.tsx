@@ -11,7 +11,7 @@ const words = messages.states.gallery
 export const StateGallery = () => {
   const state = useScreenState(screenStates)
   return (
-    <main className="df-gallery">
+    <div className="df-gallery">
       <h1>{words.title}</h1>
       <p>{words.intro}</p>
       <nav aria-label={words.pick}>
@@ -26,6 +26,6 @@ export const StateGallery = () => {
         </ul>
       </nav>
       {state && <StateView state={state} />}
-    </main>
+    </div>
   )
 }

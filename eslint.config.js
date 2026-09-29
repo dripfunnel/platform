@@ -19,8 +19,10 @@ const forbidFolders = (folders) => ({
 
 const uiApps = ['admin', 'platform', 'store']
 
+// apps/api is at least three levels up from any file in an app's src/; the app's own src/api/
+// (docs/ui/README.md §2) is at most two, so it stays importable.
 const noApiImports = {
-  regex: '^(@dripfunnel/api|(\\.\\./)+(apps/)?api)(/|$)',
+  regex: '^(@dripfunnel/api|(\\.\\./)+apps/api|(\\.\\./){3,}api)(/|$)',
   message: 'Clients know the API only through apps/api/schema/*.graphql.',
 }
 

@@ -8,6 +8,21 @@ Guide: [docs/ui/admin/](../../../docs/ui/admin/README.md); design: [CONSOLE-DESI
 pnpm --filter ./apps/ui/admin dev   # http://localhost:5175, /api proxied to the local Worker
 ```
 
+## The shell
+
+`src/routes/_app.tsx` is the shell every signed-in screen sits in (`src/features/shell/`):
+the header, the side bar, the banners under the header, and the phone drawer. Its loader
+reads the signed-in staff member and the nav badge counts from `src/api/me.ts` and
+`src/api/navBadges.ts`, which are fixtures for now.
+
+- **Navigation is data** in `src/nav.ts`: one row per screen, with the roles that may use it.
+  A row a role can't use is absent, not disabled. Adding a screen means one route file under
+  `src/routes/_app/`, one folder under `src/features/`, and one row in `nav.ts`.
+- **Environment**: `admin.dripfunnel.com` shows Production; every other host
+  (`admin-dev.dripfunnel.com`, feature environments, localhost) shows Staging.
+- **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
+  drawer opened from the menu button.
+
 ## Screen states
 
 The state kit lives in `src/features/common/`: `EmptyState`, `LoadingState`, `ErrorState`,
