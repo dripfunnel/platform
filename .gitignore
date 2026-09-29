@@ -5,7 +5,6 @@ out/
 .turbo/
 .wrangler/
 .dev.vars
-.local.vars
 *.tsbuildinfo
 .env*
 !.env.example
