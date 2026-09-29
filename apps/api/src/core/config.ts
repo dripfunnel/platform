@@ -4,6 +4,7 @@ const configSchema = z.object({
   ADMIN_HOST: z.string().min(1),
   PLATFORM_HOST: z.string().min(1),
   HOOKS_HOST: z.string().min(1),
+  HYPERDRIVE: z.object({ connectionString: z.string().min(1) }),
 })
 
 export type Config = z.infer<typeof configSchema>

@@ -1,0 +1,28 @@
+import type postgres from 'postgres'
+
+const CREATE_EXTENSION_RE = /create\s+extension\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi
+
+export const requiredExtensions = (migrationSql: readonly string[]): string[] => {
+  const names = new Set<string>()
+  for (const sql of migrationSql) {
+    for (const match of sql.matchAll(CREATE_EXTENSION_RE)) {
+      const name = match[1]
+      if (name) names.add(name)
+    }
+  }
+  return [...names]
+}
+
+export const assertExtensionsAvailable = async (sql: postgres.Sql, required: readonly string[]): Promise<void> => {
+  if (required.length === 0) return
+  const rows = await sql<{ name: string }[]>`select name from pg_available_extensions where name = any(${required})`
+  const available = new Set(rows.map((row) => row.name))
+  const missing = required.filter((name) => !available.has(name))
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing Postgres extension(s): ${missing.join(', ')}. Install the "postgresql-contrib" package ` +
+        `(macOS Homebrew: brew install postgresql@17; Debian/Ubuntu: apt install postgresql-contrib-17; ` +
+        `Windows: included with the postgresql.org installer) and restart Postgres, then re-run migrate.`,
+    )
+  }
+}

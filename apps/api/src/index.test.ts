@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import worker from './index'
 
-const env = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
+const env = {
+  ADMIN_HOST: 'admin.dripfunnel.com',
+  PLATFORM_HOST: 'platform.dripfunnel.com',
+  HOOKS_HOST: 'hooks.dripfunnel.com',
+  HYPERDRIVE: { connectionString: 'not-a-postgres-url' },
+}
 const call = (href: string, init?: RequestInit) =>
   worker.fetch(new Request(href, init) as Parameters<typeof worker.fetch>[0], env)
 
@@ -9,11 +14,11 @@ const query = (href: string) =>
   call(href, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{ health }' }) })
 
 describe('worker', () => {
-  it('reports health per area', async () => {
+  it('reports health per area, returning ok: false on a misconfigured database', async () => {
     const response = await call('https://platform.dripfunnel.com/api/health')
-    expect(await response.json()).toEqual({ ok: true, area: 'platform' })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform' })
     const admin = await call('https://admin.dripfunnel.com/api/health')
-    expect(await admin.json()).toEqual({ ok: true, area: 'admin' })
+    expect(await admin.json()).toEqual({ ok: false, area: 'admin' })
   })
 
   it('answers GraphQL on each API', async () => {

@@ -19,12 +19,14 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "schema": "tsx scripts/print-schema.ts"
+    "schema": "tsx scripts/print-schema.ts",
+    "migrate": "tsx scripts/migrate/main.ts"
   },
   "dependencies": {
     "@pothos/core": "^4.15.1",
     "graphql": "^17.0.2",
     "graphql-yoga": "^5.24.1",
+    "postgres": "^3.4.9",
     "zod": "^4.6.5"
   },
   "devDependencies": {

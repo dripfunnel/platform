@@ -3,9 +3,16 @@
   "name": "dripfunnel-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "ADMIN_HOST": "admin.dripfunnel.com",
     "PLATFORM_HOST": "platform.dripfunnel.com",
     "HOOKS_HOST": "hooks.dripfunnel.com"
-  }
+  },
+  "hyperdrive": [
+    // No Hyperdrive resource is provisioned yet (`wrangler hyperdrive create`); this id is a
+    // placeholder until that infra task runs. Local dev and tests use `localConnectionString`
+    // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
+    { "binding": "HYPERDRIVE", "id": "local-placeholder" }
+  ]
 }
