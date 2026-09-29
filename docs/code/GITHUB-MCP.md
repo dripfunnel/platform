@@ -43,30 +43,56 @@ If the organisation requires approval for fine-grained tokens, an org owner appr
 under **dripfunnel → Settings → Personal access tokens → Pending requests**. It doesn't work
 until then.
 
-### Step 2: put it in your shell profile
+### Step 2: put it in your environment as `GITHUB_PAT`
+
+**Keep the name `GITHUB_PAT`.** Claude Code sends variables named like `*_TOKEN`, `*_KEY`,
+`*_SECRET` or `*_PASSWORD` as **empty** in remote MCP headers, so `GITHUB_TOKEN` would
+silently fail.
+
+**macOS**, where zsh is the default shell:
 
 ```bash
 echo 'export GITHUB_PAT=github_pat_PASTE_YOURS_HERE' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-Use your shell's profile if it isn't zsh (`~/.bashrc` for bash).
+**Linux**, where bash usually is. Use `~/.zshrc` if you run zsh:
 
-**Keep the name `GITHUB_PAT`.** Claude Code sends variables named like `*_TOKEN`, `*_KEY`,
-`*_SECRET` or `*_PASSWORD` as **empty** in remote MCP headers, so `GITHUB_TOKEN` would
-silently fail.
+```bash
+echo 'export GITHUB_PAT=github_pat_PASTE_YOURS_HERE' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Windows, PowerShell.** The first line sets it for your user account, so every terminal and
+editor started afterwards has it; the second one adds it to the session you're in:
+
+```powershell
+[Environment]::SetEnvironmentVariable('GITHUB_PAT', 'github_pat_PASTE_YOURS_HERE', 'User')
+$env:GITHUB_PAT = 'github_pat_PASTE_YOURS_HERE'
+```
+
+`setx GITHUB_PAT "…"` does the same thing but cuts the value off at 1024 characters, so use
+the line above.
+
+**Windows, Git Bash** reads `~/.bashrc`: use the Linux line. **WSL** is Linux: set it inside
+WSL, in the WSL home directory, not on the Windows side.
+
+Check it in a **new** terminal: `echo $GITHUB_PAT` (macOS, Linux, Git Bash) or
+`$env:GITHUB_PAT` (PowerShell) prints the token.
 
 ### Step 3: restart your editor
 
-Quit VS Code completely (**⌘Q**, not just closing the window) and open it again, or start it
-from a terminal that already has the variable:
+The Claude Code extension only sees `GITHUB_PAT` if the editor started after step 2, so
+reopening the window isn't enough: the whole application has to quit.
 
-```bash
-code ~/projects/df/platform
-```
+| System | Quit VS Code with | Or start it from a terminal that already has the variable |
+|---|---|---|
+| macOS | **⌘Q**, not just closing the window | `code ~/projects/df/platform` |
+| Linux | **File → Exit** | `code ~/projects/df/platform` |
+| Windows | **File → Exit**, closing every window | `code $HOME\projects\df\platform` |
 
-The Claude Code extension only sees `GITHUB_PAT` if the editor started after it was set.
-In a terminal, open a new tab instead.
+In a terminal, open a new tab instead. On Windows, sign out and back in if a new terminal
+still doesn't show the variable.
 
 ### Step 4: approve the server
 
@@ -119,8 +145,8 @@ it writes before you merge.
 | What you see | Cause | Fix |
 |---|---|---|
 | `⏸ Pending approval` | The server hasn't been approved on this machine | Run `claude` in the repo and approve `github` (step 4). To start over: `claude mcp reset-project-choices` |
-| A missing-variable warning for `GITHUB_PAT` | The editor or terminal started before the variable was set | `echo $GITHUB_PAT` in a new terminal should print something; then restart the editor (step 3) |
-| `401 Unauthorized` | The token is wrong, expired or revoked | Make a new token (step 1) and replace it in `~/.zshrc` |
+| A missing-variable warning for `GITHUB_PAT` | The editor or terminal started before the variable was set | `echo $GITHUB_PAT`, or `$env:GITHUB_PAT` in PowerShell, in a new terminal should print something; then restart the editor (step 3) |
+| `401 Unauthorized` | The token is wrong, expired or revoked | Make a new token (step 1) and replace it where step 2 put it |
 | `403` or "resource not accessible" | The token lacks a permission, or the org hasn't approved it yet | Check step 1's permissions; ask an org owner to approve the pending request |
 | Claude can create issues but not project items | Projects: Read and write is missing (organisation permission) | Edit the token and add it |
 | Claude says it has no GitHub tools | The conversation started before the server connected | Start a new conversation |
@@ -129,7 +155,7 @@ it writes before you merge.
 
 ## 5. Rotation and leaving
 
-- **Before the token expires**, make a new one (step 1), replace it in `~/.zshrc` and
+- **Before the token expires**, make a new one (step 1), replace it where step 2 put it and
   restart the editor. Then delete the old token on GitHub.
 - **When a developer leaves**, they revoke their token, or an org owner does under
   **dripfunnel → Settings → Personal access tokens → Active tokens**.
