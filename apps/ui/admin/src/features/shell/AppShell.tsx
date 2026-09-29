@@ -30,7 +30,9 @@ export const AppShell = () => {
       <div className="df-shell-body">
         <SideNav rows={rows} badges={badges} variant="bar" />
         <main id="main" className="df-shell-main" tabIndex={-1}>
-          <Outlet />
+          <div className="df-shell-content">
+            <Outlet />
+          </div>
         </main>
       </div>
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)}>

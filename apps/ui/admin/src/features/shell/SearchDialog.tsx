@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { messages } from '../../messages'
 import '../common/states.css'
 import { Icon } from './Icon'
+import { isBackdropClick } from './isBackdropClick'
 import './shell.css'
 
 const words = messages.shell.search
@@ -38,7 +39,7 @@ export const SearchDialog = ({ open, onClose }: { open: boolean; onClose: () => 
       }}
       onClose={() => triggerRef.current?.focus()}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (isBackdropClick(event)) onClose()
       }}
     >
       <div className="df-search-panel">

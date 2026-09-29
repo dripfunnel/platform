@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { messages } from '../../messages'
 import { Icon } from './Icon'
+import { isBackdropClick } from './isBackdropClick'
 import './shell.css'
 
 const words = messages.shell
@@ -33,7 +34,7 @@ export const NavDrawer = ({ open, onClose, children }: { open: boolean; onClose:
       }}
       onClose={() => triggerRef.current?.focus()}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose()
+        if (isBackdropClick(event)) onClose()
       }}
     >
       <button type="button" className="df-drawer-close" aria-label={words.closeMenu} onClick={onClose}>

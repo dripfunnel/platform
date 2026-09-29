@@ -21,5 +21,5 @@ export const navRows: readonly NavRow[] = [
 ]
 
 // A row a role can't use is left out, not disabled: absent means "not for you" (design.md §4).
-export const navFor = (role: StaffRole): readonly NavRow[] =>
-  navRows.filter((row) => row.roles.includes(role))
+export const navFor = (role: StaffRole, rows: readonly NavRow[] = navRows): readonly NavRow[] =>
+  rows.filter((row) => row.roles.includes(role))

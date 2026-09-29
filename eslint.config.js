@@ -19,12 +19,14 @@ const forbidFolders = (folders) => ({
 
 const uiApps = ['admin', 'platform', 'store']
 
-// apps/api is at least three levels up from any file in an app's src/; the app's own src/api/
-// (docs/ui/README.md §2) is at most two, so it stays importable.
-const noApiImports = {
-  regex: '^(@dripfunnel/api|(\\.\\./)+apps/api|(\\.\\./){3,}api)(/|$)',
+// A relative import can only be told apart from the app's own src/api/ (docs/ui/README.md §2)
+// by how far up it climbs: from a file `depth` folders below apps/ui/<app>/, apps/api is
+// exactly depth + 2 levels up. So each depth gets its own pattern.
+const uiMaxDepth = 8
+const noApiImports = (depth) => ({
+  regex: `^(@dripfunnel/api|(\\.\\./)+apps/api|(\\.\\./){${depth + 2}}api)(/|$)`,
   message: 'Clients know the API only through apps/api/schema/*.graphql.',
-}
+})
 
 export default tseslint.config(
   {
@@ -62,8 +64,11 @@ export default tseslint.config(
   {
     files: uiApps.map((app) => `apps/ui/${app}/**/*.{ts,tsx}`),
     languageOptions: { globals: { ...globals.browser } },
-    rules: { 'no-restricted-imports': ['error', { patterns: [noApiImports] }] },
   },
+  ...Array.from({ length: uiMaxDepth + 1 }, (_, depth) => ({
+    files: uiApps.map((app) => `apps/ui/${app}/${'*/'.repeat(depth)}*.{ts,tsx}`),
+    rules: { 'no-restricted-imports': ['error', { patterns: [noApiImports(depth)] }] },
+  })),
   {
     files: ['apps/ui/shared/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.browser } },

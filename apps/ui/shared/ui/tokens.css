@@ -60,7 +60,12 @@
   --df-space-2: 8px;
   --df-space-3: 12px;
   --df-space-4: 16px;
+  --df-space-5: 20px;
   --df-space-6: 24px;
+  --df-space-7: 28px;
+  --df-space-10: 40px;
+  --df-space-12: 48px;
+  --df-space-16: 64px;
   --df-font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --df-font-heading: Manrope, Inter, system-ui, sans-serif;
   --df-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;

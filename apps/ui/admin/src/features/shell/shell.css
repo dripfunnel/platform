@@ -1,9 +1,10 @@
 /* The admin shell, from designs/design.md §4 and the admin prototype's chrome. */
 
+/* The header, banners and side bar stay put; only the main area scrolls, as in the prototype. */
 .df-shell {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  min-height: 100vh;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100dvh;
   background: var(--df-color-page);
   color: var(--df-color-text);
   font-family: var(--df-font);
@@ -54,8 +55,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--df-control-height);
+  height: var(--df-control-height);
   border: 0;
   border-radius: var(--df-radius);
   background: transparent;
@@ -150,7 +151,7 @@
   display: flex;
   align-items: center;
   gap: var(--df-space-2);
-  height: 40px;
+  height: var(--df-control-height);
   padding: 0 var(--df-space-2);
   border: 0;
   border-radius: var(--df-radius);
@@ -309,7 +310,7 @@
   align-items: center;
   gap: var(--df-space-3);
   height: 42px;
-  padding: 0 20px;
+  padding: 0 var(--df-space-5);
   color: var(--df-color-side-row);
   font-family: var(--df-font-heading);
   font-size: 14px;
@@ -366,17 +367,21 @@
 
 .df-nav-footer {
   margin: auto 0 0;
-  padding: var(--df-space-3) 20px;
+  padding: var(--df-space-3) var(--df-space-5);
   color: var(--df-color-side-text);
   font-size: 12px;
 }
 
 .df-shell-main {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 1320px;
-  padding: 20px 28px 64px;
+  overflow-y: auto;
   outline: none;
+}
+
+.df-shell-content {
+  box-sizing: border-box;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: var(--df-space-5) var(--df-space-7) var(--df-space-16);
 }
 
 /* Phone drawer */
@@ -416,7 +421,7 @@
   margin: 12vh auto auto;
   padding: 0;
   border: 1px solid var(--df-color-border);
-  border-radius: 14px;
+  border-radius: var(--df-radius-dialog);
   background: var(--df-color-surface);
   box-shadow: var(--df-shadow-floating);
   color: var(--df-color-text);
@@ -521,7 +526,7 @@
 
   .df-sidenav--bar .df-nav-badge {
     position: absolute;
-    top: 4px;
+    top: var(--df-space-1);
     right: 6px;
   }
 
@@ -538,8 +543,8 @@
     white-space: nowrap;
   }
 
-  .df-shell-main {
-    padding: 16px 20px 48px;
+  .df-shell-content {
+    padding: var(--df-space-4) var(--df-space-5) var(--df-space-12);
   }
 }
 
@@ -569,8 +574,8 @@
 
   .df-search-button {
     flex: none;
-    width: 40px;
-    height: 40px;
+    width: var(--df-control-height);
+    height: var(--df-control-height);
     margin-left: auto;
     padding: 0;
     justify-content: center;
@@ -582,7 +587,7 @@
     display: none;
   }
 
-  .df-shell-main {
+  .df-shell-content {
     padding: var(--df-space-4);
   }
 }
