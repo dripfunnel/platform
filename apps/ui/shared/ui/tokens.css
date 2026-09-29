@@ -1,43 +1,69 @@
+/* Values from the DripFunnel style guide (designs/design.md §5–7, the [data-adm] set). */
 :root {
   color-scheme: light dark;
-  background: var(--df-color-surface);
+  background: var(--df-color-page);
   color: var(--df-color-text);
-  --df-color-brand: #4f46e5;
-  --df-color-brand-contrast: #ffffff;
+  font-family: var(--df-font);
+  --df-color-brand: #ec844f;
+  --df-color-brand-hover: #d96c33;
+  --df-color-brand-contrast: #4a1b0c;
+  --df-color-page: #fdfaf7;
   --df-color-surface: #ffffff;
-  --df-color-text: #111827;
-  --df-color-muted: #6b7280;
-  --df-color-link: #4f46e5;
-  --df-color-border: #d1d5db;
-  --df-color-focus: #2563eb;
-  --df-color-skeleton: #e5e7eb;
-  --df-color-backdrop: rgb(17 24 39 / 0.5);
-  --df-color-danger: #b91c1c;
-  --df-color-danger-surface: #fef2f2;
-  --df-color-warning: #92400e;
-  --df-color-warning-surface: #fffbeb;
+  --df-color-heading: #0a2a4a;
+  --df-color-text: #14181f;
+  --df-color-muted: #5a6472;
+  --df-color-link: #b8541f;
+  --df-color-link-hover: #8f4017;
+  --df-color-border: #e8e2dc;
+  --df-color-field-border: #d7d3cd;
+  --df-color-focus: #00519f;
+  --df-color-skeleton: #efeae4;
+  --df-color-backdrop: rgb(10 22 34 / 0.55);
+  --df-color-danger: #a1261b;
+  --df-color-danger-surface: #fdecec;
+  --df-color-danger-border: #f3c7c2;
+  --df-color-danger-button: #a1261b;
+  --df-color-danger-button-text: #ffffff;
+  --df-color-warning: #7a4b00;
+  --df-color-warning-surface: #fff6e5;
+  --df-color-warning-border: #f2d9a6;
+  --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
+  --df-radius-small: 6px;
   --df-radius: 8px;
+  --df-radius-card: 12px;
+  --df-radius-dialog: 16px;
+  --df-control-height: 40px;
   --df-space-1: 4px;
   --df-space-2: 8px;
   --df-space-3: 12px;
   --df-space-4: 16px;
   --df-space-6: 24px;
-  --df-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --df-font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --df-font-heading: Manrope, Inter, system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --df-color-surface: #0f1115;
-    --df-color-text: #f3f4f6;
-    --df-color-muted: #9ca3af;
-    --df-color-link: #a5b4fc;
-    --df-color-border: #374151;
-    --df-color-focus: #60a5fa;
-    --df-color-skeleton: #1f2937;
+    --df-color-brand-hover: #f09a6d;
+    --df-color-page: #0a1622;
+    --df-color-surface: #12222f;
+    --df-color-heading: #ffffff;
+    --df-color-text: #d6dee7;
+    --df-color-muted: #8a9aab;
+    --df-color-link: #ec844f;
+    --df-color-link-hover: #f09a6d;
+    --df-color-border: #1e3242;
+    --df-color-field-border: #2a3f52;
+    --df-color-focus: #2e7bd1;
+    --df-color-skeleton: #1a2c3b;
     --df-color-backdrop: rgb(0 0 0 / 0.6);
-    --df-color-danger: #fca5a5;
-    --df-color-danger-surface: #2a1215;
-    --df-color-warning: #fcd34d;
-    --df-color-warning-surface: #2a2110;
+    --df-color-danger: #f29a90;
+    --df-color-danger-surface: #34110f;
+    --df-color-danger-border: #5e231e;
+    --df-color-danger-button: #b83227;
+    --df-color-warning: #f2c36b;
+    --df-color-warning-surface: #2e2208;
+    --df-color-warning-border: #5a4212;
+    --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);
   }
 }

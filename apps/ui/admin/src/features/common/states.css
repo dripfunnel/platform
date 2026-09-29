@@ -4,15 +4,18 @@
   max-width: 40rem;
   padding: var(--df-space-6);
   border: 1px solid var(--df-color-border);
-  border-radius: var(--df-radius);
+  border-radius: var(--df-radius-card);
   background: var(--df-color-surface);
   color: var(--df-color-text);
   font-family: var(--df-font);
 }
 
-.df-state h2 {
+:is(.df-state, .df-dialog) h2 {
   margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
   font-size: 1.125rem;
+  font-weight: 700;
 }
 
 .df-state p {
@@ -21,7 +24,7 @@
 }
 
 .df-state--danger {
-  border-color: var(--df-color-danger);
+  border-color: var(--df-color-danger-border);
   background: var(--df-color-danger-surface);
 }
 
@@ -30,7 +33,7 @@
 }
 
 .df-state--warning {
-  border-color: var(--df-color-warning);
+  border-color: var(--df-color-warning-border);
   background: var(--df-color-warning-surface);
 }
 
@@ -50,7 +53,7 @@
 
 .df-skeleton {
   height: 1rem;
-  border-radius: var(--df-radius);
+  border-radius: var(--df-radius-small);
   background: var(--df-color-skeleton);
   animation: df-pulse 1.4s ease-in-out infinite;
 }
@@ -100,16 +103,18 @@
 .df-denied p {
   margin: 0;
   color: var(--df-color-muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .df-button {
-  padding: var(--df-space-2) var(--df-space-4);
-  border: 1px solid var(--df-color-border);
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-4);
+  border: 1px solid var(--df-color-field-border);
   border-radius: var(--df-radius);
   background: var(--df-color-surface);
   color: var(--df-color-text);
   font: inherit;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -119,10 +124,15 @@
   color: var(--df-color-brand-contrast);
 }
 
+.df-button--primary:hover:enabled {
+  border-color: var(--df-color-brand-hover);
+  background: var(--df-color-brand-hover);
+}
+
 .df-button--danger {
-  border-color: var(--df-color-danger);
-  background: var(--df-color-danger);
-  color: var(--df-color-surface);
+  border-color: var(--df-color-danger-button);
+  background: var(--df-color-danger-button);
+  color: var(--df-color-danger-button-text);
 }
 
 .df-button:disabled {
@@ -136,33 +146,14 @@
 }
 
 .df-dialog {
-  max-width: 28rem;
+  width: min(100% - 2 * var(--df-space-4), 540px);
   padding: var(--df-space-6);
   border: 1px solid var(--df-color-border);
-  border-radius: var(--df-radius);
+  border-radius: var(--df-radius-dialog);
   background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
   color: var(--df-color-text);
   font-family: var(--df-font);
-}
-
-.df-field {
-  display: grid;
-  gap: var(--df-space-2);
-  margin-bottom: var(--df-space-6);
-}
-
-.df-field label {
-  font-weight: 600;
-}
-
-.df-field textarea {
-  padding: var(--df-space-2);
-  border: 1px solid var(--df-color-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-surface);
-  color: var(--df-color-text);
-  font: inherit;
-  resize: vertical;
 }
 
 .df-dialog::backdrop {
@@ -170,8 +161,7 @@
 }
 
 .df-dialog h2 {
-  margin: 0 0 var(--df-space-3);
-  font-size: 1.125rem;
+  margin-bottom: var(--df-space-3);
 }
 
 .df-dialog-body {
@@ -182,6 +172,27 @@
 
 .df-dialog-body p {
   margin: 0;
+}
+
+.df-field {
+  display: grid;
+  gap: var(--df-space-2);
+  margin-bottom: var(--df-space-6);
+}
+
+.df-field label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.df-field textarea {
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  resize: vertical;
 }
 
 .df-gallery {
@@ -196,6 +207,14 @@
   margin: 0;
 }
 
+.df-gallery > h1 {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 .df-gallery ul {
   display: flex;
   flex-wrap: wrap;
@@ -207,4 +226,8 @@
 
 .df-gallery a {
   color: var(--df-color-link);
+}
+
+.df-gallery a:hover {
+  color: var(--df-color-link-hover);
 }

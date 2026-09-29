@@ -54,9 +54,11 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 
 ## 3. Look and feel
 
-- **DripFunnel-branded**, calm and dense, like a serious internal tool. Primary colour indigo
-  `#4f46e5` on white; text `#111827`; muted text `#6b7280`; radius 8 px; system font stack.
-  Design **light and dark** themes.
+- **DripFunnel-branded**, calm and dense, like a serious internal tool, in the DripFunnel style
+  guide's look ([designs/design.md](../../../designs/design.md) §5–7, the source of truth for
+  tokens): orange `#EC844F` actions with a `#4A1B0C` label, navy `#0A2A4A` headings, text
+  `#14181F` on `#FDFAF7`, Manrope headings and Inter text, 8 px buttons and fields, 12 px
+  cards, 16 px dialogs. Design **light and dark** themes.
 - **Desktop first** (1280–1440 px), with a narrow-laptop layout. On a phone an on-call
   engineer must still be able to **search for a store and see its status**; design that one
   flow at 375 px.

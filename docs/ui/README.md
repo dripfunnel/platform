@@ -91,7 +91,11 @@ apps/ui/<app>/
   Never assume a country.
 - **Style only with the tokens** in `shared/ui/tokens.css` (`--df-*`). No hard-coded
   colours. The merchant portal overrides the brand tokens with the partner's look before
-  anything renders; the two consoles use DripFunnel's.
+  anything renders; the two consoles use DripFunnel's. DripFunnel's values come from the
+  style guide ([../../designs/design.md](../../designs/design.md) §5–7).
+- **Fonts**: Inter for text and Manrope for headings, loaded from Google Fonts by a `<link>` in
+  each app's `index.html` (decided 2026-09-29). It is a third-party request on every page
+  load; the token font stacks fall back to the system font when it is blocked.
 - **Accessibility is WCAG 2.2 AA**: keyboard, screen reader, visible focus, contrast, reduced
   motion. Phone first in the merchant portal; desktop first in the consoles, which must
   still work on a phone for the essentials.
