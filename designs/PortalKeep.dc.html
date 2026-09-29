@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:900px;">
+  <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Choose what to keep on Free</span><span style="font-size:14px;color:#5A6472;">{{ sub }}</span></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;"><button onClick="{{ a.plans }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Choose a plan instead — keep everything</button></div>
+  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+    <div style="padding:14px 18px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Products · {{ keptCount }} of 10 stay on sale</span><span style="font-size:12px;color:#5A6472;">We picked your best sellers. Products with orders waiting to ship always stay.</span></div>
+    <sc-for list="{{ products }}" as="p" hint-placeholder-count="8">
+      <button onClick="{{ p.toggle }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px 18px;border:0;border-bottom:1px solid #F1ECE6;background:{{ p.bg }};text-align:left;cursor:pointer;">
+        <span style="width:20px;height:20px;border-radius:5px;border:1.5px solid {{ p.cbBd }};background:{{ p.cbBg }};color:#FFFFFF;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;">{{ p.mark }}</span>
+        <span style="flex:1;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ p.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ p.why }}</span></span>
+        <span style="font-size:12px;font-weight:600;color:{{ p.stFg }};">{{ p.state }}</span>
+      </button>
+    </sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:{{ cols }};gap:12px;">
+    <sc-for list="{{ areas }}" as="ar" hint-placeholder-count="8">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ ar.title }}</span>
+        <span style="font-size:13px;color:#1D6B47;">Kept: {{ ar.kept }}</span>
+        <span style="font-size:13px;color:#8F4017;">Paused: {{ ar.paused }}</span>
+        <sc-if value="{{ ar.hasPick }}" hint-placeholder-val="{{ false }}"><select value="{{ ar.value }}" onChange="{{ ar.onPick }}" style="height:36px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 8px;font-size:13px;"><sc-for list="{{ ar.options }}" as="o" hint-placeholder-count="2"><option value="{{ o }}">Keep {{ o }}</option></sc-for></select></sc-if>
+      </div>
+    </sc-for>
+  </div>
+  <div style="padding:12px 14px;border-radius:10px;background:#EAF1F8;border:1px solid #C9DAEC;color:#00325F;font-size:13px;">Nothing is deleted. Paused items show “Paused — over your plan” in the portal, and shoppers see “Currently unavailable” instead of a missing page. Upgrade any time and everything comes back exactly as it was.</div>
+  <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;"><button onClick="{{ a.cancel }}" style="height:44px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Back</button><button onClick="{{ a.confirm }}" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ confirmLabel }}</button></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); const a = props.app; const P = a.paused && a.paused.keep; const sold = {}; a.orders.forEach(o => o.lines.forEach(l => { sold[l.pid] = (sold[l.pid] || 0) + l.qty; })); const def = P || [...a.allProducts].sort((x, y) => (sold[y.id] || 0) - (sold[x.id] || 0) || y.updated - x.updated).slice(0, 10).map(p => p.id); const g = (a.data('gateways') || []).filter(x => x.status === 'live'); const cs = ((a.data('shipping') || {}).couriers || []).filter(x => ['pricing', 'standby'].includes(x.status)); this.state = { keep: def, gw: g[0] ? g[0].name : '', cr: cs[0] ? cs[0].name : '' }; }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const s = this.state; const phone = app.phone;
+    const sold = {}; app.orders.forEach(o => o.lines.forEach(l => { sold[l.pid] = (sold[l.pid] || 0) + l.qty; }));
+    const open = new Set(app.orders.filter(o => ['unfulfilled', 'partial'].includes(o.status)).flatMap(o => o.lines.map(l => l.pid)));
+    const keep = new Set([...s.keep, ...[...open]]);
+    const products = [...app.allProducts].sort((a, b) => (sold[b.id] || 0) - (sold[a.id] || 0)).map(p => { const on = keep.has(p.id); const locked = open.has(p.id); return { name: p.name, why: locked ? 'Has an order waiting to ship — always stays' : (sold[p.id] ? `${sold[p.id]} sold in your trial` : 'No sales yet'), mark: on ? '✓' : '', cbBd: on ? '#00519F' : '#B9BEC6', cbBg: on ? '#00519F' : '#FFFFFF', bg: on ? '#F7FAFD' : '#FFFFFF', state: on ? 'Stays on sale' : 'Paused', stFg: on ? '#1D6B47' : '#8F4017',
+      toggle: () => { if (locked) { app.toast('It has an order waiting to ship, so it stays'); return; } if (on) this.setState({ keep: s.keep.filter(x => x !== p.id) }); else if (keep.size >= 10) app.toast('Free keeps 10 products — untick one first'); else this.setState({ keep: [...s.keep, p.id] }); } }; });
+    const ppl = app.data('people') || []; const gws = (app.data('gateways') || []).filter(x => x.status === 'live'); const crs = ((app.data('shipping') || {}).couriers || []).filter(x => ['pricing', 'standby'].includes(x.status));
+    const mk = app.data('markets') || []; const ws = (app.data('warehouses') || []).filter(w => !w.supplier);
+    const list = (arr, n) => arr.length ? arr.slice(0, 3).join(', ') + (arr.length > 3 ? ` and ${arr.length - 3} more` : '') : 'nothing';
+    const areas = [
+      { title: 'Team', kept: 'You (store creator)', paused: list(ppl.filter(p => p.id !== 'u1').map(p => p.name || p.email)) + ' — can’t sign in' },
+      { title: 'Suppliers', kept: 'Their products, if in your 10', paused: list((app.data('suppliers') || []).map(x => x.name)) + ' — logins paused' },
+      { title: 'Markets', kept: mk.filter(m => m.primary).map(m => m.name).join('') || 'Home', paused: list(mk.filter(m => !m.primary).map(m => m.name)) + ' — shoppers there see your home prices' },
+      { title: 'Currencies & languages', kept: app.R.cur + ' · ' + ((app.data('languages') || [])[0] || { name: 'English' }).name, paused: list([...(app.data('currencies') || []).filter(x => !x.main).map(x => x.code), ...(app.data('languages') || []).filter(x => !x.main).map(x => x.name)]) + ' — kept for later' },
+      { title: 'Payments', kept: s.gw || 'none', paused: list(gws.map(g => g.name).filter(n => n !== s.gw)), hasPick: gws.length > 1, value: s.gw, options: gws.map(g => g.name), onPick: e => this.setState({ gw: e.target.value }) },
+      { title: 'Couriers', kept: s.cr || 'Manual shipping', paused: list(crs.map(g => g.name).filter(n => n !== s.cr)), hasPick: crs.length > 1, value: s.cr, options: crs.map(g => g.name), onPick: e => this.setState({ cr: e.target.value }) },
+      { title: 'Stock locations', kept: (ws.find(w => w.isDefault) || ws[0] || { name: '—' }).name, paused: list(ws.filter(w => !w.isDefault).map(w => w.name)) + ' — stock kept, not used for orders' },
+      { title: 'Rich content & AI', kept: 'Specs, highlights, 1 size chart', paused: 'A+ content, video, extra size charts (hidden on your shop) · AI needs your own key · own domain works 30 more days' }
+    ].map(x => ({ hasPick: false, options: [], value: '', onPick: null, ...x }));
+    const fromTrial = app.st.plan !== 'trialEnded';
+    return { pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', cols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      sub: fromTrial ? 'Your trial ends tomorrow. Pick what stays on Free — or choose a plan and keep everything.' : 'You’re on Free. Swap what stays on sale any time.',
+      keptCount: String(keep.size), products, areas, confirmLabel: fromTrial ? 'Confirm and move to Free when the trial ends' : 'Save what’s kept',
+      a: { plans: () => app.go('billing'), cancel: () => app.go('home'),
+        confirm: () => { app.set('kept', { products: [...keep] }); app.set('gateways', l => l.map(g => g.status === 'live' && g.name !== s.gw && g.kind === 'gateway' ? { ...g, status: 'off', pausedByPlan: true } : g)); if (fromTrial) { app.setPlan('trialEnded'); app.toast('Done — you’re on Free. ' + (app.allProducts.length - keep.size) + ' products paused, nothing deleted.'); } else app.toast('Saved — ' + keep.size + ' products on sale'); app.go('home'); } } };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+    <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Storefront</div><div style="font-size:14px;color:#5A6472;">{{ liveLine }}</div></div>
+    <button onClick="{{ a.viewLive }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">View live site ↗</button>
+  </div>
+  <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:10px;background:#F4F8FB;border:1px solid #C9DAEC;font-size:13px;color:#00325F;">You can look, but only the store owner can change the storefront. Ask Farhan if something needs changing.</div></sc-if>
+
+  <div style="display:grid;grid-template-columns:{{ cols }};gap:16px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+      <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Describe a change</span>
+          <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#7A4B00;padding:8px 10px;background:#FFF6E5;border-radius:8px;">One change at a time — publish or discard the one below before asking for another.</span></sc-if>
+          <textarea value="{{ prompt }}" onChange="{{ on.prompt }}" readOnly="{{ busy }}" rows="3" placeholder="e.g. Make the homepage headline about our autumn linen, and make the button green" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;resize:vertical;"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:12px;color:#5A6472;">{{ promptsLeft }}</span><button onClick="{{ a.ask }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ askBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ askLabel }}</button></div>
+          <sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8541F;">{{ err }}</span></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasDraft }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:2px solid #00519F;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Draft · not on your live site</span><span style="display:flex;border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;"><sc-for list="{{ widths }}" as="w" hint-placeholder-count="3"><button onClick="{{ w.onClick }}" style="height:30px;padding:0 10px;border:0;background:{{ w.bg }};color:{{ w.fg }};font-size:12px;cursor:pointer;">{{ w.label }}</button></sc-for></span></div>
+          <span style="font-size:14px;color:#14181F;">{{ d.summary }}</span>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;"><span style="color:#1D6B47;"><strong>Changed:</strong> {{ d.changed }}</span><span style="color:#5A6472;"><strong>Not touched:</strong> {{ d.untouched }}</span></div>
+          <div style="display:grid;grid-template-columns:{{ compareCols }};gap:12px;">
+            <sc-for list="{{ frames }}" as="f" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">{{ f.label }}</span>
+                <div style="width:100%;max-width:{{ frameW }};border:6px solid #14181F;border-radius:{{ frameR }};overflow:hidden;background:#FFFFFF;">
+                  <div style="padding:8px 12px;display:flex;justify-content:space-between;font-size:11px;border-bottom:1px solid #EDEAE5;"><strong>{{ store }}</strong><span>Shop · About · Cart</span></div>
+                  <div style="padding:{{ heroPad }};background:{{ f.bg }};display:flex;flex-direction:column;gap:8px;">
+                    <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ heroFs }};line-height:1.15;color:{{ f.fg }};">{{ f.headline }}</span>
+                    <span style="font-size:12px;color:{{ f.fg }};opacity:0.85;">{{ f.sub }}</span>
+                    <span style="align-self:flex-start;padding:6px 12px;border-radius:6px;background:{{ f.accent }};color:#FFFFFF;font-size:12px;font-weight:700;">{{ f.cta }}</span>
+                  </div>
+                  <div style="padding:10px 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"><span style="aspect-ratio:1;border-radius:4px;background:#EDEAE5;"></span><span style="aspect-ratio:1;border-radius:4px;background:#EDEAE5;"></span><span style="aspect-ratio:1;border-radius:4px;background:#EDEAE5;"></span></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ publishing }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:6px;"><div style="height:8px;border-radius:4px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ pubPct }};height:100%;background:#1D6B47;"></div></div><span style="font-size:13px;color:#434A55;">{{ pubText }}</span></div></sc-if>
+          <sc-if value="{{ notPublishing }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.discard }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Discard</button><button onClick="{{ a.publish }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#1D6B47;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Approve &amp; publish</button></div></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noDraft }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;align-items:center;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;align-self:flex-start;">Live now · version {{ liveV }}</span>
+          <div style="width:100%;border:1px solid #EDEAE5;border-radius:8px;overflow:hidden;">
+            <div style="padding:26px 22px;background:{{ live.bg }};display:flex;flex-direction:column;gap:8px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;color:{{ live.fg }};">{{ live.headline }}</span><span style="font-size:13px;color:{{ live.fg }};">{{ live.sub }}</span><span style="align-self:flex-start;padding:7px 14px;border-radius:6px;background:{{ live.accent }};color:#FFFFFF;font-size:12px;font-weight:700;">{{ live.cta }}</span></div><div style="padding:8px 12px;display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#8A919B;border-top:1px solid #EDEAE5;"><span>{{ footLine }}</span><sc-if value="{{ powered }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.powered }}" style="border:0;background:none;color:#B8541F;font-size:11px;cursor:pointer;">Remove “Powered by DripFunnel”</button></sc-if></div>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">This month</span>
+        <sc-for list="{{ meters }}" as="m" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:4px;"><div style="display:flex;justify-content:space-between;font-size:13px;"><span>{{ m.label }}</span><span style="color:{{ m.fg }};font-weight:600;">{{ m.val }}</span></div><div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ m.pct }};height:100%;background:{{ m.bar }};"></div></div></div></sc-for>
+        <span style="font-size:12px;color:#5A6472;">Going back to an older version never uses build minutes.</span>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+        <div style="padding:12px 16px;border-bottom:1px solid #E8E2DC;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">History</div>
+        <sc-for list="{{ history }}" as="h" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #F1EEEA;font-size:13px;">
+            <span style="flex:1;display:flex;flex-direction:column;"><strong style="color:#14181F;">v{{ h.v }} · {{ h.label }}</strong><span style="color:#5A6472;">{{ h.date }} · {{ h.by }}</span></span>
+            <sc-if value="{{ h.isLive }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#1D6B47;font-weight:600;">Live</span></sc-if>
+            <sc-if value="{{ h.canBack }}" hint-placeholder-val="{{ false }}"><button onClick="{{ h.back }}" style="height:30px;padding:0 10px;border:1px solid #D7D3CD;border-radius:6px;background:#FFFFFF;font-size:12px;cursor:pointer;">Go back to this</button></sc-if>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { prompt: '', busy: false, err: '', width: 'desktop', pub: 0 };
+  site(sf, app) { return sf.site || { headline: 'New in: ' + app.storeName + ' autumn edit', sub: 'Made to last, sent from ' + app.R.city + '.', cta: 'Shop now', accent: '#0A2A4A', bg: '#F2EDE6', fg: '#14181F' }; }
+  async ask() {
+    const app = this.props.app; const sf = app.data('storefront'); const s = this.state;
+    if (!s.prompt.trim()) { this.setState({ err: 'Describe what you want changed.' }); return; }
+    if (sf.draft) return;
+    if (!app.needAI()) return;
+    this.setState({ busy: true, err: '' });
+    const cur = this.site(sf, app);
+    const sys = 'You edit the hero section of a small online shop homepage. Current hero JSON: ' + JSON.stringify(cur) + '. Apply the merchant\'s request only to these fields: headline (max 60 chars), sub (max 90 chars), cta (max 20 chars), accent (hex), bg (hex, light), fg (hex, dark text). Reply with ONLY minified JSON: {"hero":{...all six fields...},"summary":"one plain sentence saying what you changed","changed":["field names in plain words"],"untouched":["things you did not touch, e.g. Products, Prices, Menu, Footer"]}. If the request is outside the hero (e.g. prices, checkout), make no hero change and say so in summary.';
+    try {
+      const txt = await window.claude.complete({ system: sys, messages: [{ role: 'user', content: s.prompt }], max_tokens: 500 });
+      const j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
+      app.set('storefront', x => ({ ...x, prompts: x.prompts + 1, draft: { prompt: s.prompt, hero: { ...cur, ...j.hero }, summary: j.summary, changed: (j.changed || []).join(', ') || '—', untouched: (j.untouched || ['Products', 'Prices', 'Menu']).join(', ') } }));
+      this.setState({ busy: false, prompt: '' });
+    } catch (e) {
+      this.setState({ busy: false, err: 'We couldn’t make that change just now — nothing on your site changed. Try again in a moment.' });
+    }
+  }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { caps: c, phone } = app; const s = this.state;
+    const sf = app.data('storefront') || { history: [], prompts: 0, minutes: 0 };
+    const live = this.site(sf, app); const d = sf.draft;
+    const canEdit = c.isOwner && !c.readOnly;
+    const P = c.P; const lim = P.aiQuota; const minLim = P.rank >= 3 ? 600 : P.rank >= 2 ? 240 : 120; const hist = P.history;
+    const W = { desktop: ['560px', '8px', '26px 22px', '22px'], tablet: ['380px', '14px', '22px 18px', '19px'], phone: ['230px', '20px', '18px 14px', '16px'] }[s.width];
+    const publish = () => {
+      this.setState({ pub: 5 });
+      clearInterval(this._t);
+      this._t = setInterval(() => {
+        const p = Math.min(100, this.state.pub + 15); this.setState({ pub: p });
+        if (p >= 100) { clearInterval(this._t); const v = sf.live + 1; app.set('storefront', x => ({ ...x, site: x.draft.hero, draft: null, live: v, minutes: x.minutes + 2, history: [{ v, label: x.draft.summary.slice(0, 48), date: Date.now(), by: 'Farhan' }, ...x.history] })); this.setState({ pub: 0 }); app.toast(`Version ${v} is live — we checked your site and it changed`, 'View', () => app.toast('Opens ' + app.R.domain)); }
+      }, 350);
+    };
+    return {
+      pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', cols: phone ? '1fr' : 'minmax(0,1.7fr) minmax(0,1fr)',
+      liveLine: `${app.R.domain} · version ${sf.live} is live`, readOnly: !canEdit, canEdit, prompt: s.prompt, busy: s.busy, err: s.err,
+      promptsLeft: P.ai === 'key' ? (app.st.aiKey ? 'Runs on your own AI key' : 'Connect your own AI key to start — or get AI included on Growth') : `AI tokens: ${app.aiLeft()} this month`, askLabel: s.busy ? 'Working on it…' : 'Make the change', askBg: s.busy || d ? '#9AA1AB' : '#EC844F',
+      hasDraft: !!d, noDraft: !d, d: d || {}, store: app.storeName,
+      widths: ['desktop', 'tablet', 'phone'].map(w => ({ label: w[0].toUpperCase() + w.slice(1), bg: s.width === w ? '#0A2A4A' : '#FFFFFF', fg: s.width === w ? '#FFFFFF' : '#434A55', onClick: () => this.setState({ width: w }) })),
+      frameW: W[0], frameR: W[1], heroPad: W[2], heroFs: W[3], compareCols: phone || s.width === 'desktop' ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      frames: d ? [{ label: 'Before', ...live }, { label: 'After', ...d.hero }] : [],
+      publishing: s.pub > 0, notPublishing: !s.pub, pubPct: s.pub + '%', pubText: s.pub < 60 ? 'Building your site…' : s.pub < 100 ? 'Checking the live site changed…' : 'Done',
+      liveV: String(sf.live), live, powered: c.P.powered, footLine: c.P.powered ? '© ' + app.storeName + ' · Powered by DripFunnel' : '© ' + app.storeName,
+      meters: [...(P.ai === 'included' && lim !== Infinity ? [{ label: 'AI tokens used', v: app.st.aiUsed, l: lim }] : []), { label: 'Build minutes', v: sf.minutes, l: minLim }].map(m => ({ label: m.label, val: `${m.v} of ${m.l}`, pct: Math.min(100, m.v / m.l * 100) + '%', bar: m.v / m.l >= 0.8 ? '#D9A43A' : '#1D6B47', fg: m.v / m.l >= 0.8 ? '#7A4B00' : '#5A6472' })),
+      history: sf.history.filter(h => (Date.now() - h.date) / 864e5 <= hist || h.v === sf.live).map(h => ({ v: String(h.v), label: h.label, by: h.by, date: new Date(h.date).toLocaleDateString(app.R.locale, { day: 'numeric', month: 'short' }), isLive: h.v === sf.live, canBack: canEdit && h.v !== sf.live,
+        back: () => app.modal({ title: `Go back to version ${h.v}?`, body: `“${h.label}” goes live again. Your current version stays in history, so you can come back. No build minutes used.`, confirm: 'Go back', onConfirm: () => { app.set('storefront', x => ({ ...x, live: h.v, site: h.v < 12 ? null : x.site })); app.toast(`Version ${h.v} is live again`); } }) })),
+      on: { prompt: e => this.setState({ prompt: e.target.value, err: '' }) },
+      a: { ask: () => this.ask(), publish, discard: () => { app.set('storefront', x => ({ ...x, draft: null })); app.toast('Draft discarded — your live site didn’t change'); }, powered: () => app.upgrade('Removing “Powered by DripFunnel”', 'growth'), viewLive: () => app.toast('Opens ' + app.R.domain + ' in a new tab') }
+    };
+  }
+}
+</script>
+</body>
+</html>

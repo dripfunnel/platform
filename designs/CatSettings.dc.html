@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;">
+  <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ false }}"><div style="background:#FFFFFF;border-bottom:1px solid #E8E2DC;display:flex;gap:22px;padding:0 {{ padX }};overflow:auto;">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="7"><button onClick="{{ t.onClick }}" style="height:48px;border:0;border-bottom:3px solid {{ t.bd }};background:none;font-family:Manrope,sans-serif;font-weight:{{ t.fw }};font-size:14px;color:{{ t.fg }};cursor:pointer;white-space:nowrap;padding:0 2px;">{{ t.label }}</button></sc-for>
+  </div></sc-if>
+  <sc-if value="{{ isTax }}" hint-placeholder-val="{{ false }}">
+    <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:860px;">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">How you type prices</span><span style="font-size:13px;color:#5A6472;">This decides what the number in every product’s price box means. {{ tx.usual }}</span></div>
+        <div style="display:grid;grid-template-columns:{{ tx.cols }};gap:10px;">
+          <sc-for list="{{ tx.opts }}" as="o" hint-placeholder-count="2">
+            <button onClick="{{ o.onClick }}" style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:{{ o.bd }};border-radius:12px;background:{{ o.bg }};text-align:left;cursor:pointer;">
+              <span style="width:18px;height:18px;border-radius:50%;border:{{ o.dot }};flex:none;margin-top:2px;"></span>
+              <span style="display:flex;flex-direction:column;gap:4px;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ o.label }}</strong><span style="font-size:13px;color:#434A55;">{{ o.sub }}</span><span style="font-size:12px;color:#00325F;background:#F4F8FB;padding:6px 8px;border-radius:6px;">{{ o.example }}</span></span>
+            </button>
+          </sc-for>
+        </div>
+        <sc-if value="{{ tx.changed }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px;border-radius:8px;background:#FFF6E5;border:1px solid #F2D9A6;font-size:13px;color:#7A4B00;">You have {{ tx.count }} products. When you save we’ll ask what should happen to their prices — nothing changes until you choose.</div></sc-if>
+        <div style="display:flex;justify-content:flex-end;"><button onClick="{{ a.saveTax }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ tx.btnBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save</button></div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:8px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Your {{ tx.classWord }}</span>
+        <sc-for list="{{ tx.classes }}" as="c" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #F1EEEA;font-size:14px;"><span>{{ c }}</span><span style="color:#5A6472;font-size:13px;">{{ tx.rateNote }}</span></div></sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isCat }}" hint-placeholder-val="{{ true }}">
+  <div style="padding:{{ pad }};display:grid;grid-template-columns:{{ cols }};gap:20px;align-items:start;">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">What do you mostly sell?</span>
+        <span style="font-size:13px;color:#5A6472;">We’ll switch on the sections that fit. Change any of them below.</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ presets }}" as="p" hint-placeholder-count="5"><button onClick="{{ p.onClick }}" style="padding:8px 14px;border-radius:18px;border:1px solid {{ p.bd }};background:{{ p.bg }};color:{{ p.fg }};font-size:13px;font-family:Manrope,sans-serif;font-weight:600;cursor:pointer;">{{ p.label }}</button></sc-for></div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid #EDEAE5;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Product page sections</span><span style="font-size:13px;color:#5A6472;">Your plan: {{ planName }}</span></div>
+        <sc-for list="{{ features }}" as="f" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) auto 48px;gap:14px;align-items:center;padding:12px 20px;border-bottom:1px solid #F1EEEA;">
+            <span style="display:flex;flex-direction:column;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ f.name }}</span><span style="font-size:12px;color:#5A6472;">{{ f.help }}</span></span>
+            <sc-if value="{{ f.locked }}" hint-placeholder-val="{{ false }}"><button onClick="{{ f.upgrade }}" style="border:0;background:none;font-size:12px;color:#00519F;cursor:pointer;text-decoration:underline;">{{ f.plan }}</button></sc-if>
+            <sc-if value="{{ f.unlocked }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:{{ f.planFg }};">{{ f.plan }}</span></sc-if>
+            <button onClick="{{ f.toggle }}" style="width:42px;height:24px;border-radius:12px;border:0;background:{{ f.tBg }};position:relative;cursor:pointer;opacity:{{ f.op }};"><span style="position:absolute;top:4px;left:{{ f.knob }};width:16px;height:16px;border-radius:50%;background:#FFFFFF;"></span></button>
+          </div>
+        </sc-for>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 20px;flex-wrap:wrap;"><span style="font-size:12px;color:#5A6472;">Turning a section off hides it on every product. What you’ve written is kept.</span><button onClick="{{ a.saveFeat }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ featBtnBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save sections</button></div>
+      </div>
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Legal details used on every product</span><span style="font-size:12px;color:#1D6B47;">Always included — never a paid feature</span></div>
+        <sc-for list="{{ legal }}" as="l" hint-placeholder-count="3"><label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">{{ l.label }}<span style="font-weight:400;font-size:12px;color:#5A6472;">{{ l.help }}</span><input value="{{ l.value }}" onChange="{{ l.on }}" placeholder="{{ l.ph }}" style="height:42px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;outline:none;"></label></sc-for>
+        <div style="display:flex;justify-content:flex-end;"><button onClick="{{ a.saveLegal }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ legalBtnBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save legal details</button></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">What you’re using</span>
+        <sc-for list="{{ meters }}" as="m" hint-placeholder-count="4"><div style="display:flex;flex-direction:column;gap:4px;"><div style="display:flex;justify-content:space-between;font-size:13px;"><span>{{ m.label }}</span><span style="color:{{ m.fg }};font-weight:600;">{{ m.val }}</span></div><div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ m.pct }};height:100%;background:{{ m.bar }};"></div></div><span style="font-size:11px;color:{{ m.fg }};">{{ m.note }}</span></div></sc-for>
+        <sc-if value="{{ showUpgrade }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.upgrade }}" style="height:40px;border:0;border-radius:8px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">See Growth plan</button></sc-if>
+      </div>
+      <div style="background:#F4F8FB;border:1px solid #C9DAEC;border-radius:12px;padding:14px 16px;font-size:13px;color:#00325F;line-height:1.55;">Managers don’t see plan prices or upgrade buttons — they see “Ask your store owner”. Suppliers never see plans at all.</div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); const app = props.app; this.state = { feat: { ...(app ? app.feat : {}) }, legal: { ...(app ? app.legalDefaults : {}) }, preset: 'Clothing', tab: props.tab || 'catalogue', incl: app ? app.R.incl : true }; }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { caps: c, phone, R } = app;
+    const s = this.state;
+    const featDirty = JSON.stringify(s.feat) !== JSON.stringify(app.feat);
+    const legalDirty = JSON.stringify(s.legal) !== JSON.stringify(app.legalDefaults);
+    const defs = [['sizeCharts', 'Size charts', 'Helps shoppers pick the right size'], ['specs', 'Specifications', 'Facts like Material: Cotton'], ['highlights', 'Highlights', '3–5 short points shoppers read first'], ['faqs', 'FAQs', 'Questions and answers on the product'], ['badges', 'Badges', 'New, Bestseller, Handmade, Sale'], ['related', 'Related products', 'Frequently bought together'], ['aplus', 'A+ content · Product story', 'Big photos and feature blocks'], ['video', 'Video', 'Upload or link a YouTube video']];
+    const features = defs.map(([k, name, help]) => {
+      const incl = c.planIncl(k); const on = !!s.feat[k];
+      return { name, help, locked: !incl, unlocked: incl, plan: !incl ? (c.isOwner ? 'On ' + c.minPlan({ aplus: 'aplusProducts' }[k] || k).name + ' · See plans' : 'On ' + c.minPlan({ aplus: 'aplusProducts' }[k] || k).name) : (k === 'sizeCharts' ? `${app.sizeCharts.length} of ${c.limits.sizeCharts} charts` : (c.trial ? 'In your trial' : 'Included')), planFg: '#5A6472',
+        tBg: on && incl ? '#1D6B47' : '#C9CDD3', knob: on && incl ? '22px' : '4px', op: incl ? 1 : 0.5,
+        upgrade: () => app.upgrade(name), toggle: () => { if (!incl) { app.upgrade(name); return; } this.setState({ feat: { ...s.feat, [k]: !on } }); } };
+    });
+    const PRE = { Clothing: { sizeCharts: true, specs: true, highlights: true, badges: true }, Electronics: { specs: true, highlights: true, faqs: true, related: true, sizeCharts: false }, 'Food & drink': { highlights: true, faqs: true, sizeCharts: false, specs: true }, Beauty: { highlights: true, faqs: true, sizeCharts: false }, Handmade: { badges: true, highlights: true, sizeCharts: false } };
+    const presets = Object.keys(PRE).map(k => ({ label: k, bg: s.preset === k ? '#EAF1F8' : '#FFFFFF', bd: s.preset === k ? '#00519F' : '#D7D3CD', fg: s.preset === k ? '#00325F' : '#434A55', onClick: () => { this.setState({ preset: k, feat: { ...s.feat, ...PRE[k] } }); app.toast(`${k} sections switched on — press Save sections to keep them`); } }));
+    const n = app.allProducts.length;
+    const meter = (label, used, lim, note) => { const r = used / lim; return { label, val: `${used} of ${lim}`, pct: Math.min(100, r * 100) + '%', bar: r >= 1 ? '#00519F' : r >= 0.8 ? '#D9A43A' : '#1D6B47', fg: r >= 0.8 ? '#7A4B00' : '#5A6472', note: r >= 1 ? 'At your limit — what you have is safe' : r >= 0.8 ? `Nearly full — ${lim - used} left` : (note || '') }; };
+    const LBL = { manufacturer: ['Manufacturer (name and address)', 'Shown on every product unless you change it for one', 'Company, street, city'], care: ['Customer care contact', 'Email or phone shoppers can reach', 'hello@yourshop.com'], respPerson: [R.markets.length > 1 ? 'EU responsible person' : 'Importer (if you import products)', R.markets.length > 1 ? 'Needed when the maker is outside the EU' : 'Only if the maker is abroad', 'Name, address, email'] };
+    const TK = { 'Tax setup': 'tax', Catalogue: 'catalogue' };
+    const tabs = ['Store info', 'Supplier', 'Payment setup', 'Shipping', 'Warehouse', 'Tax setup', 'Catalogue'].filter(l => l !== 'Supplier' || app.caps.suppliersOn).map(l => { const on = TK[l] === s.tab; return { label: l, bd: on ? '#EC844F' : 'transparent', fg: on ? '#14181F' : '#5A6472', fw: on ? 700 : 500, onClick: () => TK[l] ? this.setState({ tab: TK[l], incl: app.R.incl }) : app.toast(l + ' isn’t part of the Catalogue prototype') }; });
+    const tn = R.key === 'US' ? 'sales tax' : R.taxName;
+    const ex = R.mult(100);
+    const nf = v => app.fmt(Math.round(v * 100) / 100);
+    const exIn = R.rate ? `You type ${nf(ex)} → shopper pays ${nf(ex)}, of which ${nf(ex - ex / (1 + R.rate))} is ${tn}` : `You type ${nf(ex)} → shopper pays ${nf(ex)}, tax included`;
+    const exOut = R.rate ? `You type ${nf(ex)} → shopper pays ${nf(ex * (1 + R.rate))} with ${tn}` : `You type ${nf(ex)} → shopper pays ${nf(ex)} + ${tn} for their state`;
+    const txChanged = s.incl !== R.incl;
+    const tx = {
+      cols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))', count: String(app.allProducts.length), changed: txChanged && app.allProducts.length > 0, btnBg: txChanged ? '#EC844F' : '#C9CDD3',
+      usual: 'Stores in ' + R.home.replace('the ', '') + ' usually ' + (R.regionIncl ? 'include ' : 'don’t include ') + tn + '.',
+      classWord: R.taxLabel.toLowerCase().replace('rate', 'rates').replace('category', 'categories'), classes: R.taxClasses, rateNote: R.key === 'US' ? 'Rate depends on the shopper’s state' : (R.key === 'DE' ? 'Rate depends on the shopper’s country' : 'Same across India'),
+      opts: [[true, 'Prices include ' + tn, 'The price you type is what the shopper pays. Usual in the EU, UK, India and Australia.', exIn], [false, 'Prices don’t include ' + tn, tn.charAt(0).toUpperCase() + tn.slice(1) + ' is added on top at checkout. Usual in the US and Canada.', exOut]]
+        .map(([v, label, sub, example]) => ({ label, sub, example, bd: s.incl === v ? '2px solid #00519F' : '1px solid #D7D3CD', bg: s.incl === v ? '#F4F8FB' : '#FFFFFF', dot: s.incl === v ? '5px solid #00519F' : '1.5px solid #9AA1AB', onClick: () => c.isOwner ? this.setState({ incl: v }) : app.toast('Only the store owner can change this') }))
+    };
+    const saveTax = () => {
+      if (!txChanged) return;
+      const done = keep => { app.setPriceTax(s.incl, keep); app.toast(s.incl ? 'Prices now include ' + tn + ' — the price box on every product says so' : 'Prices now exclude ' + tn + ' — it’s added at checkout'); };
+      if (!app.allProducts.length || !R.rate) { done(false); return; }
+      app.modal({ title: `What should happen to your ${app.allProducts.length} products’ prices?`, body: `Example: a product at ${nf(ex)}.`, wide: true,
+        choices: [{ label: 'Keep what shoppers pay', sub: s.incl ? `We change ${nf(ex)} to ${nf(ex * (1 + R.rate))} so shoppers still pay the same` : `We change ${nf(ex)} to ${nf(ex / (1 + R.rate))} so shoppers still pay the same`, value: 'keep' }, { label: 'Keep the numbers I typed', sub: s.incl ? `Shoppers pay ${nf(ex)} instead of ${nf(ex * (1 + R.rate))} — you earn less` : `Shoppers pay ${nf(ex * (1 + R.rate))} instead of ${nf(ex)}`, value: 'numbers' }],
+        confirm: 'Save', onConfirm: v => done(v === 'keep') });
+    };
+    return {
+      showTabs: !this.props.tab, tabs, isTax: s.tab === 'tax', isCat: s.tab === 'catalogue', tx, padX: phone ? '14px' : '28px', pad: phone ? '14px' : '22px 28px', cols: phone ? '1fr' : 'minmax(0,1fr) 320px', planName: c.planName + (c.trial ? ' (trial until 12 Oct)' : ''),
+      presets, features, featBtnBg: featDirty ? '#EC844F' : '#C9CDD3', legalBtnBg: legalDirty ? '#EC844F' : '#C9CDD3',
+      legal: Object.keys(LBL).map(k => ({ label: LBL[k][0], help: LBL[k][1], ph: LBL[k][2], value: s.legal[k] || '', on: e => this.setState({ legal: { ...s.legal, [k]: e.target.value } }) })),
+      meters: [meter('Products', n, c.limits.products), meter('Photos per product', Math.max(0, ...app.allProducts.map(p => p.photos.length)), c.limits.photos, 'Most photos on one product'), meter('Size charts', app.sizeCharts.length, c.limits.sizeCharts), meter('Languages', c.multiLang ? 2 : 1, c.limits.languages)],
+      showUpgrade: c.isOwner && c.P.rank < 3,
+      a: { saveFeat: () => { if (!featDirty) return; app.setFeat(s.feat); app.toast('Sections saved — products now show what you switched on'); }, saveLegal: () => { if (!legalDirty) return; app.setLegalDefaults(s.legal); app.toast('Legal details saved — used on every product'); }, upgrade: () => app.upgrade('Growth features'), saveTax }
+    };
+  }
+}
+</script>
+</body>
+</html>

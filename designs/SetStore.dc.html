@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:900px;">
+  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+    <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Your store</span>
+    <div style="display:grid;grid-template-columns:{{ twoCols }};gap:12px;">
+      <sc-for list="{{ fields }}" as="f" hint-placeholder-count="10">
+        <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;grid-column:{{ f.span }};">{{ f.label }}<span style="font-weight:400;font-size:12px;color:#5A6472;">{{ f.help }}</span><input value="{{ f.value }}" onChange="{{ f.on }}" readOnly="{{ f.ro }}" style="height:42px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;font-weight:400;outline:none;background:{{ f.bg }};"></label>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid #E8E2DC;border-radius:10px;"><span style="font-size:13px;font-weight:600;">Your shop’s web address</span><span style="font-size:14px;font-family:'IBM Plex Mono',monospace;">{{ webAddr }}</span><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><button onClick="{{ a.domain }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">{{ domainBtn }}</button><span style="font-size:12px;color:#5A6472;">{{ domainNote }}</span></span></div>
+    <div style="display:flex;align-items:center;gap:12px;"><span style="width:48px;height:48px;border-radius:10px;background:#EC844F;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:20px;">{{ initial }}</span><span style="font-size:13px;color:#5A6472;flex:1;">Logo — square, at least 400px</span><button onClick="{{ a.logo }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Replace</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-size:12px;color:#5A6472;">Saves this card. Currencies and languages save on their own.</span><button onClick="{{ a.saveInfo }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ infoBtn }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save store info</button></div>
+  </div>
+
+  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Currencies</span><span style="font-size:13px;color:#5A6472;">Each currency either converts from your main price automatically, or you type its prices yourself. Markets pick from this list.</span></div>
+    <sc-for list="{{ curs }}" as="c" hint-placeholder-count="2">
+      <div style="border:1px solid #E8E2DC;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:{{ c.bg }};">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <strong style="font-family:Manrope,sans-serif;font-size:15px;min-width:52px;">{{ c.code }}</strong>
+          <span style="font-size:13px;color:#434A55;flex:1;min-width:160px;">{{ c.sub }}</span>
+          <sc-if value="{{ c.notMain }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:8px;border:0;background:none;cursor:pointer;font-size:13px;color:#14181F;padding:0;"><span style="width:38px;height:22px;border-radius:11px;background:{{ c.tBg }};position:relative;"><span style="position:absolute;top:3px;left:{{ c.knob }};width:16px;height:16px;border-radius:50%;background:#FFFFFF;"></span></span>Convert automatically</button>
+            <button onClick="{{ c.remove }}" style="border:0;background:none;color:#B8541F;font-size:13px;cursor:pointer;">Remove</button>
+          </sc-if>
+        </div>
+        <sc-if value="{{ c.isAuto }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;"><span style="color:#5A6472;">Round prices</span><select value="{{ c.rounding }}" onChange="{{ c.onRound }}" style="height:34px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 8px;font-size:13px;"><option value="none">Don’t round</option><option value="nearest">To the nearest whole</option><option value="ends-99">To end in .99</option></select><span style="color:#5A6472;">{{ c.example }} · rates from Open Exchange Rates, updated 2 h ago</span></div></sc-if>
+        <sc-if value="{{ c.isManual }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:{{ c.manFg }};padding:8px 10px;border-radius:8px;background:{{ c.manBg }};">{{ c.manText }}</div></sc-if>
+      </div>
+    </sc-for>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <select value="" onChange="{{ on.addCur }}" style="height:38px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:13px;color:#00519F;"><option value="">+ Add a currency</option><sc-for list="{{ addable }}" as="x" hint-placeholder-count="4"><option value="{{ x }}">{{ x }}</option></sc-for></select>
+      <button onClick="{{ a.saveCur }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ curBtn }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save currencies</button>
+    </div>
+    <span style="font-size:12px;color:#5A6472;">Your main currency ({{ main }}) can’t change after the first order.</span>
+  </div>
+
+  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:10px;">
+    <div style="display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Languages</span><span style="font-size:13px;color:#5A6472;">You write products in your main language. Shoppers see it whenever a translation is missing.</span></div>
+    <sc-for list="{{ langs }}" as="l" hint-placeholder-count="1">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #F1EEEA;font-size:14px;"><strong style="flex:1;">{{ l.name }}</strong><span style="font-size:13px;color:#5A6472;">{{ l.sub }}</span><sc-if value="{{ l.notMain }}" hint-placeholder-val="{{ false }}"><button onClick="{{ l.remove }}" style="border:0;background:none;color:#B8541F;font-size:13px;cursor:pointer;">Remove</button></sc-if></div>
+    </sc-for>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <select value="" onChange="{{ on.addLang }}" style="height:38px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:13px;color:#00519F;"><option value="">+ Add a language</option><sc-for list="{{ langAddable }}" as="x" hint-placeholder-count="4"><option value="{{ x.code }}">{{ x.name }}</option></sc-for></select>
+      <button onClick="{{ a.saveLang }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ langBtn }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save languages</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); const a = props.app; this.state = { info: { ...(a.data('storeInfo') || {}) }, curs: JSON.parse(JSON.stringify(a.data('currencies') || [])), langs: JSON.parse(JSON.stringify(a.data('languages') || [])) }; }
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { R, fmt, caps: c, phone } = app; const s = this.state;
+    const info0 = app.data('storeInfo'); const cur0 = app.data('currencies'); const lang0 = app.data('languages');
+    const dI = JSON.stringify(s.info) !== JSON.stringify(info0), dC = JSON.stringify(s.curs) !== JSON.stringify(cur0), dL = JSON.stringify(s.langs) !== JSON.stringify(lang0);
+    const ro = !c.isOwner || c.readOnly;
+    const F = (k, label, help, span, extra) => ({ label, help: help || '', value: s.info[k] || '', ro: ro || (extra && extra.ro), bg: extra && extra.ro ? '#FDFAF7' : '#FFFFFF', span: span || 'auto', on: e => this.setState({ info: { ...s.info, [k]: e.target.value } }) });
+    const fields = [F('name', 'Store name', 'Shoppers see this everywhere'), F('legal', 'Legal name', 'Printed on invoices only'), F('desc', 'One-line description', `Used in search results and link previews · ${(s.info.desc || '').length}/120`, '1 / -1'), F('email', 'Contact email', 'Shoppers reply here'), F('phone', 'Phone'), F('street', 'Street address', 'On every invoice', '1 / -1'), F('city', 'City'), F('postal', R.postalLabel), F('region', R.regionLabel), F('country', 'Country', 'Set at sign-up. Selling abroad is set up in Markets.', 'auto', { ro: true }), F('taxId', R.taxIdLabel, R.key === 'IN' ? 'Your state decides CGST+SGST or IGST' : 'Printed on invoices', '1 / -1')];
+    const rate = { USD: 1, EUR: 0.92, INR: 83, GBP: 0.79, CAD: 1.37, AED: 3.67, CHF: 0.88, AUD: 1.52, JPY: 150 };
+    const conv = (code, v) => v / rate[R.cur] * rate[code];
+    const sample = R.mult(28);
+    const nfc = code => new Intl.NumberFormat(R.locale, { style: 'currency', currency: code });
+    const products = app.allProducts;
+    const missing = code => products.filter(p => p.variants && p.variants.length ? p.variants.some(v => !v.removed && !v.man) : !p.man).length;
+    const setC = (i, patch) => this.setState({ curs: s.curs.map((x, j) => j === i ? { ...x, ...patch } : x) });
+    const curs = s.curs.map((x, i) => {
+      const raw = conv(x.code, sample); const rounded = x.rounding === 'ends-99' ? Math.ceil(raw) - 0.01 : x.rounding === 'nearest' ? Math.round(raw) : raw;
+      const miss = missing(x.code);
+      return { code: x.code, notMain: !x.main && !ro, isAuto: !x.main && x.auto, isManual: !x.main && !x.auto, rounding: x.rounding || 'none', bg: x.main ? '#FDFAF7' : '#FFFFFF',
+        sub: x.main ? 'Main currency · what you type on every product' : x.auto ? `Converted from ${R.cur} automatically` : 'You type the price on each product',
+        example: `${fmt(sample)} → ${nfc(x.code).format(rounded)}`, tBg: x.auto ? '#1D6B47' : '#C9CDD3', knob: x.auto ? '19px' : '3px',
+        manText: miss ? `${miss} products have no ${x.code} price yet — they can’t be bought in ${x.code} until you add one.` : `Every product has a ${x.code} price.`, manBg: miss ? '#FDF0E8' : '#EEF7F2', manFg: miss ? '#B8541F' : '#1D6B47',
+        toggle: () => { if (x.auto) app.modal({ title: `Stop converting ${x.code} automatically?`, body: `You’ll type a ${x.code} price on each product. Until you do, those products can’t be bought in ${x.code}. Converted prices shown now are kept as your starting prices.`, confirm: 'Set prices myself', onConfirm: () => setC(i, { auto: false }) }); else setC(i, { auto: true, rounding: 'ends-99' }); },
+        onRound: e => setC(i, { rounding: e.target.value }),
+        remove: () => this.setState({ curs: s.curs.filter((_, j) => j !== i) }) };
+    });
+    const allLangs = [['fr', 'Français'], ['de', 'Deutsch'], ['es', 'Español'], ['ar', 'العربية'], ['hi', 'हिन्दी'], ['it', 'Italiano']];
+    const untrans = code => products.filter(p => !(p.trans && p.trans[code] && p.trans[code].name)).length;
+    return {
+      webAddr: s.info.ownDomain || (app.slug(s.info.name || 'shop') + '.dfstore.shop'), domainBtn: s.info.ownDomain ? 'Change domain' : 'Connect your own domain', domainNote: c.P.ownDomain ? 'Point a CNAME to shops.dfstore.app — we add the certificate.' : 'Your own domain is on Starter and up.',
+      pad: phone ? '14px' : '22px 28px', twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))', fields, initial: (s.info.name || 'S')[0], main: R.cur,
+      infoBtn: dI ? '#EC844F' : '#C9CDD3', curBtn: dC ? '#EC844F' : '#C9CDD3', langBtn: dL ? '#EC844F' : '#C9CDD3',
+      curs, addable: Object.keys(rate).filter(k => !s.curs.some(x => x.code === k)),
+      langs: s.langs.map((l, i) => ({ name: l.name, sub: l.main ? 'Main language' : `${products.length - untrans(l.code)} of ${products.length} products translated`, notMain: !l.main && !ro, remove: () => app.modal({ title: `Remove ${l.name}?`, body: 'Your translations are kept but won’t show. Add it back any time to show them again.', confirm: 'Remove', onConfirm: () => this.setState({ langs: s.langs.filter((_, j) => j !== i) }) }) })),
+      langAddable: allLangs.filter(([k]) => !s.langs.some(l => l.code === k)).map(([code, name]) => ({ code, name })),
+      on: { addCur: e => { const v = e.target.value; if (!v) return; if (!app.within('currencies', s.curs.length, 'Currencies')) return; this.setState({ curs: [...s.curs, { code: v, auto: true, rounding: 'ends-99' }] }); }, addLang: e => { const v = e.target.value; if (!v) return; if (!app.within('languages', s.langs.length, 'Languages')) return; this.setState({ langs: [...s.langs, { code: v, name: allLangs.find(x => x[0] === v)[1] }] }); } },
+      a: {
+        domain: () => { if (!app.allow('ownDomain', 'Your own domain')) return; app.modal({ title: 'Connect your own domain', body: 'Add a CNAME record at your domain provider pointing to shops.dfstore.app. We check it and add a security certificate — usually within an hour.', input: { label: 'Domain', placeholder: 'www.yourshop.com', required: true, error: 'Type your domain' }, confirm: 'Connect', onConfirm: v => { if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(v.trim())) { app.toast('Use a domain like www.yourshop.com'); return; } const info = { ...s.info, ownDomain: v.trim().toLowerCase() }; this.setState({ info }); app.set('storeInfo', info); app.toast('Checking ' + v.trim() + ' — we’ll email you when it’s live'); } }); },
+        logo: () => app.toast('Choose a square image, at least 400px'),
+        saveInfo: () => { if (!dI) return; if (!s.info.name.trim()) { app.toast('Your store needs a name'); return; } app.set('storeInfo', s.info); app.toast('Store info saved'); },
+        saveCur: () => { if (!dC) return; app.set('currencies', s.curs); app.set('markets', ms => ms.map(m => s.curs.some(x => x.code === m.currency) ? m : { ...m, currency: R.cur })); app.toast('Currencies saved — product price boxes show them now'); },
+        saveLang: () => { if (!dL) return; const added = s.langs.filter(l => !lang0.some(x => x.code === l.code)); app.set('languages', s.langs); app.toast(added.length ? `${added[0].name} added — every product starts “not translated”, shoppers see ${lang0[0].name} until then` : 'Languages saved'); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

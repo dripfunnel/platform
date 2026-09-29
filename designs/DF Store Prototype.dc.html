@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="icon" type="image/png" href="assets/favicon/round-light-64.png" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/png" href="assets/favicon/round-dark-64.png" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon-180.png">
+<title>DripFunnel Store</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#F3EDE8;}
+input,select,textarea,button{font-family:inherit;}
+a{color:#B8541F;text-decoration:underline;text-underline-offset:3px;}
+a:hover{color:#00519F;}
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;background:#F3EDE8;color:#14181F;font-family:Inter,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;">
+
+  <div style="background:#14181F;color:#D6DEE7;padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:12px;">
+    <img src="assets/dripfunnel-mark-inverse.svg" alt="" height="18" style="height:18px;width:auto;display:block;"><span style="font-family:'IBM Plex Mono',monospace;letter-spacing:0.12em;color:#EC844F;font-weight:500;">PROTOTYPE CONTROLS</span>
+    <label style="display:flex;align-items:center;gap:6px;">Role
+      <select value="{{ st.role }}" onChange="{{ on.role }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <option value="owner">Owner</option><option value="manager">Manager</option><option value="staff">Staff</option><option value="vendor">Supplier · Northwind (catalogue) · Business+</option><option value="vendorStock">Supplier · Northwind (stock only)</option>
+      </select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Region
+      <select value="{{ st.region }}" onChange="{{ on.region }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <option value="US">US · Juniper &amp; Co.</option><option value="DE">Germany · Leinen &amp; Licht</option><option value="IN">India · Kesari Threads</option>
+      </select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Plan
+      <select value="{{ st.plan }}" onChange="{{ on.plan }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <option value="free">Starter (Free)</option><option value="starter">Growth</option><option value="growth">Growth Pro</option><option value="business">Business</option><option value="trial">Trial · day 3 (full Business)</option><option value="trial9">Trial · day 9 (ends tomorrow)</option><option value="trialEnded">Trial ended → Starter (Free) (paused items)</option><option value="pastdue">Past due (read-only)</option>
+      </select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Store
+      <select value="{{ st.dataset }}" onChange="{{ on.dataset }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <option value="stocked">Stocked</option><option value="empty">Brand new (empty)</option><option value="signup">Sign up from scratch</option>
+      </select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Scenario
+      <select value="{{ st.scn }}" onChange="{{ on.scn }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <option value="normal">Normal</option><option value="slow">Page is slow to load</option><option value="loadErr">Page won’t load</option><option value="notFound">Broken or old link</option><option value="expired">Session expired</option><option value="removed">Removed from this store</option><option value="invite">Invitation link (staff)</option><option value="inviteBad">Invitation expired</option>
+      </select></label>
+    <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="7">
+      <button onClick="{{ t.onClick }}" style="height:28px;padding:0 10px;border-radius:14px;border:1px solid {{ t.bd }};background:{{ t.bg }};color:{{ t.fg }};font-size:12px;cursor:pointer;">{{ t.label }}</button>
+    </sc-for>
+    <span style="display:flex;align-items:center;gap:6px;">Device<span style="display:flex;border:1px solid #3A424E;border-radius:6px;overflow:hidden;"><button onClick="{{ on.desktop }}" style="height:26px;padding:0 10px;border:0;background:{{ dev.dBg }};color:{{ dev.dFg }};font-size:12px;cursor:pointer;">Desktop</button><button onClick="{{ on.phone }}" style="height:26px;padding:0 10px;border:0;background:{{ dev.pBg }};color:{{ dev.pFg }};font-size:12px;cursor:pointer;">Phone</button></span></span>
+    <span style="flex:1;"></span>
+    <button onClick="{{ on.reset }}" style="height:28px;padding:0 12px;border-radius:6px;border:1px solid #3A424E;background:transparent;color:#FFFFFF;font-size:12px;cursor:pointer;">Reset data</button>
+  </div>
+
+  <div style="flex:1;display:flex;justify-content:center;align-items:flex-start;padding:{{ frame.pad }};">
+    <div style="display:flex;width:{{ frame.w }};height:{{ frame.h }};border:{{ frame.bd }};border-radius:{{ frame.r }};overflow:hidden;background:#FDFAF7;position:relative;">
+
+      <sc-if value="{{ unauthed }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-width:0;overflow:auto;background:#FDFAF7;"><dc-import name="PortalAuth" app="{{ app }}" key="{{ authKey }}" hint-size="100%,700px"></dc-import></div></sc-if>
+      <sc-if value="{{ authed }}" hint-placeholder-val="{{ true }}">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+      <header style="height:56px;flex:none;background:{{ navBg }};border-bottom:1px solid rgba(255,255,255,0.09);display:flex;align-items:center;gap:12px;padding:0 16px;position:relative;z-index:25;">
+        <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.openNav }}" aria-label="Menu" style="flex:none;width:40px;height:40px;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:transparent;color:#FFFFFF;display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path></svg></button></sc-if>
+        <sc-if value="{{ brandOff }}" hint-placeholder-val="{{ true }}"><button onClick="{{ on.home }}" aria-label="Store home" style="display:flex;align-items:center;gap:10px;flex:none;padding:0;border:0;background:transparent;cursor:pointer;"><img src="assets/dripfunnel-logo-inverse.svg" alt="DripFunnel" height="22" style="height:22px;width:auto;display:block;"><span style="display:{{ fullDisp }};padding-left:10px;border-left:1px solid rgba(255,255,255,0.2);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#B8C7D6;">Store</span></button></sc-if>
+        <sc-if value="{{ brandOn }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.home }}" aria-label="Store home" style="display:flex;align-items:center;gap:10px;flex:none;padding:0;border:0;background:transparent;cursor:pointer;"><span style="width:26px;height:26px;border-radius:6px;background:{{ brand.accent }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:{{ brand.font }},sans-serif;font-weight:800;font-size:13px;">{{ brand.short }}</span><span style="display:{{ fullDisp }};font-family:{{ brand.font }},sans-serif;font-weight:800;font-size:15px;color:#FFFFFF;">{{ brand.name }}</span></button></sc-if>
+        <button onClick="{{ on.switchStore }}" title="Switch store" style="flex:0 1 auto;min-width:0;height:36px;display:flex;align-items:center;gap:8px;padding:0 10px 0 5px;border:1px solid rgba(255,255,255,0.16);border-radius:8px;background:transparent;cursor:pointer;" style-hover="background:rgba(255,255,255,0.08);"><span aria-hidden="true" style="width:26px;height:26px;border-radius:6px;background:rgba(255,255,255,0.14);color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:11px;flex:none;">{{ R.init }}</span><span style="font-size:13px;font-weight:700;color:#FFFFFF;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ storeName }}</span><span aria-hidden="true" style="color:#B8C7D6;font-size:11px;">▾</span></button>
+        <span style="flex:1;"></span>
+        <span style="display:{{ fullDisp }};"><a href="https://help.dripfunnel.com/store" target="_blank" rel="noopener" style="flex:none;font-size:14px;font-weight:600;text-decoration:none;white-space:nowrap;color:#FFFFFF;">Help</a></span>
+        <button onClick="{{ on.userMenu }}" aria-haspopup="menu" style="flex:none;display:flex;align-items:center;gap:10px;height:40px;padding:0 8px;border:0;border-radius:8px;background:transparent;cursor:pointer;" style-hover="background:rgba(255,255,255,0.08);"><span aria-hidden="true" style="width:30px;height:30px;border-radius:50%;background:#EC844F;color:#4A1B0C;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:12px;flex:none;">{{ user.initials }}</span><span style="display:{{ meDisp }};flex-direction:column;align-items:flex-start;line-height:1.25;"><span style="font-weight:600;font-size:13px;color:#FFFFFF;white-space:nowrap;">{{ user.name }}</span><span style="font-size:12px;color:#B8C7D6;">{{ user.sub }}</span></span><span aria-hidden="true" style="color:#B8C7D6;font-size:11px;">▾</span></button>
+      </header>
+      <div style="flex:1;min-height:0;display:flex;position:relative;">
+      <sc-if value="{{ navShown }}" hint-placeholder-val="{{ true }}">
+        <div style="width:240px;flex:none;background:{{ navBg }};color:#D6DEE7;display:flex;flex-direction:column;position:{{ frame.navPos }};left:0;top:0;bottom:0;z-index:20;overflow:auto;">
+          <div style="padding:8px 0;display:flex;flex-direction:column;flex:1;">
+            <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+              <sc-if value="{{ n.heading }}" hint-placeholder-val="{{ false }}"><div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#B8C7D6;padding:16px 20px 6px;">{{ n.heading }}</div></sc-if>
+              <sc-if value="{{ n.item }}" hint-placeholder-val="{{ true }}">
+                <div onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:11px;padding:10px 20px 10px 17px;border-left:3px solid {{ n.bl }};background:{{ n.bg }};font-family:Manrope,sans-serif;font-weight:{{ n.fw }};font-size:14px;color:{{ n.fg }};cursor:pointer;opacity:{{ n.op }};" style-hover="background:rgba(255,255,255,0.08);">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="{{ n.icon }}"></path></svg>
+                  <span style="flex:1;">{{ n.label }}</span>
+                  <sc-if value="{{ n.badge }}" hint-placeholder-val="{{ false }}"><span style="height:20px;padding:0 7px;border-radius:5px;background:#EC844F;color:#FFFFFF;font-weight:700;font-size:12px;display:flex;align-items:center;">{{ n.badge }}</span></sc-if>
+                  <sc-if value="{{ n.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#B8C7D6;font-weight:400;">{{ n.note }}</span></sc-if>
+                </div>
+              </sc-if>
+            </sc-for>
+          </div>
+          
+        </div>
+      </sc-if>
+      <sc-if value="{{ drawerScrim }}" hint-placeholder-val="{{ false }}"><div onClick="{{ on.closeNav }}" style="position:absolute;inset:0;background:rgba(10,20,30,0.4);z-index:15;"></div></sc-if>
+
+      <div data-cat-main="1" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto;position:relative;">
+        
+        <sc-for list="{{ banners }}" as="b" hint-placeholder-count="0">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px {{ frame.padX }};background:{{ b.bg }};border-bottom:1px solid {{ b.bd }};color:{{ b.fg }};font-size:13px;">
+            <span style="flex:1;min-width:200px;"><strong>{{ b.title }}</strong> {{ b.body }}</span>
+            <sc-if value="{{ b.cta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ b.onClick }}" style="height:32px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:#FFFFFF;color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;cursor:pointer;">{{ b.cta }}</button></sc-if>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;"><div style="height:28px;width:220px;border-radius:6px;background:#ECE9E4;"></div><div style="height:44px;border-radius:8px;background:#F2F0EC;"></div><div style="height:64px;border-radius:10px;background:#ECE9E4;"></div><div style="height:64px;border-radius:10px;background:#F2F0EC;"></div><div style="height:64px;border-radius:10px;background:#ECE9E4;"></div></div></sc-if>
+        <sc-if value="{{ pageErr }}" hint-placeholder-val="{{ false }}">
+          <div role="alert" style="padding:64px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+            <span aria-hidden="true" style="width:48px;height:48px;border-radius:50%;background:#FDF0E8;color:#B8541F;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">!</span>
+            <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">We couldn’t load {{ crumbName }}</span>
+            <span style="color:#5A6472;max-width:46ch;">Nothing is lost — this is a problem on our side, not your data. It usually clears in a few seconds.</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.retry }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Try again</button><button onClick="{{ on.home }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Go to Home</button></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A6472;">Ref 503 · {{ errRef }} — quote this if you contact support</span>
+          </div>
+        </sc-if>
+        <div style="flex:1;min-height:0;display:{{ screenDisplay }};">
+          <sc-if value="{{ scr.denied }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:64px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+              <span aria-hidden="true" style="width:48px;height:48px;border-radius:50%;background:#EAF1F8;color:#00325F;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3"></path></svg></span>
+              <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ denied.title }}</span>
+              <span style="color:#5A6472;max-width:46ch;">{{ denied.body }}</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.home }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ denied.back }}</button><sc-if value="{{ denied.canAsk }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.askAccess }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Ask Farhan for access</button></sc-if></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ scr.missing }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:64px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;color:#8F4017;">404</span>
+              <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">This page isn’t here any more</span>
+              <span style="color:#5A6472;max-width:46ch;">The link may be old, or what it pointed to was deleted or moved. Nothing else in your store has changed.</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.home }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Go to Home</button><button onClick="{{ on.toProducts }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Search products</button></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ scr.keep }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalKeep" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.home }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalHome" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.orders }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalOrders" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.reports }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalReports" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.storefront }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalStorefront" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.billing }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalBilling" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.products }}" hint-placeholder-val="{{ true }}"><dc-import name="CatList" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.product }}" hint-placeholder-val="{{ false }}"><dc-import name="CatEditor" app="{{ app }}" key="{{ editKey }}" hint-size="100%,900px"></dc-import></sc-if>
+          <sc-if value="{{ scr.collections }}" hint-placeholder-val="{{ false }}"><dc-import name="CatCollections" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          
+          <sc-if value="{{ scr.imports }}" hint-placeholder-val="{{ false }}"><dc-import name="CatImport" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.offers }}" hint-placeholder-val="{{ false }}"><dc-import name="Offers" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.carts }}" hint-placeholder-val="{{ false }}"><dc-import name="Carts" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.offer }}" hint-placeholder-val="{{ false }}"><dc-import name="OfferEditor" app="{{ app }}" key="{{ offerKey }}" hint-size="100%,900px"></dc-import></sc-if>
+          <sc-if value="{{ scr.settings }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalSettings" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.aplus }}" hint-placeholder-val="{{ false }}"><dc-import name="CatAPlus" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.other }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ otherTitle }}</span><span style="color:#5A6472;max-width:44ch;">This area isn’t part of the Catalogue prototype. Use Products, Collections, Size charts, Import &amp; export, To approve or Settings.</span></div>
+          </sc-if>
+        </div>
+      </div>
+      </div>
+      </div>
+      </sc-if>
+      <sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ on.modalCancel }}" style="position:absolute;inset:0;background:rgba(10,20,30,0.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px;">
+          <div onClick="{{ on.stop }}" style="width:100%;max-width:{{ modal.w }};max-height:90%;overflow:auto;background:#FFFFFF;border-radius:14px;box-shadow:0 30px 60px -20px rgba(10,20,30,0.5);padding:24px;display:flex;flex-direction:column;gap:14px;">
+            <sc-if value="{{ modal.tag }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#8F4017;">{{ modal.tag }}</span></sc-if>
+            <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:19px;line-height:1.3;">{{ modal.title }}</span>
+            <sc-if value="{{ modal.body }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#434A55;line-height:1.6;white-space:pre-line;">{{ modal.body }}</span></sc-if>
+            <sc-for list="{{ modal.choices }}" as="c" hint-placeholder-count="0">
+              <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border:{{ c.bd }};border-radius:10px;background:{{ c.bg }};font-size:14px;text-align:left;cursor:pointer;color:#14181F;">
+                <span style="width:18px;height:18px;border-radius:50%;border:{{ c.dot }};flex:none;"></span><span style="display:flex;flex-direction:column;"><strong style="font-weight:600;">{{ c.label }}</strong><span style="font-size:12px;color:#5A6472;">{{ c.sub }}</span></span>
+              </button>
+            </sc-for>
+            <sc-if value="{{ modal.hasInput }}" hint-placeholder-val="{{ false }}">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">{{ modal.inputLabel }}
+                <textarea value="{{ modalVal }}" onChange="{{ on.modalInput }}" placeholder="{{ modal.placeholder }}" rows="3" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical;outline:none;" style-focus="border-color:#00519F;box-shadow:0 0 0 3px #EAF1F8;"></textarea>
+                <sc-if value="{{ modal.inputErr }}" hint-placeholder-val="{{ false }}"><span style="color:#B8541F;font-weight:400;">{{ modal.inputErr }}</span></sc-if>
+              </label>
+            </sc-if>
+            <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding-top:4px;">
+              <sc-if value="{{ modal.cancel }}" hint-placeholder-val="{{ true }}"><button onClick="{{ on.modalCancel }}" style="height:40px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">{{ modal.cancel }}</button></sc-if>
+              <sc-if value="{{ modal.alt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.modalAlt }}" style="height:40px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">{{ modal.alt }}</button></sc-if>
+              <button onClick="{{ on.modalConfirm }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ modal.btnBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ modal.confirm }}</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;background:#14181F;color:#FFFFFF;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:14px;font-size:14px;box-shadow:0 16px 32px -12px rgba(0,0,0,0.5);max-width:90%;">
+          <span>{{ toast.msg }}</span>
+          <sc-if value="{{ toast.action }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.toastAction }}" style="border:0;background:none;color:#EC844F;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;padding:0;">{{ toast.action }}</button></sc-if>
+          <button onClick="{{ on.toastClose }}" style="border:0;background:none;color:#8A919B;font-size:16px;cursor:pointer;padding:0;">×</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = this.fresh('US', 'stocked', {});
+  }
+
+  REG(k) {
+    const T = {
+      US: { key: 'US', store: 'Juniper & Co.', init: 'J', locale: 'en-US', cur: 'USD', incl: false, rate: 0, taxName: 'Sales tax', taxLabel: 'Sales tax category', priceLabel: 'Price (before tax)', home: 'the US',
+        compareLabel: 'Compare-at price (MSRP)', compareMode: 'msrp', compareHelp: 'Use the maker’s list price or a price you really charged — made-up “was” prices aren’t allowed.',
+        codeLabel: 'HTS code (optional)', codeNeed: 'Only needed if you ship outside the US.', codeRequired: false, wu: 'lb', du: 'in', sizes: ['S', 'M', 'L', 'XL'], sizeSys: 'US', wh: 'Columbus studio', wh2: 'Pop-up shop', domain: 'juniperandco.com',
+        taxClasses: ['Clothing', 'General goods', 'Food & groceries', 'Digital goods', 'Not taxed'], taxNote: 'Rate depends on where the shopper is — some states don’t tax clothing.',
+        autoCur: 'CAD', autoRate: 1.37, manCur: 'GBP', manSuffix: 'incl. VAT', autoSuffix: '+ tax', origin: 'Made in USA',
+        markets: [{ code: 'US', name: 'United States', needs: ['fibre', 'origin', 'care'] }],
+        seasonal: ['Halloween', 'Black Friday', 'Holiday gifts', 'Back to school'], mult: v => v, country: 'United States', cc: 'US', postalLabel: 'ZIP code', regionLabel: 'State', taxIdLabel: 'EIN / sales tax permit', phone: '+1 614 555 0142', city: 'Columbus', street: '410 Oak St', postal: '43215', regionName: 'Ohio', gateways: [['stripe', 'Stripe', 'Cards, Apple Pay and Google Pay. Paid out in 2 days.', 'live'], ['paypal', 'PayPal', 'PayPal balance and Pay Later.', 'off']], extras: [], couriers: [['USPS', 'pricing'], ['UPS', 'standby'], ['FedEx', 'off']], names: [['Maya Chen', 'Columbus, OH'], ['Jordan Blake', 'Austin, TX'], ['Priya Nair', 'Seattle, WA'], ['Sam Ortiz', 'Denver, CO'], ['Emma Laurent', 'Toronto, CA']], abroad: 'CA' },
+      DE: { key: 'DE', store: 'Leinen & Licht', init: 'L', locale: 'de-DE', cur: 'EUR', incl: true, rate: 0.19, taxName: 'VAT', taxLabel: 'VAT rate', priceLabel: 'Price (incl. VAT)', home: 'Germany',
+        compareLabel: 'Was price', compareMode: 'auto', compareHelp: 'EU rules: we show the lowest price from the last 30 days for you. It can’t be typed.',
+        codeLabel: 'Customs code (CN)', codeNeed: 'Needed only for shipments to Switzerland and the UK.', codeRequired: false, wu: 'kg', du: 'cm', sizes: ['36', '38', '40', '42'], sizeSys: 'EU', wh: 'Lager Kreuzberg', wh2: 'Showroom Mitte', domain: 'leinenundlicht.de',
+        taxClasses: ['Standard rate', 'Reduced rate', 'Zero rate', 'Exempt'], taxNote: 'Germany 19 % · France 20 % · Netherlands 21 % — we charge the shopper’s country rate.',
+        autoCur: 'USD', autoRate: 1.09, manCur: 'GBP', manSuffix: 'incl. VAT', autoSuffix: '+ tax', origin: 'Portugal',
+        markets: [{ code: 'DE', name: 'Germany', needs: ['fibre', 'care'] }, { code: 'NL', name: 'Netherlands', needs: ['fibre', 'care'] }, { code: 'AT', name: 'Austria', needs: ['fibre', 'care'] }, { code: 'FR', name: 'France', needs: ['fibre', 'care', 'frText'] }, { code: 'IT', name: 'Italy', needs: ['fibre', 'care', 'batch'] }],
+        seasonal: ['Oktoberfest', 'Black Friday', 'Advent', 'Weihnachten'], mult: v => Math.round(v * 1.05), country: 'Germany', cc: 'DE', postalLabel: 'Postleitzahl', regionLabel: 'Bundesland', taxIdLabel: 'VAT number (USt-IdNr.)', phone: '+49 30 555 0142', city: 'Berlin', street: 'Oranienstr. 12', postal: '10999', regionName: 'Berlin', gateways: [['stripe', 'Stripe', 'Cards, Apple Pay, Google Pay, SEPA.', 'live'], ['paypal', 'PayPal', 'PayPal balance and Pay in 30 days.', 'off'], ['klarna', 'Klarna', 'Pay later or in instalments.', 'off']], extras: [['bank', 'Bank transfer', 'Your IBAN at checkout. Unpaid until you mark it paid.']], couriers: [['DHL', 'pricing'], ['DPD', 'standby'], ['Hermes', 'failed']], names: [['Lena Vogel', 'Berlin, DE'], ['Jonas Weber', 'Hamburg, DE'], ['Sophie de Vries', 'Amsterdam, NL'], ['Tobias Gruber', 'Wien, AT'], ['Claire Martin', 'Lyon, FR']], abroad: 'FR' },
+      IN: { key: 'IN', store: 'Kesari Threads', init: 'K', locale: 'en-IN', cur: 'INR', incl: true, rate: 0.05, taxName: 'GST', taxLabel: 'GST rate', priceLabel: 'Price (incl. GST)', home: 'India',
+        compareLabel: 'MRP', compareMode: 'mrp', compareHelp: 'Your selling price can’t be higher than the MRP printed on the pack.',
+        codeLabel: 'HSN code', codeNeed: 'Needed on every GST invoice.', codeRequired: true, wu: 'kg', du: 'cm', sizes: ['S', 'M', 'L', 'XL'], sizeSys: 'IN', wh: 'Jaipur godown', wh2: 'Delhi store', domain: 'kesarithreads.in',
+        taxClasses: ['Clothing — 5%', 'Standard — 18%', 'Essentials — 5%', 'Exempt — 0%'], taxNote: 'Same rate everywhere in India. UAE orders use UAE VAT.',
+        autoCur: 'USD', autoRate: 0.012, manCur: 'AED', manSuffix: 'incl. VAT', autoSuffix: '+ tax', origin: 'India',
+        markets: [{ code: 'IN', name: 'India', needs: ['origin', 'compare'] }, { code: 'AE', name: 'UAE', needs: ['origin', 'arText'] }],
+        seasonal: ['Diwali', 'Navratri', 'Wedding season', 'Holi'], mult: v => Math.round(v * 55 / 50) * 50 - 1, country: 'India', cc: 'IN', postalLabel: 'PIN code', regionLabel: 'State', taxIdLabel: 'GSTIN', phone: '+91 98450 11234', city: 'Jaipur', street: 'MI Road', postal: '302001', regionName: 'Rajasthan', gateways: [['cashfree', 'Cashfree', 'Cards, UPI, netbanking. Paid out next working day.', 'live'], ['phonepe', 'PhonePe', 'UPI-first, with its own app handoff.', 'off']], extras: [['cod', 'Cash on delivery', 'Your courier collects. Unpaid until the cash reaches you.'], ['bank', 'Bank transfer', 'Your account details at checkout. Unpaid until you mark it paid.']], couriers: [['Shiprocket', 'pricing']], names: [['Ananya Rao', 'Bengaluru, KA'], ['Rohan Mehta', 'Mumbai, MH'], ['Kabir Singh', 'Delhi, DL'], ['Meera Iyer', 'Chennai, TN'], ['Fatima Khan', 'Dubai, AE']], abroad: 'AE' }
+    };
+    return T[k] || T.US;
+  }
+
+  effR() {
+    const base = this.REG(this.state.region);
+    const incl = this.state.priceTax === null || this.state.priceTax === undefined ? base.incl : this.state.priceTax;
+    const tn = base.key === 'US' ? 'tax' : base.taxName;
+    const cs = this.state.currencies || []; const autoC = cs.find(x => !x.main && x.auto); const manC = cs.find(x => !x.main && !x.auto);
+    return { ...base, autoCur: autoC ? autoC.code : base.autoCur, manCur: manC ? manC.code : base.manCur, incl, regionIncl: base.incl, priceLabel: incl ? 'Price (incl. ' + tn + ')' : 'Price (before ' + tn + ')' };
+  }
+  paused() {
+    const s = this.state; if (s.plan !== 'trialEnded') return { products: new Set(), staff: new Set(), on: false };
+    const sold = {}; (s.orders || []).forEach(o => o.lines.forEach(l => { sold[l.pid] = (sold[l.pid] || 0) + l.qty; }));
+    const open = new Set((s.orders || []).filter(o => ['unfulfilled', 'partial'].includes(o.status)).flatMap(o => o.lines.map(l => l.pid)));
+    const keep = s.kept && s.kept.products ? s.kept.products : [...s.products].sort((a, b) => (open.has(b.id) - open.has(a.id)) || ((sold[b.id] || 0) - (sold[a.id] || 0)) || (b.updated - a.updated)).slice(0, 10).map(p => p.id);
+    return { on: true, keep, products: new Set(s.products.filter(p => !keep.includes(p.id)).map(p => p.id)), staff: new Set((s.people || []).filter(p => p.role !== 'Owner' || p.id !== 'u1').filter(p => p.id !== 'u1').map(p => p.id)) };
+  }
+  fmtFor(R) {
+    const nf = new Intl.NumberFormat(R.locale, { style: 'currency', currency: R.cur });
+    return v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? '' : nf.format(Number(v));
+  }
+
+  genVariants(options, price, stocks, off, prefix) {
+    const combos = options.reduce((acc, o) => acc.flatMap(a => o.choices.map(c => [...a, c])), [[]]);
+    return combos.map((vals, i) => {
+      const key = vals.join('|');
+      return { key, vals, price, stock: stocks ? stocks[i % stocks.length] : 0, sku: (prefix + '-' + vals.map(v => String(v).slice(0, 2)).join('-')).toUpperCase(), enabled: true, removed: (off || []).includes(key), man: '' };
+    });
+  }
+
+  seed(k, dataset) {
+    const R = this.REG(k);
+    const P = v => R.mult(v);
+    if (dataset === 'empty' || dataset === 'signup') {
+      return { products: [], collections: [], facets: [{ id: 'f1', name: 'Fabric', private: false, values: ['Cotton', 'Linen', 'Silk'] }], menu: [], sizeCharts: [], exports: [], ...this.seedMore(R, [], dataset) };
+    }
+    const legal = (x) => ({ fibre: '100% cotton', origin: R.origin, care: 'Machine wash cold', batch: '', frText: '', arText: '', ...x });
+    let id = 0;
+    const mk = (name, o) => {
+      id++;
+      const pr = P(o.price);
+      const base = { id: 'p' + id, name, desc: o.desc || '', status: o.status || 'visible', supplier: o.supplier || 'You', sentBack: o.sentBack || '', type: o.type || 'physical',
+        photos: Array.from({ length: o.photos === undefined ? 2 : o.photos }, (_, i) => ({ id: 'ph' + id + i, hue: (id * 47 + i * 30) % 360, alt: i === 0 ? name + ', main photo' : '' })),
+        price: pr, compare: R.compareMode === 'auto' ? null : (o.compare ? P(o.compare) : null), cost: o.cost ? P(o.cost) : null,
+        stock: o.stock === undefined ? 12 : o.stock, stock2: 0, track: o.track !== false, options: [], variants: [], sku: name.split(' ').map(w => w[0]).join('').toUpperCase() + '-' + (100 + id),
+        filters: o.filters || {}, tags: o.tags || [], taxClass: R.taxClasses[0], code: o.code || '', weight: o.weight || '0.4', box: '25 × 20 × 3',
+        legal: o.legal || legal({}), trans: o.trans || {}, sizeChart: o.sizeChart || null, aplus: o.aplus || [], specs: o.specs || [], highlights: o.highlights || [],
+        pendingOrders: !!o.pendingOrders, man: o.man || '', updated: Date.now() - id * 3600e3, sample: false };
+      if (o.options) {
+        base.options = o.options;
+        base.variants = this.genVariants(o.options, pr, o.stocks || [8, 12, 6, 3], o.off, base.sku.split('-')[0]).map((v, i) => o.varPrice ? { ...v, price: P(o.varPrice(v.vals, i)) } : v);
+        if (o.colourPhotos) base.variants = base.variants.map(v => { const ci = o.options[0].choices.indexOf(v.vals[0]); return base.photos[ci] ? { ...v, photoId: base.photos[ci].id } : v; });
+      }
+      return base;
+    };
+    const products = [
+      mk('Organic Cotton Tee', { price: 28, cost: 9.5, compare: 34, desc: 'Soft, heavyweight organic cotton. Cut a little roomy, washes without shrinking.', photos: 3, filters: { Fabric: 'Cotton', Occasion: 'Everyday' }, options: [{ name: 'Colour', choices: ['Sand', 'Ink', 'Sage'] }, { name: 'Size', choices: R.sizes }], off: ['Sage|' + R.sizes[3]], colourPhotos: true, varPrice: v => v[1] === R.sizes[3] ? 30 : 28, trans: { fr: { name: 'T-shirt en coton bio', desc: '' } }, sizeChart: 'sc1', code: k === 'IN' ? '6109' : '', highlights: ['Pre-washed, no shrinking', 'Certified organic'] }),
+      mk('Mara Linen Shirt', { price: 49, cost: 16, compare: 59, supplier: 'Northwind Textiles', stock: 3, filters: { Fabric: 'Linen', Occasion: 'Wedding' }, options: [{ name: 'Size', choices: R.sizes }], stocks: [1, 0, 2, 0], legal: legal({ fibre: '100% linen', frText: 'Tenir éloigné du feu.' }) }),
+      mk('Block-print Kurta', { price: 30, supplier: 'Sanganer Prints', status: 'waiting', filters: { Fabric: 'Cotton', Occasion: 'Wedding' }, options: [{ name: 'Size', choices: R.sizes }] }),
+      mk('Canvas Tote', { price: 18, cost: 5, status: 'hidden', stock: 0, filters: { Fabric: 'Canvas' }, legal: legal({ fibre: '100% cotton canvas' }) }),
+      mk('Merino Beanie', { price: 24, supplier: 'Northwind Textiles', status: 'sentback', sentBack: 'The main photo is blurry — please upload a sharper one. Also add the fibre content.', filters: { Fabric: 'Wool' }, legal: legal({ fibre: '' }), photos: 1 }),
+      mk('Gift card', { price: 50, type: 'download', track: false, photos: 1, filters: {}, legal: legal({ fibre: 'n/a', care: 'n/a' }) }),
+      mk('Stoneware Mug', { price: 16, stock: 18, photos: 0, filters: { Fabric: 'Stoneware' }, legal: legal({ fibre: 'n/a', care: 'Dishwasher safe' }) }),
+      mk('Silk Scarf', { price: 42, filters: { Fabric: 'Silk', Occasion: 'Wedding' }, photos: 3, colourPhotos: true, options: [{ name: 'Colour', choices: ['Ivory', 'Rust', 'Teal'] }], stocks: [4, 5, 0], pendingOrders: true, legal: legal({ fibre: '100% silk', care: 'Hand wash' }) }),
+      mk('Linen Midi Dress', { price: 89, supplier: 'Northwind Textiles', status: 'waiting', filters: { Fabric: 'Linen', Occasion: 'Wedding' }, options: [{ name: 'Size', choices: R.sizes }], legal: legal({ fibre: '100% linen' }) }),
+      mk('Wool Throw', { price: 120, stock: 6, filters: { Fabric: 'Wool' }, legal: legal({ fibre: '100% wool', care: 'Dry clean' }) }),
+      mk('Cotton Socks 3-pack', { price: 14, stock: 40, filters: { Fabric: 'cotton', Occasion: 'Everyday' } }),
+      mk('Denim Apron', { price: 36, status: 'hidden', stock: 7, filters: { Fabric: 'Cotton' } }),
+      mk('Linen Tote', { price: 32, supplier: 'Northwind Textiles', stock: 15, filters: { Fabric: 'Linen' }, legal: legal({ fibre: '100% linen' }) })
+    ];
+    const collections = [
+      { id: 'c1', name: 'Cotton Edit', type: 'auto', match: 'all', rules: [{ field: 'Fabric', values: ['Cotton'] }], productIds: [], visible: true, parentId: null, inherit: false, desc: '' },
+      { id: 'c2', name: 'Wedding Guest', type: 'auto', match: 'all', rules: [{ field: 'Occasion', values: ['Wedding'] }, { field: 'Fabric', values: ['Linen', 'Silk'] }], productIds: [], visible: true, parentId: null, inherit: false, desc: '' },
+      { id: 'c3', name: 'Home', type: 'manual', match: 'all', rules: [], productIds: ['p7', 'p10'], visible: true, parentId: null, inherit: false, desc: '' },
+      { id: 'c4', name: 'Gifts', type: 'manual', match: 'all', rules: [], productIds: ['p6', 'p8', 'p4'], visible: true, parentId: null, inherit: false, desc: '' },
+      { id: 'c5', name: 'Staff picks — autumn', type: 'manual', match: 'all', rules: [], productIds: ['p1', 'p10'], visible: false, parentId: null, inherit: false, desc: '' }
+    ];
+    const facets = [
+      { id: 'f1', name: 'Fabric', private: false, values: ['Cotton', 'cotton', 'Linen', 'Silk', 'Wool', 'Canvas', 'Stoneware'] },
+      { id: 'f2', name: 'Occasion', private: false, values: ['Everyday', 'Wedding', 'Work'] },
+      { id: 'f3', name: 'Internal tags', private: true, values: ['Holiday stock', 'Reorder soon'] }
+    ];
+    const menu = [{ cid: 'c1', depth: 0 }, { cid: 'c2', depth: 0 }, { cid: 'c4', depth: 1 }, { cid: 'c3', depth: 0 }];
+    const inch = k === 'US';
+    const sizeCharts = [
+      { id: 'sc1', name: 'Tops', unit: inch ? 'in' : 'cm', cols: ['Size', 'Chest', 'Waist', 'Length'], rows: R.sizes.map((s, i) => [s, ...(inch ? [34 + i * 2, 28 + i * 2, 27 + i] : [86 + i * 5, 71 + i * 5, 68 + i * 2]).map(String)]), note: 'Runs small — order one size up.' }
+    ];
+    return { products, collections, facets, menu, sizeCharts, exports: [{ id: 'e1', label: 'All products', count: products.length, date: '2 Oct 2026' }], ...this.seedMore(R, products, dataset) };
+  }
+
+  seedMore(R, products, dataset) {
+    const empty = dataset !== 'stocked';
+    const day = n => new Date(2026, 8, 27 - n, 10 - n, 12);
+    const P = id => products.find(p => p.id === id);
+    const line = (pid, qty, shipped, vi) => { const p = P(pid); if (!p) return null; const v = p.variants && p.variants.length ? p.variants.filter(x => !x.removed)[vi || 0] : null; return { id: pid + ':' + (vi || 0), pid, name: p.name + (v ? ' · ' + v.vals.join(' / ') : ''), qty, shipped, price: v ? v.price : p.price, supplier: p.supplier }; };
+    const cust = i => ({ name: R.names[i][0], city: R.names[i][1], email: R.names[i][0].toLowerCase().replace(/[^a-z]+/g, '.') + '@mail.com', phone: R.phone.replace(/\d{4}$/, String(3100 + i * 7)), address: (10 + i * 7) + ' ' + ['Maple Ave', 'Lindenweg', 'Park Road', 'Hill St', 'Rue Neuve'][i] + ', ' + R.names[i][1] });
+    const ord = (n, d, ci, lines, status, extra) => { const ls = lines.filter(Boolean); const sub = ls.reduce((a, l) => a + l.price * l.qty, 0); const ship = sub > R.mult(75) ? 0 : R.mult(6); return { id: 'DF-' + n, date: day(d).getTime(), customer: cust(ci), lines: ls, status, payment: 'paid', method: R.gateways[0][1], shipping: ship, total: sub + ship, refunded: 0, market: R.names[ci][1].slice(-2) === R.abroad ? R.abroad : R.cc, events: [{ t: day(d).getTime(), what: 'Order placed' }], ...(extra || {}) }; };
+    const orders = empty ? [] : [
+      ord(2848, 0, 0, [line('p1', 2, 0, 1), line('p2', 1, 0)], 'unfulfilled'),
+      ord(2847, 0, 1, [line('p8', 1, 0)], 'unfulfilled', R.extras.length ? { payment: 'pending', method: R.extras[0][1] } : {}),
+      ord(2846, 1, 2, [line('p1', 1, 1, 4), line('p13', 2, 0)], 'partial'),
+      ord(2845, 1, 3, [line('p10', 1, 1)], 'fulfilled'),
+      ord(2844, 2, 0, [line('p11', 3, 3), line('p7', 2, 2)], 'fulfilled'),
+      ord(2843, 3, 1, [line('p4', 1, 1)], 'refunded', { refunded: R.mult(18) }),
+      ord(2842, 4, 3, [line('p12', 1, 0)], 'cancelled'),
+      ord(2841, 5, 4, [line('p8', 1, 1), line('p1', 1, 1)], 'fulfilled')
+    ];
+    const people = [
+      { id: 'u1', name: 'Farhan Ali', email: 'farhan@' + R.domain, role: 'Owner', status: 'active', note: 'you' },
+      { id: 'u2', name: 'Priya Shah', email: 'priya@' + R.domain, role: 'Manager', status: 'active' },
+      { id: 'u3', name: 'Tom Okafor', email: 'tom@' + R.domain, role: 'Staff', status: 'active' },
+      { id: 'u4', name: 'Nadia Tran', email: 'nadia@northwind.co', role: 'Supplier user', company: 'Northwind Textiles', status: 'active' },
+      { id: 'u5', name: '', email: 'meera@' + R.domain, role: 'Staff', status: 'invited', note: 'invited 8 days ago' }
+    ];
+    const suppliers = empty ? [] : [
+      { id: 's1', name: 'Northwind Textiles', users: 1, access: 'orders', status: 'active' },
+      { id: 's2', name: 'Sanganer Prints', users: 1, access: 'products', status: 'active' },
+      { id: 's3', name: 'Terra Clay', users: 1, access: 'stock', status: 'suspended' }
+    ];
+    const warehouses = [{ id: 'w1', name: R.wh, addr: R.street + ', ' + R.city + ' ' + R.postal, units: empty ? 0 : 1842, isDefault: true }, { id: 'w2', name: R.wh2, addr: R.city, units: empty ? 0 : 310, isDefault: false }, ...(empty ? [] : [{ id: 'w3', name: 'Northwind — main unit', addr: 'Supplier location', units: 412, supplier: 'Northwind Textiles' }])];
+    const rates = { US: [['Clothing', 'Set by state'], ['General goods', 'Set by state'], ['Food & groceries', 'Set by state'], ['Not taxed', '0%']], DE: [['Standard rate', '19%'], ['Reduced rate', '7%'], ['Zero rate', '0%']], IN: [['Clothing — 5%', '5%'], ['Standard — 18%', '18%'], ['Essentials — 5%', '5%'], ['Exempt — 0%', '0%']] }[R.key];
+    const markets = { US: [{ id: 'm1', name: 'United States', countries: ['US'], parentId: null, primary: true }, { id: 'm2', name: 'Canada', countries: ['CA'], parentId: null, currency: 'CAD' }],
+      DE: [{ id: 'm1', name: 'Europe', countries: ['DE', 'AT', 'NL', 'FR', 'IT'], parentId: null, primary: true }, { id: 'm2', name: 'France', countries: ['FR'], parentId: 'm1', language: 'fr' }],
+      IN: [{ id: 'm1', name: 'India', countries: ['IN'], parentId: null, primary: true }, { id: 'm2', name: 'UAE', countries: ['AE'], parentId: null, currency: 'AED' }] }[R.key]
+      .map(m => ({ currency: R.cur, language: 'en', adjust: 0, web: m.primary ? 'main' : 'sub', sub: '/' + m.countries[0].toLowerCase(), domain: '', products: 'all', excluded: [], shipRate: '', payments: R.gateways.map(g => g[0]), duties: false, taxReg: '', active: true, ...m }));
+    return {
+      orders, people, suppliers, warehouses, taxRates: rates.map(([name, rate], i) => ({ id: 't' + i, name, rate, isDefault: i === 0 })), markets, backupMarket: 'm1',
+      storeInfo: { name: R.store, legal: R.store + (R.key === 'DE' ? ' GmbH' : R.key === 'IN' ? ' Pvt Ltd' : ' LLC'), desc: 'Everyday clothes and homeware, made to last.', email: 'hello@' + R.domain, phone: R.phone, street: R.street, city: R.city, postal: R.postal, region: R.regionName, taxId: R.key === 'IN' ? '08ABCDE1234F1Z5' : R.key === 'DE' ? 'DE123456789' : '', country: R.country },
+      currencies: [{ code: R.cur, auto: true, rounding: 'none', main: true }], languages: [{ code: 'en', name: 'English', main: true }],
+      gateways: [...R.gateways.map(g => ({ key: g[0], name: g[1], desc: g[2], status: g[3], kind: 'gateway' })), ...R.extras.map(g => ({ key: g[0], name: g[1], desc: g[2], status: 'off', kind: 'extra' }))],
+      shipping: { mode: 'live', flat: String(R.mult(6)), free: 'over', threshold: String(R.mult(75)), where: 'all', couriers: R.couriers.map(([name, st]) => ({ name, status: st })) },
+      storefront: { live: 12, history: [{ v: 12, label: 'Autumn homepage banner', date: day(3).getTime(), by: 'Farhan' }, { v: 11, label: 'New footer with returns link', date: day(9).getTime(), by: 'Farhan' }, { v: 10, label: 'First version', date: day(30).getTime(), by: 'Setup' }], draft: null, prompts: 14, minutes: 38 },
+      invoices: [0, 1, 2].map(i => ({ id: 'INV-' + (2026090 - i * 100), date: new Date(2026, 8 - i, 1).getTime(), amount: 'Plan fee', status: 'Paid' })), card: 'Visa ending 4242'
+    };
+  }
+  fresh(region, dataset, keep) {
+    return {
+      region, dataset, role: 'owner', plan: 'trial', device: 'desktop', aiKey: '', aiUsed: 42, bwUsed: 0.8, bwExtra: 0, billing: 'year', setupBought: false, kept: null, graceDays: 3,
+      brand: { active: false, name: 'Northstar Commerce', short: 'N', primary: '#1B3A5B', accent: '#2BB673', font: 'Manrope', loginTitle: 'Sell online with Northstar', loginBody: 'Everything your shop needs, in one place.', domain: 'admin.northstar.shop', emailFrom: 'hello@northstar.shop', support: 'help.northstar.shop', hidePowered: true },
+      partners: [{ id: 'pc1', name: 'Bloom & Co.', owner: 'asha@bloomco.in', plan: 'growth', status: 'active', stores: 1, created: '12 Aug 2026', features: { suppliers: false, markets: true, storefrontAI: true }, domain: 'bloomco.northstar.shop' }, { id: 'pc2', name: 'Urban Threads', owner: 'dev@urbanthreads.com', plan: 'business', status: 'active', stores: 3, created: '2 Jul 2026', features: { suppliers: true, markets: true, storefrontAI: true }, domain: 'shop.urbanthreads.com' }, { id: 'pc3', name: 'Kiran Crafts', owner: 'kiran@crafts.in', plan: 'starter', status: 'invited', stores: 0, created: '25 Sep 2026', features: { suppliers: false, markets: false, storefrontAI: false }, domain: '' }, { id: 'pc4', name: 'Old Mill Goods', owner: 'ops@oldmill.co', plan: 'free', status: 'deactivated', stores: 1, created: '3 Mar 2026', features: { suppliers: false, markets: false, storefrontAI: false }, domain: 'oldmill.northstar.shop' }], multiLang: false, multiCur: false, approvalOn: true,
+      sim: { offline: false, uploadFail: false, conflict: false },
+      screen: 'home', editId: null, editNonce: 0, navOpen: false, returnTo: null,
+      feat: { sizeCharts: true, specs: true, highlights: true, faqs: false, badges: true, related: false, aplus: true, video: false },
+      legalDefaults: { manufacturer: this.REG(region).store + ', ' + ({ US: '410 Oak St, Columbus OH 43215', DE: 'Oranienstr. 12, 10999 Berlin', IN: 'MI Road, Jaipur 302001' }[region]), care: 'hello@' + this.REG(region).domain, respPerson: '' },
+      priceTax: null, auth: dataset === 'signup' ? 'signup' : 'in', provisioning: false, loading: false, collTab: null, toast: null, modal: null, modalVal: '', modalErr: '', undo: null, walkthrough: true, firstSaved: false, scn: 'normal', authNote: null, authNonce: 0, deniedFrom: null,
+      ...this.seed(region, dataset), ...keep
+    };
+  }
+
+  // ------------ helpers exposed
+  PLANS() {
+    const I = Infinity;
+    const free = { key: 'free', name: 'Starter (Free)', products: 10, photos: 3, versions: 10, collections: 3, sizeCharts: 1, aplusProducts: 0, video: false, import: false, shopify: false, ai: 'key', aiQuota: 0, gateways: 1, staff: 0, manager: false, suppliers: false, markets: 1, currencies: 1, languages: 1, adjust: false, fixed: false, marketDomain: false, duties: false, locations: 1, couriers: 1, liveRates: false, ownDomain: false, powered: true, history: 7, reports: false, export: false, custom: false, badges: false, faqs: false, related: false, bandwidth: 1, extraBw: false, whiteLabel: false, partner: false, support: 'Help centre', rank: 0 };
+    const starter = { ...free, key: 'starter', name: 'Growth', products: 100, photos: 5, versions: 100, collections: 25, sizeCharts: 2, import: true, gateways: 2, staff: 2, locations: 2, couriers: 2, ownDomain: true, history: 30, reports: true, badges: true, bandwidth: 10, support: 'Email', rank: 1, yearly: 4999, setup: 7000 };
+    const growth = { ...starter, key: 'growth', name: 'Growth Pro', products: 5000, photos: 25, collections: I, sizeCharts: 25, aplusProducts: 50, video: true, shopify: true, ai: 'included', aiQuota: 200, gateways: I, staff: 5, manager: true, markets: 2, currencies: 2, languages: 2, adjust: true, locations: 5, couriers: I, liveRates: true, powered: false, history: 90, export: true, faqs: true, related: true, bandwidth: 50, support: 'Chat', rank: 2, yearly: 6999, setup: 9000 };
+    const business = { ...growth, key: 'business', name: 'Business', products: I, photos: 50, versions: 250, sizeCharts: I, aplusProducts: I, aiQuota: 1000, staff: 15, suppliers: true, markets: 10, currencies: 10, languages: 10, fixed: true, marketDomain: true, duties: true, locations: 10, history: 365, custom: true, bandwidth: 200, extraBw: true, support: 'Priority chat & phone', rank: 3, yearly: 9999, setup: 12000 };
+    const enterprise = { ...business, key: 'enterprise', name: 'Partner', photos: I, versions: I, aiQuota: I, staff: I, markets: I, currencies: I, languages: I, locations: I, history: I, bandwidth: I, whiteLabel: true, partner: true, support: 'Named account manager', rank: 4 };
+    return { free, starter, growth, business, enterprise };
+  }
+  planOf(p) { const P = this.PLANS(); return { trial: P.business, trial9: P.business, trialEnded: P.free, pastdue: P.starter }[p] || P[p] || P.free; }
+  caps() {
+    const s = this.state; const plan = s.plan; const role = ['vendor', 'vendorStock'].includes(s.role) && !this.planOf(plan).suppliers ? 'owner' : s.role;
+    const pastdue = plan === 'pastdue';
+    const P = this.planOf(plan);
+    const planIncl = f => ({ aplus: P.aplusProducts > 0, video: P.video, faqs: P.faqs, related: P.related, badges: P.badges, sizeCharts: P.sizeCharts > 0 })[f] !== false;
+    const minPlan = f => { const all = this.PLANS(); return ['free', 'starter', 'growth', 'business', 'enterprise'].map(k => all[k]).find(x => typeof x[f] === 'number' ? x[f] > 0 && x[f] !== all.free[f] : !!x[f] && x[f] !== 'key') || all.enterprise; };
+    return {
+      role, isOwner: role === 'owner', isManager: role === 'manager', isStaff: role === 'staff', isVendor: role === 'vendor' || role === 'vendorStock', isVendorStock: role === 'vendorStock',
+      canEdit: !pastdue && role !== 'staff', canManage: !pastdue && (role === 'owner' || role === 'manager'), readOnly: pastdue,
+      suppliersOn: !!P.suppliers, approvalOn: s.approvalOn && P.suppliers, multiLang: (s.languages || []).length > 1, multiCur: (s.currencies || []).length > 1,
+      P, plan, planName: P.name + (plan === 'trial' || plan === 'trial9' ? ' trial' : ''), trial: plan === 'trial' || plan === 'trial9', trialEnded: plan === 'trialEnded', minPlan,
+      feat: s.feat, planIncl, on: f => s.feat[f] && planIncl(f),
+      limits: { products: P.products, photos: P.photos, sizeCharts: P.sizeCharts, languages: P.languages, versions: P.versions, collections: P.collections }
+    };
+  }
+
+  matches(c, p, all) {
+    if (c.type === 'manual') return c.productIds.includes(p.id);
+    const test = r => r.field === 'Name contains' ? p.name.toLowerCase().includes(String(r.values[0] || '').toLowerCase()) : r.values.includes((p.filters || {})[r.field]);
+    const rules = c.rules.filter(r => r.values.length);
+    if (!rules.length) return false;
+    const ok = c.match === 'any' ? rules.some(test) : rules.every(test);
+    if (!ok) return false;
+    if (c.parentId && c.inherit) {
+      const parent = (all || this.state.collections).find(x => x.id === c.parentId);
+      if (parent) return this.matches(parent, p, all);
+    }
+    return true;
+  }
+
+  marketStatus(p) {
+    const R = this.REG(this.state.region);
+    const labels = { fibre: 'Fibre content', origin: 'Country of origin', care: 'Care instructions', frText: 'Safety text in French', batch: 'Batch or type number', arText: 'Label details in Arabic', compare: R.compareLabel };
+    const hasPrice = p.variants && p.variants.length ? p.variants.some(v => !v.removed && Number(v.price) > 0) : Number(p.price) > 0;
+    return R.markets.map(m => {
+      const missing = m.needs.filter(n => n === 'compare' ? !Number(p.compare) : !((p.legal || {})[n] || '').trim()).map(n => ({ key: n, label: labels[n] }));
+      if (!hasPrice) missing.unshift({ key: 'price', label: 'Price' });
+      return { code: m.code, name: m.name, missing, ok: !missing.length };
+    });
+  }
+
+  set(patch) { this.setState(patch); }
+  toast(msg, action, fn) {
+    clearTimeout(this._tt);
+    this.setState({ toast: { msg, action: action || '', fn: fn || null } });
+    this._tt = setTimeout(() => this.setState({ toast: null }), action ? 8000 : 4200);
+  }
+  modal(spec) { this.setState({ modal: spec, modalVal: spec && spec.value ? spec.value : '', modalErr: '', modalChoice: spec && spec.choices && spec.choices[0] ? spec.choices[0].value : null }); }
+  closeModal() { this.setState({ modal: null, modalVal: '', modalErr: '' }); }
+
+  canOpen(screen, role) {
+    const V = ['products', 'product', 'orders', 'order'], VS = ['products', 'product'];
+    const ST = ['home', 'orders', 'order', 'customers', 'products', 'product', 'collections', 'offers', 'offer', 'carts', 'denied', 'missing'];
+    if (role === 'vendorStock') return VS.includes(screen) || screen === 'denied' || screen === 'missing';
+    if (role === 'vendor') return V.includes(screen) || screen === 'denied' || screen === 'missing';
+    if (role === 'staff') return ST.includes(screen);
+    if (role === 'manager') return !['settings', 'billing', 'keep'].includes(screen);
+    return true;
+  }
+  go(screen, extra) {
+    if (screen === 'approve') { screen = 'products'; extra = { productFilter: 'waiting', ...(extra || {}) }; }
+    if (screen === 'sizecharts') { screen = 'collections'; extra = { collTab: 'sizecharts', ...(extra || {}) }; }
+    const KNOWN = ['keep', 'home', 'orders', 'order', 'customers', 'reports', 'storefront', 'billing', 'products', 'product', 'collections', 'imports', 'offers', 'offer', 'carts', 'settings', 'aplus', 'other', 'denied', 'missing'];
+    if (!KNOWN.includes(screen)) { extra = { otherTitle: { brand: 'Branding', plans: 'Plans', partner: 'Partner customers' }[screen] || 'This page', ...(extra || {}) }; screen = 'other'; }
+    const role = this.caps().role;
+    if (!this.canOpen(screen, role)) { extra = { deniedFrom: screen }; screen = 'denied'; }
+    if (this.state.scn === 'loadErr' || this.state.scn === 'slow') { this.setState({ screen, navOpen: false, returnTo: null, loading: true, ...(extra || {}) }); if (this.state.scn === 'loadErr') { clearTimeout(this._lt); this._lt = setTimeout(() => this.setState({ loading: false }), 900); } return; }
+    this.setState({ screen, navOpen: false, returnTo: null, productFilter: null, importMode: null, collTab: null, orderFilter: null, settingsTab: null, offerView: null, cartView: null, loading: true, ...(extra || {}) });
+    clearTimeout(this._lt); this._lt = setTimeout(() => this.setState({ loading: false }), 320);
+    try { const el = document.querySelector('[data-cat-main]'); if (el) el.scrollTop = 0; } catch (e) {}
+  }
+
+  saveProduct(p, opts) {
+    const s = this.state; const c = this.caps(); opts = opts || {};
+    if (c.readOnly) { this.toast('Your store is view-only until billing is sorted.'); return { ok: false }; }
+    if (s.sim.offline) return { ok: false, error: 'offline' };
+    const exists = s.products.find(x => x.id === p.id);
+    if (!exists && s.products.filter(x => !x.sample).length >= c.limits.products) return { ok: false, limit: true };
+    if (exists && s.sim.conflict && !opts.force) return { ok: false, conflict: true };
+    let status = p.status;
+    if (c.isVendor && c.approvalOn && !c.isVendorStock) status = 'waiting';
+    if (c.isVendor && !c.approvalOn && (status === 'waiting' || status === 'sentback')) status = 'visible';
+    const saved = { ...p, status, sentBack: status === 'waiting' ? '' : p.sentBack, updated: Date.now(), supplier: exists ? exists.supplier : (c.isVendor ? 'Northwind Textiles' : 'You') };
+    const products = exists ? s.products.map(x => x.id === p.id ? saved : x) : [saved, ...s.products];
+    const first = !s.firstSaved && !exists;
+    this.setState({ products, firstSaved: s.firstSaved || !exists, sim: { ...s.sim, conflict: false } });
+    const ms = this.marketStatus(saved);
+    const ready = ms.filter(m => m.ok), notReady = ms.filter(m => !m.ok);
+    const R = this.REG(s.region);
+    const view = () => this.toast('Opens ' + R.domain + '/products/' + this.slug(saved.name) + ' in a new tab');
+    if (opts.quiet) { this.toast('Saved'); return { ok: true, product: saved }; }
+    if (status === 'waiting') this.modal({ tag: 'Sent for approval', title: 'Sent to your store owner', body: 'It goes live once they approve it. We’ll tell you either way.', confirm: 'OK', cancel: '' });
+    else if (status === 'hidden') this.modal({ tag: 'Saved', title: 'Saved, and hidden', body: 'Only you and your team can see it. Switch it to Visible when you’re ready.', confirm: 'Done', cancel: '' });
+    else if (!ready.length) this.modal({ tag: 'Saved', title: 'Saved — not on sale anywhere yet', body: 'Every country you sell in needs a few more details:\n' + notReady.map(m => '• ' + m.name + ': ' + m.missing.map(x => x.label).join(', ')).join('\n'), confirm: 'Add the details', onConfirm: opts.onNeedDetails, cancel: 'Later' });
+    else if (notReady.length) this.modal({ tag: 'Saved', title: 'Live in ' + ready.map(m => m.name).join(', ') + ' — not ' + notReady.map(m => m.name).join(', ') + ' yet', body: notReady.map(m => m.name + ' needs: ' + m.missing.map(x => x.label).join(', ')).join('\n') + '\nEverywhere else can buy it now.', confirm: 'Add the details', onConfirm: opts.onNeedDetails, cancel: 'Later' });
+    else this.modal({ tag: first ? 'Your first product' : 'Saved', title: first ? 'Your first product is live!' : 'Your product is live', body: 'Shoppers can buy it now. It can take a minute to show up in your store’s search.', confirm: 'View on your store', onConfirm: view, cancel: 'Close' });
+    return { ok: true, product: saved };
+  }
+
+  slug(n) { return String(n || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); }
+
+  deleteProducts(ids) {
+    const s = this.state;
+    const blocked = s.products.filter(p => ids.includes(p.id) && p.pendingOrders);
+    const del = ids.filter(id => !blocked.find(b => b.id === id));
+    const removed = s.products.filter(p => del.includes(p.id));
+    this.setState({ products: s.products.filter(p => !del.includes(p.id)), undo: removed });
+    if (blocked.length) {
+      this.modal({ tag: 'Partly done', title: `${del.length} deleted, ${blocked.length} couldn’t be`, body: blocked.map(b => b.name).join(', ') + ' has orders waiting to ship. Hide it now and delete it once they’ve shipped.', confirm: 'Hide ' + (blocked.length === 1 ? 'it' : 'them'), onConfirm: () => this.updateProducts(blocked.map(b => b.id), { status: 'hidden' }), cancel: 'Leave it' });
+    } else {
+      this.toast(del.length === 1 ? `“${removed[0].name}” deleted` : `${del.length} products deleted`, 'Undo', () => this.setState(st => ({ products: [...(st.undo || []), ...st.products], undo: null })));
+    }
+  }
+  updateProducts(ids, patch) {
+    this.setState(s => ({ products: s.products.map(p => ids.includes(p.id) ? (typeof patch === 'function' ? patch(p) : { ...p, ...patch, updated: Date.now() }) : p) }));
+  }
+
+  upgrade(feature, key) {
+    const c = this.caps();
+    if (c.isVendor) return;
+    const need = key ? this.PLANS()[key] : c.minPlan(feature);
+    const label = typeof feature === 'string' && !key ? feature : feature;
+    if (c.isManager || c.isStaff) { this.modal({ title: 'Ask your store owner', body: (label || 'This') + ' is on ' + need.name + '. Only the owner can change the plan — we’ll send them a note.', confirm: 'Send request', onConfirm: () => this.toast('Farhan will get your request'), cancel: 'Cancel' }); return; }
+    const pr = need.yearly ? '₹' + Math.round(need.yearly / 12).toLocaleString('en-IN') + '/month, billed yearly' : 'Talk to us';
+    this.modal({ tag: need.name + ' plan', title: (label ? label.charAt(0).toUpperCase() + label.slice(1) : 'This') + ' is on ' + need.name, body: need.name + ' · ' + pr + '\nEverything you’ve made stays as it is. You come straight back here.', confirm: need.key === 'enterprise' ? 'Talk to us' : 'Switch to ' + need.name, onConfirm: () => { if (need.key === 'enterprise') { this.toast('We’ll call you within a working day'); return; } this.setState({ plan: need.key }); this.toast('You’re on ' + need.name + ' — ' + (label || 'it') + ' is ready, right where you left off.'); }, alt: 'Compare plans', onAlt: () => this.go('billing'), cancel: 'Not now' });
+  }
+  allow(key, label) { const c = this.caps(); const v = c.P[key]; if (v === true || (typeof v === 'number' && v > 0)) return true; this.upgrade(label || key, c.minPlan(key).key); return false; }
+  within(key, count, label) { const c = this.caps(); if (count < c.P[key]) return true; const all = this.PLANS(); const next = ['free', 'starter', 'growth', 'business', 'enterprise'].map(k => all[k]).find(x => x[key] > c.P[key]) || all.enterprise; this.upgrade((label || key) + ' (you’ve used ' + count + ' of ' + c.P[key] + ')', next.key); return false; }
+
+    // ------------ render
+  renderVals() {
+    const s = this.state;
+    const R = this.effR();
+    const fmt = this.fmtFor(R);
+    const c = this.caps();
+    const phone = s.device === 'phone';
+    const vendorName = 'Northwind Textiles';
+    const supOn = c.suppliersOn;
+    const viewProducts = supOn ? s.products : s.products.map(p => p.supplier === 'You' && p.status !== 'waiting' && p.status !== 'sentback' ? p : { ...p, supplier: 'You', sentBack: '', status: p.status === 'waiting' || p.status === 'sentback' ? 'hidden' : p.status });
+    const viewOrders = supOn ? s.orders : s.orders.map(o => ({ ...o, lines: o.lines.map(l => ({ ...l, supplier: 'You' })) }));
+    const scope = c.isVendor ? viewProducts.filter(p => p.supplier === vendorName) : viewProducts;
+    const waiting = supOn ? s.products.filter(p => p.status === 'waiting').length : 0;
+
+    const ICON = {
+      partner: 'M3 20V8l9-5 9 5v12 M9 20v-6h6v6 M3 20h18', brand: 'M12 3a9 9 0 1 0 0 18c1.2 0 2-.9 2-2 0-.6-.2-1-.6-1.4-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2H17a4 4 0 0 0 4-4c0-4.4-4-7.3-9-7.3z M7.5 11.5h.01 M10.5 7.5h.01 M15.5 8.5h.01', plans: 'M4 6h16 M4 12h16 M4 18h10 M18 16v4 M16 18h4',
+      reports: 'M6 3.6h8.4L19 8.2v12.2H6z M14.2 3.6v4.6H19 M9.4 17.4v-3.2 M12 17.4v-6 M14.6 17.4v-2', storefront: 'M3.2 9.4 5.2 4h13.6l2 5.4 M3.2 9.4h17.6V20H3.2z M9 20v-5.8h6V20', billing: 'M2.6 6.4h18.8v11.2H2.6z M2.6 10.4h18.8 M6 14.4h3.4',
+      home: 'M3 10.4 12 3.4l9 7 M5.4 9.2V20.4h13.2V9.2 M9.6 20.4v-6.6h4.8v6.6', orders: 'M3 7.6 12 3l9 4.6v8.8L12 21l-9-4.6z M3 7.6 12 12.2l9-4.6 M12 12.2V21',
+      products: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z', collections: 'M12 3 3 7.8l9 4.8 9-4.8z M3 12.2 12 17l9-4.8 M3 16.6 12 21.4l9-4.8',
+      sizecharts: 'M3 15.5 15.5 3l5.5 5.5L8.5 21z M7 11.5l2 2 M9.8 8.7l1.5 1.5 M12.6 5.9l2 2', imports: 'M12 3.4v10.8 M7.6 9.8 12 14.2l4.4-4.4 M4 16.4v4h16v-4',
+      approve: 'M8.8 12.4 11 14.6l4.4-4.4 M12 3.4a8.6 8.6 0 1 0 0 17.2 8.6 8.6 0 0 0 0-17.2z', settings: 'M4 7h16 M4 12.5h16 M4 18h16 M9.5 5.2v3.6 M15.5 10.7v3.6 M7.5 16.2v3.6',
+      customers: 'M9 11.2a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8 M2.6 20c0-3.5 2.9-5.4 6.4-5.4s6.4 1.9 6.4 5.4', offers: 'M3.6 12.4V3.6h8.8l8 8-8.8 8.8z M8 8h.01', carts: 'M3 4h2.4l2.2 11h10.6l2-8H6.4 M9 20h.01 M17 20h.01'
+    };
+    const cur = s.screen === 'product' || s.screen === 'aplus' || s.screen === 'imports' ? 'products' : (s.screen === 'order' ? 'orders' : s.screen === 'offer' ? 'offers' : s.screen);
+    const item = (key, label, extra) => ({ item: true, heading: '', key, label, icon: ICON[key] || ICON.products, badge: '', note: '', ...extra,
+      onClick: () => extra && extra.locked ? this.toast('Your store is still being built — this opens in a moment') : this.go(key),
+      bl: cur === key ? '#EC844F' : 'transparent', bg: cur === key ? 'rgba(255,255,255,0.10)' : 'transparent', fw: cur === key ? 700 : 500, fg: cur === key ? '#FFFFFF' : '#D6DEE7', op: extra && extra.locked ? 0.5 : 1 });
+    const head = h => ({ heading: h, item: false });
+    let nav;
+    const toShip = s.orders.filter(o => ['unfulfilled', 'partial'].includes(o.status) && (!c.isVendor || o.lines.some(l => l.supplier === vendorName && l.shipped < l.qty))).length;
+    const lock = { locked: s.provisioning };
+    if (c.isVendor) { nav = [item('products', 'Your products', { note: c.isVendorStock ? 'stock only' : '' })]; if (!c.isVendorStock) nav.push(item('orders', 'To ship', { badge: toShip ? String(toShip) : '' })); }
+    else if (c.isStaff) nav = [item('home', 'Home'), item('orders', 'Orders', { badge: toShip ? String(toShip) : '' }), item('customers', 'Customers'), item('offers', 'Offers', { note: 'view only' }), item('carts', 'Abandoned carts', { note: 'view only' }), head('Catalogue'), item('products', 'Products', { note: 'view only' }), item('collections', 'Collections', { note: 'view only' })];
+    else {
+      nav = [item('home', 'Home'), item('orders', 'Orders', { badge: toShip ? String(toShip) : '' }), item('customers', 'Customers'), item('offers', 'Offers'), item('carts', 'Abandoned carts'), item('reports', 'Reports'), head('Catalogue'), item('products', 'Products', { badge: c.approvalOn && waiting ? String(waiting) : '' }), item('collections', 'Collections')];
+      nav.push(head('Your shop')); nav.push(item('storefront', 'Storefront', { ...lock, note: c.isManager ? 'view only' : '' }));
+      if (c.isOwner) { nav.push(head('Admin')); nav.push(item('settings', 'Settings', lock)); nav.push(item('billing', 'Billing', { note: c.trial ? (s.plan === 'trial9' ? '1 day left' : '7 days left') : '' })); }
+    }
+
+    const crumbs = { denied: 'No access', missing: 'Not found', keep: 'Billing / Choose what to keep', home: 'Home', orders: c.isVendor ? 'To ship' : 'Orders', customers: 'Customers', offers: s.offerView ? 'Offers / Offer' : 'Offers', offer: s.offerId ? 'Offers / Edit offer' : 'Offers / New offer', carts: s.cartView ? 'Abandoned carts / Cart' : 'Abandoned carts', reports: 'Reports', storefront: 'Storefront', billing: 'Billing', products: c.isVendor ? 'Your products' : 'Catalogue / Products', product: 'Catalogue / Products / ' + (s.editId ? ((s.products.find(p => p.id === s.editId) || {}).name || 'Product') : 'New product'), collections: 'Catalogue / Collections', sizecharts: 'Catalogue / Size charts', imports: 'Products / Import & export', settings: 'Settings', aplus: 'Products / A+ content', other: s.otherTitle || '' };
+
+    const banners = [];
+    if (s.provisioning) banners.push({ title: 'Your store is being built —', body: 'about a minute. Products work now; Storefront and Settings open when it’s ready.', bg: '#EAF1F8', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
+    if (s.plan === 'pastdue') banners.push({ title: 'Your store is view-only.', body: 'Your last payment didn’t go through. Everything is safe — pay to start editing again.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: c.isOwner ? 'Go to billing' : '', onClick: () => this.go('billing') });
+    if (s.plan === 'trial' && c.isOwner) banners.push({ title: 'Free trial · 7 days left.', body: 'You have everything in Business. No card needed.', bg: '#EAF1F8', bd: '#C9DAEC', fg: '#00325F', cta: 'Choose a plan', onClick: () => this.go('billing') });
+    if (s.plan === 'trial9' && c.isOwner) banners.push({ title: 'Your trial ends tomorrow.', body: 'Choose a plan to keep everything, or pick what to keep on Starter (Free).', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'Choose what to keep', onClick: () => this.go('keep') });
+    if (s.plan === 'trialEnded' && !c.isVendor) banners.push({ title: 'Your trial ended — you’re on Starter (Free).', body: (s.graceDays ? `Your full shop stays live for ${s.graceDays} more days. ` : '') + 'Items over Starter (Free)’s limits are paused, never deleted.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: c.isOwner ? 'Change what’s kept' : '', onClick: () => this.go('keep') });
+    if (!c.isVendor && c.isOwner && c.P.bandwidth !== Infinity && s.bwUsed / c.P.bandwidth >= 0.8) banners.push({ title: `You’ve used ${Math.round(s.bwUsed / c.P.bandwidth * 100)}% of this month’s bandwidth.`, body: 'Your shop stays online.' + (c.P.extraBw ? ' Buy extra any time.' : ' Move up a plan for more.'), bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'See usage', onClick: () => this.go('billing') });
+    if (c.P.whiteLabel && s.brand.active && c.isOwner) banners.push({ title: 'White-label is on.', body: 'Your customers see ' + s.brand.name + ' everywhere — not DripFunnel.', bg: '#EEF7F2', bd: '#C3E0D2', fg: '#1D6B47', cta: 'Edit branding', onClick: () => this.go('brand') });
+    if (s.sim.offline) banners.push({ title: 'You’re offline.', body: 'Changes are kept on this device and will save when you’re back.', bg: '#5A6472', bd: '#5A6472', fg: '#FFFFFF', cta: 'Back online', onClick: () => this.setState({ sim: { ...s.sim, offline: false } }) });
+
+    const m = s.modal;
+    const modal = m ? {
+      tag: m.tag || '', title: m.title, body: m.body || '', confirm: m.confirm || 'OK', cancel: m.cancel === undefined ? 'Cancel' : m.cancel, alt: m.alt || '',
+      btnBg: m.danger ? '#B8541F' : (m.navy ? '#0A2A4A' : '#EC844F'), w: m.wide ? '620px' : '480px',
+      hasInput: !!m.input, inputLabel: m.input ? m.input.label : '', placeholder: m.input ? m.input.placeholder : '', inputErr: s.modalErr,
+      choices: (m.choices || []).map(ch => ({ label: ch.label, sub: ch.sub || '', bd: s.modalChoice === ch.value ? '2px solid #00519F' : '1px solid #D7D3CD', bg: s.modalChoice === ch.value ? '#F4F8FB' : '#FFFFFF', dot: s.modalChoice === ch.value ? '5px solid #00519F' : '1.5px solid #9AA1AB', onClick: () => this.setState({ modalChoice: ch.value }) }))
+    } : { choices: [] };
+
+    const tog = (label, on, fn) => ({ label: (on ? '● ' : '○ ') + label, onClick: fn, bg: on ? '#EC844F' : 'transparent', bd: on ? '#EC844F' : '#3A424E', fg: on ? '#FFFFFF' : '#D6DEE7' });
+    const toggles = [
+      tog('Languages', c.multiLang, () => { this.setState({ languages: c.multiLang ? s.languages.filter(l => l.main) : [...s.languages, { code: 'fr', name: 'Français' }] }); if (!c.multiLang) this.toast('French added in Settings › Store info. Products now show a language switcher.'); }),
+      tog('Currencies', c.multiCur, () => { const b = this.REG(s.region); this.setState({ currencies: c.multiCur ? s.currencies.filter(x => x.main) : [...s.currencies, { code: b.autoCur, auto: true, rounding: 'ends-99' }, { code: b.manCur, auto: false, rounding: 'none' }] }); if (!c.multiCur) this.toast(b.autoCur + ' (converted automatically) and ' + b.manCur + ' (you set prices) added.'); }),
+      tog('Approval', s.approvalOn, () => this.setState({ approvalOn: !s.approvalOn })),
+      tog('Offline', s.sim.offline, () => this.setState({ sim: { ...s.sim, offline: !s.sim.offline } })),
+      tog('Upload fails', s.sim.uploadFail, () => this.setState({ sim: { ...s.sim, uploadFail: !s.sim.uploadFail } })),
+      tog('Spec', !!s.showSpec, () => this.setState({ showSpec: !s.showSpec })),
+      tog('Edit conflict', s.sim.conflict, () => this.setState({ sim: { ...s.sim, conflict: !s.sim.conflict } }))
+    ];
+
+    const app = {
+      st: s, R, fmt, caps: c, phone, products: scope, allProducts: viewProducts, vendorName, collections: s.collections, facets: s.facets, menu: s.menu, sizeCharts: s.sizeCharts, exports: s.exports,
+      feat: s.feat, legalDefaults: s.legalDefaults, importMode: s.importMode || null, walkthrough: s.walkthrough, editId: s.editId, returnTo: s.returnTo, productFilter: s.productFilter || null, sim: s.sim,
+      go: (sc, extra) => this.go(sc, extra), openProduct: id => this.go('product', { editId: id, editNonce: s.editNonce + 1 }), newProduct: () => this.go('product', { editId: null, editNonce: s.editNonce + 1 }),
+      saveProduct: (p, o) => this.saveProduct(p, o), deleteProducts: ids => this.deleteProducts(ids), updateProducts: (ids, patch) => this.updateProducts(ids, patch),
+      addProducts: list => this.setState(st => ({ products: [...list, ...st.products] })),
+      allow: (k, l) => this.allow(k, l), needAI: () => { const cc = this.caps(); if (cc.P.ai === 'key' && !this.state.aiKey) { this.modal({ title: 'Connect your AI key first', body: 'On ' + cc.P.name + ' the AI runs on your own OpenAI or Anthropic account. From Growth it’s included — no key needed.', input: { label: 'API key', placeholder: 'sk-…', required: true, error: 'Paste your key' }, confirm: 'Connect', alt: 'See Growth', onAlt: () => this.upgrade('AI included', 'growth'), onConfirm: v => { if (!/^sk-/.test(v.trim())) { this.toast('That doesn’t look like an API key — it usually starts with “sk-”'); return; } this.setState({ aiKey: v.trim() }); this.toast('AI key connected — try again'); } }); return false; } if (cc.P.ai === 'included' && this.state.aiUsed >= cc.P.aiQuota) { this.toast('You’ve used this month’s AI allowance — it resets on 1 Oct, or connect your own key'); return false; } this.setState(st => ({ aiUsed: st.aiUsed + 1 })); return true; }, aiLeft: () => { const cc = this.caps(); return cc.P.ai === 'key' ? (this.state.aiKey ? 'your key' : 'needs your key') : cc.P.aiQuota === Infinity ? 'included' : Math.max(0, cc.P.aiQuota - this.state.aiUsed) + ' left'; }, within: (k, n, l) => this.within(k, n, l), PLANS: this.PLANS(), paused: this.paused(),
+      setLocale: ({ region, currency, language, languageName }) => {
+        const fr = region !== s.region ? this.fresh(region, s.dataset, { role: s.role, plan: s.plan, device: s.device }) : {};
+        this.setState({ ...fr, auth: 'in', screen: 'home', products: s.products, collections: s.collections, orders: s.orders, storeInfo: { ...(fr.storeInfo || s.storeInfo), name: (s.storeInfo || {}).name },
+          currencies: [{ code: currency, auto: true, rounding: 'none', main: true }], languages: [{ code: language, name: languageName || language, main: true }], localeOk: true });
+      },
+      data: key => supOn ? s[key] : key === 'suppliers' ? [] : key === 'people' ? (s.people || []).filter(p => p.role !== 'Supplier user') : key === 'warehouses' ? (s.warehouses || []).filter(w => !w.supplier) : s[key], set: (key, fn) => this.setState(st => ({ [key]: typeof fn === 'function' ? fn(st[key]) : fn })), setPlan: p => this.setState({ plan: p }),
+      signIn: role => { this.setState({ auth: 'in', authNote: null, scn: 'normal', ...(role ? { role } : {}), screen: c.isVendor && !role ? 'products' : 'home' }); }, signOut: () => this.setState({ auth: 'login', authNote: null, navOpen: false, authNonce: s.authNonce + 1 }),
+      finishSignup: info => { const fr = this.fresh(info.region || s.region, 'empty', { device: s.device }); this.setState({ ...fr, auth: 'in', screen: 'home', provisioning: true, plan: 'trial', storeInfo: { ...fr.storeInfo, name: info.store || fr.storeInfo.name }, localeOk: false }); setTimeout(() => { this.setState({ provisioning: false }); this.toast('Your store is ready — Storefront and Settings are open'); }, 9000); },
+      brand: c.P.whiteLabel && s.brand.active ? s.brand : null, brandDraft: s.brand, orderFilter: s.orderFilter || null, orders: viewOrders, openOrder: id => this.go('order', { orderId: id }), orderId: s.orderId, collTab: s.collTab, settingsTab: s.settingsTab, storeName: (s.storeInfo || {}).name || R.store,
+      setCollections: fn => this.setState(st => ({ collections: typeof fn === 'function' ? fn(st.collections) : fn })),
+      setFacets: fn => this.setState(st => ({ facets: typeof fn === 'function' ? fn(st.facets) : fn })),
+      setMenu: fn => this.setState(st => ({ menu: typeof fn === 'function' ? fn(st.menu) : fn })),
+      setSizeCharts: fn => this.setState(st => ({ sizeCharts: typeof fn === 'function' ? fn(st.sizeCharts) : fn })),
+      setExports: fn => this.setState(st => ({ exports: typeof fn === 'function' ? fn(st.exports) : fn })),
+      setFeat: f => this.setState({ feat: f }),
+      setPriceTax: (incl, keepShopper) => {
+        const rate = this.REG(s.region).rate;
+        const f = keepShopper && rate ? (incl ? v => Math.round(Number(v) * (1 + rate) * 100) / 100 : v => Math.round(Number(v) / (1 + rate) * 100) / 100) : null;
+        this.setState(st => ({ priceTax: incl, products: f ? st.products.map(p => ({ ...p, price: p.price ? f(p.price) : p.price, variants: (p.variants || []).map(v => ({ ...v, price: v.price ? f(v.price) : v.price })) })) : st.products }));
+      }, setLegalDefaults: v => this.setState({ legalDefaults: v }),
+      hideWalkthrough: () => this.setState({ walkthrough: false }),
+      toast: (msg, a, fn) => this.toast(msg, a, fn), modal: spec => this.modal(spec), closeModal: () => this.closeModal(), upgrade: f => this.upgrade(f), upgradeTo: (f, k) => this.upgrade(f, k),
+      matches: (col, p) => this.matches(col, p), marketStatus: p => this.marketStatus(p), slug: n => this.slug(n),
+      collectionCount: col => s.products.filter(p => this.matches(col, p)).length,
+      addSample: () => { const smp = { ...this.seed(s.region, 'stocked').products[3], id: 'sample', name: 'Sample · Everyday Tote', status: 'hidden', sample: true, supplier: 'You' }; this.setState(st => ({ products: [smp, ...st.products] })); this.toast('Sample product added — it’s hidden from shoppers.'); },
+      loadStocked: () => this.setState({ dataset: 'stocked', ...this.seed(s.region, 'stocked') })
+    };
+
+    return {
+      st: s, R, app, nav, toggles, banners, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
+      roleLabel: { owner: 'Owner', manager: 'Manager', staff: 'Staff', vendor: 'Supplier · Northwind', vendorStock: 'Supplier · stock only' }[s.role],
+      user: c.isVendor ? { initials: 'NT', name: 'Nadia Tran', sub: 'Northwind Textiles' } : ({ owner: { initials: 'FA', name: 'Farhan Ali', sub: 'Owner' }, manager: { initials: 'PS', name: 'Priya Shah', sub: 'Manager' }, staff: { initials: 'TO', name: 'Tom Okafor', sub: 'Staff' } }[s.role]),
+      brandOn: c.P.whiteLabel && s.brand.active, brandOff: !(c.P.whiteLabel && s.brand.active), brand: s.brand, navBg: c.P.whiteLabel && s.brand.active ? s.brand.primary : '#0A2A4A',
+      authed: s.auth === 'in', unauthed: s.auth !== 'in', loading: s.loading || s.scn === 'slow', notLoading: !s.loading, authKey: 'au' + s.auth + s.authNonce, pageErr: s.scn === 'loadErr' && !s.loading, crumbName: (crumbs[s.screen] || 'this page').split(' / ').pop().toLowerCase().replace(/^catalogue$/, 'this page'), errRef: s.screen + '-' + String(s.authNonce + 4821).slice(-4),
+      denied: (() => { const lbl = { settings: 'Settings', billing: 'Billing', keep: 'Billing', reports: 'Reports', storefront: 'Storefront', imports: 'Import & export', aplus: 'A+ content', home: 'Home', orders: 'Orders', order: 'this order', collections: 'Collections', offers: 'Offers', offer: 'this offer', carts: 'Abandoned carts', customers: 'Customers' }[s.deniedFrom] || 'this page'; const who = { manager: 'Managers', staff: 'Staff', vendor: 'Suppliers', vendorStock: 'Suppliers with stock-only access' }[c.role] || 'Your role'; return { title: 'You don’t have access to ' + lbl, body: who + ' can’t open ' + lbl + (['settings', 'billing', 'keep'].includes(s.deniedFrom) ? ' — only the store owner can. ' : '. ') + (c.isVendor ? 'Ask ' + (s.storeInfo || {}).name + ' if you need it.' : 'Ask Farhan Ali, the owner, if you need something changed there.'), back: c.isVendor ? 'Go to your products' : 'Go to Home', canAsk: !c.isVendor }; })(),
+      scr: { denied: s.screen === 'denied', missing: s.screen === 'missing', partner: s.screen === 'partner', brand: s.screen === 'brand', plans: s.screen === 'plans', keep: s.screen === 'keep', home: s.screen === 'home', orders: s.screen === 'orders' || s.screen === 'order' || s.screen === 'customers', reports: s.screen === 'reports', storefront: s.screen === 'storefront', billing: s.screen === 'billing', products: s.screen === 'products', product: s.screen === 'product', collections: s.screen === 'collections', sizecharts: s.screen === 'sizecharts', imports: s.screen === 'imports', approve: s.screen === 'approve', offers: s.screen === 'offers', offer: s.screen === 'offer', carts: s.screen === 'carts', settings: s.screen === 'settings', aplus: s.screen === 'aplus', other: s.screen === 'other' },
+      otherTitle: s.otherTitle || '', storeName: (s.storeInfo || {}).name || R.store, screenDisplay: s.loading || s.scn === 'slow' || s.scn === 'loadErr' ? 'none' : 'block', editKey: 'ed' + s.editNonce, offerKey: 'of' + (s.offerNonce || 0), crumb: crumbs[s.screen] || '',
+      isPhone: phone, showDevice: true, navShown: !phone || s.navOpen, drawerScrim: phone && s.navOpen,
+      dev: { dBg: phone ? 'transparent' : '#EC844F', dFg: phone ? '#D6DEE7' : '#14181F', pBg: phone ? '#EC844F' : 'transparent', pFg: phone ? '#14181F' : '#D6DEE7' }, fullDisp: phone ? 'none' : 'inline', meDisp: phone ? 'none' : 'flex',
+      frame: phone ? { pad: '24px', w: '390px', h: '800px', bd: '10px solid #14181F', r: '40px', navPos: 'absolute', padX: '14px' } : { pad: '0', w: '100%', h: 'calc(100vh - 44px)', bd: '0', r: '0', navPos: 'relative', padX: '28px' },
+      on: {
+        role: e => { const role = e.target.value; const vendor = role === 'vendor' || role === 'vendorStock'; if (vendor && !c.suppliersOn) { this.toast('Suppliers are on the Business plan — switch the plan first'); return; } const blocked = vendor ? !['products', 'product', 'orders', 'order'].includes(s.screen) : (role === 'staff' ? !['home', 'orders', 'order', 'customers', 'products', 'product', 'collections', 'offers', 'carts'].includes(s.screen) : (role === 'manager' && ['settings', 'billing'].includes(s.screen))); this.setState({ role, ...(blocked ? { screen: vendor ? 'products' : 'home' } : {}) }); },
+        region: e => { const r = e.target.value; this.setState({ priceTax: null }); this.setState(this.fresh(r, s.dataset, { role: s.role, plan: s.plan, device: s.device, multiLang: s.multiLang, multiCur: s.multiCur, approvalOn: s.approvalOn })); this.toast('Now showing ' + this.REG(r).store + ' — sample data reloaded for ' + this.REG(r).home.replace('the ', '')); },
+        plan: e => { const plan = e.target.value; const lose = ['vendor', 'vendorStock'].includes(s.role) && !this.planOf(plan).suppliers; this.setState({ plan, ...(lose ? { role: 'owner', screen: 'home' } : {}) }); },
+        dataset: e => { const d = e.target.value; this.setState({ dataset: d, auth: d === 'signup' ? 'signup' : 'in', screen: 'home', firstSaved: false, walkthrough: true, provisioning: false, ...this.seed(s.region, d) }); },
+        switchStore: () => this.modal({ title: 'Switch store', body: 'One sign-in for every store you belong to. Your last store is first.', choices: [{ label: (s.storeInfo || {}).name || R.store, sub: 'Owner · current store', value: 'cur' }, { label: 'Aurelia Home', sub: 'Owner · India', value: 'IN' }, { label: 'Kala Weaves', sub: 'Supplier access · Products and stock', value: 'v' }], confirm: 'Open', onConfirm: v => { if (v === 'cur') return; if (v === 'v') { this.setState({ role: 'vendor', screen: 'products' }); this.toast('Opened as a supplier — your navigation is different here'); return; } this.setState(this.fresh('IN', 'stocked', { device: s.device })); this.toast('Switched store'); } }),
+        userMenu: () => this.modal({ title: ({ owner: 'Farhan Ali', manager: 'Priya Shah', staff: 'Tom Okafor' }[s.role] || 'Nadia Tran'), body: 'One account across every store you belong to.', choices: [{ label: 'My profile', sub: 'Name, password, two-step sign-in', value: 'profile' }, { label: 'Switch store', sub: 'Pick another store', value: 'switch' }, { label: 'Sign out', sub: 'Signs you out of every store on this device', value: 'out' }], confirm: 'Go', onConfirm: v => { if (v === 'out') { this.setState({ auth: 'login', navOpen: false }); } else if (v === 'switch') { setTimeout(() => this.renderVals().on.switchStore(), 50); } else this.toast('Profile: change name, password and (owners) two-step sign-in'); } }),
+        reset: () => { this.setState(this.fresh(s.region, s.dataset, { device: s.device })); this.toast('Data reset'); },
+        scn: e => { const v = e.target.value; clearTimeout(this._lt);
+          if (v === 'expired' || v === 'removed') { this.setState({ scn: 'normal', auth: 'login', authNote: v, navOpen: false, modal: null, authNonce: s.authNonce + 1 }); return; }
+          if (v === 'invite' || v === 'inviteBad') { this.setState({ scn: 'normal', auth: v, authNote: null, navOpen: false, modal: null, authNonce: s.authNonce + 1 }); return; }
+          if (v === 'notFound') { this.setState({ scn: 'normal', auth: 'in', screen: 'missing', loading: false }); return; }
+          this.setState({ scn: v, auth: 'in', loading: false }); },
+        retry: () => { this.setState({ loading: true }); clearTimeout(this._lt); this._lt = setTimeout(() => this.setState({ loading: false, scn: 'normal' }), 700); },
+        askAccess: () => this.toast('Farhan will get your request to open ' + (s.deniedFrom || 'this page')),
+        toProducts: () => this.go('products'),
+        desktop: () => this.setState({ device: 'desktop', navOpen: false }), phone: () => this.setState({ device: 'phone', navOpen: false }),
+        openNav: () => this.setState({ navOpen: true }), home: () => this.go('home'), closeNav: () => this.setState({ navOpen: false }),
+        stop: e => e.stopPropagation(),
+        modalInput: e => this.setState({ modalVal: e.target.value, modalErr: '' }),
+        modalCancel: () => { const mm = s.modal; this.closeModal(); if (mm && mm.onCancel) mm.onCancel(); },
+        modalAlt: () => { const mm = s.modal; this.closeModal(); if (mm && mm.onAlt) mm.onAlt(); },
+        modalConfirm: () => {
+          const mm = s.modal; if (!mm) return;
+          if (mm.input && mm.input.required && !s.modalVal.trim()) { this.setState({ modalErr: mm.input.error || 'Please fill this in.' }); return; }
+          if (mm.choices && mm.choices.length && !s.modalChoice) { this.setState({ modalChoice: mm.choices[0].value }); }
+          const val = mm.input ? s.modalVal : (s.modalChoice || (mm.choices && mm.choices[0] ? mm.choices[0].value : null));
+          this.setState({ modal: null, modalVal: '', modalChoice: null });
+          if (mm.onConfirm) mm.onConfirm(val);
+        },
+        toastAction: () => { const t = s.toast; this.setState({ toast: null }); if (t && t.fn) t.fn(); },
+        toastClose: () => this.setState({ toast: null })
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

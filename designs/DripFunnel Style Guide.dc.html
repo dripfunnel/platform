@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FDFAF7; --surface:#FFFFFF; --border:#E8E2DC;
+  --text:#14181F; --muted:#5A6472;
+  --navy:#00519F; --navy-hover:#003D78; --navy-deep:#00325F;
+  --ink:#0A2A4A; --ink-soft:#B8C7D6;
+  --orange:#EC844F; --orange-deep:#B8541F; --orange-text:#8F4017; --orange-tint:#FDF0E8;
+  --navy-tint:#EAF1F8; --navy-tint-text:#00325F;
+  --btn-bg:#EC844F; --btn-bg-hover:#D96C33; --btn-fg:#FFFFFF;
+  --btn-disabled-bg:#F3EDE8;
+  --outline:#B8541F; --outline-hover-bg:#FDF0E8; --focus-ring:#00519F;
+  --link:#B8541F; --field:#FFFFFF; --rule:#E8E2DC;
+  --danger:#B8541F; --swatch-frame:#E8E2DC;
+  --logo-light-display:block; --logo-dark-display:none;
+}
+[data-theme="dark"]{
+  --paper:#061726; --surface:#0A2A4A; --border:#1C3F60;
+  --text:#FFFFFF; --muted:#B8C7D6;
+  --navy-tint:#0E3355; --navy-tint-text:#B8C7D6;
+  --orange-tint:#2A1710; --orange-text:#EC844F; --orange-deep:#EC844F;
+  --btn-bg:#EC844F; --btn-bg-hover:#F09A6D; --btn-fg:#FFFFFF;
+  --btn-disabled-bg:#12283C;
+  --outline:#EC844F; --outline-hover-bg:#2A1710; --focus-ring:#2E7BD1;
+  --link:#EC844F; --field:#071F35; --rule:#1C3F60;
+  --danger:#EC844F; --swatch-frame:#1C3F60;
+  --logo-light-display:none; --logo-dark-display:block;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper,#FDFAF7);}
+a{color:var(--link,#B8541F);text-decoration:underline;text-underline-offset:3px;}
+a:hover{color:var(--navy,#00519F);}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="background:var(--paper,#FDFAF7);color:var(--text,#14181F);font-family:Inter,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.7;min-height:100vh;padding:0 0 96px;">
+
+  <div style="position:sticky;top:0;z-index:20;background:var(--paper,#FDFAF7);border-bottom:1px solid var(--border,#E8E2DC);">
+    <div style="max-width:1200px;margin:0 auto;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:24px;">
+      <span style="display:block;">
+        <img src="assets/dripfunnel-logo.svg" alt="DripFunnel" width="189" height="32" style="height:32px;width:auto;display:var(--logo-light-display,block);" />
+        <img src="assets/dripfunnel-logo-inverse.svg" alt="" width="189" height="32" style="height:32px;width:auto;display:var(--logo-dark-display,none);" />
+      </span>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">{{ themeLabel }}</span>
+        <button onClick="{{ toggleTheme }}" style="height:44px;padding:0 18px;border:1px solid var(--outline,#00519F);border-radius:8px;background:transparent;color:var(--outline,#00519F);font-family:Inter,sans-serif;font-weight:500;font-size:14px;cursor:pointer;" style-hover="background:var(--outline-hover-bg,#EAF1F8);">Switch theme</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:1200px;margin:0 auto;padding:0 24px;">
+
+    <header style="padding:96px 0 64px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,0.85fr);gap:64px;align-items:end;">
+      <div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+          <span style="display:block;width:32px;height:2px;background:#EC844F;"></span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted,#5A6472);">Brand system v1.0</span>
+        </div>
+        <h1 style="font-family:Manrope,sans-serif;font-weight:800;font-size:64px;line-height:1.05;letter-spacing:-0.035em;margin:0 0 24px;color:var(--text,#14181F);text-wrap:pretty;">Visual style guide</h1>
+        <p style="margin:0;max-width:56ch;font-size:16px;line-height:1.7;color:var(--muted,#5A6472);text-wrap:pretty;">DripFunnel is a digital marketing agency founded in 2021 and a subsidiary of Softobotics. We build websites and run paid ad campaigns for small and medium businesses in India, the USA and Dubai. This page is the source of truth for colour, type, spacing and components.</p>
+      </div>
+      <dl style="margin:0;display:grid;grid-template-columns:1fr;gap:0;border-top:1px solid var(--border,#E8E2DC);">
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--border,#E8E2DC);">
+          <dt style="margin:0;font-size:14px;color:var(--muted,#5A6472);">Founded</dt><dd style="margin:0;font-size:14px;font-weight:500;">2021</dd>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--border,#E8E2DC);">
+          <dt style="margin:0;font-size:14px;color:var(--muted,#5A6472);">Parent</dt><dd style="margin:0;font-size:14px;font-weight:500;">Softobotics</dd>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--border,#E8E2DC);">
+          <dt style="margin:0;font-size:14px;color:var(--muted,#5A6472);">Markets</dt><dd style="margin:0;font-size:14px;font-weight:500;">India, USA, Dubai</dd>
+        </div>
+        <div style="display:grid;grid-template-columns:120px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--border,#E8E2DC);">
+          <dt style="margin:0;font-size:14px;color:var(--muted,#5A6472);">Colour ratio</dt><dd style="margin:0;font-size:14px;font-weight:500;">60 paper · 25 navy and ink · 15 orange</dd>
+        </div>
+      </dl>
+    </header>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">01</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;color:var(--text,#14181F);">Colour palette</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">Contrast ratios are measured against white. Anything below 4.5:1 is never used for body text on a light surface.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:24px;">
+        <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="14">
+          <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;background:var(--surface,#FFFFFF);">
+            <div style="height:96px;border-bottom:1px solid var(--swatch-frame,#E8E2DC);background:{{ s.hex }};"></div>
+            <div style="padding:16px;">
+              <div style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;margin-bottom:2px;">{{ s.name }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--muted,#5A6472);">{{ s.hex }}</div>
+              <div style="margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;">
+                <span style="color:var(--muted,#5A6472);">vs white</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-weight:500;">{{ s.ratio }}</span>
+              </div>
+              <div style="margin-top:8px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;color:{{ s.gradeColor }};">{{ s.grade }}</div>
+              <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border,#E8E2DC);font-size:12px;line-height:1.6;color:var(--muted,#5A6472);">{{ s.use }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">02</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Type scale</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">Manrope 800 for headings with tight tracking, Inter 400 and 500 for body. Sentence case everywhere; capitals only in small letter-spaced eyebrow labels.</p>
+      <div style="display:grid;grid-template-columns:1fr 260px;gap:0;border-top:1px solid var(--border,#E8E2DC);">
+        <div style="padding:16px 24px 16px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Desktop</div>
+        <div style="padding:16px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Mobile · spec</div>
+        <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="7">
+          <div style="padding:24px 24px 24px 0;border-top:1px solid var(--border,#E8E2DC);min-width:0;">
+            <div style="font-family:{{ t.family }};font-weight:{{ t.weight }};font-size:{{ t.size }};line-height:{{ t.lh }};letter-spacing:{{ t.ls }};color:var(--text,#14181F);text-transform:{{ t.transform }};">{{ t.sample }}</div>
+          </div>
+          <div style="padding:24px 0;border-top:1px solid var(--border,#E8E2DC);font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.9;color:var(--muted,#5A6472);">
+            <div style="color:var(--text,#14181F);font-weight:500;">{{ t.label }}</div>
+            <div>{{ t.specDesktop }}</div>
+            <div>{{ t.specMobile }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">03</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Buttons</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">All buttons are 44px tall with an 8px radius. Orange is the action colour, always with a white label — the only label there is. Hover the live column to see the hover treatment.</p>
+      <div style="display:grid;grid-template-columns:180px repeat(3,minmax(0,1fr));gap:24px;align-items:center;border-bottom:1px solid var(--border,#E8E2DC);padding-bottom:16px;margin-bottom:24px;">
+        <div></div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Default</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Hover</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Disabled</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:180px repeat(3,minmax(0,1fr));gap:24px;align-items:center;padding-bottom:32px;">
+        <div style="font-size:14px;font-weight:500;">Primary</div>
+        <div><button style="height:44px;padding:0 24px;border:1px solid transparent;border-radius:8px;background:var(--btn-bg,#00519F);color:var(--btn-fg,#FFFFFF);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;" style-hover="background:var(--btn-bg-hover,#003D78);">Get a proposal</button></div>
+        <div><button style="height:44px;padding:0 24px;border:1px solid transparent;border-radius:8px;background:var(--btn-bg-hover,#003D78);color:var(--btn-fg,#FFFFFF);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;">Get a proposal</button></div>
+        <div><button disabled="true" style="height:44px;padding:0 24px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:var(--btn-disabled-bg,#F3EDE8);color:var(--muted,#5A6472);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:not-allowed;">Get a proposal</button></div>
+
+        <div style="font-size:14px;font-weight:500;">Secondary</div>
+        <div><button style="height:44px;padding:0 24px;border:1px solid var(--outline,#00519F);border-radius:8px;background:transparent;color:var(--outline,#00519F);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;" style-hover="background:var(--outline-hover-bg,#EAF1F8);">See our work</button></div>
+        <div><button style="height:44px;padding:0 24px;border:1px solid var(--outline,#00519F);border-radius:8px;background:var(--outline-hover-bg,#EAF1F8);color:var(--outline,#00519F);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;">See our work</button></div>
+        <div><button disabled="true" style="height:44px;padding:0 24px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:transparent;color:var(--muted,#5A6472);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:not-allowed;">See our work</button></div>
+
+        <div style="font-size:14px;font-weight:500;">Tertiary link</div>
+        <div><button style="height:44px;padding:0;border:none;background:transparent;color:var(--link,#B8541F);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;border-bottom:1px solid transparent;" style-hover="border-bottom:1px solid #EC844F;">Read the case study</button></div>
+        <div><button style="height:44px;padding:0;border:none;background:transparent;color:var(--link,#B8541F);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;border-bottom:1px solid #EC844F;">Read the case study</button></div>
+        <div><button disabled="true" style="height:44px;padding:0;border:none;background:transparent;color:var(--muted,#5A6472);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:not-allowed;">Read the case study</button></div>
+
+        <div style="font-size:14px;font-weight:500;">WhatsApp</div>
+        <div><button style="height:44px;padding:0 20px;border:1px solid #128C7E;border-radius:8px;background:#128C7E;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;" style-hover="background:#0C6B60;border-color:#0C6B60;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"></path><path d="M9 9.5h1.5l1 2-1 1"></path></svg>Chat on WhatsApp</button></div>
+        <div><button style="height:44px;padding:0 20px;border:1px solid #0C6B60;border-radius:8px;background:#0C6B60;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"></path><path d="M9 9.5h1.5l1 2-1 1"></path></svg>Chat on WhatsApp</button></div>
+        <div><button disabled="true" style="height:44px;padding:0 20px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:transparent;color:var(--muted,#5A6472);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:not-allowed;display:inline-flex;align-items:center;gap:10px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5"></path><path d="M9 9.5h1.5l1 2-1 1"></path></svg>Chat on WhatsApp</button></div>
+      </div>
+      <p style="margin:0;font-size:14px;color:var(--muted,#5A6472);border-left:2px solid #EC844F;padding-left:16px;">The primary fill is orange #EC844F in both modes, always with a white #FFFFFF label. There is no second label colour: a dark label on orange is not part of the system. Hover deepens to #D96C33 on paper and lifts to #F09A6D on ink, so the button always moves away from the surface behind it. Navy is reserved for focus rings, data, and ink surfaces.</p>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">04</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Form elements</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">Fields are 44px minimum with an 8px radius and a hairline border. Focus is a 2px navy ring; error is a navy-deep border with an orange-deep message.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;">
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Default</div>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">Work email
+            <input type="text" placeholder="you@company.com" style="height:44px;padding:0 14px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">Monthly ad budget
+            <select style="height:44px;padding:0 14px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;appearance:none;">
+              <option>Under $1,000</option><option>$1,000 to $5,000</option><option>Above $5,000</option>
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">What do you need?
+            <textarea rows="3" placeholder="A new website and Google Ads" style="padding:12px 14px;border:1px solid var(--border,#E8E2DC);border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;line-height:1.7;resize:vertical;"></textarea>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:16px;">
+            <span style="width:20px;height:20px;border:1px solid var(--border,#E8E2DC);border-radius:4px;background:var(--field,#FFFFFF);flex:none;"></span>Send me the monthly report
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:16px;">
+            <span style="width:20px;height:20px;border:1px solid var(--border,#E8E2DC);border-radius:50%;background:var(--field,#FFFFFF);flex:none;"></span>Paid ads only
+          </label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Focus</div>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">Work email
+            <input type="text" value="hello@dripfunnel" style="height:44px;padding:0 14px;border:2px solid var(--focus-ring,#00519F);border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">Monthly ad budget
+            <select style="height:44px;padding:0 14px;border:2px solid var(--focus-ring,#00519F);border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;appearance:none;">
+              <option>$1,000 to $5,000</option>
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">What do you need?
+            <textarea rows="3" style="padding:12px 14px;border:2px solid var(--focus-ring,#00519F);border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;line-height:1.7;resize:vertical;">Landing page plus Meta ads</textarea>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:16px;">
+            <span style="width:20px;height:20px;border:1px solid var(--focus-ring,#00519F);border-radius:4px;background:var(--focus-ring,#00519F);flex:none;display:flex;align-items:center;justify-content:center;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"><path d="M5 13l4 4 10-10"></path></svg>
+            </span>Send me the monthly report
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:16px;">
+            <span style="width:20px;height:20px;border:1px solid var(--focus-ring,#00519F);border-radius:50%;background:var(--field,#FFFFFF);flex:none;display:flex;align-items:center;justify-content:center;">
+              <span style="width:10px;height:10px;border-radius:50%;background:var(--focus-ring,#00519F);"></span>
+            </span>Paid ads only
+          </label>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:24px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Error</div>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">Work email
+            <input type="text" value="hello@" style="height:44px;padding:0 14px;border:2px solid #00325F;border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;" />
+            <span style="font-size:14px;font-weight:400;color:var(--danger,#B8541F);">Enter a full email address.</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">Monthly ad budget
+            <select style="height:44px;padding:0 14px;border:2px solid #00325F;border-radius:8px;background:var(--field,#FFFFFF);color:var(--muted,#5A6472);font-family:Inter,sans-serif;font-size:16px;appearance:none;">
+              <option>Select a range</option>
+            </select>
+            <span style="font-size:14px;font-weight:400;color:var(--danger,#B8541F);">Pick a budget range.</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:500;">What do you need?
+            <textarea rows="3" style="padding:12px 14px;border:2px solid #00325F;border-radius:8px;background:var(--field,#FFFFFF);color:var(--text,#14181F);font-family:Inter,sans-serif;font-size:16px;line-height:1.7;resize:vertical;"></textarea>
+            <span style="font-size:14px;font-weight:400;color:var(--danger,#B8541F);">Tell us a little about the project.</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:12px;min-height:44px;font-size:16px;">
+            <span style="width:20px;height:20px;border:2px solid #00325F;border-radius:4px;background:var(--field,#FFFFFF);flex:none;"></span>Accept the terms
+          </label>
+          <span style="font-size:14px;color:var(--danger,#B8541F);margin-top:-16px;">You must accept the terms.</span>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">05</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Cards</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">12px radius, hairline border, no shadow. The recommended variant swaps the border for 2px navy and adds an orange tint badge.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;align-items:start;">
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M8 4v5"></path></svg>
+          <h3 style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;margin:24px 0 12px;">Website design and build</h3>
+          <p style="margin:0 0 24px;font-size:16px;color:var(--muted,#5A6472);">Conversion-first sites shipped in four to six weeks, built to load fast on Indian mobile networks.</p>
+          <button style="height:44px;padding:0;border:none;background:transparent;color:var(--link,#B8541F);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;border-bottom:1px solid transparent;" style-hover="border-bottom:1px solid #EC844F;">See scope</button>
+        </div>
+        <div style="border:2px solid var(--focus-ring,#00519F);border-radius:12px;background:var(--surface,#FFFFFF);padding:30px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Growth</span>
+            <span style="background:var(--orange-tint,#FDF0E8);color:var(--orange-text,#8F4017);font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;">Recommended</span>
+          </div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:48px;letter-spacing:-0.03em;line-height:1;">$1,400</span>
+            <span style="font-size:14px;color:var(--muted,#5A6472);">/ month</span>
+          </div>
+          <p style="margin:0 0 24px;font-size:16px;color:var(--muted,#5A6472);">Paid search and social, managed weekly.</p>
+          <ul style="margin:0 0 24px;padding:0;list-style:none;display:grid;gap:12px;font-size:16px;">
+            <li style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:4px;"><path d="M5 13l4 4 10-10"></path></svg>Up to 3 ad platforms</li>
+            <li style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:4px;"><path d="M5 13l4 4 10-10"></path></svg>Landing page iterations</li>
+            <li style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.8" stroke-linecap="round" style="flex:none;margin-top:4px;"><path d="M5 13l4 4 10-10"></path></svg>Weekly reporting call</li>
+          </ul>
+          <button style="width:100%;height:44px;border:1px solid transparent;border-radius:8px;background:var(--btn-bg,#00519F);color:var(--btn-fg,#FFFFFF);font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;" style-hover="background:var(--btn-bg-hover,#003D78);">Start with growth</button>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);overflow:hidden;">
+          <div style="height:160px;border-bottom:1px solid var(--border,#E8E2DC);background:repeating-linear-gradient(135deg,var(--navy-tint,#EAF1F8) 0 10px,var(--surface,#FFFFFF) 10px 20px);display:flex;align-items:center;justify-content:center;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.1em;color:var(--muted,#5A6472);">case study image</span>
+          </div>
+          <div style="padding:32px;">
+            <span style="display:inline-block;background:var(--navy-tint,#EAF1F8);color:var(--navy-tint-text,#00325F);font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;margin-bottom:16px;">Dubai · retail</span>
+            <h3 style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;margin:0 0 12px;">4.1x return on ad spend in 90 days</h3>
+            <p style="margin:0;font-size:16px;color:var(--muted,#5A6472);">Rebuilt the checkout flow and restructured the Google Ads account around high-intent search.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:64px;">
+      <div>
+        <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">06</span>
+          <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Badges and pills</h2>
+        </div>
+        <p style="margin:0 0 32px;max-width:48ch;font-size:16px;color:var(--muted,#5A6472);">Tint fills only. Orange tint carries orange text; navy tint carries navy deep text.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+          <span style="background:var(--orange-tint,#FDF0E8);color:var(--orange-text,#8F4017);font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;">Recommended</span>
+          <span style="background:var(--orange-tint,#FDF0E8);color:var(--orange-text,#8F4017);font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;">New</span>
+          <span style="background:var(--orange-tint,#FDF0E8);color:var(--orange-text,#8F4017);font-size:14px;padding:8px 14px;border-radius:8px;">Limited slots</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;">
+          <span style="background:var(--navy-tint,#EAF1F8);color:var(--navy-tint-text,#00325F);font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;">Active client</span>
+          <span style="background:var(--navy-tint,#EAF1F8);color:var(--navy-tint-text,#00325F);font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;">Google partner</span>
+          <span style="background:var(--navy-tint,#EAF1F8);color:var(--navy-tint-text,#00325F);font-size:14px;padding:8px 14px;border-radius:8px;">India · USA · Dubai</span>
+        </div>
+      </div>
+      <div>
+        <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">09</span>
+          <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Icons</h2>
+        </div>
+        <p style="margin:0 0 32px;max-width:48ch;font-size:16px;color:var(--muted,#5A6472);">Outline only, 1.6px stroke, round caps. Orange at 24px for feature moments, muted at 20px inline.</p>
+        <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:center;padding:24px;border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16 16l4 4"></path></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.6" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.6" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M3 9l9 5 9-5"></path></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8"></path></svg>
+          <span style="width:1px;height:32px;background:var(--border,#E8E2DC);"></span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted,#5A6472)" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16 16l4 4"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted,#5A6472)" stroke-width="1.6" stroke-linecap="round"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted,#5A6472)" stroke-width="1.6" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--muted,#5A6472)" stroke-width="1.6" stroke-linecap="round"><path d="M5 13l4 4 10-10"></path></svg>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">08</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Metric cards</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">Muted 12px label above, large Manrope number below. One orange accent rule per group, never per card.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px;">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="4">
+          <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:16px;">{{ m.label }}</div>
+            <div style="font-family:Manrope,sans-serif;font-weight:800;font-size:48px;line-height:1;letter-spacing:-0.03em;color:var(--text,#14181F);">{{ m.value }}</div>
+            <div style="margin-top:16px;font-size:14px;color:var(--muted,#5A6472);">{{ m.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">07</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Dark ink section</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">Ink background, orange eyebrow, white headline, ink-soft body. The orange fill button reads identically here and on paper, with a deep brown label.</p>
+      <div style="background:#0A2A4A;border-radius:12px;padding:96px 64px;">
+        <div style="max-width:640px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+            <span style="display:block;width:32px;height:2px;background:#EC844F;"></span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:#EC844F;">Free audit</span>
+          </div>
+          <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:48px;line-height:1.1;letter-spacing:-0.03em;margin:0 0 24px;color:#FFFFFF;text-wrap:pretty;">Find out where your ad budget is leaking</h2>
+          <p style="margin:0 0 32px;font-size:16px;line-height:1.7;color:#B8C7D6;">We review your account, landing pages and tracking, then send a one-page plan. No retainer required.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:16px;">
+            <button style="height:44px;padding:0 24px;border:1px solid transparent;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;" style-hover="background:#D96C33;">Book the audit</button>
+            <button style="height:44px;padding:0 24px;border:1px solid #B8C7D6;border-radius:8px;background:transparent;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:500;font-size:16px;cursor:pointer;" style-hover="background:#123A61;">Talk to us first</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">10</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Spacing scale</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">A 4px base. Component padding uses 12 to 32; section rhythm uses 48 to 96.</p>
+      <div style="display:grid;gap:12px;">
+        <sc-for list="{{ spacing }}" as="sp" hint-placeholder-count="9">
+          <div style="display:grid;grid-template-columns:64px 1fr;gap:24px;align-items:center;">
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--muted,#5A6472);">{{ sp.label }}</span>
+            <span style="height:16px;border-radius:2px;background:#00519F;width:{{ sp.width }};"></span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">11</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Do and don't: orange contrast</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">Brand orange is the action colour, and its label is always white. It is never a text colour on paper: use orange deep #B8541F for that.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;">
+        <div style="border:1px solid #E8E2DC;border-left:2px solid #EC844F;border-radius:12px;background:#FFFFFF;padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#00325F;margin-bottom:24px;">Do</div>
+          <div style="display:grid;gap:24px;">
+            <div>
+              <button style="height:44px;padding:0 24px;border:none;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:500;font-size:16px;">Get a proposal</button>
+              <p style="margin:12px 0 0;font-size:14px;color:#5A6472;">Orange fill with a white label — the one primary button.</p>
+            </div>
+            <div>
+              <p style="margin:0;font-size:16px;color:#B8541F;">Orange deep for link text on light surfaces.</p>
+              <p style="margin:12px 0 0;font-size:14px;color:#5A6472;">#B8541F on white — 4.8:1.</p>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="display:block;width:32px;height:2px;background:#EC844F;"></span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#EC844F" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle></svg>
+                <span style="background:#FDF0E8;color:#8F4017;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;padding:6px 12px;border-radius:999px;">Badge</span>
+              </div>
+              <p style="margin:12px 0 0;font-size:14px;color:#5A6472;">Orange as rules, icons and tint fills.</p>
+            </div>
+            <div style="background:#0A2A4A;border-radius:8px;padding:24px;">
+              <button style="height:44px;padding:0 24px;border:none;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Inter,sans-serif;font-weight:500;font-size:16px;">Book the audit</button>
+              <p style="margin:12px 0 0;font-size:14px;color:#B8C7D6;">The same orange fill carries onto ink — one CTA colour everywhere.</p>
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid #E8E2DC;border-left:2px solid #B8541F;border-radius:12px;background:#FFFFFF;padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#B8541F;margin-bottom:24px;">Don't</div>
+          <div style="display:grid;gap:24px;">
+            <div>
+              <span style="display:inline-flex;align-items:center;height:44px;padding:0 24px;border-radius:8px;background:#FDF0E8;color:#F7D9C5;font-family:Inter,sans-serif;font-weight:500;font-size:16px;border:1px dashed #E0C6B1;">Get a proposal</span>
+              <p style="margin:12px 0 0;font-size:14px;color:#5A6472;">Never a tinted or faded orange behind the white label — the label disappears. The fill is #EC844F at full strength or it is not a primary button.</p>
+            </div>
+            <div>
+              <p style="margin:0;font-size:16px;color:#EC844F;">Never brand orange as body text on white.</p>
+              <p style="margin:12px 0 0;font-size:14px;color:#5A6472;">2.63:1, fails WCAG AA.</p>
+            </div>
+            <div style="background:#0A2A4A;border-radius:8px;padding:24px;">
+              <p style="margin:0;font-size:16px;color:#EC844F;">Never orange text on navy at body sizes.</p>
+              <p style="margin:12px 0 0;font-size:14px;color:#B8C7D6;">2.98:1, fails. Eyebrow labels only, and only at 12px letter-spaced.</p>
+            </div>
+            <div>
+              <p style="margin:0;font-size:16px;color:#14181F;">Never let orange exceed 5% of a page. It should point at one thing, not decorate everything.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">12</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Logo usage</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">The lockup is a two-tone wordmark — “Drip” in navy, “Funnel” in orange — beside the orange D-funnel mark. Clear space on all sides equals the cap height of the D. Never recolour, rotate, outline or stretch the lockup, and never rebuild it from live type.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;">
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:#FFFFFF;padding:32px;">
+          <div style="border:1px dashed #B8C7D6;padding:36px;display:flex;">
+            <img src="assets/dripfunnel-logo.svg" alt="DripFunnel logo, navy and orange" width="284" height="48" style="height:48px;width:auto;display:block;" />
+          </div>
+          <p style="margin:24px 0 0;font-size:14px;color:#5A6472;">Navy and orange. For paper, white and any light surface. Dashed rule marks the minimum clear space, not part of the artwork.</p>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:#0A2A4A;padding:32px;">
+          <div style="border:1px dashed #4C6A87;padding:36px;display:flex;">
+            <img src="assets/dripfunnel-logo-inverse.svg" alt="DripFunnel logo, white and orange" width="284" height="48" style="height:48px;width:auto;display:block;" />
+          </div>
+          <p style="margin:24px 0 0;font-size:14px;color:#B8C7D6;">White and orange. For ink backgrounds and photography dark enough to hold white type.</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:24px;">
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">Clear space and sizing</div>
+          <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:16px;">
+            <span style="width:24px;height:24px;border:1px dashed #EC844F;flex:none;margin-top:2px;"></span>
+            <span style="font-size:14px;color:var(--muted,#5A6472);">1x cap height of the D on every side, measured from the artwork bounding box.</span>
+          </div>
+          <div style="height:1px;background:var(--border,#E8E2DC);margin:16px 0;"></div>
+          <div style="font-size:14px;color:var(--muted,#5A6472);">Minimum 120px wide on screen, 24mm in print. Below that, use the mark on its own.</div>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">Mark on its own</div>
+          <div style="display:flex;align-items:center;gap:24px;margin-bottom:16px;">
+            <span style="width:56px;height:56px;border:1px solid var(--border,#E8E2DC);border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none;background:#FDFAF7;">
+              <img src="assets/dripfunnel-mark.svg" alt="DripFunnel mark" style="height:32px;width:auto;display:block;" />
+            </span>
+            <span style="width:56px;height:56px;background:#0A2A4A;border:1px solid #1C3F60;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none;">
+              <img src="assets/dripfunnel-mark-inverse.svg" alt="DripFunnel mark on ink" style="height:32px;width:auto;display:block;" />
+            </span>
+            <span style="width:56px;height:56px;border:1px solid #1C3F60;border-radius:8px;overflow:hidden;flex:none;display:block;">
+              <img src="assets/icon-ink-512.png" alt="DripFunnel app icon" style="width:56px;height:56px;display:block;" />
+            </span>
+          </div>
+          <div style="font-size:14px;color:var(--muted,#5A6472);">Favicons, app icons, avatars and any space under 120px. Keep the mark orange on both light and ink. Vector SVG for the mark and lockup, plus 512px raster app icons on paper and ink.</div>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">Favicon · round</div>
+          <div style="display:flex;flex-wrap:wrap;gap:32px;">
+            <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+              <div style="background:#B8C7D6;border:1px solid #9FB2C4;border-radius:8px;padding:24px;display:flex;align-items:flex-end;gap:20px;">
+                <img src="assets/favicon/round-light-512.png" alt="Round favicon, light" width="64" height="64" style="width:64px;height:64px;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(10,42,74,0.18);" />
+                <img src="assets/favicon/round-light-512.png" alt="" width="32" height="32" style="width:32px;height:32px;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(10,42,74,0.18);" />
+                <img src="assets/favicon/round-light-32.png" alt="" width="16" height="16" style="width:16px;height:16px;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(10,42,74,0.18);" />
+              </div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted,#5A6472);">Light — white ground, navy F</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:16px;min-width:0;">
+              <div style="background:#6E8299;border:1px solid #55697F;border-radius:8px;padding:24px;display:flex;align-items:flex-end;gap:20px;">
+                <img src="assets/favicon/round-dark-512.png" alt="Round favicon, dark" width="64" height="64" style="width:64px;height:64px;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,0.28);" />
+                <img src="assets/favicon/round-dark-512.png" alt="" width="32" height="32" style="width:32px;height:32px;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,0.28);" />
+                <img src="assets/favicon/round-dark-32.png" alt="" width="16" height="16" style="width:16px;height:16px;display:block;border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,0.28);" />
+              </div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted,#5A6472);">Dark — ink ground, white F</div>
+            </div>
+          </div>
+          <div style="height:1px;background:var(--border,#E8E2DC);margin:24px 0;"></div>
+          <div style="font-size:14px;color:var(--muted,#5A6472);">The mark is fitted by its bounding-box diagonal at 80% of the diameter, so the square corner of the top bar keeps the same margin from the rim as the round of the D. Shipped at 16, 32, 48, 64, 128, 180, 256 and 512px in both modes — a browser tab picks the mode with <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:#0A2A4A;">prefers-color-scheme</span>, never a single file for both. The 16px art is drawn at 16, not downscaled from 512.</div>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-left:2px solid #EC844F;border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">Contrast note</div>
+          <div style="font-size:14px;color:var(--muted,#5A6472);">The orange “Funnel” inside the lockup sits below AA as text would — logos are exempt from WCAG, so this is correct in the artwork and nowhere else. Never set headings or body copy to match it.</div>
+          <div style="height:1px;background:var(--border,#E8E2DC);margin:16px 0;"></div>
+          <div style="font-size:14px;color:var(--muted,#5A6472);">Never add a stroke, container or drop shadow to make the lockup work on a busy background. Move the background instead.</div>
+        </div>
+      </div>
+
+      <h3 style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;margin:64px 0 12px;">Softobotics Group endorsement</h3>
+      <p style="margin:0 0 32px;max-width:66ch;font-size:16px;color:var(--muted,#5A6472);">DripFunnel is the customer-facing brand; Softobotics is the parent. The parent is credited in type, never as a second logo beside ours — two marks side by side reads as a partnership, not ownership. Three permitted treatments, in order of how prominent the relationship should be.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;">
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">A · Endorsed lockup</div>
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:8px;padding:32px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;">
+            <img src="assets/dripfunnel-logo.svg" alt="DripFunnel" width="213" height="36" style="height:36px;width:auto;display:block;" />
+            <span style="display:flex;align-items:center;gap:10px;">
+              <span style="display:block;width:20px;height:1px;background:#EC844F;"></span>
+              <span style="font-family:Inter,sans-serif;font-weight:500;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">Part of the Softobotics Group</span>
+            </span>
+          </div>
+          <p style="margin:24px 0 0;font-size:14px;color:var(--muted,#5A6472);">Descriptor set in Inter 500, 12px, +10% tracking, text muted, left edge aligned to the D. Orange hairline separates it from the lockup. For pitch decks, proposal covers, contracts and email signatures.</p>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">B · Footer credit</div>
+          <div style="background:#0A2A4A;border:1px solid #1C3F60;border-radius:8px;padding:32px;display:flex;flex-direction:column;align-items:flex-start;gap:24px;">
+            <img src="assets/dripfunnel-logo-inverse.svg" alt="DripFunnel" width="177" height="30" style="height:30px;width:auto;display:block;" />
+            <div style="height:1px;background:#1C3F60;align-self:stretch;"></div>
+            <div style="font-family:Inter,sans-serif;font-size:14px;line-height:1.7;color:#B8C7D6;">DripFunnel is a Softobotics Group company. <span style="color:#FFFFFF;">Softobotics Technologies Pvt. Ltd.</span></div>
+          </div>
+          <p style="margin:24px 0 0;font-size:14px;color:var(--muted,#5A6472);">The default for the website. Sits in the ink footer above the legal line, Inter 400 at 14px in ink soft, with the registered entity name in white. Never in the site header.</p>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);margin-bottom:24px;">C · Inline sentence</div>
+          <div style="background:#FDFAF7;border:1px solid #E8E2DC;border-radius:8px;padding:32px;">
+            <p style="margin:0;font-size:16px;line-height:1.7;color:#14181F;">Founded in 2021, DripFunnel is part of the <span style="color:#B8541F;border-bottom:1px solid #EC844F;">Softobotics Group</span> — which means a 40-person engineering team sits behind every campaign we run.</p>
+          </div>
+          <p style="margin:24px 0 0;font-size:14px;color:var(--muted,#5A6472);">For About pages, bios and proposals, where the relationship is a credibility argument rather than a legal note. Orange-deep link with an orange underline, never brand orange as the text colour.</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px;margin-top:24px;">
+        <div style="border:1px solid var(--border,#E8E2DC);border-left:2px solid #00519F;border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--navy-tint-text,#00325F);margin-bottom:16px;">Where each one goes</div>
+          <ul style="margin:0;padding:0;list-style:none;display:grid;gap:12px;font-size:14px;color:var(--muted,#5A6472);">
+            <li>Website header — DripFunnel lockup only, no endorsement.</li>
+            <li>Website footer — treatment B.</li>
+            <li>About page and case studies — treatment C.</li>
+            <li>Decks, proposals, invoices, email signature — treatment A.</li>
+            <li>Job posts and legal documents — full entity name, no logo.</li>
+          </ul>
+        </div>
+        <div style="border:1px solid var(--border,#E8E2DC);border-left:2px solid #B8541F;border-radius:12px;background:var(--surface,#FFFFFF);padding:32px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--orange-deep,#B8541F);margin-bottom:16px;">Don't</div>
+          <ul style="margin:0;padding:0;list-style:none;display:grid;gap:12px;font-size:14px;color:var(--muted,#5A6472);">
+            <li>Don't place the Softobotics logo beside ours, or build a combined mark.</li>
+            <li>Don't set the descriptor larger than 12px or in Manrope — it must never compete with the lockup.</li>
+            <li>Don't write “by Softobotics” or “a Softobotics venture”. The approved wordings are “Part of the Softobotics Group” and “a Softobotics Group company”.</li>
+            <li>Don't put the endorsement in the header, in ads, or on the favicon.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding:64px 0;border-top:1px solid var(--border,#E8E2DC);">
+      <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:8px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.14em;color:#EC844F;">13</span>
+        <h2 style="font-family:Manrope,sans-serif;font-weight:800;font-size:32px;letter-spacing:-0.025em;margin:0;">Layout grid</h2>
+      </div>
+      <p style="margin:0 0 32px;max-width:60ch;font-size:16px;color:var(--muted,#5A6472);">12 columns, 1200px max content width, 24px gutters, 24px page margin. Mobile collapses to 4 columns with 16px gutters.</p>
+      <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;background:var(--surface,#FFFFFF);padding:24px;">
+        <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:24px;">
+          <sc-for list="{{ columns }}" as="c" hint-placeholder-count="12">
+            <div style="height:120px;background:var(--navy-tint,#EAF1F8);border-radius:4px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--navy-tint-text,#00325F);">{{ c }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <footer style="border-top:1px solid var(--border,#E8E2DC);padding:48px 0 0;display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;justify-content:space-between;">
+      <div style="font-size:14px;color:var(--muted,#5A6472);">DripFunnel visual style guide · Part of the Softobotics Group</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);">Last updated September 2026</div>
+    </footer>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;defaultTheme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;light&quot;,&quot;dark&quot;],&quot;default&quot;:&quot;light&quot;,&quot;tsType&quot;:&quot;'light' | 'dark'&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { theme: props.defaultTheme || "light" };
+  }
+  renderVals() {
+    const theme = this.state.theme;
+    const pass = "#00325F", fail = "#B8541F";
+    const sw = (name, hex, ratio, grade, use) => ({
+      name, hex, ratio, grade,
+      gradeColor: grade.indexOf("Fails") === 0 ? fail : pass,
+      use
+    });
+    return {
+      theme,
+      themeLabel: theme === "dark" ? "Dark mode" : "Light mode",
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === "dark" ? "light" : "dark" })),
+      swatches: [
+        sw("Navy", "#00519F", "7.7:1", "Passes AA and AAA", "Focus rings, headings, charts, ink surfaces."),
+        sw("Navy hover", "#003D78", "10.8:1", "Passes AAA", "Pressed state for navy surfaces and dense data."),
+        sw("Navy deep", "#00325F", "12.9:1", "Passes AAA", "Error borders, tint text, dense data."),
+        sw("Ink", "#0A2A4A", "14.4:1", "Passes AAA", "Dark sections and footer background."),
+        sw("Ink soft", "#B8C7D6", "1.7:1", "Fails on white — ink only", "Body text on ink backgrounds only."),
+        sw("Orange", "#EC844F", "2.63:1", "Fails AA for text — never as text", "Primary CTA fill with a white label. Also icons, rules, badge fills."),
+        sw("Orange deep", "#B8541F", "4.8:1", "Passes AA", "Orange text and links on light backgrounds."),
+        sw("Orange text", "#8F4017", "7.2:1", "Passes AAA", "Text on orange tint fills."),
+        sw("Orange tint", "#FDF0E8", "1.1:1", "Surface only", "Badge and section fills."),
+        sw("Paper", "#FDFAF7", "1.0:1", "Surface only", "Default page background."),
+        sw("White", "#FFFFFF", "1.0:1", "Surface only", "Card and field surfaces."),
+        sw("Border", "#E8E2DC", "1.3:1", "Surface only", "Hairline borders and dividers."),
+        sw("Text", "#14181F", "17.9:1", "Passes AAA", "Body copy on paper and white."),
+        sw("Text muted", "#5A6472", "6.0:1", "Passes AA", "Secondary copy, labels, captions.")
+      ],
+      typeScale: [
+        { label: "Display", family: "Manrope, sans-serif", weight: 800, size: "64px", lh: "1.05", ls: "-0.035em", transform: "none", sample: "Growth you can measure", specDesktop: "64 / 67 / -3.5%", specMobile: "mobile 36 / 40" },
+        { label: "H1", family: "Manrope, sans-serif", weight: 800, size: "48px", lh: "1.1", ls: "-0.03em", transform: "none", sample: "Websites and paid ads", specDesktop: "48 / 53 / -3%", specMobile: "mobile 32 / 38" },
+        { label: "H2", family: "Manrope, sans-serif", weight: 800, size: "32px", lh: "1.2", ls: "-0.025em", transform: "none", sample: "How we work with you", specDesktop: "32 / 38 / -2.5%", specMobile: "mobile 26 / 32" },
+        { label: "H3", family: "Manrope, sans-serif", weight: 800, size: "24px", lh: "1.3", ls: "-0.02em", transform: "none", sample: "Conversion-first build", specDesktop: "24 / 31 / -2%", specMobile: "mobile 20 / 28" },
+        { label: "Body", family: "Inter, sans-serif", weight: 400, size: "16px", lh: "1.7", ls: "0", transform: "none", sample: "We build websites and run paid campaigns for small and medium businesses across India, the USA and Dubai.", specDesktop: "16 / 27", specMobile: "mobile 16 / 27" },
+        { label: "Small", family: "Inter, sans-serif", weight: 400, size: "14px", lh: "1.6", ls: "0", transform: "none", sample: "Minimum three-month engagement.", specDesktop: "14 / 22", specMobile: "mobile 14 / 22" },
+        { label: "Caption / eyebrow", family: "'IBM Plex Mono', monospace", weight: 500, size: "12px", lh: "1.5", ls: "0.14em", transform: "uppercase", sample: "Free audit", specDesktop: "12 / 18 / +14%", specMobile: "mobile 12 / 18" }
+      ],
+      metrics: [
+        { label: "Return on ad spend", value: "4.1x", note: "Dubai retail client, 90 days" },
+        { label: "Cost per lead", value: "-38%", note: "US home services, 6 months" },
+        { label: "Sites shipped", value: "180+", note: "Since 2021" },
+        { label: "Client retention", value: "92%", note: "Rolling 12 months" }
+      ],
+      spacing: [4, 8, 12, 16, 24, 32, 48, 64, 96].map(n => ({ label: n + "px", width: n + "px" })),
+      columns: [1,2,3,4,5,6,7,8,9,10,11,12]
+    };
+  }
+}
+</script>
+</body>
+</html>

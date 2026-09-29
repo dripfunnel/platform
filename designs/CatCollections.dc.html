@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;">
+  <div style="background:#FFFFFF;border-bottom:1px solid #E8E2DC;display:flex;gap:24px;padding:0 {{ padX }};">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3">
+      <button onClick="{{ t.onClick }}" style="height:48px;border:0;border-bottom:3px solid {{ t.bd }};background:none;font-family:Manrope,sans-serif;font-weight:{{ t.fw }};font-size:14px;color:{{ t.fg }};cursor:pointer;padding:0 2px;">{{ t.label }}</button>
+    </sc-for>
+  </div>
+  <sc-if value="{{ isCharts }}" hint-placeholder-val="{{ false }}"><dc-import name="CatSizeCharts" app="{{ app }}" hint-size="100%,600px"></dc-import></sc-if>
+  <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;">
+
+    <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+        <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;">Collections</div><div style="font-size:14px;color:#5A6472;">Groups of products shown together on your store, like “Summer Sale” or “Men’s Shirts”.</div></div>
+        <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.create }}" style="height:42px;padding:0 20px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Create collection</button></sc-if>
+      </div>
+      <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:8px;align-items:center;padding:10px 14px;background:#FFFFFF;border:1px dashed #D9B872;border-radius:10px;flex-wrap:wrap;">
+          <span style="font-size:13px;color:#7A4B00;font-family:Manrope,sans-serif;font-weight:700;">Coming up in your markets:</span>
+          <sc-for list="{{ seasonal }}" as="s" hint-placeholder-count="4"><button onClick="{{ s.onClick }}" style="font-size:13px;padding:4px 12px;border-radius:14px;border:0;background:#FFF6E5;color:#7A4B00;cursor:pointer;">+ {{ s.label }}</button></sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ noColls }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:40px;display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;">
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:20px;">Group your products</span>
+          <span style="font-size:14px;color:#5A6472;max-width:50ch;">Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts under {{ giftPrice }}”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.</span>
+          <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.create }}" style="height:42px;padding:0 20px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;margin-top:6px;">Create your first collection</button></sc-if>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasColls }}" hint-placeholder-val="{{ true }}">
+        <div style="border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;background:#FFFFFF;">
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+            <button onClick="{{ r.open }}" style="width:100%;display:grid;grid-template-columns:{{ rowCols }};gap:12px;padding:12px 16px;border:0;border-bottom:1px solid #EDEAE5;background:#FFFFFF;align-items:center;text-align:left;cursor:pointer;" style-hover="background:#FAF9F7;">
+              <span style="display:flex;align-items:center;gap:12px;min-width:0;padding-left:{{ r.indent }};"><span style="width:40px;height:40px;border-radius:8px;background:repeating-linear-gradient(45deg,#F2F0EC 0 6px,#EAE7E2 6px 12px);flex:none;"></span><span style="display:flex;flex-direction:column;min-width:0;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#14181F;">{{ r.name }}</span><span style="font-size:12px;color:#5A6472;">{{ r.sub }}</span></span></span>
+              <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:#434A55;">{{ r.type }}</span></sc-if>
+              <span style="font-size:13px;color:{{ r.countFg }};">{{ r.count }}</span>
+              <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:{{ r.visFg }};">{{ r.vis }}</span></sc-if>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:{{ editCols }};gap:20px;align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:center;gap:10px;"><button onClick="{{ a.cancel }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">← Collections</button><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:20px;flex:1;">{{ editTitle }}</span></div>
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+            <label style="display:flex;flex-direction:column;gap:6px;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;">Name<input value="{{ e.name }}" onChange="{{ on.name }}" readOnly="{{ ro }}" placeholder="e.g. Wedding Guest" style="height:44px;border:1px solid {{ nameBd }};border-radius:8px;padding:0 12px;font-size:15px;font-weight:400;font-family:Inter,sans-serif;outline:none;"></label>
+            <span style="font-size:12px;color:#5A6472;">Shows at {{ R.domain }}/collections/{{ slug }}</span>
+            <label style="display:flex;flex-direction:column;gap:6px;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;">Description <span style="font-weight:400;font-family:Inter,sans-serif;font-size:12px;color:#5A6472;">Shown at the top of the collection page</span><textarea value="{{ e.desc }}" onChange="{{ on.desc }}" readOnly="{{ ro }}" rows="2" style="border:1px solid #D7D3CD;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:400;font-family:Inter,sans-serif;outline:none;resize:vertical;"></textarea></label>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:12px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">How should it fill?</span>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+              <sc-for list="{{ typeOpts }}" as="t" hint-placeholder-count="2"><button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:12px;text-align:left;cursor:pointer;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#14181F;">{{ t.label }}</div><div style="font-size:12px;color:#5A6472;">{{ t.sub }}</div></button></sc-for>
+            </div>
+            <sc-if value="{{ isAuto }}" hint-placeholder-val="{{ true }}">
+              <div style="border:1px solid #E8E2DC;border-radius:10px;padding:14px;background:#FDFAF7;display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;"><span>Show products that match</span><select value="{{ e.match }}" onChange="{{ on.match }}" disabled="{{ ro }}" style="height:34px;border:1px solid #00519F;border-radius:8px;background:#FFFFFF;color:#00325F;font-family:Manrope,sans-serif;font-weight:700;padding:0 8px;"><option value="all">all of these rules</option><option value="any">any of these rules</option></select></div>
+                <sc-for list="{{ rules }}" as="r" hint-placeholder-count="1">
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:14px;padding:8px;background:#FFFFFF;border:1px solid #EDEAE5;border-radius:8px;">
+                    <span style="color:#5A6472;font-size:13px;width:40px;">{{ r.join }}</span>
+                    <select value="{{ r.field }}" onChange="{{ r.onField }}" disabled="{{ ro }}" style="height:34px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;padding:0 8px;"><sc-for list="{{ fieldOpts }}" as="f" hint-placeholder-count="3"><option value="{{ f }}">{{ f }}</option></sc-for></select>
+                    <span>{{ r.verb }}</span>
+                    <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ false }}"><input value="{{ r.text }}" onChange="{{ r.onText }}" readOnly="{{ ro }}" placeholder="e.g. shirt" style="height:32px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;"></sc-if>
+                    <sc-for list="{{ r.values }}" as="v" hint-placeholder-count="3"><button onClick="{{ v.onClick }}" style="height:30px;padding:0 10px;border-radius:15px;border:1px solid {{ v.bd }};background:{{ v.bg }};color:{{ v.fg }};font-size:13px;cursor:pointer;">{{ v.label }}</button></sc-for>
+                    <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.remove }}" style="margin-left:auto;border:0;background:none;color:#9AA1AB;cursor:pointer;font-size:16px;">×</button></sc-if>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.addRule }}" style="align-self:flex-start;border:0;background:none;color:#00519F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;padding:0;">+ Add a rule</button></sc-if>
+                <span style="font-size:12px;color:#7A4B00;padding:8px 10px;background:#FFF6E5;border-radius:8px;">“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency ({{ R.cur }}).</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ isManual }}" hint-placeholder-val="{{ false }}">
+              <input value="{{ pSearch }}" onChange="{{ on.pSearch }}" placeholder="Search products to add" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;outline:none;">
+              <div style="display:flex;flex-direction:column;border:1px solid #EDEAE5;border-radius:10px;max-height:260px;overflow:auto;">
+                <sc-for list="{{ pickList }}" as="p" hint-placeholder-count="4"><button onClick="{{ p.toggle }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:0;border-bottom:1px solid #F1EEEA;background:{{ p.bg }};text-align:left;cursor:pointer;"><span style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ p.cbBd }};background:{{ p.cbBg }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;">{{ p.mark }}</span><span style="font-size:14px;color:#14181F;flex:1;">{{ p.name }}</span><span style="font-size:12px;color:#5A6472;">{{ p.status }}</span></button></sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Inside another collection?</span>
+            <select value="{{ parentVal }}" onChange="{{ on.parent }}" disabled="{{ ro }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:14px;"><option value="">No — it’s a top-level collection</option><sc-for list="{{ parentOpts }}" as="p" hint-placeholder-count="2"><option value="{{ p.id }}">Inside {{ p.name }}</option></sc-for></select>
+            <sc-if value="{{ hasParent }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ a.toggleInherit }}" style="display:flex;align-items:center;gap:8px;border:0;background:none;font-size:14px;cursor:pointer;padding:0;text-align:left;color:#14181F;"><span style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ inh.bd }};background:{{ inh.bg }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;">{{ inh.mark }}</span>Only show products that are also in {{ parentName }}</button>
+              <span style="font-size:12px;color:#5A6472;">{{ parentName }} · {{ parentCount }} → narrowed by your rules → {{ e.name }} · {{ matchCount }}</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <button onClick="{{ a.toggleVis }}" style="display:flex;align-items:center;gap:10px;border:0;background:none;cursor:pointer;padding:0;font-size:14px;color:#14181F;"><span style="width:38px;height:22px;border-radius:11px;background:{{ vis.bg }};position:relative;"><span style="position:absolute;top:3px;left:{{ vis.knob }};width:16px;height:16px;border-radius:50%;background:#FFFFFF;"></span></span>{{ vis.label }}</button>
+            <span style="display:flex;gap:8px;">
+              <sc-if value="{{ canDelete }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.del }}" style="height:42px;padding:0 14px;border:1px solid #F0D4BF;border-radius:8px;background:#FFFFFF;color:#B8541F;font-size:14px;cursor:pointer;">Delete</button></sc-if>
+              <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.save }}" style="height:42px;padding:0 20px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Save collection</button></sc-if>
+            </span>
+          </div>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">{{ matchLabel }}</span><span style="font-size:12px;color:#5A6472;">Live preview</span></div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            <sc-for list="{{ preview }}" as="m" hint-placeholder-count="4"><div style="border:1px solid #EDEAE5;border-radius:8px;overflow:hidden;"><div style="aspect-ratio:1;background:{{ m.thumb }};"></div><div style="padding:6px 8px;font-size:12px;"><strong>{{ m.name }}</strong><br><span style="color:#5A6472;">{{ m.why }}</span></div></div></sc-for>
+          </div>
+          <sc-if value="{{ noMatch }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#5A6472;">No products match yet. Try “any of these rules”, or pick more values.</span></sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isFilters }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:{{ editCols }};gap:20px;align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;"><div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;">Filters</div><div style="font-size:14px;color:#5A6472;">The checkboxes shoppers see on the left of your shop.</div></div><sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.newFacet }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Create filter</button></sc-if></div>
+          <sc-for list="{{ facetRows }}" as="f" hint-placeholder-count="3">
+            <div style="background:{{ f.bg }};border:1px solid #E8E2DC;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">{{ f.name }}</span><span style="display:flex;gap:6px;align-items:center;"><button onClick="{{ f.togglePrivate }}" style="font-size:12px;padding:3px 10px;border-radius:10px;border:0;background:{{ f.tagBg }};color:{{ f.tagFg }};cursor:pointer;">{{ f.tag }}</button><span style="font-size:12px;color:#5A6472;">{{ f.used }}</span></span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                <sc-for list="{{ f.values }}" as="v" hint-placeholder-count="3"><button onClick="{{ v.onClick }}" style="font-size:13px;padding:4px 10px;border-radius:12px;border:1px solid {{ v.bd }};background:#FFFFFF;cursor:pointer;color:#14181F;">{{ v.label }} <span style="color:#8A919B;">{{ v.count }}</span></button></sc-for>
+                <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ f.add }}" style="font-size:13px;padding:4px 10px;border-radius:12px;border:1px dashed #9FB8D1;background:#F9FBFD;color:#00325F;cursor:pointer;">+ Add</button></sc-if>
+              </div>
+              <sc-if value="{{ f.dup }}" hint-placeholder-val="{{ false }}"><div style="padding:8px 10px;border-radius:8px;background:#FFF6E5;border:1px solid #F2D9A6;font-size:13px;color:#7A4B00;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span>{{ f.dup }}</span><button onClick="{{ f.merge }}" style="border:0;background:none;color:#7A4B00;text-decoration:underline;cursor:pointer;font-size:13px;">Merge them</button></div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Choices or filters?</span>
+          <div style="border:1px solid #EDEAE5;border-radius:8px;padding:10px;font-size:13px;"><strong style="color:#00519F;">Choices</strong> — the shopper <strong>picks one</strong> when buying, like Size M. Each has its own price and stock. Set them on the product.</div>
+          <div style="border:1px solid #EDEAE5;border-radius:8px;padding:10px;font-size:13px;"><strong style="color:#1D6B47;">Filters</strong> — the shopper <strong>ticks boxes to narrow down</strong>, like Fabric: Linen. Nothing to pick at checkout.</div>
+          <div style="border:1px solid #EDEAE5;border-radius:8px;padding:10px;font-size:13px;"><strong>Internal tags</strong> — only you see them, like “Reorder soon”.</div>
+          <span style="font-size:12px;color:#5A6472;">Tap a value to rename or delete it. Filters also power automatic collections.</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isMenus }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:{{ editCols }};gap:20px;align-items:start;">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">Main menu</span><sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><select value="" onChange="{{ on.addMenu }}" style="height:36px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 8px;font-size:13px;color:#00519F;"><option value="">+ Add a collection</option><sc-for list="{{ menuAddable }}" as="m" hint-placeholder-count="2"><option value="{{ m.id }}">{{ m.name }}</option></sc-for></select></sc-if></div>
+          <sc-for list="{{ menuRows }}" as="m" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:6px;margin-left:{{ m.indent }};padding:8px 10px;border:1px solid #E8E2DC;border-radius:8px;background:{{ m.bg }};">
+              <span style="flex:1;font-size:14px;font-family:Manrope,sans-serif;font-weight:600;color:{{ m.fg }};">{{ m.label }}</span><span style="font-size:11px;color:#8A919B;">{{ m.note }}</span>
+              <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}"><span style="display:flex;gap:4px;"><button onClick="{{ m.up }}" title="Up" style="width:28px;height:28px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;cursor:pointer;">↑</button><button onClick="{{ m.down }}" title="Down" style="width:28px;height:28px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;cursor:pointer;">↓</button><button onClick="{{ m.nest }}" title="{{ m.nestTitle }}" style="width:28px;height:28px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;cursor:pointer;">{{ m.nestIcon }}</button><button onClick="{{ m.remove }}" title="Remove" style="width:28px;height:28px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;cursor:pointer;color:#B8541F;">×</button></span></sc-if>
+            </div>
+          </sc-for>
+          <span style="font-size:12px;color:#5A6472;">→ nests an item under the one above it. Hidden collections stay here but shoppers don’t see them.</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
+            <div style="padding:8px 14px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;font-size:12px;color:#5A6472;">How shoppers see it · desktop</div>
+            <div style="padding:14px 18px;display:flex;align-items:center;gap:20px;font-size:14px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:800;">{{ R.store }}</span><sc-for list="{{ menuPreview }}" as="m" hint-placeholder-count="3"><span style="display:flex;flex-direction:column;gap:2px;"><span style="font-weight:600;">{{ m.label }}</span><span style="font-size:12px;color:#5A6472;">{{ m.kids }}</span></span></sc-for></div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;width:240px;">
+            <div style="padding:8px 14px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;font-size:12px;color:#5A6472;">Phone menu</div>
+            <sc-for list="{{ menuPhone }}" as="m" hint-placeholder-count="3"><div style="padding:10px 14px;padding-left:{{ m.pl }};border-bottom:1px solid #F1EEEA;font-size:14px;display:flex;justify-content:space-between;">{{ m.label }}<span style="color:#9AA1AB;">›</span></div></sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tab: (props.app && props.app.collTab) || 'list', e: null, pSearch: '', updating: {} }; }
+
+  blank() { return { id: null, name: '', desc: '', type: 'auto', match: 'all', rules: [{ field: 'Fabric', values: [] }], productIds: [], visible: true, parentId: null, inherit: false }; }
+  setE(patch) { this.setState(s => ({ e: { ...s.e, ...(typeof patch === 'function' ? patch(s.e) : patch) } })); }
+
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { R, caps: c, phone, fmt } = app;
+    const s = this.state;
+    const canEdit = c.canManage;
+    const ro = !canEdit;
+    const all = app.allProducts;
+    const colls = app.collections;
+    const tabKey = s.tab === 'edit' ? 'list' : s.tab;
+    const tabs = [['list', 'Collections'], ['filters', 'Filters'], ['menus', 'Menus'], ['sizecharts', 'Size charts']].map(([k, l]) => ({ label: l, bd: tabKey === k ? '#EC844F' : 'transparent', fg: tabKey === k ? '#14181F' : '#5A6472', fw: tabKey === k ? 700 : 500, onClick: () => this.setState({ tab: k, e: null }) }));
+    const why = col => col.type === 'manual' ? 'Hand-picked' : col.rules.filter(r => r.values.length).map(r => r.field === 'Name contains' ? `name contains “${r.values[0]}”` : `${r.field} is ${r.values.join(' or ')}`).join(col.match === 'any' ? ' or ' : ' and ');
+    const order = [];
+    colls.filter(x => !x.parentId).forEach(p => { order.push({ c: p, depth: 0 }); colls.filter(k => k.parentId === p.id).forEach(k => order.push({ c: k, depth: 1 })); });
+    colls.filter(x => x.parentId && !colls.find(p => p.id === x.parentId)).forEach(k => order.push({ c: k, depth: 0 }));
+    const rows = order.map(({ c: col, depth }) => {
+      const n = app.collectionCount(col);
+      const up = s.updating[col.id];
+      return { name: col.name, sub: depth ? 'Inside ' + (colls.find(p => p.id === col.parentId) || {}).name + (col.inherit ? ' · only products also there' : '') : (col.type === 'auto' ? why(col) : col.productIds.length + ' picked'),
+        type: col.type === 'auto' ? `Automatic · ${col.rules.filter(r => r.values.length).length} rule${col.rules.length === 1 ? '' : 's'}` : 'Hand-picked', indent: depth ? '28px' : '0px',
+        count: up ? `Updating… ${Math.round(n * 0.6)} so far` : `${n} product${n === 1 ? '' : 's'}`, countFg: up ? '#00519F' : '#434A55',
+        vis: col.visible ? 'Visible' : 'Hidden · for offers', visFg: col.visible ? '#1D6B47' : '#5A6472', open: () => this.setState({ tab: 'edit', e: JSON.parse(JSON.stringify(col)), pSearch: '' }) };
+    });
+
+    const e = s.e || this.blank();
+    const draftMatches = s.tab === 'edit' ? all.filter(p => app.matches({ ...e, rules: e.rules }, p) || false) : [];
+    const matchList = s.tab === 'edit' ? (e.type === 'manual' ? all.filter(p => e.productIds.includes(p.id)) : all.filter(p => { const tmp = { ...e }; return this.match(tmp, p, colls, app); })) : [];
+    const facetNames = app.facets.filter(f => !f.private).map(f => f.name);
+    const fieldOpts = [...facetNames, 'Name contains'];
+    const rules = e.rules.map((r, i) => {
+      const fac = app.facets.find(f => f.name === r.field);
+      const setR = patch => this.setE(ee => ({ rules: ee.rules.map((x, j) => j === i ? { ...x, ...patch } : x) }));
+      return { join: i === 0 ? 'Where' : (e.match === 'any' ? 'or' : 'and'), field: r.field, verb: r.field === 'Name contains' ? '' : 'is', isText: r.field === 'Name contains', text: r.values[0] || '',
+        onField: ev => setR({ field: ev.target.value, values: [] }), onText: ev => setR({ values: ev.target.value ? [ev.target.value] : [] }),
+        values: fac ? fac.values.map(v => { const on = r.values.includes(v); return { label: (on ? '✓ ' : '') + v, bd: on ? '#00519F' : '#D7D3CD', bg: on ? '#EAF1F8' : '#FFFFFF', fg: on ? '#00325F' : '#434A55', onClick: () => !ro && setR({ values: on ? r.values.filter(x => x !== v) : [...r.values, v] }) }; }) : [],
+        remove: () => this.setE(ee => ({ rules: ee.rules.filter((_, j) => j !== i) })) };
+    });
+    const q = s.pSearch.trim().toLowerCase();
+    const pickList = all.filter(p => !q || p.name.toLowerCase().includes(q)).map(p => { const on = e.productIds.includes(p.id); return { name: p.name, status: p.status === 'visible' ? '' : p.status === 'hidden' ? 'Hidden' : 'Waiting', mark: on ? '✓' : '', cbBd: on ? '#00519F' : '#B9BEC6', cbBg: on ? '#00519F' : '#FFFFFF', bg: on ? '#F7FAFD' : '#FFFFFF', toggle: () => !ro && this.setE(ee => ({ productIds: on ? ee.productIds.filter(x => x !== p.id) : [...ee.productIds, p.id] })) }; });
+    const parent = colls.find(x => x.id === e.parentId);
+    const preview = matchList.slice(0, 6).map(p => ({ name: p.name, why: e.type === 'manual' ? 'Picked' : Object.values(p.filters || {}).filter(Boolean).join(' · '), thumb: p.photos.length ? `linear-gradient(135deg,hsl(${p.photos[0].hue},35%,80%),hsl(${p.photos[0].hue},30%,62%))` : '#F2F0EC' }));
+
+    const save = () => {
+      if (!e.name.trim()) { app.toast('Give the collection a name'); this.setState({ nameErr: true }); return; }
+      const id = e.id || 'c' + Date.now();
+      const clean = { ...e, id, name: e.name.trim(), rules: e.type === 'auto' ? e.rules.filter(r => r.values.length) : [] };
+      app.setCollections(cs => e.id ? cs.map(x => x.id === id ? clean : x) : [...cs, clean]);
+      this.setState({ tab: 'list', e: null, updating: { ...s.updating, [id]: true } });
+      setTimeout(() => this.setState(ss => ({ updating: { ...ss.updating, [id]: false } })), 1600);
+      app.toast(clean.type === 'auto' ? `“${clean.name}” saved — filling in the background` : `“${clean.name}” saved`);
+    };
+    const del = () => {
+      const inMenu = app.menu.some(m => m.cid === e.id);
+      app.modal({ tag: 'Delete', danger: true, title: `Delete “${e.name}”?`, body: `The ${matchList.length} products stay in your catalogue — only the group goes.` + (inMenu ? '\nIt’s in your menu too; we’ll take it out and move anything nested under it up a level.' : ''), confirm: 'Delete collection',
+        onConfirm: () => { app.setCollections(cs => cs.filter(x => x.id !== e.id).map(x => x.parentId === e.id ? { ...x, parentId: null, inherit: false } : x)); app.setMenu(m => m.filter(x => x.cid !== e.id)); this.setState({ tab: 'list', e: null }); app.toast(`“${e.name}” deleted. Its products are untouched.`); } });
+    };
+
+    // filters
+    const facetRows = app.facets.map(f => {
+      const usedBy = v => all.filter(p => f.private ? (p.tags || []).includes(v) : (p.filters || {})[f.name] === v).length;
+      const lower = {}; f.values.forEach(v => { const k = v.toLowerCase(); (lower[k] = lower[k] || []).push(v); });
+      const dupPair = Object.values(lower).find(g => g.length > 1);
+      const collUse = colls.filter(col => col.rules.some(r => r.field === f.name)).length;
+      return { name: f.name, bg: f.private ? '#FDFAF7' : '#FFFFFF', tag: f.private ? '🔒 Only you see these' : 'Shoppers see this', tagBg: f.private ? '#F2F0EC' : '#EEF7F2', tagFg: f.private ? '#434A55' : '#1D6B47',
+        used: collUse ? `Used by ${collUse} collection${collUse > 1 ? 's' : ''}` : '',
+        togglePrivate: () => { if (ro) return; app.setFacets(fs => fs.map(x => x.id === f.id ? { ...x, private: !x.private } : x)); app.toast(f.private ? `${f.name} now shows to shoppers` : `${f.name} is now internal — only you see it`); },
+        values: f.values.map(v => ({ label: v, count: String(usedBy(v)), bd: dupPair && dupPair.includes(v) ? '#D9B872' : '#E8E2DC',
+          onClick: () => { if (ro) return; const n = usedBy(v); app.modal({ title: `“${v}” in ${f.name}`, body: n ? `${n} product${n > 1 ? 's use' : ' uses'} it. Renaming keeps them all; deleting takes it off them.` : 'No products use it yet.', input: { label: 'Rename to', placeholder: v, required: false }, value: v, confirm: 'Save name', alt: 'Delete value', onAlt: () => app.modal({ danger: true, title: `Delete “${v}”?`, body: n ? `${n} product${n > 1 ? 's' : ''} lose it, and automatic collections using it will shrink.` : 'Nothing uses it.', confirm: 'Delete', onConfirm: () => { app.setFacets(fs => fs.map(x => x.id === f.id ? { ...x, values: x.values.filter(y => y !== v) } : x)); app.updateProducts(all.filter(p => (p.filters || {})[f.name] === v).map(p => p.id), p => ({ ...p, filters: { ...p.filters, [f.name]: undefined } })); app.toast(`“${v}” deleted`); } }),
+            onConfirm: nv => { nv = (nv || '').trim(); if (!nv || nv === v) return; app.setFacets(fs => fs.map(x => x.id === f.id ? { ...x, values: x.values.map(y => y === v ? nv : y) } : x)); app.updateProducts(all.filter(p => (p.filters || {})[f.name] === v).map(p => p.id), p => ({ ...p, filters: { ...p.filters, [f.name]: nv } })); app.setCollections(cs => cs.map(col => ({ ...col, rules: col.rules.map(r => r.field === f.name ? { ...r, values: r.values.map(y => y === v ? nv : y) } : r) }))); app.toast(`Renamed to “${nv}” — ${n} products updated`); } }); } })),
+        add: () => app.modal({ title: `Add to ${f.name}`, input: { label: 'New value', placeholder: 'e.g. Bamboo', required: true, error: 'Type a value' }, confirm: 'Add', onConfirm: v => { app.setFacets(fs => fs.map(x => x.id === f.id ? { ...x, values: [...x.values, v.trim()] } : x)); app.toast(`“${v.trim()}” added`); } }),
+        dup: dupPair ? `“${dupPair[0]}” and “${dupPair[1]}” look like the same thing.` : '',
+        merge: () => { const keep = dupPair[0]; const drop = dupPair.slice(1); const n = all.filter(p => drop.includes((p.filters || {})[f.name])).length; app.modal({ title: `Merge into “${keep}”?`, body: `${n} product${n === 1 ? '' : 's'} using ${drop.map(x => '“' + x + '”').join(', ')} will use “${keep}”.`, confirm: 'Merge', onConfirm: () => { app.setFacets(fs => fs.map(x => x.id === f.id ? { ...x, values: x.values.filter(y => !drop.includes(y)) } : x)); app.updateProducts(all.filter(p => drop.includes((p.filters || {})[f.name])).map(p => p.id), p => ({ ...p, filters: { ...p.filters, [f.name]: keep } })); app.toast(`Merged — ${n} products now use “${keep}”`); } }); } };
+    });
+
+    // menus
+    const menu = app.menu;
+    const moveM = (i, d) => app.setMenu(m => { const a = [...m]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; if (a[0]) a[0] = { ...a[0], depth: 0 }; return a; });
+    const menuRows = menu.map((m, i) => { const col = colls.find(x => x.id === m.cid); return { label: col ? col.name : 'Removed collection', note: col ? (col.visible ? app.collectionCount(col) + ' products' : 'Hidden — not shown to shoppers') : '', fg: col && col.visible ? '#14181F' : '#9AA1AB', bg: col && col.visible ? '#FFFFFF' : '#FDFAF7', indent: m.depth ? '28px' : '0px',
+      up: () => moveM(i, -1), down: () => moveM(i, 1), nestIcon: m.depth ? '←' : '→', nestTitle: m.depth ? 'Move out' : 'Nest under the item above',
+      nest: () => { if (i === 0 && !m.depth) { app.toast('The first item can’t be nested'); return; } app.setMenu(mm => mm.map((x, j) => j === i ? { ...x, depth: x.depth ? 0 : 1 } : x)); },
+      remove: () => { app.setMenu(mm => mm.filter((_, j) => j !== i)); app.toast('Removed from the menu. The collection is still there.'); } }; });
+    const tops = []; menu.forEach(m => { const col = colls.find(x => x.id === m.cid); if (!col || !col.visible) return; if (!m.depth || !tops.length) tops.push({ label: col.name, kids: [] }); else tops[tops.length - 1].kids.push(col.name); });
+
+    const seasonal = R.seasonal.filter(n => !colls.some(x => x.name === n)).map(n => ({ label: n, onClick: () => this.setState({ tab: 'edit', e: { ...this.blank(), name: n, type: 'manual', rules: [] } }) }));
+    return {
+      app, R, tabs, padX: phone ? '14px' : '28px', pad: phone ? '14px' : '22px 28px', editCols: phone ? '1fr' : 'minmax(0,1.5fr) minmax(0,1fr)', rowCols: phone ? 'minmax(0,1fr) auto' : 'minmax(0,2.4fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr)', wide: !phone,
+      canEdit, ro, isCharts: s.tab === 'sizecharts', isList: s.tab === 'list', isEdit: s.tab === 'edit', isFilters: s.tab === 'filters', isMenus: s.tab === 'menus',
+      seasonal, noColls: colls.length === 0, hasColls: colls.length > 0, rows, giftPrice: fmt(R.key === 'IN' ? 999 : 50).replace(/[.,]00$/, ''),
+      e, editTitle: e.id ? e.name || 'Collection' : 'New collection', slug: app.slug(e.name) || 'your-collection', nameBd: s.nameErr && !e.name ? '#B8541F' : '#D7D3CD',
+      typeOpts: [['auto', 'Automatically', 'Every product matching your rules — new ones join by themselves'], ['manual', 'I’ll pick them', 'You choose exactly which products']].map(([k, l, sub]) => ({ label: l, sub, bd: e.type === k ? '2px solid #00519F' : '1px solid #D7D3CD', bg: e.type === k ? '#F4F8FB' : '#FFFFFF', onClick: () => !ro && this.setE({ type: k }) })),
+      isAuto: e.type === 'auto', isManual: e.type === 'manual', rules, fieldOpts, pSearch: s.pSearch, pickList,
+      parentVal: e.parentId || '', parentOpts: colls.filter(x => x.id !== e.id && !x.parentId).map(x => ({ id: x.id, name: x.name })), hasParent: !!parent, parentName: parent ? parent.name : '', parentCount: parent ? String(app.collectionCount(parent)) : '0', matchCount: String(matchList.length),
+      inh: { mark: e.inherit ? '✓' : '', bd: e.inherit ? '#00519F' : '#B9BEC6', bg: e.inherit ? '#00519F' : '#FFFFFF' },
+      vis: { bg: e.visible ? '#1D6B47' : '#C9CDD3', knob: e.visible ? '19px' : '3px', label: e.visible ? 'Visible on your store' : 'Hidden — for offers or internal use' },
+      canDelete: canEdit && !!e.id, matchLabel: `${matchList.length} product${matchList.length === 1 ? '' : 's'} ${e.type === 'manual' ? 'picked' : 'match'}`, preview, noMatch: matchList.length === 0,
+      facetRows, menuRows, menuAddable: colls.filter(x => !menu.some(m => m.cid === x.id)).map(x => ({ id: x.id, name: x.name })),
+      menuPreview: tops.map(t => ({ label: t.label + (t.kids.length ? ' ▾' : ''), kids: t.kids.join(' · ') })), menuPhone: tops.flatMap(t => [{ label: t.label, pl: '14px' }, ...t.kids.map(k => ({ label: k, pl: '30px' }))]),
+      on: { name: ev => this.setE({ name: ev.target.value }), desc: ev => this.setE({ desc: ev.target.value }), match: ev => this.setE({ match: ev.target.value }), pSearch: ev => this.setState({ pSearch: ev.target.value }),
+        parent: ev => this.setE({ parentId: ev.target.value || null, inherit: !!ev.target.value }),
+        addMenu: ev => { const id = ev.target.value; if (!id) return; app.setMenu(m => [...m, { cid: id, depth: 0 }]); app.toast('Added to the menu'); } },
+      a: { create: () => { if (!app.within('collections', colls.length, 'Collections')) return; this.setState({ tab: 'edit', e: this.blank(), pSearch: '', nameErr: false }); }, cancel: () => this.setState({ tab: 'list', e: null }), addRule: () => this.setE(ee => ({ rules: [...ee.rules, { field: facetNames[1] || facetNames[0] || 'Name contains', values: [] }] })),
+        toggleInherit: () => !ro && this.setE(ee => ({ inherit: !ee.inherit })), toggleVis: () => !ro && this.setE(ee => ({ visible: !ee.visible })), save, del,
+        newFacet: () => app.modal({ title: 'New filter', body: 'Suggestions: Brand · Fabric · Occasion · Fit · Pattern', input: { label: 'Name', placeholder: 'e.g. Fit', required: true, error: 'Give it a name' }, confirm: 'Create', onConfirm: v => { app.setFacets(fs => [...fs, { id: 'f' + Date.now(), name: v.trim(), private: false, values: [] }]); app.toast(`“${v.trim()}” created — add its values`); } }) }
+    };
+  }
+  match(col, p, colls, app) {
+    if (col.type === 'manual') return col.productIds.includes(p.id);
+    const rules = col.rules.filter(r => r.values.length);
+    if (!rules.length) return false;
+    const test = r => r.field === 'Name contains' ? p.name.toLowerCase().includes(String(r.values[0]).toLowerCase()) : r.values.includes((p.filters || {})[r.field]);
+    const ok = col.match === 'any' ? rules.some(test) : rules.every(test);
+    if (!ok) return false;
+    if (col.parentId && col.inherit) { const parent = colls.find(x => x.id === col.parentId); if (parent) return app.matches(parent, p); }
+    return true;
+  }
+}
+</script>
+</body>
+</html>

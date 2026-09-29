@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;min-height:100%;">
+  <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;flex:1;">
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <button onClick="{{ a.back }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">← Products</button>
+      <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.02em;flex:1;min-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ heading }}</span>
+      <span style="display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;background:{{ chip.bg }};border:1px solid {{ chip.bd }};color:{{ chip.fg }};font-size:12px;font-family:Manrope,sans-serif;font-weight:600;">{{ chip.label }}</span>
+      <sc-if value="{{ showDup }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.duplicate }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Duplicate</button></sc-if>
+      <sc-if value="{{ showDelete }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.del }}" style="height:36px;padding:0 12px;border:1px solid #F0D4BF;border-radius:8px;background:#FFFFFF;color:#B8541F;font-size:13px;cursor:pointer;">Delete</button></sc-if>
+      <sc-if value="{{ canSave }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.save }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">{{ saveLabel }}</button></sc-if>
+    </div>
+
+    <sc-if value="{{ multiLang }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;">
+        <span style="color:#5A6472;">Editing in</span>
+        <sc-for list="{{ langs }}" as="l" hint-placeholder-count="2">
+          <button onClick="{{ l.onClick }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:16px;border:1px solid {{ l.bd }};background:{{ l.bg }};font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;color:#14181F;"><span style="width:8px;height:8px;border-radius:50%;background:{{ l.dot }};"></span>{{ l.name }}<span style="font-weight:400;color:#5A6472;">{{ l.st }}</span></button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-for list="{{ banners }}" as="b" hint-placeholder-count="0">
+      <div style="padding:12px 16px;border-radius:10px;background:{{ b.bg }};border:1px solid {{ b.bd }};color:{{ b.fg }};font-size:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <span style="flex:1;min-width:220px;"><strong>{{ b.title }}</strong> {{ b.body }}</span>
+        <sc-if value="{{ b.cta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ b.onClick }}" style="height:32px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:#FFFFFF;color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;cursor:pointer;">{{ b.cta }}</button></sc-if>
+      </div>
+    </sc-for>
+
+    <sc-if value="{{ showTip }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 16px;background:#EAF1F8;border:1px solid #C9DAEC;border-radius:12px;">
+        <span style="width:28px;height:28px;border-radius:50%;background:#00519F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex:none;">{{ tip.n }}</span>
+        <span style="flex:1;display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#00325F;">{{ tip.title }}</span><span style="font-size:14px;color:#00325F;">{{ tip.body }}</span></span>
+        <button onClick="{{ a.hideTip }}" style="border:0;background:none;color:#00325F;font-size:13px;text-decoration:underline;cursor:pointer;flex:none;">Hide tips</button>
+      </div>
+    </sc-if>
+
+    <div style="display:grid;grid-template-columns:{{ gridCols }};gap:20px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+
+        <sc-if value="{{ translating }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFFFF;border:1px solid #9FB8D1;border-radius:12px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;color:#00325F;">Translating into French</span><button onClick="{{ a.suggestFr }}" style="height:34px;padding:0 12px;border:1px solid #00519F;border-radius:8px;background:#FFFFFF;color:#00519F;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">✦ Suggest a translation · {{ aiLeft }} left</button></div>
+            <div style="display:flex;flex-direction:column;gap:6px;"><span style="font-size:12px;color:#5A6472;">English: {{ d.name }}</span><input value="{{ fr.name }}" onChange="{{ on.frName }}" placeholder="Name in French" style="height:44px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:15px;outline:none;width:100%;" style-focus="border-color:#00519F;box-shadow:0 0 0 3px #EAF1F8;"></div>
+            <div style="display:flex;flex-direction:column;gap:6px;"><span style="font-size:12px;color:#5A6472;">English: {{ d.desc }}</span><textarea value="{{ fr.desc }}" onChange="{{ on.frDesc }}" rows="3" placeholder="Description in French" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;width:100%;resize:vertical;"></textarea></div>
+            <span style="font-size:12px;color:#5A6472;">Web address: {{ R.domain }}/fr/produits/{{ frSlug }} · Suggested text only counts as translated after you save it.</span>
+            <div style="padding:10px 12px;border-radius:8px;background:#FDFAF7;font-size:13px;color:#434A55;display:flex;gap:14px;flex-wrap:wrap;"><strong>Same in every language 🔒</strong><span>Price {{ priceShow }}</span><span>Stock {{ stockShow }}</span><span>{{ photoCount }} photos</span><span>{{ R.taxLabel }}: {{ d.taxClass }}</span></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ notTranslating }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:10px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">What are you selling?</span>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+              <sc-for list="{{ types }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;opacity:{{ t.op }};"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#14181F;">{{ t.label }}</div><div style="font-size:12px;color:#5A6472;">{{ t.sub }}</div></button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:#FFFFFF;border:1px solid {{ err.photoBd }};border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Photos</span><span style="font-size:12px;color:{{ photoMeterFg }};">{{ photoMeter }}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;">
+              <sc-for list="{{ photos }}" as="ph" hint-placeholder-count="2">
+                <div style="position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:{{ ph.bd }};background:{{ ph.bg }};">
+                  <sc-if value="{{ ph.main }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;left:6px;top:6px;font-size:10px;font-family:Manrope,sans-serif;font-weight:700;background:#0A2A4A;color:#FFFFFF;padding:2px 6px;border-radius:5px;">Main photo</span></sc-if>
+                  <sc-if value="{{ ph.uploading }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:auto 8px 8px 8px;display:flex;flex-direction:column;gap:4px;"><span style="font-size:11px;color:#434A55;">Uploading {{ ph.pct }}</span><div style="height:4px;border-radius:2px;background:#E8E2DC;overflow:hidden;"><div style="width:{{ ph.pct }};height:100%;background:#00519F;"></div></div></div></sc-if>
+                  <sc-if value="{{ ph.failed }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#FDF0E8;padding:6px;text-align:center;"><span style="font-size:11px;color:#B8541F;">Didn’t upload</span><button onClick="{{ ph.retry }}" style="border:1px solid #F0D4BF;background:#FFFFFF;border-radius:6px;font-size:11px;color:#B8541F;cursor:pointer;padding:2px 8px;">Try again</button></div></sc-if>
+                  <sc-if value="{{ ph.ready }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;right:4px;bottom:4px;display:flex;gap:4px;"><sc-if value="{{ ph.canMain }}" hint-placeholder-val="{{ false }}"><button onClick="{{ ph.makeMain }}" title="Make main photo" style="height:24px;padding:0 6px;border:0;border-radius:5px;background:rgba(255,255,255,0.92);font-size:11px;cursor:pointer;">★ Main</button></sc-if><sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ph.remove }}" title="Remove" style="width:24px;height:24px;border:0;border-radius:5px;background:rgba(255,255,255,0.92);font-size:13px;cursor:pointer;">×</button></sc-if></div></sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ canAddPhoto }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ a.addPhoto }}" style="aspect-ratio:1;border-radius:10px;border:1.5px dashed #9FB8D1;background:#F9FBFD;color:#00325F;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12px;cursor:pointer;"><span style="font-size:22px;line-height:1;">+</span>{{ addPhotoLabel }}</button>
+              </sc-if>
+              <sc-if value="{{ photoAtLimit }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ a.photoLimit }}" style="aspect-ratio:1;border-radius:10px;border:1px solid #C9DAEC;background:#F4F8FB;color:#00325F;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;cursor:pointer;padding:6px;text-align:center;">{{ photoLimitText }}</button>
+              </sc-if>
+            </div>
+            <sc-if value="{{ hasPhotos }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-size:13px;font-weight:600;">Describe the main photo <span style="font-weight:400;color:#5A6472;">— helps blind shoppers and Google</span></span><input value="{{ altText }}" onChange="{{ on.alt }}" readOnly="{{ roMost }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;outline:none;width:100%;"></div>
+            </sc-if>
+            <span style="font-size:12px;color:{{ err.photoFg }};">{{ photoHelp }}</span>
+          </div>
+
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+            <label style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:600;font-size:14px;">Product name</span>
+              <input value="{{ d.name }}" onChange="{{ on.name }}" readOnly="{{ roMost }}" placeholder="What a shopper would type to find it, e.g. Organic Cotton Tee" style="height:46px;border:1px solid {{ err.nameBd }};border-radius:8px;padding:0 12px;font-size:16px;outline:none;width:100%;" style-focus="border-color:#00519F;box-shadow:0 0 0 3px #EAF1F8;">
+              <sc-if value="{{ err.name }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8541F;">{{ err.name }}</span></sc-if>
+            </label>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:600;font-size:14px;">Description <span style="font-weight:400;color:#5A6472;">(optional)</span></span><sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.writeDesc }}" style="border:0;background:none;color:#00519F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;padding:0;">✦ Write it for me · {{ aiLeft }} left this month</button></sc-if></div>
+              <div style="border:1px solid #D7D3CD;border-radius:8px;overflow:hidden;">
+                <div style="display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid #EDEAE5;background:#FDFAF7;"><sc-for list="{{ fmtBtns }}" as="f" hint-placeholder-count="5"><button onClick="{{ f.onClick }}" style="border:0;background:none;padding:3px 8px;font-size:13px;color:#434A55;cursor:pointer;border-radius:4px;font-weight:{{ f.w }};font-style:{{ f.s }};" style-hover="background:#EDEAE5;">{{ f.label }}</button></sc-for></div>
+                <textarea value="{{ d.desc }}" onChange="{{ on.desc }}" readOnly="{{ roMost }}" rows="4" placeholder="What makes it special? What’s it made of? How does it fit?" style="border:0;padding:10px 12px;font-size:14px;outline:none;width:100%;resize:vertical;display:block;"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <sc-if value="{{ showPriceCard }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Price</span>
+              <div style="display:grid;grid-template-columns:{{ priceCols }};gap:12px;">
+                <label style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:600;font-size:13px;">{{ R.priceLabel }}</span><input value="{{ d.price }}" onChange="{{ on.price }}" readOnly="{{ roMost }}" inputMode="decimal" placeholder="0.00" style="height:46px;border:1px solid {{ err.priceBd }};border-radius:8px;padding:0 12px;font-size:16px;outline:none;width:100%;" style-focus="border-color:#00519F;box-shadow:0 0 0 3px #EAF1F8;"></label>
+                <label style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:600;font-size:13px;">{{ R.compareLabel }}</span><input value="{{ compareVal }}" onChange="{{ on.compare }}" readOnly="{{ compareRo }}" inputMode="decimal" placeholder="{{ comparePh }}" style="height:46px;border:1px solid {{ err.compareBd }};border-radius:8px;padding:0 12px;font-size:15px;outline:none;width:100%;background:{{ compareBg }};color:{{ compareFg }};"></label>
+                <label style="display:flex;flex-direction:column;gap:6px;"><span style="font-family:Manrope,sans-serif;font-weight:600;font-size:13px;">What it costs you <span style="font-weight:400;color:#5A6472;">· only you see this</span></span><input value="{{ d.cost }}" onChange="{{ on.cost }}" readOnly="{{ roMost }}" inputMode="decimal" placeholder="optional" style="height:46px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:15px;outline:none;width:100%;"></label>
+              </div>
+              <sc-if value="{{ err.price }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8541F;">{{ err.price }}</span></sc-if>
+              <sc-if value="{{ err.compare }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8541F;">{{ err.compare }}</span></sc-if>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px;">
+                <span style="padding:8px 12px;border-radius:8px;background:#F4F8FB;color:#00325F;flex:1 1 260px;">{{ breakdown }}</span>
+                <sc-if value="{{ hasProfit }}" hint-placeholder-val="{{ false }}"><span style="padding:8px 12px;border-radius:8px;background:{{ profitBg }};color:{{ profitFg }};">{{ profitText }}</span></sc-if>
+              </div>
+              <span style="font-size:12px;color:#5A6472;">{{ R.compareHelp }}</span>
+              <sc-if value="{{ multiCur }}" hint-placeholder-val="{{ false }}">
+                <div style="border-top:1px solid #EDEAE5;padding-top:12px;display:flex;flex-direction:column;gap:8px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">Shoppers abroad</span>
+                  <div style="display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;"><span style="font-weight:600;font-size:14px;">{{ R.autoCur }}</span><div style="min-height:40px;border:1px solid #E8E2DC;background:#FDFAF7;border-radius:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;font-size:13px;color:#434A55;flex-wrap:wrap;"><span>{{ autoPrice }} · set automatically</span><span style="font-size:12px;color:#5A6472;">{{ autoNote }}</span></div></div>
+                  <div style="display:grid;grid-template-columns:52px minmax(0,1fr);gap:10px;align-items:center;"><span style="font-weight:600;font-size:14px;">{{ R.manCur }}</span><input value="{{ d.man }}" onChange="{{ on.man }}" readOnly="{{ roMost }}" inputMode="decimal" placeholder="{{ manPh }}" style="height:40px;border:1.5px solid {{ manBd }};border-radius:8px;padding:0 12px;font-size:14px;outline:none;width:100%;"></div>
+                  <sc-if value="{{ manMissing }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8541F;font-weight:600;margin-left:62px;">Not for sale in {{ R.manCur }} until you add a price.</span></sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showStockCard }}" hint-placeholder-val="{{ true }}">
+            <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Stock</span><span style="font-size:12px;color:#5A6472;">{{ stockWhere }}</span></div>
+              <sc-if value="{{ notSplit }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <button onClick="{{ a.stockMinus }}" style="width:44px;height:44px;border:1px solid #D7D3CD;border-radius:8px;background:#FDFAF7;font-size:18px;cursor:pointer;">−</button>
+                    <input value="{{ d.stock }}" onChange="{{ on.stock }}" readOnly="{{ ro }}" inputMode="numeric" style="width:90px;height:44px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:16px;text-align:center;outline:none;">
+                    <button onClick="{{ a.stockPlus }}" style="width:44px;height:44px;border:1px solid #D7D3CD;border-radius:8px;background:#FDFAF7;font-size:18px;cursor:pointer;">+</button>
+                  </div>
+                  <span style="font-size:13px;color:#5A6472;flex:1;min-width:180px;">How many you have ready to sell. We count down as orders come in.</span>
+                </div>
+              </sc-if>
+              <sc-if value="{{ split }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px;align-items:center;"><span style="font-size:14px;"><strong>{{ R.wh }}</strong> <span style="font-size:12px;color:#5A6472;">· default</span></span><input value="{{ d.stock }}" onChange="{{ on.stock }}" readOnly="{{ ro }}" inputMode="numeric" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:15px;outline:none;"></div>
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px;align-items:center;"><span style="font-size:14px;"><strong>{{ R.wh2 }}</strong></span><input value="{{ d.stock2 }}" onChange="{{ on.stock2 }}" readOnly="{{ ro }}" inputMode="numeric" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:15px;outline:none;"></div>
+                  <span style="font-size:13px;color:#434A55;">Total {{ stockTotal }}</span>
+                </div>
+              </sc-if>
+              <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;align-items:center;">
+                <sc-if value="{{ hasReserved }}" hint-placeholder-val="{{ false }}"><span style="padding:6px 10px;border-radius:8px;background:#F4F8FB;color:#00325F;">2 reserved for orders · sold, not shipped yet</span></sc-if>
+                <sc-if value="{{ canSplit }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.toggleSplit }}" style="border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;padding:0;">{{ splitLabel }}</button></sc-if>
+                <sc-if value="{{ isExisting }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.adjust }}" style="border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;padding:0;">Change with a reason…</button></sc-if>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:14px;">
+            <sc-if value="{{ noOptions }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Does it come in different sizes, colours or other choices?</span><span style="font-size:13px;color:#5A6472;">e.g. Size: {{ sizesLine }} · Colour: Sand, Ink. Each combination gets its own price and stock.</span></div>
+                <sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.startOptions }}" style="height:42px;padding:0 18px;border:1px solid #00519F;border-radius:8px;background:#FFFFFF;color:#00519F;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Add choices</button></sc-if>
+              </div>
+            </sc-if>
+            <sc-if value="{{ hasOptions }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Choices</span><span style="font-size:12px;color:#5A6472;">Up to 3 kinds · {{ vLimText }} versions on your plan</span></div>
+              <sc-for list="{{ optionRows }}" as="g" hint-placeholder-count="1">
+                <div style="border:1px solid #E8E2DC;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <input value="{{ g.name }}" onChange="{{ g.onName }}" readOnly="{{ roMost }}" style="flex:1;height:36px;border:1px solid transparent;border-radius:6px;padding:0 8px;font-family:Manrope,sans-serif;font-weight:700;font-size:15px;outline:none;background:#FDFAF7;" style-focus="border-color:#00519F;background:#FFFFFF;">
+                    <sc-if value="{{ g.canUp }}" hint-placeholder-val="{{ false }}"><button onClick="{{ g.up }}" title="Move up" style="width:30px;height:30px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;cursor:pointer;">↑</button></sc-if>
+                    <sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ g.remove }}" style="height:30px;padding:0 10px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;font-size:12px;color:#B8541F;cursor:pointer;">Remove</button></sc-if>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+                    <sc-for list="{{ g.choices }}" as="ch" hint-placeholder-count="3">
+                      <span style="display:flex;align-items:center;gap:6px;height:32px;padding:0 6px 0 10px;border:1px solid #D7D3CD;border-radius:16px;font-size:14px;background:#FFFFFF;">
+                        <sc-if value="{{ ch.swatch }}" hint-placeholder-val="{{ false }}"><span style="width:14px;height:14px;border-radius:50%;background:{{ ch.color }};border:1px solid rgba(0,0,0,0.12);"></span></sc-if>
+                        {{ ch.label }}
+                        <sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ ch.remove }}" style="border:0;background:none;color:#9AA1AB;cursor:pointer;font-size:14px;padding:0 4px;">×</button></sc-if>
+                      </span>
+                    </sc-for>
+                    <sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><input value="{{ g.draft }}" onChange="{{ g.onDraft }}" onKeyDown="{{ g.onKey }}" placeholder="{{ g.ph }}" style="height:32px;border:1px dashed #9FB8D1;border-radius:16px;padding:0 12px;font-size:13px;outline:none;min-width:170px;"></sc-if>
+                    <sc-if value="{{ g.hasQuick }}" hint-placeholder-val="{{ false }}"><button onClick="{{ g.quick }}" style="height:32px;padding:0 10px;border:0;border-radius:16px;background:#EAF1F8;color:#00325F;font-size:12px;cursor:pointer;">{{ g.quickLabel }}</button></sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ canAddGroup }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span style="font-size:13px;color:#5A6472;">Add another:</span><sc-for list="{{ suggest }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="font-size:13px;padding:5px 12px;border-radius:14px;border:0;background:#F2F0EC;color:#434A55;cursor:pointer;" style-hover="background:#E8E5E0;">+ {{ o.label }}</button></sc-for></div>
+              </sc-if>
+              <sc-if value="{{ showGenerate }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:12px 14px;background:{{ gen.bg }};border:1px solid {{ gen.bd }};border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+                  <span style="font-size:14px;color:{{ gen.fg }};flex:1;min-width:200px;">{{ gen.text }}</span>
+                  <sc-if value="{{ gen.can }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.generate }}" style="height:38px;padding:0 16px;border:0;border-radius:8px;background:#1D6B47;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ gen.btn }}</button></sc-if>
+                </div>
+              </sc-if>
+            </sc-if>
+            <sc-if value="{{ hasVariants }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid #EDEAE5;padding-top:14px;">
+                <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Versions · {{ activeCount }}</span>
+                <sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><span style="display:flex;gap:6px;flex-wrap:wrap;"><button onClick="{{ a.allPrice }}" style="height:32px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:12px;cursor:pointer;">Set price for all…</button><button onClick="{{ a.allStock }}" style="height:32px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:12px;cursor:pointer;">Set stock for all…</button></span></sc-if>
+              </div>
+              <sc-if value="{{ manyVariants }}" hint-placeholder-val="{{ false }}"><input value="{{ vSearch }}" onChange="{{ on.vSearch }}" placeholder="Find a version, e.g. Ink" style="height:36px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;"></sc-if>
+              <div style="border:1px solid #E8E2DC;border-radius:10px;overflow:auto;">
+                <div style="display:grid;grid-template-columns:{{ vCols }};gap:8px;padding:8px 12px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#5A6472;min-width:{{ vMin }};"><span>Photo</span><span>Version</span><span>Price</span><span>Stock</span><sc-if value="{{ multiCur }}" hint-placeholder-val="{{ false }}"><span>{{ R.manCur }}</span></sc-if><span>Code</span><span>On store</span></div>
+                <sc-for list="{{ vrows }}" as="v" hint-placeholder-count="4">
+                  <sc-if value="{{ v.head }}" hint-placeholder-val="{{ false }}"><div style="display:flex;justify-content:space-between;align-items:center;padding:6px 12px;background:#FDFAF7;border-bottom:1px solid #EDEAE5;font-size:12px;min-width:{{ vMin }};"><span style="font-family:Manrope,sans-serif;font-weight:700;display:flex;align-items:center;gap:6px;"><sc-if value="{{ v.swatch }}" hint-placeholder-val="{{ false }}"><span style="width:12px;height:12px;border-radius:50%;background:{{ v.color }};"></span></sc-if>All {{ v.group }}</span><sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><span style="display:flex;gap:12px;"><button onClick="{{ v.groupPhoto }}" style="border:0;background:none;color:#00519F;font-size:12px;cursor:pointer;">Photo for all {{ v.group }}…</button><button onClick="{{ v.setGroup }}" style="border:0;background:none;color:#00519F;font-size:12px;cursor:pointer;">Set all {{ v.group }} to…</button></span></sc-if></div></sc-if>
+                  <div style="display:grid;grid-template-columns:{{ vCols }};gap:8px;padding:6px 12px;border-bottom:1px solid #F1EEEA;align-items:center;font-size:13px;opacity:{{ v.op }};background:{{ v.bg }};min-width:{{ vMin }};">
+                    <button onClick="{{ v.pickPhoto }}" title="{{ v.photoTitle }}" style="width:36px;height:36px;border-radius:6px;border:{{ v.phBd }};background:{{ v.phBg }};color:#00519F;font-size:15px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;">{{ v.phMark }}</button>
+                    <span>{{ v.name }}</span>
+                    <input value="{{ v.price }}" onChange="{{ v.onPrice }}" readOnly="{{ v.roP }}" inputMode="decimal" style="height:34px;border:1px solid {{ v.pBd }};border-radius:6px;padding:0 8px;font-size:13px;outline:none;width:100%;">
+                    <input value="{{ v.stock }}" onChange="{{ v.onStock }}" readOnly="{{ v.roS }}" inputMode="numeric" style="height:34px;border:1px solid #D7D3CD;border-radius:6px;padding:0 8px;font-size:13px;outline:none;width:100%;">
+                    <sc-if value="{{ multiCur }}" hint-placeholder-val="{{ false }}"><input value="{{ v.man }}" onChange="{{ v.onMan }}" readOnly="{{ v.roP }}" placeholder="Add price" style="height:34px;border:1px solid {{ v.manBd }};border-radius:6px;padding:0 8px;font-size:13px;outline:none;width:100%;"></sc-if>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A6472;overflow:hidden;text-overflow:ellipsis;">{{ v.sku }}</span>
+                    <button onClick="{{ v.toggle }}" style="border:0;background:none;text-align:left;font-size:12px;color:{{ v.visFg }};cursor:pointer;padding:0;">{{ v.vis }}</button>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size:12px;color:#5A6472;">Tap the photo square to choose what shoppers see when they pick that version — usually one photo per colour. Tap “Visible” to hide one version. “We don’t make this” removes a combination — add it back any time.</span>
+            </sc-if>
+          </div>
+
+          <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="6">
+            <div style="background:#FFFFFF;border:1px solid {{ sec.bd }};border-radius:12px;overflow:hidden;">
+              <button onClick="{{ sec.toggle }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:14px 22px;border:0;background:{{ sec.hbg }};text-align:left;cursor:pointer;">
+                <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:#14181F;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">{{ sec.title }}<sc-if value="{{ sec.tag }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px;background:{{ sec.tagBg }};color:{{ sec.tagFg }};">{{ sec.tag }}</span></sc-if></span><span style="font-size:13px;color:#5A6472;">{{ sec.summary }}</span></span>
+                <span style="font-size:13px;color:#434A55;flex:none;">{{ sec.chev }}</span>
+              </button>
+              <sc-if value="{{ sec.isOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:4px 22px 18px;display:flex;flex-direction:column;gap:12px;">
+
+                  <sc-if value="{{ sec.isShip }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:grid;grid-template-columns:{{ threeCols }};gap:10px;">
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Weight when packed<span style="display:flex;align-items:center;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;height:42px;gap:6px;"><input value="{{ d.weight }}" onChange="{{ on.weight }}" readOnly="{{ roMost }}" placeholder="0.4" style="border:0;outline:none;flex:1;min-width:0;font-size:14px;"><span style="font-weight:400;color:#5A6472;">{{ R.wu }}</span></span></label>
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Box size (L × W × H)<span style="display:flex;align-items:center;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;height:42px;gap:6px;"><input value="{{ d.box }}" onChange="{{ on.box }}" readOnly="{{ roMost }}" placeholder="25 × 20 × 3" style="border:0;outline:none;flex:1;min-width:0;font-size:14px;"><span style="font-weight:400;color:#5A6472;">{{ R.du }}</span></span></label>
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">{{ R.codeLabel }}<span style="display:flex;align-items:center;border:1px solid {{ err.codeBd }};border-radius:8px;padding:0 4px 0 10px;height:42px;gap:6px;"><input value="{{ d.code }}" onChange="{{ on.code }}" readOnly="{{ roMost }}" placeholder="e.g. 6109" style="border:0;outline:none;flex:1;min-width:0;font-size:14px;"><sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.findCode }}" style="height:32px;border:0;border-radius:6px;background:#F2F0EC;font-size:12px;cursor:pointer;padding:0 8px;">Find</button></sc-if></span></label>
+                    </div>
+                    <span style="font-size:12px;color:#5A6472;">You can type either unit — “2 lb” becomes 907 g. {{ R.codeNeed }}</span>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isColl }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:13px;font-weight:600;">Hand-picked collections</span>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                      <sc-for list="{{ manualColls }}" as="mc" hint-placeholder-count="3"><button onClick="{{ mc.toggle }}" style="height:32px;padding:0 12px;border-radius:16px;border:1px solid {{ mc.bd }};background:{{ mc.bg }};color:{{ mc.fg }};font-size:13px;cursor:pointer;">{{ mc.mark }} {{ mc.name }}</button></sc-for>
+                      <sc-if value="{{ canManage }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.newColl }}" style="height:32px;padding:0 12px;border-radius:16px;border:1px dashed #9FB8D1;background:#F9FBFD;color:#00325F;font-size:13px;cursor:pointer;">+ New collection</button></sc-if>
+                    </div>
+                    <sc-if value="{{ hasAutoColls }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#434A55;padding:8px 10px;background:#FDFAF7;border-radius:8px;">Also in: {{ autoColls }}</span></sc-if>
+                    <span style="font-size:13px;font-weight:600;padding-top:4px;">Filters shoppers can use</span>
+                    <sc-for list="{{ facetRows }}" as="fr" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span style="width:90px;font-size:13px;color:#5A6472;">{{ fr.name }}</span>
+                        <sc-for list="{{ fr.values }}" as="fv" hint-placeholder-count="3"><button onClick="{{ fv.onClick }}" style="height:30px;padding:0 10px;border-radius:15px;border:1px solid {{ fv.bd }};background:{{ fv.bg }};color:{{ fv.fg }};font-size:12px;cursor:pointer;">{{ fv.label }}</button></sc-for>
+                        <sc-if value="{{ canManage }}" hint-placeholder-val="{{ true }}"><button onClick="{{ fr.add }}" style="height:30px;padding:0 10px;border-radius:15px;border:1px dashed #D7D3CD;background:#FFFFFF;color:#5A6472;font-size:12px;cursor:pointer;">+ New</button></sc-if>
+                      </div>
+                    </sc-for>
+                    <span style="font-size:12px;color:#5A6472;">Choices are what shoppers pick when buying. Filters help them find the product. Internal tags are only for you.</span>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isTax }}" hint-placeholder-val="{{ false }}">
+                    <select value="{{ d.taxClass }}" onChange="{{ on.taxClass }}" disabled="{{ roMost }}" style="height:42px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;background:#FFFFFF;"><sc-for list="{{ taxOpts }}" as="t" hint-placeholder-count="4"><option value="{{ t }}">{{ t }}</option></sc-for></select>
+                    <span style="font-size:12px;color:#5A6472;">{{ R.taxNote }}</span>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isChart }}" hint-placeholder-val="{{ false }}">
+                    <select value="{{ chartVal }}" onChange="{{ on.chart }}" disabled="{{ roMost }}" style="height:42px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;background:#FFFFFF;"><option value="">No size chart</option><sc-for list="{{ chartOpts }}" as="c" hint-placeholder-count="2"><option value="{{ c.id }}">{{ c.name }}</option></sc-for></select>
+                    <sc-if value="{{ chartGap }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px;border-radius:8px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;font-size:13px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span>{{ chartGap }}</span><button onClick="{{ a.addChartRows }}" style="border:0;background:none;color:#7A4B00;text-decoration:underline;cursor:pointer;font-size:13px;">Add the missing rows</button></div></sc-if>
+                    <sc-if value="{{ chartNudge }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#00325F;padding:8px 10px;background:#F4F8FB;border-radius:8px;">Shoppers return fewer orders when there’s a size chart.</span></sc-if>
+                    <button onClick="{{ a.goCharts }}" style="align-self:flex-start;border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;padding:0;">Manage size charts →</button>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isSpecs }}" hint-placeholder-val="{{ false }}">
+                    <sc-for list="{{ specRows }}" as="sp" hint-placeholder-count="2">
+                      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto 30px;gap:8px;align-items:center;">
+                        <input value="{{ sp.k }}" onChange="{{ sp.onK }}" readOnly="{{ roMost }}" placeholder="e.g. Material" style="height:38px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;">
+                        <input value="{{ sp.v }}" onChange="{{ sp.onV }}" readOnly="{{ roMost }}" placeholder="e.g. Cotton" style="height:38px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;">
+                        <button onClick="{{ sp.onF }}" style="height:30px;padding:0 8px;border:1px solid {{ sp.fBd }};border-radius:6px;background:{{ sp.fBg }};font-size:11px;color:{{ sp.fFg }};cursor:pointer;">{{ sp.fLabel }}</button>
+                        <button onClick="{{ sp.remove }}" style="width:30px;height:30px;border:0;background:none;color:#9AA1AB;cursor:pointer;">×</button>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ canEditMost }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.addSpec }}" style="align-self:flex-start;border:0;background:none;color:#00519F;font-size:13px;cursor:pointer;padding:0;">+ Add a specification</button></sc-if>
+                    <sc-if value="{{ showHighlights }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-size:13px;font-weight:600;padding-top:6px;">Highlights · {{ hlCount }} of 5 · shown next to the price</span>
+                      <sc-for list="{{ hlRows }}" as="h" hint-placeholder-count="2"><div style="display:flex;gap:8px;align-items:center;"><input value="{{ h.v }}" onChange="{{ h.on }}" readOnly="{{ roMost }}" maxLength="60" placeholder="A short point, e.g. Pre-washed, no shrinking" style="flex:1;height:38px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:13px;outline:none;"><span style="font-size:11px;color:#8A919B;width:44px;">{{ h.count }}</span></div></sc-for>
+                      <sc-if value="{{ canAddHl }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.addHl }}" style="align-self:flex-start;border:0;background:none;color:#00519F;font-size:13px;cursor:pointer;padding:0;">+ Add a highlight</button></sc-if>
+                    </sc-if>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isFaqs }}" hint-placeholder-val="{{ false }}">
+                    <sc-for list="{{ faqRows }}" as="fq" hint-placeholder-count="1"><div style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid #E8E2DC;border-radius:8px;"><div style="display:flex;gap:8px;"><input value="{{ fq.q }}" onChange="{{ fq.onQ }}" readOnly="{{ roMost }}" placeholder="Question" style="flex:1;height:36px;border:1px solid #D7D3CD;border-radius:6px;padding:0 10px;font-size:13px;font-weight:600;outline:none;"><button onClick="{{ fq.remove }}" style="border:0;background:none;color:#9AA1AB;cursor:pointer;">×</button></div><textarea value="{{ fq.a }}" onChange="{{ fq.onA }}" readOnly="{{ roMost }}" rows="2" placeholder="Answer" style="border:1px solid #D7D3CD;border-radius:6px;padding:8px 10px;font-size:13px;outline:none;resize:vertical;"></textarea></div></sc-for>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><button onClick="{{ a.addFaq }}" style="border:0;background:none;color:#00519F;font-size:13px;cursor:pointer;padding:0;">+ Add a question</button><sc-for list="{{ faqSuggest }}" as="fs" hint-placeholder-count="3"><button onClick="{{ fs.onClick }}" style="font-size:12px;padding:3px 10px;border-radius:12px;border:0;background:#F2F0EC;color:#434A55;cursor:pointer;">+ {{ fs.label }}</button></sc-for></div>
+                  </sc-if>
+                  <sc-if value="{{ sec.isRelated }}" hint-placeholder-val="{{ false }}">
+                    <button onClick="{{ a.toggleRelAuto }}" style="display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;cursor:pointer;font-size:14px;color:#14181F;text-align:left;"><span style="width:38px;height:22px;border-radius:11px;background:{{ relAuto.bg }};position:relative;flex:none;"><span style="position:absolute;top:3px;left:{{ relAuto.knob }};width:16px;height:16px;border-radius:50%;background:#FFFFFF;"></span></span>Automatic — show products from the same collection</button>
+                    <sc-if value="{{ relManual }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:6px;"><sc-for list="{{ relChips }}" as="rc" hint-placeholder-count="4"><button onClick="{{ rc.onClick }}" style="height:30px;padding:0 10px;border-radius:15px;border:1px solid {{ rc.bd }};background:{{ rc.bg }};color:{{ rc.fg }};font-size:12px;cursor:pointer;">{{ rc.label }}</button></sc-for></div><span style="font-size:12px;color:#5A6472;">Pick up to 4. Shown as “You may also like”.</span></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ sec.isAplus }}" hint-placeholder-val="{{ false }}">
+                    <span style="font-size:14px;color:#434A55;">{{ aplusSummary }}</span>
+                    <button onClick="{{ a.openAplus }}" style="align-self:flex-start;height:40px;padding:0 16px;border:1px solid #00519F;border-radius:8px;background:#FFFFFF;color:#00519F;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ aplusBtn }}</button>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isTeaser }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;align-items:center;"><div style="height:80px;border-radius:8px;background:repeating-linear-gradient(45deg,#E8E4DE 0 8px,#EFECE7 8px 16px);"></div><span style="font-size:13px;color:#434A55;">Big photos, comparisons and feature blocks below your product — the story shoppers scroll through before buying.</span></div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;"><button onClick="{{ a.upgradeAplus }}" style="height:38px;padding:0 14px;border:0;border-radius:8px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ teaserBtn }}</button><button onClick="{{ a.dismissTeaser }}" style="height:38px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Don’t show this again</button></div>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isLegal }}" hint-placeholder-val="{{ false }}"><span data-legal-sec="1"></span>
+                    <div style="padding:10px 12px;border-radius:8px;background:#FDFAF7;font-size:13px;color:#434A55;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span><strong>Manufacturer & customer care:</strong> using your store’s details — {{ legalDefault }}</span><button onClick="{{ a.legalSettings }}" style="border:0;background:none;color:#B8541F;font-size:13px;cursor:pointer;text-decoration:underline;padding:0;">Change in Settings</button></div>
+                    <sc-for list="{{ legalFields }}" as="lf" hint-placeholder-count="3">
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">
+                        <span style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">{{ lf.label }}<span style="font-weight:400;font-size:12px;color:{{ lf.needFg }};">{{ lf.need }}</span></span>
+                        <input value="{{ lf.value }}" onChange="{{ lf.on }}" readOnly="{{ roMost }}" placeholder="{{ lf.ph }}" style="height:40px;border:1px solid {{ lf.bd }};border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;outline:none;background:{{ lf.bg }};direction:{{ lf.dir }};">
+                      </label>
+                    </sc-for>
+                    <span style="font-size:12px;color:#5A6472;">Only what the countries you sell in ask for. Missing details stop sales in that country only. Not legal advice.</span>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isSeo }}" hint-placeholder-val="{{ false }}">
+                    <div style="border:1px solid #EDEAE5;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:#1D6B47;">{{ seo.url }}</span><span style="font-size:17px;color:#1A0DAB;">{{ seo.title }}</span><span style="font-size:13px;color:#434A55;">{{ seo.desc }}</span></div>
+                    <input value="{{ d.seoTitle }}" onChange="{{ on.seoTitle }}" readOnly="{{ roMost }}" placeholder="{{ seo.title }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;outline:none;">
+                    <textarea value="{{ d.seoDesc }}" onChange="{{ on.seoDesc }}" readOnly="{{ roMost }}" rows="2" placeholder="{{ seo.desc }}" style="border:1px solid #D7D3CD;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;resize:vertical;"></textarea>
+                  </sc-if>
+
+                  <sc-if value="{{ sec.isMore }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Product code (SKU) <span style="font-weight:400;color:#5A6472;font-size:12px;">Your own code to tell products apart. We made one.</span><input value="{{ skuVal }}" onChange="{{ on.sku }}" readOnly="{{ roMost }}" style="height:40px;border:1px solid {{ err.skuBd }};border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;font-family:'IBM Plex Mono',monospace;outline:none;"></label>
+                      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Web address <span style="font-weight:400;color:#5A6472;font-size:12px;">{{ R.domain }}/products/{{ slugVal }}</span><input value="{{ slugVal }}" onChange="{{ on.slug }}" readOnly="{{ roMost }}" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;font-weight:400;outline:none;"></label>
+                    </div>
+                    <sc-if value="{{ err.sku }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#B8541F;">{{ err.sku }}</span></sc-if>
+                    <sc-if value="{{ slugWarn }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#7A4B00;padding:8px 10px;background:#FFF6E5;border-radius:8px;">This product is live — anyone with the old link will see “not found”.</span></sc-if>
+                    <sc-for list="{{ switches }}" as="sw" hint-placeholder-count="4">
+                      <button onClick="{{ sw.onClick }}" style="display:flex;align-items:center;gap:12px;border:0;background:none;padding:6px 0;text-align:left;cursor:pointer;width:100%;">
+                        <span style="width:38px;height:22px;border-radius:11px;background:{{ sw.bg }};position:relative;flex:none;"><span style="position:absolute;top:3px;left:{{ sw.knob }};width:16px;height:16px;border-radius:50%;background:#FFFFFF;"></span></span>
+                        <span style="display:flex;flex-direction:column;"><span style="font-size:14px;color:#14181F;">{{ sw.label }}</span><span style="font-size:12px;color:#5A6472;">{{ sw.sub }}</span></span>
+                      </button>
+                    </sc-for>
+                  </sc-if>
+
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </sc-if>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;position:{{ sidePos }};top:72px;">
+        <sc-if value="{{ showVis }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">On your store</span>
+            <sc-for list="{{ visOpts }}" as="o" hint-placeholder-count="2">
+              <button onClick="{{ o.onClick }}" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:{{ o.bd }};border-radius:10px;background:{{ o.bg }};text-align:left;cursor:pointer;">
+                <span style="width:18px;height:18px;border-radius:50%;border:{{ o.dot }};flex:none;margin-top:2px;"></span>
+                <span style="font-size:14px;color:#14181F;display:flex;flex-direction:column;"><strong>{{ o.label }}</strong><span style="font-size:12px;color:#5A6472;">{{ o.sub }}</span></span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ vendorApproval }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFF6E5;border:1px solid #F2D9A6;border-radius:12px;padding:14px 16px;font-size:13px;color:#7A4B00;"><strong>Your store owner approves this before it goes live.</strong> You’ll hear back either way.</div>
+        </sc-if>
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Ready to sell in</span>
+          <sc-for list="{{ markets }}" as="m" hint-placeholder-count="1">
+            <button onClick="{{ m.onClick }}" style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border:0;border-top:1px solid #F1EEEA;background:none;text-align:left;cursor:pointer;width:100%;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;width:28px;height:20px;border-radius:4px;background:#F2F0EC;display:flex;align-items:center;justify-content:center;flex:none;color:#14181F;">{{ m.code }}</span>
+              <span style="flex:1;font-size:13px;display:flex;flex-direction:column;"><strong style="color:#14181F;">{{ m.name }}</strong><span style="color:{{ m.fg }};">{{ m.note }}</span></span>
+              <span style="font-size:14px;color:{{ m.fg }};">{{ m.mark }}</span>
+            </button>
+          </sc-for>
+          <span style="font-size:12px;color:#5A6472;">Missing details only stop sales in that country. Tap one to fix it.</span>
+        </div>
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Shopper sees</span>
+          <div style="border:1px solid #EDEAE5;border-radius:10px;overflow:hidden;">
+            <div style="aspect-ratio:1;background:{{ pv.thumb }};display:flex;align-items:center;justify-content:center;font-size:12px;color:#8A919B;">{{ pv.noPhoto }}</div>
+            <div style="padding:10px 12px;display:flex;flex-direction:column;gap:4px;">
+              <sc-if value="{{ pv.hasBadge }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;font-size:10px;font-family:Manrope,sans-serif;font-weight:700;padding:2px 6px;border-radius:4px;background:#14181F;color:#FFFFFF;">NEW</span></sc-if>
+              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ pv.name }}</span>
+              <span style="font-size:14px;"><strong>{{ pv.price }}</strong> <span style="color:#8A919B;text-decoration:line-through;">{{ pv.compare }}</span></span>
+              <span style="font-size:11px;color:#5A6472;">{{ pv.taxNote }}</span>
+              <sc-if value="{{ pv.hasPills }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:#5A6472;padding-top:4px;">{{ pv.pillGroup }}</span><div style="display:flex;gap:4px;flex-wrap:wrap;"><sc-for list="{{ pv.pills }}" as="pl" hint-placeholder-count="3"><button onClick="{{ pl.onClick }}" style="min-width:34px;height:28px;padding:0 6px;border:{{ pl.bd }};border-radius:6px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:12px;color:{{ pl.fg }};text-decoration:{{ pl.td }};cursor:pointer;">{{ pl.label }}</button></sc-for></div></sc-if>
+            </div>
+          </div>
+          <span style="font-size:11px;color:#5A6472;">Tap a choice to see its photo. Crossed-out choices are sold out — shoppers still see them.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ dirtyBar }}" hint-placeholder-val="{{ false }}">
+    <div style="position:sticky;bottom:0;z-index:8;background:#0A2A4A;color:#FFFFFF;display:flex;align-items:center;gap:12px;padding:12px {{ barPad }};flex-wrap:wrap;">
+      <span style="width:8px;height:8px;border-radius:50%;background:{{ barDot }};"></span>
+      <span style="font-family:Manrope,sans-serif;font-weight:600;font-size:14px;flex:1;min-width:140px;">{{ barText }}</span>
+      <button onClick="{{ a.discard }}" style="height:38px;padding:0 14px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;background:transparent;color:#FFFFFF;font-size:13px;cursor:pointer;">Discard</button>
+      <sc-if value="{{ showSaveAnother }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.saveAnother }}" style="height:38px;padding:0 14px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;background:transparent;color:#FFFFFF;font-size:13px;cursor:pointer;">Save &amp; add another</button></sc-if>
+      <button onClick="{{ a.save }}" style="height:38px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ saveLabel }}</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const d = this.draftFrom(props.app);
+    this.state = { d, orig: JSON.stringify(d), open: {}, lang: 'main', err: {}, saveErr: '', optDraft: {}, vSearch: '', ai: 18, teaserOff: false, pendingGen: false };
+  }
+  componentWillUnmount() { Object.values(this._up || {}).forEach(clearInterval); }
+
+  draftFrom(app) {
+    const R = app.R;
+    const p = app.editId ? app.allProducts.find(x => x.id === app.editId) : null;
+    const str = v => v === null || v === undefined ? '' : String(v);
+    if (!p) return { id: 'p' + Date.now(), isNew: true, name: '', desc: '', status: 'visible', type: 'physical', photos: [], price: '', compare: '', cost: '', stock: '0', stock2: '0', split: false, track: true, sellOOS: false, age: false,
+      options: [], variants: [], sku: '', skuTouched: false, slug: '', slugTouched: false, origSlug: '', filters: {}, tags: [], taxClass: R.taxClasses[0], code: '', weight: '', box: '',
+      legal: { fibre: '', origin: R.origin, care: '', batch: '', frText: '', arText: '' }, trans: {}, sizeChart: '', aplus: [], specs: [], faqs: [], related: [], relatedAuto: true, highlights: [], man: '', seoTitle: '', seoDesc: '', supplier: app.caps.isVendor ? app.vendorName : 'You', sentBack: '' };
+    return { ...p, isNew: false, price: str(p.price), compare: str(p.compare), cost: str(p.cost), stock: str(p.stock), stock2: str(p.stock2), split: Number(p.stock2) > 0, skuTouched: true, slug: p.slug || app.slug(p.name), slugTouched: true, origSlug: p.slug || app.slug(p.name),
+      variants: (p.variants || []).map(v => ({ ...v, price: str(v.price), stock: str(v.stock), man: str(v.man) })), options: (p.options || []).map(o => ({ ...o, choices: [...o.choices] })),
+      legal: { ...(p.legal || {}) }, trans: JSON.parse(JSON.stringify(p.trans || {})), specs: (p.specs || []).map(x => ({ ...x })), faqs: (p.faqs || []).map(x => ({ ...x })), related: [...(p.related || [])], relatedAuto: p.relatedAuto !== false, highlights: [...(p.highlights || [])], man: str(p.man), sizeChart: p.sizeChart || '', seoTitle: p.seoTitle || '', seoDesc: p.seoDesc || '', sellOOS: !!p.sellOOS, age: !!p.age };
+  }
+
+  upd(patch) { this.setState(s => ({ d: { ...s.d, ...(typeof patch === 'function' ? patch(s.d) : patch) }, err: {} })); }
+  autoSku(name, app) { const base = name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 4) || 'PRD'; return base + '-' + (100 + app.allProducts.length + 1); }
+
+  combos(options) { return options.filter(o => o.choices.length).reduce((acc, o) => acc.flatMap(a => o.choices.map(c => [...a, c])), [[]]); }
+
+  generate() {
+    const { d } = this.state; const app = this.props.app;
+    const opts = d.options.filter(o => o.choices.length);
+    const combos = this.combos(opts);
+    const prefix = (d.sku || this.autoSku(d.name, app)).split('-')[0];
+    const oldByKey = {}; d.variants.forEach(v => { oldByKey[v.key] = v; });
+    const sib = d.variants[0];
+    const variants = combos.map(vals => {
+      const key = vals.join('|');
+      const ex = oldByKey[key];
+      if (ex) return ex;
+      return { key, vals, price: sib ? sib.price : d.price, stock: '0', sku: (prefix + '-' + vals.map(v => String(v).slice(0, 2)).join('-')).toUpperCase(), enabled: true, removed: false, man: '' };
+    });
+    this.upd({ variants });
+    app.toast(`${variants.length} versions ready — set prices and stock below`);
+  }
+
+  addOptionGroup(name, preset) {
+    const { d } = this.state; const app = this.props.app;
+    if (d.options.length >= 3) { app.toast('Up to 3 kinds of choice per product'); return; }
+    const group = { name, choices: preset ? [...preset] : [] };
+    if (d.variants.length && group.choices.length) {
+      app.modal({ tag: 'New kind of choice', title: `Your ${d.variants.filter(v => !v.removed).length} versions need a ${name}. Which is it?`, body: 'Tell us what the versions you already have are. You can add the other choices after.', choices: group.choices.map(c => ({ label: 'They’re all ' + c, value: c })), confirm: 'Add ' + name,
+        onConfirm: val => this.upd(dd => ({ options: [...dd.options, group], variants: dd.variants.map(v => ({ ...v, vals: [...v.vals, val], key: [...v.vals, val].join('|') })) })) });
+      return;
+    }
+    this.upd(dd => ({ options: [...dd.options, group] }));
+  }
+
+  validate(d, app) {
+    const R = app.R; const err = {};
+    const num = v => Number(String(v).replace(',', '.'));
+    if (!d.name.trim()) err.name = 'Give it a name shoppers would search for.';
+    const hasV = d.variants.length > 0;
+    if (!hasV) {
+      if (d.price === '') err.price = 'Add a price so shoppers can buy this.';
+      else if (isNaN(num(d.price)) || num(d.price) < 0) err.price = 'That doesn’t look like a price. Use numbers only, e.g. 24.99';
+      else if (R.cur === 'JPY' && num(d.price) % 1) err.price = 'Yen prices don’t have decimals.';
+      if (d.compare && R.compareMode === 'mrp' && num(d.price) > num(d.compare)) err.compare = `Your price ${app.fmt(num(d.price))} is higher than the MRP ${app.fmt(num(d.compare))}. Lower the price or correct the MRP.`;
+      if (d.compare && R.compareMode === 'msrp' && num(d.compare) <= num(d.price)) err.compare = 'Your MSRP is lower than your price, so there’s no saving to show. Leave it empty or raise it.';
+    } else {
+      const live = d.variants.filter(v => !v.removed && v.enabled);
+      if (live.some(v => v.price === '' || !(num(v.price) > 0))) err.price = 'Every version needs a price above zero.';
+    }
+    const sku = d.sku || '';
+    const clash = sku && app.allProducts.find(p => p.id !== d.id && (p.sku === sku));
+    if (clash) err.sku = `“${clash.name}” already uses this code. Try ${sku}-2.`;
+    if (R.codeRequired && d.type === 'physical' && !d.code.trim()) err.code = 'Add the HSN code — it goes on every GST invoice.';
+    return err;
+  }
+
+  build(d, app) {
+    const num = v => v === '' || v === null || v === undefined ? null : Number(String(v).replace(',', '.'));
+    const slug = d.slug || app.slug(d.name);
+    const clashSlug = app.allProducts.find(p => p.id !== d.id && (p.slug || app.slug(p.name)) === slug);
+    return { ...d, price: num(d.price) || 0, compare: num(d.compare), cost: num(d.cost), stock: Number(d.stock) || 0, stock2: d.split ? Number(d.stock2) || 0 : 0,
+      slug: clashSlug ? slug + '-2' : slug, _slugClash: !!clashSlug, sku: d.sku || this.autoSku(d.name, app),
+      variants: d.variants.map(v => ({ ...v, price: num(v.price) || 0, stock: Number(v.stock) || 0 })), photos: d.photos.filter(p => !p.uploading && !p.failed) };
+  }
+
+  doSave(opts) {
+    const app = this.props.app; const { d } = this.state; opts = opts || {};
+    if (app.caps.isVendorStock) {
+      const res = app.saveProduct(this.build(d, app), { quiet: true, force: true });
+      if (res.ok) this.setState({ orig: JSON.stringify(d) });
+      return;
+    }
+    const err = this.validate(d, app);
+    if (Object.keys(err).length) { this.setState({ err, open: { ...this.state.open, ...(err.sku ? { more: true } : {}), ...(err.code ? { ship: true } : {}) } }); app.toast(Object.keys(err).length + ' thing' + (Object.keys(err).length > 1 ? 's' : '') + ' to fix before saving'); return; }
+    const built = this.build(d, app);
+    const live = built.variants.filter(v => !v.removed);
+    if (built.status === 'visible' && live.length && !live.some(v => v.enabled)) {
+      app.modal({ title: 'This would hide every version', body: 'The product would say “Visible” but shoppers couldn’t buy anything. Hide the whole product instead?', confirm: 'Hide product', navy: true, onConfirm: () => { this.upd({ status: 'hidden' }); } });
+      return;
+    }
+    if (!opts.okFree && !built.variants.length && built.price === 0) {
+      app.modal({ title: 'Selling for free?', body: 'That’s fine for a gift or a freebie — just checking it isn’t a typo.', confirm: 'Yes, it’s free', onConfirm: () => this.doSave({ ...opts, okFree: true }) });
+      return;
+    }
+    const others = app.allProducts.filter(p => p.id !== d.id && p.price);
+    const avg = others.length ? others.reduce((a, p) => a + Number(p.price), 0) / others.length : 0;
+    if (!opts.okBig && avg && built.price > avg * 100) {
+      app.modal({ title: 'That’s a lot higher than usual', body: `${app.fmt(built.price)} is about ${Math.round(built.price / avg)}× your usual price. Double-check the number?`, confirm: 'The price is right', cancel: 'Let me fix it', onConfirm: () => this.doSave({ ...opts, okBig: true }) });
+      return;
+    }
+    if (!d.isNew && d.status === 'visible' && d.origSlug && built.slug !== d.origSlug && !opts.okSlug) {
+      app.modal({ title: 'Old links will stop working', body: `Anyone who saved or shared …/${d.origSlug} will see “not found”.`, confirm: 'Change it anyway', alt: 'Keep the old address', onAlt: () => { this.upd({ slug: d.origSlug }); }, onConfirm: () => this.doSave({ ...opts, okSlug: true }) });
+      return;
+    }
+    const res = app.saveProduct(built, { force: opts.force, onNeedDetails: () => { this.setState(ss => ({ open: { ...ss.open, legal: true, legalHi: true } })); setTimeout(() => { try { const el = document.querySelector('[data-legal-sec]'); const main = document.querySelector('[data-cat-main]'); if (el && main) main.scrollTop += el.getBoundingClientRect().top - main.getBoundingClientRect().top - 80; } catch (x) {} }, 60); } });
+    if (res.error === 'offline') { this.setState({ saveErr: 'offline' }); return; }
+    if (res.conflict) {
+      app.modal({ tag: 'Someone else was editing', title: 'Priya changed this product 2 minutes ago', body: 'She changed the price and the description. If you save, your version replaces hers.', confirm: 'Save mine over hers', alt: 'Review her changes', onAlt: () => app.toast('Her version: price ' + app.fmt(Number(d.price || 0) + 2) + ', new first sentence in the description'), onConfirm: () => this.doSave({ ...opts, force: true }) });
+      return;
+    }
+    if (res.limit) {
+      if (app.caps.isOwner) app.modal({ title: `You’ve used all ${app.caps.limits.products} products on ${app.caps.planName}`, body: 'Your products are safe — you just can’t add more on this plan. Growth allows up to 5,000.', confirm: 'See Growth', onConfirm: () => app.upgrade('more products') });
+      else app.modal({ title: 'Your store is at its product limit', body: 'Ask your store owner to change the plan to add more.', confirm: 'OK', cancel: '' });
+      return;
+    }
+    if (!res.ok) return;
+    if (built._slugClash) app.toast('Another product had this web address, so we added “-2”.');
+    const saved = { ...this.draftFrom({ ...app, editId: null }), ...res.product };
+    if (opts.another) { const blank = this.draftFrom({ ...app, editId: null }); this.setState({ d: blank, orig: JSON.stringify(blank), saveErr: '', err: {} }); app.closeModal(); app.toast(`“${built.name}” saved. Add the next one.`); return; }
+    const nd = { ...this.state.d, ...res.product, isNew: false, price: String(res.product.price), compare: res.product.compare === null ? '' : String(res.product.compare), cost: res.product.cost === null ? '' : String(res.product.cost), stock: String(res.product.stock), stock2: String(res.product.stock2), origSlug: res.product.slug,
+      variants: res.product.variants.map(v => ({ ...v, price: String(v.price), stock: String(v.stock) })) };
+    this.setState({ d: nd, orig: JSON.stringify(nd), saveErr: '' });
+  }
+
+  renderVals() {
+    const app = this.props.app; if (!app) return {};
+    const { R, fmt, caps: c, phone } = app;
+    const s = this.state; const d = s.d;
+    const num = v => Number(String(v).replace(',', '.'));
+    const ro = !c.canEdit;
+    const roMost = ro || c.isVendorStock;
+    const canEditMost = !roMost;
+    const dirty = JSON.stringify(d) !== s.orig;
+    const hasV = d.variants.length > 0;
+    const live = d.variants.filter(v => !v.removed);
+    const err = s.err;
+    const E = k => err[k] ? '#B8541F' : '#D7D3CD';
+    const vendorApproval = c.isVendor && c.approvalOn && !c.isVendorStock;
+    const translating = c.multiLang && s.lang === 'fr';
+    const fr = (d.trans && d.trans.fr) || { name: '', desc: '' };
+
+    // status chip
+    const ST = { visible: ['Visible', '#EEF7F2', '#C3E0D2', '#1D6B47'], hidden: ['Hidden', '#F2F0EC', '#E8E2DC', '#434A55'], waiting: ['Waiting for approval', '#FFF6E5', '#F2D9A6', '#7A4B00'], sentback: ['Sent back', '#FDF0E8', '#F0D4BF', '#8F4017'] };
+    const st = d.isNew ? ['New', '#EAF1F8', '#C9DAEC', '#00325F'] : (ST[d.status] || ST.visible);
+
+    // banners
+    const banners = [];
+    if (s.saveErr === 'offline') banners.push({ title: 'We couldn’t save just now.', body: 'Nothing is lost — your changes are kept on this device.', bg: '#FDF0E8', bd: '#F0D4BF', fg: '#B8541F', cta: 'Try again', onClick: () => this.doSave() });
+    if (Object.keys(err).length > 1) banners.push({ title: `${Object.keys(err).length} things need fixing before you save:`, body: Object.values(err).join(' · '), bg: '#FDF0E8', bd: '#F0D4BF', fg: '#B8541F', cta: '', onClick: null });
+    if (c.isVendor && d.status === 'sentback' && d.sentBack) banners.push({ title: 'Sent back by ' + R.store + ':', body: '“' + d.sentBack + '” Fix it and send it again.', bg: '#FDF0E8', bd: '#F0D4BF', fg: '#8F4017', cta: '', onClick: null });
+    if (!c.isVendor && d.supplier && d.supplier !== 'You' && !d.isNew) banners.push({ title: `This is ${d.supplier}’ product.`, body: 'They will see your changes. You decide the price and whether it shows on your store.', bg: '#F4F8FB', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
+    if (c.isVendor && !c.isVendorStock && !d.isNew) banners.push({ title: 'Your store owner can also edit this product.', body: c.approvalOn ? 'Changes you save wait for their approval.' : 'Changes you save go live straight away.', bg: '#F4F8FB', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
+    if (c.isVendorStock) banners.push({ title: 'You can update stock.', body: 'Your store owner manages everything else about this product.', bg: '#F4F8FB', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
+    if (c.isStaff) banners.push({ title: 'You can view this product.', body: 'Editing is for owners and managers — ask Farhan if something needs changing.', bg: '#F4F8FB', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
+    if (translating && !fr.name) banners.push({ title: 'Not in French yet.', body: 'French shoppers see your English text until you add it — nothing is broken.', bg: '#F4F8FB', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
+
+    // tip
+    const readyPhotos = d.photos.filter(p => !p.uploading && !p.failed);
+    const tipStep = !readyPhotos.length ? 1 : !d.name.trim() ? 2 : (!hasV && d.price === '') ? 3 : 4;
+    const tip = [null, { n: '1', title: 'Your first product · step 1 of 3', body: 'Start with a photo — shoppers look at it before anything else.' }, { n: '2', title: 'Step 2 of 3', body: 'Now a name — what would a shopper type to find it?' }, { n: '3', title: 'Step 3 of 3', body: 'Add a price, and you can save. Everything else is optional.' }, { n: '✓', title: 'That’s all you need', body: 'Press Save and it goes live. Sizes, colours and the rest can come later.' }][tipStep];
+
+    // photos
+    const limit = c.limits.photos;
+    const photos = d.photos.map((p, i) => ({
+      main: i === 0 && !p.uploading && !p.failed, uploading: !!p.uploading, failed: !!p.failed, ready: !p.uploading && !p.failed, pct: (p.pct || 0) + '%', canMain: i > 0 && canEditMost && !p.uploading && !p.failed,
+      bd: i === 0 ? '2px solid #0A2A4A' : '1px solid #E8E2DC', bg: p.uploading || p.failed ? '#F2F0EC' : `linear-gradient(135deg,hsl(${p.hue},35%,80%),hsl(${p.hue},30%,62%))`,
+      makeMain: () => this.upd(dd => { const ph = [...dd.photos]; const [x] = ph.splice(i, 1); return { photos: [x, ...ph] }; }),
+      remove: () => this.upd(dd => ({ photos: dd.photos.filter(x => x.id !== p.id) })),
+      retry: () => this.startUpload(p.id, true)
+    }));
+    const atLimit = d.photos.length >= limit;
+
+    // price
+    const price = num(d.price) || 0;
+    const net = R.incl && R.rate ? price / (1 + R.rate) : price;
+    const breakdown = R.incl && !R.rate ? (price ? `Shopper pays ${fmt(price)} — tax is included. We work out how much at checkout from where they are.` : 'Type a price — it’s what the shopper pays, tax included.') : !price ? (R.incl ? `Type a price — we’ll show what the shopper pays, the ${R.taxName} and what you receive.` : (R.key === 'US' ? 'Sales tax is added at checkout, based on where the shopper is.' : `${R.taxName} is added at checkout on top of this price.`)) : R.incl ? `Shopper pays ${fmt(price)} · ${R.taxName} ${fmt(price - net)} · You receive ${fmt(net)} — for shoppers in ${R.home}` : `Shopper pays ${fmt(price)} + ${R.key === 'US' ? 'sales tax' : R.taxName} at checkout${R.key === 'US' ? ', based on where they are' : ''}.`;
+    const cost = num(d.cost);
+    const profit = net - cost;
+    const autoMode = R.compareMode === 'auto';
+
+    // options UI
+    const colorMap = { sand: '#D8C3A0', ink: '#1F2A44', sage: '#9CAF93', ivory: '#F3EEDF', rust: '#B5552C', teal: '#2F7F7A', red: '#C0392B', blue: '#2E5AA8', black: '#1A1A1A', white: '#FFFFFF', green: '#3D8B4A', navy: '#1F2A44', grey: '#9AA1AB', gray: '#9AA1AB', pink: '#E8A6B8', yellow: '#E9C54A', maroon: '#6E1F2A', indigo: '#3B3F8F' };
+    const isColour = n => /colou?r/i.test(n);
+    const optionRows = d.options.map((o, gi) => ({
+      name: o.name, draft: s.optDraft[gi] || '', ph: isColour(o.name) ? 'Type a colour, press Enter' : 'Type a choice, press Enter',
+      canUp: gi > 0 && canEditMost,
+      up: () => this.upd(dd => { const op = [...dd.options]; [op[gi - 1], op[gi]] = [op[gi], op[gi - 1]]; return { options: op, variants: dd.variants.map(v => { const vals = [...v.vals]; [vals[gi - 1], vals[gi]] = [vals[gi], vals[gi - 1]]; return { ...v, vals, key: vals.join('|') }; }) }; }),
+      onName: e => { const val = e.target.value; this.upd(dd => ({ options: dd.options.map((x, j) => j === gi ? { ...x, name: val } : x) })); },
+      onDraft: e => this.setState({ optDraft: { ...s.optDraft, [gi]: e.target.value } }),
+      onKey: e => {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        e.preventDefault();
+        const val = (s.optDraft[gi] || '').trim(); if (!val) return;
+        if (o.choices.map(x => x.toLowerCase()).includes(val.toLowerCase())) { app.toast(`“${val}” is already a choice`); return; }
+        this.setState({ optDraft: { ...s.optDraft, [gi]: '' } });
+        this.upd(dd => ({ options: dd.options.map((x, j) => j === gi ? { ...x, choices: [...x.choices, val] } : x) }));
+        if (hasV) app.toast(`Added ${val}. Press “Update versions” to create its versions.`);
+      },
+      hasQuick: /size/i.test(o.name) && !o.choices.length, quickLabel: `Use ${R.sizeSys} sizes (${R.sizes.join(', ')})`,
+      quick: () => this.upd(dd => ({ options: dd.options.map((x, j) => j === gi ? { ...x, choices: [...R.sizes] } : x) })),
+      remove: () => {
+        if (!hasV) { this.upd(dd => ({ options: dd.options.filter((_, j) => j !== gi) })); return; }
+        app.modal({ tag: 'Remove a kind of choice', danger: true, title: `Remove ${o.name} from this product?`, body: 'Versions merge. For each remaining combination we keep the first version’s price and add the stock together. Past orders keep their record.', confirm: 'Remove ' + o.name,
+          onConfirm: () => this.upd(dd => {
+            const merged = {};
+            dd.variants.filter(v => !v.removed).forEach(v => { const vals = v.vals.filter((_, j) => j !== gi); const key = vals.join('|'); if (!merged[key]) merged[key] = { ...v, vals, key, stock: String(Number(v.stock) || 0) }; else merged[key].stock = String(Number(merged[key].stock) + (Number(v.stock) || 0)); });
+            const options = dd.options.filter((_, j) => j !== gi);
+            return { options, variants: options.length ? Object.values(merged) : [], price: options.length ? dd.price : (Object.values(merged)[0] || {}).price || dd.price, stock: options.length ? dd.stock : String(Object.values(merged).reduce((a, v) => a + Number(v.stock), 0)) };
+          }) });
+      },
+      choices: o.choices.map(ch => ({ label: ch, swatch: isColour(o.name), color: colorMap[ch.toLowerCase()] || '#C9CDD3',
+        remove: () => {
+          const gone = d.variants.filter(v => v.vals[gi] === ch && !v.removed);
+          if (!gone.length) { this.upd(dd => ({ options: dd.options.map((x, j) => j === gi ? { ...x, choices: x.choices.filter(y => y !== ch) } : x) })); return; }
+          app.modal({ tag: 'Remove a choice', danger: true, title: `Remove “${ch}”?`, body: `${gone.length} version${gone.length > 1 ? 's go' : ' goes'} with it: ${gone.map(v => v.vals.join(' / ')).join(', ')}.\nThis can’t be undone. Past orders keep their record.`, confirm: 'Remove ' + ch,
+            onConfirm: () => this.upd(dd => { const options = dd.options.map((x, j) => j === gi ? { ...x, choices: x.choices.filter(y => y !== ch) } : x); return { options, variants: dd.variants.filter(v => v.vals[gi] !== ch) }; }) });
+        } }))
+    }));
+    const suggestNames = ['Size', 'Colour', 'Material', 'Style', 'Pack of', 'Scent', 'Flavour'].filter(n => !d.options.some(o => o.name.toLowerCase() === n.toLowerCase()));
+    const suggest = [...suggestNames.slice(0, 5).map(n => ({ label: n, onClick: () => this.addOptionGroup(n, n === 'Size' ? R.sizes : null) })), { label: 'Custom…', onClick: () => app.modal({ title: 'Name this kind of choice', input: { label: 'e.g. Length, Finish, Engraving', placeholder: 'Length', required: true, error: 'Give it a name' }, confirm: 'Add', onConfirm: v => this.addOptionGroup(v.trim()) }) }];
+    const combos = this.combos(d.options);
+    const nComb = d.options.some(o => o.choices.length) ? combos.length : 0;
+    const existingKeys = new Set(d.variants.map(v => v.key));
+    const newOnes = combos.filter(cv => !existingKeys.has(cv.join('|'))).length;
+    const staleKeys = d.variants.filter(v => !combos.some(cv => cv.join('|') === v.key)).length;
+    const vLim = c.limits.versions; const gen = nComb > vLim ? { text: `That makes ${nComb} versions — ${c.P.name} allows ${vLim}. Remove a few choices or split this into two products.`, can: false, bg: '#FDF0E8', bd: '#F0D4BF', fg: '#B8541F', btn: '' }
+      : !hasV ? { text: `${d.options.filter(o => o.choices.length).map(o => o.choices.length + ' ' + o.name.toLowerCase()).join(' × ')} makes ${nComb} version${nComb === 1 ? '' : 's'}.`, can: nComb > 0, bg: '#EEF7F2', bd: '#C3E0D2', fg: '#1D6B47', btn: `Create ${nComb} versions` }
+      : { text: newOnes ? `${newOnes} new version${newOnes > 1 ? 's' : ''} to create — pre-filled from the first one.` : 'Versions are up to date.', can: newOnes > 0, bg: newOnes ? '#EEF7F2' : '#FDFAF7', bd: newOnes ? '#C3E0D2' : '#E8E2DC', fg: newOnes ? '#1D6B47' : '#5A6472', btn: 'Update versions' };
+
+    // variants rows
+    const vq = s.vSearch.trim().toLowerCase();
+    const vrows = [];
+    let lastG = null;
+    d.variants.forEach((v, i) => {
+      if (vq && !v.vals.join(' ').toLowerCase().includes(vq)) return;
+      const g = v.vals[0];
+      const head = d.options.length > 1 && g !== lastG; lastG = g;
+      const setV = patch => this.upd(dd => ({ variants: dd.variants.map((x, j) => j === i ? { ...x, ...patch } : x) }));
+      vrows.push({
+        head, group: g, swatch: isColour(d.options[0] ? d.options[0].name : ''), color: colorMap[String(g).toLowerCase()] || '#C9CDD3',
+        setGroup: () => app.modal({ title: `Set all ${g} versions`, input: { label: 'Price for every ' + g + ' version', placeholder: String(v.price || ''), required: true, error: 'Type a price' }, confirm: 'Apply', onConfirm: val => { this.upd(dd => ({ variants: dd.variants.map(x => x.vals[0] === g && !x.removed ? { ...x, price: val } : x) })); app.toast(`All ${g}: ${fmt(num(val))}`); } }),
+        name: v.vals.join(' / '), price: v.price,
+        ...(() => { const ph = v.photoId && d.photos.find(p => p.id === v.photoId); const ok = ph && !ph.uploading && !ph.failed; return { phBg: ok ? `linear-gradient(135deg,hsl(${ph.hue},35%,80%),hsl(${ph.hue},30%,62%))` : (ph ? '#F2F0EC' : '#F9FBFD'), phBd: ok ? '1px solid #E8E2DC' : '1.5px dashed #9FB8D1', phMark: ok ? '' : (ph ? '…' : '+'), photoTitle: ok ? 'Change this version’s photo' : 'Add a photo for this version' }; })(),
+        pickPhoto: () => { if (roMost || v.removed) return; this.pickVariantPhoto(x => x.key === v.key, v.vals.join(' / ')); },
+        groupPhoto: () => this.pickVariantPhoto(x => x.vals[0] === g && !x.removed, 'all ' + g), stock: v.stock, man: v.man || '', sku: v.sku,
+        roP: roMost || v.removed, roS: ro || v.removed, pBd: err.price && !v.removed && !(num(v.price) > 0) ? '#B8541F' : '#D7D3CD', manBd: !v.removed && !v.man ? '#F0D4BF' : '#D7D3CD',
+        op: v.removed ? 0.5 : 1, bg: v.removed ? '#FDFAF7' : '#FFFFFF',
+        vis: v.removed ? 'We don’t make this · Add back' : (v.enabled ? (Number(v.stock) === 0 ? 'Visible · sold out' : 'Visible') : 'Hidden'), visFg: v.removed ? '#00519F' : (v.enabled ? '#1D6B47' : '#5A6472'),
+        onPrice: e => setV({ price: e.target.value }), onStock: e => setV({ stock: e.target.value }), onMan: e => setV({ man: e.target.value }),
+        toggle: () => {
+          if (roMost) return;
+          if (v.removed) { setV({ removed: false }); return; }
+          if (v.enabled) {
+            const others = d.variants.filter((x, j) => j !== i && !x.removed && x.enabled).length;
+            if (!others) { app.modal({ title: 'This would hide every version', body: 'Shoppers couldn’t buy anything. Hide the whole product instead?', confirm: 'Hide product', navy: true, onConfirm: () => this.upd({ status: 'hidden' }) }); return; }
+            app.modal({ title: `${v.vals.join(' / ')}`, body: 'Hide it (you still sell other versions), or say you don’t make this combination?', choices: [{ label: 'Hide it for now', sub: 'Keeps price and stock', value: 'hide' }, { label: 'We don’t make this', sub: 'Removes the combination — add it back any time', value: 'remove' }], confirm: 'Apply', onConfirm: val => setV(val === 'remove' ? { removed: true } : { enabled: false }) });
+          } else setV({ enabled: true });
+        }
+      });
+    });
+
+    // sections
+    const open = s.open;
+    const tg = k => () => this.setState({ open: { ...open, [k]: !open[k] } });
+    const mkSec = (k, title, summary, extra) => ({ key: k, title, summary, isOpen: !!open[k], toggle: tg(k), chev: open[k] ? 'Close ▴' : (extra && extra.action || 'Open') + ' ▾', bd: '#E8E2DC', hbg: '#FFFFFF', tag: '', tagBg: '#F2F0EC', tagFg: '#434A55',
+      isShip: k === 'ship', isColl: k === 'coll', isTax: k === 'tax', isChart: k === 'chart', isSpecs: k === 'specs', isAplus: k === 'aplus', isTeaser: k === 'teaser', isFaqs: k === 'faqs', isRelated: k === 'related', isLegal: k === 'legal', isSeo: k === 'seo', isMore: k === 'more', ...(extra || {}) });
+    const manualColls = app.collections.filter(x => x.type === 'manual');
+    const inColls = manualColls.filter(x => x.productIds.includes(d.id));
+    const autoMatched = app.collections.filter(x => x.type === 'auto' && app.matches(x, { ...d, filters: d.filters }));
+    const why = col => col.rules.filter(r => r.values.length).map(r => r.field + ' is ' + r.values.join(' or ')).join(', ');
+    const ms = app.marketStatus({ ...d, compare: d.compare, price: d.price, variants: d.variants });
+    const notReady = ms.filter(m => !m.ok);
+    const sections = [];
+    if (d.type === 'physical') sections.push(mkSec('ship', 'Shipping', d.weight ? `${d.weight} ${R.wu}${d.box ? ' · box ' + d.box + ' ' + R.du : ''}${d.code ? ' · ' + d.code : ''}` : 'Couriers charge by weight and box size', err.code ? { bd: '#B8541F', tag: 'needs a code', tagBg: '#FDF0E8', tagFg: '#B8541F' } : { action: 'Add' }));
+    sections.push(mkSec('coll', 'Collections & filters', [inColls.length ? 'In ' + inColls.map(x => x.name).join(', ') : '', autoMatched.length ? 'Also in ' + autoMatched.map(x => x.name).join(', ') : ''].filter(Boolean).join(' · ') || 'Group it with similar products so shoppers find it', { action: 'Add' }));
+    sections.push(mkSec('tax', R.taxLabel, d.taxClass + (d.taxClass === R.taxClasses[0] ? ' — your store’s usual' : ''), { action: 'Change' }));
+    if (c.on('sizeCharts') && d.type === 'physical') { const ch = app.sizeCharts.find(x => x.id === d.sizeChart); sections.push(mkSec('chart', 'Size chart', ch ? ch.name + ' · ' + ch.rows.length + ' sizes' : 'Shoppers return fewer orders when there’s a size chart.', { action: 'Pick a chart' })); }
+    if (c.on('specs') || c.on('highlights')) sections.push(mkSec('specs', c.on('specs') ? 'Specifications & highlights' : 'Highlights', d.specs.length || d.highlights.length ? `${d.specs.length} specs · ${d.highlights.filter(Boolean).length} highlights` : 'e.g. Material: Cotton · Care: Machine wash cold', { action: 'Add' }));
+    if (c.feat.aplus && c.planIncl('aplus')) sections.push(mkSec('aplus', 'A+ content · Product story', d.aplus.length ? `${d.aplus.length} modules` : 'Big photos and feature blocks below your product', { action: 'Add', tag: c.trial ? 'In your trial' : '', tagBg: '#EAF1F8', tagFg: '#00325F' }));
+    else if (c.feat.aplus && !c.planIncl('aplus') && !c.isVendor && !s.teaserOff) sections.push(mkSec('teaser', 'Add A+ content', 'Big photos and feature blocks below your product.', { action: 'See an example', tag: 'Available on Growth', tagBg: '#EAF1F8', tagFg: '#00325F', hbg: '#FBFCFE' }));
+    if (c.on('faqs')) sections.push(mkSec('faqs', 'FAQs', (d.faqs || []).length ? `${d.faqs.length} question${d.faqs.length > 1 ? 's' : ''}` : 'Answer what shoppers ask before they buy', { action: 'Add' }));
+    if (c.on('related')) sections.push(mkSec('related', 'Related products', d.relatedAuto ? 'Automatic — from the same collection' : (d.related || []).length ? `${d.related.length} picked` : 'Show similar products under this one', { action: 'Choose' }));
+    sections.push(mkSec('legal', 'Legal & safety', notReady.length ? `${notReady.length} ${notReady.length > 1 ? 'countries need' : 'country needs'} more: ${notReady.map(m => m.code).join(', ')}` : 'Using your store’s details · nothing missing', { action: 'Review', tag: 'never a paid feature', tagBg: '#EEF7F2', tagFg: '#1D6B47', bd: notReady.length && open.legalHi ? '#D9B872' : '#E8E2DC' }));
+    sections.push(mkSec('seo', 'Search engine listing', (d.seoTitle || d.name || 'Filled in for you') + ' — from the name and description', { action: 'Edit' }));
+    sections.push(mkSec('more', 'More options', 'Product code, web address, stock tracking, age check, where it ships', { action: 'Open', ...(err.sku ? { bd: '#B8541F', tag: 'code already used', tagBg: '#FDF0E8', tagFg: '#B8541F' } : {}) }));
+
+    const facetRows = app.facets.map(f => ({ name: f.name + (f.private ? ' 🔒' : ''),
+      values: f.values.map(val => { const on = f.private ? d.tags.includes(val) : d.filters[f.name] === val; return { label: val, bd: on ? '#00519F' : '#D7D3CD', bg: on ? '#EAF1F8' : '#FFFFFF', fg: on ? '#00325F' : '#434A55',
+        onClick: () => { if (roMost) return; if (f.private) this.upd(dd => ({ tags: dd.tags.includes(val) ? dd.tags.filter(t => t !== val) : [...dd.tags, val] })); else this.upd(dd => ({ filters: { ...dd.filters, [f.name]: dd.filters[f.name] === val ? undefined : val } })); } }; }),
+      add: () => app.modal({ title: `New ${f.name.toLowerCase()} value`, input: { label: f.name, placeholder: 'e.g. Bamboo', required: true, error: 'Type a value' }, confirm: 'Add', onConfirm: val => { app.setFacets(fs => fs.map(x => x.id === f.id ? { ...x, values: [...x.values, val.trim()] } : x)); if (!f.private) this.upd(dd => ({ filters: { ...dd.filters, [f.name]: val.trim() } })); app.toast(`“${val.trim()}” added to ${f.name}`); } }) }));
+
+    const LBL = { fibre: 'Fibre content', origin: 'Country of origin', care: 'Care instructions', frText: 'Safety text in French', batch: 'Batch or type number', arText: 'Label details in Arabic' };
+    const PH = { fibre: 'e.g. 100% cotton', origin: 'e.g. ' + R.origin, care: 'e.g. Machine wash cold', frText: 'e.g. Tenir éloigné du feu.', batch: 'e.g. 2026-10', arText: 'مثال: قطن ١٠٠٪' };
+    const need = {}; R.markets.forEach(m => m.needs.forEach(n => { if (n !== 'compare') (need[n] = need[n] || []).push(m.code); }));
+    const legalFields = Object.keys(need).map(k => { const v = d.legal[k] || ''; const miss = !v.trim(); return { label: LBL[k], value: v, ph: PH[k], need: (need[k].length === R.markets.length ? 'Needed everywhere you sell' : 'Needed for ' + need[k].join(', ')), needFg: miss ? '#7A4B00' : '#1D6B47', bd: miss && open.legalHi ? '#D9B872' : '#D7D3CD', bg: miss && open.legalHi ? '#FFFBF2' : '#FFFFFF', dir: k === 'arText' ? 'rtl' : 'ltr', on: e => { const val = e.target.value; this.upd(dd => ({ legal: { ...dd.legal, [k]: val } })); } }; });
+
+    const chart = app.sizeCharts.find(x => x.id === d.sizeChart);
+    const sizeOpt = d.options.find(o => /size/i.test(o.name));
+    const chartMissing = chart && sizeOpt ? sizeOpt.choices.filter(sz => !chart.rows.some(r => String(r[0]) === String(sz))) : [];
+
+    const markets = ms.map(m => ({ code: m.code, name: m.name, note: m.ok ? 'Ready' : 'Add: ' + m.missing.map(x => x.label).join(', '), fg: m.ok ? '#1D6B47' : '#7A4B00', mark: m.ok ? '✓' : '⚠',
+      onClick: () => { const k = m.missing[0] && m.missing[0].key; if (k === 'price') { app.toast('Add a price first'); return; } this.setState({ open: { ...open, legal: true, legalHi: true } }); } }));
+
+    const priceLo = hasV ? Math.min(...live.map(v => num(v.price) || 0)) : price;
+    const priceHi = hasV ? Math.max(...live.map(v => num(v.price) || 0)) : price;
+    const pvGroup = d.options[0];
+    const pvSel = pvGroup && pvGroup.choices.includes(s.pvChoice) ? s.pvChoice : null;
+    const pvVar = pvSel ? live.find(v => v.vals[0] === pvSel && v.photoId && d.photos.find(p => p.id === v.photoId && !p.uploading && !p.failed)) : null;
+    const pvPhoto = pvVar ? d.photos.find(p => p.id === pvVar.photoId) : readyPhotos[0];
+    const pv = { thumb: pvPhoto ? `linear-gradient(135deg,hsl(${pvPhoto.hue},35%,80%),hsl(${pvPhoto.hue},30%,62%))` : 'repeating-linear-gradient(45deg,#F2F0EC 0 8px,#EAE7E2 8px 16px)', noPhoto: pvPhoto ? (pvVar ? pvSel + ' photo' : '') : 'Your main photo',
+      name: translating && fr.name ? fr.name : (d.name || 'Product name'), price: priceLo ? (priceLo === priceHi ? fmt(priceLo) : fmt(priceLo) + ' – ' + fmt(priceHi)) : fmt(0),
+      compare: !hasV && d.compare && num(d.compare) > price ? fmt(num(d.compare)) : '', taxNote: R.incl ? 'incl. ' + R.taxName : '+ tax at checkout', hasBadge: c.on('badges') && d.isNew,
+      hasPills: !!pvGroup && pvGroup.choices.length > 0, pillGroup: pvGroup ? pvGroup.name : '',
+      pills: pvGroup ? pvGroup.choices.map(ch => { const vs = live.filter(v => v.vals[0] === ch && v.enabled); const out = vs.length && vs.every(v => Number(v.stock) === 0); return { label: ch, fg: out ? '#9AA1AB' : '#14181F', td: out ? 'line-through' : 'none', bd: pvSel === ch ? '2px solid #14181F' : '1px solid #D7D3CD', onClick: () => this.setState({ pvChoice: pvSel === ch ? null : ch }) }; }) : [] };
+
+    const stockTotal = (Number(d.stock) || 0) + (d.split ? Number(d.stock2) || 0 : 0);
+    const saveLabel = c.isVendorStock ? 'Save stock' : (vendorApproval ? 'Submit for approval' : (d.isNew ? 'Save product' : 'Save'));
+    const types = [['physical', 'A physical item', 'You pack and ship it'], ['download', 'A download', 'Ebook, pattern, gift card'], ['service', 'A service', 'Coming later']].map(([k, l, sub]) => ({ label: l, sub,
+      bd: d.type === k ? '2px solid #00519F' : '1px solid #D7D3CD', bg: d.type === k ? '#F4F8FB' : '#FFFFFF', op: k === 'service' ? 0.5 : 1,
+      onClick: () => { if (roMost) return; if (k === 'service') { app.toast('Services aren’t in the first release'); return; } this.upd({ type: k, track: k !== 'download' }); if (k === 'download') app.toast('Downloads have no weight, box or stock — those boxes are gone'); } }));
+
+    const fmtWrap = (pre, post) => () => this.upd(dd => ({ desc: dd.desc + (dd.desc && !dd.desc.endsWith('\n') ? '\n' : '') + pre + 'text' + post }));
+    const langs = c.multiLang ? [{ k: 'main', name: 'English', st: '· main', dot: '#1D6B47' }, { k: 'fr', name: 'Français', st: fr.name ? (fr.desc || !d.desc ? '· done' : '· part done') : '· not translated', dot: fr.name ? (fr.desc || !d.desc ? '#1D6B47' : '#D9A43A') : '#C9CDD3' }]
+      .map(l => ({ ...l, bd: s.lang === l.k ? '#00519F' : '#D7D3CD', bg: s.lang === l.k ? '#F4F8FB' : '#FFFFFF', onClick: () => this.setState({ lang: l.k }) })) : [];
+
+    const manMissing = c.multiCur && !hasV && !d.man;
+    const autoVal = price * R.autoRate;
+    const autoRounded = Math.ceil(autoVal) - 0.01;
+    const nfAuto = new Intl.NumberFormat(R.locale, { style: 'currency', currency: R.autoCur });
+
+    return {
+      R, d, fr, frSlug: app.slug(fr.name || d.name), pad: phone ? '14px 14px 20px' : '22px 28px 28px', h1: phone ? '19px' : '24px', gridCols: phone ? '1fr' : 'minmax(0,1fr) 320px', sidePos: phone ? 'static' : 'sticky',
+      priceCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', threeCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', twoCols: phone ? '1fr' : 'repeat(2,minmax(0,1fr))',
+      heading: d.isNew ? (d.name || 'New product') : d.name || 'Untitled', chip: { label: st[0], bg: st[1], bd: st[2], fg: st[3] },
+      showDup: !d.isNew && c.canManage, showDelete: !d.isNew && c.canManage, canSave: c.canEdit, saveLabel,
+      multiLang: c.multiLang, langs, translating, notTranslating: !translating, banners,
+      showTip: d.isNew && app.walkthrough && !c.isVendor && !phone, tip,
+      ro, roMost, canEditMost, canManage: c.canManage,
+      types, photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
+      addPhotoLabel: phone ? 'Take or add photo' : 'Add photos', photoLimitText: c.isOwner ? `${limit} of ${limit} photos · Growth allows 25` : `${limit} of ${limit} photos`,
+      photoMeter: `${d.photos.length} of ${limit} photos`, photoMeterFg: d.photos.length >= limit * 0.8 ? '#7A4B00' : '#5A6472',
+      photoHelp: readyPhotos.length ? 'The first photo is the one shoppers see in lists. Square photos look best. iPhone photos are converted for you.' : 'Products with a photo sell far better. On a phone, this opens the camera.',
+      err: { ...err, nameBd: E('name'), priceBd: E('price'), compareBd: E('compare'), skuBd: E('sku'), codeBd: E('code'), photoBd: '#E8E2DC', photoFg: '#5A6472' },
+      fmtBtns: [{ label: 'B', w: 700, s: 'normal', onClick: fmtWrap('**', '**') }, { label: 'I', w: 400, s: 'italic', onClick: fmtWrap('_', '_') }, { label: '• List', w: 400, s: 'normal', onClick: fmtWrap('• ', '') }, { label: 'Link', w: 400, s: 'normal', onClick: () => app.modal({ title: 'Add a link', input: { label: 'Web address', placeholder: 'https://', required: true }, confirm: 'Add link', onConfirm: v => this.upd(dd => ({ desc: dd.desc + ' ' + v })) }) }],
+      aiLeft: app.aiLeft(),
+      showPriceCard: !hasV, showStockCard: !hasV && d.type === 'physical',
+      compareVal: autoMode ? (d.isNew ? 'Shown once it has sold for a while' : fmt(price)) : d.compare, compareRo: autoMode || roMost, comparePh: 'optional', compareBg: autoMode ? '#FDFAF7' : '#FFFFFF', compareFg: autoMode ? '#5A6472' : '#14181F',
+      breakdown, hasProfit: !!(price && cost), profitText: profit >= 0 ? `You make ${fmt(profit)} per sale · ${Math.round(profit / net * 100)}% margin` : `You lose ${fmt(-profit)} on each sale`, profitBg: profit >= 0 ? '#EEF7F2' : '#FDF0E8', profitFg: profit >= 0 ? '#1D6B47' : '#B8541F',
+      multiCur: c.multiCur, autoPrice: price ? nfAuto.format(autoRounded) + ' ' + R.autoSuffix : '—', autoNote: price ? `${nfAuto.format(autoVal)} → ${nfAuto.format(autoRounded)} · rates updated 2 h ago` : 'Worked out from your price', manPh: R.manSuffix, manBd: manMissing ? '#B8541F' : '#D7D3CD', manMissing,
+      stockWhere: d.split ? 'Split across 2 warehouses' : `Goes to ${R.wh}, your default warehouse`, notSplit: !d.split, split: d.split, stockTotal: String(stockTotal), hasReserved: !d.isNew && stockTotal > 2, canSplit: canEditMost || c.isVendorStock, splitLabel: d.split ? 'Keep it all in one warehouse' : 'Split across warehouses', isExisting: !d.isNew && !ro,
+      noOptions: d.options.length === 0, hasOptions: d.options.length > 0, optionRows, suggest, canAddGroup: canEditMost && d.options.length < 3, sizesLine: R.sizes.join(', '),
+      showGenerate: canEditMost && (nComb > 0 || staleKeys > 0), gen, hasVariants: hasV, activeCount: String(live.length) + (live.length !== d.variants.length ? ` (+${d.variants.length - live.length} not made)` : ''),
+      manyVariants: d.variants.length > 12, vSearch: s.vSearch, vrows, vCols: c.multiCur ? '40px minmax(110px,1.3fr) 100px 76px 90px minmax(80px,1fr) 110px' : '40px minmax(110px,1.3fr) 110px 80px minmax(80px,1fr) 120px', vMin: c.multiCur ? '690px' : '590px',
+      faqRows: (d.faqs || []).map((f, i) => ({ q: f.q, a: f.a, onQ: e => { const v = e.target.value; this.upd(dd => ({ faqs: dd.faqs.map((x, j) => j === i ? { ...x, q: v } : x) })); }, onA: e => { const v = e.target.value; this.upd(dd => ({ faqs: dd.faqs.map((x, j) => j === i ? { ...x, a: v } : x) })); }, remove: () => this.upd(dd => ({ faqs: dd.faqs.filter((_, j) => j !== i) })) })),
+      faqSuggest: ['Does it shrink?', 'How does it fit?', 'How long does delivery take?', 'Can I return it?'].filter(q => !(d.faqs || []).some(f => f.q === q)).map(q => ({ label: q, onClick: () => this.upd(dd => ({ faqs: [...(dd.faqs || []), { q, a: '' }] })) })),
+      relAuto: { bg: d.relatedAuto ? '#1D6B47' : '#C9CDD3', knob: d.relatedAuto ? '19px' : '3px' }, relManual: !d.relatedAuto,
+      relChips: app.allProducts.filter(p => p.id !== d.id && (!c.isVendor || p.supplier === app.vendorName)).map(p => { const on = (d.related || []).includes(p.id); return { label: (on ? '✓ ' : '') + p.name, bd: on ? '#00519F' : '#D7D3CD', bg: on ? '#EAF1F8' : '#FFFFFF', fg: on ? '#00325F' : '#434A55', onClick: () => { if (roMost) return; if (!on && (d.related || []).length >= 4) { app.toast('Pick up to 4'); return; } this.upd(dd => ({ related: on ? dd.related.filter(x => x !== p.id) : [...dd.related, p.id] })); } }; }),
+      vLimText: String(c.limits.versions === Infinity ? 'unlimited' : c.limits.versions), sections, manualColls: manualColls.map(x => { const on = x.productIds.includes(d.id); return { name: x.name, mark: on ? '✓' : '+', bd: on ? '#00519F' : '#D7D3CD', bg: on ? '#EAF1F8' : '#FFFFFF', fg: on ? '#00325F' : '#434A55',
+        toggle: () => { if (roMost) return; if (d.isNew) { app.toast('Save the product first, then add it to collections'); return; } app.setCollections(cs => cs.map(y => y.id === x.id ? { ...y, productIds: on ? y.productIds.filter(i => i !== d.id) : [...y.productIds, d.id] } : y)); app.toast(on ? `Removed from ${x.name}` : `Added to ${x.name}`); } }; }),
+      hasAutoColls: autoMatched.length > 0, autoColls: autoMatched.map(x => `${x.name} (because ${why(x)})`).join(' · '), facetRows,
+      taxOpts: R.taxClasses, chartVal: d.sizeChart || '', chartOpts: app.sizeCharts.map(x => ({ id: x.id, name: x.name })),
+      chartGap: chartMissing.length ? `${chart.name} has no row for ${chartMissing.join(', ')}.` : '', chartNudge: !chart && !!sizeOpt,
+      specRows: d.specs.map((sp, i) => ({ k: sp.k, v: sp.v, fLabel: sp.f ? '✓ Shoppers can filter' : 'Let shoppers filter', fBd: sp.f ? '#00519F' : '#D7D3CD', fBg: sp.f ? '#EAF1F8' : '#FFFFFF', fFg: sp.f ? '#00325F' : '#5A6472',
+        onK: e => { const val = e.target.value; this.upd(dd => ({ specs: dd.specs.map((x, j) => j === i ? { ...x, k: val } : x) })); }, onV: e => { const val = e.target.value; this.upd(dd => ({ specs: dd.specs.map((x, j) => j === i ? { ...x, v: val } : x) })); },
+        onF: () => { if (roMost) return; this.upd(dd => ({ specs: dd.specs.map((x, j) => j === i ? { ...x, f: !x.f } : x) })); if (!sp.f && sp.k) app.toast(`“${sp.k}: ${sp.v}” will show as a shopper filter`); }, remove: () => this.upd(dd => ({ specs: dd.specs.filter((_, j) => j !== i) })) })),
+      showHighlights: c.on('highlights'), hlCount: String(d.highlights.filter(Boolean).length), canAddHl: canEditMost && d.highlights.length < 5,
+      hlRows: d.highlights.map((h, i) => ({ v: h, count: h.length + '/60', on: e => { const val = e.target.value; this.upd(dd => ({ highlights: dd.highlights.map((x, j) => j === i ? val : x) })); } })),
+      aplusSummary: d.aplus.length ? `${d.aplus.length} module${d.aplus.length > 1 ? 's' : ''} · shows below the description on your store` : 'No A+ content yet. Start from a template or build it block by block.', aplusBtn: d.aplus.length ? 'Edit A+ content' : 'Add A+ content',
+      teaserBtn: c.isOwner ? 'See Growth plan' : 'Ask your store owner',
+      legalDefault: app.legalDefaults.manufacturer, legalFields,
+      seo: { url: R.domain + ' › products › ' + (d.slug || app.slug(d.name) || 'your-product'), title: (d.seoTitle || d.name || 'Your product') + ' | ' + R.store, desc: (d.seoDesc || d.desc || 'A short description shoppers see on Google.').slice(0, 150) },
+      skuVal: d.sku || (d.name ? this.autoSku(d.name, app) : ''), slugVal: d.slug || app.slug(d.name), slugWarn: !d.isNew && d.status === 'visible' && d.origSlug && (d.slug || '') !== d.origSlug,
+      switches: [
+        { label: 'Track stock', sub: 'Count down as orders come in', on: d.track },
+        { label: 'Keep selling when out of stock', sub: 'Take orders and ship when you restock', on: d.sellOOS },
+        { label: 'Ask shoppers to confirm their age', sub: 'For alcohol, knives and other age-restricted items', on: d.age }
+      ].map((x, i) => ({ ...x, bg: x.on ? '#1D6B47' : '#C9CDD3', knob: x.on ? '19px' : '3px', onClick: () => { if (roMost) return; this.upd(dd => i === 0 ? { track: !dd.track } : i === 1 ? { sellOOS: !dd.sellOOS } : { age: !dd.age }); } })),
+      showVis: !vendorApproval && !c.isVendorStock && d.status !== 'waiting', vendorApproval,
+      visOpts: [['visible', 'Visible', 'Shoppers can find and buy it'], ['hidden', 'Hidden', 'Only you and your team can see it']].map(([k, l, sub]) => ({ label: l, sub, bd: d.status === k || (k === 'visible' && d.status === 'sentback') ? '2px solid #00519F' : '1px solid #D7D3CD', bg: d.status === k ? '#F4F8FB' : '#FFFFFF', dot: d.status === k ? '5px solid #00519F' : '1.5px solid #9AA1AB', onClick: () => { if (roMost) return; this.upd({ status: k }); } })),
+      markets, pv, priceShow: hasV ? `${live.length} versions` : fmt(price), stockShow: hasV ? String(live.reduce((a, v) => a + (Number(v.stock) || 0), 0)) : String(stockTotal), photoCount: String(readyPhotos.length),
+      dirtyBar: c.canEdit && (dirty || !!s.saveErr), barText: s.saveErr ? 'Couldn’t save — your draft is safe' : 'Unsaved changes', barDot: s.saveErr ? '#B8541F' : '#EC844F', barPad: phone ? '14px' : '28px', showSaveAnother: d.isNew && !phone,
+      on: {
+        name: e => { const v = e.target.value; this.upd(dd => ({ name: v, sku: dd.skuTouched ? dd.sku : '', slug: dd.slugTouched ? dd.slug : '' })); },
+        desc: e => this.upd({ desc: e.target.value }), price: e => this.upd({ price: e.target.value }), compare: e => this.upd({ compare: e.target.value }), cost: e => this.upd({ cost: e.target.value }),
+        man: e => this.upd({ man: e.target.value }), stock: e => this.upd({ stock: e.target.value.replace(/[^0-9]/g, '') }), stock2: e => this.upd({ stock2: e.target.value.replace(/[^0-9]/g, '') }),
+        alt: e => { const v = e.target.value; this.upd(dd => ({ photos: dd.photos.map((p, i) => i === 0 ? { ...p, alt: v } : p) })); },
+        weight: e => { let v = e.target.value; const m = v.match(/^([\d.]+)\s*lb$/i); if (m && R.wu === 'kg') { v = (Number(m[1]) * 0.4536).toFixed(2); app.toast(`${m[1]} lb = ${v} kg`); } this.upd({ weight: v }); },
+        box: e => this.upd({ box: e.target.value }), code: e => this.upd({ code: e.target.value }), taxClass: e => this.upd({ taxClass: e.target.value }), chart: e => this.upd({ sizeChart: e.target.value }),
+        sku: e => this.upd({ sku: e.target.value.toUpperCase(), skuTouched: true }), slug: e => this.upd({ slug: app.slug(e.target.value) || e.target.value, slugTouched: true }),
+        seoTitle: e => this.upd({ seoTitle: e.target.value }), seoDesc: e => this.upd({ seoDesc: e.target.value }), vSearch: e => this.setState({ vSearch: e.target.value }),
+        frName: e => { const v = e.target.value; this.upd(dd => ({ trans: { ...dd.trans, fr: { ...(dd.trans.fr || {}), name: v } } })); },
+        frDesc: e => { const v = e.target.value; this.upd(dd => ({ trans: { ...dd.trans, fr: { ...(dd.trans.fr || {}), desc: v } } })); }
+      },
+      a: {
+        back: () => { if (dirty && c.canEdit) app.modal({ title: 'Leave without saving?', body: 'Your changes will be lost.', confirm: 'Keep editing', alt: 'Discard changes', onAlt: () => app.go('products') }); else app.go(app.returnTo || 'products'); },
+        save: () => this.doSave(), saveAnother: () => this.doSave({ another: true }),
+        discard: () => { const o = JSON.parse(s.orig); this.setState({ d: o, err: {}, saveErr: '' }); },
+        hideTip: () => app.hideWalkthrough(),
+        duplicate: () => { const copy = { ...app.allProducts.find(p => p.id === d.id), id: 'p' + Date.now(), name: 'Copy of ' + d.name, status: 'hidden', stock: 0, stock2: 0, sku: (d.sku || 'PRD') + '-COPY', slug: '', updated: Date.now(), variants: (app.allProducts.find(p => p.id === d.id).variants || []).map(v => ({ ...v, stock: 0, sku: v.sku + '-C' })) }; app.addProducts([copy]); app.openProduct(copy.id); app.toast('Copy made — it’s hidden, and stock starts at 0'); },
+        del: () => app.modal({ tag: 'Delete', danger: true, title: `Delete “${d.name}”?`, body: `It leaves ${app.collections.filter(x => app.matches(x, d)).length} collection(s). Past orders keep their record. If you might sell it again, hide it instead.`, confirm: 'Delete', alt: 'Hide instead', onAlt: () => { app.updateProducts([d.id], { status: 'hidden' }); this.upd({ status: 'hidden' }); this.setState(ss => ({ orig: JSON.stringify(ss.d) })); app.toast('Hidden from shoppers'); }, onConfirm: () => { app.deleteProducts([d.id]); app.go('products'); } }),
+        addPhoto: () => this.addPhoto(),
+        photoLimit: () => c.isOwner ? app.upgrade('25 photos per product') : app.toast('Ask your store owner for more photos per product'),
+        writeDesc: () => { if (!d.name.trim()) { app.toast('Add a name first so we know what to write about'); return; } if (!app.needAI()) return; this.upd({ desc: `${d.name} — made to be worn and loved. Soft to the touch, easy to care for, and cut for everyday comfort. Check it’s right before you save.` }); app.toast('Suggestion added — read it and change anything that isn’t true'); },
+        suggestFr: () => { if (!app.needAI()) return; const dict = { 'organic cotton tee': 'T-shirt en coton bio', 'mara linen shirt': 'Chemise en lin Mara', 'silk scarf': 'Foulard en soie', 'canvas tote': 'Sac cabas en toile', 'wool throw': 'Plaid en laine' }; this.upd(dd => ({ trans: { ...dd.trans, fr: { name: dict[dd.name.toLowerCase()] || dd.name + ' (FR)', desc: dd.desc ? 'Coton doux et épais, coupe légèrement ample. Ne rétrécit pas au lavage.' : '' } } })); app.toast('Suggested — read it before saving. It counts as translated once saved.'); },
+        stockMinus: () => this.upd(dd => ({ stock: String(Math.max(0, (Number(dd.stock) || 0) - 1)) })), stockPlus: () => this.upd(dd => ({ stock: String((Number(dd.stock) || 0) + 1) })),
+        toggleSplit: () => this.upd(dd => ({ split: !dd.split, stock2: dd.split ? '0' : dd.stock2 })),
+        adjust: () => app.modal({ title: 'Change stock with a reason', body: 'Shown in the stock history, so everyone knows why the number moved.', choices: [{ label: 'Received new stock', value: 'Received new stock' }, { label: 'Returned by a shopper', value: 'Returned' }, { label: 'Damaged or lost', value: 'Damaged' }, { label: 'Counted again', value: 'Counted again' }], input: { label: 'How many? Use − to remove, e.g. −2', placeholder: '+20', required: true, error: 'Type a number like +20 or −2' }, confirm: 'Apply',
+          onConfirm: val => { const n = parseInt(String(val).replace('−', '-'), 10) || 0; this.upd(dd => ({ stock: String(Math.max(0, (Number(dd.stock) || 0) + n)) })); app.toast(`Stock ${n >= 0 ? '+' : ''}${n} — press Save to keep it`); } }),
+        startOptions: () => { this.addOptionGroup('Size', R.sizes); },
+        generate: () => this.generate(),
+        allPrice: () => app.modal({ title: 'Set price for all versions', input: { label: R.priceLabel, placeholder: String(live[0] ? live[0].price : ''), required: true, error: 'Type a price' }, confirm: 'Apply to all', onConfirm: val => { this.upd(dd => ({ variants: dd.variants.map(v => v.removed ? v : { ...v, price: val }) })); app.toast(`All versions: ${fmt(num(val))}`); } }),
+        allStock: () => app.modal({ title: 'Set stock for all versions', input: { label: 'How many of each?', placeholder: '10', required: true, error: 'Type a number' }, confirm: 'Apply to all', onConfirm: val => this.upd(dd => ({ variants: dd.variants.map(v => v.removed ? v : { ...v, stock: String(parseInt(val, 10) || 0) }) })) }),
+        findCode: () => app.modal({ title: 'Find the ' + R.codeLabel.replace(' (optional)', ''), body: 'Describe the product in plain words. The first 6 digits are the same worldwide.', input: { label: 'What is it?', placeholder: 'e.g. cotton t-shirt', required: true, error: 'Type a few words' }, confirm: 'Find',
+          onConfirm: val => { const t = val.toLowerCase(); const code = /shirt|tee|t-shirt/.test(t) ? (R.key === 'IN' ? '6109' : '6109.10') : /kurta|dress/.test(t) ? '6211.42' : /mug|stoneware/.test(t) ? '6912.00' : /scarf|silk/.test(t) ? '6214.10' : '6307.90'; this.upd({ code }); app.toast(`Best match: ${code}. Check it with your accountant or courier if unsure.`); } }),
+        newColl: () => app.modal({ title: 'New hand-picked collection', input: { label: 'Name', placeholder: 'e.g. Summer Sale', required: true, error: 'Give it a name' }, confirm: 'Create', onConfirm: val => { const id = 'c' + Date.now(); app.setCollections(cs => [...cs, { id, name: val.trim(), type: 'manual', match: 'all', rules: [], productIds: d.isNew ? [] : [d.id], visible: true, parentId: null, inherit: false, desc: '' }]); app.toast(`“${val.trim()}” created${d.isNew ? '' : ' with this product in it'}`); } }),
+        addChartRows: () => { app.setSizeCharts(cs => cs.map(x => x.id === chart.id ? { ...x, rows: [...x.rows, ...chartMissing.map(sz => [sz, ...x.cols.slice(1).map(() => '')])] } : x)); app.toast(`Added ${chartMissing.join(', ')} to ${chart.name} — fill in the numbers in Size charts`); },
+        goCharts: () => app.go('collections', { collTab: 'sizecharts' }),
+        addFaq: () => this.upd(dd => ({ faqs: [...(dd.faqs || []), { q: '', a: '' }] })), toggleRelAuto: () => !roMost && this.upd(dd => ({ relatedAuto: !dd.relatedAuto })),
+        addSpec: () => this.upd(dd => ({ specs: [...dd.specs, { k: '', v: '', f: false }] })), addHl: () => this.upd(dd => ({ highlights: [...dd.highlights, ''] })),
+        openAplus: () => { if (d.isNew || dirty) { app.toast('Save the product first, then build its A+ content'); return; } if (!d.aplus.length && !app.within('aplusProducts', app.allProducts.filter(p => p.aplus && p.aplus.length).length, 'A+ content on products')) return; app.go('aplus', { editId: d.id }); },
+        upgradeAplus: () => app.upgrade('A+ content'), dismissTeaser: () => { this.setState({ teaserOff: true }); app.toast('Hidden. You can find A+ content in Settings › Catalogue.'); },
+        legalSettings: () => c.isOwner ? app.go('settings') : app.toast('Only the store owner can change store details')
+      }
+    };
+  }
+
+  pickVariantPhoto(match, label) {
+    const app = this.props.app; const d = this.state.d;
+    const ready = d.photos.filter(p => !p.uploading && !p.failed);
+    const current = d.variants.find(match);
+    const choices = [...ready.map((p, i) => ({ label: 'Photo ' + (i + 1) + (i === 0 ? ' · main photo' : ''), sub: p.alt || 'No description yet', value: p.id })), { label: 'Upload a new photo', sub: 'Adds it to the product’s photos too', value: '__new' }, ...(current && current.photoId ? [{ label: 'Use the main photo', sub: 'Remove this version’s own photo', value: '__none' }] : [])];
+    app.modal({ title: 'Photo for ' + label, body: 'Shoppers see this photo when they pick ' + label + '.', choices, confirm: 'Use this photo',
+      onConfirm: val => {
+        if (val === '__new') {
+          const id = 'ph' + Date.now();
+          this.upd(dd => ({ photos: [...dd.photos, { id, hue: Math.floor(Math.random() * 360), alt: '', uploading: true, pct: 0 }], variants: dd.variants.map(v => match(v) ? { ...v, photoId: id } : v) }));
+          this.startUpload(id, false);
+          return;
+        }
+        this.upd(dd => ({ variants: dd.variants.map(v => match(v) ? { ...v, photoId: val === '__none' ? null : val } : v) }));
+        app.toast(val === '__none' ? label + ' now uses the main photo' : 'Photo set for ' + label);
+      } });
+  }
+  addPhoto() {
+    const app = this.props.app;
+    const id = 'ph' + Date.now();
+    const hue = Math.floor(Math.random() * 360);
+    this.upd(dd => ({ photos: [...dd.photos, { id, hue, alt: '', uploading: true, pct: 0 }] }));
+    this.startUpload(id, false);
+  }
+  startUpload(id, retry) {
+    const app = this.props.app;
+    this._up = this._up || {};
+    clearInterval(this._up[id]);
+    const willFail = app.sim.uploadFail && !retry;
+    this.upd(dd => ({ photos: dd.photos.map(p => p.id === id ? { ...p, uploading: true, failed: false, pct: 0 } : p) }));
+    this._up[id] = setInterval(() => {
+      const ph = this.state.d.photos.find(p => p.id === id);
+      if (!ph) { clearInterval(this._up[id]); return; }
+      const pct = Math.min(100, (ph.pct || 0) + 20);
+      if (willFail && pct >= 60) { clearInterval(this._up[id]); this.upd(dd => ({ photos: dd.photos.map(p => p.id === id ? { ...p, uploading: false, failed: true } : p) })); return; }
+      if (pct >= 100) {
+        clearInterval(this._up[id]);
+        const name = this.state.d.name || 'Product';
+        this.upd(dd => ({ photos: dd.photos.map((p, i) => p.id === id ? { ...p, uploading: false, pct: 100, alt: p.alt || (i === 0 ? name + ' — front view' : '') } : p) }));
+        return;
+      }
+      this.upd(dd => ({ photos: dd.photos.map(p => p.id === id ? { ...p, pct } : p) }));
+    }, 280);
+  }
+}
+</script>
+</body>
+</html>

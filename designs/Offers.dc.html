@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./offers-lib.js"></script>
+</helmet>
+<sc-if value="{{ notFound }}" hint-placeholder-val="{{ false }}">
+  <div style="padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;color:#0A2A4A;">Page not found</span><span style="font-size:14px;color:#5A6472;">This page doesn’t exist or you don’t have access to it.</span></div>
+</sc-if>
+<sc-if value="{{ ready }}" hint-placeholder-val="{{ true }}">
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:18px;max-width:1180px;">
+
+  <sc-if value="{{ isList }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:4px;"><h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.02em;color:#0A2A4A;">Offers</h1><span style="font-size:14px;color:#5A6472;">Discounts on your store: money off, something free, or free {{ w.ship }}.</span></div>
+      <sc-if value="{{ canCreateBtn }}" hint-placeholder-val="{{ true }}"><sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}"><button onClick="{{ create }}" style="height:44px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Create offer</button></sc-if></sc-if>
+    </div>
+
+    <sc-for list="{{ notes }}" as="n" hint-placeholder-count="0">
+      <div role="status" style="padding:12px 14px;border-radius:10px;background:{{ n.bg }};border:1px solid {{ n.bd }};color:{{ n.fg }};font-size:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;"><span style="flex:1;min-width:220px;text-wrap:pretty;"><strong>{{ n.t }}</strong> {{ n.d }}</span><sc-if value="{{ n.hasCta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ n.on }}" style="height:36px;padding:0 12px;border:1px solid {{ n.bd }};border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ n.cta }}</button></sc-if></div>
+    </sc-for>
+
+    <sc-if value="{{ firstTime }}" hint-placeholder-val="{{ false }}">
+      <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:18px;">
+        <div style="display:flex;flex-direction:column;gap:4px;max-width:640px;"><h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:20px;color:#0A2A4A;">Give shoppers a reason to buy today</h2><span style="font-size:14px;color:#434A55;text-wrap:pretty;">An offer takes money off, gives something free or makes {{ w.ship }} free. It can apply by itself at checkout, or when a shopper types a code.</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:12px;">
+          <sc-for list="{{ types }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.on }}" style="display:flex;flex-direction:column;gap:8px;padding:16px;border:1px solid #D7D3CD;border-radius:12px;background:#FDFAF7;text-align:left;cursor:pointer;" style-hover="border-color:#EC844F;background:#FFFFFF;">
+              <span style="width:40px;height:40px;border-radius:10px;background:{{ t.tile }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:15px;">{{ t.glyph }}</span>
+              <strong style="font-family:Manrope,sans-serif;font-size:15px;color:#14181F;">{{ t.l }}</strong><span style="font-size:13px;color:#5A6472;">“{{ t.ex }}”</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;">Or start from a recipe</span>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;"><sc-for list="{{ recipes3 }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.on }}" style="flex:1 1 220px;display:flex;flex-direction:column;gap:2px;padding:12px 14px;border:1px solid #E8E2DC;border-radius:10px;background:#FFFFFF;text-align:left;cursor:pointer;" style-hover="border-color:#EC844F;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ r.l }}</strong><span style="font-size:12px;color:#5A6472;">{{ r.d }}</span></button></sc-for></div>
+        </div>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ hasOffers }}" hint-placeholder-val="{{ true }}">
+      <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <label style="flex:1 1 260px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:13px;">Check a code a customer gives you</span><input value="{{ chk }}" onChange="{{ onChk }}" placeholder="e.g. summer20" aria-label="Check a code" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-family:'IBM Plex Mono',monospace;font-size:14px;text-transform:uppercase;"></label>
+        <sc-if value="{{ hasChkRes }}" hint-placeholder-val="{{ false }}"><div style="flex:2 1 320px;padding:10px 12px;border-radius:8px;background:{{ chkRes.bg }};border:1px solid {{ chkRes.bd }};color:{{ chkRes.fg }};font-size:13px;display:flex;flex-direction:column;gap:2px;"><strong>{{ chkRes.t }}</strong><span style="text-wrap:pretty;">{{ chkRes.d }}</span><sc-if value="{{ chkRes.hasOpen }}" hint-placeholder-val="{{ false }}"><button onClick="{{ chkRes.open }}" style="align-self:flex-start;border:0;background:none;padding:0;color:#B8541F;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">Open offer →</button></sc-if></div></sc-if>
+      </section>
+
+      <div role="tablist" style="display:flex;gap:4px;border-bottom:1px solid #E8E2DC;overflow-x:auto;">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4"><button role="tab" onClick="{{ t.on }}" style="flex:none;min-height:44px;padding:0 14px;border:0;border-bottom:3px solid {{ t.bl }};background:none;color:{{ t.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;display:flex;gap:6px;align-items:center;">{{ t.l }}<span style="padding:1px 7px;border-radius:999px;background:#F4F2EF;color:#434A55;font-size:12px;">{{ t.n }}</span></button></sc-for>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search by name or code" aria-label="Search offers" style="flex:1 1 220px;max-width:340px;height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 12px;font-size:14px;background:#FFFFFF;">
+        <select value="{{ fType }}" onChange="{{ onFType }}" aria-label="Offer type" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;background:#FFFFFF;"><option value="all">All types</option><option value="products">Money off products</option><option value="order">Money off the order</option><option value="bxgy">Buy X, get Y</option><option value="shipping">Free {{ w.ship }}</option></select>
+        <select value="{{ fHow }}" onChange="{{ onFHow }}" aria-label="How shoppers get it" style="height:40px;border:1px solid #D7D3CD;border-radius:8px;padding:0 10px;font-size:14px;background:#FFFFFF;"><option value="all">Automatic and codes</option><option value="auto">Automatic only</option><option value="code">Codes only</option></select>
+      </div>
+
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+        <div style="position:sticky;top:64px;z-index:4;padding:10px 14px;border-radius:10px;background:#0A2A4A;color:#FFFFFF;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><strong style="flex:1;min-width:140px;font-size:14px;">{{ selL }}</strong><sc-for list="{{ bulk }}" as="b" hint-placeholder-count="4"><button onClick="{{ b.on }}" style="height:36px;padding:0 12px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;background:transparent;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ b.l }}</button></sc-for><button onClick="{{ clearSel }}" aria-label="Clear selection" style="width:36px;height:36px;border:0;background:none;color:#B8C7D6;font-size:18px;cursor:pointer;">×</button></div>
+      </sc-if>
+
+      <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ notPhone }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;"><div style="overflow-x:auto;"><div style="min-width:900px;">
+          <div style="display:grid;grid-template-columns:36px minmax(0,2.2fr) 130px minmax(0,1.3fr) 110px 120px 86px;gap:12px;padding:10px 16px;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#5A6472;background:#FDFAF7;border-bottom:1px solid #E8E2DC;"><span></span><span>Offer</span><span>Code</span><span>Status</span><span>Uses</span><span>Discount given</span><span></span></div>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:36px minmax(0,2.2fr) 130px minmax(0,1.3fr) 110px 120px 86px;gap:12px;padding:12px 16px;border-bottom:1px solid #F1EEEA;align-items:center;background:{{ r.rowBg }};">
+              <sc-if value="{{ r.canSel }}" hint-placeholder-val="{{ true }}"><input type="checkbox" checked="{{ r.sel }}" onChange="{{ r.toggleSel }}" aria-label="Select {{ r.name }}" style="width:18px;height:18px;"></sc-if><sc-if value="{{ r.noSel }}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
+              <button onClick="{{ r.open }}" style="border:0;background:none;padding:0;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ r.name }}</strong><span style="font-size:13px;color:#5A6472;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.what }}</span><sc-if value="{{ r.hasStack }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#6E4300;">⚠ {{ r.stack }}</span></sc-if><sc-if value="{{ r.hasWarn }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#A3261B;">{{ r.warn }}</span></sc-if></button>
+              <span><sc-if value="{{ r.isCode }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;padding:3px 7px;border-radius:5px;background:#F4F2EF;border:1px solid #E8E2DC;">{{ r.code }}</span></sc-if><sc-if value="{{ r.isAuto }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#434A55;">Automatic</span></sc-if></span>
+              <span style="display:flex;flex-direction:column;gap:3px;min-width:0;"><span style="align-self:flex-start;display:inline-flex;gap:6px;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid {{ r.st.bd }};background:{{ r.st.bg }};color:{{ r.st.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:12px;white-space:nowrap;"><span aria-hidden="true">{{ r.st.icon }}</span>{{ r.st.l }}</span><span style="font-size:12px;color:#5A6472;">{{ r.st.time }}</span></span>
+              <span style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-variant-numeric:tabular-nums;">{{ r.uses }}<sc-if value="{{ r.hasMeter }}" hint-placeholder-val="{{ false }}"><span style="height:4px;border-radius:2px;background:#EDEAE5;overflow:hidden;"><span style="display:block;height:100%;width:{{ r.pct }};background:{{ r.mc }};"></span></span></sc-if></span>
+              <span style="font-size:13px;font-variant-numeric:tabular-nums;">{{ r.given }}</span>
+              <button onClick="{{ r.more }}" aria-label="Actions for {{ r.name }}" style="height:34px;padding:0 10px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Actions</button>
+            </div>
+          </sc-for>
+        </div></div></div>
+        </sc-if>
+        <sc-if value="{{ isPhone }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+              <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;"><span style="display:inline-flex;gap:6px;align-items:center;padding:3px 9px;border-radius:999px;border:1px solid {{ r.st.bd }};background:{{ r.st.bg }};color:{{ r.st.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:12px;"><span aria-hidden="true">{{ r.st.icon }}</span>{{ r.st.l }}</span><span style="font-size:12px;color:#5A6472;text-align:right;">{{ r.st.time }}</span></div>
+                <button onClick="{{ r.open }}" style="border:0;background:none;padding:0;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;"><strong style="font-family:Manrope,sans-serif;font-size:15px;color:#14181F;">{{ r.name }}</strong><span style="font-size:13px;color:#5A6472;">{{ r.what }}</span></button>
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;"><span style="font-family:'IBM Plex Mono',monospace;">{{ r.codeOrAuto }}</span><span style="color:#434A55;">{{ r.uses }} · {{ r.given }}</span></div>
+                <sc-if value="{{ r.hasStack }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#6E4300;">⚠ {{ r.stack }}</span></sc-if>
+                <button onClick="{{ r.more }}" style="height:44px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Actions</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}"><div style="padding:36px 20px;border:1px dashed #D7D3CD;border-radius:12px;background:#FFFFFF;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">{{ empty.t }}</strong><span style="font-size:14px;color:#5A6472;max-width:420px;text-wrap:pretty;">{{ empty.d }}</span><sc-if value="{{ empty.hasCta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ empty.on }}" style="margin-top:4px;height:40px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ empty.cta }}</button></sc-if></div></sc-if>
+    </sc-if>
+
+    <sc-if value="{{ fab }}" hint-placeholder-val="{{ false }}"><button onClick="{{ create }}" style="position:sticky;bottom:16px;align-self:flex-end;height:52px;padding:0 20px;border:0;border-radius:26px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:800;font-size:15px;box-shadow:0 12px 24px -10px rgba(0,0,0,0.4);cursor:pointer;">+ Create offer</button></sc-if>
+  </sc-if>
+
+  <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
+    <nav aria-label="Breadcrumb" style="display:flex;gap:6px;font-size:13px;color:#5A6472;"><button onClick="{{ back }}" style="border:0;background:none;padding:0;color:#B8541F;cursor:pointer;">Offers</button><span>/</span><span>{{ v.name }}</span></nav>
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:8px;min-width:0;max-width:720px;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><h1 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:26px;letter-spacing:-0.02em;color:#0A2A4A;">{{ v.name }}</h1><span style="display:inline-flex;gap:6px;align-items:center;padding:3px 10px;border-radius:999px;border:1px solid {{ v.st.bd }};background:{{ v.st.bg }};color:{{ v.st.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:13px;"><span aria-hidden="true">{{ v.st.icon }}</span>{{ v.st.l }}</span></div>
+        <span style="font-size:13px;color:#5A6472;">{{ v.st.time }} · {{ v.tz }}</span>
+        <p style="margin:0;padding:12px 14px;border-radius:10px;background:#FDFAF7;border:1px solid #E8E2DC;font-size:15px;color:#14181F;text-wrap:pretty;">{{ v.sentence }}</p>
+      </div>
+      <sc-if value="{{ v.canAct }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ v.acts }}" as="a" hint-placeholder-count="4"><button onClick="{{ a.on }}" style="height:40px;padding:0 14px;border:{{ a.bd }};border-radius:8px;background:{{ a.bg }};color:{{ a.fg }};font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ a.l }}</button></sc-for></div>
+      </sc-if>
+    </div>
+    <sc-if value="{{ v.hasWarn }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:10px 14px;border-radius:10px;background:#FBF1DC;border:1px solid #E3C27E;color:#6E4300;font-size:13px;text-wrap:pretty;">{{ v.warn }}</div></sc-if>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr));gap:18px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;"><h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Results</h2><span style="font-size:12px;color:#5A6472;">Last 14 days · {{ v.cur }}</span></div>
+          <sc-if value="{{ v.resLocked }}" hint-placeholder-val="{{ false }}"><div style="padding:16px;border-radius:10px;background:#FDFAF7;border:1px dashed #C9C3BC;display:flex;flex-direction:column;gap:6px;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">Results are on Growth</strong><span style="font-size:13px;color:#5A6472;">See uses, discount given and sales for every offer. This offer still counts its uses: {{ v.uses }}.</span><button onClick="{{ v.upgrade }}" style="align-self:flex-start;height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ v.upgradeL }}</button></div></sc-if>
+          <sc-if value="{{ v.resOpen }}" hint-placeholder-val="{{ true }}">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;"><sc-for list="{{ v.tiles }}" as="t" hint-placeholder-count="5"><div style="padding:12px;border:1px solid #E8E2DC;border-radius:10px;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:#5A6472;">{{ t.l }}</span><strong style="font-family:Manrope,sans-serif;font-weight:800;font-size:19px;font-variant-numeric:tabular-nums;">{{ t.v }}</strong></div></sc-for></div>
+            <div aria-label="Uses per day" style="display:flex;gap:4px;align-items:flex-end;height:80px;padding-top:8px;border-bottom:1px solid #E8E2DC;"><sc-for list="{{ v.bars }}" as="b" hint-placeholder-count="14"><span title="{{ b.t }}" style="flex:1;height:{{ b.h }};background:{{ b.c }};border-radius:3px 3px 0 0;"></span></sc-for></div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#8A919B;"><span>{{ v.d0 }}</span><span>Today</span></div>
+            <span style="font-size:12px;color:#5A6472;text-wrap:pretty;">Sales with this offer are orders that used it. We don’t estimate sales the offer caused.</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ v.seeOrders }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">See orders with this offer</button><button onClick="{{ v.exportCsv }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Export uses (CSV)</button></div>
+          </sc-if>
+        </section>
+        <sc-if value="{{ v.hasBulk }}" hint-placeholder-val="{{ false }}">
+          <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Single-use codes</h2></div>
+            <span style="font-size:14px;">{{ v.bulkL }}</span>
+            <button onClick="{{ v.dlCodes }}" style="align-self:flex-start;height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Download codes (CSV)</button>
+          </section>
+        </sc-if>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+        <sc-if value="{{ v.isCode }}" hint-placeholder-val="{{ true }}">
+          <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Share the code</h2>
+            <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;">
+              <div aria-label="QR code for {{ v.code }}" style="width:112px;height:112px;flex:none;padding:6px;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:8px;display:grid;grid-template-columns:repeat(21,1fr);"><sc-for list="{{ v.qr }}" as="q" hint-placeholder-count="0"><span style="background:{{ q }};"></span></sc-for></div>
+              <div style="display:flex;flex-direction:column;gap:8px;min-width:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;letter-spacing:0.06em;">{{ v.code }}</span><div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ v.copyCode }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Copy code</button><button onClick="{{ v.copyLink }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;display:flex;gap:6px;align-items:center;">Copy link</button><button onClick="{{ v.dlQr }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Download QR for print</button></div><span style="font-size:12px;color:#5A6472;overflow-wrap:anywhere;">{{ v.link }}</span></div>
+            </div>
+          </section>
+        </sc-if>
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px;">
+          <h2 style="margin:0 0 6px;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Details</h2>
+          <sc-for list="{{ v.kv }}" as="r" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:minmax(120px,0.8fr) minmax(0,1.5fr);gap:12px;padding:7px 0;border-top:1px solid #F1EEEA;font-size:13px;"><span style="color:#5A6472;">{{ r.k }}</span><span style="overflow-wrap:anywhere;">{{ r.v }}</span></div></sc-for>
+        </section>
+        <section style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:4px;">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><h2 style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:16px;">Changes</h2></div>
+          <sc-for list="{{ v.hist }}" as="h" hint-placeholder-count="2"><div style="padding:7px 0;border-top:1px solid #F1EEEA;display:flex;flex-direction:column;gap:2px;font-size:13px;"><span>{{ h.what }}</span><span style="font-size:12px;color:#5A6472;">{{ h.who }} · {{ h.when }}</span></div></sc-for>
+        </section>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showSpec }}" hint-placeholder-val="{{ false }}">
+    <section style="border:1px dashed #9FB8D1;border-radius:12px;background:#F4F8FB;padding:16px;display:flex;flex-direction:column;gap:12px;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#00325F;">For engineers · {{ spec.t }}</span>
+      <div style="overflow-x:auto;"><div style="min-width:560px;"><sc-for list="{{ spec.map }}" as="m" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:10px;padding:6px 0;border-top:1px solid #D6E3EF;font-size:12px;"><strong style="font-family:Manrope,sans-serif;">{{ m.c }}</strong><span style="font-family:'IBM Plex Mono',monospace;color:#434A55;">{{ m.v }}</span></div></sc-for></div></div>
+      <div style="display:flex;flex-direction:column;gap:4px;"><sc-for list="{{ spec.sc }}" as="c" hint-placeholder-count="5"><span style="font-size:12px;display:flex;gap:8px;"><span style="color:{{ c.fg }};font-weight:700;">{{ c.m }}</span><span style="font-family:'IBM Plex Mono',monospace;color:#00325F;min-width:28px;">{{ c.k }}</span><span>{{ c.t }}</span></span></sc-for></div>
+    </section>
+  </sc-if>
+</div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;app&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
+class Component extends DCLogic {
+  state = { tab: 'live', q: '', fType: 'all', fHow: 'all', sel: {}, chk: '', libOk: !!window.DFOffers };
+
+  componentDidMount() { if (!window.DFOffers) this._t = setInterval(() => { if (window.DFOffers) { clearInterval(this._t); this.setState({ libOk: true }); } }, 60); this.sync(); }
+  componentDidUpdate() { this.sync(); }
+  componentWillUnmount() { clearInterval(this._t); }
+  key() { const a = this.props.app; return a.R.key + ':' + a.st.dataset; }
+  sync() {
+    const app = this.props.app; const L = window.DFOffers; if (!app || !L) return;
+    const k = this.key(); const by = app.st.offersBy || {};
+    if (!by[k]) { app.set('offersBy', m => ({ ...(m || {}), [k]: app.st.dataset === 'stocked' ? L.seed(app.R, app.allProducts) : [] })); return; }
+    if (!(app.st.offerGroupsBy || {})[k]) app.set('offerGroupsBy', m => ({ ...(m || {}), [k]: app.st.dataset === 'stocked' ? [{ id: 'g1', name: 'VIP', count: 12 }, { id: 'g2', name: 'Wholesale', count: 5 }] : [] }));
+    if (app.caps.readOnly && by[k].some(o => o.enabled && !o.deleted)) app.set('offersBy', m => ({ ...m, [k]: m[k].map(o => o.enabled ? { ...o, enabled: false, pausedNote: 'Turned off when payment failed', history: [['System', 'Today', 'Turned off: payment didn’t go through'], ...(o.history || [])] } : o) }));
+  }
+  upd(fn) { const app = this.props.app; const k = this.key(); app.set('offersBy', m => ({ ...m, [k]: fn(m[k]) })); }
+
+  renderVals() {
+    const app = this.props.app; const L = window.DFOffers;
+    if (!app) return { ready: false, notFound: false };
+    const c = app.caps;
+    if (c.isVendor) return { ready: false, notFound: true };
+    if (!L || !(app.st.offersBy || {})[this.key()]) return { ready: false, notFound: false };
+    const s = this.state; const R = app.R; const fmt = app.fmt; const w = L.W(R.key); const phone = app.phone;
+    const all = app.st.offersBy[this.key()].filter(o => !o.deleted);
+    const groups = (app.st.offerGroupsBy || {})[this.key()] || [];
+    const products = app.allProducts; const ctx = { R, fmt, products, groups };
+    const canManage = c.isOwner || c.isManager; const canEdit = canManage && !c.readOnly;
+    const rank = { free: 0, starter: 1, growth: 2, business: 3, enterprise: 4 }[c.P.key] ?? 3;
+    const growth = rank >= 2;
+    const liveN = all.filter(o => { const k = L.status(o, R).k; return ['live', 'ending', 'scheduled'].includes(k); }).length;
+    const atLimit = !growth && liveN >= 3;
+    const tz = L.TZ[R.key];
+    const view = app.st.offerView;
+    const go = (sc, x) => app.go(sc, x);
+    const newOffer = (type, recipe) => { if (!canEdit) return; go('offer', { offerId: null, offerNew: { type, recipe }, offerNonce: (app.st.offerNonce || 0) + 1 }); };
+    const edit = o => go('offer', { offerId: o.id, offerNew: null, offerNonce: (app.st.offerNonce || 0) + 1 });
+    const upgrade = f => app.upgradeTo ? app.upgradeTo(f, 'growth') : app.upgrade(f);
+    const hist = (o, what) => [[c.isOwner ? 'Farhan Ali' : 'Priya Shah', 'Just now', what], ...(o.history || [])];
+
+    const stackWith = o => { const st = L.status(o, R).k; if (!['live', 'ending', 'scheduled'].includes(st)) return []; return all.filter(x => x.id !== o.id && ['live', 'ending', 'scheduled'].includes(L.status(x, R).k) && x.type !== 'shipping' && o.type !== 'shipping' && (x.type === 'order' || o.type === 'order' || L.targets(o, products).some(p => L.matches(x, p)))); };
+    const what = o => ({ products: (o.kind === 'fixed' ? fmt(o.value) + ' off each line' : o.value + '% off') + ' · ' + (o.target === 'filter' && o.filter ? o.filter.value : o.target === 'collection' ? (o.collName || 'Collection') : L.targets(o, products).length + ' products'), order: (o.tiers && o.tiers.length ? 'Tiered' : o.kind === 'fixed' ? fmt(o.value) + ' off' : o.value + '% off') + ' the order' + (o.min === 'amount' && o.minAmount ? ' · over ' + fmt(o.minAmount) : ''), bxgy: 'Buy ' + o.buyN + ', get ' + o.getM + ' free', shipping: 'Free ' + w.ship + (o.min === 'amount' && o.minAmount ? ' over ' + fmt(o.minAmount) : '') })[o.type] + (o.who === 'groups' ? ' · ' + o.groupIds.map(g => (groups.find(x => x.id === g) || {}).name).join(', ') : '');
+
+    const toggleOn = o => {
+      const st = L.status(o, R);
+      if (!canEdit) return;
+      if (o.enabled) {
+        const today = (o.daily || [])[13] || 0;
+        app.modal({ title: 'Turn off ' + o.name + '?', body: (today ? 'Used ' + today + (today === 1 ? ' time' : ' times') + ' today. ' : '') + 'Shoppers who have it in their cart lose the discount the next time their cart changes. Orders already placed keep it.\nYou can turn it back on at any time.', confirm: 'Turn off', danger: true, onConfirm: () => { this.upd(l => l.map(x => x.id === o.id ? { ...x, enabled: false, pausedNote: '', history: hist(x, 'Turned off') } : x)); app.toast(o.name + ' is off.', 'Undo', () => this.upd(l => l.map(x => x.id === o.id ? { ...x, enabled: true } : x))); } });
+      } else {
+        if (o.ends && L.pd(o.ends) < L.NOW) { app.modal({ title: o.name + ' has already ended', body: 'Its end date, ' + L.fmtD(o.ends, R, true) + ', has passed. Change the end date to run it again, or duplicate it to rerun it as a new offer.', confirm: 'Change dates', onConfirm: () => edit(o), alt: 'Duplicate', onAlt: () => dup(o) }); return; }
+        if (atLimit) { upgrade('More than 3 live offers'); return; }
+        this.upd(l => l.map(x => x.id === o.id ? { ...x, enabled: true, pausedNote: '', history: hist(x, 'Turned on') } : x)); app.toast(o.name + ' is on. ' + (o.starts && L.pd(o.starts) > L.NOW ? 'It starts ' + L.fmtD(o.starts, R, true) + '.' : 'Shoppers get it now.'));
+      }
+    };
+    const endNow = o => app.modal({ title: 'End ' + o.name + ' now?', body: 'This sets its end date to now (' + L.fmtD(L.iso(L.NOW), R, true) + ', ' + tz + '). Carts lose it the next time they change; placed orders keep it.\nOff is a pause you can undo; ending is meant to be final. To run it again later, duplicate it.', confirm: 'End now', danger: true, onConfirm: () => { this.upd(l => l.map(x => x.id === o.id ? { ...x, ends: L.iso(L.NOW), history: hist(x, 'Ended early') } : x)); app.toast(o.name + ' has ended.'); } });
+    const dup = o => { if (!canEdit) return; const id = 'o' + Date.now().toString(36); this.upd(l => [{ ...o, id, name: 'Copy of ' + o.name, code: '', enabled: false, used: 0, given: 0, sales: 0, orders: 0, daily: Array(14).fill(0), starts: null, ends: null, bulk: o.bulk ? { ...o.bulk, used: 0 } : null, pausedNote: '', history: [[c.isOwner ? 'Farhan Ali' : 'Priya Shah', 'Just now', 'Copied from ' + o.name]] }, ...l]); app.toast('Copy made. It’s off, with no code or dates yet.', 'Edit it', () => go('offer', { offerId: id, offerNew: null, offerNonce: (app.st.offerNonce || 0) + 1 })); };
+    const del = o => app.modal({ title: 'Delete ' + o.name + '?', body: 'We suggest ending it instead: it stays in your list with its results.\nDeleting removes it from your list. Orders already placed keep their discount.' + (o.how === 'code' ? ' The code ' + o.code + ' stays reserved, so it can’t be reused.' : ''), confirm: 'Delete', danger: true, alt: L.status(o, R).group === 'ended' ? '' : 'End it instead', onAlt: () => endNow(o), onConfirm: () => { this.upd(l => l.map(x => x.id === o.id ? { ...x, deleted: true, enabled: false } : x)); if (view === o.id) go('offers', { offerView: null }); app.toast(o.name + ' deleted.'); } });
+    const copyCode = o => app.toast(o.code + ' copied.');
+    const more = o => {
+      const st = L.status(o, R);
+      const ch = canEdit ? [
+        { label: 'Edit', sub: 'Change what shoppers get, dates and limits', value: 'edit' },
+        { label: o.enabled ? 'Turn off' : 'Turn on', sub: o.enabled ? 'Pause it without deleting anything' : 'Start giving it again', value: 'toggle' },
+        { label: 'Duplicate', sub: 'Off, with no code — the way to rerun a sale', value: 'dup' },
+        ...(o.how === 'code' ? [{ label: 'Copy code', sub: o.code, value: 'copy' }] : []),
+        { label: 'View results', sub: 'Uses, discount given, sales', value: 'view' },
+        ...(st.group !== 'ended' ? [{ label: 'End now', sub: 'Sets the end date to now', value: 'end' }] : []),
+        { label: 'Delete', sub: 'Removes it from your list', value: 'del' }
+      ] : [{ label: 'View', sub: 'See how it works', value: 'view' }, ...(o.how === 'code' ? [{ label: 'Copy code', sub: o.code, value: 'copy' }] : [])];
+      app.modal({ title: o.name, body: L.sentence(o, ctx), choices: ch, confirm: 'Go', onConfirm: v => ({ edit: () => edit(o), toggle: () => toggleOn(o), dup: () => dup(o), copy: () => copyCode(o), view: () => go('offers', { offerView: o.id }), end: () => endNow(o), del: () => del(o) })[v]() });
+    };
+
+    const R3 = this.recipes(R, w, fmt).slice(0, 3).map(r => ({ ...r, on: () => newOffer(r.type, r.id) }));
+    const TYPES = [['products', 'Money off products', '20% off the Summer collection', '%', '#0A2A4A'], ['order', 'Money off the order', fmt(R.mult(10)) + ' off orders over ' + fmt(R.mult(50)), '−', '#00519F'], ['bxgy', 'Buy X, get Y', 'Buy 2 T-shirts, get 1 free', '2+1', '#8F4017'], ['shipping', 'Free ' + w.ship, 'Free ' + w.ship + ' over ' + fmt(R.mult(40)), '⇢', '#1D6B47']].map(([k, l, ex, glyph, tile]) => ({ l, ex, glyph, tile, on: () => newOffer(k) }));
+
+    // notes
+    const notes = [];
+    if (c.readOnly) notes.push({ t: 'Your offers are off.', d: 'They were turned off when your payment didn’t go through, and your store is view-only. Once billing is sorted, turn back on the ones you want.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: c.isOwner ? 'Go to billing' : '', on: () => go('billing') });
+    if (c.isStaff) notes.push({ t: 'View only.', d: 'You can see offers and check a code a customer gives you. Only the owner or a manager can change them.', bg: '#EAF1F8', bd: '#C6D9EC', fg: '#00325F', cta: '' });
+    if (!growth && canManage && !c.readOnly) notes.push({ t: liveN + ' of 3 live offers on ' + c.P.name + '.', d: atLimit ? 'Turn one off, or move to Growth for unlimited offers, customer-group offers, tiers, single-use codes and results.' : 'Growth adds unlimited offers, customer-group offers, tiers, single-use codes and results.', bg: atLimit ? '#FFF6E5' : '#FDFAF7', bd: atLimit ? '#F2D9A6' : '#E8E2DC', fg: atLimit ? '#7A4B00' : '#434A55', cta: c.isOwner ? 'See Growth' : '', on: () => upgrade('Unlimited offers') });
+    if (app.sim.offline) notes.push({ t: 'You’re offline.', d: 'Offers shown may be out of date. Changes wait until you’re back.', bg: '#5A6472', bd: '#5A6472', fg: '#FFFFFF', cta: '' });
+    notes.forEach(n => { n.hasCta = !!n.cta; });
+
+    // code checker
+    let chkRes = null; const cq = s.chk.trim().toUpperCase();
+    if (cq.length >= 2) {
+      const hit = app.st.offersBy[this.key()].find(o => o.how === 'code' && (o.code || '').toUpperCase() === cq);
+      if (!hit) chkRes = { t: cq + ' isn’t one of your codes.', d: 'Check the spelling. Codes aren’t case-sensitive: summer20 and SUMMER20 are the same.', bg: '#FBE9E7', bd: '#E7B3AC', fg: '#A3261B' };
+      else if (hit.deleted) chkRes = { t: cq + ' was deleted.', d: 'It no longer works. Shoppers see “This code isn’t valid”.', bg: '#F4F2EF', bd: '#D7D3CD', fg: '#434A55' };
+      else { const st = L.status(hit, R); const T = { live: ['works now.', ''], ending: ['works now.', ' ' + st.time + '.'], scheduled: ['doesn’t work yet.', ' ' + st.time + '. Shoppers see “This code isn’t valid”.'], off: ['is turned off.', ' Shoppers see “This code isn’t valid”.'], ended: ['has ended.', ' ' + st.time + '. Shoppers see “This code has expired”.'], usedup: ['is used up.', ' All ' + hit.total + ' uses are gone. Shoppers see “This code can’t be used any more”.'] }[st.k];
+        const extra = hit.min === 'amount' && hit.minAmount ? ' Needs an order of ' + fmt(hit.minAmount) + ' or more.' : ''; const once = hit.perCust === 1 && ['live', 'ending'].includes(st.k) ? ' Each shopper can use it once.' : ''; const grp = hit.who === 'groups' ? ' Only for ' + hit.groupIds.map(g => (groups.find(x => x.id === g) || {}).name).join(', ') + ' customers.' : '';
+        chkRes = { t: hit.code + ' ' + T[0], d: hit.name + '.' + T[1] + extra + once + grp, bg: st.bg, bd: st.bd, fg: st.fg, hasOpen: true, open: () => go('offers', { offerView: hit.id }) }; }
+    }
+
+    // list
+    const TAB = [['live', 'Live'], ['scheduled', 'Scheduled'], ['off', 'Off'], ['ended', 'Ended']];
+    const cnt = k => all.filter(o => L.status(o, R).group === k).length;
+    const tabs = TAB.map(([k, l]) => ({ l, n: String(cnt(k)), bl: s.tab === k ? '#EC844F' : 'transparent', fg: s.tab === k ? '#0A2A4A' : '#5A6472', on: () => this.setState({ tab: k, sel: {} }) }));
+    const q = s.q.trim().toLowerCase();
+    const listed = all.filter(o => L.status(o, R).group === s.tab && (s.fType === 'all' || o.type === s.fType) && (s.fHow === 'all' || o.how === s.fHow) && (!q || o.name.toLowerCase().includes(q) || (o.code || '').toLowerCase().includes(q)));
+    const rows = listed.map(o => { const st = L.status(o, R); const sw = stackWith(o); const pct = o.total ? Math.min(100, Math.round(o.used / o.total * 100)) : 0;
+      const warn = '';
+      return { name: o.name, what: what(o), st, isCode: o.how === 'code', isAuto: o.how !== 'code', code: o.bulk && o.bulk.on ? (o.bulk.prefix || '') + '… ×' + o.bulk.count : o.code, codeOrAuto: o.how === 'code' ? o.code : 'Automatic', uses: o.total ? o.used + ' / ' + o.total : o.used + (o.used === 1 ? ' use' : ' uses'), hasMeter: !!o.total, pct: pct + '%', mc: pct >= 100 ? '#8F4017' : pct > 80 ? '#D9A43A' : '#0A2A4A', given: fmt(o.given),
+        hasStack: sw.length > 0, stack: 'Stacks with ' + (sw.length === 1 ? sw[0].name : sw.length + ' live offers'), hasWarn: !!warn, warn,
+        canSel: canEdit, noSel: !canEdit, sel: !!s.sel[o.id], toggleSel: () => this.setState(x => ({ sel: { ...x.sel, [o.id]: !x.sel[o.id] } })), rowBg: s.sel[o.id] ? '#F4F8FB' : '#FFFFFF',
+        open: () => go('offers', { offerView: o.id }), more: () => more(o) }; });
+    const selIds = Object.keys(s.sel).filter(k => s.sel[k] && listed.some(o => o.id === k));
+    const selOffers = all.filter(o => selIds.includes(o.id));
+    const names = selOffers.map(o => o.name).join(', ');
+    const bulk = [
+      ...(selOffers.some(o => o.enabled) ? [['Turn off', () => app.modal({ title: 'Turn off ' + selIds.length + (selIds.length === 1 ? ' offer?' : ' offers?'), body: names + '.\nShoppers with them in their cart lose the discount at their next cart change.', confirm: 'Turn off', danger: true, onConfirm: () => { this.upd(l => l.map(x => selIds.includes(x.id) ? { ...x, enabled: false, history: hist(x, 'Turned off (bulk)') } : x)); this.setState({ sel: {} }); app.toast(selIds.length + ' turned off.'); } })]] : []),
+      ...(s.tab !== 'ended' ? [['End now', () => app.modal({ title: 'End ' + selIds.length + (selIds.length === 1 ? ' offer' : ' offers') + ' now?', body: names + '.\nTheir end date becomes now. To run them again, duplicate them.', confirm: 'End now', danger: true, onConfirm: () => { this.upd(l => l.map(x => selIds.includes(x.id) ? { ...x, ends: L.iso(L.NOW), history: hist(x, 'Ended early (bulk)') } : x)); this.setState({ sel: {} }); app.toast(selIds.length + ' ended.'); } })]] : []),
+      ['Delete', () => app.modal({ title: 'Delete ' + selIds.length + (selIds.length === 1 ? ' offer?' : ' offers?'), body: names + '.\nPlaced orders keep their discount. Codes stay reserved.', confirm: 'Delete', danger: true, onConfirm: () => { this.upd(l => l.map(x => selIds.includes(x.id) ? { ...x, deleted: true, enabled: false } : x)); this.setState({ sel: {} }); app.toast(selIds.length + ' deleted.'); } })],
+      ['Export', () => app.toast('offers-' + s.tab + '.csv downloaded · ' + selIds.length + ' rows')]
+    ].map(([l, on]) => ({ l, on }));
+    const EMPTY = { live: ['No live offers', 'Nothing is being discounted right now. Create one, or turn on an offer from the Off tab.', 'Create offer'], scheduled: ['No scheduled offers', 'Plan your ' + (L.events(R)[0][0]) + ' sale ahead: set the dates now, and it starts by itself.', 'Plan one'], off: ['Nothing is switched off', 'Offers you pause appear here, ready to turn back on.', ''], ended: ['No ended offers yet', 'Past offers stay here with their results, so you can rerun them.', ''] }[s.tab];
+    const filtered = q || s.fType !== 'all' || s.fHow !== 'all';
+    const empty = filtered ? { t: 'No offers match', d: 'Try another name or code, or clear the filters.', cta: 'Clear filters', hasCta: true, on: () => this.setState({ q: '', fType: 'all', fHow: 'all' }) } : { t: EMPTY[0], d: EMPTY[1], cta: canEdit ? EMPTY[2] : '', hasCta: canEdit && !!EMPTY[2], on: () => s.tab === 'scheduled' ? newOffer('order', 'seasonal') : this.createGuard(newOffer, atLimit, upgrade) };
+
+    // view
+    let v = {}; const vo = view ? all.find(o => o.id === view) : null;
+    if (vo) {
+      const st = L.status(vo, R); const sw = stackWith(vo);
+      const mx = Math.max(1, ...(vo.daily || [0]));
+      const tile = (l, x) => ({ l, v: x });
+      const acts = canEdit ? [
+        { l: 'Edit', on: () => edit(vo), bg: '#EC844F', fg: '#4A1B0C', bd: '0' },
+        { l: vo.enabled ? 'Turn off' : 'Turn on', on: () => toggleOn(vo), bg: '#FFFFFF', fg: '#14181F', bd: '1px solid #D7D3CD' },
+        ...(st.group !== 'ended' ? [{ l: 'End now', on: () => endNow(vo), bg: '#FFFFFF', fg: '#14181F', bd: '1px solid #D7D3CD' }] : []),
+        { l: 'Duplicate', on: () => dup(vo), bg: '#FFFFFF', fg: '#14181F', bd: '1px solid #D7D3CD' },
+        { l: 'Delete', on: () => del(vo), bg: '#FFFFFF', fg: '#A3261B', bd: '1px solid #E7B3AC' }
+      ] : [];
+      const qr = []; let h = 0; for (const ch of (vo.code || 'X')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) { const fin = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13); let on; if (fin) { const fx = x > 13 ? x - 14 : x, fy = y > 13 ? y - 14 : y; on = fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx >= 2 && fx <= 4 && fy >= 2 && fy <= 4); } else { h = (h * 1103515245 + 12345) >>> 0; on = (h >> 16) & 1; } qr.push(on ? '#14181F' : '#FFFFFF'); }
+      const WHO = { all: 'Everyone', groups: (vo.groupIds || []).map(g => (groups.find(x => x.id === g) || {}).name + ' (' + ((groups.find(x => x.id === g) || {}).count || 0) + ' customers)').join(', '), first: 'First order only', customers: (vo.custIds || []).length + ' chosen customers', market: (vo.market || '') + ' shoppers only' };
+      v = { name: vo.name, st, tz, sentence: L.sentence(vo, ctx), canAct: acts.length > 0, acts, cur: R.cur,
+        warn: sw.length ? 'This stacks with ' + sw.map(x => x.name).join(', ') + '. Shoppers can get both discounts on the same cart.' : '',
+        resLocked: !growth, resOpen: growth, uses: String(vo.used), upgrade: () => upgrade('Offer results'), upgradeL: c.isOwner ? 'See Growth' : 'Ask your store owner',
+        tiles: [tile('Uses', vo.total ? vo.used + ' of ' + vo.total : String(vo.used)), tile('Orders', String(vo.orders)), tile('Discount given', fmt(vo.given)), tile('Sales with this offer', fmt(vo.sales)), tile('Average order', vo.orders ? fmt(Math.round(vo.sales / vo.orders * 100) / 100) : '—')],
+        bars: (vo.daily || []).map((n, i) => ({ h: Math.max(2, Math.round(n / mx * 72)) + 'px', c: i === 13 ? '#EC844F' : '#9FB8D1', t: n + ' uses' })), d0: L.short(L.iso(new Date(L.NOW.getTime() - 13 * 864e5)), R),
+        seeOrders: () => go('orders'), exportCsv: () => app.toast((vo.code || 'offer') .toLowerCase() + '-uses.csv downloaded · order, customer, code, discount'),
+        hasBulk: !!(vo.bulk && vo.bulk.on), bulkL: vo.bulk ? vo.bulk.count + ' codes · ' + (vo.bulk.used || 0) + ' used · ' + (vo.bulk.count - (vo.bulk.used || 0)) + ' unused · prefix ' + vo.bulk.prefix : '', dlCodes: () => app.toast('codes.csv downloaded · ' + (vo.bulk ? vo.bulk.count : 0) + ' codes'),
+        isCode: vo.how === 'code' && !(vo.bulk && vo.bulk.on), code: vo.code, qr, copyCode: () => copyCode(vo), copyLink: () => app.toast('Link copied: ' + R.domain + '/?code=' + vo.code), dlQr: () => app.toast(vo.code + '-qr.png downloaded (print size)'), link: 'https://' + R.domain + '/?code=' + vo.code,
+        kv: [['Type', { products: 'Money off products', order: 'Money off the order', bxgy: 'Buy X, get Y', shipping: 'Free ' + w.ship }[vo.type]], ['How shoppers get it', vo.how === 'code' ? 'With a ' + w.code : 'Automatic at checkout'], ['Name shoppers see', vo.name], ['Who it’s for', WHO[vo.who] || 'Everyone'], ['Starts', vo.starts ? L.fmtD(vo.starts, R, true) + ' (' + tz + ')' : 'When turned on'], ['Ends', vo.ends ? L.fmtD(vo.ends, R, true) + ' (' + tz + ')' : 'No end date'], ['Total uses', vo.total ? String(vo.total) : 'Unlimited'], ['Uses per customer', vo.perCust ? String(vo.perCust) : 'Unlimited'], ...(vo.note ? [['Note for your team', vo.note]] : [])].map(([k, x]) => ({ k, v: x })),
+        hist: (vo.history || []).map(([who, when, what]) => ({ who, when, what }))
+      };
+    }
+
+    const SPECS = {
+      list: { t: 'Offers list', map: [['Row', 'GET /offers → { name, codes[], enabled, startsAt, endsAt, repeat, totalLimit, perCustomerLimit, usage }'], ['Status', 'derived server-side: enabled + dates + repeat window + uses vs limit (48 h = ending soon)'], ['Uses, discount given', 'offer_stats (materialised from order_discount rows, store currency)'], ['Check a code', 'GET /offers/lookup?code= (case-insensitive, includes deleted)'], ['Turn off / on', 'PATCH /offers/:id { enabled }'], ['End now', 'PATCH /offers/:id { endsAt: now }'], ['Delete', 'DELETE /offers/:id (soft; code stays reserved)'], ['Duplicate', 'POST /offers/:id/duplicate → enabled false, no code, usage reset'], ['Stacks with', 'server overlap check honouring combines rules'], ['Live-offer limit', 'plan gate: Free = 3 live (server-enforced)']], sc: [['A1', 'Empty screen: explanation, four types, three recipes by region/season'], ['B1', 'Tabs Live · Scheduled · Off · Ended with counts; Used up under Ended'], ['B2', 'Name, code/Automatic, what they get, status + time line, uses, discount given'], ['B3', 'Search name/code + “Check a code” for phone calls'], ['B4', 'Filter by type and automatic/code'], ['B5', 'Row actions: on/off, duplicate, copy code, results, end, delete'], ['B6', 'Bulk: turn off, end, delete, export, with names listed'], ['B7', 'Stacks-with marker'], ['B8', 'Specific empty tab copy'], ['B9', 'Phone cards + floating Create'], ['N2–N5', 'Turn off / End now / Duplicate / Delete confirmations'], ['U1–U2', 'Free: 3 live offers; Growth prompts only for the owner'], ['§7', 'Staff view-only, past due turns offers off, offline, suppliers see not found']] },
+      view: { t: 'Offer details and results', map: [['Tiles', 'offer_stats: uses, orders, discount given, sales with offer, average order'], ['Chart', 'uses per day, store time zone'], ['Orders with this offer', 'GET /orders?offerId='], ['Export', 'CSV: order, customer, code, discount'], ['Share link', 'storefront /?code= applies the code on arrival'], ['QR', 'PNG of the share link, print size'], ['Single-use codes', 'offer_code rows used/unused, CSV download'], ['Changes', 'offer_history { who, when, what }']], sc: [['P1', 'Uses, orders, discount given, sales with the offer, average order, chart'], ['P2', 'Link to orders'], ['P4', 'Export uses'], ['H3', 'Copy, share, QR for print'], ['H4', 'Single-use code batch status'], ['Q1', 'Copy link that applies the code'], ['N7', 'Change history'], ['U1', 'Results gated to Growth']] }
+    };
+    const sp = SPECS[vo ? 'view' : 'list'];
+
+    return {
+      ready: true, notFound: false, pad: phone ? '16px' : '24px 28px', w, isPhone: phone, notPhone: !phone,
+      isList: !vo, isView: !!vo, v, back: () => go('offers', { offerView: null }),
+      canCreateBtn: canEdit, create: () => this.createGuard(newOffer, atLimit, upgrade), fab: phone && canEdit,
+      notes, firstTime: all.length === 0 && canManage, hasOffers: all.length > 0, types: TYPES, recipes3: R3,
+      chk: s.chk, onChk: e => this.setState({ chk: e.target.value }), hasChkRes: !!chkRes, chkRes: chkRes || {},
+      tabs, q: s.q, onQ: e => this.setState({ q: e.target.value }), fType: s.fType, onFType: e => this.setState({ fType: e.target.value }), fHow: s.fHow, onFHow: e => this.setState({ fHow: e.target.value }),
+      rows, hasRows: rows.length > 0, noRows: rows.length === 0, empty,
+      hasSel: selIds.length > 0, selL: selIds.length + ' selected', bulk, clearSel: () => this.setState({ sel: {} }),
+      showSpec: !!app.st.showSpec, spec: { t: sp.t, map: sp.map.map(([c2, v2]) => ({ c: c2, v: v2 })), sc: sp.sc.map(([k, t]) => ({ k, t, m: '✓', fg: '#1D6B47' })) }
+    };
+  }
+
+  createGuard(newOffer, atLimit, upgrade) { const app = this.props.app; if (atLimit) { app.modal({ title: 'You have 3 live offers', body: 'That’s the most on ' + app.caps.P.name + '. You can still make this offer and save it as Off, or move to Growth for unlimited offers.', confirm: 'Make it anyway', onConfirm: () => newOffer(), alt: app.caps.isOwner ? 'See Growth' : '', onAlt: () => upgrade('Unlimited offers') }); return; } newOffer(); }
+
+  recipes(R, w, fmt) {
+    const ev = window.DFOffers.events(R)[0];
+    return [
+      { id: 'welcome', type: 'order', l: 'Welcome code', d: '10% off, once per customer' },
+      { id: 'freeship', type: 'shipping', l: 'Free ' + w.ship + ' over ' + fmt(R.mult(60)), d: 'Set just above your average order' },
+      { id: 'seasonal', type: 'order', l: ev[0] + ' sale', d: '20% off the whole order, ' + window.DFOffers.short(ev[1], R) + '–' + window.DFOffers.short(ev[2], R) },
+      { id: 'b2g1', type: 'bxgy', l: 'Buy 2, get 1 free', d: 'On a product you choose' },
+      { id: 'flash', type: 'products', l: 'Flash sale', d: '24 hours, 20% off a filter value' },
+      { id: 'vip', type: 'order', l: 'VIP 15% off', d: 'For a customer group' },
+      { id: 'winback', type: 'order', l: 'Win back', d: 'A single-use code for one customer' }
+    ];
+  }
+}
+</script>
+</body>
+</html>
