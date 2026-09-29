@@ -30,10 +30,9 @@ export default {
     if (!area || area === 'hooks') return notFound()
     if (url.pathname === healthPath[area]) {
       const ip = request.headers.get('cf-connecting-ip')
-      if (ip) {
-        const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: `${area}:${ip}` })
-        if (!success) return new Response('Too many requests', { status: 429 })
-      }
+      if (!ip) return new Response('Bad request', { status: 400 })
+      const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: `${area}:${ip}` })
+      if (!success) return new Response('Too many requests', { status: 429 })
       const ok = await checkHealth(config, ctx)
       return Response.json({ ok, area }, { status: ok ? 200 : 503 })
     }

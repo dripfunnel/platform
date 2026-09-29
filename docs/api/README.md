@@ -310,8 +310,9 @@ default above when unset), the way CI's `postgres:17` service does (`.github/wor
 
 `/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
 (30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm
-from exhausting Hyperdrive's connection pool. Requests with no `cf-connecting-ip` (only
-possible off Cloudflare, e.g. `wrangler dev`) skip the limiter rather than sharing one bucket.
+from exhausting Hyperdrive's connection pool. `cf-connecting-ip` is always set behind
+Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler dev`) gets
+400 rather than falling back to an easily-exhausted shared bucket.
 
 ---
 
