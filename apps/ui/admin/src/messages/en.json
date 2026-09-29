@@ -1,4 +1,67 @@
 {
-  "home": { "title": "DripFunnel Admin", "signIn": "Sign in" },
-  "signIn": { "title": "Sign in" }
+  "home": {
+    "title": "DripFunnel Admin",
+    "signIn": "Sign in"
+  },
+  "signIn": {
+    "title": "Sign in"
+  },
+  "states": {
+    "gallery": {
+      "title": "Screen states",
+      "intro": "Every state a screen can show, without an API. Add ?state= to any screen's address to see it in one state.",
+      "pick": "Show a state:",
+      "names": {
+        "empty": "Empty",
+        "loading": "Loading",
+        "error": "Error",
+        "denied": "Permission denied",
+        "readonly": "Read-only",
+        "confirm": "Confirmation"
+      }
+    },
+    "empty": {
+      "title": "No partners yet",
+      "body": "Partners are the companies that resell DripFunnel under their own brand. Create the first one and invite its owner.",
+      "action": "Create partner"
+    },
+    "loading": {
+      "label": "Loading partners"
+    },
+    "error": {
+      "title": "We couldn't load the partners",
+      "body": "The admin API didn't answer. Nothing you entered was lost. Try again in a moment.",
+      "detailsLabel": "Technical details",
+      "codeLabel": "Error code",
+      "code": "UNKNOWN",
+      "requestIdLabel": "Request id",
+      "requestId": "7f3a91c2",
+      "retry": "Try again"
+    },
+    "denied": {
+      "action": "Pause partner",
+      "reason": "Only a Super admin can pause a partner."
+    },
+    "readonly": {
+      "title": "You have read-only access",
+      "body": "Your role can see everything here but can't change anything. Ask a Super admin if you need to."
+    },
+    "confirm": {
+      "open": "Close partner…",
+      "title": "Close this partner?",
+      "target": "Northstar Commerce",
+      "consequence": "Closes Northstar Commerce. Its portal host store.northstar.com stops working.",
+      "notes": [
+        "This can't be undone here.",
+        "Its 86 stores stop being reachable on that host."
+      ],
+      "reason": "Reason (saved in the activity log)",
+      "reasonHint": "Required. Close partner turns on once you give a reason.",
+      "typeLabel": "Type Northstar Commerce to confirm",
+      "typeHint": "Type the partner name exactly to confirm.",
+      "typeExpected": "Northstar Commerce",
+      "confirm": "Close partner",
+      "cancel": "Cancel"
+    }
+  }
 }
