@@ -1,11 +1,14 @@
 import type postgres from 'postgres'
 
 const CREATE_EXTENSION_RE = /create\s+extension\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi
+const SQL_COMMENT_RE = /--[^\n]*|\/\*[\s\S]*?\*\//g
+
+const stripComments = (sql: string): string => sql.replace(SQL_COMMENT_RE, '')
 
 export const requiredExtensions = (migrationSql: readonly string[]): string[] => {
   const names = new Set<string>()
   for (const sql of migrationSql) {
-    for (const match of sql.matchAll(CREATE_EXTENSION_RE)) {
+    for (const match of stripComments(sql).matchAll(CREATE_EXTENSION_RE)) {
       const name = match[1]
       if (name) names.add(name)
     }

@@ -10,6 +10,12 @@ describe('requiredExtensions', () => {
   it('is empty when no migration declares an extension', () => {
     expect(requiredExtensions(['create table t (id int);'])).toEqual([])
   })
+
+  it('ignores create extension inside line and block comments', () => {
+    expect(
+      requiredExtensions(['-- create extension postgis\ncreate table t (id int);', '/* create extension postgis */ create table u (id int);']),
+    ).toEqual([])
+  })
 })
 
 describe('assertExtensionsAvailable', () => {

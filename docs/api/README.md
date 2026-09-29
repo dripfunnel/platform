@@ -308,6 +308,11 @@ This is local only (AGENTS.md "Global" rule 3): nothing in `.dev.vars.example` o
 `scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
 default above when unset), the way CI's `postgres:17` service does (`.github/workflows/ci.yml`).
 
+`/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
+(30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm
+from exhausting Hyperdrive's connection pool. Requests with no `cf-connecting-ip` (only
+possible off Cloudflare, e.g. `wrangler dev`) skip the limiter rather than sharing one bucket.
+
 ---
 
 ## 8. Rules that apply to every line in `apps/api`

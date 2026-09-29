@@ -21,6 +21,14 @@
     // `wrangler deploy` (production) reads. Local dev uses `localConnectionString`
     // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
     "dev": {
+      "vars": {
+        "ADMIN_HOST": "admin.dripfunnel.com",
+        "PLATFORM_HOST": "platform.dripfunnel.com",
+        "HOOKS_HOST": "hooks.dripfunnel.com"
+      },
+      "ratelimits": [
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+      ],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }]
     }
   }
