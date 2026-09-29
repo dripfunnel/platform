@@ -20,4 +20,15 @@ describe('assertLocalHost', () => {
   it('refuses a comma-separated multi-host connection string', () => {
     expect(() => assertLocalHost('postgres://u:p@localhost:5432,dbpg01.softobotics.org:5432/db')).toThrow()
   })
+
+  it('refuses a malformed connection string without leaking it', () => {
+    const secret = 'postgres://u:pa/ss@localhost:5432/db'
+    try {
+      assertLocalHost(secret)
+      expect.unreachable()
+    } catch (error) {
+      expect((error as Error).message).toBe('DATABASE_URL is not a valid URL.')
+      expect((error as Error).message).not.toContain(secret)
+    }
+  })
 })
