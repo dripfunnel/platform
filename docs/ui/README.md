@@ -93,9 +93,13 @@ apps/ui/<app>/
   colours. The merchant portal overrides the brand tokens with the partner's look before
   anything renders; the two consoles use DripFunnel's. DripFunnel's values come from the
   style guide ([../../designs/design.md](../../designs/design.md) §5–7).
-- **Fonts**: Inter for text and Manrope for headings, loaded from Google Fonts by a `<link>` in
-  each app's `index.html` (decided 2026-09-29). It is a third-party request on every page
-  load; the token font stacks fall back to the system font when it is blocked.
+- **Fonts**: Inter for text, Manrope for headings, IBM Plex Mono for the side bar's group
+  headings. **Self-hosted**, through `@fontsource` packages imported once by
+  `@dripfunnel/shared/ui/fonts.css` (revised 2026-09-29; they were loaded from Google Fonts
+  by a `<link>` until the privacy and CSP cost was weighed). No page makes a third-party
+  request for a font, so no visitor's IP address or User-Agent reaches a font host, and
+  `font-src 'self'` keeps working when a CSP lands. Add a weight by adding it to that one
+  file; the token font stacks still fall back to the system font.
 - **Accessibility is WCAG 2.2 AA**: keyboard, screen reader, visible focus, contrast, reduced
   motion. Phone first in the merchant portal; desktop first in the consoles, which must
   still work on a phone for the essentials.

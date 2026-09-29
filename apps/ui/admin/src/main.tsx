@@ -1,3 +1,4 @@
+import '@dripfunnel/shared/ui/fonts.css'
 import '@dripfunnel/shared/ui/tokens.css'
 import { createRouter, RouterProvider } from '@tanstack/react-router'
 import { StrictMode } from 'react'
