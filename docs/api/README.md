@@ -290,8 +290,8 @@ port (e.g. `5434`) and change the port in the URLs below to match.
 
 Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`, and `apps/api/.local.vars.example`
 to `apps/api/.local.vars`; the default `DATABASE_URL` in both matches the role, password, port
-and database name above. `wrangler dev` reads `.dev.vars` automatically; Node scripts and tests
-don't, so export `.local.vars` first:
+and database name above. `wrangler dev` reads `.dev.vars` for worker bindings; Node scripts and
+tests don't, so export `.local.vars` first:
 
 ```
 cd apps/api
@@ -300,9 +300,12 @@ pnpm migrate
 ```
 
 `.dev.vars` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (same
-connection string as `DATABASE_URL`) — `wrangler dev --env dev` uses it to make the `HYPERDRIVE`
-binding proxy to local Postgres instead of a real Hyperdrive resource. `.dev.vars.example`
-already sets both; if `wrangler dev` errors asking for it, you skipped the copy step above.
+connection string as `DATABASE_URL`) — `wrangler dev --env local` uses it to make the `HYPERDRIVE`
+binding proxy to local Postgres instead of a real Hyperdrive resource. Wrangler reads that
+specific variable from the shell environment, not from `.dev.vars` directly, so `pnpm dev`
+sources `.dev.vars` into the shell before starting wrangler; if you run `wrangler dev` by hand
+instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
+variable.
 
 There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-level
 `hyperdrive` binding yet. To provision one, run
