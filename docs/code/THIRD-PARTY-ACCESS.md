@@ -211,47 +211,10 @@ on the partner console (*(ask)*, platform/README).
 
 ### 2.11 GitHub MCP server for Claude Code (every developer)
 
-[`.mcp.json`](../../.mcp.json) connects Claude Code to GitHub's remote MCP server. With it,
-Claude can create and update issues and pull requests, and move items on the **DripFunnel**
-project, as the person running it.
-
-The file is committed and shared with everyone who clones the repo. **The token is always
-personal**: it isn't in the repo, and each developer uses their own.
-
-| Decision | Rejected | Why |
-|---|---|---|
-| **Project-scoped server, personal token per developer** | One shared token; each developer configuring the server themselves | Issues and pull requests show their real author, and a token's access is that person's own. Everyone gets the same server and toolsets |
-| **Toolsets:** `context`, `repos`, `issues`, `pull_requests`, `users`, `projects`, `labels` | The server's defaults | `projects` and `labels` aren't on by default; the task cards need both ([WORKFLOW.md](WORKFLOW.md) §3) |
-
-**Setup, once per developer:**
-
-1. **Create a fine-grained personal access token** in GitHub (Settings → Developer settings
-   → Fine-grained tokens):
-   - **Resource owner:** `dripfunnel`.
-   - **Repositories:** only `dripfunnel/platform`.
-   - **Repository permissions:** Issues read/write, Pull requests read/write, Contents
-     read-only, Metadata read-only.
-   - **Organization permissions:** Projects read/write.
-   - **Expiry:** 90 days at most.
-
-   If the org requires approval for fine-grained tokens, an org owner approves it under
-   **dripfunnel → Settings → Personal access tokens**.
-2. **Put it in your shell profile** (`~/.zshrc`), never in the repo or a chat:
-
-   ```bash
-   export GITHUB_PAT=github_pat_…
-   ```
-
-   Keep the name `GITHUB_PAT`. Claude Code sends variables named `*_TOKEN`, `*_KEY`,
-   `*_SECRET` and similar as **empty** in remote server headers, so `GITHUB_TOKEN` wouldn't
-   work.
-3. **Open a new terminal** so the variable is set, run `claude` in the repo, trust the
-   folder, and **approve the `github` server** when asked.
-4. **Check it:** `/mcp` in Claude Code shows `github` as connected, with no missing-variable
-   warning.
-
-**Rotation:** make a new token before the old one expires and replace it in `~/.zshrc`.
-Revoke the token at once when a developer leaves.
+[`.mcp.json`](../../.mcp.json) connects Claude Code to GitHub's remote MCP server with each
+developer's **own** fine-grained token in `GITHUB_PAT` (issues, pull requests and projects on
+`dripfunnel/platform` only, 90 days at most). Setup, use, troubleshooting and rotation:
+[GITHUB-MCP.md](GITHUB-MCP.md).
 
 ---
 

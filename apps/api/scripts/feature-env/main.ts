@@ -22,7 +22,7 @@ const [command] = positionals
 
 const featureNames = (domain: string) => {
   const branch = z.string().min(1).parse(values.branch)
-  if (!isFeatureBranch(branch)) throw new Error(`"${branch}" doesn't contain "feature"; it gets no environment.`)
+  if (!isFeatureBranch(branch)) throw new Error(`"${branch}" isn't a #<issue>/feature/<short-name> branch; it gets no environment.`)
   return namesFor(slugOf(branch), domain)
 }
 

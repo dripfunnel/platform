@@ -125,9 +125,11 @@ Run the gates before reporting a change as done.
    user just said.
 2. **Never commit, branch or push unless asked in that same message.** Finish the work,
    leave it in the working tree, and say what is ready. "Keep going" is not permission.
-   When asked to branch, follow [docs/code/WORKFLOW.md](docs/code/WORKFLOW.md): `feature/`
-   only for new feature development (it deploys an environment), `task/` or `bug/` for
-   everything else, never the word "feature" in those, and never a direct push to `main`.
+   When asked to branch or commit, follow [docs/code/WORKFLOW.md](docs/code/WORKFLOW.md) §2:
+   branches are `#<issue>/<feature|task|bug>/<short-name>` (quoted in the shell; `feature`
+   only for new feature development, since it deploys an environment), every commit message
+   and pull request title starts with `#<issue> `, the issue must exist, and nothing is ever
+   committed on or pushed to `main` or `dev`. Without an issue number, ask for one.
 3. **Local databases only.** Nothing in development points at `dbpg01.softobotics.org`
    (dev or prod) until the user says otherwise.
 4. **Report what is true.** Say which commands you ran and what they returned. Compiling is
