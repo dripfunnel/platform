@@ -4,9 +4,9 @@ import { getClient } from './client'
 
 const PING_TIMEOUT_MS = 5_000
 
-export const ping = async (sql: postgres.Sql): Promise<boolean> => {
+export const ping = async (sql: postgres.Sql, query: () => Promise<unknown> = () => sql`select 1`): Promise<boolean> => {
   try {
-    await sql`select 1`
+    await query()
     return true
   } catch {
     console.error(JSON.stringify({ code: 'db_ping_failed' }))
