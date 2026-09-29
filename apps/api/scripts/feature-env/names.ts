@@ -1,17 +1,14 @@
 import { createHash } from 'node:crypto'
+import { parseBranch } from '../../../../scripts/git/naming.mjs'
 
 const maxSlug = 20
-const prefix = /^feature[/_-]/
 
-export const isFeatureBranch = (branch: string) => branch.includes('feature')
+export const isFeatureBranch = (branch: string) => parseBranch(branch)?.kind === 'feature'
 
 export const slugOf = (branch: string) => {
-  const base = branch
-    .replace(prefix, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-  const slug = base || 'feature'
+  const parsed = parseBranch(branch)
+  if (!parsed) throw new Error(`"${branch}" is not a #<issue>/<kind>/<short-name> branch.`)
+  const slug = `${parsed.issue}-${parsed.name}`
   if (slug.length <= maxSlug) return slug
   const hash = createHash('sha1').update(branch).digest('hex').slice(0, 4)
   return `${slug.slice(0, maxSlug - 5).replace(/-+$/, '')}-${hash}`

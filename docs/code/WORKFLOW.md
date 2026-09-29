@@ -12,11 +12,13 @@ Last updated: 2026-09-29.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **Every piece of work is one work item, one branch, one pull request** | Several items per branch; long-lived personal branches | Each change can be reviewed, reverted and deployed on its own |
-| **Three kinds of work, named by branch prefix**: `feature/`, `task/`, `bug/` (§2) | Free-form branch names | The prefix says what the change is and decides whether it gets an environment |
+| **Every piece of work is one work item, one branch, one pull request**, and the work item is a GitHub issue on the DripFunnel project | Several items per branch; long-lived personal branches; work without an issue | Each change can be reviewed, reverted and deployed on its own, and traced back to its card |
+| **Branch names are `#<issue>/<kind>/<short-name>`**, kind `feature`, `task` or `bug` (§2) | Free-form names; `feature/<name>` without an issue | The issue links branch, commits, pull request and card; the kind says what the change is and decides whether it gets an environment |
+| **Every commit message starts with `#<issue>` and a space** (§2.1) | Free-form messages | Every commit on `main` points to the card that explains it |
+| **Enforced in three places** (§2.2): git hooks, a required `naming` check on every pull request, and GitHub rulesets on `main` and `dev` | Trusting people to remember | Hooks catch a mistake before the commit exists; the check and rulesets make it impossible to merge, because hooks can be skipped |
 | **Only new feature development gets a feature environment** (`feature/…`). Tasks and bugs run the gates only | An environment for every branch or pull request | Environments cost money and Hyperdrive slots (at most about 25 at once, [FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md) §5). Only a new feature needs clicking through before it merges |
 | **Small pull requests: about 400 changed lines at most**, not counting generated files and the lockfile | Large pull requests that ship a whole area | A reviewer can read every line properly, so mistakes in tenancy, layers and reuse get caught |
-| **`main` is protected**: pull requests only, the CI `gates` check must pass, no force-push, no direct push by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
+| **`main` and `dev` are protected**: pull requests only, the `gates` and `naming` checks must pass, no force-push, no direct push or commit by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
 | **Reviews follow experience**: the senior developer reviews junior work; the lead reviews senior work, with `/code-review` as a second pass | Self-merge; review by whoever is free | Every change is read by someone who knows the architecture at least as well as its author |
 | **Squash and merge** *(proposed)* | Merge commits; rebase merges | `main` gets one commit per work item, easy to read and to revert |
 
@@ -26,17 +28,70 @@ Last updated: 2026-09-29.
 
 | Kind | Use it for | Branch | Environment |
 |---|---|---|---|
-| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `feature/<short-name>`, e.g. `feature/abandoned-carts` | **Yes**: a complete environment on `<slug>-*.dripfunnel.ai`, redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
-| **Task** | Everything else that isn't a defect: foundations (database, tenancy, core types), refactors, tooling, CI, dependencies, docs, design-token work | `task/<short-name>`, e.g. `task/db-foundation` | No: gates only |
-| **Bug** | Fixing a defect in something already merged | `bug/<short-name>`, e.g. `bug/money-rounding` | No: gates only |
+Every branch is **`#<issue>/<kind>/<short-name>`**: the GitHub issue number of its card, the
+kind of work, and a short name.
 
-- **Never put the word `feature` in a task or bug branch name.** The workflow deploys every
-  branch whose name contains `feature` anywhere, so `bug/feature-flag-typo` would create an
-  environment. Write `bug/flag-typo`.
-- Short names: lowercase, words joined by `-`, at most about 20 characters. That keeps a
-  feature's hostnames readable.
+| Kind | Use it for | Branch | Environment |
+|---|---|---|---|
+| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `#<issue>/feature/<short-name>`, e.g. `#12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.dripfunnel.ai` (e.g. `12-abandoned-carts-store.dripfunnel.ai`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
+| **Task** | Everything else that isn't a defect: foundations (database, tenancy, core types), refactors, tooling, CI, dependencies, docs, design-token work | `#<issue>/task/<short-name>`, e.g. `#13/task/db-foundation` | No: gates only |
+| **Bug** | Fixing a defect in something already merged | `#<issue>/bug/<short-name>`, e.g. `#14/bug/money-rounding` | No: gates only |
+
+- **The issue must exist and be open** in `dripfunnel/platform`; create the card first.
+- **Short names**: lowercase letters and digits, words joined by `-`, no `/`, at most about
+  20 characters. That keeps a feature's hostnames readable.
+- **Quote the name in a terminal.** `#` starts a comment in the shell, so
+  `git switch -c #12/feature/offers` creates nothing. Write
+  `git switch -c '#12/feature/offers'` and `git push -u origin '#12/feature/offers'`.
+- Only the kind decides the environment: `#13/task/feature-flags` gets none.
 - A bug found in a feature that hasn't merged yet is fixed on that feature's branch, not on
-  a `bug/` branch.
+  a new `bug` branch.
+
+### 2.1 Commit messages
+
+Every commit message starts with **`#<issue>` and a space**, then says what changed and why,
+e.g. `#12 add the abandoned carts list`. Usually the number is the branch's issue; a commit
+that also closes another issue names that one.
+
+- **Pull request titles follow the same rule, with the branch's issue number**, because the
+  title becomes the commit on `main` when it is squashed.
+- Allowed without a number, because git writes them: `Merge …`, `fixup! #12 …`,
+  `squash! #12 …`, `amend! #12 …` and `Revert "#12 …"`.
+- **Git treats lines starting with `#` as comments** and deletes them when you write the
+  message in an editor. `pnpm git-hooks` (§2.2) sets `core.commentChar` to `;` for this
+  repo, so `#12 …` survives. `git commit -m '#12 …'` works either way.
+
+### 2.2 How the rules are enforced
+
+| Where | What it refuses | Can it be skipped? |
+|---|---|---|
+| **Git hooks** in `.githooks/`, turned on once per clone with **`pnpm git-hooks`** | Committing on `main` or `dev`; committing on a branch not named `#<issue>/<kind>/<short-name>`; a commit message without `#<issue>`; pushing to `main` or `dev`; pushing a misnamed branch | Yes, with `--no-verify`, so the next two exist |
+| **`naming` check** on every pull request ([`.github/workflows/naming.yml`](../../.github/workflows/naming.yml)) | A misnamed branch; a commit or title without `#<issue>`; a title whose number isn't the branch's; a number that isn't an issue in this repo; a branch whose issue is closed | No, once it is a required check (below) |
+| **GitHub rulesets** on `main` and `dev` (below) | Any push or merge that isn't a reviewed pull request with passing checks; force-push; deletion | Only by the people on the bypass list; keep it empty |
+
+The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
+tests beside it. The hooks, the pull-request check and the feature-environment names
+([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md) §2) all use it.
+
+**Rulesets to set in GitHub** (dripfunnel/platform → Settings → Rules → Rulesets; an org
+owner or repo admin):
+
+1. **`protect-main-dev`**, target branches `main` and `dev`, enforcement *Active*, bypass
+   list empty:
+   - Restrict deletions.
+   - Block force pushes.
+   - Require a pull request before merging: 1 approval; dismiss stale approvals on new
+     commits; allowed merge method *Squash* (§1, *(proposed)*).
+   - Require status checks to pass: `gates` and `naming`; branches must be up to date.
+2. **`branch-names`**, target *all branches*, excluding `main`, `dev` and the patterns
+   `#*/feature/*`, `#*/task/*` and `#*/bug/*`, enforcement *Active*:
+   - Restrict creations.
+
+   Nobody can then create a branch on GitHub whose name breaks §2.
+
+If your GitHub plan offers **metadata restrictions** (commit message and branch name
+patterns, documented for GitHub Enterprise), also add a commit-message rule `^#[1-9][0-9]* `
+on all branches. The `naming` check already covers it.
 
 ---
 
@@ -47,7 +102,7 @@ to start.
 
 | Field | Says |
 |---|---|
-| **Kind and branch** | `feature/`, `task/` or `bug/`, and the branch name |
+| **Kind and branch** | Feature, task or bug, and the branch name `#<issue>/<kind>/<short-name>` |
 | **Folders** | The only folders the change may touch. Two cards in progress at once never share a folder |
 | **Read first** | The doc sections that decide the design, e.g. "DATA-MODEL §5" |
 | **Do** | The steps, numbered |
@@ -59,6 +114,8 @@ to start.
 
 ## 4. Before writing code
 
+0. **Once per clone:** run `pnpm git-hooks` (§2.2). **Once per machine:** connect Claude Code to
+   GitHub ([GITHUB-MCP.md](GITHUB-MCP.md)).
 1. Read the card's "Read first" sections, and [../README.md](../README.md) §4 for the area.
 2. **Right place first**: find the lowest layer the change belongs to
    ([../api/README.md](../api/README.md) §4). In the SPAs, keep it in the app unless another
@@ -73,7 +130,8 @@ to start.
 
 ## 5. While building
 
-- **Commit small and often** on your branch, with messages that say why.
+- **Commit small and often** on your branch, each message starting with `#<issue>` (§2.1)
+  and saying why.
 - **Tests with the code**, not after: unit tests beside the file; integration tests in
   `apps/api/tests/`. Anything touching tenant data gets isolation tests.
 - **Docs in the same change**: when the code and a doc disagree, fix the doc in the same
@@ -94,7 +152,9 @@ to start.
 `test:integration` too once it exists. Both must pass.
 
 **The description has:**
-1. **What and why**, in two or three sentences, with a link to the card.
+0. **Title:** `#<issue>` of the branch, a space, and what the change does (§2.1).
+1. **What and why**, in two or three sentences, and `Closes #<issue>` so the card closes
+   when it merges.
 2. **Docs followed**, e.g. "DATA-MODEL §5.2", and any doc changed in this pull request.
 3. **Commands run and their results.** If something couldn't be run, say so.
 4. **For features:** the environment's URLs from the workflow summary, and what the reviewer
@@ -152,7 +212,8 @@ each one. The reviewer approves only when every point is closed.
 
 ## 8. Merge and after
 
-1. Squash and merge once the `gates` check passes and the reviewer approves. Only after that.
+1. Squash and merge once the `gates` and `naming` checks pass and the reviewer approves. Only
+   after that.
 2. **Delete the branch.** For a feature, this also removes its environment.
 3. Move the card to done. Cards that needed this one can start now.
 

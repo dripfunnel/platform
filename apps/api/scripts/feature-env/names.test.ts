@@ -2,44 +2,42 @@ import { describe, expect, it } from 'vitest'
 import { isFeatureBranch, namesFor, slugOf } from './names'
 
 describe('isFeatureBranch', () => {
-  it('matches any branch containing "feature"', () => {
-    expect(isFeatureBranch('feature/offers')).toBe(true)
-    expect(isFeatureBranch('gk-feature-cart')).toBe(true)
-    expect(isFeatureBranch('fix/login')).toBe(false)
-    expect(isFeatureBranch('restructure-ui-admin-docs')).toBe(false)
+  it('matches only #<issue>/feature/<short-name> branches', () => {
+    expect(isFeatureBranch('#12/feature/offers')).toBe(true)
+    expect(isFeatureBranch('#13/task/feature-flags')).toBe(false)
+    expect(isFeatureBranch('#14/bug/login-loop')).toBe(false)
+    expect(isFeatureBranch('feature/offers')).toBe(false)
   })
 })
 
 describe('slugOf', () => {
-  it('drops a leading feature prefix and keeps DNS-safe characters', () => {
-    expect(slugOf('feature/offers')).toBe('offers')
-    expect(slugOf('feature-Abandoned_Carts')).toBe('abandoned-carts')
-    expect(slugOf('gk/feature/cart')).toBe('gk-feature-cart')
-  })
-
-  it('falls back when nothing is left', () => {
-    expect(slugOf('feature')).toBe('feature')
-    expect(slugOf('feature/--')).toBe('feature')
+  it('is the issue number and the short name', () => {
+    expect(slugOf('#12/feature/offers')).toBe('12-offers')
+    expect(slugOf('#7/feature/abandoned-carts')).toBe('7-abandoned-carts')
   })
 
   it('shortens long names with a stable hash so they stay unique', () => {
-    const a = slugOf('feature/customer-groups-and-segments')
-    const b = slugOf('feature/customer-groups-and-segmentation')
+    const a = slugOf('#123/feature/customer-groups-and-segments')
+    const b = slugOf('#123/feature/customer-groups-and-segmentation')
     expect(a.length).toBeLessThanOrEqual(20)
-    expect(a).toMatch(/^[a-z0-9-]+-[0-9a-f]{4}$/)
+    expect(a).toMatch(/^123-[a-z0-9-]+-[0-9a-f]{4}$/)
     expect(a).not.toBe(b)
-    expect(slugOf('feature/customer-groups-and-segments')).toBe(a)
+    expect(slugOf('#123/feature/customer-groups-and-segments')).toBe(a)
+  })
+
+  it('refuses branches outside the naming rules', () => {
+    expect(() => slugOf('feature/offers')).toThrow()
   })
 })
 
 describe('namesFor', () => {
   it('derives every resource name from the slug', () => {
-    const n = namesFor('offers', 'dripfunnel.ai')
-    expect(n.worker).toBe('dripfunnel-feature-offers')
-    expect(n.hyperdrive).toBe('feature-offers')
-    expect(n.neonBranch).toBe('feature/offers')
+    const n = namesFor('12-offers', 'dripfunnel.ai')
+    expect(n.worker).toBe('dripfunnel-feature-12-offers')
+    expect(n.hyperdrive).toBe('feature-12-offers')
+    expect(n.neonBranch).toBe('feature/12-offers')
     expect(n.pagesProject('admin')).toBe('dripfunnel-feature-admin')
-    expect(n.host('store')).toBe('offers-store.dripfunnel.ai')
-    expect(n.host('hooks')).toBe('offers-hooks.dripfunnel.ai')
+    expect(n.host('store')).toBe('12-offers-store.dripfunnel.ai')
+    expect(n.host('hooks')).toBe('12-offers-hooks.dripfunnel.ai')
   })
 })

@@ -166,7 +166,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 ## 6. Environments and deploy
 
-- **Environments**: local, feature (per branch whose name contains `feature`), staging,
+- **Environments**: local, feature (per `#<issue>/feature/<short-name>` branch), staging,
   production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **Neon branch**.
   Feature environments live in a separate Cloudflare account and Neon project, on
   `dripfunnel.ai` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).

@@ -11,7 +11,8 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test",
-    "changeset": "changeset"
+    "changeset": "changeset",
+    "git-hooks": "sh scripts/git/install-hooks.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",

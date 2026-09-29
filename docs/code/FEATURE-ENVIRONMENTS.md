@@ -1,6 +1,6 @@
 # FEATURE-ENVIRONMENTS.md: a complete environment per feature branch
 
-Every branch whose name contains `feature` gets its own separate copy of the platform:
+Every **`#<issue>/feature/<short-name>`** branch ([WORKFLOW.md](WORKFLOW.md) §2) gets its own separate copy of the platform:
 
 - its own API Worker,
 - its own merchant portal, partner console and admin console,
@@ -19,7 +19,7 @@ Last updated: 2026-09-29.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **An environment only for branches containing `feature`** (lowercase, anywhere in the name), which [WORKFLOW.md](WORKFLOW.md) §2 reserves for **new feature development**. Tasks (`task/…`) and bugs (`bug/…`) run the gates only | A preview for every pull request (the earlier ARCHITECTURE §6 plan) | Fewer environments and lower cost; only a new feature needs clicking through before it merges |
+| **An environment only for `#<issue>/feature/<short-name>` branches**, which [WORKFLOW.md](WORKFLOW.md) §2 reserves for **new feature development**. Tasks (`#<issue>/task/…`) and bugs (`#<issue>/bug/…`) run the gates only | A preview for every pull request (the earlier ARCHITECTURE §6 plan) | Fewer environments and lower cost; only a new feature needs clicking through before it merges |
 | **A separate Cloudflare account ("DripFunnel Dev") holds every feature environment**, with the `dripfunnel.ai` zone | The production account | Cloudflare tokens can't be narrowed to certain Workers or projects. On the production account, code from any feature branch would run with a token that can change production. A separate account also gives feature environments their own 25 Hyperdrive slots |
 | **A separate Neon project (`dripfunnel-dev`)**; each environment is a branch of its default branch, which holds seeded dummy data | Branching production; an empty database each time | No real personal data ever reaches a feature environment. A key scoped to that project can't reach production |
 | **Same shape as production**: three Cloudflare Pages projects for the SPAs, and one Worker serving `/api/*` on each SPA's hostname plus the hooks host | One Worker serving the SPAs as static assets | Feature environments exercise the production setup. This includes the unverified "Worker route on a Pages custom hostname" check in [../ARCHITECTURE.md](../ARCHITECTURE.md) §2, which the first deploy answers |
@@ -32,26 +32,25 @@ Last updated: 2026-09-29.
 
 ## 2. What one environment is
 
-For branch `feature/offers` (slug `offers`):
+For branch `#12/feature/offers` (slug `12-offers`):
 
 | Part | Name | Notes |
 |---|---|---|
-| Merchant portal | `https://offers-store.dripfunnel.ai` | Pages project `dripfunnel-feature-store`, branch deploy `offers` |
-| Partner console | `https://offers-platform.dripfunnel.ai` | Pages project `dripfunnel-feature-platform` |
-| Admin console | `https://offers-admin.dripfunnel.ai` | Pages project `dripfunnel-feature-admin` |
-| API | `/api/*` on the three hosts above; all of `offers-hooks.dripfunnel.ai` | Worker `dripfunnel-feature-offers`. Its `ADMIN_HOST`, `PLATFORM_HOST` and `HOOKS_HOST` point at the feature hosts, so the router behaves as in production |
-| Database | Neon branch `feature/offers` in `dripfunnel-dev` | Copied from the seeded default branch; the branch's own migrations are applied on each deploy |
-| Pooling | Hyperdrive config `feature-offers`, bound as `HYPERDRIVE` | Uses Neon's direct connection string, as Cloudflare advises for Hyperdrive. Production adds the same binding name when the API gets its database (PLATFORM-PROMPT §8 slice 3) |
+| Merchant portal | `https://12-offers-store.dripfunnel.ai` | Pages project `dripfunnel-feature-store`, branch deploy `12-offers` |
+| Partner console | `https://12-offers-platform.dripfunnel.ai` | Pages project `dripfunnel-feature-platform` |
+| Admin console | `https://12-offers-admin.dripfunnel.ai` | Pages project `dripfunnel-feature-admin` |
+| API | `/api/*` on the three hosts above; all of `12-offers-hooks.dripfunnel.ai` | Worker `dripfunnel-feature-12-offers`. Its `ADMIN_HOST`, `PLATFORM_HOST` and `HOOKS_HOST` point at the feature hosts, so the router behaves as in production |
+| Database | Neon branch `feature/12-offers` in `dripfunnel-dev` | Copied from the seeded default branch; the branch's own migrations are applied on each deploy |
+| Pooling | Hyperdrive config `feature-12-offers`, bound as `HYPERDRIVE` | Uses Neon's direct connection string, as Cloudflare advises for Hyperdrive. Production adds the same binding name when the API gets its database (PLATFORM-PROMPT §8 slice 3) |
 
-**Slug rules** (`names.ts`, tested):
+**Slug rules** (`names.ts`, tested). The branch name is read by the shared rules in
+[`scripts/git/naming.mjs`](../../scripts/git/naming.mjs) ([WORKFLOW.md](WORKFLOW.md) §2):
 
-- a leading `feature/`, `feature-` or `feature_` is dropped;
-- the rest is lowercased, and anything else than `a-z0-9` becomes `-`;
-- the slug is at most 20 characters, so it fits Pages' 28-character branch alias and
-  DNS labels; longer names are cut and given a 4-character hash of the full branch name.
+- the slug is `<issue>-<short-name>`, e.g. `12-offers`;
+- it is at most 20 characters, so it fits Pages' 28-character branch alias and DNS labels;
+  longer names are cut and given a 4-character hash of the full branch name.
 
-Branches that give the same slug (`feature/offers` and `feature-offers`) share one
-environment, so avoid that.
+The issue number keeps slugs unique: two open features can't share an issue.
 
 Queues, R2 buckets, KV and secrets are added to the environment the same way as the API
 gains them. Each gets its own `<slug>`-named resource, created in `prepare` and removed in
@@ -104,12 +103,12 @@ removal starts only once this workflow is merged to `main`.
       DE and IN, as in the prototypes). The seed script comes with the database, in slice 3.
    3. Create a **project-scoped** API key.
 5. **GitHub environment `feature`** in `dripfunnel/platform`:
-   - Deployment branches: `main` (for delete and nightly runs) and the patterns `*feature*`
-     and `**/*feature*`.
+   - Deployment branches: `main` (for delete and nightly runs) and the pattern
+     `#*/feature/*`.
    - Secrets: `CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`.
    - Variables: `CLOUDFLARE_ACCOUNT_ID` (dev account), `FEATURE_ZONE_ID` (`dripfunnel.ai`),
      `FEATURE_DOMAIN` = `dripfunnel.ai`, `NEON_PROJECT_ID` (`dripfunnel-dev`).
-6. Merge the workflow to `main`, then push a `feature/…` branch.
+6. Merge the workflow to `main`, then push a `#<issue>/feature/<short-name>` branch.
 
 ---
 

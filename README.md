@@ -22,4 +22,4 @@ Working rules for people and agents: [AGENTS.md](AGENTS.md).
 
 Claude Code connects to GitHub (issues, pull requests, the DripFunnel project) through
 [`.mcp.json`](.mcp.json) with your own token: set it up once with
-[docs/code/THIRD-PARTY-ACCESS.md §2.11](docs/code/THIRD-PARTY-ACCESS.md).
+[docs/code/GITHUB-MCP.md](docs/code/GITHUB-MCP.md).
