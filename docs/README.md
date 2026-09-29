@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -65,6 +65,8 @@ docs/
   code/
     ARCHITECTURE.md         repo-wide: workspace decisions, storefront-core package and releases, tooling
     DESIGN.md               repo-wide: how modules, config, errors, tenancy data and UI components are written
+    THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times
+    FEATURE-ENVIRONMENTS.md a complete, separate environment per `feature` branch: design, lifecycle, one-time setup, limits
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps

@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -25,7 +25,7 @@ Last updated: 2026-09-28.
 | **The SPAs are built with Vite, React and TanStack Router** | Next.js static export | A pure client-side app: fast builds, no server features to avoid, typed routes and search params. Next.js stays only in the storefront template, which needs static generation. |
 | **The API runs on Cloudflare Workers** | Containers on AWS | The same edge platform as the UIs and storefronts; no servers to run; scales per request. The cost is Workers' runtime constraints (§4). |
 | **The API is served at `/api` on each UI's own hostname** (a Worker route), including partners' custom domains | A separate `api.` host; one central API domain | Same origin: `httpOnly` session cookies stay first-party, no CORS, one hostname per partner. |
-| **Postgres on Neon, reached through Cloudflare Hyperdrive** | Cloudflare D1; AWS RDS | Keeps Postgres features the design relies on (row-level security, `SKIP LOCKED`, JSONB, full-text search). Neon adds database branches per pull request. The one part of the platform not on Cloudflare. |
+| **Postgres on Neon, reached through Cloudflare Hyperdrive** | Cloudflare D1; AWS RDS | Keeps Postgres features the design relies on (row-level security, `SKIP LOCKED`, JSONB, full-text search). Neon adds a database branch per feature environment. The one part of the platform not on Cloudflare. |
 | **Background work on Cloudflare Queues, Workflows and Cron Triggers** | A polling job runner process | Workers have no always-on process. Queues carry outbox events and jobs; Workflows run durable multi-step jobs with retries and compensation (provisioning, publishing); Cron runs schedules (automatic publish, cleanups). The `job` table in Postgres stays as the record the platform console reads. |
 | **Files on Cloudflare R2** | S3 | Product photos, brand assets, imports, exports and invoices, with zero egress cost and a Worker binding. |
 | **Email through Amazon SES** (HTTP API) | SMTP; Postmark; Resend | Workers can't use SMTP libraries; SES supports many verified sender domains (one per partner) at low cost. |
@@ -100,8 +100,9 @@ platform/
       shared/               README.md
     code/                   ARCHITECTURE.md, DESIGN.md: repo-wide decisions and conventions
     storefront/             ARCHITECTURE.md, DESIGN.md: storefront template and AI design
-  .github/workflows/        ci.yml, release.yml, deploy-api.yml, deploy-store.yml, deploy-platform.yml,
-                            deploy-admin.yml
+  .github/workflows/        ci.yml, feature-env.yml, release.yml, deploy-api.yml, deploy-store.yml,
+                            deploy-platform.yml, deploy-admin.yml
+  .github/actions/setup/    pnpm, Node and install, shared by the workflows
   .changeset/               for storefront-core only
   package.json  pnpm-workspace.yaml  turbo.json  tsconfig.base.json  eslint.config.js
   AGENTS.md  CLAUDE.md  README.md
@@ -165,14 +166,19 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 ## 6. Environments and deploy
 
-- **Environments**: local, preview (per pull request), staging, production. Each has its own
-  Worker environment, Pages branch, R2 buckets, Queues and **Neon branch**.
+- **Environments**: local, feature (per branch whose name contains `feature`), staging,
+  production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **Neon branch**.
+  Feature environments live in a separate Cloudflare account and Neon project, on
+  `dripfunnel.ai` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Local**: `wrangler dev` for the API Worker with Hyperdrive pointed at the **local
   Postgres** (the local-databases-only rule), `vite dev` for the SPAs, Miniflare for R2,
   Queues and KV.
-- **Pull requests**: Turborepo builds and tests only what changed; each changed app deploys
-  a preview (Worker preview versions, Pages preview URLs) against the pull request's Neon
-  branch with migrations applied.
+- **Pull requests and other branches**: the gates only; Turborepo builds and tests only what
+  changed.
+- **Feature branches**: every push deploys the branch's complete environment (Worker, three
+  SPAs, Neon branch with migrations applied, `<slug>-*.dripfunnel.ai` hostnames behind
+  Cloudflare Access). It is removed when the branch is deleted or after 14 days without a
+  commit ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
 - **Production**: migrations from `apps/api/migrations` run first against Neon's direct
   connection (not Hyperdrive), and must be backward-compatible with the running version; then
   the API Worker deploys with gradual rollout, then the SPAs. Each app deploys only when its

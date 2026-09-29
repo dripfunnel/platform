@@ -1,0 +1,156 @@
+name: feature-env
+
+# One complete, separate environment per branch whose name contains "feature".
+# docs/code/FEATURE-ENVIRONMENTS.md explains the design and the one-time setup.
+
+on:
+  push:
+    branches: ['**feature**']
+  delete:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: deploy or destroy this branch's environment
+        type: choice
+        options: [deploy, destroy]
+        default: deploy
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'deploy')
+    runs-on: ubuntu-latest
+    environment: feature
+    concurrency:
+      group: feature-env-${{ github.ref_name }}
+      cancel-in-progress: false
+    env:
+      BRANCH: ${{ github.ref_name }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      FEATURE_ZONE_ID: ${{ vars.FEATURE_ZONE_ID }}
+      FEATURE_DOMAIN: ${{ vars.FEATURE_DOMAIN }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Gates
+        run: pnpm turbo run build typecheck lint test
+        working-directory: .
+
+      - name: Names
+        id: names
+        run: pnpm exec tsx scripts/feature-env/main.ts names --branch "$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Database branch
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ vars.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: ${{ steps.names.outputs.neon_branch }}
+
+      - name: Pages projects, Hyperdrive, Worker config
+        run: |
+          echo "::add-mask::${{ steps.neon.outputs.password }}"
+          pnpm exec tsx scripts/feature-env/main.ts prepare --branch "$BRANCH"
+        env:
+          FEATURE_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+
+      - name: Migrations
+        run: pnpm run --if-present migrate
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+
+      - name: SPAs
+        run: |
+          for spa in store platform admin; do
+            project_var="${spa}_project"
+            pnpm exec wrangler pages deploy "../ui/$spa/dist" \
+              --project-name "${!project_var}" \
+              --branch "${{ steps.names.outputs.pages_branch }}" \
+              --commit-hash "$GITHUB_SHA"
+          done
+        env:
+          store_project: ${{ steps.names.outputs.store_project }}
+          platform_project: ${{ steps.names.outputs.platform_project }}
+          admin_project: ${{ steps.names.outputs.admin_project }}
+
+      - name: Hostnames
+        run: pnpm exec tsx scripts/feature-env/main.ts attach --branch "$BRANCH"
+
+      - name: API Worker
+        run: pnpm exec wrangler deploy -c wrangler.feature.json --message "$GITHUB_SHA"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Feature environment \`${{ steps.names.outputs.slug }}\`"
+            echo "| App | URL |"
+            echo "|---|---|"
+            echo "| Merchant portal | ${{ steps.names.outputs.store_url }} |"
+            echo "| Partner console | ${{ steps.names.outputs.platform_url }} |"
+            echo "| Admin console | ${{ steps.names.outputs.admin_url }} |"
+            echo "| Webhooks | ${{ steps.names.outputs.hooks_url }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  destroy:
+    if: >-
+      (github.event_name == 'delete' && github.event.ref_type == 'branch' && contains(github.event.ref, 'feature')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'destroy')
+    runs-on: ubuntu-latest
+    environment: feature
+    concurrency:
+      group: feature-env-${{ github.event.ref || github.ref_name }}
+      cancel-in-progress: false
+    env:
+      BRANCH: ${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      FEATURE_ZONE_ID: ${{ vars.FEATURE_ZONE_ID }}
+      FEATURE_DOMAIN: ${{ vars.FEATURE_DOMAIN }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm exec tsx scripts/feature-env/main.ts destroy --branch "$BRANCH"
+
+  prune:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    environment: feature
+    concurrency:
+      group: feature-env-prune
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+      FEATURE_ZONE_ID: ${{ vars.FEATURE_ZONE_ID }}
+      FEATURE_DOMAIN: ${{ vars.FEATURE_DOMAIN }}
+      NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+      NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Remove environments whose branch is gone or idle for 14 days
+        run: |
+          git for-each-ref --format='%(refname:lstrip=3)|%(committerdate:iso-strict)' refs/remotes/origin > "$RUNNER_TEMP/tips"
+          pnpm exec tsx scripts/feature-env/main.ts prune --tips "$RUNNER_TEMP/tips"
