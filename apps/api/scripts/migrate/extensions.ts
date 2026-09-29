@@ -1,5 +1,8 @@
 import type postgres from 'postgres'
 
+// Strips line/block comments only; a `create extension` mentioned inside a string literal or a
+// $$ function body still matches and is reported as required, which is a false positive, not a
+// missed one, so it fails safe.
 const CREATE_EXTENSION_RE = /create\s+extension\s+(?:if\s+not\s+exists\s+)?"?([a-z0-9_]+)"?/gi
 const SQL_COMMENT_RE = /--[^\n]*|\/\*[\s\S]*?\*\//g
 

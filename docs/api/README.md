@@ -298,6 +298,18 @@ set -a; source .dev.vars; set +a
 pnpm migrate
 ```
 
+`.dev.vars` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (same
+connection string as `DATABASE_URL`) — `wrangler dev --env dev` uses it to make the `HYPERDRIVE`
+binding proxy to local Postgres instead of a real Hyperdrive resource. `.dev.vars.example`
+already sets both; if `wrangler dev` errors asking for it, you skipped the copy step above.
+
+There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-level
+`hyperdrive` binding yet. To provision one, run
+`wrangler hyperdrive create <name> --connection-string="postgres://..."` and add the returned
+id as `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }` under `hyperdrive` in
+`wrangler.jsonc`. Until that's done, `/health` reports `{ ok: true, db: "unconfigured" }`
+rather than failing.
+
 Migrations may declare `create extension if not exists "..."`; the runner checks every
 required extension is installed on the server before applying anything
 (`scripts/migrate/extensions.ts`) and fails with the missing extension's name and how to

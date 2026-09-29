@@ -1,10 +1,10 @@
 import { adminSchema } from '#apis/admin/schema'
 import { createServer } from '#apis/graphql/server'
+import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
 import { parseConfig } from '#core/config'
-import { checkHealth } from '#db/health'
 import { resolveArea } from './router'
 
 const servers = {
@@ -13,8 +13,6 @@ const servers = {
   store: createServer(storeSchema, '/api'),
   shop: createServer(shopSchema, '/shop-api'),
 }
-
-const healthPath = { admin: '/api/health', platform: '/api/health', store: '/api/health', shop: '/shop-api/health' } as const
 
 const notFound = () => new Response('Not found', { status: 404 })
 
@@ -34,15 +32,7 @@ export default {
     }
     const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
-    if (url.pathname === healthPath[area]) {
-      const ip = request.headers.get('cf-connecting-ip')
-      if (!ip) return new Response('Bad request', { status: 400 })
-      const { success } = await env.HEALTH_RATE_LIMITER.limit({ key: `${area}:${ip}` })
-      if (!success) return new Response('Too many requests', { status: 429 })
-      const db = await checkHealth(config, ctx)
-      const ok = db !== 'down'
-      return Response.json({ ok, area, db }, { status: ok ? 200 : 503 })
-    }
+    if (isHealthPath(area, url.pathname)) return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER)
     return servers[area].fetch(request)
   },
 } satisfies ExportedHandler<Env>

@@ -22,6 +22,9 @@ interface WaitUntil {
 
 export const checkHealth = async (config: Config, ctx: WaitUntil): Promise<DbStatus> => {
   const { HYPERDRIVE } = config
+  // 'unconfigured' maps to ok: true (index.ts) only because no Hyperdrive resource is
+  // provisioned in production yet (wrangler.jsonc). Once it is, this must stop being treated
+  // as healthy so a lost/renamed binding goes red instead of green forever. See #30.
   if (!HYPERDRIVE) return 'unconfigured'
   let sql: postgres.Sql | undefined
   try {
