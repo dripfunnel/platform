@@ -68,6 +68,7 @@ docs/
     THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times
     FEATURE-ENVIRONMENTS.md a complete, separate environment per `feature` branch: design, lifecycle, one-time setup, limits
     GITHUB-MCP.md           connect Claude Code to GitHub (issues, project cards, pull requests) with a personal token
+    HOW-TO-WORK-A-CARD.md   the loop a developer repeats for every card: read it, branch, work with Claude, gates, pull request, review
     WORKFLOW.md             how work is planned, named (#<issue>/<kind>/<name>, #<issue> commits), enforced, reviewed, merged
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
@@ -84,7 +85,8 @@ the design prompts.
 
 **New to the repo (person or AI agent)**: this page, `ARCHITECTURE.md`,
 `USERS-AND-DOMAINS.md`, then `../AGENTS.md` (the rules for working here),
-`code/WORKFLOW.md` (branches, pull requests, review), then the guide for the part you'll
+`code/WORKFLOW.md` (branches, pull requests, review) and
+`code/HOW-TO-WORK-A-CARD.md` (the loop for one card), then the guide for the part you'll
 touch.
 
 | Task touches | Read |

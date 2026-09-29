@@ -116,6 +116,7 @@ to start.
 
 0. **Once per clone:** run `pnpm git-hooks` (§2.2). **Once per machine:** connect Claude Code to
    GitHub ([GITHUB-MCP.md](GITHUB-MCP.md)).
+   The loop you repeat for one card is [HOW-TO-WORK-A-CARD.md](HOW-TO-WORK-A-CARD.md).
 1. Read the card's "Read first" sections, and [../README.md](../README.md) §4 for the area.
 2. **Right place first**: find the lowest layer the change belongs to
    ([../api/README.md](../api/README.md) §4). In the SPAs, keep it in the app unless another
