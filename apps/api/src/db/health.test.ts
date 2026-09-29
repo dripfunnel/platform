@@ -59,4 +59,22 @@ describe('checkHealth', () => {
     const config: Config = { ...baseConfig }
     expect(await checkHealth(config, ctx)).toBe('unconfigured')
   })
+
+  it(
+    'is down without hanging when HYPERDRIVE points to a host that never completes the connection',
+    async () => {
+      const server = createServer((socket) => socket.on('data', () => {}))
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+      const { port } = server.address() as { port: number }
+      const config: Config = { ...baseConfig, HYPERDRIVE: { connectionString: `postgres://u:p@127.0.0.1:${port}/db` } }
+      try {
+        const start = Date.now()
+        expect(await checkHealth(config, ctx)).toBe('down')
+        expect(Date.now() - start).toBeLessThan(10_000)
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()))
+      }
+    },
+    10_000,
+  )
 })

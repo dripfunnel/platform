@@ -249,7 +249,7 @@ read it from a global.
 **A migration**: add a numbered file to `migrations/` (`0002_...sql`, next number after the
 last one committed), reviewed SQL only, backward-compatible with the running release. Run
 `pnpm --filter ./apps/api migrate` (needs `DATABASE_URL` in the environment, e.g. `set -a;
-source .dev.vars; set +a`) to apply every pending file in order against your local database;
+source .local.vars; set +a`) to apply every pending file in order against your local database;
 it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
 with the user" rule 3). Each file runs inside its own transaction, so statements that
 cannot run in one (`create index concurrently`, `alter type ... add value`) must be their
@@ -288,13 +288,14 @@ sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_de
 If port 5432 is already in use by another local Postgres, run the 17 instance on a different
 port (e.g. `5434`) and change the port in the URLs below to match.
 
-Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`; the default `DATABASE_URL` matches
-the role, password, port and database name above. `wrangler dev` reads `.dev.vars`
-automatically; the migration runner does not, so export it first:
+Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`, and `apps/api/.local.vars.example`
+to `apps/api/.local.vars`; the default `DATABASE_URL` in both matches the role, password, port
+and database name above. `wrangler dev` reads `.dev.vars` automatically; Node scripts and tests
+don't, so export `.local.vars` first:
 
 ```
 cd apps/api
-set -a; source .dev.vars; set +a
+set -a; source .local.vars; set +a
 pnpm migrate
 ```
 
@@ -316,12 +317,14 @@ required extension is installed on the server before applying anything
 install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partially applying.
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
-`.dev.vars.example` or `wrangler.jsonc` ever points at `dbpg01.softobotics.org`.
+`.dev.vars.example`, `.local.vars.example` or `wrangler.jsonc` ever points at
+`dbpg01.softobotics.org`.
 
-`pnpm test` needs this same database up: `scripts/health-check.test.ts`,
-`scripts/migrate/extensions.test.ts` and `scripts/migrate/runner.test.ts` run against it via
-`DATABASE_URL` (falling back to the default above when unset), the way CI's `postgres:17`
-service does (`.github/workflows/ci.yml`).
+`pnpm test` needs this same database up and `.local.vars` exported (see above):
+`scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
+`scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
+default above when unset), the way CI's `postgres:17` service does
+(`.github/workflows/ci.yml`).
 
 `/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
 (30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm

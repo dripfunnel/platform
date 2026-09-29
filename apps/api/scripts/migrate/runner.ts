@@ -8,7 +8,12 @@ import { assertPostgresMajor } from './version-check'
 const LOCK_KEY = 'dripfunnel_migrations'
 
 export const migrate = async (connectionString: string, migrationsDir: string): Promise<void> => {
-  const sql = postgres(connectionString, { max: 1 })
+  let sql: postgres.Sql
+  try {
+    sql = postgres(connectionString, { max: 1 })
+  } catch {
+    throw new Error('DATABASE_URL is not a valid URL.')
+  }
   try {
     const [{ server_version_num }] = await sql<[{ server_version_num: string }]>`select current_setting('server_version_num') as server_version_num`
     assertPostgresMajor(Number(server_version_num))
