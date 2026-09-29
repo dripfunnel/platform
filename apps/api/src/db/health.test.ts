@@ -1,8 +1,11 @@
-import { afterAll, describe, expect, it } from 'vitest'
+/// <reference types="node" />
+import { createServer } from 'node:net'
+import { describe, expect, it } from 'vitest'
 import type { Config } from '#core/config'
 import { getClient } from './client'
 import { checkHealth, ping } from './health'
 
+// eslint-disable-next-line no-restricted-globals -- test-only Node process, this file never runs in the Worker
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
 const baseConfig = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
@@ -32,6 +35,21 @@ describe('ping', () => {
       expect(await ping(sql, () => sql`select pg_sleep(1)`)).toBe(false)
     } finally {
       await sql.end()
+    }
+  })
+
+  it('is unhealthy without hanging on an unreachable host that never completes the connection', async () => {
+    const server = createServer((socket) => socket.on('data', () => {}))
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const { port } = server.address() as { port: number }
+    const sql = getClient({ connectionString: `postgres://u:p@127.0.0.1:${port}/db` }, { max: 1, connectTimeoutMs: 200 })
+    try {
+      const start = Date.now()
+      expect(await ping(sql)).toBe(false)
+      expect(Date.now() - start).toBeLessThan(5_000)
+    } finally {
+      await sql.end()
+      await new Promise<void>((resolve) => server.close(() => resolve()))
     }
   })
 })

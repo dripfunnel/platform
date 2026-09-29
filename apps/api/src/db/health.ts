@@ -28,8 +28,9 @@ export const checkHealth = async (config: Config, ctx: WaitUntil): Promise<DbSta
   if (!HYPERDRIVE) return 'unconfigured'
   let sql: postgres.Sql | undefined
   try {
-    sql = getClient(HYPERDRIVE, { max: 1, statementTimeoutMs: PING_TIMEOUT_MS })
-    return (await ping(sql)) ? 'ok' : 'down'
+    sql = getClient(HYPERDRIVE, { max: 1, statementTimeoutMs: PING_TIMEOUT_MS, connectTimeoutMs: PING_TIMEOUT_MS })
+    const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), PING_TIMEOUT_MS))
+    return (await Promise.race([ping(sql), timeout])) ? 'ok' : 'down'
   } catch {
     console.error(JSON.stringify({ code: 'db_health_check_failed' }))
     return 'down'
