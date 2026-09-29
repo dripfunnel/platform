@@ -16,20 +16,6 @@ export interface ConfirmDialogProps {
   onCancel: () => void
 }
 
-// Native <dialog> with showModal(): the page behind it is inert, so focus can't leave it.
-// Focus starts on Cancel, the safe choice, and goes back to the trigger on close.
-// With a reason the field is required: the API audits it (docs/ui/admin/README.md "Reasons").
-// The prototype's Close partner dialog asks only for the typed name, but FIRST-RELEASE.md §1
-// and the AGENTS.md logging rules require a reason on every audited write, so the reason
-// stays: the entry for the most destructive action in the console cannot be the one without
-// a why (decided 2026-09-29).
-// typeToConfirm makes the worst actions require the target's own name, exactly, as the admin
-// prototype does for Close partner, Suspend store and Undo and clean up. Comparison is exact:
-// only the surrounding whitespace is forgiven, because a name that merely looks right is the
-// mistake this field exists to catch.
-// The hint says why Confirm is disabled, as consoles must (docs/ui/README.md §5).
-// Confirm fires once per opening, so a double click can't send an audited action twice;
-// on failure the caller closes the dialog and shows the error, and reopening re-arms it.
 export const ConfirmDialog = ({
   open,
   title,
