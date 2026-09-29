@@ -8,6 +8,12 @@ describe('parseScreenState', () => {
     }
   })
 
+  it("accepts a screen's own states, not only the kit's", () => {
+    const signIn = ['approve', 'expired'] as const
+    expect(parseScreenState('expired', signIn)).toBe('expired')
+    expect(parseScreenState('empty', signIn)).toBeNull()
+  })
+
   it('ignores a state the screen does not offer', () => {
     expect(parseScreenState('confirm', ['empty', 'loading'])).toBeNull()
   })

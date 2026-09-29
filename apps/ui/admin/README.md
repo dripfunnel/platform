@@ -23,6 +23,14 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 
+## Sign-in
+
+`/sign-in` (`src/features/sign-in/`) is the staff sign-in with Microsoft Entra ID, following
+the prototype. It isn't wired to an API yet: the button steps through the screens locally.
+Force one state with `?state=` (`signing`, `approve`, `code`, `cancelled`, `denied`,
+`unavailable`, `blocked`, `refused`, `expired`); without it the screen starts at the
+Microsoft button. The environment banner shows here too.
+
 ## Screen states
 
 The state kit lives in `src/features/common/`: `EmptyState`, `LoadingState`, `ErrorState`,

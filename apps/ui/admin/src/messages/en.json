@@ -61,7 +61,66 @@
     "stores": { "title": "Stores" }
   },
   "signIn": {
-    "title": "Sign in"
+    "logoAlt": "DripFunnel",
+    "productLabel": "Admin console",
+    "footer": "For DripFunnel staff with a company Microsoft account. There is no sign-up and no password here.",
+    "microsoftButton": "Sign in with Microsoft",
+    "tryAgain": "Try again with Microsoft",
+    "states": {
+      "start": {
+        "title": "Sign in to the admin console",
+        "body": "Use your DripFunnel Microsoft work account."
+      },
+      "signing": {
+        "title": "Signing you in…",
+        "body": "Waiting for Microsoft to confirm your account.",
+        "waiting": "Waiting for Microsoft…"
+      },
+      "approve": {
+        "title": "Approve the sign-in",
+        "body": "We sent a request to Microsoft Authenticator on your phone.",
+        "tapNumber": "Tap this number in Microsoft Authenticator",
+        "waiting": "Waiting for you to approve on your phone…",
+        "useCode": "I can't use my phone — use a code"
+      },
+      "code": {
+        "title": "Approve the sign-in",
+        "body": "Open Microsoft Authenticator and enter the 6-digit code shown for your DripFunnel account.",
+        "codeLabel": "6-digit code from Microsoft Authenticator",
+        "codeHint": "Verify and sign in turns on once all 6 digits are in.",
+        "verify": "Verify and sign in",
+        "sendToPhone": "Send the request to my phone instead"
+      },
+      "cancelled": {
+        "title": "Sign-in was cancelled",
+        "body": "The Microsoft window was closed before you finished. Nothing was changed.",
+        "detail": "You can start again whenever you're ready."
+      },
+      "denied": {
+        "title": "The request was denied",
+        "body": "Someone tapped Deny on the Authenticator request. If that wasn't you, tell IT security now — your password may be known.",
+        "detail": "For safety we won't send another request for 1 minute."
+      },
+      "unavailable": {
+        "title": "Microsoft isn't answering",
+        "body": "We couldn't reach Microsoft to confirm who you are. This is usually brief.",
+        "detail": "Microsoft Entra ID timed out after 20 seconds. Check status.office.com if it keeps happening."
+      },
+      "blocked": {
+        "title": "This device can't open the console",
+        "body": "Your company only allows the admin console on managed devices. Use your work laptop, or ask IT to enrol this one.",
+        "detail": "Blocked by your company's Conditional Access policy · device not compliant."
+      },
+      "refused": {
+        "title": "You can't sign in here",
+        "body": "This account doesn't have access to the admin console. If you think it should, ask a Super admin.",
+        "action": "Use another Microsoft account"
+      },
+      "expired": {
+        "title": "Your session expired",
+        "body": "You were signed out to keep the console safe. Sign in again to carry on; you'll come back to this page."
+      }
+    }
   },
   "states": {
     "gallery": {

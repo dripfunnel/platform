@@ -126,7 +126,9 @@ The staff identity provider is not settled. The docs and the prototype disagree:
 - The Admin prototype designs **Microsoft Entra ID** with Microsoft Authenticator
   (`designs/DF Admin Prototype.dc.html`).
 
-*(ask which one)*.
+*(ask which one)*. Until it is answered, the admin sign-in screen built in #17 follows the
+prototype (Microsoft Entra ID). It isn't wired to an API yet, so only its words and button
+change if Google Workspace is chosen.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
