@@ -29,7 +29,8 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 the prototype. It isn't wired to an API yet, so it steps through the prototype's flow
 locally: the Microsoft button shows "Signing you in…", then the Authenticator request;
 "use a code" and Verify lead to the dashboard; "Use another Microsoft account" goes back to
-the start. Nothing checks who you are.
+the start. Nothing checks who you are, so this walk-through runs only where the harness is
+on (below); a production build's buttons do nothing until #13 adds the real redirect.
 Force one state with `?state=` (`signing`, `approve`, `code`, `cancelled`, `denied`,
 `unavailable`, `blocked`, `refused`, `expired`); without it the screen starts at the
 Microsoft button. The environment banner shows here too.

@@ -5,7 +5,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import logoOnDark from '../../assets/dripfunnel-logo-inverse.svg'
 import logo from '../../assets/dripfunnel-logo.svg'
 import { messages } from '../../messages'
-import { useScreenState } from '../common/useScreenState'
+import { harnessEnabled, useScreenState } from '../common/useScreenState'
 import './signIn.css'
 import { SignInStep } from './SignInStep'
 import { signInStates, type SignInState } from './signInStates'
@@ -14,6 +14,11 @@ const words = messages.signIn
 
 // How long the prototype waits for "Microsoft" before showing the Authenticator request.
 const microsoftAnswerMs = 1100
+
+// Walking through the prototype's flow locally is a review aid, so it runs only where the
+// ?state= harness does. A production build has no fake sign-in: its buttons do nothing until
+// #13 replaces this with the redirect to Microsoft (https://github.com/dripfunnel/platform/issues/13).
+const ignore = () => undefined
 
 export const SignIn = () => {
   const forced = useScreenState(signInStates)
@@ -56,7 +61,11 @@ export const SignIn = () => {
           {words.states[state].title}
         </h1>
         <p>{words.states[state].body}</p>
-        <SignInStep state={state} onChange={setState} onSignedIn={() => void navigate({ to: '/dashboard' })} />
+        <SignInStep
+          state={state}
+          onChange={harnessEnabled ? setState : ignore}
+          onSignedIn={harnessEnabled ? () => void navigate({ to: '/dashboard' }) : ignore}
+        />
       </main>
       <p className="df-sign-in-footer">{words.footer}</p>
     </div>
