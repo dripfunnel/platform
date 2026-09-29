@@ -67,6 +67,7 @@ docs/
     DESIGN.md               repo-wide: how modules, config, errors, tenancy data and UI components are written
     THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times
     FEATURE-ENVIRONMENTS.md a complete, separate environment per `feature` branch: design, lifecycle, one-time setup, limits
+    WORKFLOW.md             how work is planned, branched (feature/, task/, bug/), reviewed and merged
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
@@ -81,8 +82,9 @@ the design prompts.
 ## 4. What to read
 
 **New to the repo (person or AI agent)**: this page, `ARCHITECTURE.md`,
-`USERS-AND-DOMAINS.md`, then `../AGENTS.md` (the rules for working here), then the guide
-for the part you'll touch.
+`USERS-AND-DOMAINS.md`, then `../AGENTS.md` (the rules for working here),
+`code/WORKFLOW.md` (branches, pull requests, review), then the guide for the part you'll
+touch.
 
 | Task touches | Read |
 |---|---|
