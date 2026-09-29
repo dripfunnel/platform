@@ -25,7 +25,10 @@
       "title": "We couldn't load the partners",
       "body": "The admin API didn't answer. Nothing you entered was lost. Try again in a moment.",
       "detailsLabel": "Technical details",
-      "details": "Request timed out after 10 s (request id 7f3a91c2).",
+      "codeLabel": "Error code",
+      "code": "UNKNOWN",
+      "requestIdLabel": "Request id",
+      "requestId": "7f3a91c2",
       "retry": "Try again"
     },
     "denied": {
@@ -42,6 +45,7 @@
       "target": "Northstar Commerce",
       "consequence": "No new merchant signups. Its 86 stores keep running.",
       "reason": "Reason (saved in the activity log)",
+      "reasonHint": "Required. Pause partner turns on once you give a reason.",
       "confirm": "Pause partner",
       "cancel": "Cancel"
     }

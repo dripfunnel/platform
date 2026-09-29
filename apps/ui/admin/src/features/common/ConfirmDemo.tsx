@@ -20,7 +20,7 @@ export const ConfirmDemo = () => {
         consequence={words.consequence}
         confirmLabel={words.confirm}
         cancelLabel={words.cancel}
-        reasonLabel={words.reason}
+        reason={{ label: words.reason, hint: words.reasonHint }}
         onConfirm={() => setOpen(false)}
         onCancel={() => setOpen(false)}
       />

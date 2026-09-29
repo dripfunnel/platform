@@ -40,6 +40,7 @@
   --df-space-6: 24px;
   --df-font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --df-font-heading: Manrope, Inter, system-ui, sans-serif;
+  --df-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {

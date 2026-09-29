@@ -26,8 +26,13 @@ export const StateView = ({ state }: { state: ScreenState }) => {
         <ErrorState
           title={words.error.title}
           body={words.error.body}
-          detailsLabel={words.error.detailsLabel}
-          details={words.error.details}
+          details={{
+            label: words.error.detailsLabel,
+            codeLabel: words.error.codeLabel,
+            code: words.error.code,
+            requestIdLabel: words.error.requestIdLabel,
+            requestId: words.error.requestId,
+          }}
           retry={{ label: words.error.retry, onRetry: () => undefined }}
         />
       )

@@ -64,6 +64,14 @@ describe('StateView', () => {
     expect(html).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*>${words.confirm.confirm}</button>`))
   })
 
+  it('says why confirm is disabled, in a hint the field and the button both point to', () => {
+    const html = render('confirm')
+    const hintId = new RegExp(`<p id="([^"]+)"[^>]*>${words.confirm.reasonHint}</p>`).exec(html)?.[1]
+    expect(hintId).toBeDefined()
+    expect(html).toMatch(new RegExp(`<textarea[^>]*aria-describedby="${hintId ?? ''}"`))
+    expect(html).toMatch(new RegExp(`<button[^>]*disabled=""[^>]*aria-describedby="${hintId ?? ''}"`))
+  })
+
   it('renders something for every state', () => {
     for (const state of screenStates) {
       expect(render(state)).not.toBe('')

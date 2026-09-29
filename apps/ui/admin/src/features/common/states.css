@@ -46,9 +46,22 @@
   cursor: pointer;
 }
 
-.df-state pre {
+.df-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--df-space-1) var(--df-space-3);
   margin: var(--df-space-2) 0 0;
-  white-space: pre-wrap;
+  color: var(--df-color-muted);
+  font-size: 0.8125rem;
+}
+
+.df-details dd {
+  margin: 0;
+}
+
+.df-details code {
+  color: var(--df-color-text);
+  font-family: var(--df-font-mono);
 }
 
 .df-skeleton {
@@ -183,6 +196,12 @@
 .df-field label {
   font-size: 0.8125rem;
   font-weight: 600;
+}
+
+.df-field-hint {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 0.8125rem;
 }
 
 .df-field textarea {
