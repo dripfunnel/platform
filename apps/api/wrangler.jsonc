@@ -3,9 +3,34 @@
   "name": "dripfunnel-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "ADMIN_HOST": "admin.dripfunnel.com",
     "PLATFORM_HOST": "platform.dripfunnel.com",
     "HOOKS_HOST": "hooks.dripfunnel.com"
+  },
+  "ratelimits": [
+    { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+  ],
+  // No top-level `hyperdrive` binding yet: production has no Hyperdrive resource
+  // provisioned (`wrangler hyperdrive create`, then add `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }`
+  // here). Until then, `wrangler deploy` ships without HYPERDRIVE; /health reports
+  // `{ ok: true, db: "unconfigured" }` (200), not a failure, so no monitor alarms (§7).
+  "env": {
+    // `wrangler dev --env dev` only: no Hyperdrive resource is provisioned yet
+    // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
+    // `wrangler deploy` (production) reads. Local dev uses `localConnectionString`
+    // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
+    "dev": {
+      "vars": {
+        "ADMIN_HOST": "admin.dripfunnel.com",
+        "PLATFORM_HOST": "platform.dripfunnel.com",
+        "HOOKS_HOST": "hooks.dripfunnel.com"
+      },
+      "ratelimits": [
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+      ],
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }]
+    }
   }
 }

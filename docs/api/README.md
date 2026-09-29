@@ -5,8 +5,9 @@ and how to add to it. Read [../ARCHITECTURE.md](../ARCHITECTURE.md) and
 [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) first; they win wherever this folder
 disagrees.
 
-**Status: skeleton.** The router, the four GraphQL endpoints (one `health` field each) and
-the layer rules exist and pass every gate. There is no database, engine or feature code yet.
+**Status: skeleton.** The router, the four GraphQL endpoints (one `health` field each), the
+layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
+pass every gate. There is no engine or feature code yet.
 
 Last updated: 2026-09-29.
 
@@ -218,7 +219,7 @@ request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after 
 3. Add the resolver in `apis/<api>/<area>.ts`, declaring its permission and tenant scope.
    A resolver without a declaration fails the structural test.
 4. `pnpm --filter ./apps/api schema` and commit the changed `schema/*.graphql`.
-5. Add the field to the isolation matrix if it touches tenant data (§8).
+5. Add the field to the isolation matrix if it touches tenant data (§9).
 
 **An engine module**: a folder under `engine/modules/` with `index.ts` (the only public
 entry), `service.ts`, `events.ts`, `operations/`. It registers its tables, operations and
@@ -245,9 +246,97 @@ for idempotency, write outbox rows or engine calls, return fast.
 secrets through `wrangler secret`, never in the repo. Pass it into `createEngine`, never
 read it from a global.
 
+**A migration**: add a numbered file to `migrations/` (`0002_...sql`, next number after the
+last one committed), reviewed SQL only, backward-compatible with the running release. Run
+`pnpm --filter ./apps/api migrate` (needs `DATABASE_URL` in the environment, e.g. `set -a;
+source .dev.vars; set +a`) to apply every pending file in order against your local database;
+it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
+with the user" rule 3). Each file runs inside its own transaction, so statements that
+cannot run in one (`create index concurrently`, `alter type ... add value`) must be their
+own migration file with no other statements. Applied migrations are recorded in the
+`schema_migrations` table so re-running is a no-op.
+
 ---
 
-## 7. Rules that apply to every line in `apps/api`
+## 7. Local Postgres
+
+This project requires Postgres 17.x; `pnpm migrate` refuses to run against any other major
+(`scripts/migrate/version-check.ts`). Install it natively — no Docker required.
+
+**macOS (Homebrew):**
+
+```
+brew install postgresql@17
+brew services start postgresql@17
+createuser -s dripfunnel_dev
+createdb -O dripfunnel_dev dripfunnel
+psql -d dripfunnel -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
+```
+
+**Debian/Ubuntu:**
+
+```
+sudo apt install postgresql-17
+sudo -u postgres createuser -s dripfunnel_dev
+sudo -u postgres createdb -O dripfunnel_dev dripfunnel
+sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
+```
+
+**Windows:** install Postgres 17 with the postgresql.org installer, then run the equivalent
+`createuser`/`createdb` commands from a shell (or pgAdmin) with the same names.
+
+If port 5432 is already in use by another local Postgres, run the 17 instance on a different
+port (e.g. `5434`) and change the port in the URLs below to match.
+
+Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`; the default `DATABASE_URL` matches
+the role, password, port and database name above. `wrangler dev` reads `.dev.vars` for worker
+bindings; Node scripts and tests don't, so export it first:
+
+```
+cd apps/api
+set -a; source .dev.vars; set +a
+pnpm migrate
+```
+
+`.dev.vars` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (same
+connection string as `DATABASE_URL`) — `wrangler dev --env local` uses it to make the `HYPERDRIVE`
+binding proxy to local Postgres instead of a real Hyperdrive resource. Wrangler reads that
+specific variable from the shell environment, not from `.dev.vars` directly, so `pnpm dev`
+sources `.dev.vars` into the shell before starting wrangler; if you run `wrangler dev` by hand
+instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
+variable.
+
+There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-level
+`hyperdrive` binding yet. To provision one, run
+`wrangler hyperdrive create <name> --connection-string="postgres://..."` and add the returned
+id as `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }` under `hyperdrive` in
+`wrangler.jsonc`. Until that's done, `/health` reports `{ ok: true, db: "unconfigured" }`
+rather than failing.
+
+Migrations may declare `create extension if not exists "..."`; the runner checks every
+required extension is installed on the server before applying anything
+(`scripts/migrate/extensions.ts`) and fails with the missing extension's name and how to
+install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partially applying.
+
+This is local only (AGENTS.md "Working with the user" rule 3): nothing in
+`.dev.vars.example` or `wrangler.jsonc` ever points at
+`dbpg01.softobotics.org`.
+
+`pnpm test` needs this same database up and `.dev.vars` exported (see above):
+`scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
+`scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
+default above when unset), the way CI's `postgres:17` service does
+(`.github/workflows/ci.yml`).
+
+`/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
+(30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm
+from exhausting Hyperdrive's connection pool. `cf-connecting-ip` is always set behind
+Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler dev`) gets
+400 rather than falling back to an easily-exhausted shared bucket.
+
+---
+
+## 8. Rules that apply to every line in `apps/api`
 
 The full list is [AGENTS.md](../../AGENTS.md) "SaaS platform rules" and
 [../code/DESIGN.md](../code/DESIGN.md). The ones that decide the shape of API code:
@@ -267,7 +356,7 @@ The full list is [AGENTS.md](../../AGENTS.md) "SaaS platform rules" and
 
 ---
 
-## 8. Testing
+## 9. Testing
 
 - **Unit tests** beside the code (`service.test.ts`), for pure rules: money, tax,
   promotions, stock. Property-based where the input space is large.
@@ -286,7 +375,7 @@ Run `pnpm turbo run build typecheck lint test` before reporting any change as do
 
 ---
 
-## 9. Open questions
+## 10. Open questions
 
 Carried from PLATFORM-PROMPT §10 where they decide API shape:
 

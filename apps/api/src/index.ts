@@ -1,5 +1,6 @@
 import { adminSchema } from '#apis/admin/schema'
 import { createServer } from '#apis/graphql/server'
+import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
@@ -15,12 +16,23 @@ const servers = {
 
 const notFound = () => new Response('Not found', { status: 404 })
 
+interface Env extends Record<string, unknown> {
+  HEALTH_RATE_LIMITER: RateLimit
+}
+
 export default {
-  fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
-    const area = resolveArea(url, parseConfig(env))
+    let config
+    try {
+      config = parseConfig(env)
+    } catch {
+      console.error(JSON.stringify({ code: 'config_invalid' }))
+      return new Response(null, { status: 500 })
+    }
+    const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
-    if (url.pathname.endsWith('/health')) return Response.json({ ok: true, area })
+    if (isHealthPath(area, url.pathname)) return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER)
     return servers[area].fetch(request)
   },
-} satisfies ExportedHandler<Record<string, unknown>>
+} satisfies ExportedHandler<Env>
