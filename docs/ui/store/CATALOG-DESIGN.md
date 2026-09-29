@@ -5,15 +5,15 @@ The prompt for a design session on the **Catalogue** part of the merchant portal
 collections, filters, menus, import/export and the vendor side of all of it, plus
 multi-language and multi-currency listing and rich listings (A+ content, size charts,
 specifications, FAQs, legal information), all of which follow store settings and the billing
-plan. It was ported from the first (Vendure-based) platform's
-CATALOG-DESIGN-PROMPT on 2026-09-28, with its Vendure facts replaced by engine facts: what our own commerce engine
+plan. It was ported from the first platform's
+CATALOG-DESIGN-PROMPT on 2026-09-28, with its framework facts replaced by engine facts: what our own commerce engine
 (`apps/api`, specified in [PLATFORM-PROMPT.md](../../api/PLATFORM-PROMPT.md)) must provide,
 and the product rules that hold whatever the engine looks like. Parts, scenario ids and fact
 numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") still resolve.
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2

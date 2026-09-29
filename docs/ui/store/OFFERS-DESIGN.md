@@ -3,14 +3,14 @@
 The prompt for a design session on the **Offers** part of the merchant portal
 (`apps/ui/store`): automatic discounts, coupon codes, buy-one-get-one, free shipping, who an
 offer is for, when it runs, how often it can be used, how offers combine, what the shopper
-sees, and how an offer performed. It was ported from the first (Vendure-based)
-platform's OFFERS-DESIGN-PROMPT on 2026-09-28, with its Vendure facts replaced by the requirements of our own engine's
+sees, and how an offer performed. It was ported from the first
+platform's OFFERS-DESIGN-PROMPT on 2026-09-28, with its framework facts replaced by the requirements of our own engine's
 promotions module ([PLATFORM-PROMPT](../../api/PLATFORM-PROMPT.md) §3.2, §3.3, §5.4, §5.10).
 The vocabulary, principles, parts, scenarios, states, "never do" rules and open questions
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -168,7 +168,7 @@ promotions tests before relying on it.
    | $ off the whole order | `order_fixed_discount` | Engine provides (first release) | Capped at the order subtotal, so it never goes negative. Amount per currency (fact 10). |
    | % off chosen products | `products_percentage_discount` | Engine provides (first release) | Product targets: fact 5. |
    | % off products tagged … | `filter_value_discount` | Engine provides (first release) | Follows the catalogue's filter values, so new matching products are included. |
-   | $ off chosen products | `line_fixed_discount` | Engine provides (first release) | **Per cart line or per unit is ours to decide** *(decide)*: per line means 2 × T-shirt = one $5 off; per unit means $10. Word it exactly as built; the first platform's Vendure action was per line. |
+   | $ off chosen products | `line_fixed_discount` | Engine provides (first release) | **Per cart line or per unit is ours to decide** *(decide)*: per line means 2 × T-shirt = one $5 off; per unit means $10. Word it exactly as built; the first platform's action was per line. |
    | % or $ off a collection | `collection_discount` | Engine provides (§5.4, §5.10) | Fact 5. |
    | Free shipping | `free_shipping` | Engine provides (first release) | Removes **all** shipping on the order. |
    | Y free when buying X | `buy_x_get_y` | Engine provides (first release) | **Which items are made free when several qualify (cheapest?) and whether it repeats are ours to decide** *(decide)*; state the rule in the summary. |
@@ -208,7 +208,7 @@ promotions tests before relying on it.
      for each (part O).
 7. **Combining offers: deterministic order and combination rules.** PLATFORM-PROMPT §5.4
    requires **combination rules** and a **deterministic application order**, so "everything
-   stacks, in an order the merchant can't see" (the first platform's Vendure behaviour) is not the
+   stacks, in an order the merchant can't see" (the first platform's behaviour) is not the
    target.
    - The application order is fixed and documented by the engine (for example product
      discounts before order discounts before shipping *(decide)*), and the same cart always
@@ -253,7 +253,7 @@ promotions tests before relying on it.
       code (PLATFORM-PROMPT §5.4 "Money"). The UI shows and accepts major units formatted
       with `Intl.NumberFormat` (see [CATALOG-DESIGN.md](CATALOG-DESIGN.md) §3 fact 5).
     - **Per-currency amounts** are an engine requirement (PLATFORM-PROMPT §5.4), and "a single
-      integer amount applied in every currency" is on the list of Vendure mistakes not to
+      integer amount applied in every currency" is on the list of mistakes not to
       copy (PLATFORM-PROMPT §5.10). In a **multi-currency** store a fixed-amount offer carries
       one amount per currency the store sells in (10.00 USD, 9.00 EUR, 1,500 JPY), never the
       same integer read as different money.

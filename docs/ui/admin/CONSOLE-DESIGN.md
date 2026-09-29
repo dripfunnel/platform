@@ -7,13 +7,13 @@ white-label **brands** (a partner resells the platform under its own name and lo
 exactly one brand), every **store** under every partner, **billing** at both levels, and the
 configuration that decides what each partner and store can do. **DripFunnel's own offering is
 one partner in this console (the house partner), managed exactly like the others**, and the
-admin console is the only operations console: there is no Vendure Dashboard.
+admin console is the only operations console: there is no separate back office.
 
 Paste §1 to start. Then name a part from §6, or say "all of it, in order". It follows the
 conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 
 > **Status (updated 2026-09-28).** This document was rewritten on 2026-09-28 for the platform's
-> own engine: §3 now states engine facts instead of Vendure facts, and nothing in it is built
+> own engine: §3 now states engine facts instead of the first platform's framework facts, and nothing in it is built
 > yet. [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) and
 > [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md) win wherever this document
 > disagrees with them. There are **two consoles**. The **admin console** is `apps/ui/admin`
@@ -198,7 +198,7 @@ why it shapes the interface. The engine is specified in
     work happens (PLATFORM-PROMPT §5.7, §5.8). Also: template drift, provisioning success
     rate, time to first store, failed builds after AI edits. These belong on the admin
     console's home, per brand and per store.
-11. **The admin console is the only operations console.** There is no Vendure Dashboard and
+11. **The admin console is the only operations console.** There is no framework dashboard and
     no other back office: every operation staff need is a screen here, or it does not exist.
     Engineers who need raw data get an engineer-only raw data view inside the admin console,
     audited like every other read of tenant data *(ask)*.
@@ -693,6 +693,6 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
   **Settled**: yes, by a banner, the Support access log and (to confirm) an email
   (USERS-AND-DOMAINS §4.1).
 - Retention after cancellation and brand closure; what happens to a closed brand's stores?
-- ~~Does the admin console fully replace the Vendure Dashboard?~~ **Settled**: yes, there is
-  no Vendure Dashboard (§3 fact 11). Still open: whether engineers get a raw data view.
+- ~~Does the admin console fully replace the first platform's dashboard?~~ **Settled**: yes,
+  there is no other dashboard (§3 fact 11). Still open: whether engineers get a raw data view.
 - Plan promotions for merchant signups (G8)?

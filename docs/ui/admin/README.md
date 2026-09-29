@@ -6,7 +6,7 @@ levels, the storefront fleet, domains, integrations and platform settings. It ca
 **Admin API** at `/api` on the same host, is DripFunnel-branded, and serves **staff only**.
 Cloudflare Access guards the whole host in front of the app's own sign-in.
 
-Older documents call it "DF Admin". It replaces the Vendure Dashboard of the archived
+Older documents call it "DF Admin". It replaces the framework dashboard of the archived
 platform; there is no other operations console.
 
 **Status: skeleton** (sign-in and home routes). The design is

@@ -4,9 +4,9 @@ The specification of the SaaS layer, `apps/api/src/saas/` ([README.md](README.md
 publish schedule, billing, provisioning, domains, storefront publishing, the AI designer, the
 fleet, support access, the activity (audit) log ([LOGGING.md](LOGGING.md)) and the platform metrics. It sits above the commerce
 engine (`src/engine`) and below the entry points (`src/apis`, `src/hooks`, `src/jobs`). It was
-ported from the first (Vendure-based) platform's SAAS-PLAN (with the job, domain and
+ported from the first platform's SAAS-PLAN (with the job, domain and
 `ai_run` parts of its ARCHITECTURE) on 2026-09-28, with
-Vendure, AWS and tRPC facts replaced by engine facts. Where this document disagrees with
+framework, AWS and tRPC facts replaced by engine facts. Where this document disagrees with
 [../ARCHITECTURE.md](../ARCHITECTURE.md) or [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md),
 those two win.
 

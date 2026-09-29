@@ -2,14 +2,14 @@
 
 The prompt to give Claude when designing the **merchant portal** (`apps/ui/store`), plus the
 full list of flows to work through one at a time. It was ported from the
-first (Vendure-based) platform's DESIGN-BRIEF on 2026-09-28, with its Vendure facts replaced by facts about our own headless engine
+first platform's DESIGN-BRIEF on 2026-09-28, with its framework facts replaced by facts about our own headless engine
 ([`../../api/PLATFORM-PROMPT.md`](../../api/PLATFORM-PROMPT.md) §6). Users, flows 1–69, their
 numbers and section letters are kept so that citations such as "flow 58" or "§E" stay valid;
 new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 Paste §1 to start a design session, then name a flow from §3.
 

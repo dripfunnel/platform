@@ -3,9 +3,9 @@
 Identity, sessions, roles and permissions, invitations, vendors, support access, tenancy and
 authorization in the DripFunnel engine: **who can sign in, where, how they get an account,
 what they may do, and how every resolver proves it**. Ported on 2026-09-28 from the
-first (Vendure-based) platform's AUTH-PLAN (§3, §4, §5.3, §7, §8.3–8.6, §9, §11) and
-ARCHITECTURE (§4, §6.3, §7), with Vendure facts replaced by engine facts; AUTH-PLAN §2 and §6 were
-Vendure-specific and survive only as §12's lessons. Where this document and
+first platform's AUTH-PLAN (§3, §4, §5.3, §7, §8.3–8.6, §9, §11) and
+ARCHITECTURE (§4, §6.3, §7), with framework facts replaced by engine facts; AUTH-PLAN §2 and §6 were
+framework-specific and survive only as §12's lessons. Where this document and
 [`../ARCHITECTURE.md`](../ARCHITECTURE.md) or
 [`../USERS-AND-DOMAINS.md`](../USERS-AND-DOMAINS.md) disagree, those two win. Engine
 requirements are in [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) (§2 items 2–5 and 16–20, §5.1–5.3,
@@ -364,7 +364,7 @@ staff write is audited (§10).
 
 ### 5.5 Never in any merchant or vendor role
 
-Rewritten from the first platform's list of Vendure permissions as engine rules. Each has a structural
+Rewritten from the first platform's list of framework permissions as engine rules. Each has a structural
 test (§11.2).
 
 - **No permission above the store.** Partners, plans, entitlements, provisioning, billing
@@ -800,12 +800,12 @@ and existing account), and a support session with its banner.
 
 ---
 
-## 12. Lessons from the Vendure build
+## 12. Lessons from the first platform
 
-The first platform's design was shaped by Vendure's limits (AUTH-PLAN §2, §6). The workarounds are gone
+The first platform's design was shaped by its commerce framework's limits (AUTH-PLAN §2, §6). The workarounds are gone
 (PLATFORM-PROMPT §3.1); the lessons they taught are product rules here.
 
-- **Unscoped list queries leak.** Vendure's `administrators`, `Seller` and `TaxRate` lists
+- **Unscoped list queries leak.** The framework's administrator, seller and tax-rate lists
   returned every tenant's rows, and a superadmin holding a role in every channel showed up in
   every store's people list. Every list goes through one scoped layer; nothing is global by
   accident; platform identities never appear in a store's People (§5.5, §11.2).

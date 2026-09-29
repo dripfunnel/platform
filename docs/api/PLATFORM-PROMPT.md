@@ -1,12 +1,14 @@
 # PLATFORM-PROMPT.md
 
 The prompt for the session that designs the **new DripFunnel platform**: its architecture, data
-model, build order and product design. It replaces the first, Vendure-based plan
-(removed from the workspace 2026-09-28; what still held is ported into this repo).
+model, build order and product design. It replaces the first platform's plan, which was
+built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
+held is ported into this repo).
 
-**The change, in one line:** DripFunnel no longer runs on Vendure. **We build our own
-headless commerce engine, architected like Vendure** (a GraphQL Shop API and a Store API like Vendure's Admin API,
-configurable operations, custom fields, an event bus and job queue), but designed for
+**The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
+**We build our own headless commerce engine, architected like established headless engines**
+(a GraphQL Shop API and an admin-side Store API, configurable operations, custom fields, an
+event bus and job queue), but designed for
 multi-tenancy, vendors and white label from the first line. Everything else in the plan
 still holds: merchants and vendors, repo-per-store storefronts, white-label brands and DF
 Admin, and the stack. The one other change is that **storefronts are hosted on Cloudflare,
@@ -23,9 +25,6 @@ host their storefront, or builds their own frontend on the public Shop API. Both
 API clients. **The AI-designed storefront is fully separate from the engine**, which is what
 gives us complete freedom to change its design and behaviour without touching commerce.
 
-`../../../vendure-backend/` is kept **as a reference for how a headless commerce platform is put
-together**, not as a dependency (§5.10).
-
 Paste §1 to start a session. Everything after §1 is also specification.
 
 ---
@@ -39,13 +38,13 @@ Paste §1 to start a session. Everything after §1 is also specification.
 > **Partners** can resell the platform under their own brand (white label). DripFunnel staff
 > run everything from **DF Admin**.
 >
-> **It is a headless platform, like Vendure or Shopify.** The commerce engine exposes a
+> **It is a headless platform, like Shopify.** The commerce engine exposes a
 > **Shop API** (public, for storefronts) and a **Store API** (authenticated, for managing a
 > store), both GraphQL. Everything else is a client of those APIs:
 > - **the AI-designed storefront** DF Store builds and hosts for a merchant (repo per store on
 >   Cloudflare);
 > - **a merchant's own storefront** (any framework, any host) using the same Shop API;
-> - **the merchant portal and DF Admin**, which use the Store API as the Vendure Dashboard uses Vendure's Admin API;
+> - **the merchant portal and DF Admin**, which are ordinary clients of the Store API;
 > - **integrations and apps** (ERP, POS, marketplaces, third-party apps) through API keys,
 >   webhooks and app installs.
 >
@@ -54,9 +53,9 @@ Paste §1 to start a session. Everything after §1 is also specification.
 > the storefront's design and functionality freely, because nothing the storefront does can
 > bypass the engine's rules on price, stock, tax, offers or tenancy.
 >
-> **What changed.** The first version of the platform used **Vendure 3.7** as its commerce
-> backend. Every Vendure-shaped workaround in the old plan came from Vendure not being built
-> for this: permissions per channel rather than per row, list queries that leak across
+> **What changed.** The first version of the platform used a **third-party commerce
+> framework** as its backend. Every workaround in the old plan came from that framework not
+> being built for this: permissions per channel rather than per row, list queries that leak across
 > tenants, no vendor orders, promotions without collections or stacking rules, and a proof
 > header so vendors couldn't bypass the portal. **That plan is archived. We now build our own
 > commerce engine**, in our own Postgres database, so tenancy, vendors, white label and every
@@ -67,12 +66,12 @@ Paste §1 to start a session. Everything after §1 is also specification.
 > rules, the roles, one login across many stores, the repo-per-store storefront with an
 > AI-editable theme and a locked commerce core, the AI designer's preview-then-publish loop,
 > white-label brands and DF Admin, and the stack (Next.js, Drizzle, Postgres, the GitHub App,
-> Stripe Billing), now with **GraphQL** for the public APIs as in
-> Vendure. **Storefronts move to Cloudflare.**
+> Stripe Billing), now with **GraphQL** for the public APIs. **Storefronts move to
+> Cloudflare.**
 >
-> **Read first**, in this order. The archived documents were written against Vendure; what
-> still holds of them has been ported into this repo (2026-09-28), with Vendure facts
-> replaced by engine facts:
+> **Read first**, in this order. The archived documents were written against the old
+> framework; what still holds of them has been ported into this repo (2026-09-28), with
+> framework facts replaced by engine facts:
 > 1. [`SAAS.md`](SAAS.md): partners, merchant accounts, provisioning, plans, billing,
 >    domains, publishing, fleet, metrics (was the first platform's SAAS-PLAN).
 > 2. [`ACCESS.md`](ACCESS.md): identity, sessions, roles, invitations, vendors, tenancy and
@@ -91,13 +90,10 @@ Paste §1 to start a session. Everything after §1 is also specification.
 >    package, theme contract, preview and live modes). Already decided; design the engine
 >    and hosting to serve it.
 > 7. `../../AGENTS.md`: the ground rules (carried over from the first platform's BUILD-PROMPT).
-> 8. `../../../vendure-backend/`: **the reference for how a headless commerce platform works.**
->    Read its `ARCHITECTURE.md` (§4 lists the commerce features the new engine must cover:
->    shipping charge strategy, Stripe/Razorpay, Shiprocket, email, assets, import/export),
->    and study Vendure's own design in `node_modules/@vendure/core` for the patterns §5.10
->    asks you to copy: the Shop/Store API split, `ConfigurableOperation`s and strategies,
->    custom fields, the `EventBus` and `JobQueue`. Copy the ideas, not the code, and not the
->    parts §5.10 lists as mistakes for a multi-tenant platform.
+> 8. §3.2 and §5.10 below: the commerce features the engine must cover, and the headless
+>    patterns to copy (the Shop/Store API split, configurable operations and strategies,
+>    custom fields, an event bus and a job queue). Copy the ideas, and not the parts §5.10
+>    lists as mistakes for a multi-tenant platform.
 >
 > **What to produce.** Work in this order, and stop after each for my review:
 > 1. **Restate** the platform, its users and the change in your own words, and list what you
@@ -117,13 +113,13 @@ Paste §1 to start a session. Everything after §1 is also specification.
 >    and the SDK the storefront core package and merchants' own frontends use.
 > 5. **`BUILD-PLAN.md`**: slices in dependency order, each with its gates (§8).
 > 6. **`DESIGN-BRIEF.md`**: the portal and DF Admin design brief, rewritten for the new
->    engine (§6), plus updated catalogue, offers and admin prompts with their Vendure facts
->    replaced by the engine's own.
+>    engine (§6), plus updated catalogue, offers and admin prompts with their framework
+>    facts replaced by the engine's own.
 >
 > **How to work.**
-> - Where the archived documents decided something that is **not** Vendure-specific, follow
->   it. The alternatives were considered and rejected for recorded reasons.
-> - Where a decision existed only because of Vendure, **say so and redesign it**. Don't carry
+> - Where the archived documents decided something that is **not** framework-specific,
+>   follow it. The alternatives were considered and rejected for recorded reasons.
+> - Where a decision existed only because of the old framework, **say so and redesign it**. Don't carry
 >   a workaround forward out of habit.
 > - Prefer boring, proven designs. We are replacing a mature framework, and every module we
 >   own is one we maintain. Scope the first release honestly (§8), and name what is deferred.
@@ -191,7 +187,7 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     APIs and jobs on **Cloudflare Workers**, UIs on **Cloudflare Pages**, files on **R2**,
     email through **SES**; Next.js for the storefront template; the GitHub App for repos;
     Stripe Billing for subscriptions (`../ARCHITECTURE.md` §1).
-    [ARCHITECTURE §1] **The public APIs are GraphQL**, like Vendure's (§5.5). Whether tRPC
+    [ARCHITECTURE §1] **The public APIs are GraphQL** (§5.5). Whether tRPC
     survives for portal-only screens (aggregated dashboards, platform operations) or the
     portal uses the Store API alone is a decision to make and record (§10).
 16. **The browser holds no privileged token.** Portal and DF Admin sessions are server-side,
@@ -201,7 +197,7 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
 17. **Every endpoint declares its scope, structurally.** The first platform's design did it with tRPC
     procedure bases and a test walking the router tree [ARCHITECTURE §4.2]. In GraphQL the
     same rule applies to resolvers: each one declares its API (Shop, Store, Platform or Admin), its
-    permission and its tenant scope (like Vendure's `@Allow`, but tenant- and seller-aware),
+    permission and its tenant scope (a permission decorator, but tenant- and seller-aware),
     and a test walks the schema to prove no field is missing one.
 18. **`SellerScope` is a discriminated union with no default**, so a forgotten vendor filter is
     a type error. [ARCHITECTURE §4.1]
@@ -221,16 +217,16 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
 
 ---
 
-## 3. What Vendure gave us, what goes away, and what we now own
+## 3. What the old framework gave us, what goes away, and what we now own
 
 ### 3.1 Gone, and good riddance
 
-These existed only because of Vendure. None of them may reappear in the new design:
+These existed only because of the old framework. None of them may reappear in the new design:
 
 - the `X-DF-Store-Proof` HMAC header and `DfStoreGuardPlugin`, which stopped vendors from
-  signing in to Vendure directly;
+  signing in to the framework directly;
 - per-store role **cloning** and namespaced role codes;
-- the service-account-plus-channel-token model, and Vendure admin tokens held in sessions;
+- the service-account-plus-channel-token model, and framework admin tokens held in sessions;
 - `requiresDfStoreProof`, `channelAdministrators`, the invite plugin's throwaway password;
 - cross-tenant leaks in unscoped queries (`administrators`, `Seller`, `TaxRate`), the
   default-channel-sees-everything behaviour, and store-wide `GlobalSettings`;
@@ -241,7 +237,7 @@ These existed only because of Vendure. None of them may reappear in the new desi
 
 ### 3.2 Now ours to build (the cost)
 
-Vendure provided these, and the new engine must replace each one. The ported design docs
+The old framework provided these, and the new engine must replace each one. The ported design docs
 (`../ui/store/`) describe what the portal expects of them.
 
 | Area | Must cover in the first release | Reference |
@@ -253,13 +249,13 @@ Vendure provided these, and the new engine must replace each one. The ported des
 | **Promotions** | Automatic and code offers, conditions, actions, dates, limits | OFFERS prompt |
 | **Cart and checkout** | Guest and signed-in carts, addresses, shipping selection, tax and discounts, payment, order placement | new |
 | **Orders** | Order lifecycle, payments, fulfilment, cancellations, per-vendor views | DESIGN-BRIEF §F |
-| **Payments** | Stripe and Razorpay per merchant (merchant's own keys), webhooks, refunds | vendure-backend §4.2 |
-| **Shipping** | Methods, zones, charge strategy (free, fixed, pass-through, free over a threshold), Shiprocket and other couriers | vendure-backend §4.1, §4.3 |
+| **Payments** | Stripe and Razorpay per merchant (merchant's own keys), webhooks, refunds | §5.4 Payments |
+| **Shipping** | Methods, zones, charge strategy (free, fixed, pass-through, free over a threshold), Shiprocket and other couriers | §5.4 Shipping |
 | **Customers** | Shopper accounts, addresses, customer groups | OFFERS §3 fact 12 |
 | **Search** | Storefront search and filters, portal search | SAAS-PLAN §12 |
-| **Assets** | Upload, storage, image variants | vendure-backend §4.6 |
+| **Assets** | Upload, storage, image variants | §5.6 Assets |
 | **Import/export** | CSV and Shopify import with validation before write; export | CATALOG part K |
-| **Email** | Shopper emails (order confirmation, shipping, password) and portal emails, per brand | vendure-backend §4.4 |
+| **Email** | Shopper emails (order confirmation, shipping, password) and portal emails, per brand | SAAS §3.6 |
 
 ### 3.3 Now possible, and expected
 
@@ -301,9 +297,9 @@ Everything is one repo, [`dripfunnel/platform`](https://github.com/dripfunnel), 
 code in `apps/api` (`../code/ARCHITECTURE.md`); only generated store repos are separate.
 Business logic never lives in an app.
 
-This mirrors Vendure's split between `@vendure/core` (the engine, with its Shop and Admin
-APIs, here `apps/api/src/engine`) and `@vendure/dashboard` (one Store API client among many,
-here the portal and DF Admin). The engine has explicit
+This is the usual headless split between the engine (with its Shop and admin-side APIs,
+here `apps/api/src/engine`) and its dashboards (Store API clients among many, here the
+portal and DF Admin). The engine has explicit
 module boundaries: modules talk through their public services and events, never through each
 other's tables. The engine and the platform are libraries composed by several Workers
 (`../ARCHITECTURE.md` §2).
@@ -399,7 +395,8 @@ Design each module's responsibilities, tables, public API, events and invariants
 - **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
   credentials, encrypted at rest; webhooks idempotent; refunds. Decide whether a marketplace
   model (Stripe Connect, Razorpay Route) is needed for vendor payouts *(ask)*.
-- **Shipping**: methods, zones, the charge strategies from vendure-backend §4.1, courier
+- **Shipping**: methods, zones, the charge strategies (free, fixed, the courier's rate passed
+  through, free over a threshold), courier
   adapters (Shiprocket first, the archived `courier_partner` model), tracking status sync.
 - **Customers**: accounts, addresses, groups, consent; what a vendor may see of a customer
   (name and address to ship, not email or phone, AUTH-PLAN §8.5) applied in the serializer.
@@ -407,15 +404,15 @@ Design each module's responsibilities, tables, public API, events and invariants
   vendor-scoped in the portal, visibility-scoped in the storefront.
 - **Import/export**: CSV and Shopify, validate before any write, partial-failure reports,
   translations and currency columns.
-- **Events, jobs, operations and custom fields** follow the Vendure-style patterns in §5.10.
+- **Events, jobs, operations and custom fields** follow the headless-engine patterns in §5.10.
 
 ### 5.5 The public APIs (headless)
 
-Modelled on Vendure's split into a Shop API and an Admin API (ours: the **Store API**), both **GraphQL**, served by the
+Modelled on the usual headless split into a Shop API and an admin-side API (ours: the **Store API**), both **GraphQL**, served by the
 engine. Each has its own schema, its own auth and its own rate limits.
 
 **Shop API** (`/shop-api`), for every storefront, ours or the merchant's:
-- Catalogue, collections, filters and search; cart (an active order, as in Vendure);
+- Catalogue, collections, filters and search; cart (an active order);
   shipping and payment options; checkout; customer sign-up, sign-in, account, addresses and
   order history; content the storefront needs (menus, store info, policies).
 - Identifies the store by a **public store key** or the hostname, never by a secret. It holds
@@ -436,10 +433,10 @@ engine. Each has its own schema, its own auth and its own rate limits.
 **Store API** (`/api`), for the portal, read-only support sessions opened from the partner
 or admin console (ACCESS.md §8), integrations and apps:
 - Everything a merchant can do in the portal, and nothing more: **the portal is a Store API
-  client** (as the Vendure Dashboard is), so any screen can be automated by an integration
+  client**, so any screen can be automated by an integration
   with the right key.
 - Permissions are checked per resolver **and per row**: every query is tenant- and
-  seller-scoped by the context (§5.1), unlike Vendure's per-channel permissions. A vendor
+  seller-scoped by the context (§5.1), unlike the old framework's per-channel permissions. A vendor
   caller can only ever see and change its own rows.
 - Platform operations above a store (brands, plans, billing, provisioning, staff) are **not**
   in the Store API. They live in the Platform API (partners) and the Admin API (staff) (§4).
@@ -454,8 +451,8 @@ or admin console (ACCESS.md §8), integrations and apps:
   change.
 - **Apps**: a third party registers an app; a merchant installs it with consent to named
   scopes; the app gets a per-store grant, receives webhooks, and may add UI to the portal
-  *(ask: embedded pages, or links only)*. Apps are **out-of-process**, unlike Vendure
-  plugins: a multi-tenant engine never runs third-party code in its own process.
+  *(ask: embedded pages, or links only)*. Apps are **out-of-process**, unlike in-process
+  framework plugins: a multi-tenant engine never runs third-party code in its own process.
 - **A Shop API client** inside `@dripfunnel/storefront-core`, typed from the Shop API
   schema. No separate SDK for now: merchants building their own storefront use the Shop
   API's GraphQL directly, with a starter example.
@@ -541,20 +538,20 @@ or admin console (ACCESS.md §8), integrations and apps:
   rolled-back transaction.
 - Playwright for a small set of journeys, as before.
 
-### 5.10 What to copy from Vendure, and what not to
+### 5.10 What to copy from established headless engines, and what not to
 
-`../../../vendure-backend` and `@vendure/core` are the reference implementation of a headless
-commerce engine. Study them before designing the engine, and copy these ideas deliberately:
+Mature headless commerce engines have settled on a few patterns. Copy these ideas
+deliberately:
 
-| Copy | From Vendure | Change for DripFunnel |
+| Copy | The established pattern | Change for DripFunnel |
 |---|---|---|
-| **Shop API / Store API split** | Two GraphQL schemas and endpoints, different auth, `@Allow(Permission…)` per resolver | Every resolver also declares its **tenant and seller scope**, enforced by the context, not only a permission (§5.1, §2 item 17). A Platform API sits above both (§4). |
-| **Configurable operations** | `ConfigurableOperationDef` with typed `args`: promotion conditions and actions, shipping eligibility checkers and calculators, payment handlers, fulfilment handlers | A registry of **platform-defined** operations with typed, validated args and UI hints, instantiated **per store**. Add the ones the OFFERS and CATALOG prompts need (collections, first order, shipping country, tiered, per-currency amounts) as ordinary operations. Merchants configure them; they never upload code. |
-| **Strategies** | Pluggable `*Strategy` classes (tax zone, price calculation, stock allocation, order code, order process state machine) | The same seams, chosen per store or per brand where regions differ (e.g. tax behaviour by country). |
-| **Custom fields** | Config-level custom fields on entities, exposed on the schema automatically | Two layers: **platform custom fields** (our own, defined in code with migrations, typed in the schema) and **store custom fields** (defined by a merchant at run time, like Shopify metafields, stored as typed JSON with a definitions table, validated, translatable where marked, and **filterable**). Vendure's lesson: relation and struct custom fields couldn't be filtered (AUTH-PLAN §2.8). Design filtering and indexing in from the start. Decide how store custom fields appear in GraphQL (a typed `customFields` object per store is impractical; a `metafields`-style list or a JSON scalar with definitions is likelier) *(recommend)*. |
-| **Event bus** | `EventBus` with async subscribers and **blocking** handlers that run inside the transaction | Both kinds, with the rule that blocking handlers stay small and never call out. Async events go through an **outbox** so webhooks, emails, search indexing and cache purges never fire for a rolled-back change and never get lost. |
-| **Job queue** | `JobQueue` with a pluggable backend (Postgres by default, BullMQ later) | The archived `job` table (with per-step compensation) plus a queue with the same pluggable backend, in the worker process. |
-| **Plugin structure internally** | `VendurePlugin` modules that add entities, schema extensions, services and operations | Organise our own modules the same way (each registers its tables, schema, services, operations and event handlers). Third-party extension is **apps over the API** (§5.5), never in-process plugins. |
+| **Shop API / Store API split** | Two GraphQL schemas and endpoints, different auth, a permission declared per resolver | Every resolver also declares its **tenant and seller scope**, enforced by the context, not only a permission (§5.1, §2 item 17). A Platform API sits above both (§4). |
+| **Configurable operations** | Operation definitions with typed `args`: promotion conditions and actions, shipping eligibility checkers and calculators, payment handlers, fulfilment handlers | A registry of **platform-defined** operations with typed, validated args and UI hints, instantiated **per store**. Add the ones the OFFERS and CATALOG prompts need (collections, first order, shipping country, tiered, per-currency amounts) as ordinary operations. Merchants configure them; they never upload code. |
+| **Strategies** | Pluggable strategies (tax zone, price calculation, stock allocation, order code, order process state machine) | The same seams, chosen per store or per brand where regions differ (e.g. tax behaviour by country). |
+| **Custom fields** | Config-level custom fields on entities, exposed on the schema automatically | Two layers: **platform custom fields** (our own, defined in code with migrations, typed in the schema) and **store custom fields** (defined by a merchant at run time, like Shopify metafields, stored as typed JSON with a definitions table, validated, translatable where marked, and **filterable**). The first platform's lesson: relation and struct custom fields couldn't be filtered (AUTH-PLAN §2.8). Design filtering and indexing in from the start. Decide how store custom fields appear in GraphQL (a typed `customFields` object per store is impractical; a `metafields`-style list or a JSON scalar with definitions is likelier) *(recommend)*. |
+| **Event bus** | An event bus with async subscribers and **blocking** handlers that run inside the transaction | Both kinds, with the rule that blocking handlers stay small and never call out. Async events go through an **outbox** so webhooks, emails, search indexing and cache purges never fire for a rolled-back change and never get lost. |
+| **Job queue** | A job queue with a pluggable backend (Postgres by default, a broker later) | The archived `job` table (with per-step compensation) plus a queue with the same pluggable backend, in the worker process. |
+| **Plugin structure internally** | Plugin modules that add entities, schema extensions, services and operations | Organise our own modules the same way (each registers its tables, schema, services, operations and event handlers). Third-party extension is **apps over the API** (§5.5), never in-process plugins. |
 | **Active order as the cart** | The cart is an order in an early state; the same line and adjustment model follows it to payment | Keep it: one model from cart to fulfilment, with price snapshots on lines and discounts as adjustments. |
 
 **Do not copy** (each was a real problem in the archived plan):
@@ -575,17 +572,17 @@ The UX specifications remain the design source. **Done 2026-09-28**: each is por
 `../ui/` with the changes below applied; keep updating them there as the engine is
 designed, don't restart:
 
-- **DESIGN-BRIEF.md** (archived): keep §2 users and §3 flows 1–69. Replace "Vendure" with the
+- **DESIGN-BRIEF.md** (archived): keep §2 users and §3 flows 1–69. Replace the framework with the
   engine. Remove India-only assumptions ("prices tax-inclusive in rupees", flow 24; "HSN
   codes", flow 57) in favour of the regional model. Add the flows the engine now enables:
   vendor sub-orders and fulfilment, refunds and returns, customer groups, stock movements,
   plans and entitlements.
 - **CATALOG-DESIGN-PROMPT.md** and **OFFERS-DESIGN-PROMPT.md**: keep §2 vocabulary, §4 roles,
-  §5 principles, §6 parts, §7 states and §8 "never do". **Rewrite each §3** from "Vendure
+  §5 principles, §6 parts, §7 states and §8 "never do". **Rewrite each §3** from "framework
   facts" into "engine facts" and turn "needs backend" into "first release" or "later".
 - **CONSOLE-DESIGN.md**: §3 "what exists today" changes: stores are our own `store` rows,
-  not Vendure channels; storefronts and domains are on Cloudflare; DF Admin replaces the
-  Vendure Dashboard completely.
+  not framework channels; storefronts and domains are on Cloudflare; DF Admin replaces the
+  framework dashboard completely.
 - **Built screens** (signup, sign-in, choose store, invitations, profile, the eight Settings
   tabs, suppliers, custom domain; `../../../.design/settings-tabs.html`) are the visual
   baseline. Keep their look and words unless the engine
@@ -611,10 +608,10 @@ designed, don't restart:
 
 | Take across (adapt) | Rewrite | Drop |
 |---|---|---|
-| UI components, nav model (`nav.ts`), `?state=` screen states, the portal screens | Sessions (no Vendure token), provisioning (no Vendure steps), settings routers | `src/server/vendure/*`, role templates as Vendure permissions, `permissions.generated.ts` |
+| UI components, nav model (`nav.ts`), `?state=` screen states, the portal screens | Sessions (no framework token), provisioning (no framework steps), settings routers | The framework client code, role templates as framework permissions, `permissions.generated.ts` |
 | `TenantContext`, `SellerScope`, the idea behind `procedures.ts` and its structural test (now applied to GraphQL resolvers) | Auth against our users table; invitations; the portal's data layer as a Store API client | The proof header and secret |
 | Job runner, `provision-storefront` (GitHub App), `notify.ts` | `provision-domain` for Cloudflare for SaaS | AWS ACM / CloudFront / per-store AWS resources |
-| Drizzle setup, typed config, Dockerfile and deploy workflow, e2e journey style | Courier and payment credential handling inside the engine | Any runtime dependency on `vendure-backend` or `community-plugins` (both stay untouched as the headless reference, §5.10; the Stripe, Razorpay and Shiprocket plugins there are worth reading before writing our adapters) |
+| Drizzle setup, typed config, Dockerfile and deploy workflow, e2e journey style | Courier and payment credential handling inside the engine | Any runtime dependency on the first platform's backend or its plugins (removed from the workspace) |
 
 Name each file you port and what changed.
 
@@ -666,12 +663,12 @@ State what the smallest sellable first release is, and what is explicitly deferr
 ## 10. Open questions: ask, don't assume
 
 **The change itself**
-- Is there **live data on Vendure** (the existing DripFunnel store, any tenant stores) that
-  must be migrated, and is there a cut-over date?
+- Is there **live data on the first platform** (the existing DripFunnel store, any tenant
+  stores) that must be migrated, and is there a cut-over date?
 - Existing tenant storefront repos: rewrite their `core/` against the new API, or recreate
   them?
-- Does anything else still depend on `vendure-backend` (the Webise dashboard plugin, other
-  clients)?
+- ~~Does anything else still depend on the first platform's backend?~~ **Settled
+  2026-09-29**: its projects are removed from the workspace; nothing depends on them.
 
 **Architecture**
 - Does tRPC survive for portal-only screens, or does the portal use the Store API alone?

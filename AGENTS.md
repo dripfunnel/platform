@@ -33,11 +33,8 @@ document disagrees. Then open only the part your task touches:
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 
-The first, Vendure-based platform's documents are ported into `docs/` and its repository is
-gone; `docs/` is the only specification (docs/README.md §7).
-
-Read-only references outside this repo: `../vendure-backend/`, `../community-plugins/`,
-`../vendure-storefront-template/`. Never edit them.
+The first platform's documents are ported into `docs/` and its repositories are gone;
+`docs/` is the only specification (docs/README.md §7).
 
 ## Commands
 

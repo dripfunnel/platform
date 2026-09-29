@@ -24,10 +24,8 @@ Plus two supporting files:
 - `DripFunnel Style Guide.dc.html` — the brand specimen: colour, type, buttons, forms, cards, badges, icons. Light/dark via the `defaultTheme` prop. **It is the source of truth for tokens.**
 - `DF Store Pricing.dc.html` — public pricing page for the Store product (plans, feature comparison, FAQ, month/year toggle).
 
-The source specs are in `uploads/`: `DESIGN-BRIEF.md` (flows A–I),
-`AUTH-PLAN.md` (roles, invitations, vendors), `ARCHITECTURE.md` (BFF and
-tenancy), `BUILD-PROMPT.md` (hand-off to Claude Code). The repo is
-`SoftoboticsTechnologies/df-store` (see `github.md`).
+The source brief is `uploads/DESIGN-BRIEF.md` (flows A–I). The specification is `docs/` in
+this repo; start at `docs/README.md`.
 
 ---
 

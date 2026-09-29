@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 ---
 
@@ -26,7 +26,7 @@ Last updated: 2026-09-28.
 | **Cross-layer imports in `apps/api` use `#layer/...` aliases** (`package.json` `imports`, e.g. `#core/config`); relative paths only inside a layer | Relative paths everywhere; TypeScript `paths` | Standard Node resolution that TypeScript, wrangler and Vitest all understand, and a lint rule can check the layer from the import alone. |
 | **pnpm workspaces + Turborepo** | npm or Bun workspaces | Strict dependencies; only what changed is rebuilt and tested. pnpm runs install scripts only for packages listed in `allowBuilds` and refuses versions younger than its minimum release age. |
 | **ESM only, TypeScript strict**; `apps/api` targets the **Workers runtime** (../ARCHITECTURE.md §4) | Node-only server code | The API runs on Cloudflare Workers. |
-| **The engine is a module that the Worker composes** with `createEngine({ bindings, config })`, as Vendure's `@vendure/core` is bootstrapped by a server | The engine as its own service | Every entry point (the four APIs, webhooks, jobs, tests) uses the same engine instance per request. |
+| **The engine is a module that the Worker composes** with `createEngine({ bindings, config })`, the way a headless engine library is bootstrapped by its server | The engine as its own service | Every entry point (the four APIs, webhooks, jobs, tests) uses the same engine instance per request. |
 
 ---
 

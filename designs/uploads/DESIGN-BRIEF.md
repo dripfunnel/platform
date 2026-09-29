@@ -86,7 +86,7 @@ Paste §1 to start a design session, then name a flow from §3.
 | **Vendor · Catalogue** | Supplies products. Never sees orders. | Portal |
 | **Vendor · Orders (read)** | As above, plus sees which of their products sold. | Portal |
 | **Vendor · Orders (fulfil)** | As above, plus fulfils their own order lines. | Portal |
-| **DripFunnel staff** | Internal operations — tenants, impersonation, deploys. | Existing Vendure Dashboard, **not** this portal |
+| **DripFunnel staff** | Internal operations — tenants, impersonation, deploys. | The admin console, **not** this portal |
 
 ---
 
@@ -213,7 +213,7 @@ Not screens of their own, but they must be designed once and applied everywhere:
 55. **Permission denied** — a Manager reaching an Owner-only screen, or a vendor
     reaching anything that is not theirs.
 56. **Read-only mode** — everything above while a subscription is past due.
-57. **Something went wrong** — including the case where Vendure itself is
+57. **Something went wrong** — including the case where the API itself is
     unreachable.
 
 ---

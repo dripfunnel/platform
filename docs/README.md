@@ -136,7 +136,8 @@ for the part you'll touch.
 
 ## 7. The first platform
 
-The first version of the platform was built on Vendure. Everything in its documents that
+The first version of the platform was built on a third-party commerce framework. Everything
+in its documents that
 still holds was ported here on 2026-09-28: AUTH-PLAN and its ARCHITECTURE §4 into
 `api/ACCESS.md`, SAAS-PLAN into `api/SAAS.md`, DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and
 OFFERS-DESIGN-PROMPT into `ui/store/`. Its repository was then removed from the workspace
