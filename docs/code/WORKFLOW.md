@@ -181,9 +181,11 @@ to start.
 [`.github/workflows/claude-review.yml`](../../.github/workflows/claude-review.yml): it reads
 AGENTS.md and this section's checklist, then comments inline and once at the top. It is
 **advisory** — it never blocks a merge and never replaces the reviewer above. Treat its
-comments as a colleague's: fix them or say why not. It needs the repository secret
-`CLAUDE_CODE_OAUTH_TOKEN`, and it is skipped on pull requests from forks, where secrets are
-not available.
+comments as a colleague's: fix them or say why not. It needs **both** the
+[Claude GitHub App](https://github.com/apps/claude) installed on the repository and the
+repository secret `CLAUDE_CODE_OAUTH_TOKEN` — without the app the job cannot get a token to
+comment with, and fails with "Claude Code is not installed on this repository". It is
+skipped on pull requests from forks, where secrets are not available.
 
 Anything that becomes a core type or a shared component (`core/`, `db/scoped`,
 `apps/ui/shared/`) gets a careful line-by-line review, whoever wrote it.
