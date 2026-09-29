@@ -10,7 +10,6 @@ import './shell.css'
 import { UserMenu } from './UserMenu'
 
 const words = messages.shell
-const helpUrl = 'https://help.dripfunnel.com/admin'
 
 export interface AppHeaderProps {
   me: Me
@@ -37,7 +36,7 @@ export const AppHeader = ({ me, environment, menuOpen, onOpenMenu }: AppHeaderPr
     <span className="df-product-label">{words.productLabel}</span>
     <span className={`df-env-pill df-env-pill--${environment}`}>{words.environment[environment].name}</span>
     <SearchButton />
-    <a className="df-help" href={helpUrl} target="_blank" rel="noopener noreferrer">
+    <a className="df-help" href={words.helpUrl} target="_blank" rel="noopener noreferrer">
       {words.help}
       <span className="df-visually-hidden"> {words.opensInNewTab}</span>
     </a>

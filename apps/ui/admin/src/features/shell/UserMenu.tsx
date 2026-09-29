@@ -70,6 +70,9 @@ export const UserMenu = ({ me }: { me: Me }) => {
           </div>
           <ul role="menu" aria-labelledby={buttonId}>
             <li role="none">
+              {/* A stand-in: it ends no session and logs nothing. #13 adds the Admin API's
+                  sign-out, which ends the session and writes the activity log; call it here
+                  (https://github.com/dripfunnel/platform/issues/13). */}
               <Link
                 ref={itemRef}
                 to="/sign-in"
