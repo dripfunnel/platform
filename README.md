@@ -19,3 +19,7 @@ map of the specification: every portal, its users and roles, and what to read fo
 | `docs/` | The specification, laid out like the code |
 
 Working rules for people and agents: [AGENTS.md](AGENTS.md).
+
+Claude Code connects to GitHub (issues, pull requests, the DripFunnel project) through
+[`.mcp.json`](.mcp.json) with your own token: set it up once with
+[docs/code/THIRD-PARTY-ACCESS.md §2.11](docs/code/THIRD-PARTY-ACCESS.md).
