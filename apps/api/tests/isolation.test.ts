@@ -106,6 +106,14 @@ describe('a supplier in a store', () => {
     expect(await idsOf(supplier(), 'seller')).toEqual([t.sellerA1First])
   })
 
+  it('never reads the store row', async () => {
+    // Nothing leaks today — the row is little more than a key — but #32 adds the plan, the
+    // store code, the owner, the storefront and the domains to it. ACCESS §7: "A vendor never
+    // sees anything of the merchant's or another vendor's."
+    expect(await idsOf(supplier(), 'store')).toEqual([])
+    expect(await countOf(supplier(), 'store')).toBe(0)
+  })
+
   it('never reads the store customers', async () => {
     expect(await idsOf(supplier(), 'customer')).toEqual([])
     expect(await countOf(supplier(), 'customer')).toBe(0)

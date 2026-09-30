@@ -89,9 +89,18 @@ with check (
 -- ACCESS §5.5 is explicit that subscription state, plan, partner and lifecycle fields are
 -- "written only by the platform", and that the settings capability covers a merchant's own
 -- settings "never the store record as a whole" — the UpdateChannel trap.
+-- The merchant side and shoppers, not suppliers. ACCESS §7: "A vendor never sees anything of
+-- the merchant's or another vendor's." Today this row is little more than a key, but #32 adds
+-- the plan, the store code, the owner, the storefront and the domains to it — so the branch
+-- is closed now rather than when there is something behind it. A supplier that needs a store
+-- field gets it deliberately, through the column or view that card decides on.
 create policy store_read on store for select
 using (
-  (app_setting_text('app.scope') in ('store', 'shop') and id = app_setting_uuid('app.store_id'))
+  (
+    app_setting_text('app.scope') in ('store', 'shop')
+    and id = app_setting_uuid('app.store_id')
+    and app_setting_text('app.seller_id') = ''
+  )
   or (app_setting_text('app.scope') = 'partner' and partner_id = app_setting_uuid('app.partner_id'))
   or app_setting_text('app.scope') = 'platform'
 );

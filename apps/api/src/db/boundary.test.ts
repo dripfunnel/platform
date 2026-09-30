@@ -41,13 +41,16 @@ describe('the data boundary', () => {
     expect(offenders).toEqual([])
   })
 
-  it('sets the row-level security settings only in db/rls', () => {
+  it('touches the row-level security settings in exactly two files', () => {
     // DATA-MODEL.md §5.1: the settings come from the caller's context, never from request
-    // input. Confining `set_config` and `SET LOCAL` to one file is what makes that checkable.
+    // input. Two files are allowed to know about them, and the split is the point:
+    // db/rls/settings.ts decides the values from the context, db/scoped applies them. Any
+    // third file could set a scope of its own choosing, which is the whole risk.
+    const allowed = [path.join('db', 'rls', 'settings.ts'), path.join('db', 'scoped', 'index.ts')]
     const offenders = filesUnder(srcDir)
-      .filter((file) => relative(file) !== path.join('db', 'rls', 'settings.ts'))
+      .filter((file) => !allowed.includes(relative(file)))
       .filter((file) => /set_config\(|set\s+local\s+app\./i.test(readFileSync(file, 'utf8')))
       .map(relative)
-    expect(offenders).toEqual([path.join('db', 'scoped', 'index.ts')])
+    expect(offenders).toEqual([])
   })
 })
