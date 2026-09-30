@@ -8,7 +8,7 @@ import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
 import { interimActivityLog } from '#auth/activity'
 import { resolveStaff } from '#auth/caller'
-import { readCookie } from '#auth/cookie'
+import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
 import { parseConfig, type Config } from '#core/config'
@@ -68,6 +68,10 @@ const handleAdmin = async (
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> => {
+  // Every mutation on this cookie, not only sign-in (ACCESS.md §4). #14 and #39 add
+  // mutations behind the same session, and SameSite=Lax alone does not hold.
+  if (!originAllowed(request, config.ADMIN_HOST)) return new Response('Bad origin', { status: 403 })
+
   const hyperdrive = config.HYPERDRIVE
   if (isAuthPath(url.pathname)) {
     if (!hyperdrive) return new Response(null, { status: 503 })

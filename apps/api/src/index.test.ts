@@ -18,7 +18,11 @@ const call = (href: string, init?: RequestInit) =>
   )
 
 const query = (href: string) =>
-  call(href, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{ health }' }) })
+  call(href, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: new URL(href).origin },
+    body: JSON.stringify({ query: '{ health }' }),
+  })
 
 describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
@@ -74,7 +78,11 @@ describe('worker', () => {
     const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
     const request = new Request('https://admin.dripfunnel.com/api', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', cookie: '__Host-df_admin_session=stale' },
+      headers: {
+        'content-type': 'application/json',
+        cookie: '__Host-df_admin_session=stale',
+        origin: 'https://admin.dripfunnel.com',
+      },
       body: JSON.stringify({ query: '{ me { id } }' }),
     })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
@@ -101,6 +109,21 @@ describe('worker', () => {
       ctx,
     )
     expect(response.status).toBe(500)
+  })
+
+  it('refuses a cross-origin POST to the admin API, and one with no Origin at all', async () => {
+    // The session cookie authenticates these, so without this check #14's and #39's
+    // mutations would be reachable from any page (ACCESS.md §4).
+    const post = (headers: Record<string, string>) =>
+      call('https://admin.dripfunnel.com/api', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify({ query: '{ health }' }),
+      })
+    expect((await post({ origin: 'https://evil.example' })).status).toBe(403)
+    expect((await post({ origin: 'https://admin.dripfunnel.com.evil.test' })).status).toBe(403)
+    expect((await post({})).status).toBe(403)
+    expect((await post({ origin: 'https://admin.dripfunnel.com' })).status).toBe(200)
   })
 
   it('returns 404 outside the known routes', async () => {
