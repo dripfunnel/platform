@@ -116,7 +116,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC; **a second approver unless a Super admin ran the setup** (below) | "Merchants can sign up at store.northstar.com from now on." |
 | **Send back** | Super admin, Partner manager | Reason (shown to the partner) | Back to Draft with the reason |
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
-| **Resume** | Super admin | | Sign-ups open again |
+| **Resume** | Super admin | Reason (decided on #19) | Sign-ups open again |
 
 **Who may approve** (decided 2026-09-30). Two staff must be involved, except that a Super
 admin counts for both:

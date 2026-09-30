@@ -155,6 +155,340 @@
     },
     "refresh": "Refresh"
   },
+  "partners": {
+    "level": "Platform · every partner",
+    "title": "Partners",
+    "sub": "Businesses that resell DripFunnel, including DripFunnel itself. Invite only: a partner exists only when staff create it.",
+    "create": "Create partner",
+    "houseBadge": "House partner",
+    "states": {
+      "draft": "Draft",
+      "awaiting": "Awaiting approval",
+      "live": "Live",
+      "paused": "Paused",
+      "offboarding": "Offboarding",
+      "closed": "Closed"
+    },
+    "hostStatus": {
+      "live": "Live",
+      "waiting": "Waiting for DNS",
+      "failed": "Points somewhere else",
+      "notSet": "Not set"
+    },
+    "invitation": {
+      "active": "Active",
+      "sent": "Invited, not accepted",
+      "held": "Invitation held"
+    },
+    "invitationSent": "Sent {date}",
+    "setupComplete": "Complete",
+    "setupProgress": "{done} of {total}",
+    "columns": {
+      "partner": "Partner",
+      "state": "State",
+      "stores": "Stores",
+      "portalHost": "Portal host",
+      "setup": "Setup",
+      "owner": "Owner",
+      "created": "Created"
+    },
+    "storesLabel": "{count} stores at {name}",
+    "notJoined": "Not joined yet",
+    "tableLabel": "Partners, newest first",
+    "filters": {
+      "label": "Filter partners",
+      "search": "Search",
+      "searchPlaceholder": "Name, host or owner email",
+      "state": "State",
+      "anyState": "Any state",
+      "setup": "Setup",
+      "anySetup": "Any setup",
+      "complete": "Complete",
+      "incomplete": "Not complete",
+      "clear": "Clear filters"
+    },
+    "count": { "one": "{count} partner · newest first", "other": "{count} partners · newest first" },
+    "pager": {
+      "label": "Partner pages",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "noMatch": {
+      "title": "No partners match",
+      "body": "Try another search, or clear the filters to see every partner."
+    },
+    "empty": {
+      "title": "No partners yet",
+      "body": "Partners are invite only. Create the first one: it starts as a draft, and you choose when its owner is invited."
+    },
+    "loading": "Loading partners",
+    "error": {
+      "title": "We couldn’t load partners",
+      "body": "The admin service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "readOnly": {
+      "title": "You have read-only access",
+      "body": "You can see every partner, but you can’t change anything. Ask a Super admin if you need to."
+    },
+    "verbs": {
+      "create": "create partners",
+      "approve": "approve partners",
+      "sendBack": "send partners back",
+      "pause": "pause a partner",
+      "resume": "resume a partner",
+      "setupSession": "set up partners",
+      "sendInvite": "send owner invitations",
+      "resendInvite": "resend owner invitations"
+    },
+    "refusals": {
+      "SUPER_ADMIN_ONLY": "Only a Super admin can {verb}.",
+      "PARTNER_ADMINS_ONLY": "Only a Super admin or Partner manager can {verb}.",
+      "INVITERS_ONLY": "Only a Super admin, Partner manager or Support can {verb}.",
+      "HOUSE_PARTNER": "{name} is the house partner and can’t be paused.",
+      "GO_LIVE_CHECKS_FAILING": {
+        "one": "{count} go-live check failing: {checks}.",
+        "other": "{count} go-live checks failing: {checks}."
+      }
+    },
+    "checks": {
+      "portalHost": "Portal host live",
+      "emailDomain": "Email domain verified",
+      "pricedPlan": "At least one priced plan",
+      "legalPages": "Legal pages set",
+      "testSignup": "Test signup done"
+    }
+  },
+  "partner": {
+    "breadcrumb": "Partners",
+    "breadcrumbLabel": "Breadcrumb",
+    "level": "Partner",
+    "pausedNote": "No new merchant signups. Existing stores keep running.",
+    "meta": {
+      "portalHost": "Portal host",
+      "stores": "Stores",
+      "owner": "Owner"
+    },
+    "actionsLabel": "Actions for {name}",
+    "moreActions": "More actions",
+    "tabsLabel": "Partner sections",
+    "tabs": {
+      "overview": "Overview",
+      "stores": "Stores",
+      "branding": "Branding",
+      "domains": "Domains",
+      "plans": "Plans",
+      "team": "Team",
+      "activity": "Activity"
+    },
+    "notFound": {
+      "title": "We can’t find that partner",
+      "body": "There’s no partner with that link on this platform.",
+      "back": "Back to Partners"
+    },
+    "loading": "Loading the partner",
+    "error": {
+      "title": "We couldn’t load this partner",
+      "body": "The admin service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "readOnlyEdited": "Read-only. Edited in the partner console, by the partner or by you through Set up for partner.",
+    "overview": {
+      "details": "Details",
+      "kind": "Kind",
+      "region": "Region",
+      "country": "Country",
+      "created": "Created",
+      "owner": "Owner",
+      "contacts": "Contacts",
+      "checklist": "Setup checklist",
+      "history": "State history",
+      "items": {
+        "companyDetails": "Company details",
+        "ownerAccepted": "Owner accepted invitation",
+        "branding": "Branding",
+        "portalHost": "Portal host",
+        "emailSender": "Email sender domain",
+        "plans": "Plans and prices",
+        "legalPages": "Legal pages",
+        "payoutDetails": "Payout details"
+      },
+      "status": {
+        "done": "Done",
+        "waitingForDns": "Waiting for DNS",
+        "notStarted": "Not started",
+        "waitingOnPartner": "Waiting on {org}",
+        "invitationSent": "Invitation sent",
+        "invitationHeld": "Invitation held"
+      },
+      "doneBy": "Done by {name} ({org})",
+      "addedBy": "Added by {name} ({org})",
+      "partnerEnters": "{org} enters this itself",
+      "events": {
+        "created": "Created as a draft by {by}",
+        "submitted": "Submitted for approval",
+        "sentBack": "Sent back by {by}",
+        "approved": "Approved by {by}",
+        "paused": "Paused by {by}",
+        "resumed": "Resumed by {by}",
+        "setUp": "Set up by {by} (DripFunnel)"
+      },
+      "eventNote": "{event}: {note}"
+    },
+    "branding": {
+      "productName": "Product name",
+      "primary": "Primary colour",
+      "accent": "Accent colour",
+      "poweredBy": "“Powered by DripFunnel”",
+      "powered": {
+        "on": "On",
+        "off": "Off",
+        "house": "Not shown (house partner)"
+      }
+    },
+    "domains": {
+      "note": "Read-only. The partner points these at DripFunnel from their DNS provider. Checked every 10 minutes.",
+      "kinds": {
+        "portal": "Portal host",
+        "preview": "Preview wildcard",
+        "shops": "Shop wildcard",
+        "email": "Email sender domain"
+      },
+      "record": "Record",
+      "expected": "We expect",
+      "found": "We found",
+      "nothingFound": "Nothing found yet",
+      "recheck": "Re-check now",
+      "checking": "Checking…",
+      "recheckLabel": "Re-check {host} now",
+      "rechecked": {
+        "live": "Checked just now: {host} is live.",
+        "waiting": "Checked just now: {host} is still waiting for DNS.",
+        "failed": "Checked just now: {host} still points somewhere else."
+      },
+      "none": "No domains yet. The partner adds them in their own console."
+    },
+    "plans": {
+      "plan": "Plan",
+      "price": "Price",
+      "limits": "Limits",
+      "stores": "Stores",
+      "free": "Free",
+      "notPriced": "Not priced",
+      "perMonth": "{price} / month",
+      "products": "Up to {count} products",
+      "unlimitedProducts": "Unlimited products",
+      "staff": "{count} staff",
+      "unlimitedStaff": "unlimited staff",
+      "limitsNotSet": "Limits not set",
+      "none": "No plans yet."
+    },
+    "team": {
+      "invitationTitle": "Owner invitation",
+      "invitationSub": "Partners are invite only. The owner joins through this invitation.",
+      "invitationDetail": {
+        "active": "Accepted. {name} is the Owner.",
+        "sent": "Sent {date} to {email}. The link works until they accept, or until you resend it.",
+        "held": "Not sent yet. Send it when the setup is ready; {org}’s owner will see what’s been done."
+      },
+      "peopleTitle": "People in {name}’s partner console",
+      "peopleSub": "Read-only here.",
+      "roles": {
+        "owner": "Owner",
+        "admin": "Admin",
+        "support": "Support",
+        "finance": "Finance",
+        "readOnly": "Read-only"
+      },
+      "statuses": {
+        "active": "Active",
+        "invited": "Invited"
+      },
+      "lastSignIn": "Last signed in {time}",
+      "neverSignedIn": "Not signed in yet",
+      "impersonate": "Impersonate",
+      "impersonateUnavailable": "Impersonation isn’t connected yet.",
+      "nobody": "No one has joined yet. The owner joins when they accept the invitation.",
+      "houseTeam": "DripFunnel’s own team are staff, and staff can’t be impersonated."
+    },
+    "placeholders": {
+      "stores": "This partner’s stores appear here once the Stores list is built.",
+      "storesLink": "Open {name}’s stores in Stores",
+      "activity": "Audit entries about this partner appear here once the Activity log is built."
+    },
+    "actions": {
+      "approve": "Approve",
+      "sendBack": "Send back",
+      "pause": "Pause partner",
+      "resume": "Resume partner",
+      "setupSession": "Set up for partner",
+      "sendInvite": "Send owner invitation",
+      "resendInvite": "Resend owner invitation"
+    },
+    "cancel": "Cancel",
+    "reasonHint": "Kept in the activity log.",
+    "dialogs": {
+      "approve": {
+        "title": "Approve {name}?",
+        "consequence": "Merchants can sign up at {host} from now on.",
+        "reason": "Contract and KYC note",
+        "reasonHint": "Kept in the activity log, e.g. “Contract signed 24 Sep, KYC passed”.",
+        "confirm": "Approve and go live"
+      },
+      "sendBack": {
+        "title": "Send {name} back?",
+        "consequence": "{name} goes back to Draft with your reason.",
+        "reason": "Reason",
+        "reasonHint": "Shown to the partner in their console.",
+        "confirm": "Send back"
+      },
+      "pause": {
+        "title": "Pause {name}?",
+        "consequence": "No new merchant signups. Its {count} stores keep running.",
+        "notes": ["Setups already running will finish.", "Only {name} is affected. No other partner changes."],
+        "reason": "Reason",
+        "reasonHint": "Kept in the activity log.",
+        "confirm": "Pause partner"
+      },
+      "resume": {
+        "title": "Resume {name}?",
+        "consequence": "Sign-ups open again at {host}.",
+        "reason": "Reason",
+        "reasonHint": "Kept in the activity log.",
+        "confirm": "Resume partner"
+      },
+      "setupSession": {
+        "title": "Set up {name}?",
+        "consequence": "Opens {name}’s partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with {name}.",
+        "notes": ["You’ll be asked to sign in again before it opens.", "Everything you save is logged as you, tagged “Setup session”."],
+        "reason": "Reason or ticket",
+        "reasonHint": "Kept in the activity log, e.g. “Ticket #48213”.",
+        "confirm": "Open setup session"
+      },
+      "sendInvite": {
+        "title": "Send owner invitation?",
+        "consequence": "Sends {name}’s owner their invitation. They’ll see the setup you’ve done.",
+        "notes": ["It goes to {email}."],
+        "confirm": "Send invitation"
+      },
+      "resendInvite": {
+        "title": "Resend owner invitation?",
+        "consequence": "A new link is sent; the old one stops working.",
+        "notes": ["It goes to {email}."],
+        "confirm": "Resend invitation"
+      }
+    },
+    "toasts": {
+      "approve": "{name} is live. Merchants can sign up at {host}.",
+      "sendBack": "{name} is back in Draft.",
+      "pause": "{name} is paused. No new signups.",
+      "resume": "{name} is live again.",
+      "setupSession": "Setup session requested for {name}. It opens once the Admin API is connected.",
+      "sendInvite": "Invitation sent to {email}.",
+      "resendInvite": "New invitation sent to {email}.",
+      "failed": "That didn’t go through. Nothing was changed; try again."
+    }
+  },
   "signIn": {
     "logoAlt": "DripFunnel",
     "productLabel": "Admin console",

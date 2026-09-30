@@ -9,8 +9,8 @@ Cloudflare Access guards the whole host in front of the app's own sign-in.
 Older documents call it "DF Admin". It replaces the framework dashboard of the archived
 platform; there is no other operations console.
 
-**Status: the shell** (header, side bar, environment banner; #17) and the Dashboard (#18, on
-fixtures), with placeholder screens for Partners and Stores. The design is
+**Status: the shell** (header, side bar, environment banner; #17), the Dashboard (#18) and
+Partners, list and detail (#19), all on fixtures, with a placeholder screen for Stores. The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
 **The prototype is `designs/DF Admin Prototype.dc.html`** — open it in a browser and click
