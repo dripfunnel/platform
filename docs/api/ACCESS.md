@@ -12,8 +12,11 @@ requirements are in [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) (§2 items 2–5 an
 §5.9); staff roles and the admin console's access parts are in
 [../ui/admin/CONSOLE-DESIGN.md](../ui/admin/CONSOLE-DESIGN.md) (§4, parts A, J, O, P).
 
-**Status: specification.** Nothing here is built. Code lives in `apps/api/src/auth`
-(identity, sessions, memberships, roles, keys, grants, staff identity, `TenantContext`),
+**Status: partly built.** The tenancy tables, `TenantContext`, the scoped layer and the
+row-level security backstop landed with #12; identity and sessions have not. Code lives in
+`apps/api/src/auth` (identity, sessions, memberships, roles, keys, grants, staff identity),
+**`apps/api/src/core/tenancy.ts`** (`TenantContext` and `SellerScope` — the type sits in
+`core` because `db/` may import only `core`, and `db/scoped` is its consumer),
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
@@ -765,7 +768,8 @@ Specified in [LOGGING.md](LOGGING.md): the **activity log** is the audit log. In
 ## 11. Testing
 
 Authorization tests are the priority (PLATFORM-PROMPT §5.9). They run against the real API
-layer and a real Postgres (Testcontainers), never a mocked data layer.
+layer and a real Postgres (the local one, a fresh database per run — docs/api/README.md §7),
+never a mocked data layer.
 
 ### 11.1 Isolation matrix
 
