@@ -1,6 +1,13 @@
-/* Values from the DripFunnel style guide (designs/design.md §5–7, the [data-adm] set). */
+/* Values from the DripFunnel style guide (designs/design.md §5–7, the [data-adm] set).
+
+   The light palette is the default and the dark one is applied by `data-theme="dark"` on
+   <html>, as design.md §5 requires. The OS preference is resolved onto that attribute before
+   the first paint by `theme.ts`, so it is a default a person can override rather than a
+   verdict — the prototype defaults to light and offers a Theme control (design.md §10), and
+   a media query alone could not match it. Without JavaScript every app renders light, which
+   is the prototype's default. */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   background: var(--df-color-page);
   color: var(--df-color-text);
   font-family: var(--df-font);
@@ -12,6 +19,8 @@
   --df-color-heading: #0a2a4a;
   --df-color-text: #14181f;
   --df-color-muted: #5a6472;
+  /* "Strong secondary": table text and labels (design.md §5). */
+  --df-color-text-strong: #434a55;
   --df-color-link: #b8541f;
   --df-color-link-hover: #8f4017;
   --df-color-border: #e8e2dc;
@@ -78,39 +87,41 @@ body {
   margin: 0;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --df-color-brand-hover: #f09a6d;
-    --df-color-page: #0a1622;
-    --df-color-surface: #12222f;
-    --df-color-heading: #ffffff;
-    --df-color-text: #d6dee7;
-    --df-color-muted: #8a9aab;
-    --df-color-link: #ec844f;
-    --df-color-link-hover: #f09a6d;
-    --df-color-border: #1e3242;
-    --df-color-field-border: #2a3f52;
-    --df-color-focus: #2e7bd1;
-    --df-color-skeleton: #1a2c3b;
-    --df-color-backdrop: rgb(0 0 0 / 0.6);
-    --df-color-danger: #f29a90;
-    --df-color-danger-surface: #34110f;
-    --df-color-danger-border: #5e231e;
-    --df-color-danger-button: #b83227;
-    --df-color-warning: #f2c36b;
-    --df-color-warning-surface: #2e2208;
-    --df-color-warning-border: #5a4212;
-    --df-color-info: #9cc3ec;
-    --df-color-info-surface: #132b3f;
-    --df-color-info-border: #23496b;
-    --df-color-success: #7fd1a5;
-    --df-color-success-surface: #0f2a1e;
-    --df-color-success-border: #1f4a35;
-    --df-color-neutral: #b8c7d6;
-    --df-color-neutral-surface: #1a2a38;
-    --df-color-neutral-border: #2a3f52;
-    --df-color-hover: #16293a;
-    --df-color-side: #050d14;
-    --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --df-color-brand-hover: #f09a6d;
+  --df-color-page: #0a1622;
+  --df-color-surface: #12222f;
+  --df-color-heading: #ffffff;
+  --df-color-text: #d6dee7;
+  --df-color-muted: #8a9aab;
+  /* design.md §5 gives no dark value for "strong secondary", so it maps to the body text
+     rather than inventing a hex. */
+  --df-color-text-strong: var(--df-color-text);
+  --df-color-link: #ec844f;
+  --df-color-link-hover: #f09a6d;
+  --df-color-border: #1e3242;
+  --df-color-field-border: #2a3f52;
+  --df-color-focus: #2e7bd1;
+  --df-color-skeleton: #1a2c3b;
+  --df-color-backdrop: rgb(0 0 0 / 0.6);
+  --df-color-danger: #f29a90;
+  --df-color-danger-surface: #34110f;
+  --df-color-danger-border: #5e231e;
+  --df-color-danger-button: #b83227;
+  --df-color-warning: #f2c36b;
+  --df-color-warning-surface: #2e2208;
+  --df-color-warning-border: #5a4212;
+  --df-color-info: #9cc3ec;
+  --df-color-info-surface: #132b3f;
+  --df-color-info-border: #23496b;
+  --df-color-success: #7fd1a5;
+  --df-color-success-surface: #0f2a1e;
+  --df-color-success-border: #1f4a35;
+  --df-color-neutral: #b8c7d6;
+  --df-color-neutral-surface: #1a2a38;
+  --df-color-neutral-border: #2a3f52;
+  --df-color-hover: #16293a;
+  --df-color-side: #050d14;
+  --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }

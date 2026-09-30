@@ -25,7 +25,13 @@
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
-      "signOut": "Sign out"
+      "signOut": "Sign out",
+      "theme": {
+        "label": "Appearance",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
     },
     "roles": {
       "staff-super-admin": "Super admin",

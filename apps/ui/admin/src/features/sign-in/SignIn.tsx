@@ -50,10 +50,12 @@ export const SignIn = () => {
   return (
     <div className="df-sign-in">
       <div className="df-sign-in-brand">
-        <picture>
-          <source srcSet={logoOnDark} media="(prefers-color-scheme: dark)" />
-          <img src={logo} alt={words.logoAlt} height={26} />
-        </picture>
+        {/* Two images toggled by the theme, as the prototype does it, rather than a
+            <picture> keyed off prefers-color-scheme: since #81 the OS is only a default and
+            `data-theme` decides, so a media query here would show the wrong logo whenever
+            someone overrides it. `display: none` keeps the other out of the a11y tree. */}
+        <img className="df-sign-in-logo-light" src={logo} alt={words.logoAlt} height={26} />
+        <img className="df-sign-in-logo-dark" src={logoOnDark} alt={words.logoAlt} height={26} />
         <span className="df-sign-in-product">{words.productLabel}</span>
       </div>
       <main className="df-sign-in-card" aria-labelledby={headingId}>

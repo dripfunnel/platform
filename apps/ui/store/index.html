@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Store</title>
+    <!-- Resolve the theme before the first paint, so a dark-mode machine never flashes the
+         light default. tokens.css keys off data-theme="dark"; light is its absence. This app
+         has no theme control yet, so it follows the OS and stores no choice. Kept inline and
+         tiny on purpose: a module import would run after the first paint. -->
+    <script>
+      try {
+        if (matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = 'dark'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
