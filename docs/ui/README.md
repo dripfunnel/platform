@@ -90,16 +90,20 @@ apps/ui/<app>/
   currency, from integer minor units), dates in the named time zone, numbers, addresses.
   Never assume a country.
 - **Style only with the tokens** in `shared/ui/tokens.css` (`--df-*`). No hard-coded
-  colours.
-- **Light is the default; `data-theme="dark"` on `<html>` selects the dark palette**
-  (designs/design.md §5). The OS preference is resolved onto that attribute before the first
-  paint by a small inline script in each `index.html`, so it is a **default a person can
-  override**, not a verdict — a media query alone can't be overridden, and the prototypes
-  default to light whatever the machine is set to. The admin console persists the choice as
-  `df-admin-theme`, the key the prototype uses (design.md §10); `shared/ui/theme.ts` holds
-  the resolution. Without JavaScript every app renders light. The merchant portal overrides the brand tokens with the partner's look before
+  colours. The merchant portal overrides the brand tokens with the partner's look before
   anything renders; the two consoles use DripFunnel's. DripFunnel's values come from the
   style guide ([../../designs/design.md](../../designs/design.md) §5–7).
+- **Light is the default; `data-theme="dark"` on `<html>` selects the dark palette**
+  (designs/design.md §5). The OS preference is a **default a person can override**, not a
+  verdict: a media query alone can't be overridden, and the prototypes default to light
+  whatever the machine is set to. Without JavaScript every app renders light.
+  - Each `index.html` carries a **small inline script** that sets the attribute before the
+    first paint. It is deliberately duplicated rather than imported, because a module runs
+    after the first paint and the page would flash the wrong theme.
+  - **Only the admin console lets anyone choose**, and it stores the choice as
+    `df-admin-theme`, the key the prototype uses (design.md §10). `shared/ui/theme.ts` holds
+    the resolution the app uses after load. `store` and `platform` have no control, so their
+    script follows the OS and reads no key; give them one when they get a control.
 - **Fonts**: Inter for text, Manrope for headings, IBM Plex Mono for the side bar's group
   headings. **Self-hosted**, through `@fontsource` packages imported once by
   `@dripfunnel/shared/ui/fonts.css` (revised 2026-09-29; they were loaded from Google Fonts

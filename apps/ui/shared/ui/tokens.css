@@ -46,11 +46,6 @@
   --df-color-neutral: #4a5360;
   --df-color-neutral-surface: #f1eeea;
   --df-color-neutral-border: #e0dad3;
-  /* Peach: vendors, warnings and refusals (design.md §5). The foreground is #8f4017; the
-     guide also allows #6b3312 where more contrast is needed. */
-  --df-color-peach: #8f4017;
-  --df-color-peach-surface: #fdf0e8;
-  --df-color-peach-border: #f0d4bf;
   --df-color-hover: #f7f2ed;
   /* The side bar keeps its own ground in both schemes; its focus ring is always #2e7bd1,
      because the light-mode ring has too little contrast on navy (design.md §5). */
@@ -93,7 +88,6 @@ body {
 }
 
 :root[data-theme='dark'] {
-
   color-scheme: dark;
   --df-color-brand-hover: #f09a6d;
   --df-color-page: #0a1622;
@@ -127,11 +121,6 @@ body {
   --df-color-neutral: #b8c7d6;
   --df-color-neutral-surface: #1a2a38;
   --df-color-neutral-border: #2a3f52;
-  /* design.md §5 gives no dark peach border either; brand-contrast is the only in-hue
-     token dark enough to sit on #2a1810. */
-  --df-color-peach: #ec844f;
-  --df-color-peach-surface: #2a1810;
-  --df-color-peach-border: var(--df-color-brand-contrast);
   --df-color-hover: #16293a;
   --df-color-side: #050d14;
   --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);
