@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext, SellerScope } from '#core/tenancy'
-import { withScope } from '#db/scoped/index'
+import { withScope, type ScopedSql } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -231,6 +231,81 @@ describe('a read-only support session', () => {
       expect(rows.length).toBe(1)
     })
     await db.sql`update customer set name = null where id = ${t.customerA1}`
+  })
+})
+
+// Every one of these was possible until the policies were split per command. A permissive
+// policy written `for all` with only a USING clause reuses it as the WITH CHECK, so what a
+// caller may *see* silently became what it may *write*. None of them had a test.
+describe('the write path', () => {
+  const attempt = (context: CallerContext, work: (tx: ScopedSql) => Promise<void>) =>
+    withScope(db.sql, context, work)
+
+  it('a store caller cannot re-parent its own store to another partner', async () => {
+    await expect(
+      attempt(storeCaller(t.partnerA, t.storeA1), async (tx) => {
+        await tx`update store set partner_id = ${t.partnerB} where id = ${t.storeA1}`
+      }),
+    ).resolves.toBeUndefined()
+    // The update is filtered out rather than refused, so the proof is the row, read as owner.
+    const [row] = await db.sql<{ partner_id: string }[]>`select partner_id from store where id = ${t.storeA1}`
+    expect(row?.partner_id).toBe(t.partnerA)
+  })
+
+  it('a partner cannot move a store to another partner either', async () => {
+    await expect(
+      attempt(partnerCaller(t.partnerA), async (tx) => {
+        await tx`update store set partner_id = ${t.partnerB} where id = ${t.storeA1}`
+      }),
+    ).rejects.toThrow(/row-level security/i)
+    const [row] = await db.sql<{ partner_id: string }[]>`select partner_id from store where id = ${t.storeA1}`
+    expect(row?.partner_id).toBe(t.partnerA)
+  })
+
+  it('a store caller cannot delete its own store row', async () => {
+    await attempt(storeCaller(t.partnerA, t.storeA2), async (tx) => {
+      await tx`delete from store where id = ${t.storeA2}`
+    })
+    const [row] = await db.sql<{ n: string }[]>`select count(*)::text as n from store where id = ${t.storeA2}`
+    expect(Number(row?.n)).toBe(1)
+  })
+
+  it('a supplier cannot raise its own access level', async () => {
+    const supplier = storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First })
+    await attempt(supplier, async (tx) => {
+      await tx`update seller set access_level = 'vendor-orders-fulfil' where id = ${t.sellerA1First}`
+    })
+    const [row] = await db.sql<{ access_level: string }[]>`select access_level from seller where id = ${t.sellerA1First}`
+    expect(row?.access_level).toBe('vendor-stock')
+  })
+
+  it('an anonymous shopper cannot create a customer', async () => {
+    const before = await db.sql<{ n: string }[]>`select count(*)::text as n from customer`
+    await expect(
+      attempt(shopper(t.partnerA, t.storeA1, null), async (tx) => {
+        await tx`insert into customer (store_id, email, status) values (${t.storeA1}, 'spam@example.com', 'active')`
+      }),
+    ).rejects.toThrow(/row-level security/i)
+    // Counted as the owner: RLS hides the row from the caller that made it, so a count taken
+    // inside the session would say zero whether or not the insert landed.
+    const after = await db.sql<{ n: string }[]>`select count(*)::text as n from customer`
+    expect(after[0]?.n).toBe(before[0]?.n)
+  })
+
+  it('a signed-in shopper cannot create one either', async () => {
+    await expect(
+      attempt(shopper(t.partnerA, t.storeA1, t.customerA1), async (tx) => {
+        await tx`insert into customer (store_id, email, status) values (${t.storeA1}, 'also-spam@example.com', 'active')`
+      }),
+    ).rejects.toThrow(/row-level security/i)
+  })
+
+  it('the merchant side can still manage its own suppliers and customers', async () => {
+    await attempt(storeCaller(t.partnerA, t.storeA1), async (tx) => {
+      const rows = await tx`update seller set status = 'suspended' where id = ${t.sellerA1Second} returning id`
+      expect(rows.length).toBe(1)
+    })
+    await db.sql`update seller set status = 'active' where id = ${t.sellerA1Second}`
   })
 })
 
