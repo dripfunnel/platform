@@ -22,3 +22,12 @@ export const plural = (forms: { other: string } & Partial<Record<Intl.LDMLPlural
 export const formatTime = (iso: string): string => formatDateTime(iso, locale, timeZone)
 
 export const formatWait = (seconds: number): string => formatDuration(seconds, locale)
+
+const dateFormat = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone })
+
+// A day, not a moment: shown without a time, so it needs no zone name beside it.
+export const formatDate = (iso: string): string => dateFormat.format(new Date(iso))
+
+const regionNames = new Intl.DisplayNames(locale, { type: 'region' })
+
+export const formatCountry = (code: string): string => regionNames.of(code) ?? code

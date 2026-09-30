@@ -30,6 +30,17 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 number links to the list it counts with the filter in the URL; the partner filter is
 `?partner=`. Its states: `?state=loading`, `empty`, `error`, `stale` and `offline`.
 
+## Partners
+
+`/partners` (`src/features/partners/`) is the list of FIRST-RELEASE.md §4.1: filters
+`?status=` and `?setup=`, search `?q=`, and cursor pages `?after=` / `?before=`, all in the URL.
+`/partners/<id>` is the detail page with the seven tabs of §4.2 (`?tab=`) and the §4.3 actions
+through `ConfirmDialog`. Both read `src/api/partners.ts`, the only place the app talks to the
+API about partners, on fixtures until #33. Whether each action is allowed, and why not, comes
+from `partner(id)`; no component works it out. States: the list takes `?state=loading`,
+`empty`, `error`, `readonly` and `denied`; the detail takes `loading`, `error`, `readonly`,
+`denied` and `confirm`. `readonly` and `denied` ask the fixture for a Read-only or Support caller.
+
 ## Sign-in
 
 `/sign-in` (`src/features/sign-in/`) is the staff sign-in with Microsoft Entra ID, following

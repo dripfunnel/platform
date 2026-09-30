@@ -115,7 +115,7 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 | **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC | "Merchants can sign up at store.northstar.com from now on." |
 | **Send back** | Super admin, Partner manager | Reason (shown to the partner) | Back to Draft with the reason |
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
-| **Resume** | Super admin | | Sign-ups open again |
+| **Resume** | Super admin | Reason (decided on #19) | Sign-ups open again |
 | **Resend Owner invitation** | Super admin, Partner manager, Support | | New link, old one stops working |
 | **Impersonate a partner user** | Super admin, Support | A user from the Team tab; reason or ticket; re-authentication | "Full access as Maya in Northstar's console for 30 minutes; Northstar's team sees a banner." (§8) |
 

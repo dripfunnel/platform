@@ -337,7 +337,7 @@ shows only the host.
 | Store support session | `DF Store Prototype` | same as merchant | Read-only (banner only; saves aren't blocked yet) | 30 min, extend once |
 
 - **Setup sessions** have no reason, ticket or re-authentication step. *Open
-  setup session* (partner header or Setup tab) opens the tab straight away;
+  setup session* (partner header) opens the tab straight away;
   *Create partner* opens one as step 2. One open at a time per staff member.
 - **In the portal**, `ImpBanner` shows a yellow striped bar with who you're
   acting as, who started the session, the host, a countdown and *End
@@ -362,8 +362,8 @@ running. *End session* closes the record and goes back. When the session ends it
 - **Create partner** asks when to send the owner invitation: *now*, *when
   setup is submitted* (`inv:'queued'`, sent automatically when the partner
   is submitted for approval) or *I'll send it myself* (`inv:'held'`).
-- The admin **Setup tab** is read-only: the checklist plus an
-  *Open setup session* / *Return to setup session* call to action. Saves in a setup
+- The admin console has **no Setup tab** (decided on #19, 2026-09-30): the setup checklist
+  is on the partner's Overview, and the session starts from the header. Saves in a setup
   session are logged as the staff member, tagged "Setup session".
 
 Every action in any session is written to the activity log.
