@@ -1,4 +1,4 @@
-export const REQUIRED_POSTGRES_MAJOR = 17
+export const REQUIRED_POSTGRES_MAJOR = 18
 
 export const assertPostgresMajor = (serverVersionNum: number): void => {
   const major = Math.floor(serverVersionNum / 10000)

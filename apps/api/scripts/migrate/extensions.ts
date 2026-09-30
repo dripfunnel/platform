@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import { REQUIRED_POSTGRES_MAJOR } from './version-check'
 
 // Strips line/block comments only; a `create extension` mentioned inside a string literal or a
 // $$ function body still matches and is reported as required, which is a false positive, not a
@@ -27,7 +28,7 @@ export const assertExtensionsAvailable = async (sql: postgres.Sql, required: rea
   if (missing.length > 0) {
     throw new Error(
       `Missing Postgres extension(s): ${missing.join(', ')}. Install the "postgresql-contrib" package ` +
-        `(macOS Homebrew: brew install postgresql@17; Debian/Ubuntu: apt install postgresql-contrib-17; ` +
+        `(macOS Homebrew: brew install postgresql@${REQUIRED_POSTGRES_MAJOR}; Debian/Ubuntu: apt install postgresql-contrib-${REQUIRED_POSTGRES_MAJOR}; ` +
         `Windows: included with the postgresql.org installer) and restart Postgres, then re-run migrate.`,
     )
   }

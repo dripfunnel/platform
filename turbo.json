@@ -10,7 +10,8 @@
     },
     "lint": {},
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "passThroughEnv": ["DATABASE_URL", "ALLOW_REMOTE_MIGRATIONS", "ALLOWED_MIGRATION_HOST", "CI"]
     },
     "schema": {
       "outputs": ["schema/**"]
