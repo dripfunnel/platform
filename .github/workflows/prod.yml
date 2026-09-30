@@ -3,14 +3,20 @@ name: prod
 # Production: migrations (direct connection, migration role) first, then an API Worker
 # version upload (not a live deploy — promotion to 100% is a separate, manual
 # `wrangler versions deploy` step, see docs/code/ROLLBACK.md), then the SPAs that actually
-# changed. ARCHITECTURE.md §6. `ci.yml`'s `gates` job already ran build/typecheck/lint/test
-# against this exact commit as main's required check, so this workflow does not repeat that —
-# only builds (to materialize SPA `dist/` output) and deploys.
+# changed. ARCHITECTURE.md §6. `main` has no branch-protection ruleset yet (GitHub Free), so a
+# push here cannot rely on `ci.yml`'s `gates` job having been a required check — the `gates`
+# job below reruns build/typecheck/lint/test itself so a bad commit never reaches the deploy
+# job. Drop this job once the `protect-main` ruleset makes `gates` a required PR check.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_all_apps:
+        description: 'Deploy all three SPAs regardless of changed files (recovery after a run that failed before its SPA steps)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -20,7 +26,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gates:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: dripfunnel_dev
+          POSTGRES_PASSWORD: dripfunnel_dev
+          POSTGRES_DB: dripfunnel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm turbo run build typecheck lint test
+        env:
+          DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel
+
   deploy:
+    needs: gates
     runs-on: ubuntu-latest
     environment: prod
     env:
@@ -43,6 +73,13 @@ jobs:
         id: changes
         working-directory: .
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_all_apps }}" = "true" ]; then
+            echo "Forcing all SPAs (force_all_apps input)."
+            echo "store_changed=true" >> "$GITHUB_OUTPUT"
+            echo "platform_changed=true" >> "$GITHUB_OUTPUT"
+            echo "admin_changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           before="${{ github.event.before }}"
           if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
             before=$(git rev-parse HEAD~1)
@@ -62,6 +99,7 @@ jobs:
           done
 
       - name: Migrations
+        id: migrate
         run: pnpm run --if-present migrate
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
@@ -109,8 +147,8 @@ jobs:
           {
             echo "### Deploy summary"
             echo "- Commit: \`${{ github.sha }}\`"
-            echo "- Migrations: ran against \`apps/api/migrations\`"
-            echo "- API Worker: version \`${{ steps.worker.outputs.version-id }}\` uploaded, not yet promoted (see step above for the command)"
+            echo "- Migrations: ${{ steps.migrate.outcome == 'success' && 'ran against `apps/api/migrations`' || format('did NOT complete ({0})', steps.migrate.outcome) }}"
+            echo "- API Worker: ${{ steps.worker.outcome == 'success' && format('version `{0}` uploaded, not yet promoted (see step above for the command)', steps.worker.outputs.version-id) || format('did NOT complete ({0})', steps.worker.outcome) }}"
             echo "- SPA store: ${{ steps.changes.outputs.store_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
             echo "- SPA platform: ${{ steps.changes.outputs.platform_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
             echo "- SPA admin: ${{ steps.changes.outputs.admin_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"

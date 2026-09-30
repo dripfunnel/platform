@@ -198,10 +198,12 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   `docs/code/ROLLBACK.md`), then the SPAs. Each app deploys only when its own files or
   `apps/ui/shared/` change.
 - **Pushing `main` deploys production.** Treat it as a production action.
-- **`main` is not protected yet**: GitHub Free doesn't allow branch protection on private repos.
-  Before the first deploy workflow is added, upgrade the `dripfunnel` org to GitHub Team and
-  apply the `protect-main` ruleset (pull requests only, the CI `gates` check must pass, no
-  force-push or deletion).
+- **`main` is not protected yet**: GitHub Free doesn't allow branch protection on private repos,
+  so a direct push to `main` still deploys with no PR and no `ci.yml` run. Until the
+  `dripfunnel` org is upgraded to GitHub Team and the `protect-main` ruleset is applied (pull
+  requests only, the CI `gates` check must pass, no force-push or deletion), `prod.yml` runs its
+  own `gates` job (build/typecheck/lint/test) before every deploy instead of relying on `main`
+  being protected. Drop that job from `prod.yml` once the ruleset exists.
 
 ---
 
