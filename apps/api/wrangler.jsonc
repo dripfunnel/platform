@@ -23,9 +23,9 @@
     // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
     "local": {
       "vars": {
-        "ADMIN_HOST": "admin.dripfunnel.com",
-        "PLATFORM_HOST": "platform.dripfunnel.com",
-        "HOOKS_HOST": "hooks.dripfunnel.com"
+        "ADMIN_HOST": "admin.localhost",
+        "PLATFORM_HOST": "platform.localhost",
+        "HOOKS_HOST": "hooks.localhost"
       },
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
@@ -47,6 +47,21 @@
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
       ],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }]
+    },
+    // `wrangler deploy --env production`, on every push to `main`. Same values as the
+    // top-level config (kept as the implicit default for now); explicit so a future
+    // production deploy workflow can name the env instead of relying on that default.
+    // No `hyperdrive` binding yet: see the top-level comment above.
+    "production": {
+      "name": "dripfunnel-api",
+      "vars": {
+        "ADMIN_HOST": "admin.dripfunnel.com",
+        "PLATFORM_HOST": "platform.dripfunnel.com",
+        "HOOKS_HOST": "hooks.dripfunnel.com"
+      },
+      "ratelimits": [
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
+      ]
     }
   }
 }
