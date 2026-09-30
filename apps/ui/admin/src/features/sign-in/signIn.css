@@ -170,3 +170,17 @@
   font-size: 13px;
   text-align: center;
 }
+
+/* The logo follows the chosen theme (#81). tokens.css keys dark off `data-theme`, so the
+   swap must too; `prefers-color-scheme` would disagree whenever someone overrides the OS. */
+.df-sign-in-logo-dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .df-sign-in-logo-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .df-sign-in-logo-dark {
+  display: inline;
+}

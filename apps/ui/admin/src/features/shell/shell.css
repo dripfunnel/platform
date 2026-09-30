@@ -248,6 +248,50 @@
   box-shadow: inset 3px 0 0 var(--df-color-focus);
 }
 
+.df-user-menu-label {
+  margin: 0;
+  padding: var(--df-space-2) var(--df-space-4) var(--df-space-1);
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-user-theme {
+  display: flex;
+  gap: var(--df-space-1);
+  padding: 0 var(--df-space-4) var(--df-space-2);
+}
+
+.df-user-theme-option {
+  flex: 1;
+  min-height: var(--df-control-height);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text-strong);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-user-theme-option:is(:hover, :focus-visible) {
+  background: var(--df-color-hover);
+}
+
+.df-user-theme-option:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+/* Selected is stated by aria-checked, so the styling follows it rather than a second
+   source of truth. Navy, not orange: an active choice is a location, not an action
+   (designs/design.md §5, "The action rule"). */
+.df-user-theme-option[aria-checked='true'] {
+  border-color: var(--df-color-heading);
+  box-shadow: inset 0 0 0 1px var(--df-color-heading);
+  color: var(--df-color-heading);
+  font-weight: 700;
+}
+
 /* Banners under the header */
 
 .df-banners {
