@@ -1,0 +1,101 @@
+name: promote
+
+# Manual promotion, run by hand once the Worker version `prod.yml` uploaded has been confirmed
+# healthy (e.g. via its wrangler Preview URL — see the run summary `prod.yml` writes). Promotes
+# that version to 100% traffic, health-checks the live prod host, and only then builds and
+# deploys all three SPAs from the exact commit the Worker version was built from — so a
+# promotion can never leave the SPAs ahead of (or behind) the Worker they call. If the promote
+# or health-check step fails, the job stops there (default Actions behavior) and the SPA steps
+# never run. See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_id:
+        description: Worker version ID to promote (from prod.yml's run summary)
+        required: true
+      commit_sha:
+        description: Commit the version was built from (checked out to build the SPAs)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+      - uses: ./.github/actions/setup
+
+      - name: Promote Worker to 100%
+        id: promote
+        run: |
+          pnpm exec wrangler versions deploy "${{ inputs.version_id }}@100" -y --env prod \
+            --message "promote ${{ inputs.commit_sha }}"
+
+      - name: Health-check prod after promotion
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -sf -o /dev/null -w '%{http_code}' "https://admin.dripfunnel.com/api/health" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "Healthy (attempt $i)."
+              exit 0
+            fi
+            echo "Attempt $i: got $code, retrying..."
+            sleep 5
+          done
+          echo "Prod did not report healthy after promotion — see docs/code/ROLLBACK.md to roll the Worker back." >&2
+          exit 1
+
+      - name: Build SPAs
+        working-directory: .
+        run: pnpm turbo run build
+
+      - name: 'SPA: store'
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-store
+          dist: ../ui/store/dist
+          branch: main
+          commit-hash: ${{ inputs.commit_sha }}
+
+      - name: 'SPA: platform'
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-platform
+          dist: ../ui/platform/dist
+          branch: main
+          commit-hash: ${{ inputs.commit_sha }}
+
+      - name: 'SPA: admin'
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-admin
+          dist: ../ui/admin/dist
+          branch: main
+          commit-hash: ${{ inputs.commit_sha }}
+
+      - name: Run summary
+        if: always()
+        working-directory: .
+        run: |
+          {
+            echo "### Promote summary"
+            echo "- Commit: \`${{ inputs.commit_sha }}\`"
+            echo "- Worker version: \`${{ inputs.version_id }}\` — ${{ steps.promote.outcome == 'success' && 'promoted to 100%' || format('did NOT promote ({0})', steps.promote.outcome) }}"
+            echo "- SPAs: store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy."
+          } >> "$GITHUB_STEP_SUMMARY"

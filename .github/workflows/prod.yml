@@ -1,12 +1,13 @@
 name: prod
 
 # Production: migrations (direct connection, migration role) first, then an API Worker
-# version upload (not a live deploy — promotion to 100% is a separate, manual
-# `wrangler versions deploy` step, see docs/code/ROLLBACK.md), then the SPAs that actually
-# changed. ARCHITECTURE.md §6. `main` has no branch-protection ruleset yet (GitHub Free), so a
-# push here cannot rely on `ci.yml`'s `gates` job having been a required check — the `gates`
-# job below reruns build/typecheck/lint/test itself so a bad commit never reaches the deploy
-# job. Drop this job once the `protect-main` ruleset makes `gates` a required PR check.
+# version upload only — never a live deploy and never the SPAs. Promoting that version to
+# 100% and deploying the SPAs built from the same commit is `promote.yml`, run by hand once
+# the uploaded version is confirmed healthy. See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
+# `main` has no branch-protection ruleset yet (GitHub Free), so a push here cannot rely on
+# `ci.yml`'s `gates` job having been a required check — the `gates` job below reruns
+# build/typecheck/lint/test itself so a bad commit never reaches the deploy job. Drop this job
+# once the `protect-main` ruleset makes `gates` a required PR check.
 #
 # Both `gates` and `deploy` declare `environment: prod` (gates needs it for the test-branch
 # secret/var pair, deploy needs it for the real prod secrets) — each push to `main` therefore
@@ -17,12 +18,7 @@ name: prod
 on:
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      force_all_apps:
-        description: 'Deploy all three SPAs regardless of changed files (recovery after a run that failed before its SPA steps)'
-        type: boolean
-        default: false
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -79,42 +75,7 @@ jobs:
         working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: ./.github/actions/setup
-
-      - name: Build
-        run: pnpm turbo run build
-        working-directory: .
-
-      - name: Detect changed apps
-        id: changes
-        working-directory: .
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_all_apps }}" = "true" ]; then
-            echo "Forcing all SPAs (force_all_apps input)."
-            echo "store_changed=true" >> "$GITHUB_OUTPUT"
-            echo "platform_changed=true" >> "$GITHUB_OUTPUT"
-            echo "admin_changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          before="${{ github.event.before }}"
-          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-            before=$(git rev-parse HEAD~1)
-          fi
-          changed=$(git diff --name-only "$before" "${{ github.sha }}")
-          echo "$changed"
-          shared=false
-          echo "$changed" | grep -q '^apps/ui/shared/' && shared=true
-          for app in store platform admin; do
-            app_changed=false
-            echo "$changed" | grep -q "^apps/ui/$app/" && app_changed=true
-            if [ "$app_changed" = true ] || [ "$shared" = true ]; then
-              echo "${app}_changed=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "${app}_changed=false" >> "$GITHUB_OUTPUT"
-            fi
-          done
 
       - name: Migrations
         id: migrate
@@ -124,39 +85,12 @@ jobs:
           ALLOW_REMOTE_MIGRATIONS: '1'
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
 
-      - name: API Worker (upload only — see summary for the manual promote command)
+      - name: API Worker (upload only — promote with promote.yml once healthy)
         id: worker
         uses: ./.github/actions/worker-upload
         with:
           env-name: prod
           message: ${{ github.sha }}
-
-      - name: 'SPA: store'
-        if: steps.changes.outputs.store_changed == 'true'
-        uses: ./.github/actions/pages-deploy
-        with:
-          project-name: dripfunnel-store
-          dist: ../ui/store/dist
-          branch: main
-          commit-hash: ${{ github.sha }}
-
-      - name: 'SPA: platform'
-        if: steps.changes.outputs.platform_changed == 'true'
-        uses: ./.github/actions/pages-deploy
-        with:
-          project-name: dripfunnel-platform
-          dist: ../ui/platform/dist
-          branch: main
-          commit-hash: ${{ github.sha }}
-
-      - name: 'SPA: admin'
-        if: steps.changes.outputs.admin_changed == 'true'
-        uses: ./.github/actions/pages-deploy
-        with:
-          project-name: dripfunnel-admin
-          dist: ../ui/admin/dist
-          branch: main
-          commit-hash: ${{ github.sha }}
 
       - name: Run summary
         if: always()
@@ -166,8 +100,6 @@ jobs:
             echo "### Deploy summary"
             echo "- Commit: \`${{ github.sha }}\`"
             echo "- Migrations: ${{ steps.migrate.outcome == 'success' && 'ran against `apps/api/migrations`' || format('did NOT complete ({0})', steps.migrate.outcome) }}"
-            echo "- API Worker: ${{ steps.worker.outcome == 'success' && format('version `{0}` uploaded, not yet promoted (see step above for the command)', steps.worker.outputs.version-id) || format('did NOT complete ({0})', steps.worker.outcome) }}"
-            echo "- SPA store: ${{ steps.changes.outputs.store_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
-            echo "- SPA platform: ${{ steps.changes.outputs.platform_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
-            echo "- SPA admin: ${{ steps.changes.outputs.admin_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
+            echo "- API Worker: ${{ steps.worker.outcome == 'success' && format('version `{0}` uploaded, not yet promoted', steps.worker.outputs.version-id) || format('did NOT complete ({0})', steps.worker.outcome) }}"
+            echo "- SPAs: not deployed by this workflow. Once the version above is confirmed healthy, run **promote** (workflow_dispatch) with version_id \`${{ steps.worker.outputs.version-id }}\` and commit_sha \`${{ github.sha }}\` to promote the Worker and deploy the SPAs together."
           } >> "$GITHUB_STEP_SUMMARY"

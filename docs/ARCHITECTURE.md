@@ -194,10 +194,14 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
 - **Production**: migrations from `apps/api/migrations` run first against Neon's direct
   connection (not Hyperdrive), and must be backward-compatible with the running version; then
-  the API Worker version is uploaded (not deployed — promotion to 100% is a manual step, see
-  `docs/code/ROLLBACK.md`), then the SPAs. Each app deploys only when its own files or
-  `apps/ui/shared/` change.
-- **Pushing `main` deploys production.** Treat it as a production action.
+  the API Worker version is uploaded — not deployed. Promotion to 100% and the SPA deploys are a
+  separate, manual `workflow_dispatch` (`promote.yml`) run once the uploaded version is confirmed
+  healthy: it promotes the Worker, health-checks the live prod host, and — only then — builds and
+  deploys all three SPAs from that same commit, so the SPAs are never ahead of the API they call.
+  See `docs/code/ROLLBACK.md`.
+- **Pushing `main` is a production action**: it runs migrations against the real prod database
+  and uploads a new Worker version, though nothing new goes live until `promote.yml` is run by
+  hand. Treat a push to `main` accordingly.
 - **`main` is not protected yet**: GitHub Free doesn't allow branch protection on private repos,
   so a direct push to `main` still deploys with no PR and no `ci.yml` run. Until the
   `dripfunnel` org is upgraded to GitHub Team and the `protect-main` ruleset is applied (pull
