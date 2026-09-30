@@ -32,27 +32,50 @@ describe('assertLocalHost', () => {
     }
   })
 
-  it('allows a remote host when ALLOW_REMOTE_MIGRATIONS=1', () => {
-    const original = process.env.ALLOW_REMOTE_MIGRATIONS
+  it('allows a remote host when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
+    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
+    const originalCi = process.env.CI
     process.env.ALLOW_REMOTE_MIGRATIONS = '1'
+    process.env.CI = 'true'
     try {
       expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).not.toThrow()
     } finally {
-      if (original === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
-      else process.env.ALLOW_REMOTE_MIGRATIONS = original
+      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
+      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
+      if (originalCi === undefined) delete process.env.CI
+      else process.env.CI = originalCi
     }
   })
 
   it('still refuses a remote host when ALLOW_REMOTE_MIGRATIONS is unset or not "1"', () => {
-    const original = process.env.ALLOW_REMOTE_MIGRATIONS
+    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
+    const originalCi = process.env.CI
+    process.env.CI = 'true'
     delete process.env.ALLOW_REMOTE_MIGRATIONS
     try {
       expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
       process.env.ALLOW_REMOTE_MIGRATIONS = 'true'
       expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
     } finally {
-      if (original === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
-      else process.env.ALLOW_REMOTE_MIGRATIONS = original
+      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
+      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
+      if (originalCi === undefined) delete process.env.CI
+      else process.env.CI = originalCi
+    }
+  })
+
+  it('still refuses a remote host when ALLOW_REMOTE_MIGRATIONS=1 but CI is not "true"', () => {
+    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
+    const originalCi = process.env.CI
+    process.env.ALLOW_REMOTE_MIGRATIONS = '1'
+    delete process.env.CI
+    try {
+      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
+    } finally {
+      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
+      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
+      if (originalCi === undefined) delete process.env.CI
+      else process.env.CI = originalCi
     }
   })
 })

@@ -320,7 +320,12 @@ install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partiall
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `.dev.vars.example` or `wrangler.jsonc` ever points at
-`dbpg01.softobotics.org`.
+`dbpg01.softobotics.org`. The only exception is the `dev` deploy workflow
+(`.github/workflows/dev.yml`), which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply
+migrations to the persistent Neon `dev` branch; the guard
+(`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
+by GitHub Actions) so the override can't be tripped by an env var left in a
+shell profile or `.env` on a developer machine.
 
 `pnpm test` needs this same database up and `.dev.vars` exported (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
