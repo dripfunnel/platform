@@ -52,6 +52,22 @@ describe('assertLocalHost', () => {
     ).toThrow(/ep-other-project-999/)
   })
 
+  it('tolerates uppercase and surrounding whitespace in ALLOWED_MIGRATION_HOST', () => {
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', '  EP-Cool-Branch-123.us-east-2.aws.neon.tech  ')
+    expect(() => assertLocalHost('postgres://u:p@ep-cool-branch-123.us-east-2.aws.neon.tech:5432/db')).not.toThrow()
+  })
+
+  it('says the requested host did not match when the bypass is requested but the host differs', () => {
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', 'ep-cool-branch-123.us-east-2.aws.neon.tech')
+    expect(() =>
+      assertLocalHost('postgres://u:p@ep-other-project-999.us-east-2.aws.neon.tech:5432/db'),
+    ).toThrow(/does not match ALLOWED_MIGRATION_HOST/)
+  })
+
   it('still refuses any remote host when ALLOWED_MIGRATION_HOST is unset', () => {
     vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
     vi.stubEnv('CI', 'true')
