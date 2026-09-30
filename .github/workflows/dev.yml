@@ -12,6 +12,9 @@ on:
 
 permissions:
   contents: read
+  # Read-only, to ask whether the previous run of this workflow succeeded. Without that the
+  # filter cannot tell a skipped app from a stale one.
+  actions: read
 
 concurrency:
   group: dev
@@ -39,16 +42,18 @@ jobs:
       # change". Done with git rather than a third-party action, so the deploy path gains no
       # supply-chain surface.
       #
-      # It fails safe: when there is no usable base — the first push to the branch, a
-      # force-push, or a manual run — everything deploys. A redundant deploy costs a minute;
-      # a skipped one leaves the environment quietly stale. That also makes
-      # `workflow_dispatch` the way to force a full redeploy after a failed one.
+      # It fails safe, because the cost is asymmetric: a redundant deploy costs a minute,
+      # a skipped one leaves the environment serving an old build while the run goes green.
+      # So everything deploys whenever the filter cannot be trusted — no usable base commit
+      # (the first push, a force-push, a manual run), or a previous run that did not succeed,
+      # after which what is actually deployed is unknown.
       - name: What changed
         id: changed
         working-directory: .
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           everything() {
@@ -58,6 +63,17 @@ jobs:
           if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             echo "No usable base commit: deploying everything."
+            everything
+            exit 0
+          fi
+
+          # A failed run may have deployed some apps and not others, so the diff since the
+          # last push no longer describes the gap between the branch and the environment.
+          previous="$(gh run list --workflow dev.yml --branch "$GITHUB_REF_NAME" \
+            --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""' || echo "")"
+          echo "Previous completed run: ${previous:-none}"
+          if [ -n "$previous" ] && [ "$previous" != "success" ]; then
+            echo "The previous run did not succeed, so what is deployed is unknown: deploying everything."
             everything
             exit 0
           fi

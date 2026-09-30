@@ -16,30 +16,20 @@ inputs:
 runs:
   using: composite
   steps:
-    # Ask before creating, rather than creating and ignoring the failure.
-    #
-    # This used to be `create … || echo "already exists, continuing."`, which swallowed every
-    # failure and not just the expected one: a bad token, a wrong account id, a rate limit or
-    # a network blip all printed "already exists, continuing" and the run carried on to the
-    # deploy, which then failed with something less obvious. It also printed a red API error
-    # on every single deploy of a project that had existed for weeks, which teaches people to
-    # read past red in this workflow.
-    #
-    # Nothing is swallowed blanket-style: only the one error code that means "it exists".
+    # Only error 8000002 — "a project with this name already exists" — is benign here: it
+    # means the check below missed, or two runs raced. Every other failure (a bad token, the
+    # wrong account id, a rate limit) must fail the step rather than be mistaken for a
+    # project that is already there and let the run continue to a deploy that cannot work.
     - run: |
         set -euo pipefail
         # `.. | objects` rather than `.[]`, so a change in how wrangler wraps its JSON makes
-        # this miss the project rather than crash — and the fallback below then covers it.
+        # this miss the project rather than crash; the fallback below then covers it.
         if pnpm exec wrangler pages project list --json \
           | jq -e --arg name "$INPUT_PROJECT_NAME" \
                '[.. | objects | select(.name? == $name)] | length > 0' > /dev/null; then
           echo "Pages project \"$INPUT_PROJECT_NAME\" already exists."
         else
           echo "Pages project \"$INPUT_PROJECT_NAME\" not found; creating it."
-          # Error 8000002 is "a project with this name already exists". Only that one is
-          # benign — it means the check above missed it, or two runs raced. Anything else
-          # (a bad token, the wrong account, a rate limit) must fail the step, which is what
-          # the old blanket `|| echo "already exists, continuing."` hid.
           # Captured to a file rather than a process substitution: with `tee` the grep can
           # run before the write is flushed, and this decides whether the deploy fails.
           if ! pnpm exec wrangler pages project create "$INPUT_PROJECT_NAME" \
