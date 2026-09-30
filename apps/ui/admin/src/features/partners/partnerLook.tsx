@@ -46,15 +46,3 @@ export const InvitationPill = ({ status }: { status: InvitationStatus }) => (
 
 export const HouseBadge = () => <span className="df-pill df-house-badge">{words.houseBadge}</span>
 
-// The partner's logo stands in as its initials until the API serves logo files.
-export const PartnerTile = ({ name, large = false }: { name: string; large?: boolean }) => (
-  <span className={large ? 'df-partner-tile df-partner-tile--large' : 'df-partner-tile'} aria-hidden="true">
-    {name
-      .split(/\s+/)
-      .filter((word) => /^[\p{L}\p{N}]/u.test(word))
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()}
-  </span>
-)

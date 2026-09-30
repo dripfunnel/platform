@@ -2,8 +2,8 @@ import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { loadMe } from '../../api/me'
 import { loadPartners, partnerStates, setupFilters } from '../../api/partners'
-import { idParam, optionalParam } from '../../features/common/searchParams'
-import { callerFor } from '../../features/partners/partnerHarness'
+import { idParam, optionalParam, searchParam } from '../../features/common/searchParams'
+import { callerFor } from '../../features/common/harnessCaller'
 import { PartnersLoading } from '../../features/partners/Partners'
 import { PartnersRouteError, PartnersScreen } from '../../features/partners/PartnersScreen'
 
@@ -11,7 +11,7 @@ import { PartnersRouteError, PartnersScreen } from '../../features/partners/Part
 const partnersSearch = z.object({
   status: optionalParam(z.enum(partnerStates)),
   setup: optionalParam(z.enum(setupFilters)),
-  q: optionalParam(z.string().trim().min(1).max(100)),
+  q: searchParam,
   after: idParam,
   before: idParam,
 })

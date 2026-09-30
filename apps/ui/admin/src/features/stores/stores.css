@@ -1,0 +1,128 @@
+.df-status-sub {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-list a.df-meta-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.df-meta-value {
+  color: var(--df-color-text);
+  font-weight: 600;
+}
+
+.df-status-sub--muted {
+  color: var(--df-color-muted);
+}
+
+.df-status-sub--warning {
+  color: var(--df-color-warning);
+}
+
+.df-status-sub--danger {
+  color: var(--df-color-danger);
+}
+
+.df-counts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--df-space-3);
+  margin: 0 0 var(--df-space-4);
+}
+
+.df-counts div {
+  display: grid;
+  gap: var(--df-space-1);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-step-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--df-space-2);
+}
+
+.df-counts dd {
+  order: -1;
+  margin: 0;
+  font-family: var(--df-font-heading);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--df-color-heading);
+}
+
+.df-counts dt {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-plan-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+}
+
+.df-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-steps li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-step-number {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-step-detail {
+  grid-column: 2 / -1;
+  display: grid;
+  gap: var(--df-space-2);
+  justify-items: start;
+}
+
+.df-step-error {
+  margin: 0;
+  color: var(--df-color-danger);
+}
+
+.df-records {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-group + .df-group {
+  margin-top: var(--df-space-4);
+}
+
+@media (max-width: 900px) {
+  .df-counts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .df-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

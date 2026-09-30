@@ -13,7 +13,7 @@ export const refusalText = (permission: ActionPermission, action: RefusableActio
     case 'HOUSE_PARTNER':
       return fill(words.refusals.HOUSE_PARTNER, { name: partnerName })
     case 'GO_LIVE_CHECKS_FAILING': {
-      const failing = permission.failingChecks ?? []
+      const failing = permission.failingChecks
       return fill(plural(words.refusals.GO_LIVE_CHECKS_FAILING, failing.length), {
         count: formatCount(failing.length),
         checks: new Intl.ListFormat(locale, { type: 'conjunction' }).format(failing.map((check) => words.checks[check])),

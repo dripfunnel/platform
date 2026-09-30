@@ -56,11 +56,21 @@
     "stores": "Stores"
   },
   "screens": {
-    "dashboard": { "title": "Dashboard" },
-    "partners": { "title": "Partners" },
-    "stores": { "title": "Stores" },
-    "partner": { "title": "Partner" },
-    "store": { "title": "Store" }
+    "dashboard": {
+      "title": "Dashboard"
+    },
+    "partners": {
+      "title": "Partners"
+    },
+    "stores": {
+      "title": "Stores"
+    },
+    "partner": {
+      "title": "Partner"
+    },
+    "store": {
+      "title": "Store"
+    }
   },
   "dashboard": {
     "level": "Platform · every partner",
@@ -109,7 +119,10 @@
       "showing": "Showing {shown} of {total}. The links above open each list in full.",
       "openStore": "Open store",
       "openStoreLabel": "Open store {name}",
-      "pastDueBadge": { "one": "Past due · {days} day", "other": "Past due · {days} days" },
+      "pastDueBadge": {
+        "one": "Past due · {days} day",
+        "other": "Past due · {days} days"
+      },
       "pastDueDetail": "Writes blocked, still selling",
       "suspendedBadge": "Suspended",
       "setupFailedBadge": "Failed",
@@ -154,6 +167,13 @@
       "body": "What you see may be out of date, and changes can’t be sent until you reconnect."
     },
     "refresh": "Refresh"
+  },
+  "common": {
+    "moreActions": "Actions",
+    "pager": {
+      "previous": "Previous",
+      "next": "Next"
+    }
   },
   "partners": {
     "level": "Platform · every partner",
@@ -207,12 +227,11 @@
       "incomplete": "Not complete",
       "clear": "Clear filters"
     },
-    "count": { "one": "{count} partner · newest first", "other": "{count} partners · newest first" },
-    "pager": {
-      "label": "Partner pages",
-      "previous": "Previous",
-      "next": "Next"
+    "count": {
+      "one": "{count} partner · newest first",
+      "other": "{count} partners · newest first"
     },
+    "pagerLabel": "Partner pages",
     "noMatch": {
       "title": "No partners match",
       "body": "Try another search, or clear the filters to see every partner."
@@ -270,7 +289,6 @@
       "owner": "Owner"
     },
     "actionsLabel": "Actions for {name}",
-    "moreActions": "More actions",
     "tabsLabel": "Partner sections",
     "tabs": {
       "overview": "Overview",
@@ -445,7 +463,10 @@
       "pause": {
         "title": "Pause {name}?",
         "consequence": "No new merchant signups. Its {count} stores keep running.",
-        "notes": ["Setups already running will finish.", "Only {name} is affected. No other partner changes."],
+        "notes": [
+          "Setups already running will finish.",
+          "Only {name} is affected. No other partner changes."
+        ],
         "reason": "Reason",
         "reasonHint": "Kept in the activity log.",
         "confirm": "Pause partner"
@@ -460,7 +481,10 @@
       "setupSession": {
         "title": "Set up {name}?",
         "consequence": "Opens {name}’s partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with {name}.",
-        "notes": ["You’ll be asked to sign in again before it opens.", "Everything you save is logged as you, tagged “Setup session”."],
+        "notes": [
+          "You’ll be asked to sign in again before it opens.",
+          "Everything you save is logged as you, tagged “Setup session”."
+        ],
         "reason": "Reason or ticket",
         "reasonHint": "Kept in the activity log, e.g. “Ticket #48213”.",
         "confirm": "Open setup session"
@@ -468,13 +492,17 @@
       "sendInvite": {
         "title": "Send owner invitation?",
         "consequence": "Sends {name}’s owner their invitation. They’ll see the setup you’ve done.",
-        "notes": ["It goes to {email}."],
+        "notes": [
+          "It goes to {email}."
+        ],
         "confirm": "Send invitation"
       },
       "resendInvite": {
         "title": "Resend owner invitation?",
         "consequence": "A new link is sent; the old one stops working.",
-        "notes": ["It goes to {email}."],
+        "notes": [
+          "It goes to {email}."
+        ],
         "confirm": "Resend invitation"
       }
     },
@@ -608,6 +636,370 @@
       "typeExpected": "Northstar Commerce",
       "confirm": "Close partner",
       "cancel": "Cancel"
+    }
+  },
+  "stores": {
+    "level": "Platform · Every partner",
+    "title": "Stores",
+    "sub": "Every merchant store, across every partner.",
+    "loading": "Loading stores",
+    "tableLabel": "Stores",
+    "pagerLabel": "Stores pages",
+    "newestFirst": "Newest first",
+    "columns": {
+      "store": "Store",
+      "partner": "Partner",
+      "owner": "Owner",
+      "plan": "Plan",
+      "status": "Status",
+      "storefront": "Storefront",
+      "domain": "Domain",
+      "created": "Created"
+    },
+    "statuses": {
+      "trial": "Trial",
+      "active": "Active",
+      "pastdue": "Past due",
+      "suspended": "Suspended",
+      "cancelled": "Cancelled"
+    },
+    "statusLabel": {
+      "trialDays": {
+        "one": "Trial · {count} day left",
+        "other": "Trial · {count} days left"
+      },
+      "trialTomorrow": "Trial · ends tomorrow",
+      "pastdue": {
+        "one": "Past due · {count} day",
+        "other": "Past due · {count} days"
+      }
+    },
+    "statusSub": {
+      "trial": "Trial ends {date}",
+      "pastdue": "Writes blocked, still selling",
+      "suspended": "{reason} · by {by} · storefront shows a notice",
+      "cancelled": "Since {date}"
+    },
+    "storefronts": {
+      "live": "AI storefront: live",
+      "building": "AI storefront: building",
+      "failed": "AI storefront: failed",
+      "own": "Own storefront"
+    },
+    "setup": {
+      "done": "Done",
+      "running": "Running",
+      "failed": "Failed",
+      "stuck": "Stuck"
+    },
+    "customLive": "Custom domain · live",
+    "opensInNewTab": "{host}, opens in a new tab",
+    "perMonth": "{price} / month",
+    "filters": {
+      "label": "Filter stores",
+      "search": "Search stores",
+      "searchPlaceholder": "Search name, code, domain or owner email",
+      "partner": "Partner",
+      "anyPartner": "All partners",
+      "status": "Status",
+      "anyStatus": "Any status",
+      "storefront": "Storefront",
+      "anyStorefront": "Any storefront",
+      "created": "Created",
+      "anyTime": "Any time",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "clear": "Clear filters"
+    },
+    "empty": {
+      "title": "No stores yet",
+      "body": "Stores appear here when merchants sign up on a partner's portal."
+    },
+    "noMatch": {
+      "title": "No stores match",
+      "body": "Try another search, or clear the filters."
+    },
+    "error": {
+      "title": "Stores didn't load",
+      "body": "Something went wrong on our side. Your filters are kept.",
+      "retry": "Try again"
+    },
+    "readOnly": {
+      "title": "You can look, not change",
+      "body": "Your role is read-only, so every action here is turned off."
+    },
+    "refusals": {
+      "SUPER_ADMIN_ONLY": "Only a Super admin can {verb}.",
+      "SUSPENDERS_ONLY": "Only a Super admin or the Engineer on call can {verb}.",
+      "RETRIERS_ONLY": "Only a Super admin, Support or the Engineer on call can {verb}.",
+      "CLEANERS_ONLY": "Only a Super admin or the Engineer on call can {verb}.",
+      "INVITERS_ONLY": "Only a Super admin or Support can {verb}.",
+      "NOTERS_ONLY": "Only a Super admin, Partner manager, Support or the Engineer on call can {verb}."
+    },
+    "verbs": {
+      "retry": "retry setup",
+      "suspend": "suspend a store",
+      "restore": "restore a store",
+      "extendTrial": "extend a trial",
+      "resendInvite": "resend the owner's invitation",
+      "undo": "undo a failed signup",
+      "addNote": "add a note"
+    }
+  },
+  "store": {
+    "level": "Store · {partner}",
+    "loading": "Loading the store",
+    "breadcrumb": "Stores",
+    "breadcrumbLabel": "Breadcrumb",
+    "cancel": "Cancel",
+    "reasonHint": "Kept in the activity log.",
+    "actionsLabel": "Actions for {name}",
+    "tabsLabel": "Store sections",
+    "tabs": {
+      "overview": "Overview",
+      "storefront": "Storefront",
+      "domains": "Domains",
+      "provisioning": "Provisioning",
+      "users": "Users",
+      "support": "Support",
+      "activity": "Activity",
+      "notes": "Notes"
+    },
+    "meta": {
+      "live": "Live",
+      "partner": "Partner",
+      "code": "Code"
+    },
+    "actions": {
+      "retry": "Retry setup",
+      "suspend": "Suspend",
+      "restore": "Restore",
+      "extendTrial": "Extend trial",
+      "resendInvite": "Resend owner invitation",
+      "undo": "Undo and clean up",
+      "addNote": "Add note"
+    },
+    "notFound": {
+      "title": "Store not found",
+      "body": "It may have been cleaned up after a failed signup, or the link is wrong.",
+      "back": "Back to Stores"
+    },
+    "error": {
+      "title": "This store didn't load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "overview": {
+      "details": "Details",
+      "name": "Name",
+      "code": "Code",
+      "partner": "Partner",
+      "owner": "Owner",
+      "country": "Country",
+      "created": "Created",
+      "planStatus": "Plan and status",
+      "planPrice": "{price} / month · {partner} plan",
+      "inStore": "In this store",
+      "counts": {
+        "owners": "Owner",
+        "managers": "Managers",
+        "staff": "Staff",
+        "suppliers": "Suppliers",
+        "products": "Products",
+        "orders": "Orders"
+      },
+      "seeInside": "Staff don’t see this store’s catalogue or orders here. To see inside, impersonate one of its users from the Users tab.",
+      "events": {
+        "trialStarted": "Trial started",
+        "trialStartedOn": "Trial started on {plan}",
+        "active": "Active",
+        "activeOn": "Active on {plan}",
+        "pastDue": "Past due",
+        "pastDueAfter": "Past due after {note}",
+        "suspended": "Suspended by {by}: {note}",
+        "restored": "Restored by {by}: {note}",
+        "cancelled": "Cancelled by the owner",
+        "trialExtended": "Trial extended to {date} by {by}"
+      }
+    },
+    "storefront": {
+      "title": "Storefront",
+      "type": "Type",
+      "own": "Own storefront (merchant hosts it)",
+      "ai": "AI storefront",
+      "version": "Version",
+      "lastBuild": "Last build",
+      "lastPublish": "Last publish",
+      "live": "Live",
+      "preview": "Preview",
+      "none": "—"
+    },
+    "domains": {
+      "noteCustom": "The merchant adds these records at their DNS provider. Checked every 10 minutes.",
+      "noteShop": "This store has no custom domain. It uses its partner’s shop address.",
+      "kinds": {
+        "custom": "Custom domain",
+        "ownership": "Ownership check",
+        "shopAddress": "Shop address"
+      },
+      "record": "Record",
+      "expected": "We expect",
+      "found": "We found",
+      "noRecord": "—",
+      "covered": "Covered",
+      "coveredBy": "Covered by {partner}’s shop wildcard",
+      "nothingFound": "Nothing found yet",
+      "status": {
+        "live": "Live",
+        "waiting": "Waiting for DNS",
+        "failed": "Points somewhere else"
+      },
+      "recheck": "Re-check now",
+      "recheckLabel": "Re-check {host} now",
+      "checking": "Checking…",
+      "rechecked": {
+        "live": "Checked just now: {host} is live.",
+        "waiting": "Checked just now: {host} is still waiting for DNS.",
+        "failed": "Checked just now: {host} still points somewhere else."
+      }
+    },
+    "provisioning": {
+      "title": "Signup steps",
+      "summary": "{at} of 7 · {step} · {attempts} attempts",
+      "summaryOne": "{at} of 7 · {step} · 1 attempt",
+      "summaryDone": "Done · ready store",
+      "steps": {
+        "account": "Account",
+        "store": "Store",
+        "defaults": "Defaults",
+        "hostnames": "Hostnames",
+        "repo": "Repo",
+        "firstBuild": "First build",
+        "done": "Done"
+      },
+      "stepStatus": {
+        "done": "Done",
+        "running": "Running",
+        "failed": "Failed",
+        "stuck": "Stuck: running too long",
+        "waiting": "Not started"
+      },
+      "retry": "Retry",
+      "undoTitle": "Failed signup",
+      "undoSub": "Removes what setup made so the owner can sign up again."
+    },
+    "users": {
+      "intro": "Everyone in {name}.",
+      "none": "No users yet.",
+      "ownGroup": "{name}’s people",
+      "ownGroupSub": "Owner, Managers and Staff",
+      "supplierGroup": "Supplier · {supplier}",
+      "supplierGroupSub": "Supplier admins and members",
+      "roles": {
+        "owner": "Owner",
+        "manager": "Manager",
+        "staff": "Staff",
+        "supplierAdmin": "Supplier admin",
+        "supplierMember": "Supplier member"
+      },
+      "statuses": {
+        "active": "Active",
+        "invited": "Invited",
+        "suspended": "Suspended"
+      },
+      "lastSignIn": "Last signed in {time}",
+      "neverSignedIn": "Hasn't signed in yet",
+      "impersonate": "Impersonate",
+      "impersonateUnavailable": "Impersonation isn't connected yet.",
+      "supplierRole": "{role} for {supplier}"
+    },
+    "support": {
+      "title": "Support access",
+      "sub": "Set by the merchant in their portal. Staff can’t change it.",
+      "on": "On · merchant allows support access",
+      "off": "Off · merchant turned support access off"
+    },
+    "activity": {
+      "placeholder": "The store's activity log arrives with the activity log card."
+    },
+    "notes": {
+      "title": "Internal notes",
+      "sub": "Staff only · never shown to the partner or merchant",
+      "label": "New internal note",
+      "placeholder": "Add a note for other DripFunnel staff",
+      "add": "Add note",
+      "none": "No notes yet.",
+      "by": "{by} · {time}"
+    },
+    "dialogs": {
+      "suspend": {
+        "title": "Suspend {name}?",
+        "consequence": "{name} can’t make changes and its storefront shows a notice.",
+        "notes": [
+          "Only this store is affected. Other {partner} stores keep running.",
+          "The owner is told to contact {partner} support."
+        ],
+        "emergency": "Engineer on call: emergency suspensions are reviewed by a Super admin.",
+        "confirm": "Suspend store",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. Chargeback on 3 orders",
+        "reasonHint": "Shown to the store owner.",
+        "typeLabel": "Type {name} to confirm",
+        "typeHint": "Type the store name exactly to confirm."
+      },
+      "restore": {
+        "title": "Restore {name}?",
+        "consequence": "Back to {status}.",
+        "notes": [
+          "The owner can make changes again and the notice comes off the storefront."
+        ],
+        "confirm": "Restore store",
+        "reason": "Reason",
+        "reasonPlaceholder": "e.g. Chargeback resolved"
+      },
+      "extendTrial": {
+        "title": "Extend the trial of {name}?",
+        "consequence": "Trial now ends {date}.",
+        "pending": "…",
+        "confirm": "Extend trial",
+        "input": "New end date",
+        "pick": "Pick a date.",
+        "tooEarly": "Pick a date after the current end, {date}."
+      },
+      "retry": {
+        "title": "Retry setup for {name}?",
+        "consequence": "Runs “{step}” again.",
+        "notes": [
+          "Attempt {next}. Steps that finished are kept."
+        ],
+        "confirm": "Retry “{step}”"
+      },
+      "undo": {
+        "title": "Undo and clean up {name}?",
+        "consequence": "Removes everything setup made for {name} (store, hostnames, repo) so {owner} can sign up again.",
+        "notes": [
+          "This can’t be undone."
+        ],
+        "confirm": "Undo and clean up",
+        "reason": "Reason",
+        "typeLabel": "Type {code} to confirm",
+        "typeHint": "Type the store code exactly to confirm."
+      },
+      "resendInvite": {
+        "title": "Resend owner invitation?",
+        "consequence": "A new link is sent to {email}.",
+        "confirm": "Resend invitation"
+      }
+    },
+    "toasts": {
+      "suspend": "{name} is suspended.",
+      "restore": "{name} is {status} again.",
+      "extendTrial": "Trial now ends {date}.",
+      "retry": "Retrying “{step}” for {name}.",
+      "undo": "{name} is cleaned up. The merchant can sign up again.",
+      "resendInvite": "New invitation sent to {email}.",
+      "addNote": "Note added.",
+      "failed": "That didn't work. Nothing was changed. Try again."
     }
   }
 }
