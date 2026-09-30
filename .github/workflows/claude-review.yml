@@ -1,8 +1,15 @@
 name: claude-review
 
-# An advisory second pass on every pull request, against this repo's own rules
-# (WORKFLOW.md §7, AGENTS.md). It comments; it never blocks a merge, and it never
-# replaces the human reviewer in WORKFLOW.md §7.
+# A second pass on every pull request, against this repo's own rules (WORKFLOW.md §7,
+# AGENTS.md). It does not replace the human reviewer in WORKFLOW.md §7.
+#
+# Decided 2026-09-30 (#70), reversing WORKFLOW.md §1's "advisory only": this check goes
+# red in two cases, and it used to go green in both.
+#   1. The review could not run — missing or expired token, the Claude GitHub App removed,
+#      an API error. `continue-on-error` hid this, so a review that never happened looked
+#      exactly like a review that found nothing.
+#   2. The review found something it would ask the author to change.
+# It fails closed: no verdict means no review, which is not a pass.
 
 on:
   pull_request:
@@ -23,13 +30,26 @@ jobs:
     # rather than review. Everyone works on branches in this repo (WORKFLOW.md §2).
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    env:
+      VERDICT: ${{ github.workspace }}/.claude-review-verdict
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
+      # Without this the action fails inside the OIDC token exchange with a message that
+      # reads like a Claude problem rather than a missing secret, which is what cost time
+      # when this workflow was first set up (THIRD-PARTY-ACCESS.md §2.6).
+      - name: Check the review can authenticate
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+            echo "::error::The repository secret CLAUDE_CODE_OAUTH_TOKEN is not set, so the review cannot run. Mint one with 'claude setup-token' and add it under Settings → Secrets and variables → Actions. The review also needs the Claude GitHub App (github.com/apps/claude) installed on this repository — see docs/code/THIRD-PARTY-ACCESS.md."
+            exit 1
+          fi
+
       - uses: anthropics/claude-code-action@v1
-        continue-on-error: true
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -85,5 +105,44 @@ jobs:
               nothing worth changing, say exactly that in one line.
             - You are a second pass, not the reviewer of record. A human still approves.
 
+            **Last, and not optional: record your verdict.** After you have posted your
+            comments, use the Write tool to write a file at the repository root called
+            `.claude-review-verdict` containing exactly one word and nothing else:
+
+            - `pass` — you found nothing you would ask the author to change.
+            - `changes` — you found at least one thing you would ask them to change.
+
+            This is the same bar as "Raise something only if you would ask the author to
+            change it" above, so the verdict and your comments must agree: if you posted a
+            finding, the verdict is `changes`.
+
+            The check fails if this file is missing, because a review that did not finish
+            is not a review that passed. Write it even if something went wrong earlier —
+            and if you could not complete the review, write `changes` and say why in your
+            summary comment.
+
           claude_args: |
-            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr checks:*)"
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr checks:*)"
+
+      - name: Apply the review's verdict
+        run: |
+          if [ ! -f "${VERDICT}" ]; then
+            echo "::error::The review did not record a verdict, so it did not finish. This is not a pass. Check the step above for what stopped it, then re-run the job."
+            exit 1
+          fi
+
+          verdict="$(tr -d '[:space:]' < "${VERDICT}" | tr '[:upper:]' '[:lower:]')"
+
+          case "${verdict}" in
+            pass)
+              echo "Claude found nothing it would ask the author to change."
+              ;;
+            changes)
+              echo "::error::Claude asked for changes. Read its comments on this pull request, then fix each one or reply saying why not and push — the same loop WORKFLOW.md §7 describes for a human reviewer. Re-running this job is not the way past it."
+              exit 1
+              ;;
+            *)
+              echo "::error::The review wrote an unrecognised verdict (${verdict}). Expected 'pass' or 'changes'. Treating it as a failure rather than guessing."
+              exit 1
+              ;;
+          esac
