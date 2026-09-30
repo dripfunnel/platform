@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { assertLocalHost } from './host-guard'
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe('assertLocalHost', () => {
   it('allows localhost and loopback addresses', () => {
@@ -33,69 +37,34 @@ describe('assertLocalHost', () => {
   })
 
   it('allows a remote host when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
-    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
-    const originalCi = process.env.CI
-    process.env.ALLOW_REMOTE_MIGRATIONS = '1'
-    process.env.CI = 'true'
-    try {
-      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).not.toThrow()
-    } finally {
-      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
-      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
-      if (originalCi === undefined) delete process.env.CI
-      else process.env.CI = originalCi
-    }
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).not.toThrow()
   })
 
   it('still refuses a remote host when ALLOW_REMOTE_MIGRATIONS is unset or not "1"', () => {
-    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
-    const originalCi = process.env.CI
-    process.env.CI = 'true'
-    delete process.env.ALLOW_REMOTE_MIGRATIONS
-    try {
-      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
-      process.env.ALLOW_REMOTE_MIGRATIONS = 'true'
-      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
-    } finally {
-      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
-      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
-      if (originalCi === undefined) delete process.env.CI
-      else process.env.CI = originalCi
-    }
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', undefined)
+    expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
+
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', 'true')
+    expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
   })
 
   it('still refuses a remote host when ALLOW_REMOTE_MIGRATIONS=1 but CI is not "true"', () => {
-    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
-    const originalCi = process.env.CI
-    process.env.ALLOW_REMOTE_MIGRATIONS = '1'
-    delete process.env.CI
-    try {
-      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
-    } finally {
-      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
-      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
-      if (originalCi === undefined) delete process.env.CI
-      else process.env.CI = originalCi
-    }
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', undefined)
+    expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
   })
 
   it('still refuses a host override via query params when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
-    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
-    const originalCi = process.env.CI
-    process.env.ALLOW_REMOTE_MIGRATIONS = '1'
-    process.env.CI = 'true'
-    try {
-      expect(() =>
-        assertLocalHost('postgres://u:p@dbpg01.softobotics.org/db?host=dbpg02.softobotics.org'),
-      ).toThrow(/"host"/)
-      expect(() =>
-        assertLocalHost('postgres://u:p@dbpg01.softobotics.org/db?hostaddr=10.0.0.1'),
-      ).toThrow(/"hostaddr"/)
-    } finally {
-      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
-      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
-      if (originalCi === undefined) delete process.env.CI
-      else process.env.CI = originalCi
-    }
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    expect(() =>
+      assertLocalHost('postgres://u:p@dbpg01.softobotics.org/db?host=dbpg02.softobotics.org'),
+    ).toThrow(/"host"/)
+    expect(() =>
+      assertLocalHost('postgres://u:p@dbpg01.softobotics.org/db?hostaddr=10.0.0.1'),
+    ).toThrow(/"hostaddr"/)
   })
 })
