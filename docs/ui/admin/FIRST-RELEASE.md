@@ -343,14 +343,19 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Menu | Queries | Mutations |
 |---|---|---|
 | Dashboard | `dashboard(partnerId)` | |
-| Partners | `partners(filter, page)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
-| Stores | `stores(filter, page)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
-| Provisioning | `provisioningJobs(filter, page)` | `retryJob`, `undoJob` |
-| Customers | `customers(filter, after)`, `customer(id)` (logs the view) | |
-| Impersonate | `impersonationTargets(filter, after)`, `impersonations(filter, after)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
-| Activity log | `activityLog(filter, after)`, `personTimeline(personRef, filter, after)`, `activityPeople(query)` | `exportActivity(filter)` |
-| Staff | `staff(page)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |
+| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
+| Stores | `stores(filter, after, before)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
+| Provisioning | `provisioningJobs(filter, after, before)` | `retryJob`, `undoJob` |
+| Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
+| Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
+| Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` |
+| Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |
 | Header | `search(query)`, `me` | |
+
+**Pagination is cursor-based across the whole console** (decided 2026-09-30, on #19). Every
+list query takes `after` and `before` and returns Previous and Next with a maximum page size.
+There are **no page numbers and no total count** — `before` is what makes Previous work, so a
+query that takes only `after` is half-built. Cards cite this paragraph rather than restating it.
 
 Every mutation checks the staff role on the server, requires a reason where §4.3 and §5.3
 say so, and writes an audit entry.

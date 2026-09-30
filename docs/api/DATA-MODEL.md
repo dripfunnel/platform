@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until the first migration; the structure is decided.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-30.
 
 ---
 
@@ -41,7 +41,7 @@ platform            no row: DripFunnel itself; staff act here
 
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
-| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `platform_setting`, `entitlement_ceiling`, `feature_flag` |
+| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `platform_setting`, `entitlement_ceiling`, `feature_flag` |
 | **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_domain`, `plan`, `plan_entitlement` |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `storefront`, `support_access_setting` |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `membership`, `order`, `collection`, `offer`, `api_key`, `webhook` |
@@ -75,7 +75,8 @@ staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, re
 partner_user     (id, partner_id, email, password_hash NULL, name, role_key, status,
                   two_factor_secret_enc NULL, created_at)
                  UNIQUE (partner_id, email)
-partner_session  (id_hash, partner_user_id, created_at, last_seen_at, expires_at)
+partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
+                  absolute_expires_at, remember)   -- same session model as user_session
 ```
 
 `role_key` ∈ `partner-owner`, `partner-admin`, `partner-support`, `partner-finance`,
@@ -87,7 +88,10 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at, expires_at
 user        (id, partner_id, email, email_verified_at, password_hash NULL, name, phone NULL,
              two_factor_secret_enc NULL, status, created_at)
             UNIQUE (partner_id, email)
-user_session(id_hash, user_id, created_at, last_seen_at, expires_at)
+user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
+             absolute_expires_at, remember)
+            -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
+            -- extends the absolute bound, never removes it
 
 seller      (id, store_id, name, access_level, status, created_at)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
@@ -131,13 +135,13 @@ store_customer_auth (store_id PK, email_enabled, phone_enabled)   -- Settings �
 The same email or phone may exist in any number of stores, as unrelated rows (ACCESS.md
 §2.1). Phone numbers in E.164.
 
-### 3.5 Machine callers (store)
+### 3.5 Machine callers and session records
 
 ```
 api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, created_by_user_id,
             expires_at NULL, last_used_at, revoked_at NULL)
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
-support_session (id, store_id, partner_user_id, reason, access, started_at, ends_at,
+support_session (id, store_id, partner_user_id, reason, access, started_at, expires_at,
                  elevated_at NULL, elevation_approved_by NULL, ended_at NULL)
                  -- partner support into a store (ACCESS.md §8). Partner users only:
                  -- staff never open one, they impersonate (§8.1), so there is no agent kind

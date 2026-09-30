@@ -17,7 +17,7 @@ requirements are in [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) (§2 items 2–5 an
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -133,7 +133,7 @@ type StoreCaller =
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
   | { kind: 'support'; supportSessionId: string;
-      actor: { kind: 'partner-user' | 'staff'; id: string }; access: 'read' | 'write' };
+      partnerUserId: string; access: 'read' | 'write' };   // partner users only (§8)
 
 interface TenantContext {
   caller: StoreCaller;
@@ -209,8 +209,8 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 ```
 
 - **Sign-in.** The browser posts credentials to the Store API on the portal host. The engine
-  checks them, creates a `session(id, user_id, partner_id, created_at, last_seen_at,
-  absolute_expires_at, remember)` row, and returns only an opaque cookie: `__Host-` prefixed,
+  checks them, creates a `user_session` row ([DATA-MODEL.md](DATA-MODEL.md) §3.3, which owns
+  the columns), and returns only an opaque cookie: `__Host-` prefixed,
   `httpOnly`, `Secure`, `SameSite=Lax`, no `Domain` attribute. The cookie name carries no
   DripFunnel branding (white label). Nothing else reaches the browser.
 - **The membership set** is the user's active memberships in stores of the host's partner.
@@ -328,7 +328,7 @@ session, and never sees another partner. **Proposed, confirm before building.**
 | See merchant accounts, plans, billing status, domain, provisioning, publishing status, usage | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Create a merchant (Owner invitation) | ✓ | ✓ | | | |
 | Change a merchant's plan, price, limits, entitlements ("Publish now" allowance), trial | ✓ | ✓ | | ✓ *(trial and billing fields only)* | |
-| Suspend and restore a merchant | ✓ | ✓ | | | |
+| Suspend and restore a merchant **(confirmed 2026-09-30)** | ✓ | ✓ | | | |
 | Open a read-only **support session** (§8) | ✓ | ✓ | ✓ | | |
 | Request write elevation inside a support session | ✓ | ✓ | ✓ | | |
 | Branding, portal host, preview and shop domains, email sender domain | ✓ | ✓ | | | |
@@ -357,7 +357,8 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 Staff have **account-level** access to every partner and merchant through the Admin API,
 and **read-only access to customer accounts** across every store (decided 2026-09-28;
 masked contact details in lists, full on the detail page for Super admin and Support
-*(proposed)*, each detail view logged; never addresses, order contents or payment details). Inside
+(confirmed 2026-09-30), each detail view logged; never addresses, order contents or payment
+details). Inside
 a store they act only by impersonating a user (§8.1: Super admin and Support); inside a
 partner console, by impersonating a partner user, or through a setup session for onboarding
 (§8.2: Super admin and Partner manager). **Staff never open a support session** —
@@ -804,8 +805,8 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
   `tax.*` or capability; no store role holds a platform permission; no field returns a
   credential.
 - The audit table rejects update and delete from the application role.
-- If row-level security is adopted, a test runs a query with the scoped layer bypassed and
-  proves the database refuses another store's rows.
+- A test runs a query with the scoped layer bypassed and proves the database refuses another
+  store's rows (DATA-MODEL §5.4).
 
 Playwright covers a small set of journeys: sign-in, store switching, accept-invitation (new
 and existing account), and a support session with its banner.
@@ -860,8 +861,8 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   not (§7.3).
 - **What happens to a removed or suspended vendor's products?** (§7.5)
 - **Refunds, returns and cancellations across vendors**: first release or later? (§7.3)
-- **Can someone be a vendor and merchant staff in the same store?** One membership per (user,
-  store) says no; make it deliberate (§7.5).
+- ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
+  both in the same store (DATA-MODEL §1, §7.5).
 - **Does a vendor see which other stores a product of theirs is in?** Products are per store,
   so nothing leaks by default; a "sell this in my other store" feature needs its own design.
 - **Past due and vendors**: past due never locks the merchant out (decided); what happens to
@@ -878,11 +879,10 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
 - **Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).
 - **Stock only vendors**: how their products come to exist (§7.1).
 - **Support sessions**: default length; the email notice; who in the store may allow write
-  elevation; the investigation exception; what a staff session's banner names under a
-  white-label partner (§8).
+  elevation (§8). The investigation exception and the staff banner's wording are moot: staff
+  never open a support session (decided 2026-09-30), and §8.1 fixes their banner to "Support".
 - **Staff session bounds** and which actions need a second approver (§4, §5.4).
 - **API keys** when their creator leaves or is demoted; whether apps can be vendor-bound (§3,
   §5.6).
 - **Password change** ending every other session on every host (§4).
-- **Row-level security** as defence in depth: yes or no (§1).
 - **Whether vendors see any audit entries** (§10).
