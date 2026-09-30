@@ -126,17 +126,13 @@ SES sends every email for every partner.
 
 ### 2.5 Staff sign-in (DF Admin)
 
-The staff identity provider is not settled. The docs and the prototype disagree:
+The staff identity provider is **Microsoft Entra ID** (decided 2026-10-01), settling a
+disagreement in which the design prompts said Google Workspace and the Admin prototype
+designed Entra with Microsoft Authenticator. The prototype won: it designs the flow in full,
+including the failure states #17 already ships. Both prompts are corrected.
 
-- The docs say **Google Workspace**:
-  [../ui/admin/CLAUDE-DESIGN-PROMPT.md](../ui/admin/CLAUDE-DESIGN-PROMPT.md) "Sign in with Google
-  Workspace" and the Impersonation prompt "Confirm with Google Workspace".
-- The Admin prototype designs **Microsoft Entra ID** with Microsoft Authenticator
-  (`designs/DF Admin Prototype.dc.html`).
-
-*(ask which one)*. Until it is answered, the admin sign-in screen built in #17 follows the
-prototype (Microsoft Entra ID). It isn't wired to an API yet, so only its words and button
-change if Google Workspace is chosen.
+#13 builds staff identity against a stubbed provider; **#89** wires the real exchange and
+needs the app registration below to exist.
 
 The OIDC app's values below belong to the API Worker, and the Cloudflare Access client to
 Cloudflare Zero Trust. The admin SPA needs none: it sends the browser to
@@ -150,7 +146,7 @@ the SPA has no use for them either.
 | **OIDC app** in the chosen identity provider (Google Cloud "Internal" OAuth client, or an Entra ID app registration) | Staff SSO with 2-factor on `admin.dripfunnel.com`; re-authentication before impersonation | Client ID, **client secret** (or an Entra certificate), tenant ID / hosted domain | Worker secrets | 11 |
 | — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback` plus staging | — | — | — |
 | **Same identity provider connected to Cloudflare Access** | The outer gate (§2.1) | A second OIDC client, or the same one | Cloudflare Zero Trust | 11 |
-| Group or role claims *(decide)* | Map staff roles (Super admin, Support, Finance…) from identity-provider groups, or keep roles in our own table (DATA-MODEL.md §2) | Directory read permission | — | 11 |
+| Group or role claims — **not used** | Staff roles live in our own table: DATA-MODEL.md §3.1 puts `role_key` on `staff_user` and #39 builds invite and change-role against it | — | — | — |
 
 ### 2.6 AI provider
 
@@ -385,7 +381,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 
 ## 7. Open questions
 
-1. **Staff identity provider**: Google Workspace (docs) or Microsoft Entra ID (Admin
+1. **Staff identity provider**: Microsoft Entra ID (docs) or Microsoft Entra ID (Admin
    prototype)? (§2.5)
 2. **SMS and WhatsApp provider**, and whether each partner or merchant needs its own sender
    (ACCESS.md §2.1). (§2.8)
