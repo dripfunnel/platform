@@ -339,8 +339,7 @@ guard**, pinned by the `ALLOWED_TEST_HOST` variable instead of
 `ALLOWED_MIGRATION_HOST`, because `scripts/migrate/runner.test.ts` applies the
 migrations and that is the same privileged operation as the deploy step. The
 guard lives inside `migrate()` rather than in `scripts/migrate/main.ts`, so
-every caller passes through it — a guard on the CLI alone left the test path
-writing to whatever `DATABASE_URL` happened to hold.
+every caller of `migrate()` — CLI or test — passes through it.
 
 A **local** host is always allowed, whether or not the override is set, so a
 CI step can turn the override on for a whole test run without the local

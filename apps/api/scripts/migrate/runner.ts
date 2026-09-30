@@ -9,9 +9,8 @@ import { assertPostgresMajor } from './version-check'
 const LOCK_KEY = 'dripfunnel_migrations'
 
 export const migrate = async (connectionString: string, migrationsDir: string): Promise<void> => {
-  // The guard belongs here, not only in main.ts: runner.test.ts calls migrate() directly
-  // with DATABASE_URL, so a guard on the CLI alone left the test writing to whatever the
-  // environment pointed at.
+  // The guard belongs here, not only in main.ts, so every caller of migrate() — CLI or
+  // test — passes through it.
   assertLocalHost(connectionString)
 
   let sql: postgres.Sql
