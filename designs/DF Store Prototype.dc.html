@@ -55,6 +55,7 @@ a:hover{color:#00519F;}
     <span style="flex:1;"></span>
     <button onClick="{{ on.reset }}" style="height:28px;padding:0 12px;border-radius:6px;border:1px solid #3A424E;background:transparent;color:#FFFFFF;font-size:12px;cursor:pointer;">Reset data</button>
   </div>
+  <dc-import name="ImpBanner" hint-size="100%,0px"></dc-import>
 
   <div style="flex:1;display:flex;justify-content:center;align-items:flex-start;padding:{{ frame.pad }};">
     <div style="display:flex;width:{{ frame.w }};height:{{ frame.h }};border:{{ frame.bd }};border-radius:{{ frame.r }};overflow:hidden;background:#FDFAF7;position:relative;">
@@ -194,6 +195,8 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = this.fresh('US', 'stocked', {});
+    const imp = (() => { try { const m = location.href.match(/[?&]imp=([^&#]+)/); return m ? JSON.parse(localStorage.getItem('df-imp-bus-v1') || '{}')[decodeURIComponent(m[1])] : null; } catch (e) { return null; } })();
+    if (imp && imp.open) { const RM = { Owner:'owner', Manager:'manager', Staff:'staff', 'Supplier admin':'vendor', 'Supplier member':'vendorStock' }; const role = imp.kind === 'support' ? 'owner' : RM[imp.role] || 'staff', vend = role === 'vendor' || role === 'vendorStock'; Object.assign(this.state, { role, impS: imp, ...(vend ? { plan: 'business', screen: 'products' } : {}) }); }
   }
 
   REG(k) {
