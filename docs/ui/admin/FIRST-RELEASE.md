@@ -151,8 +151,11 @@ Across all partners.
 | Domain | Live link, or the custom domain and its status |
 | Created | Date |
 
-Filters: partner, status, storefront state, created date. Search: name, code, domain, owner
-email. Saved in the URL so a filtered list can be shared.
+Filters: partner, status, storefront state and created (last 7 or 30 days). The list also
+takes a setup state (Done, Running, Failed, Stuck) from the URL, with no control of its own,
+so the Dashboard's setup links land on a filtered list. Search: name, code,
+domain, owner email. Saved in the URL so a filtered list can be shared. Newest first, paged
+by cursor (Previous and Next), with no total count. Retry is not on the rows (§5.3).
 
 ### 5.2 Store detail
 
@@ -167,7 +170,8 @@ Header: name, partner, status, live link, and the actions (§5.3). Tabs:
 | **Users** | Everyone in the store: merchant side (Owner, Manager, Staff) and each supplier's users, with role, last sign-in, status and **Impersonate** |
 | **Support** | The merchant's Support access setting (it governs partner support, not staff); partner support sessions; staff impersonations of this store's users |
 | **Activity** | Audit entries about this store |
-| **Notes** | Internal staff notes, never shown to the partner or merchant |
+| **Notes** | Internal staff notes, never shown to the partner or merchant, written inline |
+| **Customers** | Built by the Customers card (§5.4), not with this screen |
 
 No catalogue or orders here: staff see them only by impersonating a store user (§8). The
 store's customers are listed in Customers (§5.4), pre-filtered to this store.
@@ -176,12 +180,14 @@ store's customers are listed in Customers (§5.4), pre-filtered to this store.
 
 | Action | Who | Needs | Consequence stated before confirming |
 |---|---|---|---|
-| **Suspend** | Super admin; Engineer on call (emergency) | Reason (shown to the Owner) | "Mehta Textiles can't make changes; its storefront shows a notice telling shoppers to contact the store, and the Owner is told to contact **their partner's** support." |
+| **Suspend** | Super admin; Engineer on call (emergency: the dialog adds "Engineer on call: emergency suspensions are reviewed by a Super admin.") | Reason (shown to the Owner); the store name typed | "Mehta Textiles can't make changes; its storefront shows a notice telling shoppers to contact the store, and the Owner is told to contact **their partner's** support." |
 | **Restore** | Super admin | Reason | Back to its previous status |
 | **Extend trial** | Super admin | New end date | New trial end date |
-| **Retry provisioning** | Super admin, Support, Engineer on call | A failed step | Runs the failed step again |
+| **Retry provisioning** | Super admin, Support, Engineer on call | A failed or stuck step; offered in the store header and on that step in the Provisioning tab | Runs the failed step again |
+| **Undo and clean up** | Super admin, Engineer on call | A failed signup, from the Provisioning tab; reason; the store code typed | "Removes everything setup made for {store} (store, hostnames, repo) so {owner} can sign up again. This can't be undone." Returns to the Stores list |
 | **Impersonate a user** | Super admin, Support | A user from the Users tab; reason or ticket; re-authentication | "Full access as Priya for 30 minutes; everyone in the store sees a banner." (§8) |
 | **Resend Owner invitation** | Super admin, Support | | New link, old one stops working |
+| **Add note** | Super admin, Partner manager, Support, Engineer on call | The note, written inline on the Notes tab | None: notes are staff-only |
 
 Change plan, move to another partner, transfer ownership and close are **not** in this
 release; changing a plan is the partner's job.
@@ -345,7 +351,7 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Dashboard | `dashboard(partnerId)` | |
 | Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
 | Stores | `stores(filter, after, before)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
-| Provisioning | `provisioningJobs(filter, after, before)` | `retryJob`, `undoJob` |
+| Provisioning | `provisioningJobs(filter, after, before)` | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
 | Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
 | Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` |

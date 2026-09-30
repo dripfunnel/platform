@@ -5,14 +5,24 @@ export interface ConfirmDialogProps {
   open: boolean
   title: string
   target: string
-  consequence: string
+  // A function when the consequence depends on the value typed, as a new trial end does.
+  consequence: string | ((value: string) => string)
   confirmLabel: string
   cancelLabel: string
   notes?: string[]
-  reason?: { label: string; hint: string }
+  reason?: { label: string; hint: string; placeholder?: string }
   typeToConfirm?: { label: string; hint: string; expected: string }
+  // design.md §4's single-field ask: a value the action needs, such as a date. `error` says
+  // what is wrong with the value, or null once it will do.
+  input?: {
+    label: string
+    type: 'text' | 'date'
+    initial: string
+    placeholder?: string
+    error: (value: string) => string | null
+  }
   danger?: boolean
-  onConfirm: (reason: string | null) => void
+  onConfirm: (reason: string | null, value: string | null) => void
   onCancel: () => void
 }
 
@@ -26,6 +36,7 @@ export const ConfirmDialog = ({
   notes,
   reason,
   typeToConfirm,
+  input,
   danger = false,
   onConfirm,
   onCancel,
@@ -39,13 +50,17 @@ export const ConfirmDialog = ({
   const hintId = useId()
   const typedId = useId()
   const typedHintId = useId()
+  const inputId = useId()
+  const inputErrorId = useId()
   const [reasonText, setReasonText] = useState('')
   const [typedText, setTypedText] = useState('')
   const [confirmed, setConfirmed] = useState(false)
+  const [value, setValue] = useState('')
   const reasonMissing = reason !== undefined && reasonText.trim() === ''
   const typedMismatch = typeToConfirm !== undefined && typedText.trim() !== typeToConfirm.expected
-  const canConfirm = !confirmed && !reasonMissing && !typedMismatch
-  const blockedBy = reasonMissing ? hintId : typedMismatch ? typedHintId : undefined
+  const inputError = input ? input.error(value) : null
+  const canConfirm = !confirmed && !reasonMissing && !typedMismatch && inputError === null
+  const blockedBy = reasonMissing ? hintId : typedMismatch ? typedHintId : inputError !== null ? inputErrorId : undefined
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -54,6 +69,7 @@ export const ConfirmDialog = ({
       triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       setReasonText('')
       setTypedText('')
+      setValue(input?.initial ?? '')
       setConfirmed(false)
       dialog.showModal()
       cancelRef.current?.focus()
@@ -79,7 +95,7 @@ export const ConfirmDialog = ({
         <p>
           <strong>{target}</strong>
         </p>
-        <p>{consequence}</p>
+        <p>{typeof consequence === 'function' ? consequence(value) : consequence}</p>
         {notes && notes.length > 0 && (
           <ul className="df-dialog-notes">
             {notes.map((note) => (
@@ -95,6 +111,7 @@ export const ConfirmDialog = ({
             id={reasonId}
             required
             rows={3}
+            placeholder={reason.placeholder}
             aria-describedby={hintId}
             value={reasonText}
             onChange={(event) => setReasonText(event.target.value)}
@@ -102,6 +119,26 @@ export const ConfirmDialog = ({
           <p id={hintId} className="df-field-hint">
             {reason.hint}
           </p>
+        </div>
+      )}
+      {input && (
+        <div className="df-field">
+          <label htmlFor={inputId}>{input.label}</label>
+          <input
+            id={inputId}
+            type={input.type}
+            required
+            placeholder={input.placeholder}
+            aria-invalid={inputError !== null}
+            aria-describedby={inputError !== null ? inputErrorId : undefined}
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+          />
+          {inputError !== null && (
+            <p id={inputErrorId} className="df-field-hint">
+              {inputError}
+            </p>
+          )}
         </div>
       )}
       {typeToConfirm && (
@@ -133,7 +170,7 @@ export const ConfirmDialog = ({
           aria-describedby={blockedBy}
           onClick={() => {
             setConfirmed(true)
-            onConfirm(reason ? reasonText.trim() : null)
+            onConfirm(reason ? reasonText.trim() : null, input ? value : null)
           }}
         >
           {confirmLabel}

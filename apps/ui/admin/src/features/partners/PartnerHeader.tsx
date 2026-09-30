@@ -2,7 +2,8 @@ import { Link } from '@tanstack/react-router'
 import type { Partner, PartnerAction } from '../../api/partners'
 import { formatCount, messages } from '../../messages'
 import { PartnerActions } from './PartnerActions'
-import { HostPill, HouseBadge, InvitationPill, PartnerStatePill, PartnerTile } from './partnerLook'
+import { Tile } from '../common/Tile'
+import { HostPill, HouseBadge, InvitationPill, PartnerStatePill } from './partnerLook'
 import './partners.css'
 
 const words = messages.partner
@@ -22,7 +23,7 @@ export const PartnerHeader = ({ partner, onAction }: PartnerHeaderProps) => {
         <span aria-current="page">{partner.name}</span>
       </nav>
       <div className="df-detail-title">
-        <PartnerTile name={partner.name} large />
+        <Tile name={partner.name} large />
         <div className="df-detail-heading">
           <p className="df-eyebrow">{words.level}</p>
           <div className="df-detail-name">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { DomainKind, Partner, PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
-import { InfoNote } from './InfoNote'
+import { InfoNote } from '../common/InfoNote'
 import { HostPill } from './partnerLook'
 import './partners.css'
 

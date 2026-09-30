@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { messages } from '../../messages'
-import './partners.css'
+import { DetailTabs } from '../common/DetailTabs'
 
 const words = messages.partner
 
@@ -8,23 +8,12 @@ const words = messages.partner
 export const partnerTabs = ['overview', 'stores', 'branding', 'domains', 'plans', 'team', 'activity'] as const
 export type PartnerTab = (typeof partnerTabs)[number]
 
-// Links, not an ARIA tab list: each tab is its own address (?tab=), so it can be shared.
 export const PartnerTabs = ({ partnerId, current }: { partnerId: string; current: PartnerTab }) => (
-  <nav className="df-tabs" aria-label={words.tabsLabel}>
-    <ul>
-      {partnerTabs.map((tab) => (
-        <li key={tab}>
-          <Link
-            to="/partners/$partnerId"
-            params={{ partnerId }}
-            search={tab === 'overview' ? {} : { tab }}
-            className="df-tab"
-            aria-current={tab === current ? 'page' : undefined}
-          >
-            {words.tabs[tab]}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  </nav>
+  <DetailTabs
+    label={words.tabsLabel}
+    tabs={partnerTabs}
+    labels={words.tabs}
+    current={current}
+    link={(tab, props) => <Link to="/partners/$partnerId" params={{ partnerId }} search={tab === 'overview' ? { tab: undefined } : { tab }} activeOptions={{ explicitUndefined: true }} {...props} />}
+  />
 )
