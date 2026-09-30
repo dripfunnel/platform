@@ -102,4 +102,3 @@ describe('assertLocalHost', () => {
     ).toThrow(/"hostaddr"/)
   })
 })
-
