@@ -17,6 +17,8 @@ import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AppPartnersPartnerIdRouteImport } from './routes/_app/partners_.$partnerId'
+import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -56,6 +58,16 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => AuthRoute,
 } as any)
+const AppPartnersPartnerIdRoute = AppPartnersPartnerIdRouteImport.update({
+  id: '/partners_/$partnerId',
+  path: '/partners/$partnerId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
+  id: '/stores_/$storeId',
+  path: '/stores/$storeId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -64,6 +76,8 @@ export interface FileRoutesByFullPath {
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
+  '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
+  '/stores/$storeId': typeof AppStoresStoreIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -72,6 +86,8 @@ export interface FileRoutesByTo {
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
+  '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
+  '/stores/$storeId': typeof AppStoresStoreIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -83,13 +99,30 @@ export interface FileRoutesById {
   '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/partners_/$partnerId': typeof AppPartnersPartnerIdRoute
+  '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/dashboard' | '/partners' | '/states' | '/stores' | '/sign-in'
+    | '/'
+    | '/dashboard'
+    | '/partners'
+    | '/states'
+    | '/stores'
+    | '/sign-in'
+    | '/partners/$partnerId'
+    | '/stores/$storeId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/partners' | '/states' | '/stores' | '/sign-in'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/partners'
+    | '/states'
+    | '/stores'
+    | '/sign-in'
+    | '/partners/$partnerId'
+    | '/stores/$storeId'
   id:
     | '__root__'
     | '/_app'
@@ -100,6 +133,8 @@ export interface FileRouteTypes {
     | '/_app/stores'
     | '/_auth/sign-in'
     | '/_app/'
+    | '/_app/partners_/$partnerId'
+    | '/_app/stores_/$storeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -165,6 +200,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_app/partners_/$partnerId': {
+      id: '/_app/partners_/$partnerId'
+      path: '/partners/$partnerId'
+      fullPath: '/partners/$partnerId'
+      preLoaderRoute: typeof AppPartnersPartnerIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores_/$storeId': {
+      id: '/_app/stores_/$storeId'
+      path: '/stores/$storeId'
+      fullPath: '/stores/$storeId'
+      preLoaderRoute: typeof AppStoresStoreIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -174,6 +223,8 @@ interface AppRouteChildren {
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppPartnersPartnerIdRoute: typeof AppPartnersPartnerIdRoute
+  AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -182,6 +233,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,
+  AppPartnersPartnerIdRoute: AppPartnersPartnerIdRoute,
+  AppStoresStoreIdRoute: AppStoresStoreIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

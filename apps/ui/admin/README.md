@@ -23,6 +23,13 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 
+## Dashboard
+
+`/dashboard` (`src/features/dashboard/`) shows the five cards of FIRST-RELEASE.md §3, from
+`src/api/dashboard.ts` on fixtures until the Admin API's `dashboard(partnerId)` exists. Every
+number links to the list it counts with the filter in the URL; the partner filter is
+`?partner=`. Its states: `?state=loading`, `empty`, `error`, `stale` and `offline`.
+
 ## Sign-in
 
 `/sign-in` (`src/features/sign-in/`) is the staff sign-in with Microsoft Entra ID, following

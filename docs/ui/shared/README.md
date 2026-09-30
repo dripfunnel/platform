@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-30.
 
 ---
 
@@ -14,13 +14,13 @@ Last updated: 2026-09-28.
 | `@dripfunnel/shared/ui` | Components, and later the designed-states helper | `Button` |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code | `createApiClient`, `ApiError` |
-| `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency) |
+| `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber` |
 
 ```
 apps/ui/shared/
   ui/          components, tokens.css, index.ts
   graphql/     client.ts, index.ts
-  format/      money.ts (+ money.test.ts), index.ts
+  format/      money.ts, dateTime.ts, duration.ts, number.ts (each + .test.ts), index.ts
   package.json exports map; peer dependency on react
 ```
 

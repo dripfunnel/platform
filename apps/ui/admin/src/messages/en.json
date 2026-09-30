@@ -58,7 +58,102 @@
   "screens": {
     "dashboard": { "title": "Dashboard" },
     "partners": { "title": "Partners" },
-    "stores": { "title": "Stores" }
+    "stores": { "title": "Stores" },
+    "partner": { "title": "Partner" },
+    "store": { "title": "Store" }
+  },
+  "dashboard": {
+    "level": "Platform · every partner",
+    "title": "Dashboard",
+    "sub": "Today across every partner, as of {time}.",
+    "subLoading": "Today across every partner.",
+    "filter": {
+      "label": "Partner",
+      "all": "All partners",
+      "countAll": "Every card shows all partners",
+      "countOne": "Every card shows {name} only"
+    },
+    "partnerStates": {
+      "live": "Live",
+      "awaiting": "Awaiting approval",
+      "draft": "Draft",
+      "paused": "Paused"
+    },
+    "partners": {
+      "title": "Partners",
+      "all": "All partners"
+    },
+    "awaiting": {
+      "title": "Awaiting approval",
+      "count": "{count} waiting",
+      "longest": "Waiting longest",
+      "submitted": "Submitted {time}",
+      "none": "Nothing waiting. Partners appear here when they submit for approval."
+    },
+    "stores": {
+      "title": "Stores",
+      "all": "All stores",
+      "totalLabel": "Stores in total: {count}",
+      "newThisWeek": "New this week:",
+      "newThisWeekLabel": "New stores this week: {count}",
+      "byPartnerLabel": "New stores this week at {partner}: {count}",
+      "byPartner": "New this week by partner"
+    },
+    "attention": {
+      "title": "Needs attention",
+      "pastDue": "Past due",
+      "suspended": "Suspended",
+      "setupFailed": "Failed setup",
+      "setupStuck": "Stuck in setup",
+      "none": "Nothing needs attention right now.",
+      "showing": "Showing {shown} of {total}. The links above open each list in full.",
+      "openStore": "Open store",
+      "openStoreLabel": "Open store {name}",
+      "pastDueBadge": { "one": "Past due · {days} day", "other": "Past due · {days} days" },
+      "pastDueDetail": "Writes blocked, still selling",
+      "suspendedBadge": "Suspended",
+      "setupFailedBadge": "Failed",
+      "setupStuckBadge": "Stuck: running too long",
+      "setupDetail": "Setup at “{step}”, attempt {attempt}",
+      "steps": {
+        "account": "Account",
+        "store": "Store",
+        "defaults": "Defaults",
+        "hostnames": "Hostnames",
+        "repo": "Repo",
+        "firstBuild": "First build"
+      }
+    },
+    "signups": {
+      "title": "Signups",
+      "period": "Last 7 days",
+      "started": "Started",
+      "completed": "Completed",
+      "failed": "Failed",
+      "median": "Median time to a ready store",
+      "noMedian": "Not enough signups yet"
+    },
+    "loading": "Loading the dashboard",
+    "empty": {
+      "title": "No partners yet",
+      "body": "This platform has no partners or stores yet. Create the first partner to start taking merchant signups.",
+      "action": "Create partner",
+      "denied": "Only a Super admin or Partner manager can create a partner."
+    },
+    "error": {
+      "title": "We couldn’t load the dashboard",
+      "body": "The admin service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "stale": {
+      "title": "Numbers from {time}.",
+      "body": "The reporting service is slow; we’ll refresh when it answers."
+    },
+    "offline": {
+      "title": "You’re offline.",
+      "body": "What you see may be out of date, and changes can’t be sent until you reconnect."
+    },
+    "refresh": "Refresh"
   },
   "signIn": {
     "logoAlt": "DripFunnel",

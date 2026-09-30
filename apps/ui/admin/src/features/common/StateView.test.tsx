@@ -1,13 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
+import { textOf } from '../../testing/textOf'
 import { screenStates, type ScreenState } from './screenState'
 import { StateView } from './StateView'
 
 const words = messages.states
 const render = (state: ScreenState) => renderToStaticMarkup(<StateView state={state} />)
-const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#x27;': "'" }
-const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&(?:amp|lt|gt|quot|#x27);/g, (entity) => entities[entity] ?? entity)
 
 describe('StateView', () => {
   it('renders the empty state with its explanation and one action', () => {

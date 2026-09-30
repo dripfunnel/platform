@@ -2,13 +2,11 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
+import { textOf } from '../../testing/textOf'
 import { SignIn } from './SignIn'
 import { problemStates, signInStates } from './signInStates'
 
 const words = messages.signIn
-const entities: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#x27;': "'" }
-const textOf = (html: string) =>
-  html.replace(/<[^>]+>/g, '').replace(/&(?:amp|lt|gt|quot|#x27);/g, (entity) => entities[entity] ?? entity)
 
 const htmlText = (text: string) => text.replace(/'/g, '&#x27;')
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
