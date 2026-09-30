@@ -22,6 +22,12 @@ describe('migrate', () => {
     expect(appliedAgain).toHaveLength(1)
   })
 
+  it('refuses a non-local host itself, so the test path cannot reach a real database', async () => {
+    await expect(
+      migrate('postgres://u:p@ep-not-the-allowed-host-999.us-east-2.aws.neon.tech:5432/db', migrationsDir),
+    ).rejects.toThrow(/Refusing to run migrations/)
+  })
+
   it('refuses a malformed connection string without leaking it', async () => {
     const secret = 'postgres://u:pa/ss@localhost:5432/db'
     try {

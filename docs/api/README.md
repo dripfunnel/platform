@@ -320,7 +320,30 @@ install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partiall
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `.dev.vars.example` or `wrangler.jsonc` ever points at
-`dbpg01.softobotics.org`.
+`dbpg01.softobotics.org`. The only exception is the `dev` deploy workflow
+(`.github/workflows/dev.yml`), which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply
+migrations to the persistent Neon `dev` branch; the guard
+(`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
+by GitHub Actions) so the override can't be tripped by an env var left in a
+shell profile or `.env` on a developer machine, and requires the connection
+string's host to exactly match the `ALLOWED_MIGRATION_HOST` GitHub Actions
+variable (set to the `dev` branch's literal Neon hostname), so a
+misconfigured `DATABASE_URL` can't silently migrate a different Neon project
+(production included).
+
+The same workflow's Gates step (`build typecheck lint test`) is a second,
+separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
+disposable Neon branch kept only for CI test runs, not the persistent `dev`
+branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
+guard**, pinned by the `ALLOWED_TEST_HOST` variable instead of
+`ALLOWED_MIGRATION_HOST`, because `scripts/migrate/runner.test.ts` applies the
+migrations and that is the same privileged operation as the deploy step. The
+guard lives inside `migrate()` rather than in `scripts/migrate/main.ts`, so
+every caller of `migrate()` — CLI or test — passes through it.
+
+A **local** host is always allowed, whether or not the override is set, so a
+CI step can turn the override on for a whole test run without the local
+database being refused by the host match.
 
 `pnpm test` needs this same database up and `.dev.vars` exported (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
