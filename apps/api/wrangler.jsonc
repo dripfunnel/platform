@@ -48,11 +48,11 @@
       ],
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }]
     },
-    // `wrangler deploy --env production`, on every push to `main`. Same values as the
-    // top-level config (kept as the implicit default for now); explicit so a future
-    // production deploy workflow can name the env instead of relying on that default.
-    // No `hyperdrive` binding yet: see the top-level comment above.
-    "production": {
+    // `wrangler deploy --env prod`, from .github/workflows/prod.yml, on every push to `main`
+    // (ARCHITECTURE.md §6). Same values as the top-level config (kept as the implicit default
+    // for now); explicit so the deploy workflow can name the env instead of relying on that
+    // default. No `hyperdrive` binding yet: see the top-level comment above.
+    "prod": {
       "name": "dripfunnel-api",
       "vars": {
         "ADMIN_HOST": "admin.dripfunnel.com",

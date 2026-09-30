@@ -1,0 +1,117 @@
+name: prod
+
+# Production: migrations (direct connection, migration role) first, then an API Worker
+# version upload (not a live deploy — promotion to 100% is a separate, manual
+# `wrangler versions deploy` step, see docs/code/ROLLBACK.md), then the SPAs that actually
+# changed. ARCHITECTURE.md §6. `ci.yml`'s `gates` job already ran build/typecheck/lint/test
+# against this exact commit as main's required check, so this workflow does not repeat that —
+# only builds (to materialize SPA `dist/` output) and deploys.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      - name: Build
+        run: pnpm turbo run build
+        working-directory: .
+
+      - name: Detect changed apps
+        id: changes
+        working-directory: .
+        run: |
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            before=$(git rev-parse HEAD~1)
+          fi
+          changed=$(git diff --name-only "$before" "${{ github.sha }}")
+          echo "$changed"
+          shared=false
+          echo "$changed" | grep -q '^apps/ui/shared/' && shared=true
+          for app in store platform admin; do
+            app_changed=false
+            echo "$changed" | grep -q "^apps/ui/$app/" && app_changed=true
+            if [ "$app_changed" = true ] || [ "$shared" = true ]; then
+              echo "${app}_changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "${app}_changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
+      - name: Migrations
+        run: pnpm run --if-present migrate
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+
+      - name: API Worker (upload only — see summary for the manual promote command)
+        id: worker
+        uses: ./.github/actions/worker-upload
+        with:
+          env-name: prod
+          message: ${{ github.sha }}
+
+      - name: 'SPA: store'
+        if: steps.changes.outputs.store_changed == 'true'
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-store
+          dist: ../ui/store/dist
+          branch: main
+          commit-hash: ${{ github.sha }}
+
+      - name: 'SPA: platform'
+        if: steps.changes.outputs.platform_changed == 'true'
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-platform
+          dist: ../ui/platform/dist
+          branch: main
+          commit-hash: ${{ github.sha }}
+
+      - name: 'SPA: admin'
+        if: steps.changes.outputs.admin_changed == 'true'
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-admin
+          dist: ../ui/admin/dist
+          branch: main
+          commit-hash: ${{ github.sha }}
+
+      - name: Run summary
+        if: always()
+        working-directory: .
+        run: |
+          {
+            echo "### Deploy summary"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Migrations: ran against \`apps/api/migrations\`"
+            echo "- API Worker: version \`${{ steps.worker.outputs.version-id }}\` uploaded, not yet promoted (see step above for the command)"
+            echo "- SPA store: ${{ steps.changes.outputs.store_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
+            echo "- SPA platform: ${{ steps.changes.outputs.platform_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
+            echo "- SPA admin: ${{ steps.changes.outputs.admin_changed == 'true' && 'deployed' || 'skipped (unchanged)' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
