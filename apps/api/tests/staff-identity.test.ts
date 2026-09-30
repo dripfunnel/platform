@@ -193,6 +193,17 @@ describe('the sign-in routes', () => {
     expect(res.status).toBe(429)
   })
 
+  it('refuses claims the provider returns in a shape we cannot use', async () => {
+    // Malformed claims must not answer differently from an unknown subject: a 500 here would
+    // tell the caller their code reached the provider and the failure was ours.
+    const malformed = {
+      ...provider,
+      exchange: async () => ({ subject: '', email: 'not-an-email', name: '' }) as never,
+    }
+    const res = await handleAuth(callback('good'), deps({ provider: malformed }))
+    expect({ status: res.status, body: await res.text() }).toEqual({ status: 401, body: 'Sign-in failed' })
+  })
+
   it('refuses a callback whose state does not match what we sent', async () => {
     const res = await handleAuth(callback('good', { state: 'not-ours' }), deps())
     expect(res.status).toBe(401)

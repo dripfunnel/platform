@@ -53,11 +53,8 @@ const handleAdmin = async (
         activity: noopActivityLog,
         adminHost: config.ADMIN_HOST,
         now: () => new Date(),
-        // Allows the attempt when the binding is absent: a missing rate limiter should not
-        // lock every staff member out of the console. It is not the authorisation gate.
         allowAttempt: async (req) =>
-          (await env.SIGN_IN_RATE_LIMITER?.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' }))?.success ??
-          true,
+          (await env.SIGN_IN_RATE_LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' })).success,
       })
     }
     const staff = await resolveStaff(sql, request, new Date())
@@ -71,7 +68,7 @@ const handleAdmin = async (
 
 interface Env extends Record<string, unknown> {
   HEALTH_RATE_LIMITER: RateLimit
-  SIGN_IN_RATE_LIMITER?: RateLimit
+  SIGN_IN_RATE_LIMITER: RateLimit
 }
 
 export default {

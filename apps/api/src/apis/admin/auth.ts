@@ -65,9 +65,14 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
     if (!code || !handshake || handshake.state !== url.searchParams.get('state')) return refused()
 
     try {
-      const claims = identityClaims.parse(
+      // safeParse, not parse: a ZodError would escape the catch below and become a 500,
+      // which is a different answer from every other refusal and so tells the caller
+      // something.
+      const parsed = identityClaims.safeParse(
         await deps.provider.exchange({ code, redirectUri: redirectUri(deps.adminHost), nonce: handshake.nonce }),
       )
+      if (!parsed.success) throw new SignInFailed('the provider returned claims we cannot use')
+      const claims = parsed.data
       const id = await withSystemScope(deps.sql, async (tx) => {
         const staff = await staffForClaims(tx, claims)
         const sessionId = await createSession(tx, staff.id, deps.now())
