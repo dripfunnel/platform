@@ -81,6 +81,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.commit_sha }}
+      # actions/checkout defaults to `clean: true` (git clean -ffdx), which just removed the
+      # node_modules the first `setup` installed for `main` — and it was `main`'s lockfile
+      # anyway, not commit_sha's. Reinstall from commit_sha's lockfile before anything runs.
+      - uses: ./.github/actions/setup
 
       - name: Promote Worker to 100%
         id: promote

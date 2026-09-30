@@ -36,7 +36,10 @@
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }]
     },
-    // `wrangler deploy --env dev` from .github/workflows/dev.yml on push to `dev` (§6).
+    // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
+    // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected
+    // via the job's CLOUDFLARE_ACCOUNT_ID, not this file). The ratelimit namespace id below
+    // is a placeholder until that account's config exists.
     "dev": {
       "name": "dripfunnel-api-dev",
       "vars": {
@@ -51,7 +54,10 @@
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }]
     },
-    // `wrangler deploy --env prod` from .github/workflows/prod.yml on push to `main` (§6).
+    // `wrangler deploy --env prod`, uploaded by .github/workflows/prod.yml on every push to
+    // `main` and promoted to 100% by .github/workflows/promote.yml (§6). Same values as the
+    // top-level config (kept as the implicit default for now); explicit so the workflows can
+    // name the env instead of relying on that default.
     "prod": {
       "name": "dripfunnel-api",
       "vars": {
