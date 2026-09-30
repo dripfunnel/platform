@@ -1,11 +1,7 @@
 import type postgres from 'postgres'
 
-// The shape ACCESS.md §11.1 asks for, as far as this card's tables reach: two partners, each
-// with two stores, each store with two suppliers, and customers in each store.
-//
-// The rest of §11.1 — a person who is Staff in one store and a vendor in another, API keys,
-// app grants, support sessions opened by a partner user, one of each staff role — needs
-// memberships and identity, which are #13's and #14's. Each of those cards extends this.
+// ACCESS.md §11.1's fixtures, as far as this card's tables reach. The rest needs memberships,
+// keys, grants and staff roles, which #13, #14 and #40 add.
 
 export interface Tenants {
   partnerA: string
@@ -27,7 +23,7 @@ const id = (rows: postgres.RowList<{ id: string }[]>): string => {
   return row.id
 }
 
-/** Inserted as the owner, bypassing RLS on purpose: the fixtures are the world, not a caller. */
+/** Inserted as the owner, bypassing RLS: the fixtures are the world, not a caller. */
 export const seedTenants = async (sql: postgres.Sql): Promise<Tenants> => {
   const partner = async () => id(await sql<{ id: string }[]>`insert into partner default values returning id`)
   const store = async (partnerId: string) =>
@@ -61,7 +57,7 @@ export const seedTenants = async (sql: postgres.Sql): Promise<Tenants> => {
     sellerA1First: await seller(storeA1, 'Anand Textiles'),
     sellerA1Second: await seller(storeA1, 'Bhatia Threads'),
     sellerB1: await seller(storeB1, 'Chandra Supply'),
-    // The same address in two stores, which §2 allows and a global unique index would not.
+    // The same address in two stores, which §2 allows.
     customerA1: await customer(storeA1, 'priya@example.com'),
     customerA2: await customer(storeA2, 'priya@example.com'),
     customerB1: await customer(storeB1, 'priya@example.com'),

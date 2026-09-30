@@ -1,12 +1,8 @@
 import type { CallerContext, Scope } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 
-// The per-transaction settings of DATA-MODEL.md §5.1. They are set by db/ from the caller's
-// context and never from request input, and a structural test forbids setting them anywhere
-// else (ACCESS.md §11.2).
-//
-// `SET LOCAL` lives only for the transaction, which is what makes it safe with Hyperdrive's
-// pooled connections — and why every request's work runs inside one.
+// The per-transaction settings of DATA-MODEL.md §5.1, from the caller's context and never
+// from request input. `boundary.test.ts` holds them to this file and `db/scoped`.
 export interface RlsSettings {
   'app.scope': Scope
   'app.partner_id': string
@@ -37,10 +33,9 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       'app.store_id': context.storeId,
       'app.seller_id': context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : '',
       'app.customer_id': caller.kind === 'shopper' && caller.customerId ? caller.customerId : '',
-      // A support session is read-only until the merchant elevates it (ACCESS.md §8), and
-      // the restrictive policy refuses every write while this says so.
+      // Read-only until the merchant elevates it (ACCESS.md §8).
       'app.support': caller.kind === 'support' ? caller.access : '',
-      // Grants nothing. It is here so the activity log can attribute the write (LOGGING.md §4).
+      // Grants nothing; it attributes the write (LOGGING.md §4).
       'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
     }
   }

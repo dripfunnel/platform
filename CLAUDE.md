@@ -22,6 +22,10 @@
   and `designs/INCOMPLETE-FEATURES.md` so you don't build a dead end. The prototype decides
   **behaviour**; `docs/` decides **scope and rules** (docs/README.md §3). When they disagree
   about behaviour, ask. Name in your reply which prototype and which of its screens you read.
+- **Comment less than you want to.** AGENTS.md "Code" rule 2 is a limit, not a preference:
+  one or two lines, citing a document rather than restating it. Reaching a third line means
+  the explanation belongs in the commit message or the pull request, which is also where
+  anyone looking for it will go.
 - **Done means verified**: run the commands in AGENTS.md "Commands" before saying a change
   works, and report each one's result. If you couldn't run something, say that.
 - **Stop at the diff**: no commits, branches or pushes unless the user asks in that

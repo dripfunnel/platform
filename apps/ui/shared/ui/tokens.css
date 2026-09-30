@@ -1,11 +1,6 @@
-/* Values from the DripFunnel style guide (designs/design.md §5–7, the [data-adm] set).
-
-   The light palette is the default and the dark one is applied by `data-theme="dark"` on
-   <html>, as design.md §5 requires. The OS preference is resolved onto that attribute before
-   the first paint by `theme.ts`, so it is a default a person can override rather than a
-   verdict — the prototype defaults to light and offers a Theme control (design.md §10), and
-   a media query alone could not match it. Without JavaScript every app renders light, which
-   is the prototype's default. */
+/* The style guide's values (designs/design.md §5–7). Light is the default; dark comes from
+   `data-theme="dark"`, which each index.html sets before the first paint so the OS is a
+   default a person can override (design.md §5, §10). */
 :root {
   color-scheme: light;
   background: var(--df-color-page);
@@ -47,8 +42,7 @@
   --df-color-neutral-surface: #f1eeea;
   --df-color-neutral-border: #e0dad3;
   --df-color-hover: #f7f2ed;
-  /* The side bar keeps its own ground in both schemes; its focus ring is always #2e7bd1,
-     because the light-mode ring has too little contrast on navy (design.md §5). */
+  /* Its focus ring is always #2e7bd1: the light one has too little contrast on navy. */
   --df-color-side: #0a2a4a;
   --df-color-side-text: #b8c7d6;
   --df-color-side-focus: #2e7bd1;

@@ -158,6 +158,12 @@ Run the gates before reporting a change as done.
    when it isn't obvious: a constraint, an invariant, a workaround (with a link to the issue
    or doc). No comments that restate the code, no commented-out code, no change-history
    comments, no `TODO` without an issue link.
+   **One or two lines.** Past three it is not a comment any more, and the explanation belongs
+   somewhere it will be maintained: why the code changed goes in the **commit message**, how
+   the system works goes in **`docs/`**, why a decision was taken goes on the **card**.
+   **Cite a document, never summarise one** — `DATA-MODEL.md §5.2` beats a paragraph that
+   will drift from it. A file whose comments explain its own history is one nobody will trust
+   to be current.
 3. **Small and focused.** One responsibility per module and function; names that state
    intent; no dead code, unused exports or speculative options.
 4. **TypeScript strict.** No `any`, no non-null assertions to silence the compiler, no
