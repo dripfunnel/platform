@@ -21,9 +21,8 @@ export interface StaffMember {
 }
 
 /**
- * The provider says who someone is; this says whether they work here. An unknown subject and
- * a suspended one raise the same refusal with no detail (CONSOLE-DESIGN A1), so the caller
- * cannot learn which of the two it was.
+ * The provider says who someone is; this says whether they work here. Unknown and suspended
+ * raise the same detail-free refusal, so neither can be told from the other (CONSOLE-DESIGN A1).
  */
 export const staffForClaims = async (tx: ScopedSql, claims: IdentityClaims): Promise<StaffMember> => {
   const rows = await tx<{ id: string; email: string; name: string; role_key: StaffRole; status: string }[]>`

@@ -59,10 +59,14 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
     const facts = factsOf(request)
     if (!(await deps.allowAttempt(request))) return new Response('Too many attempts', { status: 429 })
 
-    // A forged or replayed callback is the security-relevant case, so it is recorded like
-    // every other refusal rather than being the one that leaves no trace.
+    // The answer must not depend on the database: a caller able to cause an error there
+    // could otherwise tell which refusals reach it (CONSOLE-DESIGN A1).
     const refuse = async () => {
-      await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(facts)))
+      try {
+        await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(facts)))
+      } catch {
+        console.error(JSON.stringify({ code: 'activity_record_failed', action: 'staff.sign_in_refused' }))
+      }
       return refusedResponse()
     }
 
@@ -73,9 +77,7 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
     if (!code || !handshake || handshake.state !== url.searchParams.get('state')) return refuse()
 
     try {
-      // safeParse, not parse: a ZodError would escape the catch below and become a 500,
-      // which is a different answer from every other refusal and so tells the caller
-      // something.
+      // safeParse: a ZodError would escape the catch below and answer 500, not the 401.
       const parsed = identityClaims.safeParse(
         await deps.provider.exchange({ code, redirectUri: redirectUri(deps.adminHost), nonce: handshake.nonce }),
       )
@@ -96,6 +98,8 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
         ],
       })
     } catch (error) {
+      // Only a refusal answers 401. Anything else is an outage mid-sign-in, and filing a
+      // false `sign_in_refused` for a staff member who was not refused would be worse.
       if (!(error instanceof SignInFailed)) throw error
       return refuse()
     }

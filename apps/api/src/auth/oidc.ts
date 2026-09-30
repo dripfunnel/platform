@@ -1,9 +1,8 @@
 import { z } from 'zod'
 
 /**
- * The identity provider, behind an interface so #13 can be built and tested without one.
- * Microsoft Entra ID (decided 2026-10-01, THIRD-PARTY-ACCESS.md §2.5); #89 wires the real
- * exchange and the failure states the prototype designs.
+ * Behind an interface so #13 builds and tests without one. Microsoft Entra ID
+ * (THIRD-PARTY-ACCESS.md §2.5); #89 wires the real exchange.
  */
 export interface IdentityProvider {
   /** Where to send the browser, and the state to remember for the callback. */

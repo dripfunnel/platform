@@ -22,9 +22,8 @@ export interface ActivityLog {
 }
 
 /**
- * Until #15 builds the table. Writes a structured line to the Worker's logs so a failed staff
- * sign-in still leaves a trace (LOGGING.md §9), carrying no personal data: no label, no IP,
- * no user agent. Nothing may depend on reading one back.
+ * Until #15 builds the table: a structured, PII-free line so a failed staff sign-in still
+ * leaves a trace (LOGGING.md §9). Nothing may depend on reading one back.
  */
 export const interimActivityLog: ActivityLog = {
   record: async (_tx, entry) => {

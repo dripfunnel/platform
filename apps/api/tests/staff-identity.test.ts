@@ -268,6 +268,21 @@ describe('the sign-in routes', () => {
     expect({ status: res.status, body: await res.text() }).toEqual({ status: 401, body: 'Sign-in failed' })
   })
 
+  it('refuses identically when recording the refusal fails', async () => {
+    // Otherwise a caller who can push the database over can tell which refusals reach it.
+    const failing = {
+      record: async () => {
+        throw new Error('the database is down')
+      },
+    }
+    const forged = await handleAuth(callback('good', { state: 'not-ours' }), deps({ activity: failing }))
+    const unknown = await handleAuth(callback('unknown'), deps({ activity: failing }))
+    for (const res of [forged, unknown]) {
+      expect(res.status).toBe(401)
+      expect(await res.text()).toBe('Sign-in failed')
+    }
+  })
+
   it('refuses a callback whose state does not match what we sent', async () => {
     const res = await handleAuth(callback('good', { state: 'not-ours' }), deps())
     expect(res.status).toBe(401)

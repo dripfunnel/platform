@@ -39,19 +39,15 @@ alter table staff_session enable row level security;
 alter table staff_user force row level security;
 alter table staff_session force row level security;
 
--- Platform scope (§2): the Admin API only. No partner or store branch exists to add.
--- There is no matching policy for staff_session: a session hash is a credential, and
--- caller resolution reads it in `system` scope, so no request scope ever needs it.
+-- The Admin API (§2), plus `system` for sign-in, which runs before a scope exists.
+-- staff_session has neither grant nor policy here: a session hash is a credential.
 create policy staff_user_read on staff_user for select
-using (app_setting_text('app.scope') = 'platform');
+using (app_setting_text('app.scope') in ('platform', 'system'));
 
 -- Sessions are written during sign-in, before any scope exists to authorise it, so `auth/`
 -- creates and ends them as `app_system` rather than inventing a pre-authentication scope.
 create policy staff_session_write on staff_session for all
 using (app_setting_text('app.scope') = 'system')
 with check (app_setting_text('app.scope') = 'system');
-
-create policy staff_user_lookup on staff_user for select
-using (app_setting_text('app.scope') = 'system');
 
 -- Staff records are created by #39's invite flow, not here.

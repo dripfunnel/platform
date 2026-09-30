@@ -31,9 +31,8 @@ interface Env extends Record<string, unknown> {
 
 const notFound = () => new Response('Not found', { status: 404 })
 
-// A missing binding is an operator error, not a sign-in outcome, so it answers 500 like any
-// other bad configuration rather than the uniform refusal — deliberately, and logged, rather
-// than as an unhandled throw on the first request to reach it.
+// An operator error, not a sign-in outcome: 500 like any other bad configuration, and
+// logged, rather than an unhandled throw on the first request to reach it.
 const misconfigured = (binding: string) => {
   console.error(JSON.stringify({ code: 'config_invalid', binding }))
   return new Response(null, { status: 500 })
