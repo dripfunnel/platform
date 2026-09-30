@@ -34,6 +34,9 @@
   --df-color-success: #1d6b47;
   --df-color-success-surface: #eef7f2;
   --df-color-success-border: #cbe6d6;
+  --df-color-neutral: #4a5360;
+  --df-color-neutral-surface: #f1eeea;
+  --df-color-neutral-border: #e0dad3;
   --df-color-hover: #f7f2ed;
   /* The side bar keeps its own ground in both schemes; its focus ring is always #2e7bd1,
      because the light-mode ring has too little contrast on navy (design.md §5). */
@@ -103,6 +106,9 @@ body {
     --df-color-success: #7fd1a5;
     --df-color-success-surface: #0f2a1e;
     --df-color-success-border: #1f4a35;
+    --df-color-neutral: #b8c7d6;
+    --df-color-neutral-surface: #1a2a38;
+    --df-color-neutral-border: #2a3f52;
     --df-color-hover: #16293a;
     --df-color-side: #050d14;
     --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);

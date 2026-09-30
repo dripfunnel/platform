@@ -8,7 +8,7 @@ DripFunnel staff need to **manage partners and stores**. Everything else in
 Partners and Stores; the other menus in §2 are *(proposed)* as the minimum needed to manage
 those two.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 Rules that still apply in full: [README.md](README.md) (roles, never-do list),
 [../README.md](../README.md) (how every SPA is built), [../../api/ACCESS.md](../../api/ACCESS.md)
@@ -62,8 +62,16 @@ One page, today at a glance. Every number links to the list it counts, already f
 | Needs attention | Stores past due, suspended, failed or stuck in provisioning | Stores or Provisioning, filtered |
 | Signups | Started, completed and failed in the last 7 days; median time to first store | Provisioning |
 
-- A **partner filter** at the top applies to every card ("All partners" by default).
+- A **partner filter** at the top applies to every card ("All partners" by default), held in
+  the URL (`?partner=`).
 - No revenue, usage or fleet numbers in this release (§11).
+- **Until §13 settles Approvals and Provisioning** (decided on #18, 2026-09-30), the cards link
+  to lists that exist: Awaiting approval to Partners filtered `?status=awaiting`; failed and
+  stuck setups, and the Signups counts, to Stores filtered by `setup` and `created`. Move
+  them if those menus land.
+- "New this week (by partner)" shows the five partners with the most new stores; the API
+  sorts and caps the list.
+- Times are shown in UTC, with the zone named, like everywhere in this console.
 
 ---
 
