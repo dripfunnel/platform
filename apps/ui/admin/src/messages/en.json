@@ -106,6 +106,7 @@
       "setupFailed": "Failed setup",
       "setupStuck": "Stuck in setup",
       "none": "Nothing needs attention right now.",
+      "showing": "Showing {shown} of {total}. The links above open each list in full.",
       "openStore": "Open store",
       "openStoreLabel": "Open store {name}",
       "pastDueBadge": { "one": "Past due · {days} day", "other": "Past due · {days} days" },

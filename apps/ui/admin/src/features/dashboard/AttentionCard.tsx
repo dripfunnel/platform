@@ -99,6 +99,11 @@ export const AttentionCard = ({ attention, scope }: AttentionCardProps) => {
           ))}
         </ul>
       )}
+      {attention.stores.length < attention.total && (
+        <p className="df-muted">
+          {fill(words.showing, { shown: formatCount(attention.stores.length), total: formatCount(attention.total) })}
+        </p>
+      )}
     </DashboardCard>
   )
 }

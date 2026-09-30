@@ -91,6 +91,12 @@ describe('Dashboard', () => {
     expect(textOf(await render({ data: oneDay }))).not.toContain('1 days')
   })
 
+  it('says when the list of stores needing attention is cut short', async () => {
+    const capped: DashboardData = { ...allPartners, attention: { ...allPartners.attention, total: 12 } }
+    expect(textOf(await render({ data: capped }))).toContain('Showing 4 of 12. The links above open each list in full.')
+    expect(textOf(await render())).not.toContain('Showing')
+  })
+
   it('carries the partner filter into every link that the list can filter by', async () => {
     const html = await render({ data: await loadDashboard('bz') })
     const links = hrefs(html)

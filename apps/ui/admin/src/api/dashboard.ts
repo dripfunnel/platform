@@ -1,5 +1,6 @@
 // The Dashboard's one query: `dashboard(partnerId)` on the Admin API (FIRST-RELEASE.md §3, §12).
 // Every number here is the API's; the screen only formats and links them (ui/README §3).
+import { harnessEnabled } from '../features/common/useScreenState'
 
 export const partnerStates = ['live', 'awaiting', 'draft', 'paused'] as const
 export type PartnerState = (typeof partnerStates)[number]
@@ -46,13 +47,18 @@ export interface DashboardData {
     suspended: number
     setupFailed: number
     setupStuck: number
+    // Every store needing attention; `stores` holds at most attentionListMax of them, most
+    // urgent first, and the API sorts and caps it.
+    total: number
     stores: readonly AttentionStore[]
   }
   signups: { started: number; completed: number; failed: number; medianSecondsToReady: number | null }
 }
 
+export const attentionListMax = 5
+
 // The prototype's sample platform (designs/admin-data.js), as the API would count it.
-interface FixturePartner extends PartnerOption {
+export interface SamplePartner extends PartnerOption {
   state: PartnerState
   stores: number
   newThisWeek: number
@@ -62,7 +68,9 @@ interface FixturePartner extends PartnerOption {
   waitingSeconds?: number
 }
 
-const fixturePartners: readonly FixturePartner[] = [
+export type SampleAttention = AttentionStore & { partnerId: string }
+
+const samplePartners: readonly SamplePartner[] = [
   { id: 'df', name: 'DripFunnel', state: 'live', stores: 1240, newThisWeek: 38, signups: [41, 38, 1], medianSecondsToReady: 350 },
   { id: 'ns', name: 'Northstar Commerce', state: 'live', stores: 86, newThisWeek: 6, signups: [9, 7, 0], medianSecondsToReady: 380 },
   { id: 'bz', name: 'Bazaar Cloud', state: 'live', stores: 312, newThisWeek: 21, signups: [23, 22, 1], medianSecondsToReady: 425 },
@@ -82,7 +90,7 @@ const fixturePartners: readonly FixturePartner[] = [
   { id: 'nl', name: 'Nordlicht Media', state: 'draft', stores: 0, newThisWeek: 0, signups: [0, 0, 0], medianSecondsToReady: null },
 ]
 
-const fixtureAttention: readonly (AttentionStore & { partnerId: string })[] = [
+const sampleAttention: readonly SampleAttention[] = [
   { id: 's3', name: 'Kiko Kids', partnerId: 'bz', partnerName: 'Bazaar Cloud', reason: { kind: 'pastDue', daysPastDue: 9 } },
   { id: 's4', name: 'Redline Moto Parts', partnerId: 'ns', partnerName: 'Northstar Commerce', reason: { kind: 'suspended', reason: 'Chargeback' } },
   { id: 's5', name: 'Fjord Outdoor', partnerId: 'df', partnerName: 'DripFunnel', reason: { kind: 'setup', state: 'stuck', step: 'firstBuild', attempt: 2 } },
@@ -94,17 +102,23 @@ const allPartnersMedianSeconds = 372
 const sum = (values: readonly number[]) => values.reduce((total, value) => total + value, 0)
 
 // Stands in for the server, so the counting happens here and never in a component.
-const fixtureFor = (partnerId: string | undefined): DashboardData => {
-  const known = fixturePartners.find((partner) => partner.id === partnerId)
-  const partners = known ? [known] : fixturePartners
-  const attention = fixtureAttention.filter((store) => !known || store.partnerId === known.id)
+export const countSample = (
+  sample: { partners: readonly SamplePartner[]; attention: readonly SampleAttention[] },
+  partnerId: string | undefined,
+): DashboardData => {
+  const known = sample.partners.find((partner) => partner.id === partnerId)
+  const partners = known ? [known] : sample.partners
+  const attention = sample.attention.filter((store) => !known || store.partnerId === known.id)
   const awaiting = partners.filter((partner) => partner.state === 'awaiting')
-  const oldest = awaiting[0]
+  // ISO timestamps in UTC sort as text, so the first is the earliest submission.
+  const oldest = awaiting
+    .filter((partner) => partner.submittedAt !== undefined)
+    .sort((a, b) => (a.submittedAt ?? '').localeCompare(b.submittedAt ?? ''))[0]
   const countAttention = (test: (reason: AttentionReason) => boolean) =>
     attention.filter((store) => test(store.reason)).length
   return {
     partnerId: known?.id ?? null,
-    partnerOptions: fixturePartners.map(({ id, name }) => ({ id, name })),
+    partnerOptions: sample.partners.map(({ id, name }) => ({ id, name })),
     asOf: '2026-09-28T10:42:00Z',
     staleSince: null,
     partners: {
@@ -133,7 +147,8 @@ const fixtureFor = (partnerId: string | undefined): DashboardData => {
       suspended: countAttention((reason) => reason.kind === 'suspended'),
       setupFailed: countAttention((reason) => reason.kind === 'setup' && reason.state === 'failed'),
       setupStuck: countAttention((reason) => reason.kind === 'setup' && reason.state === 'stuck'),
-      stores: attention.map(({ id, name, partnerName, reason }) => ({ id, name, partnerName, reason })),
+      total: attention.length,
+      stores: attention.slice(0, attentionListMax).map(({ id, name, partnerName, reason }) => ({ id, name, partnerName, reason })),
     },
     signups: {
       started: sum(partners.map((partner) => partner.signups[0])),
@@ -144,8 +159,12 @@ const fixtureFor = (partnerId: string | undefined): DashboardData => {
   }
 }
 
-// Seam: replace the fixture with the Admin API's `dashboard(partnerId)` query through
+// Seam: replace the sample with the Admin API's `dashboard(partnerId)` query through
 // createApiClient from @dripfunnel/shared/graphql once it exists (FIRST-RELEASE.md §12,
 // https://github.com/dripfunnel/platform/issues/13). The fields above are what it must return.
+// The sample is invented, so it appears only where the ?state= harness does; a production
+// build shows the error state until the query exists, never made-up numbers as real ones.
 export const loadDashboard = (partnerId: string | undefined): Promise<DashboardData> =>
-  Promise.resolve(fixtureFor(partnerId))
+  harnessEnabled
+    ? Promise.resolve(countSample({ partners: samplePartners, attention: sampleAttention }, partnerId))
+    : Promise.reject(new Error('The Admin API has no dashboard query yet (#13).'))
