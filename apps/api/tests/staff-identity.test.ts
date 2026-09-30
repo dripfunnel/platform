@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleAuth } from '#apis/admin/auth'
 import { interimActivityLog } from '#auth/activity'
@@ -141,6 +142,13 @@ describe('who the request resolves to', () => {
 })
 
 describe('row-level security on the staff tables', () => {
+  const asPlatform = <T>(work: (tx: postgres.TransactionSql) => Promise<T>) =>
+    db.sql.begin(async (tx) => {
+      await tx`set local role app_request`
+      await tx`select set_config('app.scope', 'platform', true)`
+      return work(tx)
+    })
+
   it('lets no store caller read staff', async () => {
     const rows = await db.sql.begin(async (tx) => {
       await tx`set local role app_request`
@@ -150,22 +158,25 @@ describe('row-level security on the staff tables', () => {
     expect(rows).toHaveLength(0)
   })
 
-  it('lets a platform caller read staff but not write a session', async () => {
-    const seen = await db.sql.begin(async (tx) => {
-      await tx`set local role app_request`
-      await tx`select set_config('app.scope', 'platform', true)`
-      return tx`select id from staff_user`
-    })
+  it('lets a platform caller read staff, and touch no session at all', async () => {
+    const seen = await asPlatform((tx) => tx`select id from staff_user`)
     expect(seen.length).toBeGreaterThan(0)
 
+    // Neither granted nor policied: a session hash is a credential, and only `system` scope
+    // has any reason to see one.
+    await expect(asPlatform((tx) => tx`select id_hash from staff_session`)).rejects.toThrow(/permission denied/i)
     await expect(
-      db.sql.begin(async (tx) => {
-        await tx`set local role app_request`
-        await tx`select set_config('app.scope', 'platform', true)`
-        await tx`insert into staff_session (id_hash, staff_user_id, expires_at)
-                 values ('x', ${active}, ${at(absoluteMs)})`
-      }),
-    ).rejects.toThrow(/row-level security/i)
+      asPlatform(
+        (tx) => tx`insert into staff_session (id_hash, staff_user_id, expires_at)
+                   values ('x', ${active}, ${at(absoluteMs)})`,
+      ),
+    ).rejects.toThrow(/permission denied/i)
+  })
+
+  it('lets no request scope write the staff directory it can read', async () => {
+    await expect(asPlatform((tx) => tx`update staff_user set role_key = 'staff-super-admin'`)).rejects.toThrow(
+      /permission denied/i,
+    )
   })
 })
 

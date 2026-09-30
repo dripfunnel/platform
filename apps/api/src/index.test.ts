@@ -68,6 +68,41 @@ describe('worker', () => {
     expect(await response.text()).toBe('')
   })
 
+  it('answers me: null for a stale session cookie when no database is configured', async () => {
+    // The console reads `me` to decide whether to offer sign-in, so this branch must not be
+    // the error that hides it.
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    const request = new Request('https://admin.dripfunnel.com/api', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: '__Host-df_admin_session=stale' },
+      body: JSON.stringify({ query: '{ me { id } }' }),
+    })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ data: { me: null } })
+  })
+
+  it('answers 503 on sign-in when no database is configured', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    const request = new Request('https://admin.dripfunnel.com/api/auth/sign-in', {
+      headers: { 'cf-connecting-ip': '203.0.113.1' },
+    })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
+    expect(response.status).toBe(503)
+  })
+
+  it('answers 500 on sign-in when the rate limiter binding is missing', async () => {
+    const unlimited = { ...env, SIGN_IN_RATE_LIMITER: undefined }
+    const response = await worker.fetch(
+      new Request('https://admin.dripfunnel.com/api/auth/sign-in', {
+        headers: { 'cf-connecting-ip': '203.0.113.1' },
+      }) as Parameters<typeof worker.fetch>[0],
+      unlimited,
+      ctx,
+    )
+    expect(response.status).toBe(500)
+  })
+
   it('returns 404 outside the known routes', async () => {
     expect((await call('https://admin.dripfunnel.com/shop-api')).status).toBe(404)
     expect((await call('https://platform.dripfunnel.com/shop-api')).status).toBe(404)

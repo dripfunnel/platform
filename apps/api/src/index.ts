@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
@@ -23,7 +24,9 @@ const servers = {
 
 interface Env extends Record<string, unknown> {
   HEALTH_RATE_LIMITER: RateLimit
-  SIGN_IN_RATE_LIMITER: RateLimit
+  // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
+  // typing it as present would make the check below look like dead code.
+  SIGN_IN_RATE_LIMITER?: RateLimit | undefined
 }
 
 const notFound = () => new Response('Not found', { status: 404 })
@@ -45,6 +48,20 @@ const noProvider: IdentityProvider = {
   },
 }
 
+const withConnection = async (
+  hyperdrive: NonNullable<Config['HYPERDRIVE']>,
+  ctx: ExecutionContext,
+  work: (sql: postgres.Sql) => Promise<Response>,
+): Promise<Response> => {
+  const sql = getClient(hyperdrive)
+  try {
+    return await work(sql)
+  } finally {
+    // After the response, not before it: the body may not be read yet when this runs.
+    ctx.waitUntil(sql.end({ timeout: 5 }))
+  }
+}
+
 const handleAdmin = async (
   request: Request,
   url: URL,
@@ -52,16 +69,13 @@ const handleAdmin = async (
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> => {
-  const needsDatabase = isAuthPath(url.pathname) || readCookie(request.headers.get('cookie')) !== null
-  // A signed-out caller asking for `me` needs no connection, and that is most of them.
-  if (!needsDatabase) return servers.admin.fetch(request, { staff: null })
-  if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
-
-  const sql = getClient(config.HYPERDRIVE)
-  try {
-    if (isAuthPath(url.pathname)) {
-      if (!env.SIGN_IN_RATE_LIMITER) return misconfigured('SIGN_IN_RATE_LIMITER')
-      return await handleAuth(request, {
+  const hyperdrive = config.HYPERDRIVE
+  if (isAuthPath(url.pathname)) {
+    if (!hyperdrive) return new Response(null, { status: 503 })
+    const limiter = env.SIGN_IN_RATE_LIMITER
+    if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+    return withConnection(hyperdrive, ctx, (sql) =>
+      handleAuth(request, {
         sql,
         provider: noProvider,
         activity: interimActivityLog,
@@ -74,16 +88,21 @@ const handleAdmin = async (
         allowAttempt: async (req) => {
           const ip = req.headers.get('cf-connecting-ip')
           if (!ip) return false
-          return (await env.SIGN_IN_RATE_LIMITER.limit({ key: ip })).success
+          return (await limiter.limit({ key: ip })).success
         },
-      })
-    }
-    const staff = await resolveStaff(sql, request, new Date())
-    return await servers.admin.fetch(request, { staff })
-  } finally {
-    // After the response, not before it: the body may not be read yet when this runs.
-    ctx.waitUntil(sql.end({ timeout: 5 }))
+      }),
+    )
   }
+
+  // No cookie, or no database to check one against: the caller is nobody, not an error. The
+  // console reads `me` to decide whether to offer sign-in (apis/admin/schema.ts), so failing
+  // here would hide the sign-in screen from the staff member who needs it.
+  if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
+    return servers.admin.fetch(request, { staff: null })
+  }
+  return withConnection(hyperdrive, ctx, async (sql) =>
+    servers.admin.fetch(request, { staff: await resolveStaff(sql, request, new Date()) }),
+  )
 }
 
 

@@ -29,18 +29,20 @@ create table staff_session (
 
 create index staff_session_staff_user_id_idx on staff_session (staff_user_id);
 
--- Platform scope (§2): the Admin API only. No partner or store branch exists to add.
-grant select, insert, update, delete on staff_user, staff_session to app_request, app_system;
+-- Least privilege (DATA-MODEL.md §5.2): a request scope reads the staff directory and
+-- nothing else. Sessions belong to `app_system`, which is the only scope that writes them.
+grant select on staff_user to app_request, app_system;
+grant select, insert, update, delete on staff_session to app_system;
 
 alter table staff_user enable row level security;
 alter table staff_session enable row level security;
 alter table staff_user force row level security;
 alter table staff_session force row level security;
 
+-- Platform scope (§2): the Admin API only. No partner or store branch exists to add.
+-- There is no matching policy for staff_session: a session hash is a credential, and
+-- caller resolution reads it in `system` scope, so no request scope ever needs it.
 create policy staff_user_read on staff_user for select
-using (app_setting_text('app.scope') = 'platform');
-
-create policy staff_session_read on staff_session for select
 using (app_setting_text('app.scope') = 'platform');
 
 -- Sessions are written during sign-in, before any scope exists to authorise it, so `auth/`
