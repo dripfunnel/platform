@@ -31,4 +31,28 @@ describe('assertLocalHost', () => {
       expect((error as Error).message).not.toContain(secret)
     }
   })
+
+  it('allows a remote host when ALLOW_REMOTE_MIGRATIONS=1', () => {
+    const original = process.env.ALLOW_REMOTE_MIGRATIONS
+    process.env.ALLOW_REMOTE_MIGRATIONS = '1'
+    try {
+      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).not.toThrow()
+    } finally {
+      if (original === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
+      else process.env.ALLOW_REMOTE_MIGRATIONS = original
+    }
+  })
+
+  it('still refuses a remote host when ALLOW_REMOTE_MIGRATIONS is unset or not "1"', () => {
+    const original = process.env.ALLOW_REMOTE_MIGRATIONS
+    delete process.env.ALLOW_REMOTE_MIGRATIONS
+    try {
+      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
+      process.env.ALLOW_REMOTE_MIGRATIONS = 'true'
+      expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
+    } finally {
+      if (original === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
+      else process.env.ALLOW_REMOTE_MIGRATIONS = original
+    }
+  })
 })

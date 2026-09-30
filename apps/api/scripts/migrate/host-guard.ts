@@ -4,6 +4,7 @@ const OVERRIDE_PARAMS = ['host', 'hostaddr']
 const normalizeHostname = (hostname: string): string => hostname.replace(/^\[(.+)\]$/, '$1')
 
 export const assertLocalHost = (connectionString: string): void => {
+  if (process.env.ALLOW_REMOTE_MIGRATIONS === '1') return
   let url: URL
   try {
     url = new URL(connectionString)

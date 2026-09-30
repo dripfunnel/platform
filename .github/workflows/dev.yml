@@ -34,11 +34,14 @@ jobs:
       - name: Gates
         run: pnpm turbo run build typecheck lint test
         working-directory: .
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
 
       - name: Migrations
         run: pnpm run --if-present migrate
         env:
           DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
 
       - name: 'SPA: store'
         uses: ./.github/actions/pages-deploy
