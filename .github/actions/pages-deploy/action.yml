@@ -16,14 +16,39 @@ inputs:
 runs:
   using: composite
   steps:
+    # Only error 8000002 — "a project with this name already exists" — is benign here: it
+    # means the check below missed, or two runs raced. Every other failure (a bad token, the
+    # wrong account id, a rate limit) must fail the step rather than be mistaken for a
+    # project that is already there and let the run continue to a deploy that cannot work.
     - run: |
-        pnpm exec wrangler pages project create "$INPUT_PROJECT_NAME" --production-branch main \
-          || echo "Pages project \"$INPUT_PROJECT_NAME\" already exists, continuing."
+        set -euo pipefail
+        # `.. | objects` rather than `.[]`, so a change in how wrangler wraps its JSON makes
+        # this miss the project rather than crash; the fallback below then covers it.
+        if pnpm exec wrangler pages project list --json \
+          | jq -e --arg name "$INPUT_PROJECT_NAME" \
+               '[.. | objects | select(.name? == $name)] | length > 0' > /dev/null; then
+          echo "Pages project \"$INPUT_PROJECT_NAME\" already exists."
+        else
+          echo "Pages project \"$INPUT_PROJECT_NAME\" not found; creating it."
+          # Captured to a file rather than a process substitution: with `tee` the grep can
+          # run before the write is flushed, and this decides whether the deploy fails.
+          if ! pnpm exec wrangler pages project create "$INPUT_PROJECT_NAME" \
+                 --production-branch main 2> "$RUNNER_TEMP/pages-create.err"; then
+            cat "$RUNNER_TEMP/pages-create.err" >&2
+            if grep -q '8000002' "$RUNNER_TEMP/pages-create.err"; then
+              echo "Project already existed after all; continuing."
+            else
+              echo "Creating the Pages project failed for a reason other than it existing." >&2
+              exit 1
+            fi
+          fi
+        fi
       shell: bash
       working-directory: apps/api
       env:
         INPUT_PROJECT_NAME: ${{ inputs.project-name }}
     - run: |
+        set -euo pipefail
         pnpm exec wrangler pages deploy "$INPUT_DIST" \
           --project-name "$INPUT_PROJECT_NAME" \
           --branch "$INPUT_BRANCH" \
