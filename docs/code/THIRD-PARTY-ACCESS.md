@@ -87,14 +87,16 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **`ALLOWED_TEST_HOST`** | The literal hostname of the disposable branch above. The gates refuse to run if `TEST_DATABASE_URL`'s host doesn't match it, so pointing that secret at the `dev` or prod branch fails closed instead of migrating it | Not a secret: a variable | GitHub environment `dev` variable | 1 |
 | **`ALLOWED_MIGRATION_HOST`** | The literal hostname of `DEV_DATABASE_URL` above. The Migrations step refuses to run if that secret's host doesn't match it, so rotating or re-pointing the dev Neon branch without updating this variable fails closed instead of silently migrating the wrong host — this is the only place `DEV_DATABASE_URL`'s expected host is registered | Not a secret: a variable | GitHub environment `dev` variable | 1 |
 | **`ALLOWED_MIGRATION_HOST`** (prod) | The literal hostname of `PROD_DATABASE_URL` above, same fail-closed purpose as the `dev` variable of the same name — a distinct GitHub environment variable, not shared with `dev` | Not a secret: a variable | GitHub environment `prod` variable | 1 |
+| **CI test database** (`TEST_DATABASE_URL`, prod) | A dedicated, disposable Neon branch the `prod` workflow's own `gates` step (`build typecheck lint test`) runs against, since `main` isn't protected yet and this job can't rely on `ci.yml` having run; separate from `PROD_DATABASE_URL` and from `dev`'s own `TEST_DATABASE_URL`, and safe to write/reset freely. Guarded by `ALLOWED_TEST_HOST` (prod) exactly as `dev`'s is | Password | GitHub environment `prod` secret | 1 |
+| **`ALLOWED_TEST_HOST`** (prod) | The literal hostname of the disposable branch above, same fail-closed purpose as the `dev` variable of the same name — a distinct GitHub environment variable, not shared with `dev` | Not a secret: a variable | GitHub environment `prod` variable | 1 |
 | Read-only role *(proposed)* | Support and engineer-on-call investigations, reporting | Password | Password manager | 12 |
 
 Local development uses a local Postgres (tests create a fresh database on it per run, and
 need no Docker) and **never** Neon or
-`dbpg01.softobotics.org` (AGENTS.md rule 3). The `dev` workflow's Gates step is the one
-exception, and only because `TEST_DATABASE_URL` is a disposable branch **pinned by
-`ALLOWED_TEST_HOST`** — "it is disposable" is an intention, and the variable is what makes
-it a control.
+`dbpg01.softobotics.org` (AGENTS.md rule 3). The `dev` and `prod` workflows' own Gates steps
+are the exception, and only because each `TEST_DATABASE_URL` is a disposable branch **pinned
+by its own `ALLOWED_TEST_HOST`** — "it is disposable" is an intention, and the variable is
+what makes it a control.
 
 ### 2.3 GitHub
 

@@ -7,6 +7,12 @@ name: prod
 # push here cannot rely on `ci.yml`'s `gates` job having been a required check — the `gates`
 # job below reruns build/typecheck/lint/test itself so a bad commit never reaches the deploy
 # job. Drop this job once the `protect-main` ruleset makes `gates` a required PR check.
+#
+# Both `gates` and `deploy` declare `environment: prod` (gates needs it for the test-branch
+# secret/var pair, deploy needs it for the real prod secrets) — each push to `main` therefore
+# requires the `prod` environment's reviewer approval twice, once per job, since `deploy` only
+# starts after `gates` finishes so they don't queue as a single batched approval. This is a known
+# consequence of keeping the two secret scopes (test vs. prod DB) fully isolated, not a bug.
 
 on:
   push:
@@ -28,26 +34,38 @@ concurrency:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: dripfunnel_dev
-          POSTGRES_PASSWORD: dripfunnel_dev
-          POSTGRES_DB: dripfunnel
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    environment: prod
+    defaults:
+      run:
+        working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - run: pnpm turbo run build typecheck lint test
+      # Gates and Migrations reuse the same host-guard code path with two different allowed
+      # hosts. If those variables were ever set to the same value, Gates would silently be
+      # allowed to migrate/write to the real prod database instead of the disposable test branch.
+      - name: Guard rails
         env:
-          DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel
+          ALLOWED_TEST_HOST: ${{ vars.ALLOWED_TEST_HOST }}
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+        run: |
+          if [ -z "$ALLOWED_TEST_HOST" ] || [ -z "$ALLOWED_MIGRATION_HOST" ]; then
+            echo "ALLOWED_TEST_HOST and ALLOWED_MIGRATION_HOST must both be set." >&2
+            exit 1
+          fi
+          if [ "$ALLOWED_TEST_HOST" = "$ALLOWED_MIGRATION_HOST" ]; then
+            echo "ALLOWED_TEST_HOST must not equal ALLOWED_MIGRATION_HOST: Gates must not be allowed to touch the production database." >&2
+            exit 1
+          fi
+      # The gates include runner.test.ts, which applies the migrations. Against a real Neon
+      # branch that is the same privileged operation as the Migrations step below, so it runs
+      # behind the same guard, pinned to the disposable test branch rather than the prod one.
+      - run: pnpm turbo run build typecheck lint test
+        working-directory: .
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_TEST_HOST }}
 
   deploy:
     needs: gates
