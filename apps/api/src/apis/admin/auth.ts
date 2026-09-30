@@ -24,9 +24,10 @@ export const isAuthPath = (pathname: string): boolean => Object.values(paths).in
 
 const redirectUri = (adminHost: string) => `https://${adminHost}${paths.callback}`
 
-// One refusal for every cause, so the response cannot be used to tell them apart
-// (CONSOLE-DESIGN A1).
-const refused = () => new Response('Sign-in failed', { status: 401 })
+// One refusal for every cause, headers included, so the response cannot be used to tell them
+// apart (CONSOLE-DESIGN A1).
+const refusedResponse = () =>
+  new Response('Sign-in failed', { status: 401, headers: { 'set-cookie': clearHandshake() } })
 
 const handshakeCookie = '__Host-df_admin_oidc'
 
@@ -58,11 +59,18 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
     const facts = factsOf(request)
     if (!(await deps.allowAttempt(request))) return new Response('Too many attempts', { status: 429 })
 
+    // A forged or replayed callback is the security-relevant case, so it is recorded like
+    // every other refusal rather than being the one that leaves no trace.
+    const refuse = async () => {
+      await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(facts)))
+      return refusedResponse()
+    }
+
     const code = url.searchParams.get('code')
     const handshake = readHandshake(request.headers.get('cookie'))
     // `state` is the callback's CSRF protection: without comparing it to what we sent, any
     // page could drive this route with a code of its own choosing.
-    if (!code || !handshake || handshake.state !== url.searchParams.get('state')) return refused()
+    if (!code || !handshake || handshake.state !== url.searchParams.get('state')) return refuse()
 
     try {
       // safeParse, not parse: a ZodError would escape the catch below and become a 500,
@@ -89,8 +97,7 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
       })
     } catch (error) {
       if (!(error instanceof SignInFailed)) throw error
-      await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(facts)))
-      return refused()
+      return refuse()
     }
   }
 

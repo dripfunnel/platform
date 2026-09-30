@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleAuth } from '#apis/admin/auth'
 import { interimActivityLog } from '#auth/activity'
+import { resolveStaff } from '#auth/caller'
 import { SignInFailed } from '#auth/oidc'
 import { absoluteMs, cookieName, createSession, endSession, idleMs, readSession } from '#auth/session'
 import { staffForClaims } from '#auth/staff'
@@ -105,6 +106,40 @@ describe('the session', () => {
 
 })
 
+describe('who the request resolves to', () => {
+  const withSession = (id: string) =>
+    new Request('https://admin.dripfunnel.com/api', { headers: { cookie: `${cookieName}=${id}` } })
+
+  it('is nobody without a cookie', async () => {
+    expect(await resolveStaff(db.sql, new Request('https://admin.dripfunnel.com/api'), start)).toBeNull()
+  })
+
+  it('is the staff member while the session is live', async () => {
+    const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
+    expect(await resolveStaff(db.sql, withSession(id), start)).toMatchObject({ id: active })
+  })
+
+  it('is nobody once the session has expired', async () => {
+    const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
+    expect(await resolveStaff(db.sql, withSession(id), at(absoluteMs + 1000))).toBeNull()
+  })
+
+  it('is nobody once the staff member is suspended, without waiting for the session to end', async () => {
+    // The rule this protects: removing someone takes effect on their next request, not when
+    // their session happens to expire. staffById filters on status, and only this notices if
+    // that filter is dropped.
+    const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
+    expect(await resolveStaff(db.sql, withSession(id), start)).not.toBeNull()
+
+    await db.sql`update staff_user set status = 'suspended' where id = ${active}`
+    try {
+      expect(await resolveStaff(db.sql, withSession(id), start)).toBeNull()
+    } finally {
+      await db.sql`update staff_user set status = 'active' where id = ${active}`
+    }
+  })
+})
+
 describe('row-level security on the staff tables', () => {
   it('lets no store caller read staff', async () => {
     const rows = await db.sql.begin(async (tx) => {
@@ -183,8 +218,11 @@ describe('the sign-in routes', () => {
         return { status: res.status, body: await res.text(), cookie: res.headers.get('set-cookie') }
       }),
     )
+    // Identical down to the headers: a difference in any of them is a way to tell the
+    // causes apart.
     for (const res of responses) {
-      expect(res).toEqual({ status: 401, body: 'Sign-in failed', cookie: null })
+      expect(res).toEqual(responses[0])
+      expect(res).toMatchObject({ status: 401, body: 'Sign-in failed' })
     }
   })
 
@@ -222,6 +260,7 @@ describe('the sign-in routes', () => {
   it('refuses a callback whose state does not match what we sent', async () => {
     const res = await handleAuth(callback('good', { state: 'not-ours' }), deps())
     expect(res.status).toBe(401)
+    expect(await res.text()).toBe('Sign-in failed')
   })
 
   it('refuses a sign-out that is not a POST, so no page can force one', async () => {
