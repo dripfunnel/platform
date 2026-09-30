@@ -69,11 +69,20 @@ jobs:
 
           # A failed run may have deployed some apps and not others, so the diff since the
           # last push no longer describes the gap between the branch and the environment.
-          previous="$(gh run list --workflow dev.yml --branch "$GITHUB_REF_NAME" \
-            --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""' || echo "")"
-          echo "Previous completed run: ${previous:-none}"
-          if [ -n "$previous" ] && [ "$previous" != "success" ]; then
-            echo "The previous run did not succeed, so what is deployed is unknown: deploying everything."
+          # An empty answer means there is no previous run; a failed query means we do not
+          # know. They must not be treated alike, so the exit status is what is tested rather
+          # than the string — `|| echo ""` here would make an API error look like a clean
+          # history and skip the deploys it was meant to force.
+          if previous="$(gh run list --workflow dev.yml --branch "$GITHUB_REF_NAME" \
+               --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""')"; then
+            echo "Previous completed run: ${previous:-none}"
+            if [ -n "$previous" ] && [ "$previous" != "success" ]; then
+              echo "The previous run did not succeed, so what is deployed is unknown: deploying everything."
+              everything
+              exit 0
+            fi
+          else
+            echo "Could not read the previous run's conclusion: deploying everything."
             everything
             exit 0
           fi
