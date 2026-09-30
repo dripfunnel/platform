@@ -20,7 +20,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "schema": "tsx scripts/print-schema.ts",
-    "migrate": "tsx scripts/migrate/main.ts"
+    "migrate": "tsx scripts/migrate/main.ts",
+    "dev-env:attach": "tsx scripts/dev-env/main.ts"
   },
   "dependencies": {
     "@pothos/core": "^4.15.1",

@@ -17,8 +17,12 @@ runs:
   using: composite
   steps:
     - run: |
-        args=(-c "${{ inputs.config }}" --message "${{ inputs.message }}")
-        if [ -n "${{ inputs.env-name }}" ]; then args+=(--env "${{ inputs.env-name }}"); fi
+        args=(-c "$INPUT_CONFIG" --message "$INPUT_MESSAGE")
+        if [ -n "$INPUT_ENV_NAME" ]; then args+=(--env "$INPUT_ENV_NAME"); fi
         pnpm exec wrangler deploy "${args[@]}"
       shell: bash
       working-directory: apps/api
+      env:
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_MESSAGE: ${{ inputs.message }}
+        INPUT_ENV_NAME: ${{ inputs.env-name }}

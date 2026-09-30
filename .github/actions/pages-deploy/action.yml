@@ -17,9 +17,14 @@ runs:
   using: composite
   steps:
     - run: |
-        pnpm exec wrangler pages deploy "${{ inputs.dist }}" \
-          --project-name "${{ inputs.project-name }}" \
-          --branch "${{ inputs.branch }}" \
-          --commit-hash "${{ inputs.commit-hash }}"
+        pnpm exec wrangler pages deploy "$INPUT_DIST" \
+          --project-name "$INPUT_PROJECT_NAME" \
+          --branch "$INPUT_BRANCH" \
+          --commit-hash "$INPUT_COMMIT_HASH"
       shell: bash
       working-directory: apps/api
+      env:
+        INPUT_DIST: ${{ inputs.dist }}
+        INPUT_PROJECT_NAME: ${{ inputs.project-name }}
+        INPUT_BRANCH: ${{ inputs.branch }}
+        INPUT_COMMIT_HASH: ${{ inputs.commit-hash }}
