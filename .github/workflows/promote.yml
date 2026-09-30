@@ -36,9 +36,12 @@ jobs:
       run:
         working-directory: apps/api
     steps:
+      # Checked out at the ref that triggered this dispatch (main, per the job guard above), not
+      # at commit_sha: commit_sha is untrusted until the ancestry check below passes, and running
+      # setup (pnpm install) or any local action against it first would run untrusted code with
+      # prod credentials already in the job env.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
       - uses: ./.github/actions/setup
 
@@ -72,6 +75,13 @@ jobs:
             exit 1
           fi
 
+      # Only now is commit_sha known to be an already-merged commit on origin/main, so it's safe
+      # to run its local actions (pages-deploy below) and its build scripts (Build SPAs below).
+      - name: Checkout commit_sha
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+
       - name: Promote Worker to 100%
         id: promote
         env:
@@ -103,6 +113,7 @@ jobs:
         run: pnpm turbo run build
 
       - name: 'SPA: store'
+        id: spa-store
         uses: ./.github/actions/pages-deploy
         with:
           project-name: dripfunnel-store
@@ -111,6 +122,7 @@ jobs:
           commit-hash: ${{ inputs.commit_sha }}
 
       - name: 'SPA: platform'
+        id: spa-platform
         uses: ./.github/actions/pages-deploy
         with:
           project-name: dripfunnel-platform
@@ -119,6 +131,7 @@ jobs:
           commit-hash: ${{ inputs.commit_sha }}
 
       - name: 'SPA: admin'
+        id: spa-admin
         uses: ./.github/actions/pages-deploy
         with:
           project-name: dripfunnel-admin
@@ -133,10 +146,11 @@ jobs:
           VERSION_ID: ${{ inputs.version_id }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PROMOTE_OUTCOME: ${{ steps.promote.outcome == 'success' && 'promoted to 100%' || format('did NOT promote ({0})', steps.promote.outcome) }}
+          SPAS_OUTCOME: ${{ (steps.spa-store.outcome == 'success' && steps.spa-platform.outcome == 'success' && steps.spa-admin.outcome == 'success') && 'store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy.' || format('NOT all deployed (store: {0}, platform: {1}, admin: {2}) — see steps above.', steps.spa-store.outcome, steps.spa-platform.outcome, steps.spa-admin.outcome) }}
         run: |
           {
             echo "### Promote summary"
             echo "- Commit: \`$COMMIT_SHA\`"
             echo "- Worker version: \`$VERSION_ID\` — $PROMOTE_OUTCOME"
-            echo "- SPAs: store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy."
+            echo "- SPAs: $SPAS_OUTCOME"
           } >> "$GITHUB_STEP_SUMMARY"
