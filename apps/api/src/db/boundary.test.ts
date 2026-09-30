@@ -22,9 +22,15 @@ const tenantTables = ['partner', 'store', 'seller', 'customer']
 
 describe('the data boundary', () => {
   it('lets nothing outside db/ open a database connection', () => {
+    // `index.ts` is the composition root and may import anything (api/README.md §4); a
+    // type-only import opens nothing.
     const offenders = filesUnder(srcDir)
-      .filter((file) => !relative(file).startsWith('db/'))
-      .filter((file) => /from '(postgres|#db\/client|\.{1,2}\/client)'/.test(readFileSync(file, 'utf8')))
+      .filter((file) => !relative(file).startsWith('db/') && relative(file) !== 'index.ts')
+      .filter((file) =>
+        readFileSync(file, 'utf8')
+          .split('\n')
+          .some((line) => /^import (?!type )/.test(line) && /'(postgres|#db\/client|\.{1,2}\/client)'/.test(line)),
+      )
       .map(relative)
     expect(offenders).toEqual([])
   })
