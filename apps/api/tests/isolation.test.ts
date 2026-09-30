@@ -5,14 +5,9 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// The isolation matrix (ACCESS.md §11.1): caller kind × store × seller, asserting that a
-// caller of one tenant gets nothing of another's — counts and empty results included, since
-// a count that leaks is a leak.
-//
-// These run through `withScope`, which sets the role to `app_request`. That matters: the
-// connection here is a superuser, and a superuser bypasses RLS entirely. Without the role
-// change every assertion below would pass while proving nothing, which is the failure mode
-// this file exists to avoid.
+// The isolation matrix (ACCESS.md §11.1), counts included, since a count that leaks is a
+// leak. `withScope` sets the role to `app_request`: the connection here is a superuser, and
+// a superuser bypasses RLS, so without that every assertion would pass proving nothing.
 
 let db: TestDatabase
 let t: Tenants
@@ -168,13 +163,8 @@ describe('staff on the Admin API', () => {
   })
 
   it('cannot change a customer even though they can read one', async () => {
-    // FIRST-RELEASE §5.4: the Customers menu is read-only, and the policy is what enforces
-    // it rather than the absence of a button.
-    //
-    // An UPDATE filtered out by a USING clause affects no rows rather than raising — that is
-    // how Postgres applies RLS to updates — so the assertion is that nothing changed, not
-    // that it threw. A silent no-op would be a poor error message but it is not a leak, and
-    // the API never offers the write in the first place.
+    // The Customers menu is read-only (FIRST-RELEASE §5.4). An UPDATE filtered out by USING
+    // affects no rows rather than raising, so the assertion is that nothing changed.
     const changed = await withScope(db.sql, staff, async (tx) => {
       const rows = await tx`update customer set name = 'changed' where id = ${t.customerA1} returning id`
       return rows.length

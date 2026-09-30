@@ -8,6 +8,7 @@ const env = {
   HYPERDRIVE: { connectionString: 'not-a-postgres-url' },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test-version', tag: '' },
+  SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 const call = (href: string, init?: RequestInit) =>
@@ -18,7 +19,11 @@ const call = (href: string, init?: RequestInit) =>
   )
 
 const query = (href: string) =>
-  call(href, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query: '{ health }' }) })
+  call(href, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: new URL(href).origin },
+    body: JSON.stringify({ query: '{ health }' }),
+  })
 
 describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
@@ -31,13 +36,7 @@ describe('worker', () => {
   })
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
-    const withoutHyperdrive = {
-      ADMIN_HOST: env.ADMIN_HOST,
-      PLATFORM_HOST: env.PLATFORM_HOST,
-      HOOKS_HOST: env.HOOKS_HOST,
-      HEALTH_RATE_LIMITER: env.HEALTH_RATE_LIMITER,
-      CF_VERSION_METADATA: env.CF_VERSION_METADATA,
-    }
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
@@ -72,6 +71,60 @@ describe('worker', () => {
     )
     expect(response.status).toBe(500)
     expect(await response.text()).toBe('')
+  })
+
+  it('answers me: null for a stale session cookie when no database is configured', async () => {
+    // The console reads `me` to decide whether to offer sign-in, so this branch must not be
+    // the error that hides it.
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    const request = new Request('https://admin.dripfunnel.com/api', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: '__Host-df_admin_session=stale',
+        origin: 'https://admin.dripfunnel.com',
+      },
+      body: JSON.stringify({ query: '{ me { id } }' }),
+    })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ data: { me: null } })
+  })
+
+  it('answers 503 on sign-in when no database is configured', async () => {
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
+    const request = new Request('https://admin.dripfunnel.com/api/auth/sign-in', {
+      headers: { 'cf-connecting-ip': '203.0.113.1' },
+    })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
+    expect(response.status).toBe(503)
+  })
+
+  it('answers 500 on sign-in when the rate limiter binding is missing', async () => {
+    const unlimited = { ...env, SIGN_IN_RATE_LIMITER: undefined }
+    const response = await worker.fetch(
+      new Request('https://admin.dripfunnel.com/api/auth/sign-in', {
+        headers: { 'cf-connecting-ip': '203.0.113.1' },
+      }) as Parameters<typeof worker.fetch>[0],
+      unlimited,
+      ctx,
+    )
+    expect(response.status).toBe(500)
+  })
+
+  it('refuses a cross-origin POST to the admin API, and one with no Origin at all', async () => {
+    // The session cookie authenticates these, so without this check #14's and #39's
+    // mutations would be reachable from any page (ACCESS.md §4).
+    const post = (headers: Record<string, string>) =>
+      call('https://admin.dripfunnel.com/api', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers },
+        body: JSON.stringify({ query: '{ health }' }),
+      })
+    expect((await post({ origin: 'https://evil.example' })).status).toBe(403)
+    expect((await post({ origin: 'https://admin.dripfunnel.com.evil.test' })).status).toBe(403)
+    expect((await post({})).status).toBe(403)
+    expect((await post({ origin: 'https://admin.dripfunnel.com' })).status).toBe(200)
   })
 
   it('returns 404 outside the known routes', async () => {

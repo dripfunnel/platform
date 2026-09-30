@@ -11,8 +11,7 @@ export const parseThemeChoice = (value: unknown): ThemeChoice =>
 export const resolveTheme = (choice: ThemeChoice, prefersDark: boolean): ResolvedTheme =>
   choice === 'system' ? (prefersDark ? 'dark' : 'light') : choice
 
-// tokens.css treats light as the default and reads `data-theme="dark"`, so light is the
-// absence of the attribute rather than a value of it.
+// Light is the absence of the attribute, not a value of it.
 export const applyTheme = (root: HTMLElement, theme: ResolvedTheme): void => {
   if (theme === 'dark') root.dataset.theme = 'dark'
   else delete root.dataset.theme
@@ -23,8 +22,8 @@ export interface ThemeStore {
   write: (choice: ThemeChoice) => void
 }
 
-// Storage throws in a private window or with site data blocked, and the theme is a
-// convenience, so a failure falls back to following the system rather than breaking the app.
+// Storage throws in a private window; the theme is a convenience, so a failure follows the
+// system rather than breaking the app.
 export const themeStore = (key: string, storage: Storage | undefined): ThemeStore => ({
   read: () => {
     try {

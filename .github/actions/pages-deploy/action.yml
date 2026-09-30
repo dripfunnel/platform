@@ -16,14 +16,34 @@ inputs:
 runs:
   using: composite
   steps:
+    # Only 8000002 ("already exists") is benign: every other failure must fail the step.
     - run: |
-        pnpm exec wrangler pages project create "$INPUT_PROJECT_NAME" --production-branch main \
-          || echo "Pages project \"$INPUT_PROJECT_NAME\" already exists, continuing."
+        set -euo pipefail
+        # `.. | objects`, so a change in wrangler's JSON shape misses rather than crashes.
+        if pnpm exec wrangler pages project list --json \
+          | jq -e --arg name "$INPUT_PROJECT_NAME" \
+               '[.. | objects | select(.name? == $name)] | length > 0' > /dev/null; then
+          echo "Pages project \"$INPUT_PROJECT_NAME\" already exists."
+        else
+          echo "Pages project \"$INPUT_PROJECT_NAME\" not found; creating it."
+          # A file, not a process substitution: `tee` can flush after the grep runs.
+          if ! pnpm exec wrangler pages project create "$INPUT_PROJECT_NAME" \
+                 --production-branch main 2> "$RUNNER_TEMP/pages-create.err"; then
+            cat "$RUNNER_TEMP/pages-create.err" >&2
+            if grep -q '8000002' "$RUNNER_TEMP/pages-create.err"; then
+              echo "Project already existed after all; continuing."
+            else
+              echo "Creating the Pages project failed for a reason other than it existing." >&2
+              exit 1
+            fi
+          fi
+        fi
       shell: bash
       working-directory: apps/api
       env:
         INPUT_PROJECT_NAME: ${{ inputs.project-name }}
     - run: |
+        set -euo pipefail
         pnpm exec wrangler pages deploy "$INPUT_DIST" \
           --project-name "$INPUT_PROJECT_NAME" \
           --branch "$INPUT_BRANCH" \

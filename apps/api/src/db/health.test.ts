@@ -7,7 +7,6 @@ import { checkHealth, ping } from './health'
 
 // eslint-disable-next-line no-restricted-globals -- test-only Node process, this file never runs in the Worker
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
-const baseConfig = { ADMIN_HOST: 'admin.dripfunnel.com', PLATFORM_HOST: 'platform.dripfunnel.com', HOOKS_HOST: 'hooks.dripfunnel.com' }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 
 describe('ping', () => {
@@ -56,7 +55,7 @@ describe('ping', () => {
 
 describe('checkHealth', () => {
   it('is unconfigured when no HYPERDRIVE binding is set', async () => {
-    const config: Config = { ...baseConfig }
+    const config: Pick<Config, 'HYPERDRIVE'> = {}
     expect(await checkHealth(config, ctx)).toBe('unconfigured')
   })
 
@@ -66,7 +65,7 @@ describe('checkHealth', () => {
       const server = createServer((socket) => socket.on('data', () => {}))
       await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
       const { port } = server.address() as { port: number }
-      const config: Config = { ...baseConfig, HYPERDRIVE: { connectionString: `postgres://u:p@127.0.0.1:${port}/db` } }
+      const config: Pick<Config, 'HYPERDRIVE'> = { HYPERDRIVE: { connectionString: `postgres://u:p@127.0.0.1:${port}/db` } }
       try {
         const start = Date.now()
         expect(await checkHealth(config, ctx)).toBe('down')

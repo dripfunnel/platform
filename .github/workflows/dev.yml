@@ -1,9 +1,7 @@
 name: dev
 
-# Persistent dev environment: redeployed on every push to dev.
-# Uses the top-level wrangler.jsonc `dev` env (Cloudflare account #49),
-# a persistent Neon branch (not created/destroyed per-push), and fixed Pages
-# project names.
+# The persistent dev environment (ARCHITECTURE.md §6): the `dev` wrangler env, a Neon branch
+# that is not created per push, and fixed Pages project names.
 
 on:
   push:
@@ -12,6 +10,9 @@ on:
 
 permissions:
   contents: read
+  # Read-only, to ask whether the previous run of this workflow succeeded. Without that the
+  # filter cannot tell a skipped app from a stale one.
+  actions: read
 
 concurrency:
   group: dev
@@ -28,8 +29,75 @@ jobs:
       run:
         working-directory: apps/api
     steps:
+      # The change filter needs the previous commit; the default checkout is shallow.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
+
+      # ARCHITECTURE.md §6. Fails safe: a redundant deploy costs a minute, a skipped one
+      # leaves the environment stale while the run goes green.
+      - name: What changed
+        id: changed
+        working-directory: .
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          everything() {
+            for app in store platform admin api; do echo "$app=true" >> "$GITHUB_OUTPUT"; done
+          }
+
+          if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "No usable base commit: deploying everything."
+            everything
+            exit 0
+          fi
+
+          # After a failed run the diff no longer describes the gap to the environment.
+          # Empty means no previous run; a failed query means we do not know. Hence the exit
+          # status rather than the string.
+          if previous="$(gh run list --workflow dev.yml --branch "$GITHUB_REF_NAME" \
+               --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""')"; then
+            echo "Previous completed run: ${previous:-none}"
+            if [ -n "$previous" ] && [ "$previous" != "success" ]; then
+              echo "The previous run did not succeed, so what is deployed is unknown: deploying everything."
+              everything
+              exit 0
+            fi
+          else
+            echo "Could not read the previous run's conclusion: deploying everything."
+            everything
+            exit 0
+          fi
+
+          files="$(git diff --name-only "$BEFORE" "$AFTER")"
+          echo "Changed files:"; echo "$files" | sed 's/^/  /'
+
+          # A root change can affect any build.
+          if echo "$files" | grep -Eq '^(pnpm-lock\.yaml|pnpm-workspace\.yaml|package\.json|turbo\.json|tsconfig\.base\.json|eslint\.config\.js|\.github/)'; then
+            echo "A root or workflow file changed: deploying everything."
+            everything
+            exit 0
+          fi
+
+          shared=false
+          if echo "$files" | grep -q '^apps/ui/shared/'; then shared=true; fi
+          for app in store platform admin; do
+            if [ "$shared" = true ] || echo "$files" | grep -q "^apps/ui/$app/"; then
+              echo "$app=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$app=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+          if echo "$files" | grep -q '^apps/api/'; then
+            echo "api=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "api=false" >> "$GITHUB_OUTPUT"
+          fi
 
       # Gates and Migrations reuse the same host-guard code path with two different allowed
       # hosts. If those variables were ever set to the same value, Gates would silently be
@@ -59,6 +127,8 @@ jobs:
           ALLOW_REMOTE_MIGRATIONS: '1'
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_TEST_HOST }}
 
+      # Not filtered: `migrate` is a no-op when nothing is pending, and a failed run must be
+      # retried by the next push whatever it touched.
       - name: Migrations
         run: pnpm run --if-present migrate
         env:
@@ -67,6 +137,7 @@ jobs:
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
 
       - name: 'SPA: store'
+        if: steps.changed.outputs.store == 'true'
         uses: ./.github/actions/pages-deploy
         with:
           project-name: dripfunnel-store-dev
@@ -75,6 +146,7 @@ jobs:
           commit-hash: ${{ github.sha }}
 
       - name: 'SPA: platform'
+        if: steps.changed.outputs.platform == 'true'
         uses: ./.github/actions/pages-deploy
         with:
           project-name: dripfunnel-platform-dev
@@ -83,6 +155,7 @@ jobs:
           commit-hash: ${{ github.sha }}
 
       - name: 'SPA: admin'
+        if: steps.changed.outputs.admin == 'true'
         uses: ./.github/actions/pages-deploy
         with:
           project-name: dripfunnel-admin-dev
@@ -91,6 +164,7 @@ jobs:
           commit-hash: ${{ github.sha }}
 
       - name: API Worker
+        if: steps.changed.outputs.api == 'true'
         uses: ./.github/actions/worker-deploy
         with:
           env-name: dev

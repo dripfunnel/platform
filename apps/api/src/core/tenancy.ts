@@ -1,13 +1,9 @@
-// The value that says who is asking and what they may reach (ACCESS.md §3). It is built on
-// the server from the resolved caller; nothing in it is ever taken from request input.
-//
-// #13 and #14 add the caller resolution that produces one (in src/auth/). This card defines
-// the scoped layer that enforces it.
+// Who is asking and what they may reach (ACCESS.md §3), built on the server from the
+// resolved caller. #13 and #14 add the resolution that produces one.
 
 export type Scope = 'store' | 'partner' | 'platform' | 'shop' | 'system'
 
-// A discriminated union with no default, so forgetting the vendor filter is a type error and
-// every `{ kind: 'all' }` is a deliberate, greppable statement (ACCESS.md §3).
+// No default, so forgetting the vendor filter is a type error (ACCESS.md §3).
 export type SellerScope = { kind: 'all' } | { kind: 'seller'; sellerId: string }
 
 export type StoreCaller =

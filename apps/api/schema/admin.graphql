@@ -1,3 +1,11 @@
 type Query {
   health: String
+  me: Staff
+}
+
+type Staff {
+  email: String
+  id: ID
+  name: String
+  role: String
 }
