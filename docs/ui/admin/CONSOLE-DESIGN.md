@@ -502,8 +502,8 @@ Decided 2026-09-28 (USERS-AND-DOMAINS §4.2, ACCESS.md §8.1):
   email, filterable by partner, store and role. Never staff, never shoppers. The same action
   is on each partner's Team tab and each store's Users tab.
 - J2. **Super admin and Support only**; re-authentication and a reason or ticket first; 30
-  minutes, no silent extension. **No consent needed**: the merchant's Support access setting
-  doesn't apply to staff.
+  minutes, **extendable once by 30** as an explicit, logged action and never silently.
+  **No consent needed**: the merchant's Support access setting doesn't apply to staff.
 - J3. **Full access as the user**: the staff member sees and does exactly what that user can,
   **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); those controls show disabled with "Only Priya can change this".
   For a person in several stores (or several suppliers in one store), staff pick which one.
