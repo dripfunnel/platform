@@ -41,8 +41,12 @@ The first platform's documents are ported into `docs/` and its repositories are 
 ```bash
 pnpm install
 pnpm turbo run build typecheck lint test         # every gate, only what changed
-pnpm --filter ./apps/api dev                     # wrangler dev
-pnpm --filter ./apps/ui/<app> dev                # vite dev (store, platform, admin)
+pnpm dev                                         # the four apps: the Worker and the three SPAs
+pnpm dev:all                                     # those plus the storefront template and
+                                                 # storefront-core rebuilding on change
+pnpm dev:<api|store|platform|admin>              # one of the four on its own
+pnpm dev:storefront                              # the storefront template (builds core first)
+pnpm dev:storefront-core                         # storefront-core rebuilding on change
 pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.graphql
 pnpm changeset                                   # required when storefront-core changes
 ```
