@@ -1,3 +1,5 @@
+# Copy to .dev.vars. If another Postgres already holds 5432, run the 18 instance on another
+# port (docs/api/README.md §7 suggests 5434) and change both URLs below to match.
 DATABASE_URL="postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel"
 CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel"
 

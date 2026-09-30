@@ -44,7 +44,7 @@ platform            no row: DripFunnel itself; staff act here
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `platform_setting`, `entitlement_ceiling`, `feature_flag` |
 | **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_domain`, `plan`, `plan_entitlement` |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `storefront`, `support_access_setting` |
-| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `membership`, `order`, `collection`, `offer`, `api_key`, `webhook` |
+| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `membership`, `order`, `collection`, `offer`, `api_key`, `webhook`, `seller` (a supplier reads only its own row — ACCESS.md §5.5) |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `order_part` (per-supplier part of an order) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6 | `activity_log` |
@@ -274,7 +274,11 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 - **Shoppers** (`shop` scope): read policies return only what the Shop API may show
   (visible products, the customer's own orders and addresses via `app.customer_id`).
 - **Support sessions** run in `store` scope for the one store; `app.support = 'read'` makes
-  write policies (`WITH CHECK`) refuse every write.
+  every write refuse. **Per command, not one `FOR ALL` policy** (corrected on #12): `WITH
+  CHECK` does not apply to `DELETE`, so a single policy written that way refuses updates and
+  inserts while letting a read-only session delete the row outright. `UPDATE` and `INSERT`
+  use `WITH CHECK`, which raises; `DELETE` uses `USING`, which can only filter — the delete
+  then affects no rows rather than failing, and Postgres offers no way to make it raise.
 - **Inside-the-store tables have no `partner` or `platform` branch** (the one exception:
   `customer` has a read-only `platform` SELECT policy for the Customers menu; no platform
   write policy), so a partner or staff

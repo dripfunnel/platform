@@ -89,7 +89,8 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **`ALLOWED_MIGRATION_HOST`** (prod) | The literal hostname of `PROD_DATABASE_URL` above, same fail-closed purpose as the `dev` variable of the same name — a distinct GitHub environment variable, not shared with `dev` | Not a secret: a variable | GitHub environment `prod` variable | 1 |
 | Read-only role *(proposed)* | Support and engineer-on-call investigations, reporting | Password | Password manager | 12 |
 
-Local development uses a local Postgres (Testcontainers in tests) and **never** Neon or
+Local development uses a local Postgres (tests create a fresh database on it per run, and
+need no Docker) and **never** Neon or
 `dbpg01.softobotics.org` (AGENTS.md rule 3). The `dev` workflow's Gates step is the one
 exception, and only because `TEST_DATABASE_URL` is a disposable branch **pinned by
 `ALLOWED_TEST_HOST`** — "it is disposable" is an intention, and the variable is what makes
@@ -222,7 +223,7 @@ on the partner console (*(ask)*, platform/README).
 
 | Item | Credential |
 |---|---|
-| pnpm, Turborepo, Vitest, Playwright, Testcontainers (Docker) | None |
+| pnpm, Turborepo, Vitest, Playwright, a local Postgres 18 (docs/api/README.md §7) | None |
 | Changesets | None (uses `GITHUB_TOKEN`) |
 | Dependency and vulnerability scanning ("known critical vulnerabilities fail the build") | GitHub Dependabot/advisories (none), or Snyk/Socket token *(decide)* |
 | Claude Design, Claude Code | Individual seats; not part of the product |

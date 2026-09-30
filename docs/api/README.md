@@ -134,7 +134,7 @@ apps/api/
   schema/                   generated and committed: admin, platform, store, shop .graphql
   migrations/               the single migration history: 0001_init.sql, ...
   tests/
-    support/                Testcontainers Postgres, Workers test pool, factories, isolation
+    support/                local Postgres per run, Workers test pool, factories, isolation
                             matrix helpers, fake payment and courier providers, clock control
     ...                     integration tests (unit tests sit beside the code)
   scripts/                  Node-only tooling (print-schema.ts), with its own tsconfig
@@ -387,7 +387,8 @@ The full list is [AGENTS.md](../../AGENTS.md) "SaaS platform rules" and
 
 - **Unit tests** beside the code (`service.test.ts`), for pure rules: money, tax,
   promotions, stock. Property-based where the input space is large.
-- **Integration tests** in `tests/` against a real Postgres (Testcontainers) and the
+- **Integration tests** in `tests/` against a real Postgres (the local one from §7, with a
+  freshly-created database per run, dropped afterwards — no Docker) and the
   Workers test pool. No mocks of our own data layer. *(Planned: `test:integration`.)*
 - **Isolation matrix**: every endpoint × caller kind × role × acting store × seller, with
   two partners, two stores and two vendors per test, including a person in two stores under

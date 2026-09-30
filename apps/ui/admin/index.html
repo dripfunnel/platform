@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DripFunnel Admin</title>
+    <!-- Resolve the theme before the first paint, so a dark-mode machine never flashes the
+         light default. tokens.css keys off data-theme="dark"; light is its absence. The key
+         matches the prototype (designs/design.md §10). Kept inline and tiny on purpose: a
+         module import would run after the first paint. -->
+    <script>
+      try {
+        var c = localStorage.getItem('df-admin-theme')
+        if (c === 'dark' || (c !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.documentElement.dataset.theme = 'dark'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

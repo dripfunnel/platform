@@ -19,6 +19,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "schema": "tsx scripts/print-schema.ts",
     "migrate": "tsx scripts/migrate/main.ts",
     "dev-env:attach": "tsx scripts/dev-env/main.ts"

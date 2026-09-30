@@ -1,8 +1,10 @@
+import { themeChoices } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import type { Me } from '../../api/me'
 import { fill, messages } from '../../messages'
 import { initials } from './initials'
+import { useTheme } from './useTheme'
 import './shell.css'
 
 const words = messages.shell
@@ -11,11 +13,14 @@ const words = messages.shell
 // in FIRST-RELEASE.md §2.
 export const UserMenu = ({ me }: { me: Me }) => {
   const [open, setOpen] = useState(false)
+  const { choice, setChoice } = useTheme()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
-  const itemRef = useRef<HTMLAnchorElement>(null)
+  // The first item in the menu, focused on open. It is the first Appearance option.
+  const itemRef = useRef<HTMLButtonElement>(null)
   const buttonId = useId()
   const menuId = useId()
+  const themeId = useId()
   const role = words.roles[me.role]
 
   useEffect(() => {
@@ -70,11 +75,30 @@ export const UserMenu = ({ me }: { me: Me }) => {
           </div>
           <ul role="menu" aria-labelledby={buttonId}>
             <li role="none">
+              <p className="df-user-menu-label" id={themeId}>
+                {words.userMenu.theme.label}
+              </p>
+              <div role="group" aria-labelledby={themeId} className="df-user-theme">
+                {themeChoices.map((option, index) => (
+                  <button
+                    key={option}
+                    ref={index === 0 ? itemRef : undefined}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={choice === option}
+                    className="df-user-theme-option"
+                    onClick={() => setChoice(option)}
+                  >
+                    {words.userMenu.theme[option]}
+                  </button>
+                ))}
+              </div>
+            </li>
+            <li role="none">
               {/* A stand-in: it ends no session and logs nothing. #13 adds the Admin API's
                   sign-out, which ends the session and writes the activity log; call it here
                   (https://github.com/dripfunnel/platform/issues/13). */}
               <Link
-                ref={itemRef}
                 to="/sign-in"
                 role="menuitem"
                 className="df-user-menu-item"
