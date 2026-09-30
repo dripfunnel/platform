@@ -327,6 +327,13 @@ migrations to the persistent Neon `dev` branch; the guard
 by GitHub Actions) so the override can't be tripped by an env var left in a
 shell profile or `.env` on a developer machine.
 
+The same workflow's Gates step (`build typecheck lint test`) is a second,
+separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
+disposable Neon branch kept only for CI test runs, not the persistent `dev`
+branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). `host-guard.ts` is not
+wired into the test step, so nothing currently stops `TEST_DATABASE_URL` from
+being pointed at a non-disposable host by mistake.
+
 `pnpm test` needs this same database up and `.dev.vars` exported (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
 `scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the

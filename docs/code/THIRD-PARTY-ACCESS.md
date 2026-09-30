@@ -81,10 +81,12 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Neon API key** (scoped to `dripfunnel-dev`) | The `feature-env` workflow creates, and later deletes, each feature environment's branch | Project-scoped API key | GitHub environment `feature` secret `NEON_API_KEY`, variable `NEON_PROJECT_ID` | 1 |
 | **App role** connection string (pooled) | The Worker's runtime role, **without** `BYPASSRLS`, for row-level security ([../api/DATA-MODEL.md](../api/DATA-MODEL.md) §5) | Password | Inside the Hyperdrive config only | 3 |
 | **Migration role** connection string (direct) | Owns the schema; runs `apps/api/migrations` before each deploy, over Neon's direct connection, not Hyperdrive | Password | GitHub Actions secret, production environment only | 3 |
+| **CI test database** (`TEST_DATABASE_URL`) | A dedicated, disposable Neon branch the `dev` workflow's Gates step (`build typecheck lint test`) runs against; separate from the persistent `dev` branch (`DEV_DATABASE_URL`) and safe to write/reset freely | Password | GitHub environment `dev` secret | 1 |
 | Read-only role *(proposed)* | Support and engineer-on-call investigations, reporting | Password | Password manager | 12 |
 
 Local development uses a local Postgres (Testcontainers in tests) and **never** Neon or
-`dbpg01.softobotics.org` (AGENTS.md rule 3).
+`dbpg01.softobotics.org` (AGENTS.md rule 3). The `dev` workflow's Gates step is the one
+exception, and only because `TEST_DATABASE_URL` is a disposable branch, not a shared one.
 
 ### 2.3 GitHub
 

@@ -4,7 +4,7 @@ const OVERRIDE_PARAMS = ['host', 'hostaddr']
 const normalizeHostname = (hostname: string): string => hostname.replace(/^\[(.+)\]$/, '$1')
 
 export const assertLocalHost = (connectionString: string): void => {
-  if (process.env.ALLOW_REMOTE_MIGRATIONS === '1') return
+  const allowRemote = process.env.ALLOW_REMOTE_MIGRATIONS === '1' && process.env.CI === 'true'
   let url: URL
   try {
     url = new URL(connectionString)
@@ -12,7 +12,7 @@ export const assertLocalHost = (connectionString: string): void => {
     throw new Error('DATABASE_URL is not a valid URL.')
   }
   const hostname = normalizeHostname(url.hostname)
-  if (!LOCAL_HOSTS.has(hostname)) {
+  if (!allowRemote && !LOCAL_HOSTS.has(hostname)) {
     throw new Error(`Refusing to run migrations against non-local host "${hostname}". Local databases only.`)
   }
   for (const param of OVERRIDE_PARAMS) {

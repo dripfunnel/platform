@@ -78,4 +78,24 @@ describe('assertLocalHost', () => {
       else process.env.CI = originalCi
     }
   })
+
+  it('still refuses a host override via query params when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
+    const originalAllow = process.env.ALLOW_REMOTE_MIGRATIONS
+    const originalCi = process.env.CI
+    process.env.ALLOW_REMOTE_MIGRATIONS = '1'
+    process.env.CI = 'true'
+    try {
+      expect(() =>
+        assertLocalHost('postgres://u:p@dbpg01.softobotics.org/db?host=dbpg02.softobotics.org'),
+      ).toThrow(/"host"/)
+      expect(() =>
+        assertLocalHost('postgres://u:p@dbpg01.softobotics.org/db?hostaddr=10.0.0.1'),
+      ).toThrow(/"hostaddr"/)
+    } finally {
+      if (originalAllow === undefined) delete process.env.ALLOW_REMOTE_MIGRATIONS
+      else process.env.ALLOW_REMOTE_MIGRATIONS = originalAllow
+      if (originalCi === undefined) delete process.env.CI
+      else process.env.CI = originalCi
+    }
+  })
 })
