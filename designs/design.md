@@ -330,15 +330,24 @@ shows only the host.
 
 | Session | Opens | Host shown | Role in the portal | Length |
 | --- | --- | --- | --- | --- |
-| Partner-user impersonation | `DF Platform Prototype` `#/dashboard` | platform.dripfunnel.com | The user's role (Owner, Admin, Support, Finance, Read-only) | 30 min |
-| Setup session | `DF Platform Prototype` onboarding, as staff | platform.dripfunnel.com | Staff setup permissions (no payouts, team or billing) | 2 h |
-| Merchant-user impersonation | `DF Store Prototype` | partner's store host + store code; DripFunnel partner → shop.dripfunnel.com | Owner / Manager / Staff | 30 min |
-| Supplier-user impersonation | `DF Store Prototype`, Business plan | same as merchant | Supplier admin → catalogue supplier, Supplier member → stock only | 30 min |
-| Store support session | `DF Store Prototype` | same as merchant | Read-only (banner only; saves aren't blocked yet) | 30 min, extend once |
+| Partner-user impersonation | `DF Platform Prototype` `#/dashboard` | platform.dripfunnel.com | The user's role (Owner, Admin, Support, Finance, Read-only) | 30 min, extend once |
+| Setup session | `DF Platform Prototype` onboarding, as staff | platform.dripfunnel.com | Staff setup powers: everything the partner's Owner can do **except** its payment method, payout details and ownership (ACCESS §8.2) | 2 h, no extension |
+| Merchant-user impersonation | `DF Store Prototype` | partner's store host + store code; DripFunnel partner → shop.dripfunnel.com | Owner / Manager / Staff | 30 min, extend once |
+| Supplier-user impersonation | `DF Store Prototype`, Business plan | same as merchant | Supplier admin → catalogue supplier, Supplier member → stock only | 30 min, extend once |
 
-- **Setup sessions** have no reason, ticket or re-authentication step. *Open
-  setup session* (partner header or Setup tab) opens the tab straight away;
-  *Create partner* opens one as step 2. One open at a time per staff member.
+**Corrected 2026-09-30.** The prototype's fifth row, a read-only *store support session*, is
+**gone**: staff have no read-only route into a store, because the prototype's own note —
+"banner only; saves aren't blocked yet" — is the whole problem with one. Staff impersonate,
+with full access and a full audit trail. A read-only, **consented** support session into a
+store still exists, but it is a **partner** capability governed by the merchant's *Settings ›
+Support access* switch (ACCESS §8), not a staff one.
+
+- **Setup sessions** are drawn here with no reason, ticket or re-authentication step. **The
+  product requires all three** (ACCESS §8.2, confirmed 2026-09-30) — the prototype is wrong on
+  this and the flow needs the same two steps impersonation has. Super admin, Partner manager
+  and Support may start one; one is open at a time per staff member, and a second attempt is
+  refused. *Open setup session* sits on the partner header or the Setup tab; *Create partner*
+  opens one as step 2.
 - **In the portal**, `ImpBanner` shows a yellow striped bar with who you're
   acting as, who started the session, the host, a countdown and *End
   session*, plus a *Back to …* link that returns while the session keeps
