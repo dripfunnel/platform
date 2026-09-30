@@ -24,6 +24,20 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dripfunnel_dev
+          POSTGRES_PASSWORD: dripfunnel_dev
+          POSTGRES_DB: dripfunnel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: apps/api
@@ -34,6 +48,8 @@ jobs:
       - name: Gates
         run: pnpm turbo run build typecheck lint test
         working-directory: .
+        env:
+          DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel
 
       - name: Migrations
         run: pnpm run --if-present migrate
