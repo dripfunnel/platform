@@ -3,6 +3,8 @@
 How modules are written, so the codebase reads as one. Read with
 [ARCHITECTURE.md](ARCHITECTURE.md), which says where each piece lives.
 
+Last updated: 2026-09-29.
+
 ---
 
 ## 1. Module boundaries

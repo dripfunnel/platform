@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -94,15 +94,16 @@ platform/
                             ACCESS.md (identity and roles), SAAS.md (platform layer),
                             DATA-MODEL.md (tenancy, users, roles, RLS), LOGGING.md (activity log)
     ui/                     README.md (every SPA), then one folder per app:
-      admin/                README.md, CONSOLE-DESIGN.md
-      platform/             README.md
+      admin/                README.md, FIRST-RELEASE.md, CONSOLE-DESIGN.md,
+                            CLAUDE-DESIGN-PROMPT.md and its -CUSTOMERS and -IMPERSONATION
+      platform/             README.md, CLAUDE-DESIGN-PROMPT.md
       store/                README.md, DESIGN-BRIEF.md, CATALOG-DESIGN.md, OFFERS-DESIGN.md
       shared/               README.md
     code/                   ARCHITECTURE.md, DESIGN.md: repo-wide decisions and conventions
     storefront/             ARCHITECTURE.md, DESIGN.md: storefront template and AI design
-  .github/workflows/        ci.yml, feature-env.yml, release.yml, deploy-api.yml, deploy-store.yml,
-                            deploy-platform.yml, deploy-admin.yml
-  .github/actions/setup/    pnpm, Node and install, shared by the workflows
+  .github/workflows/        ci.yml (the gates), naming.yml, claude-review.yml,
+                            feature-env.yml, dev.yml; prod deploy arrives with #51
+  .github/actions/          setup (pnpm, Node, install), pages-deploy, worker-deploy
   .changeset/               for storefront-core only
   package.json  pnpm-workspace.yaml  turbo.json  tsconfig.base.json  eslint.config.js
   AGENTS.md  CLAUDE.md  README.md
