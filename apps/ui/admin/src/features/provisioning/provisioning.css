@@ -1,0 +1,110 @@
+.df-jobs {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-job {
+  display: grid;
+  gap: var(--df-space-3);
+  padding: var(--df-space-4) var(--df-space-5);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-job-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3) var(--df-space-5);
+}
+
+.df-job-name {
+  display: grid;
+  flex: 1 1 200px;
+  gap: 2px;
+  min-width: 0;
+}
+
+.df-list .df-job-name a.df-row-title {
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.df-job-name > span {
+  font-size: 12px;
+}
+
+.df-job-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-3) var(--df-space-5);
+  margin: 0;
+  font-size: 13px;
+}
+
+.df-job-facts div {
+  display: grid;
+  gap: 2px;
+  min-width: 70px;
+}
+
+.df-job-facts div:not(:last-child) {
+  min-width: 150px;
+}
+
+.df-job-facts dt {
+  color: var(--df-color-muted);
+  font-size: 11px;
+}
+
+.df-job-facts dd {
+  margin: 0;
+}
+
+.df-list .df-job-error {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--df-space-2);
+}
+
+.df-job-actions .df-denied {
+  justify-items: end;
+  max-width: 240px;
+  text-align: right;
+}
+
+.df-job-spacer {
+  flex: 1;
+}
+
+.df-button--quiet {
+  min-height: 32px;
+  border-color: var(--df-color-border);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-job-details {
+  display: block;
+  padding: var(--df-space-3);
+  border-radius: var(--df-radius);
+  background: var(--df-color-neutral-surface);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

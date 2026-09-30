@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { NavBadges } from '../../api/navBadges'
 import { fill, formatCount, messages } from '../../messages'
-import type { NavRow } from '../../nav'
+import type { NavItem } from '../../nav'
 import '../common/states.css'
 import { Icon } from './Icon'
 import './shell.css'
@@ -9,7 +9,7 @@ import './shell.css'
 const words = messages.shell
 
 export interface SideNavProps {
-  rows: readonly NavRow[]
+  rows: readonly NavItem[]
   badges: NavBadges
   variant: 'bar' | 'drawer'
   onNavigate?: () => void

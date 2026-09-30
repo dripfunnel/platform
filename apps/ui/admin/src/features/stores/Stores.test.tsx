@@ -59,7 +59,7 @@ describe('Stores list', () => {
     expect(text).toContain(words.customLive)
     expect(text).toContain(messages.store.domains.status.waiting)
     expect(text).toContain('$29.00 / month')
-    expect(text).not.toContain(messages.store.actions.retry)
+    expect(text).not.toContain(messages.store.retrySetup)
   })
 
   it('pages by cursor with no total', async () => {

@@ -100,3 +100,43 @@ describe('the sample actions', () => {
     expect(server().get('nope', 'staff-super-admin')).toBeNull()
   })
 })
+
+describe('the sample Approvals rule', () => {
+  const kl = partner('kl')
+  const passing: SamplePartner = { ...kl, checks: { ...kl.checks, emailDomain: true } }
+  const withSetUp = (by: string | null): SamplePartner => ({
+    ...passing,
+    history: passing.history.filter((entry) => entry.event !== 'setUp').concat(by ? [{ at: '2026-09-15T00:00:00Z', event: 'setUp', by, note: null }] : []),
+  })
+
+  it('says who set a submitted partner up, and when it was submitted', () => {
+    expect(server().list({ status: 'awaiting' }, {}, 25, 'staff-super-admin').items[0]).toMatchObject({
+      id: 'kl',
+      submittedAt: '2026-09-26T09:40:00Z',
+      approval: { setUpBy: 'Priya Shah', rule: 'second' },
+    })
+    const live = server().list({ status: 'live' }, {}, 25, 'staff-super-admin').items
+    expect(live.every((row) => row.approval === null && row.submittedAt === null)).toBe(true)
+  })
+
+  it('lets a Super admin who ran the setup approve alone, and needs two when the partner set itself up', () => {
+    expect(createSampleServer([withSetUp('Arjun Menon')]).get('kl', 'staff-super-admin')?.approval).toEqual({ setUpBy: 'Arjun Menon', rule: 'alone' })
+    expect(createSampleServer([withSetUp(null)]).get('kl', 'staff-super-admin')?.approval).toEqual({ setUpBy: null, rule: 'two' })
+  })
+
+  it('refuses Approve to the Partner manager who ran the setup, and not to anyone else', () => {
+    expect(permissionsFor(withSetUp('Priya Shah'), 'staff-partner-manager').approve).toEqual({ allowed: false, reason: 'SET_UP_BY_CALLER' })
+    expect(permissionsFor(withSetUp('Maya Ortiz'), 'staff-partner-manager').approve).toEqual({ allowed: true })
+    expect(permissionsFor(withSetUp('Arjun Menon'), 'staff-super-admin').approve).toEqual({ allowed: true })
+  })
+
+  it('names failing checks before the setup rule, so the reason says what would unblock it', () => {
+    expect(permissionsFor(kl, 'staff-partner-manager').approve).toMatchObject({ allowed: false, reason: 'GO_LIVE_CHECKS_FAILING' })
+  })
+
+  it('sorts the queue oldest submitted first', () => {
+    const later: SamplePartner = { ...withSetUp(null), id: 'later', history: [{ at: '2026-09-29T00:00:00Z', event: 'submitted', by: null, note: null }] }
+    const sample = createSampleServer([later, passing])
+    expect(sample.list({ status: 'awaiting', sort: 'oldestSubmitted' }, {}, 25, 'staff-super-admin').items.map((row) => row.id)).toEqual(['kl', 'later'])
+  })
+})

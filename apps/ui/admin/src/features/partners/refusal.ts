@@ -11,7 +11,8 @@ export const refusalText = (permission: ActionPermission, action: RefusableActio
   if (permission.allowed) return null
   switch (permission.reason) {
     case 'HOUSE_PARTNER':
-      return fill(words.refusals.HOUSE_PARTNER, { name: partnerName })
+    case 'SET_UP_BY_CALLER':
+      return fill(words.refusals[permission.reason], { name: partnerName })
     case 'GO_LIVE_CHECKS_FAILING': {
       const failing = permission.failingChecks
       return fill(plural(words.refusals.GO_LIVE_CHECKS_FAILING, failing.length), {

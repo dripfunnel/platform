@@ -46,6 +46,11 @@ and store states).
 | 8 | **Activity log** | Everyone | none | decided 2026-09-30 |
 | 9 | **Staff** | Super admin | none | decided 2026-09-30 |
 
+**One badge per role** (decided on #43): partners awaiting approval are counted on Approvals
+for the Super admin and Partner manager, and on Partners for every other role, so nobody sees
+the number twice and nobody loses it. Provisioning counts failed and stuck signups, never
+running ones.
+
 Always visible in the header: the environment marker, a search box (partners and stores by
 name, domain, code or owner email), and the signed-in staff member's name and role.
 
@@ -238,7 +243,9 @@ this release: no password reset, block, export or delete.
 ## 6. Approvals
 
 The queue of partners in *Awaiting approval*, oldest first: partner, submitted, go-live
-checks (pass/fail each), who is reviewing. Opens the partner detail with **Approve** and
+checks (pass/fail each), who set it up and whether it still needs a second approver (§4.3).
+The staff member who ran the setup session is shown as "Set up by …", never as a reviewer,
+because they may not be the sole approver (decided on #43). Opens the partner detail with **Approve** and
 **Send back** (§4.3). A shortcut, not a separate data model: it is the Partners list filtered
 by state.
 
@@ -250,6 +257,15 @@ Signups in progress, failed or stuck (running too long), across partners: store,
 step reached, started, attempts, error in plain words (details behind a click). Actions:
 **Retry** the failed step, **Undo and clean up** (runs the compensations, SAAS.md §5).
 Filters: partner, state, step.
+
+- The steps are SAAS.md §5's eight, and "Step N of M" takes its total from the job: a store
+  with its own frontend runs only the first three (decided on #43).
+- Whether a step is stuck is the API's answer, from a limit per step, not one clock for the
+  whole signup (decided on #43).
+- Everyone who can open Provisioning sees the raw details; the API never puts a secret in an
+  error (decided on #43).
+- Retry and Undo return once the Workflow has started; the list shows the job running until it
+  reports back. The store's Provisioning tab calls the same two operations (§12).
 
 ---
 
@@ -358,12 +374,17 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Dashboard | `dashboard(partnerId)` | |
 | Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
 | Stores | `stores(filter, after, before)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
-| Provisioning | `provisioningJobs(filter, after, before)` | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
+| Provisioning | `provisioningJobs(filter, after, before)`, `provisioningJob(id)` (a started job's progress, whatever the list is filtered to) | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
 | Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
 | Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` |
 | Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |
 | Header | `search(query)`, `me` | |
+| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups | |
+
+Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted
+first, and each row carries when it was submitted, its go-live checks, who set it up and which
+approver rule applies (§4.3, decided on #43).
 
 **Pagination is cursor-based across the whole console** (decided 2026-09-30, on #19). Every
 list query takes `after` and `before` and returns Previous and Next with a maximum page size.

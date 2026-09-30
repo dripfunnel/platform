@@ -31,6 +31,7 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
         forced={null}
         readOnly={false}
         onAction={noop}
+        onJob={noop}
         onAddNote={saved}
         onRecheck={resolved}
         customers={{ filter: {}, page: {}, onFilterChange: noop }}
@@ -53,11 +54,18 @@ describe('Store detail', () => {
 
   it('offers Retry in the header while setup failed, and Undo on the Provisioning tab', async () => {
     const text = await render({ tab: 'provisioning' })
-    expect(text).toContain(words.actions.retry)
+    expect(text).toContain(words.retrySetup)
     expect(text).toContain('GitHub didn’t respond while creating the storefront.')
-    expect(text).toContain('5 of 7 · Repo · 2 attempts')
+    expect(text).toContain('4 of 8 · Repo · 2 attempts')
     expect(text).toContain(words.provisioning.retry)
-    expect(text).toContain(words.actions.undo)
+    expect(text).toContain(messages.provisioning.actions.undo)
+  })
+
+  it('counts only the three steps a store with its own frontend runs', async () => {
+    const text = await render({ store: storeOf('s14'), tab: 'provisioning' })
+    expect(text).toContain('3 of 3 · Hostnames')
+    expect(text).not.toContain(messages.provisioning.steps.repo)
+    expect(text).not.toContain(words.provisioning.undoTitle)
   })
 
   it('shows a refused action with its reason as text', async () => {
@@ -92,7 +100,7 @@ describe('Store detail', () => {
   it('caps the note field at the length the API accepts', async () => {
     const rootRoute = createRootRoute({
       component: () => (
-        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onAddNote={saved} onRecheck={resolved}
+        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onJob={noop} onAddNote={saved} onRecheck={resolved}
           customers={{ filter: {}, page: {}, onFilterChange: noop }}
           onReload={noop}
         />
@@ -118,7 +126,6 @@ describe('store dialogs', () => {
     const dialog = storeDialog('suspend', storeOf('s3'))
     expect(dialog.notes).toContain('The owner is told to contact Bazaar Cloud support.')
     expect(dialog.typeToConfirm?.expected).toBe('Kiko Kids')
-    expect(storeDialog('undo', storeOf('s13')).typeToConfirm?.expected).toBe('peak-supply')
   })
 
   it('restores to the status the store had before', () => {

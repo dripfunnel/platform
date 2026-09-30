@@ -46,7 +46,8 @@
       }
     },
     "badges": {
-      "partnersAwaitingApproval": "{count} awaiting approval"
+      "partnersAwaitingApproval": "{count} awaiting approval",
+      "provisioningAttention": "{count} failed or stuck"
     },
     "placeholder": "This screen isn't built yet."
   },
@@ -54,7 +55,9 @@
     "dashboard": "Dashboard",
     "partners": "Partners",
     "stores": "Stores",
-    "customers": "Customers"
+    "customers": "Customers",
+    "approvals": "Approvals",
+    "provisioning": "Provisioning"
   },
   "screens": {
     "dashboard": {
@@ -269,7 +272,8 @@
       "GO_LIVE_CHECKS_FAILING": {
         "one": "{count} go-live check failing: {checks}.",
         "other": "{count} go-live checks failing: {checks}."
-      }
+      },
+      "SET_UP_BY_CALLER": "You set {name} up, so someone else must approve it."
     },
     "checks": {
       "portalHost": "Portal host live",
@@ -691,7 +695,8 @@
       "done": "Done",
       "running": "Running",
       "failed": "Failed",
-      "stuck": "Stuck"
+      "stuck": "Stuck: running too long",
+      "cleaning": "Cleaning up"
     },
     "customLive": "Custom domain · live",
     "opensInNewTab": "{host}, opens in a new tab",
@@ -732,18 +737,14 @@
     "refusals": {
       "SUPER_ADMIN_ONLY": "Only a Super admin can {verb}.",
       "SUSPENDERS_ONLY": "Only a Super admin or the Engineer on call can {verb}.",
-      "RETRIERS_ONLY": "Only a Super admin, Support or the Engineer on call can {verb}.",
-      "CLEANERS_ONLY": "Only a Super admin or the Engineer on call can {verb}.",
       "INVITERS_ONLY": "Only a Super admin or Support can {verb}.",
       "NOTERS_ONLY": "Only a Super admin, Partner manager, Support or the Engineer on call can {verb}."
     },
     "verbs": {
-      "retry": "retry setup",
       "suspend": "suspend a store",
       "restore": "restore a store",
       "extendTrial": "extend a trial",
       "resendInvite": "resend the owner's invitation",
-      "undo": "undo a failed signup",
       "addNote": "add a note"
     }
   },
@@ -755,6 +756,7 @@
     "cancel": "Cancel",
     "reasonHint": "Kept in the activity log.",
     "actionsLabel": "Actions for {name}",
+    "retrySetup": "Retry setup",
     "tabsLabel": "Store sections",
     "tabs": {
       "overview": "Overview",
@@ -773,12 +775,10 @@
       "code": "Code"
     },
     "actions": {
-      "retry": "Retry setup",
       "suspend": "Suspend",
       "restore": "Restore",
       "extendTrial": "Extend trial",
       "resendInvite": "Resend owner invitation",
-      "undo": "Undo and clean up",
       "addNote": "Add note"
     },
     "notFound": {
@@ -867,23 +867,15 @@
     },
     "provisioning": {
       "title": "Signup steps",
-      "summary": "{at} of 7 · {step} · {attempts} attempts",
-      "summaryOne": "{at} of 7 · {step} · 1 attempt",
+      "summary": "{at} of {total} · {step} · {attempts} attempts",
+      "summaryOne": "{at} of {total} · {step} · 1 attempt",
       "summaryDone": "Done · ready store",
-      "steps": {
-        "account": "Account",
-        "store": "Store",
-        "defaults": "Defaults",
-        "hostnames": "Hostnames",
-        "repo": "Repo",
-        "firstBuild": "First build",
-        "done": "Done"
-      },
       "stepStatus": {
         "done": "Done",
         "running": "Running",
         "failed": "Failed",
         "stuck": "Stuck: running too long",
+        "cleaning": "Cleaning up",
         "waiting": "Not started"
       },
       "retry": "Retry",
@@ -968,25 +960,6 @@
         "pick": "Pick a date.",
         "tooEarly": "Pick a date after the current end, {date}."
       },
-      "retry": {
-        "title": "Retry setup for {name}?",
-        "consequence": "Runs “{step}” again.",
-        "notes": [
-          "Attempt {next}. Steps that finished are kept."
-        ],
-        "confirm": "Retry “{step}”"
-      },
-      "undo": {
-        "title": "Undo and clean up {name}?",
-        "consequence": "Removes everything setup made for {name} (store, hostnames, repo) so {owner} can sign up again.",
-        "notes": [
-          "This can’t be undone."
-        ],
-        "confirm": "Undo and clean up",
-        "reason": "Reason",
-        "typeLabel": "Type {code} to confirm",
-        "typeHint": "Type the store code exactly to confirm."
-      },
       "resendInvite": {
         "title": "Resend owner invitation?",
         "consequence": "A new link is sent to {email}.",
@@ -997,8 +970,6 @@
       "suspend": "{name} is suspended.",
       "restore": "{name} is {status} again.",
       "extendTrial": "Trial now ends {date}.",
-      "retry": "Retrying “{step}” for {name}.",
-      "undo": "{name} is cleaned up. The merchant can sign up again.",
       "resendInvite": "New invitation sent to {email}.",
       "addNote": "Note added.",
       "failed": "That didn't work. Nothing was changed. Try again."
@@ -1139,6 +1110,153 @@
       "title": "This customer didn’t load",
       "body": "Something went wrong on our side.",
       "retry": "Try again"
+    }
+  },
+  "approvals": {
+    "level": "Platform · Every partner",
+    "title": "Approvals",
+    "sub": "Partners that finished their setup and submitted it, oldest first.",
+    "loading": "Loading approvals",
+    "listLabel": "Partners waiting for approval",
+    "pagerLabel": "Approvals pages",
+    "submitted": "Submitted {date} · waiting {wait}",
+    "review": "Review",
+    "reviewLabel": "Review {name}",
+    "checksPass": "{count} of {total} checks pass",
+    "checksLabel": "Go-live checks for {name}",
+    "check": {
+      "pass": "Pass",
+      "fail": "Fail"
+    },
+    "setUpBy": "Set up by {name} (DripFunnel)",
+    "setUpByPartner": "Set up by {partner} itself",
+    "approvers": {
+      "alone": "{name} is a Super admin, so they may approve it alone.",
+      "second": "Needs a second approver: anyone at DripFunnel but {name}.",
+      "two": "Needs two staff approvers: nobody at DripFunnel has looked at it yet."
+    },
+    "empty": {
+      "title": "Nothing waiting for approval",
+      "body": "Every submitted partner has been reviewed. Partners appear here when their setup is submitted, by the partner or by staff."
+    },
+    "error": {
+      "title": "Approvals didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "Approvals isn’t open to your role",
+      "body": "Super admins and Partner managers approve partners. Partners waiting for approval are counted on the Partners menu.",
+      "back": "Open Partners"
+    }
+  },
+  "provisioning": {
+    "level": "Platform · Every partner",
+    "title": "Provisioning",
+    "sub": "New stores whose setup is running, stuck or failed, across every partner.",
+    "loading": "Loading signups",
+    "listLabel": "Signups",
+    "pagerLabel": "Provisioning pages",
+    "newestFirst": "Newest first",
+    "steps": {
+      "accountAndStore": "Account and store",
+      "defaults": "Defaults",
+      "hostnames": "Hostnames",
+      "repo": "Repo",
+      "storeConfig": "Store config",
+      "hostingTarget": "Hosting target",
+      "firstBuild": "First build",
+      "done": "Done"
+    },
+    "states": {
+      "running": "Running",
+      "stuck": "Stuck: running too long",
+      "failed": "Failed",
+      "cleaning": "Cleaning up"
+    },
+    "stepReached": "Step reached",
+    "stepOf": "{at} of {total} · {step}",
+    "started": "Started",
+    "startedValue": "{time} ({wait} ago)",
+    "attempts": "Attempts",
+    "details": "Details",
+    "hideDetails": "Hide details",
+    "actions": {
+      "retry": "Retry",
+      "undo": "Undo and clean up"
+    },
+    "verbs": {
+      "retry": "retry setup",
+      "undo": "undo a failed signup"
+    },
+    "refusals": {
+      "RETRIERS_ONLY": "Only a Super admin, Support or the Engineer on call can {verb}.",
+      "CLEANERS_ONLY": "Only a Super admin or the Engineer on call can {verb}.",
+      "JOB_RUNNING": {
+        "retry": "Setup is still running.",
+        "undo": "Wait for the current step to finish."
+      }
+    },
+    "filters": {
+      "label": "Filter signups",
+      "search": "Search signups",
+      "searchPlaceholder": "Search store, code or owner email",
+      "partner": "Partner",
+      "anyPartner": "All partners",
+      "state": "State",
+      "anyState": "Any state",
+      "step": "Step",
+      "anyStep": "Any step",
+      "clear": "Clear filters"
+    },
+    "empty": {
+      "title": "No setups running or failing",
+      "body": "Every signup has finished. New stores appear here while their setup runs, and stay if it fails or gets stuck."
+    },
+    "noMatch": {
+      "title": "No signups match",
+      "body": "Try another search, or clear the filters."
+    },
+    "error": {
+      "title": "Signups didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "Provisioning isn’t open to your role",
+      "body": "Super admins, Support and the Engineer on call work this queue.",
+      "back": "Back to the Dashboard"
+    },
+    "cancel": "Cancel",
+    "reasonHint": "Kept in the activity log.",
+    "dialogs": {
+      "retry": {
+        "title": "Retry setup for {name}?",
+        "consequence": "Runs “{step}” again.",
+        "notes": [
+          "Attempt {next}. Steps that finished are kept."
+        ],
+        "confirm": "Retry “{step}”"
+      },
+      "undo": {
+        "title": "Undo and clean up {name}?",
+        "consequence": "Removes everything setup made for {name} (store, hostnames, repo) so {owner} can sign up again.",
+        "notes": [
+          "This can’t be undone."
+        ],
+        "confirm": "Undo and clean up",
+        "reason": "Reason",
+        "typeLabel": "Type {code} to confirm",
+        "typeHint": "Type the store code exactly to confirm."
+      }
+    },
+    "toasts": {
+      "retry": "Retrying “{step}” for {name}.",
+      "retried": "{name} finished setting up.",
+      "failedAgain": "{name} failed again at “{step}”.",
+      "undo": "Cleaning up {name}.",
+      "undone": "{name} is cleaned up. The merchant can sign up again.",
+      "failed": "That didn't work. Nothing was changed. Try again."
     }
   }
 }

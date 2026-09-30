@@ -31,6 +31,7 @@ export const setupLook: Record<SetupState, Look> = {
   running: { tone: 'info', icon: 'clock' },
   failed: { tone: 'danger', icon: 'alert' },
   stuck: { tone: 'warning', icon: 'clock' },
+  cleaning: { tone: 'info', icon: 'clock' },
 }
 
 const domainLook: Record<StoreDomain['status'], Look> = {

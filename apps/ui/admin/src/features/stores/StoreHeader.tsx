@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import type { Store } from '../../api/stores'
 import { fill, messages } from '../../messages'
 import { Tile } from '../common/Tile'
 import { StoreActions, type StoreActionsProps } from './StoreActions'
@@ -10,7 +9,7 @@ const words = messages.store
 
 // The prototype's store header: Stores › partner, the status and its line, then Live,
 // Partner and Code.
-export const StoreHeader = ({ store, onAction }: StoreActionsProps & { store: Store }) => (
+export const StoreHeader = ({ store, onAction, onJob }: StoreActionsProps) => (
   <header className="df-detail-header">
     <nav aria-label={words.breadcrumbLabel} className="df-breadcrumb">
       <Link to="/stores">{words.breadcrumb}</Link>
@@ -55,6 +54,6 @@ export const StoreHeader = ({ store, onAction }: StoreActionsProps & { store: St
         <dd className="df-meta-value">{store.code}</dd>
       </div>
     </dl>
-    <StoreActions store={store} onAction={onAction} />
+    <StoreActions store={store} onAction={onAction} onJob={onJob} />
   </header>
 )
