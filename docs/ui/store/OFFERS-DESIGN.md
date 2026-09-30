@@ -348,7 +348,7 @@ promotions tests before relying on it.
 | **Manager** (`manager`) | Same as Owner, without plan or billing prompts ("Ask your store owner to add this"). |
 | **Staff** (`staff`) | No Offers row *(ask: read-only list so they can answer "why didn't my code work?")*. |
 | **Vendor**, every tier: **Stock only** (`vendor-stock`), **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), read-only orders (`vendor-orders-read`) | **Nothing** (decided). No nav row, no URL, no mention. Opening an offers URL looks like "not found". |
-| Partner or DripFunnel **support session** (read-only, [USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md) §4.1) | Sees offers as the store sees them, read-only, while the merchant allows support access. Can't change anything without the merchant's per-session approval. |
+| Partner **support session** (read-only, [USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md) §4.1; DripFunnel staff impersonate instead, §4.2) | Sees offers as the store sees them, read-only, while the merchant allows support access. Can't change anything without the merchant's per-session approval. |
 
 Roles are fixed templates with permission sets in code; there is no role editor
 ([ACCESS.md](../../api/ACCESS.md)).
@@ -662,7 +662,7 @@ Ready-made starting points that fill the form and leave the merchant to adjust:
 - **Permission denied**: Staff opening an offer URL. **Vendors see "not found".**
 - **Read-only (subscription past due)**: everything visible, nothing editable (PLATFORM-PROMPT
   §2 item 7). Ask whether live offers keep running on the degraded storefront.
-- **Read-only support session**: the support banner is shown and nothing is editable
+- **Read-only partner support session**: the support banner is shown and nothing is editable
   ([USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md) §4.1).
 - **Store API unreachable**: the form is kept, retry offered.
 - **Slow or offline network** on a phone.

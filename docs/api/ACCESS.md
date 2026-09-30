@@ -785,7 +785,9 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
 - the last-Owner invariant holds for stores, partners and staff;
 - a support session can't read another partner's store, can't write before elevation, and
   can't do §8's "never" list even after it;
-- a partner user and staff member get nothing from the Store API outside a support session;
+- a partner user gets nothing from the Store API outside a support session, and a staff
+  member nothing outside an impersonation (§8.1) — a staff caller presenting a support
+  session is itself a failure;
 - the Staff-in-A / vendor-in-B person leaks neither way (§9).
 
 ### 11.2 Structural tests

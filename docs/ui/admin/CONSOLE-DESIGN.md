@@ -581,8 +581,9 @@ cannot be removed or demoted.
 its users' actions and support sessions. Whether DripFunnel staff actions on its merchants
 appear there is *(ask)*.
 
-- P1. Every write in the admin console and every support session: who, when, what, which
-  brand and store, before and after values, reason.
+- P1. Every write in the admin console, every staff impersonation and setup session, and
+  every **partner** support session (staff never open one, ACCESS §8): who, when, what,
+  which brand and store, before and after values, reason.
 - P2. Filter by staff member, brand, store, action. Export. Cannot be edited or deleted.
 - P3. The same entries appear on the store and brand pages they concern.
 

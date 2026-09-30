@@ -113,8 +113,11 @@ On top of the **merchant portal** (in the partner's look) and on top of the **pa
 console**, design a fixed, full-width bar that can't be closed or hidden, in a colour that
 can't be mistaken for the partner's brand (e.g. a strong amber with dark text):
 
-"You are signed in as **Priya Mehta** (Owner, Mehta Textiles) · Support session by Arjun ·
+"You are signed in as **Priya Mehta** (Owner, Mehta Textiles) · Support (Arjun) ·
 Ends in 28 min · **End now**"
+
+(“Support”, never “DripFunnel”, and never “support session” — that is the partner
+mechanism, USERS-AND-DOMAINS §4.1.)
 
 - Show the ticking time; at **5 minutes left** it changes to a warning style ("Ends in 4
   min"); it offers no extension.

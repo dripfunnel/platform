@@ -180,9 +180,10 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   from the session context the API returns, never from local state.
 - **Past due** puts the whole portal in a read-only state with a banner linking to billing;
   it never locks the merchant out.
-- **Support session banner**: while a partner or DripFunnel support session is open, every
-  person signed in to that store sees "[Partner] support (name) is viewing your store.
-  Read-only. Ends in 28 min." (USERS-AND-DOMAINS.md §4.1).
+- **Support session banner**: while a **partner** support session is open, every person
+  signed in to that store sees "[Partner] support (name) is viewing your store. Read-only.
+  Ends in 28 min." (USERS-AND-DOMAINS.md §4.1). DripFunnel staff never open one; when a staff
+  member is impersonating, the banner says "Support (name) is signed in as …" (§4.2).
 - **Regional by default**: every screen that differs by region is designed for a US, an EU
   and an Indian store; tax words, units and formats come from the store's settings.
 - **Phone first**: every screen works at 360 px, with camera upload for photos.

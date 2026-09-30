@@ -11,7 +11,7 @@ mean the admin console at `admin.dripfunnel.com`.
 
 | User | Who | Signs in at | Does | Never sees |
 |---|---|---|---|---|
-| **Admin** | DripFunnel staff | `admin.dripfunnel.com` (staff only) | Runs the whole platform: approves and manages partners, sees every partner and merchant at account level, fleet, billing, integrations | Nothing is hidden, but store-level access follows the same audited support rules as partners (§4) |
+| **Admin** | DripFunnel staff | `admin.dripfunnel.com` (staff only) | Runs the whole platform: approves and manages partners, sees every partner and merchant at account level, fleet, billing, integrations | Nothing is hidden, but store-level access is only ever by **impersonating a user** (§4.2), audited; staff never open a support session (§4.1) |
 | **Partner** | A company that white-labels the platform and sells it to its merchants. **DripFunnel is also a partner** (the house partner) and onboards its own merchants the same way | `platform.dripfunnel.com` (the same host for every partner; not white-labeled) | Self-onboards, sets its branding and domains, its plans and prices, and manages its merchants at account level | Other partners; merchants' customers, orders and catalogues (§4) |
 | **Merchant** | Owns a store, with their staff (Owner, Manager, Staff) | The partner's **portal host**, e.g. `store.partnerdomain.com`, in the partner's look | Lists products, sets up the storefront and its domain, runs orders and offers, invites vendors | Other merchants; the partner's other data |
 | **Vendor** (seller) | A supplier the merchant invites to list products in the merchant's store | The same partner portal host as the merchant | Manages only their own products, stock and (by tier) their order lines | The merchant's and other vendors' data (unchanged from the archived design) |
@@ -138,7 +138,9 @@ partner and merchant.
   staff may sign in as their users for support, without asking (decided; exact wording by
   legal).
 - **Only Super admin and Support** can start one, with a **reason or ticket**, after
-  re-authentication; it lasts **30 minutes**, with no silent extension.
+  re-authentication; it lasts **30 minutes**, **extendable once by 30 minutes** as an explicit,
+  logged action (decided 2026-09-30) and never silently. Past that, a new session with a new
+  reason.
 - **Visible**: the impersonated side sees a banner while it's open (every person signed in
   to that store, or that partner's console): "Support (Arjun) is signed in as Priya. Ends in
   28 min." Always "Support", never "DripFunnel", so white label holds. The staff member sees an unremovable bar
