@@ -17,6 +17,20 @@ export type SetupFilter = (typeof setupFilters)[number]
 export type HostStatus = 'live' | 'waiting' | 'failed' | 'notSet'
 export type InvitationStatus = 'active' | 'sent' | 'held'
 
+export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages', 'testSignup'] as const
+export type GoLiveCheck = (typeof goLiveChecks)[number]
+
+// Who has to approve a submitted partner (FIRST-RELEASE.md §4.3): a Super admin who ran the
+// setup approves it alone, anyone else who did needs a second approver, and a partner that set
+// itself up needs two. `setUpBy` is the staff member who ran the setup session, never called
+// a reviewer, because they may not be the sole approver (decided on #43).
+export type ApproverRule = 'alone' | 'second' | 'two'
+
+export interface PartnerApproval {
+  setUpBy: string | null
+  rule: ApproverRule
+}
+
 export interface PartnerRow {
   id: string
   name: string
@@ -29,13 +43,14 @@ export interface PartnerRow {
   setup: { done: number; total: number }
   owner: { name: string | null; email: string; invitation: InvitationStatus; invitationSentAt: string | null }
   createdAt: string
+  submittedAt: string | null
+  checks: Record<GoLiveCheck, boolean>
+  // Only while the partner is awaiting approval.
+  approval: PartnerApproval | null
 }
 
 export const partnerActions = ['approve', 'sendBack', 'pause', 'resume', 'setupSession', 'sendInvite', 'resendInvite'] as const
 export type PartnerAction = (typeof partnerActions)[number]
-
-export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages', 'testSignup'] as const
-export type GoLiveCheck = (typeof goLiveChecks)[number]
 
 // Stable codes the API gives for a refusal; the words for each are in messages/en.json.
 export type RefusalCode =
@@ -44,6 +59,7 @@ export type RefusalCode =
   | 'INVITERS_ONLY'
   | 'HOUSE_PARTNER'
   | 'GO_LIVE_CHECKS_FAILING'
+  | 'SET_UP_BY_CALLER'
 
 export type ActionPermission =
   | Permission<Exclude<RefusalCode, 'GO_LIVE_CHECKS_FAILING'>>
@@ -58,6 +74,8 @@ export interface PartnerFilter {
   status?: PartnerState | undefined
   setup?: SetupFilter | undefined
   q?: string | undefined
+  // Approvals asks for the oldest submitted first (FIRST-RELEASE.md §6); the list is newest first.
+  sort?: 'oldestSubmitted' | undefined
 }
 
 export interface PartnerPage {

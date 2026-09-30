@@ -27,16 +27,24 @@ describe('stores sample server', () => {
     expect(ids(stores.list({ created: '30d' }, {}, 25))).toContain('s2')
     expect(ids(stores.list({ partner: 'lt' }, {}, 25))).toEqual(['s8'])
     expect(ids(stores.list({ q: 'KIKOKIDS.AE' }, {}, 25))).toEqual(['s3'])
-    expect(ids(stores.list({ storefront: 'own' }, {}, 25))).toEqual(['s7'])
+    expect(ids(stores.list({ storefront: 'own' }, {}, 25))).toEqual(['s14', 's7'])
   })
 
-  it('offers Retry only while setup failed or is stuck, and Undo only for a failed signup', () => {
+  it('gives a signup its job, with Retry while setup failed or is stuck and Undo only once it failed', () => {
     const stores = server()
-    expect(stores.get('s13', 'staff-super-admin')?.actions).toMatchObject({ retry: { allowed: true }, undo: { allowed: true } })
-    expect(stores.get('s5', 'staff-super-admin')?.actions.undo).toBeUndefined()
-    expect(stores.get('s5', 'staff-support')?.actions.retry).toEqual({ allowed: true })
-    expect(stores.get('s13', 'staff-support')?.actions.undo).toEqual({ allowed: false, reason: 'CLEANERS_ONLY' })
-    expect(stores.get('s1', 'staff-super-admin')?.actions.retry).toBeUndefined()
+    expect(stores.get('s13', 'staff-super-admin')?.job).toEqual({ id: 'job-s13', actions: { retry: { allowed: true }, undo: { allowed: true } } })
+    expect(stores.get('s5', 'staff-super-admin')?.job?.actions.undo).toBeUndefined()
+    expect(stores.get('s5', 'staff-support')?.job?.actions.retry).toEqual({ allowed: true })
+    expect(stores.get('s13', 'staff-support')?.job?.actions.undo).toEqual({ allowed: false, reason: 'CLEANERS_ONLY' })
+    expect(stores.get('s1', 'staff-super-admin')?.job?.actions ?? {}).toEqual({})
+  })
+
+  it('reads a step as stuck from its own limit, and counts the steps of the store it is', () => {
+    const stores = server()
+    expect(stores.get('s5', 'staff-super-admin')?.setup).toMatchObject({ state: 'stuck', step: 'firstBuild' })
+    expect(stores.get('s5', 'staff-super-admin')?.setup.steps).toHaveLength(8)
+    expect(stores.get('s14', 'staff-super-admin')?.setup).toMatchObject({ state: 'running', step: 'hostnames' })
+    expect(stores.get('s14', 'staff-super-admin')?.setup.steps).toHaveLength(3)
   })
 
   it('lets the Engineer on call suspend as an emergency, and only a Super admin restore', () => {
@@ -69,7 +77,7 @@ describe('stores sample server', () => {
     expect(stores.get('s2', 'staff-super-admin')?.state).toMatchObject({ kind: 'trial', trialEndsAt: '2026-10-15T00:00:00Z', daysLeft: 15 })
     stores.run('s2', 'addNote', null, '  Called the owner.  ')
     expect(stores.get('s2', 'staff-super-admin')?.notes[0]?.text).toBe('Called the owner.')
-    stores.run('s13', 'undo', 'Retries failed', null)
+    stores.signups.remove('s13')
     expect(stores.get('s13', 'staff-super-admin')).toBeNull()
     expect(ids(stores.list({}, {}, 25))).not.toContain('s13')
   })
@@ -83,7 +91,7 @@ describe('stores sample server', () => {
   })
 
   it('keeps each server separate, so one test never sees another test changes', () => {
-    server().run('s13', 'undo', 'x', null)
+    server().signups.remove('s13')
     expect(server().get('s13', 'staff-super-admin')).not.toBeNull()
   })
 })

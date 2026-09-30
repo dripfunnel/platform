@@ -37,18 +37,15 @@ const reasonField = (label: string, placeholder?: string, hint: string = words.r
 const previousStatus = (store: Store) => messages.stores.statuses[store.state.kind === 'suspended' ? store.state.previous : 'active']
 
 // What each confirmation says, in the prototype's words (designs/DF Admin Prototype.dc.html,
-// the store cases of its dialog). Suspend and Restore name their reason; Undo also asks for
-// one, because every console write is audited with a reason (AGENTS.md).
+// the store cases of its dialog). Suspend and Restore name their reason. Retry and Undo are the
+// signup job's, in provisioning/jobDialog.ts (decided on #43).
 export const storeDialog = (action: DialogAction, store: Store): StoreDialog => {
-  const step = messages.store.provisioning.steps[store.setup.step]
   const values = {
     name: store.name,
     code: store.code,
     partner: store.partner.name,
     owner: store.owner.name,
     email: store.owner.email,
-    step,
-    next: String(store.setup.attempts + 1),
   }
   const base = { target: store.name, danger: false }
   switch (action) {
@@ -88,29 +85,6 @@ export const storeDialog = (action: DialogAction, store: Store): StoreDialog => 
         input: trialInput(trialEndsAt),
       }
     }
-    case 'retry': {
-      const spec = words.dialogs.retry
-      return {
-        ...base,
-        title: fill(spec.title, values),
-        consequence: fill(spec.consequence, values),
-        confirmLabel: fill(spec.confirm, values),
-        notes: spec.notes.map((note) => fill(note, values)),
-      }
-    }
-    case 'undo': {
-      const spec = words.dialogs.undo
-      return {
-        ...base,
-        title: fill(spec.title, values),
-        consequence: fill(spec.consequence, values),
-        confirmLabel: spec.confirm,
-        notes: spec.notes,
-        reason: reasonField(spec.reason),
-        typeToConfirm: { label: fill(spec.typeLabel, values), hint: spec.typeHint, expected: store.code },
-        danger: true,
-      }
-    }
     case 'resendInvite': {
       const spec = words.dialogs.resendInvite
       return { ...base, title: spec.title, consequence: fill(spec.consequence, values), confirmLabel: spec.confirm }
@@ -122,7 +96,6 @@ export const storeToast = (action: StoreAction, store: Store, value: string | nu
   fill(words.toasts[action], {
     name: store.name,
     email: store.owner.email,
-    step: messages.store.provisioning.steps[store.setup.step],
     status: previousStatus(store).toLowerCase(),
     date: value ? dayOf(value) : '',
   })

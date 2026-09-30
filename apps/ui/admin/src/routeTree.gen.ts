@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
 import { Route as AppCustomersRouteImport } from './routes/_app/customers'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
+import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
@@ -36,6 +38,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppApprovalsRoute = AppApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCustomersRoute = AppCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -49,6 +56,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
 const AppPartnersRoute = AppPartnersRouteImport.update({
   id: '/partners',
   path: '/partners',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProvisioningRoute = AppProvisioningRouteImport.update({
+  id: '/provisioning',
+  path: '/provisioning',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStatesRoute = AppStatesRouteImport.update({
@@ -89,9 +101,11 @@ const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/approvals': typeof AppApprovalsRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
   '/partners': typeof AppPartnersRoute
+  '/provisioning': typeof AppProvisioningRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
@@ -102,9 +116,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/approvals': typeof AppApprovalsRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
   '/partners': typeof AppPartnersRoute
+  '/provisioning': typeof AppProvisioningRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
@@ -117,9 +133,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/approvals': typeof AppApprovalsRoute
   '/_app/customers': typeof AppCustomersRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/partners': typeof AppPartnersRoute
+  '/_app/provisioning': typeof AppProvisioningRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
@@ -133,9 +151,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/approvals'
     | '/customers'
     | '/dashboard'
     | '/partners'
+    | '/provisioning'
     | '/states'
     | '/stores'
     | '/sign-in'
@@ -146,9 +166,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/approvals'
     | '/customers'
     | '/dashboard'
     | '/partners'
+    | '/provisioning'
     | '/states'
     | '/stores'
     | '/sign-in'
@@ -160,9 +182,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/approvals'
     | '/_app/customers'
     | '/_app/dashboard'
     | '/_app/partners'
+    | '/_app/provisioning'
     | '/_app/states'
     | '/_app/stores'
     | '/_auth/sign-in'
@@ -201,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/approvals': {
+      id: '/_app/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof AppApprovalsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/customers': {
       id: '/_app/customers'
       path: '/customers'
@@ -220,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/partners'
       fullPath: '/partners'
       preLoaderRoute: typeof AppPartnersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/provisioning': {
+      id: '/_app/provisioning'
+      path: '/provisioning'
+      fullPath: '/provisioning'
+      preLoaderRoute: typeof AppProvisioningRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/states': {
@@ -275,9 +313,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppApprovalsRoute: typeof AppApprovalsRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppPartnersRoute: typeof AppPartnersRoute
+  AppProvisioningRoute: typeof AppProvisioningRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -288,9 +328,11 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppApprovalsRoute: AppApprovalsRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppPartnersRoute: AppPartnersRoute,
+  AppProvisioningRoute: AppProvisioningRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,

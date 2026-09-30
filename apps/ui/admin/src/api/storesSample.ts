@@ -2,12 +2,12 @@
 // serve them: filtered, sorted and paged here, and every permission worked out here, never in
 // a component. It stands in for the server until #34, and goes with it.
 import type { StaffRole } from '../features/shell/staffRoles'
+import { jobPermissionsFor, stateOf, stepsFor, type SampleSetup } from './jobSample'
 import type { ActionPermission } from './permissions'
 import type { PageRequest } from './pageInfo'
 import { samplePage } from './samplePage'
 import { storeNoteMaxLength } from './stores'
 import type {
-  SetupState,
   Store,
   StoreAction,
   StoreDnsRecord,
@@ -22,8 +22,9 @@ import type {
   StoreUser,
 } from './stores'
 
-// A suspended store remembers the whole state it had, so Restore can put it back exactly.
-export type SampleStore = Omit<Store, 'actions'> & { before: StoreState | null }
+// A suspended store remembers the whole state it had, so Restore can put it back exactly. Its
+// signup is the Workflow's own record, which the provisioning sample runs (#43).
+export type SampleStore = Omit<Store, 'actions' | 'job' | 'setup'> & { setup: SampleSetup; before: StoreState | null }
 
 const partnerNames: Record<string, string> = {
   df: 'DripFunnel',
@@ -58,7 +59,8 @@ interface Seed {
   created: string
   storefront?: StoreRow['storefront']
   domain?: { host: string; custom: boolean; status?: StoreDnsRecord['status'] }
-  setup?: StoreRow['setup']
+  setup?: Pick<SampleSetup, 'step' | 'attempts' | 'startedAt' | 'stepMinutes'> &
+    Partial<Pick<SampleSetup, 'details' | 'failsAgain'>> & { state: 'running' | 'failed' }
   error?: string
   people: [owners: number, managers: number, staff: number]
   counts: [suppliers: number, products: number, orders: number]
@@ -79,6 +81,12 @@ const recordsFor = (host: string, custom: boolean, status: StoreDnsRecord['statu
   ]
 }
 
+const setupOf = (seed: Seed): SampleSetup => {
+  const steps = stepsFor(seed.storefront === 'own')
+  const done = { jobId: null, state: 'done', step: steps.at(-1) ?? 'done', attempts: 1, startedAt: null, stepMinutes: 0 } as const
+  return { details: null, failsAgain: false, steps, ...(seed.setup ? { ...seed.setup, jobId: `job-${seed.id}` } : done) }
+}
+
 const sample = (seed: Seed): SampleStore => {
   const shops = shopsDomain[seed.partner] ?? 'dripfunnel.com'
   const host = seed.domain?.host ?? `${seed.code}.shops.${shops}`
@@ -95,7 +103,7 @@ const sample = (seed: Seed): SampleStore => {
     state: seed.state,
     storefront: seed.storefront ?? 'live',
     domain: { host, custom, status },
-    setup: seed.setup ?? { state: 'done', step: 'done', attempts: 1 },
+    setup: setupOf(seed),
     createdAt: `${seed.created}T00:00:00Z`,
     country: seed.country,
     history: seed.history.map(([at, event, by = null, note = null, plan = null]) => ({ at: `${at}T00:00:00Z`, event, by, note, plan })),
@@ -235,7 +243,14 @@ export const sampleStores: readonly SampleStore[] = [
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
     storefront: 'building',
-    setup: { state: 'stuck', step: 'firstBuild', attempts: 2 },
+    setup: {
+      state: 'running',
+      step: 'firstBuild',
+      attempts: 2,
+      startedAt: '2026-09-28T10:04:00Z',
+      stepMinutes: 48,
+      details: 'build bld_7Qx2 state=running runner=eu-2 last_heartbeat=10:39:12Z last_log="Installing theme dependencies"',
+    },
     error: 'The first storefront build has been running for 48 minutes. It usually takes under 5.',
     people: [1, 0, 0],
     counts: [0, 0, 0],
@@ -388,7 +403,15 @@ export const sampleStores: readonly SampleStore[] = [
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
     storefront: 'failed',
-    setup: { state: 'failed', step: 'repo', attempts: 2 },
+    setup: {
+      state: 'failed',
+      step: 'repo',
+      attempts: 2,
+      startedAt: '2026-09-28T09:12:00Z',
+      stepMinutes: 0,
+      details: 'POST https://api.github.com/orgs/df-shops/repos → 502 Bad Gateway after 30s (request 9C1E:4A2B:1F0E)',
+      failsAgain: true,
+    },
     error: 'GitHub didn’t respond while creating the storefront.',
     people: [1, 0, 0],
     counts: [0, 0, 0],
@@ -406,9 +429,9 @@ export const sampleStores: readonly SampleStore[] = [
     plan: ['Launch', 29, 'USD'],
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
-    storefront: 'building',
+    storefront: 'own',
     domain: { host: 'tidewater-surf.shops.northstar.com', custom: false, status: 'waiting' },
-    setup: { state: 'running', step: 'hostnames', attempts: 1 },
+    setup: { state: 'running', step: 'hostnames', attempts: 1, startedAt: '2026-09-28T10:50:00Z', stepMinutes: 1 },
     people: [1, 0, 0],
     counts: [0, 0, 0],
     built: null,
@@ -446,17 +469,11 @@ const allowed = { allowed: true } as const
 const onlyFor = (caller: StaffRole, roles: readonly StaffRole[], reason: StoreRefusal): ActionPermission<StoreRefusal> =>
   roles.includes(caller) ? allowed : { allowed: false, reason }
 
-const failedOrStuck: readonly SetupState[] = ['failed', 'stuck']
-
 // FIRST-RELEASE.md §5.3 with the #20 decisions: which actions a store offers in its state,
 // and whether this caller may use each.
 export const storePermissionsFor = (store: SampleStore, caller: StaffRole): StorePermissions => {
   const actions: StorePermissions = {}
   const kind = store.state.kind
-  if (failedOrStuck.includes(store.setup.state)) {
-    actions.retry = onlyFor(caller, ['staff-super-admin', 'staff-support', 'staff-engineer'], 'RETRIERS_ONLY')
-  }
-  if (store.setup.state === 'failed') actions.undo = onlyFor(caller, ['staff-super-admin', 'staff-engineer'], 'CLEANERS_ONLY')
   if (kind !== 'suspended' && kind !== 'cancelled') {
     const suspend: StorePermission =
       caller === 'staff-engineer' ? { allowed: true, emergency: true } : onlyFor(caller, ['staff-super-admin'], 'SUSPENDERS_ONLY')
@@ -479,7 +496,7 @@ const matches = (store: SampleStore, filter: StoreFilter, now: string) => {
     (!filter.partner || store.partner.id === filter.partner) &&
     (!filter.status || store.state.kind === filter.status) &&
     (!filter.storefront || store.storefront === filter.storefront) &&
-    (!filter.setup || store.setup.state === filter.setup) &&
+    (!filter.setup || stateOf(store.setup) === filter.setup) &&
     (!filter.created || withinDays(store.createdAt, filter.created === '7d' ? 7 : 30, now)) &&
     (!q || [store.name, store.code, store.domain.host, store.owner.email, store.owner.name].some((value) => value.toLowerCase().includes(q)))
   )
@@ -497,7 +514,7 @@ const rowOf = (store: SampleStore): StoreRow => ({
   state: store.state,
   storefront: store.storefront,
   domain: store.domain,
-  setup: store.setup,
+  setup: { state: stateOf(store.setup), step: store.setup.step, steps: store.setup.steps, attempts: store.setup.attempts },
   createdAt: store.createdAt,
 })
 
@@ -523,8 +540,14 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
   const get = (id: string, caller: StaffRole): Store | null => {
     const store = find(id)
     if (!store) return null
-    const { before, ...rest } = store
-    return { ...rest, actions: storePermissionsFor({ ...rest, before }, caller) }
+    const { before, setup, ...rest } = store
+    const state = stateOf(setup)
+    return {
+      ...rest,
+      setup: rowOf(store).setup,
+      job: setup.jobId && state !== 'done' ? { id: setup.jobId, actions: jobPermissionsFor(state, caller) } : null,
+      actions: storePermissionsFor({ ...rest, setup, before }, caller),
+    }
   }
 
   const record = (store: SampleStore, event: StoreHistoryEntry['event'], note: string | null): StoreHistoryEntry[] => [
@@ -559,12 +582,6 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
           history: record(current, 'trialExtended', value),
         }))
         return
-      case 'retry':
-        update(id, (current) => ({ ...current, setup: { state: 'running', step: current.setup.step, attempts: current.setup.attempts + 1 }, provisioning: { error: null } }))
-        return
-      case 'undo':
-        stores = stores.filter((candidate) => candidate.id !== id)
-        return
       case 'addNote':
         if (!value?.trim()) return
         if (value.trim().length > storeNoteMaxLength) throw new Error('The note is too long.')
@@ -577,7 +594,17 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
 
   const recheck = (id: string, host: string) => find(id)?.records.find((candidate) => candidate.host === host)?.status ?? 'waiting'
 
-  return { list, get, run, recheck }
+  // What the provisioning sample runs a signup Workflow on: the same records, so a Retry from
+  // the Provisioning list shows on the store's tab too.
+  const signups = {
+    all: (): readonly SampleStore[] => stores,
+    update,
+    remove: (id: string) => {
+      stores = stores.filter((store) => store.id !== id)
+    },
+  }
+
+  return { list, get, run, recheck, signups }
 }
 
 export const storesServer = createStoresServer(sampleStores)

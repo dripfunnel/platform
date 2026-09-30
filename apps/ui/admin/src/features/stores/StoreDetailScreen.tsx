@@ -1,10 +1,13 @@
 import { getRouteApi, useNavigate, useRouter } from '@tanstack/react-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import { jobActions, type JobAction } from '../../api/provisioning'
 import { recheckStoreDomain, runStoreAction, type Store, type StoreDnsRecord } from '../../api/stores'
 import { fill, messages } from '../../messages'
 import { ConfirmDialog } from '../common/ConfirmDialog'
 import { Toast } from '../common/Toast'
 import { useScreenState } from '../common/useScreenState'
+import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
+import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
 import { storeStates } from './storeHarness'
@@ -12,10 +15,20 @@ import { storeStates } from './storeHarness'
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
 const shellRoute = getRouteApi('/_app')
 
-const dialogActions: readonly DialogAction[] = ['retry', 'suspend', 'restore', 'extendTrial', 'resendInvite', 'undo']
+type Pending = { kind: 'store'; action: DialogAction } | { kind: 'job'; action: JobAction }
 
-// ?state=confirm opens the first action this store offers, so its dialog can be checked.
-const firstAllowed = (store: Store | null): DialogAction | null => dialogActions.find((action) => store?.actions[action]?.allowed) ?? null
+const dialogActions: readonly DialogAction[] = ['suspend', 'restore', 'extendTrial', 'resendInvite']
+
+// ?state=confirm opens the first action this store offers, its signup job's first, so its
+// dialog can be checked.
+const firstAllowed = (store: Store | null): Pending | null => {
+  const job = jobActions.find((action) => store?.job?.actions[action]?.allowed)
+  if (job) return { kind: 'job', action: job }
+  const action = dialogActions.find((candidate) => store?.actions[candidate]?.allowed)
+  return action ? { kind: 'store', action } : null
+}
+
+const targetOf = (store: Store): JobTarget => ({ name: store.name, code: store.code, owner: store.owner, step: store.setup.step, attempts: store.setup.attempts })
 
 export const StoreDetailScreen = () => {
   const store = storeRoute.useLoaderData()
@@ -24,20 +37,33 @@ export const StoreDetailScreen = () => {
   const forced = useScreenState(storeStates)
   const router = useRouter()
   const navigate = useNavigate()
-  const [pending, setPending] = useState<DialogAction | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))
+  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = () => setToast(messages.store.toasts.failed)
 
-  const onConfirm = (action: DialogAction, target: Store, reason: string | null, value: string | null) => {
+  const jobs = useMemo(() => (store?.job ? [{ id: store.job.id, state: store.setup.state }] : []), [store])
+  // A cleaned-up signup has no page left to show (decided on #20), so its message goes with it
+  // to Stores once the Workflow has finished.
+  const onOutcome = useCallback(
+    (outcome: JobOutcome, message: string) => {
+      if (outcome === 'undone') void navigate({ to: '/stores', state: { toast: message } })
+      else setToast(message)
+    },
+    [navigate],
+  )
+  const { run } = useJobRuns(jobs, onOutcome)
+
+  const onConfirm = (next: Pending, target: Store, reason: string | null, value: string | null) => {
     setPending(null)
-    runStoreAction(target.id, action, reason, value)
+    if (next.kind === 'job') {
+      if (!target.job) return
+      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch(failed)
+      return
+    }
+    runStoreAction(target.id, next.action, reason, value)
       .then(() => {
-        const message = storeToast(action, target, value)
-        // A cleaned-up signup has no page left to show (decided on #20), so its message goes
-        // with it to Stores.
-        if (action === 'undo') return navigate({ to: '/stores', state: { toast: message } })
-        setToast(message)
+        setToast(storeToast(next.action, target, value))
         return router.invalidate()
       })
       .catch(failed)
@@ -65,7 +91,7 @@ export const StoreDetailScreen = () => {
           .catch(failed)
       : Promise.resolve()
 
-  const dialog = store && pending ? storeDialog(pending, store) : null
+  const dialog = store && pending ? (pending.kind === 'job' ? jobDialog(pending.action, targetOf(store)) : storeDialog(pending.action, store)) : null
 
   return (
     <>
@@ -74,7 +100,8 @@ export const StoreDetailScreen = () => {
         tab={tab}
         forced={forced}
         readOnly={me.role === 'staff-read-only' || forced === 'readonly'}
-        onAction={setPending}
+        onAction={(action) => setPending({ kind: 'store', action })}
+        onJob={(action) => setPending({ kind: 'job', action })}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
         customers={{

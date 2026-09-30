@@ -6,6 +6,8 @@ import { harnessEnabled } from '../features/common/useScreenState'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission } from './permissions'
+import type { JobPermissions, JobState } from './provisioning'
+import type { ProvisioningStep } from './provisioningSteps'
 import { storesServer } from './storesSample'
 
 export const storeStatuses = ['trial', 'active', 'pastdue', 'suspended', 'cancelled'] as const
@@ -14,15 +16,11 @@ export type StoreStatus = (typeof storeStatuses)[number]
 export const storefrontStates = ['live', 'building', 'failed', 'own'] as const
 export type StorefrontState = (typeof storefrontStates)[number]
 
-export const setupStates = ['done', 'running', 'failed', 'stuck'] as const
+export const setupStates = ['done', 'running', 'failed', 'stuck', 'cleaning'] as const satisfies readonly (JobState | 'done')[]
 export type SetupState = (typeof setupStates)[number]
 
 export const createdWindows = ['7d', '30d'] as const
 export type CreatedWindow = (typeof createdWindows)[number]
-
-// SAAS.md §5's steps, in order; Done is the last.
-export const provisioningSteps = ['account', 'store', 'defaults', 'hostnames', 'repo', 'firstBuild', 'done'] as const
-export type ProvisioningStep = (typeof provisioningSteps)[number]
 
 // What the Status column shows. A suspended store carries the status it had before, so
 // Restore returns it there, never simply to Active (decided on #20).
@@ -49,18 +47,18 @@ export interface StoreRow {
   state: StoreState
   storefront: StorefrontState
   domain: StoreDomain
-  setup: { state: SetupState; step: ProvisioningStep; attempts: number }
+  // `steps` is this store's own run: eight, or three for a store with its own frontend.
+  setup: { state: SetupState; step: ProvisioningStep; steps: readonly ProvisioningStep[]; attempts: number }
   createdAt: string
 }
 
-export const storeActions = ['retry', 'suspend', 'restore', 'extendTrial', 'resendInvite', 'undo', 'addNote'] as const
+// Retry and Undo and clean up are the signup job's, in provisioning.ts (decided on #43).
+export const storeActions = ['suspend', 'restore', 'extendTrial', 'resendInvite', 'addNote'] as const
 export type StoreAction = (typeof storeActions)[number]
 
 export type StoreRefusal =
   | 'SUPER_ADMIN_ONLY'
   | 'SUSPENDERS_ONLY'
-  | 'RETRIERS_ONLY'
-  | 'CLEANERS_ONLY'
   | 'INVITERS_ONLY'
   | 'NOTERS_ONLY'
 
@@ -135,6 +133,8 @@ export interface Store extends StoreRow {
   users: readonly StoreUser[]
   supportAccess: boolean
   notes: readonly StoreNote[]
+  // The signup job while setup hasn't finished, with what may be done to it.
+  job: { id: string; actions: JobPermissions } | null
   actions: StorePermissions
 }
 

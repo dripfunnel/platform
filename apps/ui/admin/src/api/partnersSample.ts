@@ -9,6 +9,7 @@ import type {
   HistoryEntry,
   Partner,
   PartnerAction,
+  PartnerApproval,
   PartnerDomain,
   PartnerFilter,
   PartnerPage,
@@ -20,7 +21,7 @@ import type {
 import type { PageRequest } from './pageInfo'
 import { samplePage } from './samplePage'
 
-export type SamplePartner = Omit<Partner, 'actions' | 'setup' | 'portalHost'> & { checks: Record<GoLiveCheck, boolean> }
+export type SamplePartner = Omit<Partner, 'actions' | 'setup' | 'portalHost' | 'submittedAt' | 'approval'>
 
 const edge = 'edge.dripfunnel.net'
 
@@ -301,6 +302,20 @@ const allowed: ActionPermission = { allowed: true }
 const partnerAdmins: readonly StaffRole[] = ['staff-super-admin', 'staff-partner-manager']
 const inviters: readonly StaffRole[] = [...partnerAdmins, 'staff-support']
 
+// The sample's staff, so the Approve refusal can tell who is asking; the session names them
+// once staff sign-in lands (#13).
+const staffRoleOf: Partial<Record<string, StaffRole>> = { 'Arjun Menon': 'staff-super-admin', 'Priya Shah': 'staff-partner-manager', 'Maya Ortiz': 'staff-partner-manager' }
+const personFor: Partial<Record<StaffRole, string>> = { 'staff-super-admin': 'Arjun Menon', 'staff-partner-manager': 'Priya Shah' }
+
+const lastEvent = (partner: SamplePartner, kind: HistoryEntry['event']) => partner.history.filter((entry) => entry.event === kind).at(-1)
+
+const approvalOf = (partner: SamplePartner): PartnerApproval | null => {
+  if (partner.state !== 'awaiting') return null
+  const setUpBy = lastEvent(partner, 'setUp')?.by ?? null
+  if (!setUpBy) return { setUpBy, rule: 'two' }
+  return { setUpBy, rule: staffRoleOf[setUpBy] === 'staff-super-admin' ? 'alone' : 'second' }
+}
+
 const onlyFor = (caller: StaffRole, roles: readonly StaffRole[], reason: 'SUPER_ADMIN_ONLY' | 'PARTNER_ADMINS_ONLY' | 'INVITERS_ONLY'): ActionPermission =>
   roles.includes(caller) ? allowed : { allowed: false, reason }
 
@@ -313,10 +328,13 @@ export const permissionsFor = (partner: SamplePartner, caller: StaffRole): Partn
   actions.setupSession = onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY')
   if (partner.state === 'awaiting') {
     const failingChecks = (Object.keys(partner.checks) as GoLiveCheck[]).filter((check) => !partner.checks[check])
+    const setUpBy = approvalOf(partner)?.setUpBy
     actions.approve =
       failingChecks.length > 0
         ? { allowed: false, reason: 'GO_LIVE_CHECKS_FAILING', failingChecks }
-        : onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY')
+        : setUpBy && setUpBy === personFor[caller] && caller !== 'staff-super-admin'
+          ? { allowed: false, reason: 'SET_UP_BY_CALLER' }
+          : onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY')
     actions.sendBack = onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY')
   }
   if (partner.state === 'live') {
@@ -350,6 +368,9 @@ const rowOf = (partner: SamplePartner) => ({
   setup: setupOf(partner),
   owner: partner.owner,
   createdAt: partner.createdAt,
+  submittedAt: partner.state === 'awaiting' ? (lastEvent(partner, 'submitted')?.at ?? null) : null,
+  checks: partner.checks,
+  approval: approvalOf(partner),
 })
 
 const matches = (partner: SamplePartner, filter: PartnerFilter) => {
@@ -365,6 +386,9 @@ const matches = (partner: SamplePartner, filter: PartnerFilter) => {
 
 // Newest first, then by id so the order is total and a cursor always means one place.
 const newestFirst = (a: SamplePartner, b: SamplePartner) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id)
+
+const oldestSubmitted = (a: SamplePartner, b: SamplePartner) =>
+  (lastEvent(a, 'submitted')?.at ?? '').localeCompare(lastEvent(b, 'submitted')?.at ?? '') || a.id.localeCompare(b.id)
 
 const stateAfter: Partial<Record<PartnerAction, SamplePartner['state']>> = {
   approve: 'live',
@@ -386,7 +410,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
   const find = (id: string) => partners.find((partner) => partner.id === id)
 
   const list = (filter: PartnerFilter, page: PageRequest, size: number, caller: StaffRole): PartnerPage => {
-    const all = partners.filter((partner) => matches(partner, filter)).sort(newestFirst)
+    const all = partners.filter((partner) => matches(partner, filter)).sort(filter.sort === 'oldestSubmitted' ? oldestSubmitted : newestFirst)
     const { items, pageInfo } = samplePage(all, page, size)
     return {
       items: items.map(rowOf),
@@ -399,8 +423,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
   const get = (id: string, caller: StaffRole): Partner | null => {
     const partner = find(id)
     if (!partner) return null
-    const { checks, ...rest } = partner
-    return { ...rest, ...rowOf(partner), actions: permissionsFor({ ...rest, checks }, caller) }
+    return { ...partner, ...rowOf(partner), actions: permissionsFor(partner, caller) }
   }
 
   const run = (id: string, action: PartnerAction, reason: string | null) => {
