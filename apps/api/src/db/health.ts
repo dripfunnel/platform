@@ -20,7 +20,7 @@ interface WaitUntil {
   waitUntil: (promise: Promise<unknown>) => void
 }
 
-export const checkHealth = async (config: Config, ctx: WaitUntil): Promise<DbStatus> => {
+export const checkHealth = async (config: Pick<Config, 'HYPERDRIVE'>, ctx: WaitUntil): Promise<DbStatus> => {
   const { HYPERDRIVE } = config
   // 'unconfigured' maps to ok: true (index.ts) only because no Hyperdrive resource is
   // provisioned in production yet (wrangler.jsonc). Once it is, this must stop being treated
