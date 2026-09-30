@@ -35,12 +35,15 @@ jobs:
       # hosts. If those variables were ever set to the same value, Gates would silently be
       # allowed to migrate/write to the real dev database instead of the disposable test branch.
       - name: Guard rails
+        env:
+          ALLOWED_TEST_HOST: ${{ vars.ALLOWED_TEST_HOST }}
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
         run: |
-          if [ -z "${{ vars.ALLOWED_TEST_HOST }}" ] || [ -z "${{ vars.ALLOWED_MIGRATION_HOST }}" ]; then
+          if [ -z "$ALLOWED_TEST_HOST" ] || [ -z "$ALLOWED_MIGRATION_HOST" ]; then
             echo "ALLOWED_TEST_HOST and ALLOWED_MIGRATION_HOST must both be set." >&2
             exit 1
           fi
-          if [ "${{ vars.ALLOWED_TEST_HOST }}" = "${{ vars.ALLOWED_MIGRATION_HOST }}" ]; then
+          if [ "$ALLOWED_TEST_HOST" = "$ALLOWED_MIGRATION_HOST" ]; then
             echo "ALLOWED_TEST_HOST must not equal ALLOWED_MIGRATION_HOST: Gates must not be allowed to touch the dev database." >&2
             exit 1
           fi
