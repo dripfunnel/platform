@@ -1,9 +1,7 @@
 name: dev
 
-# Persistent dev environment: redeployed on every push to dev.
-# Uses the top-level wrangler.jsonc `dev` env (Cloudflare account #49),
-# a persistent Neon branch (not created/destroyed per-push), and fixed Pages
-# project names.
+# The persistent dev environment (ARCHITECTURE.md §6): the `dev` wrangler env, a Neon branch
+# that is not created per push, and fixed Pages project names.
 
 on:
   push:
@@ -31,22 +29,14 @@ jobs:
       run:
         working-directory: apps/api
     steps:
-      # Full history: the change filter below needs the previous commit, and the default
-      # shallow checkout does not have it.
+      # The change filter needs the previous commit; the default checkout is shallow.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
 
-      # ARCHITECTURE.md §6: each app deploys "only when its own files or `apps/ui/shared/`
-      # change". Done with git rather than a third-party action, so the deploy path gains no
-      # supply-chain surface.
-      #
-      # It fails safe, because the cost is asymmetric: a redundant deploy costs a minute,
-      # a skipped one leaves the environment serving an old build while the run goes green.
-      # So everything deploys whenever the filter cannot be trusted — no usable base commit
-      # (the first push, a force-push, a manual run), or a previous run that did not succeed,
-      # after which what is actually deployed is unknown.
+      # ARCHITECTURE.md §6. Fails safe: a redundant deploy costs a minute, a skipped one
+      # leaves the environment stale while the run goes green.
       - name: What changed
         id: changed
         working-directory: .
@@ -67,12 +57,9 @@ jobs:
             exit 0
           fi
 
-          # A failed run may have deployed some apps and not others, so the diff since the
-          # last push no longer describes the gap between the branch and the environment.
-          # An empty answer means there is no previous run; a failed query means we do not
-          # know. They must not be treated alike, so the exit status is what is tested rather
-          # than the string — `|| echo ""` here would make an API error look like a clean
-          # history and skip the deploys it was meant to force.
+          # After a failed run the diff no longer describes the gap to the environment.
+          # Empty means no previous run; a failed query means we do not know. Hence the exit
+          # status rather than the string.
           if previous="$(gh run list --workflow dev.yml --branch "$GITHUB_REF_NAME" \
                --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""')"; then
             echo "Previous completed run: ${previous:-none}"
@@ -90,7 +77,7 @@ jobs:
           files="$(git diff --name-only "$BEFORE" "$AFTER")"
           echo "Changed files:"; echo "$files" | sed 's/^/  /'
 
-          # A root-level change can affect any build, so it deploys everything.
+          # A root change can affect any build.
           if echo "$files" | grep -Eq '^(pnpm-lock\.yaml|pnpm-workspace\.yaml|package\.json|turbo\.json|tsconfig\.base\.json|eslint\.config\.js|\.github/)'; then
             echo "A root or workflow file changed: deploying everything."
             everything
@@ -140,9 +127,8 @@ jobs:
           ALLOW_REMOTE_MIGRATIONS: '1'
           ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_TEST_HOST }}
 
-      # Not filtered, on purpose. `migrate` is a no-op when nothing is pending, and a run
-      # whose migration step failed must be retried by the next push even if that push did
-      # not touch apps/api.
+      # Not filtered: `migrate` is a no-op when nothing is pending, and a failed run must be
+      # retried by the next push whatever it touched.
       - name: Migrations
         run: pnpm run --if-present migrate
         env:

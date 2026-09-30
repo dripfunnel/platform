@@ -1,15 +1,8 @@
 name: claude-review
 
-# A second pass on every pull request, against this repo's own rules (WORKFLOW.md §7,
-# AGENTS.md). It does not replace the human reviewer in WORKFLOW.md §7.
-#
-# Decided 2026-09-30 (#70), reversing WORKFLOW.md §1's "advisory only": this check goes
-# red in two cases, and it used to go green in both.
-#   1. The review could not run — missing or expired token, the Claude GitHub App removed,
-#      an API error. `continue-on-error` hid this, so a review that never happened looked
-#      exactly like a review that found nothing.
-#   2. The review found something it would ask the author to change.
-# It fails closed: no verdict means no review, which is not a pass.
+# A second pass on every pull request (WORKFLOW.md §7), which does not replace the human
+# reviewer. The check goes red when the review asks for a change and when it could not run:
+# no verdict means no review, which is not a pass.
 
 on:
   pull_request:

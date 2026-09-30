@@ -42,10 +42,8 @@ describe('the data boundary', () => {
   })
 
   it('touches the row-level security settings in exactly two files', () => {
-    // DATA-MODEL.md §5.1: the settings come from the caller's context, never from request
-    // input. Two files are allowed to know about them, and the split is the point:
-    // db/rls/settings.ts decides the values from the context, db/scoped applies them. Any
-    // third file could set a scope of its own choosing, which is the whole risk.
+    // db/rls/settings.ts decides the values from the caller's context and db/scoped applies
+    // them (DATA-MODEL.md §5.1). A third file could choose a scope of its own.
     const allowed = [path.join('db', 'rls', 'settings.ts'), path.join('db', 'scoped', 'index.ts')]
     const offenders = filesUnder(srcDir)
       .filter((file) => !allowed.includes(relative(file)))
