@@ -24,8 +24,9 @@ concurrency:
 
 jobs:
   promote:
-    # workflow_dispatch can target any branch; the checked-out commit_sha is validated
-    # separately, but the workflow file and local actions come from the dispatched ref itself.
+    # workflow_dispatch can target any branch, so this guard keeps the job (and the workflow
+    # file it runs) restricted to main. commit_sha is checked out separately, below, only after
+    # it's validated as an ancestor of origin/main.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: prod
