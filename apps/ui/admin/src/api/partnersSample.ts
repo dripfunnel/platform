@@ -15,9 +15,10 @@ import type {
   PartnerPermissions,
   PartnerPlan,
   PartnerUser,
-  PageRequest,
   SetupRow,
 } from './partners'
+import type { PageRequest } from './pageInfo'
+import { samplePage } from './samplePage'
 
 export type SamplePartner = Omit<Partner, 'actions' | 'setup' | 'portalHost'> & { checks: Record<GoLiveCheck, boolean> }
 
@@ -386,19 +387,10 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
 
   const list = (filter: PartnerFilter, page: PageRequest, size: number, caller: StaffRole): PartnerPage => {
     const all = partners.filter((partner) => matches(partner, filter)).sort(newestFirst)
-    const afterIndex = page.after ? all.findIndex((partner) => partner.id === page.after) : -1
-    const beforeIndex = page.before ? all.findIndex((partner) => partner.id === page.before) : -1
-    const start = beforeIndex >= 0 ? Math.max(0, beforeIndex - size) : afterIndex + 1
-    const end = beforeIndex >= 0 ? beforeIndex : start + size
-    const items = all.slice(start, end).map(rowOf)
+    const { items, pageInfo } = samplePage(all, page, size)
     return {
-      items,
-      pageInfo: {
-        startCursor: items[0]?.id ?? null,
-        endCursor: items.at(-1)?.id ?? null,
-        hasPreviousPage: start > 0,
-        hasNextPage: end < all.length,
-      },
+      items: items.map(rowOf),
+      pageInfo,
       total: all.length,
       create: onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY'),
     }

@@ -209,6 +209,10 @@
   background: var(--df-color-hover);
 }
 
+.df-table tbody tr.df-row-clickable {
+  cursor: pointer;
+}
+
 .df-table tbody th {
   font-weight: 400;
 }
@@ -346,6 +350,16 @@
 
 .df-detail-meta dt {
   color: var(--df-color-muted);
+}
+
+.df-list a.df-meta-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.df-meta-value {
+  color: var(--df-color-text);
+  font-weight: 600;
 }
 
 .df-detail-meta dd {

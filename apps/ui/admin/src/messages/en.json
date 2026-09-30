@@ -53,7 +53,8 @@
   "nav": {
     "dashboard": "Dashboard",
     "partners": "Partners",
-    "stores": "Stores"
+    "stores": "Stores",
+    "customers": "Customers"
   },
   "screens": {
     "dashboard": {
@@ -761,6 +762,7 @@
       "domains": "Domains",
       "provisioning": "Provisioning",
       "users": "Users",
+      "customers": "Customers",
       "support": "Support",
       "activity": "Activity",
       "notes": "Notes"
@@ -1000,6 +1002,143 @@
       "resendInvite": "New invitation sent to {email}.",
       "addNote": "Note added.",
       "failed": "That didn't work. Nothing was changed. Try again."
+    }
+  },
+  "customers": {
+    "level": "Platform · Every partner",
+    "title": "Customers",
+    "sub": "Shopper accounts on every store. One row per store account: the same person can appear once for each store they buy from.",
+    "loading": "Loading customers",
+    "tableLabel": "Customers",
+    "pagerLabel": "Customers pages",
+    "newestFirst": "Newest first",
+    "recorded": "Opening a customer is recorded in the activity log.",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "store": "Store",
+      "partner": "Partner",
+      "signsInWith": "Signs in with",
+      "status": "Status",
+      "orders": "Orders",
+      "created": "Created",
+      "lastSignIn": "Last sign-in"
+    },
+    "statuses": {
+      "active": "Active",
+      "unverified": "Unverified",
+      "deleted": "Deleted"
+    },
+    "signInMethods": {
+      "email": "Email",
+      "mobile": "Mobile",
+      "both": "Both"
+    },
+    "deletedName": "Deleted customer",
+    "none": "—",
+    "filters": {
+      "label": "Filter customers",
+      "search": "Search customers",
+      "searchPlaceholder": "Search by name, exact email or exact phone",
+      "partner": "Partner",
+      "anyPartner": "All partners",
+      "store": "Store",
+      "anyStore": "Any store",
+      "status": "Status",
+      "anyStatus": "Any status",
+      "via": "Signs in with",
+      "anyVia": "Any",
+      "created": "Created",
+      "lastSignIn": "Last sign-in",
+      "anyTime": "Any time",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "clear": "Clear filters"
+    },
+    "matches": {
+      "email": {
+        "one": "{count} account uses this email.",
+        "other": "{count} accounts use this email, one per store."
+      },
+      "phone": {
+        "one": "{count} account uses this phone number.",
+        "other": "{count} accounts use this phone number, one per store."
+      },
+      "phoneCountries": "{count} accounts match this number in {countries}. A number without its country code can belong to different people, so check the country before treating them as one."
+    },
+    "empty": {
+      "title": "No customers yet",
+      "body": "Shopper accounts appear here when people sign up on a merchant’s store."
+    },
+    "storeEmpty": {
+      "title": "No customers yet",
+      "body": "Shopper accounts appear here when people sign up on this store."
+    },
+    "noMatch": {
+      "title": "No customers match",
+      "body": "Email and phone searches need the full address or number, typed exactly.",
+      "clearSearch": "Clear search"
+    },
+    "error": {
+      "title": "Customers didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "readOnly": {
+      "title": "Read-only",
+      "body": "Your role can look but not change anything. Customers have no actions for any role."
+    }
+  },
+  "customer": {
+    "level": "Customer · {partner} › {store}",
+    "loading": "Loading the customer",
+    "breadcrumb": "Customers",
+    "breadcrumbLabel": "Breadcrumb",
+    "tabsLabel": "Customer sections",
+    "tabs": {
+      "overview": "Overview",
+      "activity": "Activity"
+    },
+    "meta": {
+      "store": "Customer of",
+      "partner": "Partner",
+      "recorded": "Your view is recorded"
+    },
+    "overview": {
+      "title": "Overview",
+      "email": "Email",
+      "phone": "Phone",
+      "signsInWith": "Signs in with",
+      "signsInWithValue": "{method} (the store decides what it offers)",
+      "created": "Created",
+      "lastSignIn": "Last sign-in",
+      "orders": "Orders",
+      "orderCount": {
+        "one": "{count} order",
+        "other": "{count} orders"
+      },
+      "none": "None",
+      "verified": "Verified",
+      "notVerified": "Not verified",
+      "masked": "Full contact details: Super admin and Support",
+      "never": "Orders are a count only. Addresses, order contents and payment details are never shown here."
+    },
+    "deleted": "This customer asked for their data to be deleted on {date}. Their history is kept without personal details.",
+    "suspended": "{store} is suspended ({reason}). Its customers can’t sign in while it is.",
+    "openStore": "Open the store",
+    "activity": {
+      "placeholder": "This customer's sign-ins, account changes and orders arrive with the activity log card."
+    },
+    "notFound": {
+      "title": "Customer not found",
+      "body": "The link may be wrong.",
+      "back": "Back to Customers"
+    },
+    "error": {
+      "title": "This customer didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
     }
   }
 }

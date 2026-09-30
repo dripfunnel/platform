@@ -3,9 +3,10 @@
 // a component. It stands in for the server until #34, and goes with it.
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { ActionPermission } from './permissions'
+import type { PageRequest } from './pageInfo'
+import { samplePage } from './samplePage'
 import { storeNoteMaxLength } from './stores'
 import type {
-  PageRequest,
   SetupState,
   Store,
   StoreAction,
@@ -511,19 +512,10 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
 
   const list = (filter: StoreFilter, page: PageRequest, size: number): StorePage => {
     const all = stores.filter((store) => matches(store, filter, now())).sort(newestFirst)
-    const afterIndex = page.after ? all.findIndex((store) => store.id === page.after) : -1
-    const beforeIndex = page.before ? all.findIndex((store) => store.id === page.before) : -1
-    const start = beforeIndex >= 0 ? Math.max(0, beforeIndex - size) : afterIndex + 1
-    const end = beforeIndex >= 0 ? beforeIndex : start + size
-    const items = all.slice(start, end).map(rowOf)
+    const { items, pageInfo } = samplePage(all, page, size)
     return {
-      items,
-      pageInfo: {
-        startCursor: items[0]?.id ?? null,
-        endCursor: items.at(-1)?.id ?? null,
-        hasPreviousPage: start > 0,
-        hasNextPage: end < all.length,
-      },
+      items: items.map(rowOf),
+      pageInfo,
       partners: Object.entries(partnerNames).map(([id, name]) => ({ id, name })),
     }
   }

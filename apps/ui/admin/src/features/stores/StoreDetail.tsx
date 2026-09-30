@@ -7,6 +7,7 @@ import { EmptyState } from '../common/EmptyState'
 import { ErrorState } from '../common/ErrorState'
 import { LoadingState } from '../common/LoadingState'
 import { ReadOnlyNotice } from '../common/ReadOnlyNotice'
+import { CustomersTab, type StoreCustomers } from './CustomersTab'
 import { DomainsTab } from './DomainsTab'
 import { NotesTab } from './NotesTab'
 import { OverviewTab } from './OverviewTab'
@@ -30,6 +31,7 @@ export interface StoreDetailProps {
   onAction: (action: DialogAction) => void
   onAddNote: (text: string) => Promise<boolean>
   onRecheck: (record: StoreDnsRecord) => Promise<void>
+  customers: StoreCustomers
   onReload: () => void
 }
 
@@ -45,9 +47,9 @@ export const StoreError = ({ onRetry }: { onRetry: () => void }) => (
   </div>
 )
 
-type TabProps = Pick<StoreDetailProps, 'tab' | 'onAction' | 'onAddNote' | 'onRecheck'> & { store: Store }
+type TabProps = Pick<StoreDetailProps, 'tab' | 'onAction' | 'onAddNote' | 'onRecheck' | 'customers'> & { store: Store }
 
-const TabContent = ({ store, tab, onAction, onAddNote, onRecheck }: TabProps) => {
+const TabContent = ({ store, tab, onAction, onAddNote, onRecheck, customers }: TabProps) => {
   switch (tab) {
     case 'overview':
       return <OverviewTab store={store} />
@@ -59,6 +61,8 @@ const TabContent = ({ store, tab, onAction, onAddNote, onRecheck }: TabProps) =>
       return <ProvisioningTab store={store} onAction={onAction} />
     case 'users':
       return <UsersTab store={store} />
+    case 'customers':
+      return <CustomersTab store={store} customers={customers} />
     case 'support':
       return <SupportTab store={store} />
     case 'activity':
@@ -72,7 +76,7 @@ const TabContent = ({ store, tab, onAction, onAddNote, onRecheck }: TabProps) =>
   }
 }
 
-export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onAddNote, onRecheck, onReload }: StoreDetailProps) => {
+export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onAddNote, onRecheck, customers, onReload }: StoreDetailProps) => {
   if (forced === 'loading') return <StoreLoading />
   if (forced === 'error') return <StoreError onRetry={onReload} />
   if (!store) {
@@ -95,7 +99,7 @@ export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onAddNote,
       {readOnly && <ReadOnlyNotice title={messages.stores.readOnly.title} body={messages.stores.readOnly.body} />}
       <StoreHeader store={store} onAction={onAction} />
       <StoreTabs storeId={store.id} current={tab} />
-      <TabContent store={store} tab={tab} onAction={onAction} onAddNote={onAddNote} onRecheck={onRecheck} />
+      <TabContent store={store} tab={tab} onAction={onAction} onAddNote={onAddNote} onRecheck={onRecheck} customers={customers} />
     </div>
   )
 }

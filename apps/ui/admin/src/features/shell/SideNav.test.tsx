@@ -16,12 +16,12 @@ const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApp
   return renderToString(<RouterProvider router={router} />)
 }
 
-const absentPaths = ['/customers', '/approvals', '/provisioning', '/impersonate', '/activity', '/staff']
+const absentPaths = ['/approvals', '/provisioning', '/impersonate', '/activity', '/staff']
 
 describe('SideNav', () => {
-  it.each(staffRoles)('renders the three first-release rows for %s', async (role) => {
+  it.each(staffRoles)('renders the first-release rows built so far for %s', async (role) => {
     const html = await render(role)
-    for (const path of ['/dashboard', '/partners', '/stores']) expect(html).toContain(`href="${path}"`)
+    for (const path of ['/dashboard', '/partners', '/stores', '/customers']) expect(html).toContain(`href="${path}"`)
   })
 
   it.each(staffRoles)('leaves the other menus out of the markup for %s, rather than disabling them', async (role) => {

@@ -19,7 +19,7 @@ const firstAllowed = (store: Store | null): DialogAction | null => dialogActions
 
 export const StoreDetailScreen = () => {
   const store = storeRoute.useLoaderData()
-  const { tab = 'overview' } = storeRoute.useSearch()
+  const { tab = 'overview', after, before, ...customerFilter } = storeRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
   const forced = useScreenState(storeStates)
   const router = useRouter()
@@ -77,6 +77,11 @@ export const StoreDetailScreen = () => {
         onAction={setPending}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
+        customers={{
+          filter: customerFilter,
+          page: { after, before },
+          onFilterChange: (filter) => void navigate({ to: '.', search: { tab, ...filter }, replace: true }),
+        }}
         onReload={() => void router.invalidate()}
       />
       {store && (

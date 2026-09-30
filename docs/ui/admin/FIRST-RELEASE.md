@@ -215,8 +215,15 @@ once for each store they buy from.
 | Created, Last sign-in | Dates |
 
 - **Search** by name, **exact** email or **exact** phone (full values are matched but never
-  shown in the list), store or partner. Filters: partner, store, status, sign-in method,
-  created, last sign-in. In the URL.
+  shown in the list). A phone matches on its digits, **with or without the country code**,
+  so one number can match different people in different countries; the results then name
+  each number's country (decided on #42). For an exact email or phone search the answer
+  also says how many accounts matched and, for a phone, their countries, counted over every
+  page, so the "N accounts use this email" line doesn't change as you page. The search term is **never in the URL**: it travels
+  in the request body, so no email or phone reaches browser history, an access log or a
+  `Referer` (decided on #42).
+- **Filters**: partner, store, status, sign-in method, created, last sign-in. In the URL, so a
+  filtered view can be shared. Store and partner are filters, not search terms.
 - The same list appears on each store's page as a **Customers** tab, pre-filtered.
 
 **Customer detail**: name, **full email and phone** (Super admin and Support only, confirmed
