@@ -19,5 +19,10 @@ export const withScope = async <T>(
     return work(tx)
   }) as Promise<T>
 
-// `system` scope is #15's: no policy has a system branch yet (DATA-MODEL.md §5.2), so a
-// helper for it would connect as `app_system` and silently return nothing.
+/** Jobs, webhooks and sign-in: granted per table through `app_system` (DATA-MODEL.md §5.2). */
+export const withSystemScope = async <T>(sql: postgres.Sql, work: (tx: ScopedSql) => Promise<T>): Promise<T> =>
+  sql.begin(async (tx) => {
+    await tx`set local role app_system`
+    await tx`select set_config('app.scope', 'system', true)`
+    return work(tx)
+  }) as Promise<T>

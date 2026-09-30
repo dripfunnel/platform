@@ -98,7 +98,7 @@ Sidebar badge on "Impersonate": number of sessions open now.
    minutes**. You can't change her password, 2-factor, payment or payout details, or the
    store's ownership. Everyone signed in to Mehta Textiles will see that Support is signed in
    as Priya. Everything you do is logged as Arjun acting as Priya."
-   Buttons: "Confirm with Google Workspace" and Cancel.
+   Buttons: "Confirm with Microsoft Entra ID" and Cancel.
 
 Then the target's app opens **in a new browser tab** (the merchant portal at the partner's
 address, in the partner's look; or the partner console). The admin console shows the

@@ -94,7 +94,7 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 
 ### 5.1 Sign in
 
-Company single sign-on only: one "Sign in with Google Workspace" button, then a 2-factor
+Company single sign-on only: one "Sign in with Microsoft Entra ID" button, then a 2-factor
 step. States: signing in, access refused (no detail about why), session expired. No sign-up,
 no password field.
 

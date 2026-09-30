@@ -240,9 +240,10 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
-  store. **Staff** sessions come from SSO on `admin.dripfunnel.com`, have a timeout
-  *(confirm: the same 2 h / 12 h, or shorter)*, and **re-authenticate before dangerous
-  actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
+  store. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
+  can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
+  hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
   A2). **Support sessions** have their own cookie and bounds (§8).
 - **Past due** blocks writes in that store but never signs anyone out (PLATFORM-PROMPT §2
   item 7); the gate is evaluated per acting store, from `subscription` on the context,
