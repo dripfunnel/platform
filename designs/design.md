@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -77,6 +77,10 @@ and payouts, Support, Activity log, Settings, Support-session tab.
 `window.DFA`. Hash-routed. Screens: Dashboard, Partners (+ detail with a
 **Setup** tab, approval and go-live checks), Stores, Customers, Approvals,
 Provisioning, Impersonate, Activity log, Staff (Super admin only).
+
+**The Setup tab is prototype-only.** The admin console has none (decided on
+#19, 2026-09-30): the checklist sits on the partner's Overview and the setup
+session starts from the header. See §8.
 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).

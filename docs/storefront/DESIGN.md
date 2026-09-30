@@ -8,6 +8,8 @@ work (`src/theme/**`); this one says *what good work there looks like*.
 same theme with different colours. The AI has full freedom over the look; the core package
 guarantees the commerce.
 
+Last updated: 2026-09-27.
+
 ---
 
 ## 1. Who the AI is designing for

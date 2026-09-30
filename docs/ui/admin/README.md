@@ -77,12 +77,12 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home, search | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Partners: create, configure, approve, plans and prices | ✓ | ✓ (their partners) | view | view | view | view |
-| Partners: pause, offboard, close | ✓ | *(ask)* | | | | |
+| Partners: pause, offboard, close | ✓ | | | | | |
 | Stores: detail | ✓ | ✓ (their partners) | ✓ | ✓ | ✓ | ✓ |
 | Stores: suspend, restore | ✓ | | | | emergency only | |
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Customers: full email and phone *(proposed)* | ✓ | | ✓ | | | |
+| Customers: full email and phone | ✓ | | ✓ | | | |
 | Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
 | Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
@@ -150,11 +150,19 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 ```
 apps/ui/admin/src/
   features/
-    auth/  home/  search/  partners/  branding/  plans/  stores/  support/  billing/
-    jobs/  fleet/  domains/  usage/  communication/  staff/  settings/  audit/
+    shell/                  the app shell: header, side bar, nav drawer, environment banner
+    sign-in/                the signed-out screens
+    common/                 what two areas of this app share: screen states, ConfirmDialog
+    dashboard/              #18
+    partners/               #19
+    stores/                 placeholder until #20
   api/                      one file per Admin API area
-  nav.ts
+  messages/  nav.ts  routes/
 ```
+
+Planned areas, as each menu lands: `search/`, `customers/`, `approvals/`, `provisioning/`,
+`impersonate/`, `activity/`, `staff/`, and later `branding/`, `plans/`, `billing/`, `fleet/`,
+`domains/`, `usage/`, `communication/`, `settings/` (§11 of FIRST-RELEASE says which wait).
 
 ---
 
@@ -183,5 +191,7 @@ structure first:
 
 - Which actions need a second approver?
 - The money model (SAAS.md §7), which decides the Billing area.
-- Dunning policy: when past due becomes suspended; what a suspended storefront shows.
+- Dunning policy: when past due becomes suspended. (What a suspended storefront shows was
+  decided 2026-09-30: a notice telling shoppers to contact the store, and the Owner is sent
+  to **their partner's** support — SAAS.md §4.2.)
 - Retention after cancellation and after a partner closes.

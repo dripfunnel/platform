@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -56,7 +56,10 @@ docs/
     admin/README.md         guide: the admin console: purpose, staff roles, navigation, code, rules
     admin/FIRST-RELEASE.md  what the admin console's first release contains: Dashboard, Partners, Stores and the menus to manage them
     admin/CONSOLE-DESIGN.md design prompt: every admin console part, with its partner-console counterpart
+    admin/CLAUDE-DESIGN-PROMPT.md   design prompt for a Claude Design session: the first release's screens
+                            (with -CUSTOMERS.md and -IMPERSONATION.md for those two features)
     platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules
+    platform/CLAUDE-DESIGN-PROMPT.md  design prompt for a Claude Design session: the partner console
     store/README.md         guide: the merchant portal: purpose, roles and permissions, navigation, code, rules
     store/DESIGN-BRIEF.md   design prompt: the portal's facts, users and every flow
     store/CATALOG-DESIGN.md design prompt: the catalogue in depth
