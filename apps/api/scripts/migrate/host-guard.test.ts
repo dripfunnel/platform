@@ -36,15 +36,26 @@ describe('assertLocalHost', () => {
     }
   })
 
-  it('allows the Neon dev host when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
+  it('allows exactly the ALLOWED_MIGRATION_HOST when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
     vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
     vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', 'ep-cool-branch-123.us-east-2.aws.neon.tech')
     expect(() => assertLocalHost('postgres://u:p@ep-cool-branch-123.us-east-2.aws.neon.tech:5432/db')).not.toThrow()
   })
 
-  it('still refuses a non-Neon remote host when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
+  it('still refuses a different Neon host (e.g. prod) even when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
     vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
     vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', 'ep-cool-branch-123.us-east-2.aws.neon.tech')
+    expect(() =>
+      assertLocalHost('postgres://u:p@ep-other-project-999.us-east-2.aws.neon.tech:5432/db'),
+    ).toThrow(/ep-other-project-999/)
+  })
+
+  it('still refuses any remote host when ALLOWED_MIGRATION_HOST is unset', () => {
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', undefined)
     expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow(/dbpg01\.softobotics\.org/)
   })
 
@@ -66,6 +77,7 @@ describe('assertLocalHost', () => {
   it('still refuses a host override via query params when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
     vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
     vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', 'ep-cool-branch-123.us-east-2.aws.neon.tech')
     expect(() =>
       assertLocalHost('postgres://u:p@ep-cool-branch-123.us-east-2.aws.neon.tech/db?host=dbpg01.softobotics.org'),
     ).toThrow(/"host"/)

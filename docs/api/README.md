@@ -325,7 +325,11 @@ This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 migrations to the persistent Neon `dev` branch; the guard
 (`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
 by GitHub Actions) so the override can't be tripped by an env var left in a
-shell profile or `.env` on a developer machine.
+shell profile or `.env` on a developer machine, and requires the connection
+string's host to exactly match the `ALLOWED_MIGRATION_HOST` GitHub Actions
+variable (set to the `dev` branch's literal Neon hostname), so a
+misconfigured `DATABASE_URL` can't silently migrate a different Neon project
+(production included).
 
 The same workflow's Gates step (`build typecheck lint test`) is a second,
 separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,

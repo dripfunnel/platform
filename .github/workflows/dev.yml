@@ -56,6 +56,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DEV_DATABASE_URL }}
           ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
 
       - name: 'SPA: store'
         uses: ./.github/actions/pages-deploy
