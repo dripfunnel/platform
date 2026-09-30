@@ -1,7 +1,64 @@
 {
-  "home": {
-    "title": "DripFunnel Admin",
-    "signIn": "Sign in"
+  "shell": {
+    "skipToContent": "Skip to content",
+    "homeLink": "Admin console home",
+    "productLabel": "Admin",
+    "navLabel": "Admin console",
+    "navFooter": "DripFunnel staff only. Everything you do here is logged.",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "help": "Help",
+    "helpUrl": "https://help.dripfunnel.com/admin",
+    "opensInNewTab": "(opens in a new tab)",
+    "search": {
+      "button": "Search partners and stores",
+      "buttonLabel": "Search partners and stores, shortcut {shortcut}",
+      "shortcutMac": "⌘K",
+      "shortcutOther": "Ctrl K",
+      "shortcutMacSpoken": "Command K",
+      "shortcutOtherSpoken": "Control K",
+      "inputLabel": "Search partners and stores",
+      "placeholder": "Name, domain, code or owner email",
+      "notConnected": "Search isn't connected yet. It arrives with the Admin API.",
+      "close": "Close search",
+      "escapeHint": "Esc"
+    },
+    "userMenu": {
+      "label": "Account: {name}, {role}",
+      "signOut": "Sign out"
+    },
+    "roles": {
+      "staff-super-admin": "Super admin",
+      "staff-partner-manager": "Partner manager",
+      "staff-support": "Support",
+      "staff-finance": "Finance",
+      "staff-engineer": "Engineer on call",
+      "staff-read-only": "Read-only"
+    },
+    "environment": {
+      "production": {
+        "name": "Production",
+        "warning": "Changes here reach real partners, stores and shoppers"
+      },
+      "staging": {
+        "name": "Staging",
+        "warning": "Test data. Nothing here reaches real merchants"
+      }
+    },
+    "badges": {
+      "partnersAwaitingApproval": "{count} awaiting approval"
+    },
+    "placeholder": "This screen isn't built yet."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "partners": "Partners",
+    "stores": "Stores"
+  },
+  "screens": {
+    "dashboard": { "title": "Dashboard" },
+    "partners": { "title": "Partners" },
+    "stores": { "title": "Stores" }
   },
   "signIn": {
     "title": "Sign in"

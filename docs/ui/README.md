@@ -114,8 +114,10 @@ apps/ui/<app>/
 - **What a role can't use** differs by app, on purpose:
   - **Merchant portal: absent, not disabled.** A greyed row tells a vendor what exists in
     the merchant's store. A vendor opening a URL that isn't theirs sees "not found".
-  - **Admin and partner consoles: visible and disabled, with the reason and the role that
-    can** ("Finance can issue refunds"), so insiders know whom to ask (CONSOLE-DESIGN §4).
+  - **Admin and partner consoles: actions are visible and disabled, with the reason and the
+    role that can** ("Finance can issue refunds"), so insiders know whom to ask
+    (CONSOLE-DESIGN §4). **Nav rows are the exception: a row a role can't use is absent**,
+    as in the portal ([../../designs/design.md](../../designs/design.md) §4).
 - **Locked** means "not yet" (for example during provisioning); **absent** means "not for
   you".
 - **Badges mean work waiting**, never trivia counts.
