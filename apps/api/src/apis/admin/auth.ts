@@ -3,6 +3,7 @@ import type { ActivityLog } from '#auth/activity'
 import { factsOf, signedIn, signedOut, signInRefused } from '#auth/activity'
 import { clearCookie, originAllowed, readCookie, setCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
+import type { SignInRefusal } from '#auth/oidc'
 import { identityClaims, SignInFailed } from '#auth/oidc'
 import { createSession, endSession } from '#auth/session'
 import { staffForClaims } from '#auth/staff'
@@ -61,11 +62,11 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
 
     // The answer must not depend on the database: a caller able to cause an error there
     // could otherwise tell which refusals reach it (CONSOLE-DESIGN A1).
-    const refuse = async () => {
+    const refuse = async (refusal: SignInRefusal) => {
       try {
-        await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(facts)))
+        await withSystemScope(deps.sql, (tx) => deps.activity.record(tx, signInRefused(facts, refusal)))
       } catch {
-        console.error(JSON.stringify({ code: 'activity_record_failed', action: 'staff.sign_in_refused' }))
+        console.error(JSON.stringify({ code: 'activity_record_failed', action: 'staff.sign_in_refused', refusal }))
       }
       return refusedResponse()
     }
@@ -74,14 +75,16 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
     const handshake = readHandshake(request.headers.get('cookie'))
     // `state` is the callback's CSRF protection: without comparing it to what we sent, any
     // page could drive this route with a code of its own choosing.
-    if (!code || !handshake || handshake.state !== url.searchParams.get('state')) return refuse()
+    if (!code) return refuse('missing_code')
+    if (!handshake) return refuse('missing_handshake')
+    if (handshake.state !== url.searchParams.get('state')) return refuse('state_mismatch')
 
     try {
       // safeParse: a ZodError would escape the catch below and answer 500, not the 401.
       const parsed = identityClaims.safeParse(
         await deps.provider.exchange({ code, redirectUri: redirectUri(deps.adminHost), nonce: handshake.nonce }),
       )
-      if (!parsed.success) throw new SignInFailed('the provider returned claims we cannot use')
+      if (!parsed.success) throw new SignInFailed('bad_claims')
       const claims = parsed.data
       const id = await withSystemScope(deps.sql, async (tx) => {
         const staff = await staffForClaims(tx, claims)
@@ -101,7 +104,7 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
       // Only a refusal answers 401. Anything else is an outage mid-sign-in, and filing a
       // false `sign_in_refused` for a staff member who was not refused would be worse.
       if (!(error instanceof SignInFailed)) throw error
-      return refuse()
+      return refuse(error.refusal)
     }
   }
 

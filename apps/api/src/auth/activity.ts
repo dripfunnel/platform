@@ -1,3 +1,4 @@
+import type { SignInRefusal } from '#auth/oidc'
 import type { ScopedSql } from '#db/scoped/index'
 
 /**
@@ -12,6 +13,8 @@ export interface ActivityEntry {
   actorId: string | null
   /** Name and email at the time, so the entry still reads after a rename (LOGGING.md §4). */
   actorLabel: string | null
+  /** Why, where the action needs one (LOGGING.md §4). Never free text from a caller. */
+  reason: string | null
   requestId: string | null
   ip: string | null
   userAgent: string | null
@@ -35,6 +38,7 @@ export const interimActivityLog: ActivityLog = {
         result: entry.result,
         actorKind: entry.actorKind,
         actorId: entry.actorId,
+        reason: entry.reason,
         requestId: entry.requestId,
       }),
     )
@@ -48,6 +52,7 @@ export const signedIn = (staff: { id: string; email: string; name: string }, req
   actorKind: 'staff',
   actorId: staff.id,
   actorLabel: `${staff.name} <${staff.email}>`,
+  reason: null,
   ...request,
 })
 
@@ -58,17 +63,19 @@ export const signedOut = (staffId: string, request: RequestFacts): ActivityEntry
   actorKind: 'staff',
   actorId: staffId,
   actorLabel: null,
+  reason: null,
   ...request,
 })
 
 /** A refusal names no subject: the entry must not become the enumeration the response avoids. */
-export const signInRefused = (request: RequestFacts): ActivityEntry => ({
+export const signInRefused = (request: RequestFacts, refusal: SignInRefusal): ActivityEntry => ({
   category: 'security',
   action: 'staff.sign_in_refused',
   result: 'denied',
   actorKind: 'anonymous',
   actorId: null,
   actorLabel: null,
+  reason: refusal,
   ...request,
 })
 

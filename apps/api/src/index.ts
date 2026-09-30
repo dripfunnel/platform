@@ -43,7 +43,7 @@ const misconfigured = (binding: string) => {
 const noProvider: IdentityProvider = {
   authorizeUrl: () => '/sign-in?state=refused',
   exchange: async () => {
-    throw new SignInFailed('no identity provider is configured')
+    throw new SignInFailed('provider_unconfigured')
   },
 }
 

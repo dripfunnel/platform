@@ -29,8 +29,9 @@ export const staffForClaims = async (tx: ScopedSql, claims: IdentityClaims): Pro
     select id, email, name, role_key, status from staff_user where sso_subject = ${claims.subject}
   `
   const row = rows[0]
-  if (!row) throw new SignInFailed('no staff record for this subject')
-  if (row.status !== 'active') throw new SignInFailed(`staff record is ${row.status}`)
+  if (!row) throw new SignInFailed('unknown_subject')
+  if (row.status === 'suspended') throw new SignInFailed('staff_suspended')
+  if (row.status !== 'active') throw new SignInFailed('staff_not_active')
   return { id: row.id, email: row.email, name: row.name, role: row.role_key }
 }
 

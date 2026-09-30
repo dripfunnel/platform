@@ -21,11 +21,26 @@ export const identityClaims = z.object({
 export type IdentityClaims = z.infer<typeof identityClaims>
 
 /**
+ * Why a sign-in was refused, for the operator only. Literals, so an entry can never carry a
+ * subject or an email (LOGGING.md §4.1).
+ */
+export type SignInRefusal =
+  | 'missing_code'
+  | 'missing_handshake'
+  | 'state_mismatch'
+  | 'bad_claims'
+  | 'unknown_subject'
+  | 'staff_suspended'
+  | 'staff_not_active'
+  | 'provider_refused'
+  | 'provider_unconfigured'
+
+/**
  * Every refusal the caller is allowed to see, which is one refusal. CONSOLE-DESIGN A1:
  * "Unknown or removed staff are refused with no detail."
  */
 export class SignInFailed extends Error {
-  constructor(readonly reason: string) {
+  constructor(readonly refusal: SignInRefusal) {
     super('sign-in failed')
     this.name = 'SignInFailed'
   }

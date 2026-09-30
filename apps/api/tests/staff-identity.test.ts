@@ -1,11 +1,13 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleAuth } from '#apis/admin/auth'
+import type { ActivityEntry } from '#auth/activity'
 import { interimActivityLog } from '#auth/activity'
 import { resolveStaff } from '#auth/caller'
 import { SignInFailed } from '#auth/oidc'
 import { absoluteMs, cookieName, createSession, endSession, idleMs, readSession } from '#auth/session'
 import { staffForClaims } from '#auth/staff'
+import type { ScopedSql } from '#db/scoped/index'
 import { withSystemScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -187,7 +189,7 @@ describe('the sign-in routes', () => {
       if (code === 'good') return claims('subject-active')
       if (code === 'unknown') return claims('nobody')
       if (code === 'suspended') return claims('subject-suspended')
-      throw new SignInFailed('the provider refused')
+      throw new SignInFailed('provider_refused')
     },
   }
 
@@ -266,6 +268,28 @@ describe('the sign-in routes', () => {
     }
     const res = await handleAuth(callback('good'), deps({ provider: malformed }))
     expect({ status: res.status, body: await res.text() }).toEqual({ status: 401, body: 'Sign-in failed' })
+  })
+
+  it('records why each refusal happened while telling the caller nothing', async () => {
+    const seen: (string | null)[] = []
+    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason) }
+    const cases = [
+      [callback('good', { state: 'not-ours' }), 'state_mismatch'],
+      [callback('good', { cookie: 'nothing=here' }), 'missing_handshake'],
+      [callback('unknown'), 'unknown_subject'],
+      [callback('suspended'), 'staff_suspended'],
+      [callback('rubbish'), 'provider_refused'],
+    ] as const
+
+    const bodies = new Set<string>()
+    for (const [request] of cases) {
+      const res = await handleAuth(request, deps({ activity: capturing }))
+      expect(res.status).toBe(401)
+      bodies.add(await res.text())
+    }
+    // One body for every cause, while the operator gets five distinct reasons.
+    expect([...bodies]).toEqual(['Sign-in failed'])
+    expect(seen).toEqual(cases.map(([, reason]) => reason))
   })
 
   it('refuses identically when recording the refusal fails', async () => {
