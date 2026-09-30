@@ -14,11 +14,15 @@
     { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
   ],
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // No top-level `hyperdrive`: a bare `wrangler deploy` ships without HYPERDRIVE, and /health
-  // reports `{ ok: true, db: "unconfigured" }` (200) rather than alarming (§7).
+  // No top-level `hyperdrive` binding yet: production has no Hyperdrive resource
+  // provisioned (`wrangler hyperdrive create`, then add `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }`
+  // here). Until then, `wrangler deploy` ships without HYPERDRIVE; /health reports
+  // `{ ok: true, db: "unconfigured" }` (200), not a failure, so no monitor alarms (§7).
   "env": {
-    // `wrangler dev --env local` only; placeholder id, real connection via
-    // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (not committed).
+    // `wrangler dev --env local` only: no Hyperdrive resource is provisioned yet
+    // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
+    // `wrangler deploy` (production) reads. Local dev uses `localConnectionString`
+    // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
     "local": {
       "vars": {
         "ADMIN_HOST": "admin.localhost",
@@ -56,13 +60,11 @@
         "HOOKS_HOST": "hooks.dripfunnel.com"
       },
       "ratelimits": [
-         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
         { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
       ],
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "3f5dde455e2a43e1b61f0aa1c08460a4" }]
-       
-
     }
   }
 }

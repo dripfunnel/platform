@@ -361,6 +361,11 @@ from exhausting Hyperdrive's connection pool. `cf-connecting-ip` is always set b
 Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler dev`) gets
 400 rather than falling back to an easily-exhausted shared bucket.
 
+`/health` also returns the Worker's `version` (a Cloudflare-assigned version UUID, from
+`CF_VERSION_METADATA`), unauthenticated, so that `promote.yml`'s post-promotion health check
+can confirm prod is serving the version it just promoted. This is intentional: the UUID
+identifies a build, not a secret, and knowing it grants no access.
+
 ---
 
 ## 8. Rules that apply to every line in `apps/api`
