@@ -24,6 +24,9 @@ concurrency:
 
 jobs:
   promote:
+    # workflow_dispatch can target any branch; the checked-out commit_sha is validated
+    # separately, but the workflow file and local actions come from the dispatched ref itself.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: prod
     env:
@@ -126,10 +129,14 @@ jobs:
       - name: Run summary
         if: always()
         working-directory: .
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          PROMOTE_OUTCOME: ${{ steps.promote.outcome == 'success' && 'promoted to 100%' || format('did NOT promote ({0})', steps.promote.outcome) }}
         run: |
           {
             echo "### Promote summary"
-            echo "- Commit: \`${{ inputs.commit_sha }}\`"
-            echo "- Worker version: \`${{ inputs.version_id }}\` — ${{ steps.promote.outcome == 'success' && 'promoted to 100%' || format('did NOT promote ({0})', steps.promote.outcome) }}"
+            echo "- Commit: \`$COMMIT_SHA\`"
+            echo "- Worker version: \`$VERSION_ID\` — $PROMOTE_OUTCOME"
             echo "- SPAs: store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy."
           } >> "$GITHUB_STEP_SUMMARY"
