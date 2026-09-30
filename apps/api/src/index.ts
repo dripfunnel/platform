@@ -18,6 +18,7 @@ const notFound = () => new Response('Not found', { status: 404 })
 
 interface Env extends Record<string, unknown> {
   HEALTH_RATE_LIMITER: RateLimit
+  CF_VERSION_METADATA: { id: string; tag: string }
 }
 
 export default {
@@ -32,7 +33,8 @@ export default {
     }
     const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
-    if (isHealthPath(area, url.pathname)) return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER)
+    if (isHealthPath(area, url.pathname))
+      return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id)
     return servers[area].fetch(request)
   },
 } satisfies ExportedHandler<Env>

@@ -41,24 +41,48 @@ jobs:
           ref: ${{ inputs.commit_sha }}
       - uses: ./.github/actions/setup
 
+      - name: Validate inputs
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          if ! [[ "$VERSION_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "version_id must be a UUID, got: $VERSION_ID" >&2
+            exit 1
+          fi
+          if ! [[ "$COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "commit_sha must be a 40-character hex SHA, got: $COMMIT_SHA" >&2
+            exit 1
+          fi
+
       - name: Promote Worker to 100%
         id: promote
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
-          pnpm exec wrangler versions deploy "${{ inputs.version_id }}@100" -y --env prod \
-            --message "promote ${{ inputs.commit_sha }}"
+          pnpm exec wrangler versions deploy "$VERSION_ID@100" -y --env prod \
+            --message "promote $COMMIT_SHA"
 
       - name: Health-check prod after promotion
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
         run: |
+          # platform.dripfunnel.com, not admin.dripfunnel.com: the admin host sits behind
+          # Cloudflare Access (ARCHITECTURE.md §2), which would 302/403 an unauthenticated
+          # curl on every run. Same Worker either way, and the body's `version` field is
+          # checked against $VERSION_ID so this actually confirms the promoted version is
+          # the one answering, not just that some version is up.
           for i in $(seq 1 10); do
-            code=$(curl -sf -o /dev/null -w '%{http_code}' "https://admin.dripfunnel.com/api/health" || echo 000)
-            if [ "$code" = "200" ]; then
-              echo "Healthy (attempt $i)."
+            body=$(curl -sf "https://platform.dripfunnel.com/api/health" || echo '')
+            if [ -n "$body" ] && echo "$body" | jq -e --arg v "$VERSION_ID" '.ok == true and .version == $v' > /dev/null 2>&1; then
+              echo "Healthy on version $VERSION_ID (attempt $i)."
               exit 0
             fi
-            echo "Attempt $i: got $code, retrying..."
+            echo "Attempt $i: got '$body', retrying..."
             sleep 5
           done
-          echo "Prod did not report healthy after promotion — see docs/code/ROLLBACK.md to roll the Worker back." >&2
+          echo "Prod did not report healthy on version $VERSION_ID after promotion — see docs/code/ROLLBACK.md to roll the Worker back." >&2
           exit 1
 
       - name: Build SPAs

@@ -7,6 +7,7 @@ const env = {
   HOOKS_HOST: 'hooks.dripfunnel.com',
   HYPERDRIVE: { connectionString: 'not-a-postgres-url' },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  CF_VERSION_METADATA: { id: 'test-version', tag: '' },
 }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 const call = (href: string, init?: RequestInit) =>
@@ -23,18 +24,24 @@ describe('worker', () => {
   it('reports health per area, returning 503 and ok: false on a misconfigured database', async () => {
     const response = await call('https://platform.dripfunnel.com/api/health')
     expect(response.status).toBe(503)
-    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down' })
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'down', version: 'test-version' })
     const admin = await call('https://admin.dripfunnel.com/api/health')
     expect(admin.status).toBe(503)
-    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down' })
+    expect(await admin.json()).toEqual({ ok: false, area: 'admin', db: 'down', version: 'test-version' })
   })
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
-    const withoutHyperdrive = { ADMIN_HOST: env.ADMIN_HOST, PLATFORM_HOST: env.PLATFORM_HOST, HOOKS_HOST: env.HOOKS_HOST, HEALTH_RATE_LIMITER: env.HEALTH_RATE_LIMITER }
+    const withoutHyperdrive = {
+      ADMIN_HOST: env.ADMIN_HOST,
+      PLATFORM_HOST: env.PLATFORM_HOST,
+      HOOKS_HOST: env.HOOKS_HOST,
+      HEALTH_RATE_LIMITER: env.HEALTH_RATE_LIMITER,
+      CF_VERSION_METADATA: env.CF_VERSION_METADATA,
+    }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured' })
+    expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version' })
   })
 
   it('rate-limits /health', async () => {
