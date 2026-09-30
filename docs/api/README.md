@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 | Document | Covers |
 |---|---|

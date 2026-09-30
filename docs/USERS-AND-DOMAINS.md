@@ -5,6 +5,8 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
 mean the admin console at `admin.dripfunnel.com`.
 
+Last updated: 2026-09-30.
+
 ---
 
 ## 1. The five kinds of user
