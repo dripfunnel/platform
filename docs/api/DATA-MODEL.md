@@ -137,14 +137,25 @@ The same email or phone may exist in any number of stores, as unrelated rows (AC
 api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, created_by_user_id,
             expires_at NULL, last_used_at, revoked_at NULL)
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
-support_session (id, store_id, agent_kind, agent_id, reason, access, started_at, ends_at,
+support_session (id, store_id, partner_user_id, reason, access, started_at, ends_at,
                  elevated_at NULL, elevation_approved_by NULL, ended_at NULL)
-                 -- partner support into a store (ACCESS.md §8)
+                 -- partner support into a store (ACCESS.md §8). Partner users only:
+                 -- staff never open one, they impersonate (§8.1), so there is no agent kind
 
 impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, reason,
-                 started_at, expires_at, ended_at NULL, ended_by NULL)
+                 started_at, expires_at, extended_at NULL, ended_at NULL, ended_by NULL)
                  -- staff signed in as a partner user or store user (ACCESS.md §8.1);
+                 -- extended_at records the single permitted 30-minute extension, so
+                 -- "once" is enforced by the row, not by counting log entries;
                  -- platform scope: written and listed by the Admin API only
+
+partner_setup_session
+                (id, staff_user_id, partner_id, reason, started_at, expires_at,
+                 ended_at NULL, ended_by NULL)
+                 -- staff doing a partner's onboarding as themselves (ACCESS.md §8.2),
+                 -- 2 hours and not extendable, so no extended_at; one open per staff
+                 -- member, enforced by a partial unique index on (staff_user_id)
+                 -- where ended_at is null
 ```
 
 ---
