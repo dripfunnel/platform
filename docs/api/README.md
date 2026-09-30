@@ -261,7 +261,11 @@ own migration file with no other statements. Applied migrations are recorded in 
 ## 7. Local Postgres
 
 This project requires Postgres 18.x; `pnpm migrate` refuses to run against any other major
-(`scripts/migrate/version-check.ts`). Install it natively — no Docker required.
+(`scripts/migrate/version-check.ts`). This matches the Neon projects `dripfunnel-dev` and the
+test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md)
+§4), so a version-specific issue is caught locally and in CI before it reaches a real
+deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
+together. Install it natively — no Docker required.
 
 **macOS (Homebrew):**
 
