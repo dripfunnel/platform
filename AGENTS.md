@@ -47,7 +47,8 @@ pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.
 pnpm changeset                                   # required when storefront-core changes
 ```
 
-Planned, not yet present: `test:integration` (Testcontainers Postgres + Workers test pool),
+Planned, not yet present: `test:integration` (the local Postgres from docs/api/README.md §7,
+a fresh database per run, plus the Workers test pool),
 `test:e2e`, and `pnpm --filter ./apps/api migrate` (LOCAL database only).
 
 Run the gates before reporting a change as done.
@@ -224,8 +225,9 @@ Run the gates before reporting a change as done.
   store) where the work happens.
 
 **Testing**
-- Write tests with the code, not after. Test against real infrastructure (Postgres via
-  Testcontainers), not mocks of our own data layer.
+- Write tests with the code, not after. Test against real infrastructure (the local Postgres
+  from docs/api/README.md §7, a fresh database per run), not mocks of our own data layer.
+  **No Docker**: the same rule as the development database (decided on #11, confirmed on #12).
 - Any endpoint touching tenant data is covered by the isolation matrix (caller kind ×
   store × seller).
 

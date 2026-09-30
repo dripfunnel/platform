@@ -214,7 +214,8 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     container replaces the old. Health checks check the database. [ARCHITECTURE §10]
 24. **Build minutes and AI cost per store per month** are tracked from the first store.
     [SAAS-PLAN §14]
-25. **Tests against real infrastructure**: a real Postgres (Testcontainers), an authorization
+25. **Tests against real infrastructure**: a real Postgres (the local one, a fresh database
+    per run — docs/api/README.md §7; no Docker), an authorization
     matrix run against the real API layer, no mocked data layer. [ARCHITECTURE §12]
 
 ---
