@@ -334,9 +334,17 @@ misconfigured `DATABASE_URL` can't silently migrate a different Neon project
 The same workflow's Gates step (`build typecheck lint test`) is a second,
 separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
 disposable Neon branch kept only for CI test runs, not the persistent `dev`
-branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). `host-guard.ts` is not
-wired into the test step, so nothing currently stops `TEST_DATABASE_URL` from
-being pointed at a non-disposable host by mistake.
+branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
+guard**, pinned by the `ALLOWED_TEST_HOST` variable instead of
+`ALLOWED_MIGRATION_HOST`, because `scripts/migrate/runner.test.ts` applies the
+migrations and that is the same privileged operation as the deploy step. The
+guard lives inside `migrate()` rather than in `scripts/migrate/main.ts`, so
+every caller passes through it — a guard on the CLI alone left the test path
+writing to whatever `DATABASE_URL` happened to hold.
+
+A **local** host is always allowed, whether or not the override is set, so a
+CI step can turn the override on for a whole test run without the local
+database being refused by the host match.
 
 `pnpm test` needs this same database up and `.dev.vars` exported (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and

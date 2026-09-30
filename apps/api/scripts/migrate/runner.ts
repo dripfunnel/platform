@@ -2,12 +2,18 @@ import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import postgres from 'postgres'
 import { assertExtensionsAvailable, requiredExtensions } from './extensions'
+import { assertLocalHost } from './host-guard'
 import { pendingMigrations } from './pending'
 import { assertPostgresMajor } from './version-check'
 
 const LOCK_KEY = 'dripfunnel_migrations'
 
 export const migrate = async (connectionString: string, migrationsDir: string): Promise<void> => {
+  // The guard belongs here, not only in main.ts: runner.test.ts calls migrate() directly
+  // with DATABASE_URL, so a guard on the CLI alone left the test writing to whatever the
+  // environment pointed at.
+  assertLocalHost(connectionString)
+
   let sql: postgres.Sql
   try {
     sql = postgres(connectionString, { max: 1 })

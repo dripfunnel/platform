@@ -13,7 +13,13 @@ export const assertLocalHost = (connectionString: string): void => {
     throw new Error('DATABASE_URL is not a valid URL.')
   }
   const hostname = normalizeHostname(url.hostname)
-  if (remoteBypassRequested) {
+  // A local host is always allowed, opt-in or not. The opt-in names one remote host; it must
+  // not make localhost fail the match, or turning it on for a whole CI step would refuse the
+  // local database every other test uses.
+  if (!LOCAL_HOSTS.has(hostname)) {
+    if (!remoteBypassRequested) {
+      throw new Error(`Refusing to run migrations against non-local host "${hostname}". Local databases only.`)
+    }
     if (!allowedRemoteHost) {
       throw new Error(
         `ALLOW_REMOTE_MIGRATIONS=1 but ALLOWED_MIGRATION_HOST is not set. Refusing to run migrations against "${hostname}".`,
@@ -24,8 +30,6 @@ export const assertLocalHost = (connectionString: string): void => {
         `Refusing to run migrations: host "${hostname}" does not match ALLOWED_MIGRATION_HOST "${allowedRemoteHost}".`,
       )
     }
-  } else if (!LOCAL_HOSTS.has(hostname)) {
-    throw new Error(`Refusing to run migrations against non-local host "${hostname}". Local databases only.`)
   }
   for (const param of OVERRIDE_PARAMS) {
     if (url.searchParams.has(param)) {

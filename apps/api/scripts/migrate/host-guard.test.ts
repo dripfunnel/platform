@@ -90,6 +90,14 @@ describe('assertLocalHost', () => {
     expect(() => assertLocalHost('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow()
   })
 
+  it('still allows localhost when the opt-in names a remote host, so a CI step can set it for every test', () => {
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', 'ep-cool-branch-123.us-east-2.aws.neon.tech')
+    expect(() => assertLocalHost('postgres://u:p@localhost:5432/db')).not.toThrow()
+    expect(() => assertLocalHost('postgres://u:p@127.0.0.1:5432/db')).not.toThrow()
+  })
+
   it('still refuses a host override via query params when ALLOW_REMOTE_MIGRATIONS=1 and CI=true', () => {
     vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
     vi.stubEnv('CI', 'true')

@@ -24,20 +24,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: dripfunnel_dev
-          POSTGRES_PASSWORD: dripfunnel_dev
-          POSTGRES_DB: dripfunnel
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     defaults:
       run:
         working-directory: apps/api
@@ -45,11 +31,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
 
+      # The gates include runner.test.ts, which applies the migrations. Against a real Neon
+      # branch that is the same privileged operation as the Migrations step below, so it runs
+      # behind the same guard, pinned to the disposable test branch rather than the dev one.
       - name: Gates
         run: pnpm turbo run build typecheck lint test
         working-directory: .
         env:
           DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_TEST_HOST }}
 
       - name: Migrations
         run: pnpm run --if-present migrate
