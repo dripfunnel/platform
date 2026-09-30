@@ -1,0 +1,30 @@
+name: Deploy Pages project
+description: Deploy an already-built SPA to a Cloudflare Pages branch
+
+inputs:
+  project-name:
+    required: true
+  dist:
+    required: true
+    description: Path to the built assets, relative to apps/api (e.g. ../ui/store/dist)
+  branch:
+    required: true
+    description: Pages branch deploy name
+  commit-hash:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - run: |
+        pnpm exec wrangler pages deploy "$INPUT_DIST" \
+          --project-name "$INPUT_PROJECT_NAME" \
+          --branch "$INPUT_BRANCH" \
+          --commit-hash "$INPUT_COMMIT_HASH"
+      shell: bash
+      working-directory: apps/api
+      env:
+        INPUT_DIST: ${{ inputs.dist }}
+        INPUT_PROJECT_NAME: ${{ inputs.project-name }}
+        INPUT_BRANCH: ${{ inputs.branch }}
+        INPUT_COMMIT_HASH: ${{ inputs.commit-hash }}
