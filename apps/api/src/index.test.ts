@@ -7,6 +7,7 @@ const env = {
   HOOKS_HOST: 'hooks.dripfunnel.com',
   HYPERDRIVE: { connectionString: 'not-a-postgres-url' },
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 const call = (href: string, init?: RequestInit) =>
@@ -30,7 +31,7 @@ describe('worker', () => {
   })
 
   it('reports ok with an unconfigured db when no HYPERDRIVE binding exists', async () => {
-    const withoutHyperdrive = { ADMIN_HOST: env.ADMIN_HOST, PLATFORM_HOST: env.PLATFORM_HOST, HOOKS_HOST: env.HOOKS_HOST, HEALTH_RATE_LIMITER: env.HEALTH_RATE_LIMITER }
+    const withoutHyperdrive = { ...env, HYPERDRIVE: undefined }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
     const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], withoutHyperdrive, ctx)
     expect(response.status).toBe(200)
