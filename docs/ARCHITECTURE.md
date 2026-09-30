@@ -166,7 +166,7 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 
 ## 6. Environments and deploy
 
-- **Environments**: local, feature (per `#<issue>/feature/<short-name>` branch), staging,
+- **Environments**: local, feature (per `#<issue>/feature/<short-name>` branch), dev,
   production. Each has its own Worker, Pages deploys, R2 buckets, Queues and **Neon branch**.
   Feature environments live in a separate Cloudflare account and Neon project, on
   `dripfunnel.ai` ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
@@ -179,6 +179,16 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   SPAs, Neon branch with migrations applied, `<slug>-*.dripfunnel.ai` hostnames behind
   Cloudflare Access). It is removed when the branch is deleted or after 14 days without a
   commit ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)).
+- **Dev**: one long-lived environment, redeployed on every push to `dev`, so both tracks
+  see their work running against a real database instead of only locally. Same shape as
+  production: migrations run first over Neon's direct connection, then the API Worker, then
+  the three SPAs, each deploying only when its own files or `apps/ui/shared/` change. Hosts
+  `dev-store.dripfunnel.com`, `dev-platform.dripfunnel.com`,
+  `dev-admin.dripfunnel.com` and `dev-hooks.dripfunnel.com`, in a separate Cloudflare
+  account from production (like feature environments). The three console hosts sit behind
+  Cloudflare Access (`@softobotics.com` only); `dev-hooks` bypasses Access so providers'
+  test webhooks reach it, since webhooks verify their own signatures. Seeded once on first
+  deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
 - **Production**: migrations from `apps/api/migrations` run first against Neon's direct
   connection (not Hyperdrive), and must be backward-compatible with the running version; then
   the API Worker deploys with gradual rollout, then the SPAs. Each app deploys only when its

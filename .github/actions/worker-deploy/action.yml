@@ -1,0 +1,24 @@
+name: Deploy API Worker
+description: wrangler deploy, against a config file and/or a named environment
+
+inputs:
+  config:
+    required: false
+    default: wrangler.jsonc
+    description: Path to the wrangler config, relative to apps/api
+  env-name:
+    required: false
+    default: ''
+    description: Named wrangler environment (--env). Omit to deploy the top-level config
+  message:
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - run: |
+        args=(-c "${{ inputs.config }}" --message "${{ inputs.message }}")
+        if [ -n "${{ inputs.env-name }}" ]; then args+=(--env "${{ inputs.env-name }}"); fi
+        pnpm exec wrangler deploy "${args[@]}"
+      shell: bash
+      working-directory: apps/api
