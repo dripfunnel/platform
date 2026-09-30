@@ -81,10 +81,8 @@ const handleAdmin = async (
         activity: interimActivityLog,
         adminHost: config.ADMIN_HOST,
         now: () => new Date(),
-        // Keyed per address, never pooled: a shared fallback key would let a handful of
-        // attempts exhaust one bucket and 429 every staff member behind it. Cloudflare sets
-        // this header on everything that reaches the edge, so its absence is not real
-        // traffic and the attempt is refused rather than counted.
+        // Keyed per address, never pooled: a shared fallback key lets a few attempts 429
+        // every staff member behind it. Cloudflare sets this header on all real traffic.
         allowAttempt: async (req) => {
           const ip = req.headers.get('cf-connecting-ip')
           if (!ip) return false
@@ -94,9 +92,8 @@ const handleAdmin = async (
     )
   }
 
-  // No cookie, or no database to check one against: the caller is nobody, not an error. The
-  // console reads `me` to decide whether to offer sign-in (apis/admin/schema.ts), so failing
-  // here would hide the sign-in screen from the staff member who needs it.
+  // No cookie, or no database to check one against: the caller is nobody, not an error —
+  // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
     return servers.admin.fetch(request, { staff: null })
   }
@@ -104,7 +101,6 @@ const handleAdmin = async (
     servers.admin.fetch(request, { staff: await resolveStaff(sql, request, new Date()) }),
   )
 }
-
 
 export default {
   async fetch(request, env, ctx) {
