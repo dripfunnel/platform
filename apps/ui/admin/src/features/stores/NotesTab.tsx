@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Store } from '../../api/stores'
+import { storeNoteMaxLength, type Store } from '../../api/stores'
 import { fill, formatTime, messages } from '../../messages'
 import { ActionControl } from '../common/ActionControl'
 import { refusalText } from './refusal'
@@ -37,6 +37,7 @@ export const NotesTab = ({ store, onAddNote }: NotesTabProps) => {
           <div className="df-field">
             <textarea
               rows={3}
+              maxLength={storeNoteMaxLength}
               aria-label={words.label}
               placeholder={words.placeholder}
               disabled={refusal !== null}

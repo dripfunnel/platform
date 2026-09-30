@@ -143,6 +143,10 @@ export interface Store extends StoreRow {
   actions: StorePermissions
 }
 
+// The API's cap on a note; the field stops at the same length, so what is typed is what is
+// saved and audited.
+export const storeNoteMaxLength = 2000
+
 // The API's cap on a page; it answers with fewer when there are fewer.
 export const storePageSize = 25
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { storeNoteMaxLength } from './stores'
 import { createStoresServer, sampleStores } from './storesSample'
 
 const now = () => '2026-09-30T00:00:00Z'
@@ -71,6 +72,14 @@ describe('stores sample server', () => {
     stores.run('s13', 'undo', 'Retries failed', null)
     expect(stores.get('s13', 'staff-super-admin')).toBeNull()
     expect(ids(stores.list({}, {}, 25))).not.toContain('s13')
+  })
+
+  it('refuses a note longer than the cap and keeps one at the cap', () => {
+    const stores = server()
+    expect(() => stores.run('s2', 'addNote', null, 'x'.repeat(storeNoteMaxLength + 1))).toThrow()
+    expect(stores.get('s2', 'staff-super-admin')?.notes).toHaveLength(0)
+    stores.run('s2', 'addNote', null, 'x'.repeat(storeNoteMaxLength))
+    expect(stores.get('s2', 'staff-super-admin')?.notes[0]?.text).toHaveLength(storeNoteMaxLength)
   })
 
   it('keeps each server separate, so one test never sees another test changes', () => {

@@ -3,6 +3,7 @@
 // a component. It stands in for the server until #34, and goes with it.
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { ActionPermission } from './permissions'
+import { storeNoteMaxLength } from './stores'
 import type {
   PageRequest,
   SetupState,
@@ -574,6 +575,7 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
         return
       case 'addNote':
         if (!value?.trim()) return
+        if (value.trim().length > storeNoteMaxLength) throw new Error('The note is too long.')
         update(id, (current) => ({ ...current, notes: [{ id: `${id}-n${current.notes.length + 1}`, by: 'Arjun Menon', at: now(), text: value.trim() }, ...current.notes] }))
         return
       case 'resendInvite':

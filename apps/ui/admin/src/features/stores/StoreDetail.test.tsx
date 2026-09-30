@@ -1,7 +1,7 @@
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import type { Store } from '../../api/stores'
+import { storeNoteMaxLength, type Store } from '../../api/stores'
 import { createStoresServer, sampleStores } from '../../api/storesSample'
 import type { StaffRole } from '../shell/staffRoles'
 import { messages } from '../../messages'
@@ -82,6 +82,17 @@ describe('Store detail', () => {
     expect(text).toContain('Past due after 3 failed payments')
     expect(text).toContain('Active on Growth UAE')
     expect(await render({ store: storeOf('s4') })).toContain('Suspended by Arjun Menon: chargeback')
+  })
+
+  it('caps the note field at the length the API accepts', async () => {
+    const rootRoute = createRootRoute({
+      component: () => (
+        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onAddNote={saved} onRecheck={resolved} onReload={noop} />
+      ),
+    })
+    const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: ['/stores/s3'] }) })
+    await router.load()
+    expect(renderToString(<RouterProvider router={router} />)).toContain(`maxLength="${storeNoteMaxLength}"`)
   })
 
   it('says a missing store was maybe cleaned up', async () => {
