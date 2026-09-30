@@ -13,15 +13,11 @@
     { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } }
   ],
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // No top-level `hyperdrive` binding: each env below (local/dev/prod) declares its own
-  // Hyperdrive resource id instead, so a bare `wrangler deploy` (no `--env`) ships without
-  // HYPERDRIVE; /health reports `{ ok: true, db: "unconfigured" }` (200), not a failure, so
-  // no monitor alarms (§7).
+  // No top-level `hyperdrive`: a bare `wrangler deploy` ships without HYPERDRIVE, and /health
+  // reports `{ ok: true, db: "unconfigured" }` (200) rather than alarming (§7).
   "env": {
-    // `wrangler dev --env local` only: no Hyperdrive resource is provisioned yet
-    // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
-    // `wrangler deploy` (production) reads. Local dev uses `localConnectionString`
-    // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
+    // `wrangler dev --env local` only; placeholder id, real connection via
+    // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (not committed).
     "local": {
       "vars": {
         "ADMIN_HOST": "admin.localhost",
@@ -34,10 +30,7 @@
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }]
     },
-    // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
-    // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected
-    // via the job's CLOUDFLARE_ACCOUNT_ID, not this file). The ratelimit namespace id below
-    // is a placeholder until that account's config exists.
+    // `wrangler deploy --env dev` from .github/workflows/dev.yml on push to `dev` (§6).
     "dev": {
       "name": "dripfunnel-api-dev",
       "vars": {
@@ -51,10 +44,7 @@
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }]
     },
-    // `wrangler deploy --env prod`, from .github/workflows/prod.yml, on every push to `main`
-    // (ARCHITECTURE.md §6). Same values as the top-level config (kept as the implicit default
-    // for now); explicit so the deploy workflow can name the env instead of relying on that
-    // default.
+    // `wrangler deploy --env prod` from .github/workflows/prod.yml on push to `main` (§6).
     "prod": {
       "name": "dripfunnel-api",
       "vars": {

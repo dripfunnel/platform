@@ -1,12 +1,7 @@
 name: promote
 
-# Manual promotion, run by hand once the Worker version `prod.yml` uploaded has been confirmed
-# healthy (e.g. via its wrangler Preview URL — see the run summary `prod.yml` writes). Promotes
-# that version to 100% traffic, health-checks the live prod host, and only then builds and
-# deploys all three SPAs from the exact commit the Worker version was built from — so a
-# promotion can never leave the SPAs ahead of (or behind) the Worker they call. If the promote
-# or health-check step fails, the job stops there (default Actions behavior) and the SPA steps
-# never run. See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
+# Manual promotion of a `prod.yml`-uploaded Worker version, then the SPAs from the same commit.
+# See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
 
 on:
   workflow_dispatch:
@@ -22,7 +17,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: prod
+  # Separate from prod.yml's group: migrations must stay backward-compatible with any live
+  # version (ARCHITECTURE.md §6), so a promote running alongside a new push is safe.
+  group: prod-promote
   cancel-in-progress: false
 
 jobs:
@@ -61,9 +58,7 @@ jobs:
           VERSION_ID: ${{ inputs.version_id }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
         run: |
-          # prod.yml uploads each version with --message "$COMMIT_SHA" (github.sha), so the
-          # version's own annotation is the source of truth for which commit it was built
-          # from — cross-check it here instead of trusting the two inputs to agree.
+          # Cross-check against the version's own annotation rather than trusting the two inputs to agree.
           version_message=$(pnpm exec wrangler versions view "$VERSION_ID" --env prod --json | jq -r '.annotations["workers/message"] // empty')
           if [ "$version_message" != "$COMMIT_SHA" ]; then
             echo "Version $VERSION_ID was uploaded for commit '$version_message', not $COMMIT_SHA — refusing to promote a mismatched commit." >&2
@@ -87,11 +82,7 @@ jobs:
         env:
           VERSION_ID: ${{ inputs.version_id }}
         run: |
-          # platform.dripfunnel.com, not admin.dripfunnel.com: the admin host sits behind
-          # Cloudflare Access (ARCHITECTURE.md §2), which would 302/403 an unauthenticated
-          # curl on every run. Same Worker either way, and the body's `version` field is
-          # checked against $VERSION_ID so this actually confirms the promoted version is
-          # the one answering, not just that some version is up.
+          # platform.dripfunnel.com, not admin.dripfunnel.com: admin sits behind Cloudflare Access (§2).
           for i in $(seq 1 10); do
             body=$(curl -sf "https://platform.dripfunnel.com/api/health" || echo '')
             if [ -n "$body" ] && echo "$body" | jq -e --arg v "$VERSION_ID" '.ok == true and .version == $v' > /dev/null 2>&1; then
