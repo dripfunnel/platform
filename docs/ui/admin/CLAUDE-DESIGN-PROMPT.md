@@ -207,7 +207,8 @@ state, step.
 ### 5.7 Impersonate
 
 Staff (Super admin and Support only) can **sign in as any partner user or store user** to
-see and do exactly what that person can: **full access, for 30 minutes, no consent needed**,
+see and do exactly what that person can: **full access, for 30 minutes (extendable once by
+30), no consent needed**,
 **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner): design those controls disabled with "Only Priya can change this".
 Never as another staff member, never as a shopper. The banner always says "Support", never
 "DripFunnel" (partners' merchants mustn't see our name).

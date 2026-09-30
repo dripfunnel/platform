@@ -380,6 +380,6 @@ Run `pnpm turbo run build typecheck lint test` before reporting any change as do
 Carried from PLATFORM-PROMPT §10 where they decide API shape:
 
 - Is the Platform API GraphQL like the others? *(Today all four are GraphQL; confirm.)*
-- How a support session opened from the admin or partner console reaches the merchant's
-  portal host (§2.1).
+- How a support session opened from the partner console reaches the merchant's portal host
+  (§2.1). Staff never open one (ACCESS §8); they impersonate.
 - Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.

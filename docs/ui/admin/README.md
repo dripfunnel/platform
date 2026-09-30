@@ -83,7 +83,7 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers: full email and phone *(proposed)* | ✓ | | ✓ | | | |
-| Impersonate partner and store users (full access, 30 min) | ✓ | | ✓ | | | |
+| Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
 | Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |

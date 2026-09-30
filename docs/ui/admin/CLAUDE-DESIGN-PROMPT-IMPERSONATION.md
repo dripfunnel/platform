@@ -37,8 +37,9 @@ anything that already exists.
   **disabled** with "Only Priya can change this".
 - **No consent needed**: it works even if the merchant has turned "Support access" off (that
   setting only governs the partner's own support team).
-- **30 minutes**, no silent extension; the staff member can end it any time. It also ends if
-  the user is suspended or removed meanwhile.
+- **30 minutes**, **extendable once by 30 minutes** as an explicit, logged action and never
+  silently (ACCESS §8.1); the staff member can end it any time. It also ends if the user is
+  suspended or removed meanwhile.
 - **Visible on both sides**:
   - the staff member sees an **unremovable bar** across the top of the impersonated app;
   - everyone signed in to that store (or that partner's console) sees a **banner**: "Support
@@ -113,15 +114,20 @@ On top of the **merchant portal** (in the partner's look) and on top of the **pa
 console**, design a fixed, full-width bar that can't be closed or hidden, in a colour that
 can't be mistaken for the partner's brand (e.g. a strong amber with dark text):
 
-"You are signed in as **Priya Mehta** (Owner, Mehta Textiles) · Support session by Arjun ·
+"You are signed in as **Priya Mehta** (Owner, Mehta Textiles) · Support (Arjun) ·
 Ends in 28 min · **End now**"
 
+(“Support”, never “DripFunnel”, and never “support session” — that is the partner
+mechanism, USERS-AND-DOMAINS §4.1.)
+
 - Show the ticking time; at **5 minutes left** it changes to a warning style ("Ends in 4
-  min"); it offers no extension.
+  min") and offers **Extend by 30 minutes** — once. After that extension the control is gone,
+  not disabled, because there is nothing the staff member can do to re-enable it.
 - **End now** confirms ("End this session? You'll return to the admin console.") and closes
   the tab back to the admin console.
-- **Expired**: the portal is replaced by a full-page state: "Your 30 minutes as Priya are up.
-  Start a new session from the admin console if you still need it." with a button back.
+- **Expired**: the portal is replaced by a full-page state: "Your session as Priya has ended.
+  Start a new session from the admin console if you still need it." with a button back. It
+  says "session", not "30 minutes", because an extended one ran for an hour.
 - **Blocked controls**: design at least three: Settings › Profile (change password, 2-factor),
   Billing › Payment method, and Settings › Transfer ownership, each disabled with "Only Priya
   can change this". Also design what happens if a blocked action is reached another way (a
@@ -165,7 +171,8 @@ Use the existing sample data. The people in this feature:
 
 ## 4. The interface must never
 
-- Let impersonation start without a reason and re-authentication, or run past 30 minutes.
+- Let impersonation start without a reason and re-authentication, or run past its expiry —
+  30 minutes, or 60 if it was extended, and never a second extension.
 - Hide, dismiss or shrink the staff bar, or make it look like part of the partner's brand.
 - Show "DripFunnel" in anything a partner's merchants or partner users see.
 - Offer to impersonate a staff member or a shopper.

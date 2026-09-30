@@ -14,13 +14,14 @@
     "#jobs/*": "./src/jobs/*.ts"
   },
   "scripts": {
-    "dev": "wrangler dev --env dev",
+    "dev": "wrangler dev --env local",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc -p tsconfig.json && tsc -p scripts/tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run",
     "schema": "tsx scripts/print-schema.ts",
-    "migrate": "tsx scripts/migrate/main.ts"
+    "migrate": "tsx scripts/migrate/main.ts",
+    "dev-env:attach": "tsx scripts/dev-env/main.ts"
   },
   "dependencies": {
     "@pothos/core": "^4.15.1",

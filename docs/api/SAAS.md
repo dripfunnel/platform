@@ -182,7 +182,7 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 | **Trial** | Signup; ends at `trial_ends_at` | Full use within the plan | Live |
 | **Active** | A paid subscription | Full use | Live |
 | **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner) | Keeps selling, degraded *(ask what "degraded" shows)* |
-| **Suspended** | A person: Admin, or the partner *(ask whether partners may suspend or only Admin)*, with a required reason; or dunning at the end of its policy *(ask)* | Sign-in shows why and whom to contact; no writes | A degraded page served by an edge rule, without a rebuild |
+| **Suspended** | A person: Admin, or the partner *(ask whether partners may suspend or only Admin)*, with a required reason; or dunning at the end of its policy *(ask)* | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Kept until period end *(ask)* |
 | **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept for the retention window, then deleted *(ask the window, §14)* |
 
