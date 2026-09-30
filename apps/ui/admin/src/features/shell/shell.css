@@ -591,3 +591,14 @@
     padding: var(--df-space-4);
   }
 }
+
+/* Signed-out layout */
+
+.df-auth {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 100vh;
+  background: var(--df-color-page);
+  color: var(--df-color-text);
+  font-family: var(--df-font);
+}

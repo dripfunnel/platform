@@ -23,6 +23,22 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 
+## Sign-in
+
+`/sign-in` (`src/features/sign-in/`) is the staff sign-in with Microsoft Entra ID, following
+the prototype. It isn't wired to an API yet, so it steps through the prototype's flow
+locally: the Microsoft button shows "Signing you in…", then the Authenticator request;
+"use a code" and Verify lead to the dashboard; "Use another Microsoft account" goes back to
+the start. Nothing checks who you are, so this walk-through runs only where the harness is
+on (below); a production build's buttons do nothing until #13 adds the real redirect.
+Force one state with `?state=` (`signing`, `approve`, `code`, `cancelled`, `denied`,
+`unavailable`, `blocked`, `refused`, `expired`); without it the screen starts at the
+Microsoft button. The environment banner shows here too.
+
+The SPA needs no sign-in variables. The tenant ID, client ID and client secret belong to the
+API Worker ([THIRD-PARTY-ACCESS.md §2.5](../../../docs/code/THIRD-PARTY-ACCESS.md)); never put
+them in a `VITE_*` variable, which ends up in the public bundle.
+
 ## Screen states
 
 The state kit lives in `src/features/common/`: `EmptyState`, `LoadingState`, `ErrorState`,

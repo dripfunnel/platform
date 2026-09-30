@@ -126,7 +126,16 @@ The staff identity provider is not settled. The docs and the prototype disagree:
 - The Admin prototype designs **Microsoft Entra ID** with Microsoft Authenticator
   (`designs/DF Admin Prototype.dc.html`).
 
-*(ask which one)*.
+*(ask which one)*. Until it is answered, the admin sign-in screen built in #17 follows the
+prototype (Microsoft Entra ID). It isn't wired to an API yet, so only its words and button
+change if Google Workspace is chosen.
+
+The OIDC app's values below belong to the API Worker, and the Cloudflare Access client to
+Cloudflare Zero Trust. The admin SPA needs none: it sends the browser to
+the Worker's `/api` sign-in route, and the Worker redirects to the identity provider, handles
+the callback and sets the session cookie. A `VITE_*` variable is built into the public
+bundle, so the client secret must never be one. The tenant and client IDs aren't secret, but
+the SPA has no use for them either.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
