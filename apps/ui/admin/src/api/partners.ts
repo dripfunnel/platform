@@ -3,7 +3,7 @@
 // whether an action is allowed, and why not, is the API's answer (decided on #19).
 import type { Money } from '@dripfunnel/shared/format'
 import { harnessEnabled } from '../features/common/useScreenState'
-import type { PageInfo } from './pageInfo'
+import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission as Permission } from './permissions'
 import type { StaffRole } from '../features/shell/staffRoles'
 import { sampleServer } from './partnersSample'
@@ -58,11 +58,6 @@ export interface PartnerFilter {
   status?: PartnerState | undefined
   setup?: SetupFilter | undefined
   q?: string | undefined
-}
-
-export interface PageRequest {
-  after?: string | undefined
-  before?: string | undefined
 }
 
 export interface PartnerPage {

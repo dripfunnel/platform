@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { staffRoles, type StaffRole } from './features/shell/staffRoles'
 import { navFor, navRows, type NavRow } from './nav'
 
-const firstRelease = ['dashboard', 'partners', 'stores']
+const firstRelease = ['dashboard', 'partners', 'stores', 'customers']
 
 const rowFor = (roles: readonly StaffRole[]): NavRow => ({ key: 'partners', to: '/partners', icon: 'users', roles })
 
 describe('navFor', () => {
-  it.each(staffRoles)('gives %s exactly Dashboard, Partners and Stores, in that order', (role) => {
+  it.each(staffRoles)('gives %s exactly Dashboard, Partners, Stores and Customers, in that order', (role) => {
     expect(navFor(role).map((row) => row.key)).toEqual(firstRelease)
   })
 

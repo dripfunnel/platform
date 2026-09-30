@@ -3,16 +3,6 @@
   font-weight: 600;
 }
 
-.df-list a.df-meta-link {
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.df-meta-value {
-  color: var(--df-color-text);
-  font-weight: 600;
-}
-
 .df-status-sub--muted {
   color: var(--df-color-muted);
 }

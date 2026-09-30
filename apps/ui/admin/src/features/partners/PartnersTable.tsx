@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { PartnerRow } from '../../api/partners'
 import { fill, formatCount, formatDate, messages } from '../../messages'
+import { ClickableRow } from '../common/ClickableRow'
 import { Tile } from '../common/Tile'
 import { HostPill, HouseBadge, InvitationPill, PartnerStatePill } from './partnerLook'
 import '../common/list.css'
@@ -12,7 +13,7 @@ const columns = words.columns
 const Row = ({ partner }: { partner: PartnerRow }) => {
   const { setup, owner, portalHost } = partner
   return (
-    <tr>
+    <ClickableRow>
       <th scope="row">
         <div className="df-name-cell">
           <Tile name={partner.name} />
@@ -66,7 +67,7 @@ const Row = ({ partner }: { partner: PartnerRow }) => {
         </div>
       </td>
       <td className="df-muted df-nowrap">{formatDate(partner.createdAt)}</td>
-    </tr>
+    </ClickableRow>
   )
 }
 

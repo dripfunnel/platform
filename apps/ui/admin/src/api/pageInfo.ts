@@ -6,3 +6,9 @@ export interface PageInfo {
   hasPreviousPage: boolean
   hasNextPage: boolean
 }
+
+// Which page to fetch: after one cursor, before another, or the first page with neither.
+export interface PageRequest {
+  after?: string | undefined
+  before?: string | undefined
+}

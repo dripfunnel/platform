@@ -33,6 +33,7 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
         onAction={noop}
         onAddNote={saved}
         onRecheck={resolved}
+        customers={{ filter: {}, page: {}, onFilterChange: noop }}
         onReload={noop}
         {...props}
       />
@@ -44,10 +45,10 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
 }
 
 describe('Store detail', () => {
-  it('has the eight tabs decided on #20, and no Customers tab', async () => {
+  it('has the tabs decided on #20, with the Customers tab #42 adds after Users', async () => {
     const text = await render()
     for (const label of Object.values(words.tabs)) expect(text).toContain(label)
-    expect(text).not.toContain('Customers')
+    expect(storeTabs.indexOf('customers')).toBe(storeTabs.indexOf('users') + 1)
   })
 
   it('offers Retry in the header while setup failed, and Undo on the Provisioning tab', async () => {
@@ -87,7 +88,10 @@ describe('Store detail', () => {
   it('caps the note field at the length the API accepts', async () => {
     const rootRoute = createRootRoute({
       component: () => (
-        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onAddNote={saved} onRecheck={resolved} onReload={noop} />
+        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onAddNote={saved} onRecheck={resolved}
+          customers={{ filter: {}, page: {}, onFilterChange: noop }}
+          onReload={noop}
+        />
       ),
     })
     const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: ['/stores/s3'] }) })

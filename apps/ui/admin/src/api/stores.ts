@@ -4,7 +4,7 @@
 import type { Money } from '@dripfunnel/shared/format'
 import { harnessEnabled } from '../features/common/useScreenState'
 import type { StaffRole } from '../features/shell/staffRoles'
-import type { PageInfo } from './pageInfo'
+import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission } from './permissions'
 import { storesServer } from './storesSample'
 
@@ -77,11 +77,6 @@ export interface StoreFilter {
   setup?: SetupState | undefined
   created?: CreatedWindow | undefined
   q?: string | undefined
-}
-
-export interface PageRequest {
-  after?: string | undefined
-  before?: string | undefined
 }
 
 export interface StorePage {
