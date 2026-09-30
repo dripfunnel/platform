@@ -1,7 +1,7 @@
 import { formatMoney } from '@dripfunnel/shared/format'
 import type { Partner, PartnerPlan } from '../../api/partners'
 import { fill, formatCount, locale, messages } from '../../messages'
-import { InfoNote } from './InfoNote'
+import { InfoNote } from '../common/InfoNote'
 import './partners.css'
 
 const words = messages.partner

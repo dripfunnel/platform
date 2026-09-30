@@ -1,17 +1,19 @@
 // States (?state=): loading, empty, error, readonly, denied. Without one the screen shows the
 // API's page of partners, and is empty when the platform has none: a new platform's first view.
+import { Link } from '@tanstack/react-router'
 import type { PartnerFilter, PartnerPage } from '../../api/partners'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { EmptyState } from '../common/EmptyState'
 import { ErrorState } from '../common/ErrorState'
 import { LoadingState } from '../common/LoadingState'
 import { ReadOnlyNotice } from '../common/ReadOnlyNotice'
-import { Pager } from './Pager'
+import { Pager } from '../common/Pager'
 import type { PartnersState } from './partnerHarness'
 import { isFiltered } from './isFiltered'
 import { PartnerFilters } from './PartnerFilters'
 import { CreatePartner, PartnersHeader } from './PartnersHeader'
 import { PartnersTable } from './PartnersTable'
+import '../common/list.css'
 import './partners.css'
 
 const words = messages.partners
@@ -76,7 +78,15 @@ export const Partners = ({ page, filter, forced, readOnly, onFilterChange, onRel
       ) : (
         <>
           <PartnersTable partners={page.items} />
-          <Pager pageInfo={page.pageInfo} filter={filter} />
+          <Pager
+            label={words.pagerLabel}
+            pageInfo={page.pageInfo}
+            link={(cursor, label) => (
+              <Link to="/partners" search={{ ...filter, ...cursor }} className="df-button">
+                {label}
+              </Link>
+            )}
+          />
         </>
       )}
     </div>

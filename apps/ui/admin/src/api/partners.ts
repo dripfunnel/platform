@@ -3,6 +3,8 @@
 // whether an action is allowed, and why not, is the API's answer (decided on #19).
 import type { Money } from '@dripfunnel/shared/format'
 import { harnessEnabled } from '../features/common/useScreenState'
+import type { PageInfo } from './pageInfo'
+import type { ActionPermission as Permission } from './permissions'
 import type { StaffRole } from '../features/shell/staffRoles'
 import { sampleServer } from './partnersSample'
 
@@ -44,19 +46,13 @@ export type RefusalCode =
   | 'GO_LIVE_CHECKS_FAILING'
 
 export type ActionPermission =
-  | { allowed: true }
-  | { allowed: false; reason: RefusalCode; failingChecks?: readonly GoLiveCheck[] }
+  | Permission<Exclude<RefusalCode, 'GO_LIVE_CHECKS_FAILING'>>
+  | { allowed: false; reason: 'GO_LIVE_CHECKS_FAILING'; failingChecks: readonly GoLiveCheck[] }
 
 // An action missing from the block isn't offered for this partner in its state; one that is
 // present but refused is shown disabled with its reason (ui/README.md §5, consoles).
 export type PartnerPermissions = Partial<Record<PartnerAction, ActionPermission>>
 
-export interface PageInfo {
-  startCursor: string | null
-  endCursor: string | null
-  hasPreviousPage: boolean
-  hasNextPage: boolean
-}
 
 export interface PartnerFilter {
   status?: PartnerState | undefined

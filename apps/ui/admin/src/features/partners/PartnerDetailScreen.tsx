@@ -7,7 +7,7 @@ import { useScreenState } from '../common/useScreenState'
 import { actionDialog, actionToast } from './actionDialog'
 import { partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
-import { Toast } from './Toast'
+import { Toast } from '../common/Toast'
 
 const partnerRoute = getRouteApi('/_app/partners_/$partnerId')
 const shellRoute = getRouteApi('/_app')

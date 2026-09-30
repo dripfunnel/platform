@@ -16,6 +16,7 @@ import { PartnerHeader } from './PartnerHeader'
 import { PartnerTabs, type PartnerTab } from './PartnerTabs'
 import { PlansTab } from './PlansTab'
 import { TeamTab } from './TeamTab'
+import '../common/list.css'
 import './partners.css'
 
 const words = messages.partner

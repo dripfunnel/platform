@@ -2,7 +2,8 @@ import type { Partner, PartnerAction } from '../../api/partners'
 import { fill, formatDate, formatTime, messages } from '../../messages'
 import { PermissionDenied } from '../common/PermissionDenied'
 import { StatusPill } from '../common/StatusPill'
-import { ActionControl } from './ActionControl'
+import { ActionControl } from '../common/ActionControl'
+import { refusalText } from './refusal'
 import { InvitationPill } from './partnerLook'
 import './partners.css'
 
@@ -40,9 +41,7 @@ export const TeamTab = ({ partner, onAction }: TeamTabProps) => {
         <p>{invitationDetail(partner)}</p>
         {inviteAction && invitePermission && (
           <ActionControl
-            action={inviteAction}
-            permission={invitePermission}
-            partnerName={partner.name}
+            refusal={refusalText(invitePermission, inviteAction, partner.name)}
             label={words.actions[inviteAction]}
             primary={inviteAction === 'sendInvite'}
             onRun={() => onAction(inviteAction)}

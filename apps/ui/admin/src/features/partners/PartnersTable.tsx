@@ -1,7 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import type { PartnerRow } from '../../api/partners'
 import { fill, formatCount, formatDate, messages } from '../../messages'
-import { HostPill, HouseBadge, InvitationPill, PartnerStatePill, PartnerTile } from './partnerLook'
+import { Tile } from '../common/Tile'
+import { HostPill, HouseBadge, InvitationPill, PartnerStatePill } from './partnerLook'
+import '../common/list.css'
 import './partners.css'
 
 const words = messages.partners
@@ -12,10 +14,10 @@ const Row = ({ partner }: { partner: PartnerRow }) => {
   return (
     <tr>
       <th scope="row">
-        <div className="df-partner-cell">
-          <PartnerTile name={partner.name} />
+        <div className="df-name-cell">
+          <Tile name={partner.name} />
           <div>
-            <p className="df-partner-name">
+            <p className="df-name-line">
               <Link to="/partners/$partnerId" params={{ partnerId: partner.id }} className="df-row-title">
                 {partner.name}
               </Link>
