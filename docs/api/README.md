@@ -260,14 +260,18 @@ own migration file with no other statements. Applied migrations are recorded in 
 
 ## 7. Local Postgres
 
-This project requires Postgres 17.x; `pnpm migrate` refuses to run against any other major
-(`scripts/migrate/version-check.ts`). Install it natively — no Docker required.
+This project requires Postgres 18.x; `pnpm migrate` refuses to run against any other major
+(`scripts/migrate/version-check.ts`). This matches the Neon projects `dripfunnel-dev` and the
+test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md)
+§4), so a version-specific issue is caught locally and in CI before it reaches a real
+deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
+together. Install it natively — no Docker required.
 
 **macOS (Homebrew):**
 
 ```
-brew install postgresql@17
-brew services start postgresql@17
+brew install postgresql@18
+brew services start postgresql@18
 createuser -s dripfunnel_dev
 createdb -O dripfunnel_dev dripfunnel
 psql -d dripfunnel -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
@@ -276,16 +280,16 @@ psql -d dripfunnel -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
 **Debian/Ubuntu:**
 
 ```
-sudo apt install postgresql-17
+sudo apt install postgresql-18
 sudo -u postgres createuser -s dripfunnel_dev
 sudo -u postgres createdb -O dripfunnel_dev dripfunnel
 sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
 ```
 
-**Windows:** install Postgres 17 with the postgresql.org installer, then run the equivalent
+**Windows:** install Postgres 18 with the postgresql.org installer, then run the equivalent
 `createuser`/`createdb` commands from a shell (or pgAdmin) with the same names.
 
-If port 5432 is already in use by another local Postgres, run the 17 instance on a different
+If port 5432 is already in use by another local Postgres, run the 18 instance on a different
 port (e.g. `5434`) and change the port in the URLs below to match.
 
 Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`; the default `DATABASE_URL` matches
@@ -316,7 +320,7 @@ rather than failing.
 Migrations may declare `create extension if not exists "..."`; the runner checks every
 required extension is installed on the server before applying anything
 (`scripts/migrate/extensions.ts`) and fails with the missing extension's name and how to
-install it (`postgresql-contrib` / `postgresql-contrib-17`) rather than partially applying.
+install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partially applying.
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `.dev.vars.example` or `wrangler.jsonc` ever points at
@@ -348,7 +352,7 @@ database being refused by the host match.
 `pnpm test` needs this same database up and `.dev.vars` exported (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
 `scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
-default above when unset), the way CI's `postgres:17` service does
+default above when unset), the way CI's `postgres:18` service does
 (`.github/workflows/ci.yml`).
 
 `/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
