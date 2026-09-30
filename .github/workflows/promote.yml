@@ -30,9 +30,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: prod
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
     defaults:
       run:
         working-directory: apps/api
@@ -64,6 +61,8 @@ jobs:
         env:
           VERSION_ID: ${{ inputs.version_id }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           # Cross-check against the version's own annotation rather than trusting the two inputs to agree.
           version_message=$(pnpm exec wrangler versions view "$VERSION_ID" --env prod --json | jq -r '.annotations["workers/message"] // empty')
@@ -88,6 +87,8 @@ jobs:
         env:
           VERSION_ID: ${{ inputs.version_id }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           pnpm exec wrangler versions deploy "$VERSION_ID@100" -y --env prod \
             --message "promote $COMMIT_SHA"
@@ -121,6 +122,9 @@ jobs:
           dist: ../ui/store/dist
           branch: main
           commit-hash: ${{ inputs.commit_sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: 'SPA: platform'
         id: spa-platform
@@ -130,6 +134,9 @@ jobs:
           dist: ../ui/platform/dist
           branch: main
           commit-hash: ${{ inputs.commit_sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: 'SPA: admin'
         id: spa-admin
@@ -139,6 +146,9 @@ jobs:
           dist: ../ui/admin/dist
           branch: main
           commit-hash: ${{ inputs.commit_sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Run summary
         if: always()
