@@ -5,8 +5,9 @@ DripFunnel staff need to **manage partners and stores**. Everything else in
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md) waits for a later release (§11).
 
 **Status: specification, not built.** Decided 2026-09-28: the menu starts with Dashboard,
-Partners and Stores; the other menus in §2 are *(proposed)* as the minimum needed to manage
-those two.
+Partners and Stores. **Decided 2026-09-30: all nine menus in §2 ship** — Approvals,
+Provisioning, Activity log and Staff are confirmed rather than folded into Partners and
+Stores, because a queue of work waiting needs a list to work from.
 
 Last updated: 2026-09-30.
 
@@ -39,11 +40,11 @@ and store states).
 | 2 | **Partners** | Everyone | partners awaiting approval | decided |
 | 3 | **Stores** | Everyone | none | decided |
 | 4 | **Customers** (§5.4) | Everyone | none | decided |
-| 5 | **Approvals** | Super admin, Partner manager | partners awaiting approval | *(proposed)* |
-| 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | *(proposed)* |
+| 5 | **Approvals** | Super admin, Partner manager | partners awaiting approval | decided 2026-09-30 |
+| 6 | **Provisioning** | Super admin, Support, Engineer on call | failed or stuck signups | decided 2026-09-30 |
 | 7 | **Impersonate** | Super admin, Support | sessions open now | decided |
-| 8 | **Activity log** | Everyone | none | *(proposed)* |
-| 9 | **Staff** | Super admin | none | *(proposed)* |
+| 8 | **Activity log** | Everyone | none | decided 2026-09-30 |
+| 9 | **Staff** | Super admin | none | decided 2026-09-30 |
 
 Always visible in the header: the environment marker, a search box (partners and stores by
 name, domain, code or owner email), and the signed-in staff member's name and role.
@@ -109,13 +110,22 @@ Header: logo, name, state, portal host, and the actions (§4.3). Tabs:
 
 | Action | Who | Needs | Consequence stated before confirming |
 |---|---|---|---|
-| **Create partner** | Super admin, Partner manager | Name, Owner email, country; send the Owner invitation now, or hold it until setup is done *(proposed)* | Creates a Draft partner and invites its Owner to the partner console (or holds the invitation) |
+| **Create partner** | Super admin, Partner manager | Name, Owner email, country; **staff choose** whether to send the Owner invitation now or hold it until setup is done (decided 2026-09-30) | Creates a Draft partner and invites its Owner to the partner console, or holds the invitation for **Send Owner invitation** later |
 | **Set up for partner** | Super admin, Partner manager | Reason or ticket; re-authentication | "Opens Northstar's partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with Northstar." (ACCESS §8.2) |
 | **Send Owner invitation** | Super admin, Partner manager | A held invitation | Sends it; the Owner sees whatever setup is already done |
-| **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC | "Merchants can sign up at store.northstar.com from now on." |
+| **Approve** | Super admin, Partner manager | Go-live checks pass; note on contract and KYC; **a second approver unless a Super admin ran the setup** (below) | "Merchants can sign up at store.northstar.com from now on." |
 | **Send back** | Super admin, Partner manager | Reason (shown to the partner) | Back to Draft with the reason |
 | **Pause** | Super admin | Reason | "No new merchant signups; its 86 stores keep running." |
 | **Resume** | Super admin | | Sign-ups open again |
+
+**Who may approve** (decided 2026-09-30). Two staff must be involved, except that a Super
+admin counts for both:
+
+| Who ran the setup | Approval |
+|---|---|
+| **Super admin**, in a setup session (ACCESS §8.2) | That Super admin may approve it alone |
+| **Partner manager**, in a setup session | A second approver, who is **not** the staff member who did the setup |
+| **The partner itself**, with no setup session | Two staff approvers — nobody at DripFunnel has looked at it yet |
 | **Resend Owner invitation** | Super admin, Partner manager, Support | | New link, old one stops working |
 | **Impersonate a partner user** | Super admin, Support | A user from the Team tab; reason or ticket; re-authentication | "Full access as Maya in Northstar's console for 30 minutes; Northstar's team sees a banner." (§8) |
 
@@ -166,7 +176,7 @@ store's customers are listed in Customers (§5.4), pre-filtered to this store.
 
 | Action | Who | Needs | Consequence stated before confirming |
 |---|---|---|---|
-| **Suspend** | Super admin; Engineer on call (emergency) | Reason (shown to the Owner) | "Mehta Textiles can't make changes; its storefront shows a notice." |
+| **Suspend** | Super admin; Engineer on call (emergency) | Reason (shown to the Owner) | "Mehta Textiles can't make changes; its storefront shows a notice telling shoppers to contact the store, and the Owner is told to contact **their partner's** support." |
 | **Restore** | Super admin | Reason | Back to its previous status |
 | **Extend trial** | Super admin | New end date | New trial end date |
 | **Retry provisioning** | Super admin, Support, Engineer on call | A failed step | Runs the failed step again |
@@ -203,17 +213,16 @@ once for each store they buy from.
   created, last sign-in. In the URL.
 - The same list appears on each store's page as a **Customers** tab, pre-filtered.
 
-**Customer detail**: name, **full email and phone** (Super admin and Support only
-*(proposed)*; other roles see them masked), verified or not, store and partner, sign-in
-method, created, last sign-in, order count, **other accounts with the same email** in other
-stores (Super admin and Support *(proposed)*), and the **Activity** tab: this customer's
+**Customer detail**: name, **full email and phone** (Super admin and Support only, confirmed
+2026-09-30; other roles see them masked), verified or not, store and partner, sign-in method,
+created, last sign-in, order count, and the **Activity** tab: this customer's
 sign-ins, failed sign-ins, account changes and orders placed (LOGGING.md §3). **Opening a
 detail page is logged** ("Neha viewed customer Priya S. at Mehta Textiles").
 
 **Never shown**: addresses, order contents, payment details, passwords. **No actions** in
 this release: no password reset, block, export or delete.
 
-## 6. Approvals *(proposed)*
+## 6. Approvals
 
 The queue of partners in *Awaiting approval*, oldest first: partner, submitted, go-live
 checks (pass/fail each), who is reviewing. Opens the partner detail with **Approve** and
@@ -222,7 +231,7 @@ by state.
 
 ---
 
-## 7. Provisioning *(proposed)*
+## 7. Provisioning
 
 Signups in progress, failed or stuck (running too long), across partners: store, partner,
 step reached, started, attempts, error in plain words (details behind a click). Actions:
@@ -281,7 +290,7 @@ Support, whose role excludes the plans and prices a setup session can change.
 
 ---
 
-## 9. Activity log *(proposed)*
+## 9. Activity log
 
 The platform-wide activity log ([../../api/LOGGING.md](../../api/LOGGING.md)): every write and
 sign-in by anyone, at every level: staff, partner users, merchants, vendors, API keys,
@@ -300,7 +309,7 @@ support sessions, shoppers and the system, plus staff-only security events.
 
 ---
 
-## 10. Staff *(proposed)*
+## 10. Staff
 
 Staff list: name, email, role, last sign-in, 2-factor status. Super admin can invite (by
 company email, signing in through company SSO), change role and remove. The last Super admin
@@ -350,9 +359,18 @@ say so, and writes an audit entry.
 
 ## 13. Open questions
 
-- Confirm the proposed menus 4–8, or fold Approvals into Partners and Provisioning into
-  Stores to keep the menu at three.
-- Does a partner's approval need a second approver? In particular, may the staff member who
-  set a partner up in a setup session also approve it?
-- May Partner managers pause a partner, or only Super admins?
-- What does a suspended store's storefront show (SAAS.md §4.2)?
+All of this section's questions were answered on 2026-09-30 and moved to the sections that
+own them:
+
+| Question | Answer | Where |
+|---|---|---|
+| Confirm the proposed menus, or fold Approvals into Partners and Provisioning into Stores | **Confirmed, not folded**: all nine menus ship | §2 |
+| Does a partner's approval need a second approver, and may the staff member who set it up approve it? | Two staff must be involved, **except a Super admin counts for both** | §4.3 |
+| May Partner managers pause a partner, or only Super admins? | **Super admin only** — §4.3 already said so; the question was stale | §4.3 |
+| What does a suspended store's storefront show? | A notice telling shoppers to contact the store; the Owner is pointed at **their partner's** support, never DripFunnel's, so white label holds | §5.3, SAAS.md §4.2 |
+| Who sees a customer's full email and phone? | **Super admin and Support**, confirmed | §5.4 |
+| Other accounts with the same email in other stores | **Dropped.** Exact-email search already answers "is this the same person?", and it is logged. A cross-merchant view of a shopper is not something any merchant agreed to | §5.4 |
+| Send the Owner invitation on creation, or hold it? | **Staff choose**, per partner | §4.3 |
+
+Nothing in this section is open. New questions go to the section that owns the decision, not
+back here.
