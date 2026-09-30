@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleAuth } from '#apis/admin/auth'
-import { noopActivityLog } from '#auth/activity'
+import { interimActivityLog } from '#auth/activity'
 import { SignInFailed } from '#auth/oidc'
 import { absoluteMs, cookieName, createSession, endSession, idleMs, readSession } from '#auth/session'
 import { staffForClaims } from '#auth/staff'
@@ -148,7 +148,7 @@ describe('the sign-in routes', () => {
   const deps = (overrides: Partial<Parameters<typeof handleAuth>[1]> = {}) => ({
     sql: db.sql,
     provider,
-    activity: noopActivityLog,
+    activity: interimActivityLog,
     adminHost: 'admin.dripfunnel.com',
     now: () => start,
     allowAttempt: async () => true,
@@ -191,6 +191,21 @@ describe('the sign-in routes', () => {
   it('rate-limits the callback', async () => {
     const res = await handleAuth(callback('good'), deps({ allowAttempt: async () => false }))
     expect(res.status).toBe(429)
+  })
+
+  it('records sign-in without putting a name, email or address in the log line', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await handleAuth(callback('good'), deps())
+    } finally {
+      console.log = log
+    }
+    expect(lines.join('\n')).toContain('staff.signed_in')
+    for (const secret of ['priya@softobotics.com', 'Priya', '203.0.113.1']) {
+      expect(lines.join('\n')).not.toContain(secret)
+    }
   })
 
   it('refuses claims the provider returns in a shape we cannot use', async () => {

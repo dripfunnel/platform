@@ -110,6 +110,10 @@ if a field on it appears in any entry.
 - Code lives in `apps/api/src/saas/activity/` (writing and querying) and
   `apps/api/src/db/schema/activity.ts` (the table); the scope declaration in
   `apis/graphql/scope.ts` calls it.
+- **Until #15 builds the table**, `apps/api/src/auth/activity.ts` holds the entry shape and
+  writes each one to the Worker's logs instead (§9), carrying no label, IP or user agent. A
+  failed staff sign-in therefore leaves a trace but not a searchable record, and #15 replaces
+  the writer without changing the shape.
 
 ---
 

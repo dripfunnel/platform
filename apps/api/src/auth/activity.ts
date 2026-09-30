@@ -22,10 +22,25 @@ export interface ActivityLog {
 }
 
 /**
- * Until #15 builds the table. It drops entries rather than storing them, which is why
- * nothing here may depend on reading one back.
+ * Until #15 builds the table. Writes a structured line to the Worker's logs so a failed staff
+ * sign-in still leaves a trace (LOGGING.md §9), carrying no personal data: no label, no IP,
+ * no user agent. Nothing may depend on reading one back.
  */
-export const noopActivityLog: ActivityLog = { record: async () => {} }
+export const interimActivityLog: ActivityLog = {
+  record: async (_tx, entry) => {
+    console.log(
+      JSON.stringify({
+        log: 'activity_pending_15',
+        category: entry.category,
+        action: entry.action,
+        result: entry.result,
+        actorKind: entry.actorKind,
+        actorId: entry.actorId,
+        requestId: entry.requestId,
+      }),
+    )
+  },
+}
 
 export const signedIn = (staff: { id: string; email: string; name: string }, request: RequestFacts): ActivityEntry => ({
   category: 'auth',

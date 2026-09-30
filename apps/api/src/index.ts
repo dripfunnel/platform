@@ -5,7 +5,7 @@ import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
-import { noopActivityLog } from '#auth/activity'
+import { interimActivityLog } from '#auth/activity'
 import { resolveStaff } from '#auth/caller'
 import { readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
@@ -64,11 +64,18 @@ const handleAdmin = async (
       return await handleAuth(request, {
         sql,
         provider: noProvider,
-        activity: noopActivityLog,
+        activity: interimActivityLog,
         adminHost: config.ADMIN_HOST,
         now: () => new Date(),
-        allowAttempt: async (req) =>
-          (await env.SIGN_IN_RATE_LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' })).success,
+        // Keyed per address, never pooled: a shared fallback key would let a handful of
+        // attempts exhaust one bucket and 429 every staff member behind it. Cloudflare sets
+        // this header on everything that reaches the edge, so its absence is not real
+        // traffic and the attempt is refused rather than counted.
+        allowAttempt: async (req) => {
+          const ip = req.headers.get('cf-connecting-ip')
+          if (!ip) return false
+          return (await env.SIGN_IN_RATE_LIMITER.limit({ key: ip })).success
+        },
       })
     }
     const staff = await resolveStaff(sql, request, new Date())
