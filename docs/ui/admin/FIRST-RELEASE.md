@@ -260,12 +260,24 @@ the target's console or portal opens in a new tab with an unremovable bar and "E
 
 **Sessions**: open now (user, where, staff member, reason, time left, **End**) and history,
 filterable by staff member, partner, store and date. Each links to its activity-log entries.
+A session can be **extended once, by 30 minutes** (decided 2026-09-30); past that a staff
+member starts a new one, which carries a new reason.
 
 The same **Impersonate** button is on each partner's Team tab (§4.2) and each store's Users
 tab (§5.2).
 
-Partner support sessions into stores (read-only, consented, from the partner console) are
-listed on each store's Support tab, not here.
+**Staff have no read-only way into a store** (decided 2026-09-30). Impersonation is the only
+route, and it is full access, fully audited — a session that says read-only in the banner and
+writes through the API is worse than none. Partner support sessions into stores (read-only,
+**consented** through the merchant's *Settings › Support access*, started from the partner
+console) are a partner capability, listed on each store's Support tab (§5.2), not here.
+
+**Setup sessions are a different thing** ([../../api/ACCESS.md](../../api/ACCESS.md) §8.2),
+started from a partner's page (§4.3), not from this menu: staff act **as themselves** with the
+partner's setup powers for 2 hours, not as a user. They need a reason and re-authentication
+like impersonation, they cannot be extended, and they cannot touch the partner's payment
+method, payout details or ownership. **Super admin and Partner manager** may start one — not
+Support, whose role excludes the plans and prices a setup session can change.
 
 ---
 

@@ -349,7 +349,7 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
 | **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. |
-| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions. |
+| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions, no setup sessions (§8.2). |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
 | **Read-only** | Sees everything Support sees, changes nothing. |
@@ -358,9 +358,10 @@ Staff have **account-level** access to every partner and merchant through the Ad
 and **read-only access to customer accounts** across every store (decided 2026-09-28;
 masked contact details in lists, full on the detail page for Super admin and Support
 *(proposed)*, each detail view logged; never addresses, order contents or payment details). Inside
-a store or a partner console they act only by impersonating a user (§8.1): Super admin and
-Support only. Every
-staff write is audited (§10).
+a store they act only by impersonating a user (§8.1: Super admin and Support); inside a
+partner console, by impersonating a partner user, or through a setup session for onboarding
+(§8.2: Super admin and Partner manager). **Staff never open a support session** —
+that is a partner capability (§8). Every staff write is audited (§10).
 
 ### 5.5 Never in any merchant or vendor role
 
@@ -561,9 +562,11 @@ another vendor holds (DESIGN-BRIEF fact 10).
 
 ## 8. Support access sessions
 
-From USERS-AND-DOMAINS §4.1 (decided) and CONSOLE-DESIGN part J. Partner users and staff open
-a merchant's portal for support **only** through a support session; there is no other way into
-a store's data for either.
+From USERS-AND-DOMAINS §4.1 (decided) and CONSOLE-DESIGN part J. **Partner users** open a
+merchant's portal for support **only** through a support session; there is no other way into a
+store's data for them. **Staff never use one** (decided 2026-09-30): they impersonate (§8.1),
+with the user's full access and a full audit trail. The Rules below already said this; the
+opening sentence and the flow did not, and now do.
 
 **The setting.** *Settings › Support access* in the portal: "Allow [partner name] support to
 view my store: On / Off". **On by default**; the Owner (`settings`) can switch it off at any
@@ -573,12 +576,12 @@ merchant to switch it on.
 **Opening one:**
 
 ```
-Console (platform or admin): store page → "Open support session"
-   │  checks: actor's role allows it (§5.3, §5.4); the store belongs to the actor's partner
-   │          (staff: any partner); the store's setting is On; re-authentication (A2);
+Partner console: store page → "Open support session"
+   │  checks: the partner user's role allows it (§5.3); the store belongs to their partner;
+   │          the store's setting is On; re-authentication (A2);
    │          a reason or ticket number
    ▼
-support_session(store_id, actor_kind, actor_id, reason, access 'read',
+support_session(store_id, partner_user_id, reason, access 'read',
                 started_at, expires_at = +30 min (confirm), ended_at)  + audit row
    │  one-time handoff token, short-lived, single use
    ▼
@@ -644,7 +647,9 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
 - **Logged**: every entry has the target as `actor` and the staff member as `on_behalf_of`,
   with the impersonation id (LOGGING.md §4). Starting and ending are entries too.
 - **Ends** at 30 minutes, when the staff member ends it, or when the target's account or
-  membership is suspended or removed.
+  membership is suspended or removed. **Extendable once, by 30 minutes** (decided
+  2026-09-30), logged as its own entry; beyond that a staff member starts a new session,
+  which carries a new reason.
 - *(proposed)* Only **active** users can be impersonated (not invited-but-not-accepted, not
   suspended), and a staff member has **one open impersonation at a time**.
 - **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). These resolvers
@@ -659,7 +664,10 @@ For staff doing a partner's onboarding, or any part of it, when the partner need
 Impersonation (§8.1) can't do this: it needs an active partner user, and a partner being set
 up by DripFunnel may have none yet because the Owner's invitation is held or not accepted.
 
-- **Who**: Super admin and Partner manager. Started from the partner's page in the admin
+- **Who**: Super admin and Partner manager. **Not Support** (confirmed 2026-09-30): a setup
+  session can set the partner's plans and prices, which §5.4 keeps with Partner manager and
+  which Support's "no billing changes" excludes. Support uses impersonation (§8.1) instead.
+  Started from the partner's page in the admin
   console, with a reason or ticket and re-authentication.
 - **Where**: the real partner console on `platform.dripfunnel.com`, on the same screens the
   partner uses, through a one-time handoff exactly as in §8.1. The session is recorded as
@@ -679,8 +687,10 @@ up by DripFunnel may have none yet because the Owner's invitation is held or not
 - **Logged**: every entry has the staff member as `actor` and the setup session id in
   `access_ref` (LOGGING.md §4); starting and ending are entries too, on both the partner's and the
   platform's activity log.
-- **Ends** after 2 hours *(proposed)*, when the staff member ends it, or when the partner is
-  closed. One open setup session per staff member at a time.
+- **Ends** after 2 hours (confirmed 2026-09-30), when the staff member ends it, or when the
+  partner is closed. **Not extendable** — two hours is already the longest session on the
+  platform; more means a new one, with a new reason. One open setup session per staff member
+  at a time; a second attempt is refused rather than ending the first.
 
 ---
 
@@ -775,7 +785,9 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
 - the last-Owner invariant holds for stores, partners and staff;
 - a support session can't read another partner's store, can't write before elevation, and
   can't do §8's "never" list even after it;
-- a partner user and staff member get nothing from the Store API outside a support session;
+- a partner user gets nothing from the Store API outside a support session, and a staff
+  member nothing outside an impersonation (§8.1) — a staff caller presenting a support
+  session is itself a failure;
 - the Staff-in-A / vendor-in-B person leaks neither way (§9).
 
 ### 11.2 Structural tests
