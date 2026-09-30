@@ -7,6 +7,6 @@ describe('assertPostgresMajor', () => {
   })
 
   it('refuses any other major, naming both versions', () => {
-    expect(() => assertPostgresMajor(160015)).toThrow(/requires Postgres 17\.x.*reports 16\.x/s)
+    expect(() => assertPostgresMajor(170015)).toThrow(/requires Postgres 18\.x.*reports 17\.x/s)
   })
 })
