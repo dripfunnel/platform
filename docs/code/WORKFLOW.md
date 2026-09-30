@@ -16,7 +16,7 @@ Last updated: 2026-09-29.
 | **Branch names are `#<issue>/<kind>/<short-name>`**, kind `feature`, `task` or `bug` (§2) | Free-form names; `feature/<name>` without an issue | The issue links branch, commits, pull request and card; the kind says what the change is and decides whether it gets an environment |
 | **Every commit message starts with `#<issue>` and a space** (§2.1) | Free-form messages | Every commit on `main` points to the card that explains it |
 | **Enforced in three places** (§2.2): git hooks, a required `naming` check on every pull request, and GitHub rulesets on `main` and `dev` | Trusting people to remember | Hooks catch a mistake before the commit exists; the check and rulesets make it impossible to merge, because hooks can be skipped |
-| **Claude reviews every pull request, advisory only** (§7) | A required check that can fail on an AI judgement | A second pass costs nothing to ignore and catches what a tired reviewer misses; blocking on a non-deterministic judgement would teach people to re-run until it passes |
+| **Claude reviews every pull request, and the check fails** (§7) — reversed 2026-09-30 (#70); it was advisory until then | Advisory only, which is what we had | Advisory meant two things went unnoticed: a review that found something, and a review that never ran at all, because `continue-on-error` made a broken token look exactly like a clean bill of health. **The cost is accepted knowingly**: a non-deterministic judgement can now turn a check red, and the temptation will be to re-run until it passes. That is not the way past it — fix the finding or reply saying why not (§7). If it goes red for bad reasons often, fix the prompt, don't loosen the check. |
 | **Only new feature development gets a feature environment** (`feature/…`). Tasks and bugs run the gates only | An environment for every branch or pull request | Environments cost money and Hyperdrive slots (at most about 25 at once, [FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md) §5). Only a new feature needs clicking through before it merges |
 | **Small pull requests: about 400 changed lines at most**, not counting generated files and the lockfile | Large pull requests that ship a whole area | A reviewer can read every line properly, so mistakes in tenancy, layers and reuse get caught |
 | **`main` and `dev` are protected**: pull requests only, the `gates` and `naming` checks must pass, no force-push, no direct push or commit by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
@@ -179,13 +179,31 @@ to start.
 
 **Claude reviews every pull request too**, through
 [`.github/workflows/claude-review.yml`](../../.github/workflows/claude-review.yml): it reads
-AGENTS.md and this section's checklist, then comments inline and once at the top. It is
-**advisory** — it never blocks a merge and never replaces the reviewer above. Treat its
-comments as a colleague's: fix them or say why not. It needs **both** the
+AGENTS.md and this section's checklist, then comments inline and once at the top.
+
+**The check fails** (reversed 2026-09-30, §1) in two cases:
+
+- **Claude asked for a change.** It records a verdict of `changes` whenever it posts a
+  finding, on the same bar it uses to decide whether to post one at all: would it ask the
+  author to change this?
+- **The review didn't finish** — a missing or expired token, the Claude GitHub App removed,
+  an API error, or no verdict written. It fails closed, because a review that didn't happen
+  is not a review that passed.
+
+**When it goes red, treat it exactly as a reviewer's comment** (the loop at the end of this
+section): fix each point, or reply saying why not, and push. The push re-runs the review.
+**Re-running the job without changing anything is not the way past it** — that is the habit
+§1 accepted the risk of, and the one thing that would make this check worthless.
+
+It still doesn't replace the reviewer above; a human approves. It needs **both** the
 [Claude GitHub App](https://github.com/apps/claude) installed on the repository and the
 repository secret `CLAUDE_CODE_OAUTH_TOKEN` — without the app the job cannot get a token to
 comment with, and fails with "Claude Code is not installed on this repository". It is
 skipped on pull requests from forks, where secrets are not available.
+
+Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
+GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
+Making it a required check is a deliberate later step.
 
 Anything that becomes a core type or a shared component (`core/`, `db/scoped`,
 `apps/ui/shared/`) gets a careful line-by-line review, whoever wrote it.

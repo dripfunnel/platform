@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and

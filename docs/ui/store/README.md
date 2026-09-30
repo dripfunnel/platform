@@ -19,7 +19,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-30.
 
 | Document | Covers |
 |---|---|

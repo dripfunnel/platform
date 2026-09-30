@@ -9,3 +9,6 @@ out/
 .env*
 !.env.example
 apps/api/wrangler.feature.json
+
+# The claude-review job writes its verdict here; it never belongs in a commit.
+.claude-review-verdict

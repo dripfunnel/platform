@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -77,6 +77,10 @@ and payouts, Support, Activity log, Settings, Support-session tab.
 `window.DFA`. Hash-routed. Screens: Dashboard, Partners (+ detail with a
 **Setup** tab, approval and go-live checks), Stores, Customers, Approvals,
 Provisioning, Impersonate, Activity log, Staff (Super admin only).
+
+**The Setup tab is prototype-only.** The admin console has none (decided on
+#19, 2026-09-30): the checklist sits on the partner's Overview and the setup
+session starts from the header. See §8.
 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
@@ -346,7 +350,7 @@ Support access* switch (ACCESS §8), not a staff one.
   product requires all three** (ACCESS §8.2, confirmed 2026-09-30) — the prototype is wrong on
   this and the flow needs the same two steps impersonation has. **Super admin and Partner
   manager** may start one, not Support; one is open at a time per staff member, and a second
-  attempt is refused. *Open setup session* sits on the partner header or the Setup tab; *Create partner*
+  attempt is refused. *Open setup session* sits on the partner header (there is no Setup tab, decided on #19); *Create partner*
   opens one as step 2.
 - **In the portal**, `ImpBanner` shows a yellow striped bar with who you're
   acting as, who started the session, the host, a countdown and *End
@@ -371,8 +375,8 @@ running. *End session* closes the record and goes back. When the session ends it
 - **Create partner** asks when to send the owner invitation: *now*, *when
   setup is submitted* (`inv:'queued'`, sent automatically when the partner
   is submitted for approval) or *I'll send it myself* (`inv:'held'`).
-- The admin **Setup tab** is read-only: the checklist plus an
-  *Open setup session* / *Return to setup session* call to action. Saves in a setup
+- The admin console has **no Setup tab** (decided on #19, 2026-09-30): the setup checklist
+  is on the partner's Overview, and the session starts from the header. Saves in a setup
   session are logged as the staff member, tagged "Setup session".
 
 Every action in any session is written to the activity log.

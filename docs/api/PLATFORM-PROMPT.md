@@ -5,6 +5,8 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
+Last updated: 2026-09-29.
+
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
 (a GraphQL Shop API and an admin-side Store API, configurable operations, custom fields, an
