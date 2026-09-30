@@ -344,9 +344,9 @@ Support access* switch (ACCESS §8), not a staff one.
 
 - **Setup sessions** are drawn here with no reason, ticket or re-authentication step. **The
   product requires all three** (ACCESS §8.2, confirmed 2026-09-30) — the prototype is wrong on
-  this and the flow needs the same two steps impersonation has. Super admin, Partner manager
-  and Support may start one; one is open at a time per staff member, and a second attempt is
-  refused. *Open setup session* sits on the partner header or the Setup tab; *Create partner*
+  this and the flow needs the same two steps impersonation has. **Super admin and Partner
+  manager** may start one, not Support; one is open at a time per staff member, and a second
+  attempt is refused. *Open setup session* sits on the partner header or the Setup tab; *Create partner*
   opens one as step 2.
 - **In the portal**, `ImpBanner` shows a yellow striped bar with who you're
   acting as, who started the session, the host, a countdown and *End

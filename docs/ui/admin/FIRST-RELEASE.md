@@ -268,7 +268,8 @@ console) are a partner capability, listed on each store's Support tab (§5.2), n
 started from a partner's page (§4.3), not from this menu: staff act **as themselves** with the
 partner's setup powers for 2 hours, not as a user. They need a reason and re-authentication
 like impersonation, they cannot be extended, and they cannot touch the partner's payment
-method, payout details or ownership. Super admin, Partner manager and Support may start one.
+method, payout details or ownership. **Super admin and Partner manager** may start one — not
+Support, whose role excludes the plans and prices a setup session can change.
 
 ---
 

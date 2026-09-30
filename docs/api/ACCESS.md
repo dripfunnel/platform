@@ -349,7 +349,7 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
 | **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. |
-| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); run a partner **setup session** (§8.2, widened 2026-09-30); retry failed jobs; resend emails. No billing changes, no suspensions. |
+| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions, no setup sessions (§8.2). |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
 | **Read-only** | Sees everything Support sees, changes nothing. |
@@ -360,7 +360,7 @@ masked contact details in lists, full on the detail page for Super admin and Sup
 *(proposed)*, each detail view logged; never addresses, order contents or payment details). Inside
 a store they act only by impersonating a user (§8.1: Super admin and Support); inside a
 partner console, by impersonating a partner user, or through a setup session for onboarding
-(§8.2: Super admin, Partner manager and Support). **Staff never open a support session** —
+(§8.2: Super admin and Partner manager). **Staff never open a support session** —
 that is a partner capability (§8). Every staff write is audited (§10).
 
 ### 5.5 Never in any merchant or vendor role
@@ -581,7 +581,7 @@ Partner console: store page → "Open support session"
    │          the store's setting is On; re-authentication (A2);
    │          a reason or ticket number
    ▼
-support_session(store_id, actor_kind, actor_id, reason, access 'read',
+support_session(store_id, partner_user_id, reason, access 'read',
                 started_at, expires_at = +30 min (confirm), ended_at)  + audit row
    │  one-time handoff token, short-lived, single use
    ▼
@@ -664,7 +664,10 @@ For staff doing a partner's onboarding, or any part of it, when the partner need
 Impersonation (§8.1) can't do this: it needs an active partner user, and a partner being set
 up by DripFunnel may have none yet because the Owner's invitation is held or not accepted.
 
-- **Who**: Super admin, Partner manager and **Support** (widened 2026-09-30). Started from the partner's page in the admin
+- **Who**: Super admin and Partner manager. **Not Support** (confirmed 2026-09-30): a setup
+  session can set the partner's plans and prices, which §5.4 keeps with Partner manager and
+  which Support's "no billing changes" excludes. Support uses impersonation (§8.1) instead.
+  Started from the partner's page in the admin
   console, with a reason or ticket and re-authentication.
 - **Where**: the real partner console on `platform.dripfunnel.com`, on the same screens the
   partner uses, through a one-time handoff exactly as in §8.1. The session is recorded as
