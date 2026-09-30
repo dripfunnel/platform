@@ -17,6 +17,13 @@ runs:
   using: composite
   steps:
     - run: |
+        pnpm exec wrangler pages project create "$INPUT_PROJECT_NAME" --production-branch main \
+          || echo "Pages project \"$INPUT_PROJECT_NAME\" already exists, continuing."
+      shell: bash
+      working-directory: apps/api
+      env:
+        INPUT_PROJECT_NAME: ${{ inputs.project-name }}
+    - run: |
         pnpm exec wrangler pages deploy "$INPUT_DIST" \
           --project-name "$INPUT_PROJECT_NAME" \
           --branch "$INPUT_BRANCH" \
