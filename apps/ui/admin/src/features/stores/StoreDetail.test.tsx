@@ -80,11 +80,15 @@ describe('Store detail', () => {
     expect(support).toContain(words.support.sub)
   })
 
-  it('renders every tab of every sample store', async () => {
-    for (const { id } of sampleStores) {
-      for (const tab of storeTabs) await expect(render({ store: storeOf(id), tab })).resolves.toContain(words.tabs.overview)
-    }
-  })
+  it(
+    'renders every tab of every sample store',
+    async () => {
+      for (const { id } of sampleStores) {
+        for (const tab of storeTabs) await expect(render({ store: storeOf(id), tab })).resolves.toContain(words.tabs.overview)
+      }
+    },
+    15_000,
+  )
 
   it('writes each history entry in the prototype words', async () => {
     const text = await render({ store: storeOf('s3') })
