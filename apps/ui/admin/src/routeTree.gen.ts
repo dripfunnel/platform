@@ -12,8 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
+import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AppPartnersPartnerIdRouteImport } from './routes/_app/partners_.$partnerId'
+import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -28,9 +33,24 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDashboardRoute = AppDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPartnersRoute = AppPartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStatesRoute = AppStatesRouteImport.update({
   id: '/states',
   path: '/states',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresRoute = AppStoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
   getParentRoute: () => AppRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
@@ -38,37 +58,83 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => AuthRoute,
 } as any)
+const AppPartnersPartnerIdRoute = AppPartnersPartnerIdRouteImport.update({
+  id: '/partners_/$partnerId',
+  path: '/partners/$partnerId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
+  id: '/stores_/$storeId',
+  path: '/stores/$storeId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/partners': typeof AppPartnersRoute
   '/states': typeof AppStatesRoute
+  '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
+  '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
+  '/stores/$storeId': typeof AppStoresStoreIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/dashboard': typeof AppDashboardRoute
+  '/partners': typeof AppPartnersRoute
   '/states': typeof AppStatesRoute
+  '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
+  '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
+  '/stores/$storeId': typeof AppStoresStoreIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/partners': typeof AppPartnersRoute
   '/_app/states': typeof AppStatesRoute
+  '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/partners_/$partnerId': typeof AppPartnersPartnerIdRoute
+  '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/states' | '/sign-in'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/partners'
+    | '/states'
+    | '/stores'
+    | '/sign-in'
+    | '/partners/$partnerId'
+    | '/stores/$storeId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/states' | '/sign-in'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/partners'
+    | '/states'
+    | '/stores'
+    | '/sign-in'
+    | '/partners/$partnerId'
+    | '/stores/$storeId'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/dashboard'
+    | '/_app/partners'
     | '/_app/states'
+    | '/_app/stores'
     | '/_auth/sign-in'
     | '/_app/'
+    | '/_app/partners_/$partnerId'
+    | '/_app/stores_/$storeId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -99,11 +165,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/dashboard': {
+      id: '/_app/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AppDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/partners': {
+      id: '/_app/partners'
+      path: '/partners'
+      fullPath: '/partners'
+      preLoaderRoute: typeof AppPartnersRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/states': {
       id: '/_app/states'
       path: '/states'
       fullPath: '/states'
       preLoaderRoute: typeof AppStatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores': {
+      id: '/_app/stores'
+      path: '/stores'
+      fullPath: '/stores'
+      preLoaderRoute: typeof AppStoresRouteImport
       parentRoute: typeof AppRoute
     }
     '/_auth/sign-in': {
@@ -113,17 +200,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_app/partners_/$partnerId': {
+      id: '/_app/partners_/$partnerId'
+      path: '/partners/$partnerId'
+      fullPath: '/partners/$partnerId'
+      preLoaderRoute: typeof AppPartnersPartnerIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/stores_/$storeId': {
+      id: '/_app/stores_/$storeId'
+      path: '/stores/$storeId'
+      fullPath: '/stores/$storeId'
+      preLoaderRoute: typeof AppStoresStoreIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppDashboardRoute: typeof AppDashboardRoute
+  AppPartnersRoute: typeof AppPartnersRoute
   AppStatesRoute: typeof AppStatesRoute
+  AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppPartnersPartnerIdRoute: typeof AppPartnersPartnerIdRoute
+  AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppDashboardRoute: AppDashboardRoute,
+  AppPartnersRoute: AppPartnersRoute,
   AppStatesRoute: AppStatesRoute,
+  AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,
+  AppPartnersPartnerIdRoute: AppPartnersPartnerIdRoute,
+  AppStoresStoreIdRoute: AppStoresStoreIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

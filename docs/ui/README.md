@@ -7,7 +7,7 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-30.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
@@ -114,8 +114,10 @@ apps/ui/<app>/
 - **What a role can't use** differs by app, on purpose:
   - **Merchant portal: absent, not disabled.** A greyed row tells a vendor what exists in
     the merchant's store. A vendor opening a URL that isn't theirs sees "not found".
-  - **Admin and partner consoles: visible and disabled, with the reason and the role that
-    can** ("Finance can issue refunds"), so insiders know whom to ask (CONSOLE-DESIGN §4).
+  - **Admin and partner consoles: actions are visible and disabled, with the reason and the
+    role that can** ("Finance can issue refunds"), so insiders know whom to ask
+    (CONSOLE-DESIGN §4). **Nav rows are the exception: a row a role can't use is absent**,
+    as in the portal ([../../designs/design.md](../../designs/design.md) §4).
 - **Locked** means "not yet" (for example during provisioning); **absent** means "not for
   you".
 - **Badges mean work waiting**, never trivia counts.
@@ -141,6 +143,8 @@ Every screen designs, and can show without a backend, its:
 **Reachable without a backend**: each screen accepts `?state=<name>` in development and
 preview builds (`/home?state=empty`, `/sign-in?state=expired`), and lists its states in the
 screen file's header comment. The helper lives in `shared/ui` once a second app needs it.
+Because `?state=` belongs to the harness, lists filter by `?status=` (`/partners?status=live`),
+never `?state=`.
 
 ---
 

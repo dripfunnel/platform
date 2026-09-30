@@ -34,12 +34,25 @@
   --df-color-success: #1d6b47;
   --df-color-success-surface: #eef7f2;
   --df-color-success-border: #cbe6d6;
+  --df-color-neutral: #4a5360;
+  --df-color-neutral-surface: #f1eeea;
+  --df-color-neutral-border: #e0dad3;
   --df-color-hover: #f7f2ed;
   /* The side bar keeps its own ground in both schemes; its focus ring is always #2e7bd1,
      because the light-mode ring has too little contrast on navy (design.md §5). */
   --df-color-side: #0a2a4a;
   --df-color-side-text: #b8c7d6;
   --df-color-side-focus: #2e7bd1;
+  --df-color-side-row: #d6dee7;
+  --df-color-side-strong: #ffffff;
+  --df-color-side-hover: rgb(255 255 255 / 0.06);
+  --df-color-side-active: rgb(255 255 255 / 0.1);
+  --df-color-side-control: rgb(255 255 255 / 0.08);
+  --df-color-side-control-border: rgb(255 255 255 / 0.14);
+  --df-color-side-divider: rgb(255 255 255 / 0.2);
+  --df-color-env-production: #b42318;
+  --df-color-env-staging: #4a5360;
+  --df-color-env-text: #ffffff;
   --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
   --df-radius-small: 6px;
   --df-radius: 8px;
@@ -50,10 +63,19 @@
   --df-space-2: 8px;
   --df-space-3: 12px;
   --df-space-4: 16px;
+  --df-space-5: 20px;
   --df-space-6: 24px;
+  --df-space-7: 28px;
+  --df-space-10: 40px;
+  --df-space-12: 48px;
+  --df-space-16: 64px;
   --df-font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --df-font-heading: Manrope, Inter, system-ui, sans-serif;
   --df-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+body {
+  margin: 0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -84,6 +106,9 @@
     --df-color-success: #7fd1a5;
     --df-color-success-surface: #0f2a1e;
     --df-color-success-border: #1f4a35;
+    --df-color-neutral: #b8c7d6;
+    --df-color-neutral-surface: #1a2a38;
+    --df-color-neutral-border: #2a3f52;
     --df-color-hover: #16293a;
     --df-color-side: #050d14;
     --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);

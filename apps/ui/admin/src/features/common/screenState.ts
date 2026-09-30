@@ -12,10 +12,9 @@ export interface HarnessEnv {
 export const isHarnessEnabled = (env: HarnessEnv): boolean =>
   env.DEV || env.VITE_STATE_HARNESS === '1'
 
-export const parseScreenState = (
+// Generic because a screen may have states of its own, such as the sign-in screen's.
+export const parseScreenState = <State extends string>(
   value: unknown,
-  allowed: readonly ScreenState[],
-): ScreenState | null =>
-  typeof value === 'string' && (allowed as readonly string[]).includes(value)
-    ? (value as ScreenState)
-    : null
+  allowed: readonly State[],
+): State | null =>
+  typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as State) : null

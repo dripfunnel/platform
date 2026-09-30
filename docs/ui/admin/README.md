@@ -9,7 +9,8 @@ Cloudflare Access guards the whole host in front of the app's own sign-in.
 Older documents call it "DF Admin". It replaces the framework dashboard of the archived
 platform; there is no other operations console.
 
-**Status: skeleton** (sign-in and home routes). The design is
+**Status: the shell** (header, side bar, environment banner; #17) and the Dashboard (#18, on
+fixtures), with placeholder screens for Partners and Stores. The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
 **The prototype is `designs/DF Admin Prototype.dc.html`** — open it in a browser and click
@@ -18,7 +19,7 @@ Customers, Approvals, Provisioning, Impersonate, Activity log and Staff; the fir
 ships only what [FIRST-RELEASE.md](FIRST-RELEASE.md) §2 lists. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 | Document | Covers |
 |---|---|
@@ -82,7 +83,7 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers: full email and phone *(proposed)* | ✓ | | ✓ | | | |
-| Impersonate partner and store users (full access, 30 min) | ✓ | | ✓ | | | |
+| Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
 | Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |

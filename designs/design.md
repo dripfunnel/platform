@@ -24,8 +24,10 @@ Plus two supporting files:
 - `DripFunnel Style Guide.dc.html` — the brand specimen: colour, type, buttons, forms, cards, badges, icons. Light/dark via the `defaultTheme` prop. **It is the source of truth for tokens.**
 - `DF Store Pricing.dc.html` — public pricing page for the Store product (plans, feature comparison, FAQ, month/year toggle).
 
-The source brief is `uploads/DESIGN-BRIEF.md` (flows A–I). The specification is `docs/` in
-this repo; start at `docs/README.md`.
+The source specs are in `uploads/`: `DESIGN-BRIEF.md` (flows A–I),
+`AUTH-PLAN.md` (roles, invitations, vendors), `ARCHITECTURE.md` (BFF and
+tenancy), `BUILD-PROMPT.md` (hand-off to Claude Code). **The specification is
+`docs/` in this repo; start at `docs/README.md`** (docs/README.md §7).
 
 ---
 
@@ -60,11 +62,6 @@ Helper: `offers-lib.js` → `window.DFOffers` (offer maths, per-region wording
 such as *coupon* vs *voucher*, *shipping* vs *delivery*). Loaded by `Offers`
 and `OfferEditor`.
 
-**Not mounted anywhere:** `PortalBrand`, `PortalPartner`, `PortalPayouts`,
-`PortalPlans`. They come from when the Store shell also played the partner
-role; that job moved into the Platform prototype. Keep them for reference or
-delete — don't wire new work to them.
-
 ### Platform — single file
 
 `DF Platform Prototype.dc.html` (~1,200 lines) plus `partner-data.js` →
@@ -76,10 +73,13 @@ and payouts, Support, Activity log, Settings, Support-session tab.
 
 ### Admin — single file
 
-`DF Admin Prototype.dc.html` (~1,700 lines) plus `admin-data.js` →
-`window.DFA`. Hash-routed. Screens: Dashboard, Partners (+ detail, approval
-and go-live checks), Stores, Customers, Approvals, Provisioning, Impersonate,
-Activity log, Staff (Super admin only).
+`DF Admin Prototype.dc.html` (~1,600 lines) plus `admin-data.js` →
+`window.DFA`. Hash-routed. Screens: Dashboard, Partners (+ detail with a
+**Setup** tab, approval and go-live checks), Stores, Customers, Approvals,
+Provisioning, Impersonate, Activity log, Staff (Super admin only).
+
+`ImpBanner.dc.html` is the one shared child: the staff-session banner that
+the Platform and Store prototypes mount at the top of their frame (see §8).
 
 ---
 
@@ -319,10 +319,63 @@ the toast instead.
 go-live checks (Admin) use the same checklist card: step, state pill, one
 action per row, and a clear "what happens next".
 
-**Impersonation / support sessions** — a staff member acting as a partner
-or merchant always sees a coloured session bar with who they are, whose
-account, time left, and *End session*. Every action is written to the
-activity log.
+**Staff sessions open the real portal in the same tab.** Admin (and the
+Platform's own merchant impersonation) never renders another tier's screen
+itself. Starting a session writes a record to `localStorage['df-imp-bus-v1']`
+(with `ret`, the URL to come back to) and navigates to the target prototype
+with `?imp=<id>`. Before leaving, the prototype saves its state to
+`sessionStorage` (`df-admin-snap` / `df-platform-snap`) and restores it on
+return, so sessions, activity and edits survive the round trip. The token stays out of anything shown on screen: the banner
+shows only the host.
+
+| Session | Opens | Host shown | Role in the portal | Length |
+| --- | --- | --- | --- | --- |
+| Partner-user impersonation | `DF Platform Prototype` `#/dashboard` | platform.dripfunnel.com | The user's role (Owner, Admin, Support, Finance, Read-only) | 30 min, extend once |
+| Setup session | `DF Platform Prototype` onboarding, as staff | platform.dripfunnel.com | Staff setup powers: everything the partner's Owner can do **except** its payment method, payout details and ownership (ACCESS §8.2) | 2 h, no extension |
+| Merchant-user impersonation | `DF Store Prototype` | partner's store host + store code; DripFunnel partner → shop.dripfunnel.com | Owner / Manager / Staff | 30 min, extend once |
+| Supplier-user impersonation | `DF Store Prototype`, Business plan | same as merchant | Supplier admin → catalogue supplier, Supplier member → stock only | 30 min, extend once |
+
+**Corrected 2026-09-30.** The prototype's fifth row, a read-only *store support session*, is
+**gone**: staff have no read-only route into a store, because the prototype's own note —
+"banner only; saves aren't blocked yet" — is the whole problem with one. Staff impersonate,
+with full access and a full audit trail. A read-only, **consented** support session into a
+store still exists, but it is a **partner** capability governed by the merchant's *Settings ›
+Support access* switch (ACCESS §8), not a staff one.
+
+- **Setup sessions** are drawn here with no reason, ticket or re-authentication step. **The
+  product requires all three** (ACCESS §8.2, confirmed 2026-09-30) — the prototype is wrong on
+  this and the flow needs the same two steps impersonation has. **Super admin and Partner
+  manager** may start one, not Support; one is open at a time per staff member, and a second
+  attempt is refused. *Open setup session* sits on the partner header or the Setup tab; *Create partner*
+  opens one as step 2.
+- **In the portal**, `ImpBanner` shows a yellow striped bar with who you're
+  acting as, who started the session, the host, a countdown and *End
+  session*, plus a *Back to …* link that returns while the session keeps
+running. *End session* closes the record and goes back. When the session ends it shows a full-screen "session ended"
+  card. A reused or unknown link shows "This link no longer works". The
+  prototype keeps its own sample partner and store; only the banner names
+  the real one.
+- **In Admin**, every page shows a strip for each session you have open
+  ("…is still open · host · 28 min left"), with *Return to session* and *End*.
+  The Impersonate → Sessions page keeps the full list.
+- **Live sync, both ways.** Ending in Admin, ending in the portal, or expiry
+  marks the record closed; the other side picks it up from the `storage`
+  event and a tick. Admin writes `endedBy:'admin'`; the portal writes
+  `'portal'` or `'expired'`.
+- **Why same tab:** new tabs from the preview were blocked and threw errors, so every
+  hand-off is a same-tab navigation. **This is a limitation of the prototype preview, not a
+  product decision** (2026-09-30): the console opens the target portal in a **new tab**
+  (FIRST-RELEASE.md §8), so staff keep their place in Admin. The `localStorage` bus and the
+  `sessionStorage` snapshots are prototype mechanics for the same reason; the product holds
+  the session on the server.
+- **Create partner** asks when to send the owner invitation: *now*, *when
+  setup is submitted* (`inv:'queued'`, sent automatically when the partner
+  is submitted for approval) or *I'll send it myself* (`inv:'held'`).
+- The admin **Setup tab** is read-only: the checklist plus an
+  *Open setup session* / *Return to setup session* call to action. Saves in a setup
+  session are logged as the staff member, tagged "Setup session".
+
+Every action in any session is written to the activity log.
 
 **Activity log** — who, what, where, when, result (`success` / `denied` /
 `failed`), filterable. Present in Platform and Admin.
@@ -360,7 +413,7 @@ have, orange fills on navigation.
 
 - `assets/dripfunnel-logo.svg` (light grounds) and `dripfunnel-logo-inverse.svg` (dark grounds, side bar, header); `dripfunnel-mark*.svg` for the prototype strip.
 - `assets/favicon/` — full favicon set: `round-light/dark`, `favicon-light/dark` at 16–512px, `apple-touch-icon-180.png`, `maskable-dark-512.png`. Every prototype links the round light/dark pair by `prefers-color-scheme`.
-- `assets/shot-*.png`, `fork-*.png`, `og-us-1200x630.png` — left over from the marketing site; not used by the prototypes.
+- `assets/icon-ink-512.png` — app icon shown in the Style Guide.
 - `uploads/logo-light.png`, `logo-dark.png` — partner-brand samples for Branding.
 
 ---
@@ -378,7 +431,7 @@ have, orange fills on navigation.
 ## 13. Known gaps
 
 - `DF Store Pricing.dc.html` links *Sign in* / *Start free* to `DF Catalogue Prototype.dc.html`, which no longer exists — should point at `DF Store Prototype.dc.html`.
-- Four unmounted Store children (`PortalBrand`, `PortalPartner`, `PortalPayouts`, `PortalPlans`) — decide whether to delete.
 - Store screens hard-code hex values and have no dark mode; Platform and Admin are tokenised with dark mode. Moving the Store to the same `[data-…]` variable set would make theming one change.
 - Open decisions from the brief still stand: what a supplier may see of a customer, refund ownership across suppliers, and whether editing an approved product sends it back for approval.
+- Support sessions are read-only only in wording: the Store prototype doesn't block saves yet.
 - `github.md`'s screen map still names the retired `DripFunnel Portal A1 Signup` spec file.
