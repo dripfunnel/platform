@@ -5,6 +5,13 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react()],
   server: {
-    proxy: { '/api': 'http://localhost:8787' },
+    // The Worker routes by hostname and checks Origin against it (ARCHITECTURE.md §2,
+    // ACCESS.md §4), so dev has to look like production to it rather than like localhost.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8787',
+        headers: { host: 'platform.localhost', origin: 'https://platform.localhost' },
+      },
+    },
   },
 })

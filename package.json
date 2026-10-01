@@ -7,6 +7,14 @@
     "node": ">=22"
   },
   "scripts": {
+    "dev": "turbo run dev --filter='./apps/**'",
+    "dev:all": "turbo run dev",
+    "dev:api": "turbo run dev --filter=@dripfunnel/api",
+    "dev:store": "turbo run dev --filter=@dripfunnel/store",
+    "dev:platform": "turbo run dev --filter=@dripfunnel/platform",
+    "dev:admin": "turbo run dev --filter=@dripfunnel/admin",
+    "dev:storefront": "turbo run dev --filter=@dripfunnel/storefront-template",
+    "dev:storefront-core": "turbo run dev --filter=@dripfunnel/storefront-core",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
