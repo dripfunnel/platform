@@ -14,15 +14,6 @@ import { checkHealth, ping } from './health'
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 
-const hasOpenssl = (() => {
-  try {
-    execFileSync('openssl', ['version'], { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
-  }
-})()
-
 describe('ping', () => {
   it('is healthy against a real Postgres', async () => {
     const sql = getClient({ connectionString: DATABASE_URL }, { max: 1 })
@@ -91,7 +82,7 @@ describe('checkHealth', () => {
     10_000,
   )
 
-  it.skipIf(!hasOpenssl)(
+  it(
     'is ok past the old 5s cap when the connection is fine but the query response is delayed in transit',
     async () => {
       // Delays the query response past connect/statement timeouts; terminates TLS only if the
@@ -130,10 +121,18 @@ describe('checkHealth', () => {
         upstreamSide.on('error', () => {})
       }
 
-      const certDir = await mkdtemp(path.join(os.tmpdir(), 'health-test-cert-'))
-      const keyPath = path.join(certDir, 'key.pem')
-      const certPath = path.join(certDir, 'cert.pem')
-      try {
+      // Generated lazily, only once the upstream has confirmed TLS (reply 'S') — the plain
+      // local-Postgres path below never calls this, so it never needs openssl on PATH.
+      let certDir: string | undefined
+      const getCert = async () => {
+        try {
+          execFileSync('openssl', ['version'], { stdio: 'ignore' })
+        } catch {
+          throw new Error('This test requires an `openssl` binary on PATH to generate a throwaway TLS cert for the sslmode path.')
+        }
+        certDir = await mkdtemp(path.join(os.tmpdir(), 'health-test-cert-'))
+        const keyPath = path.join(certDir, 'key.pem')
+        const certPath = path.join(certDir, 'cert.pem')
         execFileSync('openssl', [
           'req',
           '-x509',
@@ -149,8 +148,11 @@ describe('checkHealth', () => {
           '-subj',
           '/CN=localhost',
         ])
-        const [key, cert] = await Promise.all([readFile(keyPath), readFile(certPath)])
+        return Promise.all([readFile(keyPath), readFile(certPath)])
+      }
 
+      let tlsSetupError: Error | undefined
+      try {
         const proxy = createServer((client) => {
           client.once('data', (first: Buffer) => {
             const isSslRequest = first.length === 8 && Buffer.compare(first, SSL_REQUEST) === 0
@@ -168,9 +170,16 @@ describe('checkHealth', () => {
                   return
                 }
                 client.write('S')
-                const clientTls = new tls.TLSSocket(client, { isServer: true, key, cert })
-                const upstreamTls = tls.connect({ socket: upstreamRaw, servername: target.hostname })
-                relayWithStall(clientTls, upstreamTls)
+                getCert()
+                  .then(([key, cert]) => {
+                    const clientTls = new tls.TLSSocket(client, { isServer: true, key, cert })
+                    const upstreamTls = tls.connect({ socket: upstreamRaw, servername: target.hostname })
+                    relayWithStall(clientTls, upstreamTls)
+                  })
+                  .catch((err: Error) => {
+                    tlsSetupError = err
+                    client.destroy()
+                  })
               })
             })
             upstreamRaw.on('error', () => {})
@@ -187,6 +196,7 @@ describe('checkHealth', () => {
         try {
           const start = Date.now()
           const status = await checkHealth(config, ctx)
+          if (tlsSetupError) throw tlsSetupError
           const elapsed = Date.now() - start
           expect(status).toBe('ok')
           expect(elapsed).toBeGreaterThan(5_500)
@@ -195,7 +205,7 @@ describe('checkHealth', () => {
           await new Promise<void>((resolve) => proxy.close(() => resolve()))
         }
       } finally {
-        await rm(certDir, { recursive: true, force: true })
+        if (certDir) await rm(certDir, { recursive: true, force: true })
       }
     },
     12_000,
