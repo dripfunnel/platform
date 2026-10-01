@@ -13,6 +13,7 @@ import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
 import { parseConfig, type Config } from '#core/config'
 import { getClient } from '#db/client'
+import { entraProvider } from '#integrations/entra/provider'
 import { resolveArea } from './router'
 
 const servers = {
@@ -39,13 +40,28 @@ const misconfigured = (binding: string) => {
   return new Response(null, { status: 500 })
 }
 
-// #89 replaces this with the real Entra ID exchange; until then the Worker has no provider
-// and every sign-in attempt is refused.
+// Until the app registration exists (THIRD-PARTY-ACCESS.md §2.5) there is nothing to sign in
+// against, so every attempt is refused rather than half-working.
 const noProvider: IdentityProvider = {
-  authorizeUrl: () => '/sign-in?state=refused',
+  authorizeUrl: () => '/sign-in?outcome=unavailable',
   exchange: async () => {
     throw new SignInFailed('provider_unconfigured')
   },
+}
+
+// Built once per isolate, like `servers`: it holds Entra's key set, and one per request
+// would refetch it on every sign-in. Derived from configuration, never from a request.
+let built: { key: string; provider: IdentityProvider } | undefined
+
+const providerFor = (config: Config): IdentityProvider => {
+  const tenantId = config.ENTRA_TENANT_ID
+  const clientId = config.ENTRA_CLIENT_ID
+  const clientSecret = config.ENTRA_CLIENT_SECRET
+  if (!tenantId || !clientId || !clientSecret) return noProvider
+
+  const key = `${tenantId}.${clientId}`
+  if (built?.key !== key) built = { key, provider: entraProvider({ tenantId, clientId, clientSecret }) }
+  return built.provider
 }
 
 const withConnection = async (
@@ -81,7 +97,7 @@ const handleAdmin = async (
     return withConnection(hyperdrive, ctx, (sql) =>
       handleAuth(request, {
         sql,
-        provider: noProvider,
+        provider: providerFor(config),
         activity: interimActivityLog,
         adminHost: config.ADMIN_HOST,
         now: () => new Date(),

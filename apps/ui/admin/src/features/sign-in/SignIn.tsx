@@ -1,5 +1,5 @@
 // States: start (default), signing, approve, code, cancelled, denied, unavailable, blocked,
-// refused, expired. Not wired to an API: #13 builds the staff sign-in endpoint.
+// refused, expired. The button leaves for the Worker, which redirects to Microsoft (#89).
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import logoOnDark from '../../assets/dripfunnel-logo-inverse.svg'
@@ -9,28 +9,33 @@ import { harnessEnabled, useScreenState } from '../common/useScreenState'
 import './signIn.css'
 import { SignInStep } from './SignInStep'
 import { signInStates, type SignInState } from './signInStates'
+import { useSignInOutcome } from './useSignInOutcome'
 
 const words = messages.signIn
 
 // How long the prototype waits for "Microsoft" before showing the Authenticator request.
 const microsoftAnswerMs = 1100
 
-// Walking through the prototype's flow locally is a review aid, so it runs only where the
-// ?state= harness does. A production build has no fake sign-in: its buttons do nothing until
-// #13 replaces this with the redirect to Microsoft (https://github.com/dripfunnel/platform/issues/13).
+// Walking through the prototype's flow locally is a review aid, so the simulated steps run
+// only where the ?state= harness does. Everywhere else the button leaves for the Worker.
+const signInRoute = '/api/auth/sign-in'
+
+const leaveForMicrosoft = () => window.location.assign(signInRoute)
+
 const ignore = () => undefined
 
 export const SignIn = () => {
   const forced = useScreenState(signInStates)
-  const [state, setState] = useState<SignInState>(forced ?? 'start')
+  const outcome = useSignInOutcome()
+  const [state, setState] = useState<SignInState>(forced ?? outcome ?? 'start')
   const navigate = useNavigate()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const headingId = useId()
   const shownState = useRef(state)
 
   useEffect(() => {
-    setState(forced ?? 'start')
-  }, [forced])
+    setState(forced ?? outcome ?? 'start')
+  }, [forced, outcome])
 
   useEffect(() => {
     // A forced ?state=signing stays put so it can be reviewed; a click moves on.
@@ -65,7 +70,7 @@ export const SignIn = () => {
         <p>{words.states[state].body}</p>
         <SignInStep
           state={state}
-          onChange={harnessEnabled ? setState : ignore}
+          onChange={harnessEnabled ? setState : leaveForMicrosoft}
           onSignedIn={harnessEnabled ? () => void navigate({ to: '/dashboard' }) : ignore}
         />
       </main>

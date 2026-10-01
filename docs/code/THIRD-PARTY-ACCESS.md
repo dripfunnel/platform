@@ -135,8 +135,20 @@ disagreement in which the design prompts said Google Workspace and the Admin pro
 designed Entra with Microsoft Authenticator. The prototype won: it designs the flow in full,
 including the failure states #17 already ships. Both prompts are corrected.
 
-#13 builds staff identity against a stubbed provider; **#89** wires the real exchange and
-needs the app registration below to exist.
+#13 built staff identity against a stubbed provider; **#89** wires the real exchange
+(`apps/api/src/integrations/entra/`). The code is complete and tested against a fake Entra —
+including that a token from another tenant is refused — and the Worker falls back to refusing
+every sign-in as `provider_unconfigured` until the three secrets below are set, so the
+registration is the only thing still outstanding.
+
+**How the ID token is trusted** (decided 2026-10-01): its RS256 signature is verified against
+the tenant key set with `jose`, then `iss`, `aud`, `exp`, `nonce` and `tid` are checked. OIDC
+Core §3.1.3.7 would allow skipping the signature, because the token arrives straight from the
+token endpoint over TLS; verifying it anyway means the check does not depend on the exchange
+staying shaped that way.
+
+**`tid` is checked on every token.** A registration left on "any Microsoft account" would
+otherwise let a personal account reach the staff lookup.
 
 The OIDC app's values below belong to the API Worker, and the Cloudflare Access client to
 Cloudflare Zero Trust. The admin SPA needs none: it sends the browser to
@@ -147,8 +159,9 @@ the SPA has no use for them either.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
-| **OIDC app** in the chosen identity provider (Google Cloud "Internal" OAuth client, or an Entra ID app registration) | Staff SSO with 2-factor on `admin.dripfunnel.com`; re-authentication before impersonation | Client ID, **client secret** (or an Entra certificate), tenant ID / hosted domain | Worker secrets | 11 |
-| — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback` plus staging | — | — | — |
+| **Entra ID app registration** | Staff SSO with 2-factor on `admin.dripfunnel.com`; re-authentication before impersonation | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Worker secrets | 11 |
+| — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback` plus staging and `https://admin.localhost/api/auth/callback` for local dev | — | — | — |
+| — | Single tenant ("Accounts in this organizational directory only"), so `tid` cannot be another tenant's | — | — | — |
 | **Same identity provider connected to Cloudflare Access** | The outer gate (§2.1) | A second OIDC client, or the same one | Cloudflare Zero Trust | 11 |
 | Group or role claims — **not used** | Staff roles live in our own table: DATA-MODEL.md §3.1 puts `role_key` on `staff_user` and #39 builds invite and change-role against it | — | — | — |
 
