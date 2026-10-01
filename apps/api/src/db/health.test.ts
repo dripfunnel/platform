@@ -1,5 +1,10 @@
 /// <reference types="node" />
+import { execFileSync } from 'node:child_process'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import net, { createServer } from 'node:net'
+import os from 'node:os'
+import path from 'node:path'
+import tls from 'node:tls'
 import { describe, expect, it } from 'vitest'
 import type { Config } from '#core/config'
 import { getClient } from './client'
@@ -80,26 +85,28 @@ describe('checkHealth', () => {
   it(
     'is ok past the old 5s cap when the connection is fine but the query response is delayed in transit',
     async () => {
-      // Delays only the query response (detected by its literal text) so connect_timeout and
-      // statement_timeout can't catch it — only CHECK_HEALTH_TIMEOUT_MS can.
-      const STALL_MS = 6_000
+      // Delays the query response past connect/statement timeouts; terminates TLS only if the
+      // client sent an SSLRequest, else relays plainly (local dev's non-TLS Postgres).
+      const SSL_REQUEST = Buffer.from([0, 0, 0, 8, 4, 210, 22, 47]) // length 8, code 80877103
+      // Just past PING_TIMEOUT_MS (the old cap), leaving most of the 10s CHECK_HEALTH_TIMEOUT_MS
+      // margin free for CI overhead (connect, TLS handshake) instead of the old 4s of slack.
+      const STALL_MS = 5_200
       const target = new URL(DATABASE_URL)
       const queryMarker = Buffer.from('select 1')
-      let queryStarted = false
-      let stalled = false
-      let flushed = false
-      const proxy = createServer((client) => {
-        const upstream = net.connect(Number(target.port) || 5432, target.hostname)
+
+      // Buffers all upstream replies after the query starts; flushing only the first would reorder the wire protocol.
+      const relayWithStall = (clientSide: net.Socket, upstreamSide: net.Socket) => {
+        let queryStarted = false
+        let stalled = false
+        let flushed = false
         const pending: Buffer[] = []
-        client.on('data', (chunk: Buffer) => {
+        clientSide.on('data', (chunk: Buffer) => {
           if (!queryStarted && chunk.includes(queryMarker)) queryStarted = true
-          upstream.write(chunk)
+          upstreamSide.write(chunk)
         })
-        upstream.on('data', (chunk: Buffer) => {
-          // Buffer every read of the query response and flush in order; releasing only the
-          // first reorders the wire protocol.
+        upstreamSide.on('data', (chunk: Buffer) => {
           if (!queryStarted || flushed) {
-            client.write(chunk)
+            clientSide.write(chunk)
             return
           }
           pending.push(chunk)
@@ -107,28 +114,100 @@ describe('checkHealth', () => {
             stalled = true
             setTimeout(() => {
               flushed = true
-              for (const buffered of pending) client.write(buffered)
+              for (const buffered of pending) clientSide.write(buffered)
               pending.length = 0
             }, STALL_MS)
           }
         })
-        client.on('error', () => {})
-        upstream.on('error', () => {})
-      })
-      await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve))
-      const { port } = proxy.address() as { port: number }
-      const config: Pick<Config, 'HYPERDRIVE'> = {
-        HYPERDRIVE: { connectionString: `postgres://${target.username}:${target.password}@127.0.0.1:${port}${target.pathname}` },
+        clientSide.on('error', () => {})
+        upstreamSide.on('error', () => {})
       }
+
+      // Generated lazily, only once the upstream has confirmed TLS (reply 'S') — the plain
+      // local-Postgres path below never calls this, so it never needs openssl on PATH.
+      let certDir: string | undefined
+      const getCert = async () => {
+        try {
+          execFileSync('openssl', ['version'], { stdio: 'ignore' })
+        } catch {
+          throw new Error('This test requires an `openssl` binary on PATH to generate a throwaway TLS cert for the sslmode path.')
+        }
+        certDir = await mkdtemp(path.join(os.tmpdir(), 'health-test-cert-'))
+        const keyPath = path.join(certDir, 'key.pem')
+        const certPath = path.join(certDir, 'cert.pem')
+        execFileSync('openssl', [
+          'req',
+          '-x509',
+          '-newkey',
+          'rsa:2048',
+          '-keyout',
+          keyPath,
+          '-out',
+          certPath,
+          '-days',
+          '1',
+          '-nodes',
+          '-subj',
+          '/CN=localhost',
+        ])
+        return Promise.all([readFile(keyPath), readFile(certPath)])
+      }
+
+      let tlsSetupError: Error | undefined
       try {
-        const start = Date.now()
-        const status = await checkHealth(config, ctx)
-        const elapsed = Date.now() - start
-        expect(status).toBe('ok')
-        expect(elapsed).toBeGreaterThan(5_500)
-        expect(elapsed).toBeLessThan(10_000)
+        const proxy = createServer((client) => {
+          client.once('data', (first: Buffer) => {
+            const isSslRequest = first.length === 8 && Buffer.compare(first, SSL_REQUEST) === 0
+            const upstreamRaw = net.connect(Number(target.port) || 5432, target.hostname)
+            upstreamRaw.once('connect', () => {
+              upstreamRaw.write(first)
+              if (!isSslRequest) {
+                relayWithStall(client, upstreamRaw)
+                return
+              }
+              upstreamRaw.once('data', (upstreamReply: Buffer) => {
+                if (upstreamReply.length !== 1 || upstreamReply[0] !== 0x53) {
+                  client.write(upstreamReply)
+                  relayWithStall(client, upstreamRaw)
+                  return
+                }
+                client.write('S')
+                getCert()
+                  .then(([key, cert]) => {
+                    const clientTls = new tls.TLSSocket(client, { isServer: true, key, cert })
+                    const upstreamTls = tls.connect({ socket: upstreamRaw, servername: target.hostname })
+                    relayWithStall(clientTls, upstreamTls)
+                  })
+                  .catch((err: Error) => {
+                    tlsSetupError = err
+                    client.destroy()
+                  })
+              })
+            })
+            upstreamRaw.on('error', () => {})
+          })
+          client.on('error', () => {})
+        })
+        await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve))
+        const { port } = proxy.address() as { port: number }
+        const config: Pick<Config, 'HYPERDRIVE'> = {
+          HYPERDRIVE: {
+            connectionString: `postgres://${target.username}:${target.password}@127.0.0.1:${port}${target.pathname}${target.search}`,
+          },
+        }
+        try {
+          const start = Date.now()
+          const status = await checkHealth(config, ctx)
+          if (tlsSetupError) throw tlsSetupError
+          const elapsed = Date.now() - start
+          expect(status).toBe('ok')
+          expect(elapsed).toBeGreaterThan(5_000)
+          expect(elapsed).toBeLessThan(10_000)
+        } finally {
+          await new Promise<void>((resolve) => proxy.close(() => resolve()))
+        }
       } finally {
-        await new Promise<void>((resolve) => proxy.close(() => resolve()))
+        if (certDir) await rm(certDir, { recursive: true, force: true })
       }
     },
     12_000,
