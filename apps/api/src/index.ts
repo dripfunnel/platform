@@ -49,9 +49,8 @@ const noProvider: IdentityProvider = {
   },
 }
 
-// Built once per isolate, like `servers` above: the provider holds Entra's key set, and one
-// per request would refetch it on every sign-in. It derives from configuration only, so it
-// carries nothing from the request that made it.
+// Built once per isolate, like `servers`: it holds Entra's key set, and one per request
+// would refetch it on every sign-in. Derived from configuration, never from a request.
 let built: { key: string; provider: IdentityProvider } | undefined
 
 const providerFor = (config: Config): IdentityProvider => {

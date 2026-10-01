@@ -124,6 +124,51 @@ describe('the token exchange', () => {
     expect(await refusalFrom(exchange())).toBe('bad_claims')
   })
 
+  it('refuses a token that never expires', async () => {
+    // jose only checks `exp` when it is there, so without requiredClaims a token with none
+    // would be accepted and stay valid for ever.
+    const token = await new SignJWT({ tid: tenantId, nonce, oid: 'subject-1', email: 'a@b.com', name: 'A' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setIssuer(`https://login.microsoftonline.com/${tenantId}/v2.0`)
+      .setAudience(clientId)
+      .setIssuedAt()
+      .sign(signingKey)
+    fakeEntra({ body: { id_token: token } })
+    expect(await refusalFrom(exchange())).toBe('bad_claims')
+  })
+
+  it('refuses a token signed with an algorithm we do not accept', async () => {
+    // Without algorithms: ['RS256'], anything the key set can verify would be taken.
+    const es = await generateKeyPair('ES256', { extractable: true })
+    const esJwks = { keys: [{ ...(await exportJWK(es.publicKey)), kid: 'k1', alg: 'ES256', use: 'sig' }] }
+    const token = await new SignJWT({ tid: tenantId, nonce, oid: 'subject-1', email: 'a@b.com', name: 'A' })
+      .setProtectedHeader({ alg: 'ES256', kid: 'k1' })
+      .setIssuer(`https://login.microsoftonline.com/${tenantId}/v2.0`)
+      .setAudience(clientId)
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(es.privateKey)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input instanceof Request ? input.url : input)
+      if (url.includes('/discovery/v2.0/keys')) return Response.json(esJwks)
+      return Response.json({ id_token: token })
+    })
+    expect(await refusalFrom(exchange())).toBe('bad_claims')
+  })
+
+  it('refuses a token that carries only `sub`, which is pairwise and never our subject', async () => {
+    const token = await new SignJWT({ tid: tenantId, nonce, email: 'a@b.com', name: 'A' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
+      .setIssuer(`https://login.microsoftonline.com/${tenantId}/v2.0`)
+      .setAudience(clientId)
+      .setSubject('pairwise-subject')
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(signingKey)
+    fakeEntra({ body: { id_token: token } })
+    expect(await refusalFrom(exchange())).toBe('bad_claims')
+  })
+
   it('refuses an expired token', async () => {
     fakeEntra({ body: { id_token: await idToken({}, { expiresIn: '-10m' }) } })
     expect(await refusalFrom(exchange())).toBe('bad_claims')

@@ -42,11 +42,7 @@ export const signInStateFor = (refusal: SignInRefusal): SignInOutcome => {
 
 export type IdentityClaims = z.infer<typeof identityClaims>
 
-/**
- * The provider reports a cause both ways: as query parameters on the callback when the person
- * never got past Microsoft, and in the token response when the exchange fails. One mapping, so
- * the two cannot drift. Entra puts the detail in `error_description` as an AADSTS code.
- */
+/** One mapping for both channels, so the callback's query and the token response cannot drift. */
 export const refusalForProviderError = (error: string, description: string): SignInRefusal => {
   if (/AADSTS50158|AADSTS500121|AADSTS50076|AADSTS50079/.test(description)) return 'mfa_denied'
   if (/AADSTS53000|AADSTS53001|AADSTS53003|AADSTS530003/.test(description)) return 'device_not_compliant'

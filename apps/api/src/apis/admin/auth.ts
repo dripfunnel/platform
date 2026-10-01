@@ -33,11 +33,7 @@ export const isAuthPath = (pathname: string): boolean => Object.values(paths).in
 
 const redirectUri = (adminHost: string) => `https://${adminHost}${paths.callback}`
 
-/**
- * The callback is a browser navigation from the provider, so a refusal sends the person to the
- * screen that explains it (#17's states). Every cause that concerns whether an account exists
- * maps to the same `refused`, so this cannot enumerate staff (CONSOLE-DESIGN A1).
- */
+/** One `refused` for every account question, so this cannot enumerate staff (ACCESS.md §4). */
 const refusedResponse = (refusal: SignInRefusal) =>
   new Response(null, {
     status: 302,
@@ -99,9 +95,8 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
       return refusedResponse(refusal)
     }
 
-    // `state` is the callback's CSRF protection, and an error response carries it too
-    // (RFC 6749 §4.1.2.1). Checked first, so nothing a stranger puts in the query decides
-    // what is recorded or which screen is shown.
+    // Checked before anything else in the query is believed; an error response carries
+    // `state` too (RFC 6749 §4.1.2.1).
     const handshake = readHandshake(request.headers.get('cookie'))
     if (!handshake) return refuse('missing_handshake')
     if (handshake.state !== url.searchParams.get('state')) return refuse('state_mismatch')

@@ -140,9 +140,8 @@ describe('who the request resolves to', () => {
   })
 
   it('is nobody once the staff member is suspended, without waiting for the session to end', async () => {
-    // The rule this protects: removing someone takes effect on their next request, not when
-    // their session happens to expire. staffById filters on status, and only this notices if
-    // that filter is dropped.
+    // Removing someone takes effect on their next request, not when their session expires:
+    // `staffById` filters on status, and only this notices if that filter goes.
     const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
     expect(await resolveStaff(db.sql, withSession(id), start)).not.toBeNull()
 

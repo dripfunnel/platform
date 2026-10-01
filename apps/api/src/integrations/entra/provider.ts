@@ -95,9 +95,11 @@ const verifyIdToken = async (
   const { config, nonce } = context
   let payload
   try {
-    // Signature, `iss`, `aud` and expiry; `tid` and `nonce` are checked below because jose
-    // has no opinion about them.
+    // Pinned: jose would otherwise accept any algorithm the key set can verify, and only
+    // checks `exp` when the token happens to carry one.
     ;({ payload } = await jwtVerify(idToken, context.jwks, {
+      algorithms: ['RS256'],
+      requiredClaims: ['exp', 'iat', 'nonce', 'tid'],
       issuer: `https://login.microsoftonline.com/${config.tenantId}/v2.0`,
       audience: config.clientId,
       clockTolerance: 60,
@@ -111,9 +113,13 @@ const verifyIdToken = async (
   if (payload.tid !== config.tenantId) throw new SignInFailed('wrong_tenant')
   if (payload.nonce !== nonce) throw new SignInFailed('bad_claims')
 
+  // `oid` only: `sub` is pairwise per app registration, so it could never match a stored
+  // `sso_subject` and would refuse as `unknown_subject` instead of saying what went wrong.
+  if (typeof payload.oid !== 'string' || payload.oid === '') throw new SignInFailed('bad_claims')
+
   const email = typeof payload.email === 'string' ? payload.email : payload.preferred_username
   return {
-    subject: String(payload.oid ?? payload.sub ?? ''),
+    subject: payload.oid,
     email: typeof email === 'string' ? email : '',
     name: typeof payload.name === 'string' ? payload.name : '',
   }
