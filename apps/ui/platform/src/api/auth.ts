@@ -30,28 +30,37 @@ const notConnected = async (): Promise<AuthRefusal> => {
   return refuse('NOT_CONNECTED')
 }
 
-const accounts: Record<string, { password: string; secondFactor: boolean }> = {
-  'maya@northstar.com': { password: 'northstar-partners', secondFactor: true },
-  'alex@northstar.com': { password: 'northstar-partners', secondFactor: false },
-}
+// The sample accounts and codes exist only in a harness build: the condition is a build-time
+// constant Vite folds, so a production bundle carries none of these literals (grep the dist).
+const sample =
+  import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
+    ? {
+        accounts: {
+          'maya@northstar.com': { password: 'northstar-partners', secondFactor: true },
+          'alex@northstar.com': { password: 'northstar-partners', secondFactor: false },
+        } as Record<string, { password: string; secondFactor: boolean }>,
+        validCode: '123456',
+        expiredCode: '000000',
+      }
+    : null
 export const maxCodeTries = 5
 export const lockMinutes = 15
 let wrongCodes = 0
 
 export const signIn = async (email: string, password: string): Promise<{ ok: true; secondFactor: boolean } | AuthRefusal> => {
-  if (!harnessEnabled) return notConnected()
+  if (!harnessEnabled || !sample) return notConnected()
   await settle()
-  const account = accounts[email.trim().toLowerCase()]
+  const account = sample.accounts[email.trim().toLowerCase()]
   if (!account || account.password !== password) return refuse('INVALID_CREDENTIALS')
   return { ok: true, secondFactor: account.secondFactor }
 }
 
 export const verifySecondFactor = async (code: string): Promise<{ ok: true } | AuthRefusal> => {
-  if (!harnessEnabled) return notConnected()
+  if (!harnessEnabled || !sample) return notConnected()
   await settle()
   if (wrongCodes >= maxCodeTries) return refuse('LOCKED', { minutes: lockMinutes })
-  if (code === '000000') return refuse('CODE_EXPIRED')
-  if (code !== '123456') {
+  if (code === sample.expiredCode) return refuse('CODE_EXPIRED')
+  if (code !== sample.validCode) {
     wrongCodes += 1
     return wrongCodes >= maxCodeTries ? refuse('LOCKED', { minutes: lockMinutes }) : refuse('WRONG_CODE', { triesLeft: maxCodeTries - wrongCodes })
   }
