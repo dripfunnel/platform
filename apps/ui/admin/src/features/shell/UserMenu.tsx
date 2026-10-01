@@ -9,8 +9,7 @@ import './shell.css'
 
 const words = messages.shell
 
-// Sign out only: the prototype's "My activity" opens the Activity log, which is (proposed)
-// in FIRST-RELEASE.md §2.
+// My activity opens the signed-in staff member's own timeline, for every role (decided on #45).
 export const UserMenu = ({ me }: { me: Me }) => {
   const [open, setOpen] = useState(false)
   const { choice, setChoice } = useTheme()
@@ -93,6 +92,17 @@ export const UserMenu = ({ me }: { me: Me }) => {
                   </button>
                 ))}
               </div>
+            </li>
+            <li role="none">
+              <Link
+                to="/activity"
+                search={{ person: me.id }}
+                role="menuitem"
+                className="df-user-menu-item"
+                onClick={() => setOpen(false)}
+              >
+                {words.userMenu.myActivity}
+              </Link>
             </li>
             <li role="none">
               {/* A stand-in: it ends no session and logs nothing. #13 adds the Admin API's

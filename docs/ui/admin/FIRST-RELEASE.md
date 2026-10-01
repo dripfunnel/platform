@@ -52,7 +52,8 @@ the number twice and nobody loses it. Provisioning counts failed and stuck signu
 running ones.
 
 Always visible in the header: the environment marker, a search box (partners and stores by
-name, domain, code or owner email), and the signed-in staff member's name and role.
+name, domain, code or owner email), and the signed-in staff member's name and role. Their
+menu has **My activity**, their own timeline in the Activity log, for every role (decided on #45).
 
 ---
 
@@ -354,6 +355,21 @@ Staff list: name, email, role, last sign-in, 2-factor status. Super admin can in
 company email, signing in through company SSO), change role and remove. The last Super admin
 can't be removed or demoted. Roles are the six in [README.md](README.md) §2.
 
+Decided on #45:
+
+- **An invitation** is a single-use link in an email, never shown in the console, that binds
+  the invitee's SSO account on first sign-in. It expires after **7 days**. A pending row shows
+  when it was sent and when it expires, and offers **Resend** (a new link; the old one stops
+  working) and **Revoke**; an expired row says so and offers Resend. Its role can be changed
+  before it is accepted. Any email domain is accepted until the list of company domains is
+  configurable; an email already on staff is refused (`ALREADY_STAFF`).
+- **The last Super admin**: the server refuses any change that would leave no **accepted**
+  Super admin (`LAST_SUPER_ADMIN`), including the Super admin changing themselves. They can
+  still manage everyone else. Pending invitations don't count. While there is only one, the
+  page says so, because README.md §2 asks for at least two.
+- **2-factor** is what the company SSO reported at the last sign-in: On, Off (a warning: the
+  SSO policy let them in without it) or Not signed in yet.
+
 ---
 
 ## 11. Not in this release
@@ -388,7 +404,7 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
 | Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityExport(id)` (the job's state and link) | `exportActivity(filter)` |
-| Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |
+| Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite` |
 | Header | `search(query)`, `me` | |
 | Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups | |
 

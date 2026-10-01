@@ -466,7 +466,9 @@ Accept: token + password (new) or token + signed-in session (existing)
 - **Resend** mints a fresh token; the previous one stops working.
 - **Revoke** sets the invitation `revoked`. An `invited` account with no other pending
   invitation and no membership is deleted.
-- **Expiry**: 7 days *(confirm)*. Pending invitations show their expiry; expired ones are
+- **Staff invitations** (admin console) work the same way, except that accepting binds the
+  invitee's company SSO account instead of setting a password (ui/admin/FIRST-RELEASE.md §10).
+- **Expiry**: 7 days *(confirm)*; 7 days for staff (decided on #45). Pending invitations show their expiry; expired ones are
   obvious and offer resend (flow 10).
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.

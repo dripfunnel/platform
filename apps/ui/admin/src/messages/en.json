@@ -25,6 +25,7 @@
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
+      "myActivity": "My activity",
       "signOut": "Sign out",
       "theme": {
         "label": "Appearance",
@@ -64,7 +65,8 @@
     "customers": "Customers",
     "approvals": "Approvals",
     "provisioning": "Provisioning",
-    "activity": "Activity log"
+    "activity": "Activity log",
+    "staff": "Staff"
   },
   "screens": {
     "dashboard": {
@@ -1448,6 +1450,9 @@
       "job.undone": "{actor} undid the failed signup of {store}",
       "staff.invited": "{actor} invited {target} to the console",
       "staff.role_changed": "{actor} changed the role of {target}",
+      "staff.removed": "{actor} removed {target} from the console",
+      "staff.invitation_resent": "{actor} resent the console invitation to {target}",
+      "staff.invitation_revoked": "{actor} revoked the console invitation to {target}",
       "impersonation.started": "{actor} started impersonating {target}",
       "impersonation.extended": "{actor} extended the impersonation of {target}",
       "impersonation.ended": "{actor} stopped impersonating {target}",
@@ -1500,6 +1505,9 @@
       "job.undone": "Failed signup undone",
       "staff.invited": "Staff invited",
       "staff.role_changed": "Staff role changed",
+      "staff.removed": "Staff removed",
+      "staff.invitation_resent": "Staff invitation resent",
+      "staff.invitation_revoked": "Staff invitation revoked",
       "impersonation.started": "Impersonation started",
       "impersonation.extended": "Impersonation extended",
       "impersonation.ended": "Impersonation ended",
@@ -1534,6 +1542,112 @@
       "security.sign_in_blocked": "Sign-in blocked",
       "security.tenant_crossing": "Tenant crossing refused",
       "security.authorization_denied": "Action refused"
+    }
+  },
+  "staff": {
+    "level": "Platform",
+    "title": "Staff",
+    "sub": "DripFunnel people who can sign in to this console.",
+    "invite": "Invite staff",
+    "loading": "Loading staff",
+    "tableLabel": "Staff",
+    "pagerLabel": "Staff pages",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "lastSignIn": "Last sign-in",
+      "twoFactor": "2-factor",
+      "actions": "Actions"
+    },
+    "you": "You",
+    "never": "Never",
+    "twoFactor": {
+      "on": "On",
+      "off": "Off",
+      "notSignedIn": "Not signed in yet"
+    },
+    "invitation": {
+      "pending": "Invited {sent} · link expires {expires}",
+      "expired": "Invitation expired {expires}",
+      "pendingPill": "Invited",
+      "expiredPill": "Expired"
+    },
+    "soleSuperAdmin": "There is only one Super admin. Make a second one, so the console never depends on one person.",
+    "actions": {
+      "changeRole": "Change role",
+      "remove": "Remove",
+      "resend": "Resend invitation",
+      "revoke": "Revoke",
+      "label": "Actions for {name}"
+    },
+    "refusals": {
+      "SUPER_ADMIN_ONLY": "Only a Super admin can manage staff.",
+      "LAST_SUPER_ADMIN": "{name} is the only Super admin. Make someone else a Super admin first.",
+      "ALREADY_STAFF": "{name} is already on staff.",
+      "SAME_ROLE": "{name} already has that role.",
+      "NOT_PENDING": "{name} has already accepted the invitation.",
+      "PENDING_INVITATION": "{name} hasn’t accepted yet. Revoke the invitation instead.",
+      "NOT_FOUND": "{name} is no longer on staff. The list is up to date now."
+    },
+    "dialogs": {
+      "cancel": "Cancel",
+      "role": "Role",
+      "invite": {
+        "title": "Invite staff",
+        "target": "DripFunnel admin console",
+        "email": "Email",
+        "emailPlaceholder": "name@dripfunnel.com",
+        "emailError": "Enter an email address, such as name@dripfunnel.com.",
+        "consequence": "Sends {email} a link to join the admin console as {role}. The link works once, for 7 days, and they sign in with company SSO.",
+        "someone": "them",
+        "confirm": "Send invitation"
+      },
+      "changeRole": {
+        "title": "Change {name}’s role",
+        "current": "{name} is {role} now. Pick the role they should have.",
+        "consequence": "{name} becomes {role}, with that role’s access from their next request.",
+        "self": "You become {role}, with that role’s access from your next request. Only a Super admin can manage staff.",
+        "sameRole": "Pick a different role.",
+        "confirm": "Change role"
+      },
+      "remove": {
+        "title": "Remove {name}?",
+        "consequence": "{name} can no longer sign in to the admin console. Their past activity stays in the log.",
+        "self": "This is you: you’ll be signed out straight away.",
+        "confirm": "Remove"
+      },
+      "resend": {
+        "title": "Resend the invitation to {name}?",
+        "consequence": "A new link goes to {email} and works for 7 days. The old link stops working.",
+        "confirm": "Resend invitation"
+      },
+      "revoke": {
+        "title": "Revoke the invitation to {name}?",
+        "consequence": "The link stops working. You can invite {email} again later.",
+        "confirm": "Revoke invitation"
+      }
+    },
+    "toasts": {
+      "invite": "Invitation sent to {email}.",
+      "changeRole": "{name} is now {role}.",
+      "remove": "{name} removed.",
+      "resend": "New invitation sent to {email}. The old link no longer works.",
+      "revoke": "Invitation to {email} revoked.",
+      "failed": "That didn’t go through. Try again."
+    },
+    "empty": {
+      "title": "Only you so far",
+      "body": "Invite colleagues with their company email."
+    },
+    "denied": {
+      "title": "Staff is for Super admins",
+      "body": "You’re signed in as {role}. Ask a Super admin to invite someone or change a role.",
+      "back": "Back to the dashboard"
+    },
+    "error": {
+      "title": "Staff didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
     }
   }
 }

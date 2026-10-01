@@ -18,6 +18,7 @@ import { Route as AppCustomersRouteImport } from './routes/_app/customers'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
+import { Route as AppStaffRouteImport } from './routes/_app/staff'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
@@ -69,6 +70,11 @@ const AppProvisioningRoute = AppProvisioningRouteImport.update({
   path: '/provisioning',
   getParentRoute: () => AppRoute,
 } as any)
+const AppStaffRoute = AppStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStatesRoute = AppStatesRouteImport.update({
   id: '/states',
   path: '/states',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AppDashboardRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AppDashboardRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/partners': typeof AppPartnersRoute
   '/_app/provisioning': typeof AppProvisioningRoute
+  '/_app/staff': typeof AppStaffRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/partners'
     | '/provisioning'
+    | '/staff'
     | '/states'
     | '/stores'
     | '/sign-in'
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/partners'
     | '/provisioning'
+    | '/staff'
     | '/states'
     | '/stores'
     | '/sign-in'
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/_app/dashboard'
     | '/_app/partners'
     | '/_app/provisioning'
+    | '/_app/staff'
     | '/_app/states'
     | '/_app/stores'
     | '/_auth/sign-in'
@@ -279,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProvisioningRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/staff': {
+      id: '/_app/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AppStaffRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/states': {
       id: '/_app/states'
       path: '/states'
@@ -338,6 +357,7 @@ interface AppRouteChildren {
   AppDashboardRoute: typeof AppDashboardRoute
   AppPartnersRoute: typeof AppPartnersRoute
   AppProvisioningRoute: typeof AppProvisioningRoute
+  AppStaffRoute: typeof AppStaffRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -354,6 +374,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppDashboardRoute: AppDashboardRoute,
   AppPartnersRoute: AppPartnersRoute,
   AppProvisioningRoute: AppProvisioningRoute,
+  AppStaffRoute: AppStaffRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,
