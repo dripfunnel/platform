@@ -115,7 +115,7 @@ Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.com` has no sign-up:
    details are the one exception: only a partner user can enter them. They aren't go-live
    checks, but payouts wait for them.
 
-Partner users hold one of **Owner, Admin, Support, Finance, Read-only** (proposed 2026-09-28);
+Partner users hold one of **Owner, Admin, Support, Finance, Read-only** (decided 2026-10-01 on #109);
 their permissions are fixed sets in code, as for merchants ([ACCESS.md](ACCESS.md)).
 
 ### 3.3 Look
