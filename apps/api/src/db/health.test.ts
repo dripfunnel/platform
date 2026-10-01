@@ -123,10 +123,10 @@ describe('checkHealth', () => {
         upstreamSide.on('error', () => {})
       }
 
-      // Generated lazily, only once the upstream has confirmed TLS (reply 'S') — the plain
-      // local-Postgres path below never calls this, so it never needs openssl on PATH.
+      // Started before the timed section below, not lazily on first TLS handshake, so openssl's
+      // subprocess + keygen cost runs outside the measured window against CI's TLS-only Neon (#51).
       let certDir: string | undefined
-      const getCert = async () => {
+      const certPromise = (async () => {
         try {
           execFileSync('openssl', ['version'], { stdio: 'ignore' })
         } catch {
@@ -151,7 +151,8 @@ describe('checkHealth', () => {
           '/CN=localhost',
         ])
         return Promise.all([readFile(keyPath), readFile(certPath)])
-      }
+      })()
+      certPromise.catch(() => {}) // avoid an unhandled-rejection warning when the non-TLS path never awaits it
 
       let tlsSetupError: Error | undefined
       try {
@@ -172,7 +173,7 @@ describe('checkHealth', () => {
                   return
                 }
                 client.write('S')
-                getCert()
+                certPromise
                   .then(([key, cert]) => {
                     const clientTls = new tls.TLSSocket(client, { isServer: true, key, cert })
                     const upstreamTls = tls.connect({ socket: upstreamRaw, servername: target.hostname })
