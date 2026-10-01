@@ -1,3 +1,3 @@
-import { createBuilder } from '../graphql/builder'
+import { createSchema } from '../graphql/builder'
 
-export const platformSchema = createBuilder().toSchema()
+export const platformSchema = createSchema('platform')

@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  // Node loads Pothos and Yoga with the production build of graphql; without this, Vite gives
+  // our own imports the development one, and graphql refuses types from a second copy.
+  ssr: { resolve: { conditions: ['module', 'node'] } },
   test: {
     // tests/ is the integration suite, which creates a database of its own per run and has
     // its own config. Excluded here so `pnpm test` does not run it twice.
