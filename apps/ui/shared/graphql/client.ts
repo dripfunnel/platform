@@ -9,7 +9,10 @@ export class ApiError extends Error {
 
 type GraphQLResponse<T> = { data?: T; errors?: { message: string; extensions?: { code?: string } }[] }
 
-export const createApiClient = ({ endpoint = '/api', timeoutMs = 15_000 } = {}) => ({
+// Trailing slash: Cloudflare's `/api/*` route pattern does not match the bare `/api`
+// path (confirmed live on dev, #106), so a request without it falls through to the SPA's
+// static assets instead of the Worker.
+export const createApiClient = ({ endpoint = '/api/', timeoutMs = 15_000 } = {}) => ({
   async request<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
     const response = await fetch(endpoint, {
       method: 'POST',

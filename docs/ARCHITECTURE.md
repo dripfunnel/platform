@@ -65,10 +65,12 @@ guards `admin.dripfunnel.com`. Prod deploys upload a Worker version without putt
 promoting it to 100% (and rolling back) is a manual `wrangler versions deploy` command, so a
 bad deploy never reaches traffic without a human step (see `docs/code/ROLLBACK.md`).
 
-**Routing check before building:** confirm that a Worker route for `/api/*` can sit on the
-same custom hostname as a Pages project, including partners' hostnames added through
-Cloudflare for SaaS. If it can't, serve each SPA through **Workers static assets** with a
-service binding to the API Worker instead; the UI and API still deploy independently.
+**Routing check (settled 2026-10-01, #106):** a Worker route for `/api/*` can sit on the same
+custom hostname as a Pages project. Confirmed on the dev account: `dev-admin`, `dev-platform`
+and `dev-store` each answer `/api/health` with their own area while the SPA still serves on
+the same host, so the Pages project and the Worker route co-exist. `apps/api/wrangler.jsonc`
+declares the routes per environment (`scripts/feature-env` does the same for feature
+hostnames), so a fresh deploy reproduces them without dashboard-only state.
 
 ---
 
@@ -190,9 +192,12 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   `dev-hooks.dripfunnel.ai` (decided 2026-10-01, correcting `dripfunnel.com`): dev runs on
   the dev Cloudflare account, and that account holds `dripfunnel.ai`, not the production
   zone. Nothing that is not production belongs on the production domain. The dev account's
-  existing Access applications already cover these — `*.dripfunnel.ai` allows
-  `@softobotics.com`, and `dev-hooks` matches the `*-hooks.dripfunnel.ai` Bypass, so
-  providers' test webhooks reach it; webhooks verify their own signatures. A feature slug
+  Access applications are meant to cover these — `*.dripfunnel.ai` allows `@softobotics.com`,
+  and `dev-hooks` matches the `*-hooks.dripfunnel.ai` Bypass, so providers' test webhooks
+  reach it; webhooks verify their own signatures — but checked live on 2026-10-01 (#106),
+  `dev-admin`/`dev-platform`/`dev-store` return 200 with no Access challenge, and
+  `dev-hooks.dripfunnel.ai` has no DNS record at all. Both need fixing in the dashboard
+  before this item is done. A feature slug
   always begins with its issue number, so `dev-*` can never collide with one
   ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)). Seeded once on first
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
@@ -235,7 +240,6 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 ## 8. Open questions
 
 - The Shop API hostname pattern for storefronts.
-- Pages + Worker route on the same custom hostname (§2 routing check).
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
 - Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).
