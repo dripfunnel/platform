@@ -1,6 +1,5 @@
 /// <reference types="node" />
-import { createServer } from 'node:net'
-import net from 'node:net'
+import net, { createServer } from 'node:net'
 import { describe, expect, it } from 'vitest'
 import type { Config } from '#core/config'
 import { getClient } from './client'
@@ -81,13 +80,8 @@ describe('checkHealth', () => {
   it(
     'is ok past the old 5s cap when the connection is fine but the query response is delayed in transit',
     async () => {
-      // Proxies to the real Postgres, forwarding everything untouched until it sees the
-      // ReadyForQuery ('Z') that marks the connection as up, then holds the *next* chunk (the
-      // select-1 response) for STALL_MS before forwarding it. That delay is pure network
-      // transit time: it trips neither connect_timeout (connection already established) nor
-      // statement_timeout (the query itself runs instantly on the server). Only
-      // CHECK_HEALTH_TIMEOUT_MS can catch it, so this fails against the old 5s cap and passes
-      // against the current 10s one.
+      // Delays only the query response, after ReadyForQuery ('Z'), so connect_timeout and
+      // statement_timeout can't catch it — only CHECK_HEALTH_TIMEOUT_MS can.
       const STALL_MS = 6_000
       const target = new URL(DATABASE_URL)
       let readySeen = false
