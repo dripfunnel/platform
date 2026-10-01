@@ -53,6 +53,23 @@ place, with this console's words.
 The harness (`?state=`, `?partner=` and `/states`) is on under `vite dev`, and in a build only
 when `VITE_STATE_HARNESS=1` is set at build time. Production never sets it.
 
+## Signed-out screens
+
+`/sign-in` (`src/features/auth/`, #112) is the front door of FIRST-RELEASE.md §3: work email
+and password, then the 2-factor code, then `next` (same-origin only, `safeNext` in
+`src/api/auth.ts`); forgot password is a step of the same card and answers the same way whether
+or not the email exists. There is no sign-up and no Google button anywhere. Accepting an
+invitation is #128.
+
+The fixture in `src/api/auth.ts` stands in for the Platform API's auth routes and refuses what
+they will refuse, with the same message and the same timing for an unknown email and a wrong
+password: `INVALID_CREDENTIALS`, `WRONG_CODE` (with the tries left), `CODE_EXPIRED`, `LOCKED`
+(15 minutes after five wrong codes), `NOT_CONNECTED` when the harness is off. Under `vite dev`
+sign in as `maya@northstar.com` / `northstar-partners` (2-factor: code `123456`; `000000` is an
+expired code) or `alex@northstar.com` with the same password (no 2-factor). States:
+`?state=wrong`, `code`, `wrongCode`, `expiredCode`, `locked`, `forgot`, `sent`, `expired`,
+`notConnected`; `?outcome=expired` is the Worker's real result and is read in every build.
+
 ## Staff sessions
 
 A staff impersonation or setup session (ACCESS.md §8.1, §8.2) arrives at

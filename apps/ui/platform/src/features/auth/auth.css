@@ -1,0 +1,92 @@
+/* What only the partner console's signed-out screens draw: the invitation summary and the
+   2-factor enrolment. The card itself is shared/ui/auth.css. */
+
+.df-sign-in-form input:not(.df-code-input) {
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+}
+
+.df-auth-summary {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: var(--df-space-3) 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-page);
+}
+
+.df-auth-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-auth-summary dt {
+  color: var(--df-color-muted);
+}
+
+.df-auth-summary dd {
+  margin: 0;
+  color: var(--df-color-text-strong);
+  text-align: right;
+}
+
+.df-auth-summary p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-auth-step {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.df-auth-enrol {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-4);
+}
+
+.df-auth-qr {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  height: 112px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-auth-key {
+  display: grid;
+  gap: var(--df-space-1);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-auth-key code {
+  color: var(--df-color-text);
+  font-family: var(--df-font-mono);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+.df-sign-in-card .df-skeleton {
+  height: 44px;
+}

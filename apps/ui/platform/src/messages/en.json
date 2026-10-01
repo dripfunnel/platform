@@ -1,4 +1,53 @@
 {
+  "auth": {
+    "logoAlt": "DripFunnel",
+    "productLabel": "Partners",
+    "footer": "New to the console? Use the link in your invitation email.",
+    "notConnected": "Sign-in isn’t connected yet. It arrives with the Platform API.",
+    "codeLabel": "6-digit code",
+    "codePlaceholder": "000000"
+  },
+  "signIn": {
+    "credentials": {
+      "title": "Sign in to the partner console",
+      "body": "For partner teams. Merchants sign in at their partner’s portal.",
+      "email": "Work email",
+      "password": "Password",
+      "continue": "Continue",
+      "forgot": "Forgot password?",
+      "missing": "Enter your work email and password.",
+      "refused": "That email or password isn’t right."
+    },
+    "code": {
+      "title": "Enter your 2-factor code",
+      "body": "Open your authenticator app and enter the code for DripFunnel Partners.",
+      "hint": "Sign in turns on once all 6 digits are in.",
+      "incomplete": "Enter the 6-digit code from your authenticator app.",
+      "verify": "Sign in",
+      "differentAccount": "Use a different account",
+      "wrong": "That code isn’t right. {tries} left.",
+      "tryOne": "1 try",
+      "tries": "{count} tries",
+      "expired": "That code has expired. Open your authenticator app for the current one.",
+      "locked": "Too many wrong codes. To protect your account, signing in is paused for {minutes} minutes. We’ve emailed you about it."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "body": "Enter your work email. If there’s an account, we’ll send a reset link.",
+      "send": "Send reset link",
+      "back": "Back to sign in",
+      "invalid": "Enter a valid email address."
+    },
+    "sent": {
+      "title": "Check your email",
+      "body": "If there’s an account for {email}, we’ve sent a link to reset the password. It works for 30 minutes.",
+      "fallback": "that address"
+    },
+    "expired": {
+      "title": "Your session expired",
+      "body": "You were signed out after 12 hours to keep the console safe. Sign in again and you’ll come back to this page. Nothing you saved was lost."
+    }
+  },
   "shell": {
     "skipToContent": "Skip to content",
     "homeLink": "Partner console home",
@@ -189,9 +238,6 @@
   "settings": {
     "account": "Your account",
     "accountSub": "What a staff session can’t change is turned off here, with the reason."
-  },
-  "signIn": {
-    "title": "Sign in"
   },
   "controls": {
     "password": "Change password",
