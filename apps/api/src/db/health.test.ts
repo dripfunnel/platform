@@ -96,10 +96,8 @@ describe('checkHealth', () => {
           upstream.write(chunk)
         })
         upstream.on('data', (chunk: Buffer) => {
-          // The query's response can arrive as several separate reads (ParseComplete,
-          // BindComplete, DataRow, CommandComplete, ReadyForQuery). Buffer all of them and
-          // flush in order — forwarding only the first and letting later ones through
-          // immediately would reorder the wire protocol and the client would error out fast.
+          // Buffer every read of the query response and flush in order; releasing only the
+          // first reorders the wire protocol.
           if (!queryStarted || flushed) {
             client.write(chunk)
             return
