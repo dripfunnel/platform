@@ -1,5 +1,6 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import type { StaffRole } from '../shell/staffRoles'
 import { Dashboard } from './Dashboard'
 import { dashboardStates } from './dashboardStates'
@@ -13,7 +14,7 @@ const partnerCreators: readonly StaffRole[] = ['staff-super-admin', 'staff-partn
 export const DashboardScreen = () => {
   const data = dashboardRoute.useLoaderData()
   const { me } = shellRoute.useLoaderData()
-  const forced = useScreenState(dashboardStates)
+  const forced = useScreenState(dashboardStates, harnessEnabled)
   const navigate = dashboardRoute.useNavigate()
   const router = useRouter()
   return (

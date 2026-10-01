@@ -1,6 +1,6 @@
 import { useRouter } from '@tanstack/react-router'
 import { messages } from '../../messages'
-import { ErrorState, type ErrorDetails } from '../common/ErrorState'
+import { ErrorState, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { DashboardHeader } from './DashboardHeader'
 import './dashboard.css'
 

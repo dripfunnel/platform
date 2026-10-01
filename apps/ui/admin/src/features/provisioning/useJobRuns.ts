@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadJobProgress, retryJob, undoJob, type JobAction, type JobProgress } from '../../api/provisioning'
 import { paces, type Pace } from '../../api/provisioningSample'
 import { fill, messages } from '../../messages'
-import { harnessEnabled } from '../common/useScreenState'
+import { harnessEnabled } from '../../harness'
 import type { JobTarget } from './jobDialog'
 
 const words = messages.provisioning

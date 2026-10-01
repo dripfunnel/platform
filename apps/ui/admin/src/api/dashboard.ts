@@ -1,6 +1,6 @@
 // The Dashboard's one query: `dashboard(partnerId)` on the Admin API (FIRST-RELEASE.md §3, §12).
 // Every number here is the API's; the screen only formats and links them (ui/README §3).
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 
 export const partnerStates = ['live', 'awaiting', 'draft', 'paused'] as const
 export type PartnerState = (typeof partnerStates)[number]

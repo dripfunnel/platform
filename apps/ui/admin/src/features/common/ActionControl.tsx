@@ -1,4 +1,4 @@
-import { PermissionDenied } from './PermissionDenied'
+import { PermissionDenied } from '@dripfunnel/shared/ui'
 
 export interface ActionControlProps {
   label: string

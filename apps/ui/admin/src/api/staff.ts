@@ -1,6 +1,6 @@
 // The Staff operations on the Admin API (FIRST-RELEASE.md §10, §12): the only place this app
 // talks to the API about staff. Whether an action is allowed, and why not, is the API's answer.
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission } from './permissions'

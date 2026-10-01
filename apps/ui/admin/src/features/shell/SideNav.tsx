@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { NavBadges } from '../../api/navBadges'
 import { fill, formatCount, messages } from '../../messages'
 import type { NavItem } from '../../nav'
-import '../common/states.css'
+import '@dripfunnel/shared/ui/states.css'
 import { Icon } from './Icon'
 import './shell.css'
 

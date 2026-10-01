@@ -1,6 +1,6 @@
 import type { StaffAction, StaffMember, StaffRefusal } from '../../api/staff'
 import { fill, messages } from '../../messages'
-import type { ConfirmDialogProps } from '../common/ConfirmDialog'
+import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { staffRoles, type StaffRole } from '../shell/staffRoles'
 
 const words = messages.staff

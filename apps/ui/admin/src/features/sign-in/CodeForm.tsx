@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { messages } from '../../messages'
-import '../common/states.css'
+import '@dripfunnel/shared/ui/states.css'
 import './signIn.css'
 
 const words = messages.signIn.states.code

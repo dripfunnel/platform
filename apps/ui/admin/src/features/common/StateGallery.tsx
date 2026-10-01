@@ -1,15 +1,16 @@
 // States: empty, loading, error, denied, readonly, confirm. Dev-only (issue #16).
 import { Link } from '@tanstack/react-router'
 import { messages } from '../../messages'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { screenStates } from './screenState'
 import { StateView } from './StateView'
-import { useScreenState } from './useScreenState'
-import './states.css'
+import './gallery.css'
 
 const words = messages.states.gallery
 
 export const StateGallery = () => {
-  const state = useScreenState(screenStates)
+  const state = useScreenState(screenStates, harnessEnabled)
   return (
     <div className="df-gallery">
       <h1>{words.title}</h1>

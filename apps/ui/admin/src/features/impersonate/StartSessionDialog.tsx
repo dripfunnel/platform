@@ -16,7 +16,7 @@ import { reservePortalTab, type PortalTab } from './openPortal'
 import { sessionsChanged } from './sessionEvents'
 import { firstOf, membershipLine, placeText, refusalText, roleText, timeLeftText, whereText } from './sessionText'
 import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, ticketError, type StartStep, type StartSubject } from './startFlow'
-import '../common/states.css'
+import '@dripfunnel/shared/ui/states.css'
 import './impersonate.css'
 
 const words = messages.impersonate.start

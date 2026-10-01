@@ -2,7 +2,7 @@
 // talks to the API about stores. Whether an action is allowed, and why not, is the API's
 // answer (decided on #20); the screens only render it.
 import type { Money } from '@dripfunnel/shared/format'
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { SessionPermission } from './impersonation'
 import type { PageInfo, PageRequest } from './pageInfo'

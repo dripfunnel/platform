@@ -1,8 +1,16 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "jsx": "react-jsx"
   },
-  "include": ["ui", "graphql", "format"]
+  "include": [
+    "ui",
+    "graphql",
+    "format"
+  ]
 }

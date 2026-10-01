@@ -5,10 +5,10 @@ import { recheckStoreDomain, runStoreAction, type Store, type StoreDnsRecord } f
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { ConfirmDialog, useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { callerFor } from '../common/harnessCaller'
 import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
@@ -40,7 +40,7 @@ export const StoreDetailScreen = () => {
   const activityFilter = { action, result, date, from, to }
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(storeStates)
+  const forced = useScreenState(storeStates, harnessEnabled)
   const router = useRouter()
   const navigate = useNavigate()
   const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))

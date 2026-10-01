@@ -1,6 +1,6 @@
 import type { Partner, PartnerAction } from '../../api/partners'
 import { fill, formatCount, messages } from '../../messages'
-import type { ConfirmDialogProps } from '../common/ConfirmDialog'
+import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 
 const words = messages.partner
 

@@ -2,7 +2,7 @@
 // app talks to the API about signup jobs, from the Provisioning list and the store's
 // Provisioning tab alike (decided on #43). What is stuck, and whether an action is allowed, is
 // the API's answer; the screens only render it.
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission } from './permissions'

@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from '@tanstack/react-router'
 import { StateGallery } from '../../features/common/StateGallery'
-import { harnessEnabled } from '../../features/common/useScreenState'
+import { harnessEnabled } from '../../harness'
 
 export const Route = createFileRoute('/_app/states')({
   beforeLoad: () => {

@@ -1,10 +1,6 @@
 import { messages } from '../../messages'
+import { EmptyState, ErrorState, LoadingState, PermissionDenied, ReadOnlyNotice } from '@dripfunnel/shared/ui'
 import { ConfirmDemo } from './ConfirmDemo'
-import { EmptyState } from './EmptyState'
-import { ErrorState } from './ErrorState'
-import { LoadingState } from './LoadingState'
-import { PermissionDenied } from './PermissionDenied'
-import { ReadOnlyNotice } from './ReadOnlyNotice'
 import type { ScreenState } from './screenState'
 
 const words = messages.states

@@ -1,5 +1,5 @@
 import { messages } from '../../messages'
-import { LoadingState } from '../common/LoadingState'
+import { LoadingState } from '@dripfunnel/shared/ui'
 import { DashboardHeader } from './DashboardHeader'
 import './dashboard.css'
 

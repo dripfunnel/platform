@@ -2,7 +2,8 @@ import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import type { StoreFilter } from '../../api/stores'
 import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { storesStates } from './storeHarness'
 import { Stores, StoresError } from './Stores'
 
@@ -13,7 +14,7 @@ export const StoresScreen = () => {
   const page = storesRoute.useLoaderData()
   const { partner, status, storefront, setup, created, q } = storesRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
-  const forced = useScreenState(storesStates)
+  const forced = useScreenState(storesStates, harnessEnabled)
   const navigate = storesRoute.useNavigate()
   const router = useRouter()
   const arrived = useRouterState({ select: (state) => state.location.state.toast })

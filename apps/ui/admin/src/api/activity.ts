@@ -1,11 +1,11 @@
 // The Activity log on the Admin API (FIRST-RELEASE.md §9, LOGGING.md §6–7): the only place this
 // app reads entries, for the Activity log screen and the partner, store and customer tabs.
-import { harnessEnabled } from '../features/common/useScreenState'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { ActionCode, ActivityLevel } from './activityActions'
 import { activityServer } from './activitySample'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission } from './permissions'
+import { harnessEnabled } from '../harness'
 
 export const actorKinds = ['staff', 'partner_user', 'person', 'customer', 'api_key', 'app_grant', 'support_session', 'job', 'provider', 'anonymous'] as const
 export type ActorKind = (typeof actorKinds)[number]

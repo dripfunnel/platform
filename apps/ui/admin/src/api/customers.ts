@@ -1,10 +1,10 @@
 // The Customers operations on the Admin API (FIRST-RELEASE.md §5.4, §12): the only place this
 // app talks to the API about shoppers' accounts. Email and phone arrive already masked for a
 // role that may not see them; the screens display what they are given and never unmask.
-import { harnessEnabled } from '../features/common/useScreenState'
 import type { StaffRole } from '../features/shell/staffRoles'
 import { customersServer } from './customersSample'
 import type { PageInfo, PageRequest } from './pageInfo'
+import { harnessEnabled } from '../harness'
 
 export const customerStatuses = ['active', 'unverified', 'deleted'] as const
 export type CustomerStatus = (typeof customerStatuses)[number]

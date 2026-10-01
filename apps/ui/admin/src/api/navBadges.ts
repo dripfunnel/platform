@@ -1,4 +1,4 @@
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 import type { NavBadgeSource } from '../nav'
 import { impersonationServer } from './impersonationSample'
 import { sampleServer } from './partnersSample'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { messages } from '../../messages'
-import { ConfirmDialog } from './ConfirmDialog'
-import './states.css'
+import { ConfirmDialog } from '@dripfunnel/shared/ui'
+import '@dripfunnel/shared/ui/states.css'
 
 const words = messages.states.confirm
 
