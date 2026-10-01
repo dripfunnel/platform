@@ -1,8 +1,14 @@
-import { loadMe, partnerStateFor, type Me } from '../../api/me'
-import { loadNavBadges } from '../../api/navBadges'
+import { callerFor, loadMe, partnerStateFor, type Me } from '../../api/me'
+import { loadNavBadges, type NavBadges } from '../../api/navBadges'
 
-export const loadShell = async ({ searchStr }: { searchStr: string }): Promise<{ me: Me; badges: Awaited<ReturnType<typeof loadNavBadges>> }> => {
+export interface ShellSearch {
+  partner?: string | undefined
+  state?: string | undefined
+}
+
+// `?state=` and `?partner=` are the harness's (api/me.ts); nothing else in the search re-runs this.
+export const loadShell = async ({ partner, state }: ShellSearch): Promise<{ me: Me; badges: NavBadges }> => {
   const loaded = await loadMe()
-  const me = { ...loaded, partner: { ...loaded.partner, state: partnerStateFor(loaded.partner.state, searchStr) } }
+  const me = { ...loaded, role: callerFor(loaded.role, state), partner: { ...loaded.partner, state: partnerStateFor(loaded.partner.state, partner) } }
   return { me, badges: await loadNavBadges(me.partner.state) }
 }

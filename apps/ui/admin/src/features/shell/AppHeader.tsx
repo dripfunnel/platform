@@ -48,23 +48,12 @@ export const AppHeader = ({ me, environment, menuOpen, onOpenMenu }: AppHeaderPr
         roleLabel={role}
         words={{ buttonLabel: fill(words.userMenu.label, { name: me.name, role }), theme: words.userMenu.theme }}
         themeStorageKey="df-admin-theme"
-        items={(close) => (
-          <>
-            <li role="none">
-              {/* My activity opens the signed-in staff member's own timeline, for every role (decided on #45). */}
-              <Link to="/activity" search={{ person: me.id }} role="menuitem" className="df-user-menu-item" onClick={close}>
-                {words.userMenu.myActivity}
-              </Link>
-            </li>
-            <li role="none">
-              {/* A stand-in: it ends no session and logs nothing. #13 adds the Admin API's sign-out
-                  (https://github.com/dripfunnel/platform/issues/13). */}
-              <Link to="/sign-in" role="menuitem" className="df-user-menu-item" onClick={close}>
-                {words.userMenu.signOut}
-              </Link>
-            </li>
-          </>
-        )}
+        // My activity is the staff member's own timeline, for every role (decided on #45). Sign out
+        // is a stand-in until #13 adds the Admin API's sign-out, which ends the session and logs it.
+        items={[
+          { key: 'activity', label: words.userMenu.myActivity, to: '/activity', search: { person: me.id } },
+          { key: 'signOut', label: words.userMenu.signOut, to: '/sign-in' },
+        ]}
       />
     </header>
   )

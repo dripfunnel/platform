@@ -14,9 +14,6 @@ export interface NavRow {
   badge?: NavBadgeSource
 }
 
-// A row as one role sees it.
-export type NavItem = NavRow
-
 // The ten rows of FIRST-RELEASE.md §2.1, in the prototype's order, with the badge each carries.
 // Billing is absent for Support, and Support for Finance and Read-only; every other row is
 // for everyone, with what a role can't do disabled inside the screen.
@@ -34,5 +31,4 @@ export const navRows: readonly NavRow[] = [
 ]
 
 // A row a role can't use is left out, not disabled: absent means "not for you" (design.md §4).
-export const navFor = (role: PartnerRole, rows: readonly NavRow[] = navRows): readonly NavItem[] =>
-  rows.filter((row) => row.roles.includes(role))
+export const navFor = (role: PartnerRole): readonly NavRow[] => navRows.filter((row) => row.roles.includes(role))

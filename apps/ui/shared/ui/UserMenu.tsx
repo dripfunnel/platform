@@ -1,5 +1,6 @@
 import { themeChoices } from './theme'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useEffect, useId, useRef, useState } from 'react'
 import { initials } from './initials'
 import './shell.css'
 import { useTheme } from './useTheme'
@@ -16,9 +17,15 @@ export interface UserMenuProps {
   roleLabel: string
   words: UserMenuWords
   themeStorageKey: string
-  // The app's own entries (My activity, Sign out), each a <li role="none"> holding a
-  // role="menuitem" link with className "df-user-menu-item"; `close` shuts the menu.
-  items: (close: () => void) => ReactNode
+  // The app's own entries after Appearance (My activity, Sign out), drawn as menu items.
+  items: readonly UserMenuItem[]
+}
+
+export interface UserMenuItem {
+  key: string
+  label: string
+  to: string
+  search?: Record<string, string>
 }
 
 export const UserMenu = ({ name, email, roleLabel, words, themeStorageKey, items }: UserMenuProps) => {
@@ -103,7 +110,13 @@ export const UserMenu = ({ name, email, roleLabel, words, themeStorageKey, items
                 ))}
               </div>
             </li>
-            {items(() => setOpen(false))}
+            {items.map((item) => (
+              <li key={item.key} role="none">
+                <Link to={item.to} {...(item.search ? { search: item.search } : {})} role="menuitem" className="df-user-menu-item" onClick={() => setOpen(false)}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       )}

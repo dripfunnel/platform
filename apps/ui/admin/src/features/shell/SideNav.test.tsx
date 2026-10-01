@@ -3,14 +3,14 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { NavBadges } from '../../api/navBadges'
 import { messages } from '../../messages'
-import { SideNav } from '@dripfunnel/shared/ui'
+import { navView, SideNav } from '@dripfunnel/shared/ui'
 import { navFor } from '../../nav'
-import { navView } from './navView'
+import { navWords } from './navWords'
 import { staffRoles, type StaffRole } from './staffRoles'
 
 const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApproval: 3, provisioningAttention: 2, openSessions: 1 }, path = '/partners') => {
   const rootRoute = createRootRoute({
-    component: () => <SideNav rows={navView(navFor(role), badges)} variant="bar" label={messages.shell.navLabel} footer={messages.shell.navFooter} />,
+    component: () => <SideNav rows={navView(navFor(role), badges, navWords)} variant="bar" label={messages.shell.navLabel} footer={messages.shell.navFooter} />,
   })
   const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: [path] }) })
   await router.load()

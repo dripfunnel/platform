@@ -1,5 +1,6 @@
-import { SideNav } from '@dripfunnel/shared/ui'
+import { navView, SideNav } from '@dripfunnel/shared/ui'
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Me } from '../../api/me'
@@ -7,7 +8,7 @@ import type { NavBadges } from '../../api/navBadges'
 import { messages } from '../../messages'
 import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
-import { navView } from './navView'
+import { navWords } from './navWords'
 import { partnerRoles, type PartnerRole } from './partnerRoles'
 import { PartnerStrip } from './PartnerStrip'
 
@@ -15,13 +16,13 @@ const me: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', ro
 const waiting: NavBadges = { storesAttention: 2, brandingSetupLeft: 1, domainsWaiting: 1, billingFailedPayments: 1, supportOpenSessions: 1 }
 const quiet: NavBadges = { storesAttention: 0, brandingSetupLeft: 0, domainsWaiting: 0, billingFailedPayments: 0, supportOpenSessions: 0 }
 
-const render = async (element: React.ReactNode, path = '/dashboard') => {
+const render = async (element: ReactNode, path = '/dashboard') => {
   const router = createRouter({ routeTree: createRootRoute({ component: () => element }), history: createMemoryHistory({ initialEntries: [path] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
 const nav = (role: PartnerRole, badges = waiting, path?: string) =>
-  render(<SideNav rows={navView(navFor(role), badges)} variant="bar" label={messages.shell.navLabel} footer="" />, path)
+  render(<SideNav rows={navView(navFor(role), badges, navWords)} variant="bar" label={messages.shell.navLabel} footer="" />, path)
 
 describe('the partner console menu', () => {
   it.each(partnerRoles)('renders exactly the rows FIRST-RELEASE §2.1 gives %s, with absent rows out of the markup', async (role) => {

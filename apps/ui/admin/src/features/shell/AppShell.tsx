@@ -1,4 +1,4 @@
-import { NavDrawer, SideNav } from '@dripfunnel/shared/ui'
+import { NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -11,7 +11,7 @@ import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
 import { environmentFor } from './environment'
 import { EnvironmentBanner } from './EnvironmentBanner'
-import { navView } from './navView'
+import { navWords } from './navWords'
 
 const shellRoute = getRouteApi('/_app')
 
@@ -19,7 +19,7 @@ export const AppShell = () => {
   const { me, badges } = shellRoute.useLoaderData()
   const [menuOpen, setMenuOpen] = useState(false)
   const environment = environmentFor(window.location.hostname)
-  const rows = navView(navFor(me.role), badges)
+  const rows = navView(navFor(me.role), badges, navWords)
   const router = useRouter()
   const sessionsVersion = useSessionsVersion()
   // A session started or ended here moves the badge and the page under it at once.

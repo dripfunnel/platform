@@ -16,7 +16,6 @@ export const SearchPlaceholder = () => {
       <button type="button" className="df-search-button" disabled aria-describedby={noteId}>
         <Icon name="search" size={16} />
         <span className="df-search-button-text">{words.button}</span>
-        <kbd>{words.shortcut}</kbd>
       </button>
       <span id={noteId} className="df-visually-hidden">
         {words.notYet}

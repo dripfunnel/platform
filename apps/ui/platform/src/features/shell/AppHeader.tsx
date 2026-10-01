@@ -40,8 +40,8 @@ export const AppHeader = ({ me, menuOpen, onOpenMenu }: AppHeaderProps) => {
         <span className="df-for-initials" aria-hidden="true">
           {initials(me.partner.name)}
         </span>
+        <span className="df-visually-hidden">{words.signedInForLabel} </span>
         <span className="df-for-name">{me.partner.name}</span>
-        <span className="df-visually-hidden">{fill(words.signedInFor, { partner: '' }).trim()}</span>
       </span>
       <SearchPlaceholder />
       <a className="df-help" href={words.helpUrl} target="_blank" rel="noopener noreferrer">
@@ -54,22 +54,12 @@ export const AppHeader = ({ me, menuOpen, onOpenMenu }: AppHeaderProps) => {
         roleLabel={role}
         words={{ buttonLabel: fill(words.userMenu.label, { name: me.name, role }), theme: words.userMenu.theme }}
         themeStorageKey="df-platform-theme"
-        items={(close) => (
-          <>
-            <li role="none">
-              {/* My activity is the signed-in user's own timeline (FIRST-RELEASE.md §13). */}
-              <Link to="/activity" search={{ person: me.id }} role="menuitem" className="df-user-menu-item" onClick={close}>
-                {words.userMenu.myActivity}
-              </Link>
-            </li>
-            <li role="none">
-              {/* A stand-in until #112 adds partner sign-in and the Platform API's sign-out. */}
-              <Link to="/sign-in" role="menuitem" className="df-user-menu-item" onClick={close}>
-                {words.userMenu.signOut}
-              </Link>
-            </li>
-          </>
-        )}
+        // My activity is the signed-in user's own timeline (FIRST-RELEASE.md §13); Sign out is a
+        // stand-in until #112 adds partner sign-in and the Platform API's sign-out.
+        items={[
+          { key: 'activity', label: words.userMenu.myActivity, to: '/activity', search: { person: me.id } },
+          { key: 'signOut', label: words.userMenu.signOut, to: '/sign-in' },
+        ]}
       />
     </header>
   )

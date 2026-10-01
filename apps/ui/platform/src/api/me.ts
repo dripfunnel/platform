@@ -32,13 +32,13 @@ export const loadMe = (): Promise<Me> => Promise.resolve(fixture)
 // but change nothing else, so its page shows refusals beside live controls.
 const viewAs: Partial<Record<string, PartnerRole>> = { readonly: 'partner-read-only', denied: 'partner-support' }
 
-export const callerFor = (role: PartnerRole, searchStr: string): PartnerRole => {
+export const callerFor = (role: PartnerRole, state: string | undefined): PartnerRole => {
   if (!harnessEnabled) return role
-  const state = parseScreenState(new URLSearchParams(searchStr).get('state'), ['readonly', 'denied'] as const)
-  return (state && viewAs[state]) ?? role
+  const forced = parseScreenState(state, ['readonly', 'denied'] as const)
+  return (forced && viewAs[forced]) ?? role
 }
 
 // ?partner=draft|awaiting|sentback shows the shell as a partner in that state sees it (FIRST-RELEASE
 // §2.3, §4), the way the prototype's Partner control does.
-export const partnerStateFor = (state: PartnerState, searchStr: string): PartnerState =>
-  (harnessEnabled && parseScreenState(new URLSearchParams(searchStr).get('partner'), partnerStates)) || state
+export const partnerStateFor = (state: PartnerState, requested: string | undefined): PartnerState =>
+  (harnessEnabled && parseScreenState(requested, partnerStates)) || state

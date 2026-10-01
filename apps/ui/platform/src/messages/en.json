@@ -16,7 +16,6 @@
     "opensInNewTab": "(opens in a new tab)",
     "search": {
       "button": "Search your stores",
-      "shortcut": "⌘K",
       "notYet": "Search arrives with the Stores screen."
     },
     "userMenu": {
@@ -72,7 +71,8 @@
         "link": "See what to fix"
       }
     },
-    "placeholder": "This screen isn’t built yet."
+    "placeholder": "This screen isn’t built yet.",
+    "signedInForLabel": "Signed in for"
   },
   "nav": {
     "dashboard": "Dashboard",

@@ -1,4 +1,4 @@
-import { NavDrawer, SideNav } from '@dripfunnel/shared/ui'
+import { NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet } from '@tanstack/react-router'
 import { useState } from 'react'
@@ -6,7 +6,7 @@ import { messages } from '../../messages'
 import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
 import { EnvironmentStrip } from './EnvironmentStrip'
-import { navView } from './navView'
+import { navWords } from './navWords'
 import { PartnerStrip } from './PartnerStrip'
 
 const shellRoute = getRouteApi('/_app')
@@ -14,7 +14,7 @@ const shellRoute = getRouteApi('/_app')
 export const AppShell = () => {
   const { me, badges } = shellRoute.useLoaderData()
   const [menuOpen, setMenuOpen] = useState(false)
-  const rows = navView(navFor(me.role), badges)
+  const rows = navView(navFor(me.role), badges, navWords)
   const words = messages.shell
   const footer = <>{words.navFooter.before}<strong>{me.partner.product}</strong>{words.navFooter.after}</>
 

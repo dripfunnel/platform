@@ -1,4 +1,4 @@
-import { applyTheme, resolveTheme, themeStore, type ThemeChoice } from '@dripfunnel/shared/ui'
+import { applyTheme, resolveTheme, themeStore, type ThemeChoice } from './theme'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)')

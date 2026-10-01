@@ -43,7 +43,8 @@ Any screen can be forced into one state without an API by adding `?state=` to it
 (`empty`, `loading`, `error`, `denied`, `readonly`, `confirm`). A screen calls
 `useScreenState([...], harnessEnabled)` with the states it offers; `harnessEnabled` is this
 app's flag, computed once in `src/harness.ts`. `?state=readonly` and `?state=denied` also ask
-`callerFor` in `src/api/me.ts` for a Read-only or Support caller, and `?partner=draft`,
+`callerFor` in `src/api/me.ts` for a Read-only or Support caller (the shell's loader applies it,
+so the menu changes too), and `?partner=draft`,
 `awaiting` or `sentback` shows the shell as a partner in that state sees it.
 
 `/states` (`src/features/states/StateGallery.tsx`) shows every state and the dialog in one
