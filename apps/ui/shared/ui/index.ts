@@ -9,7 +9,7 @@ export {
   type ThemeChoice,
   type ThemeStore,
 } from './theme'
-export { isHarnessEnabled, parseScreenState, screenStates, type HarnessEnv, type ScreenState } from './screenState'
+export { isHarnessEnabled, parseScreenState, type HarnessEnv } from './screenState'
 export { useScreenState } from './useScreenState'
 export { EmptyState, type EmptyStateProps } from './EmptyState'
 export { LoadingState, type LoadingStateProps } from './LoadingState'
@@ -17,8 +17,6 @@ export { ErrorState, type ErrorDetails, type ErrorStateProps } from './ErrorStat
 export { PermissionDenied, type PermissionDeniedProps } from './PermissionDenied'
 export { ReadOnlyNotice, type ReadOnlyNoticeProps } from './ReadOnlyNotice'
 export { ConfirmDialog, type ConfirmDialogProps } from './ConfirmDialog'
-export { ConfirmDemo, type ConfirmDemoWords } from './ConfirmDemo'
-export { StateView, type StateWords } from './StateView'
 export { useAnnouncement } from './useAnnouncement'
 export { ImpBanner, SessionEndCard, SessionNotice, type ImpBannerProps, type SessionEndCardProps } from './ImpBanner'
 export { StaffSessionLayer, type StaffSessionCopy, type StaffSessionLayerProps } from './StaffSessionLayer'

@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { createSampleServer, samplePartners } from '../../api/partnersSample'
 import { messages } from '../../messages'
-import { textOf } from '@dripfunnel/shared/testing'
+import { textOf } from '../../testing/textOf'
 import { Partners, type PartnersProps } from './Partners'
 
 const words = messages.partners

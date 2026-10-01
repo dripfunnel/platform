@@ -2,7 +2,7 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
-import { textOf } from '@dripfunnel/shared/testing'
+import { textOf } from '../../testing/textOf'
 import { SignIn } from './SignIn'
 import { problemStates, signInOutcomes, signInStates } from './signInStates'
 

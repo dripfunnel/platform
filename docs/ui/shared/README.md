@@ -11,19 +11,17 @@ Last updated: 2026-10-01 (#110).
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
+| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `useScreenState`, `useAnnouncement`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/ui/states.css` | The kit's stylesheet, for a screen that uses its classes (`df-button`, `df-field`, `df-dialog`, `df-visually-hidden`) without rendering a kit component | loaded by every kit component itself |
 | `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code | `createApiClient`, `ApiError` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber` |
-| `@dripfunnel/shared/testing` | Helpers for the apps' tests, never bundled | `textOf` (the text a reader gets from server-rendered markup) |
 
 ```
 apps/ui/shared/
   ui/          components, the state kit (+ states.css), tokens.css, index.ts
   graphql/     client.ts, index.ts
   format/      money.ts, dateTime.ts, duration.ts, number.ts (each + .test.ts), index.ts
-  testing/     textOf.ts, index.ts
   package.json exports map; peer dependencies on react and @tanstack/react-router
 ```
 
@@ -55,13 +53,14 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
 - **Every component has its states**: empty, loading (skeleton), error, disabled with a
   reason, read-only. The `?state=` helper that makes every designed state reachable without
   a backend lives here since the portals needed it for their session states (#46,
-  ../README.md §6). The state kit itself (`EmptyState` … `ConfirmDialog`, `StateView`,
-  `useScreenState`) moved here from the admin console on #110 for the partner console, its
+  ../README.md §6). The state kit itself (`EmptyState` … `ConfirmDialog`, `useScreenState`)
+  moved here from the admin console on #110 for the partner console, its
   second user: decided 2026-10-01 when the PC batch was cut, so that #111 (the console's
   shell and `/states`) builds on the shared kit instead of moving it half-way through.
   `useScreenState(allowed, enabled)` takes the harness flag
-  from the app, which computes it once with `isHarnessEnabled(import.meta.env)`; each app
-  keeps its own `/states` gallery page, since that is one app's review page.
+  from the app, which computes it once with `isHarnessEnabled(import.meta.env)`. Each app
+  keeps its own `/states` gallery page, and with it the gallery's `StateView` and demo
+  dialog: one app's review page, with that app's words.
 - **Words are props**: every string comes from the calling app's messages.
 - **Visual baseline**: `../../../../.design/settings-tabs.html` (PLATFORM-PROMPT §6).
 - **Tests** beside the code (`money.test.ts`), especially for formatting across currencies

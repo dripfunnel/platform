@@ -82,8 +82,8 @@ Any screen can be forced into one state without an API by adding `?state=` to it
 header comment; an unknown or unoffered value is ignored. `harnessEnabled` is this app's
 flag, computed once in `src/harness.ts`.
 
-`/states` (`src/features/common/StateGallery.tsx`) shows every state and the dialog in one
-place; it stays in this app, as each console has its own.
+`/states` (`src/features/common/StateGallery.tsx`, with `StateView` and `ConfirmDemo`) shows
+every state and the dialog in one place; it stays in this app, as each console has its own.
 
 The harness (both `?state=` and `/states`) is on under `vite dev`, and in a build only when
 `VITE_STATE_HARNESS=1` is set at build time. Production never sets it, so there `?state=` is

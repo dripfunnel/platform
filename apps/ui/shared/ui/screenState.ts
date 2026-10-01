@@ -14,7 +14,3 @@ export const parseScreenState = <State extends string>(
   allowed: readonly State[],
 ): State | null =>
   typeof value === 'string' && (allowed as readonly string[]).includes(value) ? (value as State) : null
-
-export const screenStates = ['empty', 'loading', 'error', 'denied', 'readonly', 'confirm'] as const
-
-export type ScreenState = (typeof screenStates)[number]

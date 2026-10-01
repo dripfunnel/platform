@@ -6,7 +6,7 @@ import type { ActivityEntry, ActivityExport as ExportJob, ActivityFilter } from 
 import { actionCodes } from '../../api/activityActions'
 import { createActivityServer, generateActivity } from '../../api/activitySample'
 import { messages } from '../../messages'
-import { textOf } from '@dripfunnel/shared/testing'
+import { textOf } from '../../testing/textOf'
 import { ActivityRow } from '../common/ActivityRow'
 import { staffRoles, type StaffRole } from '../shell/staffRoles'
 import { ActivityExport } from './ActivityExport'

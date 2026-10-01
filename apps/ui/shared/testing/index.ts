@@ -1,1 +1,0 @@
-export { textOf } from './textOf'

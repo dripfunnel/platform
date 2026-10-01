@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { createProvisioningServer } from '../../api/provisioningSample'
 import { createStoresServer, sampleStores } from '../../api/storesSample'
 import { messages } from '../../messages'
-import { textOf } from '@dripfunnel/shared/testing'
+import { textOf } from '../../testing/textOf'
 import type { StaffRole } from '../shell/staffRoles'
 import { Provisioning, type ProvisioningProps } from './Provisioning'
 

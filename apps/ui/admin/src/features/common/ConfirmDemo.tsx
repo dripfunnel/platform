@@ -1,25 +1,13 @@
 import { useState } from 'react'
-import { ConfirmDialog } from './ConfirmDialog'
-import './states.css'
+import { messages } from '../../messages'
+import { ConfirmDialog } from '@dripfunnel/shared/ui'
+import '@dripfunnel/shared/ui/states.css'
 
-export interface ConfirmDemoWords {
-  open: string
-  title: string
-  target: string
-  consequence: string
-  notes: string[]
-  reason: string
-  reasonHint: string
-  typeLabel: string
-  typeHint: string
-  typeExpected: string
-  confirm: string
-  cancel: string
-}
+const words = messages.states.confirm
 
 // The admin prototype's "Close partner" dialog: the consequence, what it also affects, a
 // reason for the activity log, and the partner's own name typed exactly.
-export const ConfirmDemo = ({ words }: { words: ConfirmDemoWords }) => {
+export const ConfirmDemo = () => {
   const [open, setOpen] = useState(false)
   return (
     <div className="df-actions">

@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { createCustomersServer, sampleCustomers } from '../../api/customersSample'
 import { messages } from '../../messages'
-import { textOf } from '@dripfunnel/shared/testing'
+import { textOf } from '../../testing/textOf'
 import type { StaffRole } from '../shell/staffRoles'
 import { CustomerDetail, type CustomerDetailProps } from './CustomerDetail'
 

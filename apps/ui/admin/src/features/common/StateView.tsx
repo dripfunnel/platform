@@ -1,30 +1,11 @@
-import { ConfirmDemo, type ConfirmDemoWords } from './ConfirmDemo'
-import { EmptyState } from './EmptyState'
-import { ErrorState } from './ErrorState'
-import { LoadingState } from './LoadingState'
-import { PermissionDenied } from './PermissionDenied'
-import { ReadOnlyNotice } from './ReadOnlyNotice'
+import { messages } from '../../messages'
+import { EmptyState, ErrorState, LoadingState, PermissionDenied, ReadOnlyNotice } from '@dripfunnel/shared/ui'
+import { ConfirmDemo } from './ConfirmDemo'
 import type { ScreenState } from './screenState'
 
-export interface StateWords {
-  empty: { title: string; body: string; action: string }
-  loading: { label: string }
-  error: {
-    title: string
-    body: string
-    detailsLabel: string
-    codeLabel: string
-    code: string
-    requestIdLabel: string
-    requestId: string
-    retry: string
-  }
-  denied: { action: string; reason: string }
-  readonly: { title: string; body: string }
-  confirm: ConfirmDemoWords
-}
+const words = messages.states
 
-export const StateView = ({ state, words }: { state: ScreenState; words: StateWords }) => {
+export const StateView = ({ state }: { state: ScreenState }) => {
   switch (state) {
     case 'empty':
       return (
@@ -56,6 +37,6 @@ export const StateView = ({ state, words }: { state: ScreenState; words: StateWo
     case 'readonly':
       return <ReadOnlyNotice title={words.readonly.title} body={words.readonly.body} />
     case 'confirm':
-      return <ConfirmDemo words={words.confirm} />
+      return <ConfirmDemo />
   }
 }
