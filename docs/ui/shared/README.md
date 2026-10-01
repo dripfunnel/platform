@@ -56,8 +56,10 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   reason, read-only. The `?state=` helper that makes every designed state reachable without
   a backend lives here since the portals needed it for their session states (#46,
   ../README.md §6). The state kit itself (`EmptyState` … `ConfirmDialog`, `StateView`,
-  `useScreenState`) moved here from the admin console on #110, the moment the partner
-  console became its second user. `useScreenState(allowed, enabled)` takes the harness flag
+  `useScreenState`) moved here from the admin console on #110 for the partner console, its
+  second user: decided 2026-10-01 when the PC batch was cut, so that #111 (the console's
+  shell and `/states`) builds on the shared kit instead of moving it half-way through.
+  `useScreenState(allowed, enabled)` takes the harness flag
   from the app, which computes it once with `isHarnessEnabled(import.meta.env)`; each app
   keeps its own `/states` gallery page, since that is one app's review page.
 - **Words are props**: every string comes from the calling app's messages.
