@@ -6,8 +6,7 @@ import { harnessEnabled } from '../../harness'
 import type { NavKey } from '../../nav'
 
 // States (?state=): empty, loading, error, denied, readonly, confirm, from the shared kit.
-// An explicit placeholder, so every nav row resolves to a screen (docs/ui/README.md §5) until
-// its card builds it (#112–#118 and the next batch).
+// A placeholder so every nav row resolves to a screen (docs/ui/README.md §5) until its card lands.
 const shellRoute = getRouteApi('/_app')
 
 export const ScreenPlaceholder = ({ screen }: { screen: NavKey }) => {

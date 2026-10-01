@@ -14,9 +14,8 @@ export interface NavRow {
   badge?: NavBadgeSource
 }
 
-// The ten rows of FIRST-RELEASE.md §2.1, in the prototype's order, with the badge each carries.
-// Billing is absent for Support, and Support for Finance and Read-only; every other row is
-// for everyone, with what a role can't do disabled inside the screen.
+// The ten rows of FIRST-RELEASE.md §2.1 in the prototype's order: Billing is absent for Support,
+// Support for Finance and Read-only; what a role can't do is disabled inside the screen.
 export const navRows: readonly NavRow[] = [
   { key: 'dashboard', to: '/dashboard', icon: 'home', roles: partnerRoles },
   { key: 'stores', to: '/stores', icon: 'shop', roles: partnerRoles, badge: 'storesAttention' },

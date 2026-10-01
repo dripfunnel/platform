@@ -22,14 +22,12 @@ const fixture: Me = {
   partner: { id: 'p-northstar', name: 'Northstar Commerce', product: 'Northstar Shops', state: 'live' },
 }
 
-// Seam: replace the fixture with the Platform API's `me` query (FIRST-RELEASE.md §16) through
-// createApiClient from @dripfunnel/shared/graphql once partner sign-in lands (#112). The fixture
-// is an Owner and nothing guards /_app yet, so it must be gone before the console holds real data.
+// Fixture until partner sign-in lands (#112), then the Platform API's `me` (FIRST-RELEASE.md §16).
+// An Owner, with nothing guarding /_app yet, so it must be gone before real data arrives.
 export const loadMe = (): Promise<Me> => Promise.resolve(fixture)
 
-// ?state=readonly and ?state=denied ask for a caller without the permissions, because what is
-// allowed is the API's answer, never the screen's (decided on #19). Support can start sessions
-// but change nothing else, so its page shows refusals beside live controls.
+// ?state=readonly|denied ask for a caller without the permissions: what is allowed is the API's
+// answer, never the screen's (decided on #19).
 const viewAs: Partial<Record<string, PartnerRole>> = { readonly: 'partner-read-only', denied: 'partner-support' }
 
 export const callerFor = (role: PartnerRole, state: string | undefined): PartnerRole => {
