@@ -12,18 +12,23 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
 import { Route as AppCustomersRouteImport } from './routes/_app/customers'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
+import { Route as AppImpersonateRouteImport } from './routes/_app/impersonate'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
+import { Route as AppStaffRouteImport } from './routes/_app/staff'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AppCustomersCustomerIdRouteImport } from './routes/_app/customers_.$customerId'
+import { Route as AppImpersonateSessionsRouteImport } from './routes/_app/impersonate_.sessions'
 import { Route as AppPartnersPartnerIdRouteImport } from './routes/_app/partners_.$partnerId'
 import { Route as AppPartnersNewRouteImport } from './routes/_app/partners_.new'
 import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
+import { Route as AppImpersonateSessionsSessionIdRouteImport } from './routes/_app/impersonate_.sessions_.$sessionId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -36,6 +41,11 @@ const AuthRoute = AuthRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => AppRoute,
 } as any)
 const AppApprovalsRoute = AppApprovalsRouteImport.update({
@@ -53,6 +63,11 @@ const AppDashboardRoute = AppDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppImpersonateRoute = AppImpersonateRouteImport.update({
+  id: '/impersonate',
+  path: '/impersonate',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPartnersRoute = AppPartnersRouteImport.update({
   id: '/partners',
   path: '/partners',
@@ -61,6 +76,11 @@ const AppPartnersRoute = AppPartnersRouteImport.update({
 const AppProvisioningRoute = AppProvisioningRouteImport.update({
   id: '/provisioning',
   path: '/provisioning',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStaffRoute = AppStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStatesRoute = AppStatesRouteImport.update({
@@ -83,6 +103,11 @@ const AppCustomersCustomerIdRoute = AppCustomersCustomerIdRouteImport.update({
   path: '/customers/$customerId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppImpersonateSessionsRoute = AppImpersonateSessionsRouteImport.update({
+  id: '/impersonate_/sessions',
+  path: '/impersonate/sessions',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPartnersPartnerIdRoute = AppPartnersPartnerIdRouteImport.update({
   id: '/partners_/$partnerId',
   path: '/partners/$partnerId',
@@ -98,103 +123,139 @@ const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
   path: '/stores/$storeId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppImpersonateSessionsSessionIdRoute =
+  AppImpersonateSessionsSessionIdRouteImport.update({
+    id: '/impersonate_/sessions_/$sessionId',
+    path: '/impersonate/sessions/$sessionId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/activity': typeof AppActivityRoute
   '/approvals': typeof AppApprovalsRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
+  '/impersonate': typeof AppImpersonateRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
   '/customers/$customerId': typeof AppCustomersCustomerIdRoute
+  '/impersonate/sessions': typeof AppImpersonateSessionsRoute
   '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
   '/partners/new': typeof AppPartnersNewRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
+  '/impersonate/sessions/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/activity': typeof AppActivityRoute
   '/approvals': typeof AppApprovalsRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
+  '/impersonate': typeof AppImpersonateRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
   '/customers/$customerId': typeof AppCustomersCustomerIdRoute
+  '/impersonate/sessions': typeof AppImpersonateSessionsRoute
   '/partners/$partnerId': typeof AppPartnersPartnerIdRoute
   '/partners/new': typeof AppPartnersNewRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
+  '/impersonate/sessions/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/activity': typeof AppActivityRoute
   '/_app/approvals': typeof AppApprovalsRoute
   '/_app/customers': typeof AppCustomersRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/impersonate': typeof AppImpersonateRoute
   '/_app/partners': typeof AppPartnersRoute
   '/_app/provisioning': typeof AppProvisioningRoute
+  '/_app/staff': typeof AppStaffRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
   '/_app/customers_/$customerId': typeof AppCustomersCustomerIdRoute
+  '/_app/impersonate_/sessions': typeof AppImpersonateSessionsRoute
   '/_app/partners_/$partnerId': typeof AppPartnersPartnerIdRoute
   '/_app/partners_/new': typeof AppPartnersNewRoute
   '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
+  '/_app/impersonate_/sessions_/$sessionId': typeof AppImpersonateSessionsSessionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
     | '/approvals'
     | '/customers'
     | '/dashboard'
+    | '/impersonate'
     | '/partners'
     | '/provisioning'
+    | '/staff'
     | '/states'
     | '/stores'
     | '/sign-in'
     | '/customers/$customerId'
+    | '/impersonate/sessions'
     | '/partners/$partnerId'
     | '/partners/new'
     | '/stores/$storeId'
+    | '/impersonate/sessions/$sessionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity'
     | '/approvals'
     | '/customers'
     | '/dashboard'
+    | '/impersonate'
     | '/partners'
     | '/provisioning'
+    | '/staff'
     | '/states'
     | '/stores'
     | '/sign-in'
     | '/customers/$customerId'
+    | '/impersonate/sessions'
     | '/partners/$partnerId'
     | '/partners/new'
     | '/stores/$storeId'
+    | '/impersonate/sessions/$sessionId'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/activity'
     | '/_app/approvals'
     | '/_app/customers'
     | '/_app/dashboard'
+    | '/_app/impersonate'
     | '/_app/partners'
     | '/_app/provisioning'
+    | '/_app/staff'
     | '/_app/states'
     | '/_app/stores'
     | '/_auth/sign-in'
     | '/_app/'
     | '/_app/customers_/$customerId'
+    | '/_app/impersonate_/sessions'
     | '/_app/partners_/$partnerId'
     | '/_app/partners_/new'
     | '/_app/stores_/$storeId'
+    | '/_app/impersonate_/sessions_/$sessionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -225,6 +286,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/approvals': {
       id: '/_app/approvals'
       path: '/approvals'
@@ -246,6 +314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/impersonate': {
+      id: '/_app/impersonate'
+      path: '/impersonate'
+      fullPath: '/impersonate'
+      preLoaderRoute: typeof AppImpersonateRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/partners': {
       id: '/_app/partners'
       path: '/partners'
@@ -258,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/provisioning'
       fullPath: '/provisioning'
       preLoaderRoute: typeof AppProvisioningRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/staff': {
+      id: '/_app/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AppStaffRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/states': {
@@ -288,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCustomersCustomerIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/impersonate_/sessions': {
+      id: '/_app/impersonate_/sessions'
+      path: '/impersonate/sessions'
+      fullPath: '/impersonate/sessions'
+      preLoaderRoute: typeof AppImpersonateSessionsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/partners_/$partnerId': {
       id: '/_app/partners_/$partnerId'
       path: '/partners/$partnerId'
@@ -309,37 +398,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStoresStoreIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/impersonate_/sessions_/$sessionId': {
+      id: '/_app/impersonate_/sessions_/$sessionId'
+      path: '/impersonate/sessions/$sessionId'
+      fullPath: '/impersonate/sessions/$sessionId'
+      preLoaderRoute: typeof AppImpersonateSessionsSessionIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppImpersonateRoute: typeof AppImpersonateRoute
   AppPartnersRoute: typeof AppPartnersRoute
   AppProvisioningRoute: typeof AppProvisioningRoute
+  AppStaffRoute: typeof AppStaffRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
   AppCustomersCustomerIdRoute: typeof AppCustomersCustomerIdRoute
+  AppImpersonateSessionsRoute: typeof AppImpersonateSessionsRoute
   AppPartnersPartnerIdRoute: typeof AppPartnersPartnerIdRoute
   AppPartnersNewRoute: typeof AppPartnersNewRoute
   AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
+  AppImpersonateSessionsSessionIdRoute: typeof AppImpersonateSessionsSessionIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
   AppApprovalsRoute: AppApprovalsRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppImpersonateRoute: AppImpersonateRoute,
   AppPartnersRoute: AppPartnersRoute,
   AppProvisioningRoute: AppProvisioningRoute,
+  AppStaffRoute: AppStaffRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,
   AppCustomersCustomerIdRoute: AppCustomersCustomerIdRoute,
+  AppImpersonateSessionsRoute: AppImpersonateSessionsRoute,
   AppPartnersPartnerIdRoute: AppPartnersPartnerIdRoute,
   AppPartnersNewRoute: AppPartnersNewRoute,
   AppStoresStoreIdRoute: AppStoresStoreIdRoute,
+  AppImpersonateSessionsSessionIdRoute: AppImpersonateSessionsSessionIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

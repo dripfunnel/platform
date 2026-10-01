@@ -41,6 +41,17 @@ from `partner(id)`; no component works it out. States: the list takes `?state=lo
 `empty`, `error`, `readonly` and `denied`; the detail takes `loading`, `error`, `readonly`,
 `denied` and `confirm`. `readonly` and `denied` ask the fixture for a Read-only or Support caller.
 
+## Impersonate
+
+`/impersonate` (`src/features/impersonate/`) lists the users of FIRST-RELEASE.md §8;
+`/impersonate/sessions` shows both kinds of staff session and `/impersonate/sessions/<id>` one
+of them. One start flow (`StartSessionDialog`) serves Impersonate, a partner's Team tab, a
+store's Users tab and a partner's setup entry. Everything goes through
+`src/api/impersonation.ts`, on a server-shaped sample until #40. A started session opens the
+store portal (port 5173) or the partner console (port 5174) in a new tab. States: Users takes
+`?state=loading`, `empty`, `error`, `denied`, `nomatch`, `reauthFailed` and `reauthCancelled`;
+Sessions takes `loading`, `empty`, `error` and `denied`.
+
 ## Sign-in
 
 `/sign-in` (`src/features/sign-in/`) is the staff sign-in with Microsoft Entra ID, following

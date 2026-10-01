@@ -1,6 +1,9 @@
-import { getRouteApi, Outlet } from '@tanstack/react-router'
-import { useState } from 'react'
+import { getRouteApi, Outlet, useRouter } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { messages } from '../../messages'
+import { ExportWatcher } from '../activity/ExportWatcher'
+import { useSessionsVersion } from '../impersonate/sessionEvents'
+import { SessionStrip } from '../impersonate/SessionStrip'
 import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
@@ -17,6 +20,12 @@ export const AppShell = () => {
   const [menuOpen, setMenuOpen] = useState(false)
   const environment = environmentFor(window.location.hostname)
   const rows = navFor(me.role)
+  const router = useRouter()
+  const sessionsVersion = useSessionsVersion()
+  // A session started or ended here moves the badge and the page under it at once.
+  useEffect(() => {
+    if (sessionsVersion > 0) void router.invalidate()
+  }, [sessionsVersion, router])
 
   return (
     <div className="df-shell">
@@ -31,6 +40,7 @@ export const AppShell = () => {
         <SideNav rows={rows} badges={badges} variant="bar" />
         <main id="main" className="df-shell-main" tabIndex={-1}>
           <div className="df-shell-content">
+            <SessionStrip caller={me.role} meName={me.name} />
             <Outlet />
           </div>
         </main>
@@ -38,6 +48,7 @@ export const AppShell = () => {
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)}>
         <SideNav rows={rows} badges={badges} variant="drawer" onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>
+      <ExportWatcher />
     </div>
   )
 }

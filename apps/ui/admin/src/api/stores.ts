@@ -4,6 +4,7 @@
 import type { Money } from '@dripfunnel/shared/format'
 import { harnessEnabled } from '../features/common/useScreenState'
 import type { StaffRole } from '../features/shell/staffRoles'
+import type { SessionPermission } from './impersonation'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission } from './permissions'
 import type { JobPermissions, JobState } from './provisioning'
@@ -135,6 +136,8 @@ export interface Store extends StoreRow {
   notes: readonly StoreNote[]
   // The signup job while setup hasn't finished, with what may be done to it.
   job: { id: string; actions: JobPermissions } | null
+  // Whether the caller may impersonate each of its users, by their id (ACCESS.md §8.1).
+  impersonate: Readonly<Record<string, SessionPermission>>
   actions: StorePermissions
 }
 

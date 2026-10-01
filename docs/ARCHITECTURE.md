@@ -186,11 +186,15 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   see their work running against a real database instead of only locally. Same shape as
   production: migrations run first over Neon's direct connection, then the API Worker, then
   the three SPAs, each deploying only when its own files or `apps/ui/shared/` change. Hosts
-  `dev-store.dripfunnel.com`, `dev-platform.dripfunnel.com`,
-  `dev-admin.dripfunnel.com` and `dev-hooks.dripfunnel.com`, in a separate Cloudflare
-  account from production (like feature environments). The three console hosts sit behind
-  Cloudflare Access (`@softobotics.com` only); `dev-hooks` bypasses Access so providers'
-  test webhooks reach it, since webhooks verify their own signatures. Seeded once on first
+  `dev-store.dripfunnel.ai`, `dev-platform.dripfunnel.ai`, `dev-admin.dripfunnel.ai` and
+  `dev-hooks.dripfunnel.ai` (decided 2026-10-01, correcting `dripfunnel.com`): dev runs on
+  the dev Cloudflare account, and that account holds `dripfunnel.ai`, not the production
+  zone. Nothing that is not production belongs on the production domain. The dev account's
+  existing Access applications already cover these — `*.dripfunnel.ai` allows
+  `@softobotics.com`, and `dev-hooks` matches the `*-hooks.dripfunnel.ai` Bypass, so
+  providers' test webhooks reach it; webhooks verify their own signatures. A feature slug
+  always begins with its issue number, so `dev-*` can never collide with one
+  ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)). Seeded once on first
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
 - **Production**: migrations from `apps/api/migrations` run first against Neon's direct
   connection (not Hyperdrive), and must be backward-compatible with the running version; then

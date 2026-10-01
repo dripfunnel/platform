@@ -20,8 +20,9 @@ import type {
 } from './partners'
 import type { PageRequest } from './pageInfo'
 import { samplePage } from './samplePage'
+import { impersonatePermission, setupStarters } from './sessionRules'
 
-export type SamplePartner = Omit<Partner, 'actions' | 'setup' | 'portalHost' | 'submittedAt' | 'approval'>
+export type SamplePartner = Omit<Partner, 'actions' | 'impersonate' | 'setup' | 'portalHost' | 'submittedAt' | 'approval'>
 
 const edge = 'edge.dripfunnel.net'
 
@@ -325,7 +326,8 @@ const onlyFor = (caller: StaffRole, roles: readonly StaffRole[], reason: 'SUPER_
 export const permissionsFor = (partner: SamplePartner, caller: StaffRole): PartnerPermissions => {
   const actions: PartnerPermissions = {}
   if (partner.state === 'closed') return actions
-  actions.setupSession = onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY')
+  // Absent, not refused, for every other role (decided on #46).
+  if (setupStarters.includes(caller)) actions.setupSession = allowed
   if (partner.state === 'awaiting') {
     const failingChecks = (Object.keys(partner.checks) as GoLiveCheck[]).filter((check) => !partner.checks[check])
     const setUpBy = approvalOf(partner)?.setUpBy
@@ -423,7 +425,9 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
   const get = (id: string, caller: StaffRole): Partner | null => {
     const partner = find(id)
     if (!partner) return null
-    return { ...partner, ...rowOf(partner), actions: permissionsFor(partner, caller) }
+    const closed = partner.state === 'closed'
+    const impersonate = Object.fromEntries(partner.team.map((user) => [user.id, impersonatePermission(caller, user.status, closed)]))
+    return { ...partner, ...rowOf(partner), impersonate, actions: permissionsFor(partner, caller) }
   }
 
   const run = (id: string, action: PartnerAction, reason: string | null) => {

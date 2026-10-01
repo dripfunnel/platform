@@ -1,5 +1,5 @@
 import { useRouterState } from '@tanstack/react-router'
-import { isHarnessEnabled, parseScreenState } from './screenState'
+import { isHarnessEnabled, parseScreenState } from '@dripfunnel/shared/ui'
 
 export const harnessEnabled = isHarnessEnabled(import.meta.env)
 

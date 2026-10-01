@@ -1,11 +1,15 @@
-import { getRouteApi, useNavigate, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
 import { jobActions, type JobAction } from '../../api/provisioning'
 import { recheckStoreDomain, runStoreAction, type Store, type StoreDnsRecord } from '../../api/stores'
 import { fill, messages } from '../../messages'
+import { actionCodes } from '../../api/activityActions'
+import { ActivityTab } from '../common/ActivityTab'
 import { ConfirmDialog } from '../common/ConfirmDialog'
+import { callerFor } from '../common/harnessCaller'
 import { Toast } from '../common/Toast'
 import { useScreenState } from '../common/useScreenState'
+import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
@@ -32,8 +36,10 @@ const targetOf = (store: Store): JobTarget => ({ name: store.name, code: store.c
 
 export const StoreDetailScreen = () => {
   const store = storeRoute.useLoaderData()
-  const { tab = 'overview', after, before, ...customerFilter } = storeRoute.useSearch()
+  const { tab = 'overview', after, before, action, result, date, from, to, ...customerFilter } = storeRoute.useSearch()
+  const activityFilter = { action, result, date, from, to }
   const { me } = shellRoute.useLoaderData()
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const forced = useScreenState(storeStates)
   const router = useRouter()
   const navigate = useNavigate()
@@ -41,6 +47,7 @@ export const StoreDetailScreen = () => {
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = () => setToast(messages.store.toasts.failed)
+  const sessions = useImpersonateFrom(callerFor(me.role, searchStr), me.name)
 
   const jobs = useMemo(() => (store?.job ? [{ id: store.job.id, state: store.setup.state }] : []), [store])
   // A cleaned-up signup has no page left to show (decided on #20), so its message goes with it
@@ -104,12 +111,30 @@ export const StoreDetailScreen = () => {
         onJob={(action) => setPending({ kind: 'job', action })}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
+        onImpersonate={sessions.impersonate}
         customers={{
           filter: customerFilter,
           page: { after, before },
           onFilterChange: (filter) => void navigate({ to: '.', search: { tab, ...filter }, replace: true }),
         }}
         onReload={() => void router.invalidate()}
+        activity={
+          store && (
+            <ActivityTab
+              scope={{ store: store.id }}
+              filter={activityFilter}
+              page={{ after, before }}
+              caller={callerFor(me.role, searchStr)}
+              actions={actionCodes}
+              onFilterChange={(filter) => void navigate({ to: '.', search: { tab: 'activity', ...filter }, replace: true })}
+              pageLink={(cursor, label) => (
+                <Link to="/stores/$storeId" params={{ storeId: store.id }} search={{ tab: 'activity', ...activityFilter, ...cursor }} className="df-button">
+                  {label}
+                </Link>
+              )}
+            />
+          )
+        }
       />
       {store && (
         <ConfirmDialog

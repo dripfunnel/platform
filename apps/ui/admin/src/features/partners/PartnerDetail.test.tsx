@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Partner } from '../../api/partners'
 import { createSampleServer, samplePartners } from '../../api/partnersSample'
-import type { StaffRole } from '../shell/staffRoles'
+import { staffRoles, type StaffRole } from '../shell/staffRoles'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { actionDialog } from './actionDialog'
@@ -30,7 +30,9 @@ const render = async (props: Partial<PartnerDetailProps> = {}) => {
         readOnly={false}
         onAction={noop}
         onRecheck={() => Promise.resolve()}
+        onImpersonate={noop}
         onReload={noop}
+        activity={null}
         {...props}
       />
     ),
@@ -73,7 +75,6 @@ describe('Partner detail', () => {
       expect(dialog.reason, action).toBeDefined()
       expect(dialog).not.toHaveProperty('typeToConfirm')
     }
-    expect(actionDialog('setupSession', partner('ts')).reason?.label).toBe(words.dialogs.setupSession.reason)
     expect(actionDialog('pause', partner('ns')).consequence).toBe('No new merchant signups. Its 86 stores keep running.')
   })
 
@@ -92,10 +93,19 @@ describe('Partner detail', () => {
     expect(text).toContain('Sent back by Maya Ortiz: Legal pages missing an Impressum')
   })
 
-  it('shows Impersonate disabled, with the reason, until impersonation is connected', async () => {
+  it('offers Impersonate on the Team tab as the API allows it, with the reason when refused', async () => {
     const html = await render({ tab: 'team' })
-    expect(html).toMatch(/<button type="button" class="df-button" disabled=""[^>]*>Impersonate<\/button>/)
-    expect(textOf(html)).toContain(words.team.impersonateUnavailable)
+    expect(html).toMatch(/<button type="button" class="df-button">Impersonate<\/button>/)
+    const finance = await render({ partner: partner('kl', 'staff-finance'), tab: 'team' })
+    expect(finance).toMatch(/<button type="button" class="df-button" disabled=""[^>]*>Impersonate<\/button>/)
+    expect(textOf(finance)).toContain(messages.impersonate.refusals.STAFF_ROLE_NOT_ALLOWED)
+  })
+
+  it('offers the setup session to Super admins and Partner managers only, and leaves it out for the rest', async () => {
+    for (const role of staffRoles) {
+      const html = await render({ partner: partner('ts', role) })
+      expect(textOf(html).includes(words.actions.setupSession), role).toBe(role === 'staff-super-admin' || role === 'staff-partner-manager')
+    }
   })
 
   it('offers the held invitation on the Team tab', async () => {

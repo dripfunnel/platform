@@ -1,5 +1,5 @@
 import type { StaffRole } from '../shell/staffRoles'
-import { parseScreenState } from './screenState'
+import { parseScreenState } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from './useScreenState'
 
 // ?state=readonly and ?state=denied ask the sample for a caller without the permissions,

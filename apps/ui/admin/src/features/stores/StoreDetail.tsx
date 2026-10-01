@@ -1,6 +1,7 @@
 // States (?state=): loading, error, readonly, denied, confirm. Without one the screen shows the
 // API's store, with each action as the API allows it for the signed-in staff member.
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import type { JobAction } from '../../api/provisioning'
 import type { Store, StoreDnsRecord } from '../../api/stores'
 import { messages } from '../../messages'
@@ -33,8 +34,11 @@ export interface StoreDetailProps {
   onJob: (action: JobAction) => void
   onAddNote: (text: string) => Promise<boolean>
   onRecheck: (record: StoreDnsRecord) => Promise<void>
+  onImpersonate: (userId: string) => void
   customers: StoreCustomers
   onReload: () => void
+  // The Activity tab, built by the screen with its filters in the page's URL.
+  activity: ReactNode
 }
 
 export const StoreLoading = () => (
@@ -49,9 +53,9 @@ export const StoreError = ({ onRetry }: { onRetry: () => void }) => (
   </div>
 )
 
-type TabProps = Pick<StoreDetailProps, 'tab' | 'onJob' | 'onAddNote' | 'onRecheck' | 'customers'> & { store: Store }
+type TabProps = Pick<StoreDetailProps, 'tab' | 'onJob' | 'onAddNote' | 'onRecheck' | 'onImpersonate' | 'customers' | 'activity'> & { store: Store }
 
-const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, customers }: TabProps) => {
+const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, onImpersonate, customers, activity }: TabProps) => {
   switch (tab) {
     case 'overview':
       return <OverviewTab store={store} />
@@ -62,23 +66,19 @@ const TabContent = ({ store, tab, onJob, onAddNote, onRecheck, customers }: TabP
     case 'provisioning':
       return <ProvisioningTab store={store} onJob={onJob} />
     case 'users':
-      return <UsersTab store={store} />
+      return <UsersTab store={store} onImpersonate={onImpersonate} />
     case 'customers':
       return <CustomersTab store={store} customers={customers} />
     case 'support':
       return <SupportTab store={store} />
     case 'activity':
-      return (
-        <div className="df-panel df-panel--wide">
-          <p className="df-muted">{words.activity.placeholder}</p>
-        </div>
-      )
+      return activity
     case 'notes':
       return <NotesTab store={store} onAddNote={onAddNote} />
   }
 }
 
-export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onAddNote, onRecheck, customers, onReload }: StoreDetailProps) => {
+export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onAddNote, onRecheck, onImpersonate, customers, onReload, activity }: StoreDetailProps) => {
   if (forced === 'loading') return <StoreLoading />
   if (forced === 'error') return <StoreError onRetry={onReload} />
   if (!store) {
@@ -101,7 +101,7 @@ export const StoreDetail = ({ store, tab, forced, readOnly, onAction, onJob, onA
       {readOnly && <ReadOnlyNotice title={messages.stores.readOnly.title} body={messages.stores.readOnly.body} />}
       <StoreHeader store={store} onAction={onAction} onJob={onJob} />
       <StoreTabs storeId={store.id} current={tab} />
-      <TabContent store={store} tab={tab} onJob={onJob} onAddNote={onAddNote} onRecheck={onRecheck} customers={customers} />
+      <TabContent store={store} tab={tab} onJob={onJob} onAddNote={onAddNote} onRecheck={onRecheck} onImpersonate={onImpersonate} customers={customers} activity={activity} />
     </div>
   )
 }

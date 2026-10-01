@@ -1,32 +1,44 @@
-import { getRouteApi, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { partnerActions, recheckDomain, runPartnerAction, type Partner, type PartnerAction, type PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
+import { actionCodes } from '../../api/activityActions'
+import { ActivityTab } from '../common/ActivityTab'
 import { ConfirmDialog } from '../common/ConfirmDialog'
+import { callerFor } from '../common/harnessCaller'
 import { useScreenState } from '../common/useScreenState'
-import { actionDialog, actionToast } from './actionDialog'
+import { actionDialog, actionToast, type ConfirmedAction } from './actionDialog'
 import { partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
 import { Toast } from '../common/Toast'
+import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 
 const partnerRoute = getRouteApi('/_app/partners_/$partnerId')
 const shellRoute = getRouteApi('/_app')
 
 // ?state=confirm opens the first action this partner offers, so its dialog can be checked.
-const firstAllowed = (partner: Partner | null): PartnerAction | null =>
-  partnerActions.find((action) => partner?.actions[action]?.allowed) ?? null
+const firstAllowed = (partner: Partner | null): ConfirmedAction | null =>
+  partnerActions.filter((action): action is ConfirmedAction => action !== 'setupSession').find((action) => partner?.actions[action]?.allowed) ?? null
 
 export const PartnerDetailScreen = () => {
   const partner = partnerRoute.useLoaderData()
-  const { tab = 'overview' } = partnerRoute.useSearch()
+  const { tab = 'overview', after, before, ...activityFilter } = partnerRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr })
+  const navigate = partnerRoute.useNavigate()
   const forced = useScreenState(partnerStates)
   const router = useRouter()
-  const [pending, setPending] = useState<PartnerAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
+  const [pending, setPending] = useState<ConfirmedAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
 
-  const onConfirm = (action: PartnerAction, target: Partner, reason: string | null) => {
+  const caller = callerFor(me.role, searchStr)
+  const sessions = useImpersonateFrom(caller, me.name)
+  // A setup session asks its own questions and signs in again (ACCESS.md §8.2), so it has its own flow.
+  const onAction = (action: PartnerAction) =>
+    action === 'setupSession' ? partner && sessions.start({ kind: 'setup', partner: { id: partner.id, name: partner.name } }) : setPending(action)
+
+  const onConfirm = (action: ConfirmedAction, target: Partner, reason: string | null) => {
     setPending(null)
     runPartnerAction(target.id, action, reason)
       .then(() => {
@@ -52,9 +64,27 @@ export const PartnerDetailScreen = () => {
         tab={tab}
         forced={forced}
         readOnly={me.role === 'staff-read-only' || forced === 'readonly'}
-        onAction={setPending}
+        onAction={onAction}
         onRecheck={onRecheck}
+        onImpersonate={sessions.impersonate}
         onReload={() => void router.invalidate()}
+        activity={
+          partner && (
+            <ActivityTab
+              scope={{ partner: partner.id }}
+              filter={activityFilter}
+              page={{ after, before }}
+              caller={caller}
+              actions={actionCodes}
+              onFilterChange={(filter) => void navigate({ search: { tab: 'activity', ...filter }, replace: true })}
+              pageLink={(cursor, label) => (
+                <Link to="/partners/$partnerId" params={{ partnerId: partner.id }} search={{ tab: 'activity', ...activityFilter, ...cursor }} className="df-button">
+                  {label}
+                </Link>
+              )}
+            />
+          )
+        }
       />
       {partner && (
         <ConfirmDialog
@@ -72,6 +102,7 @@ export const PartnerDetailScreen = () => {
         />
       )}
       <Toast message={toast} onDone={clearToast} />
+      {sessions.element}
     </>
   )
 }

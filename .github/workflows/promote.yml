@@ -161,7 +161,7 @@ jobs:
           VERSION_ID: ${{ inputs.version_id }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PROMOTE_OUTCOME: ${{ steps.promote.outcome == 'success' && 'promoted to 100%' || format('did NOT promote ({0})', steps.promote.outcome) }}
-          SPAS_OUTCOME: ${{ (steps.spa-store.outcome == 'success' && steps.spa-platform.outcome == 'success' && steps.spa-admin.outcome == 'success') && 'store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy.' || format('NOT all deployed (store: {0}, platform: {1}, admin: {2}) — see steps above.', steps.spa-store.outcome, steps.spa-platform.outcome, steps.spa-admin.outcome) }}
+          SPAS_OUTCOME: "${{ (steps.spa-store.outcome == 'success' && steps.spa-platform.outcome == 'success' && steps.spa-admin.outcome == 'success') && 'store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy.' || format('NOT all deployed (store: {0}, platform: {1}, admin: {2}) — see steps above.', steps.spa-store.outcome, steps.spa-platform.outcome, steps.spa-admin.outcome) }}"
         run: |
           {
             echo "### Promote summary"

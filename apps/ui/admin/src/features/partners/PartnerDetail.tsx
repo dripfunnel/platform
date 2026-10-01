@@ -28,7 +28,10 @@ export interface PartnerDetailProps {
   readOnly: boolean
   onAction: (action: PartnerAction) => void
   onRecheck: (domain: PartnerDomain) => Promise<void>
+  onImpersonate: (userId: string) => void
   onReload: () => void
+  // The Activity tab, built by the screen with its filters in the page's URL.
+  activity: ReactNode
 }
 
 export const PartnerLoading = () => (
@@ -45,7 +48,7 @@ export const PartnerError = ({ onRetry }: { onRetry: () => void }) => (
 
 const Placeholder = ({ children }: { children: ReactNode }) => <div className="df-panel df-panel--wide">{children}</div>
 
-const TabContent = ({ partner, tab, onAction, onRecheck }: Pick<PartnerDetailProps, 'tab' | 'onAction' | 'onRecheck'> & { partner: Partner }) => {
+const TabContent = ({ partner, tab, onAction, onRecheck, onImpersonate, activity }: Pick<PartnerDetailProps, 'tab' | 'onAction' | 'onRecheck' | 'onImpersonate' | 'activity'> & { partner: Partner }) => {
   switch (tab) {
     case 'overview':
       return <OverviewTab partner={partner} />
@@ -65,17 +68,13 @@ const TabContent = ({ partner, tab, onAction, onRecheck }: Pick<PartnerDetailPro
     case 'plans':
       return <PlansTab partner={partner} />
     case 'team':
-      return <TeamTab partner={partner} onAction={onAction} />
+      return <TeamTab partner={partner} onAction={onAction} onImpersonate={onImpersonate} />
     case 'activity':
-      return (
-        <Placeholder>
-          <p className="df-muted">{words.placeholders.activity}</p>
-        </Placeholder>
-      )
+      return activity
   }
 }
 
-export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRecheck, onReload }: PartnerDetailProps) => {
+export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRecheck, onImpersonate, onReload, activity }: PartnerDetailProps) => {
   if (forced === 'loading') return <PartnerLoading />
   if (forced === 'error') return <PartnerError onRetry={onReload} />
   if (!partner) {
@@ -98,7 +97,7 @@ export const PartnerDetail = ({ partner, tab, forced, readOnly, onAction, onRech
       {readOnly && <ReadOnlyNotice title={messages.partners.readOnly.title} body={messages.partners.readOnly.body} />}
       <PartnerHeader partner={partner} onAction={onAction} />
       <PartnerTabs partnerId={partner.id} current={tab} />
-      <TabContent partner={partner} tab={tab} onAction={onAction} onRecheck={onRecheck} />
+      <TabContent partner={partner} tab={tab} onAction={onAction} onRecheck={onRecheck} onImpersonate={onImpersonate} activity={activity} />
     </div>
   )
 }

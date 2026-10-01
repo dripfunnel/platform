@@ -1,3 +1,11 @@
 import { createRootRoute, Outlet } from '@tanstack/react-router'
+import { StaffSessionRoot } from '../features/staff-session/StaffSessionRoot'
 
-export const Route = createRootRoute({ component: Outlet })
+const Root = () => (
+  <>
+    <StaffSessionRoot />
+    <Outlet />
+  </>
+)
+
+export const Route = createRootRoute({ component: Root })

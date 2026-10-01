@@ -34,8 +34,10 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
         onJob={noop}
         onAddNote={saved}
         onRecheck={resolved}
+        onImpersonate={noop}
         customers={{ filter: {}, page: {}, onFilterChange: noop }}
         onReload={noop}
+        activity={null}
         {...props}
       />
     ),
@@ -73,8 +75,12 @@ describe('Store detail', () => {
     expect(text).toContain('Only a Super admin or the Engineer on call can undo a failed signup.')
   })
 
-  it('keeps Impersonate turned off with its reason, and Support read-only', async () => {
-    expect(await render({ store: storeOf('s1'), tab: 'users' })).toContain(words.users.impersonateUnavailable)
+  it('offers Impersonate on the Users tab as the API allows it, and keeps Support read-only', async () => {
+    const users = await render({ store: storeOf('s1'), tab: 'users' })
+    expect(users).toContain('Impersonate')
+    expect(users).toContain('Aisha hasn’t accepted the invitation yet.')
+    expect(users).not.toContain(messages.impersonate.refusals.STAFF_ROLE_NOT_ALLOWED)
+    expect(await render({ store: storeOf('s1', 'staff-engineer'), tab: 'users' })).toContain(messages.impersonate.refusals.STAFF_ROLE_NOT_ALLOWED)
     const support = await render({ store: storeOf('s7'), tab: 'support' })
     expect(support).toContain(words.support.off)
     expect(support).toContain(words.support.sub)
@@ -100,9 +106,10 @@ describe('Store detail', () => {
   it('caps the note field at the length the API accepts', async () => {
     const rootRoute = createRootRoute({
       component: () => (
-        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onJob={noop} onAddNote={saved} onRecheck={resolved}
+        <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onJob={noop} onAddNote={saved} onRecheck={resolved} onImpersonate={noop}
           customers={{ filter: {}, page: {}, onFilterChange: noop }}
           onReload={noop}
+          activity={null}
         />
       ),
     })

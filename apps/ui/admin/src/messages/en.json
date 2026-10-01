@@ -25,6 +25,7 @@
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
+      "myActivity": "My activity",
       "signOut": "Sign out",
       "theme": {
         "label": "Appearance",
@@ -53,7 +54,8 @@
     },
     "badges": {
       "partnersAwaitingApproval": "{count} awaiting approval",
-      "provisioningAttention": "{count} failed or stuck"
+      "provisioningAttention": "{count} failed or stuck",
+      "openSessions": "{count} open now"
     },
     "placeholder": "This screen isn't built yet."
   },
@@ -63,7 +65,10 @@
     "stores": "Stores",
     "customers": "Customers",
     "approvals": "Approvals",
-    "provisioning": "Provisioning"
+    "provisioning": "Provisioning",
+    "activity": "Activity log",
+    "staff": "Staff",
+    "impersonate": "Impersonate"
   },
   "screens": {
     "dashboard": {
@@ -436,14 +441,12 @@
       "lastSignIn": "Last signed in {time}",
       "neverSignedIn": "Not signed in yet",
       "impersonate": "Impersonate",
-      "impersonateUnavailable": "Impersonation isn’t connected yet.",
       "nobody": "No one has joined yet. The owner joins when they accept the invitation.",
       "houseTeam": "DripFunnel’s own team are staff, and staff can’t be impersonated."
     },
     "placeholders": {
       "stores": "This partner’s stores appear here once the Stores list is built.",
-      "storesLink": "Open {name}’s stores in Stores",
-      "activity": "Audit entries about this partner appear here once the Activity log is built."
+      "storesLink": "Open {name}’s stores in Stores"
     },
     "actions": {
       "approve": "Approve",
@@ -489,17 +492,6 @@
         "reasonHint": "Kept in the activity log.",
         "confirm": "Resume partner"
       },
-      "setupSession": {
-        "title": "Set up {name}?",
-        "consequence": "Opens {name}’s partner console for you for 2 hours. You can do its whole setup and submit it for approval. Its payment and payout details stay with {name}.",
-        "notes": [
-          "You’ll be asked to sign in again before it opens.",
-          "Everything you save is logged as you, tagged “Setup session”."
-        ],
-        "reason": "Reason or ticket",
-        "reasonHint": "Kept in the activity log, e.g. “Ticket #48213”.",
-        "confirm": "Open setup session"
-      },
       "sendInvite": {
         "title": "Send owner invitation?",
         "consequence": "Sends {name}’s owner their invitation. They’ll see the setup you’ve done.",
@@ -522,7 +514,6 @@
       "sendBack": "{name} is back in Draft.",
       "pause": "{name} is paused. No new signups.",
       "resume": "{name} is live again.",
-      "setupSession": "Setup session requested for {name}. It opens once the Admin API is connected.",
       "sendInvite": "Invitation sent to {email}.",
       "resendInvite": "New invitation sent to {email}.",
       "failed": "That didn’t go through. Nothing was changed; try again."
@@ -910,7 +901,6 @@
       "lastSignIn": "Last signed in {time}",
       "neverSignedIn": "Hasn't signed in yet",
       "impersonate": "Impersonate",
-      "impersonateUnavailable": "Impersonation isn't connected yet.",
       "supplierRole": "{role} for {supplier}"
     },
     "support": {
@@ -918,9 +908,6 @@
       "sub": "Set by the merchant in their portal. Staff can’t change it.",
       "on": "On · merchant allows support access",
       "off": "Off · merchant turned support access off"
-    },
-    "activity": {
-      "placeholder": "The store's activity log arrives with the activity log card."
     },
     "notes": {
       "title": "Internal notes",
@@ -1104,9 +1091,6 @@
     "deleted": "This customer asked for their data to be deleted on {date}. Their history is kept without personal details.",
     "suspended": "{store} is suspended ({reason}). Its customers can’t sign in while it is.",
     "openStore": "Open the store",
-    "activity": {
-      "placeholder": "This customer's sign-ins, account changes and orders arrive with the activity log card."
-    },
     "notFound": {
       "title": "Customer not found",
       "body": "The link may be wrong.",
@@ -1263,6 +1247,705 @@
       "undo": "Cleaning up {name}.",
       "undone": "{name} is cleaned up. The merchant can sign up again.",
       "failed": "That didn't work. Nothing was changed. Try again."
+    }
+  },
+  "activity": {
+    "level": "Platform · Every partner",
+    "title": "Activity log",
+    "sub": "Every change and every sign-in, by anyone, at every level.",
+    "loading": "Loading activity",
+    "listLabel": "Activity entries",
+    "pagerLabel": "Activity pages",
+    "newestFirst": "Newest first",
+    "readOnlyNote": "Read-only record. Entries can’t be edited or deleted.",
+    "openInLog": "Open in the Activity log",
+    "empty": {
+      "title": "No activity yet",
+      "body": "Every change and sign-in appears here as it happens."
+    },
+    "noMatch": {
+      "title": "No entries match",
+      "body": "Try a wider date range, or clear the filters."
+    },
+    "tabEmpty": {
+      "title": "No activity here yet",
+      "body": "Changes and sign-ins in this scope appear here as they happen."
+    },
+    "error": {
+      "title": "The activity log didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "person": {
+      "label": "Find a person",
+      "placeholder": "Find a person: name or email",
+      "hint": "Type at least 2 characters.",
+      "results": {
+        "one": "{count} person found. Use the arrow keys to choose.",
+        "other": "{count} people found. Use the arrow keys to choose."
+      },
+      "none": "Nobody matches.",
+      "clear": "Clear person",
+      "kindLine": "{email} · {kind}",
+      "membershipsLabel": "Where {name} belongs",
+      "sameEmail": {
+        "one": "Also in {count} more account with this email. This timeline covers this account only.",
+        "other": "Also in {count} more accounts with this email. This timeline covers this account only."
+      },
+      "notFound": "That person is no longer on the platform.",
+      "optionLine": "{email} · {where}"
+    },
+    "personKinds": {
+      "staff": "DripFunnel staff",
+      "partner_user": "Partner user",
+      "person": "Store user",
+      "customer": "Shopper"
+    },
+    "actorKinds": {
+      "staff": "Staff",
+      "partner_user": "Partner user",
+      "person": "Store user",
+      "customer": "Shopper",
+      "api_key": "API key",
+      "app_grant": "App",
+      "support_session": "Support session",
+      "job": "System job",
+      "provider": "Provider",
+      "anonymous": "Unknown"
+    },
+    "levels": {
+      "admin": "Admin",
+      "partner": "Partner",
+      "store": "Store",
+      "storefront": "Storefront",
+      "system": "System",
+      "security": "Security"
+    },
+    "results": {
+      "success": "Success",
+      "denied": "Denied",
+      "failed": "Failed"
+    },
+    "filters": {
+      "label": "Filter activity",
+      "actor": "Who",
+      "anyActor": "Anyone",
+      "level": "Level",
+      "anyLevel": "Any level",
+      "action": "Action",
+      "anyAction": "Any action",
+      "result": "Result",
+      "anyResult": "Any result",
+      "partner": "Partner",
+      "anyPartner": "All partners",
+      "store": "Store",
+      "anyStore": "Any store",
+      "date": "Date",
+      "anyDate": "Any time",
+      "dates": {
+        "today": "Today",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "custom": "Custom range"
+      },
+      "from": "From (UTC)",
+      "to": "To (UTC)",
+      "ip": "IP",
+      "ipPlaceholder": "e.g. 103.21",
+      "target": "Target: {target}",
+      "imp": "Impersonation {id}",
+      "su": "Setup session {id}",
+      "removeLabel": "Remove filter {filter}",
+      "clear": "Clear filters",
+      "ipInvalid": "Type an IP address or its start, such as 103.21: digits, a–f, dots and colons.",
+      "customer": "Customer {id}"
+    },
+    "row": {
+      "actingAs": "{agent} as {actor}",
+      "security": "Security",
+      "platform": "Platform",
+      "detailsLabel": "Details of the entry at {time}",
+      "withReason": "{text}: {reason}",
+      "refused": "{text} (refused)",
+      "failed": "{text} (failed)"
+    },
+    "facts": {
+      "exactTime": "Exact time",
+      "level": "Level",
+      "action": "Action",
+      "reason": "Reason",
+      "changes": "Changes",
+      "changed": "{field}: {before} → {after}",
+      "changedHidden": "{field}: changed",
+      "empty": "(empty)",
+      "agent": "Done by",
+      "actingAs": "Acting as",
+      "ip": "IP address",
+      "userAgent": "User agent",
+      "requestId": "Request id",
+      "entry": "Entry",
+      "impersonation": "Impersonation",
+      "setupSession": "Setup session",
+      "supportSession": "Support session",
+      "session": "Session {id}",
+      "allEntries": "All its entries",
+      "exactValue": "{time} UTC"
+    },
+    "export": {
+      "button": "Export CSV",
+      "refusal": "Only a Super admin or the Engineer on call can export the activity log.",
+      "recorded": "Exports are recorded in the activity log.",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "Your export of {count} entry is ready.",
+        "other": "Your export of {count} entries is ready."
+      },
+      "download": "Download CSV",
+      "expires": "The link expires at {time}.",
+      "expired": "The download link expired. Export again to get a new one.",
+      "tooLarge": "More than {cap} entries match. Narrow the filter and export again.",
+      "failed": "The export didn’t finish. Try again.",
+      "toast": "Your activity export is ready. Download it from the Activity log.",
+      "file": "activity-{date}.csv",
+      "columns": {
+        "time": "Time (UTC)",
+        "actor": "Actor",
+        "actorKind": "Actor kind",
+        "action": "Action",
+        "target": "Target",
+        "partner": "Partner",
+        "store": "Store",
+        "result": "Result",
+        "reason": "Reason",
+        "requestId": "Request id",
+        "changes": "Changes"
+      }
+    },
+    "actions": {
+      "staff.signed_in": "{actor} signed in",
+      "staff.signed_out": "{actor} signed out",
+      "staff.sign_in_failed": "Failed sign-in for {actor}",
+      "staff.reauthenticated": "{actor} confirmed it’s them again",
+      "partner.created": "{actor} created the partner {target}",
+      "partner.approved": "{actor} approved {target}",
+      "partner.sent_back": "{actor} sent {target} back",
+      "partner.paused": "{actor} paused {target}",
+      "partner.resumed": "{actor} resumed {target}",
+      "store.suspended": "{actor} suspended {target}",
+      "store.restored": "{actor} restored {target}",
+      "store.trial_extended": "{actor} extended the trial of {target}",
+      "job.retried": "{actor} retried “{target}” for {store}",
+      "job.undone": "{actor} undid the failed signup of {store}",
+      "staff.invited": "{actor} invited {target} to the console",
+      "staff.role_changed": "{actor} changed the role of {target}",
+      "staff.removed": "{actor} removed {target} from the console",
+      "staff.invitation_resent": "{actor} resent the console invitation to {target}",
+      "staff.invitation_revoked": "{actor} revoked the console invitation to {target}",
+      "impersonation.started": "{actor} started impersonating {target}",
+      "impersonation.extended": "{actor} extended the impersonation of {target}",
+      "impersonation.ended": "{actor} stopped impersonating {target}",
+      "setup_session.started": "{actor} started a setup session for {target}",
+      "setup_session.ended": "{actor} ended the setup session for {target}",
+      "customer.viewed": "{actor} viewed customer {target} at {store}",
+      "activity.exported": "{actor} exported the activity log",
+      "partner_user.signed_in": "{actor} signed in to the partner console",
+      "branding.updated": "{actor} changed the branding of {partner}",
+      "domain.added": "{actor} added the domain {target}",
+      "plan.created": "{actor} added the {target} plan",
+      "plan.price_changed": "{actor} changed the price of the {target} plan",
+      "merchant.plan_changed": "{actor} changed the plan of {target}",
+      "partner.submitted": "{actor} submitted {partner} for approval",
+      "support_session.started": "{actor} opened a support session in {target}",
+      "person.signed_in": "{actor} signed in to {store}",
+      "product.updated": "{actor} updated {target}",
+      "products.created": "{actor} created products in {store}",
+      "stock.updated": "{actor} updated stock in {store}",
+      "order.refunded": "{actor} refunded order {target}",
+      "storefront.published": "{actor} published storefront {target} of {store}",
+      "api_key.created": "{actor} created the API key {target}",
+      "vendor.invited": "{actor} invited the vendor {target}",
+      "customer.signed_up": "{actor} created an account on {store}",
+      "customer.signed_in": "{actor} signed in on {store}",
+      "customer.sign_in_failed": "Failed sign-in for {actor} on {store}",
+      "customer.password_reset": "{actor} reset their password on {store}",
+      "customer.address_changed": "{actor} changed an address on {store}",
+      "customer.order_placed": "{actor} placed order {target} on {store}",
+      "provisioning.step_failed": "Setup for {store} failed at a step",
+      "billing.payment_failed": "A card payment for {store} failed",
+      "security.sign_in_blocked": "Sign-in to {store} blocked after repeated wrong passwords",
+      "security.tenant_crossing": "{actor} tried to reach {target}, outside their account",
+      "security.authorization_denied": "{actor} was refused an action at {target}"
+    },
+    "actionNames": {
+      "staff.signed_in": "Staff signed in",
+      "staff.signed_out": "Staff signed out",
+      "staff.sign_in_failed": "Staff sign-in failed",
+      "staff.reauthenticated": "Staff re-authenticated",
+      "partner.created": "Partner created",
+      "partner.approved": "Partner approved",
+      "partner.sent_back": "Partner sent back",
+      "partner.paused": "Partner paused",
+      "partner.resumed": "Partner resumed",
+      "store.suspended": "Store suspended",
+      "store.restored": "Store restored",
+      "store.trial_extended": "Trial extended",
+      "job.retried": "Setup retried",
+      "job.undone": "Failed signup undone",
+      "staff.invited": "Staff invited",
+      "staff.role_changed": "Staff role changed",
+      "staff.removed": "Staff removed",
+      "staff.invitation_resent": "Staff invitation resent",
+      "staff.invitation_revoked": "Staff invitation revoked",
+      "impersonation.started": "Impersonation started",
+      "impersonation.extended": "Impersonation extended",
+      "impersonation.ended": "Impersonation ended",
+      "setup_session.started": "Setup session started",
+      "setup_session.ended": "Setup session ended",
+      "customer.viewed": "Customer viewed",
+      "activity.exported": "Activity exported",
+      "partner_user.signed_in": "Partner user signed in",
+      "branding.updated": "Branding changed",
+      "domain.added": "Domain added",
+      "plan.created": "Plan added",
+      "plan.price_changed": "Plan price changed",
+      "merchant.plan_changed": "Merchant plan changed",
+      "partner.submitted": "Submitted for approval",
+      "support_session.started": "Support session opened",
+      "person.signed_in": "Store user signed in",
+      "product.updated": "Product updated",
+      "products.created": "Products created",
+      "stock.updated": "Stock updated",
+      "order.refunded": "Order refunded",
+      "storefront.published": "Storefront published",
+      "api_key.created": "API key created",
+      "vendor.invited": "Vendor invited",
+      "customer.signed_up": "Shopper signed up",
+      "customer.signed_in": "Shopper signed in",
+      "customer.sign_in_failed": "Shopper sign-in failed",
+      "customer.password_reset": "Password reset",
+      "customer.address_changed": "Address changed",
+      "customer.order_placed": "Order placed",
+      "provisioning.step_failed": "Setup step failed",
+      "billing.payment_failed": "Payment failed",
+      "security.sign_in_blocked": "Sign-in blocked",
+      "security.tenant_crossing": "Tenant crossing refused",
+      "security.authorization_denied": "Action refused"
+    }
+  },
+  "staff": {
+    "level": "Platform",
+    "title": "Staff",
+    "sub": "DripFunnel people who can sign in to this console.",
+    "invite": "Invite staff",
+    "loading": "Loading staff",
+    "tableLabel": "Staff",
+    "pagerLabel": "Staff pages",
+    "columns": {
+      "name": "Name",
+      "role": "Role",
+      "lastSignIn": "Last sign-in",
+      "twoFactor": "2-factor",
+      "actions": "Actions"
+    },
+    "you": "You",
+    "never": "Never",
+    "twoFactor": {
+      "on": "On",
+      "off": "Off",
+      "notSignedIn": "Not signed in yet"
+    },
+    "invitation": {
+      "pending": "Invited {sent} · link expires {expires}",
+      "expired": "Invitation expired {expires}",
+      "pendingPill": "Invited",
+      "expiredPill": "Expired"
+    },
+    "soleSuperAdmin": "There is only one Super admin. Make a second one, so the console never depends on one person.",
+    "actions": {
+      "changeRole": "Change role",
+      "remove": "Remove",
+      "resend": "Resend invitation",
+      "revoke": "Revoke",
+      "label": "Actions for {name}"
+    },
+    "refusals": {
+      "SUPER_ADMIN_ONLY": "Only a Super admin can manage staff.",
+      "LAST_SUPER_ADMIN": "{name} is the only Super admin. Make someone else a Super admin first.",
+      "ALREADY_STAFF": "{name} is already on staff.",
+      "SAME_ROLE": "{name} already has that role.",
+      "NOT_PENDING": "{name} has already accepted the invitation.",
+      "PENDING_INVITATION": "{name} hasn’t accepted yet. Revoke the invitation instead.",
+      "NOT_FOUND": "{name} is no longer on staff. The list is up to date now."
+    },
+    "dialogs": {
+      "cancel": "Cancel",
+      "role": "Role",
+      "invite": {
+        "title": "Invite staff",
+        "target": "DripFunnel admin console",
+        "email": "Email",
+        "emailPlaceholder": "name@dripfunnel.com",
+        "emailError": "Enter an email address, such as name@dripfunnel.com.",
+        "consequence": "Sends {email} a link to join the admin console as {role}. The link works once, for 7 days, and they sign in with company SSO.",
+        "someone": "them",
+        "confirm": "Send invitation"
+      },
+      "changeRole": {
+        "title": "Change {name}’s role",
+        "current": "{name} is {role} now. Pick the role they should have.",
+        "consequence": "{name} becomes {role}, with that role’s access from their next request.",
+        "self": "You become {role}, with that role’s access from your next request. Only a Super admin can manage staff.",
+        "sameRole": "Pick a different role.",
+        "confirm": "Change role"
+      },
+      "remove": {
+        "title": "Remove {name}?",
+        "consequence": "{name} can no longer sign in to the admin console. Their past activity stays in the log.",
+        "self": "This is you: you’ll be signed out straight away.",
+        "confirm": "Remove"
+      },
+      "resend": {
+        "title": "Resend the invitation to {name}?",
+        "consequence": "A new link goes to {email} and works for 7 days. The old link stops working.",
+        "confirm": "Resend invitation"
+      },
+      "revoke": {
+        "title": "Revoke the invitation to {name}?",
+        "consequence": "The link stops working. You can invite {email} again later.",
+        "confirm": "Revoke invitation"
+      }
+    },
+    "toasts": {
+      "invite": "Invitation sent to {email}.",
+      "changeRole": "{name} is now {role}.",
+      "remove": "{name} removed.",
+      "resend": "New invitation sent to {email}. The old link no longer works.",
+      "revoke": "Invitation to {email} revoked.",
+      "failed": "That didn’t go through. Try again."
+    },
+    "empty": {
+      "title": "Only you so far",
+      "body": "Invite colleagues with their company email."
+    },
+    "denied": {
+      "title": "Staff is for Super admins",
+      "body": "You’re signed in as {role}. Ask a Super admin to invite someone or change a role.",
+      "back": "Back to the dashboard"
+    },
+    "error": {
+      "title": "Staff didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    }
+  },
+  "impersonate": {
+    "level": "Platform · Every partner",
+    "title": "Impersonate",
+    "sub": "Sign in as a partner’s or store’s user to see what they see and fix things for them. 30 minutes, logged as you acting as them.",
+    "tabsLabel": "Impersonate sections",
+    "tabs": {
+      "users": "Users",
+      "sessions": "Sessions",
+      "sessionsOpen": "Sessions · {count} open now"
+    },
+    "loading": "Loading users",
+    "loadingSessions": "Loading sessions",
+    "neverListed": "Staff and shoppers are never listed.",
+    "users": {
+      "tableLabel": "People you can impersonate",
+      "pagerLabel": "User pages",
+      "searchLabel": "Find a user",
+      "searchPlaceholder": "Find a user by name or email",
+      "columns": {
+        "name": "Name and email",
+        "type": "Type",
+        "partner": "Partner",
+        "where": "Where and role",
+        "lastSignIn": "Last sign-in",
+        "status": "Status",
+        "action": "Action"
+      },
+      "never": "Never",
+      "more": "+{count} more",
+      "less": "Show less",
+      "moreLabel": "Show {count} more places for {name}"
+    },
+    "kinds": {
+      "partnerUser": "Partner user",
+      "storeUser": "Store user",
+      "supplierUser": "Supplier user"
+    },
+    "statuses": {
+      "active": "Active",
+      "invited": "Invited",
+      "suspended": "Suspended"
+    },
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "support": "Support",
+      "finance": "Finance",
+      "readOnly": "Read-only",
+      "manager": "Manager",
+      "staff": "Staff",
+      "supplierAdmin": "Supplier admin",
+      "supplierMember": "Supplier member"
+    },
+    "where": {
+      "partner": "{partner} · Partner console",
+      "supplierRole": "{role} for {supplier}",
+      "line": "{where} · {role}",
+      "partnerConsole": "{partner}’s partner console"
+    },
+    "filters": {
+      "label": "Filter users",
+      "type": "Type",
+      "anyType": "Any type",
+      "partner": "Partner",
+      "anyPartner": "All partners",
+      "store": "Store",
+      "anyStore": "Any store",
+      "role": "Role",
+      "anyRole": "Any role",
+      "status": "Status",
+      "anyStatus": "Any status",
+      "clear": "Clear filters"
+    },
+    "actions": {
+      "impersonate": "Impersonate",
+      "return": "Return to session",
+      "setUp": "Open setup session",
+      "returnSetup": "Return to setup session"
+    },
+    "refusals": {
+      "STAFF_ROLE_NOT_ALLOWED": "Only Super admins and Support can impersonate.",
+      "TARGET_NOT_ACTIVE": "{name} can’t be impersonated until the account is active.",
+      "TARGET_INVITED": "{name} hasn’t accepted the invitation yet.",
+      "TARGET_SUSPENDED": "{name}’s account is suspended.",
+      "PARTNER_CLOSED": "Their partner is closed.",
+      "IMPERSONATION_ALREADY_OPEN": "You already have an open impersonation. End it first.",
+      "SETUP_SESSION_ALREADY_OPEN": "You already have a setup session open. End it first.",
+      "IMPERSONATION_ALREADY_EXTENDED": "A session can be extended once. Start a new one for more time.",
+      "SETUP_SESSION_NOT_EXTENDABLE": "Setup sessions can’t be extended. Start a new one for more time.",
+      "NOT_SESSION_OWNER": "Only the staff member who started it, or a Super admin, can do this.",
+      "REASON_REQUIRED": "Add a reason to continue.",
+      "REAUTH_REQUIRED": "Sign in again to continue.",
+      "SESSION_ENDED": "This session has already ended.",
+      "SESSION_EXPIRED": "This session has already expired.",
+      "NOT_FOUND": "That session or user no longer exists.",
+      "setupRole": "Only a Super admin or Partner manager can set up partners.",
+      "setupClosed": "{partner} is closed. Closed partners can’t be set up."
+    },
+    "empty": {
+      "title": "No one to impersonate yet",
+      "body": "Partner and store users appear here once partners and merchants invite them."
+    },
+    "noMatch": {
+      "title": "No users match",
+      "body": "Try another name or remove a filter. Staff and shoppers are never listed."
+    },
+    "denied": {
+      "title": "Impersonate is for Super admins and Support",
+      "body": "You’re signed in as {role}. Ask a Super admin or Support to act as a user.",
+      "back": "Back to the dashboard"
+    },
+    "error": {
+      "title": "Impersonate didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "sessions": {
+      "open": "Open now",
+      "openEmpty": "No one is impersonating right now.",
+      "history": "History",
+      "historyEmpty": "No past sessions match these filters.",
+      "openLabel": "Open sessions",
+      "historyLabel": "Past sessions",
+      "pagerLabel": "Session pages",
+      "kinds": {
+        "impersonation": "Impersonation",
+        "setup": "Setup session"
+      },
+      "filters": {
+        "label": "Filter sessions",
+        "kind": "Kind",
+        "anyKind": "Any kind",
+        "staff": "Staff",
+        "anyStaff": "Any staff member",
+        "partner": "Partner",
+        "anyPartner": "All partners",
+        "store": "Store",
+        "anyStore": "Any store",
+        "date": "Date",
+        "anyDate": "Any time",
+        "dates": {
+          "today": "Today",
+          "7d": "Last 7 days",
+          "30d": "Last 30 days"
+        }
+      },
+      "row": {
+        "as": "{staff} as {target}",
+        "setupFor": "{staff} setting up {partner}",
+        "left": "{time} left",
+        "started": "Started {time}",
+        "ended": "Ended {time}",
+        "extended": "Extended once",
+        "ticket": "Ticket",
+        "noTicket": "No ticket link",
+        "allEntries": "All its entries",
+        "details": "Session details",
+        "detailsLabel": "Details of session {id}"
+      },
+      "outcomes": {
+        "open": "Open",
+        "expired": "Expired",
+        "endedByStaff": "Ended by staff",
+        "endedFromPortal": "Ended in the portal",
+        "targetGone": "User suspended or removed",
+        "partnerClosed": "Partner closed"
+      },
+      "actions": {
+        "end": "End",
+        "extend": "Extend 30 min",
+        "return": "Return to session"
+      },
+      "actionsLabel": "Actions for session {id}",
+      "preview": {
+        "title": "What their users see",
+        "body": "Everyone signed in to that store or partner console sees this, in the partner’s look. It always says Support, never DripFunnel.",
+        "impersonation": "Support ({staff}) is signed in as {user}. Ends in {time}.",
+        "setup": "DripFunnel is setting up your console: {staff}, until {time}."
+      }
+    },
+    "session": {
+      "breadcrumb": "Sessions",
+      "breadcrumbLabel": "You are here",
+      "title": "Session {id}",
+      "facts": {
+        "kind": "Kind",
+        "staff": "Staff member",
+        "actingAs": "Acting as",
+        "partner": "Partner",
+        "where": "Where",
+        "host": "Opened on",
+        "reason": "Reason",
+        "ticket": "Ticket",
+        "started": "Started",
+        "ends": "Ends",
+        "ended": "Ended",
+        "outcome": "Outcome",
+        "extended": "Extended",
+        "notExtended": "Not extended"
+      },
+      "notFound": {
+        "title": "That session doesn’t exist",
+        "body": "Check the id, or find it on the Sessions page.",
+        "back": "Back to sessions"
+      },
+      "denied": {
+        "title": "This session isn’t open to your role",
+        "body": "Setup sessions are open to Super admins, Partner managers and Support, and impersonations to Super admins and Support. You’re signed in as {role}.",
+        "back": "Back to the dashboard"
+      },
+      "loading": "Loading the session"
+    },
+    "strip": {
+      "label": "Your open staff sessions",
+      "impersonation": "Your session as {name} ({role}, {where}) is still open",
+      "setup": "You have a setup session open for {partner}",
+      "left": "{host} · {time} left",
+      "return": "Return to session",
+      "end": "End"
+    },
+    "dialogs": {
+      "cancel": "Cancel",
+      "endMine": {
+        "title": "End this session?",
+        "consequence": "It ends now, and the banner goes away for everyone signed in to {where}.",
+        "confirm": "End session"
+      },
+      "endOther": {
+        "title": "End {staff}’s session as {target}?",
+        "consequence": "It ends now, and the banner goes away for everyone signed in to {where}.",
+        "confirm": "End session"
+      },
+      "endSetup": {
+        "title": "End the setup session for {partner}?",
+        "consequence": "{partner}’s console closes for {staff}. Everything saved stays.",
+        "confirm": "End session"
+      },
+      "extend": {
+        "title": "Extend by 30 minutes?",
+        "consequence": "Adds 30 minutes, until {time}. A session can be extended once; after that, start a new one with a new reason.",
+        "confirm": "Extend 30 min"
+      }
+    },
+    "toasts": {
+      "ended": "Session ended. The portal tab is signed out.",
+      "extended": "Session extended to {time}.",
+      "started": "Signed in as {name} in a new tab.",
+      "startedSetup": "{partner}’s console opened in a new tab.",
+      "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this console, then use Return to session.",
+      "failed": "That didn’t go through. Try again."
+    },
+    "start": {
+      "label": "Impersonate · {name}",
+      "labelSetup": "Setup session · {partner}",
+      "step": "Step {step} of {total} · {name}",
+      "stepNames": {
+        "where": "Where",
+        "why": "Why",
+        "confirm": "Confirm"
+      },
+      "titles": {
+        "blocked": "Can’t impersonate {first}",
+        "blockedSetup": "Can’t set up {partner}",
+        "busy": "You already have an open impersonation",
+        "busySetup": "You have a setup session open",
+        "return": "You’re already signed in as {first}",
+        "returnSetup": "Your setup session for {partner} is open",
+        "where": "Where should you act?",
+        "why": "Why are you impersonating {first}?",
+        "whySetup": "Why are you setting up {partner}?",
+        "confirm": "Sign in as {name}?",
+        "confirmSetup": "Open {partner}’s console?",
+        "reauth": "Confirm it’s you",
+        "msg": "The session didn’t start"
+      },
+      "busy": "You’re signed in as {other} ({time} left). You can have one impersonation at a time.",
+      "busySetup": "You have a setup session open for {partner} ({time} left). You can have one open at a time.",
+      "endAndContinue": "End it and continue",
+      "returnToIt": "Return to it",
+      "returnBody": "That session is still open in its tab.",
+      "returnTab": "Return to tab",
+      "whereLegend": "Where to act",
+      "whereHint": "Choose where to act.",
+      "reason": "Reason (required)",
+      "reasonPlaceholder": "What you’re fixing for them",
+      "reasonPlaceholderSetup": "What the partner asked for",
+      "reasonHint": "Add a reason to continue.",
+      "ticket": "Ticket link (optional)",
+      "ticketPlaceholder": "https://support.dripfunnel.com/t/…",
+      "ticketError": "Use a link that starts with https://.",
+      "confirm": "You’ll be signed in as {name} ({role}, {where}) with {first}’s access for 30 minutes. You can’t change {first}’s password, 2-factor, sign-in methods, payment or payout details, or the {owner}’s ownership. Everyone signed in to {place} will see that Support is signed in as {first}. Everything you do is logged as {me} acting as {first}.",
+      "owners": {
+        "partner": "partner",
+        "store": "store"
+      },
+      "confirmSetup": "You’ll open {partner}’s partner console as yourself for 2 hours, with its setup powers. You can’t change its payment method, payout details or ownership: the partner enters those itself. Anyone on {partner}’s team signed in at the same time sees that DripFunnel is setting up the console. Everything you save is logged as you, tagged “Setup session”. It can’t be extended.",
+      "summaryReason": "Reason:",
+      "summaryTicket": "Ticket:",
+      "noTicket": "No ticket link",
+      "cancel": "Cancel",
+      "back": "Back",
+      "next": "Next",
+      "close": "Close",
+      "tryAgain": "Try again",
+      "confirmReauth": "Confirm with your company sign-in",
+      "reauthWaiting": "Waiting for your company sign-in…",
+      "reauthFailed": "We couldn’t confirm it’s you with your company sign-in. Nothing started.",
+      "reauthCancelled": "You cancelled the company sign-in. Nothing started."
     }
   }
 }

@@ -658,3 +658,35 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+.df-list-search-label {
+  color: var(--df-color-muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.df-list-search--labelled {
+  display: inline-flex;
+  flex: 0 1 12rem;
+  gap: var(--df-space-2);
+  align-items: center;
+  padding-left: var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-list-search--labelled input {
+  border: 0;
+}
+
+/* Keeps the field a direct item of its toolbar, with its error beside it. */
+.df-list-search-field {
+  display: contents;
+}
+
+.df-list-search-error {
+  align-self: center;
+  color: var(--df-color-danger);
+  font-size: 0.8125rem;
+}
