@@ -28,6 +28,7 @@
     "@pothos/core": "^4.15.1",
     "graphql": "^17.0.2",
     "graphql-yoga": "^5.24.1",
+    "jose": "^6.2.12",
     "postgres": "^3.4.9",
     "zod": "^4.6.5"
   },

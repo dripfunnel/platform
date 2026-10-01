@@ -67,6 +67,18 @@ export const signedOut = (staffId: string, request: RequestFacts): ActivityEntry
   ...request,
 })
 
+/** CONSOLE-DESIGN A2: the credential behind a dangerous action, recorded like the sign-in. */
+export const reauthenticated = (staff: { id: string; email: string; name: string }, request: RequestFacts): ActivityEntry => ({
+  category: 'auth',
+  action: 'staff.reauthenticated',
+  result: 'success',
+  actorKind: 'staff',
+  actorId: staff.id,
+  actorLabel: `${staff.name} <${staff.email}>`,
+  reason: null,
+  ...request,
+})
+
 /** A refusal names no subject: the entry must not become the enumeration the response avoids. */
 export const signInRefused = (request: RequestFacts, refusal: SignInRefusal): ActivityEntry => ({
   category: 'security',

@@ -5,6 +5,10 @@ import type { ScopedSql } from '#db/scoped/index'
 export const idleMs = 60 * 60 * 1000
 export const absoluteMs = 8 * 60 * 60 * 1000
 
+// CONSOLE-DESIGN A2: a dangerous action needs a credential proved recently, not merely a
+// session that is still open. #40's impersonation is the first caller.
+export const reauthMs = 5 * 60 * 1000
+
 export const cookieName = '__Host-df_admin_session'
 
 export interface StaffSession {
@@ -50,6 +54,26 @@ export const readSession = async (tx: ScopedSql, id: string, now: Date): Promise
   `
   const row = rows[0]
   return row ? { staffUserId: row.staff_user_id, reauthAt: row.reauth_at } : null
+}
+
+export const isReauthFresh = (session: StaffSession, now: Date): boolean =>
+  session.reauthAt !== null && now.getTime() - session.reauthAt.getTime() < reauthMs
+
+/** Stamps a fresh credential on a live session. False when the session is gone or not theirs. */
+export const markReauthenticated = async (
+  tx: ScopedSql,
+  id: string,
+  staffUserId: string,
+  now: Date,
+): Promise<boolean> => {
+  const rows = await tx<{ id_hash: string }[]>`
+    update staff_session set reauth_at = ${now}, last_seen_at = ${now}
+    where id_hash = ${await hashSessionId(id)}
+      and staff_user_id = ${staffUserId}
+      and expires_at > ${now}
+    returning id_hash
+  `
+  return rows.length > 0
 }
 
 /** Deletes the session and returns whose it was, so sign-out can be attributed. */
