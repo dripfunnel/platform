@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-01.
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-09-30.
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, and later the designed-states helper | `Button` |
+| `@dripfunnel/shared/ui` | Components, the designed-states helper, and the staff-session pieces both portals use (#46) | `Button`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen`, `SessionControls`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code | `createApiClient`, `ApiError` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber` |
@@ -51,7 +51,8 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   `Input`, `Hint`, `Error`), not one component with forty props.
 - **Every component has its states**: empty, loading (skeleton), error, disabled with a
   reason, read-only. The `?state=` helper that makes every designed state reachable without
-  a backend moves here once a second app uses it (../README.md §6).
+  a backend lives here since the portals needed it for their session states (#46,
+  ../README.md §6).
 - **Words are props**: every string comes from the calling app's messages.
 - **Visual baseline**: `../../../../.design/settings-tabs.html` (PLATFORM-PROMPT §6).
 - **Tests** beside the code (`money.test.ts`), especially for formatting across currencies

@@ -1,7 +1,9 @@
+import type { SessionPermission } from '../../api/impersonation'
 import type { Store, StoreUser } from '../../api/stores'
 import { fill, formatTime, messages } from '../../messages'
 import { InfoNote } from '../common/InfoNote'
-import { PermissionDenied } from '../common/PermissionDenied'
+import { ActionControl } from '../common/ActionControl'
+import { refusalText } from '../impersonate/sessionText'
 import { StatusPill } from '../common/StatusPill'
 import './stores.css'
 
@@ -29,7 +31,10 @@ const statusLook = {
   suspended: { tone: 'neutral', icon: 'ban' },
 } as const
 
-export const UsersTab = ({ store }: { store: Store }) => {
+const ImpersonateControl = ({ permission, user, onRun }: { permission: SessionPermission | undefined; user: StoreUser; onRun: () => void }) =>
+  permission ? <ActionControl label={words.impersonate} refusal={permission.allowed ? null : refusalText(permission.reason, user)} onRun={onRun} /> : null
+
+export const UsersTab = ({ store, onImpersonate }: { store: Store; onImpersonate: (userId: string) => void }) => {
   const groups = groupsOf(store)
   return (
     <div className="df-panels">
@@ -55,7 +60,9 @@ export const UsersTab = ({ store }: { store: Store }) => {
                 <span className="df-muted">
                   {user.lastSignInAt ? fill(words.lastSignIn, { time: formatTime(user.lastSignInAt) }) : words.neverSignedIn}
                 </span>
-                <PermissionDenied actionLabel={words.impersonate} reason={words.impersonateUnavailable} />
+                {store.impersonate[user.id] && (
+                  <ImpersonateControl permission={store.impersonate[user.id]} user={user} onRun={() => onImpersonate(user.id)} />
+                )}
               </li>
             ))}
           </ul>

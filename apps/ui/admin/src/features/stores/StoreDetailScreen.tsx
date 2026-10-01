@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../common/ConfirmDialog'
 import { callerFor } from '../common/harnessCaller'
 import { Toast } from '../common/Toast'
 import { useScreenState } from '../common/useScreenState'
+import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
@@ -46,6 +47,7 @@ export const StoreDetailScreen = () => {
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = () => setToast(messages.store.toasts.failed)
+  const sessions = useImpersonateFrom(callerFor(me.role, searchStr), me.name)
 
   const jobs = useMemo(() => (store?.job ? [{ id: store.job.id, state: store.setup.state }] : []), [store])
   // A cleaned-up signup has no page left to show (decided on #20), so its message goes with it
@@ -109,6 +111,7 @@ export const StoreDetailScreen = () => {
         onJob={(action) => setPending({ kind: 'job', action })}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
+        onImpersonate={sessions.impersonate}
         customers={{
           filter: customerFilter,
           page: { after, before },

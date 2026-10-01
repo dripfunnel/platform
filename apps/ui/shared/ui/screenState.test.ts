@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { isHarnessEnabled, parseScreenState, screenStates } from './screenState'
+import { isHarnessEnabled, parseScreenState } from './screenState'
+
+const screenStates = ['empty', 'loading', 'error', 'denied', 'readonly', 'confirm'] as const
 
 describe('parseScreenState', () => {
   it('returns every allowed state by name', () => {

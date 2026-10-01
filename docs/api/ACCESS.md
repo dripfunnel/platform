@@ -657,8 +657,11 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   membership is suspended or removed. **Extendable once, by 30 minutes** (decided
   2026-09-30), logged as its own entry; beyond that a staff member starts a new session,
   which carries a new reason.
-- *(proposed)* Only **active** users can be impersonated (not invited-but-not-accepted, not
-  suspended), and a staff member has **one open impersonation at a time**.
+- Only **active** users can be impersonated (not invited-but-not-accepted, not suspended),
+  and a staff member has **one open impersonation at a time** (decided 2026-10-01, #46); the
+  console offers to return to the open one, or to end it first.
+- **Ending and extending** (decided 2026-10-01, #46): the staff member who started it or any
+  Super admin may end it; only the staff member who started it may extend it.
 - **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). These resolvers
   refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
   and a structural test lists them.
@@ -697,7 +700,32 @@ up by DripFunnel may have none yet because the Owner's invitation is held or not
 - **Ends** after 2 hours (confirmed 2026-09-30), when the staff member ends it, or when the
   partner is closed. **Not extendable** — two hours is already the longest session on the
   platform; more means a new one, with a new reason. One open setup session per staff member
-  at a time; a second attempt is refused rather than ending the first.
+  at a time; a second attempt is refused rather than ending the first. The staff member who
+  started it or any Super admin may end it (decided 2026-10-01, #46).
+
+### 8.3 The staff-session contract (decided 2026-10-01 on #46, for #40)
+
+Between the admin console, the Admin API and the two portals, for both kinds of session.
+
+- **Refusals** from the Admin API, as stable codes the console words: `STAFF_ROLE_NOT_ALLOWED`,
+  `TARGET_NOT_ACTIVE`, `PARTNER_CLOSED`, `IMPERSONATION_ALREADY_OPEN`,
+  `SETUP_SESSION_ALREADY_OPEN`, `IMPERSONATION_ALREADY_EXTENDED`,
+  `SETUP_SESSION_NOT_EXTENDABLE`, `NOT_SESSION_OWNER`, `REASON_REQUIRED`, `REAUTH_REQUIRED`,
+  `SESSION_ENDED`, `SESSION_EXPIRED`, `NOT_FOUND`.
+- **In the portals**: a blocked resolver (§8.1, §8.2) refuses with
+  `BLOCKED_WHILE_IMPERSONATING` or `PARTNER_ENTERS_THIS_ITSELF`; a spent, expired or unknown
+  handoff with `HANDOFF_INVALID`, shown as "This link no longer works".
+- **Each session record** says what the caller may do to it (`end`, `extend`, `return`),
+  allowed or refused with one of the codes above; the console never works it out.
+- **The handoff token** is single use and exists only in the link that opens the portal:
+  never on a session record, in a page or in a log. The portal drops it from the address bar
+  as it exchanges it. Returning to an open session asks for a fresh link.
+- **Sync** comes from the server, never from browser storage. The portal reads its session and
+  the member notice every 15 seconds and whenever the tab regains focus, and counts down
+  locally from `expiresAt`; the console's strip and Sessions list read the same way. An end
+  on either side shows on the other at its next read.
+- **Who sees which**: Super admin and Support see both kinds. A Partner manager sees setup
+  sessions only, by their page, with no Impersonate menu, Users list or Sessions list.
 
 ---
 

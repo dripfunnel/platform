@@ -1,4 +1,49 @@
 {
-  "home": { "title": "DripFunnel Platform", "signIn": "Sign in" },
-  "signIn": { "title": "Sign in" }
+  "home": {
+    "title": "DripFunnel Platform",
+    "signIn": "Sign in",
+    "account": "Your account",
+    "accountSub": "What a staff session can’t change is turned off here, with the reason."
+  },
+  "signIn": {
+    "title": "Sign in"
+  },
+  "controls": {
+    "password": "Change password",
+    "twoFactor": "Set up 2-factor",
+    "signInMethods": "Sign-in methods",
+    "paymentMethod": "Payment method",
+    "payoutDetails": "Payout details",
+    "ownership": "Transfer ownership"
+  },
+  "blocked": {
+    "BLOCKED_WHILE_IMPERSONATING": "Support can’t change this while signed in as {user}.",
+    "PARTNER_ENTERS_THIS_ITSELF": "{partner} enters this itself."
+  },
+  "staffSession": {
+    "impersonating": "Impersonating {user}",
+    "impersonatingDetail": "({role}, {where}) · Support session by {staff}",
+    "setup": "Setup session for {partner}",
+    "setupDetail": "· You’re in as {staff} (DripFunnel)",
+    "endsIn": "Ends in {time}",
+    "end": "End session",
+    "endFailed": "That didn’t end the session. Try again, or end it from the admin console.",
+    "back": "Back to the admin console (keeps running)",
+    "action": "Back to the admin console",
+    "notice": "Support ({staff}) is signed in as {user}. Ends in {time}.",
+    "noticeSetup": "DripFunnel is setting up your console: {staff}, until {time}.",
+    "ended": "This session has ended",
+    "expired": "Your time as {user} is up",
+    "expiredSetup": "Your time is up",
+    "endedBody": {
+      "admin": "It was ended from the DripFunnel admin console. Everything saved stays.",
+      "portal": "You ended it here. The admin console has been updated. Everything saved stays.",
+      "expiry": "The session timed out. Everything saved stays. Start a new one from the admin console if you need more time."
+    },
+    "pending": "Signing you in…",
+    "invalid": {
+      "title": "This link no longer works",
+      "body": "Staff session links work once, from the DripFunnel admin console. Start a new session there."
+    }
+  }
 }

@@ -9,3 +9,31 @@ export {
   type ThemeChoice,
   type ThemeStore,
 } from './theme'
+export { isHarnessEnabled, parseScreenState, type HarnessEnv } from './screenState'
+export { ImpBanner, SessionEndCard, SessionNotice, type ImpBannerProps, type SessionEndCardProps } from './ImpBanner'
+export { StaffSessionLayer, type StaffSessionCopy, type StaffSessionLayerProps } from './StaffSessionLayer'
+export {
+  blockedFor,
+  firstName,
+  secondsLeft,
+  sessionControls,
+  sessionStateAt,
+  type PortalStaffSession,
+  type SessionBlock,
+  type SessionControl,
+  type StaffSessionEndedBy,
+  type StaffSessionKind,
+  type StaffSessionState,
+} from './staffSession'
+export {
+  createPortalSessionFixture,
+  encodeFixtureHandoff,
+  portalHarnessStates,
+  type FixtureHandoff,
+  type PortalHarnessState,
+  type PortalSessionFixture,
+} from './staffSessionFixture'
+export { sessionPollMs, useNow, usePolling } from './usePolling'
+export { createPortalSession, useHandoff, type HandoffResult, type PortalSession, type PortalSessionOptions } from './portalSession'
+export { staffSessionCopy, type StaffSessionFormat, type StaffSessionWords } from './staffSessionCopy'
+export { HandoffScreen, PortalSessionRoot, SessionControls, useCurrentStaffSession, type HandoffScreenProps, type PortalSessionRootProps, type SessionControlsProps } from './PortalSessionRoot'

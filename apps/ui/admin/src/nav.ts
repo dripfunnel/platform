@@ -1,12 +1,13 @@
+import { impersonators } from './api/sessionRules'
 import { staffRoles, type StaffRole } from './features/shell/staffRoles'
 
-export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'layers' | 'pulse' | 'staff'
+export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'layers' | 'pulse' | 'staff' | 'mask'
 
-export type NavBadgeSource = 'partnersAwaitingApproval' | 'provisioningAttention'
+export type NavBadgeSource = 'partnersAwaitingApproval' | 'provisioningAttention' | 'openSessions'
 
 export interface NavRow {
-  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'activity' | 'staff'
-  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/activity' | '/staff'
+  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'impersonate' | 'activity' | 'staff'
+  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/impersonate' | '/activity' | '/staff'
   icon: NavIconName
   roles: readonly StaffRole[]
   // The roles the count is shown to on this row.
@@ -40,6 +41,7 @@ export const navRows: readonly NavRow[] = [
     roles: ['staff-super-admin', 'staff-support', 'staff-engineer'],
     badge: { source: 'provisioningAttention', roles: staffRoles },
   },
+  { key: 'impersonate', to: '/impersonate', icon: 'mask', roles: impersonators, badge: { source: 'openSessions', roles: impersonators } },
   { key: 'activity', to: '/activity', icon: 'pulse', roles: staffRoles },
   { key: 'staff', to: '/staff', icon: 'staff', roles: ['staff-super-admin'] },
 ]

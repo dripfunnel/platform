@@ -13,12 +13,15 @@ type DialogWords = {
   reasonHint?: string
 }
 
+// Every action but the setup session, which has its own flow (features/impersonate).
+export type ConfirmedAction = Exclude<PartnerAction, 'setupSession'>
+
 export type ActionDialog = Pick<ConfirmDialogProps, 'title' | 'target' | 'consequence' | 'confirmLabel' | 'notes' | 'reason' | 'danger'>
 
 // What each confirmation says (FIRST-RELEASE.md §4.3, in the prototype's words). Every action
 // that changes the partner's business asks for a reason (decided on #19); nothing here is
 // irreversible, so none asks for the name typed.
-export const actionDialog = (action: PartnerAction, partner: Partner): ActionDialog => {
+export const actionDialog = (action: ConfirmedAction, partner: Partner): ActionDialog => {
   const spec: DialogWords = words.dialogs[action]
   const values = {
     name: partner.name,
@@ -37,5 +40,5 @@ export const actionDialog = (action: PartnerAction, partner: Partner): ActionDia
   }
 }
 
-export const actionToast = (action: PartnerAction, partner: Partner) =>
+export const actionToast = (action: ConfirmedAction, partner: Partner) =>
   fill(words.toasts[action], { name: partner.name, host: partner.portalHost.host ?? '', email: partner.owner.email })

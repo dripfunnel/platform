@@ -1,8 +1,9 @@
-import type { Partner, PartnerAction } from '../../api/partners'
+import type { SessionPermission } from '../../api/impersonation'
+import type { Partner, PartnerAction, PartnerUser } from '../../api/partners'
 import { fill, formatDate, formatTime, messages } from '../../messages'
-import { PermissionDenied } from '../common/PermissionDenied'
 import { StatusPill } from '../common/StatusPill'
 import { ActionControl } from '../common/ActionControl'
+import { refusalText as sessionRefusal } from '../impersonate/sessionText'
 import { refusalText } from './refusal'
 import { InvitationPill } from './partnerLook'
 import './partners.css'
@@ -12,6 +13,7 @@ const words = messages.partner
 export interface TeamTabProps {
   partner: Partner
   onAction: (action: PartnerAction) => void
+  onImpersonate: (userId: string) => void
 }
 
 const invitationDetail = (partner: Partner) => {
@@ -23,7 +25,13 @@ const invitationDetail = (partner: Partner) => {
   return fill(words.team.invitationDetail.held, { org: partner.name })
 }
 
-export const TeamTab = ({ partner, onAction }: TeamTabProps) => {
+// The API's answer for this person; none means it sent none, so nothing is offered.
+const ImpersonateControl = ({ permission, person, onRun }: { permission: SessionPermission | undefined; person: PartnerUser; onRun: () => void }) =>
+  permission ? (
+    <ActionControl label={words.team.impersonate} refusal={permission.allowed ? null : sessionRefusal(permission.reason, person)} onRun={onRun} />
+  ) : null
+
+export const TeamTab = ({ partner, onAction, onImpersonate }: TeamTabProps) => {
   const inviteAction = partner.actions.sendInvite ? 'sendInvite' : partner.actions.resendInvite ? 'resendInvite' : null
   const invitePermission = inviteAction ? partner.actions[inviteAction] : undefined
   return (
@@ -71,7 +79,7 @@ export const TeamTab = ({ partner, onAction }: TeamTabProps) => {
                   icon={person.status === 'active' ? 'ok' : 'hour'}
                   label={words.team.statuses[person.status]}
                 />
-                <PermissionDenied actionLabel={words.team.impersonate} reason={words.team.impersonateUnavailable} />
+                <ImpersonateControl permission={partner.impersonate[person.id]} person={person} onRun={() => onImpersonate(person.id)} />
               </li>
             ))}
           </ul>
