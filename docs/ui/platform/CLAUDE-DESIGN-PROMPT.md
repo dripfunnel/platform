@@ -190,13 +190,13 @@ up {product}" with "You can leave and come back; your progress is saved."
 
 - **The checklist**, ten items plus Submit ("4 of 11 done" and a progress bar), each Done · In
   progress · To do with one line of detail, a link to its screen, and when done, who did it:
-  company details → branding → portal address → preview and shop addresses → email
-  sender → at least one priced plan → legal pages → payment method → payout details → a
-  test merchant signup (**Run test signup**, Owner and Admin: "A test store created and
-  removed; ready in 1 min 38 s"). Payment method and payout details are **the partner's own**: in a staff setup
-  session they read "{partner} enters this itself" with a lock; to the Owner "Your turn"; to
-  any other role "Owner adds this". They are not go-live checks: Submit says "Payment method
-  and payout details can come later."
+  company details → branding → portal address → preview and shop addresses → email sender → at
+  least one priced plan → legal pages → payment method → payout details → a test merchant signup
+  (**Run test signup**, Owner and Admin: "A test store created and removed; ready in 1 min 38 s").
+  Payment method and payout details are **the partner's own**: in a staff setup session they read
+  "{partner} enters this itself" with a lock; to the Owner "Your turn"; to any other role "Owner
+  adds this". They are not go-live checks: Submit says "Payment method and payout details can come
+  later."
 - **Who completed it**: items done in a staff setup session say "Done by DripFunnel"; the
   Owner's first sign-in after staff set things up shows a welcome card ("DripFunnel has set up
   most of {product} for you. Check what's done and finish the rest.").
