@@ -88,8 +88,8 @@ describe('checkHealth', () => {
       // Delays only the query response (detected by its literal text) so connect_timeout and
       // statement_timeout can't catch it — only CHECK_HEALTH_TIMEOUT_MS can.
       //
-      // Terminates TLS on both legs only when the client actually requests it, falling back to a
-      // plain relay otherwise (local dev's non-TLS Postgres). See PR description for why.
+      // Terminates TLS on both legs only when the client sends an SSLRequest (prod's sslmode
+      // connection), falling back to a plain relay otherwise (local dev's non-TLS Postgres).
       const SSL_REQUEST = Buffer.from([0, 0, 0, 8, 4, 210, 22, 47]) // length 8, code 80877103
       const STALL_MS = 6_000
       const target = new URL(DATABASE_URL)
@@ -129,6 +129,11 @@ describe('checkHealth', () => {
       const keyPath = path.join(certDir, 'key.pem')
       const certPath = path.join(certDir, 'cert.pem')
       try {
+        try {
+          execFileSync('openssl', ['version'], { stdio: 'ignore' })
+        } catch {
+          throw new Error('This test requires an `openssl` binary on PATH to generate a throwaway TLS cert.')
+        }
         execFileSync('openssl', [
           'req',
           '-x509',
