@@ -5,7 +5,9 @@ import type { StaffRole } from '../features/shell/staffRoles'
 import { jobPermissionsFor, stateOf, stepsFor, type SampleSetup } from './jobSample'
 import type { ActionPermission } from './permissions'
 import type { PageRequest } from './pageInfo'
+import { samplePartners } from './partnersSample'
 import { samplePage } from './samplePage'
+import { impersonatePermission } from './sessionRules'
 import { storeNoteMaxLength } from './stores'
 import type {
   Store,
@@ -24,7 +26,7 @@ import type {
 
 // A suspended store remembers the whole state it had, so Restore can put it back exactly. Its
 // signup is the Workflow's own record, which the provisioning sample runs (#43).
-export type SampleStore = Omit<Store, 'actions' | 'job' | 'setup'> & { setup: SampleSetup; before: StoreState | null }
+export type SampleStore = Omit<Store, 'actions' | 'impersonate' | 'job' | 'setup'> & { setup: SampleSetup; before: StoreState | null }
 
 const partnerNames: Record<string, string> = {
   df: 'DripFunnel',
@@ -466,6 +468,8 @@ export const sampleStores: readonly SampleStore[] = [
 
 const allowed = { allowed: true } as const
 
+const partnerClosed = (id: string) => samplePartners.find((partner) => partner.id === id)?.state === 'closed'
+
 const onlyFor = (caller: StaffRole, roles: readonly StaffRole[], reason: StoreRefusal): ActionPermission<StoreRefusal> =>
   roles.includes(caller) ? allowed : { allowed: false, reason }
 
@@ -546,6 +550,7 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
       ...rest,
       setup: rowOf(store).setup,
       job: setup.jobId && state !== 'done' ? { id: setup.jobId, actions: jobPermissionsFor(state, caller) } : null,
+      impersonate: Object.fromEntries(rest.users.map((user) => [user.id, impersonatePermission(caller, user.status, partnerClosed(rest.partner.id))])),
       actions: storePermissionsFor({ ...rest, setup, before }, caller),
     }
   }

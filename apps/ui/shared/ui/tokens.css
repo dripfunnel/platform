@@ -56,6 +56,11 @@
   --df-color-env-production: #b42318;
   --df-color-env-staging: #4a5360;
   --df-color-env-text: #ffffff;
+  /* The staff-session bar (designs/ImpBanner.dc.html). The same in dark, so it never recedes. */
+  --df-color-session: #ffc53d;
+  --df-color-session-ink: #2a1a00;
+  --df-color-session-edge: #b7791f;
+  --df-color-session-stripe: rgb(0 0 0 / 0.06);
   --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
   --df-radius-small: 6px;
   --df-radius: 8px;

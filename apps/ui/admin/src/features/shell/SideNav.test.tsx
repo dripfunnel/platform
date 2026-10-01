@@ -7,7 +7,7 @@ import { navFor } from '../../nav'
 import { SideNav } from './SideNav'
 import { staffRoles, type StaffRole } from './staffRoles'
 
-const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApproval: 3, provisioningAttention: 2 }, path = '/partners') => {
+const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApproval: 3, provisioningAttention: 2, openSessions: 1 }, path = '/partners') => {
   const rootRoute = createRootRoute({
     component: () => <SideNav rows={navFor(role)} badges={badges} variant="bar" />,
   })
@@ -16,7 +16,10 @@ const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApp
   return renderToString(<RouterProvider router={router} />)
 }
 
-const absentPaths = (role: StaffRole) => (role === 'staff-super-admin' ? ['/impersonate'] : ['/impersonate', '/staff'])
+const absentPaths = (role: StaffRole) => [
+  ...(role === 'staff-super-admin' || role === 'staff-support' ? [] : ['/impersonate']),
+  ...(role === 'staff-super-admin' ? [] : ['/staff']),
+]
 
 describe('SideNav', () => {
   it.each(staffRoles)('renders the menus every role has for %s', async (role) => {
@@ -72,7 +75,7 @@ describe('SideNav', () => {
   })
 
   it('shows no badge when nothing is waiting', async () => {
-    const html = await render('staff-super-admin', { partnersAwaitingApproval: 0, provisioningAttention: 0 })
+    const html = await render('staff-super-admin', { partnersAwaitingApproval: 0, provisioningAttention: 0, openSessions: 0 })
     expect(html).not.toContain('df-nav-badge')
     for (const badge of Object.values(messages.shell.badges)) expect(html).not.toContain(badge.replace('{count} ', ''))
   })

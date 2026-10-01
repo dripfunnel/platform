@@ -283,13 +283,13 @@ changing the user's password, 2-factor or sign-in methods, payment or payout det
 | Name and email | |
 | Type | Partner user, or Store user (merchant side or supplier) |
 | Partner | Which partner they belong to |
-| Store and role | For store users: each store (and supplier) they're in, with the role, e.g. "Mehta Textiles · Owner"; for partner users: their partner role |
+| Where and role | Each place they can be acted as, e.g. "Mehta Textiles · Owner" or "Loom & Thread · Partner console · Admin"; the first shows, the rest open under "+N more" |
 | Last sign-in | Date |
 | Status | Active, invited, suspended |
 | Action | **Impersonate** |
 
-Filters: type, partner, store, role, status. Search: name or email. Never lists staff or
-shoppers.
+Filters: type, partner, store, role, status. Search: name or email, never in the URL. Pages
+by cursor, both ways. Never lists staff or shoppers.
 
 **Starting one**: pick the user; for a store user in several stores (or suppliers), pick
 which one; give a reason or ticket; re-authenticate. Confirmation: "You'll be signed in as
@@ -297,10 +297,20 @@ Priya Mehta (Owner, Mehta Textiles) with her full access for 30 minutes. Everyon
 to Mehta Textiles sees a banner. Everything you do is logged as you, acting as Priya." Then
 the target's console or portal opens in a new tab with an unremovable bar and "End now".
 
-**Sessions**: open now (user, where, staff member, reason, time left, **End**) and history,
-filterable by staff member, partner, store and date. Each links to its activity-log entries.
-A session can be **extended once, by 30 minutes** (decided 2026-09-30); past that a staff
-member starts a new one, which carries a new reason.
+**Sessions**: both kinds, impersonations and setup sessions (decided 2026-10-01, #46): open
+now (who, where, reason, time left, **Return to session**, **Extend**, **End**) and history,
+filterable by kind, staff member, partner, store and date. Each has its own page
+(`/impersonate/sessions/<id>`), which the session id in an activity entry links to, and links
+to its activity-log entries. An impersonation can be **extended once, by 30 minutes**
+(decided 2026-09-30), by whoever started it; past that a staff member starts a new one, which
+carries a new reason. Who may end or extend is ACCESS.md §8.1; the codes are §8.3.
+
+**On every page**, a strip lists the caller's own open sessions of either kind, with
+**Return to session** and **End**.
+
+**A Partner manager** has no Impersonate menu, Users list or Sessions list, and opens the
+page of any setup session (decided 2026-10-01, #46); an impersonation's page tells them it
+isn't open to their role.
 
 The same **Impersonate** button is on each partner's Team tab (§4.2) and each store's Users
 tab (§5.2).
@@ -316,7 +326,8 @@ started from a partner's page (§4.3), not from this menu: staff act **as themse
 partner's setup powers for 2 hours, not as a user. They need a reason and re-authentication
 like impersonation, they cannot be extended, and they cannot touch the partner's payment
 method, payout details or ownership. **Super admin and Partner manager** may start one — not
-Support, whose role excludes the plans and prices a setup session can change.
+Support, whose role excludes the plans and prices a setup session can change. For every
+other role the entry is absent, not disabled (decided 2026-10-01, #46).
 
 ---
 
@@ -398,15 +409,15 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Menu | Queries | Mutations |
 |---|---|---|
 | Dashboard | `dashboard(partnerId)` | |
-| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason)`, `endPartnerSetupSession(id)`, `recheckDomain` |
+| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner`, `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason, ticket, proof)` (ended through `endStaffSession`), `recheckDomain` |
 | Stores | `stores(filter, after, before)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
 | Provisioning | `provisioningJobs(filter, after, before)`, `provisioningJob(id)` (a started job's progress, whatever the list is filtered to) | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
 | Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
-| Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
+| Impersonate | `impersonationTargets(filter, search, after, before)`, `impersonationTarget(membershipId)`, `staffSessions(filter, after, before)` (both kinds, open and history), `staffSession(id)`, `myStaffSessions` (the strip) | `reauthenticate` (a single-use proof), `startImpersonation(targetId, membershipId, reason, ticket, proof)`, `returnToStaffSession(id)` (a fresh handoff link), `endStaffSession(id)`, `extendImpersonation(id)`; refusals are ACCESS.md §8.3 |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityExport(id)` (the job's state and link) | `exportActivity(filter)` |
 | Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite` |
 | Header | `search(query)`, `me` | |
-| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups | |
+| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions | |
 
 Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted
 first, and each row carries when it was submitted, its go-live checks, who set it up and which

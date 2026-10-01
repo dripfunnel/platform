@@ -6,6 +6,7 @@ import { harnessEnabled } from '../features/common/useScreenState'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission as Permission } from './permissions'
 import type { StaffRole } from '../features/shell/staffRoles'
+import type { SessionPermission } from './impersonation'
 import { sampleServer } from './partnersSample'
 
 export const partnerStates = ['draft', 'awaiting', 'live', 'paused', 'offboarding', 'closed'] as const
@@ -152,6 +153,8 @@ export interface Partner extends PartnerRow {
   domains: readonly PartnerDomain[]
   plans: readonly PartnerPlan[]
   team: readonly PartnerUser[]
+  // Whether the caller may impersonate each team member, by their id (ACCESS.md §8.1).
+  impersonate: Readonly<Record<string, SessionPermission>>
   actions: PartnerPermissions
 }
 

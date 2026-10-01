@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -32,33 +33,48 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   path: '/sign-in',
   getParentRoute: () => AuthRoute,
 } as any)
+const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
+  id: '/impersonate/enter',
+  path: '/impersonate/enter',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/sign-in': typeof AuthSignInRoute
+  '/impersonate/enter': typeof ImpersonateEnterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/sign-in': typeof AuthSignInRoute
+  '/impersonate/enter': typeof ImpersonateEnterRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
   '/_auth/sign-in': typeof AuthSignInRoute
+  '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in'
+  fullPaths: '/' | '/sign-in' | '/impersonate/enter'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in'
-  id: '__root__' | '/_app' | '/_auth' | '/_auth/sign-in' | '/_app/'
+  to: '/' | '/sign-in' | '/impersonate/enter'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/_auth'
+    | '/_auth/sign-in'
+    | '/impersonate/enter'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  ImpersonateEnterRoute: typeof ImpersonateEnterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -91,6 +107,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/impersonate/enter': {
+      id: '/impersonate/enter'
+      path: '/impersonate/enter'
+      fullPath: '/impersonate/enter'
+      preLoaderRoute: typeof ImpersonateEnterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -117,6 +140,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  ImpersonateEnterRoute: ImpersonateEnterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -44,11 +44,17 @@ const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
 
 const sessionLabel = { impersonation: words.facts.impersonation, setupSession: words.facts.setupSession, supportSession: words.facts.supportSession }
 
-// The session id stays plain text until #46 gives sessions a page (decided on #44).
+// Staff sessions have a page (#46); a partner's support session is the merchant's to show.
 const SessionFact = ({ access }: { access: NonNullable<ActivityEntry['access']> }) => (
   <Fact label={sessionLabel[access.kind]}>
     <span className="df-activity-session">
-      <span>{fill(words.facts.session, { id: access.id })}</span>
+      {access.kind === 'supportSession' ? (
+        <span>{fill(words.facts.session, { id: access.id })}</span>
+      ) : (
+        <Link to="/impersonate/sessions/$sessionId" params={{ sessionId: access.id }} className="df-row-link">
+          {fill(words.facts.session, { id: access.id })}
+        </Link>
+      )}
       {access.kind === 'impersonation' && (
         <Link to="/activity" search={{ imp: access.id }} className="df-row-link">{words.facts.allEntries}</Link>
       )}

@@ -1,0 +1,257 @@
+/* Impersonate, Sessions, a session's page, the start dialog and the open-session strip
+   (designs/DF Admin Prototype, Impersonate). */
+
+.df-imp-table .df-imp-action {
+  text-align: right;
+}
+
+.df-imp-table td.df-imp-action > * {
+  margin-left: auto;
+}
+
+.df-imp-table .df-imp-action .df-button {
+  white-space: nowrap;
+}
+
+.df-imp-places {
+  display: grid;
+  justify-items: start;
+  gap: var(--df-space-1);
+}
+
+.df-imp-more {
+  display: grid;
+  gap: var(--df-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-imp-section {
+  display: grid;
+  gap: var(--df-space-3);
+  padding: var(--df-space-3) var(--df-space-5) var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-imp-section h2,
+.df-imp-preview h2 {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.df-imp-sessions {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-imp-session {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--df-space-2) var(--df-space-5);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-imp-session-who,
+.df-imp-session-why {
+  flex: 1;
+  min-width: 200px;
+}
+
+.df-imp-session-when {
+  min-width: 170px;
+}
+
+.df-imp-left {
+  color: var(--df-color-text-strong);
+  font-size: 13px;
+}
+
+.df-imp-ticket {
+  word-break: break-all;
+}
+
+.df-imp-session-actions {
+  align-items: flex-start;
+}
+
+.df-imp-preview {
+  display: grid;
+  gap: var(--df-space-2);
+  padding: var(--df-space-3) var(--df-space-5) var(--df-space-4);
+  border: 1px dashed var(--df-color-border);
+  border-radius: var(--df-radius-card);
+}
+
+.df-imp-preview .df-session-bar {
+  position: static;
+  border-radius: var(--df-radius-small);
+}
+
+.df-imp-detail-sub {
+  color: var(--df-color-text-strong);
+  font-weight: 700;
+}
+
+.df-imp-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--df-space-3) var(--df-space-5);
+  margin: 0;
+  padding: var(--df-space-4) var(--df-space-5);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-imp-facts > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.df-imp-facts dt {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-imp-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-imp-detail-actions {
+  align-items: center;
+}
+
+.df-start .df-eyebrow {
+  margin: 0 0 var(--df-space-1);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-start-step {
+  margin: 0 0 var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-start-body {
+  display: grid;
+  gap: var(--df-space-4);
+}
+
+.df-start-body p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.df-start-where {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.df-start-option {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  cursor: pointer;
+}
+
+.df-start-option:has(input:checked) {
+  border-color: var(--df-color-brand);
+}
+
+.df-start-summary {
+  display: grid;
+  gap: var(--df-space-1);
+  margin: 0;
+}
+
+.df-start-summary > div {
+  display: flex;
+  gap: var(--df-space-2);
+}
+
+.df-start-summary dt {
+  color: var(--df-color-muted);
+}
+
+.df-start-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-start-waiting {
+  color: var(--df-color-muted);
+}
+
+.df-imp-strip {
+  display: grid;
+  gap: var(--df-space-2);
+  margin-bottom: var(--df-space-4);
+}
+
+.df-imp-strip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  padding: 10px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.df-imp-strip-row--impersonation {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-imp-strip-row--setup {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-imp-strip-text {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 0 var(--df-space-2);
+  min-width: 220px;
+  margin: 0;
+}
+
+.df-imp-strip-left {
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-imp-strip-actions {
+  display: flex;
+  gap: var(--df-space-2);
+}
