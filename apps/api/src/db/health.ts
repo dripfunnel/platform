@@ -3,9 +3,7 @@ import type { Config } from '#core/config'
 import { getClient } from './client'
 
 const PING_TIMEOUT_MS = 5_000
-// connect and the query are sequential (client.ts), so worst case is connect_timeout +
-// statement_timeout; this must stay >= 2 * PING_TIMEOUT_MS or it fires before either inner
-// timeout can, capping the real budget at half of what getClient was told to allow.
+// >= connect + statement timeouts, which run in sequence (client.ts)
 const CHECK_HEALTH_TIMEOUT_MS = PING_TIMEOUT_MS * 2
 
 export const ping = async (sql: postgres.Sql, query: () => Promise<unknown> = () => sql`select 1`): Promise<boolean> => {

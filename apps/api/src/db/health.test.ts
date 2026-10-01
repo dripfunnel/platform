@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { createServer } from 'node:net'
+import net from 'node:net'
 import { describe, expect, it } from 'vitest'
 import type { Config } from '#core/config'
 import { getClient } from './client'
@@ -75,5 +76,52 @@ describe('checkHealth', () => {
       }
     },
     10_000,
+  )
+
+  it(
+    'is ok past the old 5s cap when the connection is fine but the query response is delayed in transit',
+    async () => {
+      // Proxies to the real Postgres, forwarding everything untouched until it sees the
+      // ReadyForQuery ('Z') that marks the connection as up, then holds the *next* chunk (the
+      // select-1 response) for STALL_MS before forwarding it. That delay is pure network
+      // transit time: it trips neither connect_timeout (connection already established) nor
+      // statement_timeout (the query itself runs instantly on the server). Only
+      // CHECK_HEALTH_TIMEOUT_MS can catch it, so this fails against the old 5s cap and passes
+      // against the current 10s one.
+      const STALL_MS = 6_000
+      const target = new URL(DATABASE_URL)
+      let readySeen = false
+      const proxy = createServer((client) => {
+        const upstream = net.connect(Number(target.port) || 5432, target.hostname)
+        client.pipe(upstream)
+        upstream.on('data', (chunk: Buffer) => {
+          if (!readySeen) {
+            if (chunk.includes(0x5a)) readySeen = true
+            client.write(chunk)
+            return
+          }
+          readySeen = false
+          setTimeout(() => client.write(chunk), STALL_MS)
+        })
+        client.on('error', () => {})
+        upstream.on('error', () => {})
+      })
+      await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve))
+      const { port } = proxy.address() as { port: number }
+      const config: Pick<Config, 'HYPERDRIVE'> = {
+        HYPERDRIVE: { connectionString: `postgres://${target.username}:${target.password}@127.0.0.1:${port}${target.pathname}` },
+      }
+      try {
+        const start = Date.now()
+        const status = await checkHealth(config, ctx)
+        const elapsed = Date.now() - start
+        expect(status).toBe('ok')
+        expect(elapsed).toBeGreaterThan(5_500)
+        expect(elapsed).toBeLessThan(10_000)
+      } finally {
+        await new Promise<void>((resolve) => proxy.close(() => resolve()))
+      }
+    },
+    12_000,
   )
 })
