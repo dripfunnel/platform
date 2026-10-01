@@ -1,5 +1,4 @@
-import { messages } from '../../messages'
-import { ConfirmDemo } from './ConfirmDemo'
+import { ConfirmDemo, type ConfirmDemoWords } from './ConfirmDemo'
 import { EmptyState } from './EmptyState'
 import { ErrorState } from './ErrorState'
 import { LoadingState } from './LoadingState'
@@ -7,9 +6,25 @@ import { PermissionDenied } from './PermissionDenied'
 import { ReadOnlyNotice } from './ReadOnlyNotice'
 import type { ScreenState } from './screenState'
 
-const words = messages.states
+export interface StateWords {
+  empty: { title: string; body: string; action: string }
+  loading: { label: string }
+  error: {
+    title: string
+    body: string
+    detailsLabel: string
+    codeLabel: string
+    code: string
+    requestIdLabel: string
+    requestId: string
+    retry: string
+  }
+  denied: { action: string; reason: string }
+  readonly: { title: string; body: string }
+  confirm: ConfirmDemoWords
+}
 
-export const StateView = ({ state }: { state: ScreenState }) => {
+export const StateView = ({ state, words }: { state: ScreenState; words: StateWords }) => {
   switch (state) {
     case 'empty':
       return (
@@ -41,6 +56,6 @@ export const StateView = ({ state }: { state: ScreenState }) => {
     case 'readonly':
       return <ReadOnlyNotice title={words.readonly.title} body={words.readonly.body} />
     case 'confirm':
-      return <ConfirmDemo />
+      return <ConfirmDemo words={words.confirm} />
   }
 }

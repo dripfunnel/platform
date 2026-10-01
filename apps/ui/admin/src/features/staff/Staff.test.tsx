@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { createStaffServer } from '../../api/staffSample'
 import { messages } from '../../messages'
-import { textOf } from '../../testing/textOf'
+import { textOf } from '@dripfunnel/shared/testing'
 import { Staff, type StaffProps } from './Staff'
 import { staffDialog } from './staffDialog'
 

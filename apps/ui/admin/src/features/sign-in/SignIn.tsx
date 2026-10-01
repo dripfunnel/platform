@@ -5,7 +5,8 @@ import { useEffect, useId, useRef, useState } from 'react'
 import logoOnDark from '../../assets/dripfunnel-logo-inverse.svg'
 import logo from '../../assets/dripfunnel-logo.svg'
 import { messages } from '../../messages'
-import { harnessEnabled, useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import './signIn.css'
 import { SignInStep } from './SignInStep'
 import { signInStates, type SignInState } from './signInStates'
@@ -25,7 +26,7 @@ const leaveForMicrosoft = () => window.location.assign(signInRoute)
 const ignore = () => undefined
 
 export const SignIn = () => {
-  const forced = useScreenState(signInStates)
+  const forced = useScreenState(signInStates, harnessEnabled)
   const outcome = useSignInOutcome()
   const [state, setState] = useState<SignInState>(forced ?? outcome ?? 'start')
   const navigate = useNavigate()

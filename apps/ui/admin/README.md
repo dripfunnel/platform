@@ -70,16 +70,20 @@ them in a `VITE_*` variable, which ends up in the public bundle.
 
 ## Screen states
 
-The state kit lives in `src/features/common/`: `EmptyState`, `LoadingState`, `ErrorState`,
-`PermissionDenied`, `ReadOnlyNotice` and `ConfirmDialog`. Every word comes in as a prop from
-`src/messages/`.
+The state kit (`EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`,
+`ReadOnlyNotice`, `ConfirmDialog`) comes from `@dripfunnel/shared/ui`; it moved there from
+`src/features/common/` on #110 when the partner console became its second user. Every word
+comes in as a prop from `src/messages/`. A screen that uses the kit's classes without a kit
+component imports `@dripfunnel/shared/ui/states.css` itself.
 
 Any screen can be forced into one state without an API by adding `?state=` to its address
 (`empty`, `loading`, `error`, `denied`, `readonly`, `confirm`). The screen calls
-`useScreenState([...])` with the states it offers and lists them in its header comment; an
-unknown or unoffered value is ignored.
+`useScreenState([...], harnessEnabled)` with the states it offers and lists them in its
+header comment; an unknown or unoffered value is ignored. `harnessEnabled` is this app's
+flag, computed once in `src/harness.ts`.
 
-`/states` shows every state and the dialog in one place.
+`/states` (`src/features/common/StateGallery.tsx`) shows every state and the dialog in one
+place; it stays in this app, as each console has its own.
 
 The harness (both `?state=` and `/states`) is on under `vite dev`, and in a build only when
 `VITE_STATE_HARNESS=1` is set at build time. Production never sets it, so there `?state=` is

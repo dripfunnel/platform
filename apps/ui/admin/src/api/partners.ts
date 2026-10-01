@@ -2,7 +2,7 @@
 // talks to the API about partners. The screens only render what these return; in particular
 // whether an action is allowed, and why not, is the API's answer (decided on #19).
 import type { Money } from '@dripfunnel/shared/format'
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 import type { PageInfo, PageRequest } from './pageInfo'
 import type { ActionPermission as Permission } from './permissions'
 import type { StaffRole } from '../features/shell/staffRoles'

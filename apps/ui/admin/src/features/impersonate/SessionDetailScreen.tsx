@@ -1,10 +1,8 @@
-import { useNow } from '@dripfunnel/shared/ui'
+import { useNow, ErrorState, LoadingState, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import { messages } from '../../messages'
-import { ErrorState } from '../common/ErrorState'
-import { LoadingState } from '../common/LoadingState'
-import { useScreenState } from '../common/useScreenState'
+import { harnessEnabled } from '../../harness'
 import { sessionStates } from './impersonateHarness'
 import { sessionCallerFor } from './sessionCaller'
 import { SessionDetail } from './SessionDetail'
@@ -20,7 +18,7 @@ export const SessionDetailScreen = () => {
   const { sessionId } = sessionRoute.useParams()
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(sessionStates)
+  const forced = useScreenState(sessionStates, harnessEnabled)
   const router = useRouter()
   const now = useNow()
   const caller = sessionCallerFor(me.role, searchStr)

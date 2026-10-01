@@ -1,0 +1,41 @@
+.df-gallery {
+  display: grid;
+  gap: var(--df-space-4);
+  padding: var(--df-space-6);
+  color: var(--df-color-text);
+  font-family: var(--df-font);
+}
+
+.df-gallery > :is(h1, p) {
+  margin: 0;
+}
+
+.df-gallery > h1 {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 1.625rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.df-gallery ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-gallery a {
+  color: var(--df-color-link);
+}
+
+.df-gallery a:hover {
+  color: var(--df-color-link-hover);
+}
+
+.df-gallery a:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}

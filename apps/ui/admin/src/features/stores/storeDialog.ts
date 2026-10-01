@@ -1,6 +1,6 @@
 import type { Store, StoreAction } from '../../api/stores'
 import { fill, formatDate, messages } from '../../messages'
-import type { ConfirmDialogProps } from '../common/ConfirmDialog'
+import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 
 const words = messages.store
 

@@ -1,7 +1,8 @@
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import type { PartnerFilter } from '../../api/partners'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { partnersStates } from './partnerHarness'
 import { Partners, PartnersError } from './Partners'
 
@@ -12,7 +13,7 @@ export const PartnersScreen = () => {
   const page = partnersRoute.useLoaderData()
   const { status, setup, q } = partnersRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
-  const forced = useScreenState(partnersStates)
+  const forced = useScreenState(partnersStates, harnessEnabled)
   const navigate = partnersRoute.useNavigate()
   const router = useRouter()
   // A new filter starts from the first page, so the cursors are dropped with the old one.

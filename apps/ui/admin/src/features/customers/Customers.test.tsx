@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { CustomerFilter } from '../../api/customers'
 import { createCustomersServer, sampleCustomers } from '../../api/customersSample'
 import { messages } from '../../messages'
-import { textOf } from '../../testing/textOf'
+import { textOf } from '@dripfunnel/shared/testing'
 import { CustomersView, type CustomersViewProps } from './CustomersView'
 
 const words = messages.customers

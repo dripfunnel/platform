@@ -163,7 +163,7 @@
   opacity: 0.6;
 }
 
-:is(.df-button, .df-state summary, .df-gallery a, .df-field textarea):focus-visible {
+:is(.df-button, .df-state summary, .df-field textarea):focus-visible {
   outline: 2px solid var(--df-color-focus);
   outline-offset: 2px;
 }
@@ -224,43 +224,6 @@
   resize: vertical;
 }
 
-.df-gallery {
-  display: grid;
-  gap: var(--df-space-4);
-  padding: var(--df-space-6);
-  color: var(--df-color-text);
-  font-family: var(--df-font);
-}
-
-.df-gallery > :is(h1, p) {
-  margin: 0;
-}
-
-.df-gallery > h1 {
-  color: var(--df-color-heading);
-  font-family: var(--df-font-heading);
-  font-size: 1.625rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.df-gallery ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--df-space-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.df-gallery a {
-  color: var(--df-color-link);
-}
-
-.df-gallery a:hover {
-  color: var(--df-color-link-hover);
-}
-
 .df-dialog-notes {
   margin: 0;
   padding-left: var(--df-space-4);
@@ -293,94 +256,7 @@ a.df-button {
   text-decoration: none;
 }
 
-.df-pill {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: var(--df-space-1);
-  min-height: 22px;
-  padding: 2px var(--df-space-2);
-  border: 1px solid;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.df-pill .df-icon {
-  flex: none;
-}
-
-.df-pill--success {
-  border-color: var(--df-color-success-border);
-  background: var(--df-color-success-surface);
-  color: var(--df-color-success);
-}
-
-.df-pill--info {
-  border-color: var(--df-color-info-border);
-  background: var(--df-color-info-surface);
-  color: var(--df-color-info);
-}
-
-.df-pill--warning {
-  border-color: var(--df-color-warning-border);
-  background: var(--df-color-warning-surface);
-  color: var(--df-color-warning);
-}
-
-.df-pill--danger {
-  border-color: var(--df-color-danger-border);
-  background: var(--df-color-danger-surface);
-  color: var(--df-color-danger);
-}
-
-.df-pill--neutral {
-  border-color: var(--df-color-neutral-border);
-  background: var(--df-color-neutral-surface);
-  color: var(--df-color-neutral);
-}
-
-/* The one filled pill: a suspended store is the strongest state a store can be in. */
-.df-pill--solid {
-  border-color: var(--df-color-danger-button);
-  background: var(--df-color-danger-button);
-  color: var(--df-color-danger-button-text);
-}
-
-.df-stale {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--df-space-2) var(--df-space-3);
-  padding: var(--df-space-2) var(--df-space-3);
-  border: 1px solid var(--df-color-warning-border);
-  border-radius: var(--df-radius-card);
-  background: var(--df-color-warning-surface);
-  color: var(--df-color-warning);
-  font-family: var(--df-font);
-}
-
-.df-stale p {
-  flex: 1;
-  min-width: 200px;
-  margin: 0;
-}
-
-.df-stale-refresh {
-  min-height: 30px;
-  padding: 0 var(--df-space-3);
-  border: 1px solid var(--df-color-warning-border);
-  border-radius: var(--df-radius);
-  background: transparent;
-  color: var(--df-color-warning);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-:is(.df-stale-refresh, a.df-button):focus-visible {
+a.df-button:focus-visible {
   outline: 2px solid var(--df-color-focus);
   outline-offset: 2px;
 }

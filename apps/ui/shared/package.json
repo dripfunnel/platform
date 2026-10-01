@@ -7,7 +7,9 @@
     "./ui/tokens.css": "./ui/tokens.css",
     "./graphql": "./graphql/index.ts",
     "./format": "./format/index.ts",
-    "./ui/fonts.css": "./ui/fonts.css"
+    "./ui/fonts.css": "./ui/fonts.css",
+    "./ui/states.css": "./ui/states.css",
+    "./testing": "./testing/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -20,10 +22,14 @@
     "@fontsource/ibm-plex-mono": "^5.3.0"
   },
   "peerDependencies": {
-    "react": "^19.3.0"
+    "react": "^19.3.0",
+    "@tanstack/react-router": "^1.170.39"
   },
   "devDependencies": {
+    "@tanstack/react-router": "^1.170.39",
     "@types/react": "^19.3.0",
-    "react": "^19.3.0"
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }

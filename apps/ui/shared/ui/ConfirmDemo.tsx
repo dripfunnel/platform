@@ -1,13 +1,25 @@
 import { useState } from 'react'
-import { messages } from '../../messages'
 import { ConfirmDialog } from './ConfirmDialog'
 import './states.css'
 
-const words = messages.states.confirm
+export interface ConfirmDemoWords {
+  open: string
+  title: string
+  target: string
+  consequence: string
+  notes: string[]
+  reason: string
+  reasonHint: string
+  typeLabel: string
+  typeHint: string
+  typeExpected: string
+  confirm: string
+  cancel: string
+}
 
 // The admin prototype's "Close partner" dialog: the consequence, what it also affects, a
 // reason for the activity log, and the partner's own name typed exactly.
-export const ConfirmDemo = () => {
+export const ConfirmDemo = ({ words }: { words: ConfirmDemoWords }) => {
   const [open, setOpen] = useState(false)
   return (
     <div className="df-actions">

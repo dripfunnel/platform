@@ -2,7 +2,7 @@
 // partner or store user, and setup sessions. The only place this app talks to the API about them.
 import type { PartnerUserRole } from './partners'
 import type { StoreUser } from './stores'
-import { harnessEnabled } from '../features/common/useScreenState'
+import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
 import { impersonationServer } from './impersonationSample'
 import type { PageInfo, PageRequest } from './pageInfo'

@@ -3,7 +3,8 @@ import { useCallback } from 'react'
 import { startActivityExport, type ActivityFilter } from '../../api/activity'
 import { withoutCursors } from '../common/activitySearch'
 import { callerFor } from '../common/harnessCaller'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { ActivityError, ActivityLog } from './ActivityLog'
 import { activityStates, forcedExport } from './activityHarness'
 import { exportJob, useExportJob } from './exportJob'
@@ -16,7 +17,7 @@ export const ActivityLogScreen = () => {
   const filter: ActivityFilter = withoutCursors(activityRoute.useSearch())
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(activityStates)
+  const forced = useScreenState(activityStates, harnessEnabled)
   const navigate = activityRoute.useNavigate()
   const router = useRouter()
   const job = useExportJob()

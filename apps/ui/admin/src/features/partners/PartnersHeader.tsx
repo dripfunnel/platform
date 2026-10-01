@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { ActionPermission } from '../../api/partners'
 import { messages } from '../../messages'
 import { ListHeader } from '../common/ListHeader'
-import { PermissionDenied } from '../common/PermissionDenied'
+import { PermissionDenied } from '@dripfunnel/shared/ui'
 import { refusalText } from './refusal'
 
 const words = messages.partners

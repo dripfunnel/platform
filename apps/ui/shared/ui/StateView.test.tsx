@@ -1,12 +1,53 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { messages } from '../../messages'
-import { textOf } from '../../testing/textOf'
+import { textOf } from '../testing/textOf'
 import { screenStates, type ScreenState } from './screenState'
-import { StateView } from './StateView'
+import { StateView, type StateWords } from './StateView'
 
-const words = messages.states
-const render = (state: ScreenState) => renderToStaticMarkup(<StateView state={state} />)
+// The admin console's words at the time of the move (#110), so the assertions read as before.
+const words: StateWords = {
+  empty: {
+    title: 'No partners yet',
+    body: 'Partners are the companies that resell DripFunnel under their own brand. Create the first one and invite its owner.',
+    action: 'Create partner',
+  },
+  loading: {
+    label: 'Loading partners',
+  },
+  error: {
+    title: "We couldn't load the partners",
+    body: "The admin API didn't answer. Nothing you entered was lost. Try again in a moment.",
+    detailsLabel: 'Technical details',
+    codeLabel: 'Error code',
+    code: 'UNKNOWN',
+    requestIdLabel: 'Request id',
+    requestId: '7f3a91c2',
+    retry: 'Try again',
+  },
+  denied: {
+    action: 'Pause partner',
+    reason: 'Only a Super admin can pause a partner.',
+  },
+  readonly: {
+    title: 'You have read-only access',
+    body: "Your role can see everything here but can't change anything. Ask a Super admin if you need to.",
+  },
+  confirm: {
+    open: 'Close partner…',
+    title: 'Close this partner?',
+    target: 'Northstar Commerce',
+    consequence: 'Closes Northstar Commerce. Its portal host store.northstar.com stops working.',
+    notes: ["This can't be undone here.", 'Its 86 stores stop being reachable on that host.'],
+    reason: 'Reason (saved in the activity log)',
+    reasonHint: 'Required. Close partner turns on once you give a reason.',
+    typeLabel: 'Type Northstar Commerce to confirm',
+    typeHint: 'Type the partner name exactly to confirm.',
+    typeExpected: 'Northstar Commerce',
+    confirm: 'Close partner',
+    cancel: 'Cancel',
+  },
+}
+const render = (state: ScreenState) => renderToStaticMarkup(<StateView state={state} words={words} />)
 
 describe('StateView', () => {
   it('renders the empty state with its explanation and one action', () => {

@@ -1,5 +1,5 @@
 import { Icon, type StatusIconName } from '../shell/Icon'
-import './states.css'
+import './list.css'
 
 export type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral' | 'solid'
 

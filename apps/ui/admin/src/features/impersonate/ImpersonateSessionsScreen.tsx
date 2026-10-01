@@ -1,9 +1,9 @@
-import { useNow } from '@dripfunnel/shared/ui'
+import { useNow, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback } from 'react'
 import type { SessionFilter } from '../../api/impersonation'
 import { withoutCursors } from '../common/activitySearch'
-import { useScreenState } from '../common/useScreenState'
+import { harnessEnabled } from '../../harness'
 import { sessionsStates } from './impersonateHarness'
 import { ImpersonateSessions, SessionsError } from './ImpersonateSessions'
 import { sessionCallerFor } from './sessionCaller'
@@ -18,7 +18,7 @@ export const ImpersonateSessionsScreen = () => {
   const filter = withoutCursors(sessionsRoute.useSearch())
   const { me, badges } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(sessionsStates)
+  const forced = useScreenState(sessionsStates, harnessEnabled)
   const navigate = sessionsRoute.useNavigate()
   const router = useRouter()
   const now = useNow()

@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { loadDashboard, type DashboardData } from '../../api/dashboard'
 import { messages } from '../../messages'
-import { textOf } from '../../testing/textOf'
+import { textOf } from '@dripfunnel/shared/testing'
 import { Dashboard, type DashboardProps } from './Dashboard'
 
 const words = messages.dashboard

@@ -2,7 +2,8 @@ import { getRouteApi, Link, useRouterState } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { TargetFilter } from '../../api/impersonation'
 import type { PageRequest } from '../../api/pageInfo'
-import { useScreenState } from '../common/useScreenState'
+import { useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { usersStates } from './impersonateHarness'
 import { ImpersonateUsers } from './ImpersonateUsers'
 import { sessionCallerFor } from './sessionCaller'
@@ -15,7 +16,7 @@ const shellRoute = getRouteApi('/_app')
 export const ImpersonateUsersScreen = () => {
   const { after, before, ...filter } = usersRoute.useSearch()
   const { me, badges } = shellRoute.useLoaderData()
-  const forced = useScreenState(usersStates)
+  const forced = useScreenState(usersStates, harnessEnabled)
   const navigate = usersRoute.useNavigate()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const caller = sessionCallerFor(me.role, searchStr)

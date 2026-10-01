@@ -4,9 +4,9 @@ import { partnerActions, recheckDomain, runPartnerAction, type Partner, type Par
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { ConfirmDialog, useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { callerFor } from '../common/harnessCaller'
-import { useScreenState } from '../common/useScreenState'
 import { actionDialog, actionToast, type ConfirmedAction } from './actionDialog'
 import { partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
@@ -26,7 +26,7 @@ export const PartnerDetailScreen = () => {
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const navigate = partnerRoute.useNavigate()
-  const forced = useScreenState(partnerStates)
+  const forced = useScreenState(partnerStates, harnessEnabled)
   const router = useRouter()
   const [pending, setPending] = useState<ConfirmedAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
   const [toast, setToast] = useState<string | null>(null)

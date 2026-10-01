@@ -2,9 +2,9 @@ import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
 import { jobActions, type JobAction, type JobFilter, type ProvisioningJob } from '../../api/provisioning'
 import { messages } from '../../messages'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { ConfirmDialog, useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
 import { jobDialog, type JobTarget } from './jobDialog'
 import { Provisioning, ProvisioningError } from './Provisioning'
 import { provisioningStates } from './provisioningHarness'
@@ -31,7 +31,7 @@ const targetOf = (job: ProvisioningJob): JobTarget => ({ name: job.store.name, c
 export const ProvisioningScreen = () => {
   const page = provisioningRoute.useLoaderData()
   const { partner, status, step, q, pace } = provisioningRoute.useSearch()
-  const forced = useScreenState(provisioningStates)
+  const forced = useScreenState(provisioningStates, harnessEnabled)
   const navigate = provisioningRoute.useNavigate()
   const router = useRouter()
   const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' && page ? firstAllowed(page.items) : null))

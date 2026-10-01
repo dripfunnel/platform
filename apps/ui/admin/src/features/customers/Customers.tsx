@@ -4,7 +4,7 @@
 // customers, newest first.
 import { messages } from '../../messages'
 import { ListHeader } from '../common/ListHeader'
-import { ReadOnlyNotice } from '../common/ReadOnlyNotice'
+import { ReadOnlyNotice } from '@dripfunnel/shared/ui'
 import { CustomersList, type CustomersListProps } from './CustomersList'
 import '../common/list.css'
 

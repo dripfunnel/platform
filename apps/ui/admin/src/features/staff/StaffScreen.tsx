@@ -2,10 +2,10 @@ import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { changeStaffRole, inviteStaff, removeStaff, resendStaffInvite, revokeStaffInvite, type StaffMember, type StaffResult } from '../../api/staff'
 import { messages } from '../../messages'
-import { ConfirmDialog } from '../common/ConfirmDialog'
+import { ConfirmDialog, useScreenState } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../../harness'
 import { callerFor } from '../common/harnessCaller'
 import { Toast } from '../common/Toast'
-import { useScreenState } from '../common/useScreenState'
 import { Staff, StaffError } from './Staff'
 import { refusalOn, type PageRefusal } from './pageRefusal'
 import { isStaffRole, labelOf, refusalText, staffDialog, staffToast, type StaffDialogKind } from './staffDialog'
@@ -23,7 +23,7 @@ export const StaffScreen = () => {
   const page = staffRoute.useLoaderData()
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const forced = useScreenState(staffStates)
+  const forced = useScreenState(staffStates, harnessEnabled)
   const router = useRouter()
   const caller = callerFor(me.role, searchStr)
   const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? { kind: 'invite', member: null } : null))
