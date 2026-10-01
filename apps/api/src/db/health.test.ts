@@ -88,19 +88,42 @@ describe('checkHealth', () => {
       // Delays only the query response (detected by its literal text) so connect_timeout and
       // statement_timeout can't catch it — only CHECK_HEALTH_TIMEOUT_MS can.
       //
-      // DATABASE_URL is Neon in CI (requires TLS, sslmode=require), so a plain byte-for-byte TCP
-      // relay doesn't work here: the 'select 1' marker below would be inside the encrypted TLS
-      // stream and never match. Also, postgres.js skips SNI entirely for an IP host
-      // (connection.js: `net.isIP(socket.host) ? undefined : socket.host`), and this proxy is
-      // '127.0.0.1' — so a raw relay reaches Neon's edge with no SNI at all and gets rejected
-      // before any query runs. So this proxy terminates TLS on both legs instead: a throwaway
-      // self-signed cert for the client leg (postgres.js doesn't verify the cert under
-      // sslmode=require — connection.js sets rejectUnauthorized: false for 'require'/'allow'/
-      // 'prefer'), and a real TLS connection upstream with the correct servername. That leaves
-      // plaintext Postgres protocol in the middle, where the marker match and stall below works.
+      // Terminates TLS on both legs only when the client actually requests it, falling back to a
+      // plain relay otherwise (local dev's non-TLS Postgres). See PR description for why.
+      const SSL_REQUEST = Buffer.from([0, 0, 0, 8, 4, 210, 22, 47]) // length 8, code 80877103
       const STALL_MS = 6_000
       const target = new URL(DATABASE_URL)
       const queryMarker = Buffer.from('select 1')
+
+      // Shared between the TLS and plain-relay paths: watches client->upstream traffic for the
+      // query marker, then buffers and delays the first upstream->client response after it.
+      const relayWithStall = (clientSide: net.Socket, upstreamSide: net.Socket) => {
+        let queryStarted = false
+        let stalled = false
+        let flushed = false
+        const pending: Buffer[] = []
+        clientSide.on('data', (chunk: Buffer) => {
+          if (!queryStarted && chunk.includes(queryMarker)) queryStarted = true
+          upstreamSide.write(chunk)
+        })
+        upstreamSide.on('data', (chunk: Buffer) => {
+          if (!queryStarted || flushed) {
+            clientSide.write(chunk)
+            return
+          }
+          pending.push(chunk)
+          if (!stalled) {
+            stalled = true
+            setTimeout(() => {
+              flushed = true
+              for (const buffered of pending) clientSide.write(buffered)
+              pending.length = 0
+            }, STALL_MS)
+          }
+        })
+        clientSide.on('error', () => {})
+        upstreamSide.on('error', () => {})
+      }
 
       const certDir = await mkdtemp(path.join(os.tmpdir(), 'health-test-cert-'))
       const keyPath = path.join(certDir, 'key.pem')
@@ -124,43 +147,25 @@ describe('checkHealth', () => {
         const [key, cert] = await Promise.all([readFile(keyPath), readFile(certPath)])
 
         const proxy = createServer((client) => {
-          client.once('data', (sslRequest: Buffer) => {
-            client.write('S')
-            const clientTls = new tls.TLSSocket(client, { isServer: true, key, cert })
-
+          client.once('data', (first: Buffer) => {
+            const isSslRequest = first.length === 8 && Buffer.compare(first, SSL_REQUEST) === 0
             const upstreamRaw = net.connect(Number(target.port) || 5432, target.hostname)
             upstreamRaw.once('connect', () => {
-              upstreamRaw.write(sslRequest)
-              upstreamRaw.once('data', () => {
+              upstreamRaw.write(first)
+              if (!isSslRequest) {
+                relayWithStall(client, upstreamRaw)
+                return
+              }
+              upstreamRaw.once('data', (upstreamReply: Buffer) => {
+                if (upstreamReply.length !== 1 || upstreamReply[0] !== 0x53) {
+                  client.write(upstreamReply)
+                  relayWithStall(client, upstreamRaw)
+                  return
+                }
+                client.write('S')
+                const clientTls = new tls.TLSSocket(client, { isServer: true, key, cert })
                 const upstreamTls = tls.connect({ socket: upstreamRaw, servername: target.hostname })
-
-                let queryStarted = false
-                let stalled = false
-                let flushed = false
-                const pending: Buffer[] = []
-                clientTls.on('data', (chunk: Buffer) => {
-                  if (!queryStarted && chunk.includes(queryMarker)) queryStarted = true
-                  upstreamTls.write(chunk)
-                })
-                upstreamTls.on('data', (chunk: Buffer) => {
-                  // Buffer every read of the query response and flush in order; releasing only
-                  // the first reorders the wire protocol.
-                  if (!queryStarted || flushed) {
-                    clientTls.write(chunk)
-                    return
-                  }
-                  pending.push(chunk)
-                  if (!stalled) {
-                    stalled = true
-                    setTimeout(() => {
-                      flushed = true
-                      for (const buffered of pending) clientTls.write(buffered)
-                      pending.length = 0
-                    }, STALL_MS)
-                  }
-                })
-                clientTls.on('error', () => {})
-                upstreamTls.on('error', () => {})
+                relayWithStall(clientTls, upstreamTls)
               })
             })
             upstreamRaw.on('error', () => {})
@@ -170,7 +175,9 @@ describe('checkHealth', () => {
         await new Promise<void>((resolve) => proxy.listen(0, '127.0.0.1', resolve))
         const { port } = proxy.address() as { port: number }
         const config: Pick<Config, 'HYPERDRIVE'> = {
-          HYPERDRIVE: { connectionString: `postgres://${target.username}:${target.password}@127.0.0.1:${port}${target.pathname}` },
+          HYPERDRIVE: {
+            connectionString: `postgres://${target.username}:${target.password}@127.0.0.1:${port}${target.pathname}${target.search}`,
+          },
         }
         try {
           const start = Date.now()
