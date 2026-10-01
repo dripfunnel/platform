@@ -8,7 +8,7 @@ release contains, screen by screen), [README.md](README.md),
 and [../../api/ACCESS.md](../../api/ACCESS.md) §5.3; where they disagree with this prompt, they
 win and this prompt should be updated. The clickable prototype,
 `designs/DF Platform Prototype.dc.html`, decides behaviour; §12 below lists the places where
-the documents overrule it, so a session never reproduces them.
+the documents overrule it, and the two behaviours kept exactly as it draws them.
 
 Refreshed 2026-10-02 on #123 after the decisions taken on #109: the five roles and their
 permissions, 2-factor optional with an Owner switch, the ten menu rows, support sessions
@@ -565,10 +565,12 @@ partner manager), and **Google sign-in**.
    money formatting, confirmation dialog and activity row everywhere.
 5. When this brief is silent, ask; don't invent product rules.
 
-## 12. Where the earlier prototype is wrong
+## 12. Where the earlier prototype differs
 
-The existing prototype decides behaviour; these are the places the product's rules overrule
-it, so do not reproduce them:
+The existing prototype decides behaviour. Two lists: what the product's rules overrule, which
+you must not reproduce, and what is kept exactly as the prototype draws it.
+
+**Overruled: design this instead**
 
 | The prototype shows | Design this instead |
 |---|---|
@@ -576,5 +578,8 @@ it, so do not reproduce them:
 | A payment-method dialog that takes a raw card number | A hosted payment field from the payment provider; the card number never touches DripFunnel (§6.12) |
 | No environment marker | A grey strip naming the environment on every host but production (§5) |
 | Everyone sets up an authenticator app when accepting an invitation | 2-factor offered with "Skip for now", and required only when the Owner's Security switch is on (§6.1, §6.12) |
-| Lists ending in "Show 25 more" | Kept: that is the design. Never page numbers or a total |
-| Retrying a stuck setup step as a partner action | Kept: Owner and Admin may retry (§6.4) |
+
+**Kept as the prototype has it**
+
+- Lists end in "Show 25 more": never page numbers or a total (§4).
+- Retrying a stuck setup step is a partner action, for Owner and Admin (§6.4).
