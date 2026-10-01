@@ -135,11 +135,17 @@ describe('checkHealth', () => {
         certDir = await mkdtemp(path.join(os.tmpdir(), 'health-test-cert-'))
         const keyPath = path.join(certDir, 'key.pem')
         const certPath = path.join(certDir, 'cert.pem')
+        // EC (not RSA): RSA-2048 keygen is a probabilistic prime search whose wall-clock time
+        // swings under CPU contention (CI's shared/throttled runners), eating into this test's
+        // own timing margins. EC keypair generation is a fixed-cost operation, consistently
+        // single-digit milliseconds, which removes that variance (#51).
         execFileSync('openssl', [
           'req',
           '-x509',
           '-newkey',
-          'rsa:2048',
+          'ec',
+          '-pkeyopt',
+          'ec_paramgen_curve:prime256v1',
           '-keyout',
           keyPath,
           '-out',
