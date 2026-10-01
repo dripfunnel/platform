@@ -9,7 +9,8 @@ export class ApiError extends Error {
 
 type GraphQLResponse<T> = { data?: T; errors?: { message: string; extensions?: { code?: string } }[] }
 
-export const createApiClient = ({ endpoint = '/api', timeoutMs = 15_000 } = {}) => ({
+// Trailing slash: the `/api/*` route misses bare `/api` (ARCHITECTURE.md §2).
+export const createApiClient = ({ endpoint = '/api/', timeoutMs = 15_000 } = {}) => ({
   async request<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
     const response = await fetch(endpoint, {
       method: 'POST',

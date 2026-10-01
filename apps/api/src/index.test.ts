@@ -62,6 +62,13 @@ describe('worker', () => {
     }
   })
 
+  it('answers GraphQL on /api/ with the trailing slash the SPA client sends (client.ts)', async () => {
+    for (const href of ['https://admin.dripfunnel.com/api/', 'https://platform.dripfunnel.com/api/', 'https://store.partner.com/api/']) {
+      const response = await query(href)
+      expect(await response.json()).toEqual({ data: { health: 'ok' } })
+    }
+  })
+
   it('returns 500 without a payload when required config is missing', async () => {
     const broken = { ...env, PLATFORM_HOST: undefined }
     const response = await worker.fetch(
