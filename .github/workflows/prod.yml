@@ -1,4 +1,4 @@
-name: prod
+name: production deploy
 
 # Migrations + Worker version upload only, gated by a local gates job (main isn't
 # branch-protected yet). See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
@@ -22,7 +22,7 @@ jobs:
     # this job also handles dispatch, so it needs its own guard.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: prod
+    environment: production
     defaults:
       run:
         working-directory: apps/api
@@ -55,7 +55,7 @@ jobs:
     needs: gates
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: prod
+    environment: production
     defaults:
       run:
         working-directory: apps/api
@@ -75,7 +75,7 @@ jobs:
         id: worker
         uses: ./.github/actions/worker-upload
         with:
-          env-name: prod
+          env-name: production
           message: ${{ github.sha }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
