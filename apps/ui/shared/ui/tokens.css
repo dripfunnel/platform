@@ -1,19 +1,121 @@
+/* The style guide's values (designs/design.md §5–7). Light is the default; dark comes from
+   `data-theme="dark"`, which each index.html sets before the first paint so the OS is a
+   default a person can override (design.md §5, §10). */
 :root {
-  --df-color-brand: #4f46e5;
-  --df-color-brand-contrast: #ffffff;
+  color-scheme: light;
+  background: var(--df-color-page);
+  color: var(--df-color-text);
+  font-family: var(--df-font);
+  --df-color-brand: #ec844f;
+  --df-color-brand-hover: #d96c33;
+  --df-color-brand-contrast: #4a1b0c;
+  --df-color-page: #fdfaf7;
   --df-color-surface: #ffffff;
-  --df-color-text: #111827;
-  --df-color-muted: #6b7280;
+  --df-color-heading: #0a2a4a;
+  --df-color-text: #14181f;
+  --df-color-muted: #5a6472;
+  /* "Strong secondary": table text and labels (design.md §5). */
+  --df-color-text-strong: #434a55;
+  --df-color-link: #b8541f;
+  --df-color-link-hover: #8f4017;
+  --df-color-border: #e8e2dc;
+  --df-color-field-border: #d7d3cd;
+  --df-color-focus: #00519f;
+  --df-color-skeleton: #efeae4;
+  --df-color-backdrop: rgb(10 22 34 / 0.55);
+  --df-color-danger: #a1261b;
+  --df-color-danger-surface: #fdecec;
+  --df-color-danger-border: #f3c7c2;
+  --df-color-danger-button: #a1261b;
+  --df-color-danger-button-text: #ffffff;
+  --df-color-warning: #7a4b00;
+  --df-color-warning-surface: #fff6e5;
+  --df-color-warning-border: #f2d9a6;
+  /* Info: the prototype's read-only panels, which the style guide does not define. */
+  --df-color-info: #00325f;
+  --df-color-info-surface: #eaf1f8;
+  --df-color-info-border: #c6d9ec;
+  --df-color-success: #1d6b47;
+  --df-color-success-surface: #eef7f2;
+  --df-color-success-border: #cbe6d6;
+  --df-color-neutral: #4a5360;
+  --df-color-neutral-surface: #f1eeea;
+  --df-color-neutral-border: #e0dad3;
+  --df-color-hover: #f7f2ed;
+  /* Its focus ring is always #2e7bd1: the light one has too little contrast on navy. */
+  --df-color-side: #0a2a4a;
+  --df-color-side-text: #b8c7d6;
+  --df-color-side-focus: #2e7bd1;
+  --df-color-side-row: #d6dee7;
+  --df-color-side-strong: #ffffff;
+  --df-color-side-hover: rgb(255 255 255 / 0.06);
+  --df-color-side-active: rgb(255 255 255 / 0.1);
+  --df-color-side-control: rgb(255 255 255 / 0.08);
+  --df-color-side-control-border: rgb(255 255 255 / 0.14);
+  --df-color-side-divider: rgb(255 255 255 / 0.2);
+  --df-color-env-production: #b42318;
+  --df-color-env-staging: #4a5360;
+  --df-color-env-text: #ffffff;
+  --df-shadow-floating: 0 18px 44px -20px rgb(10 42 74 / 0.5);
+  --df-radius-small: 6px;
   --df-radius: 8px;
+  --df-radius-card: 12px;
+  --df-radius-dialog: 16px;
+  --df-control-height: 40px;
+  --df-space-1: 4px;
   --df-space-2: 8px;
+  --df-space-3: 12px;
   --df-space-4: 16px;
-  --df-font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --df-space-5: 20px;
+  --df-space-6: 24px;
+  --df-space-7: 28px;
+  --df-space-10: 40px;
+  --df-space-12: 48px;
+  --df-space-16: 64px;
+  --df-font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --df-font-heading: 'Manrope Variable', Manrope, 'Inter Variable', Inter, system-ui, sans-serif;
+  --df-font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --df-color-surface: #0f1115;
-    --df-color-text: #f3f4f6;
-    --df-color-muted: #9ca3af;
-  }
+body {
+  margin: 0;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --df-color-brand-hover: #f09a6d;
+  --df-color-page: #0a1622;
+  --df-color-surface: #12222f;
+  --df-color-heading: #ffffff;
+  --df-color-text: #d6dee7;
+  --df-color-muted: #8a9aab;
+  /* design.md §5 gives no dark value for "strong secondary", so it maps to the body text
+     rather than inventing a hex. */
+  --df-color-text-strong: var(--df-color-text);
+  --df-color-link: #ec844f;
+  --df-color-link-hover: #f09a6d;
+  --df-color-border: #1e3242;
+  --df-color-field-border: #2a3f52;
+  --df-color-focus: #2e7bd1;
+  --df-color-skeleton: #1a2c3b;
+  --df-color-backdrop: rgb(0 0 0 / 0.6);
+  --df-color-danger: #f29a90;
+  --df-color-danger-surface: #34110f;
+  --df-color-danger-border: #5e231e;
+  --df-color-danger-button: #b83227;
+  --df-color-warning: #f2c36b;
+  --df-color-warning-surface: #2e2208;
+  --df-color-warning-border: #5a4212;
+  --df-color-info: #9cc3ec;
+  --df-color-info-surface: #132b3f;
+  --df-color-info-border: #23496b;
+  --df-color-success: #7fd1a5;
+  --df-color-success-surface: #0f2a1e;
+  --df-color-success-border: #1f4a35;
+  --df-color-neutral: #b8c7d6;
+  --df-color-neutral-surface: #1a2a38;
+  --df-color-neutral-border: #2a3f52;
+  --df-color-hover: #16293a;
+  --df-color-side: #050d14;
+  --df-shadow-floating: 0 18px 44px -20px rgb(0 0 0 / 0.7);
 }

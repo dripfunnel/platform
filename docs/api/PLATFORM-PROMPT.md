@@ -5,6 +5,8 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
+Last updated: 2026-09-29.
+
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
 (a GraphQL Shop API and an admin-side Store API, configurable operations, custom fields, an
@@ -212,7 +214,8 @@ in [SAAS.md](SAAS.md), DESIGN-BRIEF, CATALOG-DESIGN-PROMPT and OFFERS-DESIGN-PRO
     container replaces the old. Health checks check the database. [ARCHITECTURE §10]
 24. **Build minutes and AI cost per store per month** are tracked from the first store.
     [SAAS-PLAN §14]
-25. **Tests against real infrastructure**: a real Postgres (Testcontainers), an authorization
+25. **Tests against real infrastructure**: a real Postgres (the local one, a fresh database
+    per run — docs/api/README.md §7; no Docker), an authorization
     matrix run against the real API layer, no mocked data layer. [ARCHITECTURE §12]
 
 ---
@@ -514,7 +517,7 @@ or admin console (ACCESS.md §8), integrations and apps:
 ### 5.8 Config, deploy, observability
 
 - Typed config validated from the Worker `env`; secrets in Workers secrets; migrations from
-  `apps/api/migrations` before the Worker deploys; gradual rollouts and rollback
+  `apps/api/migrations` before the Worker deploys; manual gated promotion and rollback
   (`../ARCHITECTURE.md` §4, §6).
 - Every log line carries store, seller and brand ids. Tracing across API, worker and edge.
 - The §14 metrics from the first store: build minutes, AI cost, provisioning success, time to

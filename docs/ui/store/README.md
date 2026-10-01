@@ -13,7 +13,13 @@ support session (§6).
 store choice, invitations, profile and the eight Settings tabs; those screens are the visual
 baseline (PLATFORM-PROMPT §6).
 
-Last updated: 2026-09-28.
+**The prototype is `designs/DF Store Prototype.dc.html`** — open it in a browser and click
+through the screen you are building before you build it; its Role, Plan, Region and Scenario
+controls reach the states. `designs/DF Store Pricing.dc.html` says what each plan includes,
+which is what the portal's plan gates and upgrade prompts follow. The prototype decides
+**behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
+
+Last updated: 2026-09-30.
 
 | Document | Covers |
 |---|---|
@@ -174,9 +180,10 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   from the session context the API returns, never from local state.
 - **Past due** puts the whole portal in a read-only state with a banner linking to billing;
   it never locks the merchant out.
-- **Support session banner**: while a partner or DripFunnel support session is open, every
-  person signed in to that store sees "[Partner] support (name) is viewing your store.
-  Read-only. Ends in 28 min." (USERS-AND-DOMAINS.md §4.1).
+- **Support session banner**: while a **partner** support session is open, every person
+  signed in to that store sees "[Partner] support (name) is viewing your store. Read-only.
+  Ends in 28 min." (USERS-AND-DOMAINS.md §4.1). DripFunnel staff never open one; when a staff
+  member is impersonating, the banner says "Support (name) is signed in as …" (§4.2).
 - **Regional by default**: every screen that differs by region is designed for a US, an EU
   and an Indian store; tax words, units and formats come from the store's settings.
 - **Phone first**: every screen works at 360 px, with camera upload for photos.

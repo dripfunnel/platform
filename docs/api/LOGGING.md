@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-01.
 
 ---
 
@@ -43,7 +43,7 @@ the categories; each API's resolvers declare their own action codes (§5).
 
 | Level | Who acts | Recorded |
 |---|---|---|
-| **Admin console** (Admin API) | DripFunnel staff | Sign-in, sign-out, failed sign-in, re-authentication; every write: partner created, approved, sent back, paused; store suspended, restored, trial extended; job retried or undone; staff invited, role changed, removed; impersonation started and ended (and every action inside it, as the user with the staff member on behalf); exports |
+| **Admin console** (Admin API) | DripFunnel staff | Sign-in, sign-out, failed sign-in, re-authentication; every write: partner created, approved, sent back, paused; store suspended, restored, trial extended; job retried or undone; staff invited, role changed, removed; impersonation started, **extended** and ended (and every action inside it, as the user with the staff member on behalf); setup session started and ended; exports |
 | **Partner console** (Platform API) | Partner users | Sign-in, sign-out, failed sign-in; every write: branding, domains, email sender, plans and prices, merchant created, plan changed, trial extended, suspended, restored; team changes; support sessions; submission for approval |
 | **Merchant portal** (Store API) | Owner, Manager, Staff, vendors, API keys, apps, support sessions | Sign-in, sign-out, failed sign-in, store switched; every write in every area: products, stock, collections, orders, fulfilments, refunds, customers edited by staff, offers, storefront changes and publishes, settings, people, vendors, approvals, API keys, webhooks, app installs, support access setting |
 | **Storefront** (Shop API) | Shoppers | Account created, email verified, sign-in, sign-out, failed sign-in, password reset, password or email changed, address added, changed or removed, order placed, order cancelled or return requested by the shopper, account deleted. **Not** page views, searches or carts |
@@ -75,7 +75,7 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 | `customer_id` | The shopper the action concerns, as actor or subject |
 | `target_type`, `target_id`, `target_label` | What was acted on (`product`, `order #1042`, `partner Northstar`) |
 | `changes` | For updates: the fields changed, with before and after for non-sensitive fields (§4.1) |
-| `reason` | Required where the action needs one (suspend, support session, staff and partner writes to a store's account) |
+| `reason` | Required where the action needs one (suspend, support session, staff and partner writes to a store's account). For `staff.sign_in_refused` it is the refusal code (§4.2) |
 | `api`, `host`, `request_id` | Which API, which host, and the request id that links to technical logs |
 | `ip`, `user_agent` | For `auth` and `security` entries only; visible to staff only *(confirm)* |
 | `visibility` | Lowest audience allowed: `staff`, `partner`, `store`, `self` (§6) |
@@ -91,6 +91,25 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 
 The redaction list lives in code beside the resolver scope declarations, and a test fails
 if a field on it appears in any entry.
+
+### 4.2 Why a staff sign-in was refused
+
+Every refused staff sign-in answers the caller identically (CONSOLE-DESIGN A1), so the cause
+lives only in the entry's `reason`, as one of a fixed set of codes:
+
+| Code | Meaning |
+|---|---|
+| `missing_code` | The callback arrived with no authorization code |
+| `missing_handshake` | No handshake cookie, so the sign-in did not start here |
+| `state_mismatch` | The `state` did not match the one we issued: a forged or replayed callback |
+| `bad_claims` | The provider returned claims that failed validation |
+| `unknown_subject` | No `staff_user` has that `sso_subject` |
+| `staff_suspended` | The staff member is suspended |
+| `staff_not_active` | The staff member exists but is not active for another reason (invited) |
+| `provider_refused` | The provider rejected the exchange |
+| `provider_unconfigured` | No identity provider is wired up (#89) |
+
+They are literals, never interpolated, so an entry cannot carry a subject or an email.
 
 ---
 
@@ -110,6 +129,10 @@ if a field on it appears in any entry.
 - Code lives in `apps/api/src/saas/activity/` (writing and querying) and
   `apps/api/src/db/schema/activity.ts` (the table); the scope declaration in
   `apis/graphql/scope.ts` calls it.
+- **Until #15 builds the table**, `apps/api/src/auth/activity.ts` holds the entry shape and
+  writes each one to the Worker's logs instead (§9), carrying no label, IP or user agent. A
+  failed staff sign-in therefore leaves a trace but not a searchable record, and #15 replaces
+  the writer without changing the shape.
 
 ---
 

@@ -9,10 +9,17 @@ Cloudflare Access guards the whole host in front of the app's own sign-in.
 Older documents call it "DF Admin". It replaces the framework dashboard of the archived
 platform; there is no other operations console.
 
-**Status: skeleton** (sign-in and home routes). The design is
+**Status: the shell** (header, side bar, environment banner; #17), the Dashboard (#18) and
+Partners, list and detail (#19), all on fixtures, with a placeholder screen for Stores. The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
-Last updated: 2026-09-29.
+**The prototype is `designs/DF Admin Prototype.dc.html`** — open it in a browser and click
+through the screen you are building before you build it. It has Dashboard, Partners, Stores,
+Customers, Approvals, Provisioning, Impersonate, Activity log and Staff; the first release
+ships only what [FIRST-RELEASE.md](FIRST-RELEASE.md) §2 lists. The prototype decides
+**behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
+
+Last updated: 2026-09-30.
 
 | Document | Covers |
 |---|---|
@@ -70,13 +77,13 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home, search | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Partners: create, configure, approve, plans and prices | ✓ | ✓ (their partners) | view | view | view | view |
-| Partners: pause, offboard, close | ✓ | *(ask)* | | | | |
+| Partners: pause, offboard, close | ✓ | | | | | |
 | Stores: detail | ✓ | ✓ (their partners) | ✓ | ✓ | ✓ | ✓ |
 | Stores: suspend, restore | ✓ | | | | emergency only | |
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Customers: full email and phone *(proposed)* | ✓ | | ✓ | | | |
-| Impersonate partner and store users (full access, 30 min) | ✓ | | ✓ | | | |
+| Customers: full email and phone | ✓ | | ✓ | | | |
+| Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
 | Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |
@@ -143,11 +150,19 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 ```
 apps/ui/admin/src/
   features/
-    auth/  home/  search/  partners/  branding/  plans/  stores/  support/  billing/
-    jobs/  fleet/  domains/  usage/  communication/  staff/  settings/  audit/
+    shell/                  the app shell: header, side bar, nav drawer, environment banner
+    sign-in/                the signed-out screens
+    common/                 what two areas of this app share: screen states, ConfirmDialog
+    dashboard/              #18
+    partners/               #19
+    stores/                 placeholder until #20
   api/                      one file per Admin API area
-  nav.ts
+  messages/  nav.ts  routes/
 ```
+
+Planned areas, as each menu lands: `search/`, `customers/`, `approvals/`, `provisioning/`,
+`impersonate/`, `activity/`, `staff/`, and later `branding/`, `plans/`, `billing/`, `fleet/`,
+`domains/`, `usage/`, `communication/`, `settings/` (§11 of FIRST-RELEASE says which wait).
 
 ---
 
@@ -176,5 +191,7 @@ structure first:
 
 - Which actions need a second approver?
 - The money model (SAAS.md §7), which decides the Billing area.
-- Dunning policy: when past due becomes suspended; what a suspended storefront shows.
+- Dunning policy: when past due becomes suspended. (What a suspended storefront shows was
+  decided 2026-09-30: a notice telling shoppers to contact the store, and the Owner is sent
+  to **their partner's** support — SAAS.md §4.2.)
 - Retention after cancellation and after a partner closes.

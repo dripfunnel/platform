@@ -51,7 +51,7 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Cloudflare account** on **Workers Paid** | Workers, Pages, Queues, Workflows, Hyperdrive, R2, KV, Cron, rate-limit bindings | Account | — | 1 |
 | **Account ID** and **zone ID** for `dripfunnel.com` | Every API call and deploy | Identifier (not secret) | `wrangler.jsonc` and CI variables | 1 |
 | **`dripfunnel.com` zone** on Cloudflare, and access to its registrar | admin, platform, hooks, the house partner's hosts, the fallback email domain | Account | — | 1 |
-| **CI deploy token** (production account) | `wrangler deploy` of the API Worker and the three Pages projects from `main` only | API token, scoped to *Workers Scripts: Edit*, *Pages: Edit*, *Workers Routes: Edit* on the zone, *Queues/Workflows/Hyperdrive: Edit* | GitHub Actions secret `CLOUDFLARE_API_TOKEN` | 1 |
+| **CI deploy token** (production account) | `prod.yml`: `wrangler versions upload` of the API Worker, from `main` only. `promote.yml`: `wrangler versions deploy` to promote that Worker version and `wrangler pages deploy` of the three Pages projects, triggered by hand ([ROLLBACK.md](ROLLBACK.md)) | API token, scoped to *Workers Scripts: Edit*, *Pages: Edit*, *Workers Routes: Edit* on the zone, *Queues/Workflows/Hyperdrive: Edit* | GitHub environment `prod` secret `CLOUDFLARE_API_TOKEN`, variable `CLOUDFLARE_ACCOUNT_ID` | 1 |
 | **Cloudflare dev account** ("DripFunnel Dev", Workers Paid) with the **`dripfunnel.ai`** zone | Every feature environment, kept apart from production because tokens can't be narrowed to certain Workers ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md) §1) | Account | — | 1 |
 | **Feature environments token** (dev account only) | The `feature-env` workflow: Workers, Pages, Hyperdrive, DNS and routes for `<slug>-*.dripfunnel.ai` | API token: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit; *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit | GitHub environment `feature` secret `CLOUDFLARE_API_TOKEN` | 1 |
 | **Cloudflare Access on the dev account** | `*.dripfunnel.ai` for `@softobotics.com`, with a Bypass on `*-hooks.dripfunnel.ai` | Zero Trust org, one-time PIN login | Cloudflare | 1 |
@@ -80,11 +80,23 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Neon dev project** `dripfunnel-dev` | Seeded dummy data on its default branch; one branch per feature environment ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) | Project | — | 1 |
 | **Neon API key** (scoped to `dripfunnel-dev`) | The `feature-env` workflow creates, and later deletes, each feature environment's branch | Project-scoped API key | GitHub environment `feature` secret `NEON_API_KEY`, variable `NEON_PROJECT_ID` | 1 |
 | **App role** connection string (pooled) | The Worker's runtime role, **without** `BYPASSRLS`, for row-level security ([../api/DATA-MODEL.md](../api/DATA-MODEL.md) §5) | Password | Inside the Hyperdrive config only | 3 |
-| **Migration role** connection string (direct) | Owns the schema; runs `apps/api/migrations` before each deploy, over Neon's direct connection, not Hyperdrive | Password | GitHub Actions secret, production environment only | 3 |
+| **Migration role** connection string (direct) | Owns the schema; runs `apps/api/migrations` before each deploy, over Neon's direct connection, not Hyperdrive | Password | GitHub environment `prod` secret, production environment only | 3 |
+| **Persistent dev database** (`DEV_DATABASE_URL`) | The `dev` workflow's Migrations step runs `apps/api/migrations` against this Neon branch before each deploy; unlike `TEST_DATABASE_URL` above, this one is not disposable — it backs the shared dev environment | Password | GitHub environment `dev` secret | 1 |
+| **Production database** (`PROD_DATABASE_URL`) | The `prod` workflow's Migrations step runs `apps/api/migrations` against this Neon branch before each deploy, using the migration role above, over the direct connection | Password | GitHub environment `prod` secret | 1 |
+| **CI test database** (`TEST_DATABASE_URL`) | A dedicated, disposable Neon branch the `dev` workflow's Gates step (`build typecheck lint test`) runs against; separate from the persistent `dev` branch (`DEV_DATABASE_URL` above) and safe to write/reset freely. The gates apply migrations to it, so it is guarded by `ALLOWED_TEST_HOST` exactly as the deploy step is guarded by `ALLOWED_MIGRATION_HOST` | Password | GitHub environment `dev` secret | 1 |
+| **`ALLOWED_TEST_HOST`** | The literal hostname of the disposable branch above. The gates refuse to run if `TEST_DATABASE_URL`'s host doesn't match it, so pointing that secret at the `dev` or prod branch fails closed instead of migrating it | Not a secret: a variable | GitHub environment `dev` variable | 1 |
+| **`ALLOWED_MIGRATION_HOST`** | The literal hostname of `DEV_DATABASE_URL` above. The Migrations step refuses to run if that secret's host doesn't match it, so rotating or re-pointing the dev Neon branch without updating this variable fails closed instead of silently migrating the wrong host — this is the only place `DEV_DATABASE_URL`'s expected host is registered | Not a secret: a variable | GitHub environment `dev` variable | 1 |
+| **`ALLOWED_MIGRATION_HOST`** (prod) | The literal hostname of `PROD_DATABASE_URL` above, same fail-closed purpose as the `dev` variable of the same name — a distinct GitHub environment variable, not shared with `dev` | Not a secret: a variable | GitHub environment `prod` variable | 1 |
+| **CI test database** (`TEST_DATABASE_URL`, prod) | A dedicated, disposable Neon branch the `prod` workflow's own `gates` step (`build typecheck lint test`) runs against, since `main` isn't protected yet and this job can't rely on `ci.yml` having run; separate from `PROD_DATABASE_URL` and from `dev`'s own `TEST_DATABASE_URL`, and safe to write/reset freely. Guarded by `ALLOWED_TEST_HOST` (prod) exactly as `dev`'s is | Password | GitHub environment `prod` secret | 1 |
+| **`ALLOWED_TEST_HOST`** (prod) | The literal hostname of the disposable branch above, same fail-closed purpose as the `dev` variable of the same name — a distinct GitHub environment variable, not shared with `dev` | Not a secret: a variable | GitHub environment `prod` variable | 1 |
 | Read-only role *(proposed)* | Support and engineer-on-call investigations, reporting | Password | Password manager | 12 |
 
-Local development uses a local Postgres (Testcontainers in tests) and **never** Neon or
-`dbpg01.softobotics.org` (AGENTS.md rule 3).
+Local development uses a local Postgres (tests create a fresh database on it per run, and
+need no Docker) and **never** Neon or
+`dbpg01.softobotics.org` (AGENTS.md rule 3). The `dev` and `prod` workflows' own Gates steps
+are the exception, and only because each `TEST_DATABASE_URL` is a disposable branch **pinned
+by its own `ALLOWED_TEST_HOST`** — "it is disposable" is an intention, and the variable is
+what makes it a control.
 
 ### 2.3 GitHub
 
@@ -96,6 +108,7 @@ GitHub holds the code, the store repos, builds and the package.
 | **GitHub App** "DripFunnel Provisioning", installed on the org | Every repo operation. Short-lived installation tokens per request, never a token per store ([../api/SAAS.md](../api/SAAS.md) §2) | App ID, **private key (PEM)**, installation ID, **webhook secret** | Worker secrets (PEM, webhook secret); IDs as variables | 6 |
 | — | Permissions to request: *Administration: write* (create and delete repos), *Contents: write*, *Workflows: write*, *Actions: read/write* (trigger builds), *Secrets: write* and *Variables: write* (repo config), *Pull requests: write* (sync bot), *Checks: read*, *Metadata: read*, and *Packages* if it can grant package read per repo | — | — | — |
 | — | Webhook events: `workflow_run`, `check_suite`, `pull_request`, `push`, delivered to `hooks.dripfunnel.com/github` | — | — | — |
+| **Claude GitHub App** (`github.com/apps/claude`), installed on `dripfunnel/platform` | Lets the `claude-review` workflow exchange the job's OIDC token for a token it can comment with ([WORKFLOW.md](WORKFLOW.md) §7). Required **in addition to** `CLAUDE_CODE_OAUTH_TOKEN` (§2.6); without it the job fails with "Claude Code is not installed on this repository" | App installation, no secret to keep | Installed by a repo admin; nothing stored | 1 |
 | **Release workflow token** | Publishing `@dripfunnel/storefront-core` to GitHub Packages with attestations | Built-in `GITHUB_TOKEN` with `packages: write`, `id-token: write` | Workflow permissions | 6 |
 | **Package read access for store repos** | `pnpm install` of `@dripfunnel/storefront-core` in each store's CI. **Verify** the App can grant per-repo package access; otherwise push a read-only token as a repo secret ([ARCHITECTURE.md](ARCHITECTURE.md) §5) | Package permission, or a fine-grained read-only token | Repo setting, or a store repo secret written by provisioning | 6 |
 | **Actions minutes and storage** | Storefront builds, and possibly the AI designer sandbox (§2.6). Build minutes are a platform metric and a cost | Billing | — | 6, 9 |
@@ -117,22 +130,27 @@ SES sends every email for every partner.
 
 ### 2.5 Staff sign-in (DF Admin)
 
-The staff identity provider is not settled. The docs and the prototype disagree:
+The staff identity provider is **Microsoft Entra ID** (decided 2026-10-01), settling a
+disagreement in which the design prompts said Google Workspace and the Admin prototype
+designed Entra with Microsoft Authenticator. The prototype won: it designs the flow in full,
+including the failure states #17 already ships. Both prompts are corrected.
 
-- The docs say **Google Workspace**:
-  [../ui/admin/CLAUDE-DESIGN-PROMPT.md](../ui/admin/CLAUDE-DESIGN-PROMPT.md) "Sign in with Google
-  Workspace" and the Impersonation prompt "Confirm with Google Workspace".
-- The Admin prototype designs **Microsoft Entra ID** with Microsoft Authenticator
-  (`designs/DF Admin Prototype.dc.html`).
+#13 builds staff identity against a stubbed provider; **#89** wires the real exchange and
+needs the app registration below to exist.
 
-*(ask which one)*.
+The OIDC app's values below belong to the API Worker, and the Cloudflare Access client to
+Cloudflare Zero Trust. The admin SPA needs none: it sends the browser to
+the Worker's `/api` sign-in route, and the Worker redirects to the identity provider, handles
+the callback and sets the session cookie. A `VITE_*` variable is built into the public
+bundle, so the client secret must never be one. The tenant and client IDs aren't secret, but
+the SPA has no use for them either.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **OIDC app** in the chosen identity provider (Google Cloud "Internal" OAuth client, or an Entra ID app registration) | Staff SSO with 2-factor on `admin.dripfunnel.com`; re-authentication before impersonation | Client ID, **client secret** (or an Entra certificate), tenant ID / hosted domain | Worker secrets | 11 |
 | — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback` plus staging | — | — | — |
 | **Same identity provider connected to Cloudflare Access** | The outer gate (§2.1) | A second OIDC client, or the same one | Cloudflare Zero Trust | 11 |
-| Group or role claims *(decide)* | Map staff roles (Super admin, Support, Finance…) from identity-provider groups, or keep roles in our own table (DATA-MODEL.md §2) | Directory read permission | — | 11 |
+| Group or role claims — **not used** | Staff roles live in our own table: DATA-MODEL.md §3.1 puts `role_key` on `staff_user` and #39 builds invite and change-role against it | — | — | — |
 
 ### 2.6 AI provider
 
@@ -154,7 +172,7 @@ AI is included from Growth Pro upward. On lower plans the merchant brings their 
 | — | Where the designer agent runs is **open** (ARCHITECTURE §8): in GitHub Actions the key must be an org Actions secret exposed only to the designer workflow, never to store repos' own workflows; in Cloudflare Containers it stays a Worker or container secret | — | *(decide)* | 9 |
 | Cloudflare AI Gateway *(optional)* | Caching, rate limits and a cost log in front of the provider | Gateway ID; authenticated gateway token | Worker secret | 9 |
 | A second provider (e.g. OpenAI) *(optional)* | Fallback, or cheaper models for translation | API key | Worker secret | later |
-| **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's advisory review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, `.github/workflows/claude-review.yml`). Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
+| **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, `.github/workflows/claude-review.yml`). **The check fails without it** (reversed 2026-09-30): the job stops in its first step with a message naming this secret, rather than failing obscurely inside the token exchange. Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
 
 ### 2.7 Stripe: DripFunnel's own account
 
@@ -203,7 +221,7 @@ on the partner console (*(ask)*, platform/README).
 
 | Item | Credential |
 |---|---|
-| pnpm, Turborepo, Vitest, Playwright, Testcontainers (Docker) | None |
+| pnpm, Turborepo, Vitest, Playwright, a local Postgres 18 (docs/api/README.md §7) | None |
 | Changesets | None (uses `GITHUB_TOKEN`) |
 | Dependency and vulnerability scanning ("known critical vulnerabilities fail the build") | GitHub Dependabot/advisories (none), or Snyk/Socket token *(decide)* |
 | Claude Design, Claude Code | Individual seats; not part of the product |
@@ -367,7 +385,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 
 ## 7. Open questions
 
-1. **Staff identity provider**: Google Workspace (docs) or Microsoft Entra ID (Admin
+1. **Staff identity provider**: Microsoft Entra ID (docs) or Microsoft Entra ID (Admin
    prototype)? (§2.5)
 2. **SMS and WhatsApp provider**, and whether each partner or merchant needs its own sender
    (ACCESS.md §2.1). (§2.8)

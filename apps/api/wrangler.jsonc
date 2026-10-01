@@ -3,9 +3,74 @@
   "name": "dripfunnel-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
   "vars": {
     "ADMIN_HOST": "admin.dripfunnel.com",
     "PLATFORM_HOST": "platform.dripfunnel.com",
     "HOOKS_HOST": "hooks.dripfunnel.com"
+  },
+  "ratelimits": [
+    { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+    { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+  ],
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  // No top-level `hyperdrive` binding yet: production has no Hyperdrive resource
+  // provisioned (`wrangler hyperdrive create`, then add `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }`
+  // here). Until then, `wrangler deploy` ships without HYPERDRIVE; /health reports
+  // `{ ok: true, db: "unconfigured" }` (200), not a failure, so no monitor alarms (§7).
+  "env": {
+    // `wrangler dev --env local` only: no Hyperdrive resource is provisioned yet
+    // (`wrangler hyperdrive create`), so this placeholder id stays out of the config
+    // `wrangler deploy` (production) reads. Local dev uses `localConnectionString`
+    // (set via the CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE env var, not committed here).
+    "local": {
+      "vars": {
+        "ADMIN_HOST": "admin.localhost",
+        "PLATFORM_HOST": "platform.localhost",
+        "HOOKS_HOST": "hooks.localhost"
+      },
+      "ratelimits": [
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+      ],
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "local-placeholder" }]
+    },
+    // `wrangler deploy --env dev`, from .github/workflows/dev.yml, on every push to `dev`
+    // (ARCHITECTURE.md §6). Same dev Cloudflare account as feature environments (selected
+    // via the job's CLOUDFLARE_ACCOUNT_ID, not this file). The ratelimit namespace id below
+    // is a placeholder until that account's config exists.
+    "dev": {
+      "name": "dripfunnel-api-dev",
+      "vars": {
+        "ADMIN_HOST": "dev-admin.dripfunnel.com",
+        "PLATFORM_HOST": "dev-platform.dripfunnel.com",
+        "HOOKS_HOST": "dev-hooks.dripfunnel.com"
+      },
+      "ratelimits": [
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+      ],
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "14585374cf2244d19e79f102dad95205" }]
+    },
+    // `wrangler deploy --env prod`, uploaded by .github/workflows/prod.yml on every push to
+    // `main` and promoted to 100% by .github/workflows/promote.yml (§6). Same values as the
+    // top-level config (kept as the implicit default for now); explicit so the workflows can
+    // name the env instead of relying on that default.
+    // No `hyperdrive` binding yet: see the top-level comment above.
+    "prod": {
+      "name": "dripfunnel-api",
+      "vars": {
+        "ADMIN_HOST": "admin.dripfunnel.com",
+        "PLATFORM_HOST": "platform.dripfunnel.com",
+        "HOOKS_HOST": "hooks.dripfunnel.com"
+      },
+      "ratelimits": [
+        { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+        { "name": "SIGN_IN_RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+      ],
+      "version_metadata": { "binding": "CF_VERSION_METADATA" }
+    }
   }
 }

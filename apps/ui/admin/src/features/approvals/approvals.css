@@ -1,0 +1,86 @@
+.df-approvals {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-approval {
+  display: grid;
+  gap: var(--df-space-4);
+  padding: var(--df-space-5);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-approval-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3) var(--df-space-5);
+}
+
+.df-approval-name {
+  display: grid;
+  flex: 1 1 200px;
+  gap: 2px;
+  min-width: 0;
+}
+
+.df-list .df-approval-name a.df-row-title {
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.df-approval-name > span {
+  font-size: 13px;
+}
+
+.df-approval-sum {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-approval-sum--pass {
+  color: var(--df-color-success);
+}
+
+.df-approval-sum--fail {
+  color: var(--df-color-danger);
+}
+
+.df-approval-who {
+  display: grid;
+  gap: 2px;
+  justify-self: start;
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-info-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-approval-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-approval-checks li {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  font-size: 13px;
+  font-weight: 600;
+}

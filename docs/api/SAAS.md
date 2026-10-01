@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -110,8 +110,8 @@ Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.com` has no sign-up:
    do any or all of steps 2 and 3 for the partner, including submitting it, through a
    **setup session** into the partner console (ACCESS §8.2). It uses the same screens and
    the same go-live checks, needs no partner user to exist, and every write is attributed
-   to the staff member. At creation, Admin chooses whether to send the Owner invitation now
-   or hold it until the setup is done *(proposed)*. The partner's payment method and payout
+   to the staff member. At creation, staff choose whether to send the Owner invitation now
+   or hold it until the setup is done (decided 2026-09-30, per partner). The partner's payment method and payout
    details are the one exception: only a partner user can enter them. They aren't go-live
    checks, but payouts wait for them.
 
@@ -182,7 +182,7 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 | **Trial** | Signup; ends at `trial_ends_at` | Full use within the plan | Live |
 | **Active** | A paid subscription | Full use | Live |
 | **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner) | Keeps selling, degraded *(ask what "degraded" shows)* |
-| **Suspended** | A person: Admin, or the partner *(ask whether partners may suspend or only Admin)*, with a required reason; or dunning at the end of its policy *(ask)* | Sign-in shows why and whom to contact; no writes | A degraded page served by an edge rule, without a rebuild |
+| **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning at the end of its policy *(ask)* | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Kept until period end *(ask)* |
 | **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept for the retention window, then deleted *(ask the window, §14)* |
 
@@ -198,8 +198,13 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 ### 4.3 What the partner can do to an account
 
 For its own stores only: change plan and entitlement overrides, extend a trial, suspend and
-restore *(ask, above)*, see billing status, domains, provisioning, publishing and usage, create
-a merchant, and open support access under §11. It can't change anything inside the store.
+restore, see billing status, domains, provisioning, publishing and usage, create a merchant,
+and open support access under §11. It can't change anything inside the store.
+
+**Suspend and restore are confirmed** (2026-09-30, ACCESS §5.3: Owner and Admin): a partner
+owns the commercial relationship with its merchants and often bills them, so waiting on a
+DripFunnel ticket to stop a non-paying merchant doesn't scale. A reason is required and the
+action is audited, as for staff.
 
 ### 4.4 Moving a store to another partner
 
@@ -483,7 +488,8 @@ USERS-AND-DOMAINS §4.1. In short, and not to be restated elsewhere:
 - A standing merchant setting, **On by default**, that the Owner can switch off; sessions are
   **read-only, time-limited, need a reason or ticket**, show a banner to everyone in the store,
   and appear in the merchant's support access log and the audit log. Write access is a
-  one-session elevation the merchant approves. Partner support and Admin follow the same rules.
+  one-session elevation the merchant approves. **This is a partner capability only**: staff
+  never open a support session, they impersonate (ACCESS §8.1).
 - **Every write and every sign-in is logged** with the real actor, scope, action, target,
   changes and reason, in the activity log ([LOGGING.md](LOGGING.md)). It can't be edited or
   deleted, and its entries appear on the store and partner pages they concern
@@ -537,7 +543,7 @@ store (§5.5 there).
 | "Publish now", publish status | Publish capability | See status | Publish without allowance |
 | AI designer runs, undo | Own store | Usage only | Usage and runs for support |
 | Fleet: core releases, rollouts, drift | | | Engineer on call, Super admin |
-| Support access setting and log | Owner: setting; everyone: log | Start a session (own stores) | Start a session (any) |
+| Support access setting and log | Owner: setting; everyone: log | Start a session (own stores) | See the setting and every session; **staff never start one** — they impersonate (ACCESS §8.1) or open a setup session (§8.2) |
 | Activity log ([LOGGING.md](LOGGING.md) §6) | The store's entries, shoppers' included (Owner); own actions (everyone) | Own users, own partner account and merchants' accounts; never inside stores or shoppers | Everything |
 | Metrics and usage | Own usage against plan | Own partner and stores | Everything |
 | Integration credentials | | | Status only, never the value |
@@ -552,7 +558,6 @@ Whether the Platform API is GraphQL like the others or internal only is open (PL
 **Partners and accounts**
 - What happens to a closed partner's stores (contractual)?
 - Can a partner hide DripFunnel completely (portal, emails, storefront, invoices)?
-- May partners suspend their merchants, or only Admin?
 - Which partner-console actions need a second approver?
 - How long does an old portal host keep redirecting after a change?
 - Which email templates and languages are editable per partner?

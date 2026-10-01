@@ -1,0 +1,186 @@
+/* Staff sign-in, from the admin prototype's sign-in screen. */
+
+.df-sign-in {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: var(--df-space-5);
+  padding: var(--df-space-10) var(--df-space-4);
+  font-size: 0.875rem;
+}
+
+.df-sign-in-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-sign-in-brand img {
+  display: block;
+  height: 26px;
+  width: auto;
+}
+
+.df-sign-in-product {
+  padding-left: 10px;
+  border-left: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.df-sign-in-card {
+  display: grid;
+  gap: var(--df-space-3);
+  box-sizing: border-box;
+  width: min(400px, 100%);
+  padding: var(--df-space-7);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-dialog);
+  background: var(--df-color-surface);
+}
+
+.df-sign-in-card h1 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.df-sign-in-card h1:focus {
+  outline: none;
+}
+
+.df-sign-in-card > p {
+  margin: 0 0 var(--df-space-2);
+  color: var(--df-color-muted);
+}
+
+.df-microsoft-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-microsoft-button:hover {
+  background: var(--df-color-hover);
+}
+
+:is(.df-microsoft-button, .df-sign-in-link, .df-code-input):focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-sign-in-box {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-page);
+  color: var(--df-color-text);
+}
+
+.df-sign-in-box--warning {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-approval {
+  display: grid;
+  gap: var(--df-space-2);
+  justify-items: center;
+  text-align: center;
+}
+
+.df-approval p {
+  margin: 0;
+}
+
+.df-approval-number {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.df-sign-in-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.df-sign-in-link:hover {
+  color: var(--df-color-link-hover);
+}
+
+.df-sign-in-form {
+  display: grid;
+  gap: var(--df-space-3);
+}
+
+.df-sign-in-form .df-field {
+  margin: 0;
+}
+
+.df-code-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 52px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-mono);
+  font-size: 24px;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.df-sign-in-submit {
+  width: 100%;
+  min-height: 48px;
+}
+
+.df-sign-in-footer {
+  max-width: 400px;
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* The logo follows the chosen theme (#81). tokens.css keys dark off `data-theme`, so the
+   swap must too; `prefers-color-scheme` would disagree whenever someone overrides the OS. */
+.df-sign-in-logo-dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .df-sign-in-logo-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .df-sign-in-logo-dark {
+  display: inline;
+}

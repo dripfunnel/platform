@@ -7,7 +7,7 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-30.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
@@ -91,7 +91,26 @@ apps/ui/<app>/
   Never assume a country.
 - **Style only with the tokens** in `shared/ui/tokens.css` (`--df-*`). No hard-coded
   colours. The merchant portal overrides the brand tokens with the partner's look before
-  anything renders; the two consoles use DripFunnel's.
+  anything renders; the two consoles use DripFunnel's. DripFunnel's values come from the
+  style guide ([../../designs/design.md](../../designs/design.md) §5–7).
+- **Light is the default; `data-theme="dark"` on `<html>` selects the dark palette**
+  (designs/design.md §5). The OS preference is a **default a person can override**, not a
+  verdict: a media query alone can't be overridden, and the prototypes default to light
+  whatever the machine is set to. Without JavaScript every app renders light.
+  - Each `index.html` carries a **small inline script** that sets the attribute before the
+    first paint. It is deliberately duplicated rather than imported, because a module runs
+    after the first paint and the page would flash the wrong theme.
+  - **Only the admin console lets anyone choose**, and it stores the choice as
+    `df-admin-theme`, the key the prototype uses (design.md §10). `shared/ui/theme.ts` holds
+    the resolution the app uses after load. `store` and `platform` have no control, so their
+    script follows the OS and reads no key; give them one when they get a control.
+- **Fonts**: Inter for text, Manrope for headings, IBM Plex Mono for the side bar's group
+  headings. **Self-hosted**, through `@fontsource` packages imported once by
+  `@dripfunnel/shared/ui/fonts.css` (revised 2026-09-29; they were loaded from Google Fonts
+  by a `<link>` until the privacy and CSP cost was weighed). No page makes a third-party
+  request for a font, so no visitor's IP address or User-Agent reaches a font host, and
+  `font-src 'self'` keeps working when a CSP lands. Add a weight by adding it to that one
+  file; the token font stacks still fall back to the system font.
 - **Accessibility is WCAG 2.2 AA**: keyboard, screen reader, visible focus, contrast, reduced
   motion. Phone first in the merchant portal; desktop first in the consoles, which must
   still work on a phone for the essentials.
@@ -106,8 +125,10 @@ apps/ui/<app>/
 - **What a role can't use** differs by app, on purpose:
   - **Merchant portal: absent, not disabled.** A greyed row tells a vendor what exists in
     the merchant's store. A vendor opening a URL that isn't theirs sees "not found".
-  - **Admin and partner consoles: visible and disabled, with the reason and the role that
-    can** ("Finance can issue refunds"), so insiders know whom to ask (CONSOLE-DESIGN §4).
+  - **Admin and partner consoles: actions are visible and disabled, with the reason and the
+    role that can** ("Finance can issue refunds"), so insiders know whom to ask
+    (CONSOLE-DESIGN §4). **Nav rows are the exception: a row a role can't use is absent**,
+    as in the portal ([../../designs/design.md](../../designs/design.md) §4).
 - **Locked** means "not yet" (for example during provisioning); **absent** means "not for
   you".
 - **Badges mean work waiting**, never trivia counts.
@@ -133,25 +154,33 @@ Every screen designs, and can show without a backend, its:
 **Reachable without a backend**: each screen accepts `?state=<name>` in development and
 preview builds (`/home?state=empty`, `/sign-in?state=expired`), and lists its states in the
 screen file's header comment. The helper lives in `shared/ui` once a second app needs it.
+Because `?state=` belongs to the harness, lists filter by `?status=` (`/partners?status=live`),
+never `?state=`.
 
 ---
 
 ## 7. How to add a screen
 
-1. Find the flow or part in the app's design document (for example
+1. **Open the screen in its prototype** and click through it: the entry files are listed in
+   [../../designs/design.md](../../designs/design.md), which maps every screen to its file,
+   and the prototype controls let you reach each state. Check the screen's entries in
+   `designs/MISSING-FEATURES.md` and `designs/INCOMPLETE-FEATURES.md` so you don't build a
+   dead end. The prototype decides **behaviour**; `docs/` decides **scope and rules**
+   ([../README.md](../README.md) §3).
+2. Find the flow or part in the app's design document (for example
    [store/DESIGN-BRIEF.md](store/DESIGN-BRIEF.md) flow 21, or
    [admin/CONSOLE-DESIGN.md](admin/CONSOLE-DESIGN.md) part I). If it isn't specified, ask.
-2. Check the roles that may see it in the app's guide (and docs/api/ACCESS.md §5).
-3. Add the API operations in `src/api/<area>.ts`. If the API lacks a field, add it in
+3. Check the roles that may see it in the app's guide (and docs/api/ACCESS.md §5).
+4. Add the API operations in `src/api/<area>.ts`. If the API lacks a field, add it in
    `apps/api` first (docs/api/README.md §6) and regenerate the schema.
-4. Add the screen in `src/features/<area>/`, its words in `messages/`, and every state (§6).
-5. Add the route file in `src/routes/_app/...` rendering the screen, and the nav row in
+5. Add the screen in `src/features/<area>/`, its words in `messages/`, and every state (§6).
+6. Add the route file in `src/routes/_app/...` rendering the screen, and the nav row in
    `src/nav.ts` for the roles that may use it.
-6. Reuse from `shared/ui` first; if you write something a second app already has, move it
+7. Reuse from `shared/ui` first; if you write something a second app already has, move it
    to `shared/` in the same change and say so.
-7. Tests: unit tests for any logic (formatting, state mapping, nav per role); a Playwright
+8. Tests: unit tests for any logic (formatting, state mapping, nav per role); a Playwright
    journey for key flows *(planned: `test:e2e`)*.
-8. Run `pnpm turbo run build typecheck lint test`.
+9. Run `pnpm turbo run build typecheck lint test`.
 
 ---
 

@@ -5,10 +5,11 @@ and how to add to it. Read [../ARCHITECTURE.md](../ARCHITECTURE.md) and
 [../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) first; they win wherever this folder
 disagrees.
 
-**Status: skeleton.** The router, the four GraphQL endpoints (one `health` field each) and
-the layer rules exist and pass every gate. There is no database, engine or feature code yet.
+**Status: skeleton.** The router, the four GraphQL endpoints (one `health` field each), the
+layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
+pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 | Document | Covers |
 |---|---|
@@ -133,7 +134,7 @@ apps/api/
   schema/                   generated and committed: admin, platform, store, shop .graphql
   migrations/               the single migration history: 0001_init.sql, ...
   tests/
-    support/                Testcontainers Postgres, Workers test pool, factories, isolation
+    support/                local Postgres per run, Workers test pool, factories, isolation
                             matrix helpers, fake payment and courier providers, clock control
     ...                     integration tests (unit tests sit beside the code)
   scripts/                  Node-only tooling (print-schema.ts), with its own tsconfig
@@ -218,7 +219,7 @@ request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after 
 3. Add the resolver in `apis/<api>/<area>.ts`, declaring its permission and tenant scope.
    A resolver without a declaration fails the structural test.
 4. `pnpm --filter ./apps/api schema` and commit the changed `schema/*.graphql`.
-5. Add the field to the isolation matrix if it touches tenant data (§8).
+5. Add the field to the isolation matrix if it touches tenant data (§9).
 
 **An engine module**: a folder under `engine/modules/` with `index.ts` (the only public
 entry), `service.ts`, `events.ts`, `operations/`. It registers its tables, operations and
@@ -245,9 +246,129 @@ for idempotency, write outbox rows or engine calls, return fast.
 secrets through `wrangler secret`, never in the repo. Pass it into `createEngine`, never
 read it from a global.
 
+**A migration**: add a numbered file to `migrations/` (`0002_...sql`, next number after the
+last one committed), reviewed SQL only, backward-compatible with the running release. Run
+`pnpm --filter ./apps/api migrate` (needs `DATABASE_URL` in the environment, e.g. `set -a;
+source .dev.vars; set +a`) to apply every pending file in order against your local database;
+it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
+with the user" rule 3). Each file runs inside its own transaction, so statements that
+cannot run in one (`create index concurrently`, `alter type ... add value`) must be their
+own migration file with no other statements. Applied migrations are recorded in the
+`schema_migrations` table so re-running is a no-op.
+
 ---
 
-## 7. Rules that apply to every line in `apps/api`
+## 7. Local Postgres
+
+This project requires Postgres 18.x; `pnpm migrate` refuses to run against any other major
+(`scripts/migrate/version-check.ts`). This matches the Neon projects `dripfunnel-dev` and the
+test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRONMENTS.md](../code/FEATURE-ENVIRONMENTS.md)
+§4), so a version-specific issue is caught locally and in CI before it reaches a real
+deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
+together. Install it natively — no Docker required.
+
+**macOS (Homebrew):**
+
+```
+brew install postgresql@18
+brew services start postgresql@18
+createuser -s dripfunnel_dev
+createdb -O dripfunnel_dev dripfunnel
+psql -d dripfunnel -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
+```
+
+**Debian/Ubuntu:**
+
+```
+sudo apt install postgresql-18
+sudo -u postgres createuser -s dripfunnel_dev
+sudo -u postgres createdb -O dripfunnel_dev dripfunnel
+sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
+```
+
+**Windows:** install Postgres 18 with the postgresql.org installer, then run the equivalent
+`createuser`/`createdb` commands from a shell (or pgAdmin) with the same names.
+
+If port 5432 is already in use by another local Postgres, run the 18 instance on a different
+port (e.g. `5434`) and change the port in the URLs below to match.
+
+Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`; the default `DATABASE_URL` matches
+the role, password, port and database name above. `wrangler dev` reads `.dev.vars` for worker
+bindings; Node scripts and tests don't, so export it first:
+
+```
+cd apps/api
+set -a; source .dev.vars; set +a
+pnpm migrate
+```
+
+`.dev.vars` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (same
+connection string as `DATABASE_URL`) — `wrangler dev --env local` uses it to make the `HYPERDRIVE`
+binding proxy to local Postgres instead of a real Hyperdrive resource. Wrangler reads that
+specific variable from the shell environment, not from `.dev.vars` directly, so `pnpm dev`
+sources `.dev.vars` into the shell before starting wrangler; if you run `wrangler dev` by hand
+instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
+variable.
+
+There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-level
+`hyperdrive` binding yet. To provision one, run
+`wrangler hyperdrive create <name> --connection-string="postgres://..."` and add the returned
+id as `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }` under `hyperdrive` in
+`wrangler.jsonc`. Until that's done, `/health` reports `{ ok: true, db: "unconfigured" }`
+rather than failing.
+
+Migrations may declare `create extension if not exists "..."`; the runner checks every
+required extension is installed on the server before applying anything
+(`scripts/migrate/extensions.ts`) and fails with the missing extension's name and how to
+install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partially applying.
+
+This is local only (AGENTS.md "Working with the user" rule 3): nothing in
+`.dev.vars.example` or `wrangler.jsonc` ever points at
+`dbpg01.softobotics.org`. The only exception is the `dev` deploy workflow
+(`.github/workflows/dev.yml`), which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply
+migrations to the persistent Neon `dev` branch; the guard
+(`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
+by GitHub Actions) so the override can't be tripped by an env var left in a
+shell profile or `.env` on a developer machine, and requires the connection
+string's host to exactly match the `ALLOWED_MIGRATION_HOST` GitHub Actions
+variable (set to the `dev` branch's literal Neon hostname), so a
+misconfigured `DATABASE_URL` can't silently migrate a different Neon project
+(production included).
+
+The same workflow's Gates step (`build typecheck lint test`) is a second,
+separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
+disposable Neon branch kept only for CI test runs, not the persistent `dev`
+branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same
+guard**, pinned by the `ALLOWED_TEST_HOST` variable instead of
+`ALLOWED_MIGRATION_HOST`, because `scripts/migrate/runner.test.ts` applies the
+migrations and that is the same privileged operation as the deploy step. The
+guard lives inside `migrate()` rather than in `scripts/migrate/main.ts`, so
+every caller of `migrate()` — CLI or test — passes through it.
+
+A **local** host is always allowed, whether or not the override is set, so a
+CI step can turn the override on for a whole test run without the local
+database being refused by the host match.
+
+`pnpm test` needs this same database up and `.dev.vars` exported (see above):
+`scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
+`scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
+default above when unset), the way CI's `postgres:18` service does
+(`.github/workflows/ci.yml`).
+
+`/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
+(30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm
+from exhausting Hyperdrive's connection pool. `cf-connecting-ip` is always set behind
+Cloudflare; a request without it (only possible off Cloudflare, e.g. `wrangler dev`) gets
+400 rather than falling back to an easily-exhausted shared bucket.
+
+`/health` also returns the Worker's `version` (a Cloudflare-assigned version UUID, from
+`CF_VERSION_METADATA`), unauthenticated, so that `promote.yml`'s post-promotion health check
+can confirm prod is serving the version it just promoted. This is intentional: the UUID
+identifies a build, not a secret, and knowing it grants no access.
+
+---
+
+## 8. Rules that apply to every line in `apps/api`
 
 The full list is [AGENTS.md](../../AGENTS.md) "SaaS platform rules" and
 [../code/DESIGN.md](../code/DESIGN.md). The ones that decide the shape of API code:
@@ -267,11 +388,12 @@ The full list is [AGENTS.md](../../AGENTS.md) "SaaS platform rules" and
 
 ---
 
-## 8. Testing
+## 9. Testing
 
 - **Unit tests** beside the code (`service.test.ts`), for pure rules: money, tax,
   promotions, stock. Property-based where the input space is large.
-- **Integration tests** in `tests/` against a real Postgres (Testcontainers) and the
+- **Integration tests** in `tests/` against a real Postgres (the local one from §7, with a
+  freshly-created database per run, dropped afterwards — no Docker) and the
   Workers test pool. No mocks of our own data layer. *(Planned: `test:integration`.)*
 - **Isolation matrix**: every endpoint × caller kind × role × acting store × seller, with
   two partners, two stores and two vendors per test, including a person in two stores under
@@ -286,11 +408,11 @@ Run `pnpm turbo run build typecheck lint test` before reporting any change as do
 
 ---
 
-## 9. Open questions
+## 10. Open questions
 
 Carried from PLATFORM-PROMPT §10 where they decide API shape:
 
 - Is the Platform API GraphQL like the others? *(Today all four are GraphQL; confirm.)*
-- How a support session opened from the admin or partner console reaches the merchant's
-  portal host (§2.1).
+- How a support session opened from the partner console reaches the merchant's portal host
+  (§2.1). Staff never open one (ACCESS §8); they impersonate.
 - Which of API keys, webhooks and apps ship first; API rate limits and quotas per plan.

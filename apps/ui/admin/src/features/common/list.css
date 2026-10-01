@@ -1,0 +1,660 @@
+/* Lists and detail pages across the console: the pattern the Partners screens set (#19)
+   and the Stores screens reuse (#20). Scoped under .df-list, so names shared with the
+   Dashboard sheet never collide. */
+
+.df-page.df-list {
+  gap: var(--df-space-4);
+}
+
+.df-list :is(p, h2, h3) {
+  margin: 0;
+}
+
+.df-list .df-eyebrow {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-list .df-muted {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-list a:not(.df-button) {
+  color: var(--df-color-link);
+  text-decoration: none;
+}
+
+.df-list a:not(.df-button):hover {
+  color: var(--df-color-link-hover);
+  text-decoration: underline;
+}
+
+.df-list :is(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-list a.df-row-title,
+.df-list .df-row-title {
+  color: var(--df-color-heading);
+  font-weight: 700;
+}
+
+.df-list a.df-row-title:hover {
+  color: var(--df-color-link-hover);
+}
+
+.df-list .df-row-link {
+  font-weight: 700;
+}
+
+.df-stack {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+}
+
+.df-host {
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.df-table .df-host,
+.df-nowrap {
+  white-space: nowrap;
+}
+
+/* Header */
+
+.df-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--df-space-3) var(--df-space-6);
+}
+
+.df-list-heading {
+  display: grid;
+  gap: var(--df-space-2);
+  max-width: 44rem;
+}
+
+/* Filters */
+
+.df-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-2) var(--df-space-4);
+}
+
+.df-list-filters {
+  display: flex;
+  flex: 1 1 36rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-list-search {
+  flex: 0 1 20rem;
+}
+
+.df-list-search input {
+  width: 100%;
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+}
+
+/* The label sits inside the control, as the prototype draws its filters. */
+.df-list-select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-1) 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-list-select:has(select:focus-visible) {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-list-select--active {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+}
+
+.df-list-select select {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-list .df-list-select select:focus-visible {
+  outline: none;
+}
+
+.df-link-button {
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-2);
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Table */
+
+.df-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-table {
+  width: 100%;
+  min-width: 960px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.df-table :is(th, td) {
+  padding: var(--df-space-3) var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.df-table thead th {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.df-table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+.df-table tbody tr:hover {
+  background: var(--df-color-hover);
+}
+
+.df-table tbody tr.df-row-clickable {
+  cursor: pointer;
+}
+
+.df-table tbody th {
+  font-weight: 400;
+}
+
+.df-table .df-number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.df-name-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--df-space-3);
+  min-width: 13rem;
+}
+
+.df-name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-initials {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-side);
+  color: var(--df-color-side-strong);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.df-initials--neutral {
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-neutral);
+}
+
+.df-initials--large {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--df-radius-card);
+  font-size: 18px;
+}
+
+.df-pager {
+  display: flex;
+  gap: var(--df-space-2);
+  justify-content: flex-end;
+}
+
+/* Detail header */
+
+.df-detail-header {
+  display: grid;
+  grid-template-columns: minmax(18rem, 1fr) minmax(0, max-content);
+  gap: var(--df-space-3) var(--df-space-6);
+}
+
+.df-detail-header > :is(.df-breadcrumb, .df-detail-meta) {
+  grid-column: 1 / -1;
+}
+
+.df-detail-header > .df-detail-actions {
+  grid-row: 2;
+  grid-column: 2;
+  justify-content: flex-end;
+}
+
+/* Under the title, beside the 52px tile, as in the prototype. */
+.df-detail-header > .df-detail-meta {
+  padding-left: calc(52px + var(--df-space-4));
+}
+
+@media (max-width: 900px) {
+  .df-detail-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-detail-header > .df-detail-actions {
+    grid-row: auto;
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+
+  .df-detail-header > .df-detail-meta {
+    padding-left: 0;
+  }
+}
+
+.df-breadcrumb {
+  display: flex;
+  gap: var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-detail-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--df-space-4);
+}
+
+.df-detail-heading {
+  display: grid;
+  gap: var(--df-space-1);
+  min-width: 0;
+}
+
+.df-detail-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+}
+
+.df-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2) var(--df-space-6);
+  margin: 0;
+  font-size: 14px;
+}
+
+.df-detail-meta div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-detail-meta dt {
+  color: var(--df-color-muted);
+}
+
+.df-list a.df-meta-link {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.df-meta-value {
+  color: var(--df-color-text);
+  font-weight: 600;
+}
+
+.df-detail-meta dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+  margin: 0;
+}
+
+.df-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--df-space-2) var(--df-space-3);
+}
+
+/* A refused action's reason wraps under its button rather than widening the header. */
+.df-detail-actions .df-denied {
+  max-width: 15rem;
+}
+
+.df-more {
+  position: relative;
+}
+
+
+.df-more-panel {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--df-space-1));
+  right: 0;
+  display: grid;
+  width: min(330px, calc(100vw - 2 * var(--df-space-4)));
+  padding: 6px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+}
+
+.df-more-panel[hidden] {
+  display: none;
+}
+
+/* The prototype's menu rows: a bold label, and under a refused one its reason, both inside
+   the row rather than as a bordered button. */
+.df-more-panel .df-button {
+  justify-self: stretch;
+  min-height: 0;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--df-radius);
+  background: transparent;
+  color: var(--df-color-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.df-more-panel .df-button:hover:not(:disabled) {
+  background: var(--df-color-hover);
+}
+
+.df-more-panel .df-button:disabled {
+  padding-bottom: 2px;
+  color: var(--df-color-muted);
+}
+
+.df-more-panel .df-denied {
+  justify-items: stretch;
+  gap: 0;
+  max-width: none;
+  padding-bottom: 9px;
+}
+
+.df-more-panel .df-denied p {
+  padding: 0 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Tabs */
+
+.df-tabs {
+  border-bottom: 1px solid var(--df-color-border);
+  overflow-x: auto;
+}
+
+.df-tabs ul {
+  display: flex;
+  gap: var(--df-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-list a.df-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--df-space-3);
+  border-bottom: 3px solid transparent;
+  color: var(--df-color-muted);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.df-list a.df-tab:hover {
+  color: var(--df-color-heading);
+  text-decoration: none;
+}
+
+.df-list a.df-tab[aria-current='page'] {
+  border-bottom-color: var(--df-color-brand);
+  color: var(--df-color-heading);
+  font-weight: 700;
+}
+
+/* Panels */
+
+.df-panels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--df-space-4);
+}
+
+@media (max-width: 900px) {
+  .df-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.df-panels > .df-info-note,
+.df-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.df-panel {
+  display: grid;
+  align-content: start;
+  gap: var(--df-space-3);
+  min-width: 0;
+  padding: var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-panel :is(h2, h3) {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-weight: 800;
+}
+
+.df-panel h2 {
+  font-size: 16px;
+}
+
+.df-panel h3 {
+  font-size: 14px;
+}
+
+.df-panel > :is(.df-button, .df-denied) {
+  justify-self: start;
+}
+
+.df-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--df-space-2) var(--df-space-4);
+}
+
+.df-facts {
+  display: grid;
+  grid-template-columns: minmax(7rem, 30%) 1fr;
+  column-gap: var(--df-space-4);
+  margin: 0;
+  font-size: 14px;
+}
+
+.df-facts :is(dt, dd) {
+  padding: var(--df-space-2) 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-facts dt {
+  color: var(--df-color-muted);
+}
+
+.df-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.df-facts code {
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-found--wrong {
+  color: var(--df-color-danger);
+}
+
+.df-plain-list,
+.df-checklist,
+.df-history,
+.df-people {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.df-plain-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--df-space-4);
+  padding-top: var(--df-space-2);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-checklist li {
+  padding-top: var(--df-space-2);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-checklist li,
+.df-people li,
+.df-invitation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--df-space-2) var(--df-space-4);
+}
+
+.df-people li {
+  padding-bottom: var(--df-space-3);
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-people li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.df-history li {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: var(--df-space-3);
+}
+
+.df-domain-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+/* The info palette: read-only is a fact about where a change is made, not a warning. */
+.df-info-note {
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-info-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 14px;
+}
+
+/* Toast: bottom centre, one line (designs/design.md §4). */
+
+.df-toast-region {
+  position: fixed;
+  z-index: 50;
+  bottom: var(--df-space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 2 * var(--df-space-4));
+}
+
+.df-toast {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  border-radius: var(--df-radius);
+  background: var(--df-color-heading);
+  box-shadow: var(--df-shadow-floating);
+  color: var(--df-color-surface);
+  font-family: var(--df-font);
+  font-size: 14px;
+  font-weight: 600;
+}

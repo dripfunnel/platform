@@ -47,7 +47,8 @@ pnpm --filter ./apps/api schema                  # regenerate apps/api/schema/*.
 pnpm changeset                                   # required when storefront-core changes
 ```
 
-Planned, not yet present: `test:integration` (Testcontainers Postgres + Workers test pool),
+Planned, not yet present: `test:integration` (the local Postgres from docs/api/README.md §7,
+a fresh database per run, plus the Workers test pool),
 `test:e2e`, and `pnpm --filter ./apps/api migrate` (LOCAL database only).
 
 Run the gates before reporting a change as done.
@@ -66,6 +67,12 @@ Run the gates before reporting a change as done.
   logic belongs in `storefront-core`, never in the template.
 - **`docs/`** is the specification, laid out like the code (docs/README.md §3). Update the
   relevant document in the same change as the code it describes, following docs/README.md §6.
+- **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →
+  `apps/ui/store`, `DF Platform Prototype` → `apps/ui/platform`, `DF Admin Prototype` →
+  `apps/ui/admin`), the public pricing page with what each plan includes, and the style
+  guide the `--df-*` tokens come from. `designs/design.md` maps every screen to its file.
+  `docs/` decides scope and rules; the prototype decides behaviour — layout, states,
+  interactions, wording, the order of steps in a flow.
 
 ## Area rules
 
@@ -81,6 +88,9 @@ Run the gates before reporting a change as done.
 **The SPAs (`apps/ui/store`, `apps/ui/platform`, `apps/ui/admin`)**
 - Static SPAs with no server code. They talk only to their API at `/api` on the same
   hostname, through `@dripfunnel/shared/graphql`.
+- **Open the screen in its prototype before building it** (`designs/`, docs/ui/README.md
+  §7 step 1), and check `designs/MISSING-FEATURES.md` and `designs/INCOMPLETE-FEATURES.md`
+  so you don't implement a dead end.
 - Every portal screen renders in its partner's look (white label) using `shared/ui`
   tokens. The consoles at `platform.dripfunnel.com` and `admin.dripfunnel.com` are
   DripFunnel-branded for every user.
@@ -107,7 +117,9 @@ Run the gates before reporting a change as done.
   token to `.npmrc`.
 
 **Deploys**
-- Pushing `main` deploys production. Treat it as a production action.
+- Pushing `main` runs migrations against the real prod database and uploads a new Worker
+  version — nothing goes live until `promote.yml` is run by hand (docs/ARCHITECTURE.md §6).
+  Treat a push to `main` as a production action.
 
 ## Rules
 
@@ -148,6 +160,12 @@ Run the gates before reporting a change as done.
    when it isn't obvious: a constraint, an invariant, a workaround (with a link to the issue
    or doc). No comments that restate the code, no commented-out code, no change-history
    comments, no `TODO` without an issue link.
+   **One or two lines.** Past three it is not a comment any more, and the explanation belongs
+   somewhere it will be maintained: why the code changed goes in the **commit message**, how
+   the system works goes in **`docs/`**, why a decision was taken goes on the **card**.
+   **Cite a document, never summarise one** — `DATA-MODEL.md §5.2` beats a paragraph that
+   will drift from it. A file whose comments explain its own history is one nobody will trust
+   to be current.
 3. **Small and focused.** One responsibility per module and function; names that state
    intent; no dead code, unused exports or speculative options.
 4. **TypeScript strict.** No `any`, no non-null assertions to silence the compiler, no
@@ -215,8 +233,9 @@ Run the gates before reporting a change as done.
   store) where the work happens.
 
 **Testing**
-- Write tests with the code, not after. Test against real infrastructure (Postgres via
-  Testcontainers), not mocks of our own data layer.
+- Write tests with the code, not after. Test against real infrastructure (the local Postgres
+  from docs/api/README.md §7, a fresh database per run), not mocks of our own data layer.
+  **No Docker**: the same rule as the development database (decided on #11, confirmed on #12).
 - Any endpoint touching tenant data is covered by the isolation matrix (caller kind ×
   store × seller).
 

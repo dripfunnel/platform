@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<sc-if value="{{ show }}" hint-placeholder-val="{{ false }}">
+  <div role="status" aria-live="polite" data-screen-label="Staff session banner" style="flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;padding:9px 16px;background-color:#FFC53D;background-image:repeating-linear-gradient(135deg,rgba(0,0,0,0.06) 0 10px,transparent 10px 20px);color:#2A1A00;border-bottom:3px solid #B7791F;font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;position:relative;z-index:40;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;"><path d="{{ icon }}"></path></svg>
+    <span style="flex:1;min-width:240px;"><strong>{{ lead }}</strong> {{ rest }} · <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;">{{ host }}</span> · <strong>{{ leftL }}</strong></span>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <sc-if value="{{ hasRet }}" hint-placeholder-val="{{ true }}"><button onClick="{{ back }}" title="The session keeps running" style="height:34px;padding:0 12px;border-radius:8px;border:0;background:transparent;color:inherit;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;text-decoration:underline;text-underline-offset:3px;">{{ retL }}</button></sc-if>
+      <button onClick="{{ end }}" style="height:34px;padding:0 14px;border-radius:8px;border:2px solid currentColor;background:transparent;color:inherit;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;">End session</button>
+    </div>
+  </div>
+</sc-if>
+<sc-if value="{{ over }}" hint-placeholder-val="{{ false }}">
+  <div role="dialog" aria-modal="true" aria-labelledby="impb-t" style="position:fixed;inset:0;z-index:1000;background:rgba(20,24,31,0.72);display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,Helvetica,Arial,sans-serif;">
+    <div style="width:100%;max-width:440px;background:#FFFFFF;color:#14181F;border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5A6472" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 7v5l3 2"></path></svg>
+      <h1 id="impb-t" style="margin:0;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;color:#0A2A4A;text-wrap:balance;">{{ oTitle }}</h1>
+      <p style="margin:0;color:#5A6472;font-size:15px;line-height:1.5;">{{ oBody }}</p>
+      <button onClick="{{ close }}" style="height:40px;padding:0 16px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;border:1px solid #EC844F;background:#EC844F;color:#4A1B0C;font-family:inherit;">{{ closeL }}</button>
+    </div>
+  </div>
+</sc-if>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const BUSK = 'df-imp-bus-v1';
+const readBus = () => { try { return JSON.parse(localStorage.getItem(BUSK) || '{}'); } catch (e) { return {}; } };
+const impId = () => { const m = location.href.match(/[?&]imp=([^&#]+)/); return m ? decodeURIComponent(m[1]) : null; };
+const fLeft = ms => { const m = Math.max(0, Math.ceil(ms / 6e4)); const h = Math.floor(m / 60); return h ? h + ' h ' + (m % 60) + ' min' : m + ' min'; };
+const first = n => (n || '').split(' ')[0];
+const IC = { eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', pen: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z', user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z' };
+
+class Component extends DCLogic {
+  state = { id: impId(), s: null, now: Date.now() };
+  componentDidMount() {
+    this.load();
+    this._st = e => { if (e.key === BUSK) this.load(); };
+    window.addEventListener('storage', this._st);
+    this._t = setInterval(() => { const s = this.state.s; if (s && s.open && s.expAt <= Date.now()) this.mark('expired', 'Expired'); this.setState({ now: Date.now() }); }, 1000);
+  }
+  componentWillUnmount() { window.removeEventListener('storage', this._st); clearInterval(this._t); }
+  load() { if (!this.state.id) return; this.setState({ s: readBus()[this.state.id] || { missing: true } }); }
+  mark(by, how) { const b = readBus(), x = b[this.state.id]; if (!x || !x.open) return; b[this.state.id] = { ...x, open: false, endedBy: by, how, endedAt: Date.now() }; try { localStorage.setItem(BUSK, JSON.stringify(b)); } catch (e) {} this.setState({ s: b[this.state.id] }); }
+  renderVals() {
+    const s = this.state.s;
+    if (!this.state.id || !s) return { show: false, over: false };
+    const goRet = () => { if (s.ret) location.href = s.ret; else if (history.length > 1) history.back(); else window.close(); };
+    const closeL = s.ret ? (s.retL || 'Back') : 'Back';
+    if (s.missing) return { show: false, over: true, oTitle: 'This link no longer works', oBody: 'Staff session links work once, from the DripFunnel admin console. Start a new session there.', close: goRet, closeL };
+    const live = s.open && s.expAt > this.state.now;
+    const role = s.supplier ? s.role + ' for ' + s.supplier : s.role;
+    const K = {
+      partner: [ 'Impersonating ' + s.user, '(' + role + ', ' + s.where + ') · Support session by ' + s.staff, IC.user ],
+      store: [ 'Impersonating ' + s.user, '(' + role + ', ' + s.where + ') · Support session by ' + s.staff, IC.user ],
+      supplier: [ 'Impersonating ' + s.user, '(' + role + ', ' + s.where + ') · Support session by ' + s.staff, IC.user ],
+      setup: [ 'Setup session for ' + s.where, '· You’re in as ' + s.staff + ' (DripFunnel)', IC.pen ],
+      support: [ 'Read-only support session on ' + s.where, '· ' + s.staff + ' (DripFunnel)', IC.eye ]
+    }[s.kind] || [ 'Staff session', '', IC.user ];
+    const who = s.kind === 'setup' || s.kind === 'support' ? '' : ' as ' + first(s.user);
+    const oTitle = s.how === 'Expired' ? 'Your time' + who + ' is up' : 'This session has ended';
+    const oBody = s.endedBy === 'admin' ? 'It was ended from the DripFunnel admin console. Everything saved stays.' : s.endedBy === 'portal' ? 'You ended it here. The admin console has been updated. Everything saved stays.' : 'The session timed out. Everything saved stays. Start a new one from the admin console if you need more time.';
+    return {
+      show: live, over: !live, lead: K[0], rest: K[1], icon: K[2], host: s.host, leftL: 'Ends in ' + fLeft(s.expAt - this.state.now),
+      end: () => { this.mark('portal', 'Ended by staff'); setTimeout(goRet, 60); }, hasRet: !!s.ret, retL: (s.retL || 'Back') + ' (keeps running)', back: goRet, oTitle, oBody, close: goRet, closeL
+    };
+  }
+}
+</script>
+</body>
+</html>

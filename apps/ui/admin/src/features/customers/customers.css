@@ -1,0 +1,57 @@
+.df-customers-table thead th {
+  white-space: nowrap;
+}
+
+.df-customer-overview {
+  display: grid;
+  gap: var(--df-space-4);
+  max-width: 820px;
+}
+
+.df-customer-overview .df-facts {
+  grid-template-columns: 130px minmax(0, 1fr);
+}
+
+.df-customer-overview .df-facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  overflow-wrap: anywhere;
+}
+
+.df-customer-note {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid;
+  border-radius: var(--df-radius-card);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.df-customer-note--neutral {
+  border-color: var(--df-color-neutral-border);
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-neutral);
+}
+
+.df-customer-note--danger {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+.df-list .df-customer-note--danger a {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.df-customers-filters .df-list-search {
+  flex-basis: 22rem;
+  min-width: min(100%, 22rem);
+}
+
+.df-list .df-customers-table a.df-row-title--deleted {
+  color: var(--df-color-muted);
+}

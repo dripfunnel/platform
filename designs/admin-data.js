@@ -24,7 +24,7 @@ const PARTNERS = [
   domains: doms('kaufladen.de','shop.kaufladen.de',{mail:'waiting'}), contacts:[['Jonas Weber','Owner','jonas@kaufladen.de'],['Petra Lang','Legal','petra@kaufladen.de']],
   plans:[PL('Basis',25,'EUR','500 products · 2 staff',24),PL('Plus',69,'EUR','5,000 products · 5 staff',16),PL('Enterprise (draft)',null,'EUR','Limits not set',0)],
 
-  hist:[['2026-09-08','Created as draft by Maya Ortiz'],['2026-09-15','Setup session by Priya Shah (DripFunnel): branding, plans'],['2026-09-19','Submitted for approval'],['2026-09-22','Sent back by Maya Ortiz: legal pages missing an Impressum'],['2026-09-26','Submitted again']] },
+  hist:[['2026-09-08','Created as draft by Maya Ortiz'],['2026-09-15','Set up by Priya Shah (DripFunnel): branding, plans'],['2026-09-19','Submitted for approval'],['2026-09-22','Sent back by Maya Ortiz: legal pages missing an Impressum'],['2026-09-26','Submitted again']] },
  { id:'lt', name:'Loom & Thread', short:'Loom & Thread', kind:'Marketplace operator', region:'UK', country:'United Kingdom', state:'live', host:'sellers.loomandthread.co.uk', owner:['Olivia Grant','olivia@loomandthread.co.uk'], created:'2025-09-12', stores:1, newWeek:0, color:'#5B3A29', ink:'#FFFFFF', accent:'#D9A441', product:'Loom & Thread Sellers', powered:true, setup:[1,1,1,1,1,1,1,1], inv:'active', legal:true, test:true, sign:[0,0,0], median:'—',
   domains: doms('loomandthread.co.uk','sellers.loomandthread.co.uk'), contacts:[['Olivia Grant','Owner','olivia@loomandthread.co.uk']],
   plans:[PL('Marketplace',1200,'GBP','Unlimited products · up to 100 suppliers',1)],
@@ -35,7 +35,7 @@ const PARTNERS = [
   hist:[['2026-09-25','Created as draft by Maya Ortiz. Owner invited']] },
  { id:'nl', name:'Nordlicht Media', short:'Nordlicht', kind:'Agency', region:'Sweden, Norway', country:'Sweden', state:'draft', inv:'held', host:'shops.nordlicht.media', owner:['Freya Lind','freya@nordlicht.media'], created:'2026-09-23', stores:0, newWeek:0, color:'#3B2F63', ink:'#FFFFFF', accent:'#7FD1C7', product:'Nordlicht Shops', powered:true, setup:[1,0,1,1,'w',0,0,0], by:{0:['Priya','DripFunnel'],2:['Priya','DripFunnel'],3:['Priya','DripFunnel'],4:['Priya','DripFunnel']}, legal:false, test:false, sign:[0,0,0], median:'—',
   domains: doms('nordlicht.media','shops.nordlicht.media',{preview:'waiting',shops:'waiting',mail:'waiting'}), contacts:[['Freya Lind','Owner (invitation held)','freya@nordlicht.media']], plans:[],
-  hist:[['2026-09-23','Created as draft by Priya Shah. Owner invitation held'],['2026-09-24','Setup session by Priya Shah (DripFunnel): company details, branding, portal host, email domain']] },
+  hist:[['2026-09-23','Created as draft by Priya Shah. Owner invitation held'],['2026-09-24','Set up by Priya Shah (DripFunnel): company details, branding, portal host, email domain']] },
 ];
 const ST = o => ({ support:true, suppliers:0, setup:'done', sf:'ai-live', people:[1,1,2], ver:'v12', build:'2026-09-26T11:20:00Z', pub:'2026-09-26T11:32:00Z', hist:[], ...o });
 const STORES = [
@@ -120,26 +120,15 @@ const A = (id, t, who, type, level, action, text, p, s, res, o) => ({ id, t, who
 const IM1 = { imp:'im1', as:'rohan', reason:'Can’t publish the Diwali collection', ticket:'https://support.dripfunnel.com/t/48240' };
 const IM2 = { imp:'im2', as:'mayachen', reason:'Scale plan price not showing on the signup page' };
 const IM3 = { imp:'im3', as:'priya', reason:'Size chart not showing', ticket:'https://support.dripfunnel.com/t/48102' };
-const SETUPS = [
- { id:'su1', staffId:'arjun', staff:'Arjun Menon', p:'ns', reason:'Ticket #48311: add the Pro Canada plan with Diego', start:'2026-09-28T10:04:00Z', open:true },
- { id:'su0', staffId:'priyas', staff:'Priya Shah', p:'nl', reason:'Onboarding call with Freya: company, branding and hosts', start:'2026-09-24T13:00:00Z', open:false, ended:'2026-09-24T14:05:00Z', how:'Ended by staff' },
- { id:'su2', staffId:'priyas', staff:'Priya Shah', p:'kl', reason:'Ticket #47920: Jonas asked for help with branding and plans', start:'2026-09-15T09:00:00Z', open:false, ended:'2026-09-15T10:10:00Z', how:'Ended by staff' },
-];
-const SU0 = { setup:'su0', reason:'Onboarding call with Freya: company, branding and hosts' }, SU1 = { setup:'su1', reason:'Ticket #48311: add the Pro Canada plan with Diego' }, SU2 = { setup:'su2', reason:'Ticket #47920: Jonas asked for help with branding and plans' };
 const ACTIVITY = [
- A('u10','2026-09-28T10:04:00Z','arjun','Staff','Partner','Setup session','Setup session started: Arjun for Northstar Commerce','ns',null,'success',{ ...SU1, ip:'49.36.12.7' }),
- A('u11','2026-09-28T10:31:00Z','arjun','Staff','Partner','Plan change','Arjun added the Pro Canada plan (draft) for Northstar Commerce','ns',null,'success',{ ...SU1, after:'Pro Canada · CAD 199 / month · draft', ip:'49.36.12.7' }),
+ A('u11','2026-09-28T10:31:00Z','arjun','Staff','Partner','Plan change','Arjun added the Pro Canada plan (draft) for Northstar Commerce','ns',null,'success',{ after:'Pro Canada · CAD 199 / month · draft', ip:'49.36.12.7' }),
  A('u00','2026-09-23T15:20:00Z','priyas','Staff','Admin','Partner','Priya created Nordlicht Media as a draft and held the owner’s invitation','nl',null,'success',{ ip:'62.30.11.9' }),
- A('u01','2026-09-24T13:00:00Z','priyas','Staff','Partner','Setup session','Setup session started: Priya for Nordlicht Media','nl',null,'success',{ ...SU0, ip:'62.30.11.9' }),
- A('u02','2026-09-24T13:12:00Z','priyas','Staff','Partner','Setup','Priya filled in company details for Nordlicht Media','nl',null,'success',{ ...SU0, ip:'62.30.11.9' }),
- A('u03','2026-09-24T13:31:00Z','priyas','Staff','Partner','Setup','Priya set up branding: logo, colours and the product name “Nordlicht Shops”','nl',null,'success',{ ...SU0, ip:'62.30.11.9' }),
- A('u04','2026-09-24T13:48:00Z','priyas','Staff','Partner','Domain','Priya added the portal host shops.nordlicht.media','nl',null,'success',{ ...SU0, ip:'62.30.11.9' }),
- A('u05','2026-09-24T13:57:00Z','priyas','Staff','Partner','Domain','Priya added the email sender domain mail.nordlicht.media (waiting for DNS)','nl',null,'success',{ ...SU0, ip:'62.30.11.9' }),
- A('u06','2026-09-24T14:05:00Z','priyas','Staff','Partner','Setup session','Setup session ended (by staff): Priya for Nordlicht Media','nl',null,'success',{ ...SU0, ip:'62.30.11.9' }),
- A('u20','2026-09-15T09:00:00Z','priyas','Staff','Partner','Setup session','Setup session started: Priya for Kaufladen Digital','kl',null,'success',{ ...SU2, ip:'62.30.11.9' }),
- A('u21','2026-09-15T09:26:00Z','priyas','Staff','Partner','Setup','Priya set up branding for Kaufladen Digital','kl',null,'success',{ ...SU2, ip:'62.30.11.9' }),
- A('u22','2026-09-15T09:58:00Z','priyas','Staff','Partner','Plan change','Priya added the Basis and Plus plans for Kaufladen Digital','kl',null,'success',{ ...SU2, ip:'62.30.11.9' }),
- A('u23','2026-09-15T10:10:00Z','priyas','Staff','Partner','Setup session','Setup session ended (by staff): Priya for Kaufladen Digital','kl',null,'success',{ ...SU2, ip:'62.30.11.9' }),
+ A('u02','2026-09-24T13:12:00Z','priyas','Staff','Partner','Setup','Priya filled in company details for Nordlicht Media','nl',null,'success',{ ip:'62.30.11.9' }),
+ A('u03','2026-09-24T13:31:00Z','priyas','Staff','Partner','Setup','Priya set up branding: logo, colours and the product name “Nordlicht Shops”','nl',null,'success',{ ip:'62.30.11.9' }),
+ A('u04','2026-09-24T13:48:00Z','priyas','Staff','Partner','Domain','Priya added the portal host shops.nordlicht.media','nl',null,'success',{ ip:'62.30.11.9' }),
+ A('u05','2026-09-24T13:57:00Z','priyas','Staff','Partner','Domain','Priya added the email sender domain mail.nordlicht.media (waiting for DNS)','nl',null,'success',{ ip:'62.30.11.9' }),
+ A('u21','2026-09-15T09:26:00Z','priyas','Staff','Partner','Setup','Priya set up branding for Kaufladen Digital','kl',null,'success',{ ip:'62.30.11.9' }),
+ A('u22','2026-09-15T09:58:00Z','priyas','Staff','Partner','Plan change','Priya added the Basis and Plus plans for Kaufladen Digital','kl',null,'success',{ ip:'62.30.11.9' }),
  A('a0','2026-09-28T10:41:00Z','neha','Impersonation','Store','Products','Neha as Rohan Verma republished the Diwali collection','bz','s1','success',{ ...IM1, before:'Draft', after:'Published', ip:'103.21.44.9' }),
  A('a1','2026-09-28T10:34:00Z','neha','Impersonation','Store','Impersonation','Impersonation started: Neha as Rohan Verma (Manager, Mehta Textiles)','bz','s1','success',{ ...IM1, ip:'103.21.44.9' }),
  A('a2','2026-09-28T10:47:00Z',null,'System','System','Setup','Setup for Fjord Outdoor has been on “First build” for 43 minutes','df','s5','failed',{whoN:'System'}),
@@ -202,5 +191,5 @@ const CACT = [
  SH('ca12','2026-09-25T09:00:00Z','c6','Marcus R.','Sign-in','Sign-in refused for Marcus R.: Redline Moto Parts is suspended','ns','s4','denied'),
  { id:'av1', t:'2026-09-28T10:20:00Z', who:'neha', type:'Staff', level:'Admin', action:'Customer view', text:'Neha viewed customer Priya S. at Mehta Textiles', p:'bz', s:'s1', res:'success', cust:'c1', ip:'103.21.44.9' },
 ];
-window.DFA = { SETUPS, CUSTOMERS, PARTNERS, STORES, SESSIONS: [], STAFF, USERS, IMPS, PEOPLE, ACTIVITY: ACTIVITY.concat(CACT) };
+window.DFA = { CUSTOMERS, PARTNERS, STORES, SESSIONS: [], STAFF, USERS, IMPS, PEOPLE, ACTIVITY: ACTIVITY.concat(CACT) };
 })();

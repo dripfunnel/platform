@@ -12,12 +12,15 @@ requirements are in [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) (§2 items 2–5 an
 §5.9); staff roles and the admin console's access parts are in
 [../ui/admin/CONSOLE-DESIGN.md](../ui/admin/CONSOLE-DESIGN.md) (§4, parts A, J, O, P).
 
-**Status: specification.** Nothing here is built. Code lives in `apps/api/src/auth`
-(identity, sessions, memberships, roles, keys, grants, staff identity, `TenantContext`),
+**Status: partly built.** The tenancy tables, `TenantContext`, the scoped layer and the
+row-level security backstop landed with #12; identity and sessions have not. Code lives in
+`apps/api/src/auth` (identity, sessions, memberships, roles, keys, grants, staff identity),
+**`apps/api/src/core/tenancy.ts`** (`TenantContext` and `SellerScope` — the type sits in
+`core` because `db/` may import only `core`, and `db/scoped` is its consumer),
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -133,7 +136,7 @@ type StoreCaller =
   | { kind: 'app'; grantId: string; appId: string }
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
   | { kind: 'support'; supportSessionId: string;
-      actor: { kind: 'partner-user' | 'staff'; id: string }; access: 'read' | 'write' };
+      partnerUserId: string; access: 'read' | 'write' };   // partner users only (§8)
 
 interface TenantContext {
   caller: StoreCaller;
@@ -209,8 +212,8 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 ```
 
 - **Sign-in.** The browser posts credentials to the Store API on the portal host. The engine
-  checks them, creates a `session(id, user_id, partner_id, created_at, last_seen_at,
-  absolute_expires_at, remember)` row, and returns only an opaque cookie: `__Host-` prefixed,
+  checks them, creates a `user_session` row ([DATA-MODEL.md](DATA-MODEL.md) §3.3, which owns
+  the columns), and returns only an opaque cookie: `__Host-` prefixed,
   `httpOnly`, `Secure`, `SameSite=Lax`, no `Domain` attribute. The cookie name carries no
   DripFunnel branding (white label). Nothing else reaches the browser.
 - **The membership set** is the user's active memberships in stores of the host's partner.
@@ -237,9 +240,10 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
-  store. **Staff** sessions come from SSO on `admin.dripfunnel.com`, have a timeout
-  *(confirm: the same 2 h / 12 h, or shorter)*, and **re-authenticate before dangerous
-  actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
+  store. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
+  can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
+  hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
   A2). **Support sessions** have their own cookie and bounds (§8).
 - **Past due** blocks writes in that store but never signs anyone out (PLATFORM-PROMPT §2
   item 7); the gate is evaluated per acting store, from `subscription` on the context,
@@ -328,7 +332,7 @@ session, and never sees another partner. **Proposed, confirm before building.**
 | See merchant accounts, plans, billing status, domain, provisioning, publishing status, usage | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Create a merchant (Owner invitation) | ✓ | ✓ | | | |
 | Change a merchant's plan, price, limits, entitlements ("Publish now" allowance), trial | ✓ | ✓ | | ✓ *(trial and billing fields only)* | |
-| Suspend and restore a merchant | ✓ | ✓ | | | |
+| Suspend and restore a merchant **(confirmed 2026-09-30)** | ✓ | ✓ | | | |
 | Open a read-only **support session** (§8) | ✓ | ✓ | ✓ | | |
 | Request write elevation inside a support session | ✓ | ✓ | ✓ | | |
 | Branding, portal host, preview and shop domains, email sender domain | ✓ | ✓ | | | |
@@ -349,7 +353,7 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
 | **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. |
-| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions. |
+| **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions, no setup sessions (§8.2). |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
 | **Read-only** | Sees everything Support sees, changes nothing. |
@@ -357,10 +361,12 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 Staff have **account-level** access to every partner and merchant through the Admin API,
 and **read-only access to customer accounts** across every store (decided 2026-09-28;
 masked contact details in lists, full on the detail page for Super admin and Support
-*(proposed)*, each detail view logged; never addresses, order contents or payment details). Inside
-a store or a partner console they act only by impersonating a user (§8.1): Super admin and
-Support only. Every
-staff write is audited (§10).
+(confirmed 2026-09-30), each detail view logged; never addresses, order contents or payment
+details). Inside
+a store they act only by impersonating a user (§8.1: Super admin and Support); inside a
+partner console, by impersonating a partner user, or through a setup session for onboarding
+(§8.2: Super admin and Partner manager). **Staff never open a support session** —
+that is a partner capability (§8). Every staff write is audited (§10).
 
 ### 5.5 Never in any merchant or vendor role
 
@@ -561,9 +567,11 @@ another vendor holds (DESIGN-BRIEF fact 10).
 
 ## 8. Support access sessions
 
-From USERS-AND-DOMAINS §4.1 (decided) and CONSOLE-DESIGN part J. Partner users and staff open
-a merchant's portal for support **only** through a support session; there is no other way into
-a store's data for either.
+From USERS-AND-DOMAINS §4.1 (decided) and CONSOLE-DESIGN part J. **Partner users** open a
+merchant's portal for support **only** through a support session; there is no other way into a
+store's data for them. **Staff never use one** (decided 2026-09-30): they impersonate (§8.1),
+with the user's full access and a full audit trail. The Rules below already said this; the
+opening sentence and the flow did not, and now do.
 
 **The setting.** *Settings › Support access* in the portal: "Allow [partner name] support to
 view my store: On / Off". **On by default**; the Owner (`settings`) can switch it off at any
@@ -573,12 +581,12 @@ merchant to switch it on.
 **Opening one:**
 
 ```
-Console (platform or admin): store page → "Open support session"
-   │  checks: actor's role allows it (§5.3, §5.4); the store belongs to the actor's partner
-   │          (staff: any partner); the store's setting is On; re-authentication (A2);
+Partner console: store page → "Open support session"
+   │  checks: the partner user's role allows it (§5.3); the store belongs to their partner;
+   │          the store's setting is On; re-authentication (A2);
    │          a reason or ticket number
    ▼
-support_session(store_id, actor_kind, actor_id, reason, access 'read',
+support_session(store_id, partner_user_id, reason, access 'read',
                 started_at, expires_at = +30 min (confirm), ended_at)  + audit row
    │  one-time handoff token, short-lived, single use
    ▼
@@ -644,7 +652,9 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
 - **Logged**: every entry has the target as `actor` and the staff member as `on_behalf_of`,
   with the impersonation id (LOGGING.md §4). Starting and ending are entries too.
 - **Ends** at 30 minutes, when the staff member ends it, or when the target's account or
-  membership is suspended or removed.
+  membership is suspended or removed. **Extendable once, by 30 minutes** (decided
+  2026-09-30), logged as its own entry; beyond that a staff member starts a new session,
+  which carries a new reason.
 - *(proposed)* Only **active** users can be impersonated (not invited-but-not-accepted, not
   suspended), and a staff member has **one open impersonation at a time**.
 - **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). These resolvers
@@ -659,7 +669,10 @@ For staff doing a partner's onboarding, or any part of it, when the partner need
 Impersonation (§8.1) can't do this: it needs an active partner user, and a partner being set
 up by DripFunnel may have none yet because the Owner's invitation is held or not accepted.
 
-- **Who**: Super admin and Partner manager. Started from the partner's page in the admin
+- **Who**: Super admin and Partner manager. **Not Support** (confirmed 2026-09-30): a setup
+  session can set the partner's plans and prices, which §5.4 keeps with Partner manager and
+  which Support's "no billing changes" excludes. Support uses impersonation (§8.1) instead.
+  Started from the partner's page in the admin
   console, with a reason or ticket and re-authentication.
 - **Where**: the real partner console on `platform.dripfunnel.com`, on the same screens the
   partner uses, through a one-time handoff exactly as in §8.1. The session is recorded as
@@ -679,8 +692,10 @@ up by DripFunnel may have none yet because the Owner's invitation is held or not
 - **Logged**: every entry has the staff member as `actor` and the setup session id in
   `access_ref` (LOGGING.md §4); starting and ending are entries too, on both the partner's and the
   platform's activity log.
-- **Ends** after 2 hours *(proposed)*, when the staff member ends it, or when the partner is
-  closed. One open setup session per staff member at a time.
+- **Ends** after 2 hours (confirmed 2026-09-30), when the staff member ends it, or when the
+  partner is closed. **Not extendable** — two hours is already the longest session on the
+  platform; more means a new one, with a new reason. One open setup session per staff member
+  at a time; a second attempt is refused rather than ending the first.
 
 ---
 
@@ -754,7 +769,8 @@ Specified in [LOGGING.md](LOGGING.md): the **activity log** is the audit log. In
 ## 11. Testing
 
 Authorization tests are the priority (PLATFORM-PROMPT §5.9). They run against the real API
-layer and a real Postgres (Testcontainers), never a mocked data layer.
+layer and a real Postgres (the local one, a fresh database per run — docs/api/README.md §7),
+never a mocked data layer.
 
 ### 11.1 Isolation matrix
 
@@ -775,7 +791,9 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
 - the last-Owner invariant holds for stores, partners and staff;
 - a support session can't read another partner's store, can't write before elevation, and
   can't do §8's "never" list even after it;
-- a partner user and staff member get nothing from the Store API outside a support session;
+- a partner user gets nothing from the Store API outside a support session, and a staff
+  member nothing outside an impersonation (§8.1) — a staff caller presenting a support
+  session is itself a failure;
 - the Staff-in-A / vendor-in-B person leaks neither way (§9).
 
 ### 11.2 Structural tests
@@ -792,8 +810,8 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
   `tax.*` or capability; no store role holds a platform permission; no field returns a
   credential.
 - The audit table rejects update and delete from the application role.
-- If row-level security is adopted, a test runs a query with the scoped layer bypassed and
-  proves the database refuses another store's rows.
+- A test runs a query with the scoped layer bypassed and proves the database refuses another
+  store's rows (DATA-MODEL §5.4).
 
 Playwright covers a small set of journeys: sign-in, store switching, accept-invitation (new
 and existing account), and a support session with its banner.
@@ -848,8 +866,8 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   not (§7.3).
 - **What happens to a removed or suspended vendor's products?** (§7.5)
 - **Refunds, returns and cancellations across vendors**: first release or later? (§7.3)
-- **Can someone be a vendor and merchant staff in the same store?** One membership per (user,
-  store) says no; make it deliberate (§7.5).
+- ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
+  both in the same store (DATA-MODEL §1, §7.5).
 - **Does a vendor see which other stores a product of theirs is in?** Products are per store,
   so nothing leaks by default; a "sell this in my other store" feature needs its own design.
 - **Past due and vendors**: past due never locks the merchant out (decided); what happens to
@@ -866,11 +884,10 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
 - **Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).
 - **Stock only vendors**: how their products come to exist (§7.1).
 - **Support sessions**: default length; the email notice; who in the store may allow write
-  elevation; the investigation exception; what a staff session's banner names under a
-  white-label partner (§8).
+  elevation (§8). The investigation exception and the staff banner's wording are moot: staff
+  never open a support session (decided 2026-09-30), and §8.1 fixes their banner to "Support".
 - **Staff session bounds** and which actions need a second approver (§4, §5.4).
 - **API keys** when their creator leaves or is demoted; whether apps can be vendor-bound (§3,
   §5.6).
 - **Password change** ending every other session on every host (§4).
-- **Row-level security** as defence in depth: yes or no (§1).
 - **Whether vendors see any audit entries** (§10).

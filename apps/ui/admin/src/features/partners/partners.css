@@ -1,0 +1,48 @@
+/* What only the Partners screens draw; the shared list and detail styles are common/list.css. */
+
+.df-house-badge {
+  border-color: var(--df-color-border);
+  background: var(--df-color-hover);
+  color: var(--df-color-link-hover);
+  font-size: 11px;
+}
+
+.df-setup {
+  color: var(--df-color-warning);
+  font-weight: 700;
+}
+
+.df-setup--complete {
+  color: var(--df-color-success);
+}
+
+.df-paused-note {
+  color: var(--df-color-warning);
+  font-size: 14px;
+}
+
+.df-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-4);
+}
+
+.df-swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  font-size: 14px;
+}
+
+.df-swatch code {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-swatch-chip {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+}

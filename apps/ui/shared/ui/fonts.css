@@ -1,0 +1,8 @@
+/* Self-hosted so no page sends a visitor's IP and User-Agent to a third party, and so a
+   font-src 'self' CSP keeps working (AGENTS.md security and data rules). Weights are only
+   the ones the style guide uses: Inter 400/600/700 and Manrope 700/800 come from their
+   variable builds, IBM Plex Mono 500 has no variable build. The variable builds register as
+   "Inter Variable" and "Manrope Variable", so tokens.css names those first. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/manrope';
+@import '@fontsource/ibm-plex-mono/500.css';

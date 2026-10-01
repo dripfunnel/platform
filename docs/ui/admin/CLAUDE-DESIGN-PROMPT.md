@@ -7,7 +7,7 @@ prompt should be updated.
 
 Paste everything below the line.
 
-Last updated: 2026-09-29.
+Last updated: 2026-09-30.
 
 ---
 
@@ -54,9 +54,11 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 
 ## 3. Look and feel
 
-- **DripFunnel-branded**, calm and dense, like a serious internal tool. Primary colour indigo
-  `#4f46e5` on white; text `#111827`; muted text `#6b7280`; radius 8 px; system font stack.
-  Design **light and dark** themes.
+- **DripFunnel-branded**, calm and dense, like a serious internal tool, in the DripFunnel style
+  guide's look ([designs/design.md](../../../designs/design.md) §5–7, the source of truth for
+  tokens): orange `#EC844F` actions with a `#4A1B0C` label, navy `#0A2A4A` headings, text
+  `#14181F` on `#FDFAF7`, Manrope headings and Inter text, 8 px buttons and fields, 12 px
+  cards, 16 px dialogs. Design **light and dark** themes.
 - **Desktop first** (1280–1440 px), with a narrow-laptop layout. On a phone an on-call
   engineer must still be able to **search for a store and see its status**; design that one
   flow at 375 px.
@@ -92,7 +94,7 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 
 ### 5.1 Sign in
 
-Company single sign-on only: one "Sign in with Google Workspace" button, then a 2-factor
+Company single sign-on only: one "Sign in with Microsoft Entra ID" button, then a 2-factor
 step. States: signing in, access refused (no detail about why), session expired. No sign-up,
 no password field.
 
@@ -205,7 +207,8 @@ state, step.
 ### 5.7 Impersonate
 
 Staff (Super admin and Support only) can **sign in as any partner user or store user** to
-see and do exactly what that person can: **full access, for 30 minutes, no consent needed**,
+see and do exactly what that person can: **full access, for 30 minutes (extendable once by
+30), no consent needed**,
 **except** changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner): design those controls disabled with "Only Priya can change this".
 Never as another staff member, never as a shopper. The banner always says "Support", never
 "DripFunnel" (partners' merchants mustn't see our name).

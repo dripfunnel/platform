@@ -98,7 +98,11 @@ removal starts only once this workflow is merged to `main`.
       `dripfunnel-feature-*` Pages projects. Otherwise the `*.pages.dev` branch aliases stay
       public.
 4. **Neon.**
-   1. Create a project `dripfunnel-dev`.
+   1. Create a project `dripfunnel-dev`, on **Postgres 18.x** (confirmed 2026-09-30). Every
+      branch of this project — feature, `dev`, and the CI test branch — inherits the
+      project's major, so this is the version `REQUIRED_POSTGRES_MAJOR`
+      (`apps/api/scripts/migrate/version-check.ts`, [docs/api/README.md](../api/README.md) §7)
+      must match. Bump both together if it ever changes.
    2. Its default branch holds the seeded dummy data (partners, stores and products for US,
       DE and IN, as in the prototypes). The seed script comes with the database, in slice 3.
    3. Create a **project-scoped** API key.
