@@ -1,3 +1,3 @@
-import { createBuilder } from '../graphql/builder'
+import { createSchema } from '../graphql/builder'
 
-export const shopSchema = createBuilder().toSchema()
+export const shopSchema = createSchema('shop')

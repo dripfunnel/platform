@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until the first migration; the structure is decided.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-01.
 
 ---
 
@@ -64,10 +64,13 @@ platform            no row: DripFunnel itself; staff act here
 ```
 staff_user     (id, sso_subject UNIQUE, email, name, role_key, status, created_at)
 staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, reauth_at)
+staff_partner_assignment (staff_user_id, partner_id, created_at)   -- PK both; Partner managers only
 ```
 
 `role_key` ∈ `staff-super-admin`, `staff-partner-manager`, `staff-support`, `staff-finance`,
 `staff-engineer`, `staff-read-only` (ACCESS.md §5.4). Company SSO only; no password column.
+`staff_partner_assignment` lists the partners a Partner manager acts on (ACCESS.md §5.4, #14); read in
+`platform` and `system` scope, written by no request scope.
 
 ### 3.2 Partner users (partner)
 

@@ -13,14 +13,14 @@ requirements are in [PLATFORM-PROMPT.md](PLATFORM-PROMPT.md) (§2 items 2–5 an
 [../ui/admin/CONSOLE-DESIGN.md](../ui/admin/CONSOLE-DESIGN.md) (§4, parts A, J, O, P).
 
 **Status: partly built.** The tenancy tables, `TenantContext`, the scoped layer and the
-row-level security backstop landed with #12; identity and sessions have not. Code lives in
+row-level security backstop landed with #12; staff identity and sessions with #13, and staff permissions and the resolver check with #14. Code lives in
 `apps/api/src/auth` (identity, sessions, memberships, roles, keys, grants, staff identity),
 **`apps/api/src/core/tenancy.ts`** (`TenantContext` and `SellerScope` — the type sits in
 `core` because `db/` may import only `core`, and `db/scoped` is its consumer),
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-01.
 
 ---
 
@@ -175,8 +175,25 @@ The declaration replaces the first platform's tRPC procedure bases:
 | `audit: <action>` | `privilegedProcedure(cap)` (never built) | The resolver's writes and its audit row commit in one transaction (§10). Required on every field that needs a capability, and on every Platform and Admin API mutation. |
 | `scope: 'partner'`, `scope: 'platform'` | (none) | Platform API fields see only the caller's partner; Admin API fields see every partner, per staff role. |
 
-A test walks every schema and fails on a field missing `api`, `scope` or `permission`, and on
-a capability field missing `audit` (§11.2).
+**Built on #14** (`apis/graphql/scope.ts`). The declaration is the field's `access` extension:
+`api`, `scope`, `permission`, and on every field that needs a permission a `target`: the
+partner or store it acts on, or `'none'` for a list, which filters its own rows. `secureSchema`
+wraps every Query and Mutation field so the check runs before the body. It **throws while the
+schema is built** if a field declares nothing, names another API, uses a scope its API doesn't
+serve, pairs a permission with `public` or `session` (or omits one elsewhere), or omits the
+target. So the Worker, `pnpm schema` and every test refuse to start; a missing declaration never
+means allowed. The Platform, Store and Shop APIs serve only `public` until their cards add a
+policy. A field on any other type may declare a stricter permission and then reads as `null`
+when refused, so full contact details are `Customer.email` declaring `customers.contact.read`.
+`audit` is declared from the first audited mutation on.
+
+Refusals carry a fixed message and one of two stable codes, whatever the target, so neither
+says whether it exists:
+
+| Code | When |
+|---|---|
+| `UNAUTHENTICATED` | No valid staff session. The console sends the caller to sign-in. `me` is `public` and reads `null` instead. |
+| `FORBIDDEN` | Signed in, but the role lacks the permission, or a Partner manager isn't assigned to the target's partner (§5.4). The console shows its permission-denied state. |
 
 ### 3.2 Vendor input can't carry ownership or visibility
 
@@ -362,13 +379,44 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 | Staff role | Can |
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
-| **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. |
+| **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. Acts **only on the partners assigned to them** (below). |
 | **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions, no setup sessions (§8.2). |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
-| **Read-only** | Sees everything Support sees, changes nothing. |
+| **Read-only** | Sees partners, stores, customers (masked) and the activity log; changes nothing. No Provisioning menu and no full contact details (FIRST-RELEASE §2, §5.4; corrected on #14 from "everything Support sees"). |
 
-Staff have **account-level** access to every partner and merchant through the Admin API,
+**Permissions (decided on #14).** One per screen need in [FIRST-RELEASE](../ui/admin/FIRST-RELEASE.md);
+the sets live in `apps/api/src/auth/permissions.ts` and are tested against this table.
+SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call, RO Read-only.
+
+| Permission | SA | PM | Su | Fi | En | RO |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| `partners.read`, `stores.read`, `customers.read` (masked), `activity.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `customers.contact.read` (full email and phone on a customer's page) | ✓ | | ✓ | | | |
+| `partners.create`, `partners.approve` (and send back), `partners.setup` (setup session), `partners.invite` | ✓ | ✓ | | | | |
+| `partners.invite.resend` | ✓ | ✓ | ✓ | | | |
+| `partners.pause` (and resume) | ✓ | | | | | |
+| `stores.suspend` | ✓ | | | | ✓ | |
+| `stores.restore`, `stores.trial.extend` | ✓ | | | | | |
+| `stores.invite.resend` | ✓ | | ✓ | | | |
+| `stores.notes.write` | ✓ | ✓ | ✓ | | ✓ | |
+| `domains.recheck` | ✓ | | | | ✓ | |
+| `provisioning.read`, `provisioning.retry` | ✓ | | ✓ | | ✓ | |
+| `provisioning.undo` | ✓ | | | | ✓ | |
+| `impersonate` (start, return to, end and extend your own, §8.1) | ✓ | | ✓ | | | |
+| `setupSessions.read` | ✓ | ✓ | ✓ | | | |
+| `staffSessions.endAny` (end someone else's session) | ✓ | | | | | |
+| `activity.export` | ✓ | | | | ✓ | |
+| `staff.manage` | ✓ | | | | | |
+
+| Decision (#14) | Rejected | Why |
+|---|---|---|
+| Finance holds Read-only's set in this release | Billing permissions now | Billing is out of the first release (FIRST-RELEASE §11 H); no screen needs them. |
+| A Partner manager acts only on partners assigned in `staff_partner_assignment` (DATA-MODEL §3.1); a field with a `target` refuses an unassigned or unknown one with `FORBIDDEN` | Every partner | "Their partners" in CONSOLE-DESIGN §4 and the admin README. Lists (`target: 'none'`) must filter to the assignment themselves. No screen writes assignments yet; that needs its own card. |
+| `domains.recheck` for Super admin and Engineer on call | Every role that sees the tab | The admin README gives domains to those two and "view" to the rest. |
+
+Staff have **account-level** access to every partner and merchant through the Admin API
+(a Partner manager to its assigned partners),
 and **read-only access to customer accounts** across every store (decided 2026-09-28;
 masked contact details in lists, full on the detail page for Super admin and Support
 (confirmed 2026-09-30), each detail view logged; never addresses, order contents or payment

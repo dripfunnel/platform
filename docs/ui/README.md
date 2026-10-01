@@ -73,7 +73,7 @@ apps/ui/<app>/
 - One client per app (`createApiClient()` from `@dripfunnel/shared/graphql`): same-origin
   cookie, a timeout on every call, errors surfaced as `ApiError` with the API's stable code.
 - **Handle errors by code, never by message** (`PLAN_LIMIT_REACHED`, `NOT_FOUND`,
-  `FORBIDDEN`…). Each code maps to a designed state or a message from `messages/`.
+  `UNAUTHENTICATED`, `FORBIDDEN`…; the access codes are in api/ACCESS.md §3.1). Each code maps to a designed state or a message from `messages/`.
 - **The API decides; the UI displays.** Prices, totals, tax, stock, permissions and plan
   limits come from the API. The UI never computes a price or decides whether an action is
   allowed; it hides or disables controls only as a courtesy, the API enforces.

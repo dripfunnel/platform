@@ -7,6 +7,7 @@ import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
 import { interimActivityLog } from '#auth/activity'
+import { isAssigned } from '#auth/assignment'
 import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
@@ -115,10 +116,13 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false })
   }
   return withConnection(hyperdrive, ctx, async (sql) =>
-    servers.admin.fetch(request, { staff: await resolveStaff(sql, request, new Date()) }),
+    servers.admin.fetch(request, {
+      staff: await resolveStaff(sql, request, new Date()),
+      isAssigned: (staffId, target) => isAssigned(sql, staffId, target),
+    }),
   )
 }
 
