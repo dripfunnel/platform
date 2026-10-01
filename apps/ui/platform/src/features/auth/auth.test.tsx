@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
-import { signInStates } from './authStates'
+import { credentialsView, signInReducer, signInStates } from './authStates'
 import { SignIn } from './SignIn'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
@@ -67,5 +67,22 @@ describe('no path suggests an account can be created here', () => {
   it('has no sign-up, create-account or Google words on the signed-out screens', () => {
     const signedOut = JSON.stringify({ auth: messages.auth, signIn: messages.signIn })
     expect(signedOut).not.toMatch(/sign up|sign-up|signup|create an account|create account|google/i)
+  })
+})
+
+describe('moving between the sign-in steps', () => {
+  const expiredStart = { ...credentialsView, expired: true }
+
+  it('drops the session-expired words once the user moves on', () => {
+    const afterForgot = signInReducer(expiredStart, { type: 'forgot' })
+    expect(afterForgot.expired).toBe(false)
+    expect(signInReducer(afterForgot, { type: 'back' })).toEqual(credentialsView)
+    expect(signInReducer(expiredStart, { type: 'code' }).expired).toBe(false)
+  })
+
+  it('unlocks the code step when another account signs in', () => {
+    const locked = signInReducer({ ...credentialsView, step: 'code' }, { type: 'locked', error: 'locked' })
+    expect(locked.locked).toBe(true)
+    expect(signInReducer(locked, { type: 'back' })).toEqual(credentialsView)
   })
 })

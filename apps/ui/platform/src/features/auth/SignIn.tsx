@@ -2,13 +2,13 @@
 // notConnected. ?outcome=expired is the Worker's real result (ACCESS §4) and is read everywhere.
 import { parseScreenState, useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useReducer, useState } from 'react'
 import { lockMinutes, requestPasswordReset, safeNext, signIn, verifySecondFactor, type AuthCode } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import './auth.css'
 import { AuthFrame } from './AuthFrame'
-import { signInOutcomes, signInStates, type SignInState, type SignInStep } from './authStates'
+import { credentialsView, signInOutcomes, signInReducer, signInStates, type SignInState, type SignInView } from './authStates'
 import { CodeField } from './CodeField'
 
 const words = messages.signIn
@@ -20,29 +20,32 @@ export interface SignInSearch {
 
 const emailLooksValid = (email: string) => /.+@.+\..+/.test(email)
 
-// Where a harness state puts the screen: the step, the message and whether the code is locked.
-const forcedView = (state: SignInState): { step: SignInStep; error: string | null; locked: boolean; expired: boolean } => {
+// Where a harness state puts the card: the step, the message and whether the code is locked.
+const forcedView = (state: SignInState): SignInView => {
   switch (state) {
     case 'wrong':
-      return { step: 'credentials', error: words.credentials.refused, locked: false, expired: false }
+      return { ...credentialsView, error: words.credentials.refused }
     case 'notConnected':
-      return { step: 'credentials', error: messages.auth.notConnected, locked: false, expired: false }
+      return { ...credentialsView, error: messages.auth.notConnected }
     case 'code':
-      return { step: 'code', error: null, locked: false, expired: false }
+      return { ...credentialsView, step: 'code' }
     case 'wrongCode':
-      return { step: 'code', error: fill(words.code.wrong, { tries: fill(words.code.tries, { count: '3' }) }), locked: false, expired: false }
+      return { ...credentialsView, step: 'code', error: fill(words.code.wrong, { tries: fill(words.code.tries, { count: '3' }) }) }
     case 'expiredCode':
-      return { step: 'code', error: words.code.expired, locked: false, expired: false }
+      return { ...credentialsView, step: 'code', error: words.code.expired }
     case 'locked':
-      return { step: 'code', error: fill(words.code.locked, { minutes: String(lockMinutes) }), locked: true, expired: false }
+      return { ...credentialsView, step: 'code', error: fill(words.code.locked, { minutes: String(lockMinutes) }), locked: true }
     case 'forgot':
-      return { step: 'forgot', error: null, locked: false, expired: false }
+      return { ...credentialsView, step: 'forgot' }
     case 'sent':
-      return { step: 'sent', error: null, locked: false, expired: false }
+      return { ...credentialsView, step: 'sent' }
     case 'expired':
-      return { step: 'credentials', error: null, locked: false, expired: true }
+      return { ...credentialsView, expired: true }
   }
 }
+
+const startView = (forced: SignInState | null, outcome: string | null): SignInView =>
+  forced ? forcedView(forced) : { ...credentialsView, expired: outcome === 'expired' }
 
 const refusalWords = (code: AuthCode, triesLeft?: number, minutes?: number): string => {
   switch (code) {
@@ -63,10 +66,9 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
   const navigate = useNavigate()
   const forced = useScreenState(signInStates, harnessEnabled)
   const outcome = parseScreenState(search.outcome, signInOutcomes)
-  const initial = forced ? forcedView(forced) : { step: 'credentials' as const, error: null, locked: false, expired: outcome === 'expired' }
-  const [step, setStep] = useState<SignInStep>(initial.step)
-  const [error, setError] = useState<string | null>(initial.error)
-  const [locked, setLocked] = useState(initial.locked)
+  const [view, dispatch] = useReducer(signInReducer, startView(forced, outcome))
+  const { step, error, locked, expired } = view
+  const setError = (next: string | null) => dispatch({ type: 'error', error: next })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -76,11 +78,8 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
   const hintId = useId()
 
   useEffect(() => {
-    const view = forced ? forcedView(forced) : { step: 'credentials' as const, error: null, locked: false }
-    setStep(view.step)
-    setError(view.error)
-    setLocked(view.locked)
-  }, [forced])
+    dispatch({ type: 'reset', view: startView(forced, outcome) })
+  }, [forced, outcome])
 
   const finish = () => void navigate({ href: safeNext(search.next, window.location.origin) })
 
@@ -90,8 +89,7 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
     const result = await signIn(email, password)
     setBusy(false)
     if (!result.ok) return setError(refusalWords(result.code))
-    setError(null)
-    if (result.secondFactor) return setStep('code')
+    if (result.secondFactor) return dispatch({ type: 'code' })
     finish()
   }
 
@@ -102,8 +100,8 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
     setBusy(false)
     setCode('')
     if (!result.ok) {
-      setLocked(result.code === 'LOCKED')
-      return setError(refusalWords(result.code, result.triesLeft, result.minutes))
+      const message = refusalWords(result.code, result.triesLeft, result.minutes)
+      return dispatch(result.code === 'LOCKED' ? { type: 'locked', error: message } : { type: 'error', error: message })
     }
     finish()
   }
@@ -113,19 +111,16 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
     setBusy(true)
     await requestPasswordReset()
     setBusy(false)
-    setError(null)
-    setStep('sent')
+    dispatch({ type: 'sent' })
   }
 
   const backToCredentials = () => {
-    setStep('credentials')
-    setError(null)
-    setLocked(false)
+    dispatch({ type: 'back' })
     setCode('')
     setPassword('')
   }
 
-  const stepWords = step === 'credentials' && initial.expired ? words.expired : words[step]
+  const stepWords = step === 'credentials' && expired ? words.expired : words[step]
   const title = stepWords.title
   const body = step === 'sent' ? fill(words.sent.body, { email: email || words.sent.fallback }) : stepWords.body
 
@@ -151,7 +146,7 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
           <button type="submit" className="df-button df-button--primary df-sign-in-submit" disabled={busy}>
             {words.credentials.continue}
           </button>
-          <button type="button" className="df-sign-in-link" onClick={() => { setStep('forgot'); setError(null) }}>
+          <button type="button" className="df-sign-in-link" onClick={() => dispatch({ type: 'forgot' })}>
             {words.credentials.forgot}
           </button>
         </form>
