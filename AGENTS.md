@@ -117,7 +117,9 @@ Run the gates before reporting a change as done.
   token to `.npmrc`.
 
 **Deploys**
-- Pushing `main` deploys production. Treat it as a production action.
+- Pushing `main` runs migrations against the real prod database and uploads a new Worker
+  version — nothing goes live until `promote.yml` is run by hand (docs/ARCHITECTURE.md §6).
+  Treat a push to `main` as a production action.
 
 ## Rules
 

@@ -517,7 +517,7 @@ or admin console (ACCESS.md §8), integrations and apps:
 ### 5.8 Config, deploy, observability
 
 - Typed config validated from the Worker `env`; secrets in Workers secrets; migrations from
-  `apps/api/migrations` before the Worker deploys; gradual rollouts and rollback
+  `apps/api/migrations` before the Worker deploys; manual gated promotion and rollback
   (`../ARCHITECTURE.md` §4, §6).
 - Every log line carries store, seller and brand ids. Tracing across API, worker and edge.
 - The §14 metrics from the first store: build minutes, AI cost, provisioning success, time to

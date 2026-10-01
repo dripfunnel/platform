@@ -1,0 +1,94 @@
+name: prod
+
+# Migrations + Worker version upload only, gated by a local gates job (main isn't
+# branch-protected yet). See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  # Separate from promote.yml's group: a queued promote must not be dropped by a later push.
+  group: prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    # workflow_dispatch can target any branch; push is already restricted to main above, but
+    # this job also handles dispatch, so it needs its own guard.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      # Must differ, or Gates could migrate/write to the real prod database (ARCHITECTURE.md §6).
+      - name: Guard rails
+        env:
+          ALLOWED_TEST_HOST: ${{ vars.ALLOWED_TEST_HOST }}
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+        run: |
+          if [ -z "$ALLOWED_TEST_HOST" ] || [ -z "$ALLOWED_MIGRATION_HOST" ]; then
+            echo "ALLOWED_TEST_HOST and ALLOWED_MIGRATION_HOST must both be set." >&2
+            exit 1
+          fi
+          if [ "$ALLOWED_TEST_HOST" = "$ALLOWED_MIGRATION_HOST" ]; then
+            echo "ALLOWED_TEST_HOST must not equal ALLOWED_MIGRATION_HOST: Gates must not be allowed to touch the production database." >&2
+            exit 1
+          fi
+      # runner.test.ts applies migrations too, so it runs behind the same guard as Migrations below.
+      - run: pnpm turbo run build typecheck lint test
+        working-directory: .
+        env:
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_TEST_HOST }}
+
+  deploy:
+    needs: gates
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - name: Migrations
+        id: migrate
+        run: pnpm run --if-present migrate
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ vars.ALLOWED_MIGRATION_HOST }}
+
+      - name: API Worker (upload only — promote with promote.yml once healthy)
+        id: worker
+        uses: ./.github/actions/worker-upload
+        with:
+          env-name: prod
+          message: ${{ github.sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Run summary
+        if: always()
+        working-directory: .
+        run: |
+          {
+            echo "### Deploy summary"
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Migrations: ${{ steps.migrate.outcome == 'success' && 'ran against `apps/api/migrations`' || format('did NOT complete ({0})', steps.migrate.outcome) }}"
+            echo "- API Worker: ${{ steps.worker.outcome == 'success' && format('version `{0}` uploaded, not yet promoted', steps.worker.outputs.version-id) || format('did NOT complete ({0})', steps.worker.outcome) }}"
+            echo "- SPAs: not deployed by this workflow. Once the version above is confirmed healthy, run **promote** (workflow_dispatch) with version_id \`${{ steps.worker.outputs.version-id }}\` and commit_sha \`${{ github.sha }}\` to promote the Worker and deploy the SPAs together."
+          } >> "$GITHUB_STEP_SUMMARY"

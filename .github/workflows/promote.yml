@@ -1,0 +1,171 @@
+name: promote
+
+# Manual promotion of a `prod.yml`-uploaded Worker version, then the SPAs from the same commit.
+# See docs/code/ROLLBACK.md and ARCHITECTURE.md §6.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_id:
+        description: Worker version ID to promote (from prod.yml's run summary)
+        required: true
+      commit_sha:
+        description: Commit the version was built from (checked out to build the SPAs)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  # Separate from prod.yml's group: migrations must stay backward-compatible with any live
+  # version (ARCHITECTURE.md §6), so a promote running alongside a new push is safe.
+  group: prod-promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    # workflow_dispatch can target any branch, so this guard keeps the job (and the workflow
+    # file it runs) restricted to main. commit_sha is checked out separately, below, only after
+    # it's validated as an ancestor of origin/main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      # Checked out at the ref that triggered this dispatch (main, per the job guard above), not
+      # at commit_sha: commit_sha is untrusted until the ancestry check below passes, and running
+      # setup (pnpm install) or any local action against it first would run untrusted code with
+      # prod credentials already in the job env.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+
+      - name: Validate inputs
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+        run: |
+          if ! [[ "$VERSION_ID" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+            echo "version_id must be a UUID, got: $VERSION_ID" >&2
+            exit 1
+          fi
+          if ! [[ "$COMMIT_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "commit_sha must be a 40-character hex SHA, got: $COMMIT_SHA" >&2
+            exit 1
+          fi
+
+      - name: Verify version_id and commit_sha agree
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          # Cross-check against the version's own annotation rather than trusting the two inputs to agree.
+          version_message=$(pnpm exec wrangler versions view "$VERSION_ID" --env prod --json | jq -r '.annotations["workers/message"] // empty')
+          if [ "$version_message" != "$COMMIT_SHA" ]; then
+            echo "Version $VERSION_ID was uploaded for commit '$version_message', not $COMMIT_SHA — refusing to promote a mismatched commit." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$COMMIT_SHA" origin/main; then
+            echo "$COMMIT_SHA is not on origin/main — refusing to build and deploy SPAs from an unmerged commit." >&2
+            exit 1
+          fi
+
+      # Only now is commit_sha known to be an already-merged commit on origin/main, so it's safe
+      # to run its local actions (pages-deploy below) and its build scripts (Build SPAs below).
+      - name: Checkout commit_sha
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit_sha }}
+      # actions/checkout defaults to `clean: true` (git clean -ffdx), which just removed the
+      # node_modules the first `setup` installed for `main` — and it was `main`'s lockfile
+      # anyway, not commit_sha's. Reinstall from commit_sha's lockfile before anything runs.
+      - uses: ./.github/actions/setup
+
+      - name: Promote Worker to 100%
+        id: promote
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm exec wrangler versions deploy "$VERSION_ID@100" -y --env prod \
+            --message "promote $COMMIT_SHA"
+
+      - name: Health-check prod after promotion
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+        run: |
+          # platform.dripfunnel.com, not admin.dripfunnel.com: admin sits behind Cloudflare Access (§2).
+          for i in $(seq 1 10); do
+            body=$(curl -sf "https://platform.dripfunnel.com/api/health" || echo '')
+            if [ -n "$body" ] && echo "$body" | jq -e --arg v "$VERSION_ID" '.ok == true and .version == $v' > /dev/null 2>&1; then
+              echo "Healthy on version $VERSION_ID (attempt $i)."
+              exit 0
+            fi
+            echo "Attempt $i: got '$body', retrying..."
+            sleep 5
+          done
+          echo "Prod did not report healthy on version $VERSION_ID after promotion — see docs/code/ROLLBACK.md to roll the Worker back." >&2
+          exit 1
+
+      - name: Build SPAs
+        working-directory: .
+        run: pnpm turbo run build
+
+      - name: 'SPA: store'
+        id: spa-store
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-store
+          dist: ../ui/store/dist
+          branch: main
+          commit-hash: ${{ inputs.commit_sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: 'SPA: platform'
+        id: spa-platform
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-platform
+          dist: ../ui/platform/dist
+          branch: main
+          commit-hash: ${{ inputs.commit_sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: 'SPA: admin'
+        id: spa-admin
+        uses: ./.github/actions/pages-deploy
+        with:
+          project-name: dripfunnel-admin
+          dist: ../ui/admin/dist
+          branch: main
+          commit-hash: ${{ inputs.commit_sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Run summary
+        if: always()
+        working-directory: .
+        env:
+          VERSION_ID: ${{ inputs.version_id }}
+          COMMIT_SHA: ${{ inputs.commit_sha }}
+          PROMOTE_OUTCOME: ${{ steps.promote.outcome == 'success' && 'promoted to 100%' || format('did NOT promote ({0})', steps.promote.outcome) }}
+          SPAS_OUTCOME: ${{ (steps.spa-store.outcome == 'success' && steps.spa-platform.outcome == 'success' && steps.spa-admin.outcome == 'success') && 'store / platform / admin deployed from the same commit, only after the Worker promotion succeeded and prod reported healthy.' || format('NOT all deployed (store: {0}, platform: {1}, admin: {2}) — see steps above.', steps.spa-store.outcome, steps.spa-platform.outcome, steps.spa-admin.outcome) }}
+        run: |
+          {
+            echo "### Promote summary"
+            echo "- Commit: \`$COMMIT_SHA\`"
+            echo "- Worker version: \`$VERSION_ID\` — $PROMOTE_OUTCOME"
+            echo "- SPAs: $SPAS_OUTCOME"
+          } >> "$GITHUB_STEP_SUMMARY"

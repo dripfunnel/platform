@@ -20,6 +20,7 @@ export const handleHealthCheck = async (
   config: Config,
   ctx: WaitUntil,
   rateLimiter: RateLimiter,
+  version: string,
 ): Promise<Response> => {
   const ip = request.headers.get('cf-connecting-ip')
   if (!ip) return new Response('Bad request', { status: 400 })
@@ -27,5 +28,5 @@ export const handleHealthCheck = async (
   if (!success) return new Response('Too many requests', { status: 429 })
   const db = await checkHealth(config, ctx)
   const ok = db !== 'down'
-  return Response.json({ ok, area, db }, { status: ok ? 200 : 503 })
+  return Response.json({ ok, area, db, version }, { status: ok ? 200 : 503 })
 }

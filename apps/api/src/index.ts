@@ -24,6 +24,7 @@ const servers = {
 
 interface Env extends Record<string, unknown> {
   HEALTH_RATE_LIMITER: RateLimit
+  CF_VERSION_METADATA: { id: string; tag: string }
   // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
   // typing it as present would make the check below look like dead code.
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
@@ -117,7 +118,7 @@ export default {
     }
     const area = resolveArea(url, config)
     if (!area || area === 'hooks') return notFound()
-    if (isHealthPath(area, url.pathname)) return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER)
+    if (isHealthPath(area, url.pathname)) return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id)
     if (area === 'admin') return handleAdmin(request, url, config, env, ctx)
     return servers[area].fetch(request)
   },

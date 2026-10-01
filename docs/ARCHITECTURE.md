@@ -18,7 +18,7 @@ Last updated: 2026-09-30.
 | **Five kinds of user and their hostnames**: Admin on `admin.dripfunnel.com`; Partners on `platform.dripfunnel.com`; merchants and vendors on each partner's own portal host; customers on merchants' domains. Full detail in [USERS-AND-DOMAINS.md](USERS-AND-DOMAINS.md) | Per-partner consoles; one shared merchant portal host; Admin and Partners in one console | Partners are our customers and use one console we own; merchants see only their partner's brand. Staff get their own console and host, so an Admin screen or endpoint can never be reached from a partner session, and Cloudflare Access can guard the whole admin host. |
 | **One repo, `dripfunnel/platform`**, for every app, the storefront package and template, and all docs | Four repos (packages, store, admin, template) | One schema and one migration history for one database; an AI agent (or a person) can follow a change from table to API to screen and make it in one pull request; one copy of the rules. Generated **store repos** stay separate by design. |
 | **Four apps**: `api` (one Worker) and three SPAs in `apps/ui/`: `store`, `platform` and `admin` | Five API Workers; a package per concern | Fewest moving parts: one API deploy, one config, one set of bindings, no wiring copied between Workers. The modules inside `api` stay separate, so splitting a Worker out later is cheap. |
-| **One API Worker** serves the Store, Platform, Admin and Shop APIs, webhooks, queues, Cron and Workflows, choosing by hostname and path (§2) | A Worker per API | Simpler. Its costs are covered: a bad deploy is limited by gradual rollout and instant rollback, and a hostname guard with a test keeps each API off hosts it doesn't belong on. |
+| **One API Worker** serves the Store, Platform, Admin and Shop APIs, webhooks, queues, Cron and Workflows, choosing by hostname and path (§2) | A Worker per API | Simpler. Its costs are covered: a bad deploy is limited by manual promotion and instant rollback, and a hostname guard with a test keeps each API off hosts it doesn't belong on. |
 | **Only code the AI could reach is a published package**: `@dripfunnel/storefront-core`, installed by store repos | Publishing shared internal code | Store repos are the only code outside this repo, and the AI edits them. The core they run must be versioned and outside the files the AI may change. Our own apps ship from one commit and need no versions. |
 | **`apps/ui/shared/` holds only code that more than one app uses**, today browser code the SPAs share | Shared packages in advance | Nothing is shared before a second app needs it. Server code lives only in `apps/api`, so it can't leak into a browser bundle. |
 | **UIs are independent static SPAs on Cloudflare Pages** | Next.js servers that also host the API | A UI deploy can't break the API and the reverse; UIs are pure static assets served from the edge; any client (the SPAs, integrations) uses the same APIs. |
@@ -61,8 +61,9 @@ Last updated: 2026-09-30.
 | Queue messages, Cron, Workflow steps | `src/jobs` | no HTTP route |
 
 A test proves every API answers 404 on every host it doesn't belong to. Cloudflare Access
-guards `admin.dripfunnel.com`. Deploys are gradual (a small share of traffic
-first) with instant rollback through Worker versions.
+guards `admin.dripfunnel.com`. Prod deploys upload a Worker version without putting it live;
+promoting it to 100% (and rolling back) is a manual `wrangler versions deploy` command, so a
+bad deploy never reaches traffic without a human step (see `docs/code/ROLLBACK.md`).
 
 **Routing check before building:** confirm that a Worker route for `/api/*` can sit on the
 same custom hostname as a Pages project, including partners' hostnames added through
@@ -102,8 +103,9 @@ platform/
     code/                   ARCHITECTURE.md, DESIGN.md: repo-wide decisions and conventions
     storefront/             ARCHITECTURE.md, DESIGN.md: storefront template and AI design
   .github/workflows/        ci.yml (the gates), naming.yml, claude-review.yml,
-                            feature-env.yml, dev.yml; prod deploy arrives with #51
-  .github/actions/          setup (pnpm, Node, install), pages-deploy, worker-deploy
+                            feature-env.yml, dev.yml, prod.yml
+  .github/actions/          setup (pnpm, Node, install), pages-deploy, worker-deploy,
+                            worker-upload (prod: version upload, no live promotion)
   .changeset/               for storefront-core only
   package.json  pnpm-workspace.yaml  turbo.json  tsconfig.base.json  eslint.config.js
   AGENTS.md  CLAUDE.md  README.md
@@ -192,13 +194,20 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
 - **Production**: migrations from `apps/api/migrations` run first against Neon's direct
   connection (not Hyperdrive), and must be backward-compatible with the running version; then
-  the API Worker deploys with gradual rollout, then the SPAs. Each app deploys only when its
-  own files or `apps/ui/shared/` change.
-- **Pushing `main` deploys production.** Treat it as a production action.
-- **`main` is not protected yet**: GitHub Free doesn't allow branch protection on private repos.
-  Before the first deploy workflow is added, upgrade the `dripfunnel` org to GitHub Team and
-  apply the `protect-main` ruleset (pull requests only, the CI `gates` check must pass, no
-  force-push or deletion).
+  the API Worker version is uploaded — not deployed. Promotion to 100% and the SPA deploys are a
+  separate, manual `workflow_dispatch` (`promote.yml`) run once the uploaded version is confirmed
+  healthy: it promotes the Worker, health-checks the live prod host, and — only then — builds and
+  deploys all three SPAs from that same commit, so the SPAs are never ahead of the API they call.
+  See `docs/code/ROLLBACK.md`.
+- **Pushing `main` is a production action**: it runs migrations against the real prod database
+  and uploads a new Worker version, though nothing new goes live until `promote.yml` is run by
+  hand. Treat a push to `main` accordingly.
+- **`main` is not protected yet**: GitHub Free doesn't allow branch protection on private repos,
+  so a direct push to `main` still deploys with no PR and no `ci.yml` run. Until the
+  `dripfunnel` org is upgraded to GitHub Team and the `protect-main` ruleset is applied (pull
+  requests only, the CI `gates` check must pass, no force-push or deletion), `prod.yml` runs its
+  own `gates` job (build/typecheck/lint/test) before every deploy instead of relying on `main`
+  being protected. Drop that job from `prod.yml` once the ruleset exists.
 
 ---
 

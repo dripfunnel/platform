@@ -73,6 +73,7 @@ docs/
     GITHUB-MCP.md           connect Claude Code to GitHub (issues, project cards, pull requests) with a personal token
     HOW-TO-WORK-A-CARD.md   the loop a developer repeats for every card: read it, branch, work with Claude, gates, pull request, review
     WORKFLOW.md             how work is planned, named (#<issue>/<kind>/<name>, #<issue> commits), enforced, reviewed, merged
+    ROLLBACK.md             rolling back a bad prod deploy: API Worker, SPAs, a bad migration
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
