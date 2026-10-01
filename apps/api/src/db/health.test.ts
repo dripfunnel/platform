@@ -14,6 +14,15 @@ import { checkHealth, ping } from './health'
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 
+const hasOpenssl = (() => {
+  try {
+    execFileSync('openssl', ['version'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+})()
+
 describe('ping', () => {
   it('is healthy against a real Postgres', async () => {
     const sql = getClient({ connectionString: DATABASE_URL }, { max: 1 })
@@ -82,21 +91,17 @@ describe('checkHealth', () => {
     10_000,
   )
 
-  it(
+  it.skipIf(!hasOpenssl)(
     'is ok past the old 5s cap when the connection is fine but the query response is delayed in transit',
     async () => {
-      // Delays only the query response (detected by its literal text) so connect_timeout and
-      // statement_timeout can't catch it — only CHECK_HEALTH_TIMEOUT_MS can.
-      //
-      // Terminates TLS on both legs only when the client sends an SSLRequest (prod's sslmode
-      // connection), falling back to a plain relay otherwise (local dev's non-TLS Postgres).
+      // Delays the query response past connect/statement timeouts; terminates TLS only if the
+      // client sent an SSLRequest, else relays plainly (local dev's non-TLS Postgres).
       const SSL_REQUEST = Buffer.from([0, 0, 0, 8, 4, 210, 22, 47]) // length 8, code 80877103
       const STALL_MS = 6_000
       const target = new URL(DATABASE_URL)
       const queryMarker = Buffer.from('select 1')
 
-      // Shared between the TLS and plain-relay paths: watches client->upstream traffic for the
-      // query marker, then buffers and delays the first upstream->client response after it.
+      // Buffers all upstream replies after the query starts; flushing only the first would reorder the wire protocol.
       const relayWithStall = (clientSide: net.Socket, upstreamSide: net.Socket) => {
         let queryStarted = false
         let stalled = false
@@ -129,11 +134,6 @@ describe('checkHealth', () => {
       const keyPath = path.join(certDir, 'key.pem')
       const certPath = path.join(certDir, 'cert.pem')
       try {
-        try {
-          execFileSync('openssl', ['version'], { stdio: 'ignore' })
-        } catch {
-          throw new Error('This test requires an `openssl` binary on PATH to generate a throwaway TLS cert.')
-        }
         execFileSync('openssl', [
           'req',
           '-x509',
