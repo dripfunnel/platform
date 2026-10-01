@@ -36,4 +36,5 @@ export {
 export { sessionPollMs, useNow, usePolling } from './usePolling'
 export { createPortalSession, useHandoff, type HandoffResult, type PortalSession, type PortalSessionOptions } from './portalSession'
 export { staffSessionCopy, type StaffSessionFormat, type StaffSessionWords } from './staffSessionCopy'
-export { HandoffScreen, PortalSessionRoot, SessionControls, useCurrentStaffSession, type HandoffScreenProps, type PortalSessionRootProps, type SessionControlsProps } from './PortalSessionRoot'
+export { handoffPath, handoffSearch, HandoffScreen, PortalSessionRoot, SessionControls, useCurrentStaffSession, type HandoffScreenProps, type HandoffWords, type PortalSessionRootProps, type SessionControlsProps } from './PortalSessionRoot'
+export { adminConsoleUrlFor, productionAdminUrl, type AdminUrlEnv } from './adminConsoleUrl'

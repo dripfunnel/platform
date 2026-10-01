@@ -1,9 +1,20 @@
+import { handoffSearch, HandoffScreen } from '@dripfunnel/shared/ui'
 import { createFileRoute } from '@tanstack/react-router'
-import { EnterScreen } from '../features/staff-session/EnterScreen'
+import { adminConsoleUrl, staffSession } from '../api/staffSession'
+import { messages } from '../messages'
 
-// The token is read once and dropped from the URL by the screen (ACCESS.md §8.1).
-export const Route = createFileRoute('/impersonate/enter')({
-  validateSearch: (search: Record<string, unknown>): { token?: string } =>
-    typeof search.token === 'string' && search.token.length <= 4096 ? { token: search.token } : {},
-  component: EnterScreen,
-})
+const Enter = () => {
+  const { token } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  return (
+    <HandoffScreen
+      token={token}
+      client={staffSession}
+      words={messages.staffSession}
+      adminUrl={adminConsoleUrl}
+      replaceUrl={(to) => void navigate({ to, search: {}, replace: true })}
+    />
+  )
+}
+
+export const Route = createFileRoute('/impersonate/enter')({ validateSearch: handoffSearch, component: Enter })

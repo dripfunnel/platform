@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useCallback, useEffect, useId, useRef } from 'react'
 import { SessionEndCard } from './ImpBanner'
 import type { PortalSession } from './portalSession'
 import { useHandoff } from './portalSession'
@@ -29,23 +29,39 @@ export const PortalSessionRoot = ({ client, copy, adminUrl, forced, invalid }: P
   return <StaffSessionLayer key={version} loadCurrent={client.current} loadNotice={client.notice} end={client.end} adminUrl={adminUrl} copy={copy} />
 }
 
+// Where the admin console's link lands in both portals (ACCESS.md §8.1).
+export const handoffPath = '/impersonate/enter'
+
+// The route's search: the token only, and only when it is a string of a sane length.
+export const handoffSearch = (search: Record<string, unknown>): { token?: string } =>
+  typeof search.token === 'string' && search.token.length <= 4096 ? { token: search.token } : {}
+
+export interface HandoffWords {
+  pending: string
+  action: string
+  invalid: { title: string; body: string }
+}
+
 export interface HandoffScreenProps {
   token: string | undefined
   client: PortalSession
-  clearUrl: () => void
-  onEntered: () => void
-  pending: string
-  invalid: { title: string; body: string }
-  action: { label: string; href: string }
+  words: HandoffWords
+  adminUrl: string
+  // The app's router, replacing the current entry: `handoffPath` to drop the token, `/` once in.
+  replaceUrl: (to: typeof handoffPath | '/') => void
 }
 
-// /impersonate/enter: the link from the admin console, used once (ACCESS.md §8.1).
-export const HandoffScreen = ({ token, client, clearUrl, onEntered, pending, invalid, action }: HandoffScreenProps) => {
+// The link from the admin console, used once; the token leaves the address bar before it is exchanged.
+export const HandoffScreen = ({ token, client, words, adminUrl, replaceUrl }: HandoffScreenProps) => {
+  const replace = useRef(replaceUrl)
+  replace.current = replaceUrl
+  const clearUrl = useCallback(() => replace.current(handoffPath), [])
   const result = useHandoff(token, client.exchange, clearUrl)
   useEffect(() => {
-    if (result === 'entered') onEntered()
-  }, [result, onEntered])
-  if (result === 'invalid') return <SessionEndCard {...invalid} action={action} />
+    if (result === 'entered') replace.current('/')
+  }, [result])
+  if (result === 'invalid') return <SessionEndCard {...words.invalid} action={{ label: words.action, href: adminUrl }} />
+  const pending = words.pending
   return (
     <p className="df-session-pending" role="status">
       {pending}

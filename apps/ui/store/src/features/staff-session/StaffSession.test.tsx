@@ -49,13 +49,13 @@ describe('the store’s staff-session bar', () => {
     expect(card(ended.title, ended.body)).toContain(words.endedBody.admin)
     const expired = copy.over({ ...session, state: 'expired', endedBy: 'expiry' })
     expect(card(expired.title, expired.body)).toContain('Your time as Rohan is up')
-    const invalid = textOf(renderToString(<HandoffScreen token={undefined} client={staffSession} clearUrl={noop} onEntered={noop} pending={words.pending} invalid={words.invalid} action={{ label: words.action, href: adminConsoleUrl }} />))
+    const invalid = textOf(renderToString(<HandoffScreen token={undefined} client={staffSession} words={words} adminUrl={adminConsoleUrl} replaceUrl={noop} />))
     expect(invalid).toContain(words.invalid.title)
   })
 
   it('never puts the handoff token in the page', () => {
     const token = 'fx.secret-token-value'
-    const html = renderToString(<HandoffScreen token={token} client={staffSession} clearUrl={noop} onEntered={noop} pending={words.pending} invalid={words.invalid} action={{ label: words.action, href: adminConsoleUrl }} />)
+    const html = renderToString(<HandoffScreen token={token} client={staffSession} words={words} adminUrl={adminConsoleUrl} replaceUrl={noop} />)
     expect(textOf(html)).toContain(words.pending)
     expect(html).not.toContain(token)
   })
