@@ -92,7 +92,8 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Activity log (security entries and IPs included) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 - At least two Super admins; never a shared account; the last Super admin can't be removed
-  or demoted.
+  or demoted. The server enforces only the last one; with one, the Staff page asks for a second
+  (FIRST-RELEASE.md §10).
 - A control a role can't use is **visible and disabled with the reason** ("Finance can issue
   refunds").
 - Which actions need a **second approver** is open (CONSOLE-DESIGN §9); moving a store

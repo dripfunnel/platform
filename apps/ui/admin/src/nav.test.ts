@@ -5,7 +5,7 @@ import { navFor, navRows, type NavRow } from './nav'
 const everyone = ['dashboard', 'partners', 'stores', 'customers']
 
 const menusOf: Record<StaffRole, readonly string[]> = {
-  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'activity'],
+  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'activity', 'staff'],
   'staff-partner-manager': [...everyone, 'approvals', 'activity'],
   'staff-support': [...everyone, 'provisioning', 'activity'],
   'staff-finance': [...everyone, 'activity'],

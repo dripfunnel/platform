@@ -1,12 +1,12 @@
 import { staffRoles, type StaffRole } from './features/shell/staffRoles'
 
-export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'layers' | 'pulse'
+export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'layers' | 'pulse' | 'staff'
 
 export type NavBadgeSource = 'partnersAwaitingApproval' | 'provisioningAttention'
 
 export interface NavRow {
-  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'activity'
-  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/activity'
+  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'activity' | 'staff'
+  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/activity' | '/staff'
   icon: NavIconName
   roles: readonly StaffRole[]
   // The roles the count is shown to on this row.
@@ -41,6 +41,7 @@ export const navRows: readonly NavRow[] = [
     badge: { source: 'provisioningAttention', roles: staffRoles },
   },
   { key: 'activity', to: '/activity', icon: 'pulse', roles: staffRoles },
+  { key: 'staff', to: '/staff', icon: 'staff', roles: ['staff-super-admin'] },
 ]
 
 // A row a role can't use is left out, not disabled: absent means "not for you" (design.md §4).
