@@ -1,8 +1,11 @@
-import { getRouteApi, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { partnerActions, recheckDomain, runPartnerAction, type Partner, type PartnerAction, type PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
+import { actionCodes } from '../../api/activityActions'
+import { ActivityTab } from '../common/ActivityTab'
 import { ConfirmDialog } from '../common/ConfirmDialog'
+import { callerFor } from '../common/harnessCaller'
 import { useScreenState } from '../common/useScreenState'
 import { actionDialog, actionToast } from './actionDialog'
 import { partnerStates } from './partnerHarness'
@@ -18,8 +21,10 @@ const firstAllowed = (partner: Partner | null): PartnerAction | null =>
 
 export const PartnerDetailScreen = () => {
   const partner = partnerRoute.useLoaderData()
-  const { tab = 'overview' } = partnerRoute.useSearch()
+  const { tab = 'overview', after, before, ...activityFilter } = partnerRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr })
+  const navigate = partnerRoute.useNavigate()
   const forced = useScreenState(partnerStates)
   const router = useRouter()
   const [pending, setPending] = useState<PartnerAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
@@ -55,6 +60,23 @@ export const PartnerDetailScreen = () => {
         onAction={setPending}
         onRecheck={onRecheck}
         onReload={() => void router.invalidate()}
+        activity={
+          partner && (
+            <ActivityTab
+              scope={{ partner: partner.id }}
+              filter={activityFilter}
+              page={{ after, before }}
+              caller={callerFor(me.role, searchStr)}
+              actions={actionCodes}
+              onFilterChange={(filter) => void navigate({ search: { tab: 'activity', ...filter }, replace: true })}
+              pageLink={(cursor, label) => (
+                <Link to="/partners/$partnerId" params={{ partnerId: partner.id }} search={{ tab: 'activity', ...activityFilter, ...cursor }} className="df-button">
+                  {label}
+                </Link>
+              )}
+            />
+          )
+        }
       />
       {partner && (
         <ConfirmDialog

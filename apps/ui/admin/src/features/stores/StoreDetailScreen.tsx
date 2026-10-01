@@ -1,9 +1,12 @@
-import { getRouteApi, useNavigate, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Link, useNavigate, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useMemo, useState } from 'react'
 import { jobActions, type JobAction } from '../../api/provisioning'
 import { recheckStoreDomain, runStoreAction, type Store, type StoreDnsRecord } from '../../api/stores'
 import { fill, messages } from '../../messages'
+import { actionCodes } from '../../api/activityActions'
+import { ActivityTab } from '../common/ActivityTab'
 import { ConfirmDialog } from '../common/ConfirmDialog'
+import { callerFor } from '../common/harnessCaller'
 import { Toast } from '../common/Toast'
 import { useScreenState } from '../common/useScreenState'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
@@ -32,8 +35,10 @@ const targetOf = (store: Store): JobTarget => ({ name: store.name, code: store.c
 
 export const StoreDetailScreen = () => {
   const store = storeRoute.useLoaderData()
-  const { tab = 'overview', after, before, ...customerFilter } = storeRoute.useSearch()
+  const { tab = 'overview', after, before, action, result, date, from, to, ...customerFilter } = storeRoute.useSearch()
+  const activityFilter = { action, result, date, from, to }
   const { me } = shellRoute.useLoaderData()
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const forced = useScreenState(storeStates)
   const router = useRouter()
   const navigate = useNavigate()
@@ -110,6 +115,23 @@ export const StoreDetailScreen = () => {
           onFilterChange: (filter) => void navigate({ to: '.', search: { tab, ...filter }, replace: true }),
         }}
         onReload={() => void router.invalidate()}
+        activity={
+          store && (
+            <ActivityTab
+              scope={{ store: store.id }}
+              filter={activityFilter}
+              page={{ after, before }}
+              caller={callerFor(me.role, searchStr)}
+              actions={actionCodes}
+              onFilterChange={(filter) => void navigate({ to: '.', search: { tab: 'activity', ...filter }, replace: true })}
+              pageLink={(cursor, label) => (
+                <Link to="/stores/$storeId" params={{ storeId: store.id }} search={{ tab: 'activity', ...activityFilter, ...cursor }} className="df-button">
+                  {label}
+                </Link>
+              )}
+            />
+          )
+        }
       />
       {store && (
         <ConfirmDialog

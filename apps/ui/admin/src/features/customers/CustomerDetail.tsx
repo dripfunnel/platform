@@ -2,6 +2,7 @@
 // open a customer and none may act on one (decided on #42). Without a state the screen shows
 // the API's customer, with contacts masked unless the API sent them in full.
 import { Link } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import type { Customer } from '../../api/customers'
 import { messages } from '../../messages'
 import { EmptyState } from '../common/EmptyState'
@@ -22,6 +23,8 @@ export interface CustomerDetailProps {
   forced: CustomerScreenState | null
   readOnly: boolean
   onReload: () => void
+  // The Activity tab, built by the screen with its filters in the page's URL.
+  activity: ReactNode
 }
 
 export const CustomerLoading = () => (
@@ -36,7 +39,7 @@ export const CustomerError = ({ onRetry }: { onRetry: () => void }) => (
   </div>
 )
 
-export const CustomerDetail = ({ customer, tab, forced, readOnly, onReload }: CustomerDetailProps) => {
+export const CustomerDetail = ({ customer, tab, forced, readOnly, onReload, activity }: CustomerDetailProps) => {
   if (forced === 'loading') return <CustomerLoading />
   if (forced === 'error') return <CustomerError onRetry={onReload} />
   if (!customer) {
@@ -62,9 +65,7 @@ export const CustomerDetail = ({ customer, tab, forced, readOnly, onReload }: Cu
       {tab === 'overview' ? (
         <CustomerOverview customer={customer} />
       ) : (
-        <div className="df-panel df-panel--wide">
-          <p className="df-muted">{words.activity.placeholder}</p>
-        </div>
+        activity
       )}
     </div>
   )

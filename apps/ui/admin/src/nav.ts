@@ -1,12 +1,12 @@
 import { staffRoles, type StaffRole } from './features/shell/staffRoles'
 
-export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'layers'
+export type NavIconName = 'home' | 'users' | 'shop' | 'cart' | 'approve' | 'layers' | 'pulse'
 
 export type NavBadgeSource = 'partnersAwaitingApproval' | 'provisioningAttention'
 
 export interface NavRow {
-  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning'
-  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning'
+  key: 'dashboard' | 'partners' | 'stores' | 'customers' | 'approvals' | 'provisioning' | 'activity'
+  to: '/dashboard' | '/partners' | '/stores' | '/customers' | '/approvals' | '/provisioning' | '/activity'
   icon: NavIconName
   roles: readonly StaffRole[]
   // The roles the count is shown to on this row.
@@ -40,6 +40,7 @@ export const navRows: readonly NavRow[] = [
     roles: ['staff-super-admin', 'staff-support', 'staff-engineer'],
     badge: { source: 'provisioningAttention', roles: staffRoles },
   },
+  { key: 'activity', to: '/activity', icon: 'pulse', roles: staffRoles },
 ]
 
 // A row a role can't use is left out, not disabled: absent means "not for you" (design.md §4).

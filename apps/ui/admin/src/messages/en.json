@@ -63,7 +63,8 @@
     "stores": "Stores",
     "customers": "Customers",
     "approvals": "Approvals",
-    "provisioning": "Provisioning"
+    "provisioning": "Provisioning",
+    "activity": "Activity log"
   },
   "screens": {
     "dashboard": {
@@ -442,8 +443,7 @@
     },
     "placeholders": {
       "stores": "This partner’s stores appear here once the Stores list is built.",
-      "storesLink": "Open {name}’s stores in Stores",
-      "activity": "Audit entries about this partner appear here once the Activity log is built."
+      "storesLink": "Open {name}’s stores in Stores"
     },
     "actions": {
       "approve": "Approve",
@@ -919,9 +919,6 @@
       "on": "On · merchant allows support access",
       "off": "Off · merchant turned support access off"
     },
-    "activity": {
-      "placeholder": "The store's activity log arrives with the activity log card."
-    },
     "notes": {
       "title": "Internal notes",
       "sub": "Staff only · never shown to the partner or merchant",
@@ -1104,9 +1101,6 @@
     "deleted": "This customer asked for their data to be deleted on {date}. Their history is kept without personal details.",
     "suspended": "{store} is suspended ({reason}). Its customers can’t sign in while it is.",
     "openStore": "Open the store",
-    "activity": {
-      "placeholder": "This customer's sign-ins, account changes and orders arrive with the activity log card."
-    },
     "notFound": {
       "title": "Customer not found",
       "body": "The link may be wrong.",
@@ -1263,6 +1257,283 @@
       "undo": "Cleaning up {name}.",
       "undone": "{name} is cleaned up. The merchant can sign up again.",
       "failed": "That didn't work. Nothing was changed. Try again."
+    }
+  },
+  "activity": {
+    "level": "Platform · Every partner",
+    "title": "Activity log",
+    "sub": "Every change and every sign-in, by anyone, at every level.",
+    "loading": "Loading activity",
+    "listLabel": "Activity entries",
+    "pagerLabel": "Activity pages",
+    "newestFirst": "Newest first",
+    "readOnlyNote": "Read-only record. Entries can’t be edited or deleted.",
+    "openInLog": "Open in the Activity log",
+    "empty": {
+      "title": "No activity yet",
+      "body": "Every change and sign-in appears here as it happens."
+    },
+    "noMatch": {
+      "title": "No entries match",
+      "body": "Try a wider date range, or clear the filters."
+    },
+    "tabEmpty": {
+      "title": "No activity here yet",
+      "body": "Changes and sign-ins in this scope appear here as they happen."
+    },
+    "error": {
+      "title": "The activity log didn’t load",
+      "body": "Something went wrong on our side.",
+      "retry": "Try again"
+    },
+    "person": {
+      "label": "Find a person",
+      "placeholder": "Find a person: name or email",
+      "hint": "Type at least 2 characters.",
+      "results": {
+        "one": "{count} person found. Use the arrow keys to choose.",
+        "other": "{count} people found. Use the arrow keys to choose."
+      },
+      "none": "Nobody matches.",
+      "clear": "Clear person",
+      "kindLine": "{email} · {kind}",
+      "membershipsLabel": "Where {name} belongs",
+      "sameEmail": {
+        "one": "Also in {count} more account with this email. This timeline covers this account only.",
+        "other": "Also in {count} more accounts with this email. This timeline covers this account only."
+      },
+      "notFound": "That person is no longer on the platform.",
+      "optionLine": "{email} · {where}"
+    },
+    "personKinds": {
+      "staff": "DripFunnel staff",
+      "partner_user": "Partner user",
+      "person": "Store user",
+      "customer": "Shopper"
+    },
+    "actorKinds": {
+      "staff": "Staff",
+      "partner_user": "Partner user",
+      "person": "Store user",
+      "customer": "Shopper",
+      "api_key": "API key",
+      "app_grant": "App",
+      "support_session": "Support session",
+      "job": "System job",
+      "provider": "Provider",
+      "anonymous": "Unknown"
+    },
+    "levels": {
+      "admin": "Admin",
+      "partner": "Partner",
+      "store": "Store",
+      "storefront": "Storefront",
+      "system": "System",
+      "security": "Security"
+    },
+    "results": {
+      "success": "Success",
+      "denied": "Denied",
+      "failed": "Failed"
+    },
+    "filters": {
+      "label": "Filter activity",
+      "actor": "Who",
+      "anyActor": "Anyone",
+      "level": "Level",
+      "anyLevel": "Any level",
+      "action": "Action",
+      "anyAction": "Any action",
+      "result": "Result",
+      "anyResult": "Any result",
+      "partner": "Partner",
+      "anyPartner": "All partners",
+      "store": "Store",
+      "anyStore": "Any store",
+      "date": "Date",
+      "anyDate": "Any time",
+      "dates": {
+        "today": "Today",
+        "7d": "Last 7 days",
+        "30d": "Last 30 days",
+        "custom": "Custom range"
+      },
+      "from": "From (UTC)",
+      "to": "To (UTC)",
+      "ip": "IP",
+      "ipPlaceholder": "e.g. 103.21",
+      "target": "Target: {target}",
+      "imp": "Impersonation {id}",
+      "su": "Setup session {id}",
+      "removeLabel": "Remove filter {filter}",
+      "clear": "Clear filters",
+      "ipInvalid": "Type an IP address or its start, such as 103.21: digits, a–f, dots and colons.",
+      "customer": "Customer {id}"
+    },
+    "row": {
+      "actingAs": "{agent} as {actor}",
+      "security": "Security",
+      "platform": "Platform",
+      "detailsLabel": "Details of the entry at {time}",
+      "withReason": "{text}: {reason}",
+      "refused": "{text} (refused)",
+      "failed": "{text} (failed)"
+    },
+    "facts": {
+      "exactTime": "Exact time",
+      "level": "Level",
+      "action": "Action",
+      "reason": "Reason",
+      "changes": "Changes",
+      "changed": "{field}: {before} → {after}",
+      "changedHidden": "{field}: changed",
+      "empty": "(empty)",
+      "agent": "Done by",
+      "actingAs": "Acting as",
+      "ip": "IP address",
+      "userAgent": "User agent",
+      "requestId": "Request id",
+      "entry": "Entry",
+      "impersonation": "Impersonation",
+      "setupSession": "Setup session",
+      "supportSession": "Support session",
+      "session": "Session {id}",
+      "allEntries": "All its entries",
+      "exactValue": "{time} UTC"
+    },
+    "export": {
+      "button": "Export CSV",
+      "refusal": "Only a Super admin or the Engineer on call can export the activity log.",
+      "recorded": "Exports are recorded in the activity log.",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "Your export of {count} entry is ready.",
+        "other": "Your export of {count} entries is ready."
+      },
+      "download": "Download CSV",
+      "expires": "The link expires at {time}.",
+      "expired": "The download link expired. Export again to get a new one.",
+      "tooLarge": "More than {cap} entries match. Narrow the filter and export again.",
+      "failed": "The export didn’t finish. Try again.",
+      "toast": "Your activity export is ready. Download it from the Activity log.",
+      "file": "activity-{date}.csv",
+      "columns": {
+        "time": "Time (UTC)",
+        "actor": "Actor",
+        "actorKind": "Actor kind",
+        "action": "Action",
+        "target": "Target",
+        "partner": "Partner",
+        "store": "Store",
+        "result": "Result",
+        "reason": "Reason",
+        "requestId": "Request id",
+        "changes": "Changes"
+      }
+    },
+    "actions": {
+      "staff.signed_in": "{actor} signed in",
+      "staff.signed_out": "{actor} signed out",
+      "staff.sign_in_failed": "Failed sign-in for {actor}",
+      "staff.reauthenticated": "{actor} confirmed it’s them again",
+      "partner.created": "{actor} created the partner {target}",
+      "partner.approved": "{actor} approved {target}",
+      "partner.sent_back": "{actor} sent {target} back",
+      "partner.paused": "{actor} paused {target}",
+      "partner.resumed": "{actor} resumed {target}",
+      "store.suspended": "{actor} suspended {target}",
+      "store.restored": "{actor} restored {target}",
+      "store.trial_extended": "{actor} extended the trial of {target}",
+      "job.retried": "{actor} retried “{target}” for {store}",
+      "job.undone": "{actor} undid the failed signup of {store}",
+      "staff.invited": "{actor} invited {target} to the console",
+      "staff.role_changed": "{actor} changed the role of {target}",
+      "impersonation.started": "{actor} started impersonating {target}",
+      "impersonation.extended": "{actor} extended the impersonation of {target}",
+      "impersonation.ended": "{actor} stopped impersonating {target}",
+      "setup_session.started": "{actor} started a setup session for {target}",
+      "setup_session.ended": "{actor} ended the setup session for {target}",
+      "customer.viewed": "{actor} viewed customer {target} at {store}",
+      "activity.exported": "{actor} exported the activity log",
+      "partner_user.signed_in": "{actor} signed in to the partner console",
+      "branding.updated": "{actor} changed the branding of {partner}",
+      "domain.added": "{actor} added the domain {target}",
+      "plan.created": "{actor} added the {target} plan",
+      "plan.price_changed": "{actor} changed the price of the {target} plan",
+      "merchant.plan_changed": "{actor} changed the plan of {target}",
+      "partner.submitted": "{actor} submitted {partner} for approval",
+      "support_session.started": "{actor} opened a support session in {target}",
+      "person.signed_in": "{actor} signed in to {store}",
+      "product.updated": "{actor} updated {target}",
+      "products.created": "{actor} created products in {store}",
+      "stock.updated": "{actor} updated stock in {store}",
+      "order.refunded": "{actor} refunded order {target}",
+      "storefront.published": "{actor} published storefront {target} of {store}",
+      "api_key.created": "{actor} created the API key {target}",
+      "vendor.invited": "{actor} invited the vendor {target}",
+      "customer.signed_up": "{actor} created an account on {store}",
+      "customer.signed_in": "{actor} signed in on {store}",
+      "customer.sign_in_failed": "Failed sign-in for {actor} on {store}",
+      "customer.password_reset": "{actor} reset their password on {store}",
+      "customer.address_changed": "{actor} changed an address on {store}",
+      "customer.order_placed": "{actor} placed order {target} on {store}",
+      "provisioning.step_failed": "Setup for {store} failed at a step",
+      "billing.payment_failed": "A card payment for {store} failed",
+      "security.sign_in_blocked": "Sign-in to {store} blocked after repeated wrong passwords",
+      "security.tenant_crossing": "{actor} tried to reach {target}, outside their account",
+      "security.authorization_denied": "{actor} was refused an action at {target}"
+    },
+    "actionNames": {
+      "staff.signed_in": "Staff signed in",
+      "staff.signed_out": "Staff signed out",
+      "staff.sign_in_failed": "Staff sign-in failed",
+      "staff.reauthenticated": "Staff re-authenticated",
+      "partner.created": "Partner created",
+      "partner.approved": "Partner approved",
+      "partner.sent_back": "Partner sent back",
+      "partner.paused": "Partner paused",
+      "partner.resumed": "Partner resumed",
+      "store.suspended": "Store suspended",
+      "store.restored": "Store restored",
+      "store.trial_extended": "Trial extended",
+      "job.retried": "Setup retried",
+      "job.undone": "Failed signup undone",
+      "staff.invited": "Staff invited",
+      "staff.role_changed": "Staff role changed",
+      "impersonation.started": "Impersonation started",
+      "impersonation.extended": "Impersonation extended",
+      "impersonation.ended": "Impersonation ended",
+      "setup_session.started": "Setup session started",
+      "setup_session.ended": "Setup session ended",
+      "customer.viewed": "Customer viewed",
+      "activity.exported": "Activity exported",
+      "partner_user.signed_in": "Partner user signed in",
+      "branding.updated": "Branding changed",
+      "domain.added": "Domain added",
+      "plan.created": "Plan added",
+      "plan.price_changed": "Plan price changed",
+      "merchant.plan_changed": "Merchant plan changed",
+      "partner.submitted": "Submitted for approval",
+      "support_session.started": "Support session opened",
+      "person.signed_in": "Store user signed in",
+      "product.updated": "Product updated",
+      "products.created": "Products created",
+      "stock.updated": "Stock updated",
+      "order.refunded": "Order refunded",
+      "storefront.published": "Storefront published",
+      "api_key.created": "API key created",
+      "vendor.invited": "Vendor invited",
+      "customer.signed_up": "Shopper signed up",
+      "customer.signed_in": "Shopper signed in",
+      "customer.sign_in_failed": "Shopper sign-in failed",
+      "customer.password_reset": "Password reset",
+      "customer.address_changed": "Address changed",
+      "customer.order_placed": "Order placed",
+      "provisioning.step_failed": "Setup step failed",
+      "billing.payment_failed": "Payment failed",
+      "security.sign_in_blocked": "Sign-in blocked",
+      "security.tenant_crossing": "Tenant crossing refused",
+      "security.authorization_denied": "Action refused"
     }
   }
 }

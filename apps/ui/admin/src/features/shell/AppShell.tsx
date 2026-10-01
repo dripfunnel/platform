@@ -1,6 +1,7 @@
 import { getRouteApi, Outlet } from '@tanstack/react-router'
 import { useState } from 'react'
 import { messages } from '../../messages'
+import { ExportWatcher } from '../activity/ExportWatcher'
 import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
@@ -38,6 +39,7 @@ export const AppShell = () => {
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)}>
         <SideNav rows={rows} badges={badges} variant="drawer" onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>
+      <ExportWatcher />
     </div>
   )
 }

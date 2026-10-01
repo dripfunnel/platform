@@ -31,6 +31,7 @@ const render = async (props: Partial<PartnerDetailProps> = {}) => {
         onAction={noop}
         onRecheck={() => Promise.resolve()}
         onReload={noop}
+        activity={null}
         {...props}
       />
     ),
