@@ -160,7 +160,7 @@ the SPA has no use for them either.
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **Entra ID app registration** | Staff SSO with 2-factor on `admin.dripfunnel.com`; re-authentication before impersonation | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Worker secrets | 11 |
-| — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback` plus staging and `https://admin.localhost/api/auth/callback` for local dev | — | — | — |
+| — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback`, `https://dev-admin.dripfunnel.ai/api/auth/callback` (ARCHITECTURE §6) and `https://admin.localhost/api/auth/callback` for local dev | — | — | — |
 | — | Single tenant ("Accounts in this organizational directory only"), so `tid` cannot be another tenant's | — | — | — |
 | **Same identity provider connected to Cloudflare Access** | The outer gate (§2.1) | A second OIDC client, or the same one | Cloudflare Zero Trust | 11 |
 | Group or role claims — **not used** | Staff roles live in our own table: DATA-MODEL.md §3.1 puts `role_key` on `staff_user` and #39 builds invite and change-role against it | — | — | — |
