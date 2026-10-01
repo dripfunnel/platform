@@ -80,22 +80,26 @@ describe('checkHealth', () => {
   it(
     'is ok past the old 5s cap when the connection is fine but the query response is delayed in transit',
     async () => {
-      // Delays only the query response, after ReadyForQuery ('Z'), so connect_timeout and
+      // Delays only the query response (detected by its literal text) so connect_timeout and
       // statement_timeout can't catch it — only CHECK_HEALTH_TIMEOUT_MS can.
       const STALL_MS = 6_000
       const target = new URL(DATABASE_URL)
-      let readySeen = false
+      const queryMarker = Buffer.from('select 1')
+      let queryStarted = false
+      let stalled = false
       const proxy = createServer((client) => {
         const upstream = net.connect(Number(target.port) || 5432, target.hostname)
-        client.pipe(upstream)
+        client.on('data', (chunk: Buffer) => {
+          if (!queryStarted && chunk.includes(queryMarker)) queryStarted = true
+          upstream.write(chunk)
+        })
         upstream.on('data', (chunk: Buffer) => {
-          if (!readySeen) {
-            if (chunk.includes(0x5a)) readySeen = true
-            client.write(chunk)
+          if (queryStarted && !stalled) {
+            stalled = true
+            setTimeout(() => client.write(chunk), STALL_MS)
             return
           }
-          readySeen = false
-          setTimeout(() => client.write(chunk), STALL_MS)
+          client.write(chunk)
         })
         client.on('error', () => {})
         upstream.on('error', () => {})
