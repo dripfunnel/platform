@@ -43,9 +43,9 @@
     "dev": {
       "name": "dripfunnel-api-dev",
       "vars": {
-        "ADMIN_HOST": "dev-admin.dripfunnel.com",
-        "PLATFORM_HOST": "dev-platform.dripfunnel.com",
-        "HOOKS_HOST": "dev-hooks.dripfunnel.com"
+        "ADMIN_HOST": "dev-admin.dripfunnel.ai",
+        "PLATFORM_HOST": "dev-platform.dripfunnel.ai",
+        "HOOKS_HOST": "dev-hooks.dripfunnel.ai"
       },
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
