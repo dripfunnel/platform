@@ -1,6 +1,7 @@
 import { parseScreenState, portalHarnessStates, PortalSessionRoot, staffSessionCopy } from '@dripfunnel/shared/ui'
 import { useRouterState } from '@tanstack/react-router'
-import { adminConsoleUrl, harnessEnabled, staffSession } from '../../api/staffSession'
+import { adminConsoleUrl, staffSession } from '../../api/staffSession'
+import { harnessEnabled } from '../../harness'
 import { formatTime, formatWait, messages } from '../../messages'
 
 export const copy = staffSessionCopy(messages.staffSession, { wait: formatWait, time: formatTime })

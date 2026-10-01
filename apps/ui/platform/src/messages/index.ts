@@ -1,4 +1,4 @@
-import { formatDateTime, formatDuration } from '@dripfunnel/shared/format'
+import { formatDateTime, formatDuration, formatNumber } from '@dripfunnel/shared/format'
 import en from './en.json'
 
 export const messages = en
@@ -12,3 +12,5 @@ export const fill = (template: string, values: Record<string, string>): string =
 export const formatTime = (iso: string): string => formatDateTime(iso, locale, 'UTC')
 
 export const formatWait = (seconds: number): string => formatDuration(seconds, locale)
+
+export const formatCount = (count: number): string => formatNumber(count, locale)

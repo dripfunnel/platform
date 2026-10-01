@@ -1,5 +1,5 @@
 import { messages } from '../../messages'
-import './shell.css'
+import '@dripfunnel/shared/ui/shell.css'
 
 // An explicit placeholder, so every nav row and every Dashboard link resolves to a screen
 // (docs/ui/README.md §5) until its card builds it: Stores #20, Create partner #61.

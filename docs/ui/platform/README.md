@@ -11,7 +11,8 @@ A **partner** is a company that resells the platform to its own merchants under 
 brand: an agency, reseller, payments company or marketplace operator. **DripFunnel is also a
 partner** (the house partner) and uses this console exactly like the others.
 
-**Status: skeleton** (sign-in and home routes). **What to build first is
+**Status: the shell** (routes, role-aware menu, header, strips, `/states`; #111) on fixtures,
+no real screen yet. **What to build first is
 [FIRST-RELEASE.md](FIRST-RELEASE.md)** (decided 2026-10-01 on #109). The design prompt is
 [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md); it predates #109 and is refreshed on #123.
 There is no screen-level design of its own yet: every part of the admin console's design marks

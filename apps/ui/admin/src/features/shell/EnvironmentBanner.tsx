@@ -1,6 +1,7 @@
 import { messages } from '../../messages'
 import type { Environment } from './environment'
-import './shell.css'
+import '@dripfunnel/shared/ui/shell.css'
+import './environment.css'
 
 export const EnvironmentBanner = ({ environment }: { environment: Environment }) => {
   const words = messages.shell.environment[environment]

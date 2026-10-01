@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import './shell.css'
+import '@dripfunnel/shared/ui/shell.css'
 
 // Full-width banners under the header (design.md §4). The environment strip is the first;
 // provisioning, trial ending, past due, offline and the setup-session bar join it here.

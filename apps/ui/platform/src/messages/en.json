@@ -1,7 +1,192 @@
 {
-  "home": {
-    "title": "DripFunnel Platform",
-    "signIn": "Sign in",
+  "shell": {
+    "skipToContent": "Skip to content",
+    "homeLink": "Partner console home",
+    "productLabel": "Partners",
+    "signedInFor": "Signed in for {partner}",
+    "navLabel": "Partner console",
+    "navFooter": {
+      "before": "Your merchants see ",
+      "after": ". This console is only for your team."
+    },
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "help": "Help",
+    "helpUrl": "https://help.dripfunnel.com/partners",
+    "opensInNewTab": "(opens in a new tab)",
+    "search": {
+      "button": "Search your stores",
+      "notYet": "Search arrives with the Stores screen."
+    },
+    "userMenu": {
+      "label": "Account: {name}, {role}",
+      "myActivity": "My activity",
+      "signOut": "Sign out",
+      "theme": {
+        "label": "Appearance",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "roles": {
+      "partner-owner": "Owner",
+      "partner-admin": "Admin",
+      "partner-support": "Support",
+      "partner-finance": "Finance",
+      "partner-read-only": "Read-only"
+    },
+    "environment": {
+      "dev": {
+        "name": "Dev",
+        "warning": "Test data. Nothing here reaches real merchants"
+      },
+      "feature": {
+        "name": "Feature",
+        "warning": "Test data. Nothing here reaches real merchants"
+      },
+      "local": {
+        "name": "Local",
+        "warning": "Test data. Nothing here reaches real merchants"
+      }
+    },
+    "badges": {
+      "storesAttention": "{count} need attention",
+      "brandingSetupLeft": "{count} setup item left",
+      "domainsWaiting": "{count} waiting for DNS",
+      "billingFailedPayments": "{count} failed payments",
+      "supportOpenSessions": "{count} open now"
+    },
+    "partnerState": {
+      "draft": {
+        "text": "Draft: merchants can’t sign up yet. Finish the setup checklist and submit it for approval.",
+        "link": "Open checklist"
+      },
+      "awaiting": {
+        "text": "Awaiting approval: DripFunnel is reviewing your contract, KYC and setup. Merchants can’t sign up yet.",
+        "link": "What happens next"
+      },
+      "sentback": {
+        "text": "Sent back: DripFunnel needs a change before approving you.",
+        "link": "See what to fix"
+      }
+    },
+    "placeholder": "This screen isn’t built yet.",
+    "signedInForLabel": "Signed in for"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "stores": "Stores",
+    "plans": "Plans",
+    "branding": "Branding",
+    "domains": "Domains",
+    "reports": "Reports",
+    "billing": "Billing",
+    "support": "Support",
+    "activity": "Activity log",
+    "settings": "Settings"
+  },
+  "screens": {
+    "dashboard": {
+      "title": "Dashboard",
+      "lede": "How {product} is doing."
+    },
+    "stores": {
+      "title": "Stores",
+      "lede": "Your merchants’ store accounts. Their orders, customers and products stay theirs."
+    },
+    "plans": {
+      "title": "Plans",
+      "lede": "What your merchants can buy, within DripFunnel’s maximums."
+    },
+    "branding": {
+      "title": "Branding",
+      "lede": "How your merchant portal and every email to your merchants and their suppliers look."
+    },
+    "domains": {
+      "title": "Domains",
+      "lede": "Every address your platform uses."
+    },
+    "reports": {
+      "title": "Reports",
+      "lede": "Totals over time. No report lists an order, customer or product."
+    },
+    "billing": {
+      "title": "Billing",
+      "lede": "Your merchants’ payments, your payouts and DripFunnel’s invoices, kept apart."
+    },
+    "support": {
+      "title": "Support",
+      "lede": "Sign in as one of your merchants’ users to fix things with them. 30 minutes, logged as you acting as them."
+    },
+    "activity": {
+      "title": "Activity log",
+      "lede": "Everything done in this console and on your store accounts. Never what happens inside a store."
+    },
+    "settings": {
+      "title": "Settings",
+      "lede": "Your company, team, payouts and security."
+    }
+  },
+  "states": {
+    "gallery": {
+      "title": "Screen states",
+      "intro": "Every state a screen can show, without an API. Add ?state= to any screen’s address to see it in one state.",
+      "pick": "Show a state:",
+      "names": {
+        "empty": "Empty",
+        "loading": "Loading",
+        "error": "Error",
+        "denied": "Permission denied",
+        "readonly": "Read-only",
+        "confirm": "Confirmation"
+      }
+    },
+    "empty": {
+      "title": "No stores yet",
+      "body": "Stores appear here as merchants sign up under your brand. Create the first one and invite its owner.",
+      "action": "Create store"
+    },
+    "loading": {
+      "label": "Loading stores"
+    },
+    "error": {
+      "title": "We couldn’t load your stores",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "detailsLabel": "Technical details",
+      "codeLabel": "Error code",
+      "code": "UNKNOWN",
+      "requestIdLabel": "Request id",
+      "requestId": "7f3a91c2",
+      "retry": "Try again"
+    },
+    "denied": {
+      "action": "Suspend store",
+      "reason": "Your role (Support) can’t suspend stores. Owners and Admins can."
+    },
+    "readonly": {
+      "title": "You have read-only access",
+      "body": "Your role can see everything here but can’t change anything. Ask an Owner if you need to."
+    },
+    "confirm": {
+      "open": "Suspend store…",
+      "title": "Suspend this store?",
+      "target": "Loom & Thread",
+      "consequence": "Suspends Loom & Thread. Its storefront shows a notice and its team can’t sign in until you restore it.",
+      "notes": [
+        "Nothing is deleted. You can restore it at any time.",
+        "Its 14 open orders stay as they are."
+      ],
+      "reason": "Reason (saved in the activity log)",
+      "reasonHint": "Required. Suspend store turns on once you give a reason.",
+      "typeLabel": "Type Loom & Thread to confirm",
+      "typeHint": "Type the store name exactly to confirm.",
+      "typeExpected": "Loom & Thread",
+      "confirm": "Suspend store",
+      "cancel": "Cancel"
+    }
+  },
+  "settings": {
     "account": "Your account",
     "accountSub": "What a staff session can’t change is turned off here, with the reason."
   },

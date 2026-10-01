@@ -1,9 +1,8 @@
 import { useEffect, useId, useRef } from 'react'
 import { messages } from '../../messages'
+import { Icon, isBackdropClick } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
-import { Icon } from './Icon'
-import { isBackdropClick } from './isBackdropClick'
-import './shell.css'
+import './search.css'
 
 const words = messages.shell.search
 

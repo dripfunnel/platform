@@ -1,18 +1,36 @@
-import { themeChoices } from '@dripfunnel/shared/ui'
+import { themeChoices } from './theme'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
-import type { Me } from '../../api/me'
-import { fill, messages } from '../../messages'
 import { initials } from './initials'
-import { useTheme } from './useTheme'
 import './shell.css'
+import { useTheme } from './useTheme'
 
-const words = messages.shell
+export interface UserMenuWords {
+  // The button's spoken label, already filled: "Account: Arjun Menon, Super admin".
+  buttonLabel: string
+  theme: { label: string; system: string; light: string; dark: string }
+}
 
-// My activity opens the signed-in staff member's own timeline, for every role (decided on #45).
-export const UserMenu = ({ me }: { me: Me }) => {
+export interface UserMenuProps {
+  name: string
+  email: string
+  roleLabel: string
+  words: UserMenuWords
+  themeStorageKey: string
+  // The app's own entries after Appearance (My activity, Sign out), drawn as menu items.
+  items: readonly UserMenuItem[]
+}
+
+export interface UserMenuItem {
+  key: string
+  label: string
+  to: string
+  search?: Record<string, string>
+}
+
+export const UserMenu = ({ name, email, roleLabel, words, themeStorageKey, items }: UserMenuProps) => {
   const [open, setOpen] = useState(false)
-  const { choice, setChoice } = useTheme()
+  const { choice, setChoice } = useTheme(themeStorageKey)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   // The first item in the menu, focused on open. It is the first Appearance option.
@@ -20,7 +38,6 @@ export const UserMenu = ({ me }: { me: Me }) => {
   const buttonId = useId()
   const menuId = useId()
   const themeId = useId()
-  const role = words.roles[me.role]
 
   useEffect(() => {
     if (!open) return
@@ -51,15 +68,15 @@ export const UserMenu = ({ me }: { me: Me }) => {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={fill(words.userMenu.label, { name: me.name, role })}
+        aria-label={words.buttonLabel}
         onClick={() => setOpen((isOpen) => !isOpen)}
       >
         <span className="df-avatar" aria-hidden="true">
-          {initials(me.name)}
+          {initials(name)}
         </span>
         <span className="df-user-text" aria-hidden="true">
-          <span className="df-user-name">{me.name}</span>
-          <span className="df-user-role">{role}</span>
+          <span className="df-user-name">{name}</span>
+          <span className="df-user-role">{roleLabel}</span>
         </span>
         <svg className="df-user-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
           <path d="M1 3l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" />
@@ -68,14 +85,14 @@ export const UserMenu = ({ me }: { me: Me }) => {
       {open && (
         <div className="df-user-menu" id={menuId}>
           <div className="df-user-identity">
-            <p className="df-user-identity-name">{me.name}</p>
-            <p>{me.email}</p>
-            <p>{role}</p>
+            <p className="df-user-identity-name">{name}</p>
+            <p>{email}</p>
+            <p>{roleLabel}</p>
           </div>
           <ul role="menu" aria-labelledby={buttonId}>
             <li role="none">
               <p className="df-user-menu-label" id={themeId}>
-                {words.userMenu.theme.label}
+                {words.theme.label}
               </p>
               <div role="group" aria-labelledby={themeId} className="df-user-theme">
                 {themeChoices.map((option, index) => (
@@ -88,35 +105,18 @@ export const UserMenu = ({ me }: { me: Me }) => {
                     className="df-user-theme-option"
                     onClick={() => setChoice(option)}
                   >
-                    {words.userMenu.theme[option]}
+                    {words.theme[option]}
                   </button>
                 ))}
               </div>
             </li>
-            <li role="none">
-              <Link
-                to="/activity"
-                search={{ person: me.id }}
-                role="menuitem"
-                className="df-user-menu-item"
-                onClick={() => setOpen(false)}
-              >
-                {words.userMenu.myActivity}
-              </Link>
-            </li>
-            <li role="none">
-              {/* A stand-in: it ends no session and logs nothing. #13 adds the Admin API's
-                  sign-out, which ends the session and writes the activity log; call it here
-                  (https://github.com/dripfunnel/platform/issues/13). */}
-              <Link
-                to="/sign-in"
-                role="menuitem"
-                className="df-user-menu-item"
-                onClick={() => setOpen(false)}
-              >
-                {words.userMenu.signOut}
-              </Link>
-            </li>
+            {items.map((item) => (
+              <li key={item.key} role="none">
+                <Link to={item.to} {...(item.search ? { search: item.search } : {})} role="menuitem" className="df-user-menu-item" onClick={() => setOpen(false)}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       )}
