@@ -75,7 +75,7 @@ jobs:
         id: worker
         uses: ./.github/actions/worker-upload
         with:
-          env-name: production
+          env-name: prod
           message: ${{ github.sha }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
