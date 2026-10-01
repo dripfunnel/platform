@@ -87,19 +87,32 @@ describe('checkHealth', () => {
       const queryMarker = Buffer.from('select 1')
       let queryStarted = false
       let stalled = false
+      let flushed = false
       const proxy = createServer((client) => {
         const upstream = net.connect(Number(target.port) || 5432, target.hostname)
+        const pending: Buffer[] = []
         client.on('data', (chunk: Buffer) => {
           if (!queryStarted && chunk.includes(queryMarker)) queryStarted = true
           upstream.write(chunk)
         })
         upstream.on('data', (chunk: Buffer) => {
-          if (queryStarted && !stalled) {
-            stalled = true
-            setTimeout(() => client.write(chunk), STALL_MS)
+          // The query's response can arrive as several separate reads (ParseComplete,
+          // BindComplete, DataRow, CommandComplete, ReadyForQuery). Buffer all of them and
+          // flush in order — forwarding only the first and letting later ones through
+          // immediately would reorder the wire protocol and the client would error out fast.
+          if (!queryStarted || flushed) {
+            client.write(chunk)
             return
           }
-          client.write(chunk)
+          pending.push(chunk)
+          if (!stalled) {
+            stalled = true
+            setTimeout(() => {
+              flushed = true
+              for (const buffered of pending) client.write(buffered)
+              pending.length = 0
+            }, STALL_MS)
+          }
         })
         client.on('error', () => {})
         upstream.on('error', () => {})
