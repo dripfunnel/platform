@@ -3,6 +3,8 @@ import type { Config } from '#core/config'
 import { getClient } from './client'
 
 const PING_TIMEOUT_MS = 5_000
+// >= connect + statement timeouts, which run in sequence (client.ts)
+const CHECK_HEALTH_TIMEOUT_MS = PING_TIMEOUT_MS * 2
 
 export const ping = async (sql: postgres.Sql, query: () => Promise<unknown> = () => sql`select 1`): Promise<boolean> => {
   try {
@@ -29,7 +31,7 @@ export const checkHealth = async (config: Pick<Config, 'HYPERDRIVE'>, ctx: WaitU
   let sql: postgres.Sql | undefined
   try {
     sql = getClient(HYPERDRIVE, { max: 1, statementTimeoutMs: PING_TIMEOUT_MS, connectTimeoutMs: PING_TIMEOUT_MS })
-    const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), PING_TIMEOUT_MS))
+    const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), CHECK_HEALTH_TIMEOUT_MS))
     return (await Promise.race([ping(sql), timeout])) ? 'ok' : 'down'
   } catch {
     console.error(JSON.stringify({ code: 'db_health_check_failed' }))
