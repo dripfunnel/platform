@@ -88,7 +88,9 @@ describe('checkHealth', () => {
       // Delays the query response past connect/statement timeouts; terminates TLS only if the
       // client sent an SSLRequest, else relays plainly (local dev's non-TLS Postgres).
       const SSL_REQUEST = Buffer.from([0, 0, 0, 8, 4, 210, 22, 47]) // length 8, code 80877103
-      const STALL_MS = 6_000
+      // Just past PING_TIMEOUT_MS (the old cap), leaving most of the 10s CHECK_HEALTH_TIMEOUT_MS
+      // margin free for CI overhead (connect, TLS handshake) instead of the old 4s of slack.
+      const STALL_MS = 5_200
       const target = new URL(DATABASE_URL)
       const queryMarker = Buffer.from('select 1')
 
@@ -199,7 +201,7 @@ describe('checkHealth', () => {
           if (tlsSetupError) throw tlsSetupError
           const elapsed = Date.now() - start
           expect(status).toBe('ok')
-          expect(elapsed).toBeGreaterThan(5_500)
+          expect(elapsed).toBeGreaterThan(5_000)
           expect(elapsed).toBeLessThan(10_000)
         } finally {
           await new Promise<void>((resolve) => proxy.close(() => resolve()))
