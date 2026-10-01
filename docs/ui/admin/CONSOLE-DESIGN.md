@@ -29,7 +29,7 @@ conventions of [`../store/CATALOG-DESIGN.md`](../store/CATALOG-DESIGN.md).
 > the partner console shows instead: nothing, or a counterpart scoped to that partner's own
 > merchants, with Admin-only controls left out.
 >
-> Last updated: 2026-09-30.
+> Last updated: 2026-10-01.
 
 ---
 
@@ -269,8 +269,9 @@ reason** ("Finance can issue refunds"), so staff know whom to ask. Destructive a
 require a **second approver** *(ask which)*.
 
 The **partner console** exists (`apps/ui/platform` at `platform.dripfunnel.com`), for Partner
-users with the partner roles Owner, Admin, Support, Finance and Read-only (proposed). Every
-part in §6 marks its partner console counterpart: what a partner sees and does there for its
+users with the partner roles Owner, Admin, Support, Finance and Read-only (decided 2026-10-01
+on #109). Its first release is [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md); every part in
+§6 marks its partner console counterpart: what a partner sees and does there for its
 own merchants only, with Admin-only controls left out.
 
 ---
@@ -303,9 +304,10 @@ Numbered so coverage can be ticked off. *(ask)* marks a decision needed first (�
 
 **Partner console:** scoped counterpart: Partner users sign in at `platform.dripfunnel.com`
 with their own identity, separate from staff and merchants. No self-signup: partner users
-arrive only by invitation (USERS-AND-DOMAINS §3). Re-authentication before dangerous actions and disabled-with-reason
-controls work the same way; no SSO requirement and no environment marker for partners
-*(ask)*.
+arrive only by invitation (USERS-AND-DOMAINS §3). Re-authentication before dangerous actions
+and disabled-with-reason controls work the same way; no SSO requirement; an environment
+marker on non-production hosts only (decided 2026-10-01). First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §3.
 
 - A1. Sign in with company SSO and 2-factor. No self-signup. Unknown or removed staff are
   refused with no detail.
@@ -319,8 +321,8 @@ controls work the same way; no SSO requirement and no environment marker for par
 
 **Partner console:** scoped counterpart: for its own merchants only, new stores, signups
 failing, stores past due and suspended, domains stuck, publishing failures, usage against
-plans, and revenue with its wholesale cost. No platform integration health, no other
-partners, no brand filter.
+plans, and revenue with its wholesale cost. No platform integration health, no other partners,
+no brand filter. First release: [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §5.
 
 - B1. Today at a glance: new stores (by brand), signups failing, stores past due, suspended,
   jobs failing, builds failing, domains stuck, integration health (Stripe, GitHub,
@@ -335,7 +337,8 @@ partners, no brand filter.
 
 **Partner console:** scoped counterpart: search its own merchants' stores by name, domain,
 code or owner email, and its own invoices. A person's result lists only their stores under
-this partner, never that they have stores elsewhere (§3 fact 14).
+this partner, never that they have stores elsewhere (§3 fact 14). First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §2.2 (stores; invoices are on Billing, §11.3).
 
 - C1. One search box, everywhere (keyboard shortcut): stores by name, domain, code or owner
   email; people by email; brands; invoices by number; jobs by id.
@@ -346,7 +349,8 @@ this partner, never that they have stores elsewhere (§3 fact 14).
 ### D. Brands list and brand overview
 
 **Partner console:** scoped counterpart: no list; the partner sees its own brand overview
-(D2) with its status and setup checklist, without internal staff notes.
+(D2) with its status and setup checklist, without internal staff notes. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §2.3 (the state banners), §4.
 
 - D1. List: logo, name, kind, status (Draft · Awaiting approval · Live · Paused · Offboarding
   · Closed), stores, MRR, setup completeness ("Email domain not verified"), partner manager.
@@ -362,7 +366,8 @@ invited Owner sees on first sign-in (USERS-AND-DOMAINS §3), ending in "Submit f
 instead of going live. Contract and billing terms are shown read-only once Admin sets them;
 Admin creates the partner (invite only) and approves it here in the admin console. When staff
 work through the checklist for the partner (E5), the partner console shows DripFunnel's
-banner and marks the items staff completed.
+banner and marks the items staff completed. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §4.
 
 - E1. A guided checklist, not a wizard: partner details, contract and billing terms, look,
   addresses, messages, offer, go live. It can be saved and resumed; the brand stays **Draft**
@@ -383,7 +388,8 @@ banner and marks the items staff completed.
 ### F. Branding studio (look, addresses, messages)
 
 **Partner console:** scoped counterpart: all of F for its own brand, with the "Powered by"
-choice limited to what its contract allows.
+choice limited to what its contract allows. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §8, all of it.
 
 - F1. **Look**: logo (light and dark backgrounds), mark and favicon, colours, font, corner
   style, sign-in background. Contrast checked, with an explanation when a colour fails.
@@ -411,6 +417,8 @@ choice limited to what its contract allows.
 **Partner console:** scoped counterpart: its own plans, prices and entitlements (including
 "Publish now" allowances), within the platform ceiling and its contract; wholesale cost shown
 read-only; allowed templates, regions and providers chosen from what DripFunnel allows it.
+First release: [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §7 (G8, promotions, is not
+drawn).
 
 - G1. **Plan catalogue per brand**: name, description, monthly and yearly price per currency,
   trial length, and entitlements (§3 fact 19; the on/off, limit and meter kinds from
@@ -435,7 +443,8 @@ read-only; allowed templates, regions and providers chosen from what DripFunnel 
 **Partner console:** scoped counterpart: its own billing with DripFunnel (H1: invoices,
 payment method, status), payouts to itself (H5), and its merchants' billing status, trials
 and plan changes (H2, H4, H6). Which merchant billing actions a partner takes when DripFunnel
-bills on its behalf is *(ask)*.
+bills on its behalf is *(ask)*. First release: [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md)
+§11.
 
 Two relationships, never mixed on one screen without labels (§3 fact 20).
 
@@ -461,7 +470,8 @@ Two relationships, never mixed on one screen without labels (§3 fact 20).
 **Partner console:** scoped counterpart: its own merchants' stores at account level: the list
 and store detail (without staff notes or raw data), suspend and restore, change plan, extend
 trial, and create a merchant (the Owner is invited to set a password). No move to another
-brand, and no view of customers, orders or catalogue outside a support session.
+brand, and no view of customers, orders or catalogue outside a support session. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §6.
 
 - I1. **Stores list** across brands: name, brand, owner, plan, subscription status,
   storefront status, domain, template version, created, last active, MRR. Filters for every
@@ -493,7 +503,7 @@ brand, and no view of customers, orders or catalogue outside a support session.
 
 **Partner console:** partners don't impersonate. Their support opens the merchant's portal
 through a read-only, consented support session (USERS-AND-DOMAINS §4.1), started from the
-store's page.
+store's page. First release: [FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §12.
 
 Decided 2026-09-28 (USERS-AND-DOMAINS §4.2, ACCESS.md §8.1):
 
@@ -517,8 +527,9 @@ Decided 2026-09-28 (USERS-AND-DOMAINS §4.2, ACCESS.md §8.1):
 ### K. Provisioning and jobs
 
 **Partner console:** scoped counterpart: its own merchants' signups in progress and failed,
-with the step reached in plain words (K1), read-only. Whether a partner may retry a failed
-step is *(ask)*; no raw errors, no queue health.
+with the step reached in plain words (K1). A partner **may retry** a failed step: Owner and
+Admin (decided 2026-10-01 on #109); no raw errors, no queue health. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §6.3.
 
 - K1. Signups in progress and failed, per brand, with the step reached (§3 fact 2): store and
   membership rows, defaults, repo from template, secrets and variables, Cloudflare project or
@@ -532,7 +543,8 @@ step is *(ask)*; no raw errors, no queue health.
 
 **Partner console:** scoped counterpart: publishing status and "Publish now" presses used for
 its own merchants (L5, read-only), and which templates its brand offers (L4, read-only). No
-rollouts and no build internals.
+rollouts and no build internals. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §6.3 (the Storefront tab), §10 (Usage).
 
 - L1. Template versions across all stores, with drift ("132 stores are 3+ versions behind").
 - L2. **Rollouts** of a `@dripfunnel/storefront-core` upgrade: canary group, then percentages,
@@ -548,7 +560,8 @@ rollouts and no build internals.
 
 **Partner console:** scoped counterpart: its own brand's domains (portal host, preview and
 shop wildcards, email sender domain) with the records to add and "Re-check now", and its
-merchants' custom domain status, read-only.
+merchants' custom domain status, read-only. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §9.
 
 - M1. All domains: brand portal hosts, email domains, storefront preview and shop wildcards,
   merchant custom domains, with status (waiting for DNS · verifying · issuing certificate ·
@@ -558,7 +571,8 @@ merchants' custom domain status, read-only.
 ### N. Usage and costs
 
 **Partner console:** scoped counterpart: usage against plan for its own merchants (N1, N2),
-and what it pays DripFunnel; never DripFunnel's own costs (N3).
+and what it pays DripFunnel; never DripFunnel's own costs (N3). First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §5, §10 (Usage), §11.
 
 - N1. Per brand and per store: build minutes, AI tokens and cost, storage, bandwidth *(if
   measured)*, orders and sales volume.
@@ -568,8 +582,9 @@ and what it pays DripFunnel; never DripFunnel's own costs (N3).
 ### O. Staff and roles
 
 **Partner console:** scoped counterpart: its own Partner users with the partner roles (Owner,
-Admin, Support, Finance, Read-only, proposed): invite, change role, remove; the last Owner
-cannot be removed or demoted.
+Admin, Support, Finance, Read-only; decided 2026-10-01 on #109): invite, change role, remove;
+the last Owner cannot be removed or demoted. First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §14.2.
 
 - O1. Staff list, roles (§4), last sign-in, 2-factor status. Invite, change role, remove.
 - O2. The last super admin cannot be removed or demoted.
@@ -578,8 +593,9 @@ cannot be removed or demoted.
 ### P. Audit log
 
 **Partner console:** scoped counterpart: entries for its own brand and merchants, including
-its users' actions and support sessions. Whether DripFunnel staff actions on its merchants
-appear there is *(ask)*.
+its users' actions and support sessions. DripFunnel staff actions on its partner account and
+its merchants' accounts do appear there (LOGGING.md §6, settled). First release:
+[FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §13.
 
 - P1. Every write in the admin console, every staff impersonation and setup session, and
   every **partner** support session (staff never open one, ACCESS §8): who, when, what,
@@ -590,8 +606,9 @@ appear there is *(ask)*.
 ### Q. Communication
 
 **Partner console:** scoped counterpart: announcements to its own merchants (all, or one
-plan's) in its own look (Q1), and its own contact details (Q3); no platform-wide banners and
-no staff notes.
+plan's) in its own look (Q1), and its own contact details (Q3); no platform-wide banners and no
+staff notes. Not in the first release: the prototype draws no Announcements screen
+([FIRST-RELEASE.md](../platform/FIRST-RELEASE.md) §15).
 
 - Q1. Announcements to all merchants, one brand's merchants, or one plan's, shown in the
   portal and/or by email, in each brand's look and name.

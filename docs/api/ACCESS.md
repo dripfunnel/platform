@@ -53,7 +53,7 @@ merchant with the same address are two unrelated accounts.
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
 | **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, optional 2-factor *(ask: Owners only, or everyone)* | `(partner, email)`: the same email under two partners is two unrelated accounts |
-| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password, 2-factor *(ask: required or optional)*. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
+| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password; 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
 
@@ -348,11 +348,13 @@ supplier who can look and not touch.
   but can't rename or remove one, and they are never offered as the default for new merchant
   products (DESIGN-BRIEF §4, settled).
 
-### 5.3 Partner roles (platform console) — PROPOSED 2026-09-28
+### 5.3 Partner roles (platform console) — decided 2026-10-01 on #109
 
 Derived from USERS-AND-DOMAINS §4. A partner acts **on its own merchants only, at account
 level**; it never reads a merchant's customers, orders or catalogue except in a support
-session, and never sees another partner. **Proposed, confirm before building.**
+session, and never sees another partner. **Confirmed 2026-10-01** against the DF Platform
+prototype's permission table and ui/platform/README.md §2; the first release is
+[../ui/platform/FIRST-RELEASE.md](../ui/platform/FIRST-RELEASE.md).
 
 | Can | Owner | Admin | Support | Finance | Read-only |
 |---|:--:|:--:|:--:|:--:|:--:|
@@ -364,11 +366,46 @@ session, and never sees another partner. **Proposed, confirm before building.**
 | Request write elevation inside a support session | ✓ | ✓ | ✓ | | |
 | Branding, portal host, preview and shop domains, email sender domain | ✓ | ✓ | | | |
 | Plans and prices offered to merchants | ✓ | ✓ | | ✓ *(prices only)* | |
-| The partner's own billing with DripFunnel: invoices, payment method | ✓ | | | ✓ | |
+| The partner's own billing with DripFunnel: invoices, payment method, payouts | ✓ | view | | ✓ | view |
 | Partner users: invite, change role, remove | ✓ | ✓ *(not Owners)* | | | |
+| Require 2-factor for the whole team (Settings › Security) | ✓ | | | | |
 | Close or offboard the partner, transfer partner ownership | ✓ | | | | |
 
 The last Owner of a partner can't be removed or demoted, as for merchants and staff.
+
+**Permission names** (decided 2026-10-01 on #109), one per screen need in
+ui/platform/FIRST-RELEASE.md, the way the staff set was derived on #14, and matching the
+prototype's own permission table. Every one is scoped to the caller's own partner by the
+session; `partner.read` is what every role holds.
+
+| Permission | Screen (FIRST-RELEASE) | Owner | Admin | Support | Finance | Read-only |
+|---|---|:--:|:--:|:--:|:--:|:--:|
+| `partner.read`: dashboard, stores, plans, branding, domains, reports, activity log, settings | every screen | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `onboarding.submit` (submit, run the test signup) | §4 | ✓ | ✓ | | | |
+| `branding.write` (look, words, emails, publish, schedule, roll back) | §8 | ✓ | ✓ | | | |
+| `domains.write` (add or change a hostname) | §9 | ✓ | ✓ | | | |
+| `domains.recheck` | §9, §6.3 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `plans.write` (plans, defaults for new stores) | §7 | ✓ | ✓ | | | |
+| `plans.price` (prices only) | §7 | ✓ | ✓ | | ✓ | |
+| `stores.create` | §6.2 | ✓ | ✓ | | | |
+| `stores.plan` (change plan, limit overrides) | §6.4 | ✓ | ✓ | | | |
+| `stores.trial` | §6.4 | ✓ | ✓ | | ✓ | |
+| `stores.suspend` (suspend and restore) | §6.4 | ✓ | ✓ | | | |
+| `stores.invite.resend` | §6.4 | ✓ | ✓ | | | |
+| `setup.retry` (retry a stuck signup step) | §6.3, §5 | ✓ | ✓ | | | |
+| `stores.billingStatus` (only when the partner bills its merchants) | §6.1, §6.3 | ✓ | ✓ | | ✓ | |
+| `billing.read` (payments, payouts, invoices, settings) | §11 | ✓ | ✓ | | ✓ | ✓ |
+| `billing.write` (who bills the merchants) | §11.4 | ✓ | | | ✓ | |
+| `payout.write`, `card.write` (payout account, payment method) | §14.3 | ✓ | | | ✓ | |
+| `support.session` (start, return to, end own; request write elevation) | §12 | ✓ | ✓ | ✓ | | |
+| `exports` (stores, reports, activity CSV) | §6.1, §10, §13 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
+| `team.transfer` | §14.2 | ✓ | | | | |
+| `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
+
+The Billing menu is absent for Support and the Support menu for Finance and Read-only
+(FIRST-RELEASE §2.1): a role with no permission on a whole screen does not see its row,
+while a control inside a screen it can see is disabled with the reason (ui/README.md §5).
 
 ### 5.4 Staff roles (admin console)
 
@@ -947,7 +984,8 @@ The first platform's design was shaped by its commerce framework's limits (AUTH-
 Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this port raised.
 
 **Carried, still open**
-- **2-factor**: Owners only, or everyone? And for partner users?
+- **2-factor**: Owners only, or everyone? ~~And for partner users?~~ **Partner users settled
+  2026-10-01**: optional, the Owner may require it (§2).
 - **Does editing an approved vendor product send it back to `pending`?** Safer, but it lets a
   vendor pull a live product off the storefront by editing it (§7.2).
 - **What may a vendor see of a customer?** Name and address to ship; email and phone probably
@@ -967,7 +1005,8 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   partner, so each partner's portal is its own account in its own look (§2).
 - Shopper sign-in: may partners restrict the per-store choice by plan? Which SMS/WhatsApp
   provider? (§2.1)
-- **Partner roles**: confirm the proposed matrix (§5.3).
+- ~~**Partner roles**: confirm the proposed matrix (§5.3).~~ **Settled 2026-10-01** on #109
+  (§5.3).
 - **Invitation expiry**: 7 days, carried from the first platform's default (§6.3).
 - **Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).
 - **Stock only vendors**: how their products come to exist (§7.1).

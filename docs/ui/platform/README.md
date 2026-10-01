@@ -11,17 +11,18 @@ A **partner** is a company that resells the platform to its own merchants under 
 brand: an agency, reseller, payments company or marketplace operator. **DripFunnel is also a
 partner** (the house partner) and uses this console exactly like the others.
 
-**Status: skeleton** (sign-in and home routes). No design document of its own yet: every
-part of the admin console's design marks its partner counterpart, and this guide lists
-them (§5).
+**Status: skeleton** (sign-in and home routes). **What to build first is
+[FIRST-RELEASE.md](FIRST-RELEASE.md)** (decided 2026-10-01 on #109). It has no design prompt of
+its own yet: every part of the admin console's design marks its partner counterpart, and this
+guide lists them (§5).
 
 **The prototype is `designs/DF Platform Prototype.dc.html`** — open it in a browser and click
 through the screen you are building before you build it; its Partner control carries the
-live, draft, awaiting and sent-back cases. With no design document of its own, this console's
-prototype is the most detailed design it has. The prototype decides **behaviour**, `docs/`
-decides **scope and rules** ([../../README.md](../../README.md) §3).
+live, draft, awaiting and sent-back cases. The prototype decides **behaviour**, `docs/` decides
+**scope and rules** ([../../README.md](../../README.md) §3); FIRST-RELEASE.md §17 lists where
+they differ and which wins.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-01.
 
 The design prompt for Claude Design is [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md).
 
@@ -64,12 +65,12 @@ person also has a store under another partner.
 **Partner users**: the partner's own staff. They are a separate identity from merchant
 accounts (ACCESS.md §2): signing in here never grants anything in a merchant portal.
 
-### Roles *(proposed 2026-09-28; confirm before the Platform API's permissions are built)*
+### Roles (decided 2026-10-01 on #109)
 
 Fixed templates, no role editor, like merchant roles.
 
-The authoritative matrix is [ACCESS.md](../../api/ACCESS.md) §5.3; this table is the same
-rules by screen area and must stay in step with it.
+The authoritative matrix and the permission names are [ACCESS.md](../../api/ACCESS.md) §5.3;
+this table is the same rules by screen area and must stay in step with it.
 
 | Area | Owner | Admin | Support | Finance | Read-only |
 |---|:--:|:--:|:--:|:--:|:--:|
@@ -83,13 +84,14 @@ rules by screen area and must stay in step with it.
 | Merchants: change plan, price, limits, entitlements ("Publish now" allowance), trial | ✓ | ✓ | | trial and billing fields only | |
 | Merchants: suspend, restore | ✓ | ✓ | | | |
 | Support sessions (read-only), request write elevation | ✓ | ✓ | ✓ | | |
-| Partner billing with DripFunnel: invoices, payment method | ✓ | | | ✓ | |
+| Partner billing with DripFunnel: invoices, payment method, payouts | ✓ | view | | ✓ | view |
 | Team: invite, change role, remove | ✓ | not Owners | | | |
+| Security: require 2-factor for the whole team | ✓ | | | | |
 | Close or offboard the partner, transfer partner ownership | ✓ | | | | |
 | Activity log (own users, own account, merchants' accounts) | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-"view" rows and the activity log are this guide's reading of the proposal; ACCESS.md §5.3
-lists only the actions.
+"view" rows and the activity log are this guide's reading; ACCESS.md §5.3 lists the actions and
+names each permission.
 
 - **The last Owner** can't be removed or demoted.
 - A control a role can't use is **visible and disabled with the reason** (docs/ui/README.md §5).
@@ -98,7 +100,7 @@ lists only the actions.
 
 ---
 
-## 3. Navigation *(proposed)*
+## 3. Navigation
 
 | Row | Contents | Admin-console counterpart |
 |---|---|---|
@@ -111,6 +113,10 @@ lists only the actions.
 | Billing | Its invoices from DripFunnel; its merchants' billing if it bills them | H (payer side) |
 | Announcements | Messages and incident banners to its own merchants, in its look | Q (scoped) |
 | Settings | Partner details, contacts, legal pages, team, activity log (search by person) | O, P (scoped) |
+
+**The first release ships every row the prototype draws** — all of the above except
+Announcements, which the prototype has no screen for (FIRST-RELEASE.md §2, §15). Billing's row
+is absent for Support and Support's for Finance and Read-only.
 
 While the partner is *Draft* or *Awaiting approval*, Home is the **setup checklist** (the
 admin console's part E seen from the partner's side), with each failed go-live check linked
@@ -173,9 +179,10 @@ remove the partner lines from the admin one.
 
 ## 7. Open questions
 
-- Confirm the partner roles above (§2).
 - Can a partner hide DripFunnel completely, or is "Powered by" sometimes required?
 - Can a partner override the automatic publish interval for its plans? (The "Publish now"
   allowance is the partner's, within DripFunnel's ceiling: SAAS.md §6.1.)
 - Can one company own several partners?
-- Partner sign-in: 2-factor required? Google sign-in?
+- ~~Partner sign-in: 2-factor required? Google sign-in?~~ Settled 2026-10-01 on #109: 2-factor
+  optional, the Owner may require it for the team; Google sign-in not in the first release
+  (ACCESS §2, FIRST-RELEASE.md §3).

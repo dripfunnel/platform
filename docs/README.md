@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-01.
 
 ---
 
@@ -25,7 +25,7 @@ its clients; everything runs on Cloudflare, with Postgres on Neon.
 | Portal | App | Host | Users and roles | API | Guide |
 |---|---|---|---|---|---|
 | **Admin console** | `apps/ui/admin` | `admin.dripfunnel.com` | DripFunnel staff: Super admin, Partner manager, Support, Finance, Engineer on call, Read-only | Admin API | [ui/admin/](ui/admin/README.md) |
-| **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only *(proposed)* | Platform API | [ui/platform/](ui/platform/README.md) |
+| **Partner console** | `apps/ui/platform` | `platform.dripfunnel.com` | Partner users: Owner, Admin, Support, Finance, Read-only | Platform API | [ui/platform/](ui/platform/README.md) |
 | **Merchant portal** | `apps/ui/store` | each partner's portal host, e.g. `store.<partnerdomain>` | Merchant Owner, Manager, Staff; vendors: Stock only, Products and stock, Products, stock and their orders | Store API | [ui/store/](ui/store/README.md) |
 | **Storefront** | one repo per store, from `templates/storefront` + `@dripfunnel/storefront-core` | `{shop}.preview.<partnerdomain>`, `{shop}.shops.<partnerdomain>`, the merchant's domain | Shoppers | Shop API | [storefront/](storefront/ARCHITECTURE.md) |
 
@@ -58,7 +58,7 @@ docs/
     admin/CONSOLE-DESIGN.md design prompt: every admin console part, with its partner-console counterpart
     admin/CLAUDE-DESIGN-PROMPT.md   design prompt for a Claude Design session: the first release's screens
                             (with -CUSTOMERS.md and -IMPERSONATION.md for those two features)
-    platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules
+    platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules    platform/FIRST-RELEASE.md  what the partner console's first release contains: every screen the prototype draws, and what the Platform API needs for them
     platform/CLAUDE-DESIGN-PROMPT.md  design prompt for a Claude Design session: the partner console
     store/README.md         guide: the merchant portal: purpose, roles and permissions, navigation, code, rules
     store/DESIGN-BRIEF.md   design prompt: the portal's facts, users and every flow
@@ -128,7 +128,7 @@ touch.
 | Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
 | Any SPA code | [ui/README.md](ui/README.md), then the app's guide, then the screen in its prototype ([../designs/design.md](../designs/design.md)) |
 | Merchant portal screens | [ui/store/](ui/store/README.md), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
-| Partner console screens | [ui/platform/](ui/platform/README.md), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
+| Partner console screens | [ui/platform/](ui/platform/README.md), [FIRST-RELEASE](ui/platform/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
 | Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md), and `designs/DF Admin Prototype.dc.html` |
 | Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md), and `designs/DripFunnel Style Guide.dc.html` for the tokens themselves |
 | Storefront template, `storefront-core`, AI design | [storefront/ARCHITECTURE.md](storefront/ARCHITECTURE.md), [storefront/DESIGN.md](storefront/DESIGN.md), [code/ARCHITECTURE.md](code/ARCHITECTURE.md) §5 |
