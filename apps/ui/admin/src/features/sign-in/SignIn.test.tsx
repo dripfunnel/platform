@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { SignIn } from './SignIn'
-import { problemStates, signInStates } from './signInStates'
+import { problemStates, signInOutcomes, signInStates } from './signInStates'
 
 const words = messages.signIn
 
@@ -30,6 +30,18 @@ describe('SignIn', () => {
     const text = textOf(await render(`?state=${state}`))
     expect(text).toContain(words.states[state].title)
     expect(text).toContain(words.states[state].body)
+  })
+
+  it.each(signInOutcomes)('shows the %s outcome the Worker reports', async (outcome) => {
+    // ?outcome= is the real sign-in result, so unlike ?state= it is read in production too.
+    const text = textOf(await render(`?outcome=${outcome}`))
+    expect(text).toContain(words.states[outcome].title)
+  })
+
+  it('ignores an outcome the Worker could not have sent', async () => {
+    // Only the callback's own vocabulary, so a link cannot drive the screen anywhere else.
+    expect(textOf(await render('?outcome=signing'))).toContain(words.states.start.title)
+    expect(textOf(await render('?outcome=nonsense'))).toContain(words.states.start.title)
   })
 
   it('ignores a state the screen does not have', async () => {

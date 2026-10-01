@@ -5,12 +5,12 @@ import { navFor, navRows, type NavRow } from './nav'
 const everyone = ['dashboard', 'partners', 'stores', 'customers']
 
 const menusOf: Record<StaffRole, readonly string[]> = {
-  'staff-super-admin': [...everyone, 'approvals', 'provisioning'],
-  'staff-partner-manager': [...everyone, 'approvals'],
-  'staff-support': [...everyone, 'provisioning'],
-  'staff-finance': everyone,
-  'staff-engineer': [...everyone, 'provisioning'],
-  'staff-read-only': everyone,
+  'staff-super-admin': [...everyone, 'approvals', 'provisioning', 'activity', 'staff'],
+  'staff-partner-manager': [...everyone, 'approvals', 'activity'],
+  'staff-support': [...everyone, 'provisioning', 'activity'],
+  'staff-finance': [...everyone, 'activity'],
+  'staff-engineer': [...everyone, 'provisioning', 'activity'],
+  'staff-read-only': [...everyone, 'activity'],
 }
 
 const rowFor = (roles: readonly StaffRole[]): NavRow => ({ key: 'partners', to: '/partners', icon: 'users', roles })

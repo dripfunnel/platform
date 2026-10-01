@@ -12,11 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppActivityRouteImport } from './routes/_app/activity'
 import { Route as AppApprovalsRouteImport } from './routes/_app/approvals'
 import { Route as AppCustomersRouteImport } from './routes/_app/customers'
 import { Route as AppDashboardRouteImport } from './routes/_app/dashboard'
 import { Route as AppPartnersRouteImport } from './routes/_app/partners'
 import { Route as AppProvisioningRouteImport } from './routes/_app/provisioning'
+import { Route as AppStaffRouteImport } from './routes/_app/staff'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
@@ -36,6 +38,11 @@ const AuthRoute = AuthRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
   getParentRoute: () => AppRoute,
 } as any)
 const AppApprovalsRoute = AppApprovalsRouteImport.update({
@@ -61,6 +68,11 @@ const AppPartnersRoute = AppPartnersRouteImport.update({
 const AppProvisioningRoute = AppProvisioningRouteImport.update({
   id: '/provisioning',
   path: '/provisioning',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStaffRoute = AppStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStatesRoute = AppStatesRouteImport.update({
@@ -101,11 +113,13 @@ const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/activity': typeof AppActivityRoute
   '/approvals': typeof AppApprovalsRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
@@ -116,11 +130,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/activity': typeof AppActivityRoute
   '/approvals': typeof AppApprovalsRoute
   '/customers': typeof AppCustomersRoute
   '/dashboard': typeof AppDashboardRoute
   '/partners': typeof AppPartnersRoute
   '/provisioning': typeof AppProvisioningRoute
+  '/staff': typeof AppStaffRoute
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/sign-in': typeof AuthSignInRoute
@@ -133,11 +149,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/activity': typeof AppActivityRoute
   '/_app/approvals': typeof AppApprovalsRoute
   '/_app/customers': typeof AppCustomersRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/partners': typeof AppPartnersRoute
   '/_app/provisioning': typeof AppProvisioningRoute
+  '/_app/staff': typeof AppStaffRoute
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
   '/_auth/sign-in': typeof AuthSignInRoute
@@ -151,11 +169,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
     | '/approvals'
     | '/customers'
     | '/dashboard'
     | '/partners'
     | '/provisioning'
+    | '/staff'
     | '/states'
     | '/stores'
     | '/sign-in'
@@ -166,11 +186,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity'
     | '/approvals'
     | '/customers'
     | '/dashboard'
     | '/partners'
     | '/provisioning'
+    | '/staff'
     | '/states'
     | '/stores'
     | '/sign-in'
@@ -182,11 +204,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/activity'
     | '/_app/approvals'
     | '/_app/customers'
     | '/_app/dashboard'
     | '/_app/partners'
     | '/_app/provisioning'
+    | '/_app/staff'
     | '/_app/states'
     | '/_app/stores'
     | '/_auth/sign-in'
@@ -225,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/approvals': {
       id: '/_app/approvals'
       path: '/approvals'
@@ -258,6 +289,13 @@ declare module '@tanstack/react-router' {
       path: '/provisioning'
       fullPath: '/provisioning'
       preLoaderRoute: typeof AppProvisioningRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/staff': {
+      id: '/_app/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AppStaffRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/states': {
@@ -313,11 +351,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
   AppApprovalsRoute: typeof AppApprovalsRoute
   AppCustomersRoute: typeof AppCustomersRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppPartnersRoute: typeof AppPartnersRoute
   AppProvisioningRoute: typeof AppProvisioningRoute
+  AppStaffRoute: typeof AppStaffRoute
   AppStatesRoute: typeof AppStatesRoute
   AppStoresRoute: typeof AppStoresRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -328,11 +368,13 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
   AppApprovalsRoute: AppApprovalsRoute,
   AppCustomersRoute: AppCustomersRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppPartnersRoute: AppPartnersRoute,
   AppProvisioningRoute: AppProvisioningRoute,
+  AppStaffRoute: AppStaffRoute,
   AppStatesRoute: AppStatesRoute,
   AppStoresRoute: AppStoresRoute,
   AppIndexRoute: AppIndexRoute,

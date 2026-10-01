@@ -61,6 +61,10 @@ apps/ui/<app>/
 - **Named exports only**, one component per file, file named after the component.
 - `vite.config.ts` proxies `/api` to the local Worker (`http://localhost:8787`), so local dev
   has the same origin rules as production. Ports: store 5173, platform 5174, admin 5175.
+  The admin and platform proxies rewrite `Host` and `Origin` to `admin.localhost` and
+  `platform.localhost`, because the Worker routes by hostname and checks `Origin` against it
+  (ARCHITECTURE.md §2, ACCESS.md §4); without that both reach the Store API. `store` needs no
+  rewrite: any other host is the storefront branch. `pnpm dev` from the root runs all four.
 
 ---
 

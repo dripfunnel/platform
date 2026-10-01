@@ -1,0 +1,133 @@
+.df-person-finder {
+  position: relative;
+  max-width: 680px;
+}
+
+.df-person-finder input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--df-space-4);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 17px;
+}
+
+.df-person-finder input:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-person-options {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + var(--df-space-1));
+  right: 0;
+  left: 0;
+  margin: 0;
+  padding: var(--df-space-1);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+  list-style: none;
+}
+
+.df-person-option {
+  display: flex;
+  gap: var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-2) var(--df-space-3);
+  border-radius: var(--df-radius);
+  cursor: pointer;
+}
+
+.df-person-option--active,
+.df-person-option:hover {
+  background: var(--df-color-hover);
+}
+
+.df-person-option-name {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.df-person-option-name .df-muted,
+.df-person-option > .df-muted {
+  font-size: 12px;
+}
+
+.df-person-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-3) var(--df-space-4);
+  align-items: center;
+  padding: var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-person-card-name {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 2px;
+}
+
+.df-person-card-name strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+}
+
+.df-person-card-name .df-muted {
+  font-size: 13px;
+}
+
+.df-person-card-pointer {
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-person-card-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-person-card-places li {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--df-color-neutral-surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-activity-toolbar {
+  align-items: flex-start;
+}
+
+.df-activity-export {
+  display: grid;
+  justify-items: end;
+  gap: var(--df-space-1);
+  margin-left: auto;
+  max-width: 320px;
+  text-align: right;
+}
+
+.df-activity-export p {
+  margin: 0;
+  font-size: 12px;
+}
+

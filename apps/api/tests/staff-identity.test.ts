@@ -5,7 +5,16 @@ import type { ActivityEntry } from '#auth/activity'
 import { interimActivityLog } from '#auth/activity'
 import { resolveStaff } from '#auth/caller'
 import { SignInFailed } from '#auth/oidc'
-import { absoluteMs, cookieName, createSession, endSession, idleMs, readSession } from '#auth/session'
+import {
+  absoluteMs,
+  cookieName,
+  createSession,
+  endSession,
+  hashSessionId,
+  idleMs,
+  isReauthFresh,
+  readSession,
+} from '#auth/session'
 import { staffForClaims } from '#auth/staff'
 import type { ScopedSql } from '#db/scoped/index'
 import { withSystemScope } from '#db/scoped/index'
@@ -14,6 +23,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 let db: TestDatabase
 let active: string
 let suspended: string
+let other: string
 
 const at = (ms: number) => new Date(Date.UTC(2026, 9, 1, 9, 0, 0) + ms)
 const start = at(0)
@@ -23,7 +33,8 @@ beforeAll(async () => {
   const rows = await db.sql<{ id: string; sso_subject: string }[]>`
     insert into staff_user (sso_subject, email, name, role_key, status) values
       ('subject-active', 'priya@softobotics.com', 'Priya', 'staff-super-admin', 'active'),
-      ('subject-suspended', 'gone@softobotics.com', 'Gone', 'staff-support', 'suspended')
+      ('subject-suspended', 'gone@softobotics.com', 'Gone', 'staff-support', 'suspended'),
+      ('subject-other', 'sam@softobotics.com', 'Sam', 'staff-read-only', 'active')
     returning id, sso_subject
   `
   const idFor = (subject: string) => {
@@ -33,6 +44,7 @@ beforeAll(async () => {
   }
   active = idFor('subject-active')
   suspended = idFor('subject-suspended')
+  other = idFor('subject-other')
 }, 60_000)
 
 afterAll(async () => {
@@ -128,9 +140,8 @@ describe('who the request resolves to', () => {
   })
 
   it('is nobody once the staff member is suspended, without waiting for the session to end', async () => {
-    // The rule this protects: removing someone takes effect on their next request, not when
-    // their session happens to expire. staffById filters on status, and only this notices if
-    // that filter is dropped.
+    // Removing someone takes effect on their next request, not when their session expires:
+    // `staffById` filters on status, and only this notices if that filter goes.
     const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
     expect(await resolveStaff(db.sql, withSession(id), start)).not.toBeNull()
 
@@ -205,7 +216,7 @@ describe('the sign-in routes', () => {
 
   const callback = (code: string, { state = 'state', ...headers }: Record<string, string> = {}) =>
     new Request(`https://admin.dripfunnel.com/api/auth/callback?code=${code}&state=${state}`, {
-      headers: { cookie: '__Host-df_admin_oidc=state.nonce', ...headers },
+      headers: { cookie: '__Host-df_admin_oidc=state.nonce.signin', ...headers },
     })
 
   it('sends the browser to the provider and remembers the nonce', async () => {
@@ -228,14 +239,14 @@ describe('the sign-in routes', () => {
     const responses = await Promise.all(
       ['unknown', 'suspended', 'provider-error'].map(async (code) => {
         const res = await handleAuth(callback(code), deps())
-        return { status: res.status, body: await res.text(), cookie: res.headers.get('set-cookie') }
+        return { status: res.status, location: res.headers.get('location'), cookie: res.headers.get('set-cookie') }
       }),
     )
     // Identical down to the headers: a difference in any of them is a way to tell the
-    // causes apart.
+    // causes apart. `refused` is the one state every account question collapses into.
     for (const res of responses) {
       expect(res).toEqual(responses[0])
-      expect(res).toMatchObject({ status: 401, body: 'Sign-in failed' })
+      expect(res).toMatchObject({ status: 302, location: '/sign-in?outcome=refused' })
     }
   })
 
@@ -267,7 +278,10 @@ describe('the sign-in routes', () => {
       exchange: async () => ({ subject: '', email: 'not-an-email', name: '' }) as never,
     }
     const res = await handleAuth(callback('good'), deps({ provider: malformed }))
-    expect({ status: res.status, body: await res.text() }).toEqual({ status: 401, body: 'Sign-in failed' })
+    expect({ status: res.status, location: res.headers.get('location') }).toEqual({
+      status: 302,
+      location: '/sign-in?outcome=refused',
+    })
   })
 
   it('records why each refusal happened while telling the caller nothing', async () => {
@@ -281,14 +295,14 @@ describe('the sign-in routes', () => {
       [callback('rubbish'), 'provider_refused'],
     ] as const
 
-    const bodies = new Set<string>()
+    const shown = new Set<string>()
     for (const [request] of cases) {
       const res = await handleAuth(request, deps({ activity: capturing }))
-      expect(res.status).toBe(401)
-      bodies.add(await res.text())
+      expect(res.status).toBe(302)
+      shown.add(res.headers.get('location') ?? '')
     }
-    // One body for every cause, while the operator gets five distinct reasons.
-    expect([...bodies]).toEqual(['Sign-in failed'])
+    // One destination for every cause, while the operator gets five distinct reasons.
+    expect([...shown]).toEqual(['/sign-in?outcome=refused'])
     expect(seen).toEqual(cases.map(([, reason]) => reason))
   })
 
@@ -302,15 +316,108 @@ describe('the sign-in routes', () => {
     const forged = await handleAuth(callback('good', { state: 'not-ours' }), deps({ activity: failing }))
     const unknown = await handleAuth(callback('unknown'), deps({ activity: failing }))
     for (const res of [forged, unknown]) {
-      expect(res.status).toBe(401)
-      expect(await res.text()).toBe('Sign-in failed')
+      expect(res.status).toBe(302)
+      expect(res.headers.get('location')).toBe('/sign-in?outcome=refused')
     }
   })
 
   it('refuses a callback whose state does not match what we sent', async () => {
     const res = await handleAuth(callback('good', { state: 'not-ours' }), deps())
-    expect(res.status).toBe(401)
-    expect(await res.text()).toBe('Sign-in failed')
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=refused')
+  })
+
+  describe('re-authentication before a dangerous action (A2)', () => {
+    const freshnessOf = async (sessionId: string, now: Date) => {
+      const session = await withSystemScope(db.sql, (tx) => readSession(tx, sessionId, now))
+      if (!session) throw new Error('the session should still be live')
+      return isReauthFresh(session, now)
+    }
+
+    const reauthCallback = (sessionId: string) =>
+      new Request('https://admin.dripfunnel.com/api/auth/callback?code=good&state=state', {
+        headers: { cookie: `__Host-df_admin_oidc=state.nonce.reauth; ${cookieName}=${sessionId}` },
+      })
+
+    it('asks Microsoft for the credential again, not just its own session', async () => {
+      const seen: string[] = []
+      const recording = {
+        ...provider,
+        authorizeUrl: (options: { prompt?: string }) => {
+          seen.push(options.prompt ?? 'none')
+          return 'https://login.microsoftonline.com/authorize'
+        },
+      }
+      await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/sign-in'), deps({ provider: recording }))
+      await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/reauth'), deps({ provider: recording }))
+      expect(seen).toEqual(['none', 'login'])
+    })
+
+    it('stamps the live session rather than starting a second one', async () => {
+      const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
+      await db.sql`update staff_session set reauth_at = ${at(-60 * 60 * 1000)} where id_hash = ${await hashSessionId(id)}`
+
+      expect(await freshnessOf(id, start)).toBe(false)
+
+      const res = await handleAuth(reauthCallback(id), deps())
+      expect(res.status).toBe(302)
+      // No new session cookie: the one they already hold is the one that was refreshed.
+      expect(res.headers.get('set-cookie')).not.toContain(cookieName)
+
+      expect(await freshnessOf(id, start)).toBe(true)
+    })
+
+    it('refuses to refresh a session that belongs to someone else', async () => {
+      // Otherwise a second staff member could hold a dangerous action open for the first.
+      const theirs = await withSystemScope(db.sql, (tx) => createSession(tx, other, start))
+      await db.sql`update staff_session set reauth_at = ${at(-60 * 60 * 1000)} where id_hash = ${await hashSessionId(theirs)}`
+
+      const res = await handleAuth(reauthCallback(theirs), deps())
+      expect(res.headers.get('location')).toBe('/sign-in?outcome=refused')
+
+      expect(await freshnessOf(theirs, start)).toBe(false)
+    })
+
+    it('refuses a re-authentication with no session to stamp', async () => {
+      const res = await handleAuth(
+        new Request('https://admin.dripfunnel.com/api/auth/callback?code=good&state=state', {
+          headers: { cookie: '__Host-df_admin_oidc=state.nonce.reauth' },
+        }),
+        deps(),
+      )
+      expect(res.headers.get('location')).toBe('/sign-in?outcome=refused')
+    })
+  })
+
+  it('believes nothing a caller reports without the handshake it issued', async () => {
+    // Otherwise any page could send a staff member's browser here and pick both the screen
+    // they see and the reason written to the activity log.
+    const seen: (string | null)[] = []
+    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason) }
+    const forged = new Request(
+      'https://admin.dripfunnel.com/api/auth/callback?error=invalid_grant&error_description=AADSTS53003',
+    )
+    const res = await handleAuth(forged, deps({ activity: capturing }))
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=refused')
+    expect(seen).toEqual(['missing_handshake'])
+  })
+
+  it('sends each provider failure to the screen that explains it', async () => {
+    // These say nothing about whether an account exists, so unlike the refusals above they
+    // are allowed to differ (#17's states).
+    const cases = [
+      ['error=access_denied', '/sign-in?outcome=cancelled'],
+      ['error=invalid_grant&error_description=AADSTS500121%3A+denied', '/sign-in?outcome=denied'],
+      ['error=invalid_grant&error_description=AADSTS53003%3A+blocked', '/sign-in?outcome=blocked'],
+      ['error=temporarily_unavailable', '/sign-in?outcome=unavailable'],
+    ] as const
+    for (const [query, expected] of cases) {
+      const request = new Request(`https://admin.dripfunnel.com/api/auth/callback?state=state&${query}`, {
+        headers: { cookie: '__Host-df_admin_oidc=state.nonce.signin' },
+      })
+      const res = await handleAuth(request, deps())
+      expect([query, res.headers.get('location')]).toEqual([query, expected])
+    }
   })
 
   it('refuses a sign-out that is not a POST, so no page can force one', async () => {

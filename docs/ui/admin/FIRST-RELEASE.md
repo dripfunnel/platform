@@ -52,7 +52,8 @@ the number twice and nobody loses it. Provisioning counts failed and stuck signu
 running ones.
 
 Always visible in the header: the environment marker, a search box (partners and stores by
-name, domain, code or owner email), and the signed-in staff member's name and role.
+name, domain, code or owner email), and the signed-in staff member's name and role. Their
+menu has **My activity**, their own timeline in the Activity log, for every role (decided on #45).
 
 ---
 
@@ -328,11 +329,21 @@ support sessions, shoppers and the system, plus staff-only security events.
 - **Search by person first**: a typeahead over every person on the platform. Choosing one
   opens their timeline **across every store and partner** they belong to.
 - **Filters**: actor kind, level (admin, partner, store, storefront, system, security),
-  action, result, partner, store, target, date range, IP. All in the URL.
+  action, result, partner, store, target, date range, IP, impersonation (`imp`) and setup
+  session (`su`). All in the URL; typed person-search text never is, only the chosen
+  person's id. `target` is a type and an id (`customer:c1`), set by links from a partner,
+  store or customer page, not a control. Date range is Today, Last 7 days, Last 30 days or a
+  custom from/to, as UTC days (decided on #44). LOGGING.md §7 describes the screen across all
+  three portals, so its extra filters (category, vendor, label search) aren't missing here.
 - **Every name links** to that person's timeline; every target to its page.
-- An expanded entry shows the changes, the reason, the support agent behind a session, and
-  the request id.
-- **Export** the filtered view as CSV; the export is itself logged.
+- An expanded entry shows the changes, the reason, the support agent behind a session, the
+  request id, and on sign-in and security entries the full IP and user agent. An
+  impersonation entry offers "All its entries"; its session id is plain text until the
+  Impersonate screen (#46) can open it.
+- Pages of 50 with Previous and Next; **no total count** (§12).
+- **Export** the filtered view as CSV: **Super admin and Engineer on call only**, disabled with
+  the reason for everyone else. It runs as a job that survives leaving the page, its link
+  expires after 1 hour, and the export is itself logged (decided on #44).
 - Read-only; can't be edited or deleted. The same entries appear on the Activity tab of each
   partner and store, and "Own activity" in each staff member's profile.
 
@@ -343,6 +354,21 @@ support sessions, shoppers and the system, plus staff-only security events.
 Staff list: name, email, role, last sign-in, 2-factor status. Super admin can invite (by
 company email, signing in through company SSO), change role and remove. The last Super admin
 can't be removed or demoted. Roles are the six in [README.md](README.md) §2.
+
+Decided on #45:
+
+- **An invitation** is a single-use link in an email, never shown in the console, that binds
+  the invitee's SSO account on first sign-in. It expires after **7 days**. A pending row shows
+  when it was sent and when it expires, and offers **Resend** (a new link; the old one stops
+  working) and **Revoke**; an expired row says so and offers Resend. Its role can be changed
+  before it is accepted. Any email domain is accepted until the list of company domains is
+  configurable; an email already on staff is refused (`ALREADY_STAFF`).
+- **The last Super admin**: the server refuses any change that would leave no **accepted**
+  Super admin (`LAST_SUPER_ADMIN`), including the Super admin changing themselves. They can
+  still manage everyone else. Pending invitations don't count. While there is only one, the
+  page says so, because README.md §2 asks for at least two.
+- **2-factor** is what the company SSO reported at the last sign-in: On, Off (a warning: the
+  SSO policy let them in without it) or Not signed in yet.
 
 ---
 
@@ -377,8 +403,8 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 | Provisioning | `provisioningJobs(filter, after, before)`, `provisioningJob(id)` (a started job's progress, whatever the list is filtered to) | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
 | Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
 | Impersonate | `impersonationTargets(filter, after, before)`, `impersonations(filter, after, before)` | `startImpersonation(targetId, membershipId, reason)`, `endImpersonation(id)` |
-| Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` |
-| Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff` |
+| Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityExport(id)` (the job's state and link) | `exportActivity(filter)` |
+| Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite` |
 | Header | `search(query)`, `me` | |
 | Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups | |
 

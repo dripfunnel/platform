@@ -16,17 +16,17 @@ const render = async (role: StaffRole, badges: NavBadges = { partnersAwaitingApp
   return renderToString(<RouterProvider router={router} />)
 }
 
-const absentPaths = ['/impersonate', '/activity', '/staff']
+const absentPaths = (role: StaffRole) => (role === 'staff-super-admin' ? ['/impersonate'] : ['/impersonate', '/staff'])
 
 describe('SideNav', () => {
   it.each(staffRoles)('renders the menus every role has for %s', async (role) => {
     const html = await render(role)
-    for (const path of ['/dashboard', '/partners', '/stores', '/customers']) expect(html).toContain(`href="${path}"`)
+    for (const path of ['/dashboard', '/partners', '/stores', '/customers', '/activity']) expect(html).toContain(`href="${path}"`)
   })
 
   it.each(staffRoles)('leaves the other menus out of the markup for %s, rather than disabling them', async (role) => {
     const html = await render(role)
-    for (const path of absentPaths) expect(html).not.toContain(`href="${path}"`)
+    for (const path of absentPaths(role)) expect(html).not.toContain(`href="${path}"`)
     expect(html).not.toContain('disabled')
     expect(html).not.toContain('aria-disabled')
   })
@@ -39,6 +39,10 @@ describe('SideNav', () => {
     const readOnly = await render('staff-read-only')
     expect(readOnly).not.toContain('href="/approvals"')
     expect(readOnly).not.toContain('href="/provisioning"')
+  })
+
+  it.each(staffRoles)('shows Staff to Super admin only, for %s', async (role) => {
+    expect((await render(role)).includes('href="/staff"')).toBe(role === 'staff-super-admin')
   })
 
   it('shows the awaiting-approval count once, on the nearest menu the role can reach', async () => {

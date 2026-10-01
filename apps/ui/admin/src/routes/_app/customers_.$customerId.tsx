@@ -3,13 +3,14 @@ import { z } from 'zod'
 import { loadCustomer } from '../../api/customers'
 import { loadMe } from '../../api/me'
 import { callerFor } from '../../features/common/harnessCaller'
+import { activityTabSearch } from '../../features/common/activitySearch'
 import { optionalParam } from '../../features/common/searchParams'
 import { CustomerLoading } from '../../features/customers/CustomerDetail'
 import { CustomerDetailScreen, CustomerRouteError } from '../../features/customers/CustomerDetailScreen'
 import { customerTabs } from '../../features/customers/CustomerTabs'
 
 export const Route = createFileRoute('/_app/customers_/$customerId')({
-  validateSearch: z.object({ tab: optionalParam(z.enum(customerTabs)) }),
+  validateSearch: z.object({ tab: optionalParam(z.enum(customerTabs)), ...activityTabSearch }),
   loader: async ({ params, location }) => {
     const me = await loadMe()
     return loadCustomer(params.customerId, callerFor(me.role, location.searchStr))

@@ -36,6 +36,7 @@ const render = async (props: Partial<StoreDetailProps> = {}) => {
         onRecheck={resolved}
         customers={{ filter: {}, page: {}, onFilterChange: noop }}
         onReload={noop}
+        activity={null}
         {...props}
       />
     ),
@@ -103,6 +104,7 @@ describe('Store detail', () => {
         <StoreDetail store={storeOf('s3')} tab="notes" forced={null} readOnly={false} onAction={noop} onJob={noop} onAddNote={saved} onRecheck={resolved}
           customers={{ filter: {}, page: {}, onFilterChange: noop }}
           onReload={noop}
+          activity={null}
         />
       ),
     })

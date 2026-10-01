@@ -1,0 +1,69 @@
+.df-staff-table td,
+.df-staff-table th {
+  vertical-align: top;
+}
+
+.df-staff-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-staff-you {
+  padding: 0 var(--df-space-2);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 999px;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-staff-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--df-space-2);
+}
+
+.df-staff-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--df-space-2);
+}
+
+.df-staff-reason {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.df-staff-refusal {
+  margin: 0;
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-danger);
+  border-radius: var(--df-radius);
+  color: var(--df-color-danger);
+  font-weight: 600;
+}
+
+.df-staff-refusal:empty {
+  display: none;
+}
+
+/* The prototype's compact row actions, kept on one line. */
+.df-staff-buttons {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.df-staff-buttons .df-button {
+  min-height: 32px;
+  padding: 0 var(--df-space-3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+

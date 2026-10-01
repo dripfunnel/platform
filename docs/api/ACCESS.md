@@ -235,6 +235,16 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   A password change or reset ends every other session of that user on every host *(confirm)*.
 - **CSRF**: `SameSite=Lax` plus a check that `Origin` matches the host on every mutation, and
   GraphQL accepting only `application/json` POSTs for mutations.
+- **Staff re-authentication** (CONSOLE-DESIGN A2): `/api/auth/reauth` sends the staff member
+  back to the provider with `prompt=login`, so its own session cannot answer for them, and
+  stamps `staff_session.reauth_at` on the session they already hold — a second staff member
+  cannot refresh someone else's. A credential counts as fresh for 5 minutes
+  (`auth/session.ts`), which is what #40's impersonation checks.
+- **A refused staff sign-in** sends the browser to `/sign-in?outcome=<state>`, the screens #17
+  built. Everything about whether an account exists collapses to `refused`, so the outcome
+  cannot enumerate staff (CONSOLE-DESIGN A1); only causes that happened at the provider
+  (`cancelled`, `denied`, `blocked`, `unavailable`) are told apart. The reason is kept in the
+  activity entry instead (LOGGING.md §4.2).
 - **Redirects after sign-in** (`next`) are same-origin only: parse against the host and compare
   origins; a protocol-relative `//host` is refused (the first platform's Google callback bug, §12).
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
@@ -466,7 +476,9 @@ Accept: token + password (new) or token + signed-in session (existing)
 - **Resend** mints a fresh token; the previous one stops working.
 - **Revoke** sets the invitation `revoked`. An `invited` account with no other pending
   invitation and no membership is deleted.
-- **Expiry**: 7 days *(confirm)*. Pending invitations show their expiry; expired ones are
+- **Staff invitations** (admin console) work the same way, except that accepting binds the
+  invitee's company SSO account instead of setting a password (ui/admin/FIRST-RELEASE.md §10).
+- **Expiry**: 7 days *(confirm)*; 7 days for staff (decided on #45). Pending invitations show their expiry; expired ones are
   obvious and offer resend (flow 10).
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.
