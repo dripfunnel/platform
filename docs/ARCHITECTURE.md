@@ -69,8 +69,10 @@ bad deploy never reaches traffic without a human step (see `docs/code/ROLLBACK.m
 custom hostname as a Pages project. Confirmed on the dev account: `dev-admin`, `dev-platform`
 and `dev-store` each answer `/api/health` with their own area while the SPA still serves on
 the same host, so the Pages project and the Worker route co-exist. `apps/api/wrangler.jsonc`
-declares the routes per environment (`scripts/feature-env` does the same for feature
-hostnames), so a fresh deploy reproduces them without dashboard-only state.
+declares the routes per environment (`apps/api/scripts/feature-env` does the same for feature
+hostnames), so a fresh deploy reproduces them without dashboard-only state. The `/api/*`
+pattern does not match the bare `/api` path, so every client must call `/api/` with the
+trailing slash (`apps/ui/shared/graphql/client.ts`).
 
 ---
 
@@ -194,10 +196,11 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   zone. Nothing that is not production belongs on the production domain. The dev account's
   Access applications are meant to cover these — `*.dripfunnel.ai` allows `@softobotics.com`,
   and `dev-hooks` matches the `*-hooks.dripfunnel.ai` Bypass, so providers' test webhooks
-  reach it; webhooks verify their own signatures — but checked live on 2026-10-01 (#106),
-  `dev-admin`/`dev-platform`/`dev-store` return 200 with no Access challenge, and
-  `dev-hooks.dripfunnel.ai` has no DNS record at all. Both need fixing in the dashboard
-  before this item is done. A feature slug
+  reach it; webhooks verify their own signatures. `dev-hooks.dripfunnel.ai`'s DNS record and
+  certificate are provisioned by its `custom_domain: true` route in `wrangler.jsonc`
+  (`env.dev`), not by Access; the dashboard Access applications are what must gate the other
+  three. Dashboard state that does not yet match this rule is tracked on #106, not here. A
+  feature slug
   always begins with its issue number, so `dev-*` can never collide with one
   ([code/FEATURE-ENVIRONMENTS.md](code/FEATURE-ENVIRONMENTS.md)). Seeded once on first
   deploy; re-seeding is a manual `workflow_dispatch`, never automatic.
