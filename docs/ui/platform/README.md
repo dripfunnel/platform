@@ -13,9 +13,10 @@ partner** (the house partner) and uses this console exactly like the others.
 
 **Status: the shell** (routes, role-aware menu, header, strips, `/states`; #111) on fixtures,
 no real screen yet. **What to build first is
-[FIRST-RELEASE.md](FIRST-RELEASE.md)** (decided 2026-10-01 on #109). It has no design prompt of
-its own yet: every part of the admin console's design marks its partner counterpart, and this
-guide lists them (§5).
+[FIRST-RELEASE.md](FIRST-RELEASE.md)** (decided 2026-10-01 on #109). The design prompt is
+[CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md); it predates #109 and is refreshed on #123.
+There is no screen-level design of its own yet: every part of the admin console's design marks
+its partner counterpart, and this guide lists them (§5).
 
 **The prototype is `designs/DF Platform Prototype.dc.html`** — open it in a browser and click
 through the screen you are building before you build it; its Partner control carries the
@@ -23,9 +24,7 @@ live, draft, awaiting and sent-back cases. The prototype decides **behaviour**, 
 **scope and rules** ([../../README.md](../../README.md) §3); FIRST-RELEASE.md §17 lists where
 they differ and which wins.
 
-Last updated: 2026-10-01.
-
-The design prompt for Claude Design is [CLAUDE-DESIGN-PROMPT.md](CLAUDE-DESIGN-PROMPT.md).
+Last updated: 2026-10-02.
 
 ---
 
@@ -75,7 +74,7 @@ this table is the same rules by screen area and must stay in step with it.
 
 | Area | Owner | Admin | Support | Finance | Read-only |
 |---|:--:|:--:|:--:|:--:|:--:|
-| Home and reports | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Dashboard and Reports | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Onboarding checklist, submit for approval | ✓ | ✓ | view | view | view |
 | Branding, words, email templates | ✓ | ✓ | view | view | view |
 | Portal host, preview and shop domains, email sender | ✓ | ✓ | view | view | view |
@@ -105,23 +104,26 @@ names each permission.
 
 | Row | Contents | Admin-console counterpart |
 |---|---|---|
-| Home | Its merchants at a glance: new, failing signups, past due, suspended, domains stuck, builds failing; usage (build minutes, AI cost) and revenue | B |
-| Merchants | List, detail, actions (account level) | I (scoped) |
-| Support | Open sessions, start one, session log | J (scoped) |
-| Branding | Look, words, live preview of the portal in its look, email templates | F |
-| Domains | Portal host, wildcards, email sender, merchants' custom domains status | M (scoped) |
-| Plans | Plan catalogue, entitlement matrix (including the "Publish now" allowance) within platform ceilings, grandfathering | G (within ceilings) |
-| Billing | Its invoices from DripFunnel; its merchants' billing if it bills them | H (payer side) |
-| Announcements | Messages and incident banners to its own merchants, in its look | Q (scoped) |
-| Settings | Partner details, contacts, legal pages, team, activity log (search by person) | O, P (scoped) |
+| Dashboard | The setup checklist until Live (§4 below); then its stores at a glance: new, failing setups, past due, suspended, domains stuck; revenue, usage, top stores | B, E |
+| Stores | List, create, detail with eight tabs, account-level actions | I (scoped) |
+| Plans | Plan catalogue within platform ceilings, compare plans, defaults for new stores | G (within ceilings) |
+| Branding | Look, words and legal pages, email templates, publishing and history | F |
+| Domains | Portal host, preview and shop wildcards, email sender, merchants' own domains | M (scoped) |
+| Reports | Growth, revenue, plans, store performance, usage, setup health | N (scoped) |
+| Billing | Merchants' payments, payouts, DripFunnel's invoices, who bills the merchants | H (payer side) |
+| Support | Users, start a session, sessions | J (scoped) |
+| Activity log | Own users, own account, merchants' accounts (search by person) | P (scoped) |
+| Settings | Company (read-only), Team, Payout and payment, Security | O (scoped) |
 
-**The first release ships every row the prototype draws** — all of the above except
-Announcements, which the prototype has no screen for (FIRST-RELEASE.md §2, §15). Billing's row
-is absent for Support and Support's for Finance and Read-only.
+These are the prototype's names, and the code's folder names (decided 2026-10-02 on #122):
+the menu says *Stores* and *Dashboard*; this guide says *merchant* for the concept. **The first
+release ships every row** (FIRST-RELEASE.md §2.1). Billing's row is absent for Support and
+Support's for Finance and Read-only (../README.md §5). Announcements, the admin console's part
+Q, is not drawn by the prototype and not in the first release (FIRST-RELEASE.md §15).
 
-While the partner is *Draft* or *Awaiting approval*, Home is the **setup checklist** (the
-admin console's part E seen from the partner's side), with each failed go-live check linked
-to its fix.
+While the partner is *Draft*, *Awaiting approval* or *Sent back*, Dashboard is the **setup
+checklist** (the admin console's part E seen from the partner's side, FIRST-RELEASE.md §4),
+with each failed go-live check linked to its fix.
 
 ---
 
@@ -134,15 +136,16 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   partner switcher. *(If one company may own several partners, decide how, SAAS.md §14.)*
 - **DripFunnel look**, no `brand/` folder. The branding studio *previews* the partner's
   look by rendering portal screens with the partner's tokens, never by restyling this app.
-- **Support sessions** hand off to the merchant's portal host; the mechanism is
-  *(decide)* (docs/api/README.md §2.1).
+- **Support sessions** open the merchant's portal in a new tab on the partner's portal host
+  (FIRST-RELEASE.md §12.2); how the handoff reaches that host is *(decide)*
+  (docs/api/README.md §2.1).
 - **Desktop first**; on a phone a partner must still find a merchant and see its status.
 
 ```
 apps/ui/platform/src/
-  features/
-    auth/  onboarding/  home/  merchants/  support/  branding/  domains/  plans/
-    billing/  team/  audit/  settings/
+  features/                 one folder per menu row, named as the admin app names its own
+    sign-in/  onboarding/  dashboard/  stores/  plans/  branding/  domains/  reports/
+    billing/  support/  activity/  settings/
   api/                      one file per Platform API area
   nav.ts
 ```
@@ -153,14 +156,16 @@ apps/ui/platform/src/
 
 | Topic | Where |
 |---|---|
+| What the first release contains, screen by screen, and the Platform API it needs | [FIRST-RELEASE.md](FIRST-RELEASE.md) |
 | Partners, hosts, what a partner sees and can't | [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md) §1–4 |
 | Partner lifecycle, onboarding, plans, billing, domains | [../../api/SAAS.md](../../api/SAAS.md) |
 | Partner identity, roles, support sessions, audit | [../../api/ACCESS.md](../../api/ACCESS.md) |
 | Screen-level design: each admin console part and its "Partner console" line | [../admin/CONSOLE-DESIGN.md](../admin/CONSOLE-DESIGN.md) §3 facts 17–22, §6 |
 | Every SPA's conventions | [../README.md](../README.md) |
 
-When this console gets its own design prompt, write it here as `CONSOLE-DESIGN.md` and
-remove the partner lines from the admin one.
+When this console gets its own screen-level design (the output of a session run from the
+refreshed prompt, #123), write it here as `CONSOLE-DESIGN.md` and remove the partner lines
+from the admin one.
 
 ---
 
@@ -180,10 +185,13 @@ remove the partner lines from the admin one.
 
 ## 7. Open questions
 
-- Can a partner hide DripFunnel completely, or is "Powered by" sometimes required?
+- ~~Can a partner hide DripFunnel completely, or is "Powered by" sometimes required?~~ Settled:
+  the partner's contract decides, clause by clause (CONSOLE-DESIGN.md §3 fact 18,
+  FIRST-RELEASE.md §8.2).
 - Can a partner override the automatic publish interval for its plans? (The "Publish now"
   allowance is the partner's, within DripFunnel's ceiling: SAAS.md §6.1.)
 - Can one company own several partners?
 - ~~Partner sign-in: 2-factor required? Google sign-in?~~ Settled 2026-10-01 on #109: 2-factor
   optional, the Owner may require it for the team; Google sign-in not in the first release
   (ACCESS §2, FIRST-RELEASE.md §3).
+- Everything else still open about this console is listed in FIRST-RELEASE.md §18.
