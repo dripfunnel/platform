@@ -15,7 +15,7 @@ const customerOf = (id: string, role: StaffRole = 'staff-super-admin') => sample
 
 const render = async (props: Partial<CustomerDetailProps> = {}) => {
   const rootRoute = createRootRoute({
-    component: () => <CustomerDetail customer={customerOf('c1')} tab="overview" forced={null} readOnly={false} onReload={noop} {...props} />,
+    component: () => <CustomerDetail customer={customerOf('c1')} tab="overview" forced={null} readOnly={false} onReload={noop} activity={null} {...props} />,
   })
   const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: ['/customers/c1'] }) })
   await router.load()
@@ -67,10 +67,10 @@ describe('Customer detail', () => {
     expect(html).not.toContain('<button')
   })
 
-  it('has Overview and Activity tabs', async () => {
-    const text = textOf(await render({ tab: 'activity' }))
+  it('has Overview and Activity tabs, and the Activity tab shows the activity it is given', async () => {
+    const text = textOf(await render({ tab: 'activity', activity: <p>activity of c1</p> }))
     expect(text).toContain(words.tabs.overview)
-    expect(text).toContain(words.activity.placeholder)
+    expect(text).toContain('activity of c1')
   })
 
   it('renders not found and the harness states', async () => {

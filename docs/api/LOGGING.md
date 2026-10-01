@@ -77,7 +77,7 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 | `changes` | For updates: the fields changed, with before and after for non-sensitive fields (§4.1) |
 | `reason` | Required where the action needs one (suspend, support session, staff and partner writes to a store's account). For `staff.sign_in_refused` it is the refusal code (§4.2) |
 | `api`, `host`, `request_id` | Which API, which host, and the request id that links to technical logs |
-| `ip`, `user_agent` | For `auth` and `security` entries only; visible to staff only *(confirm)* |
+| `ip`, `user_agent` | For `auth` and `security` entries only; both shown in full to every staff role, and to nobody outside DripFunnel (decided on #44: viewing one entry is not bulk extraction, so the export leaves the IP out) |
 | `visibility` | Lowest audience allowed: `staff`, `partner`, `store`, `self` (§6) |
 
 ### 4.1 What never goes in an entry
@@ -156,15 +156,19 @@ every other tenant read.
 - Accounts are per partner (ACCESS.md §2), so a person's timeline in a portal covers one
   account. Only staff see across stores and partners, and can find every account with the
   same email.
-- **Exports** (CSV) of a filtered view: staff, partner Owner and Admin, merchant Owner. Every
-  export is itself logged.
+- **Exports** (CSV) of a filtered view: in the admin console, **Super admin and Engineer on
+  call only** (decided on #44); every other staff role sees the control disabled with the
+  reason. Partner Owner and Admin, merchant Owner in their portals. Every export is itself
+  logged. An admin export has no IP column, caps at 100,000 entries, and its download link
+  expires after 1 hour.
 
 ---
 
 ## 7. Searching and filtering
 
-The same log screen in all three portals, as one shared component in `apps/ui/shared/ui`
-fed by each app's API:
+The same log screen in all three portals, fed by each app's API. The component lives in
+`apps/ui/admin/src/features/common/` until a second **portal** needs it, then moves to
+`apps/ui/shared/` (decided on #44); the admin console's screen is FIRST-RELEASE.md §9.
 
 - **Filter by person first**: a typeahead over the people in the viewer's scope (staff,
   partner users, merchants, vendors, shoppers). Choosing one shows that person's timeline.
@@ -178,7 +182,8 @@ fed by each app's API:
 - **An entry expanded** shows the changes (before and after), the reason, the session or
   support agent, and for staff the request id.
 - **Plain words**: each action code has a message per locale ("Priya suspended Mehta
-  Textiles: chargeback"), never the raw code.
+  Textiles: chargeback"), never the raw code. The codes so far are listed in
+  `apps/ui/admin/src/api/activityActions.ts`, the draft contract offered to #38.
 
 **Indexes** (per monthly partition): `(actor_kind, actor_id, occurred_at desc)`,
 `(store_id, occurred_at desc)`, `(partner_id, occurred_at desc)`,
