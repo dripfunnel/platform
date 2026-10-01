@@ -1,13 +1,13 @@
+import { Icon, UserMenu } from '@dripfunnel/shared/ui'
+import '@dripfunnel/shared/ui/shell.css'
+import '@dripfunnel/shared/ui/states.css'
 import { Link } from '@tanstack/react-router'
 import type { Me } from '../../api/me'
 import logo from '../../assets/dripfunnel-logo-inverse.svg'
-import { messages } from '../../messages'
-import '@dripfunnel/shared/ui/states.css'
+import { fill, messages } from '../../messages'
 import type { Environment } from './environment'
-import { Icon } from './Icon'
+import './environment.css'
 import { SearchButton } from './SearchButton'
-import './shell.css'
-import { UserMenu } from './UserMenu'
 
 const words = messages.shell
 
@@ -18,28 +18,54 @@ export interface AppHeaderProps {
   onOpenMenu: () => void
 }
 
-export const AppHeader = ({ me, environment, menuOpen, onOpenMenu }: AppHeaderProps) => (
-  <header className="df-header">
-    <button
-      type="button"
-      className="df-menu-button"
-      aria-label={words.openMenu}
-      aria-haspopup="dialog"
-      aria-expanded={menuOpen}
-      onClick={onOpenMenu}
-    >
-      <Icon name="menu" size={20} />
-    </button>
-    <Link to="/dashboard" className="df-logo" aria-label={words.homeLink}>
-      <img src={logo} alt="" height={22} />
-    </Link>
-    <span className="df-product-label">{words.productLabel}</span>
-    <span className={`df-env-pill df-env-pill--${environment}`}>{words.environment[environment].name}</span>
-    <SearchButton />
-    <a className="df-help" href={words.helpUrl} target="_blank" rel="noopener noreferrer">
-      {words.help}
-      <span className="df-visually-hidden"> {words.opensInNewTab}</span>
-    </a>
-    <UserMenu me={me} />
-  </header>
-)
+export const AppHeader = ({ me, environment, menuOpen, onOpenMenu }: AppHeaderProps) => {
+  const role = words.roles[me.role]
+  return (
+    <header className="df-header">
+      <button
+        type="button"
+        className="df-menu-button"
+        aria-label={words.openMenu}
+        aria-haspopup="dialog"
+        aria-expanded={menuOpen}
+        onClick={onOpenMenu}
+      >
+        <Icon name="menu" size={20} />
+      </button>
+      <Link to="/dashboard" className="df-logo" aria-label={words.homeLink}>
+        <img src={logo} alt="" height={22} />
+      </Link>
+      <span className="df-product-label">{words.productLabel}</span>
+      <span className={`df-env-pill df-env-pill--${environment}`}>{words.environment[environment].name}</span>
+      <SearchButton />
+      <a className="df-help" href={words.helpUrl} target="_blank" rel="noopener noreferrer">
+        {words.help}
+        <span className="df-visually-hidden"> {words.opensInNewTab}</span>
+      </a>
+      <UserMenu
+        name={me.name}
+        email={me.email}
+        roleLabel={role}
+        words={{ buttonLabel: fill(words.userMenu.label, { name: me.name, role }), theme: words.userMenu.theme }}
+        themeStorageKey="df-admin-theme"
+        items={(close) => (
+          <>
+            <li role="none">
+              {/* My activity opens the signed-in staff member's own timeline, for every role (decided on #45). */}
+              <Link to="/activity" search={{ person: me.id }} role="menuitem" className="df-user-menu-item" onClick={close}>
+                {words.userMenu.myActivity}
+              </Link>
+            </li>
+            <li role="none">
+              {/* A stand-in: it ends no session and logs nothing. #13 adds the Admin API's sign-out
+                  (https://github.com/dripfunnel/platform/issues/13). */}
+              <Link to="/sign-in" role="menuitem" className="df-user-menu-item" onClick={close}>
+                {words.userMenu.signOut}
+              </Link>
+            </li>
+          </>
+        )}
+      />
+    </header>
+  )
+}

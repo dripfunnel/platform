@@ -1,14 +1,19 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { messages } from '../../messages'
 import { Icon } from './Icon'
 import { isBackdropClick } from './isBackdropClick'
 import './shell.css'
 
-const words = messages.shell
-
 // The phone's side bar (design.md §4): a modal <dialog>, so the page behind is inert, Esc
 // closes it and its ::backdrop is the scrim. A tap on the scrim closes it too.
-export const NavDrawer = ({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) => {
+export interface NavDrawerProps {
+  open: boolean
+  onClose: () => void
+  label: string
+  closeLabel: string
+  children: ReactNode
+}
+
+export const NavDrawer = ({ open, onClose, label, closeLabel, children }: NavDrawerProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
 
@@ -27,7 +32,7 @@ export const NavDrawer = ({ open, onClose, children }: { open: boolean; onClose:
     <dialog
       ref={dialogRef}
       className="df-drawer"
-      aria-label={words.navLabel}
+      aria-label={label}
       onCancel={(event) => {
         event.preventDefault()
         onClose()
@@ -37,7 +42,7 @@ export const NavDrawer = ({ open, onClose, children }: { open: boolean; onClose:
         if (isBackdropClick(event)) onClose()
       }}
     >
-      <button type="button" className="df-drawer-close" aria-label={words.closeMenu} onClick={onClose}>
+      <button type="button" className="df-drawer-close" aria-label={closeLabel} onClick={onClose}>
         <Icon name="close" size={20} />
       </button>
       {children}

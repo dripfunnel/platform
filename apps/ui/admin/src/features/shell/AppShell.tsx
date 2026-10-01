@@ -1,3 +1,5 @@
+import { NavDrawer, SideNav } from '@dripfunnel/shared/ui'
+import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { messages } from '../../messages'
@@ -9,9 +11,7 @@ import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
 import { environmentFor } from './environment'
 import { EnvironmentBanner } from './EnvironmentBanner'
-import { NavDrawer } from './NavDrawer'
-import './shell.css'
-import { SideNav } from './SideNav'
+import { navView } from './navView'
 
 const shellRoute = getRouteApi('/_app')
 
@@ -19,7 +19,7 @@ export const AppShell = () => {
   const { me, badges } = shellRoute.useLoaderData()
   const [menuOpen, setMenuOpen] = useState(false)
   const environment = environmentFor(window.location.hostname)
-  const rows = navFor(me.role)
+  const rows = navView(navFor(me.role), badges)
   const router = useRouter()
   const sessionsVersion = useSessionsVersion()
   // A session started or ended here moves the badge and the page under it at once.
@@ -37,7 +37,7 @@ export const AppShell = () => {
         <EnvironmentBanner environment={environment} />
       </BannerStack>
       <div className="df-shell-body">
-        <SideNav rows={rows} badges={badges} variant="bar" />
+        <SideNav rows={rows} variant="bar" label={messages.shell.navLabel} footer={messages.shell.navFooter} />
         <main id="main" className="df-shell-main" tabIndex={-1}>
           <div className="df-shell-content">
             <SessionStrip caller={me.role} meName={me.name} />
@@ -45,8 +45,8 @@ export const AppShell = () => {
           </div>
         </main>
       </div>
-      <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)}>
-        <SideNav rows={rows} badges={badges} variant="drawer" onNavigate={() => setMenuOpen(false)} />
+      <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={messages.shell.navLabel} closeLabel={messages.shell.closeMenu}>
+        <SideNav rows={rows} variant="drawer" label={messages.shell.navLabel} footer={messages.shell.navFooter} onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>
       <ExportWatcher />
     </div>

@@ -1,8 +1,6 @@
-import type { NavIconName } from '../../nav'
-
-export type StatusIconName = 'ok' | 'hour' | 'pen' | 'pause' | 'clock' | 'ban' | 'alert' | 'cross' | 'shield'
-
-const paths: Record<NavIconName | StatusIconName | 'search' | 'menu' | 'close', string> = {
+// One outline set for both consoles (designs/design.md §4: 18px, 1.6px stroke); the paths are
+// the prototypes' own.
+const paths = {
   home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z',
   users:
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
@@ -13,6 +11,12 @@ const paths: Record<NavIconName | StatusIconName | 'search' | 'menu' | 'close', 
   staff: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1',
   mask: 'M2 8c3-2 7-2 10 0 3-2 7-2 10 0v3c0 4-3 7-5 7s-3-2-5-2-3 2-5 2-5-3-5-7zM7 11h2M15 11h2',
   layers: 'M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5',
+  brush: 'M9.5 14.5 3 21M14 4l6 6-8.5 8.5a3 3 0 0 1-4.2 0l-1.8-1.8a3 3 0 0 1 0-4.2zM17 7l3-3',
+  globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20',
+  chart: 'M3 3v18h18M7 15v3M12 10v8M17 6v12',
+  card: 'M2 6h20v12H2zM2 10h20M6 15h4',
+  buoy: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.9 4.9l4.3 4.3M14.8 14.8l4.3 4.3M14.8 9.2l4.3-4.3M4.9 19.1l4.3-4.3',
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.8 1.2V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.8-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.8H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 2.8-1.2V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.8 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.8H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35',
   menu: 'M3 6h18M3 12h18M3 18h18',
   close: 'M6 6l12 12M18 6 6 18',
@@ -25,9 +29,13 @@ const paths: Record<NavIconName | StatusIconName | 'search' | 'menu' | 'close', 
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   ban: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM4.9 4.9l14.2 14.2',
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
-}
+} satisfies Record<string, string>
 
-export const Icon = ({ name, size = 18, strokeWidth = 1.6 }: { name: keyof typeof paths; size?: number; strokeWidth?: number }) => (
+export type IconName = keyof typeof paths
+
+export type StatusIconName = Extract<IconName, 'ok' | 'hour' | 'pen' | 'pause' | 'clock' | 'ban' | 'alert' | 'cross' | 'shield'>
+
+export const Icon = ({ name, size = 18, strokeWidth = 1.6 }: { name: IconName; size?: number; strokeWidth?: number }) => (
   <svg
     className="df-icon"
     width={size}

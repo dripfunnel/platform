@@ -1,0 +1,44 @@
+import { NavDrawer, SideNav } from '@dripfunnel/shared/ui'
+import '@dripfunnel/shared/ui/shell.css'
+import { getRouteApi, Outlet } from '@tanstack/react-router'
+import { useState } from 'react'
+import { messages } from '../../messages'
+import { navFor } from '../../nav'
+import { AppHeader } from './AppHeader'
+import { EnvironmentStrip } from './EnvironmentStrip'
+import { navView } from './navView'
+import { PartnerStrip } from './PartnerStrip'
+
+const shellRoute = getRouteApi('/_app')
+
+export const AppShell = () => {
+  const { me, badges } = shellRoute.useLoaderData()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const rows = navView(navFor(me.role), badges)
+  const words = messages.shell
+  const footer = <>{words.navFooter.before}<strong>{me.partner.product}</strong>{words.navFooter.after}</>
+
+  return (
+    <div className="df-shell">
+      <a href="#main" className="df-skip-link">
+        {words.skipToContent}
+      </a>
+      <AppHeader me={me} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
+      <div className="df-banners">
+        <EnvironmentStrip />
+        <PartnerStrip state={me.partner.state} />
+      </div>
+      <div className="df-shell-body">
+        <SideNav rows={rows} variant="bar" label={words.navLabel} footer={footer} />
+        <main id="main" className="df-shell-main" tabIndex={-1}>
+          <div className="df-shell-content">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+      <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={words.navLabel} closeLabel={words.closeMenu}>
+        <SideNav rows={rows} variant="drawer" label={words.navLabel} footer={footer} onNavigate={() => setMenuOpen(false)} />
+      </NavDrawer>
+    </div>
+  )
+}

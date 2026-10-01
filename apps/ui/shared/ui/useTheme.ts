@@ -1,16 +1,14 @@
 import { applyTheme, resolveTheme, themeStore, type ThemeChoice } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-// The key the prototype uses (designs/design.md §10).
-const storageKey = 'df-admin-theme'
-
 const darkQuery = () => window.matchMedia('(prefers-color-scheme: dark)')
 
-export const useTheme = (): { choice: ThemeChoice; setChoice: (choice: ThemeChoice) => void } => {
+// `storageKey` is the app's, the one its index.html reads before the first paint (design.md §10).
+export const useTheme = (storageKey: string): { choice: ThemeChoice; setChoice: (choice: ThemeChoice) => void } => {
   // Memoised: a new store each render would change `setChoice`'s identity.
   const store = useMemo(
     () => themeStore(storageKey, typeof localStorage === 'undefined' ? undefined : localStorage),
-    [],
+    [storageKey],
   )
   const [choice, setStoredChoice] = useState<ThemeChoice>(() => store.read())
 

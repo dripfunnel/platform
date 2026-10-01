@@ -2,7 +2,7 @@ import { Outlet } from '@tanstack/react-router'
 import { BannerStack } from './BannerStack'
 import { environmentFor } from './environment'
 import { EnvironmentBanner } from './EnvironmentBanner'
-import './shell.css'
+import '@dripfunnel/shared/ui/shell.css'
 
 // Signed-out screens keep the environment strip, as the prototype's sign-in does.
 export const AuthLayout = () => (

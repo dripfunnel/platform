@@ -1,6 +1,5 @@
-import { adminConsoleUrlFor, createPortalSession, isHarnessEnabled } from '@dripfunnel/shared/ui'
-
-export const harnessEnabled = isHarnessEnabled(import.meta.env)
+import { adminConsoleUrlFor, createPortalSession } from '@dripfunnel/shared/ui'
+import { harnessEnabled } from '../harness'
 
 export const adminConsoleUrl = adminConsoleUrlFor(import.meta.env)
 

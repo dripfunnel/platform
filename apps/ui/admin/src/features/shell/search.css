@@ -1,0 +1,70 @@
+/* The admin search dialog; the button in the header is shared/ui/shell.css. */
+
+/* Search */
+
+.df-search {
+  width: min(640px, 100% - 2 * var(--df-space-4));
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-dialog);
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+  color: var(--df-color-text);
+}
+
+.df-search::backdrop {
+  background: var(--df-color-backdrop);
+}
+
+.df-search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-3);
+  height: 54px;
+  padding: 0 var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+}
+
+.df-search-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.df-search-field input:focus-visible {
+  outline: none;
+}
+
+.df-search-field:focus-within {
+  box-shadow: inset 0 -2px 0 var(--df-color-focus);
+}
+
+.df-search-close {
+  padding: 2px var(--df-space-2);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  background: transparent;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.df-search-close:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-search-hint {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  color: var(--df-color-muted);
+  font-size: 13px;
+}

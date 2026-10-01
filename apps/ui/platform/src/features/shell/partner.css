@@ -1,0 +1,98 @@
+/* What only the partner console's shell draws: the "signed in for" chip and the partner-state strip. */
+
+.df-for {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--df-space-2);
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px 0 5px;
+  border: 1px solid var(--df-color-side-control-border);
+  border-radius: var(--df-radius);
+  color: var(--df-color-side-strong);
+}
+
+.df-for-initials {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: var(--df-color-side-control);
+  font-family: var(--df-font-heading);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.df-for-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-search-button:disabled {
+  cursor: not-allowed;
+}
+
+/* On a phone the chip keeps the initials only, as the prototype does, and the user button
+   loses its caret and padding, so menu, mark, chip, search and avatar fit in 375px. */
+@media (max-width: 639px) {
+  .df-for {
+    flex: none;
+  }
+
+  .df-for-name,
+  .df-user-caret {
+    display: none;
+  }
+
+  .df-user-button {
+    padding: 0;
+  }
+}
+
+.df-partner-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-1) var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-2) var(--df-space-4);
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 13px;
+}
+
+.df-partner-strip p {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}
+
+.df-partner-strip a {
+  color: inherit;
+  font-weight: 700;
+}
+
+.df-partner-strip a:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-partner-strip--draft {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-partner-strip--awaiting {
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-partner-strip--sentback {
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}

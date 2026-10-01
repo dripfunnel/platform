@@ -8,7 +8,8 @@
     "./graphql": "./graphql/index.ts",
     "./format": "./format/index.ts",
     "./ui/fonts.css": "./ui/fonts.css",
-    "./ui/states.css": "./ui/states.css"
+    "./ui/states.css": "./ui/states.css",
+    "./ui/shell.css": "./ui/shell.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

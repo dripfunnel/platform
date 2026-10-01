@@ -18,8 +18,14 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 - **Navigation is data** in `src/nav.ts`: one row per screen, with the roles that may use it.
   A row a role can't use is absent, not disabled. Adding a screen means one route file under
   `src/routes/_app/`, one folder under `src/features/`, and one row in `nav.ts`.
-- **Environment**: `admin.dripfunnel.com` shows Production; every other host
-  (`admin-dev.dripfunnel.com`, feature environments, localhost) shows Staging.
+- **Shared chrome**: the side bar, phone drawer, user menu, icon set, `initials` and
+  `shell.css` come from `@dripfunnel/shared/ui` since #111, when the partner console became
+  their second user. `navView.ts` turns this app's rows into what the shared side bar draws.
+  `AppHeader`, `AppShell`, the search dialog (`search.css`) and the environment pieces stay
+  here.
+- **Environment**: `admin.dripfunnel.com` shows Production; every other host shows Staging,
+  until #65 switches this app to the shared four-value `environmentFor` (`environment.css`
+  holds the two modifiers it will remove).
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 

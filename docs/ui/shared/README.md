@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-10-01 (#110).
+Last updated: 2026-10-02 (#111).
 
 ---
 
@@ -11,15 +11,16 @@ Last updated: 2026-10-01 (#110).
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `useScreenState`, `useAnnouncement`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
+| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/ui/states.css` | The kit's stylesheet, for a screen that uses its classes (`df-button`, `df-field`, `df-dialog`, `df-visually-hidden`) without rendering a kit component | loaded by every kit component itself |
+| `@dripfunnel/shared/ui/shell.css` | The console chrome's stylesheet (header, banners, side bar, drawer, user menu, page title), for an app's own shell composition | loaded by every shell component itself |
 | `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code | `createApiClient`, `ApiError` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber` |
 
 ```
 apps/ui/shared/
-  ui/          components, the state kit (+ states.css), tokens.css, index.ts
+  ui/          components, the state kit (+ states.css), the console chrome (+ shell.css), tokens.css, index.ts
   graphql/     client.ts, index.ts
   format/      money.ts, dateTime.ts, duration.ts, number.ts (each + .test.ts), index.ts
   package.json exports map; peer dependencies on react and @tanstack/react-router
@@ -59,8 +60,19 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   shell and `/states`) builds on the shared kit instead of moving it half-way through.
   `useScreenState(allowed, enabled)` takes the harness flag
   from the app, which computes it once with `isHarnessEnabled(import.meta.env)`. Each app
-  keeps its own `/states` gallery page, and with it the gallery's `StateView` and demo
-  dialog: one app's review page, with that app's words.
+  keeps its own `/states` gallery page; the gallery's `StateView` and demo dialog moved here
+  on #111 with words as props, once the partner console's gallery became their second user.
+- **Console chrome** (#111, the partner console being the admin console's second user):
+  `SideNav` draws rows the app has already worded (`NavRowView`: label, and a badge only when
+  work is waiting, with its spoken label); `NavDrawer` is the phone's side bar; `UserMenu`
+  takes the person, the words, the app's theme storage key and the app's own menu entries as
+  a render function; `Icon` is one outline set for both consoles; `useTheme(storageKey)`
+  keeps the Appearance choice. Each app keeps its own `nav.ts`, header and `AppShell`.
+- **Environment**: `environmentFor(hostname)` names the four environments for both consoles
+  (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.ai` hosts,
+  `local` on localhost, everything else `feature`, so a look-alike is never production), and
+  `EnvironmentBanner` draws the strip, red only for `prod`. The partner console uses both
+  (#111); the admin console switches to them on #65.
 - **Words are props**: every string comes from the calling app's messages.
 - **Visual baseline**: `../../../../.design/settings-tabs.html` (PLATFORM-PROMPT §6).
 - **Tests** beside the code (`money.test.ts`), especially for formatting across currencies

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Icon } from '@dripfunnel/shared/ui'
+import '@dripfunnel/shared/ui/shell.css'
 import { fill, messages } from '../../messages'
-import { Icon } from './Icon'
 import { SearchDialog } from './SearchDialog'
-import './shell.css'
 
 const words = messages.shell.search
 
