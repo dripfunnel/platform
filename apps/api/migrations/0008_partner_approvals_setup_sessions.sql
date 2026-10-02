@@ -33,7 +33,11 @@ create table partner_approval (
   primary key (partner_id, staff_user_id, submitted_at)
 );
 
-grant select, insert, update on partner_setup_session to app_request;
+-- The handoff hash is a credential (0007's rule): inserted and cleared by a request, read only
+-- by the portal's exchange as app_system.
+grant insert on partner_setup_session to app_request;
+grant select (id, staff_user_id, partner_id, reason, ticket, started_at, expires_at, ended_at, ended_by_staff_id, handoff_expires_at, handoff_used_at),
+      update (ended_at, ended_by_staff_id, handoff_hash, handoff_expires_at) on partner_setup_session to app_request;
 grant select, update on partner_setup_session to app_system;
 grant select, insert on partner_approval to app_request;
 

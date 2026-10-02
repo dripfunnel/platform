@@ -176,11 +176,23 @@ describe('partner(id) (§4.2, §4.3)', () => {
     expect((await run<Detail>(detail, as('staff-support'), { id: tallis })).data?.partner.actions['resendInvite']).toEqual({ allowed: true, reason: null })
   })
 
-  it('a Partner manager reads only the partners assigned to them (#14, #60)', async () => {
+  it('a Partner manager reads only the partners assigned to them, in the list as well (#14, #60)', async () => {
     // Priya is assigned to Kaufladen, Nordlicht and Tallis; Northstar is Maya's.
     const northstar = await partnerIdOf('Northstar Commerce')
     expect((await run(detail, as('staff-partner-manager'), { id: northstar })).code).toBe('FORBIDDEN')
     expect((await run(detail, as('staff-partner-manager'), { id: await partnerIdOf('Kaufladen Digital') })).code).toBeUndefined()
+    const mine = await run<{ partners: { items: { name: string }[] } }>(`{ partners { items { name } } }`, as('staff-partner-manager'))
+    expect(mine.data?.partners.items.map((i) => i.name).sort()).toEqual(['Kaufladen Digital', 'Nordlicht Media', 'Tallis Studio'])
+  })
+
+  it('setup sessions are read by the roles that may see them, with what each may do; others read null', async () => {
+    const kaufladen = await partnerIdOf('Kaufladen Digital')
+    const q = `query($id: ID!) { partner(id: $id) { setupSessions { staff status end { allowed reason } } } }`
+    type Sessions = { partner: { setupSessions: { staff: string; status: string; end: { allowed: boolean; reason: string | null } }[] | null } }
+    const sa = await run<Sessions>(q, as('staff-super-admin'), { id: kaufladen })
+    expect(sa.data?.partner.setupSessions).toEqual([{ staff: 'Priya Shah', status: 'ended', end: { allowed: false, reason: 'SESSION_ENDED' } }])
+    expect((await run<Sessions>(q, as('staff-engineer'), { id: kaufladen })).data?.partner.setupSessions).toBeNull()
+    expect((await run<Sessions>(q, as('staff-read-only'), { id: kaufladen })).data?.partner.setupSessions).toBeNull()
   })
 })
 
@@ -218,9 +230,12 @@ describe('approval (§4.3, two staff unless a Super admin counts for both)', () 
     const second = (await run<Approved>(approve, as('staff-super-admin'), { id: kaufladen, reason: 'Second approval' })).data?.approvePartner
     expect(second).toMatchObject({ ok: true, state: 'live', approvals: 2 })
     expect((await db.sql<{ state: string; approved_at: Date | null }[]>`select state, approved_at from partner where id = ${kaufladen}`)[0]).toMatchObject({ state: 'live' })
+    // The partner sees that it was approved, never the note on its contract and KYC.
     const entries = await entriesFor(kaufladen, partnerAudit.approvePartner)
     expect(entries).toHaveLength(1)
-    expect(entries[0]).toMatchObject({ reason: 'Second approval', visibility: 'partner' })
+    expect(entries[0]).toMatchObject({ reason: null, visibility: 'partner' })
+    const notes = await entriesFor(kaufladen, partnerAudit.approvalRecorded)
+    expect(notes.map((n) => [n.reason, n.visibility])).toEqual([['Contract and KYC fine', 'staff'], ['Second approval', 'staff']])
     const [purge] = await db.sql<{ kind: string }[]>`select kind from outbox where partner_id = ${kaufladen} and kind = 'cache.purge'`
     expect(purge).toBeTruthy()
   })
@@ -302,7 +317,7 @@ describe('createPartner and the Owner invitation (§4.3)', () => {
 
   it('sends a held invitation once, resends a sent one with the old link revoked, and refuses an accepted one', async () => {
     const nordlicht = await partnerIdOf('Nordlicht Media')
-    expect((await run<Out>(resend, as('staff-super-admin'), { id: nordlicht })).data?.['resendPartnerOwnerInvite']).toMatchObject({ ok: false, code: 'INVITATION_NOT_HELD' })
+    expect((await run<Out>(resend, as('staff-super-admin'), { id: nordlicht })).data?.['resendPartnerOwnerInvite']).toMatchObject({ ok: false, code: 'INVITATION_HELD' })
     // Sending a held invitation is Super admin and Partner manager; Support may only resend (§4.3).
     expect((await run(send, as('staff-support'), { id: nordlicht })).code).toBe('FORBIDDEN')
     expect((await run<Out>(send, as('staff-partner-manager'), { id: nordlicht })).data?.['sendPartnerOwnerInvite']).toMatchObject({ ok: true })
@@ -338,19 +353,37 @@ describe('setup sessions (ACCESS.md §8.2, §8.3)', () => {
     expect(started).toMatchObject({ ok: true, code: null })
     expect(started?.handoff).toMatch(/^[0-9a-f]{64}$/)
     expect(started?.expiresAt).toBe(new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString())
-    // The token is nowhere but the answer: the row holds a hash.
+    // The token is nowhere but the answer: the row holds a hash, which no request may even read.
     const [row] = await db.sql<{ handoff_hash: string }[]>`select handoff_hash from partner_setup_session where id = ${started?.sessionId ?? ''}`
     expect(row?.handoff_hash).not.toBe(started?.handoff)
+    await expect(db.sql.begin(async (tx) => {
+      await tx`set local role app_request`
+      await tx`select set_config('app.scope', 'platform', true)`
+      return tx`select handoff_hash from partner_setup_session`
+    })).rejects.toThrow(/permission denied/i)
     expect(JSON.stringify(await db.sql`select * from activity_log where action = ${partnerAudit.startPartnerSetupSession}`)).not.toContain(started?.handoff ?? 'nothing')
 
     expect((await run<Started>(start, as('staff-super-admin'), { id: tallis, reason: 'again' })).data?.startPartnerSetupSession).toMatchObject({ ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' })
 
-    // Ending: the owner or a Super admin, once.
+    // A session that ran its two hours without being ended no longer blocks a new one, and reads as expired.
     const id = started?.sessionId ?? ''
+    await db.sql`update partner_setup_session set expires_at = ${new Date(now.getTime() - 1000)} where id = ${id}`
+    const sessions = await run<{ partner: { setupSessions: { status: string; endedAt: string | null }[] } }>(`query($id: ID!) { partner(id: $id) { setupSessions { status endedAt } } }`, as('staff-super-admin'), { id: tallis })
+    expect(sessions.data?.partner.setupSessions[0]).toMatchObject({ status: 'expired' })
+    expect(sessions.data?.partner.setupSessions[0]?.endedAt).not.toBeNull()
+    const again = (await run<Started>(start, as('staff-super-admin'), { id: tallis, reason: 'again' })).data?.startPartnerSetupSession
+    expect(again).toMatchObject({ ok: true })
+    expect((await db.sql<{ ended_at: Date | null }[]>`select ended_at from partner_setup_session where id = ${id}`)[0]?.ended_at).not.toBeNull()
+    const second = again?.sessionId ?? ''
+    expect((await run<Ended>(end, as('staff-super-admin'), { id: second })).data?.['endStaffSession']).toMatchObject({ ok: true })
+    await db.sql`update partner_setup_session set ended_at = null, expires_at = ${new Date(now.getTime() + 3600_000)} where id = ${id}`
+
+    // Ending: the owner or a Super admin, once.
     expect((await run<Ended>(end, as('staff-partner-manager'), { id })).data?.['endStaffSession']).toMatchObject({ ok: false, code: 'NOT_SESSION_OWNER' })
     expect((await run<Ended>(end, as('staff-super-admin'), { id })).data?.['endStaffSession']).toMatchObject({ ok: true })
     expect((await run<Ended>(end, as('staff-super-admin'), { id })).data?.['endStaffSession']).toMatchObject({ ok: false, code: 'SESSION_ENDED' })
-    expect(await entriesFor(tallis, partnerAudit.endStaffSession)).toHaveLength(1)
+    // Two sessions were ended by hand above; the one that expired wrote no entry of its own.
+    expect(await entriesFor(tallis, partnerAudit.endStaffSession)).toHaveLength(2)
   })
 })
 

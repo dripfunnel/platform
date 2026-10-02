@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 // DNS over HTTPS against one fixed resolver (RFC 8484, JSON form). The user's hostname travels
 // as a query parameter to a URL we own, never as a host we connect to.
 export interface DnsLookup {
@@ -7,9 +9,8 @@ export interface DnsLookup {
 
 const resolverUrl = 'https://cloudflare-dns.com/dns-query'
 
-interface DohAnswer {
-  Answer?: { type: number; data: string }[]
-}
+// Only what is read; the resolver's other fields are dropped rather than trusted.
+const dohAnswer = z.object({ Answer: z.array(z.object({ type: z.number(), data: z.string() }).loose()).optional() }).loose()
 
 const types = { CNAME: 5, TXT: 16 } as const
 
@@ -22,8 +23,9 @@ export const dohLookup = (fetchImpl: typeof fetch = fetch): DnsLookup => ({
     url.searchParams.set('type', type)
     const response = await fetchImpl(url, { headers: { accept: 'application/dns-json' }, signal })
     if (!response.ok) throw new Error(`resolver answered ${response.status}`)
-    const body = (await response.json()) as DohAnswer
-    return (body.Answer ?? [])
+    const parsed = dohAnswer.safeParse(await response.json())
+    if (!parsed.success) throw new Error('resolver answered in a shape we do not read')
+    return (parsed.data.Answer ?? [])
       .filter((answer) => answer.type === types[type])
       .map((answer) => (type === 'TXT' ? unquote(answer.data) : answer.data.replace(/\.$/, '').toLowerCase()))
   },

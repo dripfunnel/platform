@@ -276,6 +276,7 @@ const seedPartner = async (
         handoffHash: `seed-${partnerId}-${e.daysAgo}`,
         handoffExpiresAt: startedAt,
       })
+      if (!sessionId) throw new Error(`seed: ${e.by} already has an open setup session`)
       await endSetupSession(tx, sessionId, staffId, new Date(startedAt.getTime() + 2 * 60 * 60 * 1000))
     }
     await record({

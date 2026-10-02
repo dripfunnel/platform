@@ -26,5 +26,9 @@ export const PermissionType = builder.objectRef<Permission>('ActionPermission').
   }),
 })
 
+/** Drops what the client left unset, so a `.strict()` zod schema sees only what was sent. */
+export const compact = (input: Record<string, unknown> | null | undefined): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(input ?? {}).filter(([, value]) => value !== undefined && value !== null))
+
 export const permission = (p: { allowed: true } | { allowed: false; reason: string; failingChecks?: readonly string[] | undefined }): Permission =>
   p.allowed ? { allowed: true, reason: null, failingChecks: null } : { allowed: false, reason: p.reason, failingChecks: p.failingChecks ? [...p.failingChecks] : null }

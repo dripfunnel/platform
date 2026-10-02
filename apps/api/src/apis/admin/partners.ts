@@ -1,7 +1,7 @@
 import { GraphQLError } from 'graphql'
-import { partnerAudit, type PartnerDto, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type PartnersService, type Result } from '#saas/partners/index'
+import { partnerAudit, type PartnerDto, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type PartnersService, type Result, type SetupSessionDto } from '#saas/partners/index'
 import { builder } from './builder'
-import { PageInfoType, PermissionType, permission, type Permission } from './types'
+import { compact, PageInfoType, PermissionType, permission, type Permission } from './types'
 
 // Partners on the Admin API (ui/admin/FIRST-RELEASE.md §4, §12; card #33). Thin: every
 // decision, including who may do what, is saas/partners' and arrives here as data.
@@ -132,13 +132,17 @@ const TeamMember = builder.objectRef<PartnerDto['team'][number]>('PartnerUser').
   }),
 })
 
-const SetupSession = builder.objectRef<PartnerDto['setupSessions'][number]>('PartnerSetupSession').implement({
+const SetupSession = builder.objectRef<SetupSessionDto>('PartnerSetupSession').implement({
   fields: (t) => ({
     id: t.exposeID('id'),
     staff: t.exposeString('staff'),
     reason: t.exposeString('reason'),
+    ticket: t.exposeString('ticket', { nullable: true }),
     startedAt: t.string({ resolve: (s) => s.startedAt.toISOString() }),
+    expiresAt: t.string({ resolve: (s) => s.expiresAt.toISOString() }),
     endedAt: t.string({ nullable: true, resolve: (s) => iso(s.endedAt) }),
+    status: t.exposeString('status'),
+    end: t.field({ type: PermissionType, resolve: (s) => permission(s.end) }),
   }),
 })
 
@@ -182,7 +186,13 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
     domains: t.field({ type: [Domain], resolve: (p) => p.domains }),
     plans: t.field({ type: [Plan], resolve: (p) => p.plans }),
     team: t.field({ type: [TeamMember], resolve: (p) => p.team }),
-    setupSessions: t.field({ type: [SetupSession], resolve: (p) => p.setupSessions }),
+    // Who is onboarding a partner, and why, is for the roles ACCESS.md §5.4 names; others read null (#14).
+    setupSessions: t.field({
+      type: [SetupSession],
+      nullable: true,
+      extensions: { access: { api: 'admin', scope: 'platform', permission: 'setupSessions.read', target: 'none' } },
+      resolve: (p) => p.setupSessions,
+    }),
     actions: t.field({ type: Actions, resolve: (p) => p.actions }),
   }),
 })
@@ -259,9 +269,6 @@ const SetupSessionStartType = builder.objectRef<SetupSessionStart>('SetupSession
     handoff: t.exposeString('handoff', { nullable: true }),
   }),
 })
-
-const compact = (input: Record<string, unknown> | null | undefined) =>
-  Object.fromEntries(Object.entries(input ?? {}).filter(([, value]) => value !== undefined && value !== null))
 
 const partnersOf = (ctx: { partners: PartnersService | null }) => {
   if (!ctx.partners) throw new GraphQLError('Not signed in.', { extensions: { code: 'UNAUTHENTICATED' } })

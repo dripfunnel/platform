@@ -14,6 +14,7 @@ export {
   type PartnerPermissions,
   type PartnerRowDto,
   type PartnersService,
+  type SetupSessionDto,
   type RefusalCode,
   type Result,
 } from './service'

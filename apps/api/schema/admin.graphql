@@ -256,11 +256,15 @@ type PartnerSetupProgress {
 }
 
 type PartnerSetupSession {
+  end: ActionPermission
   endedAt: String
+  expiresAt: String
   id: ID
   reason: String
   staff: String
   startedAt: String
+  status: String
+  ticket: String
 }
 
 type PartnerUser {

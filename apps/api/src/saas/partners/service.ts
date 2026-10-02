@@ -2,43 +2,46 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { AccessTarget } from '#auth/assignment'
-import { roleHas, type StaffPermission } from '#auth/permissions'
-import type { StaffMember, StaffRole } from '#auth/staff'
+import { partnerScopedRoles, roleHas, type StaffPermission } from '#auth/permissions'
+import { hashSessionId, newSessionId } from '#auth/session'
+import type { StaffMember } from '#auth/staff'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import { parseHostname } from '#core/hostname'
 import type { StaffContext } from '#core/tenancy'
 import type { DomainKind, HostStatus, PartnerDomainRow, PartnerRow, PartnerSetupItemRow, PartnerState, PlanRow } from '#db/schema/saas'
 import { domainKinds } from '#db/schema/saas'
 import { selectActivity } from '#db/scoped/activity'
-import { withScope } from '#db/scoped/index'
+import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   endSetupSession,
+  expireStaleSetupSessions,
   insertPartner,
   insertPartnerApproval,
   insertPartnerInvitation,
   insertPartnerUser,
+  insertSetupSession,
   markInvitationSent,
   revokeInvitation,
+  selectCurrentApproversFor,
   selectOpenInvitation,
   selectOpenSetupSessionOf,
   selectPartner,
-  selectPartnerApprovals,
   selectPartnerDomain,
-  selectPartnerDomains,
-  insertSetupSession,
+  selectPartnerDomainsFor,
   selectPartnerForUpdate,
   selectPartnerListRow,
   selectPartnerOwner,
   selectPartners,
   selectPartnerUsers,
-  selectPlans,
-  selectSetupItems,
+  selectPlansFor,
+  selectSetupItemsFor,
   selectSetupSession,
-  selectSetupSessions,
+  selectSetupSessionsFor,
   upsertSetupItem,
   type PartnerListRow,
   type SetupSessionRow,
 } from '#db/scoped/partners'
+import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { transitionPartner } from './states'
 import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
@@ -53,7 +56,7 @@ export const setupSessionMs = 2 * 60 * 60 * 1000
 export const handoffMs = 5 * 60 * 1000
 export const invitationDays = 7
 
-/** The action each mutation records; apis/admin/partners.ts declares the same codes. */
+/** The action each mutation records; apis/admin/partners.ts declares the same codes (LOGGING.md §5). */
 export const partnerAudit = {
   createPartner: 'partner.created',
   approvePartner: 'partner.approved',
@@ -86,6 +89,7 @@ export type RefusalCode =
   | 'INVALID_INPUT'
   | 'INVALID_HOSTNAME'
   | 'NOT_FOUND'
+  | 'INVITATION_HELD'
   | 'INVITATION_NOT_HELD'
   | 'INVITATION_ACCEPTED'
   | 'STAFF_ROLE_NOT_ALLOWED'
@@ -116,6 +120,19 @@ export interface PartnerRowDto {
   approval: { setUpBy: string | null; rule: ApprovalRule['rule']; approvals: number } | null
 }
 
+export interface SetupSessionDto {
+  id: string
+  staff: string
+  reason: string
+  ticket: string | null
+  startedAt: Date
+  expiresAt: Date
+  endedAt: Date | null
+  status: 'open' | 'ended' | 'expired'
+  /** ACCESS.md §8.3: what the caller may do to it, never worked out by the console. */
+  end: ActionPermission
+}
+
 export interface PartnerDto extends PartnerRowDto {
   country: string | null
   contacts: { name: string; role: string; email: string }[]
@@ -125,15 +142,8 @@ export interface PartnerDto extends PartnerRowDto {
   domains: { id: string; kind: DomainKind; host: string; status: HostStatus; record: string; expected: string; found: string | null; checkedAt: Date | null }[]
   plans: { id: string; name: string; status: PlanRow['status']; maxProducts: number | null; maxStaff: number | null; stores: number }[]
   team: { id: string; name: string; email: string; role: string; status: string; lastSignInAt: Date | null }[]
-  setupSessions: { id: string; staff: string; startedAt: Date; endedAt: Date | null; reason: string }[]
+  setupSessions: SetupSessionDto[]
   actions: PartnerPermissions
-}
-
-export interface PageInfo {
-  startCursor: string | null
-  endCursor: string | null
-  hasPreviousPage: boolean
-  hasNextPage: boolean
 }
 
 export interface PartnerPage {
@@ -189,22 +199,32 @@ export interface PartnersServiceDeps {
 
 const reasonText = z.string().trim().min(1).max(500)
 
-const partnerAdmins: readonly StaffRole[] = ['staff-super-admin', 'staff-partner-manager']
-const inviters: readonly StaffRole[] = ['staff-super-admin', 'staff-partner-manager', 'staff-support']
-const setupStarters: readonly StaffRole[] = ['staff-super-admin', 'staff-partner-manager']
-const partnerScopedRoles: readonly StaffRole[] = ['staff-partner-manager']
-
-const hashToken = async (token: string): Promise<string> => {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+/** The code a role refusal carries, per permission, so the block and the policy agree (ACCESS.md §5.4). */
+const roleRefusals: Partial<Record<StaffPermission, RefusalCode>> = {
+  'partners.create': 'PARTNER_ADMINS_ONLY',
+  'partners.approve': 'PARTNER_ADMINS_ONLY',
+  'partners.pause': 'SUPER_ADMIN_ONLY',
+  'partners.invite': 'PARTNER_ADMINS_ONLY',
+  'partners.invite.resend': 'INVITERS_ONLY',
+  'partners.setup': 'STAFF_ROLE_NOT_ALLOWED',
+  'domains.recheck': 'STAFF_ROLE_NOT_ALLOWED',
 }
 
-const newToken = (): string => [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('')
+interface PartnerFacts {
+  domains: PartnerDomainRow[]
+  items: PartnerSetupItemRow[]
+  plans: (PlanRow & { store_count: number })[]
+  sessions: SetupSessionRow[]
+  approvers: string[]
+  checks: GoLiveChecks
+  rule: ApprovalRule
+}
 
 export const createPartnersService = (deps: PartnersServiceDeps) => {
   const { sql, staff, facts, activity, now } = deps
   const context: StaffContext = { caller: { kind: 'staff', staffId: staff.id } }
   const label = `${staff.name} <${staff.email}>`
+  const scopedByAssignment = partnerScopedRoles.includes(staff.role)
 
   const entry = (partner: Pick<PartnerRow, 'id' | 'name'>, action: PartnerAuditAction, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry => ({
     category: 'write',
@@ -222,70 +242,79 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     ...extra,
   })
 
-  const only = (roles: readonly StaffRole[], code: RefusalCode): ActionPermission => (roles.includes(staff.role) ? { allowed: true } : { allowed: false, reason: code })
+  const may = (permission: StaffPermission): ActionPermission =>
+    roleHas(staff.role, permission) ? { allowed: true } : { allowed: false, reason: roleRefusals[permission] ?? 'STAFF_ROLE_NOT_ALLOWED' }
 
-  const assigned = async (partnerId: string): Promise<boolean> => !partnerScopedRoles.includes(staff.role) || deps.isAssigned(staff.id, { partnerId })
+  const refusedBy = (permission: StaffPermission): Refusal | null => {
+    const p = may(permission)
+    return p.allowed ? null : { ok: false, code: p.reason }
+  }
+
+  const assigned = async (partnerId: string): Promise<boolean> => !scopedByAssignment || deps.isAssigned(staff.id, { partnerId })
 
   // The block FIRST-RELEASE §4.3 draws: an action absent is not offered in this state; one
   // present but refused is disabled with its reason. Record rules win over role rules, so the
   // reason names what would actually unblock it (decided on #19 and #31).
-  const permissionsFor = async (
-    partner: PartnerRow,
-    checks: GoLiveChecks,
-    rule: ApprovalRule,
-    approvers: readonly string[],
-    ownerInvitation: PartnerRowDto['owner']['invitation'],
-  ): Promise<PartnerPermissions> => {
+  const permissionsFor = async (partner: PartnerRow, f: PartnerFacts, ownerInvitation: PartnerRowDto['owner']['invitation']): Promise<PartnerPermissions> => {
     const actions: PartnerPermissions = {}
     if (partner.state === 'closed') return actions
     const notAssigned: ActionPermission | null = (await assigned(partner.id)) ? null : { allowed: false, reason: 'NOT_ASSIGNED' }
-    if (setupStarters.includes(staff.role)) actions.setupSession = notAssigned ?? { allowed: true }
+    if (roleHas(staff.role, 'partners.setup')) actions.setupSession = notAssigned ?? { allowed: true }
     if (partner.state === 'awaiting') {
-      const failing = failingChecks(checks)
-      const verdict = approvalVerdict(rule, { id: staff.id, role: staff.role }, approvers)
+      const failing = failingChecks(f.checks)
+      const verdict = approvalVerdict(f.rule, { id: staff.id, role: staff.role }, f.approvers)
       actions.approve =
         failing.length > 0
           ? { allowed: false, reason: 'GO_LIVE_CHECKS_FAILING', failingChecks: failing }
           : verdict === 'SET_UP_BY_CALLER' || verdict === 'ALREADY_APPROVED_BY_CALLER'
             ? { allowed: false, reason: verdict }
-            : (notAssigned ?? only(partnerAdmins, 'PARTNER_ADMINS_ONLY'))
-      actions.sendBack = notAssigned ?? only(partnerAdmins, 'PARTNER_ADMINS_ONLY')
+            : (notAssigned ?? may('partners.approve'))
+      actions.sendBack = notAssigned ?? may('partners.approve')
     }
-    if (partner.state === 'live') actions.pause = partner.is_house ? { allowed: false, reason: 'HOUSE_PARTNER' } : only(['staff-super-admin'], 'SUPER_ADMIN_ONLY')
-    if (partner.state === 'paused') actions.resume = only(['staff-super-admin'], 'SUPER_ADMIN_ONLY')
-    // FIRST-RELEASE §4.3: sending a held invitation is the partner admins'; resending is Support's too.
-    if (ownerInvitation === 'held') actions.sendInvite = notAssigned ?? only(partnerAdmins, 'PARTNER_ADMINS_ONLY')
-    if (ownerInvitation === 'sent') actions.resendInvite = notAssigned ?? only(inviters, 'INVITERS_ONLY')
+    if (partner.state === 'live') actions.pause = partner.is_house ? { allowed: false, reason: 'HOUSE_PARTNER' } : may('partners.pause')
+    if (partner.state === 'paused') actions.resume = may('partners.pause')
+    if (ownerInvitation === 'held') actions.sendInvite = notAssigned ?? may('partners.invite')
+    if (ownerInvitation === 'sent') actions.resendInvite = notAssigned ?? may('partners.invite.resend')
     return actions
   }
 
-  interface PartnerFacts {
-    partner: PartnerRow
-    domains: PartnerDomainRow[]
-    items: PartnerSetupItemRow[]
-    plans: (PlanRow & { store_count: number })[]
-    sessions: SetupSessionRow[]
-    approvers: string[]
-    checks: GoLiveChecks
-    rule: ApprovalRule
-  }
-
-  const factsFor = async (tx: Parameters<typeof selectPartnerDomains>[0], partner: PartnerRow): Promise<PartnerFacts> => {
-    const [domains, items, plans, sessions] = await Promise.all([selectPartnerDomains(tx, partner.id), selectSetupItems(tx, partner.id), selectPlans(tx, partner.id), selectSetupSessions(tx, partner.id)])
-    const approvals = partner.submitted_at ? await selectPartnerApprovals(tx, partner.id, partner.submitted_at) : []
-    return {
-      partner,
-      domains,
-      items,
-      plans,
-      sessions,
-      approvers: approvals.map((a) => a.staff_user_id),
-      checks: goLiveChecksFor(domains, items, plans, partner.fallback_sender_accepted),
-      rule: approvalRuleFor(sessions, partner.submitted_at),
+  // One query per table for the whole page (AGENTS.md "Reliability": no N+1).
+  const factsFor = async (tx: ScopedSql, partners: readonly PartnerRow[]): Promise<Map<string, PartnerFacts>> => {
+    const ids = partners.map((p) => p.id)
+    const [domains, items, plans, sessions, approvers] = await Promise.all([
+      selectPartnerDomainsFor(tx, ids),
+      selectSetupItemsFor(tx, ids),
+      selectPlansFor(tx, ids),
+      selectSetupSessionsFor(tx, ids),
+      selectCurrentApproversFor(tx, ids),
+    ])
+    const byPartner = <T extends { partner_id: string }>(rows: T[]) => {
+      const map = new Map<string, T[]>()
+      for (const row of rows) map.set(row.partner_id, [...(map.get(row.partner_id) ?? []), row])
+      return map
     }
+    const d = byPartner(domains)
+    const i = byPartner(items)
+    const pl = byPartner(plans)
+    const s = byPartner(sessions)
+    const a = byPartner(approvers)
+    return new Map(
+      partners.map((p) => {
+        const f = { domains: d.get(p.id) ?? [], items: i.get(p.id) ?? [], plans: pl.get(p.id) ?? [], sessions: s.get(p.id) ?? [] }
+        return [
+          p.id,
+          {
+            ...f,
+            approvers: (a.get(p.id) ?? []).map((row) => row.staff_user_id),
+            checks: goLiveChecksFor(f.domains, f.items, f.plans, p.fallback_sender_accepted),
+            rule: approvalRuleFor(f.sessions, p.submitted_at),
+          },
+        ]
+      }),
+    )
   }
 
-  const rowOf = (row: PartnerListRow, checks: GoLiveChecks, rule: ApprovalRule | null, approvals: number, invitationSentAt: Date | null): PartnerRowDto => ({
+  const rowOf = (row: PartnerListRow, f: PartnerFacts): PartnerRowDto => ({
     id: row.id,
     name: row.name,
     house: row.is_house,
@@ -295,11 +324,11 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     stores: row.store_count,
     portalHost: { host: row.portal_host, status: row.portal_status },
     setup: { done: row.setup_done, total: row.setup_total },
-    owner: { name: row.owner_name, email: row.owner_email, invitation: row.owner_invitation, invitationSentAt },
+    owner: { name: row.owner_name, email: row.owner_email, invitation: row.owner_invitation, invitationSentAt: row.owner_invitation_sent_at },
     createdAt: row.created_at,
     submittedAt: row.state === 'awaiting' ? row.submitted_at : null,
-    checks,
-    approval: row.state === 'awaiting' && rule ? { setUpBy: rule.setUpBy?.name ?? null, rule: rule.rule, approvals } : null,
+    checks: f.checks,
+    approval: row.state === 'awaiting' ? { setUpBy: f.rule.setUpBy?.name ?? null, rule: f.rule.rule, approvals: f.approvers.length } : null,
   })
 
   const list = async (filter: unknown, page: PageRequest): Promise<Result<{ page: PartnerPage }>> => {
@@ -311,19 +340,16 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     const limit = Math.min(Math.max(page.first ?? partnerPageSize, 1), partnerPageSize)
     const sort = parsed.data.sort ?? 'newest'
     return withScope(sql, context, async (tx) => {
-      const rows = await selectPartners(tx, parsed.data, { after, before }, limit, sort)
+      // ACCESS.md §5.4: a list filters to a Partner manager's assignment itself.
+      const rows = await selectPartners(tx, { ...parsed.data, assignedTo: scopedByAssignment ? staff.id : undefined }, { after, before }, limit, sort)
       const more = rows.length > limit
       const pageRows = before ? rows.slice(more ? 1 : 0) : rows.slice(0, limit)
-      // The checks and the approval rule are read per row: a page is at most 25 partners, and
-      // Approvals needs every one of them (FIRST-RELEASE §6).
-      const items = await Promise.all(
-        pageRows.map(async (row) => {
-          const facts = await factsFor(tx, row)
-          const owner = await selectPartnerOwner(tx, row.id)
-          const invitation = owner ? await selectOpenInvitation(tx, owner.id) : null
-          return rowOf(row, facts.checks, facts.rule, facts.approvers.length, invitation?.sent_at ?? null)
-        }),
-      )
+      const factsMap = await factsFor(tx, pageRows)
+      const items = pageRows.map((row) => {
+        const f = factsMap.get(row.id)
+        if (!f) throw new Error('facts missing for a listed partner')
+        return rowOf(row, f)
+      })
       const keyOf = (row: PartnerListRow) => encodeCursor({ occurredAt: sort === 'newest' ? row.created_at : (row.submitted_at ?? row.created_at), id: row.id })
       const first = pageRows[0]
       const last = pageRows.at(-1)
@@ -337,10 +363,31 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
             hasPreviousPage: before ? more : after !== undefined,
             hasNextPage: before ? true : more,
           },
-          create: only(partnerAdmins, 'PARTNER_ADMINS_ONLY'),
+          create: may('partners.create'),
         },
       }
     })
+  }
+
+  const sessionDto = (s: SetupSessionRow, at: Date): SetupSessionDto => {
+    const status = s.ended_at ? 'ended' : s.expires_at <= at ? 'expired' : 'open'
+    const end: ActionPermission =
+      status !== 'open'
+        ? { allowed: false, reason: 'SESSION_ENDED' }
+        : s.staff_user_id === staff.id || staff.role === 'staff-super-admin'
+          ? { allowed: true }
+          : { allowed: false, reason: 'NOT_SESSION_OWNER' }
+    return {
+      id: s.id,
+      staff: s.staff_name,
+      reason: s.reason,
+      ticket: s.ticket,
+      startedAt: s.started_at,
+      expiresAt: s.expires_at,
+      endedAt: s.ended_at ?? (status === 'expired' ? s.expires_at : null),
+      status,
+      end,
+    }
   }
 
   const get = async (id: string): Promise<PartnerDto | null> =>
@@ -348,44 +395,40 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const partner = await selectPartner(tx, id)
       if (!partner) return null
       const listRow = await selectPartnerListRow(tx, id)
-      if (!listRow) return null
-      const facts = await factsFor(tx, partner)
-      const owner = await selectPartnerOwner(tx, id)
-      const invitation = owner ? await selectOpenInvitation(tx, owner.id) : null
+      const f = (await factsFor(tx, [partner])).get(id)
+      if (!listRow || !f) return null
       const team = await selectPartnerUsers(tx, id)
       const history = await selectActivity(tx, { targetType: 'partner', targetId: id }, {}, 100)
-      const base = rowOf(listRow, facts.checks, facts.rule, facts.approvers.length, invitation?.sent_at ?? null)
+      const base = rowOf(listRow, f)
+      const at = now()
       return {
         ...base,
         country: partner.country,
         contacts: team.map((u) => ({ name: u.name, role: u.role_key, email: u.email })),
         history: history.reverse().map((h) => ({ at: h.occurred_at, action: h.action, by: h.actor_label, note: h.reason })),
-        checklist: facts.items.map((i) => ({
+        checklist: f.items.map((i) => ({
           item: i.item,
           status: i.status,
           detail: i.detail,
           by: i.done_by_label ? { name: i.done_by_label, org: i.done_by_kind === 'staff' ? 'DripFunnel' : partner.name } : null,
         })),
         branding: { productName: partner.product_name, primaryColor: partner.primary_color, accentColor: partner.accent_color, poweredBy: partner.powered_by },
-        domains: facts.domains.map((d) => ({ id: d.id, kind: d.kind, host: d.host, status: d.status, record: d.record_type, expected: d.expected, found: d.found, checkedAt: d.checked_at })),
-        plans: facts.plans.map((p) => ({ id: p.id, name: p.name, status: p.status, maxProducts: p.max_products, maxStaff: p.max_staff, stores: p.store_count })),
+        domains: f.domains.map((d) => ({ id: d.id, kind: d.kind, host: d.host, status: d.status, record: d.record_type, expected: d.expected, found: d.found, checkedAt: d.checked_at })),
+        plans: f.plans.map((p) => ({ id: p.id, name: p.name, status: p.status, maxProducts: p.max_products, maxStaff: p.max_staff, stores: p.store_count })),
         team: team.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role_key, status: u.status, lastSignInAt: u.last_sign_in_at })),
-        setupSessions: facts.sessions.map((s) => ({ id: s.id, staff: s.staff_name, startedAt: s.started_at, endedAt: s.ended_at, reason: s.reason })),
-        actions: await permissionsFor(partner, facts.checks, facts.rule, facts.approvers, base.owner.invitation),
+        setupSessions: f.sessions.map((s) => sessionDto(s, at)),
+        actions: await permissionsFor(partner, f, base.owner.invitation),
       }
     })
-
-  const requireRole = (roles: readonly StaffRole[], code: RefusalCode): Refusal | null => (roles.includes(staff.role) ? null : { ok: false, code })
 
   const stateChange = async (
     id: string,
     reason: string | null,
-    needsReason: boolean,
     action: PartnerAuditAction,
     change: (partner: PartnerRow) => Parameters<typeof transitionPartner>[2] | Refusal,
   ): Promise<Result<{ state: PartnerState }>> => {
-    const parsedReason = needsReason ? reasonText.safeParse(reason ?? '') : null
-    if (parsedReason && !parsedReason.success) return { ok: false, code: 'REASON_REQUIRED' }
+    const parsedReason = reasonText.safeParse(reason ?? '')
+    if (!parsedReason.success) return { ok: false, code: 'REASON_REQUIRED' }
     return withScope(sql, context, async (tx): Promise<Result<{ state: PartnerState }>> => {
       const partner = await selectPartnerForUpdate(tx, id)
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
@@ -393,13 +436,13 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       if ('ok' in next) return next
       const result = await transitionPartner(tx, partner, next, now())
       if (!result.ok) return { ok: false, code: result.code === 'HOUSE_PARTNER' ? 'HOUSE_PARTNER' : result.code === 'REASON_REQUIRED' ? 'REASON_REQUIRED' : 'INVALID_STATE' }
-      await activity.record(tx, entry(partner, action, parsedReason?.data ?? reason))
+      await activity.record(tx, entry(partner, action, parsedReason.data))
       return { ok: true, state: next.to }
     })
   }
 
   const approvePartner = async (id: string, reason: string | null): Promise<Result<{ state: PartnerState; approvals: number }>> => {
-    const refused = requireRole(partnerAdmins, 'PARTNER_ADMINS_ONLY')
+    const refused = refusedBy('partners.approve')
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
     if (!parsed.success) return { ok: false, code: 'REASON_REQUIRED' }
@@ -407,37 +450,38 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const partner = await selectPartnerForUpdate(tx, id)
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
       if (partner.state !== 'awaiting' || !partner.submitted_at) return { ok: false, code: 'INVALID_STATE' }
-      const facts = await factsFor(tx, partner)
-      const failing = failingChecks(facts.checks)
+      const f = (await factsFor(tx, [partner])).get(id)
+      if (!f) return { ok: false, code: 'NOT_FOUND' }
+      const failing = failingChecks(f.checks)
       if (failing.length > 0) return { ok: false, code: 'GO_LIVE_CHECKS_FAILING', failingChecks: failing }
-      const verdict = approvalVerdict(facts.rule, { id: staff.id, role: staff.role }, facts.approvers)
+      const verdict = approvalVerdict(f.rule, { id: staff.id, role: staff.role }, f.approvers)
       if (verdict === 'SET_UP_BY_CALLER' || verdict === 'ALREADY_APPROVED_BY_CALLER') return { ok: false, code: verdict }
+      // The note on contract and KYC is a staff record: it lives on the approval row and in a
+      // staff-only entry, never in the partner's log (FIRST-RELEASE §4.3 marks only the
+      // send-back reason as shown to the partner).
       await insertPartnerApproval(tx, { partnerId: id, staffUserId: staff.id, submittedAt: partner.submitted_at, note: parsed.data, approvedAt: now() })
-      if (verdict === 'needs_second') {
-        await activity.record(tx, entry(partner, partnerAudit.approvalRecorded, parsed.data))
-        return { ok: true, state: 'awaiting', approvals: facts.approvers.length + 1 }
-      }
+      await activity.record(tx, entry(partner, partnerAudit.approvalRecorded, parsed.data, { visibility: 'staff' }))
+      if (verdict === 'needs_second') return { ok: true, state: 'awaiting', approvals: f.approvers.length + 1 }
       const result = await transitionPartner(tx, partner, { to: 'live' }, now())
       if (!result.ok) return { ok: false, code: 'INVALID_STATE' }
-      await activity.record(tx, entry(partner, partnerAudit.approvePartner, parsed.data))
+      await activity.record(tx, entry(partner, partnerAudit.approvePartner, null))
       // SAAS.md §3.1: approval opens merchant sign-up on the portal host.
       await queueSideEffect(tx, { kind: 'cache.purge', idempotencyKey: `partner-live:${id}:${partner.submitted_at.toISOString()}`, payload: { partnerId: id, reason: 'approved' }, partnerId: id, storeId: null })
-      return { ok: true, state: 'live', approvals: facts.approvers.length + 1 }
+      return { ok: true, state: 'live', approvals: f.approvers.length + 1 }
     })
   }
 
   const sendBackPartner = async (id: string, reason: string | null): Promise<Result<{ state: PartnerState }>> =>
-    requireRole(partnerAdmins, 'PARTNER_ADMINS_ONLY') ?? stateChange(id, reason, true, partnerAudit.sendBackPartner, () => ({ to: 'draft', reason: reason?.trim() ?? '' }))
+    refusedBy('partners.approve') ?? stateChange(id, reason, partnerAudit.sendBackPartner, () => ({ to: 'draft', reason: reason?.trim() ?? '' }))
 
   const pausePartner = async (id: string, reason: string | null): Promise<Result<{ state: PartnerState }>> =>
-    requireRole(['staff-super-admin'], 'SUPER_ADMIN_ONLY') ??
-    stateChange(id, reason, true, partnerAudit.pausePartner, (partner) => (partner.is_house ? { ok: false, code: 'HOUSE_PARTNER' } : { to: 'paused', reason: reason?.trim() ?? '' }))
+    refusedBy('partners.pause') ??
+    stateChange(id, reason, partnerAudit.pausePartner, (partner) => (partner.is_house ? { ok: false, code: 'HOUSE_PARTNER' } : { to: 'paused', reason: reason?.trim() ?? '' }))
 
   const resumePartner = async (id: string, reason: string | null): Promise<Result<{ state: PartnerState }>> =>
-    requireRole(['staff-super-admin'], 'SUPER_ADMIN_ONLY') ??
-    stateChange(id, reason, true, partnerAudit.resumePartner, (partner) => (partner.state === 'paused' ? { to: 'live' } : { ok: false, code: 'INVALID_STATE' }))
+    refusedBy('partners.pause') ?? stateChange(id, reason, partnerAudit.resumePartner, (partner) => (partner.state === 'paused' ? { to: 'live' } : { ok: false, code: 'INVALID_STATE' }))
 
-  const queueInvitationEmail = async (tx: Parameters<typeof queueSideEffect>[0], partner: PartnerRow, invitationId: string, ownerEmail: string) => {
+  const queueInvitationEmail = async (tx: ScopedSql, partner: Pick<PartnerRow, 'id' | 'name'>, invitationId: string, ownerEmail: string) => {
     // The deliverer mints the token when it sends, so no secret rests in the outbox (ACCESS §6.1).
     await queueSideEffect(tx, {
       kind: 'email',
@@ -449,7 +493,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const createPartner = async (input: unknown): Promise<Result<{ id: string }>> => {
-    const refused = requireRole(partnerAdmins, 'PARTNER_ADMINS_ONLY')
+    const refused = refusedBy('partners.create')
     if (refused) return refused
     const parsed = createPartnerInput.safeParse(input)
     if (!parsed.success) return { ok: false, code: 'INVALID_INPUT' }
@@ -470,7 +514,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const partner = { id, name: data.name }
       await activity.record(tx, entry(partner, partnerAudit.createPartner, null, { changes: [{ field: 'country', before: null, after: data.country }] }))
       if (data.sendInvitation) {
-        await queueInvitationEmail(tx, { ...partner } as PartnerRow, invitationId, data.ownerEmail)
+        await queueInvitationEmail(tx, partner, invitationId, data.ownerEmail)
         await activity.record(tx, entry(partner, partnerAudit.sendPartnerOwnerInvite, null, { target: { type: 'partner_user', id: ownerId, label: data.ownerEmail } }))
       }
       return { ok: true, id }
@@ -478,7 +522,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const invite = async (id: string, resend: boolean): Promise<Result> => {
-    const refused = resend ? requireRole(inviters, 'INVITERS_ONLY') : requireRole(partnerAdmins, 'PARTNER_ADMINS_ONLY')
+    const refused = refusedBy(resend ? 'partners.invite.resend' : 'partners.invite')
     if (refused) return refused
     return withScope(sql, context, async (tx): Promise<Result> => {
       const partner = await selectPartnerForUpdate(tx, id)
@@ -492,7 +536,8 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const expires = new Date(at.getTime() + invitationDays * 24 * 60 * 60 * 1000)
       let invitationId: string
       if (resend) {
-        if (!open || open.sent_at === null) return { ok: false, code: 'INVITATION_NOT_HELD' }
+        if (!open) return { ok: false, code: 'INVITATION_NOT_HELD' }
+        if (open.sent_at === null) return { ok: false, code: 'INVITATION_HELD' }
         // ACCESS.md §6.3: a resend mints a fresh invitation and the old link stops working.
         await revokeInvitation(tx, open.id, at)
         invitationId = await insertPartnerInvitation(tx, { partnerId: id, partnerUserId: owner.id, sentAt: at, expiresAt: expires, invitedByKind: 'staff', invitedByLabel: staff.name })
@@ -508,7 +553,8 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const startSetupSession = async (id: string, reason: string | null, ticket: string | null): Promise<Result<{ sessionId: string; expiresAt: Date; handoff: string }>> => {
-    if (!setupStarters.includes(staff.role)) return { ok: false, code: 'STAFF_ROLE_NOT_ALLOWED' }
+    const refused = refusedBy('partners.setup')
+    if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
     if (!parsed.success) return { ok: false, code: 'REASON_REQUIRED' }
     if (!deps.reauthFresh) return { ok: false, code: 'REAUTH_REQUIRED' }
@@ -516,21 +562,25 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const partner = await selectPartner(tx, id)
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
       if (partner.state === 'closed') return { ok: false, code: 'PARTNER_CLOSED' }
-      if (await selectOpenSetupSessionOf(tx, staff.id)) return { ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' }
       const at = now()
-      const token = newToken()
+      await expireStaleSetupSessions(tx, staff.id, at)
+      if (await selectOpenSetupSessionOf(tx, staff.id, at)) return { ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' }
+      const token = newSessionId()
+      const expiresAt = new Date(at.getTime() + setupSessionMs)
       const sessionId = await insertSetupSession(tx, {
         staffUserId: staff.id,
         partnerId: id,
         reason: parsed.data,
         ticket: ticket?.trim() || null,
         startedAt: at,
-        expiresAt: new Date(at.getTime() + setupSessionMs),
-        handoffHash: await hashToken(token),
+        expiresAt,
+        handoffHash: await hashSessionId(token),
         handoffExpiresAt: new Date(at.getTime() + handoffMs),
       })
+      // Two starts at once: the partial unique index decides, and the loser gets the same code.
+      if (!sessionId) return { ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' }
       await activity.record(tx, entry(partner, partnerAudit.startPartnerSetupSession, parsed.data, { access: { kind: 'setup_session', id: sessionId } }))
-      return { ok: true, sessionId, expiresAt: new Date(at.getTime() + setupSessionMs), handoff: token }
+      return { ok: true, sessionId, expiresAt, handoff: token }
     })
   }
 
@@ -538,18 +588,19 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     withScope(sql, context, async (tx): Promise<Result> => {
       const session = await selectSetupSession(tx, sessionId)
       if (!session) return { ok: false, code: 'NOT_FOUND' }
-      if (session.ended_at) return { ok: false, code: 'SESSION_ENDED' }
-      // ACCESS.md §8.2: the staff member who started it, or any Super admin.
-      if (session.staff_user_id !== staff.id && staff.role !== 'staff-super-admin') return { ok: false, code: 'NOT_SESSION_OWNER' }
+      const at = now()
+      const permission = sessionDto(session, at).end
+      if (!permission.allowed) return { ok: false, code: permission.reason }
       const partner = await selectPartner(tx, session.partner_id)
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
-      await endSetupSession(tx, sessionId, staff.id, now())
+      await endSetupSession(tx, sessionId, staff.id, at)
       await activity.record(tx, entry(partner, partnerAudit.endStaffSession, null, { access: { kind: 'setup_session', id: sessionId } }))
       return { ok: true }
     })
 
   const recheckDomain = async (id: string, kind: string): Promise<Result<{ status: 'queued' }>> => {
-    if (!roleHas(staff.role, 'domains.recheck' satisfies StaffPermission)) return { ok: false, code: 'STAFF_ROLE_NOT_ALLOWED' }
+    const refused = refusedBy('domains.recheck')
+    if (refused) return refused
     if (!(domainKinds as readonly string[]).includes(kind)) return { ok: false, code: 'INVALID_INPUT' }
     return withScope(sql, context, async (tx): Promise<Result<{ status: 'queued' }>> => {
       const partner = await selectPartner(tx, id)

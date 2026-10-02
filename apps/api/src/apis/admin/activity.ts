@@ -3,7 +3,7 @@ import type { RecordedChange } from '#core/redaction'
 import type { ActivityRow } from '#db/schema/activity'
 import type { ActivityPage } from '#saas/activity/index'
 import { builder } from './builder'
-import { PageInfoType } from './types'
+import { compact, PageInfoType } from './types'
 
 // The activity log as the admin console reads it (LOGGING.md §6: staff see every entry, IP
 // and user agent included). #38 adds the person timeline, the people search and the export.
@@ -100,10 +100,6 @@ const Filter = builder.inputType('ActivityFilter', {
     to: t.string(),
   }),
 })
-
-// Dropped undefined, so the zod schema's `.strict()` sees only what the client sent.
-const compact = (input: Record<string, unknown> | null | undefined) =>
-  Object.fromEntries(Object.entries(input ?? {}).filter(([, value]) => value !== undefined && value !== null))
 
 builder.queryFields((t) => ({
   activityLog: t.field({
