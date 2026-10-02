@@ -84,8 +84,12 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   readable by `app_system` (sign-in, acceptance, the second factor) and never by
   `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
   the same way, with one exception decided 2026-10-02: **a person may read and change their
-  own number** (My profile; SMS 2-factor is sent to it), through a request scope limited to
-  the session's own `user` row. No other screen shows a merchant user's phone.
+  own number** (My profile; SMS 2-factor is sent to it). A column grant cannot be limited to
+  one row, so the exception is a pair of `security definer` functions owned by the migration
+  role, `own_phone()` and `set_own_phone(text)`, that act only on the row whose `id` equals
+  the session's `app.user_id` (§5.1); `app_request` gets `execute` on them and still no
+  `select` or `update` on the column. The isolation matrix has the row: user A, holding user
+  B's id, can neither read nor write B's phone. No other screen shows a merchant user's phone.
 - **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
   the partner or store as target, visibility `partner`. No history table.
 - **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which
@@ -365,7 +369,11 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 | Role | Used by | Can |
 |---|---|---|
+<<<<<<< HEAD
 | `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; and §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc` and `token_enc` on courier, payment, webhook and external-connection rows) |
+=======
+| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes) nor on `user.phone`, which it reaches only through the own-row functions `own_phone()` and `set_own_phone()` (§2.1) |
+>>>>>>> #182/task/store-design-decisions
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
 
