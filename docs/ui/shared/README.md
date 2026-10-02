@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-10-02 (#115).
+Last updated: 2026-10-02 (#116).
 
 ---
 
@@ -11,18 +11,19 @@ Last updated: 2026-10-02 (#115).
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
+| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), the detail-page pieces both consoles' detail pages use (#116), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`; `DetailTabs`, `MoreActions`, `ActionControl`, `Tile`, `InfoNote`, `Toast`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/ui/states.css` | The kit's stylesheet, for a screen that uses its classes (`df-button`, `df-field`, `df-dialog`, `df-visually-hidden`) without rendering a kit component | loaded by every kit component itself |
 | `@dripfunnel/shared/ui/shell.css` | The console chrome's stylesheet (header, banners, side bar, drawer, user menu, page title), for an app's own shell composition | loaded by every shell component itself |
 | `@dripfunnel/shared/ui/list.css` | The list stylesheet: the `.df-list` page, its header, toolbar, filters, search, table, name cells and pager, for a list screen's own markup | loaded by every list primitive itself |
+| `@dripfunnel/shared/ui/detail.css` | The detail-page stylesheet: detail header, breadcrumb, meta, actions, menu, tabs, panels, facts, lists, info note and toast, for a detail screen's own markup | loaded by every detail piece itself |
 | `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code; the cursor page shape every list query answers with (#19) and the paging a fixture does over a sorted list | `createApiClient`, `ApiError`; `PageInfo`, `PageRequest`, `pageByCursor` |
 | `@dripfunnel/shared/search` | zod helpers for a route's URL search (#115): a value that doesn't fit is dropped, never a failed page | `optionalParam`, `searchParam`, `idParam` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber`, `pluralForm` (the locale's plural rules over an app's `one`/`other` forms) |
 
 ```
 apps/ui/shared/
-  ui/          components, the state kit (+ states.css), the console chrome (+ shell.css), the list primitives (+ list.css), tokens.css, index.ts
+  ui/          components, the state kit (+ states.css), the console chrome (+ shell.css), the list primitives (+ list.css), the detail pieces (+ detail.css), tokens.css, index.ts
   graphql/     client.ts, pageInfo.ts, pageByCursor.ts (+ .test.ts), index.ts
   search/      searchParams.ts, searchMaxLength.ts, index.ts
   format/      money.ts, dateTime.ts, duration.ts, number.ts, plural.ts (each + .test.ts), index.ts
@@ -75,11 +76,18 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   lists' second user): `ListHeader` (title, lede and an action, with an eyebrow where a console draws one), `SearchField` (debounced,
   with an optional validator for text the URL would drop), `FilterSelect` (the label inside
   the control, tinted when a value is chosen) and `ClickableRow` (a table row that hands a plain click to its title link). `list.css`
-  holds their styles; each console keeps its detail-page styles until a second console draws
-  a detail page. The zod helpers for URL searches are their own entry, `@dripfunnel/shared/search`,
+  holds their styles. The zod helpers for URL searches are their own entry, `@dripfunnel/shared/search`,
   so an app without a list never bundles zod; `PageInfo` is the API's, in `graphql`. The admin
   console's `Pager` (Previous and Next) stays there: the partner console's lists end in "Show 25
   more" (ui/platform/FIRST-RELEASE.md §16).
+- **Detail pieces** (#116, the partner console's Store detail being the admin console's detail
+  pages' second user): `DetailTabs` (links, not an ARIA tab list: each tab is its own address),
+  `MoreActions` (the "Actions ▾" disclosure, its label a prop), `ActionControl` (a button when
+  allowed, `PermissionDenied` with the reason when refused), `Tile` (a record's initials standing
+  in for its logo), `InfoNote` (a read-only fact in the info palette) and `Toast` (bottom centre,
+  one line, 4.2 s). `detail.css` holds the detail header, meta, tabs, panels and their styles.
+  `ConfirmDialog` takes `choices`, a list of picks, since the store actions need two in one
+  dialog (plan and when; limit and duration).
 - **Environment**: `environmentFor(hostname)` names the four environments for both consoles
   (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.ai` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and

@@ -1,9 +1,8 @@
-import { StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
+import { StatusPill, type StatusTone, ActionControl } from '@dripfunnel/shared/ui'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import type { SessionAction, SessionOutcome, StaffSession } from '../../api/impersonation'
 import { fill, formatTime, messages } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
 import { refusalText, sessionPlace, sessionTitle, timeLeftText } from './sessionText'
 import './impersonate.css'
 

@@ -19,7 +19,7 @@ Customers, Approvals, Provisioning, Impersonate, Activity log and Staff; the fir
 ships only what [FIRST-RELEASE.md](FIRST-RELEASE.md) §2 lists. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-10-02 (#115: list primitives moved to shared).
+Last updated: 2026-10-02 (#115, #116: list and detail pieces moved to shared).
 
 | Document | Covers |
 |---|---|
@@ -153,7 +153,7 @@ apps/ui/admin/src/
   features/
     shell/                  the app shell: header, side bar, nav drawer, environment banner
     sign-in/                the signed-out screens
-    common/                 what two areas of this app share: the activity tab, detail tabs and styles
+    common/                 what two areas of this app share: the activity tab and its filters, the gallery
     dashboard/              #18
     partners/               #19
     stores/                 placeholder until #20

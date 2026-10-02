@@ -1,11 +1,10 @@
-import { StatusPill } from '@dripfunnel/shared/ui'
+import { StatusPill, InfoNote, ActionControl } from '@dripfunnel/shared/ui'
 import type { SessionPermission } from '../../api/impersonation'
 import type { Store, StoreUser } from '../../api/stores'
 import { fill, formatTime, messages } from '../../messages'
-import { InfoNote } from '../common/InfoNote'
-import { ActionControl } from '../common/ActionControl'
 import { refusalText } from '../impersonate/sessionText'
 import './stores.css'
+import '../common/records.css'
 
 const words = messages.store.users
 

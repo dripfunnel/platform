@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadActivityExport } from '../../api/activity'
 import { messages } from '../../messages'
-import { Toast } from '../common/Toast'
+import { Toast } from '@dripfunnel/shared/ui'
 import { exportCheck, exportJob, useExportJob } from './exportJob'
 
 const pollMs = 1000

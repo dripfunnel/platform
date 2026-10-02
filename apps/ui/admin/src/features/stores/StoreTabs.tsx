@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { messages } from '../../messages'
-import { DetailTabs } from '../common/DetailTabs'
+import { DetailTabs } from '@dripfunnel/shared/ui'
 
 const words = messages.store
 

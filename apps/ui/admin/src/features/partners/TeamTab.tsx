@@ -1,12 +1,12 @@
-import { StatusPill } from '@dripfunnel/shared/ui'
+import { StatusPill, ActionControl } from '@dripfunnel/shared/ui'
 import type { SessionPermission } from '../../api/impersonation'
 import type { Partner, PartnerAction, PartnerUser } from '../../api/partners'
 import { fill, formatDate, formatTime, messages } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
 import { refusalText as sessionRefusal } from '../impersonate/sessionText'
 import { refusalText } from './refusal'
 import { InvitationPill } from './partnerLook'
 import './partners.css'
+import '../common/records.css'
 
 const words = messages.partner
 

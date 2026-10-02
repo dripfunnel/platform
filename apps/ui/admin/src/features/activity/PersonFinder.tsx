@@ -1,7 +1,7 @@
 import { useEffect, useId, useState, type KeyboardEvent } from 'react'
 import { findActivityPeople, peopleMinChars, type PersonMatch } from '../../api/activity'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { Tile } from '../common/Tile'
+import { Tile } from '@dripfunnel/shared/ui'
 import './activityLog.css'
 
 const words = messages.activity.person
