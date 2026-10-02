@@ -2,7 +2,6 @@ import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handleAuth } from '#apis/admin/auth'
 import type { ActivityEntry } from '#auth/activity'
-import { interimActivityLog } from '#auth/activity'
 import { resolveStaff } from '#auth/caller'
 import { SignInFailed } from '#auth/oidc'
 import {
@@ -18,6 +17,7 @@ import {
 import { staffForClaims } from '#auth/staff'
 import type { ScopedSql } from '#db/scoped/index'
 import { withSystemScope } from '#db/scoped/index'
+import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
 let db: TestDatabase
@@ -207,7 +207,7 @@ describe('the sign-in routes', () => {
   const deps = (overrides: Partial<Parameters<typeof handleAuth>[1]> = {}) => ({
     sql: db.sql,
     provider,
-    activity: interimActivityLog,
+    activity: activityLog,
     adminHost: 'admin.dripfunnel.com',
     now: () => start,
     allowAttempt: async () => true,
@@ -255,19 +255,23 @@ describe('the sign-in routes', () => {
     expect(res.status).toBe(429)
   })
 
-  it('records sign-in without putting a name, email or address in the log line', async () => {
+  it('records the sign-in as an activity entry and prints nothing', async () => {
+    // LOGGING.md §4: the entry carries the label and address, which is why it lives in the
+    // table and not in a log line.
     const lines: string[] = []
     const log = console.log
     console.log = (line: string) => void lines.push(line)
     try {
-      await handleAuth(callback('good'), deps())
+      await handleAuth(callback('good', { 'cf-connecting-ip': '203.0.113.1' }), deps())
     } finally {
       console.log = log
     }
-    expect(lines.join('\n')).toContain('staff.signed_in')
-    for (const secret of ['priya@softobotics.com', 'Priya', '203.0.113.1']) {
-      expect(lines.join('\n')).not.toContain(secret)
-    }
+    expect(lines).toEqual([])
+    const [row] = await db.sql<{ actor_id: string; actor_label: string; ip: string; visibility: string }[]>`
+      select actor_id, actor_label, ip, visibility from activity_log
+      where action = 'staff.signed_in' order by occurred_at desc limit 1
+    `
+    expect(row).toEqual({ actor_id: active, actor_label: 'Priya <priya@softobotics.com>', ip: '203.0.113.1', visibility: 'staff' })
   })
 
   it('refuses claims the provider returns in a shape we cannot use', async () => {

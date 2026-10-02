@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until the first migration; the structure is decided.
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-02.
 
 ---
 
@@ -47,7 +47,7 @@ platform            no row: DripFunnel itself; staff act here
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `membership`, `order`, `collection`, `offer`, `api_key`, `webhook`, `seller` (a supplier reads only its own row — ACCESS.md §5.5) |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `order_part` (per-supplier part of an order) |
-| **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6 | `activity_log` |
+| **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone | `activity_log`, `outbox` |
 
 - **Unique constraints are per scope**: SKU, web address and coupon code per store; customer
   email and phone per store; user email per partner. Never global.

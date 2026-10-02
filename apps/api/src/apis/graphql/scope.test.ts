@@ -37,6 +37,42 @@ describe('a field without a valid declaration fails the build', () => {
     expect(() => secureSchema(builder.toSchema(), adminPolicy)).toThrow('Mutation.pause declares no access')
   })
 
+  it('a mutation that names no activity-log action', () => {
+    const builder = builderFor()
+    builder.queryType({
+      fields: (t) => ({
+        health: t.string({ extensions: { access: { api: 'admin', scope: 'public', permission: null } }, resolve: () => 'ok' }),
+      }),
+    })
+    builder.mutationType({
+      fields: (t) => ({
+        pause: t.boolean({
+          extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.pause', target: 'none' } },
+          resolve: () => true,
+        }),
+      }),
+    })
+    expect(() => secureSchema(builder.toSchema(), adminPolicy)).toThrow('Mutation.pause declares no audit action')
+  })
+
+  it('a mutation that does', () => {
+    const builder = builderFor()
+    builder.queryType({
+      fields: (t) => ({
+        health: t.string({ extensions: { access: { api: 'admin', scope: 'public', permission: null } }, resolve: () => 'ok' }),
+      }),
+    })
+    builder.mutationType({
+      fields: (t) => ({
+        pause: t.boolean({
+          extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.pause', target: 'none', audit: 'partner.paused' } },
+          resolve: () => true,
+        }),
+      }),
+    })
+    expect(() => secureSchema(builder.toSchema(), adminPolicy)).not.toThrow()
+  })
+
   it('a field declared for another API', () => {
     expect(declared({ api: 'store', scope: 'public', permission: null })).toThrow('declared for the store API')
   })
@@ -109,6 +145,7 @@ const staffAs = (role: StaffRole): StaffMember => ({ id: 'staff-1', email: 's@so
 const contextFor = (staff: StaffMember | null, assigned: readonly string[] = []): AdminContext => ({
   staff,
   isAssigned: async (_, target: AccessTarget) => assigned.includes('partnerId' in target ? target.partnerId : target.storeId),
+  activity: async () => ({ ok: false, code: 'INVALID_FILTER' }),
 })
 
 const fieldName = (permission: string) => permission.replaceAll('.', '_')

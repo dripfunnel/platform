@@ -18,7 +18,7 @@ const filesUnder = (dir: string): string[] =>
 
 const relative = (file: string) => path.relative(srcDir, file)
 
-const tenantTables = ['partner', 'store', 'seller', 'customer']
+const tenantTables = ['partner', 'store', 'seller', 'customer', 'activity_log', 'outbox']
 
 const dataModule = /^(postgres|#db\/client|\.{1,2}\/client)$/
 

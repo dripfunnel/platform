@@ -1,4 +1,79 @@
+type ActivityAccess {
+  id: ID
+  kind: String
+}
+
+type ActivityAgent {
+  id: ID
+  kind: String
+  label: String
+}
+
+type ActivityChange {
+  after: String
+  before: String
+  field: String
+  redacted: Boolean
+}
+
+type ActivityEntry {
+  access: ActivityAccess
+  action: String
+  actorId: String
+  actorKind: String
+  actorLabel: String
+  api: String
+  category: String
+  changes: [ActivityChange!]
+  customerId: ID
+  host: String
+  id: ID
+  ip: String
+  occurredAt: String
+  onBehalfOf: ActivityAgent
+  partnerId: ID
+  reason: String
+  requestId: String
+  result: String
+  sellerId: ID
+  storeId: ID
+  target: ActivityTarget
+  userAgent: String
+  visibility: String
+}
+
+input ActivityFilter {
+  action: String
+  actorId: String
+  actorKind: String
+  from: String
+  partnerId: ID
+  storeId: ID
+  targetId: String
+  targetType: String
+  to: String
+}
+
+type ActivityPage {
+  items: [ActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type ActivityTarget {
+  id: ID
+  label: String
+  type: String
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
 type Query {
+  activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
   health: String
   me: Staff
 }

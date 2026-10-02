@@ -1,48 +1,45 @@
-import type { SignInRefusal } from '#auth/oidc'
+import type { Change } from '#core/redaction'
+import type { AccessKind, ActivityApi, ActivityCategory, ActivityResult, ActorKind, AgentKind, Visibility } from '#db/schema/activity'
 import type { ScopedSql } from '#db/scoped/index'
+import type { SignInRefusal } from '#auth/oidc'
 
 /**
- * The shape #15 will persist (LOGGING.md §4). Agreed here so sign-in and sign-out are
- * recorded from the start and #15 implements this interface rather than replacing it.
+ * One entry of LOGGING.md §4. `auth/` builds sign-in and sign-out entries; every write's
+ * entry comes from its resolver's declaration. `saas/activity` persists them.
  */
 export interface ActivityEntry {
-  category: 'auth' | 'write' | 'support' | 'system' | 'security'
+  /** Null means the database's clock. */
+  occurredAt?: Date | null
+  category: ActivityCategory
   action: string
-  result: 'success' | 'denied' | 'failed'
-  actorKind: 'staff' | 'partner_user' | 'person' | 'customer' | 'api_key' | 'app_grant' | 'support_session' | 'job' | 'provider' | 'anonymous'
+  result: ActivityResult
+  actorKind: ActorKind
   actorId: string | null
   /** Name and email at the time, so the entry still reads after a rename (LOGGING.md §4). */
   actorLabel: string | null
+  /** The real agent behind a support session or an impersonation; null otherwise. */
+  onBehalfOf?: { kind: AgentKind; id: string; label: string } | null
+  /** The session the action ran under; null for a person's own session. */
+  access?: { kind: AccessKind; id: string } | null
+  partnerId?: string | null
+  storeId?: string | null
+  sellerId?: string | null
+  customerId?: string | null
+  target?: { type: string; id: string; label: string } | null
+  /** Redacted on write (LOGGING.md §4.1); the caller passes the raw before and after. */
+  changes?: readonly Change[]
   /** Why, where the action needs one (LOGGING.md §4). Never free text from a caller. */
   reason: string | null
+  api?: ActivityApi | null
+  host?: string | null
   requestId: string | null
   ip: string | null
   userAgent: string | null
+  visibility: Visibility
 }
 
 export interface ActivityLog {
   record: (tx: ScopedSql, entry: ActivityEntry) => Promise<void>
-}
-
-/**
- * Until #15 builds the table: a structured, PII-free line so a failed staff sign-in still
- * leaves a trace (LOGGING.md §9). Nothing may depend on reading one back.
- */
-export const interimActivityLog: ActivityLog = {
-  record: async (_tx, entry) => {
-    console.log(
-      JSON.stringify({
-        log: 'activity_pending_15',
-        category: entry.category,
-        action: entry.action,
-        result: entry.result,
-        actorKind: entry.actorKind,
-        actorId: entry.actorId,
-        reason: entry.reason,
-        requestId: entry.requestId,
-      }),
-    )
-  },
 }
 
 export const signedIn = (staff: { id: string; email: string; name: string }, request: RequestFacts): ActivityEntry => ({
@@ -53,6 +50,8 @@ export const signedIn = (staff: { id: string; email: string; name: string }, req
   actorId: staff.id,
   actorLabel: `${staff.name} <${staff.email}>`,
   reason: null,
+  api: 'admin',
+  visibility: 'staff',
   ...request,
 })
 
@@ -64,6 +63,8 @@ export const signedOut = (staffId: string, request: RequestFacts): ActivityEntry
   actorId: staffId,
   actorLabel: null,
   reason: null,
+  api: 'admin',
+  visibility: 'staff',
   ...request,
 })
 
@@ -76,6 +77,8 @@ export const reauthenticated = (staff: { id: string; email: string; name: string
   actorId: staff.id,
   actorLabel: `${staff.name} <${staff.email}>`,
   reason: null,
+  api: 'admin',
+  visibility: 'staff',
   ...request,
 })
 
@@ -88,6 +91,8 @@ export const signInRefused = (request: RequestFacts, refusal: SignInRefusal): Ac
   actorId: null,
   actorLabel: null,
   reason: refusal,
+  api: 'admin',
+  visibility: 'staff',
   ...request,
 })
 

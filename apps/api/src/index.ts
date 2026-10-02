@@ -6,16 +6,18 @@ import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
-import { interimActivityLog } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
 import { parseConfig, type Config } from '#core/config'
+import { logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { entraProvider } from '#integrations/entra/provider'
-import { resolveArea } from './router'
+import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
+import { activityLog, listActivity } from '#saas/activity/index'
+import { resolveArea, type Area } from './router'
 
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
@@ -30,6 +32,14 @@ interface Env extends Record<string, unknown> {
   // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
   // typing it as present would make the check below look like dead code.
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
+}
+
+// Nothing sends an email or a webhook yet; the first deliverer arrives with the first side
+// effect (PAPI 2's lock notice). Until then a queued row waits, unclaimed (outbox-relay.ts).
+const deliverers: Deliverers = {}
+
+const notConnected = async () => {
+  throw new Error('no database for this request')
 }
 
 const notFound = () => new Response('Not found', { status: 404 })
@@ -99,7 +109,7 @@ const handleAdmin = async (
       handleAuth(request, {
         sql,
         provider: providerFor(config),
-        activity: interimActivityLog,
+        activity: activityLog,
         adminHost: config.ADMIN_HOST,
         now: () => new Date(),
         // Keyed per address, never pooled: a shared fallback key lets a few attempts 429
@@ -116,30 +126,82 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected })
   }
-  return withConnection(hyperdrive, ctx, async (sql) =>
-    servers.admin.fetch(request, {
-      staff: await resolveStaff(sql, request, new Date()),
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const staff = await resolveStaff(sql, request, new Date())
+    return servers.admin.fetch(request, {
+      staff,
       isAssigned: (staffId, target) => isAssigned(sql, staffId, target),
-    }),
-  )
+      activity: staff
+        ? (filter, page) => listActivity(sql, { caller: { kind: 'staff', staffId: staff.id } }, filter, page)
+        : notConnected,
+    })
+  })
+}
+
+const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {
+  const url = new URL(request.url)
+  let config
+  try {
+    config = parseConfig(env)
+  } catch {
+    console.error(JSON.stringify({ code: 'config_invalid' }))
+    return { response: new Response(null, { status: 500 }), area: null }
+  }
+  const area = resolveArea(url, config)
+  if (!area || area === 'hooks') return { response: notFound(), area: area ?? null }
+  if (isHealthPath(area, url.pathname)) {
+    return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
+  }
+  if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
+  return { response: await servers[area].fetch(request), area }
+}
+
+// The relay needs a database and a configuration; without either there is nothing to deliver.
+const relayWith = async (env: Env, work: (sql: postgres.Sql) => Promise<void>): Promise<void> => {
+  let config
+  try {
+    config = parseConfig(env)
+  } catch {
+    logEvent({ event: 'relay_skipped', api: 'system', code: 'config_invalid' })
+    return
+  }
+  if (!config.HYPERDRIVE) {
+    logEvent({ event: 'relay_skipped', api: 'system', code: 'db_unconfigured' })
+    return
+  }
+  const sql = getClient(config.HYPERDRIVE)
+  try {
+    await work(sql)
+  } finally {
+    await sql.end({ timeout: 5 })
+  }
 }
 
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url)
-    let config
-    try {
-      config = parseConfig(env)
-    } catch {
-      console.error(JSON.stringify({ code: 'config_invalid' }))
-      return new Response(null, { status: 500 })
-    }
-    const area = resolveArea(url, config)
-    if (!area || area === 'hooks') return notFound()
-    if (isHealthPath(area, url.pathname)) return handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id)
-    if (area === 'admin') return handleAdmin(request, url, config, env, ctx)
-    return servers[area].fetch(request)
+    const started = Date.now()
+    const { response, area } = await route(request, env, ctx)
+    // LOGGING.md §9: ids, codes and timings only; the hostname carries no personal data.
+    logEvent({
+      event: 'request',
+      requestId: request.headers.get('cf-ray'),
+      api: area,
+      host: new URL(request.url).hostname,
+      status: response.status,
+      durationMs: Date.now() - started,
+    })
+    return response
+  },
+
+  // The outbox sweep (api/README.md §5), every minute from wrangler.jsonc's cron trigger.
+  async scheduled(_controller, env) {
+    await relayWith(env, async (sql) => {
+      const counts = await relayDue(sql, deliverers)
+      for (const [outcome, count] of Object.entries(counts)) {
+        if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
+      }
+    })
   },
 } satisfies ExportedHandler<Env>
