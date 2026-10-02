@@ -129,10 +129,12 @@ export const enrolSecondFactor = async (code: string): Promise<{ ok: true } | Au
   return /^\d{6}$/.test(code) ? { ok: true } : refuse('WRONG_CODE')
 }
 
-// Skipping is refused when the partner's Owner requires 2-factor (FIRST-RELEASE §14.4).
-export const skipSecondFactor = async (required: boolean): Promise<{ ok: true } | AuthRefusal> => {
-  await settle()
-  return required ? refuse('SECOND_FACTOR_REQUIRED') : { ok: true }
+// Skipping is refused when the partner's Owner requires 2-factor (FIRST-RELEASE §14.4). The
+// requirement is the invitation's, looked up from the token, never a flag the caller supplies.
+export const skipSecondFactor = async (token: string | undefined): Promise<{ ok: true } | AuthRefusal> => {
+  const found = await invitation(token)
+  if (!found.ok) return found
+  return found.invitation.secondFactorRequired ? refuse('SECOND_FACTOR_REQUIRED') : { ok: true }
 }
 
 // The redirect after sign-in is same-origin only (ACCESS §4): a path on this host, never a

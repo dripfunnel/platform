@@ -80,7 +80,7 @@ export const AcceptInvite = ({ search, loaded }: AcceptInviteProps) => {
 
   const skip = async () => {
     setBusy(true)
-    const result = await skipSecondFactor(found?.secondFactorRequired ?? false)
+    const result = await skipSecondFactor(token)
     setBusy(false)
     if (!result.ok) return setError(words.twoFactor.required)
     finish()
