@@ -186,7 +186,7 @@ AI is included from Growth Pro upward. On lower plans the merchant brings their 
 | — | Where the designer agent runs is **open** (ARCHITECTURE §8): in GitHub Actions the key must be an org Actions secret exposed only to the designer workflow, never to store repos' own workflows; in Cloudflare Containers it stays a Worker or container secret | — | *(decide)* | 9 |
 | Cloudflare AI Gateway *(optional)* | Caching, rate limits and a cost log in front of the provider | Gateway ID; authenticated gateway token | Worker secret | 9 |
 | A second provider (e.g. OpenAI) *(optional)* | Fallback, or cheaper models for translation | API key | Worker secret | later |
-| **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, `.github/workflows/claude-review.yml`). **The check fails without it** (reversed 2026-09-30): the job stops in its first step with a message naming this secret, rather than failing obscurely inside the token exchange. Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
+| **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, `.github/workflows/claude-review.yml`). **The check fails without it** (reversed 2026-09-30): the job stops in its first step with a message naming this secret, before installing or running anything. Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
 
 ### 2.7 Stripe: DripFunnel's own account
 

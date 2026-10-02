@@ -73,6 +73,7 @@ jobs:
           #!/usr/bin/env bash
           # usage: inline-comment <path> <line> <body>
           set -euo pipefail
+          "${RUNNER_TEMP}/no-token" "$1"
           "${RUNNER_TEMP}/no-token" "$3"
           gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments" \
             -f commit_id="${HEAD_SHA}" -f side=RIGHT -f path="$1" -F line="$2" -f body="$3" >/dev/null
