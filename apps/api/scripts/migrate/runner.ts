@@ -3,6 +3,7 @@ import path from 'node:path'
 import postgres from 'postgres'
 import { assertExtensionsAvailable, requiredExtensions } from './extensions'
 import { assertLocalHost } from './host-guard'
+import { checkOwner, setRoleStatement } from './owner'
 import { pendingMigrations } from './pending'
 import { assertPostgresMajor } from './version-check'
 
@@ -36,8 +37,15 @@ export const migrate = async (connectionString: string, migrationsDir: string): 
       requiredExtensions(withContents.map((m) => m.contents)),
     )
 
+    // Checked even with nothing pending, so a wrong role is reported on every run, not only
+    // on the one that happens to carry a migration.
+    const owner = await checkOwner(sql)
+    const setRole = setRoleStatement(owner)
+    if (setRole) console.log(`Connected as ${owner.connectedAs}; applying migrations as the owner, ${owner.runAs}.`)
+
     for (const { name, contents } of withContents) {
       await sql.begin(async (tx) => {
+        if (setRole) await tx.unsafe(setRole)
         await tx.unsafe(contents)
         await tx`insert into schema_migrations (name) values (${name})`
       })
