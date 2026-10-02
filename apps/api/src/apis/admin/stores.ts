@@ -8,12 +8,11 @@ import {
   type StorePage,
   type StorePermissions,
   type StoreRowDto,
-  type StoresService,
   type StoreState,
   type StoreUserDto,
 } from '#saas/stores/index'
 import { builder } from './builder'
-import { compact, HistoryEntryType, iso, PageInfoType, PermissionType, permission, type Permission } from './types'
+import { compact, HistoryEntryType, iso, PageInfoType, permission, PermissionType, signedIn, type Permission } from './types'
 
 // Stores on the Admin API (ui/admin/FIRST-RELEASE.md §5, §12; card #34). Thin: who may do
 // what, and what the store's state means, arrives from saas/stores as data. No catalogue,
@@ -227,11 +226,6 @@ const outcome = (result: Result<Record<string, unknown>>): Outcome => ({
   noteId: result.ok && typeof result['noteId'] === 'string' ? result['noteId'] : null,
 })
 
-const storesOf = (ctx: { stores: StoresService | null }) => {
-  if (!ctx.stores) throw new GraphQLError('Not signed in.', { extensions: { code: 'UNAUTHENTICATED' } })
-  return ctx.stores
-}
-
 const byId = ({ id }: { id: string }) => ({ storeId: id })
 
 builder.queryFields((t) => ({
@@ -240,7 +234,7 @@ builder.queryFields((t) => ({
     args: { filter: t.arg({ type: Filter }), after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.read', target: 'none' } },
     resolve: async (_, args, ctx) => {
-      const result = await storesOf(ctx).list(compact(args.filter), { after: args.after, before: args.before, first: args.first })
+      const result = await signedIn(ctx.stores).list(compact(args.filter), { after: args.after, before: args.before, first: args.first })
       if (!result.ok) throw new GraphQLError('Bad request.', { extensions: { code: result.code } })
       return result.page
     },
@@ -250,7 +244,7 @@ builder.queryFields((t) => ({
     nullable: true,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.read', target: byId } },
-    resolve: (_, args, ctx) => storesOf(ctx).get(String(args.id)),
+    resolve: (_, args, ctx) => signedIn(ctx.stores).get(String(args.id)),
   }),
 }))
 
@@ -259,36 +253,36 @@ builder.mutationFields((t) => ({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.suspend', target: byId, audit: storeAudit.suspendStore } },
-    resolve: async (_, args, ctx) => outcome(await storesOf(ctx).suspendStore(String(args.id), args.reason)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).suspendStore(String(args.id), args.reason)),
   }),
   restoreStore: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.restore', target: byId, audit: storeAudit.restoreStore } },
-    resolve: async (_, args, ctx) => outcome(await storesOf(ctx).restoreStore(String(args.id), args.reason)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).restoreStore(String(args.id), args.reason)),
   }),
   extendTrial: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), trialEndsAt: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.trial.extend', target: byId, audit: storeAudit.extendTrial } },
-    resolve: async (_, args, ctx) => outcome(await storesOf(ctx).extendTrial(String(args.id), args.trialEndsAt)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).extendTrial(String(args.id), args.trialEndsAt)),
   }),
   resendStoreOwnerInvite: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.invite.resend', target: byId, audit: storeAudit.resendStoreOwnerInvite } },
-    resolve: async (_, args, ctx) => outcome(await storesOf(ctx).resendStoreOwnerInvite(String(args.id))),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).resendStoreOwnerInvite(String(args.id))),
   }),
   addStoreNote: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), text: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'stores.notes.write', target: byId, audit: storeAudit.addStoreNote } },
-    resolve: async (_, args, ctx) => outcome(await storesOf(ctx).addStoreNote(String(args.id), args.text)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).addStoreNote(String(args.id), args.text)),
   }),
   recheckStoreDomain: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'domains.recheck', target: byId, audit: storeAudit.recheckStoreDomain } },
-    resolve: async (_, args, ctx) => outcome(await storesOf(ctx).recheckStoreDomain(String(args.id))),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.stores).recheckStoreDomain(String(args.id))),
   }),
 }))

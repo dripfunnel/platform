@@ -44,8 +44,8 @@ export const storeDialog = (action: DialogAction, store: Store): StoreDialog => 
     name: store.name,
     code: store.code,
     partner: store.partner.name,
-    owner: store.owner.name,
-    email: store.owner.email,
+    owner: store.owner.name ?? '',
+    email: store.owner.email ?? '',
   }
   const base = { target: store.name, danger: false }
   switch (action) {
@@ -95,7 +95,7 @@ export const storeDialog = (action: DialogAction, store: Store): StoreDialog => 
 export const storeToast = (action: StoreAction, store: Store, value: string | null) =>
   fill(words.toasts[action], {
     name: store.name,
-    email: store.owner.email,
+    email: store.owner.email ?? '',
     status: previousStatus(store).toLowerCase(),
     date: value ? dayOf(value) : '',
   })

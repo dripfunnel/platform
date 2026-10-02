@@ -13,7 +13,30 @@ pnpm --filter ./apps/ui/admin dev   # http://localhost:5175, /api proxied to the
 `src/routes/_app.tsx` is the shell every signed-in screen sits in (`src/features/shell/`):
 the header, the side bar, the banners under the header, and the phone drawer. Its loader
 reads the signed-in staff member and the nav badge counts from `src/api/me.ts` and
-`src/api/navBadges.ts`, which are fixtures for now.
+`src/api/navBadges.ts` (the Admin API's `me` and `navBadges`); a visitor with no session is
+sent to `/sign-in`. The header's search dialog asks `search(query)` once two characters are
+typed, debounced, and lists the partners and stores the API returns.
+
+## Talking to the API
+
+Every module in `src/api/` sends its GraphQL operation through the app's one client
+(`src/api/client.ts`, `createApiClient` from `@dripfunnel/shared/graphql`) and decodes the
+answer with a zod schema written from `apps/api/schema/admin.graphql`; an answer in another
+shape fails with the code `BAD_RESPONSE`. Errors are handled by their stable code
+(docs/ui/README.md §3): `features/common/RouteError.tsx` maps a loader failure
+(`UNAUTHENTICATED` → sign-in, `FORBIDDEN` → the screen's denied view, else its error state with
+the code behind "Technical details") and `features/common/failure.ts` words a refused write
+from `messages.common.failures`. Dashboard, Partners, Stores and the header read the real API
+since #41; Provisioning, Customers, Impersonate, Activity and Staff still read their samples
+until their own cards land (#36–#40).
+
+**A local session.** Sign-in needs the Entra registration, so against the local database
+create a session for a seeded staff member and set the cookie it prints on
+`http://localhost:5175` (Chrome accepts a `Secure` cookie on localhost):
+
+```bash
+pnpm --filter ./apps/api session arjun@softobotics.example   # prints __Host-df_admin_session=…
+```
 
 - **Navigation is data** in `src/nav.ts`: one row per screen, with the roles that may use it.
   A row a role can't use is absent, not disabled. Adding a screen means one route file under
@@ -32,9 +55,11 @@ reads the signed-in staff member and the nav badge counts from `src/api/me.ts` a
 ## Dashboard
 
 `/dashboard` (`src/features/dashboard/`) shows the five cards of FIRST-RELEASE.md §3, from
-`src/api/dashboard.ts` on fixtures until the Admin API's `dashboard(partnerId)` exists. Every
-number links to the list it counts with the filter in the URL; the partner filter is
-`?partner=`. Its states: `?state=loading`, `empty`, `error`, `stale` and `offline`.
+`src/api/dashboard.ts` and the Admin API's `dashboard(partnerId)`. Every number links to the
+list it counts with the filter in the URL; the partner filter is `?partner=`, and a partner
+the API doesn't know or the caller can't see means all partners. Its states: `?state=loading`,
+`empty`, `error`, `stale` and `offline` (the API marks nothing stale yet; the notice is the
+harness's).
 
 ## Partners
 
@@ -48,10 +73,15 @@ the detail-page pieces (`DetailTabs`, `MoreActions`, `ActionControl`, `Tile`, `I
 `Toast` and `detail.css`) followed on #116 for the partner console's Store detail.
 `/partners/<id>` is the detail page with the seven tabs of §4.2 (`?tab=`) and the §4.3 actions
 through `ConfirmDialog`. Both read `src/api/partners.ts`, the only place the app talks to the
-API about partners, on fixtures until #33. Whether each action is allowed, and why not, comes
-from `partner(id)`; no component works it out. States: the list takes `?state=loading`,
-`empty`, `error`, `readonly` and `denied`; the detail takes `loading`, `error`, `readonly`,
-`denied` and `confirm`. `readonly` and `denied` ask the fixture for a Read-only or Support caller.
+API about partners (`partners`, `partner` and the §12 mutations). Whether each action is
+allowed, and why not, comes from `partner(id)`; no component works it out. The list has no
+total: the API pages by cursor (§12). States: the list takes `?state=loading`, `empty`,
+`error`, `readonly` and `denied`; the detail takes `loading`, `error`, `readonly`, `denied` and
+`confirm`. `denied` shows the API's record with every action refused by the role code the API
+gives that action (`partnerHarness.ts`). `/stores` and `/stores/<id>` work the same way through
+`src/api/stores.ts` (`storeHarness.ts`); `src/api/partnersSample.ts` and `storesSample.ts`
+remain only as the screen tests' fixtures and as seeds for the samples of the areas still
+waiting for their API.
 
 ## Impersonate
 

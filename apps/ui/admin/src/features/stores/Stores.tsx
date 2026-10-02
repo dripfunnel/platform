@@ -3,7 +3,7 @@
 import { Link } from '@tanstack/react-router'
 import type { StoreFilter, StorePage } from '../../api/stores'
 import { messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, ListHeader } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, ListHeader, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { Pager } from '../common/Pager'
 import { isFiltered } from './isFiltered'
 import type { StoresState } from './storeHarness'
@@ -31,10 +31,10 @@ export const StoresLoading = () => (
   </div>
 )
 
-export const StoresError = ({ onRetry }: { onRetry: () => void }) => (
+export const StoresError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
     <StoresHeader />
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 

@@ -310,6 +310,17 @@ sources `.dev.vars` into the shell before starting wrangler; if you run `wrangle
 instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
 variable.
 
+Wrangler refuses that connection string without a password, so give the local role one even
+where Postgres trusts loopback connections. The Worker's client runs with `fetch_types: false`
+(`src/db/client.ts`), under which postgres.js neither sends a JavaScript array as a parameter
+nor parses an array column: pass lists through `pgArray` with an explicit cast
+(`src/db/scoped/index.ts`) and read `text[]` columns through `to_jsonb`. The test client runs
+with the same option, so a query the Worker cannot run fails the integration tests too.
+
+Sign-in needs the Entra registration (THIRD-PARTY-ACCESS.md §2.5). Against the local database,
+`pnpm --filter ./apps/api session <staff email>` creates a staff session for a seeded member
+and prints the cookie to set in the console; it refuses any host but loopback.
+
 There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-level
 `hyperdrive` binding yet. To provision one, run
 `wrangler hyperdrive create <name> --connection-string="postgres://..."` and add the returned

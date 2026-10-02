@@ -3,6 +3,7 @@ import { partnerScopedRoles, roleHas } from '#auth/permissions'
 import type { StaffMember } from '#auth/staff'
 import type { ActivityPageRequest, ActivityResult } from '#saas/activity/index'
 import type { PartnersService } from '#saas/partners/index'
+import type { DashboardService } from '#saas/dashboard/index'
 import type { StoresService } from '#saas/stores/index'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
@@ -13,6 +14,7 @@ export interface AdminContext extends Record<string, unknown> {
   activity: (filter: unknown, page: ActivityPageRequest) => Promise<ActivityResult>
   partners: PartnersService | null
   stores: StoresService | null
+  dashboard: DashboardService | null
 }
 
 /** ACCESS.md §5.4: the role's permission, then a Partner manager's assignment to the target. */

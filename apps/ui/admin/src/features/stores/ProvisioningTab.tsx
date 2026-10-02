@@ -13,7 +13,7 @@ const steps = messages.provisioning.steps
 type StepStatus = keyof typeof words.stepStatus
 
 const statusOf = (step: ProvisioningStep, setup: Store['setup']): StepStatus => {
-  if (setup.state === 'done') return 'done'
+  if (setup.state === 'done' || setup.step === null) return 'done'
   const at = setup.steps.indexOf(setup.step)
   const index = setup.steps.indexOf(step)
   if (index < at) return 'done'
@@ -22,7 +22,7 @@ const statusOf = (step: ProvisioningStep, setup: Store['setup']): StepStatus => 
 
 // The total is this store's own run, never a fixed number (decided on #43).
 const summary = ({ setup }: Store) => {
-  if (setup.state === 'done') return words.summaryDone
+  if (setup.state === 'done' || setup.step === null) return words.summaryDone
   const values = {
     at: formatCount(setup.steps.indexOf(setup.step) + 1),
     total: formatCount(setup.steps.length),
@@ -54,6 +54,7 @@ export const ProvisioningTab = ({ store, onJob }: ProvisioningTabProps) => (
         <h2 id="store-steps">{words.title}</h2>
         <span className="df-muted">{summary(store)}</span>
       </div>
+      {store.setup.steps.length === 0 && <p className="df-muted">{words.noSteps}</p>}
       <ol className="df-steps">
         {store.setup.steps.map((step, index) => {
           const status = statusOf(step, store.setup)

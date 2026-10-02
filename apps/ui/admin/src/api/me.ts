@@ -1,4 +1,6 @@
-import type { StaffRole } from '../features/shell/staffRoles'
+import { z } from 'zod'
+import { staffRoles, type StaffRole } from '../features/shell/staffRoles'
+import { query } from './client'
 
 export interface Me {
   id: string
@@ -7,10 +9,8 @@ export interface Me {
   role: StaffRole
 }
 
-const fixture: Me = { id: 'st-arjun', name: 'Arjun Menon', email: 'arjun@dripfunnel.com', role: 'staff-super-admin' }
+const meSchema = z.object({ me: z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.enum(staffRoles) }).nullable() })
 
-// Seam: replace the fixture with the Admin API's `me` query (FIRST-RELEASE.md §12, Header)
-// through createApiClient from @dripfunnel/shared/graphql once the staff sign-in lands
-// (https://github.com/dripfunnel/platform/issues/13). The fixture is a Super admin and nothing
-// guards /_app yet, so it must be gone before the console holds real data.
-export const loadMe = (): Promise<Me> => Promise.resolve(fixture)
+// `me` is null when nobody is signed in (apps/api/src/apis/admin/schema.ts); the shell then
+// sends the visitor to /sign-in.
+export const loadMe = async (): Promise<Me | null> => (await query(`{ me { id name email role } }`, meSchema)).me

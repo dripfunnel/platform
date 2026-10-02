@@ -14,7 +14,7 @@ import type {
   StoreStatus,
   UserRow,
 } from '../schema/saas'
-import { maxPageSize, pageLimit, type ScopedSql } from './index'
+import { maxPageSize, pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -180,7 +180,7 @@ export const insertJob = async (tx: ScopedSql, j: NewJob): Promise<string> => {
   const id = one(
     await tx<{ id: string }[]>`
       insert into job (store_id, kind, state, steps, step, step_started_at, attempts, started_at, finished_at, last_error)
-      values (${j.storeId}, 'provision-store', ${j.state}, ${[...j.steps]}, ${j.step}, ${j.stepStartedAt ?? j.startedAt ?? new Date()},
+      values (${j.storeId}, 'provision-store', ${j.state}, ${pgArray(j.steps)}::text[], ${j.step}, ${j.stepStartedAt ?? j.startedAt ?? new Date()},
               ${j.attempts ?? 1}, ${j.startedAt ?? new Date()}, ${j.finishedAt ?? null}, ${j.lastError ?? null})
       returning id
     `,
@@ -250,7 +250,7 @@ const storeProjection = (tx: ScopedSql) => tx`
       select 1 from invitation i where i.store_id = s.id and i.seller_id is null and i.role_key = 'owner' and i.accepted_at is null and i.revoked_at is null
     ) as owner_invitation_open,
     cd.host as domain_host, cd.status as domain_status,
-    j.id as job_id, j.state as job_state, j.step as job_step, j.steps as job_steps, j.attempts as job_attempts,
+    j.id as job_id, j.state as job_state, j.step as job_step, to_jsonb(j.steps) as job_steps, j.attempts as job_attempts,
     j.step_started_at as job_step_started_at, j.started_at as job_started_at, j.last_error as job_last_error
   from store s
   join partner p on p.id = s.partner_id
@@ -266,6 +266,10 @@ const storeProjection = (tx: ScopedSql) => tx`
 export const selectStoreListRow = async (tx: ScopedSql, id: string): Promise<StoreListRow | null> =>
   (await tx<StoreListRow[]>`${storeProjection(tx)} where s.id = ${id}`)[0] ?? null
 
+/** The latest job `j` is running and its step has outlasted its allowance (SAAS.md §5). */
+export const stuckJobPredicate = (tx: ScopedSql, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date) =>
+  tx`(j.state = 'running' and j.step_started_at < ${now}::timestamptz - ((${JSON.stringify(stuckAfterMinutes)}::text::jsonb ->> j.step) || ' minutes')::interval)`
+
 export const selectStores = async (
   tx: ScopedSql,
   filter: StoreFilter,
@@ -276,7 +280,7 @@ export const selectStores = async (
 ): Promise<StoreListRow[]> => {
   const backwards = page.before !== undefined
   const q = filter.q ? likePattern(filter.q) : null
-  const stuck = tx`(j.state = 'running' and j.step_started_at < ${now}::timestamptz - ((${JSON.stringify(stuckAfterMinutes)}::text::jsonb ->> j.step) || ' minutes')::interval)`
+  const stuck = stuckJobPredicate(tx, stuckAfterMinutes, now)
   const rows = await tx<StoreListRow[]>`
     ${storeProjection(tx)}
     where true

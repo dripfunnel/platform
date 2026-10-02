@@ -4,11 +4,13 @@ import { partnerActions, recheckDomain, runPartnerAction, type Partner, type Par
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
+import { EmptyState, ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
+import { failureText } from '../common/failure'
 import { callerFor } from '../common/harnessCaller'
+import { RouteError } from '../common/RouteError'
 import { actionDialog, actionToast, type ConfirmedAction } from './actionDialog'
-import { partnerStates } from './partnerHarness'
+import { deniedPartner, partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 
@@ -20,17 +22,19 @@ const firstAllowed = (partner: Partner | null): ConfirmedAction | null =>
   partnerActions.filter((action): action is ConfirmedAction => action !== 'setupSession').find((action) => partner?.actions[action]?.allowed) ?? null
 
 export const PartnerDetailScreen = () => {
-  const partner = partnerRoute.useLoaderData()
+  const loaded = partnerRoute.useLoaderData()
   const { tab = 'overview', after, before, ...activityFilter } = partnerRoute.useSearch()
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const navigate = partnerRoute.useNavigate()
   const forced = useScreenState(partnerStates, harnessEnabled)
+  const partner = loaded && forced === 'denied' ? deniedPartner(loaded) : loaded
   const router = useRouter()
   const [pending, setPending] = useState<ConfirmedAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
 
+  // The activity tab and the session flows still read the sample as this caller (#39, #40).
   const caller = callerFor(me.role, searchStr)
   const sessions = useImpersonateFrom(caller, me.name)
   // A setup session asks its own questions and signs in again (ACCESS.md §8.2), so it has its own flow.
@@ -44,14 +48,14 @@ export const PartnerDetailScreen = () => {
         setToast(actionToast(action, target))
         return router.invalidate()
       })
-      .catch(() => setToast(messages.partner.toasts.failed))
+      .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
   }
 
   const onRecheck = (domain: PartnerDomain) =>
     partner
       ? recheckDomain(partner.id, domain.kind)
-          .then((status) => setToast(fill(messages.partner.domains.rechecked[status], { host: domain.host })))
-          .catch(() => setToast(messages.partner.toasts.failed))
+          .then(() => setToast(fill(messages.partner.domains.recheckQueued, { host: domain.host })))
+          .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
       : Promise.resolve()
 
   const dialog = partner && pending ? actionDialog(pending, partner) : null
@@ -106,7 +110,25 @@ export const PartnerDetailScreen = () => {
   )
 }
 
-export const PartnerRouteError = () => {
+// A partner outside a Partner manager's assignment is refused by the API (ACCESS.md §5.4).
+const PartnerDenied = () => {
+  const words = messages.partners.denied
+  return (
+    <div className="df-page df-list">
+      <EmptyState
+        title={words.title}
+        body={words.body}
+        action={
+          <Link to="/partners" className="df-button">
+            {words.back}
+          </Link>
+        }
+      />
+    </div>
+  )
+}
+
+export const PartnerRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <PartnerError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <PartnerError onRetry={() => void router.invalidate()} details={details} />} denied={<PartnerDenied />} />
 }

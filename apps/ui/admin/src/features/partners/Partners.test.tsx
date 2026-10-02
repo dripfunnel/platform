@@ -49,10 +49,11 @@ describe('Partners list', () => {
     expect(links).toContain('/stores?partner=bz')
   })
 
-  it('says how many there are, newest first, and shows each setup and host status', async () => {
+  it('says newest first with no total, and shows each setup and host status', async () => {
     const text = textOf(await render())
-    expect(text).toContain('7 partners · newest first')
-    expect(text).toContain('6 of 8')
+    expect(text).toContain(words.newestFirst)
+    expect(text).not.toMatch(/\d+ partners/)
+    expect(text).toContain('8 of 10')
     expect(text).toContain(words.setupComplete)
     expect(text).toContain(words.hostStatus.waiting)
     expect(text).toContain(words.invitation.held)
