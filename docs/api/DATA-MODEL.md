@@ -709,9 +709,10 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                     -- deleted from R2, the rows keeping kind, number and date; any export_job or customer_data_request file not yet expired
                     -- that contains the person, deleted from R2, and the export_job.filter
                     -- that named them blanked; the shopper's activity entries' personal
-                    -- fields (LOGGING §8). The request row itself keeps only kind, dates and
-                    -- state (requested_by is a kind, 'customer' or 'store', never an
-                    -- identity). Every other free-text column on these tables is checked
+                    -- fields (LOGGING §8). The request row itself is blanked too once done:
+                    -- subject_email, subject_phone and subject_verified_at go, and customer_id
+                    -- with them, so it keeps only kind, dates and state (requested_by is a
+                    -- kind, 'customer' or 'store', never an identity). Every other free-text column on these tables is checked
                     -- against this rule when its migration is written. A supplier never saw
                     -- any of it.
 ```
@@ -783,7 +784,7 @@ payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state, a
                      received_at, cancelled_at, created_by, created_at)
                     -- the return label is an order_document row (kind 'return_label', return_id)
                     -- store-scoped; a supplier reaches a return only through its return_line
-                    -- rows (ACCESS §3.3) and its serializer omits note, the store's free text;
+                    -- rows (ACCESS §7.3) and its serializer omits note, the store's free text;
                     -- number = 'R' + order number + '-' + n
 return_line         (return_id, order_line_id, store_id, seller_id NULL, quantity,
                      destination_warehouse_id)
@@ -993,8 +994,13 @@ against this list and nothing else:
   (it assigns values to its own products) and writes none (CATALOG L9 keeps whether it may
   see collections *(ask)*).
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
-  state only, never content): `storefront`, `publish_run`, `design_version` (state and
-  summary; the prompt is the merchant's), `ai_run` (metering), `store_usage`,
+  state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
+  **with a column rule, as §5.3 has for credentials**: the partner and platform branches
+  read state, dates, numbers, cost, tokens, build minutes and outcome through a metering
+  view, and never `design_version.prompt`, `design_version.summary`,
+  `design_version.preview_asset_ids`, `ai_run.prompt` or `ai_run.gate_results`, which only
+  the store scope selects (a merchant's design prompts are store content, USERS-AND-DOMAINS
+  §4); `store_usage`,
   `store_entitlement_override`, `store_subscription`, `invoice` and `invoice_line` (status
   and amounts for the partner that bills; `store_billing_details` stays store-only),
   `custom_domain`, and `billing_event`, which is cross-scope and
