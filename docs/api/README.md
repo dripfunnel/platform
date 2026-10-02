@@ -310,6 +310,12 @@ sources `.dev.vars` into the shell before starting wrangler; if you run `wrangle
 instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
 variable.
 
+The runner applies migrations as the owner of the schema's tables (DATA-MODEL.md §5.3): when
+the connecting role is another member of that owner it runs each migration under
+`set local role <owner>`, so what the migration creates stays the owner's; when it is neither
+the owner nor a member it stops before the first statement and names both roles and the grant
+that fixes it, rather than failing on Postgres's bare "must be owner".
+
 Wrangler refuses that connection string without a password, so give the local role one even
 where Postgres trusts loopback connections. The Worker's client runs with `fetch_types: false`
 (`src/db/client.ts`), under which postgres.js neither sends a JavaScript array as a parameter
