@@ -206,8 +206,9 @@ The same log screen in all three portals, fed by each app's API. The component l
 `(occurred_at, id)`, opaque to the client, and every page also bounds `occurred_at` so the
 planner prunes partitions. Trigram indexes on `actor_label` and `target_label` for the search
 box *(decide)*. Row-level security per §6, not only on `store_id`: a partner reads entries with
-`visibility = partner` in its partner, a store reads `store` and `self` entries in its store, a
-supplier only those under its `seller_id`, a shopper only their own `customer_id`.
+`visibility = partner` in its partner; a store reads `store` and `self` entries in its store and
+the `partner` ones that name it (account-level events: plan, trial, suspension, provisioning);
+a supplier only those under its `seller_id`; a shopper only their own `customer_id`.
 
 ---
 
