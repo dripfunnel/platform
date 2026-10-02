@@ -1006,5 +1006,173 @@
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
       "refused": "The partner service refused it: {reason}"
     }
+  },
+  "plans": {
+    "note": "Prices are what merchants pay, charged by {who}. DripFunnel keeps its wholesale fee and pays you the rest monthly.",
+    "loading": "Loading plans",
+    "tableLabel": "Plans",
+    "columns": {
+      "plan": "Plan",
+      "prices": "Prices",
+      "trial": "Trial",
+      "stores": "Stores",
+      "status": "Status"
+    },
+    "priceLine": "{monthly} / month · {yearly} / year",
+    "monthlyOnly": "{monthly} / month",
+    "unpriced": "Not priced",
+    "feeLine": "DripFunnel’s fee {fee} / store / month",
+    "trialDays": "{count} days",
+    "noTrial": "No trial",
+    "storesLabel": "{count} stores on {plan}",
+    "statuses": {
+      "draft": "Draft",
+      "live": "Live",
+      "retired": "Retired"
+    },
+    "newPlan": "New plan",
+    "refused": {
+      "OWNERS_AND_ADMINS_ONLY": "Your role can’t edit plans. Owners and Admins can.",
+      "PRICES_ONLY": "Your role can change prices only.",
+      "ABOVE_CEILING": "{row} is above DripFunnel’s maximum.",
+      "LAST_LIVE_PLAN": "This is your last Live plan. Make another plan Live first.",
+      "UNPRICED_CURRENCY": "Price {currency} before making this plan live.",
+      "NEEDS_APPLY_TO": "Say who gets the change first."
+    },
+    "empty": {
+      "title": "No plans yet",
+      "body": "Create the plans your merchants can choose from. They show at signup once they’re Live.",
+      "action": "New plan"
+    },
+    "error": {
+      "title": "We couldn’t load your plans",
+      "body": "The partner service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "editor": {
+      "newTitle": "New plan",
+      "untitled": "Untitled plan",
+      "storesOn": {
+        "one": "{count} store is on this plan.",
+        "other": "{count} stores are on this plan."
+      },
+      "noStores": "No stores on this plan yet.",
+      "draftNote": "Draft until you make it Live.",
+      "loading": "Loading the plan",
+      "notFound": {
+        "title": "Plan not found",
+        "body": "It may have been removed, or the link is wrong.",
+        "back": "Back to Plans"
+      },
+      "error": {
+        "title": "This plan didn’t load",
+        "body": "The partner service didn’t answer in time. Nothing was changed.",
+        "retry": "Try again"
+      },
+      "financeNote": "Your role (Finance) can’t edit plans. Owners and Admins can. You can change prices.",
+      "viewNote": "Your role can’t edit plans. Owners and Admins can.",
+      "name": "Name merchants see",
+      "description": "Description merchants see",
+      "trial": "Trial",
+      "trials": {
+        "none": "No trial",
+        "days": "{count} days"
+      },
+      "prices": "Prices",
+      "pricesSub": "What merchants pay. DripFunnel keeps its wholesale fee and pays you the rest.",
+      "monthly": "Monthly ({currency})",
+      "yearly": "Yearly ({currency})",
+      "fee": "DripFunnel’s fee {fee} / month",
+      "feeConverted": "DripFunnel’s fee {fee} / month (converted at the contract rate)",
+      "keep": "You keep {amount} of {of}",
+      "loss": "Below DripFunnel’s fee: you’d lose {amount} per store",
+      "addPrice": "Add a price to see your margin",
+      "priceInvalid": "Enter an amount like 49 or 49.00.",
+      "included": "What’s included",
+      "kinds": {
+        "toggle": "On/off",
+        "limit": "Limit",
+        "allowance": "Monthly allowance"
+      },
+      "rows": {
+        "domain": "Custom domain",
+        "offers": "Offers",
+        "suppliersOn": "Suppliers",
+        "powered": "Remove “Powered by”",
+        "aplus": "A+ content",
+        "size": "Size charts",
+        "products": "Products",
+        "staff": "Staff seats",
+        "suppliers": "Suppliers",
+        "languages": "Languages",
+        "currencies": "Currencies",
+        "publish": "“Publish now” presses",
+        "ai": "AI design prompts"
+      },
+      "includedLabel": "Included",
+      "ceiling": "DripFunnel max {max}",
+      "ceilingMonthly": "DripFunnel max {max} / month",
+      "poweredAllowed": "Allowed by your contract",
+      "poweredFirstYear": "Not allowed in your first contract year",
+      "available": "Available",
+      "overCeiling": "Can’t be more than {max}.",
+      "missing": "Enter a value.",
+      "poweredRefused": "Your contract doesn’t allow removing “Powered by”.",
+      "fixRows": "Fix the highlighted rows first.",
+      "nameRequired": "Give the plan a name.",
+      "unsaved": "Unsaved changes.",
+      "discard": "Discard",
+      "save": "Save changes",
+      "makeLive": "Make live",
+      "retire": "Retire plan",
+      "errors": {
+        "above": {
+          "one": "{rows} is above DripFunnel’s maximum.",
+          "other": "{rows} are above DripFunnel’s maximum."
+        },
+        "missing": "Enter a value for {rows}.",
+        "loss": "A price is below DripFunnel’s fee.",
+        "invalid": "A price isn’t a number."
+      }
+    },
+    "dialogs": {
+      "save": {
+        "titleStores": {
+          "one": "{count} store is on {plan}. Who gets the change?",
+          "other": "{count} stores are on {plan}. Who gets the change?"
+        },
+        "consequenceStores": "Existing stores keep their current price and limits unless you choose otherwise. Check the plan picker preview before you apply.",
+        "who": "Apply to",
+        "new": "New signups only (the current stores keep what they have)",
+        "renewal": "Everyone, at their next renewal (they get an email 30 days ahead)",
+        "title": "Save {plan}?",
+        "consequence": "Nobody is on this plan yet. It shows at signup once it’s Live.",
+        "confirm": "Save plan"
+      },
+      "retire": {
+        "title": "Retire {plan}?",
+        "consequenceStores": {
+          "one": "{plan} disappears from signup now. {count} store is on it.",
+          "other": "{plan} disappears from signup now. {count} stores are on it."
+        },
+        "consequence": "{plan} disappears from signup now. No stores are on it.",
+        "storesOn": "Stores on it",
+        "keep": "Keep {plan} as it is",
+        "move": "Move them to another plan on a date",
+        "moveTo": "Move to",
+        "on": "On",
+        "choose": "Choose",
+        "confirm": "Retire plan"
+      }
+    },
+    "toasts": {
+      "saved": "{plan} saved.",
+      "savedNew": "{plan} saved for new signups only.",
+      "savedRenewal": "{plan} saved for everyone at their next renewal.",
+      "live": "Marked Live. Merchants see {plan} at signup.",
+      "retired": "{plan} is retired.",
+      "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
+      "refused": "The partner service refused it: {reason}"
+    }
   }
 }

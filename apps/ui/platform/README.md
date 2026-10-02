@@ -114,6 +114,30 @@ Admin take them all, Finance only Extend trial, Support and Read-only none; a re
 stays in place, disabled with the reason and who can. States: `?state=loading`, `error`,
 `readonly`, `denied`, `confirm` (opens the first dialog the caller may use).
 
+## Plans
+
+`/plans` (`src/features/plans/`, #117; FIRST-RELEASE.md §7) is the partner's catalogue: name and
+description, monthly and yearly price per currency with "DripFunnel's fee … / store / month"
+under them, trial, stores (a link to the filtered list), status (Draft · Live · Retired), and
+**New plan** for Owners and Admins. `/plans/<id>` (`new` for an empty one) is the editor, laid
+out as design.md §7 says: cards on the left (name, description and trial; prices; what's
+included), a sticky summary on the right (status, stores on it, Make live, Retire plan), and a
+save bar that appears only when the draft differs from the saved plan. Beside each price the
+fee and margin arrive from the fixture as `Money` ("You keep $31.00 of $49.00", or in red
+"Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. The
+entitlement matrix has the three kinds of SAAS.md §6.1 and shows DripFunnel's ceiling on every
+row; a value above it is marked "Can't be more than 20,000." and Save is disabled with "Fix the
+highlighted rows first." The fixture refuses it too (`ABOVE_CEILING`, naming the row); nothing
+is clamped. Saving a plan stores are on asks who gets the change (new signups only, or everyone
+at renewal); retiring hides the plan from signup and asks whether its stores keep it or move to
+another plan on a date; retiring the last Live plan is refused (`LAST_LIVE_PLAN`). Owner and
+Admin edit everything, Finance prices only (the other fields are disabled with the reason),
+Support and Read-only view. States: `?state=loading`, `empty`, `error`, `readonly`, `denied` on
+the list; `loading`, `error`, `readonly`, `denied`, `confirm` on the editor.
+
+Not here: **Compare plans** and **Defaults for new stores** (§7.4, §7.5, the next batch) and
+promotions (SAAS §14). The Create store form's plan picker reads this fixture's Live plans.
+
 ## Onboarding
 
 `/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;

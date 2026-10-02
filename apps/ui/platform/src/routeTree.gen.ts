@@ -26,6 +26,7 @@ import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppPlansPlanIdRouteImport } from './routes/_app/plans_.$planId'
 import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
 import { Route as AppStoresNewRouteImport } from './routes/_app/stores_.new'
 
@@ -112,6 +113,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppPlansPlanIdRoute = AppPlansPlanIdRouteImport.update({
+  id: '/plans_/$planId',
+  path: '/plans/$planId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStoresStoreIdRoute = AppStoresStoreIdRouteImport.update({
   id: '/stores_/$storeId',
   path: '/stores/$storeId',
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/plans/$planId': typeof AppPlansPlanIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
   '/stores/new': typeof AppStoresNewRoute
 }
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/plans/$planId': typeof AppPlansPlanIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
   '/stores/new': typeof AppStoresNewRoute
 }
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/plans_/$planId': typeof AppPlansPlanIdRoute
   '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
   '/_app/stores_/new': typeof AppStoresNewRoute
 }
@@ -201,6 +210,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
+    | '/plans/$planId'
     | '/stores/$storeId'
     | '/stores/new'
   fileRoutesByTo: FileRoutesByTo
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
+    | '/plans/$planId'
     | '/stores/$storeId'
     | '/stores/new'
   id:
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/plans_/$planId'
     | '/_app/stores_/$storeId'
     | '/_app/stores_/new'
   fileRoutesById: FileRoutesById
@@ -372,6 +384,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/plans_/$planId': {
+      id: '/_app/plans_/$planId'
+      path: '/plans/$planId'
+      fullPath: '/plans/$planId'
+      preLoaderRoute: typeof AppPlansPlanIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/stores_/$storeId': {
       id: '/_app/stores_/$storeId'
       path: '/stores/$storeId'
@@ -402,6 +421,7 @@ interface AppRouteChildren {
   AppStoresRoute: typeof AppStoresRoute
   AppSupportRoute: typeof AppSupportRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppPlansPlanIdRoute: typeof AppPlansPlanIdRoute
   AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
   AppStoresNewRoute: typeof AppStoresNewRoute
 }
@@ -419,6 +439,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStoresRoute: AppStoresRoute,
   AppSupportRoute: AppSupportRoute,
   AppIndexRoute: AppIndexRoute,
+  AppPlansPlanIdRoute: AppPlansPlanIdRoute,
   AppStoresStoreIdRoute: AppStoresStoreIdRoute,
   AppStoresNewRoute: AppStoresNewRoute,
 }

@@ -2,6 +2,7 @@ import type { Money } from '@dripfunnel/shared/format'
 import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import type { PartnerRole } from '../features/shell/partnerRoles'
 import type { PartnerState } from './me'
+import { plansServer } from './plansSample'
 import {
   createStoreInput,
   provisioningSteps,
@@ -35,18 +36,22 @@ const today = Date.parse('2026-09-29T17:42:00Z')
 const dayMs = 86_400_000
 
 type Country = 'United States' | 'Canada'
-type PlanId = 'starter' | 'growth' | 'pro'
 
 const countries: readonly { name: Country; currency: string }[] = [
   { name: 'United States', currency: 'USD' },
   { name: 'Canada', currency: 'CAD' },
 ]
 
-const plans: readonly { id: PlanId; name: string; price: Record<string, number>; limits: Record<LimitKey, number> }[] = [
-  { id: 'starter', name: 'Starter', price: { USD: 2900, CAD: 3900 }, limits: { products: 500, staff: 2, suppliers: 0, ai: 50, publish: 20 } },
-  { id: 'growth', name: 'Growth', price: { USD: 4900, CAD: 6500 }, limits: { products: 5000, staff: 5, suppliers: 5, ai: 200, publish: 60 } },
-  { id: 'pro', name: 'Pro', price: { USD: 9900, CAD: 12900 }, limits: { products: 10000, staff: 15, suppliers: 20, ai: 500, publish: 150 } },
-]
+// The catalogue is the plans fixture's (#117), read on every call so a retired or new plan shows here too.
+const catalogue = () =>
+  plansServer.catalogue().map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    status: plan.status,
+    price: Object.fromEntries(Object.entries(plan.prices).map(([currency, [monthly]]) => [currency, monthly ?? 0])),
+    limits: { products: plan.limits.products, staff: plan.limits.staff, suppliers: plan.limits.suppliers, ai: plan.limits.ai, publish: plan.limits.publish } satisfies Record<LimitKey, number>,
+  }))
+const livePlans = () => catalogue().filter((plan) => plan.status === 'live')
 
 type Usage = [products: number, staff: number, suppliers: number, ai: number, publish: number]
 
@@ -56,7 +61,7 @@ interface Seed {
   code: string
   owner: [name: string, email: string]
   country: Country
-  plan: PlanId
+  plan: string
   status: StoreStatus
   trialEnd?: string
   pastDueSince?: string
@@ -113,7 +118,7 @@ const pad = (n: number) => String(n).padStart(2, '0')
 
 const generated = (): Seed[] => {
   const next = random(20260929)
-  const planPool: PlanId[] = [...Array<PlanId>(27).fill('starter'), ...Array<PlanId>(37).fill('growth'), ...Array<PlanId>(8).fill('pro')]
+  const planPool: string[] = [...Array<string>(27).fill('starter'), ...Array<string>(37).fill('growth'), ...Array<string>(8).fill('pro')]
   const statusPool: StoreStatus[] = [...Array<StoreStatus>(5).fill('trial'), 'pastdue', 'cancelled', ...Array<StoreStatus>(65).fill('active')]
   for (const pool of [planPool, statusPool]) {
     for (let i = pool.length - 1; i > 0; i--) {
@@ -135,7 +140,7 @@ const generated = (): Seed[] => {
     const created = status === 'trial' ? `2026-09-${16 + Math.floor(next() * 10)}` : `${month > 9 ? '2025' : '2026'}-${pad(month)}-${pad(1 + Math.floor(next() * 27))}`
     const base = plan === 'pro' ? 6000 : plan === 'growth' ? 2600 : 900
     const sales = status === 'cancelled' ? 0 : Math.round(base * (0.3 + next() * 1.2))
-    const limits = plans.find((candidate) => candidate.id === plan)?.limits ?? { products: 500, staff: 2, suppliers: 0, ai: 50, publish: 20 }
+    const limits = catalogue().find((candidate) => candidate.id === plan)?.limits ?? { products: 500, staff: 2, suppliers: 0, ai: 50, publish: 20 }
     const custom = plan !== 'starter' && next() < 0.5
     const tld = canada ? '.ca' : '.com'
     return {
@@ -180,7 +185,7 @@ const stateOf = (seed: Seed): StoreState => {
 const limitOrder: readonly LimitKey[] = ['products', 'staff', 'suppliers', 'ai', 'publish']
 
 const nearOf = (seed: Seed): StoreRow['near'] => {
-  const limits = plans.find((plan) => plan.id === seed.plan)?.limits
+  const limits = catalogue().find((plan) => plan.id === seed.plan)?.limits
   if (!limits) return null
   const ratios = limitOrder.map((limit, index) => ({ limit, ratio: limits[limit] === 0 ? 0 : (seed.usage[index] ?? 0) / limits[limit] }))
   const best = ratios.reduce((top, candidate) => (candidate.ratio > top.ratio ? candidate : top))
@@ -194,7 +199,7 @@ const rowOf = (seed: Seed): StoreRow => ({
   name: seed.name,
   code: seed.code,
   owner: { name: seed.owner[0], email: seed.owner[1] },
-  plan: { id: seed.plan, name: plans.find((plan) => plan.id === seed.plan)?.name ?? seed.plan },
+  plan: { id: seed.plan, name: catalogue().find((plan) => plan.id === seed.plan)?.name ?? seed.plan },
   near: nearOf(seed),
   state: stateOf(seed),
   salesLastMonth: seed.sales > 0 ? money(seed.sales * 100, seed.country) : null,
@@ -283,7 +288,7 @@ const permissionsFor = (seed: Seed, caller: PartnerRole): StorePermissions =>
 const firstName = (name: string) => name.split(' ')[0] ?? name
 const dayOf = (iso: string) => iso.slice(0, 10)
 const noon = (day: string) => `${day}T12:00:00Z`
-const planOf = (seed: Seed) => plans.find((plan) => plan.id === seed.plan) ?? plans[0]
+const planOf = (seed: Seed) => catalogue().find((plan) => plan.id === seed.plan)
 
 const usageOf = (seed: Seed): Store['usage'] =>
   limitOrder.map((limit, index) => {
@@ -409,7 +414,7 @@ export const createStoresServer = (initial: readonly Seed[], now: () => number =
       .sort(newestFirst)
     return {
       ...pageByCursor(all, page, storePageSize),
-      plans: plans.map(({ id, name }) => ({ id, name })),
+      plans: catalogue().map(({ id, name }) => ({ id, name })),
       actions: { create: canCreate(caller, 'live') },
     }
   }
@@ -434,7 +439,7 @@ export const createStoresServer = (initial: readonly Seed[], now: () => number =
     if (!seed) throw new Error('No such store.')
     const currency = countries.find((c) => c.name === seed.country)?.currency ?? 'USD'
     const current = planOf(seed)?.price[currency] ?? 0
-    const others = plans.filter((plan) => plan.id !== seed.plan)
+    const others = livePlans().filter((plan) => plan.id !== seed.plan)
     return {
       plans: others.map((plan) => ({ id: plan.id, name: plan.name, price: { amount: plan.price[currency] ?? 0, currency } })),
       nextBillingAt,
@@ -458,7 +463,7 @@ export const createStoresServer = (initial: readonly Seed[], now: () => number =
     const note = (text: string) => [...(seed.history ?? []), { at: todayDay, text, by }]
     switch (input.action) {
       case 'changePlan': {
-        const target = plans.find((plan) => plan.id === input.planId)
+        const target = livePlans().find((plan) => plan.id === input.planId)
         if (!target) throw new Error('Unknown plan.')
         update(id, (current) => ({ ...current, plan: target.id, history: note(`${planOf(current)?.name ?? ''} → ${target.name}`) }))
         return { ok: true }
@@ -507,7 +512,7 @@ export const createStoresServer = (initial: readonly Seed[], now: () => number =
   const form = (caller: PartnerRole, partnerState: PartnerState): CreateStoreForm => ({
     permission: canCreate(caller, partnerState),
     countries,
-    plans: plans.map(({ id, name, price }) => ({ id, name, price: Object.fromEntries(Object.entries(price).map(([currency, amount]) => [currency, { amount, currency }])) })),
+    plans: livePlans().map(({ id, name, price }) => ({ id, name, price: Object.fromEntries(Object.entries(price).map(([currency, amount]) => [currency, { amount, currency }])) })),
     trials,
     defaultTrial: 14,
     chargedBy,
@@ -517,7 +522,7 @@ export const createStoresServer = (initial: readonly Seed[], now: () => number =
     const permission = canCreate(caller, partnerState)
     if (!permission.allowed) return { ok: false, reason: permission.reason }
     const valid = createStoreInput.parse(input)
-    const plan = plans.find((candidate) => candidate.id === valid.planId)
+    const plan = livePlans().find((candidate) => candidate.id === valid.planId)
     const country = countries.find((candidate) => candidate.name === valid.country)
     if (!plan || !country || !trials.includes(valid.trialDays)) throw new Error('Unknown plan, country or trial.')
     const code = valid.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
