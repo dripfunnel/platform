@@ -1,12 +1,10 @@
 import { GraphQLError } from 'graphql'
 import { partnerAudit, type PartnerDto, type PartnerManager, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type PartnersService, type Result, type SetupSessionDto } from '#saas/partners/index'
 import { builder } from './builder'
-import { compact, PageInfoType, PermissionType, permission, type Permission } from './types'
+import { compact, HistoryEntryType, iso, PageInfoType, PermissionType, permission, type Permission } from './types'
 
 // Partners on the Admin API (ui/admin/FIRST-RELEASE.md §4, §12; card #33). Thin: every
 // decision, including who may do what, is saas/partners' and arrives here as data.
-
-const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
 const PortalHost = builder.objectRef<PartnerRowDto['portalHost']>('PartnerPortalHost').implement({
   fields: (t) => ({ host: t.exposeString('host', { nullable: true }), status: t.exposeString('status', { nullable: true }) }),
@@ -64,15 +62,6 @@ const PartnerRowType = builder.objectRef<PartnerRowDto>('PartnerRow').implement(
 
 const Contact = builder.objectRef<PartnerDto['contacts'][number]>('PartnerContact').implement({
   fields: (t) => ({ name: t.exposeString('name'), role: t.exposeString('role'), email: t.exposeString('email') }),
-})
-
-const History = builder.objectRef<PartnerDto['history'][number]>('PartnerHistoryEntry').implement({
-  fields: (t) => ({
-    at: t.string({ resolve: (h) => h.at.toISOString() }),
-    action: t.exposeString('action'),
-    by: t.exposeString('by', { nullable: true }),
-    note: t.exposeString('note', { nullable: true }),
-  }),
 })
 
 const DoneBy = builder.objectRef<{ name: string; org: string }>('SetupDoneBy').implement({
@@ -189,7 +178,7 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
     checks: t.field({ type: Checks, resolve: (p) => p.checks }),
     approval: t.field({ type: Approval, nullable: true, resolve: (p) => p.approval }),
     contacts: t.field({ type: [Contact], resolve: (p) => p.contacts }),
-    history: t.field({ type: [History], resolve: (p) => p.history }),
+    history: t.field({ type: [HistoryEntryType], resolve: (p) => p.history }),
     checklist: t.field({ type: [Checklist], resolve: (p) => p.checklist }),
     branding: t.field({ type: Branding, resolve: (p) => p.branding }),
     domains: t.field({ type: [Domain], resolve: (p) => p.domains }),

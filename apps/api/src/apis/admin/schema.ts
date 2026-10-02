@@ -4,6 +4,7 @@ import { adminPolicy } from './access'
 import { builder } from './builder'
 import './activity'
 import './partners'
+import './stores'
 
 export type { AdminContext } from './access'
 

@@ -26,6 +26,25 @@ export const PermissionType = builder.objectRef<Permission>('ActionPermission').
   }),
 })
 
+export const iso = (d: Date | null): string | null => (d ? d.toISOString() : null)
+
+export interface HistoryEntry {
+  at: Date
+  action: string
+  by: string | null
+  note: string | null
+}
+
+/** One state-history line, read from the activity log (LOGGING.md §6). */
+export const HistoryEntryType = builder.objectRef<HistoryEntry>('HistoryEntry').implement({
+  fields: (t) => ({
+    at: t.string({ resolve: (h) => h.at.toISOString() }),
+    action: t.exposeString('action'),
+    by: t.exposeString('by', { nullable: true }),
+    note: t.exposeString('note', { nullable: true }),
+  }),
+})
+
 /** Drops what the client left unset, so a `.strict()` zod schema sees only what was sent. */
 export const compact = (input: Record<string, unknown> | null | undefined): Record<string, unknown> =>
   Object.fromEntries(Object.entries(input ?? {}).filter(([, value]) => value !== undefined && value !== null))

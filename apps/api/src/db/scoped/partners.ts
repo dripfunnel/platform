@@ -419,3 +419,11 @@ export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string
 /** Locks the row for the rest of the transaction, so two staff cannot both approve as "the second". */
 export const selectPartnerForUpdate = async (tx: ScopedSql, id: string): Promise<PartnerRow | null> =>
   (await tx<PartnerRow[]>`select * from partner where id = ${id} for update`)[0] ?? null
+
+/** Each partner's domain, read off its shop wildcard (`*.shops.<partnerdomain>`, SAAS.md §3.5). */
+export const selectPartnerDomainsOf = async (tx: ScopedSql, partnerIds: readonly string[]): Promise<Map<string, string>> => {
+  const rows = await tx<{ partner_id: string; host: string }[]>`
+    select partner_id, host from partner_domain where kind = 'shops' and partner_id = any(${[...partnerIds]})
+  `
+  return new Map(rows.map((r) => [r.partner_id, r.host.replace(/^\*\.shops\./, '')]))
+}

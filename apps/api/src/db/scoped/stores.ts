@@ -14,7 +14,7 @@ import type {
   StoreStatus,
   UserRow,
 } from '../schema/saas'
-import { pageLimit, type ScopedSql } from './index'
+import { maxPageSize, pageLimit, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -212,6 +212,8 @@ export interface StoreFilter {
   createdAfter?: Date | undefined
   /** Name, code, custom domain or owner email. */
   q?: string | undefined
+  /** A Partner manager's list is their assigned partners' stores (ACCESS.md §5.4). */
+  assignedTo?: string | undefined
 }
 
 export interface KeysetPage {
@@ -222,9 +224,12 @@ export interface KeysetPage {
 /** FIRST-RELEASE §5.1's columns, one query, newest first by (created_at, id). */
 export interface StoreListRow extends StoreRow {
   partner_name: string
+  partner_state: string
   plan_name: string | null
   owner_name: string | null
   owner_email: string | null
+  owner_status: UserRow['status'] | null
+  owner_invitation_open: boolean
   domain_host: string | null
   domain_status: HostStatus | null
   job_id: string | null
@@ -233,7 +238,33 @@ export interface StoreListRow extends StoreRow {
   job_steps: ProvisioningStep[] | null
   job_attempts: number | null
   job_step_started_at: Date | null
+  job_started_at: Date | null
+  job_last_error: string | null
 }
+
+// The list's projection, shared with the single-row read so the two can never disagree.
+const storeProjection = (tx: ScopedSql) => tx`
+  select s.*, p.name as partner_name, p.state as partner_state, pl.name as plan_name,
+    o.name as owner_name, o.email as owner_email, o.status as owner_status,
+    exists (
+      select 1 from invitation i where i.store_id = s.id and i.seller_id is null and i.role_key = 'owner' and i.accepted_at is null and i.revoked_at is null
+    ) as owner_invitation_open,
+    cd.host as domain_host, cd.status as domain_status,
+    j.id as job_id, j.state as job_state, j.step as job_step, j.steps as job_steps, j.attempts as job_attempts,
+    j.step_started_at as job_step_started_at, j.started_at as job_started_at, j.last_error as job_last_error
+  from store s
+  join partner p on p.id = s.partner_id
+  left join plan pl on pl.id = s.plan_id
+  left join lateral (
+    select u.name, u.email, u.status from membership m join "user" u on u.id = m.user_id
+    where m.store_id = s.id and m.seller_id is null and m.role_key = 'owner' order by m.created_at limit 1
+  ) o on true
+  left join lateral (select host, status from custom_domain where store_id = s.id order by created_at desc limit 1) cd on true
+  left join lateral (select * from job where store_id = s.id order by started_at desc limit 1) j on true
+`
+
+export const selectStoreListRow = async (tx: ScopedSql, id: string): Promise<StoreListRow | null> =>
+  (await tx<StoreListRow[]>`${storeProjection(tx)} where s.id = ${id}`)[0] ?? null
 
 export const selectStores = async (
   tx: ScopedSql,
@@ -247,21 +278,10 @@ export const selectStores = async (
   const q = filter.q ? likePattern(filter.q) : null
   const stuck = tx`(j.state = 'running' and j.step_started_at < ${now}::timestamptz - ((${JSON.stringify(stuckAfterMinutes)}::text::jsonb ->> j.step) || ' minutes')::interval)`
   const rows = await tx<StoreListRow[]>`
-    select s.*, p.name as partner_name, pl.name as plan_name,
-      o.name as owner_name, o.email as owner_email,
-      cd.host as domain_host, cd.status as domain_status,
-      j.id as job_id, j.state as job_state, j.step as job_step, j.steps as job_steps, j.attempts as job_attempts, j.step_started_at as job_step_started_at
-    from store s
-    join partner p on p.id = s.partner_id
-    left join plan pl on pl.id = s.plan_id
-    left join lateral (
-      select u.name, u.email from membership m join "user" u on u.id = m.user_id
-      where m.store_id = s.id and m.seller_id is null and m.role_key = 'owner' order by m.created_at limit 1
-    ) o on true
-    left join lateral (select host, status from custom_domain where store_id = s.id order by created_at desc limit 1) cd on true
-    left join lateral (select * from job where store_id = s.id order by started_at desc limit 1) j on true
+    ${storeProjection(tx)}
     where true
       ${filter.partnerId !== undefined ? tx`and s.partner_id = ${filter.partnerId}` : tx``}
+      ${filter.assignedTo !== undefined ? tx`and s.partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
       ${filter.status !== undefined ? tx`and s.status = ${filter.status}` : tx``}
       ${filter.storefront === 'own' ? tx`and s.storefront_kind = 'own'` : tx``}
       ${filter.storefront !== undefined && filter.storefront !== 'own' ? tx`and s.build_state = ${filter.storefront}` : tx``}
@@ -306,11 +326,79 @@ export const selectStorePeople = (tx: ScopedSql, storeId: string): Promise<Store
 export const selectCustomDomains = (tx: ScopedSql, storeId: string): Promise<CustomDomainRow[]> =>
   tx<CustomDomainRow[]>`select * from custom_domain where store_id = ${storeId} order by created_at desc`
 
-export const selectLatestJob = async (tx: ScopedSql, storeId: string): Promise<JobRow | null> =>
-  (await tx<JobRow[]>`select * from job where store_id = ${storeId} order by started_at desc limit 1`)[0] ?? null
-
 export const selectStoreNotes = (tx: ScopedSql, storeId: string): Promise<(StoreNoteRow & { by_name: string })[]> =>
   tx<(StoreNoteRow & { by_name: string })[]>`
     select n.*, st.name as by_name from store_note n join staff_user st on st.id = n.staff_user_id
     where n.store_id = ${storeId} order by n.created_at desc
   `
+
+/** The partners the Stores filter offers, those the caller's scope sees, capped like every list. */
+export const selectPartnerNames = (tx: ScopedSql, assignedTo?: string): Promise<{ id: string; name: string }[]> =>
+  tx<{ id: string; name: string }[]>`
+    select id, name from partner
+    where true
+      ${assignedTo !== undefined ? tx`and id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${assignedTo} and a.removed_at is null)` : tx``}
+    order by name
+    limit ${maxPageSize}
+  `
+
+export interface StoreInvitationRow {
+  id: string
+  store_id: string
+  email: string
+  role_key: string
+  expires_at: Date
+  accepted_at: Date | null
+  revoked_at: Date | null
+  created_at: Date
+}
+
+/** The store Owner's open invitation, if they have not accepted yet. */
+export const selectOpenStoreInvitation = async (tx: ScopedSql, storeId: string): Promise<StoreInvitationRow | null> =>
+  (
+    await tx<StoreInvitationRow[]>`
+      select id, store_id, email, role_key, expires_at, accepted_at, revoked_at, created_at from invitation
+      where store_id = ${storeId} and seller_id is null and role_key = 'owner' and accepted_at is null and revoked_at is null
+      order by created_at desc limit 1
+    `
+  )[0] ?? null
+
+export const revokeStoreInvitation = async (tx: ScopedSql, id: string, now: Date): Promise<void> => {
+  await tx`update invitation set revoked_at = ${now} where id = ${id} and revoked_at is null`
+}
+
+export const insertStoreInvitation = async (tx: ScopedSql, i: { storeId: string; email: string; role: string; expiresAt: Date; invitedByLabel: string }): Promise<string> =>
+  one(
+    await tx<{ id: string }[]>`
+      insert into invitation (store_id, email, role_key, expires_at, invited_by_label)
+      values (${i.storeId}, ${i.email}, ${i.role}, ${i.expiresAt}, ${i.invitedByLabel}) returning id
+    `,
+    'invitation',
+  )
+
+export const selectCustomDomainById = async (tx: ScopedSql, id: string): Promise<CustomDomainRow | null> =>
+  (await tx<CustomDomainRow[]>`select * from custom_domain where id = ${id}`)[0] ?? null
+
+export const updateCustomDomainCheck = async (tx: ScopedSql, id: string, check: { status: HostStatus; foundCname: string | null; ownershipFound: string | null; checkedAt: Date }): Promise<void> => {
+  await tx`
+    update custom_domain set status = ${check.status}, found_cname = ${check.foundCname}, ownership_found = ${check.ownershipFound}, checked_at = ${check.checkedAt}
+    where id = ${id}
+  `
+}
+
+/** Locks the row for the rest of the transaction, so two staff cannot both suspend or restore at once. */
+export const selectStoreForUpdate = async (tx: ScopedSql, id: string): Promise<StoreRow | null> =>
+  (await tx<StoreRow[]>`select * from store where id = ${id} for update`)[0] ?? null
+
+/** Who is in the store, by role (FIRST-RELEASE §5.2 Overview), one query. */
+export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise<{ owners: number; managers: number; staff: number; suppliers: number }> => {
+  const [row] = await tx<{ owners: number; managers: number; staff: number; suppliers: number }[]>`
+    select
+      count(*) filter (where m.seller_id is null and m.role_key = 'owner')::int as owners,
+      count(*) filter (where m.seller_id is null and m.role_key = 'manager')::int as managers,
+      count(*) filter (where m.seller_id is null and m.role_key = 'staff')::int as staff,
+      (select count(*)::int from seller se where se.store_id = ${storeId}) as suppliers
+    from membership m where m.store_id = ${storeId} and m.status <> 'suspended'
+  `
+  return row ?? { owners: 0, managers: 0, staff: 0, suppliers: 0 }
+}
