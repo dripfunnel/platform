@@ -5,7 +5,8 @@
     "footer": "New to the console? Use the link in your invitation email.",
     "notConnected": "Sign-in isn’t connected yet. It arrives with the Platform API.",
     "codeLabel": "6-digit code",
-    "codePlaceholder": "000000"
+    "codePlaceholder": "000000",
+    "goToSignIn": "Go to sign in"
   },
   "signIn": {
     "credentials": {
@@ -46,6 +47,55 @@
     "expired": {
       "title": "Your session expired",
       "body": "You were signed out after 12 hours to keep the console safe. Sign in again and you’ll come back to this page. Nothing you saved was lost."
+    }
+  },
+  "acceptInvite": {
+    "title": "Join {partner}",
+    "bodyOwner": "DripFunnel invited you to be the Owner of {partner}’s partner console. Set your name and password to accept.",
+    "bodyMember": "{inviter} invited you to {partner}’s partner console. Set your name and password to accept.",
+    "loading": {
+      "title": "Checking your invitation…",
+      "body": "One moment."
+    },
+    "partner": "Partner",
+    "role": "Role",
+    "email": "Email",
+    "invitedBy": "Invited by {inviter}. The email can’t be changed.",
+    "name": "Your name",
+    "password": "Password",
+    "passwordHint": "At least 10 characters.",
+    "continue": "Continue",
+    "weak": "Enter your name and a password of at least 10 characters.",
+    "twoFactor": {
+      "title": "Set up 2-factor",
+      "step": "Step 2 of 2",
+      "bodyRequired": "Scan the code with your authenticator app, then enter the 6-digit code it shows. You’ll need it every time you sign in.",
+      "bodyOptional": "Scan the code with your authenticator app, then enter the 6-digit code it shows. You can skip this and set it up later.",
+      "qrLabel": "QR code for your authenticator app",
+      "qrPlaceholder": "QR code",
+      "keyLabel": "Can’t scan it? Enter this key:",
+      "finish": "Accept and sign in",
+      "skip": "Skip for now",
+      "wrong": "Enter the 6-digit code from your authenticator app.",
+      "required": "Your partner requires 2-factor for everyone on the team. Set it up to continue."
+    },
+    "links": {
+      "expired": {
+        "title": "This invitation has expired",
+        "body": "Invitation links work for 7 days. Ask whoever invited you to send a new one."
+      },
+      "used": {
+        "title": "This invitation has already been used",
+        "body": "Each link works once. If you already joined, sign in. If not, ask whoever invited you for a new link."
+      },
+      "replaced": {
+        "title": "This invitation was replaced",
+        "body": "A newer invitation was sent, so this link no longer works. Use the latest email, or ask whoever invited you for a new link."
+      },
+      "invalid": {
+        "title": "This link doesn’t work",
+        "body": "Open the link from your invitation email, or ask whoever invited you for a new one."
+      }
     }
   },
   "shell": {

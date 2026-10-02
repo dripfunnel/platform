@@ -2,8 +2,10 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
+import { invitation } from '../../api/auth'
 import { messages } from '../../messages'
-import { credentialsView, signInReducer, signInStates } from './authStates'
+import { AcceptInvite } from './AcceptInvite'
+import { acceptInviteStates, credentialsView, inviteToken, signInReducer, signInStates, type AcceptInviteState } from './authStates'
 import { SignIn } from './SignIn'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
@@ -16,7 +18,13 @@ const render = async (element: ReactNode, search = '') => {
 }
 const signInAt = (search: string, props: { next?: string; outcome?: string } = {}) => render(<SignIn search={props} />, search)
 
+const inviteAt = async (state: AcceptInviteState | null, token?: string) => {
+  const loaded = await invitation(inviteToken(state, token))
+  return render(<AcceptInvite search={{ token }} loaded={loaded} />, state ? `?state=${state}` : '')
+}
+
 const signIn = messages.signIn
+const invite = messages.acceptInvite
 
 describe('the sign-in screen', () => {
   it('starts with email and password, offers forgot password, and points newcomers at their invitation', async () => {
@@ -61,11 +69,53 @@ describe('the sign-in screen', () => {
   })
 })
 
+describe('accepting an invitation', () => {
+  it.each(['expired', 'used', 'replaced', 'invalid'] as const)('explains a %s link and offers only sign in', async (state) => {
+    const text = textOf(await inviteAt(state))
+    expect(text).toContain(invite.links[state].title)
+    expect(text).toContain(messages.auth.goToSignIn)
+    expect(text).not.toContain(invite.name)
+  })
+
+  it('shows the Owner invitation from DripFunnel with the partner, role and fixed email', async () => {
+    const text = textOf(await inviteAt(null, 'anything'))
+    expect(text).toContain('Join Kaufladen Digital')
+    expect(text).toContain('DripFunnel invited you to be the Owner')
+    expect(text).toContain('jonas@kaufladen.de')
+    expect(text).toContain('The email can’t be changed')
+  })
+
+  it('shows a team invitation from the Owner by name', async () => {
+    const text = textOf(await inviteAt('member'))
+    expect(text).toContain('Jonas Weber, the Owner invited you')
+    expect(text).toContain(messages.shell.roles['partner-admin'])
+  })
+
+  it('offers to skip 2-factor unless the partner requires it', async () => {
+    const optional = textOf(await inviteAt('twoFactor'))
+    expect(optional).toContain(invite.twoFactor.title)
+    expect(optional).toContain(invite.twoFactor.skip)
+    const required = textOf(await inviteAt('required'))
+    expect(required).toContain(invite.twoFactor.bodyRequired)
+    expect(required).not.toContain(invite.twoFactor.skip)
+  })
+
+  it('says sign-in is not connected rather than blaming the link', async () => {
+    const html = await render(<AcceptInvite search={{}} loaded={{ ok: false, code: 'NOT_CONNECTED' }} />)
+    expect(textOf(html)).toContain(messages.auth.notConnected)
+    expect(textOf(html)).not.toContain(invite.links.invalid.body)
+  })
+
+  it('covers every harness state', async () => {
+    for (const state of acceptInviteStates) expect(await inviteAt(state)).not.toBe('')
+  })
+})
+
 describe('no path suggests an account can be created here', () => {
   // The shell's words do say merchants "sign up" at the partner's portal, which is a fact
   // about merchants, not a path here; the signed-out screens themselves must have none.
   it('has no sign-up, create-account or Google words on the signed-out screens', () => {
-    const signedOut = JSON.stringify({ auth: messages.auth, signIn: messages.signIn })
+    const signedOut = JSON.stringify({ auth: messages.auth, signIn: messages.signIn, acceptInvite: messages.acceptInvite })
     expect(signedOut).not.toMatch(/sign up|sign-up|signup|create an account|create account|google/i)
   })
 })

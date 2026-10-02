@@ -10,6 +10,14 @@ export type SignInState = (typeof signInStates)[number]
 // What the Worker's sign-in reports in the address (`?outcome=`): read in production too.
 export const signInOutcomes = ['expired'] as const
 
+export const acceptInviteStates = ['expired', 'used', 'replaced', 'invalid', 'member', 'twoFactor', 'required'] as const
+
+export type AcceptInviteState = (typeof acceptInviteStates)[number]
+
+// A harness state is a fixture token (api/auth.ts), so one path serves ?state= and a real link.
+export const inviteToken = (state: AcceptInviteState | null, token: string | undefined): string | undefined =>
+  state === 'twoFactor' ? 'owner' : (state ?? token)
+
 export interface SignInView {
   step: SignInStep
   error: string | null

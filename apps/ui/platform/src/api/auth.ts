@@ -1,3 +1,4 @@
+import type { PartnerRole } from '../features/shell/partnerRoles'
 import { harnessEnabled } from '../harness'
 
 // The refusals the Platform API returns (FIRST-RELEASE.md §3, ACCESS.md §2, §4); this fixture
@@ -7,10 +8,27 @@ export const authCodes = [
   'WRONG_CODE',
   'CODE_EXPIRED',
   'LOCKED',
+  'WEAK_PASSWORD',
+  'SECOND_FACTOR_REQUIRED',
+  'INVITATION_EXPIRED',
+  'INVITATION_USED',
+  'INVITATION_REPLACED',
+  'INVITATION_INVALID',
   'NOT_CONNECTED',
 ] as const
 
 export type AuthCode = (typeof authCodes)[number]
+
+export interface Invitation {
+  partner: string
+  role: PartnerRole
+  email: string
+  // Who sent it: DripFunnel for the Owner's invitation, the Owner or an Admin by name otherwise.
+  invitedBy: string
+  secondFactorRequired: boolean
+  // The authenticator secret shown as text beside the QR code; the API issues a real one.
+  secretKey: string
+}
 
 export interface AuthRefusal {
   ok: false
@@ -72,6 +90,51 @@ export const verifySecondFactor = async (code: string): Promise<{ ok: true } | A
 export const requestPasswordReset = async (): Promise<{ ok: true }> => {
   await settle()
   return { ok: true }
+}
+
+// Fixture invitations by token, so ?state= and a real link share one path (features/auth). Only in
+// a harness build, like the accounts above.
+const sampleInvitations: Record<string, Invitation | AuthCode> | null =
+  import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
+    ? {
+        invalid: 'INVITATION_INVALID',
+        expired: 'INVITATION_EXPIRED',
+        used: 'INVITATION_USED',
+        replaced: 'INVITATION_REPLACED',
+        member: { partner: 'Kaufladen Digital', role: 'partner-admin', email: 'petra@kaufladen.de', invitedBy: 'Jonas Weber, the Owner', secondFactorRequired: false, secretKey: 'JBSW Y3DP EHPK 3PXP' },
+        required: { partner: 'Kaufladen Digital', role: 'partner-admin', email: 'petra@kaufladen.de', invitedBy: 'Jonas Weber, the Owner', secondFactorRequired: true, secretKey: 'JBSW Y3DP EHPK 3PXP' },
+        owner: { partner: 'Kaufladen Digital', role: 'partner-owner', email: 'jonas@kaufladen.de', invitedBy: 'DripFunnel', secondFactorRequired: false, secretKey: 'JBSW Y3DP EHPK 3PXP' },
+      }
+    : null
+
+export const invitation = async (token: string | undefined): Promise<{ ok: true; invitation: Invitation } | AuthRefusal> => {
+  if (!harnessEnabled || !sampleInvitations) return notConnected()
+  await settle()
+  if (!token) return refuse('INVITATION_INVALID')
+  const found = sampleInvitations[token] ?? sampleInvitations.owner
+  if (found === undefined) return refuse('INVITATION_INVALID')
+  return typeof found === 'string' ? refuse(found) : { ok: true, invitation: found }
+}
+
+export const acceptInvitation = async (token: string | undefined, name: string, password: string): Promise<{ ok: true; secondFactorRequired: boolean } | AuthRefusal> => {
+  const found = await invitation(token)
+  if (!found.ok) return found
+  if (name.trim() === '' || password.length < 10) return refuse('WEAK_PASSWORD')
+  return { ok: true, secondFactorRequired: found.invitation.secondFactorRequired }
+}
+
+export const enrolSecondFactor = async (code: string): Promise<{ ok: true } | AuthRefusal> => {
+  if (!harnessEnabled) return notConnected()
+  await settle()
+  return /^\d{6}$/.test(code) ? { ok: true } : refuse('WRONG_CODE')
+}
+
+// Skipping is refused when the partner's Owner requires 2-factor (FIRST-RELEASE §14.4). The
+// requirement is the invitation's, looked up from the token, never a flag the caller supplies.
+export const skipSecondFactor = async (token: string | undefined): Promise<{ ok: true } | AuthRefusal> => {
+  const found = await invitation(token)
+  if (!found.ok) return found
+  return found.invitation.secondFactorRequired ? refuse('SECOND_FACTOR_REQUIRED') : { ok: true }
 }
 
 // The redirect after sign-in is same-origin only (ACCESS §4): a path on this host, never a
