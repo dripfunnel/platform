@@ -3,7 +3,7 @@
 `apps/ui/shared`, the private workspace package `@dripfunnel/shared`. Browser-only
 TypeScript source, consumed directly by the SPAs; there is no build step.
 
-Last updated: 2026-10-02 (#116).
+Last updated: 2026-10-02 (#134).
 
 ---
 
@@ -11,15 +11,15 @@ Last updated: 2026-10-02 (#116).
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), the detail-page pieces both consoles' detail pages use (#116), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`; `DetailTabs`, `MoreActions`, `ActionControl`, `Tile`, `InfoNote`, `Toast`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
+| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), the detail-page pieces both consoles' detail pages use (#116), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`; `DetailTabs`, `MoreActions`, `ActionControl`, `Tile`, `InfoNote`, `Toast`; `ExportWatcher`, `ExportJobStatus`, `exportJob`, `startExport`, `useExportJob`, `exportCheck`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/ui/states.css` | The kit's stylesheet, for a screen that uses its classes (`df-button`, `df-field`, `df-dialog`, `df-visually-hidden`) without rendering a kit component | loaded by every kit component itself |
 | `@dripfunnel/shared/ui/shell.css` | The console chrome's stylesheet (header, banners, side bar, drawer, user menu, page title), for an app's own shell composition | loaded by every shell component itself |
 | `@dripfunnel/shared/ui/list.css` | The list stylesheet: the `.df-list` page, its header, toolbar, filters, search, table, name cells and pager, for a list screen's own markup | loaded by every list primitive itself |
 | `@dripfunnel/shared/ui/detail.css` | The detail-page stylesheet: detail header, breadcrumb, meta, actions, menu, tabs, panels, facts, lists, info note and toast, for a detail screen's own markup | loaded by every detail piece itself |
-| `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code; the cursor page shape every list query answers with (#19) and the paging a fixture does over a sorted list | `createApiClient`, `ApiError`; `PageInfo`, `PageRequest`, `pageByCursor` |
+| `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code; the cursor page shape every list query answers with (#19) and the paging a fixture does over a sorted list | `createApiClient`, `ApiError`; `PageInfo`, `PageRequest`, `pageByCursor`; `ExportJob`, `ExportState` |
 | `@dripfunnel/shared/search` | zod helpers for a route's URL search (#115): a value that doesn't fit is dropped, never a failed page | `optionalParam`, `searchParam`, `idParam` |
-| `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber`, `pluralForm` (the locale's plural rules over an app's `one`/`other` forms) |
+| `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber`, `pluralForm` (the locale's plural rules over an app's `one`/`other` forms), `csv`, `csvCell` and `csvLink` (a CSV that no spreadsheet runs as a formula, and its download link) |
 
 ```
 apps/ui/shared/
@@ -88,6 +88,13 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   one line, 4.2 s). `detail.css` holds the detail header, meta, tabs, panels and their styles.
   `ConfirmDialog` takes `choices`, a list of picks, since the store actions need two in one
   dialog (plan and when; limit and duration).
+- **Export jobs** (#134, the partner console's store export being the admin activity export's
+  second user): `exportJob` holds the one running export outside any screen, `useExportJob`
+  reads it, `startExport` puts the API's answer in it, `exportCheck` decides what one status
+  answer means, `ExportJobStatus` is the line under an Export button in the app's words, and
+  `ExportWatcher`, mounted in a shell with the app's status query and its "ready" words, follows
+  the job on any screen.
+  The `ExportJob` shape is the API's, in `graphql`; `csv` in `format` writes the file.
 - **Environment**: `environmentFor(hostname)` names the four environments for both consoles
   (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.ai` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and

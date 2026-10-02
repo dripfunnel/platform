@@ -4,12 +4,14 @@ import { EmptyState, ErrorState, ListHeader, LoadingState, ReadOnlyNotice, useAn
 import '@dripfunnel/shared/ui/list.css'
 import { useState } from 'react'
 import type { Me } from '../../api/me'
-import type { StorePage, StoreRow } from '../../api/stores'
+import type { ExportJob } from '@dripfunnel/shared/graphql'
+import type { BillingStatus, StorePage, StoreRow } from '../../api/stores'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { CreateStoreButton } from './CreateStoreButton'
 import { FilterChips } from './FilterChips'
 import { StoreCards } from './StoreCards'
 import { StoreFilters } from './StoreFilters'
+import { StoresExport } from './StoresExport'
 import type { StoresState } from './storeHarness'
 import { isFiltered } from './storeSearch'
 import { StoresTable } from './StoresTable'
@@ -28,6 +30,9 @@ export interface StoresProps {
   onReload: () => void
   // The next page after a cursor, appended under the rows ("Show 25 more", FIRST-RELEASE.md §16).
   loadMore: (after: string) => Promise<StorePage>
+  exportJob: ExportJob | null
+  onExport: () => void
+  onBillingStatus: (store: StoreRow, status: BillingStatus) => void
 }
 
 const Header = ({ product, action }: { product: string; action?: React.ReactNode }) => (
@@ -56,7 +61,7 @@ interface More {
   failed: boolean
 }
 
-export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loadMore }: StoresProps) => {
+export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loadMore, exportJob, onExport, onBillingStatus }: StoresProps) => {
   const [more, setMore] = useState<More | null>(null)
   // A new page from the loader (a new filter, a reload) starts the appended rows over.
   const shown: More = more?.of === page ? more : { of: page, items: [], pageInfo: page.pageInfo, busy: false, failed: false }
@@ -67,6 +72,9 @@ export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loa
   if (forced === 'error') return <StoresError product={product} onRetry={onReload} />
 
   const create = <CreateStoreButton permission={page.actions.create} product={product} />
+  // The API offers `billingStatus` only when the partner bills its merchants itself (§11.4).
+  const billingPermission = page.actions.billingStatus
+  const billing = billingPermission ? { allowed: billingPermission.allowed, onChange: onBillingStatus } : null
 
   if (forced === 'empty' || (page.items.length === 0 && !isFiltered(filter) && !page.pageInfo.hasPreviousPage)) {
     return (
@@ -95,7 +103,20 @@ export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loa
   return (
     <div className="df-page df-list">
       {(me.role === 'partner-read-only' || forced === 'readonly') && <ReadOnlyNotice title={messages.states.readonly.title} body={messages.states.readonly.body} />}
-      <Header product={product} action={create} />
+      <Header
+        product={product}
+        action={
+          <div className="df-stores-actions">
+            <StoresExport permission={page.actions.export} job={exportJob} onExport={onExport} />
+            {create}
+          </div>
+        }
+      />
+      {billing && (
+        <p id="billing-status-refused" className={billing.allowed ? 'df-muted' : 'df-muted df-billing-refused'}>
+          {billingPermission?.allowed === false ? fill(messages.store.refused[billingPermission.reason], { verb: messages.store.verbs.billingStatus, name: '' }) : words.billingStatus.note}
+        </p>
+      )}
       <div className="df-list-toolbar">
         <StoreFilters filter={filter} plans={page.plans} onChange={onFilterChange} />
         <p className="df-muted">{words.newestFirst}</p>
@@ -113,7 +134,7 @@ export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loa
         />
       ) : (
         <>
-          <StoresTable stores={items} />
+          <StoresTable stores={items} billing={billing} />
           <StoreCards stores={items} />
           <p role="status" className="df-visually-hidden">
             {announcement}

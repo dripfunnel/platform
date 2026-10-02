@@ -14,6 +14,7 @@ import type {
 } from './activity'
 import { activityActions, type ActionCode } from './activityActions'
 import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
+import { csvLink } from '@dripfunnel/shared/format'
 import { sampleCustomers } from './customersSample'
 import { sampleStores } from './storesSample'
 
@@ -309,14 +310,11 @@ export interface ActivityServerOptions {
 
 const prepareMs = 3000
 
-const blobLink = (csv: string) =>
-  typeof URL.createObjectURL === 'function' ? URL.createObjectURL(new Blob([csv], { type: 'text/csv' })) : `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`
-
 export const createActivityServer = (seed: readonly ActivityEntry[], options: ActivityServerOptions = {}) => {
   const now = options.now ?? Date.now
   const wait = options.wait ?? ((ms, then) => void setTimeout(then, ms))
   const cap = options.cap ?? 100_000
-  const link = options.link ?? blobLink
+  const link = options.link ?? csvLink
   let entries = [...seed]
   const exports = new Map<string, SampleExport>()
 

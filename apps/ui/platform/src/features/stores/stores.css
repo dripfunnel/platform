@@ -100,6 +100,49 @@
   justify-content: center;
 }
 
+/* Header actions: the export job beside Create store (§6.1) */
+
+.df-stores-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--df-space-3);
+}
+
+.df-stores-export {
+  display: grid;
+  justify-items: end;
+  gap: var(--df-space-1);
+  max-width: 320px;
+}
+
+.df-stores-export p {
+  margin: 0;
+  font-size: 12px;
+  text-align: right;
+}
+
+.df-billing-refused {
+  color: var(--df-color-warning);
+}
+
+.df-billing-select {
+  min-height: 32px;
+  padding: 0 var(--df-space-2);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-billing-select:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
 /* Create store */
 
 .df-create {

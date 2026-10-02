@@ -89,8 +89,17 @@ disabled with the reason, and so does a partner that is not Live. The list primi
 helpers and cursor paging come from `@dripfunnel/shared`. `src/api/stores.ts` is the only
 place this app talks to the API about stores, on the fixture in `storesSample.ts`.
 
-Not here yet: **Export accounts (CSV)** and the **Billing status** column of own-billing mode
-(§6.1, §11.4), both recorded on #115's follow-up.
+**Export accounts (CSV)** (#134) is a job (§16): the header button starts `exportStores(filter)`
+for everything the current filter matches, the shared `ExportWatcher` in the shell follows it on
+any screen and says when it is ready, and the status line under the button offers the download
+until the link expires. The file carries the account columns only; "Orders, customers and
+products are never included." Every role may export (ACCESS.md §5.3 `exports`).
+
+**Billing status** (#134; §6.1, §11.4) appears as a column only when the partner bills its
+merchants itself (`?billing=own` asks the fixture for that mode until the Billing card carries
+the setting): Active · Past due · Suspended, set inline by Owner, Admin and Finance; the other
+roles see it disabled with the reason once above the table. The fixture records the status as
+the store's account state, and a cancelled store has none.
 
 ## Store detail
 

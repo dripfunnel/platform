@@ -1,7 +1,8 @@
 import { ClickableRow } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
-import type { StoreRow } from '../../api/stores'
+import type { BillingStatus, StoreRow } from '../../api/stores'
 import { fill, formatAmount, formatCount, formatDate, messages } from '../../messages'
+import { BillingStatusSelect } from './BillingStatusSelect'
 import { DomainLink, DomainNote, StatusSub, StoreStatusPill, StorefrontPill } from './storeLook'
 
 const words = messages.stores
@@ -19,8 +20,13 @@ export const Sales = ({ money }: { money: StoreRow['salesLastMonth'] }) =>
     <span className="df-muted">{words.noSales}</span>
   )
 
-// The prototype's columns, in its order.
-const Row = ({ store }: { store: StoreRow }) => (
+export interface BillingColumn {
+  allowed: boolean
+  onChange: (store: StoreRow, status: BillingStatus) => void
+}
+
+// The prototype's columns, in its order; Billing status only when the partner bills its merchants (§6.1).
+const Row = ({ store, billing }: { store: StoreRow; billing: BillingColumn | null }) => (
   <ClickableRow>
     <th scope="row">
       <div className="df-stack">
@@ -61,16 +67,21 @@ const Row = ({ store }: { store: StoreRow }) => (
       </div>
     </td>
     <td className="df-muted df-nowrap">{formatDate(store.createdAt)}</td>
+    {billing && (
+      <td>
+        <BillingStatusSelect store={store} allowed={billing.allowed} onChange={billing.onChange} />
+      </td>
+    )}
   </ClickableRow>
 )
 
 // Scrolls sideways inside itself, and takes focus so a keyboard can scroll it (WCAG 2.1.1).
-export const StoresTable = ({ stores }: { stores: readonly StoreRow[] }) => (
+export const StoresTable = ({ stores, billing }: { stores: readonly StoreRow[]; billing: BillingColumn | null }) => (
   <div className="df-table-scroll df-stores-table" role="region" aria-label={words.tableLabel} tabIndex={0}>
     <table className="df-table">
       <thead>
         <tr>
-          {Object.values(words.columns).map((column) => (
+          {[...Object.values(words.columns), ...(billing ? [words.billingStatus.column] : [])].map((column) => (
             <th key={column} scope="col">
               {column}
             </th>
@@ -79,7 +90,7 @@ export const StoresTable = ({ stores }: { stores: readonly StoreRow[] }) => (
       </thead>
       <tbody>
         {stores.map((store) => (
-          <Row key={store.id} store={store} />
+          <Row key={store.id} store={store} billing={billing} />
         ))}
       </tbody>
     </table>

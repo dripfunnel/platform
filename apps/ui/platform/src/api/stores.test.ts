@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { messages } from '../messages'
 import { createStoreInput, storePageSize } from './stores'
 import { createStoresServer, sampleStores } from './storesSample'
 
@@ -77,7 +78,7 @@ describe('creating a store', () => {
   })
 
   it('adds the store on trial, newest first, and walks the signup steps to done', () => {
-    const s = createStoresServer(sampleStores, () => Date.now())
+    const s = createStoresServer(sampleStores, { now: () => Date.now() })
     const result = s.create(input, 'partner-admin', 'live')
     if (!result.ok) throw new Error(result.reason)
     const row = s.list({}, {}, 'partner-admin').items[0]
@@ -140,5 +141,44 @@ describe('the store actions, as the Platform API would run them', () => {
     expect(s.run('st-fieldnote', { action: 'retryStep' }, 'partner-owner')).toEqual({ ok: true })
     expect(s.get('st-fieldnote', 'partner-owner')?.storefront).toBe('live')
     expect(s.get('st-fieldnote', 'partner-owner')?.actions.retryStep).toBeUndefined()
+  })
+})
+
+describe('the store accounts export and the billing status', () => {
+  it('runs the export as a job, with the account columns only, and expires the link', () => {
+    const waits: (() => void)[] = []
+    let clock = Date.parse('2026-09-29T17:42:00Z')
+    let written = ''
+    const s = createStoresServer(sampleStores, { now: () => clock, wait: (_ms, then) => void waits.push(then), link: (text) => ((written = text), 'blob:stores') })
+    const job = s.startExport({ status: 'trial' })
+    expect(job.state).toBe('preparing')
+    expect(s.exportJob(job.id)?.state).toBe('preparing')
+    waits.forEach((then) => then())
+    const ready = s.exportJob(job.id)
+    expect(ready).toMatchObject({ state: 'ready', url: 'blob:stores' })
+    const [header, ...lines] = written.split('\r\n')
+    expect(header).toBe(Object.values(messages.stores.export.columns).join(','))
+    expect(header?.toLowerCase()).not.toMatch(/order|customer|product/)
+    expect(lines.length).toBeGreaterThan(0)
+    expect(lines.length).toBe(ready?.entries)
+    expect(lines.some((line) => line.startsWith('Harbor Coffee Co.,harbor-coffee,Jenna Park,jenna@harborcoffee.co,Growth,Trial,"$1,240.00",USD,Live,'))).toBe(true)
+    clock += 61 * 60_000
+    expect(s.exportJob(job.id)).toMatchObject({ state: 'expired', url: null })
+    expect(s.exportJob('nope')).toBeNull()
+  })
+
+  it('carries a billing status per store only in own-billing mode, set by Finance and refused for Support', () => {
+    const s = createStoresServer(sampleStores)
+    expect(s.list({}, {}, 'partner-owner').items.every((row) => row.billingStatus === null)).toBe(true)
+    expect(s.list({}, {}, 'partner-owner').actions.billingStatus).toBeUndefined()
+    const own = s.list({ q: 'tidewater' }, {}, 'partner-finance', 'own')
+    expect(own.billingMode).toBe('own')
+    expect(own.items[0]?.billingStatus).toBe('pastdue')
+    expect(own.actions.billingStatus).toEqual({ allowed: true })
+    expect(s.list({ q: 'summit' }, {}, 'partner-finance', 'own').items[0]?.billingStatus).toBeNull()
+    expect(s.setBillingStatus('st-tidewater', 'active', 'partner-finance')).toEqual({ ok: true })
+    expect(s.list({ q: 'tidewater' }, {}, 'partner-finance', 'own').items[0]?.billingStatus).toBe('active')
+    expect(s.get('st-tidewater', 'partner-finance')?.state.kind).toBe('active')
+    expect(s.setBillingStatus('st-tidewater', 'suspended', 'partner-support')).toEqual({ ok: false, reason: 'FINANCE_TRIAL_ONLY' })
   })
 })

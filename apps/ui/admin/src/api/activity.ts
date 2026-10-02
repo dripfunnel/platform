@@ -3,7 +3,7 @@
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { ActionCode, ActivityLevel } from './activityActions'
 import { activityServer } from './activitySample'
-import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
+import type { ExportJob, PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission } from './permissions'
 import { harnessEnabled } from '../harness'
 
@@ -97,15 +97,7 @@ export interface ActivityPerson extends PersonMatch {
   sameEmailAccounts: number
 }
 
-export type ExportState = 'preparing' | 'ready' | 'expired' | 'tooLarge' | 'failed'
-
-export interface ActivityExport {
-  id: string
-  state: ExportState
-  entries: number | null
-  url: string | null
-  expiresAt: string | null
-}
+export type ActivityExport = ExportJob
 
 export const activityPageSize = 50
 export const exportCap = 100_000

@@ -1,6 +1,7 @@
-import type { Money } from '@dripfunnel/shared/format'
-import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
+import { csvLink, type Money } from '@dripfunnel/shared/format'
+import { pageByCursor, type ExportJob, type PageRequest } from '@dripfunnel/shared/graphql'
 import type { PartnerRole } from '../features/shell/partnerRoles'
+import { storesCsv } from '../features/stores/storesCsv'
 import type { PartnerState } from './me'
 import { plansServer } from './plansSample'
 import {
@@ -9,6 +10,9 @@ import {
   searchMaxResults,
   storePageSize,
   type ActionPermission,
+  type BillingMode,
+  type BillingStatus,
+  type BillingStatusResult,
   type ChangePlanOptions,
   type CreatePermission,
   type CreateStoreForm,
@@ -206,7 +210,11 @@ const rowOf = (seed: Seed): StoreRow => ({
   storefront: seed.storefront ?? 'live',
   domain: { host: seed.domain.host, custom: seed.domain.custom, status: seed.domain.status ?? 'live' },
   createdAt: `${seed.created}T00:00:00Z`,
+  billingStatus: null,
 })
+
+// In own-billing mode the partner's status for each store, from its account state (§11.4); a cancelled store has none.
+const billingStatusOf = (seed: Seed): BillingStatus | null => (seed.status === 'cancelled' ? null : seed.status === 'trial' ? 'active' : seed.status)
 
 const createdSince: Record<NonNullable<StoreFilter['created']>, number> = {
   month: Date.parse('2026-09-01T00:00:00Z'),
@@ -253,6 +261,17 @@ const actorFor: Record<PartnerRole, string> = {
   'partner-support': 'Priya Nair',
   'partner-finance': 'Sam Ortega',
   'partner-read-only': 'Alex Kim',
+}
+
+const billers: readonly PartnerRole[] = ['partner-owner', 'partner-admin', 'partner-finance']
+
+const prepareMs = 3000
+const exportLinkMs = 60 * 60_000
+
+export interface StoresServerOptions {
+  now?: () => number
+  wait?: (ms: number, then: () => void) => void
+  link?: (csvText: string) => string
 }
 
 const roleCan: Record<StoreAction, readonly PartnerRole[]> = {
@@ -398,25 +417,67 @@ const detailOf = (seed: Seed, caller: PartnerRole): Store => {
   }
 }
 
-// `now` is the signup job's clock, the only thing here that moves.
-export const createStoresServer = (initial: readonly Seed[], now: () => number = Date.now) => {
+// `now` is the signup and export jobs' clock, the only thing here that moves.
+export const createStoresServer = (initial: readonly Seed[], options: StoresServerOptions = {}) => {
+  const now = options.now ?? Date.now
+  const wait = options.wait ?? ((ms, then) => void setTimeout(then, ms))
+  const link = options.link ?? csvLink
   let seeds = [...initial]
   const jobs = new Map<string, { startedAt: number }>()
+  const exports = new Map<string, ExportJob & { expiresAtMs: number | null }>()
   const rows = () => seeds.map(rowOf)
   const find = (id: string) => seeds.find((seed) => seed.id === id)
   const update = (id: string, change: (seed: Seed) => Seed) => {
     seeds = seeds.map((seed) => (seed.id === id ? change(seed) : seed))
   }
 
-  const list = (filter: StoreFilter, page: PageRequest, caller: PartnerRole): StorePage => {
-    const all = rows()
+  const matching = (filter: StoreFilter, billing: BillingMode) =>
+    seeds
+      .map((seed) => ({ ...rowOf(seed), billingStatus: billing === 'own' ? billingStatusOf(seed) : null }))
       .filter((row) => matches(row, filter))
       .sort(newestFirst)
-    return {
-      ...pageByCursor(all, page, storePageSize),
-      plans: catalogue().map(({ id, name }) => ({ id, name })),
-      actions: { create: canCreate(caller, 'live') },
+
+  const list = (filter: StoreFilter, page: PageRequest, caller: PartnerRole, billing: BillingMode = 'dripfunnel'): StorePage => ({
+    ...pageByCursor(matching(filter, billing), page, storePageSize),
+    plans: catalogue().map(({ id, name }) => ({ id, name })),
+    billingMode: billing,
+    actions: {
+      create: canCreate(caller, 'live'),
+      export: { allowed: true as const },
+      ...(billing === 'own' ? { billingStatus: billers.includes(caller) ? { allowed: true as const } : { allowed: false as const, reason: 'FINANCE_TRIAL_ONLY' as const } } : {}),
+    },
+  })
+
+  // Every role may export (ACCESS.md §5.3 `exports`).
+  const startExport = (filter: StoreFilter): ExportJob => {
+    const found = matching(filter, 'dripfunnel')
+    const id = `sx${exports.size + 1}`
+    const job = { id, state: 'preparing' as const, entries: null, url: null, expiresAt: null, expiresAtMs: null }
+    exports.set(id, job)
+    wait(prepareMs, () => {
+      const expiresAtMs = now() + exportLinkMs
+      exports.set(id, { ...job, state: 'ready', entries: found.length, url: link(storesCsv(found)), expiresAt: new Date(expiresAtMs).toISOString(), expiresAtMs })
+    })
+    return job
+  }
+
+  const exportJob = (id: string): ExportJob | null => {
+    const job = exports.get(id)
+    if (!job) return null
+    if (job.state === 'ready' && job.expiresAtMs !== null && now() >= job.expiresAtMs) {
+      const expired = { ...job, state: 'expired' as const, url: null }
+      exports.set(id, expired)
+      return expired
     }
+    return job
+  }
+
+  // Own-billing mode only (§11.4): the status the partner sets is the store's account state.
+  const setBillingStatus = (id: string, status: BillingStatus, caller: PartnerRole): BillingStatusResult => {
+    if (!find(id)) throw new Error('No such store.')
+    if (!billers.includes(caller)) return { ok: false, reason: 'FINANCE_TRIAL_ONLY' }
+    update(id, (current) => ({ ...current, status, ...(status === 'pastdue' ? { pastDueSince: dayOf(new Date(today).toISOString()) } : {}), ...(status === 'suspended' ? { suspendedOn: dayOf(new Date(today).toISOString()), previous: current.status === 'suspended' ? 'active' : current.status } : {}) }))
+    return { ok: true }
   }
 
   const search = (query: string): readonly StoreMatch[] => {
@@ -566,7 +627,7 @@ export const createStoresServer = (initial: readonly Seed[], now: () => number =
     }
   }
 
-  return { list, search, get, changePlanOptions, run, recheck, form, create, progress }
+  return { list, search, get, changePlanOptions, run, recheck, form, create, progress, startExport, exportJob, setBillingStatus }
 }
 
 export const sampleStores: readonly Seed[] = [...named, ...generated()]
