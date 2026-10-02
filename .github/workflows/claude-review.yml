@@ -26,7 +26,6 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       GH_REPO: ${{ github.repository }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       # The head commit, not the merge ref, so a line Claude reads is the line an inline
       # comment anchors to.
@@ -52,18 +51,34 @@ jobs:
       - name: Install Claude Code
         run: npm install --global @anthropic-ai/claude-code@2.1.287
 
-      # The one write the review may make besides its summary: an inline comment on the head
-      # commit. The model gets this script, never `gh api`.
-      - name: Write the inline-comment helper
+      # The two writes the review may make: a summary and inline comments on the head commit,
+      # through these scripts and never `gh` itself; both refuse a body that looks like a token.
+      - name: Write the comment helpers
         run: |
+          cat > "${RUNNER_TEMP}/no-token" <<'GUARD'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if printf '%s' "$1" | grep -Eq 'gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-ant-[A-Za-z0-9_-]{20,}'; then
+            echo "refused: the comment body carries something shaped like a token" >&2
+            exit 1
+          fi
+          GUARD
           cat > "${RUNNER_TEMP}/inline-comment" <<'HELPER'
           #!/usr/bin/env bash
           # usage: inline-comment <path> <line> <body>
           set -euo pipefail
+          "${RUNNER_TEMP}/no-token" "$3"
           gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments" \
             -f commit_id="${HEAD_SHA}" -f side=RIGHT -f path="$1" -F line="$2" -f body="$3" >/dev/null
           HELPER
-          chmod 555 "${RUNNER_TEMP}/inline-comment"
+          cat > "${RUNNER_TEMP}/summary-comment" <<'HELPER'
+          #!/usr/bin/env bash
+          # usage: summary-comment <body>
+          set -euo pipefail
+          "${RUNNER_TEMP}/no-token" "$1"
+          gh pr comment "${PR_NUMBER}" --body "$1" >/dev/null
+          HELPER
+          chmod 555 "${RUNNER_TEMP}/no-token" "${RUNNER_TEMP}/inline-comment" "${RUNNER_TEMP}/summary-comment"
 
       - name: Write the review prompt
         run: |
@@ -114,8 +129,8 @@ jobs:
             `INLINE_COMMENT <file path from the repository root> <line number in the file as it is now> <the finding>`
             The line must be one the pull request's diff touches; otherwise put the finding in
             the summary with the file and line named.
-          - Post one summary with `gh pr comment PR_NUMBER --body <text>`: what you checked and
-            the headline findings. Say which tests you ran, or that you ran none.
+          - Post one summary with `SUMMARY_COMMENT <text>`: what you checked and the headline
+            findings. Say which tests you ran, or that you ran none.
           - **Say what is wrong and why it matters, with the input or state that breaks
             it.** No praise, no summary of what the code does, no restating the diff.
           - Raise something only if you would ask the author to change it. If you found
@@ -138,17 +153,19 @@ jobs:
           and if you could not complete the review, write `changes` and say why in your
           summary comment.
           PROMPT
-          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g; s|INLINE_COMMENT|${RUNNER_TEMP}/inline-comment|g" "${RUNNER_TEMP}/review-prompt.md"
+          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g; s|INLINE_COMMENT|${RUNNER_TEMP}/inline-comment|g; s|SUMMARY_COMMENT|${RUNNER_TEMP}/summary-comment|g" "${RUNNER_TEMP}/review-prompt.md"
 
-      # Read-only tools need no permission in print mode; the writes are the summary, the
-      # inline-comment helper and the verdict file, and nothing else: `Write` is that one path.
+      # The writes are the two helpers and the verdict file; reads keep out of the places a
+      # token can be found, so no text the review meets can make it quote one (WORKFLOW.md §7).
       - name: Review
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           claude -p "$(cat "${RUNNER_TEMP}/review-prompt.md")" \
             --output-format text \
-            --allowedTools "Write(.claude-review-verdict),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*)"
+            --allowedTools "Write(.claude-review-verdict),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*),Bash(${RUNNER_TEMP}/summary-comment:*)" \
+            --disallowedTools "Read(//proc/**),Read(//etc/**),Read(//root/**),Read(//home/**/.config/**),Read(//home/**/.claude/**),Read(//home/**/.npmrc),Read(//tmp/**),Grep(//proc/**),Grep(//home/**/.config/**),Grep(//home/**/.claude/**)"
 
       - name: Apply the review's verdict
         if: always()

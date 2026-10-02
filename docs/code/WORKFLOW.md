@@ -198,8 +198,10 @@ section): fix each point, or reply saying why not, and push. The push re-runs th
 It still doesn't replace the reviewer above; a human approves. It needs the repository
 secret `CLAUDE_CODE_OAUTH_TOKEN` (THIRD-PARTY-ACCESS.md §2.6) and nothing else: the job runs
 the Claude Code CLI itself and posts its comments through `gh` with the workflow's own token,
-so they appear from `github-actions`. It is skipped only on pull requests from forks, where
-secrets are not available.
+so they appear from `github-actions`. The review reads text an author controls (the
+description, the diff, the files), so it may write only through two helpers that refuse a
+token-shaped body, and it cannot read the places a token lives. It is skipped only on pull
+requests from forks, where secrets are not available.
 
 **Every pull request is reviewed, stacked ones included** (decided 2026-10-02, #167,
 reversing the same day's decision to skip them). `anthropics/claude-code-action` validates a
