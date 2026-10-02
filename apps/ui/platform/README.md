@@ -138,6 +138,33 @@ the list; `loading`, `error`, `readonly`, `denied`, `confirm` on the editor.
 Not here: **Compare plans** and **Defaults for new stores** (§7.4, §7.5, the next batch) and
 promotions (SAAS §14). The Create store form's plan picker reads this fixture's Live plans.
 
+## Branding
+
+`/branding` (`src/features/branding/`, #118; FIRST-RELEASE.md §8) white-labels the merchant portal
+in two tabs held in `?tab=`: **Look** (product name, primary and accent colours as a picker and
+hex, the **Contrast check** with the API's ratios and its fix when a pair fails, font, corners,
+sign-in background, the four files with Replace) and **Words** (support email and URL, help
+centre, terms, privacy, the data-processing agreement with "Needed before DripFunnel can approve
+you.", the Impressum where the law requires it, and "Powered by DripFunnel" on, off, or kept on
+by the contract). Beside the form, **Preview · merchant portal** renders a sample sign-in card
+and a portal header in the partner's look, at desktop or phone, light or dark, inside a frame
+that says "In your brand. The console itself doesn't change." The preview's colours are its own
+`--pv-*` variables on the frame; the console's `--df-*` tokens are never touched (README §4). Any
+change shows "Unpublished changes. Merchants still see the published version. This affects 84
+stores." with Discard and **Publish…**, which states the consequence first through
+`ConfirmDialog`. Contrast is the server's check: the fixture refuses a failing pair
+(`CONTRAST_FAILS`, with the fix), a "Powered by" choice the contract keeps on
+(`POWERED_BY_FIXED_BY_CONTRACT`) and a missing Impressum where required (`IMPRESSUM_REQUIRED`);
+the screen marks the same (the contrast panel, the Impressum field) and never clamps or fixes a colour. Owner and Admin edit; others view
+with the controls disabled and the reason. States: `?state=loading`, `error`, `readonly`,
+`denied`, `confirm`; `?partner=draft` shows Kaufladen's branding, whose contract keeps "Powered
+by" on and which needs an Impressum.
+
+Not here: email templates (§8.3), history, rollback and scheduling (§8.4), the Sign up, Products
+and Settings sample screens of §8.1 (the card asks for the sign-in card and the header), and the
+preview of the real portal screens, which arrives when `apps/ui/store` has them. The four brand
+fonts the picker offers are loaded for the preview alone (designs/design.md §6).
+
 ## Onboarding
 
 `/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;

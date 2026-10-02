@@ -1,5 +1,6 @@
 import type { Money } from '@dripfunnel/shared/format'
 import { allowanceKeys, limitKeys, toggleKeys, type EntitlementKey, type NumberKey, type Plan, type PlanCeilings, type PlanInput, type ToggleKey } from '../../api/plans'
+import { sameJson } from '../common/sameJson'
 
 // The editor's draft: text as typed, so a half-typed price or limit is kept until it is saved.
 export interface PlanDraft {
@@ -30,7 +31,7 @@ export const draftOf = (plan: Plan | null, currencies: readonly string[], defaul
   numbers: Object.fromEntries([...limitKeys, ...allowanceKeys].map((key) => [key, plan ? String(plan.entitlements[key]) : ''])) as Record<NumberKey, string>,
 })
 
-export const isDirty = (draft: PlanDraft, original: PlanDraft) => JSON.stringify(draft) !== JSON.stringify(original)
+export const isDirty = (draft: PlanDraft, original: PlanDraft) => !sameJson(draft, original)
 
 // "49" or "49.00" in major units to the currency's minor units; empty is unpriced; anything else is invalid.
 export const minorOf = (text: string, currency: string): Money['amount'] | null | 'invalid' => {

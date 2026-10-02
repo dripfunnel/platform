@@ -1174,5 +1174,139 @@
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
       "refused": "The partner service refused it: {reason}"
     }
+  },
+  "branding": {
+    "loading": "Loading your branding",
+    "tabsLabel": "Branding sections",
+    "tabs": {
+      "look": "Look",
+      "words": "Words"
+    },
+    "viewNote": "Your role can’t change branding. Owners and Admins can.",
+    "refused": {
+      "POWERED_BY_FIXED_BY_CONTRACT": "Your contract keeps “Powered by DripFunnel” on.",
+      "IMPRESSUM_REQUIRED": "Add the Impressum first. German law requires it.",
+      "OWNERS_AND_ADMINS_ONLY": "Your role can’t change branding. Owners and Admins can.",
+      "INVALID_INPUT": "Something in the form isn’t valid. Check the highlighted fields."
+    },
+    "error": {
+      "title": "We couldn’t load your branding",
+      "body": "The partner service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "unpublished": "Unpublished changes. Merchants still see the published version.",
+    "affects": {
+      "one": "This affects {count} store.",
+      "other": "This affects {count} stores."
+    },
+    "affectsNone": "This affects every future store.",
+    "discard": "Discard",
+    "publish": "Publish…",
+    "fixContrast": "Fix the contrast first.",
+    "fixFields": "Fix the highlighted fields first.",
+    "look": {
+      "productName": "Product name merchants see",
+      "primary": "Primary colour",
+      "accent": "Accent colour",
+      "pickPrimary": "Pick the primary colour",
+      "pickAccent": "Pick the accent colour",
+      "hexInvalid": "Enter a colour like #0F5E63.",
+      "contrast": "Contrast check",
+      "pairs": {
+        "primaryOnWhite": "White text on primary",
+        "accentOnDark": "Dark text on accent"
+      },
+      "passes": "Passes",
+      "fails": "Fails",
+      "font": "Font",
+      "corners": "Corners",
+      "background": "Sign-in background",
+      "cornerNames": {
+        "rounded": "Rounded",
+        "soft": "Soft",
+        "square": "Square"
+      },
+      "backgrounds": {
+        "sand": "Sand texture",
+        "plain": "Plain colour",
+        "photo": "Photo"
+      },
+      "files": {
+        "logoLight": "Logo, light backgrounds",
+        "logoDark": "Logo, dark backgrounds",
+        "mark": "Mark",
+        "favicon": "Favicon"
+      },
+      "replace": "Replace",
+      "replaceLabel": "Replace {file}"
+    },
+    "words": {
+      "supportEmail": "Support email",
+      "supportUrl": "Support URL",
+      "helpUrl": "Help centre",
+      "termsUrl": "Terms of service",
+      "privacyUrl": "Privacy policy",
+      "dpaUrl": "Data-processing agreement",
+      "dpaNeeded": "Needed before DripFunnel can approve you.",
+      "impressum": "Impressum",
+      "impressumRequired": "Required in Germany.",
+      "poweredBy": "Show “Powered by DripFunnel”",
+      "poweredChoice": "Your contract lets you remove it.",
+      "poweredFixed": "Your contract keeps this line on for the first year.",
+      "emailInvalid": "Enter an email address.",
+      "urlInvalid": "Enter a full address, starting with https://."
+    },
+    "preview": {
+      "label": "Preview · merchant portal",
+      "frame": "In your brand. The console itself doesn’t change.",
+      "screenLabel": "Screen",
+      "deviceLabel": "Device",
+      "modeLabel": "Appearance",
+      "screens": {
+        "signin": "Sign in",
+        "header": "Header"
+      },
+      "devices": {
+        "desktop": "Desktop",
+        "phone": "Phone"
+      },
+      "modes": {
+        "light": "Light",
+        "dark": "Dark"
+      },
+      "signInTitle": "Sign in to your store",
+      "email": "Email",
+      "password": "Password",
+      "signIn": "Sign in",
+      "forgot": "Forgot your password?",
+      "poweredBy": "Powered by DripFunnel",
+      "nav": {
+        "home": "Home",
+        "products": "Products",
+        "orders": "Orders",
+        "settings": "Settings"
+      },
+      "search": "Search",
+      "help": "Help",
+      "store": "Harbor Coffee Co.",
+      "owner": "Jenna Park",
+      "welcome": "Good morning, Jenna.",
+      "sales": "Sales today",
+      "orders": "Orders to ship"
+    },
+    "dialog": {
+      "title": "Publish your branding?",
+      "consequence": {
+        "one": "This changes the merchant portal and emails for {count} store. Their shops don’t change.",
+        "other": "This changes the merchant portal and emails for {count} stores. Their shops don’t change."
+      },
+      "consequenceNone": "This changes the merchant portal and emails for every future store. Their shops don’t change.",
+      "confirm": "Publish"
+    },
+    "toasts": {
+      "published": "Published. Merchants see the new look at their next page load.",
+      "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
+      "refused": "The partner service refused it: {reason}"
+    }
   }
 }
