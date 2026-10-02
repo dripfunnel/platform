@@ -429,20 +429,42 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
 })
 
 describe('malformed ids', () => {
-  it('answer null or NOT_FOUND, never a database error, whoever asks', async () => {
+  // Every partner operation that takes an id (saas/partners/service.ts), with the arguments its schema requires.
+  const operations = [
+    ['approvePartner', '(id: $id, reason: "KYC passed")'],
+    ['sendBackPartner', '(id: $id, reason: "Impressum")'],
+    ['pausePartner', '(id: $id, reason: "Contract")'],
+    ['resumePartner', '(id: $id, reason: "Contract renewed")'],
+    ['sendPartnerOwnerInvite', '(id: $id)'],
+    ['resendPartnerOwnerInvite', '(id: $id)'],
+    ['startPartnerSetupSession', '(id: $id, reason: "cover")'],
+    ['endStaffSession', '(id: $id)'],
+    ['recheckDomain', '(id: $id, kind: "portal")'],
+    ['assignPartnerManager', '(id: $id, staffId: $staffId, reason: "cover")'],
+    ['unassignPartnerManager', '(id: $id, staffId: $staffId, reason: "cover")'],
+  ] as const
+
+  const call = (field: string, args: string, staff: StaffMember) => {
+    const declared = args.includes('$staffId') ? '($id: ID!, $staffId: ID!)' : '($id: ID!)'
+    return run<Record<string, { ok: boolean; code: string | null }>>(`mutation${declared} { ${field}${args} { ok code } }`, staff, { id: 'abc', staffId: as('staff-partner-manager').id })
+  }
+
+  it('answer null or NOT_FOUND to a Super admin, never a database error', async () => {
     const sa = as('staff-super-admin')
     expect((await run<{ partner: unknown }>(`query($id: ID!) { partner(id: $id) { id } }`, sa, { id: 'abc' })).data?.partner).toBeNull()
-    for (const [field, args] of [
-      ['approvePartner', '(id: $id, reason: "KYC passed")'],
-      ['sendBackPartner', '(id: $id, reason: "Impressum")'],
-      ['pausePartner', '(id: $id, reason: "Contract")'],
-      ['resendPartnerOwnerInvite', '(id: $id)'],
-      ['recheckDomain', '(id: $id, kind: "portal")'],
-      ['endStaffSession', '(id: $id)'],
-    ] as const) {
-      const result = await run<Record<string, { ok: boolean; code: string | null }>>(`mutation($id: ID!) { ${field}${args} { ok code } }`, sa, { id: 'abc' })
-      expect(result.data?.[field], field).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    for (const [field, args] of operations) expect((await call(field, args, sa)).data?.[field], field).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+  })
+
+  it('answer a Partner manager with NOT_FOUND or a plain refusal, and a role without the permission with FORBIDDEN', async () => {
+    // The target guard refuses a malformed id as "not assigned" before the service sees it (auth/assignment.ts).
+    const pm = as('staff-partner-manager')
+    expect((await run<{ partner: unknown }>(`query($id: ID!) { partner(id: $id) { id } }`, pm, { id: 'abc' })).code).toBe('FORBIDDEN')
+    for (const [field, args] of operations) {
+      const result = await call(field, args, pm)
+      const code = result.code ?? result.data?.[field]?.code
+      expect(['NOT_FOUND', 'FORBIDDEN'], field).toContain(code)
     }
+    for (const [field, args] of operations) expect((await call(field, args, as('staff-read-only'))).code, field).toBe('FORBIDDEN')
   })
 })
 
