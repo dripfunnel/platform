@@ -400,14 +400,10 @@ Design each module's responsibilities, tables, public API, events and invariants
   offers are re-evaluated on change; stock is reserved at a defined point *(decide)*.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
-  warehouse, cancellations and refunds. **Returns and refunds across vendors, decided
-  2026-10-02** (ACCESS.md §7.3 has the rules): a return is per line and quantity with a
-  reason, states `requested → received → refunded` (or `cancelled`), items go back to the
-  store's default warehouse or, for a supplier that ships to the shopper, to the supplier's;
-  refunds are per line, grouped by owner, each supplier refunding its own lines and the store
-  able to override into the **supplier ledger**; restocking writes a stock movement; a shared
-  shipping charge or discount is the store's to refund. Fulfilment of a sub-order follows the
-  supplier's shipping mode (ship to the shopper, or mark as sent to the store's warehouse).
+  warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
+  2026-10-02**: per-line returns and refunds, each supplier refunding its own lines, the store
+  able to override into a supplier ledger, fulfilment by the shipping mode stored on the
+  order part. ACCESS.md §7.3 owns the rules; DATA-MODEL.md owns the tables.
 - **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
   credentials, encrypted at rest; webhooks idempotent; refunds. **Vendor payouts, decided
   2026-10-02**: not in the platform for now. A per-store **supplier ledger** records what each
