@@ -8,30 +8,30 @@
 <body>
 <x-dc>
 <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:16px;max-width:900px;">
-  <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Choose what to keep on Free</span><span style="font-size:14px;color:#5A6472;">{{ sub }}</span></div>
+  <div style="display:flex;flex-direction:column;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">Choose what to keep on Free</span><span style="font-size:14px;color:var(--muted,#5A6472);">{{ sub }}</span></div>
   <div style="display:flex;gap:10px;flex-wrap:wrap;"><button onClick="{{ a.plans }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Choose a plan instead — keep everything</button></div>
-  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
-    <div style="padding:14px 18px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Products · {{ keptCount }} of 10 stay on sale</span><span style="font-size:12px;color:#5A6472;">We picked your best sellers. Products with orders waiting to ship always stay.</span></div>
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border,#E8E2DC);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Products · {{ keptCount }} of 10 stay on sale</span><span style="font-size:12px;color:var(--muted,#5A6472);">We picked your best sellers. Products with orders waiting to ship always stay.</span></div>
     <sc-for list="{{ products }}" as="p" hint-placeholder-count="8">
-      <button onClick="{{ p.toggle }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px 18px;border:0;border-bottom:1px solid #F1ECE6;background:{{ p.bg }};text-align:left;cursor:pointer;">
+      <button onClick="{{ p.toggle }}" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px 18px;border:0;border-bottom:1px solid var(--border,#F1ECE6);background:{{ p.bg }};text-align:left;cursor:pointer;">
         <span style="width:20px;height:20px;border-radius:5px;border:1.5px solid {{ p.cbBd }};background:{{ p.cbBg }};color:#FFFFFF;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;">{{ p.mark }}</span>
-        <span style="flex:1;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:#14181F;">{{ p.name }}</strong><span style="font-size:12px;color:#5A6472;">{{ p.why }}</span></span>
+        <span style="flex:1;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;color:var(--text,#14181F);">{{ p.name }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ p.why }}</span></span>
         <span style="font-size:12px;font-weight:600;color:{{ p.stFg }};">{{ p.state }}</span>
       </button>
     </sc-for>
   </div>
   <div style="display:grid;grid-template-columns:{{ cols }};gap:12px;">
     <sc-for list="{{ areas }}" as="ar" hint-placeholder-count="8">
-      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;">
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px;">
         <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">{{ ar.title }}</span>
-        <span style="font-size:13px;color:#1D6B47;">Kept: {{ ar.kept }}</span>
-        <span style="font-size:13px;color:#8F4017;">Paused: {{ ar.paused }}</span>
-        <sc-if value="{{ ar.hasPick }}" hint-placeholder-val="{{ false }}"><select value="{{ ar.value }}" onChange="{{ ar.onPick }}" style="height:36px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 8px;font-size:13px;"><sc-for list="{{ ar.options }}" as="o" hint-placeholder-count="2"><option value="{{ o }}">Keep {{ o }}</option></sc-for></select></sc-if>
+        <span style="font-size:13px;color:var(--okfg,#1D6B47);">Kept: {{ ar.kept }}</span>
+        <span style="font-size:13px;color:var(--pfg,#8F4017);">Paused: {{ ar.paused }}</span>
+        <sc-if value="{{ ar.hasPick }}" hint-placeholder-val="{{ false }}"><select value="{{ ar.value }}" onChange="{{ ar.onPick }}" style="height:36px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);padding:0 8px;font-size:13px;"><sc-for list="{{ ar.options }}" as="o" hint-placeholder-count="2"><option value="{{ o }}">Keep {{ o }}</option></sc-for></select></sc-if>
       </div>
     </sc-for>
   </div>
-  <div style="padding:12px 14px;border-radius:10px;background:#EAF1F8;border:1px solid #C9DAEC;color:#00325F;font-size:13px;">Nothing is deleted. Paused items show “Paused — over your plan” in the portal, and shoppers see “Currently unavailable” instead of a missing page. Upgrade any time and everything comes back exactly as it was.</div>
-  <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;"><button onClick="{{ a.cancel }}" style="height:44px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Back</button><button onClick="{{ a.confirm }}" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ confirmLabel }}</button></div>
+  <div style="padding:12px 14px;border-radius:10px;background:var(--ibg,#EAF1F8);border:1px solid var(--ibd,#C9DAEC);color:var(--ifg,#00325F);font-size:13px;">Nothing is deleted. Paused items show “Paused — over your plan” in the portal, and shoppers see “Currently unavailable” instead of a missing page. Upgrade any time and everything comes back exactly as it was.</div>
+  <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;"><button onClick="{{ a.cancel }}" style="height:44px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:14px;cursor:pointer;">Back</button><button onClick="{{ a.confirm }}" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:var(--navy,#0A2A4A);color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ confirmLabel }}</button></div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -43,7 +43,7 @@ class Component extends DCLogic {
     const sold = {}; app.orders.forEach(o => o.lines.forEach(l => { sold[l.pid] = (sold[l.pid] || 0) + l.qty; }));
     const open = new Set(app.orders.filter(o => ['unfulfilled', 'partial'].includes(o.status)).flatMap(o => o.lines.map(l => l.pid)));
     const keep = new Set([...s.keep, ...[...open]]);
-    const products = [...app.allProducts].sort((a, b) => (sold[b.id] || 0) - (sold[a.id] || 0)).map(p => { const on = keep.has(p.id); const locked = open.has(p.id); return { name: p.name, why: locked ? 'Has an order waiting to ship — always stays' : (sold[p.id] ? `${sold[p.id]} sold in your trial` : 'No sales yet'), mark: on ? '✓' : '', cbBd: on ? '#00519F' : '#B9BEC6', cbBg: on ? '#00519F' : '#FFFFFF', bg: on ? '#F7FAFD' : '#FFFFFF', state: on ? 'Stays on sale' : 'Paused', stFg: on ? '#1D6B47' : '#8F4017',
+    const products = [...app.allProducts].sort((a, b) => (sold[b.id] || 0) - (sold[a.id] || 0)).map(p => { const on = keep.has(p.id); const locked = open.has(p.id); return { name: p.name, why: locked ? 'Has an order waiting to ship — always stays' : (sold[p.id] ? `${sold[p.id]} sold in your trial` : 'No sales yet'), mark: on ? '✓' : '', cbBd: on ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)', cbBg: on ? '#00519F' : 'var(--card,#FFFFFF)', bg: on ? 'var(--hover,#F7FAFD)' : 'var(--card,#FFFFFF)', state: on ? 'Stays on sale' : 'Paused', stFg: on ? 'var(--okfg,#1D6B47)' : 'var(--pfg,#8F4017)',
       toggle: () => { if (locked) { app.toast('It has an order waiting to ship, so it stays'); return; } if (on) this.setState({ keep: s.keep.filter(x => x !== p.id) }); else if (keep.size >= 10) app.toast('Free keeps 10 products — untick one first'); else this.setState({ keep: [...s.keep, p.id] }); } }; });
     const ppl = app.data('people') || []; const gws = (app.data('gateways') || []).filter(x => x.status === 'live'); const crs = ((app.data('shipping') || {}).couriers || []).filter(x => ['pricing', 'standby'].includes(x.status));
     const mk = app.data('markets') || []; const ws = (app.data('warehouses') || []).filter(w => !w.supplier);
@@ -63,7 +63,7 @@ class Component extends DCLogic {
       sub: fromTrial ? 'Your trial ends tomorrow. Pick what stays on Free — or choose a plan and keep everything.' : 'You’re on Free. Swap what stays on sale any time.',
       keptCount: String(keep.size), products, areas, confirmLabel: fromTrial ? 'Confirm and move to Free when the trial ends' : 'Save what’s kept',
       a: { plans: () => app.go('billing'), cancel: () => app.go('home'),
-        confirm: () => { app.set('kept', { products: [...keep] }); app.set('gateways', l => l.map(g => g.status === 'live' && g.name !== s.gw && g.kind === 'gateway' ? { ...g, status: 'off', pausedByPlan: true } : g)); if (fromTrial) { app.setPlan('trialEnded'); app.toast('Done — you’re on Free. ' + (app.allProducts.length - keep.size) + ' products paused, nothing deleted.'); } else app.toast('Saved — ' + keep.size + ' products on sale'); app.go('home'); } } };
+        confirm: () => { app.set('kept', { products: [...keep] }); app.set('gateways', l => l.map(g => g.status === 'live' && g.name !== s.gw && g.kind === 'gateway' ? { ...g, status: 'off', pausedByPlan: true } : g)); if (crs.length > 1 && s.cr) app.set('shipping', sh => ({ ...sh, couriers: sh.couriers.map(x => ['pricing', 'standby'].includes(x.status) ? (x.name === s.cr ? { ...x, status: 'pricing' } : { ...x, status: 'off', pausedByPlan: true }) : x) })); if (fromTrial) { app.setPlan('trialEnded'); app.toast('Done — you’re on Free. ' + (app.allProducts.length - keep.size) + ' products paused, nothing deleted.'); } else app.toast('Saved — ' + keep.size + ' products on sale'); app.go('home'); } } };
   }
 }
 </script>

@@ -21,10 +21,17 @@ body{margin:0;background:#F3EDE8;}
 input,select,textarea,button{font-family:inherit;}
 a{color:#B8541F;text-decoration:underline;text-underline-offset:3px;}
 a:hover{color:#00519F;}
+[data-st][data-theme="dark"]{--card:#12222F;--paper:#0A1622;--desk:#060E16;--hover:#16293A;--sunk:#1A2C3B;--ibg:#132B3F;--okbg:#0F2A1E;--wbg:#2E2208;--bbg:#34110F;--pbg:#2A1810;--navy:#1E4A75;--off:#3A4A5A;--text:#D6DEE7;--head:#FFFFFF;--text2:#B5C0CC;--muted:#8A9AAB;--link:#EC844F;--pfg:#F09A6D;--ifg:#9CC3EC;--focus:#5B9BE0;--okfg:#7FD1A5;--wfg:#F2C36B;--bfg:#F29A90;--faint:#5E6E7E;--border:#1E3242;--field:#2C4356;--ibd:#22445F;--okbd:#1F4A35;--wbd:#5A4212;--bbd:#5E231E;--pbd:#4A2A18;color-scheme:dark;}
+[data-st][data-theme="dark"] input,[data-st][data-theme="dark"] select,[data-st][data-theme="dark"] textarea{color:#D6DEE7;}
+[data-st][data-theme="dark"] input::placeholder,[data-st][data-theme="dark"] textarea::placeholder{color:#6E7E8E;}
+[data-st][data-theme="dark"] [data-doc] input{color:#14181F;}
+[data-st][data-theme="dark"] a{color:#EC844F;}
+[data-st][data-theme="dark"] a:hover{color:#F09A6D;}
+@media print{body *{visibility:hidden !important;}[data-doc],[data-doc] *{visibility:visible !important;}[data-doc]{position:fixed;left:0;top:0;width:100%;border-radius:0 !important;}}
 </style>
 </helmet>
 
-<div style="min-height:100vh;display:flex;flex-direction:column;background:#F3EDE8;color:#14181F;font-family:Inter,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;">
+<div data-st="1" data-theme="{{ theme }}" style="min-height:100vh;display:flex;flex-direction:column;background:var(--desk,#F3EDE8);color:var(--text,#14181F);font-family:Inter,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;">
 
   <div style="background:#14181F;color:#D6DEE7;padding:8px 16px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:12px;">
     <img src="assets/dripfunnel-mark-inverse.svg" alt="" height="18" style="height:18px;width:auto;display:block;"><span style="font-family:'IBM Plex Mono',monospace;letter-spacing:0.12em;color:#EC844F;font-weight:500;">PROTOTYPE CONTROLS</span>
@@ -58,9 +65,9 @@ a:hover{color:#00519F;}
   <dc-import name="ImpBanner" hint-size="100%,0px"></dc-import>
 
   <div style="flex:1;display:flex;justify-content:center;align-items:flex-start;padding:{{ frame.pad }};">
-    <div style="display:flex;width:{{ frame.w }};height:{{ frame.h }};border:{{ frame.bd }};border-radius:{{ frame.r }};overflow:hidden;background:#FDFAF7;position:relative;">
+    <div style="display:flex;width:{{ frame.w }};height:{{ frame.h }};border:{{ frame.bd }};border-radius:{{ frame.r }};overflow:hidden;background:var(--paper,#FDFAF7);position:relative;">
 
-      <sc-if value="{{ unauthed }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-width:0;overflow:auto;background:#FDFAF7;"><dc-import name="PortalAuth" app="{{ app }}" key="{{ authKey }}" hint-size="100%,700px"></dc-import></div></sc-if>
+      <sc-if value="{{ unauthed }}" hint-placeholder-val="{{ false }}"><div style="flex:1;min-width:0;overflow:auto;background:var(--paper,#FDFAF7);"><dc-import name="PortalAuth" app="{{ app }}" key="{{ authKey }}" hint-size="100%,700px"></dc-import></div></sc-if>
       <sc-if value="{{ authed }}" hint-placeholder-val="{{ true }}">
       <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
       <header style="height:56px;flex:none;background:{{ navBg }};border-bottom:1px solid rgba(255,255,255,0.09);display:flex;align-items:center;gap:12px;padding:0 16px;position:relative;z-index:25;">
@@ -98,35 +105,35 @@ a:hover{color:#00519F;}
         <sc-for list="{{ banners }}" as="b" hint-placeholder-count="0">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px {{ frame.padX }};background:{{ b.bg }};border-bottom:1px solid {{ b.bd }};color:{{ b.fg }};font-size:13px;">
             <span style="flex:1;min-width:200px;"><strong>{{ b.title }}</strong> {{ b.body }}</span>
-            <sc-if value="{{ b.cta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ b.onClick }}" style="height:32px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:#FFFFFF;color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;cursor:pointer;">{{ b.cta }}</button></sc-if>
+            <sc-if value="{{ b.cta }}" hint-placeholder-val="{{ false }}"><button onClick="{{ b.onClick }}" style="height:32px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:var(--card,#FFFFFF);color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:12px;cursor:pointer;">{{ b.cta }}</button></sc-if>
           </div>
         </sc-for>
 
-        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;"><div style="height:28px;width:220px;border-radius:6px;background:#ECE9E4;"></div><div style="height:44px;border-radius:8px;background:#F2F0EC;"></div><div style="height:64px;border-radius:10px;background:#ECE9E4;"></div><div style="height:64px;border-radius:10px;background:#F2F0EC;"></div><div style="height:64px;border-radius:10px;background:#ECE9E4;"></div></div></sc-if>
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;"><div style="height:28px;width:220px;border-radius:6px;background:var(--sunk,#ECE9E4);"></div><div style="height:44px;border-radius:8px;background:var(--sunk,#F2F0EC);"></div><div style="height:64px;border-radius:10px;background:var(--sunk,#ECE9E4);"></div><div style="height:64px;border-radius:10px;background:var(--sunk,#F2F0EC);"></div><div style="height:64px;border-radius:10px;background:var(--sunk,#ECE9E4);"></div></div></sc-if>
         <sc-if value="{{ pageErr }}" hint-placeholder-val="{{ false }}">
           <div role="alert" style="padding:64px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
-            <span aria-hidden="true" style="width:48px;height:48px;border-radius:50%;background:#FDF0E8;color:#B8541F;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">!</span>
+            <span aria-hidden="true" style="width:48px;height:48px;border-radius:50%;background:var(--pbg,#FDF0E8);color:var(--link,#B8541F);display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">!</span>
             <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">We couldn’t load {{ crumbName }}</span>
-            <span style="color:#5A6472;max-width:46ch;">Nothing is lost — this is a problem on our side, not your data. It usually clears in a few seconds.</span>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.retry }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Try again</button><button onClick="{{ on.home }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Go to Home</button></div>
-            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5A6472;">Ref 503 · {{ errRef }} — quote this if you contact support</span>
+            <span style="color:var(--muted,#5A6472);max-width:46ch;">Nothing is lost — this is a problem on our side, not your data. It usually clears in a few seconds.</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.retry }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Try again</button><button onClick="{{ on.home }}" style="height:42px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Go to Home</button></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted,#5A6472);">Ref 503 · {{ errRef }} — quote this if you contact support</span>
           </div>
         </sc-if>
         <div style="flex:1;min-height:0;display:{{ screenDisplay }};">
           <sc-if value="{{ scr.denied }}" hint-placeholder-val="{{ false }}">
             <div style="padding:64px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
-              <span aria-hidden="true" style="width:48px;height:48px;border-radius:50%;background:#EAF1F8;color:#00325F;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3"></path></svg></span>
+              <span aria-hidden="true" style="width:48px;height:48px;border-radius:50%;background:var(--ibg,#EAF1F8);color:var(--ifg,#00325F);display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3"></path></svg></span>
               <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ denied.title }}</span>
-              <span style="color:#5A6472;max-width:46ch;">{{ denied.body }}</span>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.home }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ denied.back }}</button><sc-if value="{{ denied.canAsk }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.askAccess }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Ask Farhan for access</button></sc-if></div>
+              <span style="color:var(--muted,#5A6472);max-width:46ch;">{{ denied.body }}</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.home }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ denied.back }}</button><sc-if value="{{ denied.canAsk }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.askAccess }}" style="height:42px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Ask Farhan for access</button></sc-if></div>
             </div>
           </sc-if>
           <sc-if value="{{ scr.missing }}" hint-placeholder-val="{{ false }}">
             <div style="padding:64px 28px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;">
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;color:#8F4017;">404</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;color:var(--pfg,#8F4017);">404</span>
               <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">This page isn’t here any more</span>
-              <span style="color:#5A6472;max-width:46ch;">The link may be old, or what it pointed to was deleted or moved. Nothing else in your store has changed.</span>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.home }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Go to Home</button><button onClick="{{ on.toProducts }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Search products</button></div>
+              <span style="color:var(--muted,#5A6472);max-width:46ch;">The link may be old, or what it pointed to was deleted or moved. Nothing else in your store has changed.</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;"><button onClick="{{ on.home }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Go to Home</button><button onClick="{{ on.toProducts }}" style="height:42px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Search products</button></div>
             </div>
           </sc-if>
           <sc-if value="{{ scr.keep }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalKeep" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
@@ -145,34 +152,93 @@ a:hover{color:#00519F;}
           <sc-if value="{{ scr.offer }}" hint-placeholder-val="{{ false }}"><dc-import name="OfferEditor" app="{{ app }}" key="{{ offerKey }}" hint-size="100%,900px"></dc-import></sc-if>
           <sc-if value="{{ scr.settings }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalSettings" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
           <sc-if value="{{ scr.aplus }}" hint-placeholder-val="{{ false }}"><dc-import name="CatAPlus" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.profile }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalProfile" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
           <sc-if value="{{ scr.other }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ otherTitle }}</span><span style="color:#5A6472;max-width:44ch;">This area isn’t part of the Catalogue prototype. Use Products, Collections, Size charts, Import &amp; export, To approve or Settings.</span></div>
+            <div style="padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ otherTitle }}</span><span style="color:var(--muted,#5A6472);max-width:46ch;">{{ otherBody }}</span><button onClick="{{ on.openConsole }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Open the partner console</button></div>
           </sc-if>
         </div>
       </div>
       </div>
       </div>
       </sc-if>
+      <sc-if value="{{ hasPreview }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:35;background:rgba(10,20,30,0.55);display:flex;flex-direction:column;padding:{{ pv.pad }};">
+          <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:var(--card,#FFFFFF);border-radius:12px;overflow:hidden;box-shadow:0 30px 60px -20px rgba(10,20,30,0.5);">
+            <div style="height:48px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--sunk,#F1EEEA);border-bottom:1px solid var(--border,#E0DAD3);">
+              <span style="flex:1;min-width:0;height:30px;border-radius:15px;background:var(--card,#FFFFFF);border:1px solid var(--border,#E0DAD3);display:flex;align-items:center;padding:0 12px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text2,#434A55);overflow:hidden;white-space:nowrap;">https://{{ pv.url }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--pfg,#8F4017);">{{ pv.tag }}</span>
+              <button onClick="{{ on.closePreview }}" style="height:32px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Close</button>
+            </div>
+            <!--keep-->
+            <div style="flex:1;min-height:0;overflow:auto;background:#FFFFFF;color:#14181F;">
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid #EDEAE5;"><strong style="font-family:Manrope,sans-serif;font-size:17px;flex:1;">{{ storeName }}</strong><span style="display:{{ fullDisp }};font-size:13px;color:#434A55;">Shop · New in · About</span><span style="font-size:13px;color:#434A55;">Cart (0)</span></div>
+              <sc-if value="{{ pv.isHome }}" hint-placeholder-val="{{ true }}">
+                <div style="padding:44px 24px;background:{{ pv.hero.bg }};display:flex;flex-direction:column;gap:10px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:30px;line-height:1.15;color:{{ pv.hero.fg }};max-width:22ch;">{{ pv.hero.headline }}</span><span style="font-size:15px;color:{{ pv.hero.fg }};">{{ pv.hero.sub }}</span><span style="align-self:flex-start;padding:10px 18px;border-radius:8px;background:{{ pv.hero.accent }};color:#FFFFFF;font-weight:700;font-size:14px;">{{ pv.hero.cta }}</span></div>
+                <div style="padding:24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px;">
+                  <sc-for list="{{ pv.grid }}" as="g" hint-placeholder-count="6"><div onClick="{{ g.open }}" style="display:flex;flex-direction:column;gap:6px;cursor:pointer;"><span style="aspect-ratio:4/5;border-radius:6px;background:{{ g.bg }};"></span><span style="font-size:14px;font-weight:600;">{{ g.name }}</span><span style="font-size:13px;color:#434A55;">{{ g.price }}</span></div></sc-for>
+                </div>
+              </sc-if>
+              <sc-if value="{{ pv.isProduct }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:24px;display:grid;grid-template-columns:{{ pv.cols }};gap:28px;align-items:start;">
+                  <span style="aspect-ratio:4/5;border-radius:8px;background:{{ pv.p.bg }};"></span>
+                  <div style="display:flex;flex-direction:column;gap:12px;">
+                    <sc-if value="{{ pv.p.hasBadges }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;flex-wrap:wrap;"><sc-for list="{{ pv.p.badges }}" as="b" hint-placeholder-count="1"><span style="padding:3px 8px;border-radius:5px;background:#14181F;color:#FFFFFF;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;">{{ b }}</span></sc-for></div></sc-if>
+                    <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:26px;line-height:1.2;">{{ pv.p.name }}</span>
+                    <span style="font-size:20px;font-weight:600;">{{ pv.p.price }}</span>
+                    <span style="font-size:14px;color:#434A55;line-height:1.6;">{{ pv.p.desc }}</span>
+                    <span style="align-self:flex-start;padding:12px 22px;border-radius:8px;background:#14181F;color:#FFFFFF;font-weight:700;font-size:14px;">Add to cart</span>
+                    <span style="font-size:12px;color:#5A6472;">{{ pv.p.stock }}</span>
+                  </div>
+                </div>
+              </sc-if>
+              <div style="padding:18px 24px;border-top:1px solid #EDEAE5;font-size:12px;color:#5A6472;">{{ pv.foot }}</div>
+            </div>
+            <!--/keep-->
+          </div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasDoc }}" hint-placeholder-val="{{ false }}">
+        <div onClick="{{ on.closeDoc }}" style="position:absolute;inset:0;z-index:36;background:rgba(10,20,30,0.55);overflow:auto;display:flex;justify-content:center;align-items:flex-start;padding:24px 12px;">
+          <div onClick="{{ on.stop }}" style="width:100%;max-width:720px;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;"><button onClick="{{ on.printDoc }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Print or save as PDF</button><button onClick="{{ on.closeDoc }}" style="height:40px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">Close</button></div>
+            <!--keep-->
+            <div data-doc="1" style="background:#FFFFFF;color:#14181F;border-radius:4px;padding:40px 44px;display:flex;flex-direction:column;gap:22px;font-size:13px;line-height:1.5;">
+              <div style="display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;">
+                <div style="display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">{{ doc.fromName }}</strong><sc-for list="{{ doc.from }}" as="l" hint-placeholder-count="2"><span style="color:#434A55;">{{ l }}</span></sc-for></div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;">{{ doc.title }}</span><sc-for list="{{ doc.meta }}" as="m" hint-placeholder-count="2"><span style="display:flex;gap:10px;"><span style="color:#5A6472;">{{ m.k }}</span><span style="font-family:'IBM Plex Mono',monospace;">{{ m.v }}</span></span></sc-for></div>
+              </div>
+              <sc-if value="{{ doc.hasTo }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;">{{ doc.toLabel }}</span><sc-for list="{{ doc.to }}" as="l" hint-placeholder-count="2"><span>{{ l }}</span></sc-for></div></sc-if>
+              <div style="display:flex;flex-direction:column;border-top:2px solid #14181F;">
+                <div style="display:grid;grid-template-columns:{{ doc.grid }};gap:12px;padding:8px 0;border-bottom:1px solid #D7D3CD;font-weight:600;"><sc-for list="{{ doc.cols }}" as="c" hint-placeholder-count="3"><span style="text-align:{{ c.al }};">{{ c.l }}</span></sc-for></div>
+                <sc-for list="{{ doc.rows }}" as="r" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:{{ doc.grid }};gap:12px;padding:8px 0;border-bottom:1px solid #EDEAE5;"><sc-for list="{{ r }}" as="c" hint-placeholder-count="3"><span style="text-align:{{ c.al }};font-family:{{ c.ff }};">{{ c.v }}</span></sc-for></div></sc-for>
+              </div>
+              <sc-if value="{{ doc.hasTotals }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:4px;align-self:flex-end;min-width:240px;"><sc-for list="{{ doc.totals }}" as="x" hint-placeholder-count="2"><span style="display:flex;justify-content:space-between;gap:24px;font-weight:{{ x.w }};"><span>{{ x.k }}</span><span>{{ x.v }}</span></span></sc-for></div></sc-if>
+              <sc-if value="{{ doc.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;white-space:pre-line;">{{ doc.note }}</span></sc-if>
+            </div>
+            <!--/keep-->
+          </div>
+        </div>
+      </sc-if>
       <sc-if value="{{ hasModal }}" hint-placeholder-val="{{ false }}">
         <div onClick="{{ on.modalCancel }}" style="position:absolute;inset:0;background:rgba(10,20,30,0.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:16px;">
-          <div onClick="{{ on.stop }}" style="width:100%;max-width:{{ modal.w }};max-height:90%;overflow:auto;background:#FFFFFF;border-radius:14px;box-shadow:0 30px 60px -20px rgba(10,20,30,0.5);padding:24px;display:flex;flex-direction:column;gap:14px;">
-            <sc-if value="{{ modal.tag }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#8F4017;">{{ modal.tag }}</span></sc-if>
+          <div onClick="{{ on.stop }}" style="width:100%;max-width:{{ modal.w }};max-height:90%;overflow:auto;background:var(--card,#FFFFFF);border-radius:14px;box-shadow:0 30px 60px -20px rgba(10,20,30,0.5);padding:24px;display:flex;flex-direction:column;gap:14px;">
+            <sc-if value="{{ modal.tag }}" hint-placeholder-val="{{ false }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--pfg,#8F4017);">{{ modal.tag }}</span></sc-if>
             <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:19px;line-height:1.3;">{{ modal.title }}</span>
-            <sc-if value="{{ modal.body }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:#434A55;line-height:1.6;white-space:pre-line;">{{ modal.body }}</span></sc-if>
+            <sc-if value="{{ modal.body }}" hint-placeholder-val="{{ false }}"><span style="font-size:14px;color:var(--text2,#434A55);line-height:1.6;white-space:pre-line;">{{ modal.body }}</span></sc-if>
             <sc-for list="{{ modal.choices }}" as="c" hint-placeholder-count="0">
-              <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border:{{ c.bd }};border-radius:10px;background:{{ c.bg }};font-size:14px;text-align:left;cursor:pointer;color:#14181F;">
-                <span style="width:18px;height:18px;border-radius:50%;border:{{ c.dot }};flex:none;"></span><span style="display:flex;flex-direction:column;"><strong style="font-weight:600;">{{ c.label }}</strong><span style="font-size:12px;color:#5A6472;">{{ c.sub }}</span></span>
+              <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border:{{ c.bd }};border-radius:10px;background:{{ c.bg }};font-size:14px;text-align:left;cursor:pointer;color:var(--text,#14181F);">
+                <span style="width:18px;height:18px;border-radius:50%;border:{{ c.dot }};flex:none;"></span><span style="display:flex;flex-direction:column;"><strong style="font-weight:600;">{{ c.label }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ c.sub }}</span></span>
               </button>
             </sc-for>
             <sc-if value="{{ modal.hasInput }}" hint-placeholder-val="{{ false }}">
               <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;">{{ modal.inputLabel }}
-                <textarea value="{{ modalVal }}" onChange="{{ on.modalInput }}" placeholder="{{ modal.placeholder }}" rows="3" style="border:1px solid #D7D3CD;border-radius:8px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical;outline:none;" style-focus="border-color:#00519F;box-shadow:0 0 0 3px #EAF1F8;"></textarea>
-                <sc-if value="{{ modal.inputErr }}" hint-placeholder-val="{{ false }}"><span style="color:#B8541F;font-weight:400;">{{ modal.inputErr }}</span></sc-if>
+                <textarea value="{{ modalVal }}" onChange="{{ on.modalInput }}" placeholder="{{ modal.placeholder }}" rows="3" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical;outline:none;" style-focus="border-color:var(--focus,#00519F);box-shadow:0 0 0 3px #EAF1F8;"></textarea>
+                <sc-if value="{{ modal.inputErr }}" hint-placeholder-val="{{ false }}"><span style="color:var(--link,#B8541F);font-weight:400;">{{ modal.inputErr }}</span></sc-if>
               </label>
             </sc-if>
             <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding-top:4px;">
-              <sc-if value="{{ modal.cancel }}" hint-placeholder-val="{{ true }}"><button onClick="{{ on.modalCancel }}" style="height:40px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">{{ modal.cancel }}</button></sc-if>
-              <sc-if value="{{ modal.alt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.modalAlt }}" style="height:40px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">{{ modal.alt }}</button></sc-if>
+              <sc-if value="{{ modal.cancel }}" hint-placeholder-val="{{ true }}"><button onClick="{{ on.modalCancel }}" style="height:40px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">{{ modal.cancel }}</button></sc-if>
+              <sc-if value="{{ modal.alt }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.modalAlt }}" style="height:40px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;">{{ modal.alt }}</button></sc-if>
               <button onClick="{{ on.modalConfirm }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:{{ modal.btnBg }};color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ modal.confirm }}</button>
             </div>
           </div>
@@ -183,7 +249,7 @@ a:hover{color:#00519F;}
         <div style="position:absolute;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;background:#14181F;color:#FFFFFF;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:14px;font-size:14px;box-shadow:0 16px 32px -12px rgba(0,0,0,0.5);max-width:90%;">
           <span>{{ toast.msg }}</span>
           <sc-if value="{{ toast.action }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.toastAction }}" style="border:0;background:none;color:#EC844F;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;padding:0;">{{ toast.action }}</button></sc-if>
-          <button onClick="{{ on.toastClose }}" style="border:0;background:none;color:#8A919B;font-size:16px;cursor:pointer;padding:0;">×</button>
+          <button onClick="{{ on.toastClose }}" style="border:0;background:none;color:var(--faint,#8A919B);font-size:16px;cursor:pointer;padding:0;">×</button>
         </div>
       </sc-if>
     </div>
@@ -195,6 +261,7 @@ class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = this.fresh('US', 'stocked', {});
+    try { this.state.theme = localStorage.getItem('df-store-theme') || 'light'; } catch (e) { this.state.theme = 'light'; }
     const imp = (() => { try { const m = location.href.match(/[?&]imp=([^&#]+)/); return m ? JSON.parse(localStorage.getItem('df-imp-bus-v1') || '{}')[decodeURIComponent(m[1])] : null; } catch (e) { return null; } })();
     if (imp && imp.open) { const RM = { Owner:'owner', Manager:'manager', Staff:'staff', 'Supplier admin':'vendor', 'Supplier member':'vendorStock' }; const role = imp.kind === 'support' ? 'owner' : RM[imp.role] || 'staff', vend = role === 'vendor' || role === 'vendorStock'; Object.assign(this.state, { role, impS: imp, ...(vend ? { plan: 'business', screen: 'products' } : {}) }); }
   }
@@ -350,17 +417,22 @@ class Component extends DCLogic {
       .map(m => ({ currency: R.cur, language: 'en', adjust: 0, web: m.primary ? 'main' : 'sub', sub: '/' + m.countries[0].toLowerCase(), domain: '', products: 'all', excluded: [], shipRate: '', payments: R.gateways.map(g => g[0]), duties: false, taxReg: '', active: true, ...m }));
     return {
       orders, people, suppliers, warehouses, taxRates: rates.map(([name, rate], i) => ({ id: 't' + i, name, rate, isDefault: i === 0 })), markets, backupMarket: 'm1',
-      storeInfo: { name: R.store, legal: R.store + (R.key === 'DE' ? ' GmbH' : R.key === 'IN' ? ' Pvt Ltd' : ' LLC'), desc: 'Everyday clothes and homeware, made to last.', email: 'hello@' + R.domain, phone: R.phone, street: R.street, city: R.city, postal: R.postal, region: R.regionName, taxId: R.key === 'IN' ? '08ABCDE1234F1Z5' : R.key === 'DE' ? 'DE123456789' : '', country: R.country },
+      storeInfo: { name: R.store, legal: R.store + (R.key === 'DE' ? ' GmbH' : R.key === 'IN' ? ' Pvt Ltd' : ' LLC'), desc: 'Everyday clothes and homeware, made to last.', email: 'hello@' + R.domain, phone: R.phone, street: R.street, city: R.city, postal: R.postal, region: R.regionName, taxId: R.key === 'IN' ? '08ABCDE1234F1Z5' : R.key === 'DE' ? 'DE123456789' : '', country: R.country, tz: { US: 'America/New_York', DE: 'Europe/Berlin', IN: 'Asia/Kolkata' }[R.key], units: R.key === 'US' ? 'imperial' : 'metric', orderPrefix: 'DF-', nextOrder: 2849 },
       currencies: [{ code: R.cur, auto: true, rounding: 'none', main: true }], languages: [{ code: 'en', name: 'English', main: true }],
       gateways: [...R.gateways.map(g => ({ key: g[0], name: g[1], desc: g[2], status: g[3], kind: 'gateway' })), ...R.extras.map(g => ({ key: g[0], name: g[1], desc: g[2], status: 'off', kind: 'extra' }))],
       shipping: { mode: 'live', flat: String(R.mult(6)), free: 'over', threshold: String(R.mult(75)), where: 'all', couriers: R.couriers.map(([name, st]) => ({ name, status: st })) },
       storefront: { live: 12, history: [{ v: 12, label: 'Autumn homepage banner', date: day(3).getTime(), by: 'Farhan' }, { v: 11, label: 'New footer with returns link', date: day(9).getTime(), by: 'Farhan' }, { v: 10, label: 'First version', date: day(30).getTime(), by: 'Setup' }], draft: null, prompts: 14, minutes: 38 },
-      invoices: [0, 1, 2].map(i => ({ id: 'INV-' + (2026090 - i * 100), date: new Date(2026, 8 - i, 1).getTime(), amount: 'Plan fee', status: 'Paid' })), card: 'Visa ending 4242'
+      invoices: [0, 1, 2].map(i => ({ id: 'INV-' + (2026090 - i * 100), date: new Date(2026, 8 - i, 1).getTime(), amount: 'Plan fee', status: 'Paid' })), card: 'Visa ending 4242',
+      groups: [{ id: 'g1', name: 'VIP', desc: 'Spent the most with you', members: empty ? [] : [cust(0).email, cust(3).email] }, { id: 'g2', name: 'Wholesale', desc: 'Shops that buy to resell', members: empty ? [] : [cust(4).email] }],
+      custMeta: empty ? {} : { [cust(0).email]: { tags: ['Repeat'], note: 'Prefers gift wrap.', consent: { email: true, sms: false, date: day(40).getTime(), where: 'Checkout' } }, [cust(1).email]: { tags: [], note: '', consent: { email: false, sms: false, date: day(6).getTime(), where: 'Checkout' } } }, extraCustomers: [],
+      stockLog: empty ? [] : [{ pid: 'p1', what: 'Sand / ' + R.sizes[1], delta: 24, to: 24, reason: 'New stock arrived', who: 'Farhan Ali', where: R.wh, t: day(20).getTime() }, { pid: 'p1', what: 'Sand / ' + R.sizes[1], delta: -2, to: 22, reason: 'Order DF-2848', who: 'Shop', where: R.wh, t: day(0).getTime() }, { pid: 'p2', what: R.sizes[0], delta: -1, to: 1, reason: 'Damaged — written off', who: 'Nadia Tran', where: 'Northwind — main unit', t: day(5).getTime() }, { pid: 'p10', what: '', delta: 8, to: 8, reason: 'New stock arrived', who: 'Farhan Ali', where: R.wh, t: day(14).getTime() }, { pid: 'p10', what: '', delta: -1, to: 7, reason: 'Order DF-2845', who: 'Shop', where: R.wh, t: day(1).getTime() }, { pid: 'p10', what: '', delta: -1, to: 6, reason: 'Counted again', who: 'Priya Shah', where: R.wh, t: day(0).getTime() }, { pid: 'p13', what: '', delta: 17, to: 17, reason: 'Starting stock', who: 'Nadia Tran', where: 'Northwind — main unit', t: day(12).getTime() }, { pid: 'p13', what: '', delta: -2, to: 15, reason: 'Order DF-2846', who: 'Shop', where: 'Northwind — main unit', t: day(1).getTime() }],
+      badges: [{ id: 'b1', name: 'New', tone: 'ok', rule: 'new', ruleLabel: 'Added in the last 30 days' }, { id: 'b2', name: 'Bestseller', tone: 'peach', rule: 'top', ruleLabel: 'Your 5 best sellers this month' }, { id: 'b3', name: 'Handmade', tone: 'neutral', rule: 'manual', ruleLabel: 'You choose the products' }],
+      requests: [], domainState: null
     };
   }
   fresh(region, dataset, keep) {
     return {
-      region, dataset, role: 'owner', plan: 'trial', device: 'desktop', aiKey: '', aiUsed: 42, bwUsed: 0.8, bwExtra: 0, billing: 'year', setupBought: false, kept: null, graceDays: 3,
+      region, dataset, role: 'owner', plan: 'trial', theme: (this.state && this.state.theme) || 'light', profiles: { owner: { name: 'Farhan Ali', email: 'farhan@' + this.REG(region).domain, phone: this.REG(region).phone, tfa: 'sms', backup: 10, pwDate: 'Changed 3 months ago' }, manager: { name: 'Priya Shah', email: 'priya@' + this.REG(region).domain, phone: '', tfa: 'off', backup: 0, pwDate: 'Changed 5 weeks ago' }, staff: { name: 'Tom Okafor', email: 'tom@' + this.REG(region).domain, phone: '', tfa: 'off', backup: 0, pwDate: 'Changed 2 weeks ago' }, vendor: { name: 'Nadia Tran', email: 'nadia@northwind.co', phone: '', tfa: 'app', backup: 8, pwDate: 'Changed 4 months ago' } }, job: null, preview: null, doc: null, device: 'desktop', aiKey: '', aiUsed: 42, bwUsed: 0.8, bwExtra: 0, billing: 'year', setupBought: false, kept: null, graceDays: 3,
       brand: { active: false, name: 'Northstar Commerce', short: 'N', primary: '#1B3A5B', accent: '#2BB673', font: 'Manrope', loginTitle: 'Sell online with Northstar', loginBody: 'Everything your shop needs, in one place.', domain: 'admin.northstar.shop', emailFrom: 'hello@northstar.shop', support: 'help.northstar.shop', hidePowered: true },
       partners: [{ id: 'pc1', name: 'Bloom & Co.', owner: 'asha@bloomco.in', plan: 'growth', status: 'active', stores: 1, created: '12 Aug 2026', features: { suppliers: false, markets: true, storefrontAI: true }, domain: 'bloomco.northstar.shop' }, { id: 'pc2', name: 'Urban Threads', owner: 'dev@urbanthreads.com', plan: 'business', status: 'active', stores: 3, created: '2 Jul 2026', features: { suppliers: true, markets: true, storefrontAI: true }, domain: 'shop.urbanthreads.com' }, { id: 'pc3', name: 'Kiran Crafts', owner: 'kiran@crafts.in', plan: 'starter', status: 'invited', stores: 0, created: '25 Sep 2026', features: { suppliers: false, markets: false, storefrontAI: false }, domain: '' }, { id: 'pc4', name: 'Old Mill Goods', owner: 'ops@oldmill.co', plan: 'free', status: 'deactivated', stores: 1, created: '3 Mar 2026', features: { suppliers: false, markets: false, storefrontAI: false }, domain: 'oldmill.northstar.shop' }], multiLang: false, multiCur: false, approvalOn: true,
       sim: { offline: false, uploadFail: false, conflict: false },
@@ -381,6 +453,40 @@ class Component extends DCLogic {
     const business = { ...growth, key: 'business', name: 'Business', products: I, photos: 50, versions: 250, sizeCharts: I, aplusProducts: I, aiQuota: 1000, staff: 15, suppliers: true, markets: 10, currencies: 10, languages: 10, fixed: true, marketDomain: true, duties: true, locations: 10, history: 365, custom: true, bandwidth: 200, extraBw: true, support: 'Priority chat & phone', rank: 3, yearly: 9999, setup: 12000 };
     const enterprise = { ...business, key: 'enterprise', name: 'Partner', photos: I, versions: I, aiQuota: I, staff: I, markets: I, currencies: I, languages: I, locations: I, history: I, bandwidth: I, whiteLabel: true, partner: true, support: 'Named account manager', rank: 4 };
     return { free, starter, growth, business, enterprise };
+  }
+  PRICE(cur) { const T = { INR: { starter: [4999, 7000], growth: [6999, 9000], business: [9999, 12000] }, USD: { starter: [96, 149], growth: [144, 199], business: [240, 299] }, EUR: { starter: [96, 139], growth: [144, 189], business: [240, 279] } }; return T[cur] || T.USD; }
+  planPrice(key) { const R = this.REG(this.state.region); const p = this.PRICE(R.cur)[key]; if (!p) return null; const nf = new Intl.NumberFormat(R.locale, { style: 'currency', currency: R.cur, maximumFractionDigits: 0 }); const f = v => nf.format(Math.round(v)); return { yearly: p[0], setup: p[1], f, moYear: f(p[0] / 12), moMonth: f(p[0] * 2 / 12), year: f(p[0]), setupF: f(p[1]), cur: R.cur }; }
+  reserved(pid) { return (this.state.orders || []).filter(o => ['unfulfilled', 'partial'].includes(o.status)).reduce((a, o) => a + o.lines.filter(l => l.pid === pid).reduce((b, l) => b + Math.max(0, l.qty - l.shipped), 0), 0); }
+  dl(name, headers, rows) {
+    const esc = v => { const x = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+    const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join('\n');
+    try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); } catch (e) {}
+    this.toast('Downloaded ' + name + ' · ' + rows.length + (rows.length === 1 ? ' row' : ' rows'));
+  }
+  startJob(job) {
+    clearInterval(this._job);
+    this.setState({ job: { label: job.label, total: job.total, pct: 0, paused: false, done: false, result: null } });
+    this._job = setInterval(() => {
+      const s = this.state; if (!s.job) { clearInterval(this._job); return; }
+      if (s.sim.offline) { if (!s.job.paused) this.setState({ job: { ...s.job, paused: true } }); return; }
+      const pct = Math.min(100, s.job.pct + 8);
+      if (pct < 100) { this.setState({ job: { ...s.job, pct, paused: false } }); return; }
+      clearInterval(this._job);
+      const result = job.apply ? job.apply() : {};
+      this.setState({ job: { ...s.job, pct: 100, paused: false, done: true, result } });
+      this.toast(job.doneMsg ? job.doneMsg(result) : 'Finished', 'See them', () => this.go('products'));
+    }, 500);
+  }
+  request(what) {
+    const c = this.caps(); const me = (this.state.profiles || {})[c.isVendor ? 'vendor' : c.role] || {};
+    this.setState(st => ({ requests: [{ id: 'rq' + Date.now(), who: me.name || 'A team member', role: { manager: 'Manager', staff: 'Staff' }[c.role] || 'Team', what, t: Date.now() }, ...(st.requests || [])] }));
+    this.toast('Sent to Farhan — it shows on his Home page');
+  }
+  removeSupplier(id) {
+    const s = this.state; const sup = (s.suppliers || []).find(x => x.id === id); if (!sup) return 0;
+    const n = s.products.filter(p => p.supplier === sup.name).length;
+    this.setState(st => ({ suppliers: st.suppliers.filter(x => x.id !== id), people: (st.people || []).filter(p => p.company !== sup.name), products: st.products.map(p => p.supplier === sup.name ? { ...p, status: 'hidden', removedSupplier: sup.name, updated: Date.now() } : p) }));
+    return n;
   }
   planOf(p) { const P = this.PLANS(); return { trial: P.business, trial9: P.business, trialEnded: P.free, pastdue: P.starter }[p] || P[p] || P.free; }
   caps() {
@@ -434,6 +540,7 @@ class Component extends DCLogic {
   closeModal() { this.setState({ modal: null, modalVal: '', modalErr: '' }); }
 
   canOpen(screen, role) {
+    if (screen === 'profile') return true;
     const V = ['products', 'product', 'orders', 'order'], VS = ['products', 'product'];
     const ST = ['home', 'orders', 'order', 'customers', 'products', 'product', 'collections', 'offers', 'offer', 'carts', 'denied', 'missing'];
     if (role === 'vendorStock') return VS.includes(screen) || screen === 'denied' || screen === 'missing';
@@ -445,8 +552,8 @@ class Component extends DCLogic {
   go(screen, extra) {
     if (screen === 'approve') { screen = 'products'; extra = { productFilter: 'waiting', ...(extra || {}) }; }
     if (screen === 'sizecharts') { screen = 'collections'; extra = { collTab: 'sizecharts', ...(extra || {}) }; }
-    const KNOWN = ['keep', 'home', 'orders', 'order', 'customers', 'reports', 'storefront', 'billing', 'products', 'product', 'collections', 'imports', 'offers', 'offer', 'carts', 'settings', 'aplus', 'other', 'denied', 'missing'];
-    if (!KNOWN.includes(screen)) { extra = { otherTitle: { brand: 'Branding', plans: 'Plans', partner: 'Partner customers' }[screen] || 'This page', ...(extra || {}) }; screen = 'other'; }
+    const KNOWN = ['keep', 'home', 'orders', 'order', 'customers', 'reports', 'storefront', 'billing', 'products', 'product', 'collections', 'imports', 'offers', 'offer', 'carts', 'settings', 'aplus', 'other', 'denied', 'missing', 'profile'];
+    if (!KNOWN.includes(screen)) { extra = { otherTitle: { brand: 'Branding', plans: 'Plans', partner: 'Partner customers' }[screen] || 'This page', otherKey: screen, ...(extra || {}) }; screen = 'other'; }
     const role = this.caps().role;
     if (!this.canOpen(screen, role)) { extra = { deniedFrom: screen }; screen = 'denied'; }
     if (this.state.scn === 'loadErr' || this.state.scn === 'slow') { this.setState({ screen, navOpen: false, returnTo: null, loading: true, ...(extra || {}) }); if (this.state.scn === 'loadErr') { clearTimeout(this._lt); this._lt = setTimeout(() => this.setState({ loading: false }), 900); } return; }
@@ -463,7 +570,11 @@ class Component extends DCLogic {
     if (!exists && s.products.filter(x => !x.sample).length >= c.limits.products) return { ok: false, limit: true };
     if (exists && s.sim.conflict && !opts.force) return { ok: false, conflict: true };
     let status = p.status;
-    if (c.isVendor && c.approvalOn && !c.isVendorStock) status = 'waiting';
+    let reapprove = false;
+    if (c.isVendor && c.approvalOn && !c.isVendorStock) {
+      if (exists && exists.status === 'visible') { const ids = x => JSON.stringify((x.photos || []).map(ph => ph.id)); const vp = x => JSON.stringify((x.variants || []).map(v => Number(v.price))); reapprove = p.name !== exists.name || Number(p.price) !== Number(exists.price) || ids(p) !== ids(exists) || vp(p) !== vp(exists); status = reapprove ? 'waiting' : 'visible'; }
+      else status = 'waiting';
+    }
     if (c.isVendor && !c.approvalOn && (status === 'waiting' || status === 'sentback')) status = 'visible';
     const saved = { ...p, status, sentBack: status === 'waiting' ? '' : p.sentBack, updated: Date.now(), supplier: exists ? exists.supplier : (c.isVendor ? 'Northwind Textiles' : 'You') };
     const products = exists ? s.products.map(x => x.id === p.id ? saved : x) : [saved, ...s.products];
@@ -472,9 +583,11 @@ class Component extends DCLogic {
     const ms = this.marketStatus(saved);
     const ready = ms.filter(m => m.ok), notReady = ms.filter(m => !m.ok);
     const R = this.REG(s.region);
-    const view = () => this.toast('Opens ' + R.domain + '/products/' + this.slug(saved.name) + ' in a new tab');
+    const view = () => this.setState({ preview: { kind: 'product', id: saved.id } });
     if (opts.quiet) { this.toast('Saved'); return { ok: true, product: saved }; }
-    if (status === 'waiting') this.modal({ tag: 'Sent for approval', title: 'Sent to your store owner', body: 'It goes live once they approve it. We’ll tell you either way.', confirm: 'OK', cancel: '' });
+    if (status === 'waiting' && reapprove) this.modal({ tag: 'Sent for approval', title: 'Your price, title or photo change needs approval', body: 'Those three changes go to the store owner first. Everything else you edit goes live straight away. We’ll tell you when they decide.', confirm: 'OK', cancel: '' });
+    else if (status === 'waiting') this.modal({ tag: 'Sent for approval', title: 'Sent to your store owner', body: 'It goes live once they approve it. We’ll tell you either way.', confirm: 'OK', cancel: '' });
+    else if (c.isVendor && c.approvalOn && exists && exists.status === 'visible') this.modal({ tag: 'Saved', title: 'Saved — live now', body: 'Only price, title and photo changes need the owner’s approval. This change didn’t, so shoppers see it already.', confirm: 'OK', cancel: '' });
     else if (status === 'hidden') this.modal({ tag: 'Saved', title: 'Saved, and hidden', body: 'Only you and your team can see it. Switch it to Visible when you’re ready.', confirm: 'Done', cancel: '' });
     else if (!ready.length) this.modal({ tag: 'Saved', title: 'Saved — not on sale anywhere yet', body: 'Every country you sell in needs a few more details:\n' + notReady.map(m => '• ' + m.name + ': ' + m.missing.map(x => x.label).join(', ')).join('\n'), confirm: 'Add the details', onConfirm: opts.onNeedDetails, cancel: 'Later' });
     else if (notReady.length) this.modal({ tag: 'Saved', title: 'Live in ' + ready.map(m => m.name).join(', ') + ' — not ' + notReady.map(m => m.name).join(', ') + ' yet', body: notReady.map(m => m.name + ' needs: ' + m.missing.map(x => x.label).join(', ')).join('\n') + '\nEverywhere else can buy it now.', confirm: 'Add the details', onConfirm: opts.onNeedDetails, cancel: 'Later' });
@@ -503,15 +616,39 @@ class Component extends DCLogic {
   upgrade(feature, key) {
     const c = this.caps();
     if (c.isVendor) return;
-    const need = key ? this.PLANS()[key] : c.minPlan(feature);
-    const label = typeof feature === 'string' && !key ? feature : feature;
-    if (c.isManager || c.isStaff) { this.modal({ title: 'Ask your store owner', body: (label || 'This') + ' is on ' + need.name + '. Only the owner can change the plan — we’ll send them a note.', confirm: 'Send request', onConfirm: () => this.toast('Farhan will get your request'), cancel: 'Cancel' }); return; }
-    const pr = need.yearly ? '₹' + Math.round(need.yearly / 12).toLocaleString('en-IN') + '/month, billed yearly' : 'Talk to us';
+    const all = this.PLANS(); const order = ['free', 'starter', 'growth', 'business', 'enterprise'];
+    const guess = f => { const x = String(f || '').toLowerCase(); const M = [[/white.?label|partner/, 'enterprise'], [/supplier|custom report|custom field|duties|market domain|fixed price|its own domain/, 'business'], [/report|badge|import from a spreadsheet|own domain/, 'starter'], [/powered|a\+|video|faq|related|shopify|export|manager|ai included|photo|size chart|offer|cart reminder|discount|group|tier|single-use|adjust/, 'growth']]; for (const [re, k] of M) if (re.test(x)) return all[k]; return null; };
+    let need = key && all[key] ? all[key] : (typeof feature === 'string' && feature in all.free ? c.minPlan(feature) : guess(feature));
+    if (!need || need.rank <= c.P.rank) need = all[order[Math.min(4, c.P.rank + 1)]];
+    const label = feature;
+    if (c.isManager || c.isStaff) { this.modal({ title: 'Ask your store owner', body: (label || 'This') + ' is on ' + need.name + '. Only the owner can change the plan — we’ll send them a note.', confirm: 'Send request', onConfirm: () => this.request((label || 'A feature') + ' — needs ' + need.name), cancel: 'Cancel' }); return; }
+    const pp = this.planPrice(need.key); const pr = pp ? pp.moYear + '/month, billed yearly' : 'Talk to us';
     this.modal({ tag: need.name + ' plan', title: (label ? label.charAt(0).toUpperCase() + label.slice(1) : 'This') + ' is on ' + need.name, body: need.name + ' · ' + pr + '\nEverything you’ve made stays as it is. You come straight back here.', confirm: need.key === 'enterprise' ? 'Talk to us' : 'Switch to ' + need.name, onConfirm: () => { if (need.key === 'enterprise') { this.toast('We’ll call you within a working day'); return; } this.setState({ plan: need.key }); this.toast('You’re on ' + need.name + ' — ' + (label || 'it') + ' is ready, right where you left off.'); }, alt: 'Compare plans', onAlt: () => this.go('billing'), cancel: 'Not now' });
   }
   allow(key, label) { const c = this.caps(); const v = c.P[key]; if (v === true || (typeof v === 'number' && v > 0)) return true; this.upgrade(label || key, c.minPlan(key).key); return false; }
   within(key, count, label) { const c = this.caps(); if (count < c.P[key]) return true; const all = this.PLANS(); const next = ['free', 'starter', 'growth', 'business', 'enterprise'].map(k => all[k]).find(x => x[key] > c.P[key]) || all.enterprise; this.upgrade((label || key) + ' (you’ve used ' + count + ' of ' + c.P[key] + ')', next.key); return false; }
 
+  pvVals(R, fmt, phone) {
+    const s = this.state; const pv = s.preview || {}; const sf = s.storefront || {};
+    const hero = sf.site || { headline: 'New in: ' + ((s.storeInfo || {}).name || R.store) + ' autumn edit', sub: 'Made to last, sent from ' + R.city + '.', cta: 'Shop now', accent: '#0A2A4A', bg: '#F2EDE6', fg: '#14181F' };
+    const price = p => { const vs = (p.variants || []).filter(v => !v.removed); const lo = vs.length ? Math.min(...vs.map(v => Number(v.price) || 0)) : Number(p.price) || 0; return (vs.length > 1 && vs.some(v => Number(v.price) !== lo) ? 'From ' : '') + fmt(lo); };
+    const bgOf = p => p.photos && p.photos[0] ? 'hsl(' + p.photos[0].hue + ' 32% 82%)' : '#EDEAE5';
+    const grid = s.products.filter(p => p.status === 'visible').slice(0, 8).map(p => ({ name: p.name, price: price(p), bg: bgOf(p), open: () => this.setState({ preview: { kind: 'product', id: p.id } }) }));
+    const p = s.products.find(x => x.id === pv.id) || s.products[0] || { name: '', photos: [] };
+    const bmap = {}; (s.badges || []).forEach(b => { bmap[b.id] = b.name; });
+    const stk = (p.variants || []).length ? p.variants.reduce((a, v) => a + (v.removed ? 0 : Number(v.stock) || 0), 0) : Number(p.stock) || 0;
+    const dom = (s.storeInfo || {}).ownDomain || R.domain;
+    return { pad: phone ? '8px' : '24px', cols: phone ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)', isHome: pv.kind !== 'product', isProduct: pv.kind === 'product', url: dom + (pv.kind === 'product' ? '/products/' + this.slug(p.name) : ''), tag: pv.kind === 'product' && p.status !== 'visible' ? 'Preview · hidden from shoppers' : 'Live site', hero, grid,
+      p: { name: p.name, price: price(p), desc: p.desc || 'No description yet.', bg: bgOf(p), badges: (p.badges || []).map(id => bmap[id]).filter(Boolean), hasBadges: !!(p.badges || []).length, stock: p.track === false ? '' : stk > 0 ? (stk <= 3 ? 'Only ' + stk + ' left' : 'In stock') : 'Sold out' },
+      foot: '© ' + ((s.storeInfo || {}).name || R.store) + (this.caps().P.powered ? ' · Powered by DripFunnel' : '') };
+  }
+  docVals() {
+    const d = this.state.doc; if (!d) return { from: [], meta: [], to: [], cols: [], rows: [], totals: [] };
+    const cols = d.cols || []; const al = i => (cols[i] && cols[i].al) || 'left';
+    return { title: d.title, fromName: d.fromName || '', from: d.from || [], meta: (d.meta || []).map(([k, v]) => ({ k, v })), hasTo: !!(d.to && d.to.length), toLabel: d.toLabel || 'Bill to', to: d.to || [],
+      grid: d.grid || cols.map((c, i) => i === 0 ? 'minmax(0,1fr)' : 'auto').join(' '), cols: cols.map(c => ({ l: c.l, al: c.al || 'left' })), rows: (d.rows || []).map(r => r.map((v, i) => ({ v: String(v), al: al(i), ff: cols[i] && cols[i].mono ? "'IBM Plex Mono',monospace" : 'inherit' }))),
+      hasTotals: !!(d.totals && d.totals.length), totals: (d.totals || []).map(([k, v, b]) => ({ k, v, w: b ? 700 : 400 })), note: d.note || '' };
+  }
     // ------------ render
   renderVals() {
     const s = this.state;
@@ -551,24 +688,25 @@ class Component extends DCLogic {
       if (c.isOwner) { nav.push(head('Admin')); nav.push(item('settings', 'Settings', lock)); nav.push(item('billing', 'Billing', { note: c.trial ? (s.plan === 'trial9' ? '1 day left' : '7 days left') : '' })); }
     }
 
-    const crumbs = { denied: 'No access', missing: 'Not found', keep: 'Billing / Choose what to keep', home: 'Home', orders: c.isVendor ? 'To ship' : 'Orders', customers: 'Customers', offers: s.offerView ? 'Offers / Offer' : 'Offers', offer: s.offerId ? 'Offers / Edit offer' : 'Offers / New offer', carts: s.cartView ? 'Abandoned carts / Cart' : 'Abandoned carts', reports: 'Reports', storefront: 'Storefront', billing: 'Billing', products: c.isVendor ? 'Your products' : 'Catalogue / Products', product: 'Catalogue / Products / ' + (s.editId ? ((s.products.find(p => p.id === s.editId) || {}).name || 'Product') : 'New product'), collections: 'Catalogue / Collections', sizecharts: 'Catalogue / Size charts', imports: 'Products / Import & export', settings: 'Settings', aplus: 'Products / A+ content', other: s.otherTitle || '' };
+    const crumbs = { denied: 'No access', missing: 'Not found', keep: 'Billing / Choose what to keep', home: 'Home', orders: c.isVendor ? 'To ship' : 'Orders', customers: 'Customers', offers: s.offerView ? 'Offers / Offer' : 'Offers', offer: s.offerId ? 'Offers / Edit offer' : 'Offers / New offer', carts: s.cartView ? 'Abandoned carts / Cart' : 'Abandoned carts', reports: 'Reports', storefront: 'Storefront', billing: 'Billing', products: c.isVendor ? 'Your products' : 'Catalogue / Products', product: 'Catalogue / Products / ' + (s.editId ? ((s.products.find(p => p.id === s.editId) || {}).name || 'Product') : 'New product'), collections: 'Catalogue / Collections', sizecharts: 'Catalogue / Size charts', imports: 'Products / Import & export', settings: 'Settings', aplus: 'Products / A+ content', profile: 'My profile', other: s.otherTitle || '' };
 
     const banners = [];
-    if (s.provisioning) banners.push({ title: 'Your store is being built —', body: 'about a minute. Products work now; Storefront and Settings open when it’s ready.', bg: '#EAF1F8', bd: '#C9DAEC', fg: '#00325F', cta: '', onClick: null });
-    if (s.plan === 'pastdue') banners.push({ title: 'Your store is view-only.', body: 'Your last payment didn’t go through. Everything is safe — pay to start editing again.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: c.isOwner ? 'Go to billing' : '', onClick: () => this.go('billing') });
-    if (s.plan === 'trial' && c.isOwner) banners.push({ title: 'Free trial · 7 days left.', body: 'You have everything in Business. No card needed.', bg: '#EAF1F8', bd: '#C9DAEC', fg: '#00325F', cta: 'Choose a plan', onClick: () => this.go('billing') });
-    if (s.plan === 'trial9' && c.isOwner) banners.push({ title: 'Your trial ends tomorrow.', body: 'Choose a plan to keep everything, or pick what to keep on Starter (Free).', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'Choose what to keep', onClick: () => this.go('keep') });
-    if (s.plan === 'trialEnded' && !c.isVendor) banners.push({ title: 'Your trial ended — you’re on Starter (Free).', body: (s.graceDays ? `Your full shop stays live for ${s.graceDays} more days. ` : '') + 'Items over Starter (Free)’s limits are paused, never deleted.', bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: c.isOwner ? 'Change what’s kept' : '', onClick: () => this.go('keep') });
-    if (!c.isVendor && c.isOwner && c.P.bandwidth !== Infinity && s.bwUsed / c.P.bandwidth >= 0.8) banners.push({ title: `You’ve used ${Math.round(s.bwUsed / c.P.bandwidth * 100)}% of this month’s bandwidth.`, body: 'Your shop stays online.' + (c.P.extraBw ? ' Buy extra any time.' : ' Move up a plan for more.'), bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00', cta: 'See usage', onClick: () => this.go('billing') });
-    if (c.P.whiteLabel && s.brand.active && c.isOwner) banners.push({ title: 'White-label is on.', body: 'Your customers see ' + s.brand.name + ' everywhere — not DripFunnel.', bg: '#EEF7F2', bd: '#C3E0D2', fg: '#1D6B47', cta: 'Edit branding', onClick: () => this.go('brand') });
+    if (s.provisioning) banners.push({ title: 'Your store is being built —', body: 'about a minute. Products work now; Storefront and Settings open when it’s ready.', bg: 'var(--ibg,#EAF1F8)', bd: 'var(--ibd,#C9DAEC)', fg: 'var(--ifg,#00325F)', cta: '', onClick: null });
+    if (s.plan === 'pastdue') banners.push({ title: 'Your store is view-only.', body: 'Your last payment didn’t go through. Everything is safe — pay to start editing again.', bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)', cta: c.isOwner ? 'Go to billing' : '', onClick: () => this.go('billing') });
+    if (s.plan === 'trial' && c.isOwner) banners.push({ title: 'Free trial · 7 days left.', body: 'You have everything in Business. No card needed.', bg: 'var(--ibg,#EAF1F8)', bd: 'var(--ibd,#C9DAEC)', fg: 'var(--ifg,#00325F)', cta: 'Choose a plan', onClick: () => this.go('billing') });
+    if (s.plan === 'trial9' && c.isOwner) banners.push({ title: 'Your trial ends tomorrow.', body: 'Choose a plan to keep everything, or pick what to keep on Starter (Free).', bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)', cta: 'Choose what to keep', onClick: () => this.go('keep') });
+    if (s.plan === 'trialEnded' && !c.isVendor) banners.push({ title: 'Your trial ended — you’re on Starter (Free).', body: (s.graceDays ? `Your full shop stays live for ${s.graceDays} more days. ` : '') + 'Items over Starter (Free)’s limits are paused, never deleted.', bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)', cta: c.isOwner ? 'Change what’s kept' : '', onClick: () => this.go('keep') });
+    if (!c.isVendor && c.isOwner && c.P.bandwidth !== Infinity && s.bwUsed / c.P.bandwidth >= 0.8) banners.push({ title: `You’ve used ${Math.round(s.bwUsed / c.P.bandwidth * 100)}% of this month’s bandwidth.`, body: 'Your shop stays online.' + (c.P.extraBw ? ' Buy extra any time.' : ' Move up a plan for more.'), bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)', cta: 'See usage', onClick: () => this.go('billing') });
+    if (c.P.whiteLabel && s.brand.active && c.isOwner) banners.push({ title: 'White-label is on.', body: 'Your customers see ' + s.brand.name + ' everywhere — not DripFunnel.', bg: 'var(--okbg,#EEF7F2)', bd: 'var(--okbd,#C3E0D2)', fg: 'var(--okfg,#1D6B47)', cta: 'Edit branding', onClick: () => this.go('brand') });
+    if (s.job && !s.job.done && s.screen !== 'imports' && !c.isVendor) banners.push({ title: s.job.paused ? 'Import paused —' : 'Importing products —', body: s.job.paused ? 'you’re offline. It carries on by itself when you’re back.' : Math.round(s.job.total * s.job.pct / 100) + ' of ' + s.job.total + ' done. Keep working — we’ll tell you when it’s finished.', bg: 'var(--ibg,#EAF1F8)', bd: 'var(--ibd,#C9DAEC)', fg: 'var(--ifg,#00325F)', cta: 'View', onClick: () => this.go('imports') });
     if (s.sim.offline) banners.push({ title: 'You’re offline.', body: 'Changes are kept on this device and will save when you’re back.', bg: '#5A6472', bd: '#5A6472', fg: '#FFFFFF', cta: 'Back online', onClick: () => this.setState({ sim: { ...s.sim, offline: false } }) });
 
     const m = s.modal;
     const modal = m ? {
       tag: m.tag || '', title: m.title, body: m.body || '', confirm: m.confirm || 'OK', cancel: m.cancel === undefined ? 'Cancel' : m.cancel, alt: m.alt || '',
-      btnBg: m.danger ? '#B8541F' : (m.navy ? '#0A2A4A' : '#EC844F'), w: m.wide ? '620px' : '480px',
+      btnBg: m.danger ? '#B8541F' : (m.navy ? 'var(--navy,#0A2A4A)' : '#EC844F'), w: m.wide ? '620px' : '480px',
       hasInput: !!m.input, inputLabel: m.input ? m.input.label : '', placeholder: m.input ? m.input.placeholder : '', inputErr: s.modalErr,
-      choices: (m.choices || []).map(ch => ({ label: ch.label, sub: ch.sub || '', bd: s.modalChoice === ch.value ? '2px solid #00519F' : '1px solid #D7D3CD', bg: s.modalChoice === ch.value ? '#F4F8FB' : '#FFFFFF', dot: s.modalChoice === ch.value ? '5px solid #00519F' : '1.5px solid #9AA1AB', onClick: () => this.setState({ modalChoice: ch.value }) }))
+      choices: (m.choices || []).map(ch => ({ label: ch.label, sub: ch.sub || '', bd: s.modalChoice === ch.value ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: s.modalChoice === ch.value ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', dot: s.modalChoice === ch.value ? '5px solid var(--focus,#00519F)' : '1.5px solid var(--faint,#9AA1AB)', onClick: () => this.setState({ modalChoice: ch.value }) }))
     } : { choices: [] };
 
     const tog = (label, on, fn) => ({ label: (on ? '● ' : '○ ') + label, onClick: fn, bg: on ? '#EC844F' : 'transparent', bd: on ? '#EC844F' : '#3A424E', fg: on ? '#FFFFFF' : '#D6DEE7' });
@@ -579,6 +717,7 @@ class Component extends DCLogic {
       tog('Offline', s.sim.offline, () => this.setState({ sim: { ...s.sim, offline: !s.sim.offline } })),
       tog('Upload fails', s.sim.uploadFail, () => this.setState({ sim: { ...s.sim, uploadFail: !s.sim.uploadFail } })),
       tog('Spec', !!s.showSpec, () => this.setState({ showSpec: !s.showSpec })),
+      tog('Dark mode', s.theme === 'dark', () => { const th = s.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('df-store-theme', th); } catch (e) {} this.setState({ theme: th }); }),
       tog('Edit conflict', s.sim.conflict, () => this.setState({ sim: { ...s.sim, conflict: !s.sim.conflict } }))
     ];
 
@@ -588,14 +727,14 @@ class Component extends DCLogic {
       go: (sc, extra) => this.go(sc, extra), openProduct: id => this.go('product', { editId: id, editNonce: s.editNonce + 1 }), newProduct: () => this.go('product', { editId: null, editNonce: s.editNonce + 1 }),
       saveProduct: (p, o) => this.saveProduct(p, o), deleteProducts: ids => this.deleteProducts(ids), updateProducts: (ids, patch) => this.updateProducts(ids, patch),
       addProducts: list => this.setState(st => ({ products: [...list, ...st.products] })),
-      allow: (k, l) => this.allow(k, l), needAI: () => { const cc = this.caps(); if (cc.P.ai === 'key' && !this.state.aiKey) { this.modal({ title: 'Connect your AI key first', body: 'On ' + cc.P.name + ' the AI runs on your own OpenAI or Anthropic account. From Growth it’s included — no key needed.', input: { label: 'API key', placeholder: 'sk-…', required: true, error: 'Paste your key' }, confirm: 'Connect', alt: 'See Growth', onAlt: () => this.upgrade('AI included', 'growth'), onConfirm: v => { if (!/^sk-/.test(v.trim())) { this.toast('That doesn’t look like an API key — it usually starts with “sk-”'); return; } this.setState({ aiKey: v.trim() }); this.toast('AI key connected — try again'); } }); return false; } if (cc.P.ai === 'included' && this.state.aiUsed >= cc.P.aiQuota) { this.toast('You’ve used this month’s AI allowance — it resets on 1 Oct, or connect your own key'); return false; } this.setState(st => ({ aiUsed: st.aiUsed + 1 })); return true; }, aiLeft: () => { const cc = this.caps(); return cc.P.ai === 'key' ? (this.state.aiKey ? 'your key' : 'needs your key') : cc.P.aiQuota === Infinity ? 'included' : Math.max(0, cc.P.aiQuota - this.state.aiUsed) + ' left'; }, within: (k, n, l) => this.within(k, n, l), PLANS: this.PLANS(), paused: this.paused(),
+      allow: (k, l) => this.allow(k, l), needAI: () => { const cc = this.caps(); if (cc.P.ai === 'key' && !this.state.aiKey) { this.modal({ title: 'Connect your AI key first', body: 'On ' + cc.P.name + ' the AI runs on your own OpenAI or Anthropic account. From Growth Pro it’s included — no key needed.', input: { label: 'API key', placeholder: 'sk-…', required: true, error: 'Paste your key' }, confirm: 'Connect', alt: 'See Growth Pro', onAlt: () => this.upgrade('AI included', 'growth'), onConfirm: v => { if (!/^sk-/.test(v.trim())) { this.toast('That doesn’t look like an API key — it usually starts with “sk-”'); return; } this.setState({ aiKey: v.trim() }); this.toast('AI key connected — try again'); } }); return false; } if (cc.P.ai === 'included' && this.state.aiUsed >= cc.P.aiQuota) { this.toast('You’ve used this month’s AI allowance — it resets on 1 Oct, or connect your own key'); return false; } this.setState(st => ({ aiUsed: st.aiUsed + 1 })); return true; }, aiLeft: () => { const cc = this.caps(); return cc.P.ai === 'key' ? (this.state.aiKey ? 'your key' : 'needs your key') : cc.P.aiQuota === Infinity ? 'included' : Math.max(0, cc.P.aiQuota - this.state.aiUsed) + ' left'; }, within: (k, n, l) => this.within(k, n, l), PLANS: this.PLANS(), paused: this.paused(),
       setLocale: ({ region, currency, language, languageName }) => {
         const fr = region !== s.region ? this.fresh(region, s.dataset, { role: s.role, plan: s.plan, device: s.device }) : {};
         this.setState({ ...fr, auth: 'in', screen: 'home', products: s.products, collections: s.collections, orders: s.orders, storeInfo: { ...(fr.storeInfo || s.storeInfo), name: (s.storeInfo || {}).name },
           currencies: [{ code: currency, auto: true, rounding: 'none', main: true }], languages: [{ code: language, name: languageName || language, main: true }], localeOk: true });
       },
       data: key => supOn ? s[key] : key === 'suppliers' ? [] : key === 'people' ? (s.people || []).filter(p => p.role !== 'Supplier user') : key === 'warehouses' ? (s.warehouses || []).filter(w => !w.supplier) : s[key], set: (key, fn) => this.setState(st => ({ [key]: typeof fn === 'function' ? fn(st[key]) : fn })), setPlan: p => this.setState({ plan: p }),
-      signIn: role => { this.setState({ auth: 'in', authNote: null, scn: 'normal', ...(role ? { role } : {}), screen: c.isVendor && !role ? 'products' : 'home' }); }, signOut: () => this.setState({ auth: 'login', authNote: null, navOpen: false, authNonce: s.authNonce + 1 }),
+      signIn: role => { const v = role === 'vendor' || role === 'vendorStock' || (c.isVendor && !role); this.setState({ auth: 'in', authNote: null, scn: 'normal', ...(role ? { role } : {}), ...(v && !this.planOf(this.state.plan).suppliers ? { plan: 'business' } : {}), screen: v ? 'products' : 'home' }); }, signOut: () => this.setState({ auth: 'login', authNote: null, navOpen: false, authNonce: s.authNonce + 1 }),
       finishSignup: info => { const fr = this.fresh(info.region || s.region, 'empty', { device: s.device }); this.setState({ ...fr, auth: 'in', screen: 'home', provisioning: true, plan: 'trial', storeInfo: { ...fr.storeInfo, name: info.store || fr.storeInfo.name }, localeOk: false }); setTimeout(() => { this.setState({ provisioning: false }); this.toast('Your store is ready — Storefront and Settings are open'); }, 9000); },
       brand: c.P.whiteLabel && s.brand.active ? s.brand : null, brandDraft: s.brand, orderFilter: s.orderFilter || null, orders: viewOrders, openOrder: id => this.go('order', { orderId: id }), orderId: s.orderId, collTab: s.collTab, settingsTab: s.settingsTab, storeName: (s.storeInfo || {}).name || R.store,
       setCollections: fn => this.setState(st => ({ collections: typeof fn === 'function' ? fn(st.collections) : fn })),
@@ -610,7 +749,10 @@ class Component extends DCLogic {
         this.setState(st => ({ priceTax: incl, products: f ? st.products.map(p => ({ ...p, price: p.price ? f(p.price) : p.price, variants: (p.variants || []).map(v => ({ ...v, price: v.price ? f(v.price) : v.price })) })) : st.products }));
       }, setLegalDefaults: v => this.setState({ legalDefaults: v }),
       hideWalkthrough: () => this.setState({ walkthrough: false }),
-      toast: (msg, a, fn) => this.toast(msg, a, fn), modal: spec => this.modal(spec), closeModal: () => this.closeModal(), upgrade: f => this.upgrade(f), upgradeTo: (f, k) => this.upgrade(f, k),
+      toast: (msg, a, fn) => this.toast(msg, a, fn), modal: spec => this.modal(spec), closeModal: () => this.closeModal(), upgrade: (f, k) => this.upgrade(f, k), upgradeTo: (f, k) => this.upgrade(f, k),
+      planPrice: k => this.planPrice(k), reserved: pid => this.reserved(pid), download: (n, h, r) => this.dl(n, h, r), doc: spec => this.setState({ doc: spec }), preview: spec => this.setState({ preview: spec }),
+      startJob: j => this.startJob(j), job: s.job, clearJob: () => this.setState({ job: null }), request: w => this.request(w), removeSupplier: id => this.removeSupplier(id),
+      logStock: e => this.setState(st => ({ stockLog: [{ who: (st.profiles[c.isVendor ? 'vendor' : c.role] || {}).name || 'You', t: Date.now(), ...e }, ...(st.stockLog || [])] })), me: s.profiles[c.isVendor ? 'vendor' : c.role] || {}, setMe: patch => this.setState(st => ({ profiles: { ...st.profiles, [c.isVendor ? 'vendor' : c.role]: { ...st.profiles[c.isVendor ? 'vendor' : c.role], ...patch } } })), theme: s.theme, setTheme: th => { try { localStorage.setItem('df-store-theme', th); } catch (e) {} this.setState({ theme: th }); },
       matches: (col, p) => this.matches(col, p), marketStatus: p => this.marketStatus(p), slug: n => this.slug(n),
       collectionCount: col => s.products.filter(p => this.matches(col, p)).length,
       addSample: () => { const smp = { ...this.seed(s.region, 'stocked').products[3], id: 'sample', name: 'Sample · Everyday Tote', status: 'hidden', sample: true, supplier: 'You' }; this.setState(st => ({ products: [smp, ...st.products] })); this.toast('Sample product added — it’s hidden from shoppers.'); },
@@ -620,14 +762,16 @@ class Component extends DCLogic {
     return {
       st: s, R, app, nav, toggles, banners, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
       roleLabel: { owner: 'Owner', manager: 'Manager', staff: 'Staff', vendor: 'Supplier · Northwind', vendorStock: 'Supplier · stock only' }[s.role],
-      user: c.isVendor ? { initials: 'NT', name: 'Nadia Tran', sub: 'Northwind Textiles' } : ({ owner: { initials: 'FA', name: 'Farhan Ali', sub: 'Owner' }, manager: { initials: 'PS', name: 'Priya Shah', sub: 'Manager' }, staff: { initials: 'TO', name: 'Tom Okafor', sub: 'Staff' } }[s.role]),
-      brandOn: c.P.whiteLabel && s.brand.active, brandOff: !(c.P.whiteLabel && s.brand.active), brand: s.brand, navBg: c.P.whiteLabel && s.brand.active ? s.brand.primary : '#0A2A4A',
+      user: (() => { const me = s.profiles[c.isVendor ? 'vendor' : s.role] || {}; const ini = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); return { initials: ini, name: me.name, sub: c.isVendor ? 'Northwind Textiles' : { owner: 'Owner', manager: 'Manager', staff: 'Staff' }[s.role] }; })(),
+      theme: s.theme === 'dark' ? 'dark' : 'light', hasPreview: !!s.preview, pv: this.pvVals(R, fmt, phone), hasDoc: !!s.doc, doc: this.docVals(),
+      otherBody: { brand: 'Your brand — logo, colours, sign-in page and emails — is set in the partner console, not in a single store.', plans: 'The plans you offer your stores are set in the partner console.', partner: 'The stores you run for customers are listed in the partner console.' }[s.otherKey] || 'This page lives in the partner console.',
+      brandOn: c.P.whiteLabel && s.brand.active, brandOff: !(c.P.whiteLabel && s.brand.active), brand: s.brand, navBg: c.P.whiteLabel && s.brand.active ? s.brand.primary : (s.theme === 'dark' ? '#050D14' : '#0A2A4A'),
       authed: s.auth === 'in', unauthed: s.auth !== 'in', loading: s.loading || s.scn === 'slow', notLoading: !s.loading, authKey: 'au' + s.auth + s.authNonce, pageErr: s.scn === 'loadErr' && !s.loading, crumbName: (crumbs[s.screen] || 'this page').split(' / ').pop().toLowerCase().replace(/^catalogue$/, 'this page'), errRef: s.screen + '-' + String(s.authNonce + 4821).slice(-4),
       denied: (() => { const lbl = { settings: 'Settings', billing: 'Billing', keep: 'Billing', reports: 'Reports', storefront: 'Storefront', imports: 'Import & export', aplus: 'A+ content', home: 'Home', orders: 'Orders', order: 'this order', collections: 'Collections', offers: 'Offers', offer: 'this offer', carts: 'Abandoned carts', customers: 'Customers' }[s.deniedFrom] || 'this page'; const who = { manager: 'Managers', staff: 'Staff', vendor: 'Suppliers', vendorStock: 'Suppliers with stock-only access' }[c.role] || 'Your role'; return { title: 'You don’t have access to ' + lbl, body: who + ' can’t open ' + lbl + (['settings', 'billing', 'keep'].includes(s.deniedFrom) ? ' — only the store owner can. ' : '. ') + (c.isVendor ? 'Ask ' + (s.storeInfo || {}).name + ' if you need it.' : 'Ask Farhan Ali, the owner, if you need something changed there.'), back: c.isVendor ? 'Go to your products' : 'Go to Home', canAsk: !c.isVendor }; })(),
-      scr: { denied: s.screen === 'denied', missing: s.screen === 'missing', partner: s.screen === 'partner', brand: s.screen === 'brand', plans: s.screen === 'plans', keep: s.screen === 'keep', home: s.screen === 'home', orders: s.screen === 'orders' || s.screen === 'order' || s.screen === 'customers', reports: s.screen === 'reports', storefront: s.screen === 'storefront', billing: s.screen === 'billing', products: s.screen === 'products', product: s.screen === 'product', collections: s.screen === 'collections', sizecharts: s.screen === 'sizecharts', imports: s.screen === 'imports', approve: s.screen === 'approve', offers: s.screen === 'offers', offer: s.screen === 'offer', carts: s.screen === 'carts', settings: s.screen === 'settings', aplus: s.screen === 'aplus', other: s.screen === 'other' },
+      scr: { profile: s.screen === 'profile', denied: s.screen === 'denied', missing: s.screen === 'missing', partner: s.screen === 'partner', brand: s.screen === 'brand', plans: s.screen === 'plans', keep: s.screen === 'keep', home: s.screen === 'home', orders: s.screen === 'orders' || s.screen === 'order' || s.screen === 'customers', reports: s.screen === 'reports', storefront: s.screen === 'storefront', billing: s.screen === 'billing', products: s.screen === 'products', product: s.screen === 'product', collections: s.screen === 'collections', sizecharts: s.screen === 'sizecharts', imports: s.screen === 'imports', approve: s.screen === 'approve', offers: s.screen === 'offers', offer: s.screen === 'offer', carts: s.screen === 'carts', settings: s.screen === 'settings', aplus: s.screen === 'aplus', other: s.screen === 'other' },
       otherTitle: s.otherTitle || '', storeName: (s.storeInfo || {}).name || R.store, screenDisplay: s.loading || s.scn === 'slow' || s.scn === 'loadErr' ? 'none' : 'block', editKey: 'ed' + s.editNonce, offerKey: 'of' + (s.offerNonce || 0), crumb: crumbs[s.screen] || '',
       isPhone: phone, showDevice: true, navShown: !phone || s.navOpen, drawerScrim: phone && s.navOpen,
-      dev: { dBg: phone ? 'transparent' : '#EC844F', dFg: phone ? '#D6DEE7' : '#14181F', pBg: phone ? '#EC844F' : 'transparent', pFg: phone ? '#14181F' : '#D6DEE7' }, fullDisp: phone ? 'none' : 'inline', meDisp: phone ? 'none' : 'flex',
+      dev: { dBg: phone ? 'transparent' : '#EC844F', dFg: phone ? '#D6DEE7' : 'var(--text,#14181F)', pBg: phone ? '#EC844F' : 'transparent', pFg: phone ? 'var(--text,#14181F)' : '#D6DEE7' }, fullDisp: phone ? 'none' : 'inline', meDisp: phone ? 'none' : 'flex',
       frame: phone ? { pad: '24px', w: '390px', h: '800px', bd: '10px solid #14181F', r: '40px', navPos: 'absolute', padX: '14px' } : { pad: '0', w: '100%', h: 'calc(100vh - 44px)', bd: '0', r: '0', navPos: 'relative', padX: '28px' },
       on: {
         role: e => { const role = e.target.value; const vendor = role === 'vendor' || role === 'vendorStock'; if (vendor && !c.suppliersOn) { this.toast('Suppliers are on the Business plan — switch the plan first'); return; } const blocked = vendor ? !['products', 'product', 'orders', 'order'].includes(s.screen) : (role === 'staff' ? !['home', 'orders', 'order', 'customers', 'products', 'product', 'collections', 'offers', 'carts'].includes(s.screen) : (role === 'manager' && ['settings', 'billing'].includes(s.screen))); this.setState({ role, ...(blocked ? { screen: vendor ? 'products' : 'home' } : {}) }); },
@@ -635,7 +779,7 @@ class Component extends DCLogic {
         plan: e => { const plan = e.target.value; const lose = ['vendor', 'vendorStock'].includes(s.role) && !this.planOf(plan).suppliers; this.setState({ plan, ...(lose ? { role: 'owner', screen: 'home' } : {}) }); },
         dataset: e => { const d = e.target.value; this.setState({ dataset: d, auth: d === 'signup' ? 'signup' : 'in', screen: 'home', firstSaved: false, walkthrough: true, provisioning: false, ...this.seed(s.region, d) }); },
         switchStore: () => this.modal({ title: 'Switch store', body: 'One sign-in for every store you belong to. Your last store is first.', choices: [{ label: (s.storeInfo || {}).name || R.store, sub: 'Owner · current store', value: 'cur' }, { label: 'Aurelia Home', sub: 'Owner · India', value: 'IN' }, { label: 'Kala Weaves', sub: 'Supplier access · Products and stock', value: 'v' }], confirm: 'Open', onConfirm: v => { if (v === 'cur') return; if (v === 'v') { this.setState({ role: 'vendor', screen: 'products' }); this.toast('Opened as a supplier — your navigation is different here'); return; } this.setState(this.fresh('IN', 'stocked', { device: s.device })); this.toast('Switched store'); } }),
-        userMenu: () => this.modal({ title: ({ owner: 'Farhan Ali', manager: 'Priya Shah', staff: 'Tom Okafor' }[s.role] || 'Nadia Tran'), body: 'One account across every store you belong to.', choices: [{ label: 'My profile', sub: 'Name, password, two-step sign-in', value: 'profile' }, { label: 'Switch store', sub: 'Pick another store', value: 'switch' }, { label: 'Sign out', sub: 'Signs you out of every store on this device', value: 'out' }], confirm: 'Go', onConfirm: v => { if (v === 'out') { this.setState({ auth: 'login', navOpen: false }); } else if (v === 'switch') { setTimeout(() => this.renderVals().on.switchStore(), 50); } else this.toast('Profile: change name, password and (owners) two-step sign-in'); } }),
+        userMenu: () => this.modal({ title: ({ owner: 'Farhan Ali', manager: 'Priya Shah', staff: 'Tom Okafor' }[s.role] || 'Nadia Tran'), body: 'One account across every store you belong to.', choices: [{ label: 'My profile', sub: 'Name, password, two-step sign-in', value: 'profile' }, { label: 'Switch store', sub: 'Pick another store', value: 'switch' }, { label: 'Sign out', sub: 'Signs you out of every store on this device', value: 'out' }], confirm: 'Go', onConfirm: v => { if (v === 'out') { this.setState({ auth: 'login', navOpen: false }); } else if (v === 'switch') { setTimeout(() => this.renderVals().on.switchStore(), 50); } else this.go('profile'); } }),
         reset: () => { this.setState(this.fresh(s.region, s.dataset, { device: s.device })); this.toast('Data reset'); },
         scn: e => { const v = e.target.value; clearTimeout(this._lt);
           if (v === 'expired' || v === 'removed') { this.setState({ scn: 'normal', auth: 'login', authNote: v, navOpen: false, modal: null, authNonce: s.authNonce + 1 }); return; }
@@ -643,7 +787,9 @@ class Component extends DCLogic {
           if (v === 'notFound') { this.setState({ scn: 'normal', auth: 'in', screen: 'missing', loading: false }); return; }
           this.setState({ scn: v, auth: 'in', loading: false }); },
         retry: () => { this.setState({ loading: true }); clearTimeout(this._lt); this._lt = setTimeout(() => this.setState({ loading: false, scn: 'normal' }), 700); },
-        askAccess: () => this.toast('Farhan will get your request to open ' + (s.deniedFrom || 'this page')),
+        askAccess: () => this.request('Access to ' + ({ settings: 'Settings', billing: 'Billing', reports: 'Reports', storefront: 'Storefront', imports: 'Import & export', aplus: 'A+ content' }[s.deniedFrom] || s.deniedFrom || 'a page')),
+        closePreview: () => this.setState({ preview: null }), closeDoc: () => this.setState({ doc: null }), printDoc: () => { try { window.print(); } catch (e) {} },
+        openConsole: () => { location.href = 'DF Platform Prototype.dc.html#/' + ({ brand: 'branding', plans: 'plans', partner: 'stores' }[s.otherKey] || 'dashboard'); },
         toProducts: () => this.go('products'),
         desktop: () => this.setState({ device: 'desktop', navOpen: false }), phone: () => this.setState({ device: 'phone', navOpen: false }),
         openNav: () => this.setState({ navOpen: true }), home: () => this.go('home'), closeNav: () => this.setState({ navOpen: false }),
