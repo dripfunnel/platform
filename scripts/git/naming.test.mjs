@@ -3,14 +3,14 @@ import { describe, it } from 'node:test'
 import { branchProblem, firstLine, parseBranch, subjectIssue, subjectProblem } from './naming.mjs'
 
 describe('parseBranch', () => {
-  it('reads #<issue>/<kind>/<short-name>', () => {
-    assert.deepEqual(parseBranch('#12/feature/abandoned-carts'), { issue: 12, kind: 'feature', name: 'abandoned-carts' })
-    assert.deepEqual(parseBranch('#7/task/db-foundation'), { issue: 7, kind: 'task', name: 'db-foundation' })
-    assert.deepEqual(parseBranch('#300/bug/money-rounding'), { issue: 300, kind: 'bug', name: 'money-rounding' })
+  it('reads <issue>/<kind>/<short-name>', () => {
+    assert.deepEqual(parseBranch('12/feature/abandoned-carts'), { issue: 12, kind: 'feature', name: 'abandoned-carts' })
+    assert.deepEqual(parseBranch('7/task/db-foundation'), { issue: 7, kind: 'task', name: 'db-foundation' })
+    assert.deepEqual(parseBranch('300/bug/money-rounding'), { issue: 300, kind: 'bug', name: 'money-rounding' })
   })
 
   it('refuses anything else', () => {
-    for (const name of ['feature/offers', '12/feature/offers', '#12-feature-offers', '#0/task/x', '#12/chore/x', '#12/feature/Offers', '#12/feature/a/b', '#12/feature/', '#12/bug/-x', 'main']) {
+    for (const name of ['feature/offers', '#12/feature/offers', '12-feature-offers', '0/task/x', '12/chore/x', '12/feature/Offers', '12/feature/a/b', '12/feature/', '12/bug/-x', 'main']) {
       assert.equal(parseBranch(name), undefined, name)
     }
   })
@@ -23,8 +23,9 @@ describe('branchProblem', () => {
   })
 
   it('explains the format', () => {
-    assert.match(branchProblem('fix-login'), /#<issue>\/<feature\|task\|bug>\/<short-name>/)
-    assert.equal(branchProblem('#12/bug/login-loop'), undefined)
+    assert.match(branchProblem('fix-login'), /<issue>\/<feature\|task\|bug>\/<short-name>/)
+    assert.equal(branchProblem('12/bug/login-loop'), undefined)
+    assert.ok(branchProblem('#12/bug/login-loop'))
   })
 })
 
@@ -35,7 +36,7 @@ describe('subjectProblem', () => {
   })
 
   it('accepts the subjects git writes itself', () => {
-    for (const subject of ["Merge branch 'main' into #12/feature/offers", 'fixup! #12 add list', 'squash! #12 add list', 'Revert "#12 add list"']) {
+    for (const subject of ["Merge branch 'main' into 12/feature/offers", 'fixup! #12 add list', 'squash! #12 add list', 'Revert "#12 add list"']) {
       assert.equal(subjectProblem(subject), undefined, subject)
     }
   })

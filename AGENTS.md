@@ -142,7 +142,7 @@ Run the gates before reporting a change as done.
 2. **Never commit, branch or push unless asked in that same message.** Finish the work,
    leave it in the working tree, and say what is ready. "Keep going" is not permission.
    When asked to branch or commit, follow [docs/code/WORKFLOW.md](docs/code/WORKFLOW.md) §2:
-   branches are `#<issue>/<feature|task|bug>/<short-name>` (quoted in the shell; `feature`
+   branches are `<issue>/<feature|task|bug>/<short-name>` (no leading `#`; `feature`
    only for new feature development, since it deploys an environment), every commit message
    and pull request title starts with `#<issue> `, the issue must exist, and nothing is ever
    committed on or pushed to `main` or `dev`. Without an issue number, ask for one.

@@ -1,11 +1,11 @@
 name: feature-env
 
-# One complete, separate environment per #<issue>/feature/<short-name> branch.
+# One complete, separate environment per <issue>/feature/<short-name> branch.
 # docs/code/FEATURE-ENVIRONMENTS.md explains the design and the one-time setup.
 
 on:
   push:
-    branches: ['#*/feature/*']
+    branches: ['*/feature/*']
   delete:
   schedule:
     - cron: '17 3 * * *'
@@ -118,7 +118,7 @@ jobs:
 
   destroy:
     if: >-
-      (github.event_name == 'delete' && github.event.ref_type == 'branch' && startsWith(github.event.ref, '#') && contains(github.event.ref, '/feature/')) ||
+      (github.event_name == 'delete' && github.event.ref_type == 'branch' && contains(github.event.ref, '/feature/')) ||
       (github.event_name == 'workflow_dispatch' && inputs.action == 'destroy')
     runs-on: ubuntu-latest
     environment: feature
