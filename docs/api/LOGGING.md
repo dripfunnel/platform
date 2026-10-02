@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-02.
 
 ---
 
@@ -89,7 +89,8 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 - Shopper personal data beyond `customer_id` and `actor_label` (for example, an address
   change records "address changed", not the address).
 
-The redaction list lives in code beside the resolver scope declarations, and a test fails
+The redaction list lives in `apps/api/src/core/redaction.ts` (in `core/`, so the writer in
+`saas/` can use it; built on #15), matched on whole words of the field name, and a test fails
 if a field on it appears in any entry.
 
 ### 4.2 Why a staff sign-in was refused
@@ -126,13 +127,26 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
 - **Jobs and webhooks** write with `actor_kind = job` or `provider`.
 - **Append-only**: the application's database role may insert, never update or delete
   (except the retention job, §8). A test proves it.
-- Code lives in `apps/api/src/saas/activity/` (writing and querying) and
-  `apps/api/src/db/schema/activity.ts` (the table); the scope declaration in
-  `apis/graphql/scope.ts` calls it.
-- **Until #15 builds the table**, `apps/api/src/auth/activity.ts` holds the entry shape and
-  writes each one to the Worker's logs instead (§9), carrying no label, IP or user agent. A
-  failed staff sign-in therefore leaves a trace but not a searchable record, and #15 replaces
-  the writer without changing the shape.
+- Code lives in `apps/api/src/saas/activity/` (writing and querying),
+  `apps/api/src/db/schema/activity.ts` (the row) and `apps/api/src/db/scoped/activity.ts`
+  (the SQL, behind the scoped layer like every tenant table). `apps/api/src/auth/activity.ts`
+  holds the entry shape and the sign-in entries; the writer is passed in from the
+  composition root, since `auth/` sits below `saas/` (api/README.md §4).
+- **Built on #15.** A mutation's declaration carries `audit: '<action>'` and the schema
+  refuses to build without it; the first audited mutation (#33) decides how the GraphQL
+  layer hands the declared action to the service's transaction.
+- **The table is partitioned by month** (§1). The migration creates the partitions to the end
+  of 2027 plus a default one; the retention job (§8) creates later months and drops old ones.
+  Nothing is granted on a partition, so rows are reachable only through the parent and its
+  policies.
+- **Side effects** go in `outbox` in the same transaction (api/README.md §5), through
+  `saas/outbox`, with an idempotency key the scoped layer prefixes with the kind and the
+  scope. `jobs/queues/outbox-relay.ts` delivers them after commit from a one-minute schedule
+  that claims what is due **and has a registered deliverer**; a kind nobody delivers yet waits
+  untouched. Each attempt takes a lease, times out, and backs off exponentially to a limit,
+  after which the row is marked failed and kept; `delivered_at` makes a replay a no-op. A
+  request may insert into the outbox and nothing else. A per-row path fed by a Queue message
+  is added by the first effect that needs lower latency than the sweep.
 
 ---
 
@@ -185,11 +199,15 @@ The same log screen in all three portals, fed by each app's API. The component l
   Textiles: chargeback"), never the raw code. The codes so far are listed in
   `apps/ui/admin/src/api/activityActions.ts`, the draft contract offered to #38.
 
-**Indexes** (per monthly partition): `(actor_kind, actor_id, occurred_at desc)`,
-`(store_id, occurred_at desc)`, `(partner_id, occurred_at desc)`,
-`(customer_id, occurred_at desc)`, `(target_type, target_id, occurred_at desc)`,
-`(action, occurred_at desc)`; trigram indexes on `actor_label` and `target_label` for the
-search box *(decide)*. Row-level security on `store_id` as for every tenant table.
+**Indexes** (declared on the parent, so per monthly partition; built on #15): each of
+`(actor_kind, actor_id)`, `(store_id)`, `(partner_id)`, `(customer_id)`,
+`(target_type, target_id)` and `(action)` followed by `(occurred_at desc, id desc)`, plus
+`(occurred_at desc, id desc)` alone for the unfiltered page. The keyset cursor is the pair
+`(occurred_at, id)`, opaque to the client, and every page also bounds `occurred_at` so the
+planner prunes partitions. Trigram indexes on `actor_label` and `target_label` for the search
+box *(decide)*. Row-level security per §6, not only on `store_id`: a partner reads entries with
+`visibility = partner` in its partner, a store reads `store` and `self` entries in its store, a
+supplier only those under its `seller_id`, a shopper only their own `customer_id`.
 
 ---
 
@@ -205,6 +223,10 @@ search box *(decide)*. Row-level security on `store_id` as for every tenant tabl
   hold ids and codes only, never labels, so they need no rewriting *(confirm)*.
 - A closed store's entries follow the store's retention window (SAAS.md §4.2), then the same
   archive rules.
+- **The outbox** (decided on #15): its payload is what a deliverer needs and may hold an
+  address, so the same retention job deletes delivered rows after 30 days and failed ones after
+  90, and an erasure request clears the payload of any row that names the person. Nothing is
+  archived from it.
 
 ---
 

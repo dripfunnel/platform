@@ -21,6 +21,8 @@ export interface Access<Args = Record<string, unknown>> {
   /** What a targeted field acts on, so a partner-scoped role is held to its partners.
    *  `'none'` is a deliberate answer: a list, which filters its own rows. */
   target?: 'none' | ((args: Args) => AccessTarget)
+  /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation. */
+  audit?: string
 }
 
 declare module 'graphql' {
@@ -52,8 +54,14 @@ export interface AccessPolicy<Context> {
 
 class AccessDeclarationError extends Error {}
 
-const checkDeclaration = <Context>(where: string, access: Access | undefined, policy: AccessPolicy<Context>): Access => {
+const checkDeclaration = <Context>(
+  where: string,
+  access: Access | undefined,
+  policy: AccessPolicy<Context>,
+  kind: 'query' | 'mutation' | 'field',
+): Access => {
   if (!access) throw new AccessDeclarationError(`${where} declares no access (ACCESS.md §3.1)`)
+  if (kind === 'mutation' && !access.audit) throw new AccessDeclarationError(`${where} declares no audit action (LOGGING.md §5)`)
   if (access.api !== policy.api) throw new AccessDeclarationError(`${where} is declared for the ${access.api} API`)
   if (!policy.scopes.includes(access.scope)) {
     throw new AccessDeclarationError(`${where} declares scope ${access.scope}, which this API does not serve`)
@@ -91,17 +99,18 @@ const guard = <Context>(field: GraphQLField<unknown, Context>, access: Access, p
  */
 export const secureSchema = <Context>(schema: GraphQLSchema, policy: AccessPolicy<Context>): GraphQLSchema => {
   if (schema.getSubscriptionType()) throw new AccessDeclarationError('Subscriptions are not guarded yet')
-  const roots = new Set([schema.getQueryType(), schema.getMutationType()])
+  const mutation = schema.getMutationType()
+  const roots = new Set([schema.getQueryType(), mutation])
   for (const type of Object.values(schema.getTypeMap())) {
     if (!isObjectType(type) || type.name.startsWith('__')) continue
     const isRoot = roots.has(type)
     for (const field of Object.values(type.getFields())) {
       const where = `${type.name}.${field.name}`
       if (isRoot) {
-        guard(field, checkDeclaration(where, field.extensions.access, policy), policy, 'throw')
+        guard(field, checkDeclaration(where, field.extensions.access, policy, type === mutation ? 'mutation' : 'query'), policy, 'throw')
       } else if (field.extensions.access) {
         if (isNonNullType(field.type)) throw new AccessDeclarationError(`${where} must be nullable to be refused`)
-        guard(field, checkDeclaration(where, field.extensions.access, policy), policy, 'null')
+        guard(field, checkDeclaration(where, field.extensions.access, policy, 'field'), policy, 'null')
       }
     }
   }

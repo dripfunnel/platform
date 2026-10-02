@@ -321,11 +321,13 @@ describe('the backstop itself', () => {
   })
 
   it('is forced on every tenant table, so the owner is subject to it too', async () => {
+    // `activity_log` is partitioned (relkind p); its policies apply to every partition read
+    // through it, and nothing is granted on a partition directly (migrations/0006).
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
-      where relname in ('partner', 'store', 'seller', 'customer') and relkind = 'r'
+      where relname in ('partner', 'store', 'seller', 'customer', 'activity_log', 'outbox') and relkind in ('r', 'p')
     `
-    expect(rows).toHaveLength(4)
+    expect(rows).toHaveLength(6)
     for (const row of rows) {
       expect({ [row.relname]: [row.relrowsecurity, row.relforcerowsecurity] }).toEqual({
         [row.relname]: [true, true],

@@ -1,11 +1,14 @@
 import type { AccessTarget } from '#auth/assignment'
 import { partnerScopedRoles, roleHas } from '#auth/permissions'
 import type { StaffMember } from '#auth/staff'
+import type { ActivityPageRequest, ActivityResult } from '#saas/activity/index'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface AdminContext extends Record<string, unknown> {
   staff: StaffMember | null
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
+  /** The activity log in the staff member's scope; built by the composition root per request. */
+  activity: (filter: unknown, page: ActivityPageRequest) => Promise<ActivityResult>
 }
 
 /** ACCESS.md §5.4: the role's permission, then a Partner manager's assignment to the target. */
