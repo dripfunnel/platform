@@ -97,41 +97,11 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
 
 ### 2.2 Entities named by the 2026-10-02 design decisions (#182)
 
-<<<<<<< HEAD
 Folded into §7 on #187, so each table has one home: the supplier shipping mode (§3.3) and the
 custom-domain states (§7.2), badges, per-market prices and the approval snapshot (§7.3),
 stock movements (§7.4), customer groups, tags, notes and consent (§7.5), returns, refunds
 and the supplier ledger (§7.6), access requests (§7.10); the 2-factor, backup-code and
 session columns are in §3.3.
-=======
-The Store prototype's update (`designs/INCOMPLETE-FEATURES.md` §4) and the decisions recorded
-in ACCESS.md §1 need these. **Named, not designed**: columns are the ones the prototype shows;
-each table gets its full design on the engine card that builds it, following §2. Every
-`amount` is an **integer in minor units** with the `currency` beside it (AGENTS.md "Data";
-PLATFORM-PROMPT §5.4 Money), never a float or a bare number. Every store-and-seller row here
-is one the isolation matrix (ACCESS.md §11.1) must cover: two suppliers in one store, each
-reading refunds, return lines and ledger entries, and seeing only its own, with the
-supplier-facing serializer omitting what the row's rule says it omits.
-
-| Table | Scope | Holds | Decided by |
-|---|---|---|---|
-| `store` + `time_zone`, `unit_system` (`metric`, `imperial`), `order_prefix`, `next_order_number` | store | Settings › Store info | PLATFORM-PROMPT §3.3 |
-| `seller.shipping_mode` (`to-store`, `to-shopper`), column added to the §3.3 block | store | How the supplier ships, set by the merchant | ACCESS.md §5.2, §7.3 |
-| `order_part` + `shipping_mode` (`store`, `to-store`, `to-shopper`) | store and seller | The mode copied from the supplier at placement. **What a supplier sees of the shopper, where it ships and where a return comes back follow this column, never the live `seller.shipping_mode`**, so switching a supplier's mode changes new orders only; open orders keep theirs. The isolation matrix tests a supplier switched `to-store → to-shopper` still seeing nothing on its orders placed before the switch | ACCESS.md §7.3 |
-| `customer` + `tags text[]`, `note`, `consent_state` (`opted_in`, `stopped`, `declined`, `not_asked`), `consent_at`, `consent_source` (`checkout`, `email`, `added_by_hand`, `recorded_by_store`), `added_by_user_id` null | store (customer accounts) | Tags, the team-only note, marketing consent, hand-added customers | PLATFORM-PROMPT §5.4 Customers |
-| `customer_group(id, store_id, name, description)`, `customer_group_member(group_id, customer_id, store_id)` (the group and the customer must belong to that store: a trigger or composite foreign keys) | store | Groups offers target; unique name per store | OFFERS-DESIGN fact 12 |
-| `stock_movement(id, store_id, seller_id, product_id, version_id null, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor, created_at)` | store and seller | The ledger; reasons `received`, `returned`, `damaged`, `counted`, `typed`, `order`, `import`, `starting` | PLATFORM-PROMPT §5.4 Inventory |
-| `return(id, store_id, order_id, state, reason, label_sent_at, received_at)` | store | The store's record; states `requested`, `received`, `refunded`, `cancelled`. **`reason` is coded** (`doesnt_fit`, `changed_mind`, `damaged`, `wrong_item`, `not_as_described`, the prototype's five), never free text, so nothing a supplier reads can name the shopper; any note the store adds is a store-only column the supplier serializer omits. A supplier reaches a return only through its own lines (a derived read, ACCESS.md §3.3), never the whole return | ACCESS.md §7.3 |
-| `return_line(return_id, store_id, seller_id null, order_line_id, quantity, destination_warehouse_id)` | store and seller | `seller_id` is the line owner's, copied from the order line; the destination follows that owner's shipping mode | ACCESS.md §7.3 |
-| `refund(id, store_id, seller_id null, order_id, amount, currency, reason, restock, override_of_seller_id null, by_user_id, created_at)`, `refund_line(refund_id, store_id, seller_id null, order_line_id, quantity, amount, currency)` | store and seller | `seller_id` is the owner of the refunded lines (null = the merchant's own); a supplier reads its own, including an override the store made against it (`override_of_seller_id` = its id); never another supplier's. **The supplier serializer omits `by_user_id` (the supplier sees "the store") and, on override rows, the free-text `reason`**, which may name the shopper a `to-store` supplier must never see (ACCESS §7.3); the isolation matrix tests both omissions | ACCESS.md §7.3 |
-| `supplier_ledger_entry(id, store_id, seller_id, amount, currency, kind, refund_id null, note, created_at)` | store and seller | What a supplier owes or is owed, settled outside the platform; the first `kind` is `refund_override`. A supplier reads only its own entries and balance, and **its serializer omits `note`** (the store's free text, which may name the shopper); the supplier sees the kind, the amount and the refund it points at. The isolation matrix tests the omission | PLATFORM-PROMPT §5.4 Payments |
-| `product` + `hidden_by` (`seller_suspended`, `seller_removed`, null), `status_before_hide` | store and seller | Set when a supplier is suspended or removed; resuming restores `status_before_hide` where `hidden_by = 'seller_suspended'` and clears both | ACCESS.md §7.5 |
-| `badge(id, store_id, label, rule, …)` and `product_badge(product_id, badge_id, store_id, seller_id null)` (the product's owner, copied as `return_line` does) | store | Rules `new_30_days`, `top_5_this_month`, `below_compare_price`, `few_left`, `manual`; only `manual` badges are picked per product | CATALOG-DESIGN S5 |
-| `product_market_price(product_id, market_id, store_id, seller_id null, amount, currency)` (`store_id` and `seller_id` copied from the product, so a supplier reads and writes its own rows only) | store and seller | A fixed price per market for a product without versions (Business plan); absent means the main price with the market's adjustment | CATALOG-DESIGN O13 |
-| `custom_domain` + `state` (`dns`, `verifying`, `cert`, `live`, `failed`), `last_checked_at`, `checks_until` | store (account level) | The portal's four steps; checked every 15 minutes for 3 days | SAAS.md §8 |
-| `access_request(id, store_id, by_user_id, kind (`feature`, `area`), what, created_at, resolved_at null, resolution (`acted`, `dismissed`))` | store | A Manager's or Staff's "Send request" that lands on the Owner's Home | ACCESS.md §5.1 |
-| `user` + `two_factor_method` (`app`, `sms`, null), `two_factor_enrolled_at`, `theme` (`light`, `dark`, null); `user_backup_code(user_id, code_hash, used_at null)`; `user_session` + `device_label`, `user_agent` | partner (people pool) | 2-factor, backup codes and "Where you're signed in" (§3.3) | ACCESS.md §2, §4 |
->>>>>>> #182/task/store-design-decisions
 
 ---
 
