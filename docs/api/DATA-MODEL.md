@@ -148,8 +148,9 @@ user        (id, partner_id, email, email_verified_at, password_hash NULL, name,
             UNIQUE (partner_id, email)
             -- two_factor_method: 'app' | 'sms'; required for an Owner, optional otherwise
             -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice
-user_backup_code (id, user_id, code_hash, used_at NULL)
-            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4)
+user_backup_code (id, user_id, partner_id, code_hash, used_at NULL)
+            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4);
+            -- partner_id denormalised from user so the §5.2 partner policy applies directly
 user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
              absolute_expires_at, remember, device_label, user_agent)
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
@@ -422,8 +423,9 @@ here. The model's own open points are in §6.
   OFFERS N6). Unique constraints are per store (SKU, web address, coupon code, group name),
   per language for web addresses, never global.
 - **Money**: every column named `amount` or `*_amount` is `bigint` in minor units with a
-  `currency char(3)` on the same row (or the order's, for lines), every time, whatever table it
-  is in, subscriptions and invoices included (PLATFORM-PROMPT §5.4 Money; AGENTS.md "Data").
+  `currency char(3)` on the same row, every time, whatever table it is in, subscriptions,
+  invoices and every line included; the one allowed inheritance is `order_line`, whose
+  amounts are in `"order".currency` (PLATFORM-PROMPT §5.4 Money; AGENTS.md "Data").
   Percentages are basis points (`_bps integer`).
 - **Time**: every `*_at` column is `timestamptz`, stored in UTC; display converts and names
   the zone (api/README.md; the store's `time_zone` is for display and scheduling only).
@@ -642,8 +644,10 @@ totals (DESIGN-BRIEF fact 10, flow 73).
 ```
 warehouse           (id, store_id, seller_id NULL, name, address jsonb, is_default boolean,
                      status, deleted_at)
-                    -- one default per owner (partial unique on (store_id, seller_id) where
-                    -- is_default); deleting needs on_hand = 0 everywhere (SetOps)
+                    -- one default per owner: a partial unique index on
+                    -- (store_id, coalesce(seller_id, '00000000-0000-0000-0000-000000000000'))
+                    -- where is_default, so the merchant's null owner counts once too;
+                    -- deleting needs on_hand = 0 everywhere (SetOps)
 stock_level         (version_id, warehouse_id, store_id, seller_id NULL, on_hand integer,
                      reserved integer, low_stock_threshold integer NULL, updated_at)
                     PRIMARY KEY (version_id, warehouse_id)
@@ -677,7 +681,13 @@ customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY 
                     -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
 customer_data_request (id, store_id, customer_id, kind ('export'|'delete'), requested_by,
                      state ('requested'|'ready'|'done'|'refused'), file_asset_id NULL, created_at, done_at)
-                    -- GDPR / DPDP (AGENTS.md "Data"); deletion anonymises orders, never removes them
+                    -- GDPR / DPDP (AGENTS.md "Data"). Export gathers the customer row,
+                    -- customer_address, the customer's orders with their email, phone and
+                    -- address snapshots, promotion_usage rows and consent history. Deletion
+                    -- keeps orders and usage rows (money history) but anonymises every copy:
+                    -- customer.name/email/phone, customer_address rows, "order".email, phone,
+                    -- shipping_address and billing_address, promotion_usage.customer_email,
+                    -- and the shopper's activity entries' personal fields (LOGGING §8)
 ```
 
 ### 7.6 Carts, orders, fulfilment, returns, refunds and the supplier ledger
@@ -713,8 +723,9 @@ order_adjustment    (id, order_id, order_line_id NULL, store_id, kind ('discount
 order_part          (id, order_id, store_id, seller_id NULL, shipping_mode ('store'|'to-store'
                      |'to-shopper'), state ('to_ship'|'sent_to_store'|'partly_shipped'|'shipped'
                      |'delivered'|'cancelled'), warehouse_id NULL)
-                    UNIQUE (order_id, seller_id)
-                    -- one part per owner (DESIGN-BRIEF fact 6, flow 70); shipping_mode is the
+                    UNIQUE NULLS NOT DISTINCT (order_id, seller_id)
+                    -- one part per owner, the merchant's null owner included (DESIGN-BRIEF
+                    -- fact 6, flow 70); shipping_mode is the
                     -- supplier's seller.shipping_mode at placement; 'store' for the merchant's own
 fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind ('booked'|'manual'
                      |'sent_to_store'|'pickup'), warehouse_id, courier_account_id NULL, courier_label,
@@ -730,7 +741,7 @@ payment             (id, order_id, store_id, provider, provider_account_id, prov
                      ('card'|'wallet'|'upi'|'cod'|'bank_transfer'|…), state ('pending'|'authorised'
                      |'captured'|'failed'|'refunded'), amount, currency, created_at, captured_at)
                     -- webhooks idempotent through provider_ref (PLATFORM-PROMPT §5.4 Payments)
-payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state, amount, created_at)
+payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state, amount, currency, created_at)
 
 "return"            (id, store_id, order_id, number, state ('requested'|'received'|'refunded'
                      |'cancelled'), reason ('doesnt_fit'|'changed_mind'|'damaged'|'wrong_item'
@@ -751,7 +762,7 @@ refund              (id, store_id, seller_id NULL, order_id, return_id NULL, amo
                     -- its serializer omits by_user_id ("the store") and, on override rows,
                     -- the free-text reason, which may name the shopper (ACCESS §7.3);
                     -- the isolation matrix tests both omissions
-refund_line         (refund_id, order_line_id, store_id, seller_id NULL, quantity, amount)
+refund_line         (refund_id, order_line_id, store_id, seller_id NULL, quantity, amount, currency)
 supplier_ledger_entry (id, store_id, seller_id, amount, currency, kind ('refund_override'
                      |'adjustment'), refund_id NULL, note, created_by, created_at)
                     -- what a supplier owes or is owed, settled outside the platform
@@ -854,7 +865,7 @@ invoice             (id, store_id, number, kind ('subscription'|'proration'|'set
                      currency, tax_label, reverse_charge boolean, billing_details jsonb,
                      issued_at, paid_at, pdf_asset_id NULL, stripe_invoice_id)
                     -- billing_details is a snapshot; issued invoices never change
-invoice_line        (id, invoice_id, store_id, label, amount, period_start NULL, period_end NULL,
+invoice_line        (id, invoice_id, store_id, label, amount, currency, period_start NULL, period_end NULL,
                      kind ('plan'|'proration_charge'|'proration_credit'|'setup'|'usage'))
                     -- a plan change is one invoice with a charge and a credit line (SAAS §7.2)
 billing_event       (id PK = Stripe event id, store_id NULL, partner_id NULL, type, received_at,
@@ -921,17 +932,24 @@ against this list and nothing else:
   `to-store`, name and delivery address for `to-shopper`, never totals, never
   `order_adjustment`.
 - **Inside the store, no supplier branch at all**: `order_adjustment`, `payment`,
-  `payment_refund`, `customer` and its children, `customer_group`, `promotion` and its
-  children, `collection` and its children, `menu`, `menu_item`, `badge` (definitions),
-  `access_request`, every settings table in §7.2, `store_billing_details`, `invoice`,
-  `invoice_line`. `filter` and `filter_value` are the one exception: a supplier reads them
+  `payment_refund`, `customer`, `customer_address`, `customer_group`,
+  `customer_group_member`, `customer_data_request`, `promotion` and its children,
+  `collection` and its children, `menu`, `menu_item`, `badge` (definitions), `story_block`,
+  `access_request`, `webhook_endpoint`, `webhook_delivery`, `external_connection`, every
+  settings table in §7.2, `store_billing_details`, `invoice`, `invoice_line`. The
+  credential columns among them (`webhook_endpoint.secret_enc`,
+  `external_connection.token_enc`, the `credentials_enc` and `webhook_secret_enc` of
+  courier and payment accounts) follow §2.1: readable by `app_system` only. `filter` and `filter_value` are the one exception: a supplier reads them
   (it assigns values to its own products) and writes none (CATALOG L9 keeps whether it may
   see collections *(ask)*).
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` (state and
   summary; the prompt is the merchant's), `ai_run` (metering), `store_usage`,
   `store_entitlement_override`, `store_subscription`, `invoice` (status and amounts for the
-  partner that bills), `custom_domain`. Nothing else in §7.
+  partner that bills), `custom_domain`, and `billing_event`, which is cross-scope and
+  append-only like §2's `activity_log` row (a Stripe event names a store or a partner, and
+  only the SaaS layer writes it). Nothing else in §7: a table in none of these classes is a
+  gap the structural test (§5.4) reports.
 - **The Shop API's `shop` scope** reads visible catalogue rows, filters, collections and
   menus, its own customer's rows, and its own cart and orders; it never reads `seller_id` as
   data, only as attribution where the merchant shows it.
