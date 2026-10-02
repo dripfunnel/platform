@@ -46,7 +46,7 @@ platform            no row: DripFunnel itself; staff act here
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `offer`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook` (§2.2) |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
-| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `stock_movement`, `order_part` (per-supplier part of an order), `return_line`, `refund`, `refund_line`, `supplier_ledger_entry` (§2.2: a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
+| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `import_job`, `export_job`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone | `activity_log`, `outbox` |
 
 - **Unique constraints are per scope**: SKU, web address and coupon code per store; customer
@@ -315,6 +315,7 @@ request input:
 | `app.customer_id` | The signed-in customer (shop scope), or empty |
 | `app.support` | `read` or `write` during a support session, else empty |
 | `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
+| `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; binds a guest to its own `"order"` rows (§7.11) |
 
 `SET LOCAL` lives only for the transaction, so it is safe with Hyperdrive's pooled
 connections; every request's work runs inside a transaction for this reason.
@@ -691,11 +692,15 @@ customer_data_request (id, store_id, customer_id, kind ('export'|'delete'), requ
                     -- EVERY column on these tables that can hold personal data is blanked or
                     -- replaced by a placeholder, and every search tsvector built from one is
                     -- rebuilt. Named so the migration and its test cover them: customer
-                    -- name/email/phone and search; customer_address rows; "order" email,
-                    -- phone, shipping_address, billing_address, notes and search;
-                    -- promotion_usage.customer_email; refund.reason and return notes;
-                    -- fulfilment.courier_label and tracking_url; label and return-label
-                    -- assets (the address is on them) deleted from R2; the shopper's activity
+                    -- name, email, phone, note, tags, consent_source, added_by_user_id and
+                    -- search; customer_address rows; "order" email, phone, shipping_address,
+                    -- billing_address, notes, access_token_hash and search;
+                    -- promotion_usage.customer_email; refund.reason and "return".note;
+                    -- fulfilment.courier_label and tracking_url; every order_document asset
+                    -- of the customer's orders (invoices, packing slips, labels carry the
+                    -- name and address) deleted from R2, the rows keeping kind, number and
+                    -- date; any export_job or customer_data_request file not yet expired
+                    -- that contains the person, deleted from R2; the shopper's activity
                     -- entries' personal fields (LOGGING §8). The request row itself keeps
                     -- only kind, dates and state. A supplier never saw any of it.
 ```
@@ -715,8 +720,12 @@ order in state `cart` (PLATFORM-PROMPT §5.5 "cart, an active order").
                      total_amount, refunded_amount,
                      shipping_method_id NULL, shipping_method_label, pickup boolean,
                      placed_at, paid_at, cancelled_at, cancel_reason, cart_expires_at,
-                     promotion_ids uuid[], notes, search tsvector, revision, created_at)
+                     promotion_ids uuid[], notes, access_token_hash NULL,
+                     search tsvector, revision, created_at)
                     UNIQUE (store_id, number) WHERE number IS NOT NULL
+                    -- access_token_hash: a guest's cart or order (customer_id null) is reachable
+                    -- in the shop scope only with the hashed token the Shop API handed the
+                    -- browser (a cookie or the order-status link); the policy is in §7.11
                     -- number = store.order_prefix + next_order_number, assigned at placement
                     -- in one transaction; totals are the engine's, stored at placement and
                     -- recomputed only by refunds (immutable snapshot, PLATFORM-PROMPT §5.4)
@@ -757,10 +766,11 @@ payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state, a
 
 "return"            (id, store_id, order_id, number, state ('requested'|'received'|'refunded'
                      |'cancelled'), reason ('doesnt_fit'|'changed_mind'|'damaged'|'wrong_item'
-                     |'not_as_described'), label_asset_id NULL, label_sent_at, received_at,
-                     cancelled_at, created_by, created_at)
+                     |'not_as_described'), note NULL, label_asset_id NULL, label_sent_at,
+                     received_at, cancelled_at, created_by, created_at)
                     -- store-scoped; a supplier reaches a return only through its return_line
-                    -- rows (ACCESS §3.3); number = 'R' + order number + '-' + n
+                    -- rows (ACCESS §3.3) and its serializer omits note, the store's free text;
+                    -- number = 'R' + order number + '-' + n
 return_line         (return_id, order_line_id, store_id, seller_id NULL, quantity,
                      destination_warehouse_id)
                     PRIMARY KEY (return_id, order_line_id)
@@ -782,12 +792,18 @@ supplier_ledger_entry (id, store_id, seller_id, amount, currency, kind ('refund_
                     -- only its own entries and balance
 ```
 
+```
+order_document      (id, order_id, store_id, seller_id NULL, kind ('invoice'|'packing_slip'
+                     |'label'|'return_label'|'gst_copy'), number NULL, asset_id, issued_at,
+                     return_id NULL, fulfilment_id NULL)
+                    -- every printable rendered from the order and invoice_settings, stored as
+                    -- an asset so an issued invoice never changes; the link a deletion job
+                    -- follows to purge them (§7.5); seller_id only on a supplier's own labels
+```
+
 Order events (placed, paid, shipped, return started, refunded, "sent to warehouse by
 Northwind") are activity-log entries with the order as target (LOGGING §3), which both the
 order's timeline and the shopper's order history read; there is no `order_event` table.
-Printable documents (invoice `INV-<number>`, packing slip, label) are rendered from these rows
-and the store's `invoice_settings`; an issued invoice is stored as an `asset` so it never
-changes afterwards.
 
 ### 7.7 Promotions (offers)
 
@@ -911,7 +927,9 @@ import_job          (id, store_id, seller_id NULL, kind ('csv'|'shopify'), state
 export_job          (id, store_id, seller_id NULL, kind ('products'|'orders'|'customers'
                      |'offer_uses'|'codes'|'report'|'store_data'), filter jsonb, columns text[],
                      state, row_count, file_asset_id NULL, expires_at, started_by, created_at)
-                    -- every CSV the prototype downloads; a supplier's export is its own rows only
+                    -- every CSV the prototype downloads; a supplier's export is its own rows
+                    -- only; files expire (expires_at, days not weeks) and a deletion request
+                    -- purges earlier the ones that contain the person (§7.5)
 access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what, created_at,
                      resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)
                     -- "Send request" from a Manager or Staff, shown on the Owner's Home
@@ -965,8 +983,14 @@ against this list and nothing else:
   only the SaaS layer writes it). Nothing else in §7: a table in none of these classes is a
   gap the structural test (§5.4) reports.
 - **The Shop API's `shop` scope** reads visible catalogue rows, filters, collections and
-  menus, its own customer's rows, and its own cart and orders; it never reads `seller_id` as
-  data, only as attribution where the merchant shows it.
+  menus, its own customer's rows, and its own cart and orders. "Its own" on `"order"` is
+  `customer_id = app.customer_id OR (customer_id IS NULL AND access_token_hash =
+  app.order_token_hash AND app.order_token_hash <> '')`, so a guest holds exactly the carts
+  and orders whose token it presents and never another guest's; the children (`order_line`,
+  `order_adjustment`, `order_part`, `fulfilment`) follow through the order. The isolation
+  matrix has the row: two guests in one store, each reading only its own cart and order,
+  including the email, phone and address snapshots. It never reads `seller_id` as data, only
+  as attribution where the merchant shows it.
 - Every policy's columns lead an index; list screens get a composite on
   `(store_id, <filter>, created_at desc, id desc)` for keyset paging (ui/admin/FIRST-RELEASE
   §12); the supplier-branch `EXISTS` on orders and returns is backed by `order_part
