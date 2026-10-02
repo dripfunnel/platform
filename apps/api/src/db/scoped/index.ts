@@ -4,6 +4,11 @@ import { settingsFor } from '../rls/settings'
 
 export type ScopedSql = postgres.TransactionSql
 
+/** No list query returns more than this however it is asked (AGENTS.md "Reliability"); each API caps lower. */
+export const maxPageSize = 100
+
+export const pageLimit = (limit: number): number => Math.min(Math.max(Math.floor(limit), 1), maxPageSize)
+
 /** The only path to tenant data (api/README.md §4). One transaction, because `SET LOCAL`
  *  lives only that long; `app_request`, because a superuser bypasses RLS (DATA-MODEL §5). */
 export const withScope = async <T>(
@@ -26,3 +31,8 @@ export const withSystemScope = async <T>(sql: postgres.Sql, work: (tx: ScopedSql
     await tx`select set_config('app.scope', 'system', true)`
     return work(tx)
   }) as Promise<T>
+
+// A Postgres array literal for `= any(${pgArray(values)}::uuid[])`: the Worker's client cannot
+// send a JavaScript array (docs/api/README.md §7).
+export const pgArray = (values: readonly string[]): string => `{${values.map((v) => `"${v.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`).join(',')}}`
+

@@ -41,10 +41,10 @@ platform            no row: DripFunnel itself; staff act here
 
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
-| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `platform_setting`, `entitlement_ceiling`, `feature_flag` |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_domain`, `plan`, `plan_entitlement` |
-| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `storefront`, `support_access_setting` |
-| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `membership`, `order`, `collection`, `offer`, `api_key`, `webhook`, `seller` (a supplier reads only its own row — ACCESS.md §5.5) |
+| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note` |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_entitlement` |
+| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
+| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `collection`, `offer`, `api_key`, `webhook` |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `order_part` (per-supplier part of an order) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone | `activity_log`, `outbox` |
@@ -55,6 +55,43 @@ platform            no row: DripFunnel itself; staff act here
   merchant's catalogue, orders and customers (USERS-AND-DOMAINS §4): the RLS policy on
   those tables has no partner or platform branch at all.
 
+### 2.1 Partners and stores as built (#32)
+
+Migration `0007` gives `partner` and `store` their business columns and adds the account-level
+tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_setup_item`,
+`plan`, `custom_domain`, `user`, `membership`, `invitation`, `job`, `store_note`).
+
+- **Partner**: `name`, `is_house` (one row, by a partial unique index), `kind`, `region`,
+  `country`, `state` (SAAS.md §3.1) with the facts of each state (`submitted_at/by`,
+  `sent_back_reason`, `approved_at`, `paused_at`, `pause_reason`), the published look the admin
+  console shows (`product_name`, colours, `powered_by`) and `fallback_sender_accepted`. PAPI 3
+  adds the versioned branding and prices.
+- **Store**: `name`, `code` (unique per partner, used in hostnames), `country`, `status`
+  (SAAS.md §4.2 plus `closed`) with its facts (`trial_ends_at`, `past_due_since`, the
+  suspension's time, reason, who and **the status it had before**, so Restore returns to it),
+  `plan_id`, `storefront_kind` (`ai` or `own`), `build_state`, `core_version`, last build and
+  publish, and `support_access_allowed` (the merchant's standing consent, USERS-AND-DOMAINS §4.1,
+  a column rather than the `support_access_setting` table named above).
+- **Setup checklist**: the ten items of ui/platform/FIRST-RELEASE.md §4, one row each with
+  status, detail and who did it (a partner user, or staff in a setup session). The admin console's
+  "Owner accepted" is read from `partner_user.status`, not an item.
+- **Signup job**: SAAS.md §5's steps as the run's own list (three for a store with its own
+  frontend), the current step and when it started, attempts and the error in plain words. The
+  raw detail and the compensation log are `job_detail`, a table staff alone read (FIRST-RELEASE
+  §7). Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
+- **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc` and
+  the `token_hash` of both invitation tables are readable by `app_system` (sign-in, acceptance)
+  and never by `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted the same way until a card
+  reads it: no screen shows a merchant user's phone, so no request scope may select it.
+- **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
+  the partner or store as target, visibility `partner`. No history table.
+- **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which
+  write the facts with the state; the house partner is never paused, offboarded or closed.
+- **Seed**: `pnpm --filter ./apps/api seed` replaces everything it owns on a local database with
+  the prototype's partners and stores in every state (`apps/api/scripts/seed/`), every address
+  under a reserved `.example` domain. It runs against a loopback host only, with none of the CI
+  opt-in `migrate` has, since it truncates.
+
 ---
 
 ## 3. Identity pools
@@ -64,13 +101,16 @@ platform            no row: DripFunnel itself; staff act here
 ```
 staff_user     (id, sso_subject UNIQUE, email, name, role_key, status, created_at)
 staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, reauth_at)
-staff_partner_assignment (staff_user_id, partner_id, created_at)   -- PK both; Partner managers only
+staff_partner_assignment (id, staff_user_id, partner_id, created_at, assigned_by_staff_id,
+                          removed_at NULL, removed_by_staff_id NULL)
+                 -- Partner managers only; one live row per pair (partial unique where
+                 -- removed_at is null); never deleted (#60)
 ```
 
 `role_key` ∈ `staff-super-admin`, `staff-partner-manager`, `staff-support`, `staff-finance`,
 `staff-engineer`, `staff-read-only` (ACCESS.md §5.4). Company SSO only; no password column.
 `staff_partner_assignment` lists the partners a Partner manager acts on (ACCESS.md §5.4, #14); read in
-`platform` and `system` scope, written by no request scope.
+`platform` and `system` scope, written in `platform` scope by Super admins only (#60).
 
 ### 3.2 Partner users (partner)
 
@@ -83,7 +123,10 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
 ```
 
 `role_key` ∈ `partner-owner`, `partner-admin`, `partner-support`, `partner-finance`,
-`partner-read-only` (ACCESS.md §5.3, proposed). A partner's first user is its Owner.
+`partner-read-only` (ACCESS.md §5.3, decided on #109). A partner's first user is its Owner.
+**Built on #32**: `partner_user` (with `status`, `last_sign_in_at`) and `partner_invitation`
+(token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 1 adds
+`partner_session`, PAPI 2 fills the password and 2-factor columns.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 
@@ -157,12 +200,19 @@ impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, 
                  -- platform scope: written and listed by the Admin API only
 
 partner_setup_session
-                (id, staff_user_id, partner_id, reason, started_at, expires_at,
-                 ended_at NULL, ended_by NULL)
+                (id, staff_user_id, partner_id, reason, ticket NULL, started_at, expires_at,
+                 ended_at NULL, ended_by_staff_id NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL)
                  -- staff doing a partner's onboarding as themselves (ACCESS.md §8.2),
                  -- 2 hours and not extendable, so no extended_at; one open per staff
                  -- member, enforced by a partial unique index on (staff_user_id)
-                 -- where ended_at is null
+                 -- where ended_at is null. The handoff (ACCESS.md §8.3) is hashed here,
+                 -- spent on exchange and cleared when the session ends. Built on #33.
+
+partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
+                 -- PK all of the first three: one approval per staff member per submission
+                 -- (ui/admin/FIRST-RELEASE.md §4.3); sending back and resubmitting starts
+                 -- the count again. Built on #33.
 ```
 
 ---
@@ -293,7 +343,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 | Role | Used by | Can |
 |---|---|---|
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` |
+| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1) |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
 

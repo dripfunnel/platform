@@ -5,7 +5,7 @@ import type { ReactNode } from 'react'
 import type { JobAction } from '../../api/provisioning'
 import type { Store, StoreDnsRecord } from '../../api/stores'
 import { messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { CustomersTab, type StoreCustomers } from './CustomersTab'
 import { DomainsTab } from './DomainsTab'
 import { NotesTab } from './NotesTab'
@@ -44,9 +44,9 @@ export const StoreLoading = () => (
   </div>
 )
 
-export const StoreError = ({ onRetry }: { onRetry: () => void }) => (
+export const StoreError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 

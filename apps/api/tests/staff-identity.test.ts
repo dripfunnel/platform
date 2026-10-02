@@ -131,7 +131,7 @@ describe('who the request resolves to', () => {
 
   it('is the staff member while the session is live', async () => {
     const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
-    expect(await resolveStaff(db.sql, withSession(id), start)).toMatchObject({ id: active })
+    expect(await resolveStaff(db.sql, withSession(id), start)).toMatchObject({ staff: { id: active }, reauthFresh: true })
   })
 
   it('is nobody once the session has expired', async () => {

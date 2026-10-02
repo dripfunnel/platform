@@ -58,13 +58,20 @@ describe('the assignment table', () => {
     expect(await asScope('store')).toHaveLength(0)
   })
 
-  it('is written by no request scope', async () => {
-    await expect(
+  it('is written in platform scope only, never by a partner or a store (#60)', async () => {
+    const insertAs = (scope: string) =>
       db.sql.begin(async (tx) => {
         await tx`set local role app_request`
-        await tx`select set_config('app.scope', 'platform', true)`
+        await tx`select set_config('app.scope', ${scope}, true)`
+        await tx`select set_config('app.partner_id', ${tenants.partnerB}, true)`
         return tx`insert into staff_partner_assignment (staff_user_id, partner_id) values (${manager}, ${tenants.partnerB})`
-      }),
-    ).rejects.toThrow(/permission denied/i)
+      })
+    await expect(insertAs('partner')).rejects.toThrow(/row-level security/i)
+    await expect(insertAs('store')).rejects.toThrow(/row-level security/i)
+    await expect(insertAs('platform')).resolves.toBeDefined()
+    expect(await isAssigned(db.sql, manager, { partnerId: tenants.partnerB })).toBe(true)
+    // Unassigning keeps the row (removed_at), and the manager stops reaching the partner.
+    await db.sql`update staff_partner_assignment set removed_at = now() where staff_user_id = ${manager} and partner_id = ${tenants.partnerB}`
+    expect(await isAssigned(db.sql, manager, { partnerId: tenants.partnerB })).toBe(false)
   })
 })

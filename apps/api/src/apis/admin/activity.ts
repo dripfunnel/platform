@@ -1,8 +1,9 @@
 import { GraphQLError } from 'graphql'
 import type { RecordedChange } from '#core/redaction'
 import type { ActivityRow } from '#db/schema/activity'
-import type { ActivityPage, PageInfo } from '#saas/activity/index'
+import type { ActivityPage } from '#saas/activity/index'
 import { builder } from './builder'
+import { compact, PageInfoType } from './types'
 
 // The activity log as the admin console reads it (LOGGING.md §6: staff see every entry, IP
 // and user agent included). #38 adds the person timeline, the people search and the export.
@@ -79,15 +80,6 @@ const Entry = builder.objectRef<ActivityRow>('ActivityEntry').implement({
   }),
 })
 
-const PageInfoType = builder.objectRef<PageInfo>('PageInfo').implement({
-  fields: (t) => ({
-    startCursor: t.exposeString('startCursor', { nullable: true }),
-    endCursor: t.exposeString('endCursor', { nullable: true }),
-    hasPreviousPage: t.exposeBoolean('hasPreviousPage'),
-    hasNextPage: t.exposeBoolean('hasNextPage'),
-  }),
-})
-
 const Page = builder.objectRef<ActivityPage>('ActivityPage').implement({
   fields: (t) => ({
     items: t.field({ type: [Entry], resolve: (page) => page.items }),
@@ -108,10 +100,6 @@ const Filter = builder.inputType('ActivityFilter', {
     to: t.string(),
   }),
 })
-
-// Dropped undefined, so the zod schema's `.strict()` sees only what the client sent.
-const compact = (input: Record<string, unknown> | null | undefined) =>
-  Object.fromEntries(Object.entries(input ?? {}).filter(([, value]) => value !== undefined && value !== null))
 
 builder.queryFields((t) => ({
   activityLog: t.field({

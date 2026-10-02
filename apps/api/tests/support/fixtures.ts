@@ -25,9 +25,13 @@ const id = (rows: postgres.RowList<{ id: string }[]>): string => {
 
 /** Inserted as the owner, bypassing RLS: the fixtures are the world, not a caller. */
 export const seedTenants = async (sql: postgres.Sql): Promise<Tenants> => {
-  const partner = async () => id(await sql<{ id: string }[]>`insert into partner default values returning id`)
-  const store = async (partnerId: string) =>
-    id(await sql<{ id: string }[]>`insert into store (partner_id) values (${partnerId}) returning id`)
+  const partner = async (name: string) => id(await sql<{ id: string }[]>`insert into partner (name) values (${name}) returning id`)
+  const store = async (partnerId: string, name: string) =>
+    id(
+      await sql<{ id: string }[]>`
+        insert into store (partner_id, name, code) values (${partnerId}, ${name}, ${name.toLowerCase().replaceAll(' ', '-')}) returning id
+      `,
+    )
   const seller = async (storeId: string, name: string) =>
     id(
       await sql<{ id: string }[]>`
@@ -42,11 +46,11 @@ export const seedTenants = async (sql: postgres.Sql): Promise<Tenants> => {
       `,
     )
 
-  const partnerA = await partner()
-  const partnerB = await partner()
-  const storeA1 = await store(partnerA)
-  const storeA2 = await store(partnerA)
-  const storeB1 = await store(partnerB)
+  const partnerA = await partner('Partner A')
+  const partnerB = await partner('Partner B')
+  const storeA1 = await store(partnerA, 'Store A1')
+  const storeA2 = await store(partnerA, 'Store A2')
+  const storeB1 = await store(partnerB, 'Store B1')
 
   return {
     partnerA,

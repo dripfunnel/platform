@@ -6,17 +6,25 @@ import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { platformSchema } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
+import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolveStaff } from '#auth/caller'
+import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
 import { parseConfig, type Config } from '#core/config'
 import { logEvent } from '#core/log'
 import { getClient } from '#db/client'
+import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
+import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
+import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
+import { createDashboardService } from '#saas/dashboard/index'
+import { createPartnersService } from '#saas/partners/index'
+import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
@@ -34,9 +42,12 @@ interface Env extends Record<string, unknown> {
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
 }
 
-// Nothing sends an email or a webhook yet; the first deliverer arrives with the first side
-// effect (PAPI 2's lock notice). Until then a queued row waits, unclaimed (outbox-relay.ts).
-const deliverers: Deliverers = {}
+// The side effects the relay can deliver. `email` has no deliverer until SES is wired
+// (THIRD-PARTY-ACCESS.md §2.4), so a queued invitation waits, unclaimed (outbox-relay.ts).
+const deliverersFor = (sql: postgres.Sql): Deliverers => {
+  const lookup = dohLookup()
+  return { 'domain.recheck': domainRecheckDeliverer(sql, lookup), 'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup) }
+}
 
 const notConnected = async () => {
   throw new Error('no database for this request')
@@ -126,16 +137,25 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
-    const staff = await resolveStaff(sql, request, new Date())
+    const caller = await resolveStaff(sql, request, new Date())
+    const assigned = (staffId: string, target: Parameters<typeof isAssigned>[2]) => isAssigned(sql, staffId, target)
     return servers.admin.fetch(request, {
-      staff,
-      isAssigned: (staffId, target) => isAssigned(sql, staffId, target),
-      activity: staff
-        ? (filter, page) => listActivity(sql, { caller: { kind: 'staff', staffId: staff.id } }, filter, page)
+      staff: caller?.staff ?? null,
+      isAssigned: assigned,
+      activity: caller
+        ? (filter, page) =>
+            listActivity(sql, { caller: { kind: 'staff', staffId: caller.staff.id } }, filter, page, {
+              assignedTo: partnerScopedRoles.includes(caller.staff.role) ? caller.staff.id : undefined,
+            })
         : notConnected,
+      partners: caller
+        ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
+        : null,
+      stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
+      dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
 }
@@ -198,7 +218,7 @@ export default {
   // The outbox sweep (api/README.md §5), every minute from wrangler.jsonc's cron trigger.
   async scheduled(_controller, env) {
     await relayWith(env, async (sql) => {
-      const counts = await relayDue(sql, deliverers)
+      const counts = await relayDue(sql, deliverersFor(sql))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
       }

@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import type { Partner, PartnerAction, PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { BrandingTab } from './BrandingTab'
 import { DomainsTab } from './DomainsTab'
 import { OverviewTab } from './OverviewTab'
@@ -38,9 +38,9 @@ export const PartnerLoading = () => (
   </div>
 )
 
-export const PartnerError = ({ onRetry }: { onRetry: () => void }) => (
+export const PartnerError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 

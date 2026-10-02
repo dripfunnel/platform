@@ -1,6 +1,6 @@
 import type { Keyset } from '#core/cursor'
 import type { ActivityRow, ActorKind, NewActivityRow } from '../schema/activity'
-import type { ScopedSql } from './index'
+import { pageLimit, type ScopedSql } from './index'
 
 export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
   const rows = await tx<{ id: string }[]>`
@@ -34,6 +34,8 @@ export interface ActivityQuery {
   action?: string | undefined
   from?: Date | undefined
   to?: Date | undefined
+  /** A Partner manager reads entries of their assigned partners only (ACCESS.md §5.4). */
+  assignedTo?: string | undefined
 }
 
 export interface KeysetPage {
@@ -60,10 +62,11 @@ export const selectActivity = async (tx: ScopedSql, query: ActivityQuery, page: 
       ${query.action !== undefined ? tx`and action = ${query.action}` : tx``}
       ${query.from !== undefined ? tx`and occurred_at >= ${query.from}` : tx``}
       ${query.to !== undefined ? tx`and occurred_at < ${query.to}` : tx``}
+      ${query.assignedTo !== undefined ? tx`and partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${query.assignedTo} and a.removed_at is null)` : tx``}
       ${page.after !== undefined ? tx`and occurred_at <= ${page.after.occurredAt} and (occurred_at, id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}
       ${page.before !== undefined ? tx`and occurred_at >= ${page.before.occurredAt} and (occurred_at, id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx``}
     ${backwards ? tx`order by occurred_at asc, id asc` : tx`order by occurred_at desc, id desc`}
-    limit ${limit + 1}
+    limit ${pageLimit(limit) + 1}
   `
   return backwards ? rows.reverse() : rows
 }

@@ -75,7 +75,7 @@ describe('an entry commits with the change it records', () => {
     const before = await countPartners()
     await expect(
       withScope(db.sql, staff, async (tx) => {
-        await tx`insert into partner default values`
+        await tx`insert into partner (name) values ('Rolled back')`
         await activityLog.record(tx, entry({ action: 'partner.created.rolled_back', actorKind: 'staff', visibility: 'staff' }))
         throw new Error('something after the write failed')
       }),
@@ -87,7 +87,7 @@ describe('an entry commits with the change it records', () => {
   it('a committed change has exactly one', async () => {
     const before = await countPartners()
     await withScope(db.sql, staff, async (tx) => {
-      await tx`insert into partner default values`
+      await tx`insert into partner (name) values ('Rolled back')`
       await activityLog.record(tx, entry({ action: 'partner.created.committed', actorKind: 'staff', visibility: 'staff' }))
     })
     expect(await countPartners()).toBe(before + 1)
@@ -98,7 +98,7 @@ describe('an entry commits with the change it records', () => {
     const before = await countPartners()
     await expect(
       withScope(db.sql, staff, async (tx) => {
-        await tx`insert into partner default values`
+        await tx`insert into partner (name) values ('Rolled back')`
         // A partner caller may not file an entry against another partner, so the insert fails.
         await activityLog.record(tx, entry({ action: 'x', visibility: 'partner', partnerId: t.partnerA, result: 'nonsense' as never }))
       }),
@@ -167,6 +167,7 @@ describe('who sees what (LOGGING.md §6)', () => {
       await activityLog.record(tx, entry({ action: 'store_a1.supplier_second', partnerId: t.partnerA, storeId: t.storeA1, sellerId: t.sellerA1Second, visibility: 'store' }))
       await activityLog.record(tx, entry({ action: 'store_a1.shopper', actorKind: 'customer', partnerId: t.partnerA, storeId: t.storeA1, customerId: t.customerA1, visibility: 'self' }))
       await activityLog.record(tx, entry({ action: 'store_a1.about_shopper', partnerId: t.partnerA, storeId: t.storeA1, customerId: t.customerA1, visibility: 'store', reason: 'chargeback' }))
+      await activityLog.record(tx, entry({ action: 'store_a1.account', actorKind: 'partner_user', partnerId: t.partnerA, storeId: t.storeA1, visibility: 'partner' }))
       await activityLog.record(tx, entry({ action: 'store_a2.merchant', partnerId: t.partnerA, storeId: t.storeA2, visibility: 'store' }))
       await activityLog.record(tx, entry({ action: 'store_b1.merchant', partnerId: t.partnerB, storeId: t.storeB1, visibility: 'store' }))
     })
@@ -180,13 +181,13 @@ describe('who sees what (LOGGING.md §6)', () => {
   })
 
   it('a partner sees its account entries and never inside a store, a shopper or another partner', async () => {
-    expect(await actionsSeen(partner(t.partnerA))).toEqual(['partner_a.account'])
+    expect(await actionsSeen(partner(t.partnerA))).toEqual(['partner_a.account', 'store_a1.account'])
     expect(await actionsSeen(partner(t.partnerB))).toEqual(['partner_b.account'])
   })
 
-  it('a merchant sees its store, shoppers included, and no other store', async () => {
+  it('a merchant sees its store, shoppers and account-level events included, and no other store', async () => {
     expect(await actionsSeen(merchant(t.partnerA, t.storeA1))).toEqual(
-      ['store_a1.about_shopper', 'store_a1.merchant', 'store_a1.shopper', 'store_a1.supplier_first', 'store_a1.supplier_second'].sort(),
+      ['store_a1.about_shopper', 'store_a1.account', 'store_a1.merchant', 'store_a1.shopper', 'store_a1.supplier_first', 'store_a1.supplier_second'].sort(),
     )
     expect(await actionsSeen(merchant(t.partnerA, t.storeA2))).toEqual(['store_a2.merchant'])
   })

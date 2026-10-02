@@ -132,9 +132,14 @@ They are literals, never interpolated, so an entry cannot carry a subject or an 
   (the SQL, behind the scoped layer like every tenant table). `apps/api/src/auth/activity.ts`
   holds the entry shape and the sign-in entries; the writer is passed in from the
   composition root, since `auth/` sits below `saas/` (api/README.md §4).
-- **Built on #15.** A mutation's declaration carries `audit: '<action>'` and the schema
-  refuses to build without it; the first audited mutation (#33) decides how the GraphQL
-  layer hands the declared action to the service's transaction.
+- **Built on #15, decided on #33.** A mutation's declaration carries `audit: '<action>'` and
+  the schema refuses to build without it. The entry is written **by the service, inside the
+  transaction that makes the change**, because only the service holds that transaction; the
+  declaration names the action the mutation records when it does what it is named for, and a
+  structural test checks every declared action is one the service writes
+  (`saas/partners/service.ts` `partnerAudit`). A mutation records one entry per fact it
+  changes: creating a partner and sending its Owner invitation in one call is two entries,
+  and the first of two approvals is `partner.approval_recorded`, not `partner.approved`.
 - **The table is partitioned by month** (§1). The migration creates the partitions to the end
   of 2027 plus a default one; the retention job (§8) creates later months and drops old ones.
   Nothing is granted on a partition, so rows are reachable only through the parent and its
@@ -206,8 +211,9 @@ The same log screen in all three portals, fed by each app's API. The component l
 `(occurred_at, id)`, opaque to the client, and every page also bounds `occurred_at` so the
 planner prunes partitions. Trigram indexes on `actor_label` and `target_label` for the search
 box *(decide)*. Row-level security per §6, not only on `store_id`: a partner reads entries with
-`visibility = partner` in its partner, a store reads `store` and `self` entries in its store, a
-supplier only those under its `seller_id`, a shopper only their own `customer_id`.
+`visibility = partner` in its partner; a store reads `store` and `self` entries in its store and
+the `partner` ones that name it (account-level events: plan, trial, suspension, provisioning);
+a supplier only those under its `seller_id`; a shopper only their own `customer_id`.
 
 ---
 

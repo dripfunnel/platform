@@ -3,6 +3,9 @@ import { secureSchema } from '../graphql/scope'
 import { adminPolicy } from './access'
 import { builder } from './builder'
 import './activity'
+import './partners'
+import './stores'
+import './dashboard'
 
 export type { AdminContext } from './access'
 

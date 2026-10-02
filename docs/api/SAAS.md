@@ -186,6 +186,9 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Kept until period end *(ask)* |
 | **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept for the retention window, then deleted *(ask the window, §14)* |
 
+The row keeps the facts of each state (DATA-MODEL.md §2.1, built on #32); a suspended store
+remembers the status it had, so Restore returns to it exactly (decided on #20).
+
 - **Past due blocks writes, never sign-in** (PLATFORM-PROMPT §2 item 7). The gate is applied
   once, in the Store API's resolver scope, from the subscription status cached on the
   session and invalidated by the billing webhook. What past due means for the store's
@@ -364,7 +367,13 @@ failed; a live hostname can become expiring or broken if its records change.
    target and the ownership record Cloudflare asks for.
 3. A check runs on a schedule and on "Re-check now"; a stuck domain shows the record expected
    next to what DNS returns (M2). The portal keeps the step-by-step experience of DESIGN-BRIEF
-   flow 58.
+   flow 58. **Built on #33 for partner hostnames**: the console queues the check through the
+   outbox and `jobs/queues/deliverers/domainRecheck.ts` asks one fixed DNS-over-HTTPS resolver
+   for the record after commit, so a user's hostname never becomes a host the Worker connects
+   to; it moves waiting → live, or failed, or broken once a live record changes. **Merchant
+   domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status and
+   the ownership TXT is recorded for the certificate step. The certificate states (verifying,
+   issuing) arrive with the Cloudflare for SaaS integration (THIRD-PARTY-ACCESS §2.1).
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
 5. The hostname and its state live in `custom_domain` (merchant) or `partner_domain`

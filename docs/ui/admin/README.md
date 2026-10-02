@@ -9,8 +9,9 @@ Cloudflare Access guards the whole host in front of the app's own sign-in.
 Older documents call it "DF Admin". It replaces the framework dashboard of the archived
 platform; there is no other operations console.
 
-**Status: the shell** (header, side bar, environment banner; #17), the Dashboard (#18) and
-Partners, list and detail (#19), all on fixtures, with a placeholder screen for Stores. The design is
+**Status: the shell** (header, side bar, environment banner, header search; #17, #41), the
+Dashboard (#18), Partners (#19) and Stores (#20), list and detail, read the Admin API (#41);
+the other menus are built on samples until their API cards land (#36–#40). The design is
 [CONSOLE-DESIGN.md](CONSOLE-DESIGN.md).
 
 **The prototype is `designs/DF Admin Prototype.dc.html`** — open it in a browser and click
@@ -76,16 +77,16 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Area | Super admin | Partner manager | Support | Finance | Engineer on call | Read-only |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home, search | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Partners: create, configure, approve, plans and prices | ✓ | ✓ (their partners) | view | view | view | view |
+| Partners: create, configure, approve, plans and prices | ✓ | ✓ (the partners a Super admin assigned to them, ACCESS.md §5.4; the others are invisible to them) | view | view | view | view |
 | Partners: pause, offboard, close | ✓ | | | | | |
-| Stores: detail | ✓ | ✓ (their partners) | ✓ | ✓ | ✓ | ✓ |
+| Stores: detail | ✓ | ✓ (their assigned partners' stores) | ✓ | ✓ | ✓ | ✓ |
 | Stores: suspend, restore | ✓ | | | | emergency only | |
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers: full email and phone | ✓ | | ✓ | | | |
 | Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
-| Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
+| Billing: invoices, credits, refunds, dunning | ✓ | view (their assigned partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |
 | Platform settings, flags, ceilings | ✓ | | | | | |
 | Staff and roles | ✓ | | | | | |

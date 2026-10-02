@@ -57,7 +57,7 @@ export const PartnerHeader = ({ partner, onAction }: PartnerHeaderProps) => {
               owner.name
             ) : (
               <>
-                {owner.email} <InvitationPill status={owner.invitation} />
+                {owner.email ?? words.team.noOwner} {owner.invitation && <InvitationPill status={owner.invitation} />}
               </>
             )}
           </dd>
