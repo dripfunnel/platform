@@ -1,6 +1,7 @@
 // Staff sessions served the way #40 will, refusals included (the contract agreed on #46): a
 // fixture that permits a second extend or a Support setup session would teach the UI to allow them.
-import { encodeFixtureHandoff, type PageRequest } from '@dripfunnel/shared/ui'
+import { encodeFixtureHandoff } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import { roleText, whereText } from '../features/impersonate/sessionText'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type {

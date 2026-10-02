@@ -11,6 +11,7 @@
   "include": [
     "ui",
     "graphql",
-    "format"
+    "format",
+    "search"
   ]
 }

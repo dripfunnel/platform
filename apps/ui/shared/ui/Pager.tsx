@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { PageInfo } from './pageInfo'
+import type { PageInfo } from '../graphql/pageInfo'
 import './list.css'
 
 export interface PagerWords {

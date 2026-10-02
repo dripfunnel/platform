@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { idParam } from '@dripfunnel/shared/ui'
+import { idParam } from '@dripfunnel/shared/search'
 import { customerFilterSearch } from '../../features/customers/customerSearch'
 import { CustomersScreen } from '../../features/customers/CustomersScreen'
 

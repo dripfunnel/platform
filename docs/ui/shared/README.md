@@ -11,18 +11,20 @@ Last updated: 2026-10-02 (#115).
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `Pager` (with `PageInfo` and `PageRequest`), `ClickableRow`, `optionalParam`, `searchParam`, `idParam`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
+| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `Pager`, `ClickableRow`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/ui/states.css` | The kit's stylesheet, for a screen that uses its classes (`df-button`, `df-field`, `df-dialog`, `df-visually-hidden`) without rendering a kit component | loaded by every kit component itself |
 | `@dripfunnel/shared/ui/shell.css` | The console chrome's stylesheet (header, banners, side bar, drawer, user menu, page title), for an app's own shell composition | loaded by every shell component itself |
 | `@dripfunnel/shared/ui/list.css` | The list stylesheet: the `.df-list` page, its header, toolbar, filters, search, table, name cells and pager, for a list screen's own markup | loaded by every list primitive itself |
-| `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code | `createApiClient`, `ApiError` |
+| `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code; the cursor page shape every list query answers with (#19) | `createApiClient`, `ApiError`; `PageInfo`, `PageRequest` |
+| `@dripfunnel/shared/search` | zod helpers for a route's URL search (#115): a value that doesn't fit is dropped, never a failed page | `optionalParam`, `searchParam`, `idParam` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber` |
 
 ```
 apps/ui/shared/
-  ui/          components, the state kit (+ states.css), the console chrome (+ shell.css), tokens.css, index.ts
-  graphql/     client.ts, index.ts
+  ui/          components, the state kit (+ states.css), the console chrome (+ shell.css), the list primitives (+ list.css), tokens.css, index.ts
+  graphql/     client.ts, pageInfo.ts, index.ts
+  search/      searchParams.ts, searchMaxLength.ts, index.ts
   format/      money.ts, dateTime.ts, duration.ts, number.ts (each + .test.ts), index.ts
   package.json exports map; peer dependencies on react, @tanstack/react-router and zod
 ```
@@ -69,16 +71,15 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
   takes the person, the words, the app's theme storage key and the app's own menu entries as
   a render function; `Icon` is one outline set for both consoles; `useTheme(storageKey)`
   keeps the Appearance choice. Each app keeps its own `nav.ts`, header and `AppShell`.
-- **List primitives** (#115, the partner console's Stores list being the admin console's
-  second list): `ListHeader` (eyebrow, title, lede and an action), `SearchField` (debounced,
+- **List primitives** (#115, moved for the partner console's Stores list, the admin console's
+  lists' second user): `ListHeader` (eyebrow, title, lede and an action), `SearchField` (debounced,
   with an optional validator for text the URL would drop), `FilterSelect` (the label inside
   the control, tinted when a value is chosen), `Pager` (Previous and Next from a `PageInfo`'s
   cursors, with the words and the link as props: cursor paging with no total, decided on
-  #19), `ClickableRow` (a table row that hands a plain click to its title link), and the zod
-  helpers for URL searches (`optionalParam` drops a value that doesn't fit instead of failing
-  the page; `searchParam` and `idParam` bound what a URL keeps). `list.css` holds their
-  styles; each console keeps its detail-page styles until a second console draws a detail
-  page.
+  #19), and `ClickableRow` (a table row that hands a plain click to its title link). `list.css`
+  holds their styles; each console keeps its detail-page styles until a second console draws
+  a detail page. The zod helpers for URL searches are their own entry, `@dripfunnel/shared/search`,
+  so an app without a list never bundles zod; `PageInfo` is the API's, in `graphql`.
 - **Environment**: `environmentFor(hostname)` names the four environments for both consoles
   (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.ai` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and

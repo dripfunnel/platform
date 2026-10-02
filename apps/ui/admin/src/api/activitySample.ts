@@ -13,7 +13,7 @@ import type {
   PersonMatch,
 } from './activity'
 import { activityActions, type ActionCode } from './activityActions'
-import type { PageRequest } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import { samplePage } from './samplePage'
 import { sampleCustomers } from './customersSample'
 import { sampleStores } from './storesSample'

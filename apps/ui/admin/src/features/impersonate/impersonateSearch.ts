@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { membershipRoles, sessionDates, sessionKinds, targetKinds, targetStatuses } from '../../api/impersonation'
-import { idParam, optionalParam } from '@dripfunnel/shared/ui'
+import { idParam, optionalParam } from '@dripfunnel/shared/search'
 
 // Impersonate's filters. The search term is never one of them (FIRST-RELEASE.md §8).
 export const usersSearch = {

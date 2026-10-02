@@ -13,9 +13,9 @@ export interface RowClick {
 export const opensRow = ({ button, defaultPrevented, onControl, selecting }: RowClick) =>
   button === 0 && !defaultPrevented && !onControl && !selecting
 
-// The whole row opens its record, as the prototype's Customers rows do. The click is handed
-// to the row's own title link, so the link stays the one keyboard and screen-reader target
-// and the row adds no tab stop of its own; Ctrl or Cmd still open it in a new tab.
+// The whole row opens its record (decided on #19). The click is handed to the row's own title
+// link, so the link stays the one keyboard and screen-reader target and the row adds no tab
+// stop of its own; Ctrl or Cmd still open it in a new tab.
 export const ClickableRow = ({ children }: { children: ReactNode }) => {
   const onClick = (event: MouseEvent<HTMLTableRowElement>) => {
     const target = event.target instanceof Element ? event.target : null

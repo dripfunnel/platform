@@ -6,6 +6,7 @@
     "./ui": "./ui/index.ts",
     "./ui/tokens.css": "./ui/tokens.css",
     "./graphql": "./graphql/index.ts",
+    "./search": "./search/index.ts",
     "./format": "./format/index.ts",
     "./ui/fonts.css": "./ui/fonts.css",
     "./ui/states.css": "./ui/states.css",

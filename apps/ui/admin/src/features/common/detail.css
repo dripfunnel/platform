@@ -1,5 +1,6 @@
-/* Detail pages across this console (#19, #20): header, tabs, panels, menus and toasts. The
-   list styles they sit beside are @dripfunnel/shared/ui/list.css. */
+/* Detail pages across this console (#19, #20): header, tabs, panels, menus and toasts, beside
+   the lists' @dripfunnel/shared/ui/list.css. Link rules outrank its `.df-list a` on specificity,
+   so the two sheets may load in any order. */
 
 /* Detail header */
 
@@ -85,7 +86,7 @@
   color: var(--df-color-muted);
 }
 
-.df-list a.df-meta-link {
+.df-list .df-detail-meta a.df-meta-link {
   font-weight: 600;
   text-decoration: none;
 }
@@ -189,7 +190,7 @@
   list-style: none;
 }
 
-.df-list a.df-tab {
+.df-list .df-tabs a.df-tab {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -201,12 +202,12 @@
   white-space: nowrap;
 }
 
-.df-list a.df-tab:hover {
+.df-list .df-tabs a.df-tab:hover {
   color: var(--df-color-heading);
   text-decoration: none;
 }
 
-.df-list a.df-tab[aria-current='page'] {
+.df-list .df-tabs a.df-tab[aria-current='page'] {
   border-bottom-color: var(--df-color-brand);
   color: var(--df-color-heading);
   font-weight: 700;

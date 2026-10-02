@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadCustomers, type CustomerFilter, type CustomerPage } from '../../api/customers'
-import type { PageRequest } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 
 export type CustomerPageResult = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: CustomerPage }
 

@@ -3,7 +3,7 @@
 // whether an action is allowed, and why not, is the API's answer (decided on #19).
 import type { Money } from '@dripfunnel/shared/format'
 import { harnessEnabled } from '../harness'
-import type { PageInfo, PageRequest } from '@dripfunnel/shared/ui'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission as Permission } from './permissions'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { SessionPermission } from './impersonation'

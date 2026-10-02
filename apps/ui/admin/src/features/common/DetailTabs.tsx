@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import '@dripfunnel/shared/ui/list.css'
 import './detail.css'
 
 export interface TabLinkProps {

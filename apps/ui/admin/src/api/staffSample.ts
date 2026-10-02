@@ -1,7 +1,7 @@
 // DripFunnel's own staff, served the way #39 would: paged by cursor, each action allowed or
 // refused with its reason. It stands in for the server until #68 wires the screen to #39.
 import type { StaffRole } from '../features/shell/staffRoles'
-import type { PageRequest } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission } from './permissions'
 import { samplePage } from './samplePage'
 import type { StaffMember, StaffPage, StaffRefusal, StaffResult } from './staff'

@@ -5,7 +5,7 @@ import { jobStates, loadProvisioningJobs } from '../../api/provisioning'
 import { paces } from '../../api/provisioningSample'
 import { provisioningSteps } from '../../api/provisioningSteps'
 import { callerFor } from '../../features/common/harnessCaller'
-import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/ui'
+import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
 import { ProvisioningLoading } from '../../features/provisioning/Provisioning'
 import { ProvisioningRouteError, ProvisioningScreen } from '../../features/provisioning/ProvisioningScreen'
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadTargets, type TargetFilter, type TargetPage } from '../../api/impersonation'
-import type { PageRequest } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import type { StaffRole } from '../shell/staffRoles'
 import { useSessionsVersion } from './sessionEvents'
 

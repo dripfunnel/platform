@@ -1,6 +1,5 @@
-/* Lists across the consoles: the pattern the admin console's Partners screens set (#19) and
-   the partner console's Stores list reuses (#115). Scoped under .df-list, so names shared with
-   the Dashboard sheet never collide. */
+/* Lists across the consoles (#19, #115). Scoped under .df-list, so names shared with the
+   Dashboard sheet never collide. */
 
 .df-page.df-list {
   gap: var(--df-space-4);

@@ -4,7 +4,7 @@
 // masked is each answer, by the caller's role. It stands in for the server until #36.
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { Customer, CustomerFilter, CustomerMatch, CustomerPage, CustomerRow, CustomerStatus, SignInMethod } from './customers'
-import type { PageRequest } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import { samplePage } from './samplePage'
 import { sampleStores } from './storesSample'
 

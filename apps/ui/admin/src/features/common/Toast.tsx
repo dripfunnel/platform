@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import '@dripfunnel/shared/ui/list.css'
 import './detail.css'
 
 // design.md §4: bottom centre, one line, 4.2 s. No action, so no undo (decided on #19).

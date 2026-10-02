@@ -4,7 +4,7 @@
 import type { StaffRole } from '../features/shell/staffRoles'
 import { jobPermissionsFor, stateOf, stepsFor, type SampleSetup } from './jobSample'
 import type { ActionPermission } from './permissions'
-import type { PageRequest } from '@dripfunnel/shared/ui'
+import type { PageRequest } from '@dripfunnel/shared/graphql'
 import { samplePartners } from './partnersSample'
 import { samplePage } from './samplePage'
 import { impersonatePermission } from './sessionRules'

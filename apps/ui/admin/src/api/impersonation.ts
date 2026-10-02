@@ -5,7 +5,7 @@ import type { StoreUser } from './stores'
 import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
 import { impersonationServer } from './impersonationSample'
-import type { PageInfo, PageRequest } from '@dripfunnel/shared/ui'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission } from './permissions'
 
 // The contract agreed on #46 for #40 (ACCESS.md §8.3): every refusal the Admin API returns.

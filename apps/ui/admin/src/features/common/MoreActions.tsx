@@ -1,6 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { messages } from '../../messages'
-import '@dripfunnel/shared/ui/list.css'
 import './detail.css'
 
 export interface MoreActionsProps {

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import '@dripfunnel/shared/ui/list.css'
 import './detail.css'
 
 // A read-only fact and the way round it, in the info palette, never the warning one
