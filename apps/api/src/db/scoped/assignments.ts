@@ -1,4 +1,4 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 // Which Partner managers a partner is assigned to (ACCESS.md §5.4, decided on #60): the pairs
 // `auth/assignment.ts` checks, read and written only here.
@@ -14,8 +14,8 @@ export const selectManagersFor = (tx: ScopedSql, partnerIds: readonly string[]):
   tx<(PartnerManager & { partner_id: string })[]>`
     select a.partner_id, s.id, s.name, s.email, a.created_at as since
     from staff_partner_assignment a join staff_user s on s.id = a.staff_user_id
-    where a.partner_id = any(${[...partnerIds]}) and a.removed_at is null
-    order by a.created_at
+    where a.partner_id = any(${pgArray(partnerIds)}::uuid[]) and a.removed_at is null
+    order by a.created_at, s.name
   `
 
 export interface StaffForAssignment {

@@ -58,7 +58,7 @@ describe('Stores list', () => {
     expect(text).toContain('Trial ends Oct 8, 2026')
     expect(text).toContain(words.customLive)
     expect(text).toContain(messages.store.domains.status.waiting)
-    expect(text).toContain('$29.00 / month')
+    expect(text).not.toMatch(/[$€£₹]/)
     expect(text).not.toContain(messages.store.retrySetup)
   })
 

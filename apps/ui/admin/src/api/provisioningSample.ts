@@ -24,7 +24,7 @@ const jobOf = (store: SampleStore, caller: StaffRole): ProvisioningJob => {
     id: setup.jobId ?? store.id,
     store: { id: store.id, name: store.name, code: store.code },
     partner: store.partner,
-    owner: store.owner,
+    owner: { name: store.owner.name ?? '', email: store.owner.email ?? '' },
     state,
     steps: setup.steps,
     step: setup.step,

@@ -1,6 +1,5 @@
-// The prototype's sample stores (designs/admin-data.js), served the way the Admin API would
-// serve them: filtered, sorted and paged here, and every permission worked out here, never in
-// a component. It stands in for the server until #34, and goes with it.
+// The prototype's sample stores (designs/admin-data.js) as the Admin API serves them: the
+// screen tests' fixture and the seed of the provisioning sample (#37).
 import type { StaffRole } from '../features/shell/staffRoles'
 import { jobPermissionsFor, stateOf, stepsFor, type SampleSetup } from './jobSample'
 import type { ActionPermission } from './permissions'
@@ -45,7 +44,7 @@ const shopsDomain: Record<string, string> = {
 
 const edge = 'shops.edge.dripfunnel.net'
 
-type Event = [at: string, event: StoreHistoryEntry['event'], by?: string | null, note?: string | null, plan?: string | null]
+type Event = [at: string, action: string, by?: string | null, note?: string | null]
 type Person = [name: string, email: string, role: StoreUser['role'], status: StoreUser['status'], lastSignInAt: string | null, supplier?: string]
 
 interface Seed {
@@ -55,7 +54,7 @@ interface Seed {
   partner: string
   owner: [string, string]
   country: string
-  plan: [string, number, string]
+  plan: string
   state: StoreState
   created: string
   storefront?: StoreRow['storefront']
@@ -63,8 +62,7 @@ interface Seed {
   setup?: Pick<SampleSetup, 'step' | 'attempts' | 'startedAt' | 'stepMinutes'> &
     Partial<Pick<SampleSetup, 'details' | 'failsAgain'>> & { state: 'running' | 'failed' }
   error?: string
-  people: [owners: number, managers: number, staff: number]
-  counts: [suppliers: number, products: number, orders: number]
+  people: [owners: number, managers: number, staff: number, suppliers: number]
   version?: string
   built?: [build: string, publish: string] | null
   history: Event[]
@@ -100,22 +98,15 @@ const sample = (seed: Seed): SampleStore => {
     code: seed.code,
     partner: { id: seed.partner, name: partnerNames[seed.partner] ?? seed.partner },
     owner: { name: seed.owner[0], email: seed.owner[1] },
-    plan: { name: seed.plan[0], price: { amount: seed.plan[1] * 100, currency: seed.plan[2] } },
+    plan: { name: seed.plan },
     state: seed.state,
     storefront: seed.storefront ?? 'live',
     domain: { host, custom, status },
     setup: setupOf(seed),
     createdAt: `${seed.created}T00:00:00Z`,
     country: seed.country,
-    history: seed.history.map(([at, event, by = null, note = null, plan = null]) => ({ at: `${at}T00:00:00Z`, event, by, note, plan })),
-    counts: {
-      owners: seed.people[0],
-      managers: seed.people[1],
-      staff: seed.people[2],
-      suppliers: seed.counts[0],
-      products: seed.counts[1],
-      orders: seed.counts[2],
-    },
+    history: seed.history.map(([at, action, by = null, note = null]) => ({ at: `${at}T00:00:00Z`, action, by, note })),
+    counts: { owners: seed.people[0], managers: seed.people[1], staff: seed.people[2], suppliers: seed.people[3] },
     site: {
       version: seed.version ?? null,
       lastBuildAt: built?.[0] ?? null,
@@ -151,17 +142,16 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'bz',
     owner: ['Priya Mehta', 'priya@mehtatextiles.in'],
     country: 'IN',
-    plan: ['Growth', 4999, 'INR'],
+    plan: 'Growth',
     state: active,
     created: '2025-06-11',
     domain: { host: 'mehtatextiles.in', custom: true },
-    people: [1, 2, 6],
-    counts: [3, 1284, 9412],
+    people: [1, 2, 6, 3],
     version: 'v48',
     built: ['2026-09-28T09:12:00Z', '2026-09-28T09:20:00Z'],
     history: [
-      ['2025-06-11', 'trialStarted', null, null, 'Growth'],
-      ['2025-06-21', 'active', null, null, 'Growth'],
+      ['2025-06-11', 'store.trial_started'],
+      ['2025-06-21', 'store.activated'],
     ],
     users: [
       ['Priya Mehta', 'priya@mehtatextiles.in', 'owner', 'active', '2026-09-28T08:52:00Z'],
@@ -178,13 +168,12 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'ns',
     owner: ['Jenna Park', 'jenna@harborcoffee.co'],
     country: 'US',
-    plan: ['Scale', 79, 'USD'],
+    plan: 'Scale',
     state: trial('2026-09-29', 1),
     created: '2026-09-15',
-    people: [1, 0, 1],
-    counts: [0, 54, 17],
+    people: [1, 0, 1, 0],
     version: 'v6',
-    history: [['2026-09-15', 'trialStarted', null, null, 'Scale']],
+    history: [['2026-09-15', 'store.trial_started']],
     users: [['Jenna Park', 'jenna@harborcoffee.co', 'owner', 'active', '2026-09-28T09:10:00Z']],
   }),
   sample({
@@ -194,17 +183,16 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'bz',
     owner: ['Fatima Al Nuaimi', 'fatima@kikokids.ae'],
     country: 'AE',
-    plan: ['Growth UAE', 219, 'AED'],
+    plan: 'Growth UAE',
     state: { kind: 'pastdue', daysPastDue: 9 },
     created: '2025-11-02',
     domain: { host: 'kikokids.ae', custom: true },
-    people: [1, 1, 3],
-    counts: [0, 612, 3318],
+    people: [1, 1, 3, 0],
     version: 'v21',
     history: [
-      ['2025-11-02', 'trialStarted'],
-      ['2025-11-12', 'active', null, null, 'Growth UAE'],
-      ['2026-09-19', 'pastDue', null, '3 failed payments'],
+      ['2025-11-02', 'store.trial_started'],
+      ['2025-11-12', 'store.activated'],
+      ['2026-09-19', 'store.past_due', null, '3 failed payments'],
     ],
     users: [['Fatima Al Nuaimi', 'fatima@kikokids.ae', 'owner', 'active', '2026-09-28T10:21:00Z']],
     notes: [{ id: 's3-n1', by: 'Priya Shah', at: '2026-09-28T10:52:00Z', text: 'Merchant says the card was replaced. Walking her to Billing → Card in the session.' }],
@@ -216,16 +204,15 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'ns',
     owner: ['Dale Kowalski', 'dale@redlinemoto.com'],
     country: 'US',
-    plan: ['Pro', 149, 'USD'],
-    state: { kind: 'suspended', reason: 'Chargeback', by: 'Arjun Menon', previous: 'active' },
+    plan: 'Pro',
+    state: { kind: 'suspended', reason: 'Chargeback', by: 'Arjun Menon', since: '2026-09-24T00:00:00Z', previous: 'active' },
     created: '2025-08-19',
-    people: [1, 1, 2],
-    counts: [0, 2210, 5871],
+    people: [1, 1, 2, 0],
     version: 'v33',
     history: [
-      ['2025-08-19', 'trialStarted'],
-      ['2025-08-29', 'active', null, null, 'Pro'],
-      ['2026-09-24', 'suspended', 'Arjun Menon', 'chargeback'],
+      ['2025-08-19', 'store.trial_started'],
+      ['2025-08-29', 'store.activated'],
+      ['2026-09-24', 'store.suspended', 'Arjun Menon', 'chargeback'],
     ],
     users: [
       ['Dale Kowalski', 'dale@redlinemoto.com', 'owner', 'active', '2026-09-24T18:00:00Z'],
@@ -240,7 +227,7 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'df',
     owner: ['Ingrid Solberg', 'ingrid@fjordoutdoor.no'],
     country: 'NO',
-    plan: ['Growth', 29, 'USD'],
+    plan: 'Growth',
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
     storefront: 'building',
@@ -253,10 +240,9 @@ export const sampleStores: readonly SampleStore[] = [
       details: 'build bld_7Qx2 state=running runner=eu-2 last_heartbeat=10:39:12Z last_log="Installing theme dependencies"',
     },
     error: 'The first storefront build has been running for 48 minutes. It usually takes under 5.',
-    people: [1, 0, 0],
-    counts: [0, 0, 0],
+    people: [1, 0, 0, 0],
     built: null,
-    history: [['2026-09-28', 'trialStarted', null, null, 'Growth']],
+    history: [['2026-09-28', 'store.trial_started']],
     users: [['Ingrid Solberg', 'ingrid@fjordoutdoor.no', 'owner', 'active', '2026-09-28T10:00:00Z']],
   }),
   sample({
@@ -266,16 +252,15 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'ns',
     owner: ['Chloé Tremblay', 'chloe@mapleandpine.ca'],
     country: 'CA',
-    plan: ['Scale', 79, 'USD'],
+    plan: 'Scale',
     state: active,
     created: '2026-04-03',
     domain: { host: 'shop.mapleandpine.ca', custom: true, status: 'waiting' },
-    people: [1, 1, 1],
-    counts: [0, 388, 1204],
+    people: [1, 1, 1, 0],
     version: 'v17',
     history: [
-      ['2026-04-03', 'trialStarted'],
-      ['2026-04-13', 'active', null, null, 'Scale'],
+      ['2026-04-03', 'store.trial_started'],
+      ['2026-04-13', 'store.activated'],
     ],
     users: [['Chloé Tremblay', 'chloe@mapleandpine.ca', 'owner', 'active', '2026-09-27T22:10:00Z']],
   }),
@@ -286,18 +271,17 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'df',
     owner: ['Giulia Conti', 'giulia@ateliernove.it'],
     country: 'IT',
-    plan: ['Growth Pro', 79, 'USD'],
+    plan: 'Growth Pro',
     state: active,
     created: '2025-12-09',
     storefront: 'own',
     domain: { host: 'ateliernove.it', custom: true },
-    people: [1, 0, 2],
-    counts: [0, 146, 902],
+    people: [1, 0, 2, 0],
     built: null,
     supportAccess: false,
     history: [
-      ['2025-12-09', 'trialStarted'],
-      ['2025-12-19', 'active', null, null, 'Growth Pro'],
+      ['2025-12-09', 'store.trial_started'],
+      ['2025-12-19', 'store.activated'],
     ],
     users: [['Giulia Conti', 'giulia@ateliernove.it', 'owner', 'active', '2026-09-28T06:40:00Z']],
   }),
@@ -308,14 +292,13 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'lt',
     owner: ['Olivia Grant', 'olivia@loomandthread.co.uk'],
     country: 'GB',
-    plan: ['Marketplace', 1200, 'GBP'],
+    plan: 'Marketplace',
     state: active,
     created: '2025-10-01',
     domain: { host: 'loomandthread.co.uk', custom: true },
-    people: [1, 4, 22],
-    counts: [64, 18450, 61208],
+    people: [1, 4, 22, 64],
     version: 'v112',
-    history: [['2025-10-01', 'active', null, null, 'Marketplace']],
+    history: [['2025-10-01', 'store.activated']],
     users: [
       ['Olivia Grant', 'olivia@loomandthread.co.uk', 'owner', 'active', '2026-09-27T19:30:00Z'],
       ['Hannah Cole', 'hannah@northwindwool.co.uk', 'supplierAdmin', 'active', '2026-09-28T09:31:00Z', 'Northwind Wool'],
@@ -328,13 +311,12 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'bz',
     owner: ['Kavya Iyer', 'kavya@saffronstreet.in'],
     country: 'IN',
-    plan: ['Starter', 1499, 'INR'],
+    plan: 'Starter',
     state: active,
     created: '2026-09-23',
-    people: [1, 0, 1],
-    counts: [0, 88, 41],
+    people: [1, 0, 1, 0],
     version: 'v3',
-    history: [['2026-09-23', 'active', null, null, 'Starter']],
+    history: [['2026-09-23', 'store.activated']],
     users: [['Kavya Iyer', 'kavya@saffronstreet.in', 'owner', 'active', '2026-09-27T18:30:00Z']],
   }),
   sample({
@@ -344,16 +326,15 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'df',
     owner: ['Tanya Brooks', 'tanya@brightsidepets.com'],
     country: 'US',
-    plan: ['Growth', 29, 'USD'],
+    plan: 'Growth',
     state: { kind: 'cancelled', since: '2026-09-02T00:00:00Z' },
     created: '2025-05-20',
-    people: [1, 0, 0],
-    counts: [0, 73, 655],
+    people: [1, 0, 0, 0],
     version: 'v9',
     history: [
-      ['2025-05-20', 'trialStarted'],
-      ['2025-05-30', 'active', null, null, 'Growth'],
-      ['2026-09-02', 'cancelled'],
+      ['2025-05-20', 'store.trial_started'],
+      ['2025-05-30', 'store.activated'],
+      ['2026-09-02', 'store.cancelled'],
     ],
     users: [['Tanya Brooks', 'tanya@brightsidepets.com', 'owner', 'active', '2026-09-02T12:44:00Z']],
   }),
@@ -364,16 +345,15 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'bz',
     owner: ['Khalid Rahman', 'khalid@oudhouse.ae'],
     country: 'AE',
-    plan: ['Pro UAE', 549, 'AED'],
+    plan: 'Pro UAE',
     state: active,
     created: '2026-02-14',
     domain: { host: 'oudhouse.ae', custom: true },
-    people: [1, 1, 4],
-    counts: [0, 204, 2890],
+    people: [1, 1, 4, 0],
     version: 'v27',
     history: [
-      ['2026-02-14', 'trialStarted'],
-      ['2026-02-24', 'active', null, null, 'Pro UAE'],
+      ['2026-02-14', 'store.trial_started'],
+      ['2026-02-24', 'store.activated'],
     ],
     users: [['Khalid Rahman', 'khalid@oudhouse.ae', 'owner', 'active', '2026-09-28T04:15:00Z']],
   }),
@@ -384,13 +364,12 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'kl',
     owner: ['Lea Braun', 'lea@gruenwerk.de'],
     country: 'DE',
-    plan: ['Plus', 69, 'EUR'],
+    plan: 'Plus',
     state: trial('2026-10-06', 8),
     created: '2026-09-26',
-    people: [1, 0, 0],
-    counts: [0, 12, 0],
+    people: [1, 0, 0, 0],
     version: 'v2',
-    history: [['2026-09-26', 'trialStarted', null, null, 'Plus']],
+    history: [['2026-09-26', 'store.trial_started']],
     users: [['Lea Braun', 'lea@gruenwerk.de', 'owner', 'active', '2026-09-27T20:05:00Z']],
   }),
   sample({
@@ -400,7 +379,7 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'df',
     owner: ['Owen Hart', 'owen@peaksupply.com'],
     country: 'US',
-    plan: ['Growth', 29, 'USD'],
+    plan: 'Growth',
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
     storefront: 'failed',
@@ -414,10 +393,9 @@ export const sampleStores: readonly SampleStore[] = [
       failsAgain: true,
     },
     error: 'GitHub didn’t respond while creating the storefront.',
-    people: [1, 0, 0],
-    counts: [0, 0, 0],
+    people: [1, 0, 0, 0],
     built: null,
-    history: [['2026-09-28', 'trialStarted', null, null, 'Growth']],
+    history: [['2026-09-28', 'store.trial_started']],
     users: [['Owen Hart', 'owen@peaksupply.com', 'owner', 'active', '2026-09-28T09:12:00Z']],
   }),
   sample({
@@ -427,16 +405,15 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'ns',
     owner: ['Marco Silva', 'marco@tidewatersurf.com'],
     country: 'US',
-    plan: ['Launch', 29, 'USD'],
+    plan: 'Launch',
     state: trial('2026-10-08', 10),
     created: '2026-09-28',
     storefront: 'own',
     domain: { host: 'tidewater-surf.shops.northstar.com', custom: false, status: 'waiting' },
     setup: { state: 'running', step: 'hostnames', attempts: 1, startedAt: '2026-09-28T10:50:00Z', stepMinutes: 1 },
-    people: [1, 0, 0],
-    counts: [0, 0, 0],
+    people: [1, 0, 0, 0],
     built: null,
-    history: [['2026-09-28', 'trialStarted', null, null, 'Launch']],
+    history: [['2026-09-28', 'store.trial_started']],
     users: [['Marco Silva', 'marco@tidewatersurf.com', 'owner', 'active', '2026-09-28T10:50:00Z']],
   }),
   sample({
@@ -446,16 +423,15 @@ export const sampleStores: readonly SampleStore[] = [
     partner: 'ns',
     owner: ['Anjali Nair', 'anjali@juniperco.com'],
     country: 'US',
-    plan: ['Pro', 149, 'USD'],
+    plan: 'Pro',
     state: active,
     created: '2025-12-01',
     domain: { host: 'juniperco.com', custom: true },
-    people: [1, 1, 3],
-    counts: [4, 2140, 7730],
+    people: [1, 1, 3, 4],
     version: 'v31',
     history: [
-      ['2025-12-01', 'trialStarted'],
-      ['2025-12-11', 'active', null, null, 'Pro'],
+      ['2025-12-01', 'store.trial_started'],
+      ['2025-12-11', 'store.activated'],
     ],
     users: [
       ['Anjali Nair', 'anjali@juniperco.com', 'owner', 'active', '2026-09-28T07:02:00Z'],
@@ -477,7 +453,7 @@ const onlyFor = (caller: StaffRole, roles: readonly StaffRole[], reason: StoreRe
 export const storePermissionsFor = (store: SampleStore, caller: StaffRole): StorePermissions => {
   const actions: StorePermissions = {}
   const kind = store.state.kind
-  if (kind !== 'suspended' && kind !== 'cancelled') {
+  if (kind !== 'suspended' && kind !== 'cancelled' && kind !== 'closed') {
     const suspend: StorePermission =
       caller === 'staff-engineer' ? { allowed: true, emergency: true } : onlyFor(caller, ['staff-super-admin'], 'SUSPENDERS_ONLY')
     actions.suspend = suspend
@@ -501,7 +477,7 @@ const matches = (store: SampleStore, filter: StoreFilter, now: string) => {
     (!filter.storefront || store.storefront === filter.storefront) &&
     (!filter.setup || stateOf(store.setup) === filter.setup) &&
     (!filter.created || withinDays(store.createdAt, filter.created === '7d' ? 7 : 30, now)) &&
-    (!q || [store.name, store.code, store.domain.host, store.owner.email, store.owner.name].some((value) => value.toLowerCase().includes(q)))
+    (!q || [store.name, store.code, store.domain.host, store.owner.email ?? '', store.owner.name ?? ''].some((value) => value.toLowerCase().includes(q)))
   )
 }
 
@@ -554,10 +530,7 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
     }
   }
 
-  const record = (store: SampleStore, event: StoreHistoryEntry['event'], note: string | null): StoreHistoryEntry[] => [
-    ...store.history,
-    { at: now(), event, by: 'Arjun Menon', note, plan: null },
-  ]
+  const record = (store: SampleStore, action: string, note: string | null): StoreHistoryEntry[] => [...store.history, { at: now(), action, by: 'Arjun Menon', note }]
 
   const run = (id: string, action: StoreAction, reason: string | null, value: string | null) => {
     const store = find(id)
@@ -566,24 +539,24 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
       case 'suspend':
         if (store.state.kind === 'suspended' || !reason) return
         update(id, (current) => {
-          const previous = current.state.kind === 'suspended' ? 'active' : current.state.kind
+          const previous = current.state.kind === 'suspended' || current.state.kind === 'cancelled' || current.state.kind === 'closed' ? 'active' : current.state.kind
           return {
             ...current,
             before: current.state,
-            state: { kind: 'suspended', reason, by: 'Arjun Menon', previous },
-            history: record(current, 'suspended', reason),
+            state: { kind: 'suspended', reason, by: 'Arjun Menon', since: now(), previous },
+            history: record(current, 'store.suspended', reason),
           }
         })
         return
       case 'restore':
-        update(id, (current) => ({ ...current, state: current.before ?? { kind: 'active' }, before: null, history: record(current, 'restored', reason) }))
+        update(id, (current) => ({ ...current, state: current.before ?? { kind: 'active' }, before: null, history: record(current, 'store.restored', reason) }))
         return
       case 'extendTrial':
         if (!value) return
         update(id, (current) => ({
           ...current,
           state: { kind: 'trial', trialEndsAt: `${value}T00:00:00Z`, daysLeft: Math.ceil((Date.parse(`${value}T00:00:00Z`) - Date.parse(now())) / dayMs) },
-          history: record(current, 'trialExtended', value),
+          history: record(current, 'store.trial_extended', null),
         }))
         return
       case 'addNote':
@@ -596,8 +569,6 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
     }
   }
 
-  const recheck = (id: string, host: string) => find(id)?.records.find((candidate) => candidate.host === host)?.status ?? 'waiting'
-
   // What the provisioning sample runs a signup Workflow on: the same records, so a Retry from
   // the Provisioning list shows on the store's tab too.
   const signups = {
@@ -608,7 +579,7 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
     },
   }
 
-  return { list, get, run, recheck, signups }
+  return { list, get, run, signups }
 }
 
 export const storesServer = createStoresServer(sampleStores)

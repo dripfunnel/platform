@@ -1,14 +1,65 @@
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { loadDashboard, type DashboardData } from '../../api/dashboard'
+import type { DashboardData } from '../../api/dashboard'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { Dashboard, type DashboardProps } from './Dashboard'
 
 const words = messages.dashboard
-const allPartners = await loadDashboard(undefined)
 const noop = () => undefined
+
+const partnerOptions = [
+  { id: 'df', name: 'DripFunnel' },
+  { id: 'ns', name: 'Northstar Commerce' },
+  { id: 'bz', name: 'Bazaar Cloud' },
+  { id: 'kl', name: 'Kaufladen Digital' },
+  { id: 'lt', name: 'Loom & Thread' },
+  { id: 'ts', name: 'Tallis Studio' },
+  { id: 'nl', name: 'Nordlicht Media' },
+]
+
+// What the API answers for the prototype's platform (designs/admin-data.js), already counted.
+const allPartners: DashboardData = {
+  partnerId: null,
+  partnerOptions,
+  asOf: '2026-09-28T10:42:00Z',
+  partners: { live: 4, awaiting: 1, draft: 2, paused: 0 },
+  awaiting: { count: 1, oldest: { id: 'kl', name: 'Kaufladen Digital', submittedAt: '2026-09-26T09:40:00Z', waitingSeconds: 176_520 } },
+  stores: {
+    total: 1679,
+    newThisWeek: 65,
+    newThisWeekByPartner: [
+      { id: 'df', name: 'DripFunnel', count: 38 },
+      { id: 'bz', name: 'Bazaar Cloud', count: 21 },
+      { id: 'ns', name: 'Northstar Commerce', count: 6 },
+    ],
+  },
+  attention: {
+    pastDue: 1,
+    suspended: 1,
+    setupFailed: 1,
+    setupStuck: 1,
+    total: 4,
+    stores: [
+      { id: 's13', name: 'Peak Supply Co.', partnerName: 'DripFunnel', reason: { kind: 'setup', state: 'failed', step: 'repo', attempt: 2 } },
+      { id: 's5', name: 'Fjord Outdoor', partnerName: 'DripFunnel', reason: { kind: 'setup', state: 'stuck', step: 'firstBuild', attempt: 2 } },
+      { id: 's4', name: 'Redline Moto Parts', partnerName: 'Northstar Commerce', reason: { kind: 'suspended', reason: 'Chargeback' } },
+      { id: 's3', name: 'Kiko Kids', partnerName: 'Bazaar Cloud', reason: { kind: 'pastDue', daysPastDue: 9 } },
+    ],
+  },
+  signups: { started: 73, completed: 67, failed: 2, medianSecondsToReady: 372 },
+}
+
+const bazaarOnly: DashboardData = {
+  ...allPartners,
+  partnerId: 'bz',
+  partners: { live: 1, awaiting: 0, draft: 0, paused: 0 },
+  awaiting: { count: 0, oldest: null },
+  stores: { total: 312, newThisWeek: 21, newThisWeekByPartner: [{ id: 'bz', name: 'Bazaar Cloud', count: 21 }] },
+  attention: { pastDue: 1, suspended: 0, setupFailed: 0, setupStuck: 0, total: 1, stores: [{ id: 's3', name: 'Kiko Kids', partnerName: 'Bazaar Cloud', reason: { kind: 'pastDue', daysPastDue: 9 } }] },
+  signups: { started: 23, completed: 22, failed: 1, medianSecondsToReady: 425 },
+}
 
 const render = async (props: Partial<DashboardProps> = {}) => {
   const rootRoute = createRootRoute({
@@ -98,7 +149,7 @@ describe('Dashboard', () => {
   })
 
   it('carries the partner filter into every link that the list can filter by', async () => {
-    const html = await render({ data: await loadDashboard('bz') })
+    const html = await render({ data: bazaarOnly })
     const links = hrefs(html)
     expect(links).toContain('/stores?partner=bz')
     expect(links).toContain('/stores?partner=bz&created=7d')

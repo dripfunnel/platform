@@ -1,23 +1,18 @@
-import { harnessEnabled } from '../harness'
+import { z } from 'zod'
 import type { NavBadgeSource } from '../nav'
-import { impersonationServer } from './impersonationSample'
-import { sampleServer } from './partnersSample'
-import { provisioningServer } from './provisioningSample'
+import { query } from './client'
 
 export type NavBadges = Record<NavBadgeSource, number>
 
-const none: NavBadges = { partnersAwaitingApproval: 0, provisioningAttention: 0, openSessions: 0 }
+const count = z.number().int().nonnegative()
 
-// Seam: no Admin API query returns these counts yet (FIRST-RELEASE.md §12 names none); the
-// pull request lists them as fields the API needs. Under the ?state= harness they are counted
-// from the samples, so a Retry or an Undo moves the badge.
-export const loadNavBadges = (): Promise<NavBadges> =>
-  Promise.resolve(
-    harnessEnabled
-      ? {
-          partnersAwaitingApproval: sampleServer.list({ status: 'awaiting' }, {}, 1, 'staff-read-only').total,
-          provisioningAttention: provisioningServer.needingAttention(),
-          openSessions: impersonationServer.openCount(),
-        }
-      : none,
-  )
+const badgesSchema = z.object({
+  navBadges: z.object({ partnersAwaitingApproval: count, provisioningAttention: count, openSessions: count.nullable() }),
+})
+
+// `openSessions` is null for a role the API keeps it from (FIRST-RELEASE.md §2); nav.ts shows
+// that badge to no such role, so the count it never sees is zero.
+export const loadNavBadges = async (): Promise<NavBadges> => {
+  const { navBadges } = await query(`{ navBadges { partnersAwaitingApproval provisioningAttention openSessions } }`, badgesSchema)
+  return { ...navBadges, openSessions: navBadges.openSessions ?? 0 }
+}

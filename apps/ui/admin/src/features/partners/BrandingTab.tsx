@@ -5,12 +5,13 @@ import './partners.css'
 
 const words = messages.partner
 
-// The partner's own colours are its data, shown as swatches, never the console's styling.
-const Swatch = ({ label, color }: { label: string; color: string }) => (
+// The partner's own colours are its data, shown as swatches, never the console's styling; a
+// colour not chosen yet shows no chip.
+const Swatch = ({ label, color }: { label: string; color: string | null }) => (
   <div className="df-swatch">
-    <span className="df-swatch-chip" style={{ background: color }} aria-hidden="true" />
+    {color && <span className="df-swatch-chip" style={{ background: color }} aria-hidden="true" />}
     <span>{label}</span>
-    <code>{color}</code>
+    <code>{color ?? words.branding.notSet}</code>
   </div>
 )
 
