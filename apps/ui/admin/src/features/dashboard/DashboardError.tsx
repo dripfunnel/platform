@@ -1,6 +1,7 @@
 import { useRouter } from '@tanstack/react-router'
 import { messages } from '../../messages'
 import { ErrorState, type ErrorDetails } from '@dripfunnel/shared/ui'
+import { RouteError } from '../common/RouteError'
 import { DashboardHeader } from './DashboardHeader'
 import './dashboard.css'
 
@@ -24,9 +25,8 @@ export const DashboardError = ({ sub, onRetry, details }: DashboardErrorProps) =
   </div>
 )
 
-// The route's error view. It never shows the thrown error: its message can carry internals
-// (ErrorState's comment); the API's code arrives with the real client (#13).
-export const DashboardRouteError = () => {
+// The route's error view, by the error's code; never its message, which can carry internals.
+export const DashboardRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <DashboardError sub={words.subLoading} onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <DashboardError sub={words.subLoading} onRetry={() => void router.invalidate()} details={details} />} />
 }

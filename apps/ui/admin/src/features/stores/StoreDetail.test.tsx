@@ -96,11 +96,13 @@ describe('Store detail', () => {
     15_000,
   )
 
-  it('writes each history entry in the prototype words', async () => {
+  it('writes each history entry in the prototype words, by the activity code', async () => {
     const text = await render({ store: storeOf('s3') })
     expect(text).toContain('Past due after 3 failed payments')
-    expect(text).toContain('Active on Growth UAE')
+    expect(text).toContain('Trial started')
     expect(await render({ store: storeOf('s4') })).toContain('Suspended by Arjun Menon: chargeback')
+    const odd: Store = { ...storeOf('s3'), history: [{ at: '2026-09-27T00:00:00Z', action: 'store.renamed', by: 'Arjun Menon', note: null }] }
+    expect(await render({ store: odd })).toContain('store.renamed by Arjun Menon')
   })
 
   it('caps the note field at the length the API accepts', async () => {

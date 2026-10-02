@@ -69,7 +69,8 @@ export const Dashboard = ({ data, forced, canCreatePartner, onPartnerChange, onR
     )
   }
 
-  const notice = dashboardNotice(data, forced, words, fill, formatTime)
+  // The API marks nothing stale yet (decided on #35); the harness still shows the notice.
+  const notice = dashboardNotice({ asOf: data.asOf, staleSince: null }, forced, words, fill, formatTime)
   const scope = data.partnerId ? { partner: data.partnerId } : {}
 
   return (

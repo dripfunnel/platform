@@ -1,5 +1,5 @@
 import type { NewOutboxRow, OutboxRow } from '../schema/outbox'
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 /**
  * The new row's id, or null when the idempotency key has already queued this effect. The id
@@ -40,7 +40,7 @@ export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Dat
     where id in (
       select id from outbox
       where delivered_at is null and failed_at is null
-        and kind = any(${[...kinds]})
+        and kind = any(${pgArray(kinds)}::text[])
         and next_attempt_at <= ${now}
         and (claimed_at is null or claimed_at < ${leaseExpired})
       order by next_attempt_at

@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext, SellerScope } from '#core/tenancy'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { pgArray, type ScopedSql, withScope } from '#db/scoped/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -336,7 +336,7 @@ describe('the backstop itself', () => {
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
-      where relname = any(${tables}) and relkind in ('r', 'p')
+      where relname = any(${pgArray(tables)}::text[]) and relkind in ('r', 'p')
     `
     expect(rows).toHaveLength(tables.length)
     for (const row of rows) {

@@ -27,7 +27,7 @@ export const actionDialog = (action: ConfirmedAction, partner: Partner): ActionD
     name: partner.name,
     host: partner.portalHost.host ?? '',
     count: formatCount(partner.stores),
-    email: partner.owner.email,
+    email: partner.owner.email ?? '',
   }
   return {
     title: fill(spec.title, values),
@@ -41,4 +41,4 @@ export const actionDialog = (action: ConfirmedAction, partner: Partner): ActionD
 }
 
 export const actionToast = (action: ConfirmedAction, partner: Partner) =>
-  fill(words.toasts[action], { name: partner.name, host: partner.portalHost.host ?? '', email: partner.owner.email })
+  fill(words.toasts[action], { name: partner.name, host: partner.portalHost.host ?? '', email: partner.owner.email ?? '' })

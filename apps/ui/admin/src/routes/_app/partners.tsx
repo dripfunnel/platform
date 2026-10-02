@@ -1,9 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { loadMe } from '../../api/me'
 import { loadPartners, partnerStates, setupFilters } from '../../api/partners'
 import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
-import { callerFor } from '../../features/common/harnessCaller'
 import { PartnersLoading } from '../../features/partners/Partners'
 import { PartnersRouteError, PartnersScreen } from '../../features/partners/PartnersScreen'
 
@@ -19,10 +17,7 @@ const partnersSearch = z.object({
 export const Route = createFileRoute('/_app/partners')({
   validateSearch: partnersSearch,
   loaderDeps: ({ search }) => search,
-  loader: async ({ deps: { after, before, ...filter }, location }) => {
-    const me = await loadMe()
-    return loadPartners(filter, { after, before }, callerFor(me.role, location.searchStr))
-  },
+  loader: ({ deps: { after, before, ...filter } }) => loadPartners(filter, { after, before }),
   pendingComponent: PartnersLoading,
   errorComponent: PartnersRouteError,
   component: PartnersScreen,

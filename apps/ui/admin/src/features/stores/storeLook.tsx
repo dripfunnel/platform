@@ -17,6 +17,7 @@ const statusLook: Record<StoreState['kind'], Look> = {
   pastdue: { tone: 'warning', icon: 'clock' },
   suspended: { tone: 'solid', icon: 'ban' },
   cancelled: { tone: 'neutral', icon: 'ban' },
+  closed: { tone: 'neutral', icon: 'ban' },
 }
 
 const storefrontLook: Record<StorefrontState, Look> = {
@@ -37,7 +38,11 @@ export const setupLook: Record<SetupState, Look> = {
 const domainLook: Record<StoreDomain['status'], Look> = {
   live: { tone: 'success', icon: 'ok' },
   waiting: { tone: 'warning', icon: 'clock' },
+  verifying: { tone: 'info', icon: 'hour' },
+  issuing: { tone: 'info', icon: 'hour' },
   failed: { tone: 'danger', icon: 'alert' },
+  expiring: { tone: 'warning', icon: 'clock' },
+  broken: { tone: 'danger', icon: 'alert' },
 }
 
 const statusLabel = (state: StoreState) => {
@@ -64,6 +69,8 @@ export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'w
       return { text: fill(words.statusSub.suspended, { reason: state.reason, by: state.by }), tone: 'danger' }
     case 'cancelled':
       return { text: fill(words.statusSub.cancelled, { date: formatDate(state.since) }), tone: 'muted' }
+    case 'closed':
+      return { text: fill(words.statusSub.closed, { date: formatDate(state.since) }), tone: 'muted' }
     case 'active':
       return null
   }
