@@ -46,7 +46,7 @@ Last updated: 2026-10-02.
 | **Each supplier refunds its own items; the store can override; the override goes to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
 | **2-factor is required for Owners and optional for everyone else** in the people pool (decided 2026-10-02): authenticator app or SMS, ten single-use backup codes (§2, §4) | Everyone; nobody | The Owner holds billing and the customer list; the prototype's My profile designs the enrolment and backup flows in full. |
 | **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those three fields change what the shopper is sold. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
-| **On suspending a supplier the Owner chooses whether its products are hidden or keep selling from stock in hand; hidden ones return on resume. A removed supplier's products are hidden and kept, still marked as theirs** (suspend: decided 2026-10-03 with the prototype's modal, replacing "always hidden"; remove: 2026-10-02) | Always hidden on suspend; delete on removal | A suspension is often about the relationship, not the stock: the merchant may hold weeks of the supplier's goods. Nothing the merchant may want to keep selling is lost (§7.5). |
+| **On suspending a supplier the Owner chooses whether its products are hidden or keep selling from stock in hand; hidden ones return on resume. A removed supplier's products are hidden and kept, still marked as theirs** (suspend: decided 2026-10-02 on #186's review with the prototype's modal, replacing the morning's "always hidden"; remove: 2026-10-02) | Always hidden on suspend; delete on removal | A suspension is often about the relationship, not the stock: the merchant may hold weeks of the supplier's goods. Nothing the merchant may want to keep selling is lost (§7.5). |
 
 ---
 
@@ -724,7 +724,7 @@ another vendor holds (DESIGN-BRIEF fact 10).
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
   few minutes").
-- **Suspend** (decided 2026-10-03): the vendor's memberships stop resolving and its API keys
+- **Suspend** (decided 2026-10-02 on #186's review, recorded on #182): the vendor's memberships stop resolving and its API keys
   stop working. The Owner chooses, in the suspend dialog, whether the vendor's products are
   **hidden while it is suspended** (`seller.hide_products_while_suspended`) or **keep
   selling** from the stock in hand; hidden products return to the status they had when the
@@ -1025,8 +1025,8 @@ builds the table must ship:
   `store_language`, `store_currency`, `store_feature`, `badge`, `market` without duties and
   domain) and no other settings table, no `tax_rate`, and no `*_enc` column;
 - two guests in one store, each reading only the cart and order whose token it presents,
-  snapshots included; a Shop API query can never return `product_version.cost_amount`
-  (DATA-MODEL §7.11);
+  snapshots included, and only its own data request; a Shop API query can never return
+  `product_version.cost_amount` (DATA-MODEL §7.11);
 - a partner-scope query on `design_version` or `ai_run` returns metering columns and never a
   prompt, summary, preview or gate result (DATA-MODEL §7.11);
 - user A, holding user B's id, can neither read nor write B's phone through the own-row
@@ -1102,8 +1102,7 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   2026-10-02**: only for name, price or photo changes, hidden until approved (§7.2).
 - ~~**What may a vendor see of a customer?**~~ **Settled 2026-10-02**: by shipping mode;
   nothing, or name and delivery address (§7.3).
-- ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02 and
-  2026-10-03**: removed → hidden and kept; suspended → the Owner chooses (§7.5).
+- ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02**: removed → hidden and kept; suspended → the Owner chooses (§7.5).
 - ~~**Refunds, returns and cancellations across vendors**: first release or later?~~ **Designed
   2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's (to be written on #184)
   (#184).

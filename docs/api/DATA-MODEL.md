@@ -179,7 +179,7 @@ seller      (id, store_id, name, access_level, shipping_mode, status, suspended_
             -- status: invited | active | suspended | removed (0002 has no check yet; the
             -- next migration adds it); the row survives removal so products stay marked
             -- as the removed supplier's (ACCESS.md §7.5); hide_products_while_suspended is
-            -- the Owner's choice at suspension (decided 2026-10-03)
+            -- the Owner's choice at suspension (decided 2026-10-02 on #186's review, recorded on #182)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
@@ -339,7 +339,8 @@ request input, with one exception: the guest cart or order token, hashed before 
 | `app.customer_id` | The signed-in customer (shop scope), or empty |
 | `app.support` | `read` or `write` during a support session, else empty |
 | `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
-| `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; binds a guest to its own `"order"` rows (§7.11). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
+| `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; read only by `order_token_matches()` (§7.11). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
+| `app.request_token_hash` | The hash of the token on a guest's data-request link (shop scope), else empty; read only by `request_token_matches()` (§7.11) |
 
 `SET LOCAL` lives only for the transaction, so it is safe with Hyperdrive's pooled
 connections; every request's work runs inside a transaction for this reason.
@@ -388,7 +389,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 ### 5.3 Database roles
 
-**One role per caller kind** (decided 2026-10-03 on #187, replacing the single request role).
+**One role per caller kind** (decided 2026-10-02 on #188's review, replacing the single request role).
 Row policies cannot tell a supplier from the merchant or a shopper from either (all three were
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
@@ -401,7 +402,7 @@ says `app_request`, and the first supplier, shopper and partner cards add the ot
 | `app_supplier` | Supplier users (store scope with `app.seller_id` set) | As `app_request` on the store-and-seller tables (§7.11), under the same policies; **no `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
 | `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11); `insert` on `"order"` (carts), `customer`, `customer_address`, `customer_data_request`; nothing else |
 | `app_partner` | Partner users reading a store at account level (partner scope) | `select` on the account-level tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner |
-| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `return_for_supplier`, the AI metering view) | `BYPASSRLS`, no login; each view filters on `app.store_id` and `app.seller_id` itself and is `security barrier`, so a view is never wider than the policy it replaces |
+| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `return_for_supplier`, the AI metering view) and the token functions `order_token_matches()`, `request_token_matches()` | `BYPASSRLS`, no login; each view filters on `app.store_id` and `app.seller_id` itself and is `security barrier`, so a view is never wider than the policy it replaces; the functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; owns the tables and the functions of §2.1; never used by the Worker at run time |
 
@@ -427,7 +428,7 @@ lists every view and checks the filter is there.
 
 - ~~Confirm the names of the two supplier team roles, Supplier admin and Supplier member (§4.2).~~
   **Settled 2026-10-02**: those names. (No read-only team role: decided 2026-09-28.)
-- From §7 (2026-10-02 and 2026-10-03, #187): when stock is reserved (cart, checkout or
+- From §7 (2026-10-02, #187): when stock is reserved (cart, checkout or
   payment, §7.4); whether a fixed product discount is per line or per unit, and whether codes
   match case-insensitively (§7.7, OFFERS facts 4 and 6); whether a `to-shopper` supplier books
   labels through the store's courier account or its own (§7.6); the version and option limits
@@ -443,7 +444,7 @@ lists every view and checks the filter is there.
 
 ## 7. Commerce, settings, storefront and billing tables
 
-The merchant-side model, designed on #187 (2026-10-02, revised 2026-10-03 after review) from
+The merchant-side model, designed on #187 (2026-10-02, revised the same day after three reviews on #188) from
 PLATFORM-PROMPT §3.3 and §5.4–5.7, CATALOG-DESIGN §3, OFFERS-DESIGN §3, DESIGN-BRIEF §3, SAAS
 §4–9, ACCESS §5 and §7, and the Store prototype. **The structure is decided; names and columns
 are *(proposed)* until each module's migration**, as §3 was before #32. Which module ships
@@ -461,8 +462,12 @@ first is ui/store/FIRST-RELEASE.md's (to be written on #184); anything the specs
   (`product` → options, values, versions, prices, photos, compliance, specs, FAQs, highlights,
   filter assignments, badges, the approval snapshot; `product_version` → prices, option
   values, stock levels; `warehouse` → stock levels, where the version's owner must be the
-  warehouse's or the merchant's; `order_part` → fulfilments and their lines, return lines,
-  refund lines; `product_photo` → its `asset`), never from input. `translation` carries the
+  warehouse's or the merchant's; `order_part` → return lines and refund lines; `fulfilment`
+  → its lines; `product_photo` → its `asset`), never from input. **`fulfilment` is the one
+  exception**: its `seller_id` is the **actor's** owner, set by the engine from the caller
+  that creates it (a supplier's `sent_to_store` hand-off carries its id; the store's onward
+  shipment of the same part carries null), so a to-store supplier never reads the shopper's
+  tracking (§7.6, §7.11). `translation` carries the
   owner of the entity it translates (null for a store-owned entity). `import_job`,
   `export_job`, `size_chart`, `product_story` and `supplier_ledger_entry` carry the owner
   directly.
@@ -509,7 +514,7 @@ first is ui/store/FIRST-RELEASE.md's (to be written on #184); anything the specs
   outbox (CATALOG facts 14, 19).
 - **Indexes** lead with the scope columns (`store_id`, then `seller_id` where present), then
   the list screen's filter.
-- **Plan-paused state** (decided 2026-10-03, SAAS §6.2): what a smaller plan can no longer
+- **Plan-paused state** (decided 2026-10-02 on #186's review, SAAS §6.2): what a smaller plan can no longer
   hold is paused, never deleted, and the Owner chooses what stays. The pause is a state on the
   row it pauses: `product.hidden_by = 'plan'`, `membership.status = 'paused_by_plan'`,
   `payment_provider_account.paused_by_plan`, `courier_account.paused_by_plan`,
@@ -831,8 +836,11 @@ customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (stor
 customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
                     -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
 customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subject_phone NULL,
-                     subject_verified_at, kind ('export'|'delete'), requested_by ('customer'|'store'),
-                     state ('requested'|'ready'|'done'|'refused'), file_asset_id NULL, done_at)
+                     subject_verified_at, access_token_hash NULL, kind ('export'|'delete'),
+                     requested_by ('customer'|'store'), state ('requested'|'ready'|'done'|'refused'),
+                     file_asset_id NULL, done_at)
+                    -- access_token_hash: a guest reaches its own request only through the
+                    -- token in the link it was sent (§7.11); never selected by a request role
                     -- GDPR / DPDP (AGENTS.md "Data"). Filed by the store, or by the shopper
                     -- from the storefront (app_shop may insert, and reads its own request by
                     -- customer_id or by the request's own token, §7.11). A guest has no
@@ -1026,7 +1034,7 @@ promotion           (id, store_id, name, internal_name NULL, description, enable
                     -- decide); disabled_reason lets "Turn back on" be offered after past due
                     -- (Offers); show_on_product_page is fact 17 / O4 (release: decide);
                     -- internal_name (release: decide); soft delete keeps past orders'
-                    -- adjustments (fact 14, settled 2026-10-03: soft)
+                    -- adjustments (fact 14, settled 2026-10-02 on #188's review: soft)
 promotion_condition (id, promotion_id, store_id, operation, args jsonb, position)
                     -- operation ∈ OFFERS fact 3's keys: minimum_order_amount (amount per
                     -- currency in args), contains_products, at_least_n_with_filter_values,
@@ -1232,15 +1240,22 @@ decide which columns and which tables each caller kind may select at all**. `app
   shipping mode; and, **only where the part's stored mode is `to-shopper`**, the shopper's
   name and `shipping_address`; never email, phone, `billing_address`, any `*_amount`,
   `notes`, `cancel_reason`, `search`, `access_token_hash`, `"return".note` or any
-  `order_adjustment`), `payment`, `payment_refund`, `promotion` and its children,
+  `order_adjustment`), **`order_adjustment`** itself (the shopper's whole-order discounts,
+  shipping, tax and duties: `app_supplier` has no `select`), `payment`, `payment_refund`,
+  `promotion` and its children,
   `customer_group`, `customer_group_member`, `story_block`, `badge` definitions (read-only
   for `app_supplier`, below), `access_request`, `webhook_endpoint`, `webhook_delivery`,
   `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
   `cart_reminder_flow`, `cart_reminder_step`, `store_policy` (shop reads it), `store_ai_account`,
   `store_billing_details`, and every other settings table in §7.2. `"order"` alone also has
   the **shop branch** `customer_id = app.customer_id OR (customer_id IS NULL AND
-  access_token_hash = app.order_token_hash AND app.order_token_hash <> '')`, so a guest holds
-  exactly the carts and orders whose token it presents and never another guest's.
+  order_token_matches(id))`, where `order_token_matches(uuid)` is a `security definer`
+  function owned by `app_definer` that compares the row's `access_token_hash` with
+  `app.order_token_hash` and is false when the setting is empty; so no request role selects
+  the hash column (§5.3) and a guest still holds exactly the carts and orders whose token it
+  presents, never another guest's. `customer_data_request` gets the same shape for a guest's
+  own request: its `access_token_hash` and `request_token_matches(uuid)` against
+  `app.request_token_hash` (§5.1), with the matrix row guest A vs guest B.
   **Read-only supplier branches, listed in the matrix**: a supplier editing its own products
   reads `filter` and `filter_value` (it assigns values; CATALOG L9 keeps whether it may see
   collections *(ask)*), `tax_class` (to pick one), `store_language` and `store_currency` (to
@@ -1250,7 +1265,8 @@ decide which columns and which tables each caller kind may select at all**. `app
 - **Customer accounts**: `customer`, `customer_address`, `customer_data_request`: inside the
   store, plus the read-only `platform` branch of §2 on `customer`, plus a **shop branch** on
   `customer_id = app.customer_id` (`customer_data_request` also by its own token for a guest),
-  and `insert` for `app_shop` on all three. No supplier branch.
+  and `insert` for `app_shop` on all three; a guest's own `customer_data_request` through
+  `request_token_matches(id)`. No supplier branch.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` reads them through the metering view of §5.3 and never a prompt, summary,
