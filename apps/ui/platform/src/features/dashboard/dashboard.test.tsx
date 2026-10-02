@@ -6,7 +6,7 @@ import { dashboardRanges, loadDashboard, type DashboardData } from '../../api/da
 import type { Me } from '../../api/me'
 import { messages } from '../../messages'
 import { Dashboard } from './Dashboard'
-import { dashboardStates } from './dashboardStates'
+import { dashboardStates } from '@dripfunnel/shared/ui'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 const render = async (element: ReactNode) => {
@@ -39,6 +39,7 @@ describe('the partner Dashboard', () => {
     expect(text).toContain(data.signups.comparison)
     expect(text).toContain(data.signups.conversion ?? '')
     expect(text).toContain(words.range[range])
+    expect(await dashboard(data)).toContain(`href="/stores?created=${{ month: 'month', last: '30d', q: '90d' }[range]}"`)
   })
 
   it('disables an attention action the role cannot take, with the reason and who can', async () => {

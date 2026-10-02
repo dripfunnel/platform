@@ -118,3 +118,17 @@
   color: var(--df-color-heading);
   font-weight: 700;
 }
+
+.df-rows li,
+.df-median {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  padding: 6px 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 13px;
+}
+
+.df-card .df-awaiting-name:hover {
+  text-decoration: underline;
+}

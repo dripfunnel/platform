@@ -90,8 +90,8 @@ const northstar = (range: DashboardRange, role: PartnerRole): DashboardData => (
   ],
 })
 
-// A Live partner with nothing yet: the Dashboard's empty state.
-const fresh = (range: DashboardRange): DashboardData => ({
+// A Live partner with nothing yet: the Dashboard's empty state, also what ?state=empty shows.
+export const freshDashboard = (range: DashboardRange): DashboardData => ({
   range,
   asOf: '2026-09-29T17:42:00Z',
   staleSince: null,
@@ -109,7 +109,7 @@ export const dashboardVariants = ['northstar', 'fresh', 'stale'] as const
 export type DashboardVariant = (typeof dashboardVariants)[number]
 
 export const loadDashboard = (range: DashboardRange, role: PartnerRole, variant: DashboardVariant = 'northstar'): Promise<DashboardData> => {
-  if (!harnessEnabled || variant === 'fresh') return Promise.resolve(fresh(range))
+  if (!harnessEnabled || variant === 'fresh') return Promise.resolve(freshDashboard(range))
   const data = northstar(range, role)
   return Promise.resolve(variant === 'stale' ? { ...data, staleSince: '2026-09-29T17:12:00Z' } : data)
 }

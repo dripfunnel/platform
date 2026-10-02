@@ -68,7 +68,7 @@
   font-weight: 700;
 }
 
-.df-card :is(.df-card-link, .df-strong-link, .df-row-title, .df-awaiting-name, .df-big-number):hover {
+.df-card :is(.df-card-link, .df-strong-link, .df-row-title, .df-big-number):hover {
   color: var(--df-color-link-hover);
   text-decoration: underline;
 }
@@ -138,16 +138,6 @@
 .df-figure {
   margin: 0;
   font-size: 28px;
-}
-
-.df-rows li,
-.df-median {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--df-space-2);
-  padding: 6px 0;
-  border-top: 1px solid var(--df-color-border);
-  font-size: 13px;
 }
 
 .df-card .df-button--small {

@@ -76,6 +76,10 @@
   text-decoration: none;
 }
 
+.df-conversion {
+  margin: 0;
+}
+
 .df-usage {
   display: grid;
   gap: var(--df-space-2);

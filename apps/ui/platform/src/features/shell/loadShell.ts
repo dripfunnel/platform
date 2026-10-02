@@ -1,14 +1,13 @@
 import { callerFor, loadMe, meForPartnerState, type Me } from '../../api/me'
-import { loadNavBadges, type NavBadges } from '../../api/navBadges'
 
 export interface ShellSearch {
   partner?: string | undefined
   state?: string | undefined
 }
 
-// `?state=` and `?partner=` are the harness's (api/me.ts); nothing else in the search re-runs this.
-export const loadShell = async ({ partner, state }: ShellSearch): Promise<{ me: Me; badges: NavBadges }> => {
+// The signed-in user for the shell and every child route's loader (route context). `?state=` and
+// `?partner=` are the harness's (api/me.ts).
+export const loadShellMe = async ({ partner, state }: ShellSearch): Promise<Me> => {
   const loaded = await loadMe()
-  const me = meForPartnerState({ ...loaded, role: callerFor(loaded.role, state) }, partner)
-  return { me, badges: await loadNavBadges(me.partner.state) }
+  return meForPartnerState({ ...loaded, role: callerFor(loaded.role, state) }, partner)
 }
