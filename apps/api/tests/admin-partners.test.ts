@@ -28,6 +28,8 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
     isAssigned: assigned,
     activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
     partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
+    stores: null,
+    dashboard: null,
   }
 }
 
@@ -77,7 +79,7 @@ describe('declarations', () => {
   it('every partner mutation declares the action the service records', () => {
     const recorded = new Set<string>(Object.values(partnerAudit))
     const mutations = adminSchema.getMutationType()?.getFields() ?? {}
-    const names = ['createPartner', 'approvePartner', 'sendBackPartner', 'pausePartner', 'resumePartner', 'sendPartnerOwnerInvite', 'resendPartnerOwnerInvite', 'startPartnerSetupSession', 'endStaffSession', 'recheckDomain']
+    const names = ['createPartner', 'approvePartner', 'sendBackPartner', 'pausePartner', 'resumePartner', 'sendPartnerOwnerInvite', 'resendPartnerOwnerInvite', 'startPartnerSetupSession', 'endStaffSession', 'recheckDomain', 'assignPartnerManager', 'unassignPartnerManager']
     for (const name of names) {
       const audit = mutations[name]?.extensions.access?.audit
       expect([name, audit !== undefined && recorded.has(audit)]).toEqual([name, true])
@@ -424,6 +426,59 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
       expect([host, (await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'preview' })).data?.['recheckDomain']]).toEqual([host, { ok: false, code: 'INVALID_HOSTNAME', failingChecks: null, state: null, id: null, approvals: null }])
     }
   })
+})
+
+describe('partner managers (ACCESS.md §5.4, #60)', () => {
+  const assign = `mutation($id: ID!, $staffId: ID!, $reason: String!) { assignPartnerManager(id: $id, staffId: $staffId, reason: $reason) { ${outcome} } }`
+  const unassign = `mutation($id: ID!, $staffId: ID!, $reason: String!) { unassignPartnerManager(id: $id, staffId: $staffId, reason: $reason) { ${outcome} } }`
+  const managers = `query($id: ID!) { partner(id: $id) { managers { id name } } }`
+  type Out = Record<string, { ok: boolean; code: string | null }>
+  type Managers = { partner: { managers: { id: string; name: string }[] } }
+
+  it('only a Super admin assigns, with a reason, to an active Partner manager, once', async () => {
+    const northstar = await partnerIdOf('Northstar Commerce')
+    const priya = as('staff-partner-manager')
+    expect((await run(assign, as('staff-partner-manager'), { id: northstar, staffId: priya.id, reason: 'cover' })).code).toBe('FORBIDDEN')
+    expect((await run(assign, as('staff-support'), { id: northstar, staffId: priya.id, reason: 'cover' })).code).toBe('FORBIDDEN')
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: northstar, staffId: priya.id, reason: ' ' })).data?.['assignPartnerManager']).toMatchObject({ ok: false, code: 'REASON_REQUIRED' })
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: northstar, staffId: as('staff-support').id, reason: 'cover' })).data?.['assignPartnerManager']).toMatchObject({ ok: false, code: 'NOT_A_PARTNER_MANAGER' })
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: 'not-an-id', staffId: priya.id, reason: 'cover' })).data?.['assignPartnerManager']).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    await db.sql`update staff_user set status = 'suspended' where id = ${secondPm.id}`
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: northstar, staffId: secondPm.id, reason: 'cover' })).data?.['assignPartnerManager']).toMatchObject({ ok: false, code: 'STAFF_NOT_ACTIVE' })
+    await db.sql`update staff_user set status = 'active' where id = ${secondPm.id}`
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: northstar, staffId: priya.id, reason: 'Maya is away this week' })).data?.['assignPartnerManager']).toMatchObject({ ok: true })
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: northstar, staffId: priya.id, reason: 'again' })).data?.['assignPartnerManager']).toMatchObject({ ok: false, code: 'ALREADY_ASSIGNED' })
+    const names = (await run<Managers>(managers, as('staff-super-admin'), { id: northstar })).data?.partner.managers.map((m) => m.name)
+    expect(names).toEqual(['Maya Ortiz', 'Priya Shah'])
+    // The assignment is a staff matter: the entry is not the partner's to see, and it names the manager.
+    const [recorded] = await db.sql<{ visibility: string; target_label: string }[]>`select visibility, target_label from activity_log where action = ${partnerAudit.assignPartnerManager} and partner_id = ${northstar}`
+    expect(recorded).toEqual({ visibility: 'staff', target_label: 'Priya Shah <priya@softobotics.example>' })
+  })
+
+  it('an assigned manager reaches the partner, an unassigned one is refused on the server, a Super admin always may', async () => {
+    const northstar = await partnerIdOf('Northstar Commerce')
+    const priya = as('staff-partner-manager')
+    const detail = `query($id: ID!) { partner(id: $id) { name } }`
+    expect((await run(detail, priya, { id: northstar })).code).toBeUndefined()
+    expect((await run<{ partners: { items: { name: string }[] } }>(`{ partners { items { name } } }`, priya)).data?.partners.items.map((i) => i.name)).toContain('Northstar Commerce')
+
+    expect((await run<Out>(unassign, as('staff-super-admin'), { id: northstar, staffId: priya.id, reason: 'Maya is back' })).data?.['unassignPartnerManager']).toMatchObject({ ok: true })
+    expect((await run<Out>(unassign, as('staff-super-admin'), { id: northstar, staffId: priya.id, reason: 'again' })).data?.['unassignPartnerManager']).toMatchObject({ ok: false, code: 'NOT_ASSIGNED' })
+    expect((await run(detail, priya, { id: northstar })).code).toBe('FORBIDDEN')
+    expect((await run<{ partners: { items: { name: string }[] } }>(`{ partners { items { name } } }`, priya)).data?.partners.items.map((i) => i.name)).not.toContain('Northstar Commerce')
+    expect((await run(`mutation($id: ID!, $reason: String!) { sendBackPartner(id: $id, reason: $reason) { ok } }`, priya, { id: northstar, reason: 'x' })).code).toBe('FORBIDDEN')
+    // The activity log is scoped the same way: an unassigned partner's entries are not hers.
+    const entries = await listActivity(db.sql, { caller: { kind: 'staff', staffId: priya.id } }, {}, {}, { assignedTo: priya.id })
+    expect(entries.ok && entries.page.items.every((e) => e.partner_id !== northstar)).toBe(true)
+    expect(entries.ok && entries.page.items.length).toBeGreaterThan(0)
+    expect((await run(detail, as('staff-super-admin'), { id: northstar })).code).toBeUndefined()
+    // Never deleted: the row stays with removed_at, and the pair may be assigned again.
+    const rows = await db.sql<{ removed_at: Date | null }[]>`select removed_at from staff_partner_assignment where partner_id = ${northstar} and staff_user_id = ${priya.id} order by created_at`
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.removed_at).not.toBeNull()
+    expect((await run<Out>(assign, as('staff-super-admin'), { id: northstar, staffId: priya.id, reason: 'cover again' })).data?.['assignPartnerManager']).toMatchObject({ ok: true })
+  })
+
 })
 
 describe('every mutation records exactly one entry in its own transaction', () => {

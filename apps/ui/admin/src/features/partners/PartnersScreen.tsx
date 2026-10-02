@@ -3,7 +3,8 @@ import { useCallback } from 'react'
 import type { PartnerFilter } from '../../api/partners'
 import { useScreenState } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
-import { partnersStates } from './partnerHarness'
+import { deniedPage, partnersStates } from './partnerHarness'
+import { RouteError } from '../common/RouteError'
 import { Partners, PartnersError } from './Partners'
 
 const partnersRoute = getRouteApi('/_app/partners')
@@ -25,7 +26,7 @@ export const PartnersScreen = () => {
   }
   return (
     <Partners
-      page={page}
+      page={forced === 'denied' ? deniedPage(page) : page}
       filter={filter}
       forced={forced}
       readOnly={me.role === 'staff-read-only' || forced === 'readonly'}
@@ -35,8 +36,8 @@ export const PartnersScreen = () => {
   )
 }
 
-// The route's error view: it never shows the thrown error, whose message can carry internals.
-export const PartnersRouteError = () => {
+// The route's error view, by the error's code; never its message, which can carry internals.
+export const PartnersRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <PartnersError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <PartnersError onRetry={() => void router.invalidate()} details={details} />} />
 }

@@ -1,4 +1,5 @@
 import type { PageInfo } from '#saas/activity/index'
+import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
 
 /** The cursor page every console list returns (ui/admin/FIRST-RELEASE.md §12). */
@@ -23,6 +24,31 @@ export const PermissionType = builder.objectRef<Permission>('ActionPermission').
     allowed: t.exposeBoolean('allowed'),
     reason: t.exposeString('reason', { nullable: true }),
     failingChecks: t.stringList({ nullable: true, resolve: (p) => p.failingChecks }),
+  }),
+})
+
+/** The per-request service, or the one refusal every signed-out caller gets (scope.ts). */
+export const signedIn = <T>(service: T | null): T => {
+  if (service === null) throw unauthenticated()
+  return service
+}
+
+export const iso = (d: Date | null): string | null => (d ? d.toISOString() : null)
+
+export interface HistoryEntry {
+  at: Date
+  action: string
+  by: string | null
+  note: string | null
+}
+
+/** One state-history line, read from the activity log (LOGGING.md §6). */
+export const HistoryEntryType = builder.objectRef<HistoryEntry>('HistoryEntry').implement({
+  fields: (t) => ({
+    at: t.string({ resolve: (h) => h.at.toISOString() }),
+    action: t.exposeString('action'),
+    by: t.exposeString('by', { nullable: true }),
+    note: t.exposeString('note', { nullable: true }),
   }),
 })
 

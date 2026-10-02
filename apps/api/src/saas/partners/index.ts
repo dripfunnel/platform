@@ -1,6 +1,7 @@
 export { canTransitionPartner, partnerTransitions, transitionPartner } from './states'
 export { goLiveChecks, goLiveChecksFor, failingChecks, type GoLiveCheck, type GoLiveChecks } from './goLive'
 export { approvalRuleFor, approvalVerdict, type ApprovalRule, type ApproverRule } from './approval'
+export type { PartnerManager } from '#db/scoped/assignments'
 export {
   createPartnerInput,
   createPartnersService,

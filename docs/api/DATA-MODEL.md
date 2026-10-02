@@ -100,13 +100,16 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
 ```
 staff_user     (id, sso_subject UNIQUE, email, name, role_key, status, created_at)
 staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, reauth_at)
-staff_partner_assignment (staff_user_id, partner_id, created_at)   -- PK both; Partner managers only
+staff_partner_assignment (id, staff_user_id, partner_id, created_at, assigned_by_staff_id,
+                          removed_at NULL, removed_by_staff_id NULL)
+                 -- Partner managers only; one live row per pair (partial unique where
+                 -- removed_at is null); never deleted (#60)
 ```
 
 `role_key` ∈ `staff-super-admin`, `staff-partner-manager`, `staff-support`, `staff-finance`,
 `staff-engineer`, `staff-read-only` (ACCESS.md §5.4). Company SSO only; no password column.
 `staff_partner_assignment` lists the partners a Partner manager acts on (ACCESS.md §5.4, #14); read in
-`platform` and `system` scope, written by no request scope.
+`platform` and `system` scope, written in `platform` scope by Super admins only (#60).
 
 ### 3.2 Partner users (partner)
 

@@ -408,16 +408,16 @@ For planning `apps/api/src/apis/admin`; names are *(proposed)*.
 
 | Menu | Queries | Mutations |
 |---|---|---|
-| Dashboard | `dashboard(partnerId)` | |
-| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner` (records the first of two approvals and keeps the partner awaiting until the second, §4.3), `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason, ticket)` (re-authentication is read from the staff session, #13's `/api/auth/reauth`, so no `proof` argument; built on #33), `endStaffSession(id)` (setup sessions on #33, impersonations on #40), `recheckDomain(partnerId, kind)` (queues the check; the row updates after commit) |
-| Stores | `stores(filter, after, before)`, `store(id)` | `suspendStore`, `restoreStore`, `extendTrial`, `resendStoreOwnerInvite`, `addStoreNote`, `recheckDomain` |
+| Dashboard | `dashboard(partnerId)` (the five §3 cards, every number finished; an unknown or unassigned partner means all; built on #35) | |
+| Partners | `partners(filter, after, before)`, `partner(id)` | `createPartner`, `approvePartner` (records the first of two approvals and keeps the partner awaiting until the second, §4.3), `sendBackPartner`, `pausePartner`, `resumePartner`, `sendPartnerOwnerInvite`, `resendPartnerOwnerInvite`, `startPartnerSetupSession(partnerId, reason, ticket)` (re-authentication is read from the staff session, #13's `/api/auth/reauth`, so no `proof` argument; built on #33), `endStaffSession(id)` (setup sessions on #33, impersonations on #40), `recheckDomain(partnerId, kind)` (queues the check; the row updates after commit), `assignPartnerManager(partnerId, staffId, reason)` and `unassignPartnerManager` (Super admin, #60; `partner(id).managers` lists them) |
+| Stores | `stores(filter, after, before)`, `store(id)` (with the §5.3 permission block, the signup job's `retry`/`undo` permissions, and each user's `impersonate` permission) | `suspendStore(id, reason)`, `restoreStore(id, reason)`, `extendTrial(id, trialEndsAt)`, `resendStoreOwnerInvite(id)`, `addStoreNote(id, text)`, `recheckStoreDomain(id)` (the store's one custom domain; queues the check, the row updates after commit). Built on #34 |
 | Provisioning | `provisioningJobs(filter, after, before)`, `provisioningJob(id)` (a started job's progress, whatever the list is filtered to) | `retryJob`, `undoJob` (the store's Provisioning tab calls the same two) |
 | Customers | `customers(filter, after, before)`, `customer(id)` (logs the view) | |
 | Impersonate | `impersonationTargets(filter, search, after, before)`, `impersonationTarget(membershipId)`, `staffSessions(filter, after, before)` (both kinds, open and history), `staffSession(id)`, `myStaffSessions` (the strip) | `reauthenticate` (a single-use proof), `startImpersonation(targetId, membershipId, reason, ticket, proof)`, `returnToStaffSession(id)` (a fresh handoff link), `endStaffSession(id)`, `extendImpersonation(id)`; refusals are ACCESS.md §8.3 |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` (up to 8 matches), `activityExport(id)` (the job's state and link) | `exportActivity(filter)` |
 | Staff | `staff(after, before)` | `inviteStaff`, `changeStaffRole`, `removeStaff`, `resendStaffInvite`, `revokeStaffInvite` |
-| Header | `search(query)`, `me` | |
-| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions | |
+| Header | `search(query)` (partners and stores by name, domain, code or owner email, at most ten of each, within the caller's assignment; two characters or more; built on #35), `me` | |
+| Menu badges | `navBadges`: partners awaiting approval, failed or stuck signups, open staff sessions (setup sessions on #35, impersonations on #40) | |
 
 Approvals has no query of its own: it is `partners` with `{state: awaiting}`, oldest submitted
 first, and each row carries when it was submitted, its go-live checks, who set it up and which

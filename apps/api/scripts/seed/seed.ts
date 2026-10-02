@@ -95,7 +95,7 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
     for (const key of s.partners ?? []) {
       const partnerId = partnerIds.get(key)
       const staffId = staffIds.get(s.key)
-      if (partnerId && staffId) await tx`insert into staff_partner_assignment (staff_user_id, partner_id) values (${staffId}, ${partnerId})`
+      if (partnerId && staffId) await tx`insert into staff_partner_assignment (staff_user_id, partner_id, created_at) values (${staffId}, ${partnerId}, ${now})`
     }
   }
 

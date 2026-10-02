@@ -1,12 +1,10 @@
 import { GraphQLError } from 'graphql'
-import { partnerAudit, type PartnerDto, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type PartnersService, type Result, type SetupSessionDto } from '#saas/partners/index'
+import { partnerAudit, type PartnerDto, type PartnerManager, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type Result, type SetupSessionDto } from '#saas/partners/index'
 import { builder } from './builder'
-import { compact, PageInfoType, PermissionType, permission, type Permission } from './types'
+import { compact, HistoryEntryType, iso, PageInfoType, permission, PermissionType, signedIn, type Permission } from './types'
 
 // Partners on the Admin API (ui/admin/FIRST-RELEASE.md §4, §12; card #33). Thin: every
 // decision, including who may do what, is saas/partners' and arrives here as data.
-
-const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
 const PortalHost = builder.objectRef<PartnerRowDto['portalHost']>('PartnerPortalHost').implement({
   fields: (t) => ({ host: t.exposeString('host', { nullable: true }), status: t.exposeString('status', { nullable: true }) }),
@@ -64,15 +62,6 @@ const PartnerRowType = builder.objectRef<PartnerRowDto>('PartnerRow').implement(
 
 const Contact = builder.objectRef<PartnerDto['contacts'][number]>('PartnerContact').implement({
   fields: (t) => ({ name: t.exposeString('name'), role: t.exposeString('role'), email: t.exposeString('email') }),
-})
-
-const History = builder.objectRef<PartnerDto['history'][number]>('PartnerHistoryEntry').implement({
-  fields: (t) => ({
-    at: t.string({ resolve: (h) => h.at.toISOString() }),
-    action: t.exposeString('action'),
-    by: t.exposeString('by', { nullable: true }),
-    note: t.exposeString('note', { nullable: true }),
-  }),
 })
 
 const DoneBy = builder.objectRef<{ name: string; org: string }>('SetupDoneBy').implement({
@@ -146,6 +135,15 @@ const SetupSession = builder.objectRef<SetupSessionDto>('PartnerSetupSession').i
   }),
 })
 
+const Manager = builder.objectRef<PartnerManager>('PartnerManager').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    name: t.exposeString('name'),
+    email: t.exposeString('email'),
+    since: t.string({ resolve: (m) => m.since.toISOString() }),
+  }),
+})
+
 const permissionOf = (p: PartnerPermissions[keyof PartnerPermissions]): Permission | null => (p ? permission(p) : null)
 
 // An action absent from the block is not offered in this state; one present and refused is
@@ -180,7 +178,7 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
     checks: t.field({ type: Checks, resolve: (p) => p.checks }),
     approval: t.field({ type: Approval, nullable: true, resolve: (p) => p.approval }),
     contacts: t.field({ type: [Contact], resolve: (p) => p.contacts }),
-    history: t.field({ type: [History], resolve: (p) => p.history }),
+    history: t.field({ type: [HistoryEntryType], resolve: (p) => p.history }),
     checklist: t.field({ type: [Checklist], resolve: (p) => p.checklist }),
     branding: t.field({ type: Branding, resolve: (p) => p.branding }),
     domains: t.field({ type: [Domain], resolve: (p) => p.domains }),
@@ -193,6 +191,7 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
       extensions: { access: { api: 'admin', scope: 'platform', permission: 'setupSessions.read', target: 'none' } },
       resolve: (p) => p.setupSessions,
     }),
+    managers: t.field({ type: [Manager], resolve: (p) => p.managers }),
     actions: t.field({ type: Actions, resolve: (p) => p.actions }),
   }),
 })
@@ -270,11 +269,6 @@ const SetupSessionStartType = builder.objectRef<SetupSessionStart>('SetupSession
   }),
 })
 
-const partnersOf = (ctx: { partners: PartnersService | null }) => {
-  if (!ctx.partners) throw new GraphQLError('Not signed in.', { extensions: { code: 'UNAUTHENTICATED' } })
-  return ctx.partners
-}
-
 const byId = ({ id }: { id: string }) => ({ partnerId: id })
 
 builder.queryFields((t) => ({
@@ -283,7 +277,7 @@ builder.queryFields((t) => ({
     args: { filter: t.arg({ type: Filter }), after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.read', target: 'none' } },
     resolve: async (_, args, ctx) => {
-      const result = await partnersOf(ctx).list(compact(args.filter), { after: args.after, before: args.before, first: args.first })
+      const result = await signedIn(ctx.partners).list(compact(args.filter), { after: args.after, before: args.before, first: args.first })
       if (!result.ok) throw new GraphQLError('Bad request.', { extensions: { code: result.code } })
       return result.page
     },
@@ -293,7 +287,7 @@ builder.queryFields((t) => ({
     nullable: true,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.read', target: byId } },
-    resolve: (_, args, ctx) => partnersOf(ctx).get(String(args.id)),
+    resolve: (_, args, ctx) => signedIn(ctx.partners).get(String(args.id)),
   }),
 }))
 
@@ -304,50 +298,50 @@ builder.mutationFields((t) => ({
     type: OutcomeType,
     args: { input: t.arg({ type: CreatePartnerInput, required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.create', target: 'none', audit: partnerAudit.createPartner } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).createPartner(compact(args.input))),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).createPartner(compact(args.input))),
   }),
   approvePartner: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.approve', target: byId, audit: partnerAudit.approvePartner } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).approvePartner(String(args.id), args.reason)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).approvePartner(String(args.id), args.reason)),
   }),
   sendBackPartner: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.approve', target: byId, audit: partnerAudit.sendBackPartner } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).sendBackPartner(String(args.id), args.reason)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).sendBackPartner(String(args.id), args.reason)),
   }),
   pausePartner: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.pause', target: byId, audit: partnerAudit.pausePartner } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).pausePartner(String(args.id), args.reason)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).pausePartner(String(args.id), args.reason)),
   }),
   resumePartner: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.pause', target: byId, audit: partnerAudit.resumePartner } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).resumePartner(String(args.id), args.reason)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).resumePartner(String(args.id), args.reason)),
   }),
   sendPartnerOwnerInvite: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.invite', target: byId, audit: partnerAudit.sendPartnerOwnerInvite } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).sendPartnerOwnerInvite(String(args.id))),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).sendPartnerOwnerInvite(String(args.id))),
   }),
   resendPartnerOwnerInvite: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.invite.resend', target: byId, audit: partnerAudit.resendPartnerOwnerInvite } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).resendPartnerOwnerInvite(String(args.id))),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).resendPartnerOwnerInvite(String(args.id))),
   }),
   startPartnerSetupSession: t.field({
     type: SetupSessionStartType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }), ticket: t.arg.string() },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.setup', target: byId, audit: partnerAudit.startPartnerSetupSession } },
     resolve: async (_, args, ctx) => {
-      const result = await partnersOf(ctx).startSetupSession(String(args.id), args.reason, args.ticket ?? null)
+      const result = await signedIn(ctx.partners).startSetupSession(String(args.id), args.reason, args.ticket ?? null)
       return result.ok
         ? { ok: true, code: null, sessionId: result.sessionId, expiresAt: result.expiresAt.toISOString(), handoff: result.handoff }
         : { ok: false, code: result.code, sessionId: null, expiresAt: null, handoff: null }
@@ -358,13 +352,25 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }) },
     // Any staff member may ask; whose session it is decides, in the service (ACCESS.md §8.2).
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'setupSessions.read', target: 'none', audit: partnerAudit.endStaffSession } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).endStaffSession(String(args.id))),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).endStaffSession(String(args.id))),
   }),
   recheckDomain: t.field({
     type: OutcomeType,
     args: { id: t.arg.id({ required: true }), kind: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'domains.recheck', target: byId, audit: partnerAudit.recheckDomain } },
-    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).recheckDomain(String(args.id), args.kind)),
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).recheckDomain(String(args.id), args.kind)),
+  }),
+  assignPartnerManager: t.field({
+    type: OutcomeType,
+    args: { id: t.arg.id({ required: true }), staffId: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.assign', target: byId, audit: partnerAudit.assignPartnerManager } },
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).assignPartnerManager(String(args.id), String(args.staffId), args.reason)),
+  }),
+  unassignPartnerManager: t.field({
+    type: OutcomeType,
+    args: { id: t.arg.id({ required: true }), staffId: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.assign', target: byId, audit: partnerAudit.unassignPartnerManager } },
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).unassignPartnerManager(String(args.id), String(args.staffId), args.reason)),
   }),
 }))
 
