@@ -56,6 +56,12 @@ describe('ConfirmDialog with several picks', () => {
     expect(html).toContain(`aria-invalid="true" aria-describedby="${blocked}"`)
   })
 
+  it('shows a pick only while another asks for it', () => {
+    const target: ConfirmChoice = { key: 'moveTo', label: 'Move to', options: [{ value: '', label: 'Choose' }], initial: '', error: () => null, when: (all) => all.when === 'now' }
+    expect(render([when, target]).match(/<select /g)).toHaveLength(1)
+    expect(render([{ ...when, initial: 'now' }, target]).match(/<select /g)).toHaveLength(2)
+  })
+
   it('confirms once every pick will do', () => {
     const html = render([{ ...plan, initial: 'pro' }, when])
     expect(html).toMatch(/<button type="button" class="df-button df-button--primary"(?! disabled)/)

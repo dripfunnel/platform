@@ -1,0 +1,397 @@
+/* Branding (FIRST-RELEASE.md §8): the form beside a framed preview whose colours are its own `--pv-*` variables. */
+
+.df-brand-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  gap: var(--df-space-4);
+  align-items: start;
+}
+
+.df-brand-card {
+  display: grid;
+  gap: var(--df-space-4);
+}
+
+.df-brand-card .df-field {
+  margin-bottom: 0;
+}
+
+.df-brand-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--df-space-3);
+}
+
+.df-colour {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-colour input[type='color'] {
+  width: var(--df-control-height);
+  height: var(--df-control-height);
+  padding: 2px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-colour input[type='text'] {
+  flex: 1;
+  font-family: var(--df-font-mono);
+}
+
+.df-brand-error {
+  color: var(--df-color-danger);
+}
+
+.df-contrast {
+  display: grid;
+  gap: var(--df-space-2);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-contrast-pair {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+  font-size: 14px;
+}
+
+.df-contrast p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.df-brand-files {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-brand-files li {
+  display: grid;
+  gap: var(--df-space-1);
+  padding: var(--df-space-3);
+  border: 1px dashed var(--df-color-border);
+  border-radius: var(--df-radius);
+  font-size: 13px;
+}
+
+.df-brand-files code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.df-brand-replace {
+  justify-self: start;
+  color: var(--df-color-link);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-brand-replace--off {
+  color: var(--df-color-muted);
+  cursor: not-allowed;
+}
+
+.df-brand-replace:has(input:focus-visible) {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-brand-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  cursor: pointer;
+}
+
+.df-brand-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--df-color-brand);
+}
+
+.df-brand-unpublished {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 14px;
+}
+
+.df-brand-unpublished > span {
+  flex: 1 1 14rem;
+}
+
+/* The preview frame */
+
+.df-brand-preview {
+  display: grid;
+  gap: var(--df-space-3);
+}
+
+.df-pv-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-4);
+}
+
+.df-pv-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-1);
+}
+
+.df-pv-toggle button {
+  height: 30px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: 999px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-pv-toggle button[aria-pressed='true'] {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+.df-pv-toggle button:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-pv-frame {
+  display: flex;
+  justify-content: center;
+  padding: var(--df-space-4);
+  border: 2px dashed var(--df-color-border);
+  border-radius: 14px;
+  background: var(--df-color-hover);
+}
+
+.df-pv-note {
+  font-size: 12px;
+}
+
+/* Inside the frame: the partner's look, from `--pv-*` only. */
+
+.pv-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 460px;
+  overflow: hidden;
+  border: 1px solid var(--pv-line);
+  border-radius: var(--pv-radius);
+  background: var(--pv-bg);
+  color: var(--pv-fg);
+  font-family: var(--pv-font);
+  font-size: 14px;
+}
+
+.pv-root--phone {
+  width: 320px;
+  max-width: 100%;
+  height: 560px;
+}
+
+.pv-page {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: var(--pv-page);
+}
+
+.pv-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  padding: 22px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-bg);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.12);
+}
+
+.pv-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+
+.pv-mark {
+  display: inline-block;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-primary);
+}
+
+.pv-title {
+  font-size: 20px;
+}
+
+.pv-field {
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--pv-line);
+  border-radius: var(--pv-radius);
+  color: var(--pv-muted);
+  font-size: 13px;
+}
+
+.pv-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border-radius: var(--pv-radius);
+  background: var(--pv-primary);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pv-link {
+  color: var(--pv-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pv-powered {
+  color: var(--pv-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.pv-app {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.pv-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--pv-line);
+  background: var(--pv-side);
+}
+
+.pv-search {
+  flex: 1;
+  max-width: 300px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--pv-line);
+  border-radius: var(--pv-radius);
+  color: var(--pv-muted);
+  font-size: 12px;
+  line-height: 30px;
+}
+
+.pv-help {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pv-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--pv-accent);
+  color: #14181f;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.pv-body {
+  display: flex;
+  flex: 1;
+}
+
+.pv-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 160px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--pv-line);
+  background: var(--pv-side);
+}
+
+.pv-nav-item {
+  padding: 8px 10px;
+  border-radius: var(--pv-radius);
+  color: var(--pv-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pv-nav-item--active {
+  background: var(--pv-bg);
+  color: var(--pv-primary);
+}
+
+.pv-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+}
+
+.pv-muted {
+  color: var(--pv-muted);
+  font-size: 12px;
+}
+
+.pv-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.pv-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--pv-line);
+  border-radius: var(--pv-radius);
+  font-size: 18px;
+}

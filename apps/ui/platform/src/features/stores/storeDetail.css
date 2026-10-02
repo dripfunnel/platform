@@ -1,0 +1,257 @@
+/* The partner Store detail (FIRST-RELEASE.md §6.3), beside the shared list and detail styles. */
+
+.df-store-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-1) var(--df-space-4);
+  font-size: 13px;
+}
+
+.df-store-notice {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.df-store-notice--danger {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+.df-store-notice--warning {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-store-notice--success {
+  border-color: var(--df-color-success-border);
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-panel-stack {
+  display: grid;
+  gap: var(--df-space-4);
+  align-content: start;
+}
+
+/* Rows of facts inside a panel: contacts, invoices, people, sessions, overrides. */
+
+.df-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-1) var(--df-space-4);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-rows--stacked li {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.df-rows-lead {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.df-timeline {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-timeline li {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--df-space-3);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-usage-list {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-usage-list li {
+  display: grid;
+  gap: var(--df-space-2);
+  padding-top: var(--df-space-3);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-usage-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+  font-size: 14px;
+}
+
+.df-usage-figures {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-billing-by {
+  margin: 0;
+  color: var(--df-color-info);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-invoice-id {
+  flex: 1 1 8rem;
+  font-size: 12px;
+}
+
+.df-domain-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-record {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  font-size: 13px;
+}
+
+.df-record dt {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-record dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.df-record-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-button--small {
+  min-height: 26px;
+  padding: 0 var(--df-space-2);
+  font-size: 12px;
+}
+
+.df-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-steps li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2) var(--df-space-3);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-steps li strong {
+  flex: 1 1 10rem;
+}
+
+.df-steps li .df-muted {
+  font-size: 12px;
+}
+
+.df-activity {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-activity li {
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-activity-row {
+  display: grid;
+  grid-template-columns: 1rem minmax(7rem, 11rem) minmax(0, 1fr) auto;
+  gap: var(--df-space-3);
+  align-items: start;
+  width: 100%;
+  padding: var(--df-space-3) 0;
+  border: 0;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-activity-row:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-activity-chevron {
+  display: inline-block;
+  color: var(--df-color-muted);
+}
+
+.df-activity-chevron--open {
+  transform: rotate(90deg);
+}
+
+.df-activity-facts {
+  margin: 0 0 var(--df-space-3) calc(1rem + var(--df-space-3));
+}
+
+@media (max-width: 639px) {
+  .df-activity-row {
+    grid-template-columns: 1rem minmax(0, 1fr) auto;
+  }
+
+  .df-activity-row time {
+    grid-column: 2;
+  }
+
+  .df-activity-row > span:nth-of-type(2) {
+    grid-column: 2;
+  }
+}

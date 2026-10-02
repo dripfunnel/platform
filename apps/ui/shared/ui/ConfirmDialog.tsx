@@ -7,6 +7,8 @@ export interface ConfirmChoice {
   options: readonly { value: string; label: string }[]
   initial: string
   error: (picked: string, all: Readonly<Record<string, string>>) => string | null
+  // Shown only while this holds for the other picks, such as a target plan once "move" is picked.
+  when?: (all: Readonly<Record<string, string>>) => boolean
 }
 
 export interface ConfirmDialogProps {
@@ -73,7 +75,8 @@ export const ConfirmDialog = ({
   const typedMismatch = typeToConfirm !== undefined && typedText.trim() !== typeToConfirm.expected
   const inputError = input ? input.error(value) : null
   const picks: Readonly<Record<string, string>> = { ...Object.fromEntries(choices.map((choice) => [choice.key, choice.initial])), ...picked }
-  const choiceErrors = choices.map((choice) => choice.error(picks[choice.key] ?? '', picks))
+  const shown = choices.filter((choice) => choice.when?.(picks) ?? true)
+  const choiceErrors = shown.map((choice) => choice.error(picks[choice.key] ?? '', picks))
   const failingChoice = choiceErrors.findIndex((error) => error !== null)
   const canConfirm = !confirmed && !reasonMissing && !typedMismatch && inputError === null && failingChoice === -1
   const blockedBy = reasonMissing ? hintId : typedMismatch ? typedHintId : inputError !== null ? inputErrorId : failingChoice >= 0 ? `${choicesId}-${failingChoice}-error` : undefined
@@ -158,7 +161,7 @@ export const ConfirmDialog = ({
           )}
         </div>
       )}
-      {choices.map((choice, index) => {
+      {shown.map((choice, index) => {
         const error = choiceErrors[index] ?? null
         const id = `${choicesId}-${index}`
         return (

@@ -23,7 +23,7 @@ describe('the header search over stores', () => {
     expect(text).toContain('Maple & Pine')
     expect(text).toContain('chloe@mapleandpine.ca · shop.mapleandpine.ca')
     expect(text).toContain(messages.stores.statuses.active)
-    expect(html).toContain('href="/stores?store=st-maple"')
+    expect(html).toContain('href="/stores/st-maple"')
     expect(html).toContain('href="/stores?q=maple"')
   })
 

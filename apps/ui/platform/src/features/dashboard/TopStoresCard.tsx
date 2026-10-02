@@ -23,7 +23,7 @@ export const TopStoresCard = ({ top }: { top: DashboardData['top'] }) => (
       <ol className="df-top">
         {top.map((store, i) => (
           <li key={store.storeId}>
-            <Link to="/stores" search={{ store: store.storeId }} className="df-top-row">
+            <Link to="/stores/$storeId" params={{ storeId: store.storeId }} className="df-top-row">
               <span className="df-top-n" aria-hidden="true">
                 {formatCount(i + 1)}
               </span>
