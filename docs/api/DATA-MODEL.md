@@ -110,6 +110,7 @@ supplier-facing serializer omitting what the row's rule says it omits.
 |---|---|---|---|
 | `store` + `time_zone`, `unit_system` (`metric`, `imperial`), `order_prefix`, `next_order_number` | store | Settings › Store info | PLATFORM-PROMPT §3.3 |
 | `seller.shipping_mode` (`to-store`, `to-shopper`), column added to the §3.3 block | store | How the supplier ships, set by the merchant | ACCESS.md §5.2, §7.3 |
+| `order_part` + `shipping_mode` (`store`, `to-store`, `to-shopper`) | store and seller | The mode copied from the supplier at placement. **What a supplier sees of the shopper, where it ships and where a return comes back follow this column, never the live `seller.shipping_mode`**, so switching a supplier's mode changes new orders only; open orders keep theirs. The isolation matrix tests a supplier switched `to-store → to-shopper` still seeing nothing on its orders placed before the switch | ACCESS.md §7.3 |
 | `customer` + `tags text[]`, `note`, `consent_state` (`opted_in`, `stopped`, `declined`, `not_asked`), `consent_at`, `consent_source` (`checkout`, `email`, `added_by_hand`, `recorded_by_store`), `added_by_user_id` null | store (customer accounts) | Tags, the team-only note, marketing consent, hand-added customers | PLATFORM-PROMPT §5.4 Customers |
 | `customer_group(id, store_id, name, description)`, `customer_group_member(group_id, customer_id)` | store | Groups offers target; unique name per store | OFFERS-DESIGN fact 12 |
 | `stock_movement(id, store_id, seller_id, product_id, version_id null, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor, created_at)` | store and seller | The ledger; reasons `received`, `returned`, `damaged`, `counted`, `typed`, `order`, `import`, `starting` | PLATFORM-PROMPT §5.4 Inventory |
@@ -182,7 +183,8 @@ seller      (id, store_id, name, access_level, shipping_mode, status, created_at
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
-            -- decided 2026-10-02); copied onto the order's part at placement
+            -- decided 2026-10-02); copied onto order_part.shipping_mode at placement, and
+            -- an order follows the mode it was placed under, never the live seller row
 
 membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store

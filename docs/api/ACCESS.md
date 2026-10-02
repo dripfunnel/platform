@@ -670,17 +670,23 @@ first platform's constructed view.
   through the scoped layer. **A vendor never sees an order total**: shipping, discounts and tax
   that span vendors can't honestly be attributed to one. Show their lines and line amounts;
   whether a sub-order carries its own attributable totals is part of the order design.
-- **Fulfil** (`vendor-orders-fulfil`) follows the supplier's **shipping mode** (§5.2, decided
-  2026-10-02). **`to-shopper`**: the vendor ships lines of its own sub-orders from its own
+- **Fulfil** (`vendor-orders-fulfil`) follows the **shipping mode stored on the order part**
+  (`order_part.shipping_mode`, copied from the supplier's `seller.shipping_mode` at placement;
+  §5.2, decided 2026-10-02). An order keeps the mode it was placed under: changing a
+  supplier's mode (`supplier.shipping_mode_changed`) applies to orders placed afterwards, and
+  open orders ship, show the customer and take returns as they did when placed, which the
+  Supplier tab says before the change. **`to-shopper`**: the vendor ships lines of its own sub-orders from its own
   warehouses, booking a courier or entering tracking. **`to-store`**: the vendor marks its lines
   as **sent to the store's default warehouse**, and the store ships the order; the sub-order's
   fulfilment is the store's. In both, every line and warehouse must carry the caller's
   `seller_id`. Still the highest-risk vendor write; it gets explicit tests even though the
   scoped layer filters it.
-- **Customer data**, applied in the serializer and never in the UI (PLATFORM-PROMPT §5.4):
-  a **`to-store`** supplier sees **nothing** of the customer, not even a name; the order shows
-  "For <store>". A **`to-shopper`** supplier sees **name and delivery address, never email or
-  phone**. The merchant's order view says which mode each part is in.
+- **Customer data**, applied in the serializer and never in the UI (PLATFORM-PROMPT §5.4),
+  **by the part's stored mode**: a **`to-store`** part shows the supplier **nothing** of the
+  customer, not even a name; the order shows "For <store>". A **`to-shopper`** part shows
+  **name and delivery address, never email or phone**. The merchant's order view says which
+  mode each part is in. The isolation matrix includes a supplier switched from `to-store` to
+  `to-shopper` still seeing nothing on the orders placed before the switch.
 - **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
   screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
   a reason; the shopper gets a return label; items come back to the store's default warehouse
