@@ -369,11 +369,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 | Role | Used by | Can |
 |---|---|---|
-<<<<<<< HEAD
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; and §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc` and `token_enc` on courier, payment, webhook and external-connection rows) |
-=======
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes) nor on `user.phone`, which it reaches only through the own-row functions `own_phone()` and `set_own_phone()` (§2.1) |
->>>>>>> #182/task/store-design-decisions
+| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; and §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc` and `token_enc` on courier, payment, webhook and external-connection rows) nor on `user.phone`, which it reaches only through the own-row functions `own_phone()` and `set_own_phone()` (§2.1) |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
 
@@ -640,7 +636,10 @@ size_chart_rule     (id, size_chart_id, store_id, seller_id NULL, kind ('collect
 
 translation         (store_id, seller_id NULL, entity, entity_id, field, language, text, updated_at)
                     PRIMARY KEY (store_id, entity, entity_id, field, language)
-                    -- §7.1: seller_id is the translated entity's owner, denormalised
+                    UNIQUE (store_id, entity, language, text) WHERE field = 'slug'
+                    -- §7.1: seller_id is the translated entity's owner, denormalised; the
+                    -- partial unique index is what makes a web address unique per language
+                    -- (CATALOG fact 22), as the row's own slug is unique in the main language
 ```
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
@@ -857,9 +856,10 @@ promotion_action    (id, promotion_id, store_id, operation, args jsonb, position
                     -- at pricing time (fact 5, decide)
 promotion_code      (id, promotion_id, store_id, code, single_use boolean, used_at NULL,
                      used_by_customer_id NULL, created_at)
-                    UNIQUE (store_id, lower(code)) WHERE used_at IS NULL OR single_use = false
+                    UNIQUE (store_id, code) WHERE used_at IS NULL OR single_use = false
                     -- one row for a shared code, many for bulk single-use codes (fact 6);
-                    -- matched case-insensitively (decide)
+                    -- whether matching is case-insensitive is open (§6); the UI upper-cases on
+                    -- save meanwhile, and a decision for insensitive turns this into lower(code)
 promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_id,
                      customer_id NULL, customer_email, discount_amount, currency, created_at)
                     UNIQUE (promotion_id, order_id)
@@ -988,11 +988,20 @@ against this list and nothing else:
   `return`. The policy admits a row to a supplier role only when a part or line of its own
   exists for it: `app.seller_id = '' OR EXISTS (SELECT 1 FROM order_part p WHERE p.order_id =
   "order".id AND p.seller_id = app.seller_id)` (and the same over `return_line` for
-  `return`), indexed on `(order_id, seller_id)`. The supplier's serializer then applies the
-  rule of the mode **stored on the part** (`order_part.shipping_mode`) to the fields it
-  returns (ACCESS §7.3): nothing of the shopper for
-  `to-store`, name and delivery address for `to-shopper`, never totals, never
-  `order_adjustment`.
+  `return`), indexed on `(order_id, seller_id)`. **The row branch is not enough on these
+  two tables**, because the row holds the shopper's identity, totals, notes, a search vector
+  built from the identity, and the guest token. So the supplier role has **no `select` on
+  `"order"` or `"return"` at all**: it reads them through two `security barrier` views,
+  `order_for_supplier` and `return_for_supplier`, whose rows are the supplier's parts and
+  lines and whose columns are, for every mode: id, number, state, placed_at, currency, the
+  part's state and shipping mode; and, **only where the part's stored mode is
+  `to-shopper`**, the shopper's name and `shipping_address`. Never email, phone,
+  `billing_address`, any `*_amount`, `notes`, `cancel_reason`, `search`,
+  `access_token_hash`, `"return".note` or any `order_adjustment`. The matrix has the rows: a
+  `to-store` supplier's search and count by a shopper's email return nothing; a `to-shopper`
+  supplier sees name and address and no total; a direct query on the base table as the
+  supplier role is refused. The same pattern as `cost_amount` below, for the same reason:
+  RLS is the backstop, so the serializer is never the only gate (§1).
 - **Inside the store, no supplier branch at all**: `order_adjustment`, `payment`,
   `payment_refund`, `customer`, `customer_address`, `customer_group`,
   `customer_group_member`, `customer_data_request`, `promotion` and its children,
@@ -1001,9 +1010,15 @@ against this list and nothing else:
   settings table in §7.2, `store_billing_details`. The
   credential columns among them (`webhook_endpoint.secret_enc`,
   `external_connection.token_enc`, the `credentials_enc` and `webhook_secret_enc` of
-  courier and payment accounts) follow §2.1: readable by `app_system` only. `filter` and `filter_value` are the one exception: a supplier reads them
-  (it assigns values to its own products) and writes none (CATALOG L9 keeps whether it may
-  see collections *(ask)*).
+  courier and payment accounts) follow §2.1: readable by `app_system` only. **Read-only
+  supplier branches, listed in the matrix**: a supplier editing its own products reads
+  `filter` and `filter_value` (it assigns values; CATALOG L9 keeps whether it may see
+  collections *(ask)*), `tax_class` (to pick one), `store_language` and `store_currency` (to
+  translate and price), `store_feature` and `badge` (to know which sections and manual
+  badges exist), and `market` without its duties and domain columns (to see which currencies
+  a price is needed in). It never reads `tax_rate`, `tax_registration`,
+  `compliance_default`, any shipping, courier, payment or invoice table, or any `*_enc`
+  column, and writes none of them.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   **with a column rule, as §5.3 has for credentials**: the partner and platform branches
