@@ -28,11 +28,17 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       # The head commit, not the merge ref, so a line Claude reads is the line an inline
-      # comment anchors to.
+      # comment anchors to; no token left in .git/config for the review to read.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+          persist-credentials: false
+
+      # The pull request controls the checkout, so nothing in it may configure the review:
+      # project settings, hooks and MCP servers go, and a verdict committed to the branch too.
+      - name: Drop the pull request's own Claude configuration
+        run: rm -rf .claude .mcp.json .claude.json CLAUDE.md "${VERDICT}"
 
       - name: Check the review can authenticate
         env:
@@ -164,11 +170,13 @@ jobs:
         run: |
           claude -p "$(cat "${RUNNER_TEMP}/review-prompt.md")" \
             --output-format text \
+            --setting-sources user \
             --allowedTools "Write(.claude-review-verdict),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*),Bash(${RUNNER_TEMP}/summary-comment:*)" \
-            --disallowedTools "Read(//proc/**),Read(//etc/**),Read(//root/**),Read(//home/**/.config/**),Read(//home/**/.claude/**),Read(//home/**/.npmrc),Read(//tmp/**),Grep(//proc/**),Grep(//home/**/.config/**),Grep(//home/**/.claude/**)"
+            --disallowedTools "Read(//proc/**),Read(//etc/**),Read(//root/**),Read(//home/**/.config/**),Read(//home/**/.claude/**),Read(//home/**/.npmrc),Read(//tmp/**),Read(//home/**/work/_temp/**),Read(.git/**),Grep(//proc/**),Grep(//home/**/.config/**),Grep(//home/**/.claude/**),Grep(//home/**/work/_temp/**),Grep(.git/**)"
 
+      # Not after a cancel: a superseded run has no verdict to judge.
       - name: Apply the review's verdict
-        if: always()
+        if: ${{ !cancelled() }}
         run: |
           if [ ! -f "${VERDICT}" ]; then
             echo "::error::The review did not record a verdict, so it did not finish. This is not a pass. Check the step above for what stopped it, then re-run the job."
