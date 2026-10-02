@@ -205,6 +205,10 @@ export const createStoresService = (deps: StoresServiceDeps) => {
   const { sql, staff, facts, activity, now } = deps
   const context: StaffContext = { caller: { kind: 'staff', staffId: staff.id } }
   const scopedByAssignment = partnerScopedRoles.includes(staff.role)
+  // A malformed id is NOT_FOUND (or null), never a database error, and so is a store of a partner
+  // outside a Partner manager's assignment (ACCESS.md §5.4): the service enforces it, not the resolver alone.
+  const visible = async (id: string): Promise<boolean> =>
+    z.guid().safeParse(id).success && (!scopedByAssignment || (await deps.isAssigned(staff.id, { storeId: id })))
   const asStaff = staffEntry(staff, facts)
   const { may, refusedBy } = roleGuard<RefusalCode>(staff, roleRefusals, 'STAFF_ROLE_NOT_ALLOWED')
 
@@ -329,7 +333,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
       : [{ kind: 'shopAddress', host: liveHost, record: null, expected: null, found: null, status: 'live' }]
 
   const get = async (id: string): Promise<StoreDto | null> => {
-    if (!z.guid().safeParse(id).success) return null
+    if (!(await visible(id))) return null
     return withScope(sql, context, async (tx) => {
       const row = await selectStoreListRow(tx, id)
       if (!row) return null
@@ -378,13 +382,14 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     })
   }
 
-  const locked = async <T>(id: string, work: (tx: ScopedSql, store: StoreRow) => Promise<Result<T>>): Promise<Result<T>> =>
-    withScope(sql, context, async (tx): Promise<Result<T>> => {
-      if (!z.guid().safeParse(id).success) return { ok: false, code: 'NOT_FOUND' }
+  const locked = async <T>(id: string, work: (tx: ScopedSql, store: StoreRow) => Promise<Result<T>>): Promise<Result<T>> => {
+    if (!(await visible(id))) return { ok: false, code: 'NOT_FOUND' }
+    return withScope(sql, context, async (tx): Promise<Result<T>> => {
       const store = await selectStoreForUpdate(tx, id)
       if (!store) return { ok: false, code: 'NOT_FOUND' }
       return work(tx, store)
     })
+  }
 
   const suspendStore = async (id: string, reason: string | null): Promise<Result<{ status: StoreStatus; emergency: boolean }>> => {
     const refused = refusedBy('stores.suspend')

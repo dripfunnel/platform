@@ -369,3 +369,25 @@ describe('a refused mutation leaves no entry', () => {
     expect(after[0]?.n).toBe(before[0]?.n)
   })
 })
+
+describe('the service enforces the assignment itself (ACCESS.md §5.4)', () => {
+  it('answers an unassigned Partner manager with null or NOT_FOUND without a resolver in front', async () => {
+    // Harbor Coffee belongs to Northstar, which is not Priya's; she reaches the service directly, as a job or script would.
+    const harbor = await storeIdOf('Harbor Coffee Co.')
+    const service = createStoresService({
+      sql: db.sql,
+      staff: as('staff-partner-manager'),
+      facts: factsOf(request),
+      activity: activityLog,
+      isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
+      now: () => now,
+    })
+    expect(await service.get(harbor)).toBeNull()
+    expect(await service.addStoreNote(harbor, 'not mine')).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    // The rest a Partner manager may not do at all, so the role refuses before the store is looked at.
+    expect(await service.recheckStoreDomain(harbor)).toMatchObject({ ok: false, code: 'STAFF_ROLE_NOT_ALLOWED' })
+    expect(await service.suspendStore(harbor, 'x')).toMatchObject({ ok: false, code: 'SUSPENDERS_ONLY' })
+    expect(await service.extendTrial(harbor, '2026-12-01T00:00:00.000Z')).toMatchObject({ ok: false, code: 'SUPER_ADMIN_ONLY' })
+    expect(await service.resendStoreOwnerInvite(harbor)).toMatchObject({ ok: false, code: 'INVITERS_ONLY' })
+  })
+})
