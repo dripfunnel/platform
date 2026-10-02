@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { loadDashboard } from '../../api/dashboard'
-import { idParam } from '../../features/common/searchParams'
+import { idParam } from '@dripfunnel/shared/ui'
 import { DashboardRouteError } from '../../features/dashboard/DashboardError'
 import { DashboardLoading } from '../../features/dashboard/DashboardLoading'
 import { DashboardScreen } from '../../features/dashboard/DashboardScreen'

@@ -1,12 +1,15 @@
 import type { ReactNode } from 'react'
-import type { PageInfo } from '../../api/pageInfo'
-import { messages } from '../../messages'
+import type { PageInfo } from './pageInfo'
 import './list.css'
 
-const words = messages.common.pager
+export interface PagerWords {
+  previous: string
+  next: string
+}
 
 export interface PagerProps {
   label: string
+  words: PagerWords
   pageInfo: PageInfo
   // The list's own link to the page on either side, so the cursors land in its URL.
   link: (cursor: { before: string } | { after: string }, label: string) => ReactNode
@@ -18,9 +21,9 @@ const Disabled = ({ label }: { label: string }) => (
   </button>
 )
 
-// Cursor paging, Previous and Next only, across the console (decided on #19): no page
-// numbers and no total, because the API pages by cursor.
-export const Pager = ({ label, pageInfo, link }: PagerProps) => {
+// Cursor paging, Previous and Next only, across the consoles (decided on #19): no page
+// numbers and no total, because the APIs page by cursor.
+export const Pager = ({ label, words, pageInfo, link }: PagerProps) => {
   if (!pageInfo.hasPreviousPage && !pageInfo.hasNextPage) return null
   return (
     <nav className="df-pager" aria-label={label}>

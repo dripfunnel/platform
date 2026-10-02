@@ -3,12 +3,10 @@
 import { Link } from '@tanstack/react-router'
 import type { PartnerPage } from '../../api/partners'
 import { messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { ListHeader } from '../common/ListHeader'
-import { Pager } from '../common/Pager'
+import { EmptyState, ErrorState, LoadingState, ListHeader, Pager } from '@dripfunnel/shared/ui'
 import { ApprovalCard } from './ApprovalCard'
 import type { ApprovalsScreenState } from './approvalsHarness'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './approvals.css'
 
 const words = messages.approvals
@@ -76,6 +74,7 @@ export const Approvals = ({ page, forced, onReload }: ApprovalsProps) => {
         ))}
       </ul>
       <Pager
+        words={messages.common.pager}
         label={words.pagerLabel}
         pageInfo={page.pageInfo}
         link={(cursor, label) => (

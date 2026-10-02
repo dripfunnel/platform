@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { createdWindows, loadStores, setupStates, storefrontStates, storeStatuses } from '../../api/stores'
-import { idParam, optionalParam, searchParam } from '../../features/common/searchParams'
+import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/ui'
 import { StoresLoading } from '../../features/stores/Stores'
 import { StoresRouteError, StoresScreen } from '../../features/stores/StoresScreen'
 

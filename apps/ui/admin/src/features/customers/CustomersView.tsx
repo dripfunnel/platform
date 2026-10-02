@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react'
 import type { CustomerFilter, CustomerMatch, CustomerPage } from '../../api/customers'
 import { fill, formatCount, formatCountry, locale, messages, plural } from '../../messages'
-import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, Pager, type PagerProps } from '@dripfunnel/shared/ui'
 import { InfoNote } from '../common/InfoNote'
-import { Pager, type PagerProps } from '../common/Pager'
 import type { CustomersState } from './customerHarness'
 import { CustomerFilters } from './CustomerFilters'
 import { CustomersTable } from './CustomersTable'
 import type { CustomerPageResult } from './useCustomerPage'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.customers
 const countryList = new Intl.ListFormat(locale, { type: 'conjunction' })
@@ -74,7 +73,7 @@ export const CustomersView = ({ result, filter, search, options, inStore, forced
       <>
         {match && <MatchSummary match={match} />}
         <CustomersTable customers={items} inStore={inStore} showPhoneRegion={(match?.regions.length ?? 0) > 1} />
-        <Pager label={words.pagerLabel} pageInfo={pageInfo} link={pageLink} />
+        <Pager words={messages.common.pager} label={words.pagerLabel} pageInfo={pageInfo} link={pageLink} />
       </>
     )
   }

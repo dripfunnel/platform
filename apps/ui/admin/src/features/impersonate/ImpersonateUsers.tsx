@@ -4,16 +4,15 @@ import { Link } from '@tanstack/react-router'
 import { useRef, type ReactNode } from 'react'
 import type { ImpersonationTarget, TargetFilter, TargetPage } from '../../api/impersonation'
 import { fill, messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, Pager, type PagerProps } from '@dripfunnel/shared/ui'
 import { InfoNote } from '../common/InfoNote'
-import { Pager, type PagerProps } from '../common/Pager'
 import type { StaffRole } from '../shell/staffRoles'
 import type { UsersState } from './impersonateHarness'
 import { ImpersonateHeader } from './ImpersonateHeader'
 import { TargetFilters } from './TargetFilters'
 import { TargetsTable } from './TargetsTable'
 import type { TargetPageResult } from './useTargetPage'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.impersonate
 
@@ -76,7 +75,7 @@ export const ImpersonateUsers = (props: ImpersonateUsersProps) => {
     return (
       <>
         <TargetsTable targets={items} onImpersonate={onImpersonate} onReturn={onReturn} />
-        <Pager label={words.users.pagerLabel} pageInfo={pageInfo} link={pageLink} />
+        <Pager words={messages.common.pager} label={words.users.pagerLabel} pageInfo={pageInfo} link={pageLink} />
       </>
     )
   }

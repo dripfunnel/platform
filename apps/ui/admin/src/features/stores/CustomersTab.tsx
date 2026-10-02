@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { CustomerFilter } from '../../api/customers'
-import type { PageRequest } from '../../api/pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/ui'
 import type { Store } from '../../api/stores'
 import { messages } from '../../messages'
 import { CustomersList } from '../customers/CustomersList'

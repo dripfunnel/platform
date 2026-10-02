@@ -1,4 +1,4 @@
-import type { PageInfo, PageRequest } from './pageInfo'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/ui'
 
 // How every sample server pages a sorted list by cursor, as the Admin API will: a record's id
 // is its cursor, `before` steps back a page and `after` steps forward.

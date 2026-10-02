@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { loadMe } from '../../api/me'
 import { loadStaff } from '../../api/staff'
 import { callerFor } from '../../features/common/harnessCaller'
-import { idParam } from '../../features/common/searchParams'
+import { idParam } from '@dripfunnel/shared/ui'
 import { StaffLoading } from '../../features/staff/Staff'
 import { StaffRouteError, StaffScreen } from '../../features/staff/StaffScreen'
 

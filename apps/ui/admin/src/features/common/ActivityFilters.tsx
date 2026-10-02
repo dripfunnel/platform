@@ -3,9 +3,8 @@ import { useId } from 'react'
 import { activityResults, actorKinds, datePresets, type ActivityFilter, type ActivityPage } from '../../api/activity'
 import { activityLevels, levelOf, type ActionCode } from '../../api/activityActions'
 import { fill, messages } from '../../messages'
-import { FilterSelect } from './FilterSelect'
+import { FilterSelect, SearchField } from '@dripfunnel/shared/ui'
 import { ipPattern } from './activitySearch'
-import { SearchField } from './SearchField'
 import './activity.css'
 
 const words = messages.activity

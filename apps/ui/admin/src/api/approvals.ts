@@ -2,7 +2,7 @@
 // Partners list filtered to Awaiting approval, oldest submitted first (decided on #43). It adds
 // nothing to §12; once #33 wires `partners(filter, after)`, this follows it.
 import type { StaffRole } from '../features/shell/staffRoles'
-import type { PageRequest } from './pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/ui'
 import { loadPartners, type PartnerPage } from './partners'
 
 // Who may open Approvals (FIRST-RELEASE.md §2). The partners behind it are open to everyone;

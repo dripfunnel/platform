@@ -18,7 +18,7 @@ import type {
   PartnerUser,
   SetupRow,
 } from './partners'
-import type { PageRequest } from './pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/ui'
 import { samplePage } from './samplePage'
 import { impersonatePermission, setupStarters } from './sessionRules'
 

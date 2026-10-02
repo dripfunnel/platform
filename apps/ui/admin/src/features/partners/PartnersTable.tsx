@@ -1,10 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import type { PartnerRow } from '../../api/partners'
 import { fill, formatCount, formatDate, messages } from '../../messages'
-import { ClickableRow } from '../common/ClickableRow'
+import { ClickableRow } from '@dripfunnel/shared/ui'
 import { Tile } from '../common/Tile'
 import { HostPill, HouseBadge, InvitationPill, PartnerStatePill } from './partnerLook'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './partners.css'
 
 const words = messages.partners

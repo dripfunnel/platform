@@ -18,7 +18,7 @@ import { StoreHeader } from './StoreHeader'
 import { StoreTabs, type StoreTab } from './StoreTabs'
 import { SupportTab } from './SupportTab'
 import { UsersTab } from './UsersTab'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.store
 

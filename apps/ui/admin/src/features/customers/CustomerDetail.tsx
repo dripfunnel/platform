@@ -10,7 +10,7 @@ import type { CustomerScreenState } from './customerHarness'
 import { CustomerHeader } from './CustomerHeader'
 import { CustomerOverview } from './CustomerOverview'
 import { CustomerTabs, type CustomerTab } from './CustomerTabs'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.customer
 

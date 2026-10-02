@@ -3,14 +3,12 @@
 import { Link } from '@tanstack/react-router'
 import type { StaffAction, StaffMember, StaffPage } from '../../api/staff'
 import { fill, messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ListHeader, Pager } from '@dripfunnel/shared/ui'
 import { InfoNote } from '../common/InfoNote'
-import { ListHeader } from '../common/ListHeader'
-import { Pager } from '../common/Pager'
 import type { StaffRole } from '../shell/staffRoles'
 import type { StaffScreenState } from './staffHarness'
 import { StaffTable } from './StaffTable'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './staff.css'
 
 const words = messages.staff
@@ -104,6 +102,7 @@ export const Staff = ({ page, forced, me, refusal, onInvite, onAction, onReload 
       </p>
       <StaffTable staff={page.items} meId={me.id} onAction={onAction} />
       <Pager
+        words={messages.common.pager}
         label={words.pagerLabel}
         pageInfo={page.pageInfo}
         link={(cursor, label) => (

@@ -3,7 +3,7 @@
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { ActionCode, ActivityLevel } from './activityActions'
 import { activityServer } from './activitySample'
-import type { PageInfo, PageRequest } from './pageInfo'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/ui'
 import type { ActionPermission } from './permissions'
 import { harnessEnabled } from '../harness'
 

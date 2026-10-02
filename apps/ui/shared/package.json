@@ -11,7 +11,8 @@
     "./ui/states.css": "./ui/states.css",
     "./ui/shell.css": "./ui/shell.css",
     "./ui/auth.css": "./ui/auth.css",
-    "./ui/cards.css": "./ui/cards.css"
+    "./ui/cards.css": "./ui/cards.css",
+    "./ui/list.css": "./ui/list.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -25,13 +26,15 @@
   },
   "peerDependencies": {
     "react": "^19.3.0",
-    "@tanstack/react-router": "^1.170.39"
+    "@tanstack/react-router": "^1.170.39",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tanstack/react-router": "^1.170.39",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
   }
 }

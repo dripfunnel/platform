@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { loadActivity, type ActivityFilter, type ActivityPage } from '../../api/activity'
-import type { PageRequest } from '../../api/pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/ui'
 import type { StaffRole } from '../shell/staffRoles'
 
 export type ActivityPageResult = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; page: ActivityPage }

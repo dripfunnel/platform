@@ -3,14 +3,13 @@
 import { Link } from '@tanstack/react-router'
 import type { PartnerFilter, PartnerPage } from '../../api/partners'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice } from '@dripfunnel/shared/ui'
-import { Pager } from '../common/Pager'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, Pager } from '@dripfunnel/shared/ui'
 import type { PartnersState } from './partnerHarness'
 import { isFiltered } from './isFiltered'
 import { PartnerFilters } from './PartnerFilters'
 import { CreatePartner, PartnersHeader } from './PartnersHeader'
 import { PartnersTable } from './PartnersTable'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './partners.css'
 
 const words = messages.partners
@@ -76,6 +75,7 @@ export const Partners = ({ page, filter, forced, readOnly, onFilterChange, onRel
         <>
           <PartnersTable partners={page.items} />
           <Pager
+            words={messages.common.pager}
             label={words.pagerLabel}
             pageInfo={page.pageInfo}
             link={(cursor, label) => (

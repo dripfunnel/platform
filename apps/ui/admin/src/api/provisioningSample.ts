@@ -4,7 +4,7 @@
 // sample's own records and stands in for the server until #37, and goes with it.
 import type { StaffRole } from '../features/shell/staffRoles'
 import { jobPermissionsFor, redacted, stateOf } from './jobSample'
-import type { PageRequest } from './pageInfo'
+import type { PageRequest } from '@dripfunnel/shared/ui'
 import { provisioningRoles, type JobFilter, type JobPage, type JobProgress, type JobState, type ProvisioningJob } from './provisioning'
 import { samplePage } from './samplePage'
 import { storesServer, type SampleStore } from './storesSample'

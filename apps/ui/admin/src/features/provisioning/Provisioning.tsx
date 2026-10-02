@@ -5,13 +5,11 @@ import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { JobAction, JobFilter, JobPage, ProvisioningJob } from '../../api/provisioning'
 import { messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { ListHeader } from '../common/ListHeader'
-import { Pager } from '../common/Pager'
+import { EmptyState, ErrorState, LoadingState, ListHeader, Pager } from '@dripfunnel/shared/ui'
 import { JobCard } from './JobCard'
 import { JobFilters } from './JobFilters'
 import type { ProvisioningScreenState } from './provisioningHarness'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './provisioning.css'
 
 const words = messages.provisioning
@@ -108,6 +106,7 @@ export const Provisioning = ({ page, filter, forced, onFilterChange, onJob, onRe
             ))}
           </ul>
           <Pager
+            words={messages.common.pager}
             label={words.pagerLabel}
             pageInfo={page.pageInfo}
             link={(cursor, label) => (
