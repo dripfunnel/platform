@@ -44,9 +44,9 @@ platform            no row: DripFunnel itself; staff act here
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note` |
 | **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_entitlement` |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
-| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `collection`, `offer`, `api_key`, `webhook` |
+| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `refund`, `collection`, `offer`, `customer_group`, `badge`, `access_request`, `supplier_ledger_entry`, `api_key`, `webhook` (§2.2) |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
-| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `order_part` (per-supplier part of an order) |
+| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product`, `warehouse`, `stock_level`, `stock_movement`, `order_part` (per-supplier part of an order) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone | `activity_log`, `outbox` |
 
 - **Unique constraints are per scope**: SKU, web address and coupon code per store; customer
@@ -81,8 +81,10 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   §7). Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
 - **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc` and
   the `token_hash` of both invitation tables are readable by `app_system` (sign-in, acceptance)
-  and never by `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted the same way until a card
-  reads it: no screen shows a merchant user's phone, so no request scope may select it.
+  and never by `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
+  the same way, with one exception decided 2026-10-02: **a person may read and change their
+  own number** (My profile; SMS 2-factor is sent to it), through a request scope limited to
+  the session's own `user` row. No other screen shows a merchant user's phone.
 - **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
   the partner or store as target, visibility `partner`. No history table.
 - **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which
@@ -91,6 +93,29 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   the prototype's partners and stores in every state (`apps/api/scripts/seed/`), every address
   under a reserved `.example` domain. It runs against a loopback host only, with none of the CI
   opt-in `migrate` has, since it truncates.
+
+### 2.2 Entities named by the 2026-10-02 design decisions (#182)
+
+The Store prototype's update (`designs/INCOMPLETE-FEATURES.md` §4) and the decisions recorded
+in ACCESS.md §1 need these. **Named, not designed**: columns are the ones the prototype shows;
+each table gets its full design on the engine card that builds it, following §2. Everything
+here is store-scoped unless it says seller.
+
+| Table | Scope | Holds | Decided by |
+|---|---|---|---|
+| `store` + `time_zone`, `unit_system` (`metric`, `imperial`), `order_prefix`, `next_order_number` | store | Settings › Store info | PLATFORM-PROMPT §3.3 |
+| `seller` + `shipping_mode` (`to-store`, `to-shopper`) | store | How the supplier ships, set by the merchant | ACCESS.md §5.2, §7.3 |
+| `customer` + `tags text[]`, `note`, `consent_state` (`opted_in`, `stopped`, `declined`, `not_asked`), `consent_at`, `consent_source` (`checkout`, `email`, `added_by_hand`, `recorded_by_store`), `added_by_user_id` null | store (customer accounts) | Tags, the team-only note, marketing consent, hand-added customers | PLATFORM-PROMPT §5.4 Customers |
+| `customer_group(id, store_id, name, description)`, `customer_group_member(group_id, customer_id)` | store | Groups offers target; unique name per store | OFFERS-DESIGN fact 12 |
+| `stock_movement(id, store_id, seller_id, product_id, version_id null, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor, created_at)` | store and seller | The ledger; reasons `received`, `returned`, `damaged`, `counted`, `typed`, `order`, `import`, `starting` | PLATFORM-PROMPT §5.4 Inventory |
+| `return(id, store_id, order_id, state, reason, label_sent_at, received_at, refund_id null)`, `return_line(return_id, order_line_id, quantity, destination_warehouse_id)` | store | States `requested`, `received`, `refunded`, `cancelled`; the destination follows the line owner's shipping mode | ACCESS.md §7.3 |
+| `refund(id, store_id, order_id, seller_id null, amount, currency, reason, restock, override_of_seller_id null, by_user_id, created_at)`, `refund_line(refund_id, order_line_id, quantity, amount)` | store | Per-owner refunds; `override_of_seller_id` set when the store refunded a supplier's lines | ACCESS.md §7.3 |
+| `supplier_ledger_entry(id, store_id, seller_id, amount, currency, kind, refund_id null, note, created_at)` | store | What a supplier owes or is owed, settled outside the platform; the first `kind` is `refund_override` | PLATFORM-PROMPT §5.4 Payments |
+| `badge(id, store_id, label, rule, …)` and `product_badge(product_id, badge_id)` | store | Rules `new_30_days`, `top_5_this_month`, `below_compare_price`, `few_left`, `manual`; only `manual` badges are picked per product | CATALOG-DESIGN S5 |
+| `product_market_price(product_id, market_id, amount, currency)` | store and seller | A fixed price per market for a product without versions (Business plan); absent means the main price with the market's adjustment | CATALOG-DESIGN O13 |
+| `custom_domain` + `state` (`dns`, `verifying`, `cert`, `live`, `failed`), `last_checked_at`, `checks_until` | store (account level) | The portal's four steps; checked every 15 minutes for 3 days | SAAS.md §8 |
+| `access_request(id, store_id, by_user_id, kind (`feature`, `area`), what, created_at, resolved_at null, resolution (`acted`, `dismissed`))` | store | A Manager's or Staff's "Send request" that lands on the Owner's Home | ACCESS.md §5.1 |
+| `user` + `two_factor_method` (`app`, `sms`, null), `two_factor_enrolled_at`, `theme` (`light`, `dark`, null); `user_backup_code(user_id, code_hash, used_at null)`; `user_session` + `device_label`, `user_agent` | partner (people pool) | 2-factor, backup codes and "Where you're signed in" (§3.3) | ACCESS.md §2, §4 |
 
 ---
 
@@ -132,12 +157,18 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
 
 ```
 user        (id, partner_id, email, email_verified_at, password_hash NULL, name, phone NULL,
-             two_factor_secret_enc NULL, status, created_at)
+             two_factor_secret_enc NULL, two_factor_method NULL, two_factor_enrolled_at NULL,
+             theme NULL, status, created_at)
             UNIQUE (partner_id, email)
+            -- two_factor_method: 'app' | 'sms'; required for an Owner, optional otherwise
+            -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice
+user_backup_code (id, user_id, code_hash, used_at NULL)
+            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4)
 user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
-             absolute_expires_at, remember)
+             absolute_expires_at, remember, device_label, user_agent)
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
-            -- extends the absolute bound, never removes it
+            -- extends the absolute bound, never removes it; device_label and user_agent
+            -- are what "Where you're signed in" lists
 
 seller      (id, store_id, name, access_level, status, created_at)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
@@ -241,7 +272,7 @@ A test checks every set against the matrices in ACCESS.md §5.
 **The merchant decides what the supplier may do** (`seller.access_level`, ACCESS.md §5.2).
 **The supplier decides who on its team may do it:**
 
-| Team role *(proposed)* | Gets |
+| Team role (decided 2026-10-02 on #182) | Gets |
 |---|---|
 | **Supplier admin** `supplier-admin` | Everything the supplier's access level allows, **plus** managing the supplier's team: invite, change team role, remove, resend invitations; see the supplier's own activity log |
 | **Supplier member** `supplier-member` | Everything the supplier's access level allows; no team management |
@@ -364,5 +395,5 @@ SECURITY` on every tenant table).
 
 ## 6. Open questions
 
-- Confirm the names of the two supplier team roles, Supplier admin and Supplier member (§4.2).
-  (No read-only team role: decided 2026-09-28.)
+- ~~Confirm the names of the two supplier team roles, Supplier admin and Supplier member (§4.2).~~
+  **Settled 2026-10-02**: those names. (No read-only team role: decided 2026-09-28.)

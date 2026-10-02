@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-02.
 
 ---
 
@@ -42,6 +42,11 @@ Last updated: 2026-10-01.
 | **Audit rows are written in the same transaction as the change**, append-only | Logs; a best-effort async write | A privileged change without its audit row can't commit. |
 | **Postgres row-level security as the backstop** (decided 2026-09-28; policies in [DATA-MODEL.md](DATA-MODEL.md) §5) | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores', suppliers' and partners' rows (PLATFORM-PROMPT §5.1). |
 | **Suppliers manage their own team** (decided 2026-09-28): the merchant sets the supplier's access level; Supplier admins manage its users' team roles within it | The merchant manages every supplier user | The merchant decides what a supplier may do, not who works there ([DATA-MODEL.md](DATA-MODEL.md) §4.2). |
+| **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
+| **Each supplier refunds its own items; the store can override; both go to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
+| **2-factor is required for Owners and optional for everyone else** in the people pool (decided 2026-10-02): authenticator app or SMS, ten single-use backup codes (§2, §4) | Everyone; nobody | The Owner holds billing and the customer list; the prototype's My profile designs the enrolment and backup flows in full. |
+| **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those three fields change what the shopper is sold. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
+| **A suspended supplier's products are hidden while suspended and restored on resume; a removed supplier's are hidden and kept, still marked as theirs** (decided 2026-10-02) | Products stay on sale while suspended; delete on removal | Nothing is sold that nobody can supply; nothing the merchant may want to keep selling is lost (§7.5). |
 
 ---
 
@@ -52,7 +57,7 @@ merchant with the same address are two unrelated accounts.
 
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
-| **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, optional 2-factor *(ask: Owners only, or everyone)* | `(partner, email)`: the same email under two partners is two unrelated accounts |
+| **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, 2-factor **required for Owners and optional for everyone else** (decided 2026-10-02): an authenticator app or an SMS code to the person's own mobile number, plus ten single-use backup codes shown once when made; an Owner without it is sent to set it up at their next sign-in and can change the method but never turn it off (§4) | `(partner, email)`: the same email under two partners is two unrelated accounts |
 | **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password; 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
@@ -211,8 +216,9 @@ The scoped layer filters rows; it can't know everything. These need explicit tes
 - **Derived reads**: counts, facets, stock totals, search results, empty states, exports,
   reports and notifications must be computed through the scoped layer, never by a raw
   aggregate (PLATFORM-PROMPT §5.1).
-- **Field-level serializing**: what a vendor may see of a customer on a sub-order (§7.3), and
-  the fields a support session may read (§8).
+- **Field-level serializing**: what a vendor may see of a customer on a sub-order, which
+  depends on the supplier's shipping mode (§7.3), and the fields a support session may read
+  (§8).
 - **Cross-row writes**: fulfilment of a sub-order from a named warehouse, where the warehouse,
   the sub-order and the lines must all belong to the caller's `seller_id`.
 - **Cross-store lookups** the engine does on purpose: finding an existing account by email on
@@ -248,8 +254,20 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   client bug or someone probing.
 - **Timings**: idle **2 h**, absolute **12 h**. "Remember me" extends the absolute bound
   *(confirm by how much)* rather than removing it. Sessions are never year-long.
+- **The second factor** (decided 2026-10-02; the prototype's `PortalAuth` and `PortalProfile`
+  decide the screens): after the password, a person with 2-factor on enters a 6-digit code
+  from their authenticator app or texted to their own mobile number; a **backup code** (one of
+  ten, each usable once, stored hashed) stands in for it, and the sign-in says how many are
+  left. An **Owner with 2-factor off is signed in only as far as the set-up screen**: nothing
+  else answers until it is on. Setting up shows the authenticator secret and the backup codes
+  **once**, at creation, and never again (ui/README.md §3). Codes are rate-limited like
+  passwords; a used backup code is spent in the same transaction that admits the session.
+- **Where you're signed in**: a person lists their own sessions (device label, last used,
+  this one marked) and may end **every other session at once**; ending one chosen session is
+  not offered. [DATA-MODEL.md](DATA-MODEL.md) §3.3 owns the columns.
 - **Sign out is global** across every store in the session: one session, one row, deleted.
-  A password change or reset ends every other session of that user on every host *(confirm)*.
+  **A password change or reset ends every other session of that user on every host**
+  (decided 2026-10-02; the profile screen says so before the change).
 - **CSRF**: `SameSite=Lax` plus a check that `Origin` matches the host on every mutation, and
   GraphQL accepting only `application/json` POSTs for mutations.
 - **Staff re-authentication** (CONSOLE-DESIGN A2): `/api/auth/reauth` sends the staff member
@@ -297,7 +315,9 @@ From the first platform's AUTH-PLAN §5.3 and DESIGN-BRIEF §2.
 | `stock.write`: quantities in the merchant's own warehouses | ✓ | ✓ *(confirm)* | |
 | `warehouses.write`: the merchant's own warehouses | ✓ | ✓ *(confirm)* | |
 | `orders.read`, `customers.read` | ✓ | ✓ | ✓ |
-| `orders.write` (including fulfilment and cancellation), `customers.write` | ✓ | ✓ | ✓ |
+| `orders.write` (including fulfilment and cancellation), `customers.write` (add, edit, groups, tags, notes, recording that a customer asked to stop marketing) | ✓ | ✓ | ✓ |
+| `orders.refund`: refunds, returns (start, mark received), and **overriding a supplier's refund** (§7.3) | ✓ | ✓ | |
+| `customers.export` | ✓ | ✓ | |
 | `offers.read`, `offers.write` | ✓ | ✓ | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 
@@ -319,10 +339,15 @@ the resolver refuses regardless of the screen.
 ### 5.2 Vendor tiers
 
 The merchant picks one **access level per supplier** (`seller.access_level`) and can change it
-later (§7.5); it applies to every user of that supplier. **Inside it, the supplier manages its
-own team** with the team roles **Supplier admin** `supplier-admin` (the access level plus
+later (§7.5); it applies to every user of that supplier. The merchant also picks the supplier's
+**shipping mode** (`seller.shipping_mode`, decided 2026-10-02): **`to-store`**, the supplier
+sends its items to the store's default warehouse and the store ships to the shopper, or
+**`to-shopper`**, the supplier ships its own lines itself. The mode decides what the order
+permissions below reveal (§7.3); it never adds a permission. **Inside it, the supplier manages
+its own team** with the team roles **Supplier admin** `supplier-admin` (the access level plus
 inviting, changing and removing its own users) and **Supplier member** `supplier-member`
-(the access level only) *(proposed)*; the membership's `role_key` holds the team role
+(the access level only) (decided 2026-10-02; the merchant may also add a person to a supplier
+directly, SetTeam "Add a person"); the membership's `role_key` holds the team role
 ([DATA-MODEL.md](DATA-MODEL.md) §4.2). The merchant's Owner still sees, suspends and removes any
 supplier user. The Supplier tab offers the
 first three levels; `vendor-orders-read` is defined but not offered, for a merchant who wants a
@@ -334,8 +359,9 @@ supplier who can look and not touch.
 | `catalog.write` | | ✓ | ✓ | ✓ |
 | `stock.read`, `stock.write`, `warehouses.write` | ✓ | ✓ | ✓ | ✓ |
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
-| `orders.fulfil`: their own sub-orders | | | ✓ | |
-| Offers, customers (beyond §7.3), payments, shipping, tax, people, vendors, billing, settings | never | never | never | never |
+| `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
+| `orders.refund`: their own lines only, up to their value; never a return's start or an override (§7.3) | | | ✓ | |
+| Offers, customers (beyond what §7.3 lets a `to-shopper` supplier see), payments, shipping, tax, people, vendors, billing, settings | never | never | never | never |
 
 - **Stock only** is "they update quantities. Nothing else." Catalogue read is included because
   stock is meaningless without finding the version to count. It must never grant catalogue
@@ -626,7 +652,13 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   sent. The queue lists `pending`; approving sets `approved` and makes it visible; rejecting
   records a reason the vendor sees.
 - Vendor input can't carry visibility or `approval_status` (§3.2).
-- Whether editing an approved product sends it back to `pending` is open (§13).
+- **Editing an approved product** (decided 2026-10-02): it goes back to `pending`, and is
+  **hidden from the storefront until approved**, only when the vendor changed its **name, a
+  price (the product's or a version's) or its photo set**. Any other edit goes live at the
+  next publish. The engine compares the three against the approved values on save; the
+  portal says which change needs approval. Accepted with the decision: a vendor can take its
+  own product off sale by editing one of those fields, which the Owner sees in the queue and
+  the activity log.
 
 ### 7.3 Orders: vendor sub-orders
 
@@ -638,14 +670,30 @@ first platform's constructed view.
   through the scoped layer. **A vendor never sees an order total**: shipping, discounts and tax
   that span vendors can't honestly be attributed to one. Show their lines and line amounts;
   whether a sub-order carries its own attributable totals is part of the order design.
-- **Fulfil** (`vendor-orders-fulfil`): a vendor fulfils lines of its own sub-orders, from its
-  own warehouses. Every line and the warehouse must carry the caller's `seller_id`. Still the
-  highest-risk vendor write; it gets explicit tests even though the scoped layer filters it.
-- **Customer data**: a vendor shipping directly needs a name and delivery address, which belong
-  to the merchant's customer. The rule, applied in the serializer and never in the UI: **name
-  and delivery address, not email or phone** (PLATFORM-PROMPT §5.4) *(confirm, §13)*.
-- Refunds, cancellations and returns spanning vendors: design them now or scope them out
-  explicitly (PLATFORM-PROMPT §5.4, §10).
+- **Fulfil** (`vendor-orders-fulfil`) follows the supplier's **shipping mode** (§5.2, decided
+  2026-10-02). **`to-shopper`**: the vendor ships lines of its own sub-orders from its own
+  warehouses, booking a courier or entering tracking. **`to-store`**: the vendor marks its lines
+  as **sent to the store's default warehouse**, and the store ships the order; the sub-order's
+  fulfilment is the store's. In both, every line and warehouse must carry the caller's
+  `seller_id`. Still the highest-risk vendor write; it gets explicit tests even though the
+  scoped layer filters it.
+- **Customer data**, applied in the serializer and never in the UI (PLATFORM-PROMPT §5.4):
+  a **`to-store`** supplier sees **nothing** of the customer, not even a name; the order shows
+  "For <store>". A **`to-shopper`** supplier sees **name and delivery address, never email or
+  phone**. The merchant's order view says which mode each part is in.
+- **Returns and refunds** (decided 2026-10-02; the prototype's `PortalOrders` decides the
+  screens). A **return** is started by the store (`orders.refund`), per line and quantity, with
+  a reason; the shopper gets a return label; items come back to the store's default warehouse
+  (`to-store` lines and the merchant's own) or to the supplier's warehouse (`to-shopper`
+  lines). States `requested → received → refunded`, with `cancelled` while still requested.
+  Marking received is the store's. **Refunds are per line and grouped by owner**: the store
+  refunds its own lines; **each supplier refunds its own lines**, up to their value, and the
+  store is told. **The store may refund a supplier's lines itself**: that is an **override**,
+  recorded against the supplier in the **supplier ledger** with the amount, and the supplier is
+  told. Restocking a refund writes a stock movement "Returned". Stock-only suppliers have no
+  orders and so never refund. **The ledger is settled outside the platform** for now; payouts
+  inside it are later (PLATFORM-PROMPT §5.4 Payments). A refund of a shared shipping charge or
+  discount is the store's alone.
 
 ### 7.4 Search, stock and derived reads
 
@@ -665,11 +713,13 @@ another vendor holds (DESIGN-BRIEF fact 10).
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
   few minutes").
-- **Suspend**: the vendor's memberships stop resolving and its API keys stop working; its
-  products stay, tagged with its `seller_id`. Whether they stay on the storefront is *(ask)*.
-- **Remove**: what happens to its products is open (§13). They sit in the merchant's store
-  already, so leaving them is probably right, but the merchant then owns products no vendor
-  maintains.
+- **Suspend** (decided 2026-10-02): the vendor's memberships stop resolving and its API keys
+  stop working; its products are **hidden while it is suspended** and return to the status
+  they had when the merchant resumes it. Each product keeps its `seller_id`.
+- **Remove** (decided 2026-10-02): its users lose access at once; its products are **hidden
+  and kept**, still marked as the removed supplier's, for the merchant to publish (they then
+  become the merchant's to maintain) or delete. The portal says the count and offers the
+  hidden list; the activity log records the removal and the products it hid.
 - **One role per membership** (decided 2026-09-28): one merchant-side membership per person
   per store, and one per supplier. A person **may work for two suppliers in the same store**
   (two memberships, and the store chooser lists "Store · Supplier"), but is **never both the
@@ -864,7 +914,7 @@ not by hand. Numbering 1–9 follows the first platform's AUTH-PLAN §9 so cross
    stock, warehouses, sub-orders, search, facets, counts, exports. One unfiltered path exposes
    the whole store.
 7. **Vendor writes are validated** against ownership: products, stock, warehouses, and every
-   line and warehouse in a fulfilment.
+   line and warehouse in a fulfilment or a refund.
 8. **Vendor input carries no ownership or visibility fields** (`seller_id`, visibility,
    `approval_status`): rejected, not stripped (§3.2).
 9. **Owner count invariant**: never remove or demote the last active Owner of a store (and of a
@@ -999,14 +1049,18 @@ The first platform's design was shaped by its commerce framework's limits (AUTH-
 Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this port raised.
 
 **Carried, still open**
-- **2-factor**: Owners only, or everyone? ~~And for partner users?~~ **Partner users settled
+- ~~**2-factor**: Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
+  optional for everyone else (§2, §4). ~~And for partner users?~~ **Partner users settled
   2026-10-01**: optional, the Owner may require it (§2).
-- **Does editing an approved vendor product send it back to `pending`?** Safer, but it lets a
-  vendor pull a live product off the storefront by editing it (§7.2).
-- **What may a vendor see of a customer?** Name and address to ship; email and phone probably
-  not (§7.3).
-- **What happens to a removed or suspended vendor's products?** (§7.5)
-- **Refunds, returns and cancellations across vendors**: first release or later? (§7.3)
+- ~~**Does editing an approved vendor product send it back to `pending`?**~~ **Settled
+  2026-10-02**: only for name, price or photo changes, hidden until approved (§7.2).
+- ~~**What may a vendor see of a customer?**~~ **Settled 2026-10-02**: by shipping mode;
+  nothing, or name and delivery address (§7.3).
+- ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02**:
+  hidden (§7.5).
+- ~~**Refunds, returns and cancellations across vendors**: first release or later?~~ **Designed
+  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's
+  (#184).
 - ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
   both in the same store (DATA-MODEL §1, §7.5).
 - **Does a vendor see which other stores a product of theirs is in?** Products are per store,
@@ -1031,5 +1085,6 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
 - **Staff session bounds** and which actions need a second approver (§4, §5.4).
 - **API keys** when their creator leaves or is demoted; whether apps can be vendor-bound (§3,
   §5.6).
-- **Password change** ending every other session on every host (§4).
+- ~~**Password change** ending every other session on every host (§4).~~ **Settled 2026-10-02**:
+  it does.
 - **Whether vendors see any audit entries** (§10).

@@ -50,6 +50,18 @@ the categories; each API's resolvers declare their own action codes (§5).
 | **System** | Jobs, webhooks, schedules | Provisioning steps, billing status changes from Stripe, automatic publishes, dunning, retention jobs, with the job or provider as the actor |
 | **Security** (any level) | Anyone, or unknown | Failed sign-ins for unknown accounts, rate-limit hits, attempted tenant crossings (ACCESS.md §4), denied authorizations. Visibility: staff only |
 
+**Merchant-portal action codes added 2026-10-02 (#182)**, for what the Store prototype now
+designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
+`return.received`, `return.cancelled`, `refund.issued` (with the owner of the lines),
+`refund.overridden` (the store refunding a supplier's lines; the ledger entry is its change),
+`supplier.shipping_mode_changed`, `supplier.suspended`, `supplier.resumed`,
+`supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
+`two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
+detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
+`customer.exported`, `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
+it). The two-factor and backup-code entries carry no secret, code or phone number.
+
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). A second
 exception: **staff opening a customer's detail page** in the admin console is logged

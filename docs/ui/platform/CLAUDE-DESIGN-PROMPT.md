@@ -255,7 +255,7 @@ sentence of the reason) · **Cancelled** ("Since 2 Sep").
 **Create store**: "For a merchant you've signed yourself. Merchants can also sign up at
 {host}/signup." Store name, owner's name and email, country (the partner's countries), plan
 (Live plans with the monthly price in that currency), trial (No trial · 7 · 14 · 30 days); a
-price line ("$49.00 / month, charged by DripFunnel for Northstar, after a 14-day trial.");
+price line ("$49.00 / month, charged by DripFunnel for Northstar, after a 14-day trial." — the trial length is the plan's, SAAS.md §6.1);
 "The owner gets an invitation to set their own password." Then **Setting up {store}** with
 five steps (Account · Store · Portal ready · Storefront building · Done), "This takes under
 two minutes. You can leave this page.", and "Ready in 1 min 42 s." → Open the store · Create

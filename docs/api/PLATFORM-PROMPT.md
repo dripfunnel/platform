@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-02.
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -275,8 +275,10 @@ Decide for each whether it is in the first release (§8):
 - Offers: collections as targets, exclusions, combination rules, bulk unique codes, first
   order only, specific customers, per-currency fixed amounts, tiered discounts and caps, an
   internal name separate from the shopper-facing one.
-- Stores: a real time zone, home country and selling markets, unit system, and tax
-  registrations per country.
+- Stores: home country and selling markets, and tax registrations per country. **Decided
+  2026-10-02 (first release, designed in Settings › Store info)**: a real **time zone** (offer
+  schedules, reports and order times use it), a **unit system** (metric or imperial) and an
+  **order-number format** (an upper-case prefix of up to six characters plus the next number).
 - Plans and entitlements as a first-class, server-enforced model.
 
 ---
@@ -336,7 +338,8 @@ leaks structurally hard:
 - Our own users table: one account per person per partner (email unique within a partner,
   ACCESS.md §2), password hashes
   (argon2id), Google sign-in, email and phone verification codes stored hashed with attempt
-  counters, optional 2-factor *(ask: Owners only, or everyone)*.
+  counters, 2-factor **required for Owners and optional for everyone else** (authenticator app
+  or SMS, backup codes; decided 2026-10-02, ACCESS.md §2 and §4).
 - `membership(user_id, store_id, seller_id, role_key)`: role keys map to **permission sets in
   code**. Nothing is cloned; changing a role takes effect on the next request.
 - Invitations: token hashed, expiring, resendable, revocable, with the identical response
@@ -384,6 +387,10 @@ Design each module's responsibilities, tables, public API, events and invariants
   CATALOG parts P–T behind entitlements.
 - **Inventory**: stock per (version, warehouse), on hand and reserved, stock movements with
   reasons (a ledger, so history exists), default warehouse per owner, low-stock thresholds.
+  **Decided 2026-10-02**: every change is a movement with a reason, who, where and the
+  resulting quantity; a typed number is recorded as "Typed a new number"; orders, returns,
+  imports and suppliers write movements too; the portal shows the history per product and per
+  version. **Reserved** is "sold, not shipped yet": units in paid orders not yet fulfilled.
 - **Tax**: tax classes; zones; rates per store, class and zone; inclusive or exclusive pricing;
   exemptions. Decide whether US sales tax uses a tax service *(ask)*.
 - **Promotions**: the OFFERS prompt's full model. Conditions with AND/OR, actions on products,
@@ -393,16 +400,32 @@ Design each module's responsibilities, tables, public API, events and invariants
   offers are re-evaluated on change; stock is reserved at a defined point *(decide)*.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
-  warehouse, cancellations and refunds (the archived plan left multi-vendor refunds
-  undesigned; design them now or scope them out explicitly).
+  warehouse, cancellations and refunds. **Returns and refunds across vendors, decided
+  2026-10-02** (ACCESS.md §7.3 has the rules): a return is per line and quantity with a
+  reason, states `requested → received → refunded` (or `cancelled`), items go back to the
+  store's default warehouse or, for a supplier that ships to the shopper, to the supplier's;
+  refunds are per line, grouped by owner, each supplier refunding its own lines and the store
+  able to override into the **supplier ledger**; restocking writes a stock movement; a shared
+  shipping charge or discount is the store's to refund. Fulfilment of a sub-order follows the
+  supplier's shipping mode (ship to the shopper, or mark as sent to the store's warehouse).
 - **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
-  credentials, encrypted at rest; webhooks idempotent; refunds. Decide whether a marketplace
-  model (Stripe Connect, Razorpay Route) is needed for vendor payouts *(ask)*.
+  credentials, encrypted at rest; webhooks idempotent; refunds. **Vendor payouts, decided
+  2026-10-02**: not in the platform for now. A per-store **supplier ledger** records what each
+  supplier owes or is owed (refund overrides first), and the merchant settles it outside. A
+  marketplace model (Stripe Connect, Razorpay Route) is a later card, if ever.
 - **Shipping**: methods, zones, the charge strategies (free, fixed, the courier's rate passed
-  through, free over a threshold), courier
-  adapters (Shiprocket first, the archived `courier_partner` model), tracking status sync.
-- **Customers**: accounts, addresses, groups, consent; what a vendor may see of a customer
-  (name and address to ship, not email or phone, AUTH-PLAN §8.5) applied in the serializer.
+  through, free over a threshold), courier adapters (Shiprocket first, the archived
+  `courier_partner` model), tracking status sync. **Designed 2026-10-02** (`SetOps`,
+  `PortalOrders`): booking a label through the courier or entering tracking by hand, pickup
+  schedule (every working day or on request), label size, tracking emails on or off,
+  collection hours for pickup in person, a postcode list for where the store delivers, and
+  per-supplier shipping mode (ACCESS.md §5.2).
+- **Customers**: accounts, addresses, **groups** (named, with members; used by offers),
+  **tags**, a **note** only the team sees, **marketing consent** (opted in at checkout or by
+  email, asked to stop, never asked; recorded with when and where; only the shopper opts in,
+  the store may record a stop), customers added by hand (order emails only), export. What a
+  vendor sees of a customer is decided by the supplier's shipping mode and applied in the
+  serializer (ACCESS.md §7.3): nothing, or name and delivery address.
 - **Search**: Postgres full-text first, Typesense later if needed, behind one interface;
   vendor-scoped in the portal, visibility-scoped in the storefront.
 - **Import/export**: CSV and Shopify, validate before any write, partial-failure reports,
@@ -696,9 +719,11 @@ State what the smallest sellable first release is, and what is explicitly deferr
 **Commerce scope for the first release**
 - Which regions at launch (India, US, EU, UK, Gulf…)? Which payment providers and couriers?
 - US sales tax: own rates or a tax service (Stripe Tax, Avalara, TaxJar)?
-- Vendor payouts: does DripFunnel or the merchant pay vendors (Stripe Connect, Razorpay
-  Route), or is it outside the platform?
-- Refunds, returns and cancellations across vendors: first release or later?
+- ~~Vendor payouts: does DripFunnel or the merchant pay vendors (Stripe Connect, Razorpay
+  Route), or is it outside the platform?~~ **Settled 2026-10-02**: outside, from a per-store
+  supplier ledger (§5.4 Payments); in-platform payouts later.
+- ~~Refunds, returns and cancellations across vendors: first release or later?~~ **Designed
+  2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's.
 - Digital products, services, gift cards: first release or later?
 - Which "needs backend" items from the catalogue and offers prompts are first release?
 - When is stock reserved: added to cart, checkout started, or payment?
@@ -714,8 +739,11 @@ State what the smallest sellable first release is, and what is explicitly deferr
   See SAAS.md §6, §9.)
 
 **Carried from the first platform, still open**
-- Does editing an approved vendor product send it back for approval?
-- What happens to a removed or suspended vendor's products?
-- 2-factor for Owners only, or everyone?
+- ~~Does editing an approved vendor product send it back for approval?~~ **Settled 2026-10-02**:
+  only for name, price or photo changes, hidden until approved (ACCESS.md §7.2).
+- ~~What happens to a removed or suspended vendor's products?~~ **Settled 2026-10-02**: hidden
+  (ACCESS.md §7.5).
+- ~~2-factor for Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
+  optional for everyone else (ACCESS.md §2).
 - What happens to a past-due store's vendors? (Past due never blocks sign-in: §2 item 7.)
 - Retention and export on cancellation (SAAS-PLAN §15).

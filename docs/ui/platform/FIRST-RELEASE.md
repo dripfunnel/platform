@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-02.
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -256,7 +256,7 @@ buttons: **Export accounts (CSV)** ("Orders, customers and products are never in
 "For a merchant you've signed yourself. Merchants can also sign up at {host}/signup." Fields:
 store name, owner's name, owner's email, country (the partner's countries), plan (Live plans
 with their monthly price in the country's currency), trial (No trial · 7 · 14 · 30 days); a
-price line ("$49.00 / month, charged by DripFunnel for Northstar, after a 14-day trial.");
+price line ("$49.00 / month, charged by DripFunnel for Northstar, after a 14-day trial." — the trial length is the plan's, SAAS.md §6.1);
 "The owner gets an invitation to set their own password." Then **Setting up {store}** with the
 five provisioning steps from SAAS §5 (Account · Store · Portal ready · Storefront building ·
 Done), "This takes under two minutes. You can leave this page.", and when done "Ready in 1 min

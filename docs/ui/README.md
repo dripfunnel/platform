@@ -7,7 +7,7 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-02.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
@@ -82,7 +82,9 @@ apps/ui/<app>/
   it against the session's memberships (docs/api/ACCESS.md §4); the app may remember the
   last store as a convenience only.
 - Never display a secret, a full card number, a password or a token, even if an API
-  returned one by mistake.
+  returned one by mistake. The one exception (decided 2026-10-02): **2-factor set-up shows
+  the authenticator secret and the ten backup codes once, at creation**, and nothing ever
+  shows them again (docs/api/ACCESS.md §4).
 
 ---
 
@@ -104,10 +106,12 @@ apps/ui/<app>/
   - Each `index.html` carries a **small inline script** that sets the attribute before the
     first paint. It is deliberately duplicated rather than imported, because a module runs
     after the first paint and the page would flash the wrong theme.
-  - **Only the admin console lets anyone choose**, and it stores the choice as
-    `df-admin-theme`, the key the prototype uses (design.md §10). `shared/ui/theme.ts` holds
-    the resolution the app uses after load. `store` and `platform` have no control, so their
-    script follows the OS and reads no key; give them one when they get a control.
+  - **Each app stores its own choice** under the key its prototype uses: `df-admin-theme`,
+    `df-platform-theme` and, since the Store prototype's dark mode of 2026-10-02,
+    `df-store-theme` (My profile › Appearance, `PortalProfile`). `shared/ui/theme.ts` holds
+    the resolution the app uses after load. In the merchant portal the choice is the
+    person's, saved on their account too (DATA-MODEL.md §3.3 `user.theme`), and never
+    changes the shop.
 - **Fonts**: Inter for text, Manrope for headings, IBM Plex Mono for the side bar's group
   headings. **Self-hosted**, through `@fontsource` packages imported once by
   `@dripfunnel/shared/ui/fonts.css` (revised 2026-09-29; they were loaded from Google Fonts

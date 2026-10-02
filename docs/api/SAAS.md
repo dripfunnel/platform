@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-02.
 
 ---
 
@@ -259,7 +259,12 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 
 - **Plans are per partner.** Each has a name, description, monthly and yearly price per
   currency, trial length, and entitlements (CONSOLE-DESIGN G1). The house partner's plans are
-  DripFunnel's retail plans. Plan names and contents are open (§14).
+  DripFunnel's retail plans. Plan names and contents are open (§14). **Decided 2026-10-02**: the
+  house partner's plans carry a **10-day trial** (`designs/DF Store Pricing.dc.html`), trial
+  length staying a per-plan value; and DripFunnel's own prices to a merchant are quoted and
+  invoiced **in the store's currency when it is USD, EUR or INR, and in USD for any other
+  currency**. Rejected: a nearest-regional-currency mapping (one more table to explain) and
+  restricting sign-up to the three currencies.
 - **Three entitlement kinds**: **on/off** (custom domain, offers, vendors, "Powered by"
   removal, A+ content, size charts); **limit** (products, staff seats, vendors, languages,
   currencies); **meter**, counted per billing period (**"Publish now" presses**, AI prompts,
@@ -336,6 +341,15 @@ partner's billing, or both) is open (§14).
   status on sessions, and writes outbox events for emails and storefront rules, in one
   transaction.
 - **Trials** end at `trial_ends_at`, with a "trial ending" email from the partner's templates.
+- **A paid-to-paid plan change is prorated** (decided 2026-10-02, `PortalBilling`): the
+  merchant is charged today for the days left in the period on the new plan minus the unused
+  part of the old one, then the new price from the next period; the screen states both amounts
+  and the date before confirming.
+- **The merchant's billing details** on DripFunnel's invoices (decided 2026-10-02): legal name,
+  address, email and an optional tax number (GSTIN for India, VAT number for the EU), editable
+  by the Owner. Where the number is valid, the invoice applies the local rule (reverse charge
+  in the EU; input tax credit on the GST invoice in India). New invoices follow new details;
+  issued ones are never rewritten.
 - **Finance actions** (H3): change plan, extend trial, apply credit, refund, retry a failed
   payment, mark an invoice paid, cancel at period end or now. Each states the money effect
   before confirming and is audited. Money is integer minor units with a currency.
@@ -376,6 +390,12 @@ failed; a live hostname can become expiring or broken if its records change.
    issuing) arrive with the Cloudflare for SaaS integration (THIRD-PARTY-ACCESS §2.1).
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
+   **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check
+   it* → *Security certificate* → *Live*, with the states `dns`, `verifying`, `cert`, `live`
+   and `failed` (record not found, with what was looked for and when). After "Check now" the
+   platform **re-checks every 15 minutes for 3 days** and emails the merchant when the domain
+   is live; the merchant can leave the page. Removing the domain sends shoppers back to the
+   `{shop}.shops.<partnerdomain>` address.
 5. The hostname and its state live in `custom_domain` (merchant) or `partner_domain`
    (partner), never on the store row.
 
