@@ -119,9 +119,17 @@ export const failingCheck = (onboarding: Onboarding): GoLiveCheck | null => {
   return null
 }
 
-// Items a partner must finish before Submit turns on: everything but the two partner-only ones.
-export const itemsLeft = (onboarding: Onboarding): number =>
-  onboarding.items.filter((x) => !partnerOnlyItems.includes(x.key) && x.status !== 'done').length
+// How many go-live checks still fail: what Submit waits for (FIRST-RELEASE §4 "until they pass").
+export const checksLeft = (onboarding: Onboarding): number => {
+  const status = (key: ChecklistItemKey) => onboarding.items.find((x) => x.key === key)?.status
+  return [
+    status('portalHost') !== 'done',
+    status('emailSender') !== 'done' && !onboarding.fallbackSenderAccepted,
+    status('plan') !== 'done',
+    status('legal') !== 'done',
+    status('testSignup') !== 'done',
+  ].filter(Boolean).length
+}
 
 const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 400))
 const submitters: readonly PartnerRole[] = ['partner-owner', 'partner-admin']

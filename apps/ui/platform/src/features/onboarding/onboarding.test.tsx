@@ -29,10 +29,15 @@ describe('the setup checklist', () => {
     expect(text).toContain('2 of 11 done')
   })
 
-  it('disables Submit while items are left, saying how many, and keeps payout items out of the count', async () => {
+  it('disables Submit while go-live checks fail, counting the checks, never payout items or non-check items', async () => {
     const html = await render(<Onboarding me={me()} onboarding={onboardingFor('draft', 'partner')} staffSetup={false} welcome={false} />)
     expect(html).toMatch(/<button[^>]*class="df-button df-button--primary"[^>]*disabled=""/)
-    expect(textOf(html)).toContain('Finish the 6 items above first. Payment method and payout details can come later.')
+    expect(textOf(html)).toContain('Finish the 4 items above first. Payment method and payout details can come later.')
+    const ready = { ...onboardingFor('awaiting', 'partner'), state: 'draft' as const }
+    const wildcardsPending = { ...ready, items: ready.items.map((x) => (x.key === 'wildcards' ? { ...x, status: 'progress' as const } : x)) }
+    const enabled = await render(<Onboarding me={me()} onboarding={wildcardsPending} staffSetup={false} welcome={false} />)
+    expect(enabled).not.toMatch(/<button[^>]*class="df-button df-button--primary"[^>]*disabled=""/)
+    expect(textOf(enabled)).not.toContain('Finish the')
   })
 
   it.each(['partner-support', 'partner-read-only', 'partner-finance'] as const)('shows %s the checklist but a disabled Submit with the reason', async (role) => {

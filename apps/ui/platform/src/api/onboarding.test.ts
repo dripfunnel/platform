@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { partnerRoles } from '../features/shell/partnerRoles'
-import { failingCheck, itemsLeft, onboardingFor, partnerOnlyItems, runTestSignup, submitForApproval } from './onboarding'
+import { checksLeft, failingCheck, onboardingFor, partnerOnlyItems, runTestSignup, submitForApproval } from './onboarding'
 
 const settled = async <T,>(promise: Promise<T>): Promise<T> => {
   await vi.advanceTimersByTimeAsync(400)
@@ -28,7 +28,18 @@ describe('submitting for approval', () => {
     const ready = { ...onboardingFor('awaiting', 'partner'), state: 'draft' as const }
     expect(ready.items.filter((x) => partnerOnlyItems.includes(x.key)).every((x) => x.status === 'missing')).toBe(true)
     expect(failingCheck(ready)).toBeNull()
-    expect(itemsLeft(ready)).toBe(0)
+    expect(checksLeft(ready)).toBe(0)
+  })
+
+  it('waits only for the go-live checks, not for every item (FIRST-RELEASE §4 "until they pass")', async () => {
+    const ready = { ...onboardingFor('awaiting', 'partner'), state: 'draft' as const }
+    const wildcardsPending = { ...ready, items: ready.items.map((x) => (x.key === 'wildcards' ? { ...x, status: 'progress' as const, detail: '*.preview.kaufladen.de: waiting for DNS' } : x)) }
+    expect(checksLeft(wildcardsPending)).toBe(0)
+    expect((await settled(submitForApproval('partner-owner', wildcardsPending))).ok).toBe(true)
+    const senderPending = { ...ready, fallbackSenderAccepted: true, items: ready.items.map((x) => (x.key === 'emailSender' ? { ...x, status: 'progress' as const } : x)) }
+    expect(checksLeft(senderPending)).toBe(0)
+    expect(checksLeft({ ...senderPending, fallbackSenderAccepted: false })).toBe(1)
+    expect(checksLeft(onboardingFor('draft', 'partner'))).toBe(4)
   })
 
   it('succeeds for an Owner once every check passes, and refuses a second submit', async () => {
