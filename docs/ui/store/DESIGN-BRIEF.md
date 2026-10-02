@@ -382,8 +382,10 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     lines; a top-tier vendor refunds its own lines, up to their value (decided 2026-10-02,
     ACCESS.md §7.3). A refund or return can touch several vendors' lines and a shared
     shipping charge or discount; show exactly which lines, amounts and stock return, group
-    lines by who refunds them, and warn before the store overrides a supplier ("the amount
-    comes off their next payout", meaning the supplier ledger).
+    lines by who refunds them, and warn before the store overrides a supplier: the amount is
+    recorded on the supplier ledger for the merchant and supplier to settle outside
+    DripFunnel, and the supplier is told. (The prototype's "comes off their next payout" is
+    the wording #183 replaces; nothing pays out.)
 72. **Customer groups**: merchant only. Groups used by offers and pricing (OFFERS-DESIGN §3
     fact 12); the thing most missed is showing where a group is used before it is edited or
     deleted. A vendor never sees groups.
