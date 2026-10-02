@@ -56,7 +56,11 @@ describe('migrations run as the owner of the schema', () => {
 
   it('refuses tables with more than one owner by name, before anything runs', async () => {
     await db.sql`alter table owner_probe owner to current_user`
-    await expect(migrate(db.url, migrationWith('9002_never.sql', 'create table never_made (id int);'))).rejects.toThrow(/owned by df_owner_test, \w+; migrations need one owner/)
+    const error = await migrate(db.url, migrationWith('9002_never.sql', 'create table never_made (id int);')).catch((e: unknown) => e as Error)
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toMatch(/owned by df_owner_test \(.*partner.*\); \w+ \(owner_probe\); migrations need one owner/)
+    expect((error as Error).message).toContain('alter table "partner" owner to')
+    expect((error as Error).message).not.toContain('alter table "owner_probe" owner to')
     expect(await db.sql`select 1 from pg_tables where tablename = 'never_made'`).toHaveLength(0)
     await db.sql`alter table owner_probe owner to ${db.sql(owner)}`
   })
