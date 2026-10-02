@@ -342,11 +342,12 @@ export interface SetupSessionRow {
   ended_by_staff_id: string | null
 }
 
-const setupSessionColumns = (tx: ScopedSql) => tx`
+const setupSessionFields = (tx: ScopedSql) => tx`
   select ss.id, ss.staff_user_id, st.name as staff_name, st.role_key as staff_role, ss.partner_id, ss.reason, ss.ticket,
          ss.started_at, ss.expires_at, ss.ended_at, ss.ended_by_staff_id
-  from partner_setup_session ss join staff_user st on st.id = ss.staff_user_id
 `
+const setupSessionFrom = (tx: ScopedSql) => tx`from partner_setup_session ss join staff_user st on st.id = ss.staff_user_id`
+const setupSessionColumns = (tx: ScopedSql) => tx`${setupSessionFields(tx)} ${setupSessionFrom(tx)}`
 
 
 export const selectSetupSession = async (tx: ScopedSql, id: string): Promise<SetupSessionRow | null> =>
@@ -391,14 +392,24 @@ export const selectPartnerDomainsFor = (tx: ScopedSql, ids: readonly string[]): 
 export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerSetupItemRow[]> =>
   tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[])`
 
+// Capped per partner, not per batch: a page of partners must never lose one partner's rows
+// to another's.
 export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(PlanRow & { store_count: number })[]> =>
   tx<(PlanRow & { store_count: number })[]>`
-    select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count
-    from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[]) order by pl.created_at limit ${maxPageSize}
+    select * from (
+      select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count,
+        row_number() over (partition by pl.partner_id order by pl.created_at) as rn
+      from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[])
+    ) ranked where rn <= ${maxPageSize} order by created_at
   `
 
 export const selectSetupSessionsFor = (tx: ScopedSql, ids: readonly string[]): Promise<SetupSessionRow[]> =>
-  tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.partner_id = any(${pgArray(ids)}::uuid[]) order by ss.started_at desc limit ${maxPageSize}`
+  tx<SetupSessionRow[]>`
+    select * from (
+      ${setupSessionFields(tx)}, row_number() over (partition by ss.partner_id order by ss.started_at desc) as rn
+      ${setupSessionFrom(tx)} where ss.partner_id = any(${pgArray(ids)}::uuid[])
+    ) ranked where rn <= ${maxPageSize} order by started_at desc
+  `
 
 /** Who approved each partner's current submission. */
 export const selectCurrentApproversFor = (tx: ScopedSql, ids: readonly string[]): Promise<{ partner_id: string; staff_user_id: string }[]> =>

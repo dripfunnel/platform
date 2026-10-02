@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import type { PartnerRow, StoreRow } from '#db/schema/saas'
-import { withScope } from '#db/scoped/index'
-import { insertPartner, insertPartnerUser, insertPlan, selectPartner, selectPartners, selectPlans, upsertPartnerDomain, upsertSetupItem } from '#db/scoped/partners'
+import { pgArray, withScope } from '#db/scoped/index'
+import { insertPartner, insertPartnerUser, insertPlan, selectPartner, selectPartners, selectPlans, selectPlansFor, upsertPartnerDomain, upsertSetupItem } from '#db/scoped/partners'
 import { insertJob, insertMembership, insertStore, insertUser, selectJobDetail, selectStore, selectStorePeople, selectStores } from '#db/scoped/stores'
 import { canTransitionPartner, transitionPartner } from '#saas/partners/states'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
@@ -230,6 +230,18 @@ describe('filters, sort and paging (§4.1, §5.1)', () => {
     })
     expect(plan).toMatch(/Index Scan using store_\w+_idx|Bitmap Index Scan on store_\w+_idx/)
     expect(plan).not.toMatch(/Seq Scan/)
+  })
+
+  it('caps a batched read per partner, so one partner cannot crowd out another', async () => {
+    const [ts, kl] = await Promise.all([idOf('partner', 'Tallis Studio'), idOf('partner', 'Kaufladen Digital')])
+    const inserted = await as(staff, (tx) => Promise.all(Array.from({ length: 101 }, (_, i) => insertPlan(tx, { partnerId: ts, name: `Draft ${i}`, status: 'draft' }))))
+    try {
+      const rows = await as(staff, (tx) => selectPlansFor(tx, [ts, kl]))
+      expect(rows.filter((r) => r.partner_id === ts)).toHaveLength(100)
+      expect(rows.filter((r) => r.partner_id === kl)).toHaveLength(3)
+    } finally {
+      await db.sql`delete from plan where id = any(${pgArray(inserted)}::uuid[])`
+    }
   })
 })
 
