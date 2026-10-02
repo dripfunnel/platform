@@ -70,8 +70,9 @@ jobs:
           cat > "${RUNNER_TEMP}/review-prompt.md" <<'PROMPT'
           Review pull request PR_NUMBER of REPOSITORY against **this repository's own rules**,
           not generic best practice. Its head commit (HEAD_SHA) is checked out in the working
-          directory; `gh pr diff PR_NUMBER` shows what it changes and `gh pr view PR_NUMBER`
-          its description.
+          directory; `gh pr diff PR_NUMBER` shows what it changes and
+          `gh pr view PR_NUMBER --json title,body --jq '.title, .body'` its description (ask for
+          those two fields only: the job's token cannot read check statuses).
 
           Read first, before reviewing:
           - AGENTS.md — the rules for all work here
