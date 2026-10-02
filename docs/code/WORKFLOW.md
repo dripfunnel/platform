@@ -186,8 +186,8 @@ AGENTS.md and this section's checklist, then comments inline and once at the top
 - **Claude asked for a change.** It records a verdict of `changes` whenever it posts a
   finding, on the same bar it uses to decide whether to post one at all: would it ask the
   author to change this?
-- **The review didn't finish** — a missing or expired token, the Claude GitHub App removed,
-  an API error, or no verdict written. It fails closed, because a review that didn't happen
+- **The review didn't finish** — a missing or expired token, an API error, or no verdict
+  written. It fails closed, because a review that didn't happen
   is not a review that passed.
 
 **When it goes red, treat it exactly as a reviewer's comment** (the loop at the end of this
@@ -195,18 +195,20 @@ section): fix each point, or reply saying why not, and push. The push re-runs th
 **Re-running the job without changing anything is not the way past it** — that is the habit
 §1 accepted the risk of, and the one thing that would make this check worthless.
 
-It still doesn't replace the reviewer above; a human approves. It needs **both** the
-[Claude GitHub App](https://github.com/apps/claude) installed on the repository and the
-repository secret `CLAUDE_CODE_OAUTH_TOKEN` — without the app the job cannot get a token to
-comment with, and fails with "Claude Code is not installed on this repository". It is
-skipped on pull requests from forks, where secrets are not available.
+It still doesn't replace the reviewer above; a human approves. It needs the repository
+secret `CLAUDE_CODE_OAUTH_TOKEN` (THIRD-PARTY-ACCESS.md §2.6) and nothing else: the job runs
+the Claude Code CLI itself and posts its comments through `gh` with the workflow's own token,
+so they appear from `github-actions`. The review reads text an author controls (the
+description, the diff, the files), so it may write only through two helpers that refuse a
+token-shaped body, and it cannot read the places a token lives. It is skipped only on pull
+requests from forks, where secrets are not available.
 
-**Stacked pull requests are skipped, not reviewed** (decided 2026-10-02, #167). The action
-refuses a pull request whose **base** branch starts with `#`
-([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751));
-the head branch is fine. So a pull request stacked on another card's branch shows the review
-as skipped, and the review runs by itself once the base is `dev` — GitHub retargets it when
-the parent merges and its branch is deleted. Skipped is visible as skipped; it is never a pass.
+**Every pull request is reviewed, stacked ones included** (decided 2026-10-02, #167,
+reversing the same day's decision to skip them). `anthropics/claude-code-action` validates a
+pull request's **base** branch and refuses one starting with `#`
+([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751)),
+with no input or event that avoids the check, so the workflow does not use the action. Branch
+names are checked by `naming.yml` alone; the review has no opinion on them.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
