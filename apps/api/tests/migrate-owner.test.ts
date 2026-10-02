@@ -36,6 +36,12 @@ afterAll(async () => {
 })
 
 describe('migrations run as the owner of the schema', () => {
+  it('a role that owns every table applies a migration as itself, with no role switch', async () => {
+    await migrate(db.url, migrationWith('9000_owned_probe.sql', 'create table owned_probe (id int primary key);'))
+    const [probe] = await db.sql<{ tableowner: string; me: string }[]>`select tableowner, current_user as me from pg_tables where tablename = 'owned_probe'`
+    expect(probe?.tableowner).toBe(probe?.me)
+  })
+
   it('a member of the owner applies a migration as the owner, so the new table is the owner’s too', async () => {
     const tables = await db.sql<{ tablename: string }[]>`select tablename from pg_tables where schemaname = current_schema()`
     for (const { tablename } of tables) await db.sql`alter table ${db.sql(tablename)} owner to ${db.sql(owner)}`
@@ -63,5 +69,12 @@ describe('migrations run as the owner of the schema', () => {
       `Connected as ${outsider}, but the tables are owned by ${owner}, so no migration can run. Either grant the membership (grant "${owner}" to "${outsider}") or connect as ${owner}.`,
     )
     expect(await db.sql`select 1 from pg_tables where tablename = 'never_made'`).toHaveLength(0)
+  })
+
+  it('checks the owner even when nothing is pending, so a wrong role is reported on every run', async () => {
+    const url = new URL(db.url)
+    url.username = outsider
+    url.password = outsiderPassword
+    await expect(migrate(url.toString(), mkdtempSync(path.join(tmpdir(), 'df-migrate-empty-')))).rejects.toThrow(/Connected as df_outsider_test, but the tables are owned by df_owner_test/)
   })
 })
