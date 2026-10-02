@@ -6,7 +6,9 @@ name: claude-review
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    # `edited` covers a base-branch change, so a stacked pull request is reviewed once it is
+    # retargeted to dev (the `if` below); other edits are ignored.
+    types: [opened, synchronize, edited]
 
 permissions:
   contents: read
@@ -21,7 +23,12 @@ jobs:
   review:
     # Secrets are not available to pull requests from forks, so the job would fail
     # rather than review. Everyone works on branches in this repo (WORKFLOW.md §2).
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # The action refuses a base branch starting with `#` (WORKFLOW.md §7), so a stacked pull
+    # request is skipped until it targets dev.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.event.pull_request.base.ref, '#') &&
+      (github.event.action != 'edited' || github.event.changes.base)
     runs-on: ubuntu-latest
     env:
       VERDICT: ${{ github.workspace }}/.claude-review-verdict
