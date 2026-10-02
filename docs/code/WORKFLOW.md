@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-02.
 
 ---
 
@@ -200,6 +200,13 @@ It still doesn't replace the reviewer above; a human approves. It needs **both**
 repository secret `CLAUDE_CODE_OAUTH_TOKEN` — without the app the job cannot get a token to
 comment with, and fails with "Claude Code is not installed on this repository". It is
 skipped on pull requests from forks, where secrets are not available.
+
+**Stacked pull requests are skipped, not reviewed** (decided 2026-10-02, #167). The action
+refuses a pull request whose **base** branch starts with `#`
+([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751));
+the head branch is fine. So a pull request stacked on another card's branch shows the review
+as skipped, and the review runs by itself once the base is `dev` — GitHub retargets it when
+the parent merges and its branch is deleted. Skipped is visible as skipped; it is never a pass.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
