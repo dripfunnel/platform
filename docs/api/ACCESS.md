@@ -222,8 +222,10 @@ The scoped layer filters rows; it can't know everything. These need explicit tes
 - **Cross-row writes**: fulfilment of a sub-order from a named warehouse, where the warehouse,
   the sub-order and the lines must all belong to the caller's `seller_id`; and, since
   2026-10-02, a supplier's **refund** (every line refunded, and the amount's ceiling, must be
-  its own) and the lines of a **return** it marks or refunds, whose destination warehouse must
-  match the line owner's shipping mode (§7.3).
+  its own), including a refund of its own lines in a **return**. A supplier never starts,
+  marks or cancels a return, so a return's state is never a supplier write (§7.3); the
+  return line's destination warehouse is set by the store from the line owner's shipping
+  mode.
 - **Cross-store lookups** the engine does on purpose: finding an existing account by email on
   the invitation join path (§6.2), and the membership set at sign-in. Neither may return data
   about another store to the caller.
