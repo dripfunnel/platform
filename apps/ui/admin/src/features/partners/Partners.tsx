@@ -2,8 +2,8 @@
 // API's page of partners, and is empty when the platform has none: a new platform's first view.
 import { Link } from '@tanstack/react-router'
 import type { PartnerFilter, PartnerPage } from '../../api/partners'
-import { fill, formatCount, messages, plural } from '../../messages'
-import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice } from '@dripfunnel/shared/ui'
+import { messages } from '../../messages'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, type ErrorDetails } from '@dripfunnel/shared/ui'
 import { Pager } from '../common/Pager'
 import type { PartnersState } from './partnerHarness'
 import { isFiltered } from './isFiltered'
@@ -31,10 +31,10 @@ export const PartnersLoading = () => (
   </div>
 )
 
-export const PartnersError = ({ onRetry }: { onRetry: () => void }) => (
+export const PartnersError = ({ onRetry, details }: { onRetry: () => void; details?: ErrorDetails }) => (
   <div className="df-page df-list">
     <PartnersHeader />
-    <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry }} />
+    <ErrorState title={words.error.title} body={words.error.body} {...(details ? { details } : {})} retry={{ label: words.error.retry, onRetry }} />
   </div>
 )
 
@@ -43,7 +43,7 @@ export const Partners = ({ page, filter, forced, readOnly, onFilterChange, onRel
   if (forced === 'loading') return <PartnersLoading />
   if (forced === 'error') return <PartnersError onRetry={onReload} />
 
-  if (forced === 'empty' || (page.total === 0 && !isFiltered(filter))) {
+  if (forced === 'empty' || (page.items.length === 0 && !isFiltered(filter) && !page.pageInfo.hasPreviousPage)) {
     return (
       <div className="df-page df-list">
         <PartnersHeader />
@@ -58,9 +58,7 @@ export const Partners = ({ page, filter, forced, readOnly, onFilterChange, onRel
       <PartnersHeader create={page.create} />
       <div className="df-list-toolbar">
         <PartnerFilters filter={filter} onChange={onFilterChange} />
-        <p className="df-muted" role="status">
-          {fill(plural(words.count, page.total), { count: formatCount(page.total) })}
-        </p>
+        <p className="df-muted">{words.newestFirst}</p>
       </div>
       {page.items.length === 0 ? (
         <EmptyState

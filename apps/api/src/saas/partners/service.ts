@@ -5,7 +5,6 @@ import type { AccessTarget } from '#auth/assignment'
 import { partnerScopedRoles, roleHas, type StaffPermission } from '#auth/permissions'
 import { hashSessionId, newSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
-import { decodeCursor, encodeCursor } from '#core/cursor'
 import { parseHostname } from '#core/hostname'
 import type { StaffContext } from '#core/tenancy'
 import type { DomainKind, HostStatus, PartnerDomainRow, PartnerRow, PartnerSetupItemRow, PartnerState, PlanRow } from '#db/schema/saas'
@@ -43,6 +42,7 @@ import {
 } from '#db/scoped/partners'
 import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/actions'
 import { transitionPartner } from './states'
 import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
 import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
@@ -172,11 +172,7 @@ export const partnerFilter = z
 
 export type PartnerFilter = z.infer<typeof partnerFilter>
 
-export interface PageRequest {
-  after?: string | null | undefined
-  before?: string | null | undefined
-  first?: number | null | undefined
-}
+export type { PageRequest } from '#saas/staff/actions'
 
 export const createPartnerInput = z
   .object({
@@ -206,8 +202,6 @@ export interface PartnersServiceDeps {
   now: () => Date
 }
 
-const reasonText = z.string().trim().min(1).max(500)
-
 /** The code a role refusal carries, per permission, so the block and the policy agree (ACCESS.md §5.4). */
 const roleRefusals: Partial<Record<StaffPermission, RefusalCode>> = {
   'partners.create': 'PARTNER_ADMINS_ONLY',
@@ -234,32 +228,12 @@ interface PartnerFacts {
 export const createPartnersService = (deps: PartnersServiceDeps) => {
   const { sql, staff, facts, activity, now } = deps
   const context: StaffContext = { caller: { kind: 'staff', staffId: staff.id } }
-  const label = `${staff.name} <${staff.email}>`
   const scopedByAssignment = partnerScopedRoles.includes(staff.role)
+  const asStaff = staffEntry(staff, facts)
+  const { may, refusedBy } = roleGuard<RefusalCode>(staff, roleRefusals, 'STAFF_ROLE_NOT_ALLOWED')
 
-  const entry = (partner: Pick<PartnerRow, 'id' | 'name'>, action: PartnerAuditAction, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry => ({
-    category: 'write',
-    action,
-    result: 'success',
-    actorKind: 'staff',
-    actorId: staff.id,
-    actorLabel: label,
-    partnerId: partner.id,
-    target: { type: 'partner', id: partner.id, label: partner.name },
-    reason,
-    api: 'admin',
-    visibility: 'partner',
-    ...facts,
-    ...extra,
-  })
-
-  const may = (permission: StaffPermission): ActionPermission =>
-    roleHas(staff.role, permission) ? { allowed: true } : { allowed: false, reason: roleRefusals[permission] ?? 'STAFF_ROLE_NOT_ALLOWED' }
-
-  const refusedBy = (permission: StaffPermission): Refusal | null => {
-    const p = may(permission)
-    return p.allowed ? null : { ok: false, code: p.reason }
-  }
+  const entry = (partner: Pick<PartnerRow, 'id' | 'name'>, action: PartnerAuditAction, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry =>
+    asStaff({ action, reason, partnerId: partner.id, target: { type: 'partner', id: partner.id, label: partner.name }, visibility: 'partner', ...extra })
 
   const assigned = async (partnerId: string): Promise<boolean> => !scopedByAssignment || deps.isAssigned(staff.id, { partnerId })
 
@@ -353,38 +327,20 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   const list = async (filter: unknown, page: PageRequest): Promise<Result<{ page: PartnerPage }>> => {
     const parsed = partnerFilter.safeParse(filter ?? {})
     if (!parsed.success) return { ok: false, code: 'INVALID_INPUT' }
-    const after = page.after ? decodeCursor(page.after) : undefined
-    const before = page.before ? decodeCursor(page.before) : undefined
-    if (after === null || before === null) return { ok: false, code: 'INVALID_INPUT' }
-    const limit = Math.min(Math.max(page.first ?? partnerPageSize, 1), partnerPageSize)
+    const decoded = decodePage(page, partnerPageSize)
+    if (!decoded.ok) return { ok: false, code: 'INVALID_INPUT' }
     const sort = parsed.data.sort ?? 'newest'
     return withScope(sql, context, async (tx) => {
       // ACCESS.md §5.4: a list filters to a Partner manager's assignment itself.
-      const rows = await selectPartners(tx, { ...parsed.data, assignedTo: scopedByAssignment ? staff.id : undefined }, { after, before }, limit, sort)
-      const more = rows.length > limit
-      const pageRows = before ? rows.slice(more ? 1 : 0) : rows.slice(0, limit)
+      const rows = await selectPartners(tx, { ...parsed.data, assignedTo: scopedByAssignment ? staff.id : undefined }, decoded, decoded.limit, sort)
+      const { rows: pageRows, pageInfo } = pageOf(rows, decoded, (row) => ({ occurredAt: sort === 'newest' ? row.created_at : (row.submitted_at ?? row.created_at), id: row.id }))
       const factsMap = await factsFor(tx, pageRows)
       const items = pageRows.map((row) => {
         const f = factsMap.get(row.id)
         if (!f) throw new Error('facts missing for a listed partner')
         return rowOf(row, f)
       })
-      const keyOf = (row: PartnerListRow) => encodeCursor({ occurredAt: sort === 'newest' ? row.created_at : (row.submitted_at ?? row.created_at), id: row.id })
-      const first = pageRows[0]
-      const last = pageRows.at(-1)
-      return {
-        ok: true,
-        page: {
-          items,
-          pageInfo: {
-            startCursor: first ? keyOf(first) : null,
-            endCursor: last ? keyOf(last) : null,
-            hasPreviousPage: before ? more : after !== undefined,
-            hasNextPage: before ? true : more,
-          },
-          create: may('partners.create'),
-        },
-      }
+      return { ok: true, page: { items, pageInfo, create: may('partners.create') } }
     })
   }
 

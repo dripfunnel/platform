@@ -16,7 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
-import { pageLimit, type ScopedSql } from './index'
+import { pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -386,26 +386,26 @@ export const insertSetupSession = async (
 
 // The facts the list needs for a page of partners, one query per table (AGENTS.md: no N+1).
 export const selectPartnerDomainsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerDomainRow[]> =>
-  tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = any(${[...ids]}) order by kind`
+  tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = any(${pgArray(ids)}::uuid[]) order by kind`
 
 export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerSetupItemRow[]> =>
-  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${[...ids]})`
+  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[])`
 
 export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(PlanRow & { store_count: number })[]> =>
   tx<(PlanRow & { store_count: number })[]>`
     select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count
-    from plan pl where pl.partner_id = any(${[...ids]}) order by pl.created_at
+    from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[]) order by pl.created_at
   `
 
 export const selectSetupSessionsFor = (tx: ScopedSql, ids: readonly string[]): Promise<SetupSessionRow[]> =>
-  tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.partner_id = any(${[...ids]}) order by ss.started_at desc`
+  tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.partner_id = any(${pgArray(ids)}::uuid[]) order by ss.started_at desc`
 
 /** Who approved each partner's current submission. */
 export const selectCurrentApproversFor = (tx: ScopedSql, ids: readonly string[]): Promise<{ partner_id: string; staff_user_id: string }[]> =>
   tx<{ partner_id: string; staff_user_id: string }[]>`
     select a.partner_id, a.staff_user_id from partner_approval a
     join partner p on p.id = a.partner_id and p.submitted_at = a.submitted_at
-    where a.partner_id = any(${[...ids]})
+    where a.partner_id = any(${pgArray(ids)}::uuid[])
   `
 
 export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string, now: Date): Promise<boolean> => {
@@ -419,3 +419,11 @@ export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string
 /** Locks the row for the rest of the transaction, so two staff cannot both approve as "the second". */
 export const selectPartnerForUpdate = async (tx: ScopedSql, id: string): Promise<PartnerRow | null> =>
   (await tx<PartnerRow[]>`select * from partner where id = ${id} for update`)[0] ?? null
+
+/** Each partner's domain, read off its shop wildcard (`*.shops.<partnerdomain>`, SAAS.md §3.5). */
+export const selectPartnerDomainsOf = async (tx: ScopedSql, partnerIds: readonly string[]): Promise<Map<string, string>> => {
+  const rows = await tx<{ partner_id: string; host: string }[]>`
+    select partner_id, host from partner_domain where kind = 'shops' and partner_id = any(${pgArray(partnerIds)}::uuid[])
+  `
+  return new Map(rows.map((r) => [r.partner_id, r.host.replace(/^\*\.shops\./, '')]))
+}

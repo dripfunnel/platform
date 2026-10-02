@@ -10,6 +10,12 @@ import '../common/records.css'
 
 const words = messages.partner
 
+const personLook = {
+  active: { tone: 'success', icon: 'ok' },
+  invited: { tone: 'info', icon: 'hour' },
+  suspended: { tone: 'neutral', icon: 'ban' },
+} as const
+
 export interface TeamTabProps {
   partner: Partner
   onAction: (action: PartnerAction) => void
@@ -18,9 +24,10 @@ export interface TeamTabProps {
 
 const invitationDetail = (partner: Partner) => {
   const { owner } = partner
-  if (owner.invitation === 'active') return fill(words.team.invitationDetail.active, { name: owner.name ?? owner.email })
+  const email = owner.email ?? ''
+  if (owner.invitation === 'active') return fill(words.team.invitationDetail.active, { name: owner.name ?? email })
   if (owner.invitation === 'sent') {
-    return fill(words.team.invitationDetail.sent, { date: owner.invitationSentAt ? formatDate(owner.invitationSentAt) : '', email: owner.email })
+    return fill(words.team.invitationDetail.sent, { date: owner.invitationSentAt ? formatDate(owner.invitationSentAt) : '', email })
   }
   return fill(words.team.invitationDetail.held, { org: partner.name })
 }
@@ -42,9 +49,9 @@ export const TeamTab = ({ partner, onAction, onImpersonate }: TeamTabProps) => {
         <div className="df-invitation">
           <div className="df-stack">
             <span>{partner.owner.name ?? messages.partners.notJoined}</span>
-            <span className="df-muted">{partner.owner.email}</span>
+            <span className="df-muted">{partner.owner.email ?? words.team.noOwner}</span>
           </div>
-          <InvitationPill status={partner.owner.invitation} />
+          {partner.owner.invitation && <InvitationPill status={partner.owner.invitation} />}
         </div>
         <p>{invitationDetail(partner)}</p>
         {inviteAction && invitePermission && (
@@ -74,11 +81,7 @@ export const TeamTab = ({ partner, onAction, onImpersonate }: TeamTabProps) => {
                     {person.lastSignInAt ? fill(words.team.lastSignIn, { time: formatTime(person.lastSignInAt) }) : words.team.neverSignedIn}
                   </span>
                 </div>
-                <StatusPill
-                  tone={person.status === 'active' ? 'success' : 'info'}
-                  icon={person.status === 'active' ? 'ok' : 'hour'}
-                  label={words.team.statuses[person.status]}
-                />
+                <StatusPill {...personLook[person.status]} label={words.team.statuses[person.status]} />
                 <ImpersonateControl permission={partner.impersonate[person.id]} person={person} onRun={() => onImpersonate(person.id)} />
               </li>
             ))}

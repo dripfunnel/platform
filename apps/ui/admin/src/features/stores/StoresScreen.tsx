@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { StoreFilter } from '../../api/stores'
 import { useScreenState, Toast } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
+import { RouteError } from '../common/RouteError'
 import { storesStates } from './storeHarness'
 import { Stores, StoresError } from './Stores'
 
@@ -51,8 +52,8 @@ export const StoresScreen = () => {
   )
 }
 
-// The route's error view: it never shows the thrown error, whose message can carry internals.
-export const StoresRouteError = () => {
+// The route's error view, by the error's code; never its message, which can carry internals.
+export const StoresRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <StoresError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <StoresError onRetry={() => void router.invalidate()} details={details} />} />
 }

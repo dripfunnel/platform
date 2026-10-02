@@ -19,9 +19,17 @@
       "shortcutOtherSpoken": "Control K",
       "inputLabel": "Search partners and stores",
       "placeholder": "Name, domain, code or owner email",
-      "notConnected": "Search isn't connected yet. It arrives with the Admin API.",
       "close": "Close search",
-      "escapeHint": "Esc"
+      "escapeHint": "Esc",
+      "hint": "Type at least two characters to search.",
+      "searching": "Searching…",
+      "partners": "Partners",
+      "stores": "Stores",
+      "noMatch": "Nothing matches “{query}”. Try a name, a domain, a store code or an owner’s email.",
+      "error": "Search didn’t answer. Try again.",
+      "retry": "Try again",
+      "partnerLine": "{state} · {host}",
+      "storeLine": "{code} · {partner}"
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
@@ -57,7 +65,8 @@
       "provisioningAttention": "{count} failed or stuck",
       "openSessions": "{count} open now"
     },
-    "placeholder": "This screen isn't built yet."
+    "placeholder": "This screen isn't built yet.",
+    "signedOut": "Your session ended. Sign in again."
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -142,15 +151,7 @@
       "suspendedBadge": "Suspended",
       "setupFailedBadge": "Failed",
       "setupStuckBadge": "Stuck: running too long",
-      "setupDetail": "Setup at “{step}”, attempt {attempt}",
-      "steps": {
-        "account": "Account",
-        "store": "Store",
-        "defaults": "Defaults",
-        "hostnames": "Hostnames",
-        "repo": "Repo",
-        "firstBuild": "First build"
-      }
+      "setupDetail": "Setup at “{step}”, attempt {attempt}"
     },
     "signups": {
       "title": "Signups",
@@ -188,6 +189,26 @@
     "pager": {
       "previous": "Previous",
       "next": "Next"
+    },
+    "failures": {
+      "FORBIDDEN": "Your role can’t do that. Nothing was changed.",
+      "UNAUTHENTICATED": "Your session ended. Sign in again; nothing was changed.",
+      "NOT_FOUND": "That record is gone. Nothing was changed.",
+      "REASON_REQUIRED": "A reason is required. Nothing was changed.",
+      "INVALID_STATE": "It changed since you opened it. Reload and look again; nothing was changed.",
+      "INVALID_INPUT": "That value isn’t accepted. Nothing was changed.",
+      "INVALID_HOSTNAME": "That hostname can’t be checked. Nothing was changed.",
+      "GO_LIVE_CHECKS_FAILING": "A go-live check is failing, so it can’t be approved yet.",
+      "SET_UP_BY_CALLER": "You set this partner up, so someone else must approve it.",
+      "ALREADY_APPROVED_BY_CALLER": "You have already approved this partner; a second approver is needed.",
+      "HOUSE_PARTNER": "The house partner can’t be paused.",
+      "INVITATION_HELD": "The invitation hasn’t been sent yet, so it can’t be resent.",
+      "INVITATION_NOT_HELD": "The invitation has already been sent.",
+      "INVITATION_ACCEPTED": "The owner has already accepted the invitation.",
+      "PARTNER_CLOSED": "This partner is closed. Nothing was changed.",
+      "NOT_ON_TRIAL": "This store isn’t on a trial, so it has nothing to extend.",
+      "NO_PENDING_INVITATION": "There’s no open owner invitation to resend.",
+      "BAD_RESPONSE": "The admin service answered in a shape this console doesn’t understand. Nothing was changed."
     }
   },
   "partners": {
@@ -208,7 +229,11 @@
       "live": "Live",
       "waiting": "Waiting for DNS",
       "failed": "Points somewhere else",
-      "notSet": "Not set"
+      "notSet": "Not set",
+      "verifying": "Verifying",
+      "issuing": "Issuing certificate",
+      "expiring": "Certificate expiring",
+      "broken": "Was live, now broken"
     },
     "invitation": {
       "active": "Active",
@@ -241,10 +266,6 @@
       "complete": "Complete",
       "incomplete": "Not complete",
       "clear": "Clear filters"
-    },
-    "count": {
-      "one": "{count} partner · newest first",
-      "other": "{count} partners · newest first"
     },
     "pagerLabel": "Partner pages",
     "noMatch": {
@@ -284,7 +305,10 @@
         "one": "{count} go-live check failing: {checks}.",
         "other": "{count} go-live checks failing: {checks}."
       },
-      "SET_UP_BY_CALLER": "You set {name} up, so someone else must approve it."
+      "SET_UP_BY_CALLER": "You set {name} up, so someone else must approve it.",
+      "NOT_ASSIGNED": "This partner isn’t in your assignment, so you can’t {verb}.",
+      "ALREADY_APPROVED_BY_CALLER": "You have already approved {name}; a second approver is needed.",
+      "STAFF_ROLE_NOT_ALLOWED": "Your role can’t {verb}."
     },
     "checks": {
       "portalHost": "Portal host live",
@@ -292,6 +316,12 @@
       "pricedPlan": "At least one priced plan",
       "legalPages": "Legal pages set",
       "testSignup": "Test signup done"
+    },
+    "newestFirst": "Newest first",
+    "denied": {
+      "title": "This partner isn’t in your assignment",
+      "body": "Partner managers see only the partners assigned to them. Ask a Super admin if you need this one.",
+      "back": "Back to Partners"
     }
   },
   "partner": {
@@ -338,34 +368,43 @@
       "checklist": "Setup checklist",
       "history": "State history",
       "items": {
-        "companyDetails": "Company details",
-        "ownerAccepted": "Owner accepted invitation",
+        "company": "Company details",
         "branding": "Branding",
         "portalHost": "Portal host",
+        "wildcards": "Preview and shop addresses",
         "emailSender": "Email sender domain",
-        "plans": "Plans and prices",
-        "legalPages": "Legal pages",
-        "payoutDetails": "Payout details"
+        "plan": "Plans and prices",
+        "legal": "Legal pages",
+        "paymentMethod": "Payment method",
+        "payoutDetails": "Payout details",
+        "testSignup": "Test signup"
       },
       "status": {
         "done": "Done",
-        "waitingForDns": "Waiting for DNS",
-        "notStarted": "Not started",
-        "waitingOnPartner": "Waiting on {org}",
-        "invitationSent": "Invitation sent",
-        "invitationHeld": "Invitation held"
+        "progress": "In progress",
+        "missing": "Not started"
       },
       "doneBy": "Done by {name} ({org})",
       "addedBy": "Added by {name} ({org})",
-      "partnerEnters": "{org} enters this itself",
       "events": {
-        "created": "Created as a draft by {by}",
-        "submitted": "Submitted for approval",
-        "sentBack": "Sent back by {by}",
-        "approved": "Approved by {by}",
-        "paused": "Paused by {by}",
-        "resumed": "Resumed by {by}",
-        "setUp": "Set up by {by} (DripFunnel)"
+        "partner.created": "Created as a draft by {by}",
+        "partner.set_up": "Set up by {by} (DripFunnel)",
+        "partner.submitted": "Submitted for approval",
+        "partner.sent_back": "Sent back by {by}",
+        "partner.approved": "Approved by {by}",
+        "partner.approval_recorded": "First approval recorded by {by}",
+        "partner.paused": "Paused by {by}",
+        "partner.resumed": "Resumed by {by}",
+        "partner.offboarding": "Offboarding started by {by}",
+        "partner.closed": "Closed by {by}",
+        "partner.invitation_sent": "Owner invitation sent by {by}",
+        "partner.invitation_resent": "Owner invitation resent by {by}",
+        "partner.domain_recheck_requested": "Domain check requested by {by}",
+        "partner.manager_assigned": "Partner manager assigned by {by}",
+        "partner.manager_unassigned": "Partner manager unassigned by {by}",
+        "setup_session.started": "Setup session started by {by}",
+        "setup_session.ended": "Setup session ended by {by}",
+        "other": "{action} by {by}"
       },
       "eventNote": "{event}: {note}"
     },
@@ -378,7 +417,8 @@
         "on": "On",
         "off": "Off",
         "house": "Not shown (house partner)"
-      }
+      },
+      "notSet": "Not set"
     },
     "domains": {
       "note": "Read-only. The partner points these at DripFunnel from their DNS provider. Checked every 10 minutes.",
@@ -395,27 +435,35 @@
       "recheck": "Re-check now",
       "checking": "Checking…",
       "recheckLabel": "Re-check {host} now",
-      "rechecked": {
-        "live": "Checked just now: {host} is live.",
-        "waiting": "Checked just now: {host} is still waiting for DNS.",
-        "failed": "Checked just now: {host} still points somewhere else."
-      },
-      "none": "No domains yet. The partner adds them in their own console."
+      "none": "No domains yet. The partner adds them in their own console.",
+      "recheckQueued": "Checking {host}. The status updates once the check has run.",
+      "status": {
+        "live": "Live",
+        "waiting": "Waiting for DNS",
+        "failed": "Points somewhere else",
+        "notSet": "Not set",
+        "verifying": "Verifying",
+        "issuing": "Issuing certificate",
+        "expiring": "Certificate expiring",
+        "broken": "Was live, now broken"
+      }
     },
     "plans": {
       "plan": "Plan",
-      "price": "Price",
       "limits": "Limits",
       "stores": "Stores",
-      "free": "Free",
-      "notPriced": "Not priced",
-      "perMonth": "{price} / month",
       "products": "Up to {count} products",
       "unlimitedProducts": "Unlimited products",
       "staff": "{count} staff",
       "unlimitedStaff": "unlimited staff",
       "limitsNotSet": "Limits not set",
-      "none": "No plans yet."
+      "none": "No plans yet.",
+      "status": "Status",
+      "statuses": {
+        "draft": "Draft",
+        "live": "Live",
+        "retired": "Retired"
+      }
     },
     "team": {
       "invitationTitle": "Owner invitation",
@@ -436,13 +484,15 @@
       },
       "statuses": {
         "active": "Active",
-        "invited": "Invited"
+        "invited": "Invited",
+        "suspended": "Suspended"
       },
       "lastSignIn": "Last signed in {time}",
       "neverSignedIn": "Not signed in yet",
       "impersonate": "Impersonate",
       "nobody": "No one has joined yet. The owner joins when they accept the invitation.",
-      "houseTeam": "DripFunnel’s own team are staff, and staff can’t be impersonated."
+      "houseTeam": "DripFunnel’s own team are staff, and staff can’t be impersonated.",
+      "noOwner": "No owner yet"
     },
     "placeholders": {
       "stores": "This partner’s stores appear here once the Stores list is built.",
@@ -663,7 +713,8 @@
       "active": "Active",
       "pastdue": "Past due",
       "suspended": "Suspended",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "closed": "Closed"
     },
     "statusLabel": {
       "trialDays": {
@@ -680,7 +731,8 @@
       "trial": "Trial ends {date}",
       "pastdue": "Writes blocked, still selling",
       "suspended": "{reason} · by {by} · storefront shows a notice",
-      "cancelled": "Since {date}"
+      "cancelled": "Since {date}",
+      "closed": "Closed since {date}"
     },
     "storefronts": {
       "live": "AI storefront: live",
@@ -697,7 +749,6 @@
     },
     "customLive": "Custom domain · live",
     "opensInNewTab": "{host}, opens in a new tab",
-    "perMonth": "{price} / month",
     "filters": {
       "label": "Filter stores",
       "search": "Search stores",
@@ -735,7 +786,9 @@
       "SUPER_ADMIN_ONLY": "Only a Super admin can {verb}.",
       "SUSPENDERS_ONLY": "Only a Super admin or the Engineer on call can {verb}.",
       "INVITERS_ONLY": "Only a Super admin or Support can {verb}.",
-      "NOTERS_ONLY": "Only a Super admin, Partner manager, Support or the Engineer on call can {verb}."
+      "NOTERS_ONLY": "Only a Super admin, Partner manager, Support or the Engineer on call can {verb}.",
+      "STAFF_ROLE_NOT_ALLOWED": "Your role can’t {verb}.",
+      "NOT_ASSIGNED": "This store’s partner isn’t in your assignment, so you can’t {verb}."
     },
     "verbs": {
       "suspend": "suspend a store",
@@ -743,6 +796,13 @@
       "extendTrial": "extend a trial",
       "resendInvite": "resend the owner's invitation",
       "addNote": "add a note"
+    },
+    "noPlan": "No plan",
+    "noOwner": "No owner yet",
+    "denied": {
+      "title": "This store isn’t in your assignment",
+      "body": "Partner managers see only the stores of the partners assigned to them.",
+      "back": "Back to Stores"
     }
   },
   "store": {
@@ -797,29 +857,30 @@
       "country": "Country",
       "created": "Created",
       "planStatus": "Plan and status",
-      "planPrice": "{price} / month · {partner} plan",
       "inStore": "In this store",
       "counts": {
         "owners": "Owner",
         "managers": "Managers",
         "staff": "Staff",
-        "suppliers": "Suppliers",
-        "products": "Products",
-        "orders": "Orders"
+        "suppliers": "Suppliers"
       },
       "seeInside": "Staff don’t see this store’s catalogue or orders here. To see inside, impersonate one of its users from the Users tab.",
       "events": {
-        "trialStarted": "Trial started",
-        "trialStartedOn": "Trial started on {plan}",
-        "active": "Active",
-        "activeOn": "Active on {plan}",
-        "pastDue": "Past due",
-        "pastDueAfter": "Past due after {note}",
-        "suspended": "Suspended by {by}: {note}",
-        "restored": "Restored by {by}: {note}",
-        "cancelled": "Cancelled by the owner",
-        "trialExtended": "Trial extended to {date} by {by}"
-      }
+        "store.trial_started": "Trial started",
+        "store.activated": "Active",
+        "store.past_due": "Past due",
+        "store.past_due_after": "Past due after {note}",
+        "store.suspended": "Suspended by {by}: {note}",
+        "store.suspension_flagged_for_review": "Emergency suspension flagged for a Super admin’s review",
+        "store.restored": "Restored by {by}: {note}",
+        "store.cancelled": "Cancelled by the owner",
+        "store.trial_extended": "Trial extended by {by}",
+        "store.invitation_resent": "Owner invitation resent by {by}",
+        "store.note_added": "Note added by {by}",
+        "store.domain_recheck_requested": "Domain check requested by {by}",
+        "other": "{action} by {by}"
+      },
+      "planOf": "{partner} plan"
     },
     "storefront": {
       "title": "Storefront",
@@ -851,16 +912,16 @@
       "status": {
         "live": "Live",
         "waiting": "Waiting for DNS",
-        "failed": "Points somewhere else"
+        "failed": "Points somewhere else",
+        "verifying": "Verifying",
+        "issuing": "Issuing certificate",
+        "expiring": "Certificate expiring",
+        "broken": "Was live, now broken"
       },
       "recheck": "Re-check now",
       "recheckLabel": "Re-check {host} now",
       "checking": "Checking…",
-      "rechecked": {
-        "live": "Checked just now: {host} is live.",
-        "waiting": "Checked just now: {host} is still waiting for DNS.",
-        "failed": "Checked just now: {host} still points somewhere else."
-      }
+      "recheckQueued": "Checking {host}. The records update once the check has run."
     },
     "provisioning": {
       "title": "Signup steps",
@@ -877,7 +938,8 @@
       },
       "retry": "Retry",
       "undoTitle": "Failed signup",
-      "undoSub": "Removes what setup made so the owner can sign up again."
+      "undoSub": "Removes what setup made so the owner can sign up again.",
+      "noSteps": "This store was created without a signup job."
     },
     "users": {
       "intro": "Everyone in {name}.",

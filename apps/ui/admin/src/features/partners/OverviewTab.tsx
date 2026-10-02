@@ -10,21 +10,18 @@ const listWords = messages.partners
 
 const statusLook: Record<SetupRow['status'], { tone: StatusTone; icon: StatusIconName }> = {
   done: { tone: 'success', icon: 'ok' },
-  waitingForDns: { tone: 'warning', icon: 'clock' },
-  notStarted: { tone: 'neutral', icon: 'pen' },
-  waitingOnPartner: { tone: 'info', icon: 'hour' },
-  invitationSent: { tone: 'info', icon: 'hour' },
-  invitationHeld: { tone: 'neutral', icon: 'pause' },
+  progress: { tone: 'info', icon: 'hour' },
+  missing: { tone: 'neutral', icon: 'pen' },
 }
 
-const byLine = (row: SetupRow, partnerName: string) => {
-  if (row.status === 'waitingOnPartner') return fill(words.partnerEnters, { org: partnerName })
-  if (!row.by) return null
-  return fill(row.status === 'done' ? words.doneBy : words.addedBy, row.by)
-}
+const byLine = (row: SetupRow) => (row.by ? fill(row.status === 'done' ? words.doneBy : words.addedBy, row.by) : null)
 
+const isWorded = (action: string): action is keyof typeof words.events => action in words.events
+
+// The activity log's code, in the console's words; one it has no words for yet shows the code.
 const eventText = (entry: HistoryEntry) => {
-  const text = fill(words.events[entry.event], { by: entry.by ?? '' })
+  const values = { by: entry.by ?? '', action: entry.action }
+  const text = fill(isWorded(entry.action) ? words.events[entry.action] : words.events.other, values)
   return entry.note ? fill(words.eventNote, { event: text, note: entry.note }) : text
 }
 
@@ -40,11 +37,11 @@ export const OverviewTab = ({ partner }: { partner: Partner }) => {
           <dt>{words.region}</dt>
           <dd>{partner.region}</dd>
           <dt>{words.country}</dt>
-          <dd>{formatCountry(partner.country)}</dd>
+          <dd>{partner.country && formatCountry(partner.country)}</dd>
           <dt>{words.created}</dt>
           <dd>{formatDate(partner.createdAt)}</dd>
           <dt>{words.owner}</dt>
-          <dd>{partner.owner.name ? `${partner.owner.name} · ${partner.owner.email}` : partner.owner.email}</dd>
+          <dd>{[partner.owner.name, partner.owner.email].filter(Boolean).join(' · ')}</dd>
         </dl>
         <h3>{words.contacts}</h3>
         <ul className="df-plain-list">
@@ -69,14 +66,15 @@ export const OverviewTab = ({ partner }: { partner: Partner }) => {
         </div>
         <ul className="df-checklist">
           {partner.checklist.map((row) => {
-            const by = byLine(row, partner.name)
+            const by = byLine(row)
             return (
               <li key={row.item}>
                 <div>
                   <p>{words.items[row.item]}</p>
+                  {row.detail && <p className="df-muted">{row.detail}</p>}
                   {by && <p className="df-muted">{by}</p>}
                 </div>
-                <StatusPill {...statusLook[row.status]} label={fill(words.status[row.status], { org: partner.name })} />
+                <StatusPill {...statusLook[row.status]} label={words.status[row.status]} />
               </li>
             )
           })}

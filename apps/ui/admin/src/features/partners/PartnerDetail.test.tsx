@@ -86,11 +86,18 @@ describe('Partner detail', () => {
     }
   })
 
-  it('lists the setup checklist with who did each item', async () => {
+  it('lists the setup checklist with who did each item and the API line for it', async () => {
     const text = textOf(await render())
     expect(text).toContain('Done by Priya (DripFunnel)')
-    expect(text).toContain('Kaufladen Digital enters this itself')
+    expect(text).toContain('shop.kaufladen.de is live')
+    expect(text).toContain('Add the bank account DripFunnel pays you into')
+    expect(text).toContain('8 of 10')
     expect(text).toContain('Sent back by Maya Ortiz: Legal pages missing an Impressum')
+  })
+
+  it('words a history entry it has no words for by its code, never silently', async () => {
+    const odd: Partner = { ...partner('kl'), history: [{ at: '2026-09-27T00:00:00Z', action: 'partner.renamed', by: 'Arjun Menon', note: null }] }
+    expect(textOf(await render({ partner: odd }))).toContain('partner.renamed by Arjun Menon')
   })
 
   it('offers Impersonate on the Team tab as the API allows it, with the reason when refused', async () => {
@@ -112,10 +119,11 @@ describe('Partner detail', () => {
     expect(textOf(await render({ partner: partner('nl'), tab: 'team' }))).toContain(words.actions.sendInvite)
   })
 
-  it('formats plan prices as money, and says when one is not priced', async () => {
+  it('shows each plan with its status and limits, and no price until the plans card prices them', async () => {
     const text = textOf(await render({ tab: 'plans' }))
-    expect(text).toContain('€25.00 / month')
-    expect(text).toContain(words.plans.notPriced)
+    expect(text).toContain(words.plans.statuses.draft)
+    expect(text).toContain('Up to 500 products · 2 staff')
+    expect(text).not.toMatch(/[$€£₹]/)
   })
 
   it('says a partner that does not exist cannot be found', async () => {

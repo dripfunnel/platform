@@ -52,7 +52,7 @@ const partnerUsers = [
 ]
 
 const storePeople = [
-  ...sampleStores.map((store) => person(`pe-${store.id}`, store.owner.name, store.owner.email, 'person', [[`${store.name} · ${store.partner.name}`, 'Owner']])),
+  ...sampleStores.map((store) => person(`pe-${store.id}`, store.owner.name ?? '', store.owner.email ?? '', 'person', [[`${store.name} · ${store.partner.name}`, 'Owner']])),
   person('pe-hannah', 'Hannah Cole', 'hannah@northwindwool.co.uk', 'person', [['Loom & Thread · Loom & Thread', 'Vendor (Northwind Wool)']]),
 ]
 
