@@ -346,7 +346,8 @@ describe('isolation (ACCESS.md §11.1)', () => {
   })
 
   it('no request scope reads a credential column, and the raw job detail is staff alone', async () => {
-    for (const [table, column] of [['"user"', 'password_hash'], ['"user"', 'two_factor_secret_enc'], ['partner_user', 'password_hash'], ['partner_user', 'two_factor_secret_enc'], ['partner_invitation', 'token_hash'], ['invitation', 'token_hash']] as const) {
+    // `phone` is personal data no screen reads yet (DATA-MODEL §2.1), so it is granted like a credential.
+    for (const [table, column] of [['"user"', 'password_hash'], ['"user"', 'two_factor_secret_enc'], ['"user"', 'phone'], ['partner_user', 'password_hash'], ['partner_user', 'two_factor_secret_enc'], ['partner_invitation', 'token_hash'], ['invitation', 'token_hash']] as const) {
       await expect(as(staff, (tx) => tx.unsafe(`select ${column} from ${table}`))).rejects.toThrow(/permission denied/i)
       await expect(as(partner(a), (tx) => tx.unsafe(`select ${column} from ${table}`))).rejects.toThrow(/permission denied/i)
     }

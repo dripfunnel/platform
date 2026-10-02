@@ -349,8 +349,8 @@ grant select (id, partner_id, email, name, role_key, status, last_sign_in_at, cr
       update (email, name, role_key, status, last_sign_in_at) on partner_user to app_request;
 grant select (id, partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label, accepted_at, revoked_at, created_at),
       update (expires_at, sent_at, accepted_at, revoked_at) on partner_invitation to app_request;
-grant select (id, partner_id, email, email_verified_at, name, phone, status, last_sign_in_at, created_at),
-      update (email, email_verified_at, name, phone, status, last_sign_in_at) on "user" to app_request;
+grant select (id, partner_id, email, email_verified_at, name, status, last_sign_in_at, created_at),
+      update (email, email_verified_at, name, status, last_sign_in_at) on "user" to app_request;
 grant select (id, store_id, seller_id, email, role_key, expires_at, invited_by_user_id, invited_by_label, accepted_at, revoked_at, created_at),
       update (expires_at, accepted_at, revoked_at) on invitation to app_request;
 

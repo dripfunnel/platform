@@ -81,7 +81,8 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   §7). Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
 - **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc` and
   the `token_hash` of both invitation tables are readable by `app_system` (sign-in, acceptance)
-  and never by `app_request`, whatever the row policy admits (§5.3).
+  and never by `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted the same way until a card
+  reads it: no screen shows a merchant user's phone, so no request scope may select it.
 - **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
   the partner or store as target, visibility `partner`. No history table.
 - **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which

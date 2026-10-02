@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { assertLocalHost } from './host-guard'
+import { assertLocalHost, assertLoopbackOnly } from './host-guard'
 
 afterEach(() => {
   vi.unstubAllEnvs()
@@ -108,5 +108,28 @@ describe('assertLocalHost', () => {
     expect(() =>
       assertLocalHost('postgres://u:p@ep-cool-branch-123.us-east-2.aws.neon.tech/db?hostaddr=10.0.0.1'),
     ).toThrow(/"hostaddr"/)
+  })
+})
+
+describe('assertLoopbackOnly', () => {
+  it('allows localhost and both loopback addresses', () => {
+    for (const host of ['localhost', '127.0.0.1', '[::1]']) expect(() => assertLoopbackOnly(`postgres://u:p@${host}:5434/db`)).not.toThrow()
+  })
+
+  it('refuses a remote host, with no CI opt-in', () => {
+    vi.stubEnv('ALLOW_REMOTE_MIGRATIONS', '1')
+    vi.stubEnv('CI', 'true')
+    vi.stubEnv('ALLOWED_MIGRATION_HOST', 'dbpg01.softobotics.org')
+    expect(() => assertLoopbackOnly('postgres://u:p@dbpg01.softobotics.org:5432/db')).toThrow(/Local databases only/)
+  })
+
+  it('refuses a host override via query params', () => {
+    expect(() => assertLoopbackOnly('postgres://u:p@localhost:5434/db?host=dbpg01.softobotics.org')).toThrow(/Local databases only/)
+    expect(() => assertLoopbackOnly('postgres://u:p@localhost:5434/db?hostaddr=10.0.0.9')).toThrow(/Local databases only/)
+  })
+
+  it('refuses a malformed connection string without leaking it', () => {
+    expect(() => assertLoopbackOnly('not a url with a secret')).toThrow(/not a valid URL/)
+    expect(() => assertLoopbackOnly('not a url with a secret')).not.toThrow(/secret/)
   })
 })

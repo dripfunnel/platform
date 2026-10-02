@@ -325,15 +325,16 @@ export const selectStorePeople = (tx: ScopedSql, storeId: string): Promise<Store
     where m.store_id = ${storeId}
     order by case m.role_key when 'owner' then 0 when 'manager' then 1 when 'staff' then 2 when 'supplier-admin' then 3 else 4 end,
       se.name nulls first, u.name
+    limit ${maxPageSize}
   `
 
 export const selectCustomDomains = (tx: ScopedSql, storeId: string): Promise<CustomDomainRow[]> =>
-  tx<CustomDomainRow[]>`select * from custom_domain where store_id = ${storeId} order by created_at desc`
+  tx<CustomDomainRow[]>`select * from custom_domain where store_id = ${storeId} order by created_at desc limit ${maxPageSize}`
 
 export const selectStoreNotes = (tx: ScopedSql, storeId: string): Promise<(StoreNoteRow & { by_name: string })[]> =>
   tx<(StoreNoteRow & { by_name: string })[]>`
     select n.*, st.name as by_name from store_note n join staff_user st on st.id = n.staff_user_id
-    where n.store_id = ${storeId} order by n.created_at desc
+    where n.store_id = ${storeId} order by n.created_at desc limit ${maxPageSize}
   `
 
 /** The partners the Stores filter offers, those the caller's scope sees, capped like every list. */

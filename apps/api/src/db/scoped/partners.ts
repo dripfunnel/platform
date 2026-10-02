@@ -16,7 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
-import { pageLimit, pgArray, type ScopedSql } from './index'
+import { maxPageSize, pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -272,7 +272,7 @@ export const selectPartner = async (tx: ScopedSql, id: string): Promise<PartnerR
 export const selectPartnerUsers = (tx: ScopedSql, partnerId: string): Promise<PartnerUserRow[]> =>
   tx<PartnerUserRow[]>`
     select id, partner_id, email, name, role_key, status, last_sign_in_at, created_at
-    from partner_user where partner_id = ${partnerId} order by created_at
+    from partner_user where partner_id = ${partnerId} order by created_at limit ${maxPageSize}
   `
 
 
@@ -281,7 +281,7 @@ export const selectPartnerUsers = (tx: ScopedSql, partnerId: string): Promise<Pa
 export const selectPlans = (tx: ScopedSql, partnerId: string): Promise<(PlanRow & { store_count: number })[]> =>
   tx<(PlanRow & { store_count: number })[]>`
     select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count
-    from plan pl where pl.partner_id = ${partnerId} order by pl.created_at
+    from plan pl where pl.partner_id = ${partnerId} order by pl.created_at limit ${maxPageSize}
   `
 
 export const selectPartnerDomain = async (tx: ScopedSql, partnerId: string, kind: DomainKind): Promise<PartnerDomainRow | null> =>
@@ -394,11 +394,11 @@ export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Prom
 export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(PlanRow & { store_count: number })[]> =>
   tx<(PlanRow & { store_count: number })[]>`
     select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count
-    from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[]) order by pl.created_at
+    from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[]) order by pl.created_at limit ${maxPageSize}
   `
 
 export const selectSetupSessionsFor = (tx: ScopedSql, ids: readonly string[]): Promise<SetupSessionRow[]> =>
-  tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.partner_id = any(${pgArray(ids)}::uuid[]) order by ss.started_at desc`
+  tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.partner_id = any(${pgArray(ids)}::uuid[]) order by ss.started_at desc limit ${maxPageSize}`
 
 /** Who approved each partner's current submission. */
 export const selectCurrentApproversFor = (tx: ScopedSql, ids: readonly string[]): Promise<{ partner_id: string; staff_user_id: string }[]> =>
