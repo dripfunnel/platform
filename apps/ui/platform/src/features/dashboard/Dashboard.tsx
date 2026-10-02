@@ -68,8 +68,8 @@ export const Dashboard = ({ me, data: loaded, forced, onRangeChange, onReload }:
       <div className="df-dashboard-grid">
         <StoresCard stores={data.stores} />
         <RevenueCard revenue={data.revenue} fresh={fresh} partner={me.partner.name.split(' ')[0] ?? me.partner.name} rangeLabel={words.range[data.range]} />
-        <AttentionCard attention={data.attention} />
         <SignupsCard signups={data.signups} range={data.range} fresh={fresh} />
+        <AttentionCard attention={data.attention} />
         <UsageCard usage={data.usage} />
         <TopStoresCard top={data.top} />
       </div>

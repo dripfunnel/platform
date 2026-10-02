@@ -5,7 +5,7 @@ import './dashboard.css'
 
 const words = messages.dashboard
 
-const shape = <DashboardSkeleton cards={[false, false, true, false, false, false]} />
+const shape = <DashboardSkeleton cards={[false, false, false, true, false, true]} />
 
 export const DashboardLoading = ({ product }: { product: string }) => (
   <div className="df-page df-dashboard">

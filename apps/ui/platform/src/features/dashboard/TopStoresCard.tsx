@@ -9,6 +9,7 @@ const words = messages.dashboard.top
 export const TopStoresCard = ({ top }: { top: DashboardData['top'] }) => (
   <DashboardCard
     title={words.title}
+    wide
     aside={
       <Link to="/reports" search={{ tab: 'stores' }} className="df-card-link">
         {words.report}
