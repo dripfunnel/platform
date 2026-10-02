@@ -76,7 +76,6 @@ alter table activity_log force row level security;
 
 -- Who sees what (LOGGING.md §6). A partner never sees inside a store; a store never sees
 -- another store; a supplier sees only entries made under its seller; a shopper only their own.
--- An account-level entry (`partner` visibility naming a store) is the merchant's too.
 create policy activity_log_read on activity_log for select
 using (
   app_setting_text('app.scope') in ('platform', 'system')
@@ -87,7 +86,7 @@ using (
   )
   or (
     app_setting_text('app.scope') = 'store'
-    and visibility in ('partner', 'store', 'self')
+    and visibility in ('store', 'self')
     and store_id = app_setting_uuid('app.store_id')
     and (app_setting_text('app.seller_id') = '' or seller_id = app_setting_uuid('app.seller_id'))
   )

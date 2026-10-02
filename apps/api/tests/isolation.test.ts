@@ -142,11 +142,17 @@ describe('a partner user', () => {
     expect(await idsOf(b, 'partner')).not.toContain(t.partnerA)
   })
 
-  it('never reaches inside a store: no customers, no suppliers', async () => {
+  it('never reaches inside a store: no customers', async () => {
     const a = partnerCaller(t.partnerA)
     expect(await idsOf(a, 'customer')).toEqual([])
-    expect(await idsOf(a, 'seller')).toEqual([])
     expect(await countOf(a, 'customer')).toBe(0)
+  })
+
+  it('reads its own stores suppliers at account level, and no other partner stores suppliers', async () => {
+    // Who a store's suppliers are is account-level (DATA-MODEL §2, decided on #32); what they
+    // stock and sell stays inside the store.
+    expect((await idsOf(partnerCaller(t.partnerA), 'seller')).sort()).toEqual([t.sellerA1First, t.sellerA1Second].sort())
+    expect(await idsOf(partnerCaller(t.partnerB), 'seller')).toEqual([t.sellerB1])
   })
 })
 
@@ -183,8 +189,8 @@ describe('staff on the Admin API', () => {
     ).rejects.toThrow(/row-level security/i)
   })
 
-  it('cannot read a store supplier without impersonating', async () => {
-    expect(await idsOf(staff, 'seller')).toEqual([])
+  it('read every supplier at account level, for the Users tab', async () => {
+    expect((await idsOf(staff, 'seller')).sort()).toEqual([t.sellerA1First, t.sellerA1Second, t.sellerB1].sort())
   })
 })
 
@@ -323,11 +329,16 @@ describe('the backstop itself', () => {
   it('is forced on every tenant table, so the owner is subject to it too', async () => {
     // `activity_log` is partitioned (relkind p); its policies apply to every partition read
     // through it, and nothing is granted on a partition directly (migrations/0006).
+    const tables = [
+      'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
+      'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
+      'custom_domain', 'user', 'membership', 'invitation', 'job', 'store_note',
+    ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
-      where relname in ('partner', 'store', 'seller', 'customer', 'activity_log', 'outbox') and relkind in ('r', 'p')
+      where relname = any(${tables}) and relkind in ('r', 'p')
     `
-    expect(rows).toHaveLength(6)
+    expect(rows).toHaveLength(tables.length)
     for (const row of rows) {
       expect({ [row.relname]: [row.relrowsecurity, row.relforcerowsecurity] }).toEqual({
         [row.relname]: [true, true],

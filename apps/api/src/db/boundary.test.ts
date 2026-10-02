@@ -18,7 +18,11 @@ const filesUnder = (dir: string): string[] =>
 
 const relative = (file: string) => path.relative(srcDir, file)
 
-const tenantTables = ['partner', 'store', 'seller', 'customer', 'activity_log', 'outbox']
+const tenantTables = [
+  'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
+  'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
+  'custom_domain', 'user', 'membership', 'invitation', 'job', 'store_note',
+]
 
 const dataModule = /^(postgres|#db\/client|\.{1,2}\/client)$/
 
@@ -78,7 +82,8 @@ describe('the data boundary', () => {
     // A query is written as a tagged template, so a bare table name in SQL shows up as
     // `from <table>`, `into <table>` or `update <table>`. Anything outside db/ doing that has
     // gone round the scoped layer.
-    const pattern = new RegExp(`\\b(from|into|update|join)\\s+(${tenantTables.join('|')})\\b`, 'i')
+    // `"user"` is quoted in SQL, so the name may carry quotes and the boundary after it is not a word one.
+    const pattern = new RegExp(`\\b(from|into|update|join)\\s+"?(${tenantTables.join('|')})"?(?!\\w)`, 'i')
     const offenders = filesUnder(srcDir)
       .filter((file) => !relative(file).startsWith('db/'))
       .filter((file) => pattern.test(readFileSync(file, 'utf8')))

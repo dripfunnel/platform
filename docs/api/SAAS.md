@@ -186,6 +186,9 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Kept until period end *(ask)* |
 | **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept for the retention window, then deleted *(ask the window, §14)* |
 
+The row keeps the facts of each state (DATA-MODEL.md §2.1, built on #32); a suspended store
+remembers the status it had, so Restore returns to it exactly (decided on #20).
+
 - **Past due blocks writes, never sign-in** (PLATFORM-PROMPT §2 item 7). The gate is applied
   once, in the Store API's resolver scope, from the subscription status cached on the
   session and invalidated by the billing webhook. What past due means for the store's

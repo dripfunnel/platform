@@ -22,6 +22,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "schema": "tsx scripts/print-schema.ts",
     "migrate": "tsx scripts/migrate/main.ts",
+    "seed": "tsx scripts/seed/main.ts",
     "dev-env:attach": "tsx scripts/dev-env/main.ts"
   },
   "dependencies": {

@@ -75,7 +75,7 @@ describe('an entry commits with the change it records', () => {
     const before = await countPartners()
     await expect(
       withScope(db.sql, staff, async (tx) => {
-        await tx`insert into partner default values`
+        await tx`insert into partner (name) values ('Rolled back')`
         await activityLog.record(tx, entry({ action: 'partner.created.rolled_back', actorKind: 'staff', visibility: 'staff' }))
         throw new Error('something after the write failed')
       }),
@@ -87,7 +87,7 @@ describe('an entry commits with the change it records', () => {
   it('a committed change has exactly one', async () => {
     const before = await countPartners()
     await withScope(db.sql, staff, async (tx) => {
-      await tx`insert into partner default values`
+      await tx`insert into partner (name) values ('Rolled back')`
       await activityLog.record(tx, entry({ action: 'partner.created.committed', actorKind: 'staff', visibility: 'staff' }))
     })
     expect(await countPartners()).toBe(before + 1)
@@ -98,7 +98,7 @@ describe('an entry commits with the change it records', () => {
     const before = await countPartners()
     await expect(
       withScope(db.sql, staff, async (tx) => {
-        await tx`insert into partner default values`
+        await tx`insert into partner (name) values ('Rolled back')`
         // A partner caller may not file an entry against another partner, so the insert fails.
         await activityLog.record(tx, entry({ action: 'x', visibility: 'partner', partnerId: t.partnerA, result: 'nonsense' as never }))
       }),
