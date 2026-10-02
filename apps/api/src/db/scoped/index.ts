@@ -4,6 +4,11 @@ import { settingsFor } from '../rls/settings'
 
 export type ScopedSql = postgres.TransactionSql
 
+/** No list query returns more than this however it is asked (AGENTS.md "Reliability"); each API caps lower. */
+export const maxPageSize = 100
+
+export const pageLimit = (limit: number): number => Math.min(Math.max(Math.floor(limit), 1), maxPageSize)
+
 /** The only path to tenant data (api/README.md §4). One transaction, because `SET LOCAL`
  *  lives only that long; `app_request`, because a superuser bypasses RLS (DATA-MODEL §5). */
 export const withScope = async <T>(
