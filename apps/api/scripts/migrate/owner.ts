@@ -15,17 +15,29 @@ const quoteIdentifier = (name: string) => `"${name.replaceAll('"', '""')}"`
  */
 export const checkOwner = async (sql: postgres.Sql): Promise<OwnerCheck> => {
   const [{ connectedAs }] = await sql<[{ connectedAs: string }]>`select current_user as "connectedAs"`
-  const owners = await sql<{ rolname: string }[]>`
-    select distinct r.rolname
+  const tables = await sql<{ rolname: string; relname: string }[]>`
+    select r.rolname, c.relname
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
     join pg_roles r on r.oid = c.relowner
     where n.nspname = current_schema() and c.relkind in ('r', 'p')
+    order by r.rolname, c.relname
   `
-  const names = owners.map((o) => o.rolname).sort()
+  const names = [...new Set(tables.map((t) => t.rolname))].sort()
   if (names.length === 0 || (names.length === 1 && names[0] === connectedAs)) return { connectedAs, runAs: null }
   if (names.length > 1) {
-    throw new Error(`The tables in schema ${await schemaName(sql)} are owned by ${names.join(', ')}; migrations need one owner. Reassign them to one role first.`)
+    // The statements that end the split, run by each other owner, so nobody has to derive them.
+    const byOwner = names.map((name) => `${name} (${tables.filter((t) => t.rolname === name).map((t) => t.relname).join(', ')})`)
+    const handOver = tables
+      .filter((t) => t.rolname !== connectedAs)
+      .map((t) => `alter table ${quoteIdentifier(t.relname)} owner to ${quoteIdentifier(connectedAs)};`)
+    throw new Error(
+      [
+        `The tables in schema ${await schemaName(sql)} are owned by ${byOwner.join('; ')}; migrations need one owner.`,
+        `Connected as ${connectedAs}. To make it the owner, run as each other owner (after grant ${quoteIdentifier(connectedAs)} to that owner):`,
+        ...handOver,
+      ].join('\n'),
+    )
   }
   const owner = names[0] as string
   const [{ member }] = await sql<[{ member: boolean }]>`select pg_has_role(current_user, ${owner}, 'member') as member`
