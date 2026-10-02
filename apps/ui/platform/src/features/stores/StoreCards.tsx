@@ -8,7 +8,7 @@ export const StoreCards = ({ stores }: { stores: readonly StoreRow[] }) => (
   <ul className="df-store-cards" aria-label={messages.stores.tableLabel}>
     {stores.map((store) => (
       <li key={store.id}>
-        <Link to="/stores" search={{ store: store.id }} className="df-store-card">
+        <Link to="/stores/$storeId" params={{ storeId: store.id }} className="df-store-card">
           <span className="df-store-card-head">
             <strong>{store.name}</strong>
             <StoreStatusPill state={store.state} />

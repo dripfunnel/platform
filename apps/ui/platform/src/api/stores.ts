@@ -109,6 +109,138 @@ export interface ProvisioningProgress {
   elapsedSeconds: number
 }
 
+// One store as its partner sees it (FIRST-RELEASE.md §6.3): every figure, sentence and permission
+// below is the API's. `actions` holds each §6.4 action as allowed, refused with a stable code, or absent for the state.
+export const storeTabs = ['overview', 'plan', 'billing', 'storefront', 'domains', 'setup', 'support', 'activity'] as const
+export type StoreTab = (typeof storeTabs)[number]
+
+// In the prototype's menu order, Suspend last.
+export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'retryStep'] as const
+export type StoreAction = (typeof storeActions)[number]
+
+export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'ALREADY_SUSPENDED' | 'NOT_SUSPENDED' | 'NOT_ON_TRIAL' | 'NO_PENDING_INVITATION' | 'READ_ONLY'
+
+export type ActionPermission = { allowed: true } | { allowed: false; reason: ActionRefusal }
+
+export type StorePermissions = Partial<Record<StoreAction, ActionPermission>>
+
+export interface StoreUsage {
+  limit: LimitKey
+  used: number
+  // null when the plan lacks the limit ("not included"); `percent` is the API's figure against the cap.
+  cap: number | null
+  percent: number | null
+  monthly: boolean
+}
+
+export interface StoreOverride {
+  id: string
+  what: string
+  reason: string
+  by: string
+  at: string
+}
+
+export interface StoreBilling {
+  cycle: 'monthly' | 'yearly'
+  price: Money
+  next: { kind: 'firstCharge'; at: string } | { kind: 'charge'; at: string } | { kind: 'none' }
+  payment: 'paid' | 'failed' | 'noCard'
+  // The last four digits only, or null with no card on file.
+  cardLast4: string | null
+  mode: 'dripfunnel' | 'own'
+  chargedBy: string
+}
+
+export interface StoreInvoice {
+  id: string
+  at: string
+  amount: Money
+  status: 'paid' | 'failed'
+  cardLast4: string | null
+}
+
+export interface StoreDnsRecord {
+  type: 'CNAME'
+  name: string
+  value: string
+  found: string | null
+}
+
+export type SetupStepState = 'done' | 'running' | 'slow' | 'failed' | 'waiting'
+
+// When a finished step ran, or the API's sentence about one that is still running.
+export type SetupStepDetail = { kind: 'at'; at: string } | { kind: 'text'; text: string } | null
+
+export interface StorePerson {
+  id: string
+  name: string
+  email: string
+  // "Supplier admin · Loomcraft" when the person belongs to a supplier.
+  role: string
+  status: 'active' | 'invited' | 'suspended'
+  lastSignInAt: string | null
+}
+
+export interface StoreSession {
+  who: string
+  reason: string
+  at: string
+  how: 'open' | 'expired' | 'ended'
+}
+
+export interface StoreActivityEntry {
+  id: string
+  at: string
+  who: string
+  text: string
+  result: 'success' | 'denied' | 'failed'
+  facts: readonly { label: string; value: string }[]
+}
+
+export interface Store extends StoreRow {
+  country: string
+  planPrice: Money
+  people: { count: number; suppliers: number }
+  ordersLastMonth: number | null
+  contacts: readonly { name: string; email: string; role: string }[]
+  history: readonly { at: string; text: string; by: string }[]
+  usage: readonly StoreUsage[]
+  overrides: readonly StoreOverride[]
+  billing: StoreBilling
+  invoices: readonly StoreInvoice[]
+  site: { previewHost: string; lastPublishAt: string | null }
+  records: readonly StoreDnsRecord[]
+  waitingSince: string | null
+  setup: { steps: readonly { key: ProvisioningStepKey; state: SetupStepState; detail: SetupStepDetail }[]; stuck: boolean }
+  // The ends the API offers Extend trial, worked out by it; empty when the store is not on trial.
+  trialExtensions: readonly { days: number; endsAt: string }[]
+  support: { allowed: boolean; people: readonly StorePerson[]; sessions: readonly StoreSession[] }
+  activity: readonly StoreActivityEntry[]
+  // The header's notice for a suspended or past-due store, worded by the API (§6.3).
+  notice: { tone: 'danger' | 'warning'; text: string } | null
+  actions: StorePermissions
+}
+
+// What each action needs besides a reason (§6.4).
+export type StoreActionInput =
+  | { action: 'changePlan'; planId: string; when: 'next' | 'now'; reason: string }
+  | { action: 'extendTrial'; days: number; reason: string }
+  | { action: 'addOverride'; limit: LimitKey; amount: number; duration: 'month' | 'always'; reason: string }
+  | { action: 'suspend'; reason: string }
+  | { action: 'restore'; reason: string }
+  | { action: 'resendInvite' }
+  | { action: 'retryStep' }
+
+export type StoreActionResult = { ok: true } | { ok: false; reason: ActionRefusal }
+
+export interface ChangePlanOptions {
+  plans: readonly { id: string; name: string; price: Money }[]
+  nextBillingAt: string
+  // The API's proration for moving now, per plan: an amount charged today, a credit, or nothing.
+  proration: Readonly<Record<string, { kind: 'charge'; amount: Money } | { kind: 'credit' } | { kind: 'none' }>>
+}
+
 // The API's cap on a page; it answers with fewer when there are fewer.
 export const storePageSize = 25
 
@@ -132,3 +264,15 @@ export const createStore = (input: CreateStoreInput, caller: PartnerRole, partne
 
 export const loadProvisioning = (storeId: string): Promise<ProvisioningProgress> =>
   harnessEnabled ? Promise.resolve(storesServer.progress(storeId)) : notConnected()
+
+export const loadStore = (id: string, caller: PartnerRole): Promise<Store | null> =>
+  harnessEnabled ? Promise.resolve(storesServer.get(id, caller)) : notConnected()
+
+export const loadChangePlanOptions = (id: string): Promise<ChangePlanOptions> =>
+  harnessEnabled ? Promise.resolve(storesServer.changePlanOptions(id)) : notConnected()
+
+export const runStoreAction = (id: string, input: StoreActionInput, caller: PartnerRole): Promise<StoreActionResult> =>
+  harnessEnabled ? Promise.resolve(storesServer.run(id, input, caller)) : notConnected()
+
+export const recheckStoreDomain = (id: string): Promise<StoreDomain['status']> =>
+  harnessEnabled ? Promise.resolve(storesServer.recheck(id)) : notConnected()

@@ -2,6 +2,7 @@ import { DashboardCard } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import type { DashboardData } from '../../api/dashboard'
 import { fill, formatCount, messages } from '../../messages'
+import { UsageBar } from '../common/UsageBar'
 
 const words = messages.dashboard.usage
 
@@ -21,14 +22,12 @@ export const UsageCard = ({ usage }: { usage: DashboardData['usage'] }) => (
       <ul className="df-usage">
         {usage.stores.map((store) => (
           <li key={store.storeId}>
-            <Link to="/stores" search={{ store: store.storeId, tab: 'plan' }} className="df-usage-row">
+            <Link to="/stores/$storeId" params={{ storeId: store.storeId }} search={{ tab: 'plan' }} className="df-usage-row">
               <span className="df-usage-text">
                 <strong>{store.storeName}</strong>
                 <span className="df-muted">{fill(words.of, { used: formatCount(store.used), limit: formatCount(store.limit), name: words.limits[store.limitKey] })}</span>
               </span>
-              <span className="df-usage-bar" aria-hidden="true">
-                <span className={store.percent >= 100 ? 'df-usage-bar-fill df-usage-bar-fill--full' : 'df-usage-bar-fill'} style={{ width: `${Math.min(100, store.percent)}%` }} />
-              </span>
+              <UsageBar percent={store.percent} />
             </Link>
           </li>
         ))}

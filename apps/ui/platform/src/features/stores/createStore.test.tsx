@@ -63,7 +63,7 @@ describe('Create store', () => {
     expect(text).toContain(words.setup.states.running)
     const finished = await panel({ ...running, steps: running.steps.map((step) => ({ ...step, state: 'done' })), done: true, elapsedSeconds: 102 })
     expect(textOf(finished)).toContain(`Ready in ${formatWait(102)}. Rin Ota has an invitation to set their password.`)
-    expect(finished).toContain('href="/stores?store=st-cascade"')
+    expect(finished).toContain('href="/stores/st-cascade"')
     expect(textOf(finished)).toContain(words.setup.again)
   })
 })

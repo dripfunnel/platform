@@ -99,3 +99,46 @@ describe('creating a store', () => {
     expect(() => server().create({ ...input, trialDays: 21 }, 'partner-owner', 'live')).toThrow()
   })
 })
+
+describe('the store actions, as the Platform API would run them', () => {
+  const fresh = () => createStoresServer(sampleStores)
+
+  it('refuses by role with the §6.4 code and changes nothing', () => {
+    const s = fresh()
+    expect(s.run('st-harbor', { action: 'suspend', reason: 'Fraud' }, 'partner-finance')).toEqual({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+    expect(s.get('st-harbor', 'partner-owner')?.state.kind).toBe('trial')
+    expect(() => s.run('st-summit', { action: 'suspend', reason: 'x' }, 'partner-owner')).toThrow()
+  })
+
+  it('suspends with the reason and restores to the state before', () => {
+    const s = fresh()
+    expect(s.run('st-tidewater', { action: 'suspend', reason: 'Chargebacks' }, 'partner-admin')).toEqual({ ok: true })
+    const suspended = s.get('st-tidewater', 'partner-admin')
+    expect(suspended?.state).toEqual({ kind: 'suspended', reason: 'Chargebacks' })
+    expect(suspended?.notice?.text).toContain('Suspended on Sep 29, 2026: Chargebacks')
+    expect(Object.keys(suspended?.actions ?? {})).toContain('restore')
+    expect(s.run('st-tidewater', { action: 'restore', reason: 'Paid up' }, 'partner-admin')).toEqual({ ok: true })
+    expect(s.get('st-tidewater', 'partner-admin')?.state.kind).toBe('pastdue')
+  })
+
+  it('extends a trial, changes a plan with the API’s proration, adds an override and retries a stuck step', () => {
+    const s = fresh()
+    expect(s.run('st-harbor', { action: 'extendTrial', days: 7, reason: 'Asked nicely' }, 'partner-finance')).toEqual({ ok: true })
+    expect(s.get('st-harbor', 'partner-owner')?.state).toMatchObject({ kind: 'trial', trialEndsAt: '2026-10-08T00:00:00Z', daysLeft: 9 })
+    const options = s.changePlanOptions('st-harbor')
+    expect(options.plans.map((plan) => plan.id)).toEqual(['starter', 'pro'])
+    expect(options.proration.pro).toEqual({ kind: 'charge', amount: { amount: 333, currency: 'USD' } })
+    expect(options.proration.starter).toEqual({ kind: 'credit' })
+    expect(s.run('st-harbor', { action: 'changePlan', planId: 'pro', when: 'now', reason: 'Growing' }, 'partner-owner')).toEqual({ ok: true })
+    const changed = s.get('st-harbor', 'partner-owner')
+    expect(changed?.plan.name).toBe('Pro')
+    expect(changed?.history[0]?.text).toBe('Growth → Pro')
+    expect(s.run('st-harbor', { action: 'addOverride', limit: 'publish', amount: 10, duration: 'month', reason: 'Launch week' }, 'partner-owner')).toEqual({ ok: true })
+    const withOverride = s.get('st-harbor', 'partner-owner')
+    expect(withOverride?.overrides[0]).toMatchObject({ what: '+10 “Publish now” presses this month', reason: 'Launch week', by: 'Maya Ortiz' })
+    expect(withOverride?.usage.find((usage) => usage.limit === 'publish')?.cap).toBe(160)
+    expect(s.run('st-fieldnote', { action: 'retryStep' }, 'partner-owner')).toEqual({ ok: true })
+    expect(s.get('st-fieldnote', 'partner-owner')?.storefront).toBe('live')
+    expect(s.get('st-fieldnote', 'partner-owner')?.actions.retryStep).toBeUndefined()
+  })
+})

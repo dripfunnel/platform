@@ -722,5 +722,289 @@
       },
       "failed": "We couldn’t create the store. Nothing was changed. Try again in a moment."
     }
+  },
+  "store": {
+    "level": "Store · {product}",
+    "loading": "Loading the store",
+    "breadcrumbLabel": "Breadcrumb",
+    "tabsLabel": "Store sections",
+    "tabs": {
+      "overview": "Overview",
+      "plan": "Plan and limits",
+      "billing": "Billing",
+      "storefront": "Storefront",
+      "domains": "Domains",
+      "setup": "Setup",
+      "support": "Support",
+      "activity": "Activity"
+    },
+    "actionsLabel": "Actions for {name}",
+    "moreActions": "Actions",
+    "actions": {
+      "changePlan": "Change plan",
+      "extendTrial": "Extend trial",
+      "addOverride": "Add a limit override",
+      "suspend": "Suspend",
+      "restore": "Restore",
+      "resendInvite": "Resend owner invitation",
+      "retryStep": "Retry this step"
+    },
+    "refused": {
+      "OWNERS_AND_ADMINS_ONLY": "Your role can’t {verb}. Owners and Admins can.",
+      "FINANCE_TRIAL_ONLY": "Your role can’t {verb}. Owners, Admins and Finance can.",
+      "ALREADY_SUSPENDED": "{name} is already suspended.",
+      "NOT_SUSPENDED": "{name} is not suspended.",
+      "NOT_ON_TRIAL": "{name} is not on a trial.",
+      "NO_PENDING_INVITATION": "The owner has already set a password.",
+      "READ_ONLY": "The console is read-only, so nothing here can change."
+    },
+    "verbs": {
+      "changePlan": "change a store’s plan",
+      "extendTrial": "extend trials",
+      "addOverride": "add limit overrides",
+      "suspend": "suspend stores",
+      "restore": "restore stores",
+      "resendInvite": "resend invitations",
+      "retryStep": "retry a setup step"
+    },
+    "notFound": {
+      "title": "Store not found",
+      "body": "It may have been removed, or the link is wrong.",
+      "back": "Back to Stores"
+    },
+    "error": {
+      "title": "This store didn’t load",
+      "body": "The partner service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "cancel": "Cancel",
+    "reason": "Reason (shown in the activity log)",
+    "reasonHint": "Required. Kept in the activity log with your name.",
+    "reasonPlaceholder": "e.g. Customer request",
+    "overview": {
+      "note": "You see this store’s account. Its orders, customers and products are the merchant’s; open a support session to view them.",
+      "account": "Account",
+      "owner": "Owner",
+      "country": "Country",
+      "created": "Created",
+      "plan": "Plan",
+      "planLine": "{plan} · {price} / month, charged by {who}",
+      "people": "People",
+      "peopleLine": "{count} people · {suppliers} suppliers",
+      "sales": "Sales last month",
+      "salesLine": "{sales} · {orders} orders (totals)",
+      "noSales": "No sales yet",
+      "contacts": "Contacts",
+      "onlyOwner": "Only the owner so far.",
+      "history": "Plan and status history"
+    },
+    "plan": {
+      "price": "{price} / month, charged by {who}",
+      "used": "{used} of {cap}",
+      "notIncluded": "{used} · not included",
+      "thisMonth": "this month",
+      "near": "Near the limit",
+      "at": "At the limit",
+      "overrides": "Overrides for this store",
+      "noOverrides": "None. This store gets exactly what its plan includes.",
+      "overrideBy": "{by} · {date}",
+      "addOverride": "Add override",
+      "limits": {
+        "products": "Products",
+        "staff": "Staff seats",
+        "suppliers": "Suppliers",
+        "ai": "AI design prompts",
+        "publish": "“Publish now” presses"
+      }
+    },
+    "billing": {
+      "subscription": "Subscription",
+      "byDripFunnel": "Charged by {who}",
+      "byYou": "You bill this merchant yourself",
+      "plan": "Plan",
+      "cycle": {
+        "monthly": "{plan}, monthly",
+        "yearly": "{plan}, yearly"
+      },
+      "priceLabel": "Price",
+      "price": {
+        "monthly": "{price} / month",
+        "yearly": "{price} / year"
+      },
+      "next": "Next charge",
+      "firstCharge": "First charge {date}, when the trial ends",
+      "noCharge": "No upcoming charge",
+      "payment": "Payment status",
+      "payments": {
+        "paid": "Paid",
+        "failed": "Failed",
+        "noCard": "No card yet"
+      },
+      "card": "Card",
+      "cardEnding": "Card ending {last4}",
+      "noCard": "No card on file",
+      "invoices": "Invoices",
+      "noInvoices": "No invoices yet.",
+      "invoiceStatus": {
+        "paid": "Paid",
+        "failed": "Failed"
+      }
+    },
+    "storefront": {
+      "title": "Storefront",
+      "own": "This merchant runs its own storefront and uses {name}’s account for products, orders and checkout behind it.",
+      "live": "Live",
+      "preview": "Preview",
+      "lastPublish": "Last publish",
+      "notPublished": "Not published yet",
+      "readOnly": "Read-only. The merchant designs and publishes their shop."
+    },
+    "domains": {
+      "waitingSince": "Waiting since {date}",
+      "explain": "The merchant adds this record at their domain provider. It sends visitors of their domain to their shop.",
+      "shopAddress": "This store uses its address under {product}, which needs no record from the merchant.",
+      "type": "Type",
+      "name": "Name",
+      "value": "Value",
+      "found": "What we found",
+      "nothingFound": "Nothing found yet",
+      "copy": "Copy",
+      "copyLabel": "Copy the value",
+      "copied": "Copied.",
+      "recheck": "Re-check now",
+      "checking": "Checking…",
+      "rechecked": {
+        "live": "Checked just now: {host} is live.",
+        "waiting": "Checked just now: still no CNAME record for {host}. DNS can take up to 48 hours.",
+        "failed": "Checked just now: {host} points somewhere else."
+      },
+      "status": {
+        "live": "Live",
+        "waiting": "Waiting for DNS",
+        "failed": "Failed"
+      }
+    },
+    "setup": {
+      "title": "Signup steps",
+      "steps": {
+        "account": "Account created",
+        "store": "Store created",
+        "portal": "Portal ready",
+        "storefront": "Storefront building",
+        "done": "Done"
+      },
+      "states": {
+        "done": "Done",
+        "running": "Working",
+        "slow": "Taking longer than usual",
+        "failed": "Failed",
+        "waiting": "Waiting"
+      }
+    },
+    "support": {
+      "on": "{name} allows {partner} support to sign in as its users.",
+      "off": "{owner} has turned partner support off for {name}. Only {owner} can turn it on, in their Settings › Support access.",
+      "people": "People in {name}",
+      "statuses": {
+        "active": "Active",
+        "invited": "Invited",
+        "suspended": "Suspended"
+      },
+      "lastSignIn": "Last signed in {time}",
+      "neverSignedIn": "Hasn’t signed in yet",
+      "readOnly": "Read-only here: support sessions start from Support.",
+      "sessions": "Past sessions",
+      "noSessions": "None yet.",
+      "how": {
+        "open": "Open now",
+        "expired": "Expired",
+        "ended": "Ended by staff"
+      }
+    },
+    "activity": {
+      "none": "Nothing has happened on this account yet.",
+      "results": {
+        "success": "Success",
+        "denied": "Denied",
+        "failed": "Failed"
+      },
+      "details": "Details of {text}"
+    },
+    "dialogs": {
+      "changePlan": {
+        "title": "Change {name}’s plan?",
+        "pick": "Choose the new plan. The merchant gets an email about the change.",
+        "consequence": "{name} moves from {from} ({fromPrice} / month) to {to} ({toPrice} / month), charged by {who}. Its limits change to {to}’s.",
+        "plan": "New plan",
+        "choose": "Choose a plan",
+        "planOption": "{plan} · {price} / month",
+        "when": "When",
+        "next": "From the next billing date, {date}",
+        "now": "Now, with proration",
+        "chargedToday": "{amount} is charged today.",
+        "credited": "The difference is credited on the next invoice.",
+        "confirm": "Change plan"
+      },
+      "extendTrial": {
+        "title": "Extend {name}’s trial?",
+        "consequence": "The trial ends {from}. It will end {to} instead. Nothing is charged until then.",
+        "pick": "The trial ends {from}. Choose how long to add.",
+        "add": "Add",
+        "choose": "Choose",
+        "days": "{count} days",
+        "confirm": "Extend trial"
+      },
+      "addOverride": {
+        "title": "Add a limit override for {name}?",
+        "pick": "Give this store more of one limit without changing its plan.",
+        "consequence": "{name} gets +{amount} {limit} {duration}. Its plan and price stay the same.",
+        "month": "this month only",
+        "always": "until you remove it",
+        "limit": "Limit",
+        "choose": "Choose",
+        "amount": "Add",
+        "amountError": "Enter how many to add.",
+        "for": "For",
+        "forMonth": "This month only",
+        "forAlways": "Until removed",
+        "confirm": "Add override"
+      },
+      "suspend": {
+        "title": "Suspend {name}?",
+        "consequence": "Its shop stops taking orders and its team can’t make changes until you restore it. {owner} gets the “Store suspended” email. Billing pauses.",
+        "reason": "Reason (the merchant sees this)",
+        "reasonHint": "Required. Shown to the store owner and kept in the activity log.",
+        "typeLabel": "Type the store name to confirm",
+        "typeHint": "Type {name} exactly to confirm.",
+        "confirm": "Suspend store"
+      },
+      "restore": {
+        "title": "Restore {name}?",
+        "consequence": "Its shop takes orders again and its team can sign in and make changes. Billing restarts from today.",
+        "confirm": "Restore store"
+      },
+      "resendInvite": {
+        "title": "Resend the owner invitation?",
+        "consequence": "{owner} ({email}) gets a new invitation to set their password. The old link stops working.",
+        "confirm": "Resend invitation"
+      },
+      "retryStep": {
+        "title": "Retry “{step}”?",
+        "consequence": "We start this step again. The merchant’s products and settings aren’t touched. It usually takes under two minutes.",
+        "confirm": "Retry step"
+      }
+    },
+    "toasts": {
+      "changePlanNext": "{name} moves to {plan} on {date}.",
+      "changePlanNow": "{name} moves to {plan} now.",
+      "extendTrial": "Trial extended to {date}.",
+      "addOverride": "Override added.",
+      "suspend": "{name} is suspended.",
+      "restore": "{name} is restored.",
+      "resendInvite": "Invitation sent to {email}.",
+      "retryStep": "Retried. {name}’s storefront is live.",
+      "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
+      "refused": "The partner service refused it: {reason}"
+    }
   }
 }
