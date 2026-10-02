@@ -8,69 +8,69 @@
 <body>
 <x-dc>
 <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:18px;max-width:1100px;">
-  <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">{{ greeting }}</div><div style="font-size:14px;color:#5A6472;">{{ dateLine }}</div></div>
+  <div><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;">{{ greeting }}</div><div style="font-size:14px;color:var(--muted,#5A6472);">{{ dateLine }}</div></div>
 
   <sc-if value="{{ hasTasks }}" hint-placeholder-val="{{ true }}">
     <div style="display:flex;flex-direction:column;gap:8px;">
-      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#8F4017;">Needs you</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--pfg,#8F4017);">Needs you</span>
       <sc-for list="{{ tasks }}" as="t" hint-placeholder-count="3">
-        <button onClick="{{ t.onClick }}" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:#FFFFFF;border:1px solid #E8E2DC;border-left:4px solid {{ t.accent }};border-radius:10px;text-align:left;cursor:pointer;width:100%;" style-hover="background:#FAF9F7;">
-          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;min-width:36px;color:#14181F;">{{ t.n }}</span>
-          <span style="flex:1;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:15px;color:#14181F;">{{ t.title }}</strong><span style="font-size:13px;color:#5A6472;">{{ t.body }}</span></span>
-          <span style="font-size:13px;color:#B8541F;font-family:Manrope,sans-serif;font-weight:700;">{{ t.cta }} →</span>
+        <button onClick="{{ t.onClick }}" style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-left:4px solid {{ t.accent }};border-radius:10px;text-align:left;cursor:pointer;width:100%;" style-hover="background:var(--hover,#FAF9F7);">
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;min-width:36px;color:var(--text,#14181F);">{{ t.n }}</span>
+          <span style="flex:1;display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:15px;color:var(--text,#14181F);">{{ t.title }}</strong><span style="font-size:13px;color:var(--muted,#5A6472);">{{ t.body }}</span></span>
+          <span style="font-size:13px;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:700;">{{ t.cta }} →</span>
         </button>
       </sc-for>
     </div>
   </sc-if>
-  <sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px;background:#EEF7F2;border:1px solid #C3E0D2;border-radius:10px;font-size:14px;color:#1D6B47;"><strong>Nothing is waiting for you.</strong> Orders are packed, approvals are done.</div></sc-if>
+  <sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}"><div style="padding:14px 16px;background:var(--okbg,#EEF7F2);border:1px solid var(--okbd,#C3E0D2);border-radius:10px;font-size:14px;color:var(--okfg,#1D6B47);"><strong>Nothing is waiting for you.</strong> Orders are packed, approvals are done.</div></sc-if>
 
   <sc-if value="{{ showSetup }}" hint-placeholder-val="{{ false }}">
-    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">Get your shop ready for its first order</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A6472;">{{ setupDone }} of {{ setupTotal }}</span></div>
-      <div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ setupPct }};height:100%;background:#EC844F;"></div></div>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">Get your shop ready for its first order</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ setupDone }} of {{ setupTotal }}</span></div>
+      <div style="height:6px;border-radius:3px;background:var(--sunk,#EDEAE5);overflow:hidden;"><div style="width:{{ setupPct }};height:100%;background:#EC844F;"></div></div>
       <sc-for list="{{ setup }}" as="c" hint-placeholder-count="5">
-        <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border:0;border-top:1px solid #F1EEEA;background:none;text-align:left;cursor:pointer;width:100%;">
+        <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border:0;border-top:1px solid var(--border,#F1EEEA);background:none;text-align:left;cursor:pointer;width:100%;">
           <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid {{ c.ring }};background:{{ c.fill }};color:#FFFFFF;font-size:12px;display:flex;align-items:center;justify-content:center;">{{ c.mark }}</span>
-          <span style="flex:1;display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;color:#14181F;text-decoration:{{ c.td }};">{{ c.label }}</span><sc-if value="{{ c.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:#5A6472;">{{ c.note }}</span></sc-if></span><span style="font-size:13px;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
+          <span style="flex:1;display:flex;flex-direction:column;gap:2px;"><span style="font-size:14px;color:var(--text,#14181F);text-decoration:{{ c.td }};">{{ c.label }}</span><sc-if value="{{ c.note }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted,#5A6472);">{{ c.note }}</span></sc-if></span><span style="font-size:13px;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
         </button>
         <sc-if value="{{ c.panel }}" hint-placeholder-val="{{ false }}">
-          <div style="margin:0 0 8px 34px;padding:18px;background:#FDFAF7;border:1px solid #E8E2DC;border-radius:12px;display:flex;flex-direction:column;gap:16px;">
+          <div style="margin:0 0 8px 34px;padding:18px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);border-radius:12px;display:flex;flex-direction:column;gap:16px;">
             <sc-for list="{{ localeFields }}" as="f" hint-placeholder-count="3">
               <label style="display:flex;flex-direction:column;gap:6px;">
-                <span style="font-family:Manrope,sans-serif;font-weight:600;font-size:14px;color:#14181F;">{{ f.label }}</span>
-                <select value="{{ f.value }}" onChange="{{ f.on }}" style="height:46px;max-width:420px;border:1px solid #D7D3CD;border-radius:10px;padding:0 12px;font-size:15px;background:#FFFFFF;"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
-                <span style="font-size:13px;color:#5A6472;">{{ f.help }}</span>
+                <span style="font-family:Manrope,sans-serif;font-weight:600;font-size:14px;color:var(--text,#14181F);">{{ f.label }}</span>
+                <select value="{{ f.value }}" onChange="{{ f.on }}" style="height:46px;max-width:420px;border:1px solid var(--field,#D7D3CD);border-radius:10px;padding:0 12px;font-size:15px;background:var(--card,#FFFFFF);"><sc-for list="{{ f.options }}" as="o" hint-placeholder-count="3"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select>
+                <span style="font-size:13px;color:var(--muted,#5A6472);">{{ f.help }}</span>
               </label>
             </sc-for>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button onClick="{{ saveLocale }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">Confirm</button>
-              <button onClick="{{ closeLocale }}" style="height:42px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#434A55;font-size:14px;cursor:pointer;">Later</button>
+              <button onClick="{{ closeLocale }}" style="height:42px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text2,#434A55);font-size:14px;cursor:pointer;">Later</button>
             </div>
           </div>
         </sc-if>
       </sc-for>
-      <sc-if value="{{ ownerNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:#434A55;">Payments, shipping and your country settings are set by Farhan, the owner — they’re not on your list.</span></sc-if>
-      <span style="font-size:12px;color:#5A6472;">This list disappears once your first order arrives.</span>
+      <sc-if value="{{ ownerNote }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--text2,#434A55);">Payments, shipping and your country settings are set by Farhan, the owner — they’re not on your list.</span></sc-if>
+      <span style="font-size:12px;color:var(--muted,#5A6472);">This list disappears once your first order arrives.</span>
     </div>
   </sc-if>
 
-  <sc-if value="{{ staffWait }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;display:flex;flex-direction:column;gap:4px;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">No orders yet</strong><span style="font-size:14px;color:#5A6472;">The shop is still being set up. When the first order comes in it appears here, and in Orders, ready to pack.</span></div></sc-if>
+  <sc-if value="{{ staffWait }}" hint-placeholder-val="{{ false }}"><div style="padding:18px;background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;display:flex;flex-direction:column;gap:4px;"><strong style="font-family:Manrope,sans-serif;font-size:16px;">No orders yet</strong><span style="font-size:14px;color:var(--muted,#5A6472);">The shop is still being set up. When the first order comes in it appears here, and in Orders, ready to pack.</span></div></sc-if>
   <sc-if value="{{ showNumbers }}" hint-placeholder-val="{{ true }}">
-    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#5A6472;padding-top:6px;">{{ numbersTitle }}</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted,#5A6472);padding-top:6px;">{{ numbersTitle }}</span>
     <div style="display:grid;grid-template-columns:{{ numCols }};gap:12px;">
       <sc-for list="{{ numbers }}" as="n" hint-placeholder-count="4">
-        <button onClick="{{ n.onClick }}" style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:16px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;" style-hover="border-color:#9FB8D1;">
-          <span style="font-size:13px;color:#5A6472;">{{ n.label }}</span>
-          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;color:#14181F;font-variant-numeric:tabular-nums;">{{ n.value }}</span>
+        <button onClick="{{ n.onClick }}" style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:4px;" style-hover="border-color:var(--ibd,#9FB8D1);">
+          <span style="font-size:13px;color:var(--muted,#5A6472);">{{ n.label }}</span>
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;color:var(--text,#14181F);font-variant-numeric:tabular-nums;">{{ n.value }}</span>
           <span style="font-size:12px;color:{{ n.fg }};">{{ n.delta }}</span>
         </button>
       </sc-for>
     </div>
-    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
-      <div style="padding:12px 16px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Latest orders</span><button onClick="{{ a.allOrders }}" style="border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">All orders →</button></div>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border,#E8E2DC);display:flex;justify-content:space-between;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Latest orders</span><button onClick="{{ a.allOrders }}" style="border:0;background:none;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">All orders →</button></div>
       <sc-for list="{{ latest }}" as="o" hint-placeholder-count="4">
-        <button onClick="{{ o.onClick }}" style="width:100%;display:grid;grid-template-columns:{{ latestCols }};gap:10px;padding:10px 16px;border:0;border-bottom:1px solid #F1EEEA;background:#FFFFFF;text-align:left;cursor:pointer;font-size:13px;align-items:center;" style-hover="background:#FAF9F7;">
-          <span style="font-family:'IBM Plex Mono',monospace;color:#14181F;">{{ o.id }}</span><span style="color:#14181F;">{{ o.who }}</span><span style="color:{{ o.stFg }};">{{ o.status }}</span><span style="text-align:right;color:#14181F;">{{ o.total }}</span>
+        <button onClick="{{ o.onClick }}" style="width:100%;display:grid;grid-template-columns:{{ latestCols }};gap:10px;padding:10px 16px;border:0;border-bottom:1px solid var(--border,#F1EEEA);background:var(--card,#FFFFFF);text-align:left;cursor:pointer;font-size:13px;align-items:center;" style-hover="background:var(--hover,#FAF9F7);">
+          <span style="font-family:'IBM Plex Mono',monospace;color:var(--text,#14181F);">{{ o.id }}</span><span style="color:var(--text,#14181F);">{{ o.who }}</span><span style="color:{{ o.stFg }};">{{ o.status }}</span><span style="text-align:right;color:var(--text,#14181F);">{{ o.total }}</span>
         </button>
       </sc-for>
     </div>
@@ -97,6 +97,8 @@ class Component extends DCLogic {
     if (open.length) tasks.push({ n: open.length, title: open.length === 1 ? 'order to pack and ship' : 'orders to pack and ship', body: `${open.filter(o => o.status === 'partial').length} partly shipped · oldest from ${new Date(Math.min(...open.map(o => o.date))).toLocaleDateString(R.locale, { day: 'numeric', month: 'short' })}`, cta: 'Ship', accent: '#EC844F', onClick: () => app.go('orders', { orderFilter: 'open' }) });
     if (pending.length && !c.isStaff) tasks.push({ n: pending.length, title: 'payment to collect', body: 'Cash on delivery or bank transfer — mark it paid when the money arrives.', cta: 'Review', accent: '#D9A43A', onClick: () => app.openOrder(pending[0].id) });
     if (waiting.length && c.approvalOn && !c.isStaff) tasks.push({ n: waiting.length, title: 'supplier products waiting for approval', body: 'They go live once you approve them.', cta: 'Review', accent: '#D9A43A', onClick: () => app.go('products', { productFilter: 'waiting' }) });
+    const reqs = app.st.requests || [];
+    if (reqs.length && c.isOwner) tasks.push({ n: reqs.length, title: reqs.length === 1 ? 'request from your team' : 'requests from your team', body: reqs.slice(0, 2).map(r => r.who + ': ' + r.what).join(' · '), cta: 'Review', accent: '#00519F', onClick: () => app.modal({ title: 'Requests from your team', body: 'Pick one to act on. Dismissing tells them you said no.', choices: reqs.map(r => ({ label: r.who + ' · ' + r.role, sub: r.what + ' · ' + new Date(r.t).toLocaleTimeString(R.locale, { hour: '2-digit', minute: '2-digit' }), value: r.id })), confirm: 'Act on it', alt: 'Dismiss', onAlt: () => { const id = app.st.modalChoice || reqs[0].id; app.set('requests', l => l.filter(x => x.id !== id)); app.toast('Dismissed — they’ve been told'); }, onConfirm: id => { const r = reqs.find(x => x.id === id) || reqs[0]; app.set('requests', l => l.filter(x => x.id !== r.id)); if (/needs /.test(r.what)) app.go('billing'); else app.go('settings', { settingsTab: 'people' }); app.toast('Opened — change what ' + r.who.split(' ')[0] + ' asked for here'); } }) });
     if (low.length) tasks.push({ n: low.length, title: 'products low on stock', body: low.slice(0, 3).map(p => p.name).join(', ') + (low.length > 3 ? '…' : ''), cta: 'Restock', accent: '#D9A43A', onClick: () => app.go('products') });
     if (notReady.length && R.markets.length > 1 && !c.isStaff) tasks.push({ n: notReady.length, title: 'products missing details for some countries', body: 'They sell everywhere else already.', cta: 'Fix', accent: '#9FB8D1', onClick: () => app.go('products') });
     if (failedCourier.length && c.isOwner) tasks.push({ n: failedCourier.length, title: `${failedCourier[0].name} stopped working`, body: 'Its login was rejected. Orders fall back to your next courier.', cta: 'Fix', accent: '#B8541F', onClick: () => app.go('settings', { settingsTab: 'shipping' }) });
@@ -105,10 +107,10 @@ class Component extends DCLogic {
     const pct = (a, b) => b ? Math.round((a - b) / b * 100) : 0;
     const money = !c.isStaff;
     const numbers = [
-      ...(money ? [{ label: 'Sales yesterday', value: fmt(sum(y)), delta: `${pct(sum(y), sum(y2)) >= 0 ? '▲' : '▼'} ${Math.abs(pct(sum(y), sum(y2)))}% vs the day before`, fg: pct(sum(y), sum(y2)) >= 0 ? '#1D6B47' : '#B8541F', onClick: () => app.go('reports') }] : []),
-      { label: 'Orders today', value: String(t0.length), delta: `${y.length} yesterday`, fg: '#5A6472', onClick: () => app.go('orders') },
-      ...(money ? [{ label: 'Average order', value: fmt(orders.length ? sum(orders) / Math.max(1, orders.filter(o => o.status !== 'cancelled').length) : 0), delta: 'last 7 days', fg: '#5A6472', onClick: () => app.go('reports') }] : []),
-      { label: 'Returning customers', value: String(new Set(orders.map(o => o.customer.email)).size < orders.length ? orders.length - new Set(orders.map(o => o.customer.email)).size : 0), delta: 'bought more than once', fg: '#5A6472', onClick: () => app.go('customers') }
+      ...(money ? [{ label: 'Sales yesterday', value: fmt(sum(y)), delta: `${pct(sum(y), sum(y2)) >= 0 ? '▲' : '▼'} ${Math.abs(pct(sum(y), sum(y2)))}% vs the day before`, fg: pct(sum(y), sum(y2)) >= 0 ? 'var(--okfg,#1D6B47)' : 'var(--link,#B8541F)', onClick: () => app.go('reports') }] : []),
+      { label: 'Orders today', value: String(t0.length), delta: `${y.length} yesterday`, fg: 'var(--muted,#5A6472)', onClick: () => app.go('orders') },
+      ...(money ? [{ label: 'Average order', value: fmt(orders.length ? sum(orders) / Math.max(1, orders.filter(o => o.status !== 'cancelled').length) : 0), delta: 'last 7 days', fg: 'var(--muted,#5A6472)', onClick: () => app.go('reports') }] : []),
+      { label: 'Returning customers', value: String(new Set(orders.map(o => o.customer.email)).size < orders.length ? orders.length - new Set(orders.map(o => o.customer.email)).size : 0), delta: 'bought more than once', fg: 'var(--muted,#5A6472)', onClick: () => app.go('customers') }
     ];
     const hasProducts = products.filter(p => !p.sample).length;
     const gw = (app.data('gateways') || []).some(g => g.status === 'live');
@@ -134,11 +136,11 @@ class Component extends DCLogic {
       { label: 'Add your first product', ok: hasProducts > 0, cta: 'Add', onClick: () => app.newProduct() },
       { label: 'Group products into a collection', ok: app.collections.length > 0, cta: 'Create', onClick: () => app.go('collections') },
       { label: 'Choose how shoppers pay', ok: gw, cta: 'Set up', onClick: () => app.go('settings', { settingsTab: 'payments' }) },
-      { label: 'Choose how you ship', ok: false, cta: 'Set up', onClick: () => app.go('settings', { settingsTab: 'shipping' }) },
-      { label: 'Make your storefront yours', ok: false, cta: 'Open', onClick: () => app.go('storefront') }
-    ].map((x, i) => ({ ...x, ownerOnly: [0, 3, 4].includes(i) })).map(x => ({ ...x, mark: x.ok ? '✓' : '', fill: x.ok ? '#1D6B47' : '#FFFFFF', ring: x.ok ? '#1D6B47' : '#B9BEC6', td: x.ok ? 'line-through' : 'none', cta: x.ok && !x.panel && x.cta !== 'Change' ? 'Done' : x.cta, note: x.note || '', panel: !!x.panel }));
+      { label: 'Choose how you ship', ok: !!app.st.shippingSet, cta: app.st.shippingSet ? 'Done' : 'Set up', onClick: () => app.go('settings', { settingsTab: 'shipping' }) },
+      { label: 'Make your storefront yours', ok: ((app.data('storefront') || {}).live || 0) > 12 || !!app.st.setupBought, cta: ((app.data('storefront') || {}).live || 0) > 12 ? 'Done' : 'Open', onClick: () => app.go('storefront') }
+    ].map((x, i) => ({ ...x, ownerOnly: [0, 3, 4].includes(i) })).map(x => ({ ...x, mark: x.ok ? '✓' : '', fill: x.ok ? '#1D6B47' : 'var(--card,#FFFFFF)', ring: x.ok ? '#1D6B47' : 'var(--faint,#B9BEC6)', td: x.ok ? 'line-through' : 'none', cta: x.ok && !x.panel && x.cta !== 'Change' ? 'Done' : x.cta, note: x.note || '', panel: !!x.panel }));
     const setup = c.isOwner ? setupAll : setupAll.filter(x => !x.ownerOnly);
-    const ST = { unfulfilled: ['To ship', '#8F4017'], partial: ['Partly shipped', '#7A4B00'], fulfilled: ['Shipped', '#1D6B47'], refunded: ['Refunded', '#5A6472'], cancelled: ['Cancelled', '#5A6472'] };
+    const ST = { unfulfilled: ['To ship', 'var(--pfg,#8F4017)'], partial: ['Partly shipped', 'var(--wfg,#7A4B00)'], fulfilled: ['Shipped', 'var(--okfg,#1D6B47)'], refunded: ['Refunded', 'var(--muted,#5A6472)'], cancelled: ['Cancelled', 'var(--muted,#5A6472)'] };
     const hr = new Date().getHours();
     return {
       pad: phone ? '14px' : '24px 28px', h1: phone ? '22px' : '28px', numCols: phone ? 'repeat(2,minmax(0,1fr))' : `repeat(${numbers.length},minmax(0,1fr))`, latestCols: phone ? '80px minmax(0,1fr) 90px' : '90px minmax(0,1fr) 140px 110px',

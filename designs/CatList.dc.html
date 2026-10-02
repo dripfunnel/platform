@@ -11,33 +11,33 @@
 
   <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
     <div style="display:grid;grid-template-columns:{{ emptyCols }};gap:24px;align-items:start;">
-      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:16px;padding:{{ heroPad }};display:flex;flex-direction:column;gap:22px;">
-        <div style="height:160px;border-radius:12px;background:repeating-linear-gradient(45deg,#F2F0EC 0 10px,#EAE7E2 10px 20px);display:flex;align-items:center;justify-content:center;color:#8A919B;font-size:13px;">Illustration: a shop shelf with one empty spot</div>
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:16px;padding:{{ heroPad }};display:flex;flex-direction:column;gap:22px;">
+        <div style="height:160px;border-radius:12px;background:repeating-linear-gradient(45deg,var(--sunk,#F2F0EC) 0 10px,#EAE7E2 10px 20px);display:flex;align-items:center;justify-content:center;color:var(--faint,#8A919B);font-size:13px;">Illustration: a shop shelf with one empty spot</div>
         <div style="display:flex;flex-direction:column;gap:8px;">
           <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:28px;letter-spacing:-0.03em;line-height:1.15;">Add your first product</span>
-          <span style="font-size:15px;color:#434A55;max-width:52ch;">A photo, a name and a price is enough to start selling. You can add sizes, colours and the rest whenever you like.</span>
+          <span style="font-size:15px;color:var(--text2,#434A55);max-width:52ch;">A photo, a name and a price is enough to start selling. You can add sizes, colours and the rest whenever you like.</span>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button onClick="{{ a.add }}" style="height:50px;padding:0 26px;border:0;border-radius:10px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:16px;cursor:pointer;" style-hover="background:#D96C33;">Add a product</button>
-          <button onClick="{{ a.importFile }}" style="height:50px;padding:0 18px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;" style-hover="background:#FDFAF7;">Import from a spreadsheet</button>
-          <button onClick="{{ a.importShopify }}" style="height:50px;padding:0 18px;border:1px solid #D7D3CD;border-radius:10px;background:#FFFFFF;color:#14181F;font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;" style-hover="background:#FDFAF7;">Bring products from Shopify</button>
+          <button onClick="{{ a.importFile }}" style="height:50px;padding:0 18px;border:1px solid var(--field,#D7D3CD);border-radius:10px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;" style-hover="background:var(--paper,#FDFAF7);">Import from a spreadsheet</button>
+          <button onClick="{{ a.importShopify }}" style="height:50px;padding:0 18px;border:1px solid var(--field,#D7D3CD);border-radius:10px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:14px;cursor:pointer;" style-hover="background:var(--paper,#FDFAF7);">Bring products from Shopify</button>
         </div>
-        <div style="border-top:1px solid #EDEAE5;padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-          <span style="font-size:13px;color:#5A6472;">Want to look around first? Add a sample product you can delete in one click.</span>
-          <button onClick="{{ a.sample }}" style="height:38px;padding:0 14px;border:1px dashed #9FB8D1;border-radius:8px;background:#F4F8FB;color:#00325F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Add a sample product</button>
+        <div style="border-top:1px solid var(--border,#EDEAE5);padding-top:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <span style="font-size:13px;color:var(--muted,#5A6472);">Want to look around first? Add a sample product you can delete in one click.</span>
+          <button onClick="{{ a.sample }}" style="height:38px;padding:0 14px;border:1px dashed var(--ibd,#9FB8D1);border-radius:8px;background:var(--ibg,#F4F8FB);color:var(--ifg,#00325F);font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Add a sample product</button>
         </div>
       </div>
-      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Get your shop ready</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A6472;">{{ checkDone }} of 4 done</span></div>
-        <div style="height:6px;border-radius:3px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ checkPct }};height:100%;background:#EC844F;"></div></div>
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Get your shop ready</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ checkDone }} of 4 done</span></div>
+        <div style="height:6px;border-radius:3px;background:var(--sunk,#EDEAE5);overflow:hidden;"><div style="width:{{ checkPct }};height:100%;background:#EC844F;"></div></div>
         <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="4">
-          <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border:0;border-top:1px solid #F1EEEA;background:none;text-align:left;cursor:pointer;width:100%;">
+          <button onClick="{{ c.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border:0;border-top:1px solid var(--border,#F1EEEA);background:none;text-align:left;cursor:pointer;width:100%;">
             <span style="width:22px;height:22px;border-radius:50%;border:1.5px solid {{ c.ring }};background:{{ c.fill }};color:#FFFFFF;font-size:12px;display:flex;align-items:center;justify-content:center;flex:none;">{{ c.mark }}</span>
-            <span style="flex:1;font-size:14px;color:#14181F;text-decoration:{{ c.td }};">{{ c.label }}</span>
-            <span style="font-size:13px;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
+            <span style="flex:1;font-size:14px;color:var(--text,#14181F);text-decoration:{{ c.td }};">{{ c.label }}</span>
+            <span style="font-size:13px;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;">{{ c.cta }}</span>
           </button>
         </sc-for>
-        <button onClick="{{ a.loadStocked }}" style="border:0;background:none;padding:0;color:#5A6472;font-size:12px;text-align:left;cursor:pointer;text-decoration:underline;">Demo: load a stocked store instead</button>
+        <button onClick="{{ a.loadStocked }}" style="border:0;background:none;padding:0;color:var(--muted,#5A6472);font-size:12px;text-align:left;cursor:pointer;text-decoration:underline;">Demo: load a stocked store instead</button>
       </div>
     </div>
   </sc-if>
@@ -46,11 +46,11 @@
     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;">
       <div>
         <div style="font-family:Manrope,sans-serif;font-weight:800;font-size:{{ h1 }};letter-spacing:-0.025em;line-height:1.1;">{{ title }}</div>
-        <div style="font-size:14px;color:#5A6472;margin-top:4px;">{{ summary }}</div>
+        <div style="font-size:14px;color:var(--muted,#5A6472);margin-top:4px;">{{ summary }}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <sc-if value="{{ canImport }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.importFile }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#434A55;font-size:14px;cursor:pointer;" style-hover="background:#FDFAF7;">Import &amp; export</button></sc-if>
-        <sc-if value="{{ canExport }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.exportAll }}" style="height:42px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;color:#434A55;font-size:14px;cursor:pointer;" style-hover="background:#FDFAF7;">Export</button></sc-if>
+        <sc-if value="{{ canImport }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.importFile }}" style="height:42px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text2,#434A55);font-size:14px;cursor:pointer;" style-hover="background:var(--paper,#FDFAF7);">Import &amp; export</button></sc-if>
+        <sc-if value="{{ canExport }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.exportAll }}" style="height:42px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text2,#434A55);font-size:14px;cursor:pointer;" style-hover="background:var(--paper,#FDFAF7);">Export</button></sc-if>
         <sc-if value="{{ canAddDesk }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.add }}" style="height:42px;padding:0 20px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;" style-hover="background:#D96C33;">Add product</button></sc-if>
       </div>
     </div>
@@ -58,22 +58,22 @@
     <sc-for list="{{ banners }}" as="b" hint-placeholder-count="0">
       <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:{{ b.bg }};border:1px solid {{ b.bd }};border-radius:10px;flex-wrap:wrap;">
         <span style="flex:1;min-width:220px;font-size:14px;color:{{ b.fg }};"><strong>{{ b.title }}</strong> {{ b.body }}</span>
-        <button onClick="{{ b.onClick }}" style="height:34px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:#FFFFFF;color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ b.cta }}</button>
+        <button onClick="{{ b.onClick }}" style="height:34px;padding:0 12px;border:1px solid {{ b.bd }};border-radius:8px;background:var(--card,#FFFFFF);color:{{ b.fg }};font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">{{ b.cta }}</button>
       </div>
     </sc-for>
 
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <div style="flex:1 1 260px;height:42px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;">
+      <div style="flex:1 1 260px;height:42px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);">
         <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="#8A919B" stroke-width="1.8"><circle cx="11" cy="11" r="6.5"></circle><path d="m20 20-4.2-4.2"></path></svg>
         <input value="{{ search }}" onChange="{{ a.search }}" placeholder="Search by name or product code" style="flex:1;border:0;outline:none;font-size:14px;background:transparent;min-width:0;">
-        <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.clearSearch }}" style="border:0;background:none;color:#8A919B;cursor:pointer;font-size:16px;">×</button></sc-if>
+        <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.clearSearch }}" style="border:0;background:none;color:var(--faint,#8A919B);cursor:pointer;font-size:16px;">×</button></sc-if>
       </div>
       <sc-if value="{{ showSupplier }}" hint-placeholder-val="{{ true }}">
-        <select value="{{ supplier }}" onChange="{{ a.supplier }}" style="height:42px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:13px;color:#434A55;">
+        <select value="{{ supplier }}" onChange="{{ a.supplier }}" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);padding:0 10px;font-size:13px;color:var(--text2,#434A55);">
           <option value="">All suppliers</option><option value="You">Yours</option><option value="Northwind Textiles">Northwind Textiles</option><option value="Sanganer Prints">Sanganer Prints</option>
         </select>
       </sc-if>
-      <select value="{{ sort }}" onChange="{{ a.sort }}" style="height:42px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:13px;color:#434A55;">
+      <select value="{{ sort }}" onChange="{{ a.sort }}" style="height:42px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);padding:0 10px;font-size:13px;color:var(--text2,#434A55);">
         <option value="updated">Recently updated</option><option value="name">Name A–Z</option><option value="priceLow">Price, low to high</option><option value="priceHigh">Price, high to low</option><option value="stock">Stock, lowest first</option>
       </select>
     </div>
@@ -84,7 +84,7 @@
     </div>
 
     <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0A2A4A;color:#FFFFFF;border-radius:10px;flex-wrap:wrap;position:sticky;top:64px;z-index:5;">
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--navy,#0A2A4A);color:#FFFFFF;border-radius:10px;flex-wrap:wrap;position:sticky;top:64px;z-index:5;">
         <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;padding-left:4px;">{{ selLabel }}</span>
         <sc-if value="{{ canSelectAll }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.selectAllMatching }}" style="border:0;background:none;color:#B8C7D6;font-size:13px;text-decoration:underline;cursor:pointer;">Select all {{ filteredCount }} matching</button></sc-if>
         <span style="flex:1;"></span>
@@ -94,75 +94,75 @@
     </sc-if>
 
     <sc-if value="{{ noResults }}" hint-placeholder-val="{{ false }}">
-      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:40px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;">
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:40px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center;">
         <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:17px;">{{ noResultsTitle }}</span>
-        <span style="font-size:14px;color:#5A6472;">Check the spelling, or clear your search and filters.</span>
-        <button onClick="{{ a.clearAll }}" style="height:38px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;margin-top:6px;">Clear search and filters</button>
+        <span style="font-size:14px;color:var(--muted,#5A6472);">Check the spelling, or clear your search and filters.</span>
+        <button onClick="{{ a.clearAll }}" style="height:38px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;margin-top:6px;">Clear search and filters</button>
       </div>
     </sc-if>
 
     <sc-if value="{{ showTable }}" hint-placeholder-val="{{ true }}">
-      <div style="border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;background:#FFFFFF;">
-        <div style="display:grid;grid-template-columns:{{ cols }};gap:12px;padding:10px 16px;background:#FDFAF7;border-bottom:1px solid #E8E2DC;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:#5A6472;align-items:center;">
+      <div style="border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;background:var(--card,#FFFFFF);">
+        <div style="display:grid;grid-template-columns:{{ cols }};gap:12px;padding:10px 16px;background:var(--paper,#FDFAF7);border-bottom:1px solid var(--border,#E8E2DC);font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted,#5A6472);align-items:center;">
           <sc-if value="{{ canSelect }}" hint-placeholder-val="{{ true }}"><button onClick="{{ a.togglePage }}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ pageCb.bd }};background:{{ pageCb.bg }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">{{ pageCb.mark }}</button></sc-if>
           <span>Product</span><span>Status</span><span>Price</span><span>Stock</span>
           <sc-if value="{{ showSupplier }}" hint-placeholder-val="{{ true }}"><span>Supplier</span></sc-if>
           <span>Ready to sell</span><span></span>
         </div>
         <sc-for list="{{ rows }}" as="p" hint-placeholder-count="8">
-          <div style="display:grid;grid-template-columns:{{ cols }};gap:12px;padding:10px 16px;border-bottom:1px solid #EDEAE5;align-items:center;background:{{ p.rowBg }};" style-hover="background:#FAF9F7;">
+          <div style="display:grid;grid-template-columns:{{ cols }};gap:12px;padding:10px 16px;border-bottom:1px solid var(--border,#EDEAE5);align-items:center;background:{{ p.rowBg }};" style-hover="background:var(--hover,#FAF9F7);">
             <sc-if value="{{ canSelect }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.toggle }}" style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ p.cbBd }};background:{{ p.cbBg }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;">{{ p.cb }}</button></sc-if>
             <button onClick="{{ p.open }}" style="display:flex;align-items:center;gap:12px;min-width:0;border:0;background:none;padding:0;text-align:left;cursor:pointer;">
-              <span style="width:44px;height:44px;border-radius:8px;background:{{ p.thumb }};border:1px solid #E8E2DC;flex:none;display:flex;align-items:center;justify-content:center;font-size:9px;color:#8A919B;">{{ p.noPhoto }}</span>
+              <span style="width:44px;height:44px;border-radius:8px;background:{{ p.thumb }};border:1px solid var(--border,#E8E2DC);flex:none;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--faint,#8A919B);">{{ p.noPhoto }}</span>
               <span style="min-width:0;display:flex;flex-direction:column;">
-                <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#14181F;">{{ p.name }}</span>
-                <span style="font-size:12px;color:#5A6472;">{{ p.sub }}</span>
+                <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#14181F);">{{ p.name }}</span>
+                <span style="font-size:12px;color:var(--muted,#5A6472);">{{ p.sub }}</span>
               </span>
             </button>
             <span><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:12px;background:{{ p.stBg }};border:1px solid {{ p.stBd }};font-size:12px;color:{{ p.stFg }};font-family:Manrope,sans-serif;font-weight:600;white-space:nowrap;">{{ p.status }}</span></span>
             <span style="font-size:14px;font-variant-numeric:tabular-nums;">{{ p.price }}</span>
             <span style="font-size:13px;color:{{ p.stockFg }};">{{ p.stock }}</span>
-            <sc-if value="{{ showSupplier }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:#434A55;">{{ p.supplier }}</span></sc-if>
+            <sc-if value="{{ showSupplier }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:var(--text2,#434A55);">{{ p.supplier }}</span></sc-if>
             <span style="font-size:12px;color:{{ p.readyFg }};">{{ p.ready }}</span>
-            <sc-if value="{{ canQuick }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.quickToggle }}" style="border:1px solid #E8E2DC;background:#FFFFFF;border-radius:6px;height:30px;padding:0 8px;font-size:12px;color:{{ p.qFg }};font-weight:{{ p.qFw }};cursor:pointer;">{{ p.quickLabel }}</button></sc-if>
+            <sc-if value="{{ canQuick }}" hint-placeholder-val="{{ true }}"><button onClick="{{ p.quickToggle }}" style="border:1px solid var(--border,#E8E2DC);background:var(--card,#FFFFFF);border-radius:6px;height:30px;padding:0 8px;font-size:12px;color:{{ p.qFg }};font-weight:{{ p.qFw }};cursor:pointer;">{{ p.quickLabel }}</button></sc-if>
             <sc-if value="{{ noQuick }}" hint-placeholder-val="{{ false }}"><span></span></sc-if>
           </div>
           <sc-if value="{{ p.quick }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:12px 16px 16px 72px;background:#F4F8FB;border-bottom:1px solid #D9E4EF;display:flex;flex-direction:column;gap:8px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:13px;color:#00325F;">Quick edit · {{ p.qCount }}</span><span style="font-size:12px;color:#5A6472;">Price in {{ curCode }} · stock in {{ whName }}</span></div>
+            <div style="padding:12px 16px 16px 72px;background:var(--ibg,#F4F8FB);border-bottom:1px solid #D9E4EF;display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:13px;color:var(--ifg,#00325F);">Quick edit · {{ p.qCount }}</span><span style="font-size:12px;color:var(--muted,#5A6472);">Price in {{ curCode }} · stock in {{ whName }}</span></div>
               <sc-for list="{{ p.qRows }}" as="q" hint-placeholder-count="2">
                 <div style="display:grid;grid-template-columns:140px 150px 110px minmax(0,1fr);gap:10px;align-items:center;font-size:13px;">
                   <span>{{ q.name }}</span>
-                  <input value="{{ q.price }}" onChange="{{ q.onPrice }}" inputMode="decimal" style="height:34px;border:1px solid #9FB8D1;border-radius:6px;padding:0 10px;font-size:13px;outline:none;">
-                  <input value="{{ q.stock }}" onChange="{{ q.onStock }}" inputMode="numeric" style="height:34px;border:1px solid #9FB8D1;border-radius:6px;padding:0 10px;font-size:13px;outline:none;">
-                  <span style="font-size:12px;color:#5A6472;">{{ q.note }}</span>
+                  <input value="{{ q.price }}" onChange="{{ q.onPrice }}" inputMode="decimal" style="height:34px;border:1px solid var(--ibd,#9FB8D1);border-radius:6px;padding:0 10px;font-size:13px;outline:none;">
+                  <input value="{{ q.stock }}" onChange="{{ q.onStock }}" inputMode="numeric" style="height:34px;border:1px solid var(--ibd,#9FB8D1);border-radius:6px;padding:0 10px;font-size:13px;outline:none;">
+                  <span style="font-size:12px;color:var(--muted,#5A6472);">{{ q.note }}</span>
                 </div>
               </sc-for>
               <div style="display:flex;justify-content:flex-end;gap:8px;">
-                <button onClick="{{ a.quickCancel }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Cancel</button>
+                <button onClick="{{ a.quickCancel }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Cancel</button>
                 <button onClick="{{ a.quickSave }}" style="height:34px;padding:0 14px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">{{ quickSaveLabel }}</button>
               </div>
             </div>
           </sc-if>
           <sc-if value="{{ p.review }}" hint-placeholder-val="{{ false }}">
-            <div style="padding:14px 16px 16px 72px;background:#FFFBF2;border-bottom:1px solid #F2D9A6;display:flex;flex-direction:column;gap:12px;">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:13px;color:#7A4B00;">Review · {{ p.reviewSub }}</span><span style="font-size:12px;color:#5A6472;">You set the price and can change it after approving</span></div>
+            <div style="padding:14px 16px 16px 72px;background:#FFFBF2;border-bottom:1px solid var(--wbd,#F2D9A6);display:flex;flex-direction:column;gap:12px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:13px;color:var(--wfg,#7A4B00);">Review · {{ p.reviewSub }}</span><span style="font-size:12px;color:var(--muted,#5A6472);">You set the price and can change it after approving</span></div>
               <div style="display:flex;flex-direction:column;gap:4px;">
                 <sc-for list="{{ p.checks }}" as="k" hint-placeholder-count="3"><span style="font-size:13px;color:{{ k.fg }};">{{ k.mark }} {{ k.label }}</span></sc-for>
               </div>
               <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
-                <button onClick="{{ p.rvEdit }}" style="height:34px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Edit before approving</button>
-                <button onClick="{{ p.rvBack }}" style="height:34px;padding:0 12px;border:1px solid #F0D4BF;border-radius:8px;background:#FFFFFF;color:#8F4017;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Send back</button>
+                <button onClick="{{ p.rvEdit }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Edit before approving</button>
+                <button onClick="{{ p.rvBack }}" style="height:34px;padding:0 12px;border:1px solid var(--pbd,#F0D4BF);border-radius:8px;background:var(--card,#FFFFFF);color:var(--pfg,#8F4017);font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Send back</button>
                 <button onClick="{{ p.rvApprove }}" style="height:34px;padding:0 14px;border:0;border-radius:8px;background:#1D6B47;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Approve &amp; publish</button>
               </div>
             </div>
           </sc-if>
         </sc-for>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;color:#5A6472;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;font-size:13px;color:var(--muted,#5A6472);">
           <span>{{ pageLabel }}</span>
           <span style="display:flex;gap:6px;">
-            <button onClick="{{ a.prev }}" style="padding:4px 10px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;font-size:13px;cursor:pointer;color:{{ prevFg }};">Previous</button>
-            <button onClick="{{ a.next }}" style="padding:4px 10px;border:1px solid #E8E2DC;border-radius:6px;background:#FFFFFF;font-size:13px;cursor:pointer;color:{{ nextFg }};">Next</button>
+            <button onClick="{{ a.prev }}" style="padding:4px 10px;border:1px solid var(--border,#E8E2DC);border-radius:6px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;color:{{ prevFg }};">Previous</button>
+            <button onClick="{{ a.next }}" style="padding:4px 10px;border:1px solid var(--border,#E8E2DC);border-radius:6px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;color:{{ nextFg }};">Next</button>
           </span>
         </div>
       </div>
@@ -171,18 +171,18 @@
     <sc-if value="{{ showCards }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;gap:8px;padding-bottom:80px;">
         <sc-for list="{{ rows }}" as="p" hint-placeholder-count="5">
-          <button onClick="{{ p.open }}" style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;text-align:left;cursor:pointer;width:100%;">
-            <span style="width:56px;height:56px;border-radius:8px;background:{{ p.thumb }};flex:none;border:1px solid #E8E2DC;"></span>
+          <button onClick="{{ p.open }}" style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;text-align:left;cursor:pointer;width:100%;">
+            <span style="width:56px;height:56px;border-radius:8px;background:{{ p.thumb }};flex:none;border:1px solid var(--border,#E8E2DC);"></span>
             <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
-              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#14181F;">{{ p.name }}</span>
-              <span style="font-size:13px;color:#14181F;">{{ p.price }}</span>
+              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#14181F);">{{ p.name }}</span>
+              <span style="font-size:13px;color:var(--text,#14181F);">{{ p.price }}</span>
               <span style="font-size:12px;color:{{ p.stockFg }};">{{ p.stock }} · {{ p.status }}</span>
             </span>
-            <span style="color:#9AA1AB;">›</span>
+            <span style="color:var(--faint,#9AA1AB);">›</span>
           </button>
           <sc-if value="{{ p.canReview }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;gap:8px;margin-top:-4px;">
-              <button onClick="{{ p.rvBack }}" style="flex:1;height:44px;border:1px solid #F0D4BF;border-radius:10px;background:#FFFFFF;color:#8F4017;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Send back</button>
+              <button onClick="{{ p.rvBack }}" style="flex:1;height:44px;border:1px solid var(--pbd,#F0D4BF);border-radius:10px;background:var(--card,#FFFFFF);color:var(--pfg,#8F4017);font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Send back</button>
               <button onClick="{{ p.rvApprove }}" style="flex:1;height:44px;border:0;border-radius:10px;background:#1D6B47;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Approve</button>
             </div>
           </sc-if>
@@ -247,10 +247,10 @@ class Component extends DCLogic {
     const sendBack = p => app.modal({ title: `Send back to ${p.supplier}`, body: 'Say what needs changing. They’ll see exactly what you write.', input: { label: 'What should they fix?', placeholder: 'e.g. The main photo is blurry — please upload a sharper one.', required: true, error: 'Add a reason so they know what to fix' }, confirm: 'Send back',
       onConfirm: reason => { app.updateProducts([p.id], { status: 'sentback', sentBack: reason.trim() }); app.toast(`Sent back to ${p.supplier}`); this.setState({ reviewId: null }); } });
     const selIds = s.allMatching ? list.map(p => p.id) : s.sel;
-    const ST = { visible: ['Visible', '#EEF7F2', '#C3E0D2', '#1D6B47'], hidden: ['Hidden', '#F2F0EC', '#E8E2DC', '#434A55'], waiting: ['Waiting for approval', '#FFF6E5', '#F2D9A6', '#7A4B00'], sentback: ['Sent back', '#FDF0E8', '#F0D4BF', '#8F4017'] };
+    const ST = { visible: ['Visible', 'var(--okbg,#EEF7F2)', 'var(--okbd,#C3E0D2)', 'var(--okfg,#1D6B47)'], hidden: ['Hidden', 'var(--sunk,#F2F0EC)', 'var(--border,#E8E2DC)', 'var(--text2,#434A55)'], waiting: ['Waiting for approval', 'var(--wbg,#FFF6E5)', 'var(--wbd,#F2D9A6)', 'var(--wfg,#7A4B00)'], sentback: ['Sent back', 'var(--pbg,#FDF0E8)', 'var(--pbd,#F0D4BF)', 'var(--pfg,#8F4017)'] };
 
     const rows = pageList.map(p => {
-      const st = app.paused.products.has(p.id) ? ['Paused — over your plan', '#F3EDE8', '#E8E2DC', '#8F4017'] : (ST[p.status] || ST.visible);
+      const st = app.paused.products.has(p.id) ? ['Paused — over your plan', 'var(--desk,#F3EDE8)', 'var(--border,#E8E2DC)', 'var(--pfg,#8F4017)'] : (ST[p.status] || ST.visible);
       const tot = stock(p);
       const m = ms(p);
       const okCount = m.filter(x => x.ok).length;
@@ -263,7 +263,7 @@ class Component extends DCLogic {
         { ok: p.photos.length > 0, label: p.photos.length ? `${p.photos.length} photo${p.photos.length > 1 ? 's' : ''}` : 'No photo yet' },
         { ok: this.minPrice(p) > 0, label: this.minPrice(p) > 0 ? 'Price and stock filled in' : 'No price yet' },
         ...m.map(x => ({ ok: x.ok, label: x.ok ? 'Ready to sell in ' + x.name : `Not ready in ${x.name} — ${x.missing.map(y => y.label.toLowerCase()).join(', ')} missing` }))
-      ].map(k => ({ ...k, mark: k.ok ? '✓' : '⚠', fg: k.ok ? '#1D6B47' : '#7A4B00' })) : [];
+      ].map(k => ({ ...k, mark: k.ok ? '✓' : '⚠', fg: k.ok ? 'var(--okfg,#1D6B47)' : 'var(--wfg,#7A4B00)' })) : [];
       const qd = s.quickDraft;
       const qRows = isQuick ? (vs.length ? vs.map(v => ({ name: v.vals.join(' / '), price: qd[v.key + ':p'] ?? String(v.price), stock: qd[v.key + ':s'] ?? String(v.stock),
         note: (qd[v.key + ':p'] !== undefined || qd[v.key + ':s'] !== undefined) ? 'Changed' : '',
@@ -273,16 +273,16 @@ class Component extends DCLogic {
       return {
         name: p.name + (p.sample ? ' ' : ''), sub: (p.sample ? 'Sample · ' : '') + (vs.length ? vs.length + ' versions' : (p.type === 'download' ? 'Download' : 'No choices')),
         status: st[0], stBg: st[1], stBd: st[2], stFg: st[3], price: this.priceText(p, fmt), stock: stockText,
-        stockFg: stockText === 'Out of stock' ? '#B8541F' : /Low/.test(stockText) ? '#7A4B00' : '#434A55', supplier: p.supplier,
+        stockFg: stockText === 'Out of stock' ? 'var(--link,#B8541F)' : /Low/.test(stockText) ? 'var(--wfg,#7A4B00)' : 'var(--text2,#434A55)', supplier: p.supplier,
         ready: m.length === 1 ? (m[0].ok ? 'Ready' : m[0].missing.length + ' detail' + (m[0].missing.length > 1 ? 's' : '') + ' missing') : (okCount === m.length ? 'Ready in all ' + m.length : okCount + ' of ' + m.length + ' countries'),
-        readyFg: okCount === m.length ? '#1D6B47' : '#7A4B00',
-        thumb: p.photos.length ? `linear-gradient(135deg,hsl(${p.photos[0].hue},35%,80%),hsl(${p.photos[0].hue},30%,65%))` : '#FDFAF7', noPhoto: p.photos.length ? '' : 'No photo',
-        cb: sel ? '✓' : '', cbBg: sel ? '#00519F' : '#FFFFFF', cbBd: sel ? '#00519F' : '#B9BEC6', rowBg: sel ? '#F7FAFD' : (isQuick ? '#F4F8FB' : '#FFFFFF'),
+        readyFg: okCount === m.length ? 'var(--okfg,#1D6B47)' : 'var(--wfg,#7A4B00)',
+        thumb: p.photos.length ? `linear-gradient(135deg,hsl(${p.photos[0].hue},35%,80%),hsl(${p.photos[0].hue},30%,65%))` : 'var(--paper,#FDFAF7)', noPhoto: p.photos.length ? '' : 'No photo',
+        cb: sel ? '✓' : '', cbBg: sel ? '#00519F' : 'var(--card,#FFFFFF)', cbBd: sel ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)', rowBg: sel ? 'var(--hover,#F7FAFD)' : (isQuick ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)'),
         toggle: () => this.setState({ allMatching: false, sel: sel ? s.sel.filter(x => x !== p.id) : [...s.sel, p.id] }),
         open: () => app.openProduct(p.id),
         canReview, review: isReview, checks, reviewSub: 'from ' + p.supplier,
         rvApprove: () => approve([p.id]), rvBack: () => sendBack(p), rvEdit: () => app.go('product', { editId: p.id, editNonce: Date.now(), returnTo: 'products' }),
-        qFg: canReview ? '#B8541F' : '#00519F', qFw: canReview ? '700' : '400',
+        qFg: canReview ? 'var(--link,#B8541F)' : 'var(--focus,#00519F)', qFw: canReview ? '700' : '400',
         quick: isQuick && !canReview, qRows, qCount: vs.length ? vs.length + ' versions' : 'price and stock', quickLabel: canReview ? (isReview ? 'Close' : 'Review') : (isQuick ? 'Close' : 'Quick edit'),
         quickToggle: () => canReview ? this.setState({ reviewId: isReview ? null : p.id, quickId: null }) : this.setState({ quickId: isQuick ? null : p.id, quickDraft: {}, reviewId: null })
       };
@@ -294,7 +294,7 @@ class Component extends DCLogic {
     if (c.multiCur) chipDefs.push(['nocur', 'No ' + R.manCur + ' price']);
     const chips = chipDefs.filter(([k]) => k === 'all' || count(k) > 0 || s.filter === k).map(([k, l]) => {
       const on = s.filter === k;
-      return { label: l, count: String(count(k)), onClick: () => this.setState({ filter: k, page: 0 }), bg: on ? '#EAF1F8' : '#FFFFFF', bd: on ? '#00519F' : '#D7D3CD', fg: on ? '#00325F' : '#434A55' };
+      return { label: l, count: String(count(k)), onClick: () => this.setState({ filter: k, page: 0 }), bg: on ? 'var(--ibg,#EAF1F8)' : 'var(--card,#FFFFFF)', bd: on ? 'var(--focus,#00519F)' : 'var(--field,#D7D3CD)', fg: on ? 'var(--ifg,#00325F)' : 'var(--text2,#434A55)' };
     });
 
     const confirmDelete = ids => {
@@ -307,36 +307,37 @@ class Component extends DCLogic {
       app.modal({ title: `Add ${ids.length} product${ids.length > 1 ? 's' : ''} to…`, body: 'Automatic collections fill themselves from their rules, so only hand-picked ones are listed.', choices: manual.map(m => ({ label: m.name, sub: m.productIds.length + ' products', value: m.id })), confirm: 'Add', onConfirm: cid => { app.setCollections(cs => cs.map(x => x.id === cid ? { ...x, productIds: [...new Set([...x.productIds, ...ids])] } : x)); app.toast(`Added to ${manual.find(m => m.id === cid).name}`); this.setState({ sel: [], allMatching: false }); } });
     };
     const selWaiting = all.filter(p => selIds.includes(p.id) && p.status === 'waiting').length;
-    const bulk = c.isVendor ? [{ label: 'Export', fg: '#FFFFFF', onClick: () => app.toast(`Exporting ${selIds.length} of your products…`) }] : [
+const csvP = (name, ps) => app.download(name, ['Name', 'SKU', 'Price', 'Stock', 'Status', 'Supplier'], ps.map(p => [p.name, p.sku, p.price, (p.variants || []).length ? p.variants.reduce((a, v) => a + (v.removed ? 0 : Number(v.stock) || 0), 0) : p.stock, p.status, p.supplier]));
+    const bulk = c.isVendor ? [{ label: 'Export', fg: '#FFFFFF', onClick: () => csvP('northwind-products.csv', all.filter(p => selIds.includes(p.id))) }] : [
       ...(canApprove && selWaiting ? [{ label: `Approve ${selWaiting}`, fg: '#A8E0C2', onClick: () => approve(selIds) }] : []),
       { label: 'Show on store', fg: '#FFFFFF', onClick: () => { const ok = all.filter(p => selIds.includes(p.id) && p.status !== 'waiting'); app.updateProducts(ok.map(p => p.id), { status: 'visible' }); app.toast(`${ok.length} now visible` + (ok.length < selIds.length ? ' · products waiting for approval were skipped' : '')); } },
       { label: 'Hide', fg: '#FFFFFF', onClick: () => { app.updateProducts(selIds, { status: 'hidden' }); app.toast(`${selIds.length} hidden from shoppers`); } },
       { label: 'Add to collection', fg: '#FFFFFF', onClick: () => addToColl(selIds) },
       { label: 'Change ' + R.taxLabel.toLowerCase(), fg: '#FFFFFF', onClick: () => app.modal({ title: `${R.taxLabel} for ${selIds.length} products`, body: R.taxNote, choices: R.taxClasses.map(t => ({ label: t, value: t })), confirm: 'Apply', onConfirm: v => { app.updateProducts(selIds, { taxClass: v }); app.toast(`${selIds.length} products now use “${v}”`); } }) },
-      { label: 'Export', fg: '#FFFFFF', onClick: () => { app.setExports(e => [{ id: 'e' + Date.now(), label: 'Selected products', count: selIds.length, date: 'Just now' }, ...e]); app.toast(`Export of ${selIds.length} products is ready`, 'Download', () => app.toast('Downloading products.csv')); } },
+      { label: 'Export', fg: '#FFFFFF', onClick: () => { if (!app.allow('export', 'Exporting products')) return; const ps = all.filter(p => selIds.includes(p.id)); app.setExports(e => [{ id: 'e' + Date.now(), label: 'Selected products', count: ps.length, date: 'Just now', ids: ps.map(p => p.id) }, ...e]); csvP('selected-products.csv', ps); } },
       { label: 'Delete…', fg: '#F7B9B9', onClick: () => confirmDelete(selIds) }
     ];
 
     const banners = [];
     const count0 = k => all.filter(tests[k]).length;
-    if (canApprove && count0('waiting') && s.filter !== 'waiting') banners.push({ title: `${count0('waiting')} supplier product${count0('waiting') > 1 ? 's are' : ' is'} waiting for your approval.`, body: 'They go live once you approve them.', cta: 'Review them', onClick: () => this.setState({ filter: 'waiting', page: 0 }), bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00' });
+    if (canApprove && count0('waiting') && s.filter !== 'waiting') banners.push({ title: `${count0('waiting')} supplier product${count0('waiting') > 1 ? 's are' : ' is'} waiting for your approval.`, body: 'They go live once you approve them.', cta: 'Review them', onClick: () => this.setState({ filter: 'waiting', page: 0 }), bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)' });
     if (!c.isVendor && !c.isStaff) {
       const notReady = all.filter(p => ms(p).some(m => !m.ok));
       if (notReady.length && R.markets.length > 1) {
         const worst = R.markets.map(mk => ({ mk, n: all.filter(p => ms(p).find(x => x.code === mk.code && !x.ok)).length })).sort((a, b) => b.n - a.n)[0];
-        banners.push({ title: `To sell in ${worst.mk.name}, ${worst.n} products need more details.`, body: 'They’re on sale everywhere else already.', cta: 'Show them', onClick: () => this.setState({ filter: 'missing', page: 0 }), bg: '#FFF6E5', bd: '#F2D9A6', fg: '#7A4B00' });
+        banners.push({ title: `To sell in ${worst.mk.name}, ${worst.n} products need more details.`, body: 'They’re on sale everywhere else already.', cta: 'Show them', onClick: () => this.setState({ filter: 'missing', page: 0 }), bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)' });
       }
-      if (c.multiLang) { const n = count('untrans'); if (n) banners.push({ title: `${n} products aren’t in French yet.`, body: 'French shoppers see your English text until they are — nothing is broken.', cta: 'Show them', onClick: () => this.setState({ filter: 'untrans', page: 0 }), bg: '#F4F8FB', bd: '#C9DAEC', fg: '#00325F' }); }
-      if (c.multiCur) { const n = count('nocur'); if (n) banners.push({ title: `${n} products have no ${R.manCur} price.`, body: `They can’t be bought in ${R.manCur} until you add one. ${R.autoCur} prices are worked out for you.`, cta: 'Set ' + R.manCur + ' prices', onClick: () => app.modal({ title: `Set ${R.manCur} prices for ${n} products`, body: `We’ll fill every empty ${R.manCur} price with the converted ${R.cur} price, rounded to .99. You can change any of them after.`, confirm: 'Fill them in', onConfirm: () => { app.updateProducts(all.filter(this.needsManual.bind(this)).map(p => p.id), p => this.fillManual(p, R)); app.toast(n + ' products now have a ' + R.manCur + ' price'); } }), bg: '#FDF0E8', bd: '#F0D4BF', fg: '#B8541F' }); }
+      if (c.multiLang) { const n = count('untrans'); if (n) banners.push({ title: `${n} products aren’t in French yet.`, body: 'French shoppers see your English text until they are — nothing is broken.', cta: 'Show them', onClick: () => this.setState({ filter: 'untrans', page: 0 }), bg: 'var(--ibg,#F4F8FB)', bd: 'var(--ibd,#C9DAEC)', fg: 'var(--ifg,#00325F)' }); }
+      if (c.multiCur) { const n = count('nocur'); if (n) banners.push({ title: `${n} products have no ${R.manCur} price.`, body: `They can’t be bought in ${R.manCur} until you add one. ${R.autoCur} prices are worked out for you.`, cta: 'Set ' + R.manCur + ' prices', onClick: () => app.modal({ title: `Set ${R.manCur} prices for ${n} products`, body: `We’ll fill every empty ${R.manCur} price with the converted ${R.cur} price, rounded to .99. You can change any of them after.`, confirm: 'Fill them in', onConfirm: () => { app.updateProducts(all.filter(this.needsManual.bind(this)).map(p => p.id), p => this.fillManual(p, R)); app.toast(n + ' products now have a ' + R.manCur + ' price'); } }), bg: 'var(--pbg,#FDF0E8)', bd: 'var(--pbd,#F0D4BF)', fg: 'var(--link,#B8541F)' }); }
     }
 
     const done = [app.st.dataset !== 'empty' || all.length > 0, all.filter(p => !p.sample).length >= 3, app.collections.length > 0, false];
     const checklist = [
-      { label: 'Set up your store details', cta: 'Done', ok: true, onClick: () => app.toast('Settings › Store info is already filled in') },
+      { label: 'Set up your store details', cta: ((app.data('storeInfo') || {}).email && (app.data('storeInfo') || {}).street) ? 'Done' : 'Set up', ok: !!((app.data('storeInfo') || {}).email && (app.data('storeInfo') || {}).street), onClick: () => app.go('settings', { settingsTab: 'store' }) },
       { label: 'Add 3 products', cta: `${Math.min(3, all.filter(p => !p.sample).length)} of 3`, ok: done[1], onClick: () => app.newProduct() },
       { label: 'Group them into a collection', cta: 'Create', ok: done[2], onClick: () => app.go('collections') },
-      { label: 'Choose how you ship', cta: 'Set up', ok: false, onClick: () => app.toast('Opens Settings › Shipping') }
-    ].map(x => ({ ...x, mark: x.ok ? '✓' : '', fill: x.ok ? '#1D6B47' : '#FFFFFF', ring: x.ok ? '#1D6B47' : '#B9BEC6', td: x.ok ? 'line-through' : 'none', cta: x.ok ? 'Done' : x.cta }));
+      { label: 'Choose how you ship', cta: app.st.shippingSet ? 'Done' : 'Set up', ok: !!app.st.shippingSet, onClick: () => app.go('settings', { settingsTab: 'shipping' }) }
+    ].map(x => ({ ...x, mark: x.ok ? '✓' : '', fill: x.ok ? '#1D6B47' : 'var(--card,#FFFFFF)', ring: x.ok ? '#1D6B47' : 'var(--faint,#B9BEC6)', td: x.ok ? 'line-through' : 'none', cta: x.ok ? 'Done' : x.cta }));
     const checkDone = checklist.filter(x => x.ok).length;
 
     const isEmpty = all.length === 0 && !c.isVendor;
@@ -367,13 +368,13 @@ class Component extends DCLogic {
       noResults: list.length === 0 && !vendorEmpty, noResultsTitle: q ? `No products match “${s.search}”` : 'No products match these filters',
       showTable: !phone && list.length > 0, showCards: phone && list.length > 0,
       cols: [canSelect ? '28px' : null, 'minmax(0,2.4fr)', 'minmax(0,1.1fr)', 'minmax(0,1.1fr)', 'minmax(0,0.9fr)', showSupplier ? 'minmax(0,1.1fr)' : null, 'minmax(0,1fr)', '88px'].filter(Boolean).join(' '),
-      canSelect, canQuick, noQuick: !canQuick, rows, pageCb: { mark: pageAll ? '✓' : '', bg: pageAll ? '#00519F' : '#FFFFFF', bd: pageAll ? '#00519F' : '#B9BEC6' },
-      pageLabel: list.length ? `Showing ${page * PER + 1}–${Math.min(list.length, page * PER + PER)} of ${list.length}` : '', prevFg: page > 0 ? '#14181F' : '#B9BEC6', nextFg: page < pages - 1 ? '#14181F' : '#B9BEC6',
+      canSelect, canQuick, noQuick: !canQuick, rows, pageCb: { mark: pageAll ? '✓' : '', bg: pageAll ? '#00519F' : 'var(--card,#FFFFFF)', bd: pageAll ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)' },
+      pageLabel: list.length ? `Showing ${page * PER + 1}–${Math.min(list.length, page * PER + PER)} of ${list.length}` : '', prevFg: page > 0 ? 'var(--text,#14181F)' : '#B9BEC6', nextFg: page < pages - 1 ? 'var(--text,#14181F)' : '#B9BEC6',
       curCode: R.cur, whName: R.wh, quickSaveLabel: Object.keys(s.quickDraft).length ? `Save ${Object.keys(s.quickDraft).length} change${Object.keys(s.quickDraft).length > 1 ? 's' : ''}` : 'Save',
       fab: phone && c.canEdit && !c.isStaff && !c.isVendorStock && !isEmpty,
       a: {
         add: () => app.newProduct(), importFile: () => app.go('imports', { importMode: 'file' }), importShopify: () => app.go('imports', { importMode: 'shopify' }), sample: () => app.addSample(), loadStocked: () => app.loadStocked(),
-        exportAll: () => { app.setExports(e => [{ id: 'e' + Date.now(), label: 'All products', count: all.length, date: 'Just now' }, ...e]); app.toast(`Export of ${all.length} products is ready`, 'Download', () => app.toast('Downloading products.csv')); },
+        exportAll: () => { if (!c.isVendor && !app.allow('export', 'Exporting products')) return; app.setExports(e => [{ id: 'e' + Date.now(), label: 'All products', count: all.length, date: 'Just now' }, ...e]); csvP('products.csv', all); },
         search: e => this.setState({ search: e.target.value, page: 0, allMatching: false }), clearSearch: () => this.setState({ search: '' }),
         supplier: e => this.setState({ supplier: e.target.value, page: 0 }), sort: e => this.setState({ sort: e.target.value }),
         selectAllMatching: () => this.setState({ allMatching: true }), clearSel: () => this.setState({ sel: [], allMatching: false }),
