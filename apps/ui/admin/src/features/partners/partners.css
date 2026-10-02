@@ -1,4 +1,4 @@
-/* What only the Partners screens draw; the list styles are @dripfunnel/shared/ui/list.css and the detail styles common/detail.css. */
+/* What only the Partners screens draw; the list and detail styles are @dripfunnel/shared/ui/list.css and detail.css. */
 
 .df-house-badge {
   border-color: var(--df-color-border);

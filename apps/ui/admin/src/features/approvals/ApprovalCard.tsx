@@ -1,9 +1,8 @@
-import { StatusPill } from '@dripfunnel/shared/ui'
+import { StatusPill, Tile } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useId } from 'react'
 import { goLiveChecks, type PartnerApproval, type PartnerRow } from '../../api/partners'
 import { fill, formatCount, formatTime, formatWait, messages } from '../../messages'
-import { Tile } from '../common/Tile'
 import './approvals.css'
 
 const words = messages.approvals

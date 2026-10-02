@@ -1,6 +1,6 @@
 import type { Partner } from '../../api/partners'
 import { messages } from '../../messages'
-import { InfoNote } from '../common/InfoNote'
+import { InfoNote } from '@dripfunnel/shared/ui'
 import './partners.css'
 
 const words = messages.partner

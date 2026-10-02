@@ -2,10 +2,9 @@ import { getRouteApi, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { changeStaffRole, inviteStaff, removeStaff, resendStaffInvite, revokeStaffInvite, type StaffMember, type StaffResult } from '../../api/staff'
 import { messages } from '../../messages'
-import { ConfirmDialog, useScreenState } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
 import { callerFor } from '../common/harnessCaller'
-import { Toast } from '../common/Toast'
 import { Staff, StaffError } from './Staff'
 import { refusalOn, type PageRefusal } from './pageRefusal'
 import { isStaffRole, labelOf, refusalText, staffDialog, staffToast, type StaffDialogKind } from './staffDialog'
@@ -88,9 +87,9 @@ export const StaffScreen = () => {
         cancelLabel={messages.staff.dialogs.cancel}
         {...(dialog?.notes ? { notes: dialog.notes } : {})}
         {...(dialog?.input ? { input: dialog.input } : {})}
-        {...(dialog?.choice ? { choice: dialog.choice } : {})}
+        {...(dialog?.choices ? { choices: dialog.choices } : {})}
         danger={dialog?.danger ?? false}
-        onConfirm={(_reason, email, role) => pending && onConfirm(pending, email, role)}
+        onConfirm={(_reason, email, { role }) => pending && onConfirm(pending, email, role ?? null)}
         onCancel={() => setPending(null)}
       />
       <Toast message={toast} onDone={clearToast} />

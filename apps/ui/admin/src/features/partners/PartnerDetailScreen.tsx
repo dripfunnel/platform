@@ -4,13 +4,12 @@ import { partnerActions, recheckDomain, runPartnerAction, type Partner, type Par
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog, useScreenState } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
 import { callerFor } from '../common/harnessCaller'
 import { actionDialog, actionToast, type ConfirmedAction } from './actionDialog'
 import { partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
-import { Toast } from '../common/Toast'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 
 const partnerRoute = getRouteApi('/_app/partners_/$partnerId')

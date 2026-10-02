@@ -8,7 +8,7 @@ const roleNames = messages.shell.roles
 
 export type StaffDialogKind = 'invite' | StaffAction
 
-export type StaffDialog = Pick<ConfirmDialogProps, 'title' | 'target' | 'consequence' | 'confirmLabel' | 'notes' | 'input' | 'choice' | 'danger'>
+export type StaffDialog = Pick<ConfirmDialogProps, 'title' | 'target' | 'consequence' | 'confirmLabel' | 'notes' | 'input' | 'choices' | 'danger'>
 
 // An invitation has no name until its SSO sign-in, so it goes by its email.
 export const labelOf = (member: StaffMember) => member.name ?? member.email
@@ -29,10 +29,10 @@ export const staffDialog = (kind: StaffDialogKind, member: StaffMember | null, m
     return {
       title: spec.title,
       target: spec.target,
-      consequence: (email, role) => fill(spec.consequence, { email: email.trim() || spec.someone, role: roleName(role) }),
+      consequence: (email, { role = '' }) => fill(spec.consequence, { email: email.trim() || spec.someone, role: roleName(role) }),
       confirmLabel: spec.confirm,
       input: { label: spec.email, type: 'email', initial: '', placeholder: spec.emailPlaceholder, error: (email) => (emailPattern.test(email.trim()) ? null : spec.emailError) },
-      choice: { label: words.dialogs.role, options: roleOptions, initial: 'staff-support', error: () => null },
+      choices: [{ key: 'role', label: words.dialogs.role, options: roleOptions, initial: 'staff-support', error: () => null }],
     }
   }
   if (!member) return null
@@ -44,10 +44,10 @@ export const staffDialog = (kind: StaffDialogKind, member: StaffMember | null, m
       return {
         title: fill(spec.title, { name }),
         target: name,
-        consequence: (_value, role) =>
+        consequence: (_value, { role = '' }) =>
           fill(role === member.role ? spec.current : self ? spec.self : spec.consequence, { name, role: roleName(role) }),
         confirmLabel: spec.confirm,
-        choice: { label: words.dialogs.role, options: roleOptions, initial: member.role, error: (role) => (role === member.role ? spec.sameRole : null) },
+        choices: [{ key: 'role', label: words.dialogs.role, options: roleOptions, initial: member.role, error: (role) => (role === member.role ? spec.sameRole : null) }],
       }
     }
     case 'remove': {

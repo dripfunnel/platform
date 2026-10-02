@@ -103,8 +103,8 @@ describe('staffDialog', () => {
     if (!found) throw new Error(`No sample staff ${id}`)
     return found
   }
-  const consequenceOf = (dialog: ReturnType<typeof staffDialog>, value = '', choice = '') =>
-    typeof dialog?.consequence === 'function' ? dialog.consequence(value, choice) : dialog?.consequence
+  const consequenceOf = (dialog: ReturnType<typeof staffDialog>, value = '', role = '') =>
+    typeof dialog?.consequence === 'function' ? dialog.consequence(value, { role }) : dialog?.consequence
 
   it('invites by any email, naming it and the role', () => {
     const dialog = staffDialog('invite', null, 'st-arjun')
@@ -113,14 +113,14 @@ describe('staffDialog', () => {
     )
     expect(dialog?.input?.error('ana@example.org')).toBeNull()
     expect(dialog?.input?.error('ana')).toBe(words.dialogs.invite.emailError)
-    expect(dialog?.choice?.initial).toBe('staff-support')
+    expect(dialog?.choices?.[0]?.initial).toBe('staff-support')
   })
 
   it('changes a role naming the person, and refuses the same role', () => {
     const dialog = staffDialog('changeRole', member('st-neha'), 'st-arjun')
     expect(dialog?.title).toBe('Change Neha Rao’s role')
     expect(consequenceOf(dialog, '', 'staff-finance')).toBe('Neha Rao becomes Finance, with that role’s access from their next request.')
-    expect(dialog?.choice?.error('staff-support')).toBe(words.dialogs.changeRole.sameRole)
+    expect(dialog?.choices?.[0]?.error('staff-support', { role: 'staff-support' })).toBe(words.dialogs.changeRole.sameRole)
     expect(consequenceOf(staffDialog('changeRole', member('st-arjun'), 'st-arjun'), '', 'staff-support')).toContain('You become Support')
   })
 

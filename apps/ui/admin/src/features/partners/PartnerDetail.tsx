@@ -14,7 +14,7 @@ import { PartnerTabs, type PartnerTab } from './PartnerTabs'
 import { PlansTab } from './PlansTab'
 import { TeamTab } from './TeamTab'
 import '@dripfunnel/shared/ui/list.css'
-import '../common/detail.css'
+import '@dripfunnel/shared/ui/detail.css'
 import './partners.css'
 
 const words = messages.partner

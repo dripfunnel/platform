@@ -1,12 +1,12 @@
-import '@dripfunnel/shared/ui/list.css'
+import './list.css'
 
 // A record's initials, standing in for its logo until the API serves logo files.
-// `neutral` is for records without a brand colour of their own, such as stores. `initials`
-// stands in when there is no name to take them from, such as a deleted customer.
 export interface TileProps {
   name: string
   large?: boolean
+  // For records without a brand colour of their own, such as stores.
   neutral?: boolean
+  // When there is no name to take them from, such as a deleted customer.
   initials?: string
 }
 
