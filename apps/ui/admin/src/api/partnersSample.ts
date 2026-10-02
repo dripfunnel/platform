@@ -1,22 +1,22 @@
-// The prototype's sample partners (designs/admin-data.js), served the way the Admin API would
-// serve them: filtered, sorted and paged here, and every permission worked out here, never in a
-// component. It stands in for the server until #33, and goes with it.
+// The prototype's sample partners (designs/admin-data.js) as the Admin API serves them: the
+// screen tests' fixture and the seed of the samples still waiting for their API (#37, #39, #40).
 import type { StaffRole } from '../features/shell/staffRoles'
-import type {
-  ActionPermission,
-  DomainKind,
-  GoLiveCheck,
-  HistoryEntry,
-  Partner,
-  PartnerAction,
-  PartnerApproval,
-  PartnerDomain,
-  PartnerFilter,
-  PartnerPage,
-  PartnerPermissions,
-  PartnerPlan,
-  PartnerUser,
-  SetupRow,
+import {
+  setupItems,
+  type ActionPermission,
+  type DomainKind,
+  type GoLiveCheck,
+  type HistoryEntry,
+  type Partner,
+  type PartnerAction,
+  type PartnerApproval,
+  type PartnerDomain,
+  type PartnerFilter,
+  type PartnerPage,
+  type PartnerPermissions,
+  type PartnerPlan,
+  type PartnerUser,
+  type SetupRow,
 } from './partners'
 import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { impersonatePermission, setupStarters } from './sessionRules'
@@ -34,25 +34,23 @@ const domainsFor = (base: string, portal: string, waiting: readonly DomainKind[]
   ]
   return spec.map(([kind, host, record, expected]) => {
     const isWaiting = waiting.includes(kind)
-    return { kind, host, status: isWaiting ? 'waiting' : 'live', record, expected, found: isWaiting ? null : expected }
+    return { id: `${base}-${kind}`, kind, host, status: isWaiting ? 'waiting' : 'live', record, expected, found: isWaiting ? null : expected, checkedAt: '2026-09-28T10:30:00Z' }
   })
 }
 
-const done = (name: string, org: string) => ({ status: 'done' as const, by: { name, org } })
-const allDone = (name: string, org: string): SetupRow[] =>
-  (['companyDetails', 'ownerAccepted', 'branding', 'portalHost', 'emailSender', 'plans', 'legalPages', 'payoutDetails'] as const).map(
-    (item) => ({ item, ...done(name, org) }),
-  )
+const done = (name: string, org: string, detail: string | null = null) => ({ status: 'done' as const, detail, by: { name, org } })
+const progress = (detail: string): Pick<SetupRow, 'status' | 'detail' | 'by'> => ({ status: 'progress', detail, by: null })
+const missing = (detail: string): Pick<SetupRow, 'status' | 'detail' | 'by'> => ({ status: 'missing', detail, by: null })
+const allDone = (name: string, org: string): SetupRow[] => setupItems.map((item) => ({ item, ...done(name, org) }))
 
-const plan = (id: string, name: string, price: PartnerPlan['price'], maxProducts: number | null, maxStaff: number | null, stores: number): PartnerPlan => ({
+const plan = (id: string, name: string, status: PartnerPlan['status'], maxProducts: number | null, maxStaff: number | null, stores: number): PartnerPlan => ({
   id,
   name,
-  price,
+  status,
   maxProducts,
   maxStaff,
   stores,
 })
-const usd = (dollars: number) => ({ amount: dollars * 100, currency: 'USD' })
 
 const user = (id: string, name: string, email: string, role: PartnerUser['role'], lastSignInAt: string | null): PartnerUser => ({
   id,
@@ -63,12 +61,7 @@ const user = (id: string, name: string, email: string, role: PartnerUser['role']
   lastSignInAt,
 })
 
-const event = (at: string, kind: HistoryEntry['event'], by: string | null = null, note: string | null = null): HistoryEntry => ({
-  at,
-  event: kind,
-  by,
-  note,
-})
+const event = (at: string, action: string, by: string | null = null, note: string | null = null): HistoryEntry => ({ at, action, by, note })
 
 const passing: Record<GoLiveCheck, boolean> = { portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true, testSignup: true }
 
@@ -88,15 +81,15 @@ export const samplePartners: readonly SamplePartner[] = [
       { name: 'Ravi Kapoor', role: 'Owner', email: 'ravi@dripfunnel.com' },
       { name: 'Arjun Menon', role: 'Platform lead', email: 'arjun@dripfunnel.com' },
     ],
-    history: [event('2024-02-03T00:00:00Z', 'created', 'Arjun Menon'), event('2024-02-03T00:00:00Z', 'approved', 'Arjun Menon')],
+    history: [event('2024-02-03T00:00:00Z', 'partner.created', 'Arjun Menon'), event('2024-02-03T00:00:00Z', 'partner.approved', 'Arjun Menon')],
     checklist: allDone('Ravi', 'DripFunnel'),
     branding: { productName: 'DripFunnel', primaryColor: '#EC844F', accentColor: '#0A2A4A', poweredBy: 'house' },
     domains: domainsFor('dripfunnel.com', 'store.dripfunnel.com'),
     plans: [
-      plan('df-starter', 'Starter', usd(0), 10, 1, 402),
-      plan('df-growth', 'Growth', usd(29), 100, 2, 511),
-      plan('df-growth-pro', 'Growth Pro', usd(79), 5000, 5, 244),
-      plan('df-business', 'Business', usd(149), null, 15, 83),
+      plan('df-starter', 'Starter', 'live', 10, 1, 402),
+      plan('df-growth', 'Growth', 'live', 100, 2, 511),
+      plan('df-growth-pro', 'Growth Pro', 'live', 5000, 5, 244),
+      plan('df-business', 'Business', 'live', null, 15, 83),
     ],
     team: [],
     checks: passing,
@@ -117,17 +110,17 @@ export const samplePartners: readonly SamplePartner[] = [
       { name: 'Diego Alvarez', role: 'Technical contact', email: 'diego@northstar.com' },
     ],
     history: [
-      event('2025-03-14T00:00:00Z', 'created', 'Maya Ortiz'),
-      event('2025-03-19T00:00:00Z', 'submitted'),
-      event('2025-03-20T00:00:00Z', 'approved', 'Arjun Menon', 'Contract signed, KYC passed'),
+      event('2025-03-14T00:00:00Z', 'partner.created', 'Maya Ortiz'),
+      event('2025-03-19T00:00:00Z', 'partner.submitted'),
+      event('2025-03-20T00:00:00Z', 'partner.approved', 'Arjun Menon', 'Contract signed, KYC passed'),
     ],
     checklist: allDone('Maya', 'Northstar Commerce'),
     branding: { productName: 'Northstar Stores', primaryColor: '#1B3A5B', accentColor: '#2BB673', poweredBy: 'on' },
     domains: domainsFor('northstar.com', 'store.northstar.com'),
     plans: [
-      plan('ns-launch', 'Launch', usd(29), 250, 1, 31),
-      plan('ns-scale', 'Scale', usd(79), 2000, 3, 42),
-      plan('ns-pro', 'Pro', usd(149), 5000, 10, 13),
+      plan('ns-launch', 'Launch', 'live', 250, 1, 31),
+      plan('ns-scale', 'Scale', 'live', 2000, 3, 42),
+      plan('ns-pro', 'Pro', 'retired', 5000, 10, 13),
     ],
     team: [
       user('mayachen', 'Maya Chen', 'maya@northstar.com', 'owner', '2026-09-28T08:30:00Z'),
@@ -152,20 +145,20 @@ export const samplePartners: readonly SamplePartner[] = [
       { name: 'Sana Qureshi', role: 'UAE lead', email: 'sana@bazaarcloud.ae' },
     ],
     history: [
-      event('2025-01-22T00:00:00Z', 'created', 'Maya Ortiz'),
-      event('2025-01-30T00:00:00Z', 'submitted'),
-      event('2025-02-03T00:00:00Z', 'approved', 'Arjun Menon', 'Contract signed, KYC passed'),
+      event('2025-01-22T00:00:00Z', 'partner.created', 'Maya Ortiz'),
+      event('2025-01-30T00:00:00Z', 'partner.submitted'),
+      event('2025-02-03T00:00:00Z', 'partner.approved', 'Arjun Menon', 'Contract signed, KYC passed'),
     ],
     checklist: allDone('Vikram', 'Bazaar Cloud'),
     branding: { productName: 'Bazaar Cloud Commerce', primaryColor: '#0F6E5C', accentColor: '#F2B134', poweredBy: 'off' },
     domains: [
       ...domainsFor('bazaarcloud.in', 'portal.bazaarcloud.in'),
-      { kind: 'shops', host: '*.shops.bazaarcloud.ae', status: 'failed', record: 'CNAME', expected: `shops.${edge}`, found: 'shops-old.bzhost.ae' },
+      { id: 'bz-shops-ae', kind: 'shops', host: '*.shops.bazaarcloud.ae', status: 'broken', record: 'CNAME', expected: `shops.${edge}`, found: 'shops-old.bzhost.ae', checkedAt: '2026-09-28T10:30:00Z' },
     ],
     plans: [
-      plan('bz-starter', 'Starter', { amount: 149900, currency: 'INR' }, 250, 1, 120),
-      plan('bz-growth', 'Growth', { amount: 499900, currency: 'INR' }, 2000, 3, 96),
-      plan('bz-growth-uae', 'Growth UAE', { amount: 21900, currency: 'AED' }, 2000, 3, 26),
+      plan('bz-starter', 'Starter', 'live', 250, 1, 120),
+      plan('bz-growth', 'Growth', 'live', 2000, 3, 96),
+      plan('bz-growth-uae', 'Growth UAE', 'live', 2000, 3, 26),
     ],
     team: [
       user('vikram', 'Vikram Rao', 'vikram@bazaarcloud.in', 'owner', '2026-09-28T05:40:00Z'),
@@ -189,28 +182,30 @@ export const samplePartners: readonly SamplePartner[] = [
       { name: 'Petra Lang', role: 'Legal', email: 'petra@kaufladen.de' },
     ],
     history: [
-      event('2026-09-08T00:00:00Z', 'created', 'Maya Ortiz'),
-      event('2026-09-15T00:00:00Z', 'setUp', 'Priya Shah'),
-      event('2026-09-19T00:00:00Z', 'submitted'),
-      event('2026-09-22T00:00:00Z', 'sentBack', 'Maya Ortiz', 'Legal pages missing an Impressum'),
-      event('2026-09-26T09:40:00Z', 'submitted'),
+      event('2026-09-08T00:00:00Z', 'partner.created', 'Maya Ortiz'),
+      event('2026-09-15T00:00:00Z', 'partner.set_up', 'Priya Shah'),
+      event('2026-09-19T00:00:00Z', 'partner.submitted'),
+      event('2026-09-22T00:00:00Z', 'partner.sent_back', 'Maya Ortiz', 'Legal pages missing an Impressum'),
+      event('2026-09-26T09:40:00Z', 'partner.submitted'),
     ],
     checklist: [
-      { item: 'companyDetails', ...done('Jonas', 'Kaufladen Digital') },
-      { item: 'ownerAccepted', ...done('Jonas', 'Kaufladen Digital') },
+      { item: 'company', ...done('Jonas', 'Kaufladen Digital', 'Kaufladen Digital GmbH, Berlin') },
       { item: 'branding', ...done('Priya', 'DripFunnel') },
-      { item: 'portalHost', ...done('Jonas', 'Kaufladen Digital') },
-      { item: 'emailSender', status: 'waitingForDns', by: { name: 'Jonas', org: 'Kaufladen Digital' } },
-      { item: 'plans', ...done('Priya', 'DripFunnel') },
-      { item: 'legalPages', ...done('Jonas', 'Kaufladen Digital') },
-      { item: 'payoutDetails', status: 'waitingOnPartner', by: null },
+      { item: 'portalHost', ...done('Jonas', 'Kaufladen Digital', 'shop.kaufladen.de is live') },
+      { item: 'wildcards', ...done('Jonas', 'Kaufladen Digital') },
+      { item: 'emailSender', ...progress('mail.kaufladen.de: waiting for DNS') },
+      { item: 'plan', ...done('Priya', 'DripFunnel', 'Basis and Plus are priced') },
+      { item: 'legal', ...done('Jonas', 'Kaufladen Digital') },
+      { item: 'paymentMethod', ...done('Jonas', 'Kaufladen Digital') },
+      { item: 'payoutDetails', ...missing('Add the bank account DripFunnel pays you into') },
+      { item: 'testSignup', ...done('Jonas', 'Kaufladen Digital') },
     ],
     branding: { productName: 'Kaufladen Shop', primaryColor: '#2A2F8F', accentColor: '#FFCC00', poweredBy: 'on' },
     domains: domainsFor('kaufladen.de', 'shop.kaufladen.de', ['email']),
     plans: [
-      plan('kl-basis', 'Basis', { amount: 2500, currency: 'EUR' }, 500, 2, 24),
-      plan('kl-plus', 'Plus', { amount: 6900, currency: 'EUR' }, 5000, 5, 16),
-      plan('kl-enterprise', 'Enterprise (draft)', null, null, null, 0),
+      plan('kl-basis', 'Basis', 'live', 500, 2, 24),
+      plan('kl-plus', 'Plus', 'live', 5000, 5, 16),
+      plan('kl-enterprise', 'Enterprise', 'draft', null, null, 0),
     ],
     team: [
       user('jonas', 'Jonas Weber', 'jonas@kaufladen.de', 'owner', '2026-09-26T09:38:00Z'),
@@ -231,13 +226,13 @@ export const samplePartners: readonly SamplePartner[] = [
     createdAt: '2025-09-12T00:00:00Z',
     contacts: [{ name: 'Olivia Grant', role: 'Owner', email: 'olivia@loomandthread.co.uk' }],
     history: [
-      event('2025-09-12T00:00:00Z', 'created', 'Maya Ortiz'),
-      event('2025-09-29T00:00:00Z', 'approved', 'Arjun Menon', 'Contract signed, KYC passed'),
+      event('2025-09-12T00:00:00Z', 'partner.created', 'Maya Ortiz'),
+      event('2025-09-29T00:00:00Z', 'partner.approved', 'Arjun Menon', 'Contract signed, KYC passed'),
     ],
     checklist: allDone('Olivia', 'Loom & Thread'),
     branding: { productName: 'Loom & Thread Sellers', primaryColor: '#5B3A29', accentColor: '#D9A441', poweredBy: 'on' },
     domains: domainsFor('loomandthread.co.uk', 'sellers.loomandthread.co.uk'),
-    plans: [plan('lt-marketplace', 'Marketplace', { amount: 120000, currency: 'GBP' }, null, null, 1)],
+    plans: [plan('lt-marketplace', 'Marketplace', 'live', null, null, 1)],
     team: [user('olivia', 'Olivia Grant', 'olivia@loomandthread.co.uk', 'owner', '2026-09-27T19:30:00Z')],
     checks: passing,
   },
@@ -253,12 +248,12 @@ export const samplePartners: readonly SamplePartner[] = [
     owner: { name: 'Ben Tallis', email: 'ben@tallis.studio', invitation: 'sent', invitationSentAt: '2026-09-25T11:03:00Z' },
     createdAt: '2026-09-25T00:00:00Z',
     contacts: [{ name: 'Ben Tallis', role: 'Owner (invited)', email: 'ben@tallis.studio' }],
-    history: [event('2026-09-25T00:00:00Z', 'created', 'Maya Ortiz')],
+    history: [event('2026-09-25T00:00:00Z', 'partner.created', 'Maya Ortiz')],
     checklist: [
-      { item: 'companyDetails', ...done('Maya', 'DripFunnel') },
-      { item: 'ownerAccepted', status: 'invitationSent', by: null },
-      ...(['branding', 'portalHost', 'emailSender', 'plans', 'legalPages'] as const).map((item) => ({ item, status: 'notStarted' as const, by: null })),
-      { item: 'payoutDetails', status: 'waitingOnPartner', by: null },
+      { item: 'company', ...done('Maya', 'DripFunnel', 'Tallis Studio Pty Ltd, Melbourne') },
+      { item: 'branding', ...missing('Logo, colours and font') },
+      { item: 'portalHost', ...progress('shops.tallis.studio: waiting for DNS') },
+      ...(['wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Tallis Shops', primaryColor: '#3D5A40', accentColor: '#E3B23C', poweredBy: 'on' },
     domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'preview', 'shops', 'email']),
@@ -278,16 +273,14 @@ export const samplePartners: readonly SamplePartner[] = [
     owner: { name: 'Freya Lind', email: 'freya@nordlicht.media', invitation: 'held', invitationSentAt: null },
     createdAt: '2026-09-23T00:00:00Z',
     contacts: [{ name: 'Freya Lind', role: 'Owner (invitation held)', email: 'freya@nordlicht.media' }],
-    history: [event('2026-09-23T00:00:00Z', 'created', 'Priya Shah'), event('2026-09-24T00:00:00Z', 'setUp', 'Priya Shah')],
+    history: [event('2026-09-23T00:00:00Z', 'partner.created', 'Priya Shah'), event('2026-09-24T00:00:00Z', 'partner.set_up', 'Priya Shah')],
     checklist: [
-      { item: 'companyDetails', ...done('Priya', 'DripFunnel') },
-      { item: 'ownerAccepted', status: 'invitationHeld', by: null },
+      { item: 'company', ...done('Priya', 'DripFunnel', 'Nordlicht Media AB, Stockholm') },
       { item: 'branding', ...done('Priya', 'DripFunnel') },
       { item: 'portalHost', ...done('Priya', 'DripFunnel') },
-      { item: 'emailSender', status: 'waitingForDns', by: { name: 'Priya', org: 'DripFunnel' } },
-      { item: 'plans', status: 'notStarted', by: null },
-      { item: 'legalPages', status: 'notStarted', by: null },
-      { item: 'payoutDetails', status: 'waitingOnPartner', by: null },
+      { item: 'wildcards', ...progress('*.preview.nordlicht.media: waiting for DNS') },
+      { item: 'emailSender', ...progress('mail.nordlicht.media: verifying') },
+      ...(['plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Nordlicht Shops', primaryColor: '#3B2F63', accentColor: '#7FD1C7', poweredBy: 'on' },
     domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['preview', 'shops', 'email']),
@@ -307,13 +300,13 @@ const inviters: readonly StaffRole[] = [...partnerAdmins, 'staff-support']
 const staffRoleOf: Partial<Record<string, StaffRole>> = { 'Arjun Menon': 'staff-super-admin', 'Priya Shah': 'staff-partner-manager', 'Maya Ortiz': 'staff-partner-manager' }
 const personFor: Partial<Record<StaffRole, string>> = { 'staff-super-admin': 'Arjun Menon', 'staff-partner-manager': 'Priya Shah' }
 
-const lastEvent = (partner: SamplePartner, kind: HistoryEntry['event']) => partner.history.filter((entry) => entry.event === kind).at(-1)
+const lastEvent = (partner: SamplePartner, action: string) => partner.history.filter((entry) => entry.action === action).at(-1)
 
 const approvalOf = (partner: SamplePartner): PartnerApproval | null => {
   if (partner.state !== 'awaiting') return null
-  const setUpBy = lastEvent(partner, 'setUp')?.by ?? null
-  if (!setUpBy) return { setUpBy, rule: 'two' }
-  return { setUpBy, rule: staffRoleOf[setUpBy] === 'staff-super-admin' ? 'alone' : 'second' }
+  const setUpBy = lastEvent(partner, 'partner.set_up')?.by ?? null
+  if (!setUpBy) return { setUpBy, rule: 'two', approvals: 0 }
+  return { setUpBy, rule: staffRoleOf[setUpBy] === 'staff-super-admin' ? 'alone' : 'second', approvals: 0 }
 }
 
 const onlyFor = (caller: StaffRole, roles: readonly StaffRole[], reason: 'SUPER_ADMIN_ONLY' | 'PARTNER_ADMINS_ONLY' | 'INVITERS_ONLY'): ActionPermission =>
@@ -369,7 +362,7 @@ const rowOf = (partner: SamplePartner) => ({
   setup: setupOf(partner),
   owner: partner.owner,
   createdAt: partner.createdAt,
-  submittedAt: partner.state === 'awaiting' ? (lastEvent(partner, 'submitted')?.at ?? null) : null,
+  submittedAt: partner.state === 'awaiting' ? (lastEvent(partner, 'partner.submitted')?.at ?? null) : null,
   checks: partner.checks,
   approval: approvalOf(partner),
 })
@@ -381,7 +374,7 @@ const matches = (partner: SamplePartner, filter: PartnerFilter) => {
   return (
     (!filter.status || partner.state === filter.status) &&
     (!filter.setup || (filter.setup === 'complete') === complete) &&
-    (!q || [partner.name, portalHostOf(partner).host ?? '', partner.owner.email].some((value) => value.toLowerCase().includes(q)))
+    (!q || [partner.name, portalHostOf(partner).host ?? '', partner.owner.email ?? ''].some((value) => value.toLowerCase().includes(q)))
   )
 }
 
@@ -389,7 +382,7 @@ const matches = (partner: SamplePartner, filter: PartnerFilter) => {
 const newestFirst = (a: SamplePartner, b: SamplePartner) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id)
 
 const oldestSubmitted = (a: SamplePartner, b: SamplePartner) =>
-  (lastEvent(a, 'submitted')?.at ?? '').localeCompare(lastEvent(b, 'submitted')?.at ?? '') || a.id.localeCompare(b.id)
+  (lastEvent(a, 'partner.submitted')?.at ?? '').localeCompare(lastEvent(b, 'partner.submitted')?.at ?? '') || a.id.localeCompare(b.id)
 
 const stateAfter: Partial<Record<PartnerAction, SamplePartner['state']>> = {
   approve: 'live',
@@ -398,11 +391,11 @@ const stateAfter: Partial<Record<PartnerAction, SamplePartner['state']>> = {
   resume: 'live',
 }
 
-const historyFor: Partial<Record<PartnerAction, HistoryEntry['event']>> = {
-  approve: 'approved',
-  sendBack: 'sentBack',
-  pause: 'paused',
-  resume: 'resumed',
+const historyFor: Partial<Record<PartnerAction, string>> = {
+  approve: 'partner.approved',
+  sendBack: 'partner.sent_back',
+  pause: 'partner.paused',
+  resume: 'partner.resumed',
 }
 
 export const createSampleServer = (seed: readonly SamplePartner[], now: () => string = () => new Date().toISOString()) => {
@@ -413,12 +406,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
   const list = (filter: PartnerFilter, page: PageRequest, size: number, caller: StaffRole): PartnerPage => {
     const all = partners.filter((partner) => matches(partner, filter)).sort(filter.sort === 'oldestSubmitted' ? oldestSubmitted : newestFirst)
     const { items, pageInfo } = pageByCursor(all, page, size)
-    return {
-      items: items.map(rowOf),
-      pageInfo,
-      total: all.length,
-      create: onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY'),
-    }
+    return { items: items.map(rowOf), pageInfo, create: onlyFor(caller, partnerAdmins, 'PARTNER_ADMINS_ONLY') }
   }
 
   const get = (id: string, caller: StaffRole): Partner | null => {
@@ -449,9 +437,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
     })
   }
 
-  const recheck = (id: string, kind: DomainKind) => find(id)?.domains.find((domain) => domain.kind === kind)?.status ?? 'waiting'
-
-  return { list, get, run, recheck }
+  return { list, get, run }
 }
 
 export const sampleServer = createSampleServer(samplePartners)

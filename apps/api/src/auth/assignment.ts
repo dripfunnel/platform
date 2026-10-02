@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
+import { hasLiveAssignment } from '#db/scoped/assignments'
 import { withScope } from '#db/scoped/index'
 import { partnerOfStore } from '#db/scoped/stores'
 
@@ -14,9 +15,6 @@ export const isAssigned = async (sql: postgres.Sql, staffId: string, target: Acc
   if (!uuid.safeParse('partnerId' in target ? target.partnerId : target.storeId).success) return false
   return withScope(sql, { caller: { kind: 'staff', staffId } }, async (tx) => {
     const partnerId = 'partnerId' in target ? target.partnerId : await partnerOfStore(tx, target.storeId)
-    if (!partnerId) return false
-    const rows = await tx`select 1 from staff_partner_assignment
-                          where staff_user_id = ${staffId} and partner_id = ${partnerId}`
-    return rows.length > 0
+    return partnerId ? hasLiveAssignment(tx, partnerId, staffId) : false
   })
 }

@@ -6,27 +6,10 @@ import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
 import { impersonationServer } from './impersonationSample'
 import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
-import type { ActionPermission } from './permissions'
 
-// The contract agreed on #46 for #40 (ACCESS.md §8.3): every refusal the Admin API returns.
-export const sessionRefusals = [
-  'STAFF_ROLE_NOT_ALLOWED',
-  'TARGET_NOT_ACTIVE',
-  'PARTNER_CLOSED',
-  'IMPERSONATION_ALREADY_OPEN',
-  'SETUP_SESSION_ALREADY_OPEN',
-  'IMPERSONATION_ALREADY_EXTENDED',
-  'SETUP_SESSION_NOT_EXTENDABLE',
-  'NOT_SESSION_OWNER',
-  'REASON_REQUIRED',
-  'REAUTH_REQUIRED',
-  'SESSION_ENDED',
-  'SESSION_EXPIRED',
-  'NOT_FOUND',
-] as const
-export type SessionRefusal = (typeof sessionRefusals)[number]
+import type { SessionPermission, SessionRefusal } from './sessionRefusals'
 
-export type SessionPermission = ActionPermission<SessionRefusal>
+export { sessionRefusals, type SessionPermission, type SessionRefusal } from './sessionRefusals'
 
 export const targetKinds = ['partnerUser', 'storeUser', 'supplierUser'] as const
 export type TargetKind = (typeof targetKinds)[number]

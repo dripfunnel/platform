@@ -29,7 +29,7 @@ const lookOf = (reason: AttentionReason): ReasonLook => {
         tone: reason.state === 'failed' ? 'danger' : 'warning',
         icon: reason.state === 'failed' ? 'alert' : 'clock',
         badge: reason.state === 'failed' ? words.setupFailedBadge : words.setupStuckBadge,
-        detail: fill(words.setupDetail, { step: words.steps[reason.step], attempt: formatCount(reason.attempt) }),
+        detail: fill(words.setupDetail, { step: messages.provisioning.steps[reason.step], attempt: formatCount(reason.attempt) }),
       }
   }
 }

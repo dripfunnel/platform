@@ -57,11 +57,17 @@ const nextDay = (d: string) => new Date(dayStart(d).getTime() + 24 * 60 * 60 * 1
  * Entries in the caller's scope (LOGGING.md §6): the scope comes from the context, the filter
  * only narrows within it. Newest first, by keyset, never a total.
  */
+export interface ActivityScope {
+  /** Set for a Partner manager: only their assigned partners' entries (ACCESS.md §5.4, #60). */
+  assignedTo?: string | undefined
+}
+
 export const listActivity = async (
   sql: postgres.Sql,
   context: CallerContext,
   filter: unknown,
   page: ActivityPageRequest,
+  scope: ActivityScope = {},
 ): Promise<ActivityResult> => {
   const parsed = activityFilter.safeParse(filter ?? {})
   if (!parsed.success) return { ok: false, code: 'INVALID_FILTER' }
@@ -84,6 +90,7 @@ export const listActivity = async (
         action: f.action,
         from: f.from ? dayStart(f.from) : undefined,
         to: f.to ? nextDay(f.to) : undefined,
+        assignedTo: scope.assignedTo,
       },
       { after, before },
       limit,

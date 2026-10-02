@@ -8,5 +8,6 @@ export {
   type ActivityPageRequest,
   type ActivityRefusal,
   type ActivityResult,
+  type ActivityScope,
   type PageInfo,
 } from './query'

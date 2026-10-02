@@ -1,6 +1,5 @@
-import { formatMoney } from '@dripfunnel/shared/format'
 import type { Store, StoreHistoryEntry } from '../../api/stores'
-import { fill, formatCount, formatCountry, formatDate, locale, messages } from '../../messages'
+import { fill, formatCount, formatCountry, formatDate, messages } from '../../messages'
 import { InfoNote } from '@dripfunnel/shared/ui'
 import { StatusSub, StoreStatusPill } from './storeLook'
 import './stores.css'
@@ -9,32 +8,25 @@ import '../common/records.css'
 const words = messages.store.overview
 const events = words.events
 
-const countKeys = ['owners', 'managers', 'staff', 'suppliers', 'products', 'orders'] as const
+const countKeys = ['owners', 'managers', 'staff', 'suppliers'] as const
 
-const eventText = ({ event, by, note, plan }: StoreHistoryEntry) => {
-  const values = { by: by ?? '', note: note ?? '', plan: plan ?? '' }
-  switch (event) {
-    case 'trialExtended':
-      return fill(events.trialExtended, { ...values, date: note ? formatDate(`${note}T00:00:00Z`) : '' })
-    case 'trialStarted':
-      return fill(plan ? events.trialStartedOn : events.trialStarted, values)
-    case 'active':
-      return fill(plan ? events.activeOn : events.active, values)
-    case 'pastDue':
-      return fill(note ? events.pastDueAfter : events.pastDue, values)
-    default:
-      return fill(events[event], values)
-  }
+const isWorded = (action: string): action is keyof typeof events => action in events
+
+// The activity log's code, in the console's words; one it has no words for yet shows the code.
+const eventText = ({ action, by, note }: StoreHistoryEntry) => {
+  const values = { by: by ?? '', note: note ?? '', action }
+  if (action === 'store.past_due' && note) return fill(events['store.past_due_after'], values)
+  return fill(isWorded(action) ? events[action] : events.other, values)
 }
 
-// The prototype's Overview: Details, Plan and status with its history, and what is in the store.
+// The prototype's Overview: Details, Plan and status with its history, and who is in the store.
 export const OverviewTab = ({ store }: { store: Store }) => {
   const details = [
     [words.name, store.name],
     [words.code, store.code],
     [words.partner, store.partner.name],
-    [words.owner, `${store.owner.name} · ${store.owner.email}`],
-    [words.country, formatCountry(store.country)],
+    [words.owner, [store.owner.name, store.owner.email].filter(Boolean).join(' · ') || messages.stores.noOwner],
+    [words.country, store.country ? formatCountry(store.country) : ''],
     [words.created, formatDate(store.createdAt)],
   ] as const
   return (
@@ -48,10 +40,8 @@ export const OverviewTab = ({ store }: { store: Store }) => {
       <section className="df-panel" aria-labelledby="store-plan">
         <h2 id="store-plan">{words.planStatus}</h2>
         <div className="df-plan-line">
-          <strong>{store.plan.name}</strong>
-          <span className="df-muted">
-            {fill(words.planPrice, { price: formatMoney(store.plan.price, locale), partner: store.partner.name })}
-          </span>
+          <strong>{store.plan.name ?? messages.stores.noPlan}</strong>
+          <span className="df-muted">{fill(words.planOf, { partner: store.partner.name })}</span>
           <StoreStatusPill state={store.state} />
         </div>
         <StatusSub state={store.state} />

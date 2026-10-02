@@ -4,10 +4,12 @@ import type { ProvisioningStep, StoreStatus } from '#db/schema/saas'
 import { insertActivity } from '#db/scoped/activity'
 import type { ScopedSql } from '#db/scoped/index'
 import {
+  endSetupSession,
   insertPartner,
   insertPartnerInvitation,
   insertPartnerUser,
   insertPlan,
+  insertSetupSession,
   updatePartnerState,
   upsertPartnerDomain,
   upsertSetupItem,
@@ -79,7 +81,7 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
   const partnerUserByName = new Map<string, string>()
 
   for (const p of partners) {
-    const partnerId = await seedPartner(tx, p, now, record, partnerUserByName)
+    const partnerId = await seedPartner(tx, p, now, record, partnerUserByName, staffByName)
     partnerIds.set(p.key, partnerId)
     counts.partners += 1
     counts.partnerUsers += 1 + p.team.length
@@ -93,7 +95,7 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
     for (const key of s.partners ?? []) {
       const partnerId = partnerIds.get(key)
       const staffId = staffIds.get(s.key)
-      if (partnerId && staffId) await tx`insert into staff_partner_assignment (staff_user_id, partner_id) values (${staffId}, ${partnerId})`
+      if (partnerId && staffId) await tx`insert into staff_partner_assignment (staff_user_id, partner_id, created_at) values (${staffId}, ${partnerId}, ${now})`
     }
   }
 
@@ -167,6 +169,7 @@ const seedPartner = async (
   now: Date,
   record: (entry: ActivityEntry) => Promise<void>,
   partnerUserByName: Map<string, string>,
+  staffByName: Map<string, string>,
 ): Promise<string> => {
   const created = daysAgo(now, p.createdDaysAgo)
   const partnerId = await insertPartner(tx, {
@@ -259,6 +262,23 @@ const seedPartner = async (
 
   for (const e of p.events) {
     const byStaff = staff.some((s) => s.name === e.by)
+    // A "set up" event is a setup session that ran its two hours (ACCESS.md §8.2).
+    const staffId = staffByName.get(e.by)
+    if (e.action === 'partner.set_up' && staffId) {
+      const startedAt = daysAgo(now, e.daysAgo)
+      const sessionId = await insertSetupSession(tx, {
+        staffUserId: staffId,
+        partnerId,
+        reason: 'Set up on the partner\'s behalf',
+        ticket: null,
+        startedAt,
+        expiresAt: new Date(startedAt.getTime() + 2 * 60 * 60 * 1000),
+        handoffHash: `seed-${partnerId}-${e.daysAgo}`,
+        handoffExpiresAt: startedAt,
+      })
+      if (!sessionId) throw new Error(`seed: ${e.by} already has an open setup session`)
+      await endSetupSession(tx, sessionId, staffId, new Date(startedAt.getTime() + 2 * 60 * 60 * 1000))
+    }
     await record({
       occurredAt: daysAgo(now, e.daysAgo),
       category: 'write',

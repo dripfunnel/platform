@@ -18,7 +18,7 @@ export interface StaffSession {
 
 const encoder = new TextEncoder()
 
-/** Stored hashed, so a leaked database row cannot be replayed as a session. */
+/** Stored hashed, so a leaked database row cannot be replayed as a session; handoff tokens use it too. */
 export const hashSessionId = async (id: string): Promise<string> => {
   const digest = await crypto.subtle.digest('SHA-256', encoder.encode(id))
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')

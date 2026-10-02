@@ -41,7 +41,7 @@ platform            no row: DripFunnel itself; staff act here
 
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
-| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note` |
+| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note` |
 | **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_entitlement` |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `collection`, `offer`, `api_key`, `webhook` |
@@ -100,13 +100,16 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
 ```
 staff_user     (id, sso_subject UNIQUE, email, name, role_key, status, created_at)
 staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, reauth_at)
-staff_partner_assignment (staff_user_id, partner_id, created_at)   -- PK both; Partner managers only
+staff_partner_assignment (id, staff_user_id, partner_id, created_at, assigned_by_staff_id,
+                          removed_at NULL, removed_by_staff_id NULL)
+                 -- Partner managers only; one live row per pair (partial unique where
+                 -- removed_at is null); never deleted (#60)
 ```
 
 `role_key` ∈ `staff-super-admin`, `staff-partner-manager`, `staff-support`, `staff-finance`,
 `staff-engineer`, `staff-read-only` (ACCESS.md §5.4). Company SSO only; no password column.
 `staff_partner_assignment` lists the partners a Partner manager acts on (ACCESS.md §5.4, #14); read in
-`platform` and `system` scope, written by no request scope.
+`platform` and `system` scope, written in `platform` scope by Super admins only (#60).
 
 ### 3.2 Partner users (partner)
 
@@ -196,12 +199,19 @@ impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, 
                  -- platform scope: written and listed by the Admin API only
 
 partner_setup_session
-                (id, staff_user_id, partner_id, reason, started_at, expires_at,
-                 ended_at NULL, ended_by NULL)
+                (id, staff_user_id, partner_id, reason, ticket NULL, started_at, expires_at,
+                 ended_at NULL, ended_by_staff_id NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL)
                  -- staff doing a partner's onboarding as themselves (ACCESS.md §8.2),
                  -- 2 hours and not extendable, so no extended_at; one open per staff
                  -- member, enforced by a partial unique index on (staff_user_id)
-                 -- where ended_at is null
+                 -- where ended_at is null. The handoff (ACCESS.md §8.3) is hashed here,
+                 -- spent on exchange and cleared when the session ends. Built on #33.
+
+partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
+                 -- PK all of the first three: one approval per staff member per submission
+                 -- (ui/admin/FIRST-RELEASE.md §4.3); sending back and resubmitting starts
+                 -- the count again. Built on #33.
 ```
 
 ---

@@ -12,18 +12,18 @@ describe('the sample Partners list', () => {
   it('lists newest first, with the columns FIRST-RELEASE.md §4.1 names', () => {
     const page = server().list({}, {}, 25, 'staff-super-admin')
     expect(page.items.map((row) => row.id)).toEqual(['ts', 'nl', 'kl', 'lt', 'ns', 'bz', 'df'])
-    expect(page.total).toBe(7)
+    expect(page.items).toHaveLength(7)
     expect(page.items.find((row) => row.id === 'kl')).toMatchObject({
       portalHost: { host: 'shop.kaufladen.de', status: 'live' },
-      setup: { done: 6, total: 8 },
+      setup: { done: 8, total: 10 },
       owner: { email: 'jonas@kaufladen.de', invitation: 'active' },
     })
   })
 
   it('filters by state and by setup complete', () => {
     expect(server().list({ status: 'draft' }, {}, 25, 'staff-super-admin').items.map((row) => row.id)).toEqual(['ts', 'nl'])
-    expect(server().list({ setup: 'complete' }, {}, 25, 'staff-super-admin').total).toBe(4)
-    expect(server().list({ setup: 'incomplete' }, {}, 25, 'staff-super-admin').total).toBe(3)
+    expect(server().list({ setup: 'complete' }, {}, 25, 'staff-super-admin').items).toHaveLength(4)
+    expect(server().list({ setup: 'incomplete' }, {}, 25, 'staff-super-admin').items).toHaveLength(3)
   })
 
   it('searches name, host and owner email, and nothing else', () => {
@@ -87,7 +87,7 @@ describe('the sample actions', () => {
     const paused = sample.get('ns', 'staff-super-admin')
     expect(paused?.state).toBe('paused')
     expect(paused?.actions.resume).toEqual({ allowed: true })
-    expect(paused?.history.at(-1)).toMatchObject({ event: 'paused', note: 'Contract under review' })
+    expect(paused?.history.at(-1)).toMatchObject({ action: 'partner.paused', note: 'Contract under review' })
   })
 
   it('marks a held invitation as sent', () => {
@@ -106,22 +106,22 @@ describe('the sample Approvals rule', () => {
   const passing: SamplePartner = { ...kl, checks: { ...kl.checks, emailDomain: true } }
   const withSetUp = (by: string | null): SamplePartner => ({
     ...passing,
-    history: passing.history.filter((entry) => entry.event !== 'setUp').concat(by ? [{ at: '2026-09-15T00:00:00Z', event: 'setUp', by, note: null }] : []),
+    history: passing.history.filter((entry) => entry.action !== 'partner.set_up').concat(by ? [{ at: '2026-09-15T00:00:00Z', action: 'partner.set_up', by, note: null }] : []),
   })
 
   it('says who set a submitted partner up, and when it was submitted', () => {
     expect(server().list({ status: 'awaiting' }, {}, 25, 'staff-super-admin').items[0]).toMatchObject({
       id: 'kl',
       submittedAt: '2026-09-26T09:40:00Z',
-      approval: { setUpBy: 'Priya Shah', rule: 'second' },
+      approval: { setUpBy: 'Priya Shah', rule: 'second', approvals: 0 },
     })
     const live = server().list({ status: 'live' }, {}, 25, 'staff-super-admin').items
     expect(live.every((row) => row.approval === null && row.submittedAt === null)).toBe(true)
   })
 
   it('lets a Super admin who ran the setup approve alone, and needs two when the partner set itself up', () => {
-    expect(createSampleServer([withSetUp('Arjun Menon')]).get('kl', 'staff-super-admin')?.approval).toEqual({ setUpBy: 'Arjun Menon', rule: 'alone' })
-    expect(createSampleServer([withSetUp(null)]).get('kl', 'staff-super-admin')?.approval).toEqual({ setUpBy: null, rule: 'two' })
+    expect(createSampleServer([withSetUp('Arjun Menon')]).get('kl', 'staff-super-admin')?.approval).toEqual({ setUpBy: 'Arjun Menon', rule: 'alone', approvals: 0 })
+    expect(createSampleServer([withSetUp(null)]).get('kl', 'staff-super-admin')?.approval).toEqual({ setUpBy: null, rule: 'two', approvals: 0 })
   })
 
   it('refuses Approve to the Partner manager who ran the setup, and not to anyone else', () => {
@@ -135,7 +135,7 @@ describe('the sample Approvals rule', () => {
   })
 
   it('sorts the queue oldest submitted first', () => {
-    const later: SamplePartner = { ...withSetUp(null), id: 'later', history: [{ at: '2026-09-29T00:00:00Z', event: 'submitted', by: null, note: null }] }
+    const later: SamplePartner = { ...withSetUp(null), id: 'later', history: [{ at: '2026-09-29T00:00:00Z', action: 'partner.submitted', by: null, note: null }] }
     const sample = createSampleServer([later, passing])
     expect(sample.list({ status: 'awaiting', sort: 'oldestSubmitted' }, {}, 25, 'staff-super-admin').items.map((row) => row.id)).toEqual(['kl', 'later'])
   })

@@ -31,3 +31,8 @@ export const withSystemScope = async <T>(sql: postgres.Sql, work: (tx: ScopedSql
     await tx`select set_config('app.scope', 'system', true)`
     return work(tx)
   }) as Promise<T>
+
+// A Postgres array literal for `= any(${pgArray(values)}::uuid[])`: the Worker's client cannot
+// send a JavaScript array (docs/api/README.md §7).
+export const pgArray = (values: readonly string[]): string => `{${values.map((v) => `"${v.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`).join(',')}}`
+

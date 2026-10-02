@@ -1,3 +1,9 @@
+type ActionPermission {
+  allowed: Boolean
+  failingChecks: [String!]
+  reason: String
+}
+
 type ActivityAccess {
   id: ID
   kind: String
@@ -65,6 +71,137 @@ type ActivityTarget {
   type: String
 }
 
+type AttentionReason {
+  attempt: Int
+  daysPastDue: Int
+  kind: String
+  reason: String
+  state: String
+  step: String
+}
+
+type AttentionStore {
+  id: ID
+  name: String
+  partnerName: String
+  reason: AttentionReason
+}
+
+input CreatePartnerInput {
+  country: String!
+  kind: String
+  name: String!
+  ownerEmail: String!
+  ownerName: String
+  region: String
+  sendInvitation: Boolean!
+}
+
+type Dashboard {
+  asOf: String
+  attention: DashboardAttention
+  awaiting: DashboardAwaiting
+  partnerId: ID
+  partnerOptions: [PartnerOption!]
+  partners: DashboardPartners
+  signups: DashboardSignups
+  stores: DashboardStores
+}
+
+type DashboardAttention {
+  pastDue: Int
+  setupFailed: Int
+  setupStuck: Int
+  stores: [AttentionStore!]
+  suspended: Int
+  total: Int
+}
+
+type DashboardAwaiting {
+  count: Int
+  oldest: DashboardOldestAwaiting
+}
+
+type DashboardNewStoresByPartner {
+  count: Int
+  id: ID
+  name: String
+}
+
+type DashboardOldestAwaiting {
+  id: ID
+  name: String
+  submittedAt: String
+  waitingSeconds: Int
+}
+
+type DashboardPartners {
+  awaiting: Int
+  draft: Int
+  live: Int
+  paused: Int
+}
+
+type DashboardSignups {
+  completed: Int
+  failed: Int
+  medianSecondsToReady: Int
+  started: Int
+}
+
+type DashboardStores {
+  newThisWeek: Int
+  newThisWeekByPartner: [DashboardNewStoresByPartner!]
+  total: Int
+}
+
+type GoLiveChecks {
+  emailDomain: Boolean
+  legalPages: Boolean
+  portalHost: Boolean
+  pricedPlan: Boolean
+  testSignup: Boolean
+}
+
+type HistoryEntry {
+  action: String
+  at: String
+  by: String
+  note: String
+}
+
+type JobActions {
+  retry: ActionPermission
+  undo: ActionPermission
+}
+
+type Mutation {
+  addStoreNote(id: ID!, text: String!): StoreMutationOutcome
+  approvePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
+  createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
+  endStaffSession(id: ID!): PartnerMutationOutcome
+  extendTrial(id: ID!, trialEndsAt: String!): StoreMutationOutcome
+  pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
+  recheckStoreDomain(id: ID!): StoreMutationOutcome
+  resendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  resendStoreOwnerInvite(id: ID!): StoreMutationOutcome
+  restoreStore(id: ID!, reason: String!): StoreMutationOutcome
+  resumePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
+  sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
+  suspendStore(id: ID!, reason: String!): StoreMutationOutcome
+  unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
+}
+
+type NavBadges {
+  openSessions: Int
+  partnersAwaitingApproval: Int
+  provisioningAttention: Int
+}
+
 type PageInfo {
   endCursor: String
   hasNextPage: Boolean
@@ -72,10 +209,221 @@ type PageInfo {
   startCursor: String
 }
 
+type Partner {
+  actions: PartnerActions
+  approval: PartnerApproval
+  branding: PartnerBranding
+  checklist: [PartnerChecklistItem!]
+  checks: GoLiveChecks
+  contacts: [PartnerContact!]
+  country: String
+  createdAt: String
+  domains: [PartnerDomain!]
+  history: [HistoryEntry!]
+  house: Boolean
+  id: ID
+  kind: String
+  managers: [PartnerManager!]
+  name: String
+  owner: PartnerOwner
+  plans: [PartnerPlan!]
+  portalHost: PartnerPortalHost
+  region: String
+  setup: PartnerSetupProgress
+  setupSessions: [PartnerSetupSession!]
+  state: String
+  stores: Int
+  submittedAt: String
+  team: [PartnerUser!]
+}
+
+type PartnerActions {
+  approve: ActionPermission
+  pause: ActionPermission
+  resendInvite: ActionPermission
+  resume: ActionPermission
+  sendBack: ActionPermission
+  sendInvite: ActionPermission
+  setupSession: ActionPermission
+}
+
+type PartnerApproval {
+  approvals: Int
+  rule: String
+  setUpBy: String
+}
+
+type PartnerBranding {
+  accentColor: String
+  poweredBy: String
+  primaryColor: String
+  productName: String
+}
+
+type PartnerChecklistItem {
+  by: SetupDoneBy
+  detail: String
+  item: String
+  status: String
+}
+
+type PartnerContact {
+  email: String
+  name: String
+  role: String
+}
+
+type PartnerDomain {
+  checkedAt: String
+  expected: String
+  found: String
+  host: String
+  id: ID
+  kind: String
+  record: String
+  status: String
+}
+
+input PartnerFilter {
+  q: String
+  setup: String
+  sort: String
+  state: String
+}
+
+type PartnerManager {
+  email: String
+  id: ID
+  name: String
+  since: String
+}
+
+type PartnerMatch {
+  host: String
+  id: ID
+  name: String
+  ownerEmail: String
+  state: String
+}
+
+type PartnerMutationOutcome {
+  approvals: Int
+  code: String
+  failingChecks: [String!]
+  id: ID
+  ok: Boolean
+  state: String
+}
+
+type PartnerOption {
+  id: ID
+  name: String
+}
+
+type PartnerOwner {
+  email: String
+  invitation: String
+  invitationSentAt: String
+  name: String
+}
+
+type PartnerPage {
+  create: ActionPermission
+  items: [PartnerRow!]
+  pageInfo: PageInfo
+}
+
+type PartnerPlan {
+  id: ID
+  maxProducts: Int
+  maxStaff: Int
+  name: String
+  status: String
+  stores: Int
+}
+
+type PartnerPortalHost {
+  host: String
+  status: String
+}
+
+type PartnerRow {
+  approval: PartnerApproval
+  checks: GoLiveChecks
+  createdAt: String
+  house: Boolean
+  id: ID
+  kind: String
+  name: String
+  owner: PartnerOwner
+  portalHost: PartnerPortalHost
+  region: String
+  setup: PartnerSetupProgress
+  state: String
+  stores: Int
+  submittedAt: String
+}
+
+type PartnerSetupProgress {
+  done: Int
+  total: Int
+}
+
+type PartnerSetupSession {
+  end: ActionPermission
+  endedAt: String
+  expiresAt: String
+  id: ID
+  reason: String
+  staff: String
+  startedAt: String
+  status: String
+  ticket: String
+}
+
+type PartnerUser {
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  role: String
+  status: String
+}
+
 type Query {
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
+  dashboard(partnerId: ID): Dashboard
   health: String
   me: Staff
+  navBadges: NavBadges
+  partner(id: ID!): Partner
+  partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
+  search(query: String!): SearchResult
+  store(id: ID!): Store
+  stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
+}
+
+type Ref {
+  id: ID
+  name: String
+}
+
+type SearchResult {
+  partners: [PartnerMatch!]
+  stores: [StoreMatch!]
+}
+
+type SetupDoneBy {
+  name: String
+  org: String
+}
+
+type SetupSessionStart {
+  code: String
+  expiresAt: String
+  handoff: String
+  ok: Boolean
+  sessionId: ID
 }
 
 type Staff {
@@ -83,4 +431,170 @@ type Staff {
   id: ID
   name: String
   role: String
+}
+
+type Store {
+  actions: StoreActions
+  code: String
+  country: String
+  counts: StorePeopleCounts
+  createdAt: String
+  domain: StoreDomain
+  history: [HistoryEntry!]
+  id: ID
+  job: StoreJob
+  name: String
+  notes: [StoreNote!]
+  owner: StoreOwner
+  partner: Ref
+  plan: StorePlan
+  provisioning: StoreProvisioning
+  records: [StoreDnsRecord!]
+  setup: StoreSetup
+  site: StoreSite
+  state: StoreState
+  storefront: String
+  supportAccess: Boolean
+  users: [StoreUser!]
+}
+
+type StoreActions {
+  addNote: ActionPermission
+  extendTrial: ActionPermission
+  resendInvite: ActionPermission
+  restore: ActionPermission
+  suspend: ActionPermission
+}
+
+type StoreDnsRecord {
+  expected: String
+  found: String
+  host: String
+  kind: String
+  record: String
+  status: String
+}
+
+type StoreDomain {
+  custom: Boolean
+  host: String
+  status: String
+}
+
+input StoreFilter {
+  created: String
+  partner: ID
+  q: String
+  setup: String
+  status: String
+  storefront: String
+}
+
+type StoreJob {
+  actions: JobActions
+  id: ID
+}
+
+type StoreMatch {
+  code: String
+  host: String
+  id: ID
+  name: String
+  ownerEmail: String
+  partnerName: String
+  status: String
+}
+
+type StoreMutationOutcome {
+  code: String
+  emergency: Boolean
+  noteId: ID
+  ok: Boolean
+  status: String
+  trialEndsAt: String
+}
+
+type StoreNote {
+  at: String
+  by: String
+  id: ID
+  text: String
+}
+
+type StoreOwner {
+  email: String
+  name: String
+}
+
+type StorePage {
+  items: [StoreRow!]
+  pageInfo: PageInfo
+  partners: [Ref!]
+}
+
+type StorePeopleCounts {
+  managers: Int
+  owners: Int
+  staff: Int
+  suppliers: Int
+}
+
+type StorePlan {
+  name: String
+}
+
+type StoreProvisioning {
+  details: String
+  error: String
+}
+
+type StoreRow {
+  code: String
+  createdAt: String
+  domain: StoreDomain
+  id: ID
+  name: String
+  owner: StoreOwner
+  partner: Ref
+  plan: StorePlan
+  setup: StoreSetup
+  state: StoreState
+  storefront: String
+}
+
+type StoreSetup {
+  attempts: Int
+  state: String
+  step: String
+  steps: [String!]
+}
+
+type StoreSite {
+  lastBuildAt: String
+  lastPublishAt: String
+  liveHost: String
+  previewHost: String
+  version: String
+}
+
+type StoreState {
+  by: String
+  daysLeft: Int
+  daysPastDue: Int
+  kind: String
+  previous: String
+  reason: String
+  since: String
+  trialEndsAt: String
+}
+
+type StoreUser {
+  email: String
+  id: ID
+  impersonate: ActionPermission
+  lastSignInAt: String
+  name: String
+  role: String
+  status: String
+  supplier: String
 }

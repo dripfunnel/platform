@@ -23,9 +23,7 @@ const Row = ({ partner }: { partner: PartnerRow }) => {
               </Link>
               {partner.house && <HouseBadge />}
             </p>
-            <p className="df-muted">
-              {partner.kind} · {partner.region}
-            </p>
+            <p className="df-muted">{[partner.kind, partner.region].filter(Boolean).join(' · ')}</p>
           </div>
         </div>
       </th>
@@ -59,7 +57,7 @@ const Row = ({ partner }: { partner: PartnerRow }) => {
         <div className="df-stack">
           <span>{owner.name ?? words.notJoined}</span>
           <span className="df-muted">{owner.email}</span>
-          <InvitationPill status={owner.invitation} />
+          {owner.invitation && <InvitationPill status={owner.invitation} />}
           {owner.invitation === 'sent' && owner.invitationSentAt && (
             <span className="df-muted">{fill(words.invitationSent, { date: formatDate(owner.invitationSentAt) })}</span>
           )}

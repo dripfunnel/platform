@@ -16,7 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
-import { pageLimit, type ScopedSql } from './index'
+import { pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -187,6 +187,8 @@ export interface PartnerFilter {
   setup?: 'complete' | 'incomplete' | undefined
   /** Name, portal host or owner email. */
   q?: string | undefined
+  /** A Partner manager's list is the partners assigned to them (ACCESS.md §5.4). */
+  assignedTo?: string | undefined
 }
 
 /** Approvals asks for the oldest submitted first (FIRST-RELEASE §6); the list is newest first. */
@@ -208,7 +210,38 @@ export interface PartnerListRow extends PartnerRow {
   owner_email: string | null
   /** FIRST-RELEASE §4.1: the Owner's invitation, active once accepted, else sent or held. */
   owner_invitation: 'active' | 'sent' | 'held' | null
+  owner_invitation_sent_at: Date | null
 }
+
+// The list's projection, shared with the single-row read so the two can never disagree.
+const listProjection = (tx: ScopedSql) => tx`
+  select p.*,
+    (select count(*)::int from store s where s.partner_id = p.id) as store_count,
+    pd.host as portal_host, pd.status as portal_status,
+    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.status = 'done') as setup_done,
+    (select count(*)::int from partner_setup_item i where i.partner_id = p.id) as setup_total,
+    o.name as owner_name, o.email as owner_email,
+    case
+      when o.id is null then null
+      when o.status = 'active' then 'active'
+      when oi.sent_at is null then 'held'
+      else 'sent'
+    end as owner_invitation,
+    oi.sent_at as owner_invitation_sent_at
+  from partner p
+  left join partner_domain pd on pd.partner_id = p.id and pd.kind = 'portal'
+  left join lateral (
+    select u.id, u.name, u.email, u.status from partner_user u
+    where u.partner_id = p.id and u.role_key = 'partner-owner' order by u.created_at limit 1
+  ) o on true
+  left join lateral (
+    select pi.sent_at from partner_invitation pi
+    where pi.partner_user_id = o.id and pi.revoked_at is null and pi.accepted_at is null order by pi.created_at desc limit 1
+  ) oi on true
+`
+
+export const selectPartnerListRow = async (tx: ScopedSql, id: string): Promise<PartnerListRow | null> =>
+  (await tx<PartnerListRow[]>`${listProjection(tx)} where p.id = ${id}`)[0] ?? null
 
 export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page: KeysetPage, limit: number, sort: PartnerSort = 'newest'): Promise<PartnerListRow[]> => {
   const backwards = page.before !== undefined
@@ -217,26 +250,10 @@ export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page:
   const key = sort === 'newest' ? tx`p.created_at` : tx`p.submitted_at`
   const forward = (sort === 'newest') !== backwards
   const rows = await tx<PartnerListRow[]>`
-    select p.*,
-      (select count(*)::int from store s where s.partner_id = p.id) as store_count,
-      pd.host as portal_host, pd.status as portal_status,
-      (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.status = 'done') as setup_done,
-      (select count(*)::int from partner_setup_item i where i.partner_id = p.id) as setup_total,
-      o.name as owner_name, o.email as owner_email,
-      case
-        when o.id is null then null
-        when o.status = 'active' then 'active'
-        when (select sent_at from partner_invitation pi where pi.partner_user_id = o.id and pi.revoked_at is null order by created_at desc limit 1) is null then 'held'
-        else 'sent'
-      end as owner_invitation
-    from partner p
-    left join partner_domain pd on pd.partner_id = p.id and pd.kind = 'portal'
-    left join lateral (
-      select u.id, u.name, u.email, u.status from partner_user u
-      where u.partner_id = p.id and u.role_key = 'partner-owner' order by u.created_at limit 1
-    ) o on true
+    ${listProjection(tx)}
     where true
       ${filter.state !== undefined ? tx`and p.state = ${filter.state}` : tx``}
+      ${filter.assignedTo !== undefined ? tx`and exists (select 1 from staff_partner_assignment a where a.partner_id = p.id and a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
       ${filter.setup === 'complete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id) and not exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.status <> 'done')` : tx``}
       ${filter.setup === 'incomplete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.status <> 'done')` : tx``}
       ${q !== null ? tx`and (p.name ilike ${q} or pd.host ilike ${q} or o.email ilike ${q})` : tx``}
@@ -258,20 +275,155 @@ export const selectPartnerUsers = (tx: ScopedSql, partnerId: string): Promise<Pa
     from partner_user where partner_id = ${partnerId} order by created_at
   `
 
-export const selectPartnerInvitations = (tx: ScopedSql, partnerId: string): Promise<PartnerInvitationRow[]> =>
-  tx<PartnerInvitationRow[]>`
-    select id, partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label, accepted_at, revoked_at, created_at
-    from partner_invitation where partner_id = ${partnerId} order by created_at desc
-  `
 
-export const selectPartnerDomains = (tx: ScopedSql, partnerId: string): Promise<PartnerDomainRow[]> =>
-  tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = ${partnerId} order by kind`
 
-export const selectSetupItems = (tx: ScopedSql, partnerId: string): Promise<PartnerSetupItemRow[]> =>
-  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = ${partnerId}`
 
 export const selectPlans = (tx: ScopedSql, partnerId: string): Promise<(PlanRow & { store_count: number })[]> =>
   tx<(PlanRow & { store_count: number })[]>`
     select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count
     from plan pl where pl.partner_id = ${partnerId} order by pl.created_at
   `
+
+export const selectPartnerDomain = async (tx: ScopedSql, partnerId: string, kind: DomainKind): Promise<PartnerDomainRow | null> =>
+  (await tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = ${partnerId} and kind = ${kind}`)[0] ?? null
+
+export const selectPartnerDomainById = async (tx: ScopedSql, id: string): Promise<PartnerDomainRow | null> =>
+  (await tx<PartnerDomainRow[]>`select * from partner_domain where id = ${id}`)[0] ?? null
+
+export const updatePartnerDomainCheck = async (tx: ScopedSql, id: string, check: { status: HostStatus; found: string | null; checkedAt: Date }): Promise<void> => {
+  await tx`update partner_domain set status = ${check.status}, found = ${check.found}, checked_at = ${check.checkedAt} where id = ${id}`
+}
+
+/** The partner's Owner: the first user with that role. */
+export const selectPartnerOwner = async (tx: ScopedSql, partnerId: string): Promise<PartnerUserRow | null> =>
+  (
+    await tx<PartnerUserRow[]>`
+      select id, partner_id, email, name, role_key, status, last_sign_in_at, created_at from partner_user
+      where partner_id = ${partnerId} and role_key = 'partner-owner' order by created_at limit 1
+    `
+  )[0] ?? null
+
+export const selectOpenInvitation = async (tx: ScopedSql, partnerUserId: string): Promise<PartnerInvitationRow | null> =>
+  (
+    await tx<PartnerInvitationRow[]>`
+      select id, partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label, accepted_at, revoked_at, created_at
+      from partner_invitation where partner_user_id = ${partnerUserId} and revoked_at is null and accepted_at is null
+      order by created_at desc limit 1
+    `
+  )[0] ?? null
+
+export const revokeInvitation = async (tx: ScopedSql, id: string, now: Date): Promise<void> => {
+  await tx`update partner_invitation set revoked_at = ${now} where id = ${id} and revoked_at is null`
+}
+
+export const markInvitationSent = async (tx: ScopedSql, id: string, sentAt: Date, expiresAt: Date): Promise<void> => {
+  await tx`update partner_invitation set sent_at = ${sentAt}, expires_at = ${expiresAt} where id = ${id}`
+}
+
+
+export const insertPartnerApproval = async (tx: ScopedSql, a: { partnerId: string; staffUserId: string; submittedAt: Date; note: string | null; approvedAt: Date }): Promise<void> => {
+  await tx`
+    insert into partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
+    values (${a.partnerId}, ${a.staffUserId}, ${a.submittedAt}, ${a.note}, ${a.approvedAt})
+  `
+}
+
+export interface SetupSessionRow {
+  id: string
+  staff_user_id: string
+  staff_name: string
+  staff_role: string
+  partner_id: string
+  reason: string
+  ticket: string | null
+  started_at: Date
+  expires_at: Date
+  ended_at: Date | null
+  ended_by_staff_id: string | null
+}
+
+const setupSessionColumns = (tx: ScopedSql) => tx`
+  select ss.id, ss.staff_user_id, st.name as staff_name, st.role_key as staff_role, ss.partner_id, ss.reason, ss.ticket,
+         ss.started_at, ss.expires_at, ss.ended_at, ss.ended_by_staff_id
+  from partner_setup_session ss join staff_user st on st.id = ss.staff_user_id
+`
+
+
+export const selectSetupSession = async (tx: ScopedSql, id: string): Promise<SetupSessionRow | null> =>
+  (await tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.id = ${id}`)[0] ?? null
+
+/** A session is open while it is neither ended nor past its two hours (ACCESS.md §8.2). */
+export const selectOpenSetupSessionOf = async (tx: ScopedSql, staffUserId: string, now: Date): Promise<SetupSessionRow | null> =>
+  (await tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.staff_user_id = ${staffUserId} and ss.ended_at is null and ss.expires_at > ${now}`)[0] ?? null
+
+/** Closes the staff member's sessions that ran out without being ended, at the moment they ran out. */
+export const expireStaleSetupSessions = async (tx: ScopedSql, staffUserId: string, now: Date): Promise<void> => {
+  await tx`
+    update partner_setup_session set ended_at = expires_at, handoff_hash = null
+    where staff_user_id = ${staffUserId} and ended_at is null and expires_at <= ${now}
+  `
+}
+
+/** The new session's id, or null when the staff member already has one open (the partial unique index). */
+export const insertSetupSession = async (
+  tx: ScopedSql,
+  s: { staffUserId: string; partnerId: string; reason: string; ticket: string | null; startedAt: Date; expiresAt: Date; handoffHash: string; handoffExpiresAt: Date },
+): Promise<string | null> => {
+  try {
+    const rows = await tx.savepoint(
+      (sp) => sp<{ id: string }[]>`
+        insert into partner_setup_session (staff_user_id, partner_id, reason, ticket, started_at, expires_at, handoff_hash, handoff_expires_at)
+        values (${s.staffUserId}, ${s.partnerId}, ${s.reason}, ${s.ticket}, ${s.startedAt}, ${s.expiresAt}, ${s.handoffHash}, ${s.handoffExpiresAt})
+        returning id
+      `,
+    )
+    return one(rows, 'partner_setup_session')
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') return null
+    throw error
+  }
+}
+
+// The facts the list needs for a page of partners, one query per table (AGENTS.md: no N+1).
+export const selectPartnerDomainsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerDomainRow[]> =>
+  tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = any(${pgArray(ids)}::uuid[]) order by kind`
+
+export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerSetupItemRow[]> =>
+  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[])`
+
+export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(PlanRow & { store_count: number })[]> =>
+  tx<(PlanRow & { store_count: number })[]>`
+    select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count
+    from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[]) order by pl.created_at
+  `
+
+export const selectSetupSessionsFor = (tx: ScopedSql, ids: readonly string[]): Promise<SetupSessionRow[]> =>
+  tx<SetupSessionRow[]>`${setupSessionColumns(tx)} where ss.partner_id = any(${pgArray(ids)}::uuid[]) order by ss.started_at desc`
+
+/** Who approved each partner's current submission. */
+export const selectCurrentApproversFor = (tx: ScopedSql, ids: readonly string[]): Promise<{ partner_id: string; staff_user_id: string }[]> =>
+  tx<{ partner_id: string; staff_user_id: string }[]>`
+    select a.partner_id, a.staff_user_id from partner_approval a
+    join partner p on p.id = a.partner_id and p.submitted_at = a.submitted_at
+    where a.partner_id = any(${pgArray(ids)}::uuid[])
+  `
+
+export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string, now: Date): Promise<boolean> => {
+  const rows = await tx<{ id: string }[]>`
+    update partner_setup_session set ended_at = ${now}, ended_by_staff_id = ${endedBy}, handoff_hash = null
+    where id = ${id} and ended_at is null returning id
+  `
+  return rows.length > 0
+}
+
+/** Locks the row for the rest of the transaction, so two staff cannot both approve as "the second". */
+export const selectPartnerForUpdate = async (tx: ScopedSql, id: string): Promise<PartnerRow | null> =>
+  (await tx<PartnerRow[]>`select * from partner where id = ${id} for update`)[0] ?? null
+
+/** Each partner's domain, read off its shop wildcard (`*.shops.<partnerdomain>`, SAAS.md §3.5). */
+export const selectPartnerDomainsOf = async (tx: ScopedSql, partnerIds: readonly string[]): Promise<Map<string, string>> => {
+  const rows = await tx<{ partner_id: string; host: string }[]>`
+    select partner_id, host from partner_domain where kind = 'shops' and partner_id = any(${pgArray(partnerIds)}::uuid[])
+  `
+  return new Map(rows.map((r) => [r.partner_id, r.host.replace(/^\*\.shops\./, '')]))
+}

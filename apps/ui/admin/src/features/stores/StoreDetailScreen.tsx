@@ -5,15 +5,17 @@ import { recheckStoreDomain, runStoreAction, type Store, type StoreDnsRecord } f
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
-import { ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
+import { EmptyState, ConfirmDialog, useScreenState, Toast } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
+import { failureText } from '../common/failure'
 import { callerFor } from '../common/harnessCaller'
+import { RouteError } from '../common/RouteError'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
-import { storeStates } from './storeHarness'
+import { deniedStore, storeStates } from './storeHarness'
 
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
 const shellRoute = getRouteApi('/_app')
@@ -31,21 +33,27 @@ const firstAllowed = (store: Store | null): Pending | null => {
   return action ? { kind: 'store', action } : null
 }
 
-const targetOf = (store: Store): JobTarget => ({ name: store.name, code: store.code, owner: store.owner, step: store.setup.step, attempts: store.setup.attempts })
+// Only asked for while the store has a signup job, which the decoder guarantees is at a step.
+const targetOf = (store: Store): JobTarget => {
+  if (store.setup.step === null) throw new Error(`store ${store.id} has a signup job but no step`)
+  return { name: store.name, code: store.code, owner: { name: store.owner.name ?? '' }, step: store.setup.step, attempts: store.setup.attempts }
+}
 
 export const StoreDetailScreen = () => {
-  const store = storeRoute.useLoaderData()
+  const loaded = storeRoute.useLoaderData()
   const { tab = 'overview', after, before, action, result, date, from, to, ...customerFilter } = storeRoute.useSearch()
   const activityFilter = { action, result, date, from, to }
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const forced = useScreenState(storeStates, harnessEnabled)
+  const store = loaded && forced === 'denied' ? deniedStore(loaded) : loaded
   const router = useRouter()
   const navigate = useNavigate()
   const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
-  const failed = () => setToast(messages.store.toasts.failed)
+  const failed = (error: unknown) => setToast(failureText(error, messages.store.toasts.failed))
+  // The activity tab and the session flows still read the sample as this caller (#39, #40).
   const sessions = useImpersonateFrom(callerFor(me.role, searchStr), me.name)
 
   const jobs = useMemo(() => (store?.job ? [{ id: store.job.id, state: store.setup.state }] : []), [store])
@@ -84,16 +92,16 @@ export const StoreDetailScreen = () => {
             await router.invalidate()
             return true
           })
-          .catch(() => {
-            failed()
+          .catch((error: unknown) => {
+            failed(error)
             return false
           })
       : Promise.resolve(false)
 
   const onRecheck = (record: StoreDnsRecord) =>
     store
-      ? recheckStoreDomain(store.id, record.host)
-          .then((status) => setToast(fill(messages.store.domains.rechecked[status], { host: record.host })))
+      ? recheckStoreDomain(store.id)
+          .then(() => setToast(fill(messages.store.domains.recheckQueued, { host: record.host })))
           .catch(failed)
       : Promise.resolve()
 
@@ -157,7 +165,25 @@ export const StoreDetailScreen = () => {
   )
 }
 
-export const StoreRouteError = () => {
+// A store of a partner outside a Partner manager's assignment is refused by the API (ACCESS.md §5.4).
+const StoreDenied = () => {
+  const words = messages.stores.denied
+  return (
+    <div className="df-page df-list">
+      <EmptyState
+        title={words.title}
+        body={words.body}
+        action={
+          <Link to="/stores" className="df-button">
+            {words.back}
+          </Link>
+        }
+      />
+    </div>
+  )
+}
+
+export const StoreRouteError = ({ error }: { error: unknown }) => {
   const router = useRouter()
-  return <StoreError onRetry={() => void router.invalidate()} />
+  return <RouteError error={error} view={(details) => <StoreError onRetry={() => void router.invalidate()} details={details} />} denied={<StoreDenied />} />
 }
