@@ -4,11 +4,12 @@ import { pathToFileURL } from 'node:url'
 
 export const protectedBranches = ['main', 'dev']
 
-const branchPattern = /^#([1-9][0-9]*)\/(feature|task|bug)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/
+// No leading `#`: the shell would read it as a comment and GitHub's review action refuses it (#140).
+const branchPattern = /^([1-9][0-9]*)\/(feature|task|bug)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/
 const subjectPattern = /^#([1-9][0-9]*) \S/
 const allowedGitSubjects = [/^Merge /, /^(fixup|squash|amend)! #[1-9][0-9]* \S/, /^Revert "#[1-9][0-9]* \S/]
 
-const branchExample = '#12/feature/abandoned-carts'
+const branchExample = '12/feature/abandoned-carts'
 const subjectExample = '#12 add the abandoned carts list'
 
 export const parseBranch = (name) => {
@@ -20,7 +21,7 @@ export const parseBranch = (name) => {
 export const branchProblem = (name) => {
   if (protectedBranches.includes(name)) return `"${name}" is protected: work on a branch and open a pull request.`
   if (parseBranch(name)) return undefined
-  return `Branch "${name}" must be #<issue>/<feature|task|bug>/<short-name>, e.g. ${branchExample}.`
+  return `Branch "${name}" must be <issue>/<feature|task|bug>/<short-name>, e.g. ${branchExample}.`
 }
 
 export const subjectIssue = (subject) => {
