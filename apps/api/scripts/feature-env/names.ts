@@ -7,7 +7,7 @@ export const isFeatureBranch = (branch: string) => parseBranch(branch)?.kind ===
 
 export const slugOf = (branch: string) => {
   const parsed = parseBranch(branch)
-  if (!parsed) throw new Error(`"${branch}" is not an <issue>/<kind>/<short-name> branch.`)
+  if (!parsed) throw new Error(`"${branch}" is not a #<issue>/<kind>/<short-name> branch.`)
   const slug = `${parsed.issue}-${parsed.name}`
   if (slug.length <= maxSlug) return slug
   const hash = createHash('sha1').update(branch).digest('hex').slice(0, 4)
