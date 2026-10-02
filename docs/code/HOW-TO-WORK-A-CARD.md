@@ -43,10 +43,11 @@ answer stays with the card.
 
 ```bash
 git switch main && git pull
-git switch -c 12/task/db-foundation
+git switch -c '#12/task/db-foundation'
 ```
 
-The branch name is on the card; don't invent your own. It has no leading `#` (WORKFLOW.md §2).
+**Quote the name.** `#` starts a comment in the shell, so an unquoted `git switch -c
+#12/...` silently creates nothing. The branch name is on the card; don't invent your own.
 
 Move the card to **In Progress** on the DF Platform project.
 

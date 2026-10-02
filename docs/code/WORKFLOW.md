@@ -13,7 +13,7 @@ Last updated: 2026-09-29.
 | Decision | Rejected | Why |
 |---|---|---|
 | **Every piece of work is one work item, one branch, one pull request**, and the work item is a GitHub issue on the DripFunnel project | Several items per branch; long-lived personal branches; work without an issue | Each change can be reviewed, reverted and deployed on its own, and traced back to its card |
-| **Branch names are `<issue>/<kind>/<short-name>`**, kind `feature`, `task` or `bug` (§2) | Free-form names; `feature/<name>` without an issue | The issue links branch, commits, pull request and card; the kind says what the change is and decides whether it gets an environment |
+| **Branch names are `#<issue>/<kind>/<short-name>`**, kind `feature`, `task` or `bug` (§2) | Free-form names; `feature/<name>` without an issue | The issue links branch, commits, pull request and card; the kind says what the change is and decides whether it gets an environment |
 | **Every commit message starts with `#<issue>` and a space** (§2.1) | Free-form messages | Every commit on `main` points to the card that explains it |
 | **Enforced in three places** (§2.2): git hooks, a required `naming` check on every pull request, and GitHub rulesets on `main` and `dev` | Trusting people to remember | Hooks catch a mistake before the commit exists; the check and rulesets make it impossible to merge, because hooks can be skipped |
 | **Claude reviews every pull request, and the check fails** (§7) — reversed 2026-09-30 (#70); it was advisory until then | Advisory only, which is what we had | Advisory meant two things went unnoticed: a review that found something, and a review that never ran at all, because `continue-on-error` made a broken token look exactly like a clean bill of health. **The cost is accepted knowingly**: a non-deterministic judgement can now turn a check red, and the temptation will be to re-run until it passes. That is not the way past it — fix the finding or reply saying why not (§7). If it goes red for bad reasons often, fix the prompt, don't loosen the check. |
@@ -29,21 +29,22 @@ Last updated: 2026-09-29.
 
 | Kind | Use it for | Branch | Environment |
 |---|---|---|---|
-Every branch is **`<issue>/<kind>/<short-name>`**: the GitHub issue number of its card, the
-kind of work, and a short name. No leading `#`: the shell reads it as a comment, and GitHub's
-review action refuses a branch that starts with one (decided 2026-10-02 on #140).
+Every branch is **`#<issue>/<kind>/<short-name>`**: the GitHub issue number of its card, the
+kind of work, and a short name.
 
 | Kind | Use it for | Branch | Environment |
 |---|---|---|---|
-| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `<issue>/feature/<short-name>`, e.g. `12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.dripfunnel.ai` (e.g. `12-abandoned-carts-store.dripfunnel.ai`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
-| **Task** | Everything else that isn't a defect: foundations (database, tenancy, core types), refactors, tooling, CI, dependencies, docs, design-token work | `<issue>/task/<short-name>`, e.g. `13/task/db-foundation` | No: gates only |
-| **Bug** | Fixing a defect in something already merged | `<issue>/bug/<short-name>`, e.g. `14/bug/money-rounding` | No: gates only |
+| **Feature** | New functionality a user can see or use: a screen, a flow, an API capability behind a screen | `#<issue>/feature/<short-name>`, e.g. `#12/feature/abandoned-carts` | **Yes**: a complete environment on `<issue>-<short-name>-*.dripfunnel.ai` (e.g. `12-abandoned-carts-store.dripfunnel.ai`), redeployed on every push and removed when the branch is deleted ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) |
+| **Task** | Everything else that isn't a defect: foundations (database, tenancy, core types), refactors, tooling, CI, dependencies, docs, design-token work | `#<issue>/task/<short-name>`, e.g. `#13/task/db-foundation` | No: gates only |
+| **Bug** | Fixing a defect in something already merged | `#<issue>/bug/<short-name>`, e.g. `#14/bug/money-rounding` | No: gates only |
 
 - **The issue must exist and be open** in `dripfunnel/platform`; create the card first.
 - **Short names**: lowercase letters and digits, words joined by `-`, no `/`, at most about
   20 characters. That keeps a feature's hostnames readable.
-- `git switch -c 12/feature/offers` and `git push -u origin 12/feature/offers`; no quoting needed.
-- Only the kind decides the environment: `13/task/feature-flags` gets none.
+- **Quote the name in a terminal.** `#` starts a comment in the shell, so
+  `git switch -c #12/feature/offers` creates nothing. Write
+  `git switch -c '#12/feature/offers'` and `git push -u origin '#12/feature/offers'`.
+- Only the kind decides the environment: `#13/task/feature-flags` gets none.
 - A bug found in a feature that hasn't merged yet is fixed on that feature's branch, not on
   a new `bug` branch.
 
@@ -65,7 +66,7 @@ that also closes another issue names that one.
 
 | Where | What it refuses | Can it be skipped? |
 |---|---|---|
-| **Git hooks** in `.githooks/`, turned on once per clone with **`pnpm git-hooks`** | Committing on `main` or `dev`; committing on a branch not named `<issue>/<kind>/<short-name>`; a commit message without `#<issue>`; pushing to `main` or `dev`; pushing a misnamed branch | Yes, with `--no-verify`, so the next two exist |
+| **Git hooks** in `.githooks/`, turned on once per clone with **`pnpm git-hooks`** | Committing on `main` or `dev`; committing on a branch not named `#<issue>/<kind>/<short-name>`; a commit message without `#<issue>`; pushing to `main` or `dev`; pushing a misnamed branch | Yes, with `--no-verify`, so the next two exist |
 | **`naming` check** on every pull request ([`.github/workflows/naming.yml`](../../.github/workflows/naming.yml)) | A misnamed branch; a commit or title without `#<issue>`; a title whose number isn't the branch's; a number that isn't an issue in this repo; a branch whose issue is closed | No, once it is a required check (below) |
 | **GitHub rulesets** on `main` and `dev` (below) | Any push or merge that isn't a reviewed pull request with passing checks; force-push; deletion | Only by the people on the bypass list; keep it empty |
 
@@ -102,7 +103,7 @@ to start.
 
 | Field | Says |
 |---|---|
-| **Kind and branch** | Feature, task or bug, and the branch name `<issue>/<kind>/<short-name>` |
+| **Kind and branch** | Feature, task or bug, and the branch name `#<issue>/<kind>/<short-name>` |
 | **Folders** | The only folders the change may touch. Two cards in progress at once never share a folder |
 | **Read first** | The doc sections that decide the design, e.g. "DATA-MODEL §5" |
 | **Do** | The steps, numbered |

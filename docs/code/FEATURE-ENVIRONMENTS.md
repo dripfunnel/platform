@@ -1,6 +1,6 @@
 # FEATURE-ENVIRONMENTS.md: a complete environment per feature branch
 
-Every **`<issue>/feature/<short-name>`** branch ([WORKFLOW.md](WORKFLOW.md) §2) gets its own separate copy of the platform:
+Every **`#<issue>/feature/<short-name>`** branch ([WORKFLOW.md](WORKFLOW.md) §2) gets its own separate copy of the platform:
 
 - its own API Worker,
 - its own merchant portal, partner console and admin console,
@@ -19,7 +19,7 @@ Last updated: 2026-09-29.
 
 | Decision | Rejected | Why |
 |---|---|---|
-| **An environment only for `<issue>/feature/<short-name>` branches**, which [WORKFLOW.md](WORKFLOW.md) §2 reserves for **new feature development**. Tasks (`<issue>/task/…`) and bugs (`<issue>/bug/…`) run the gates only | A preview for every pull request (the earlier ARCHITECTURE §6 plan) | Fewer environments and lower cost; only a new feature needs clicking through before it merges |
+| **An environment only for `#<issue>/feature/<short-name>` branches**, which [WORKFLOW.md](WORKFLOW.md) §2 reserves for **new feature development**. Tasks (`#<issue>/task/…`) and bugs (`#<issue>/bug/…`) run the gates only | A preview for every pull request (the earlier ARCHITECTURE §6 plan) | Fewer environments and lower cost; only a new feature needs clicking through before it merges |
 | **A separate Cloudflare account ("DripFunnel Dev") holds every feature environment**, with the `dripfunnel.ai` zone | The production account | Cloudflare tokens can't be narrowed to certain Workers or projects. On the production account, code from any feature branch would run with a token that can change production. A separate account also gives feature environments their own 25 Hyperdrive slots |
 | **A separate Neon project (`dripfunnel-dev`)**; each environment is a branch of its default branch, which holds seeded dummy data | Branching production; an empty database each time | No real personal data ever reaches a feature environment. A key scoped to that project can't reach production |
 | **Same shape as production**: three Cloudflare Pages projects for the SPAs, and one Worker serving `/api/*` on each SPA's hostname plus the hooks host | One Worker serving the SPAs as static assets | Feature environments exercise the production setup. This includes the unverified "Worker route on a Pages custom hostname" check in [../ARCHITECTURE.md](../ARCHITECTURE.md) §2, which the first deploy answers |
@@ -108,11 +108,11 @@ removal starts only once this workflow is merged to `main`.
    3. Create a **project-scoped** API key.
 5. **GitHub environment `feature`** in `dripfunnel/platform`:
    - Deployment branches: `main` (for delete and nightly runs) and the pattern
-     `*/feature/*`.
+     `#*/feature/*`.
    - Secrets: `CLOUDFLARE_API_TOKEN`, `NEON_API_KEY`.
    - Variables: `CLOUDFLARE_ACCOUNT_ID` (dev account), `FEATURE_ZONE_ID` (`dripfunnel.ai`),
      `FEATURE_DOMAIN` = `dripfunnel.ai`, `NEON_PROJECT_ID` (`dripfunnel-dev`).
-6. Merge the workflow to `main`, then push an `<issue>/feature/<short-name>` branch.
+6. Merge the workflow to `main`, then push a `#<issue>/feature/<short-name>` branch.
 
 ---
 
