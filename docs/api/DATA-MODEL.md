@@ -44,7 +44,7 @@ platform            no row: DripFunnel itself; staff act here
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note` |
 | **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_entitlement` |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
-| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `offer`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook` (§2.2) |
+| **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `import_job`, `export_job`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone | `activity_log`, `outbox` |
@@ -683,11 +683,18 @@ customer_address    (id, customer_id, store_id, name, line1, line2, city, region
 customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (store_id, name)
 customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
                     -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
-customer_data_request (id, store_id, customer_id, kind ('export'|'delete'), requested_by,
+customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subject_phone NULL,
+                     subject_verified_at, kind ('export'|'delete'), requested_by,
                      state ('requested'|'ready'|'done'|'refused'), file_asset_id NULL, created_at, done_at)
-                    -- GDPR / DPDP (AGENTS.md "Data"). Export gathers the customer row,
-                    -- customer_address, the customer's orders with their email, phone and
-                    -- address snapshots, promotion_usage rows and consent history. Deletion
+                    -- a guest has no customer row: the request names the email or phone the
+                    -- orders were placed with, proved by a code sent to it
+                    -- (subject_verified_at), and the rule below matches "order" rows with
+                    -- customer_id null and promotion_usage rows on that identifier as well
+                    -- as everything the customer row reaches
+                    -- GDPR / DPDP (AGENTS.md "Data"). Export gathers the customer row (if
+                    -- any), customer_address, every order placed under the customer id or,
+                    -- for a guest, under the verified email or phone, with their email, phone
+                    -- and address snapshots, promotion_usage rows and consent history. Deletion
                     -- keeps orders and usage rows (money history) and applies one rule:
                     -- EVERY column on these tables that can hold personal data is blanked or
                     -- replaced by a placeholder, and every search tsvector built from one is
@@ -697,9 +704,9 @@ customer_data_request (id, store_id, customer_id, kind ('export'|'delete'), requ
                     -- billing_address, notes, cancel_reason, access_token_hash and search;
                     -- promotion_usage.customer_email; refund.reason and "return".note;
                     -- fulfilment.courier_label and tracking_url; every order_document asset
-                    -- of the customer's orders (invoices, packing slips, labels carry the
-                    -- name and address) deleted from R2, the rows keeping kind, number and
-                    -- date; any export_job or customer_data_request file not yet expired
+                    -- of those orders (invoices, packing slips, labels and return labels, the
+                    -- only place a label file is referenced, all carry the name and address)
+                    -- deleted from R2, the rows keeping kind, number and date; any export_job or customer_data_request file not yet expired
                     -- that contains the person, deleted from R2, and the export_job.filter
                     -- that named them blanked; the shopper's activity entries' personal
                     -- fields (LOGGING §8). The request row itself keeps only kind, dates and
@@ -754,8 +761,10 @@ order_part          (id, order_id, store_id, seller_id NULL, shipping_mode ('sto
                     -- (ACCESS §7.3); 'store' for the merchant's own
 fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind ('booked'|'manual'
                      |'sent_to_store'|'pickup'), warehouse_id, courier_account_id NULL, courier_label,
-                     tracking_number NULL, tracking_url NULL, label_asset_id NULL,
+                     tracking_number NULL, tracking_url NULL,
                      booked_at, shipped_at, delivered_at, created_by)
+                    -- the printed label is an order_document row (kind 'label', fulfilment_id),
+                    -- never a column here, so erasure has one list to follow;
                     -- 'booked' through the store's or supplier's courier account; 'manual' with
                     -- or without a tracking number (PortalOrders "Label and tracking");
                     -- 'sent_to_store' is a to-store supplier's hand-off; shipped lines come out
@@ -770,8 +779,9 @@ payment_refund      (id, refund_id, payment_id, store_id, provider_ref, state, a
 
 "return"            (id, store_id, order_id, number, state ('requested'|'received'|'refunded'
                      |'cancelled'), reason ('doesnt_fit'|'changed_mind'|'damaged'|'wrong_item'
-                     |'not_as_described'), note NULL, label_asset_id NULL, label_sent_at,
+                     |'not_as_described'), note NULL, label_sent_at,
                      received_at, cancelled_at, created_by, created_at)
+                    -- the return label is an order_document row (kind 'return_label', return_id)
                     -- store-scoped; a supplier reaches a return only through its return_line
                     -- rows (ACCESS §3.3) and its serializer omits note, the store's free text;
                     -- number = 'R' + order number + '-' + n
