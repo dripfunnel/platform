@@ -4,7 +4,7 @@ import type {
   CustomDomainRow,
   HostStatus,
   JobDetailRow,
-  JobRow,
+
   JobState,
   MembershipRole,
   MembershipRow,
