@@ -428,6 +428,24 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
   })
 })
 
+describe('malformed ids', () => {
+  it('answer null or NOT_FOUND, never a database error, whoever asks', async () => {
+    const sa = as('staff-super-admin')
+    expect((await run<{ partner: unknown }>(`query($id: ID!) { partner(id: $id) { id } }`, sa, { id: 'abc' })).data?.partner).toBeNull()
+    for (const [field, args] of [
+      ['approvePartner', '(id: $id, reason: "KYC passed")'],
+      ['sendBackPartner', '(id: $id, reason: "Impressum")'],
+      ['pausePartner', '(id: $id, reason: "Contract")'],
+      ['resendPartnerOwnerInvite', '(id: $id)'],
+      ['recheckDomain', '(id: $id, kind: "portal")'],
+      ['endStaffSession', '(id: $id)'],
+    ] as const) {
+      const result = await run<Record<string, { ok: boolean; code: string | null }>>(`mutation($id: ID!) { ${field}${args} { ok code } }`, sa, { id: 'abc' })
+      expect(result.data?.[field], field).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    }
+  })
+})
+
 describe('partner managers (ACCESS.md §5.4, #60)', () => {
   const assign = `mutation($id: ID!, $staffId: ID!, $reason: String!) { assignPartnerManager(id: $id, staffId: $staffId, reason: $reason) { ${outcome} } }`
   const unassign = `mutation($id: ID!, $staffId: ID!, $reason: String!) { unassignPartnerManager(id: $id, staffId: $staffId, reason: $reason) { ${outcome} } }`

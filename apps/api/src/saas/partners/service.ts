@@ -324,6 +324,10 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     approval: row.state === 'awaiting' ? { setUpBy: f.rule.setUpBy?.name ?? null, rule: f.rule.rule, approvals: f.approvers.length } : null,
   })
 
+  // A malformed id is NOT_FOUND (or null), never a database error; the row policy guards only a Partner manager's.
+  const isId = (id: string) => z.guid().safeParse(id).success
+  const notFound: Refusal = { ok: false, code: 'NOT_FOUND' }
+
   const list = async (filter: unknown, page: PageRequest): Promise<Result<{ page: PartnerPage }>> => {
     const parsed = partnerFilter.safeParse(filter ?? {})
     if (!parsed.success) return { ok: false, code: 'INVALID_INPUT' }
@@ -366,7 +370,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const get = async (id: string): Promise<PartnerDto | null> =>
-    withScope(sql, context, async (tx) => {
+    !isId(id) ? null : withScope(sql, context, async (tx) => {
       const partner = await selectPartner(tx, id)
       if (!partner) return null
       const listRow = await selectPartnerListRow(tx, id)
@@ -403,6 +407,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     action: PartnerAuditAction,
     change: (partner: PartnerRow) => Parameters<typeof transitionPartner>[2] | Refusal,
   ): Promise<Result<{ state: PartnerState }>> => {
+    if (!isId(id)) return notFound
     const parsedReason = reasonText.safeParse(reason ?? '')
     if (!parsedReason.success) return { ok: false, code: 'REASON_REQUIRED' }
     return withScope(sql, context, async (tx): Promise<Result<{ state: PartnerState }>> => {
@@ -418,6 +423,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const approvePartner = async (id: string, reason: string | null): Promise<Result<{ state: PartnerState; approvals: number }>> => {
+    if (!isId(id)) return notFound
     const refused = refusedBy('partners.approve')
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
@@ -498,6 +504,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const invite = async (id: string, resend: boolean): Promise<Result> => {
+    if (!isId(id)) return notFound
     const refused = refusedBy(resend ? 'partners.invite.resend' : 'partners.invite')
     if (refused) return refused
     return withScope(sql, context, async (tx): Promise<Result> => {
@@ -529,6 +536,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const startSetupSession = async (id: string, reason: string | null, ticket: string | null): Promise<Result<{ sessionId: string; expiresAt: Date; handoff: string }>> => {
+    if (!isId(id)) return notFound
     const refused = refusedBy('partners.setup')
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
@@ -561,7 +569,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const endStaffSession = async (sessionId: string): Promise<Result> =>
-    withScope(sql, context, async (tx): Promise<Result> => {
+    !isId(sessionId) ? notFound : withScope(sql, context, async (tx): Promise<Result> => {
       const session = await selectSetupSession(tx, sessionId)
       if (!session) return { ok: false, code: 'NOT_FOUND' }
       const at = now()
@@ -575,6 +583,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     })
 
   const recheckDomain = async (id: string, kind: string): Promise<Result<{ status: 'queued' }>> => {
+    if (!isId(id)) return notFound
     const refused = refusedBy('domains.recheck')
     if (refused) return refused
     if (!(domainKinds as readonly string[]).includes(kind)) return { ok: false, code: 'INVALID_INPUT' }
@@ -605,8 +614,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
     if (!parsed.success) return { ok: false, code: 'REASON_REQUIRED' }
-    // A malformed id is a NOT_FOUND, not a database error (the policy guards only a Partner manager's).
-    if (!z.guid().safeParse(staffId).success || !z.guid().safeParse(partnerId).success) return { ok: false, code: 'NOT_FOUND' }
+    if (!isId(staffId) || !isId(partnerId)) return notFound
     return withScope(sql, context, async (tx): Promise<Result> => {
       const partner = await selectPartnerForUpdate(tx, partnerId)
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
