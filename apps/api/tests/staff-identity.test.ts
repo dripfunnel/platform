@@ -250,6 +250,46 @@ describe('the sign-in routes', () => {
     }
   })
 
+  it('answers an outage mid-sign-in with the screen’s unavailable state, logged by code, and files no refusal', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let res: Response
+    try {
+      const outage = { ...provider, exchange: async () => Promise.reject(Object.assign(new Error('connect ECONNREFUSED 10.0.0.9:5432'), { code: 'ECONNREFUSED' })) }
+      res = await handleAuth(callback('good', { 'cf-ray': 'ray-outage' }), deps({ provider: outage }))
+    } finally {
+      console.log = log
+    }
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+    expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=;')
+    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'sign_in_unavailable', api: 'admin', requestId: 'ray-outage', code: 'Error:ECONNREFUSED' }])
+    expect(lines.join('\n')).not.toContain('10.0.0.9')
+    expect(await db.sql`select 1 from activity_log where action = 'staff.sign_in_refused' and request_id = 'ray-outage'`).toHaveLength(0)
+  })
+
+  it('rolls the sign-in back when the database fails inside it: no session, no entry, the unavailable state', async () => {
+    const before = (await db.sql<{ n: number }[]>`select count(*)::int as n from staff_session where staff_user_id = ${active}`)[0]?.n ?? 0
+    const failing = {
+      record: async () => {
+        throw Object.assign(new Error('could not write activity_log at 10.0.0.9'), { name: 'PostgresError', code: 'XX000' })
+      },
+    }
+    const log = console.log
+    console.log = () => undefined
+    let res: Response
+    try {
+      res = await handleAuth(callback('good', { 'cf-ray': 'ray-db-outage' }), deps({ activity: failing as unknown as typeof activityLog }))
+    } finally {
+      console.log = log
+    }
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+    expect(res.headers.get('set-cookie')).not.toContain(`${cookieName}=`)
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from staff_session where staff_user_id = ${active}`)[0]?.n).toBe(before)
+    expect(await db.sql`select 1 from activity_log where request_id = 'ray-db-outage'`).toHaveLength(0)
+  })
+
   it('rate-limits the callback', async () => {
     const res = await handleAuth(callback('good'), deps({ allowAttempt: async () => false }))
     expect(res.status).toBe(429)
@@ -355,6 +395,25 @@ describe('the sign-in routes', () => {
       await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/sign-in'), deps({ provider: recording }))
       await handleAuth(new Request('https://admin.dripfunnel.com/api/auth/reauth'), deps({ provider: recording }))
       expect(seen).toEqual(['none', 'login'])
+    })
+
+    it('keeps the signed-in session when re-authentication meets an outage, and shows the unavailable state', async () => {
+      const id = await withSystemScope(db.sql, (tx) => createSession(tx, active, start))
+      const outage = { ...provider, exchange: async () => Promise.reject(Object.assign(new Error('upstream 503'), { code: 'EAI_AGAIN' })) }
+      const log = console.log
+      console.log = () => undefined
+      let res: Response
+      try {
+        res = await handleAuth(reauthCallback(id), deps({ provider: outage }))
+      } finally {
+        console.log = log
+      }
+      expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+      // Only the handshake is cleared; the session cookie and the session itself stay.
+      expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=;')
+      expect(res.headers.get('set-cookie')).not.toContain(`${cookieName}=`)
+      const stillSignedIn = new Request('https://admin.dripfunnel.com/api/', { headers: { cookie: `${cookieName}=${id}` } })
+      expect(await resolveStaff(db.sql, stillSignedIn, start)).toMatchObject({ staff: { id: active } })
     })
 
     it('stamps the live session rather than starting a second one', async () => {

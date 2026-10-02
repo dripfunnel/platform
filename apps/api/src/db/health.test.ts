@@ -217,3 +217,37 @@ describe('checkHealth', () => {
     12_000,
   )
 })
+
+describe('what the health probe logs', () => {
+  const captured = async (work: () => Promise<unknown>) => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    try {
+      await work()
+    } finally {
+      console.log = log
+    }
+    return lines.map((l) => JSON.parse(l) as { event: string; code?: string })
+  }
+
+  it('names a refused connection by code, never by message', async () => {
+    const sql = getClient({ connectionString: 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:1/dripfunnel' }, { max: 1 })
+    try {
+      const lines = await captured(() => ping(sql))
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toMatchObject({ event: 'db_ping_failed' })
+      expect(lines[0]?.code).toMatch(/^[A-Za-z]+(:[A-Z0-9_]+)?$/)
+      expect(JSON.stringify(lines)).not.toContain('localhost')
+    } finally {
+      await sql.end()
+    }
+  })
+
+  it('names a connection it could not even open by code', async () => {
+    const lines = await captured(() => checkHealth({ HYPERDRIVE: { connectionString: 'not-a-postgres-url' } } as unknown as Pick<Config, 'HYPERDRIVE'>, ctx))
+    expect(lines.some((l) => l.event === 'db_health_check_failed' || l.event === 'db_ping_failed')).toBe(true)
+    for (const line of lines) expect(line.code).toMatch(/^[A-Za-z]+(:[A-Z0-9_]+)?$/)
+    expect(JSON.stringify(lines)).not.toContain('not-a-postgres-url')
+  })
+})
