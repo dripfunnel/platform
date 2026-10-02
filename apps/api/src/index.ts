@@ -14,7 +14,7 @@ import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
 import { parseConfig, type Config } from '#core/config'
-import { logEvent } from '#core/log'
+import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
@@ -199,10 +199,20 @@ const relayWith = async (env: Env, work: (sql: postgres.Sql) => Promise<void>): 
   }
 }
 
+// An error nobody caught is a logged 500, never Cloudflare's own error page (LOGGING.md §9).
+const guarded = async (request: Request, work: () => Promise<{ response: Response; area: Area | null }>): Promise<{ response: Response; area: Area | null }> => {
+  try {
+    return await work()
+  } catch (error) {
+    logEvent({ event: 'request_failed', requestId: request.headers.get('cf-ray'), host: new URL(request.url).hostname, status: 500, code: failureCode(error) })
+    return { response: new Response(null, { status: 500 }), area: null }
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const started = Date.now()
-    const { response, area } = await route(request, env, ctx)
+    const { response, area } = await guarded(request, () => route(request, env, ctx))
     // LOGGING.md §9: ids, codes and timings only; the hostname carries no personal data.
     logEvent({
       event: 'request',

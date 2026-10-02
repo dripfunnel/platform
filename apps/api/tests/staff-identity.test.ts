@@ -250,6 +250,25 @@ describe('the sign-in routes', () => {
     }
   })
 
+  it('answers an outage mid-sign-in with the screen’s unavailable state, logged by code, and files no refusal', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let res: Response
+    try {
+      const outage = { ...provider, exchange: async () => Promise.reject(Object.assign(new Error('connect ECONNREFUSED 10.0.0.9:5432'), { code: 'ECONNREFUSED' })) }
+      res = await handleAuth(callback('good', { 'cf-ray': 'ray-outage' }), deps({ provider: outage }))
+    } finally {
+      console.log = log
+    }
+    expect(res.status).toBe(302)
+    expect(res.headers.get('location')).toBe('/sign-in?outcome=unavailable')
+    expect(res.headers.get('set-cookie')).toContain('__Host-df_admin_oidc=;')
+    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'sign_in_unavailable', api: 'admin', requestId: 'ray-outage', code: 'Error:ECONNREFUSED' }])
+    expect(lines.join('\n')).not.toContain('10.0.0.9')
+    expect(await db.sql`select 1 from activity_log where action = 'staff.sign_in_refused' and request_id = 'ray-outage'`).toHaveLength(0)
+  })
+
   it('rate-limits the callback', async () => {
     const res = await handleAuth(callback('good'), deps({ allowAttempt: async () => false }))
     expect(res.status).toBe(429)

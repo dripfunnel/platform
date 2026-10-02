@@ -7,6 +7,7 @@ import type { SignInRefusal } from '#auth/oidc'
 import { identityClaims, refusalForProviderError, SignInFailed, signInStateFor } from '#auth/oidc'
 import { createSession, endSession, markReauthenticated } from '#auth/session'
 import { staffForClaims } from '#auth/staff'
+import { failureCode, logEvent } from '#core/log'
 import { withSystemScope } from '#db/scoped/index'
 
 export interface AuthDeps {
@@ -150,10 +151,11 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
         ],
       })
     } catch (error) {
-      // Only a refusal answers 401. Anything else is an outage mid-sign-in, and filing a
-      // false `sign_in_refused` for a staff member who was not refused would be worse.
-      if (!(error instanceof SignInFailed)) throw error
-      return refuse(error.refusal)
+      if (error instanceof SignInFailed) return refuse(error.refusal)
+      // An outage mid-sign-in, not a refusal: no `sign_in_refused` for a staff member who was
+      // not refused, a technical line by code (LOGGING.md §9), and the screen's own state.
+      logEvent({ event: 'sign_in_unavailable', api: 'admin', requestId: facts.requestId, code: failureCode(error) })
+      return new Response(null, { status: 302, headers: [['location', `${signInPath}?outcome=unavailable`], ['set-cookie', clearHandshake()]] })
     }
   }
 

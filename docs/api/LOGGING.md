@@ -242,6 +242,11 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   status, duration, error code. **No personal data, no payloads.**
 - Workers Logs for recent search; Logpush for long-term storage *(destination open)*.
 - The activity entry's `request_id` links a user's action to its technical trace.
+- An error names what failed as a class and a SQLSTATE or system code (`PostgresError:28P01`),
+  never its message. `sign_in_unavailable` is an outage during the staff sign-in (the browser
+  lands on the sign-in screen's unavailable state, and no refusal is recorded);
+  `request_failed` is an error nothing caught, answered as a plain 500; `db_ping_failed` is
+  the health check's probe.
 
 ---
 

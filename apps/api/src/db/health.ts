@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import type { Config } from '#core/config'
+import { failureCode, logEvent } from '#core/log'
 import { getClient } from './client'
 
 const PING_TIMEOUT_MS = 5_000
@@ -10,8 +11,8 @@ export const ping = async (sql: postgres.Sql, query: () => Promise<unknown> = ()
   try {
     await query()
     return true
-  } catch {
-    console.error(JSON.stringify({ code: 'db_ping_failed' }))
+  } catch (error) {
+    logEvent({ event: 'db_ping_failed', code: failureCode(error) })
     return false
   }
 }
@@ -33,8 +34,8 @@ export const checkHealth = async (config: Pick<Config, 'HYPERDRIVE'>, ctx: WaitU
     sql = getClient(HYPERDRIVE, { max: 1, statementTimeoutMs: PING_TIMEOUT_MS, connectTimeoutMs: PING_TIMEOUT_MS })
     const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), CHECK_HEALTH_TIMEOUT_MS))
     return (await Promise.race([ping(sql), timeout])) ? 'ok' : 'down'
-  } catch {
-    console.error(JSON.stringify({ code: 'db_health_check_failed' }))
+  } catch (error) {
+    logEvent({ event: 'db_health_check_failed', code: failureCode(error) })
     return 'down'
   } finally {
     if (sql) ctx.waitUntil(sql.end())
