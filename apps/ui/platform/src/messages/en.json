@@ -721,6 +721,46 @@
         "retry": "Try again"
       },
       "failed": "We couldn’t create the store. Nothing was changed. Try again in a moment."
+    },
+    "export": {
+      "button": "Export accounts (CSV)",
+      "note": "Orders, customers and products are never included.",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "Your export of {count} store account is ready.",
+        "other": "Your export of {count} store accounts is ready."
+      },
+      "download": "Download CSV",
+      "expires": "The link expires at {time}.",
+      "expired": "The download link expired. Export again to get a new one.",
+      "failed": "The export didn’t finish. Try again.",
+      "toast": "Your store accounts export is ready. Download it from Stores.",
+      "file": "store-accounts-{date}.csv",
+      "columns": {
+        "store": "Store",
+        "code": "Code",
+        "owner": "Owner",
+        "ownerEmail": "Owner email",
+        "plan": "Plan",
+        "status": "Status",
+        "sales": "Sales last month",
+        "currency": "Currency",
+        "storefront": "Storefront",
+        "domain": "Domain",
+        "created": "Created"
+      }
+    },
+    "billingStatus": {
+      "column": "Billing status",
+      "label": "Billing status of {name}",
+      "statuses": {
+        "active": "Active",
+        "pastdue": "Past due",
+        "suspended": "Suspended"
+      },
+      "note": "You bill these merchants yourself; the status you set is what each store’s team sees.",
+      "set": "{name}: billing status set to {status}.",
+      "failed": "That didn’t go through. Nothing was changed. Try again in a moment."
     }
   },
   "store": {
@@ -765,7 +805,9 @@
       "suspend": "suspend stores",
       "restore": "restore stores",
       "resendInvite": "resend invitations",
-      "retryStep": "retry a setup step"
+      "retryStep": "retry a setup step",
+      "billingStatus": "set billing status",
+      "export": "export store accounts"
     },
     "notFound": {
       "title": "Store not found",

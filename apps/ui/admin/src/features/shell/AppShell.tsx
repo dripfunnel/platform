@@ -1,9 +1,9 @@
-import { NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
+import { ExportWatcher, NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { loadActivityExport } from '../../api/activity'
 import { messages } from '../../messages'
-import { ExportWatcher } from '../activity/ExportWatcher'
 import { useSessionsVersion } from '../impersonate/sessionEvents'
 import { SessionStrip } from '../impersonate/SessionStrip'
 import { navFor } from '../../nav'
@@ -48,7 +48,7 @@ export const AppShell = () => {
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={messages.shell.navLabel} closeLabel={messages.shell.closeMenu}>
         <SideNav rows={rows} variant="drawer" label={messages.shell.navLabel} footer={messages.shell.navFooter} onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>
-      <ExportWatcher />
+      <ExportWatcher load={loadActivityExport} toast={messages.activity.export.toast} />
     </div>
   )
 }

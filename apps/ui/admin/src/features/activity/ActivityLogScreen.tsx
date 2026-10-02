@@ -7,7 +7,7 @@ import { useScreenState } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
 import { ActivityError, ActivityLog } from './ActivityLog'
 import { activityStates, forcedExport } from './activityHarness'
-import { exportJob, useExportJob } from './exportJob'
+import { startExport, useExportJob } from '@dripfunnel/shared/ui'
 
 const activityRoute = getRouteApi('/_app/activity')
 const shellRoute = getRouteApi('/_app')
@@ -25,9 +25,7 @@ export const ActivityLogScreen = () => {
   // A new filter starts from the first page, so the cursors are dropped with the old one.
   const onFilterChange = useCallback((next: ActivityFilter) => void navigate({ search: next, replace: true }), [navigate])
   const onExport = () =>
-    startActivityExport(filter, callerFor(me.role, searchStr))
-      .then(exportJob.set)
-      .catch(() => exportJob.set({ id: 'failed', state: 'failed', entries: null, url: null, expiresAt: null }))
+    void startExport(startActivityExport(filter, callerFor(me.role, searchStr)))
 
   return (
     <ActivityLog

@@ -1,3 +1,4 @@
 export { ApiError, createApiClient, type ApiClient } from './client'
 export type { PageInfo, PageRequest } from './pageInfo'
 export { pageByCursor } from './pageByCursor'
+export type { ExportJob, ExportState } from './exportJob'

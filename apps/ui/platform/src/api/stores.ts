@@ -1,5 +1,5 @@
 import type { Money } from '@dripfunnel/shared/format'
-import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
+import type { ExportJob, PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import type { PartnerRole } from '../features/shell/partnerRoles'
 import { harnessEnabled } from '../harness'
@@ -16,6 +16,13 @@ export type StorefrontState = (typeof storefrontStates)[number]
 
 export const createdWindows = ['month', '30d', '90d'] as const
 export type CreatedWindow = (typeof createdWindows)[number]
+
+// Who bills the merchants (§11.4): DripFunnel for the partner, or the partner itself, which then sets each store's billing status.
+export const billingModes = ['dripfunnel', 'own'] as const
+export type BillingMode = (typeof billingModes)[number]
+
+export const billingStatuses = ['active', 'pastdue', 'suspended'] as const
+export type BillingStatus = (typeof billingStatuses)[number]
 
 export const limitKeys = ['products', 'staff', 'suppliers', 'ai', 'publish'] as const
 export type LimitKey = (typeof limitKeys)[number]
@@ -47,6 +54,8 @@ export interface StoreRow {
   storefront: StorefrontState
   domain: StoreDomain
   createdAt: string
+  // Set by the partner when it bills its merchants itself (§6.1); null otherwise, and for a cancelled store.
+  billingStatus: BillingStatus | null
 }
 
 export interface StoreFilter {
@@ -63,11 +72,17 @@ export type CreateRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'PARTNER_NOT_LIVE' | 'PAR
 
 export type CreatePermission = { allowed: true } | { allowed: false; reason: CreateRefusal }
 
+export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'ALREADY_SUSPENDED' | 'NOT_SUSPENDED' | 'NOT_ON_TRIAL' | 'NO_PENDING_INVITATION' | 'READ_ONLY'
+
+export type ActionPermission = { allowed: true } | { allowed: false; reason: ActionRefusal }
+
 export interface StorePage {
   items: readonly StoreRow[]
   pageInfo: PageInfo
   plans: readonly { id: string; name: string }[]
-  actions: { create: CreatePermission }
+  billingMode: BillingMode
+  // Every role may export (ACCESS.md §5.3); `billingStatus` is offered only in own-billing mode, to Owner, Admin and Finance.
+  actions: { create: CreatePermission; export: ActionPermission; billingStatus?: ActionPermission }
 }
 
 export interface StoreMatch {
@@ -117,10 +132,6 @@ export type StoreTab = (typeof storeTabs)[number]
 // In the prototype's menu order, Suspend last.
 export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'retryStep'] as const
 export type StoreAction = (typeof storeActions)[number]
-
-export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'ALREADY_SUSPENDED' | 'NOT_SUSPENDED' | 'NOT_ON_TRIAL' | 'NO_PENDING_INVITATION' | 'READ_ONLY'
-
-export type ActionPermission = { allowed: true } | { allowed: false; reason: ActionRefusal }
 
 export type StorePermissions = Partial<Record<StoreAction, ActionPermission>>
 
@@ -250,8 +261,21 @@ const notConnected = () => Promise.reject(new Error('The Platform API has no sto
 
 // Seam: the sample stands in for the Platform API's stores operations until they land; it is invented,
 // so it answers only where the ?state= harness does, and a production build shows the error state.
-export const loadStores = (filter: StoreFilter, page: PageRequest, caller: PartnerRole): Promise<StorePage> =>
-  harnessEnabled ? Promise.resolve(storesServer.list(filter, page, caller)) : notConnected()
+// `billing` is the harness asking the fixture for own-billing mode; the real API knows the partner's mode itself.
+export const loadStores = (filter: StoreFilter, page: PageRequest, caller: PartnerRole, billing: BillingMode = 'dripfunnel'): Promise<StorePage> =>
+  harnessEnabled ? Promise.resolve(storesServer.list(filter, page, caller, billing)) : notConnected()
+
+// `exportStores(filter)` is a job (§16): everything the filter matches, never an order, customer or product.
+export const startStoresExport = (filter: StoreFilter): Promise<ExportJob> =>
+  harnessEnabled ? Promise.resolve(storesServer.startExport(filter)) : notConnected()
+
+export const loadStoresExport = (id: string): Promise<ExportJob | null> =>
+  harnessEnabled ? Promise.resolve(storesServer.exportJob(id)) : notConnected()
+
+export type BillingStatusResult = { ok: true } | { ok: false; reason: ActionRefusal }
+
+export const setStoreBillingStatus = (id: string, status: BillingStatus, caller: PartnerRole): Promise<BillingStatusResult> =>
+  harnessEnabled ? Promise.resolve(storesServer.setBillingStatus(id, status, caller)) : notConnected()
 
 export const searchStores = (query: string): Promise<readonly StoreMatch[]> =>
   harnessEnabled ? Promise.resolve(storesServer.search(query)) : notConnected()

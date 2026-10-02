@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { ActivityExport } from '../../api/activity'
+import type { ExportJob } from '../graphql/exportJob'
 import { exportCheck } from './exportJob'
 
-const job = (state: ActivityExport['state'], more: Partial<ActivityExport> = {}): ActivityExport => ({ id: 'x1', state, entries: null, url: null, expiresAt: null, ...more })
+const job = (state: ExportJob['state'], more: Partial<ExportJob> = {}): ExportJob => ({ id: 'x1', state, entries: null, url: null, expiresAt: null, ...more })
 const ready = job('ready', { entries: 12, url: 'blob:activity', expiresAt: '2026-09-30T13:00:00Z' })
 
 describe('exportCheck', () => {

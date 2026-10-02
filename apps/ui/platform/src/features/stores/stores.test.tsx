@@ -39,6 +39,9 @@ const list = (filter: StoreFilter = {}, role: PartnerRole = 'partner-owner', pro
       onFilterChange={noop}
       onReload={noop}
       loadMore={(after) => Promise.resolve(server.list(filter, { after }, role))}
+      exportJob={null}
+      onExport={noop}
+      onBillingStatus={noop}
       {...props}
     />,
     urlOf(filter),
@@ -113,7 +116,7 @@ describe('the partner Stores list', () => {
   })
 
   it('shows the empty, no-match and forced states in this console’s words', async () => {
-    const emptyPage: StorePage = { items: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false }, plans: [], actions: { create: { allowed: true } } }
+    const emptyPage: StorePage = { items: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false }, plans: [], billingMode: 'dripfunnel', actions: { create: { allowed: true }, export: { allowed: true } } }
     const empty = await list({}, 'partner-owner', { page: emptyPage })
     expect(textOf(empty)).toContain(words.empty.title)
     expect(textOf(empty)).toContain('store.northstar.com/signup')
@@ -124,6 +127,32 @@ describe('the partner Stores list', () => {
     expect(await list({}, 'partner-owner', { forced: 'loading' })).toContain('df-skeleton')
     expect(textOf(await list({}, 'partner-owner', { forced: 'error' }))).toContain(words.error.title)
     expect(textOf(await list({}, 'partner-owner', { forced: 'empty' }))).toContain(words.empty.title)
+  })
+
+  it('offers Export accounts (CSV) to every role, says what it never includes, and shows the job’s state', async () => {
+    const html = await list({}, 'partner-read-only')
+    expect(html).toMatch(/<button type="button" class="df-button"(?! disabled)[^>]*>Export accounts \(CSV\)<\/button>/)
+    expect(textOf(html)).toContain(words.export.note)
+    const preparing = await list({}, 'partner-owner', { exportJob: { id: 'sx1', state: 'preparing', entries: null, url: null, expiresAt: null } })
+    expect(preparing).toMatch(/<button[^>]*disabled=""[^>]*>Export accounts \(CSV\)<\/button>/)
+    expect(textOf(preparing)).toContain(words.export.preparing)
+    const ready = await list({}, 'partner-owner', { exportJob: { id: 'sx1', state: 'ready', entries: 86, url: 'blob:stores', expiresAt: '2026-09-29T18:42:00Z' } })
+    expect(textOf(ready)).toContain('Your export of 86 store accounts is ready.')
+    expect(ready).toContain('href="blob:stores"')
+  })
+
+  it('adds the Billing status column only in own-billing mode, set by Owners, Admins and Finance and refused for the rest', async () => {
+    expect(textOf(await list())).not.toContain(words.billingStatus.column)
+    const own = (role: PartnerRole) => list({}, role, { page: server.list({}, {}, role, 'own') })
+    const owner = await own('partner-owner')
+    expect(textOf(owner)).toContain(words.billingStatus.column)
+    expect(textOf(owner)).toContain(words.billingStatus.note)
+    expect(owner).toMatch(/<select class="df-billing-select"(?! disabled)/)
+    expect(await own('partner-finance')).toMatch(/<select class="df-billing-select"(?! disabled)/)
+    const support = await own('partner-support')
+    expect(textOf(support)).toContain('Your role can’t set billing status. Owners, Admins and Finance can.')
+    expect(support).toMatch(/<select class="df-billing-select"[^>]*disabled=""/)
+    expect(server.list({}, {}, 'partner-support', 'own').actions.billingStatus).toEqual({ allowed: false, reason: 'FINANCE_TRIAL_ONLY' })
   })
 
   it('points a partner that is not live at the checklist instead of a list', async () => {
