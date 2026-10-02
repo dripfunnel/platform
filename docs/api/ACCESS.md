@@ -1009,11 +1009,15 @@ builds the table must ship:
   included (DATA-MODEL §7.1, §7.11);
 - a supplier's view of orders and returns: a `to-store` supplier's search and count by a
   shopper's email return nothing; a `to-shopper` supplier sees the name and shipping address
-  of its own parts and no total; a direct query on `"order"` or `"return"` as the supplier
-  role is refused; a supplier switched `to-store → to-shopper` still sees nothing on orders
-  placed before the switch (§7.3; DATA-MODEL §7.11);
-- a supplier reading its own refunds never receives `by_user_id`, an override's `reason`, a
-  return's `note` or a ledger entry's `note` (DATA-MODEL §7.6);
+  of its own parts and no total; `app_supplier` selecting from `"order"` or `"return"`
+  directly is refused by the grant, and the views return only the columns DATA-MODEL §7.11
+  lists; a supplier switched `to-store → to-shopper` still sees nothing on orders placed
+  before the switch; a `to-store` supplier never reads the store's onward shipment of its
+  lines (`fulfilment` with a null owner) (§7.3; DATA-MODEL §7.6, §7.11);
+- a supplier reading its own refunds never receives `by_user_id`, an override's `note`, a
+  return's `note` or a ledger entry's `note` (DATA-MODEL §7.6, §5.3);
+- a shopper reads only visible catalogue rows and never a cost, a stock movement, a refund,
+  a ledger entry or a job (DATA-MODEL §7.11 shop branches);
 - a supplier reads only the labels it printed for its own parts, never an invoice or packing
   slip (`order_document`); a partner or staff query on `import_job` or `export_job` returns
   nothing (DATA-MODEL §7.10, §7.11);

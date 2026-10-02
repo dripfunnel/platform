@@ -290,7 +290,9 @@ promotions tests before relying on it.
     - The name and description are **translatable** (part S).
 14. **Deleting stops an offer applying; past orders keep their discount.** Order lines carry
     immutable price snapshots (PLATFORM-PROMPT §5.4 "Orders"), so orders already placed still
-    show what was taken off. Whether deletion is soft (the row kept and hidden) *(decide)*.
+    show what was taken off. ~~Whether deletion is soft (the row kept and hidden) *(decide)*.~~
+    **Settled 2026-10-03** (DATA-MODEL §7.7): soft; the code stays unique per store including
+    spent and deleted ones.
 15. **Offers are the merchant's alone** ([DESIGN-BRIEF.md](DESIGN-BRIEF.md) fact 11,
     PLATFORM-PROMPT §2 item 5).
     - Promotions are store-scoped rows (`store_id`), read and written only through the scoped
