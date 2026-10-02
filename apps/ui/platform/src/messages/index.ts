@@ -1,4 +1,4 @@
-import { formatDateTime, formatDuration, formatMoney, formatNumber, type Money } from '@dripfunnel/shared/format'
+import { formatDateTime, formatDuration, formatMoney, formatNumber, pluralForm, type Money } from '@dripfunnel/shared/format'
 import en from './en.json'
 
 export const messages = en
@@ -21,3 +21,5 @@ const dateFormat = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'sho
 export const formatDate = (iso: string): string => dateFormat.format(new Date(iso))
 
 export const formatAmount = (money: Money): string => formatMoney(money, locale)
+
+export const plural = (forms: { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>, count: number): string => pluralForm(locale, forms, count)

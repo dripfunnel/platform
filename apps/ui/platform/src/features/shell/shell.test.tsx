@@ -49,13 +49,14 @@ describe('the partner console menu', () => {
 })
 
 describe('the partner console header', () => {
-  it('says who you are signed in for, labels the console Partners and keeps search disabled with a note', async () => {
+  it('says who you are signed in for, labels the console Partners and offers the stores search with its shortcut', async () => {
     const html = await render(<AppHeader me={me} menuOpen={false} onOpenMenu={() => undefined} />)
     expect(html).toContain('title="Signed in for Northstar Commerce"')
     expect(html).toContain('>NC</span>')
     expect(html).toContain(`<span class="df-product-label">${messages.shell.productLabel}</span>`)
-    expect(html).toMatch(/<button[^>]*class="df-search-button"[^>]*disabled=""/)
-    expect(html).toContain(messages.shell.search.notYet)
+    expect(html).toMatch(/<button[^>]*class="df-search-button"(?![^>]*disabled)/)
+    expect(html).toContain(messages.shell.search.button)
+    expect(html).toContain(`<kbd>${messages.shell.search.shortcut}</kbd>`)
     expect(html).toContain('Account: Maya Ortiz, Owner')
   })
 })

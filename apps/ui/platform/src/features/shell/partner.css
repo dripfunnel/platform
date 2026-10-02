@@ -35,10 +35,6 @@
   white-space: nowrap;
 }
 
-.df-search-button:disabled {
-  cursor: not-allowed;
-}
-
 /* On a phone the chip keeps the initials only, as the prototype does, and the user button
    loses its caret and padding, so menu, mark, chip, search and avatar fit in 375px. */
 @media (max-width: 639px) {

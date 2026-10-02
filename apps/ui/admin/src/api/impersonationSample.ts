@@ -1,7 +1,7 @@
 // Staff sessions served the way #40 will, refusals included (the contract agreed on #46): a
 // fixture that permits a second extend or a Support setup session would teach the UI to allow them.
 import { encodeFixtureHandoff } from '@dripfunnel/shared/ui'
-import type { PageRequest } from '@dripfunnel/shared/graphql'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { roleText, whereText } from '../features/impersonate/sessionText'
 import type { StaffRole } from '../features/shell/staffRoles'
 import type {
@@ -25,7 +25,6 @@ import type {
   TargetStatus,
 } from './impersonation'
 import { samplePartners } from './partnersSample'
-import { samplePage } from './samplePage'
 import { impersonatePermission, impersonators, setupStarters } from './sessionRules'
 import { sampleStores } from './storesSample'
 
@@ -196,7 +195,7 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
     const all = targets
       .filter((target) => matchesTarget(target, filter, search))
       .sort((a, b) => (b.lastSignInAt ?? '').localeCompare(a.lastSignInAt ?? '') || a.name.localeCompare(b.name))
-    const { items, pageInfo } = samplePage(all, page, size)
+    const { items, pageInfo } = pageByCursor(all, page, size)
     return {
       items: items.map((target) => toTarget(target, caller)),
       pageInfo,
@@ -272,7 +271,7 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
     if (!impersonators.includes(caller)) return null
     settle()
     const matching = sessions.filter((session) => matchesSession(session, filter)).sort((a, b) => b.startedAt - a.startedAt)
-    const history = samplePage(matching.filter((session) => session.outcome !== 'open'), page, size)
+    const history = pageByCursor(matching.filter((session) => session.outcome !== 'open'), page, size)
     const staff = [...new Map(sessions.map((session) => [session.staff.id, session.staff])).values()]
     return {
       open: matching.filter((session) => session.outcome === 'open').map((session) => toSession(session, caller)),

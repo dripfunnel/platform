@@ -1,9 +1,8 @@
 // DripFunnel's own staff, served the way #39 would: paged by cursor, each action allowed or
 // refused with its reason. It stands in for the server until #68 wires the screen to #39.
 import type { StaffRole } from '../features/shell/staffRoles'
-import type { PageRequest } from '@dripfunnel/shared/graphql'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission } from './permissions'
-import { samplePage } from './samplePage'
 import type { StaffMember, StaffPage, StaffRefusal, StaffResult } from './staff'
 
 interface SampleStaff {
@@ -108,7 +107,7 @@ export const createStaffServer = (options: StaffServerOptions = {}) => {
   // The Staff query and every mutation are Super admin only (README.md §2).
   const list = (page: PageRequest, size: number, caller: StaffRole): StaffPage | null => {
     if (caller !== superAdmin) return null
-    const { items, pageInfo } = samplePage(ordered(), page, size)
+    const { items, pageInfo } = pageByCursor(ordered(), page, size)
     return { items: items.map(toMember), pageInfo, soleSuperAdmin: activeSuperAdmins() < 2 }
   }
 

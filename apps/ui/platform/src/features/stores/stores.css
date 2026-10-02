@@ -1,0 +1,204 @@
+/* The partner Stores list and Create store (FIRST-RELEASE.md §6.1, §6.2), beside the shared list styles. */
+
+.df-status-sub {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-status-sub--muted {
+  color: var(--df-color-muted);
+}
+
+.df-status-sub--warning {
+  color: var(--df-color-warning);
+}
+
+.df-status-sub--danger {
+  color: var(--df-color-danger);
+}
+
+.df-near {
+  color: var(--df-color-warning);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-sales .df-muted {
+  font-size: 11px;
+}
+
+/* Chips */
+
+.df-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-list a.df-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  height: 28px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-info-border);
+  border-radius: 999px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.df-list a.df-chips-clear {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Phone cards, in place of the table below 640px */
+
+.df-store-cards {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-list a.df-store-card {
+  display: grid;
+  gap: var(--df-space-1);
+  padding: var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-store-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  font-size: 15px;
+  color: var(--df-color-heading);
+}
+
+@media (max-width: 639px) {
+  .df-stores-table {
+    display: none;
+  }
+
+  .df-store-cards {
+    display: grid;
+    gap: var(--df-space-2);
+  }
+}
+
+.df-show-more {
+  display: flex;
+  justify-content: center;
+}
+
+/* Create store */
+
+.df-create {
+  max-width: 40rem;
+}
+
+.df-list .df-breadcrumbs {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-create-form {
+  display: grid;
+  gap: var(--df-space-4);
+  padding: var(--df-space-6);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-create-form .df-field {
+  margin-bottom: 0;
+}
+
+.df-create-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--df-space-4);
+}
+
+.df-create-row--three {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.df-create-error {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
+.df-create-price {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.df-create-note {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-info-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 14px;
+}
+
+.df-create-submit {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.df-create-submit .df-denied {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.df-setup {
+  display: grid;
+  gap: var(--df-space-2);
+  padding: var(--df-space-6);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-setup h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-setup-steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-setup-steps li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+  padding: var(--df-space-3) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}

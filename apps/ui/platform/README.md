@@ -22,8 +22,9 @@ the signed-in partner user and the nav badge counts from `src/api/me.ts` and
   one folder under `src/features/`, and one row in `nav.ts`. Until a screen's card lands its
   route renders `ScreenPlaceholder`, so every row resolves.
 - **The header** (FIRST-RELEASE §2.2) is DripFunnel's: the mark, "Partners", then the partner's
-  name as "Signed in for", the search box (disabled with a note until #115 wires it), Help,
-  and the user menu with Appearance, My activity and Sign out. The side bar, drawer, user menu
+  name as "Signed in for", the search box over the partner's stores (`SearchPalette`, #115:
+  a dialog opened by the button or ⌘K, matches as you type with owner email, domain and
+  status, Enter for the whole list filtered by the text), Help, and the user menu with Appearance, My activity and Sign out. The side bar, drawer, user menu
   and icons come from `@dripfunnel/shared/ui`; `partner.css` holds only what this console
   alone draws.
 - **Strips under the header**: the environment strip on every host but production (Dev,
@@ -63,6 +64,34 @@ number is a link to the Stores list with the filter in the URL (`?status=`, `?cr
 comparison and conversion as words; the screen formats and links and computes nothing. States:
 `?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` is a brand-new Live partner
 and `?view=stale` numbers the API marks as old.
+
+## Stores
+
+`/stores` (`src/features/stores/`, #115; FIRST-RELEASE.md §6.1) is the partner's merchants at
+account level: name and code, owner, plan (with "84% of products" under it when the API says a
+limit is near), status (Trial · Active · Past due · Suspended · Cancelled, each a word, colour and
+icon with the API's line under it), sales last month in the store's currency, storefront, domain
+and created. Filters `?status=`, `?plan=`, `?created=` (`month`, `30d`, `90d`), `?storefront=`,
+`?near=yes` and search `?q=` live in the URL and show as removable chips with Clear all. The
+list pages by cursor on the API (`stores(filter, after, before)`, §16): **"Show 25 more"** asks for
+the page after the last row's cursor and appends it in place, as the prototype does; the URL
+carries no cursor, no page number and no total. Rows open the store, landing on this list with `?store=` until #116 adds
+the detail page. A partner that is not Live sees `NotLive` (`src/features/shell/`) pointing at the
+checklist. States: `?state=loading`, `empty`, `error`, `readonly`, `denied`.
+
+`/stores/new` (FIRST-RELEASE.md §6.2) creates a merchant: store name, owner's name and email,
+country, plan (Live plans priced in the country's currency, from the fixture until #117's plans)
+and trial, with the price line and "The owner gets an invitation to set their own password."
+Submitting shows **Setting up {store}** with the signup job's steps (SAAS.md §5) polled every
+half second, then "Ready in …" with Open the store and Create another. Whether the caller may
+create is the API's answer: Owner and Admin may; Finance, Support and Read-only see the button
+disabled with the reason, and so does a partner that is not Live. The list primitives
+(`ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`, `list.css`), the URL-search
+helpers and cursor paging come from `@dripfunnel/shared`. `src/api/stores.ts` is the only
+place this app talks to the API about stores, on the fixture in `storesSample.ts`.
+
+Not here yet: **Export accounts (CSV)** and the **Billing status** column of own-billing mode
+(§6.1, §11.4), both recorded on #115's follow-up.
 
 ## Onboarding
 
