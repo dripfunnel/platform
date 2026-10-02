@@ -76,8 +76,12 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   status, detail and who did it (a partner user, or staff in a setup session). The admin console's
   "Owner accepted" is read from `partner_user.status`, not an item.
 - **Signup job**: SAAS.md §5's steps as the run's own list (three for a store with its own
-  frontend), the current step and when it started, attempts, the error in plain words and the
-  raw detail. Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
+  frontend), the current step and when it started, attempts and the error in plain words. The
+  raw detail and the compensation log are `job_detail`, a table staff alone read (FIRST-RELEASE
+  §7). Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
+- **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc` and
+  the `token_hash` of both invitation tables are readable by `app_system` (sign-in, acceptance)
+  and never by `app_request`, whatever the row policy admits (§5.3).
 - **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
   the partner or store as target, visibility `partner`. No history table.
 - **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which
@@ -335,7 +339,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 | Role | Used by | Can |
 |---|---|---|
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` |
+| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1) |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
 

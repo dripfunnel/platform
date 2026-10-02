@@ -304,17 +304,23 @@ create table job (
   attempts integer not null default 1,
   started_at timestamptz not null default now(),
   finished_at timestamptz,
-  -- Plain words for the console, and the raw detail, which never carries a secret
-  -- (FIRST-RELEASE §7, decided on #43).
+  -- Plain words, which the merchant and the partner read (FIRST-RELEASE §7).
   last_error text,
-  details text,
-  compensation_log jsonb not null default '[]'::jsonb,
   constraint job_step_in_steps check (step = any (steps))
 );
 
 create index job_store_id_idx on job (store_id, started_at desc);
 create index job_state_idx on job (state, started_at desc, id desc) where state <> 'done';
 create index job_step_idx on job (step) where state <> 'done';
+
+-- The raw detail and the compensation log name providers and infrastructure, so they are
+-- staff's alone (FIRST-RELEASE §7, decided on #43): a table of their own with no store or
+-- partner branch, rather than columns a merchant could select.
+create table job_detail (
+  job_id uuid primary key references job (id),
+  details text,
+  compensation_log jsonb not null default '[]'::jsonb
+);
 
 -- Internal staff notes on a store, never shown to a partner or merchant (FIRST-RELEASE §5.2).
 create table store_note (
@@ -329,11 +335,24 @@ create index store_note_store_id_idx on store_note (store_id, created_at desc);
 
 -- Grants (DATA-MODEL.md §5.3): requests read and write under RLS and never delete; jobs and
 -- sign-in work as app_system. Staff notes are platform-only, so no system grant.
+grant select, insert, update on partner_domain, partner_setup_item, plan, custom_domain, membership, job, job_detail, store_note to app_request;
 grant select, insert, update on partner_user, partner_invitation, partner_domain, partner_setup_item, plan,
-  custom_domain, "user", membership, invitation, job, store_note to app_request;
-grant select, insert, update on partner_user, partner_invitation, partner_domain, partner_setup_item, plan,
-  custom_domain, "user", membership, invitation, job to app_system;
+  custom_domain, "user", membership, invitation, job, job_detail to app_system;
 grant select, insert, update on partner, store to app_system;
+
+-- Credentials are never readable by a request (ACCESS.md §5.5, LOGGING.md §4.1): a password
+-- hash, a 2-factor secret or an invitation token is granted column by column to everything
+-- but app_request, which may insert a row and read or change the rest of it. Sign-in and
+-- acceptance read them as app_system.
+grant insert on partner_user, partner_invitation, "user", invitation to app_request;
+grant select (id, partner_id, email, name, role_key, status, last_sign_in_at, created_at),
+      update (email, name, role_key, status, last_sign_in_at) on partner_user to app_request;
+grant select (id, partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label, accepted_at, revoked_at, created_at),
+      update (expires_at, sent_at, accepted_at, revoked_at) on partner_invitation to app_request;
+grant select (id, partner_id, email, email_verified_at, name, phone, status, last_sign_in_at, created_at),
+      update (email, email_verified_at, name, phone, status, last_sign_in_at) on "user" to app_request;
+grant select (id, store_id, seller_id, email, role_key, expires_at, invited_by_user_id, invited_by_label, accepted_at, revoked_at, created_at),
+      update (expires_at, accepted_at, revoked_at) on invitation to app_request;
 
 alter table partner_user enable row level security;
 alter table partner_invitation enable row level security;
@@ -345,6 +364,7 @@ alter table "user" enable row level security;
 alter table membership enable row level security;
 alter table invitation enable row level security;
 alter table job enable row level security;
+alter table job_detail enable row level security;
 alter table store_note enable row level security;
 
 alter table partner_user force row level security;
@@ -357,6 +377,7 @@ alter table "user" force row level security;
 alter table membership force row level security;
 alter table invitation force row level security;
 alter table job force row level security;
+alter table job_detail force row level security;
 alter table store_note force row level security;
 
 -- Jobs and sign-in run before a scope exists (0004), so the partner and store rows need a
@@ -530,6 +551,12 @@ with check (
 create policy store_note_read on store_note for select using (app_setting_text('app.scope') = 'platform');
 create policy store_note_write on store_note for insert with check (app_setting_text('app.scope') = 'platform');
 
+-- Staff read the raw detail; the job that produced it writes it.
+create policy job_detail_read on job_detail for select using (app_setting_text('app.scope') in ('platform', 'system'));
+create policy job_detail_write on job_detail for insert with check (app_setting_text('app.scope') in ('platform', 'system'));
+create policy job_detail_update on job_detail for update
+using (app_setting_text('app.scope') in ('platform', 'system')) with check (app_setting_text('app.scope') in ('platform', 'system'));
+
 -- Read-only support sessions are refused every write here too (0003).
 do $$
 declare
@@ -537,7 +564,7 @@ declare
 begin
   foreach t in array array[
     'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
-    'custom_domain', 'user', 'membership', 'invitation', 'job', 'store_note'
+    'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note'
   ] loop
     execute format(
       'create policy support_no_insert on %I as restrictive for insert

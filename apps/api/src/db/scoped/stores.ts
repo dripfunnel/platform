@@ -3,6 +3,7 @@ import type {
   BuildState,
   CustomDomainRow,
   HostStatus,
+  JobDetailRow,
   JobRow,
   JobState,
   MembershipRole,
@@ -175,16 +176,22 @@ export interface NewJob {
   details?: string | null
 }
 
-export const insertJob = async (tx: ScopedSql, j: NewJob): Promise<string> =>
-  one(
+export const insertJob = async (tx: ScopedSql, j: NewJob): Promise<string> => {
+  const id = one(
     await tx<{ id: string }[]>`
-      insert into job (store_id, kind, state, steps, step, step_started_at, attempts, started_at, finished_at, last_error, details)
+      insert into job (store_id, kind, state, steps, step, step_started_at, attempts, started_at, finished_at, last_error)
       values (${j.storeId}, 'provision-store', ${j.state}, ${[...j.steps]}, ${j.step}, ${j.stepStartedAt ?? j.startedAt ?? new Date()},
-              ${j.attempts ?? 1}, ${j.startedAt ?? new Date()}, ${j.finishedAt ?? null}, ${j.lastError ?? null}, ${j.details ?? null})
+              ${j.attempts ?? 1}, ${j.startedAt ?? new Date()}, ${j.finishedAt ?? null}, ${j.lastError ?? null})
       returning id
     `,
     'job',
   )
+  if (j.details) await tx`insert into job_detail (job_id, details) values (${id}, ${j.details})`
+  return id
+}
+
+export const selectJobDetail = async (tx: ScopedSql, jobId: string): Promise<JobDetailRow | null> =>
+  (await tx<JobDetailRow[]>`select * from job_detail where job_id = ${jobId}`)[0] ?? null
 
 export const insertStoreNote = async (tx: ScopedSql, n: { storeId: string; staffUserId: string; text: string; createdAt?: Date }): Promise<string> =>
   one(

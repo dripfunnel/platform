@@ -195,6 +195,11 @@ export interface JobRow {
   started_at: Date
   finished_at: Date | null
   last_error: string | null
+}
+
+/** Staff's alone (FIRST-RELEASE §7): what a step's provider said, and what was undone. */
+export interface JobDetailRow {
+  job_id: string
   details: string | null
   compensation_log: unknown[]
 }
