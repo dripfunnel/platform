@@ -63,7 +63,7 @@ jobs:
           gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments" \
             -f commit_id="${HEAD_SHA}" -f side=RIGHT -f path="$1" -F line="$2" -f body="$3" >/dev/null
           HELPER
-          chmod +x "${RUNNER_TEMP}/inline-comment"
+          chmod 555 "${RUNNER_TEMP}/inline-comment"
 
       - name: Write the review prompt
         run: |
@@ -141,14 +141,14 @@ jobs:
           sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g; s|INLINE_COMMENT|${RUNNER_TEMP}/inline-comment|g" "${RUNNER_TEMP}/review-prompt.md"
 
       # Read-only tools need no permission in print mode; the writes are the summary, the
-      # inline-comment helper and the verdict file, and nothing else.
+      # inline-comment helper and the verdict file, and nothing else: `Write` is that one path.
       - name: Review
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           claude -p "$(cat "${RUNNER_TEMP}/review-prompt.md")" \
             --output-format text \
-            --allowedTools "Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*)"
+            --allowedTools "Write(.claude-review-verdict),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*)"
 
       - name: Apply the review's verdict
         if: always()
