@@ -1,10 +1,7 @@
 name: claude-review
 
-# A second pass on every pull request, stacked ones included (WORKFLOW.md §7), which does not
-# replace the human reviewer. Claude Code runs in the job itself and comments through `gh`:
-# the review action refuses a base branch starting with `#` (#167), and branch names are the
-# naming workflow's business, not this one's. The check goes red when the review asks for a
-# change and when it could not run: no verdict means no review, which is not a pass.
+# A second pass on every pull request, stacked ones included, which fails closed: no verdict
+# is no review (WORKFLOW.md §7). Claude Code runs in the job itself; see §7 for why not the action.
 
 on:
   pull_request:
@@ -51,8 +48,22 @@ jobs:
         with:
           node-version: 22
 
+      # Pinned: the next step hands this package a personal token (THIRD-PARTY-ACCESS.md §2.6).
       - name: Install Claude Code
-        run: npm install --global @anthropic-ai/claude-code
+        run: npm install --global @anthropic-ai/claude-code@2.1.287
+
+      # The one write the review may make besides its summary: an inline comment on the head
+      # commit. The model gets this script, never `gh api`.
+      - name: Write the inline-comment helper
+        run: |
+          cat > "${RUNNER_TEMP}/inline-comment" <<'HELPER'
+          #!/usr/bin/env bash
+          # usage: inline-comment <path> <line> <body>
+          set -euo pipefail
+          gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments" \
+            -f commit_id="${HEAD_SHA}" -f side=RIGHT -f path="$1" -F line="$2" -f body="$3" >/dev/null
+          HELPER
+          chmod +x "${RUNNER_TEMP}/inline-comment"
 
       - name: Write the review prompt
         run: |
@@ -99,9 +110,7 @@ jobs:
           How to report:
           - Only post GitHub comments, with `gh`. Do not write the review as a chat message.
           - A finding anchored to a line is an inline review comment on the head commit:
-            `gh api --method POST repos/REPOSITORY/pulls/PR_NUMBER/comments
-              -f commit_id=HEAD_SHA -f path=<file path from the repository root>
-              -F line=<line number in the file as it is now> -f side=RIGHT -f body=<the finding>`
+            `INLINE_COMMENT <file path from the repository root> <line number in the file as it is now> <the finding>`
             The line must be one the pull request's diff touches; otherwise put the finding in
             the summary with the file and line named.
           - Post one summary with `gh pr comment PR_NUMBER --body <text>`: what you checked and
@@ -128,17 +137,17 @@ jobs:
           and if you could not complete the review, write `changes` and say why in your
           summary comment.
           PROMPT
-          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g" "${RUNNER_TEMP}/review-prompt.md"
+          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g; s|INLINE_COMMENT|${RUNNER_TEMP}/inline-comment|g" "${RUNNER_TEMP}/review-prompt.md"
 
-      # Read-only tools need no permission in print mode; everything else is this list, so
-      # the review can post comments and its verdict and nothing more.
+      # Read-only tools need no permission in print mode; the writes are the summary, the
+      # inline-comment helper and the verdict file, and nothing else.
       - name: Review
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           claude -p "$(cat "${RUNNER_TEMP}/review-prompt.md")" \
             --output-format text \
-            --allowedTools "Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh api:*)"
+            --allowedTools "Write,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*)"
 
       - name: Apply the review's verdict
         if: always()
