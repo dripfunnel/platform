@@ -3,7 +3,7 @@ import { useScreenState } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
 import type { StaffRole } from '../shell/staffRoles'
 import { Dashboard } from './Dashboard'
-import { dashboardStates } from './dashboardStates'
+import { dashboardStates } from '@dripfunnel/shared/ui'
 
 const dashboardRoute = getRouteApi('/_app/dashboard')
 const shellRoute = getRouteApi('/_app')

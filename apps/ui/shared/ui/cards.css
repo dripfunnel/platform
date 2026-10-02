@@ -1,0 +1,167 @@
+/* Dashboard cards, tiles and figures both consoles draw (designs/design.md §7, §8). */
+
+.df-muted {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+/* Cards */
+
+.df-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: var(--df-space-4);
+  container-type: inline-size;
+}
+
+.df-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+  min-width: 0;
+  padding: var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+}
+
+.df-card--wide {
+  grid-column: span 2;
+}
+
+.df-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--df-space-2) var(--df-space-4);
+}
+
+.df-card-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-card a {
+  text-decoration: none;
+}
+
+.df-card-link,
+.df-strong-link {
+  color: var(--df-color-link);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-strong-link {
+  font-weight: 700;
+}
+
+.df-card :is(.df-card-link, .df-strong-link, .df-row-title, .df-big-number):hover {
+  color: var(--df-color-link-hover);
+  text-decoration: underline;
+}
+
+.df-card a:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-tiles {
+  display: grid;
+  gap: var(--df-space-2);
+}
+
+.df-tiles--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.df-tiles--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.df-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  height: 100%;
+  box-sizing: border-box;
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  color: var(--df-color-text);
+}
+
+.df-tile:hover {
+  background: var(--df-color-hover);
+}
+
+.df-tile--small {
+  gap: 2px;
+  padding: var(--df-space-2);
+}
+
+.df-tile-number,
+.df-big-number,
+.df-figure {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.df-tile-number {
+  font-size: 28px;
+}
+
+.df-tile--small .df-tile-number {
+  font-size: 24px;
+}
+
+.df-big-number {
+  align-self: flex-start;
+  font-size: 32px;
+}
+
+.df-figure {
+  margin: 0;
+  font-size: 28px;
+}
+
+.df-card .df-button--small {
+  min-height: 32px;
+  padding: 0 var(--df-space-3);
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+/* Loading: the cards' outline. Scoped so it wins over the kit's row widths. */
+
+.df-card .df-skeleton--short {
+  width: 40%;
+}
+
+.df-card .df-skeleton--figure {
+  width: 70%;
+  height: 28px;
+}
+
+/* Fewer than two 300px columns fit (2 × 300 + the gap): the wide card takes one like the rest.
+   Measured on the grid itself, so a scrollbar or the side bar can't make it overflow. */
+@container (width < 616px) {
+  .df-card--wide {
+    grid-column: auto;
+  }
+}

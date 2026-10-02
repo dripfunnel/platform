@@ -12,7 +12,7 @@ import { navWords } from './navWords'
 import { partnerRoles, type PartnerRole } from './partnerRoles'
 import { PartnerStrip } from './PartnerStrip'
 
-const me: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', role: 'partner-owner', partner: { id: 'p-1', name: 'Northstar Commerce', product: 'Northstar Shops', state: 'live' } }
+const me: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', role: 'partner-owner', partner: { id: 'p-1', name: 'Northstar Commerce', product: 'Northstar Shops', host: 'store.northstar.com', state: 'live' } }
 const waiting: NavBadges = { storesAttention: 2, brandingSetupLeft: 1, domainsWaiting: 1, billingFailedPayments: 1, supportOpenSessions: 1 }
 const quiet: NavBadges = { storesAttention: 0, brandingSetupLeft: 0, domainsWaiting: 0, billingFailedPayments: 0, supportOpenSessions: 0 }
 

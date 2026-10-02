@@ -10,7 +10,8 @@
     "./ui/fonts.css": "./ui/fonts.css",
     "./ui/states.css": "./ui/states.css",
     "./ui/shell.css": "./ui/shell.css",
-    "./ui/auth.css": "./ui/auth.css"
+    "./ui/auth.css": "./ui/auth.css",
+    "./ui/cards.css": "./ui/cards.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

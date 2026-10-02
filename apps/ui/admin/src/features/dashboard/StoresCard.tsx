@@ -1,7 +1,7 @@
+import { DashboardCard } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import type { DashboardData } from '../../api/dashboard'
 import { fill, formatCount, messages } from '../../messages'
-import { DashboardCard } from './DashboardCard'
 
 const words = messages.dashboard.stores
 
