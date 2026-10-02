@@ -332,7 +332,7 @@ describe('the backstop itself', () => {
     const tables = [
       'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
       'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
-      'custom_domain', 'user', 'membership', 'invitation', 'job', 'store_note',
+      'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class

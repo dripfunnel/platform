@@ -3,7 +3,7 @@ import type { CallerContext } from '#core/tenancy'
 import type { PartnerRow, StoreRow } from '#db/schema/saas'
 import { withScope } from '#db/scoped/index'
 import { insertPartner, insertPartnerUser, insertPlan, selectPartner, selectPartners, selectPlans, upsertPartnerDomain, upsertSetupItem } from '#db/scoped/partners'
-import { insertJob, insertMembership, insertStore, insertUser, selectStore, selectStorePeople, selectStores } from '#db/scoped/stores'
+import { insertJob, insertMembership, insertStore, insertUser, selectJobDetail, selectStore, selectStorePeople, selectStores } from '#db/scoped/stores'
 import { canTransitionPartner, transitionPartner } from '#saas/partners/states'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
 import { canTransitionStore, extendTrial, transitionStore } from '#saas/stores/states'
@@ -162,9 +162,10 @@ describe('the fields the admin console shows', () => {
     const notes = await as(staff, (tx) => tx<{ text: string; by_name: string }[]>`select n.text, s.name as by_name from store_note n join staff_user s on s.id = n.staff_user_id where n.store_id = ${kiko}`)
     expect(notes[0]).toMatchObject({ by_name: 'Priya Shah' })
     const peak = await idOf('store', 'Peak Supply Co.')
-    const [job] = await as(staff, (tx) => tx<{ state: string; step: string; last_error: string; details: string }[]>`select state, step, last_error, details from job where store_id = ${peak}`)
+    const [job] = await as(staff, (tx) => tx<{ id: string; state: string; step: string; last_error: string }[]>`select id, state, step, last_error from job where store_id = ${peak}`)
     expect(job).toMatchObject({ state: 'failed', step: 'repo', last_error: 'GitHub didn’t respond while creating the storefront.' })
-    expect(job?.details).toContain('502')
+    const detail = await as(staff, (tx) => selectJobDetail(tx, job?.id ?? ''))
+    expect(detail?.details).toContain('502')
   })
 
   it('state history is the activity log, not a table', async () => {
@@ -339,6 +340,20 @@ describe('isolation (ACCESS.md §11.1)', () => {
     expect(revoked).toHaveLength(0)
     const [still] = await db.sql<{ revoked_at: Date | null }[]>`select revoked_at from invitation where store_id = ${storeA}`
     expect(still?.revoked_at).toBeNull()
+  })
+
+  it('no request scope reads a credential column, and the raw job detail is staff alone', async () => {
+    for (const [table, column] of [['"user"', 'password_hash'], ['"user"', 'two_factor_secret_enc'], ['partner_user', 'password_hash'], ['partner_user', 'two_factor_secret_enc'], ['partner_invitation', 'token_hash'], ['invitation', 'token_hash']] as const) {
+      await expect(as(staff, (tx) => tx.unsafe(`select ${column} from ${table}`))).rejects.toThrow(/permission denied/i)
+      await expect(as(partner(a), (tx) => tx.unsafe(`select ${column} from ${table}`))).rejects.toThrow(/permission denied/i)
+    }
+    // The row is still readable without them.
+    expect((await as(partner(a), (tx) => tx`select id, email from partner_user`)).length).toBeGreaterThan(0)
+    const peak = await idOf('store', 'Peak Supply Co.')
+    const df = await idOf('partner', 'DripFunnel')
+    expect(await count(merchant(df, peak), 'job_detail')).toBe(0)
+    expect(await count(partner(df), 'job_detail')).toBe(0)
+    expect(await count(staff, 'job_detail')).toBeGreaterThan(0)
   })
 
   it('a merchant sees its own people, plan, domain and job and nothing of another store', async () => {
