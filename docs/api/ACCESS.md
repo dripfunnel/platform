@@ -416,7 +416,7 @@ From CONSOLE-DESIGN §4. A control a role can't use is visible and disabled with
 | Staff role | Can |
 |---|---|
 | **Super admin** | Everything, including staff management, platform settings and deleting. At least two people; never a shared account. The last Super admin can't be removed or demoted (O2). |
-| **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. Acts **only on the partners assigned to them** (below). |
+| **Partner manager** | Create, approve and configure partners, their plans and prices, including the whole onboarding through a setup session (§8.2); see their partners' stores and billing. Acts **only on the partners a Super admin assigned to them** (below), and sees nothing of the others. |
 | **Support** | Search everything; see store detail; **impersonate** any partner or store user (§8.1); retry failed jobs; resend emails. No billing changes, no suspensions, no setup sessions (§8.2). |
 | **Finance** | Billing, invoices, credits, refunds, dunning, revenue reports. No store configuration. |
 | **Engineer on call** | Jobs, fleet, builds, domains, integration health; suspend a store in an emergency. |
@@ -445,12 +445,27 @@ SA Super admin, PM Partner manager, Su Support, Fi Finance, En Engineer on call,
 | `staffSessions.endAny` (end someone else's session) | ✓ | | | | | |
 | `activity.export` | ✓ | | | | ✓ | |
 | `staff.manage` | ✓ | | | | | |
+| `partners.assign` (assign and unassign a Partner manager, #60) | ✓ | | | | | |
 
 | Decision (#14) | Rejected | Why |
 |---|---|---|
 | Finance holds Read-only's set in this release | Billing permissions now | Billing is out of the first release (FIRST-RELEASE §11 H); no screen needs them. |
-| A Partner manager acts only on partners assigned in `staff_partner_assignment` (DATA-MODEL §3.1); a field with a `target` refuses an unassigned or unknown one with `FORBIDDEN` | Every partner | "Their partners" in CONSOLE-DESIGN §4 and the admin README. Lists (`target: 'none'`) must filter to the assignment themselves. No screen writes assignments yet; that needs its own card. |
+| A Partner manager acts only on partners assigned in `staff_partner_assignment` (DATA-MODEL §3.1); a field with a `target` refuses an unassigned or unknown one with `FORBIDDEN` | Every partner | "Their partners" in CONSOLE-DESIGN §4 and the admin README. Lists (`target: 'none'`) must filter to the assignment themselves. Assignments are written by `assignPartnerManager` and `unassignPartnerManager` (#60). |
 | `domains.recheck` for Super admin and Engineer on call | Every role that sees the tab | The admin README gives domains to those two and "view" to the rest. |
+
+**How a partner becomes a manager's** (decided 2026-10-02 on #60):
+
+| Question | Answer |
+|---|---|
+| Who assigns | **Super admin only** (`partners.assign`), with a reason, audited. A manager never takes a partner for themselves. |
+| How many managers | **Any number**, usually one plus one as cover; a partner with none is Super admins' alone. |
+| The manager is away | A **Super admin always may act**; steady cover is a second assigned manager. No "away" state. |
+| The manager leaves | `removeStaff` (#39) **refuses `HOLDS_PARTNERS`** while a live assignment names them; a Super admin unassigns or reassigns first. Nothing is reassigned silently. |
+| A partner that is not theirs | **Invisible**: lists filter to the assignment, `partner(id)` and every targeted field refuse `FORBIDDEN`. Seeing every partner is Support's and Read-only's job, not this role's. |
+| Approvals | Scoped like everything else. When a Partner manager ran the setup, the second approver is a Super admin or the partner's **other assigned manager**. |
+
+An assignment is never deleted: unassigning sets `removed_at` and who, so the history stays
+with the row and `isAssigned` reads only live rows.
 
 Staff have **account-level** access to every partner and merchant through the Admin API
 (a Partner manager to its assigned partners),

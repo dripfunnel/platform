@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { partnerAudit, type PartnerDto, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type PartnersService, type Result, type SetupSessionDto } from '#saas/partners/index'
+import { partnerAudit, type PartnerDto, type PartnerManager, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type PartnersService, type Result, type SetupSessionDto } from '#saas/partners/index'
 import { builder } from './builder'
 import { compact, PageInfoType, PermissionType, permission, type Permission } from './types'
 
@@ -146,6 +146,15 @@ const SetupSession = builder.objectRef<SetupSessionDto>('PartnerSetupSession').i
   }),
 })
 
+const Manager = builder.objectRef<PartnerManager>('PartnerManager').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    name: t.exposeString('name'),
+    email: t.exposeString('email'),
+    since: t.string({ resolve: (m) => m.since.toISOString() }),
+  }),
+})
+
 const permissionOf = (p: PartnerPermissions[keyof PartnerPermissions]): Permission | null => (p ? permission(p) : null)
 
 // An action absent from the block is not offered in this state; one present and refused is
@@ -193,6 +202,7 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
       extensions: { access: { api: 'admin', scope: 'platform', permission: 'setupSessions.read', target: 'none' } },
       resolve: (p) => p.setupSessions,
     }),
+    managers: t.field({ type: [Manager], resolve: (p) => p.managers }),
     actions: t.field({ type: Actions, resolve: (p) => p.actions }),
   }),
 })
@@ -365,6 +375,18 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }), kind: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'domains.recheck', target: byId, audit: partnerAudit.recheckDomain } },
     resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).recheckDomain(String(args.id), args.kind)),
+  }),
+  assignPartnerManager: t.field({
+    type: OutcomeType,
+    args: { id: t.arg.id({ required: true }), staffId: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.assign', target: byId, audit: partnerAudit.assignPartnerManager } },
+    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).assignPartnerManager(String(args.id), String(args.staffId), args.reason)),
+  }),
+  unassignPartnerManager: t.field({
+    type: OutcomeType,
+    args: { id: t.arg.id({ required: true }), staffId: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.assign', target: byId, audit: partnerAudit.unassignPartnerManager } },
+    resolve: async (_, args, ctx) => outcome(await partnersOf(ctx).unassignPartnerManager(String(args.id), String(args.staffId), args.reason)),
   }),
 }))
 

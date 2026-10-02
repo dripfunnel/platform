@@ -76,16 +76,16 @@ self-signup, their own roles, and never a merchant or partner session with a fla
 | Area | Super admin | Partner manager | Support | Finance | Engineer on call | Read-only |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home, search | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Partners: create, configure, approve, plans and prices | ✓ | ✓ (their partners) | view | view | view | view |
+| Partners: create, configure, approve, plans and prices | ✓ | ✓ (the partners a Super admin assigned to them, ACCESS.md §5.4; the others are invisible to them) | view | view | view | view |
 | Partners: pause, offboard, close | ✓ | | | | | |
-| Stores: detail | ✓ | ✓ (their partners) | ✓ | ✓ | ✓ | ✓ |
+| Stores: detail | ✓ | ✓ (their assigned partners' stores) | ✓ | ✓ | ✓ | ✓ |
 | Stores: suspend, restore | ✓ | | | | emergency only | |
 | Stores: move partner, transfer owner, close | ✓ (second approver) | | | | | |
 | Customers: list (masked), detail, activity | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers: full email and phone | ✓ | | ✓ | | | |
 | Impersonate partner and store users (full access, 30 min, extendable once) | ✓ | | ✓ | | | |
 | Retry jobs, resend emails | ✓ | | ✓ | | ✓ (jobs) | |
-| Billing: invoices, credits, refunds, dunning | ✓ | view (their partners) | | ✓ | | view |
+| Billing: invoices, credits, refunds, dunning | ✓ | view (their assigned partners) | | ✓ | | view |
 | Fleet, builds, domains, integration health | ✓ | view | view | | ✓ | view |
 | Platform settings, flags, ceilings | ✓ | | | | | |
 | Staff and roles | ✓ | | | | | |

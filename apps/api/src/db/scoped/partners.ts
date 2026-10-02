@@ -253,7 +253,7 @@ export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page:
     ${listProjection(tx)}
     where true
       ${filter.state !== undefined ? tx`and p.state = ${filter.state}` : tx``}
-      ${filter.assignedTo !== undefined ? tx`and exists (select 1 from staff_partner_assignment a where a.partner_id = p.id and a.staff_user_id = ${filter.assignedTo})` : tx``}
+      ${filter.assignedTo !== undefined ? tx`and exists (select 1 from staff_partner_assignment a where a.partner_id = p.id and a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
       ${filter.setup === 'complete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id) and not exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.status <> 'done')` : tx``}
       ${filter.setup === 'incomplete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.status <> 'done')` : tx``}
       ${q !== null ? tx`and (p.name ilike ${q} or pd.host ilike ${q} or o.email ilike ${q})` : tx``}

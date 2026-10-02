@@ -91,6 +91,7 @@ type GoLiveChecks {
 
 type Mutation {
   approvePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
   endStaffSession(id: ID!): PartnerMutationOutcome
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
@@ -100,6 +101,7 @@ type Mutation {
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
+  unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
 }
 
 type PageInfo {
@@ -123,6 +125,7 @@ type Partner {
   house: Boolean
   id: ID
   kind: String
+  managers: [PartnerManager!]
   name: String
   owner: PartnerOwner
   plans: [PartnerPlan!]
@@ -195,6 +198,13 @@ type PartnerHistoryEntry {
   at: String
   by: String
   note: String
+}
+
+type PartnerManager {
+  email: String
+  id: ID
+  name: String
+  since: String
 }
 
 type PartnerMutationOutcome {

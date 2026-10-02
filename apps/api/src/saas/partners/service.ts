@@ -45,6 +45,8 @@ import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { transitionPartner } from './states'
 import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
+import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
+import { assignManager, unassignManager } from './assignments'
 import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from './goLive'
 
 // Partners on the Admin API (card #33; ui/admin/FIRST-RELEASE.md §4, §12). The resolvers in
@@ -69,6 +71,8 @@ export const partnerAudit = {
   startPartnerSetupSession: 'setup_session.started',
   endStaffSession: 'setup_session.ended',
   recheckDomain: 'partner.domain_recheck_requested',
+  assignPartnerManager: 'partner.manager_assigned',
+  unassignPartnerManager: 'partner.manager_unassigned',
 } as const
 
 export type PartnerAuditAction = (typeof partnerAudit)[keyof typeof partnerAudit]
@@ -89,6 +93,9 @@ export type RefusalCode =
   | 'INVALID_INPUT'
   | 'INVALID_HOSTNAME'
   | 'NOT_FOUND'
+  | 'NOT_A_PARTNER_MANAGER'
+  | 'STAFF_NOT_ACTIVE'
+  | 'ALREADY_ASSIGNED'
   | 'INVITATION_HELD'
   | 'INVITATION_NOT_HELD'
   | 'INVITATION_ACCEPTED'
@@ -143,6 +150,8 @@ export interface PartnerDto extends PartnerRowDto {
   plans: { id: string; name: string; status: PlanRow['status']; maxProducts: number | null; maxStaff: number | null; stores: number }[]
   team: { id: string; name: string; email: string; role: string; status: string; lastSignInAt: Date | null }[]
   setupSessions: SetupSessionDto[]
+  /** The Partner managers assigned to it (ACCESS.md §5.4, #60). */
+  managers: PartnerManager[]
   actions: PartnerPermissions
 }
 
@@ -208,6 +217,7 @@ const roleRefusals: Partial<Record<StaffPermission, RefusalCode>> = {
   'partners.invite.resend': 'INVITERS_ONLY',
   'partners.setup': 'STAFF_ROLE_NOT_ALLOWED',
   'domains.recheck': 'STAFF_ROLE_NOT_ALLOWED',
+  'partners.assign': 'SUPER_ADMIN_ONLY',
 }
 
 interface PartnerFacts {
@@ -215,6 +225,7 @@ interface PartnerFacts {
   items: PartnerSetupItemRow[]
   plans: (PlanRow & { store_count: number })[]
   sessions: SetupSessionRow[]
+  managers: PartnerManager[]
   approvers: string[]
   checks: GoLiveChecks
   rule: ApprovalRule
@@ -281,12 +292,13 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   // One query per table for the whole page (AGENTS.md "Reliability": no N+1).
   const factsFor = async (tx: ScopedSql, partners: readonly PartnerRow[]): Promise<Map<string, PartnerFacts>> => {
     const ids = partners.map((p) => p.id)
-    const [domains, items, plans, sessions, approvers] = await Promise.all([
+    const [domains, items, plans, sessions, approvers, managers] = await Promise.all([
       selectPartnerDomainsFor(tx, ids),
       selectSetupItemsFor(tx, ids),
       selectPlansFor(tx, ids),
       selectSetupSessionsFor(tx, ids),
       selectCurrentApproversFor(tx, ids),
+      selectManagersFor(tx, ids),
     ])
     const byPartner = <T extends { partner_id: string }>(rows: T[]) => {
       const map = new Map<string, T[]>()
@@ -298,9 +310,16 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     const pl = byPartner(plans)
     const s = byPartner(sessions)
     const a = byPartner(approvers)
+    const m = byPartner(managers)
     return new Map(
       partners.map((p) => {
-        const f = { domains: d.get(p.id) ?? [], items: i.get(p.id) ?? [], plans: pl.get(p.id) ?? [], sessions: s.get(p.id) ?? [] }
+        const f = {
+          domains: d.get(p.id) ?? [],
+          items: i.get(p.id) ?? [],
+          plans: pl.get(p.id) ?? [],
+          sessions: s.get(p.id) ?? [],
+          managers: (m.get(p.id) ?? []).map(({ id, name, email, since }) => ({ id, name, email, since })),
+        }
         return [
           p.id,
           {
@@ -417,6 +436,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
         plans: f.plans.map((p) => ({ id: p.id, name: p.name, status: p.status, maxProducts: p.max_products, maxStaff: p.max_staff, stores: p.store_count })),
         team: team.map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role_key, status: u.status, lastSignInAt: u.last_sign_in_at })),
         setupSessions: f.sessions.map((s) => sessionDto(s, at)),
+        managers: f.managers,
         actions: await permissionsFor(partner, f, base.owner.invitation),
       }
     })
@@ -623,6 +643,32 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     })
   }
 
+  // ACCESS.md §5.4, decided on #60: Super admins assign; an assignment is never deleted.
+  const assignment = async (partnerId: string, staffId: string, reason: string | null, assign: boolean): Promise<Result> => {
+    const refused = refusedBy('partners.assign')
+    if (refused) return refused
+    const parsed = reasonText.safeParse(reason ?? '')
+    if (!parsed.success) return { ok: false, code: 'REASON_REQUIRED' }
+    // A malformed id is a NOT_FOUND, not a database error (the policy guards only a Partner manager's).
+    if (!z.guid().safeParse(staffId).success || !z.guid().safeParse(partnerId).success) return { ok: false, code: 'NOT_FOUND' }
+    return withScope(sql, context, async (tx): Promise<Result> => {
+      const partner = await selectPartnerForUpdate(tx, partnerId)
+      if (!partner) return { ok: false, code: 'NOT_FOUND' }
+      const at = now()
+      const result = assign ? await assignManager(tx, partnerId, staffId, staff.id, at) : await unassignManager(tx, partnerId, staffId, staff.id, at)
+      if (!result.ok) return { ok: false, code: result.code }
+      await activity.record(
+        tx,
+        entry(partner, assign ? partnerAudit.assignPartnerManager : partnerAudit.unassignPartnerManager, parsed.data, {
+          target: { type: 'staff', id: result.staff.id, label: result.staff.label },
+          // Who manages a partner inside DripFunnel is not the partner's business.
+          visibility: 'staff',
+        }),
+      )
+      return { ok: true }
+    })
+  }
+
   return {
     list,
     get,
@@ -636,6 +682,8 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     startSetupSession,
     endStaffSession,
     recheckDomain,
+    assignPartnerManager: (partnerId: string, staffId: string, reason: string | null) => assignment(partnerId, staffId, reason, true),
+    unassignPartnerManager: (partnerId: string, staffId: string, reason: string | null) => assignment(partnerId, staffId, reason, false),
   }
 }
 

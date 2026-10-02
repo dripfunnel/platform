@@ -9,6 +9,7 @@ import { storeSchema } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolveStaff } from '#auth/caller'
+import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
@@ -138,7 +139,12 @@ const handleAdmin = async (
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
       isAssigned: assigned,
-      activity: caller ? (filter, page) => listActivity(sql, { caller: { kind: 'staff', staffId: caller.staff.id } }, filter, page) : notConnected,
+      activity: caller
+        ? (filter, page) =>
+            listActivity(sql, { caller: { kind: 'staff', staffId: caller.staff.id } }, filter, page, {
+              assignedTo: partnerScopedRoles.includes(caller.staff.role) ? caller.staff.id : undefined,
+            })
+        : notConnected,
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,
