@@ -60,7 +60,12 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
 `customer.exported`, `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
-it). The two-factor and backup-code entries carry no secret, code or phone number.
+it). The two-factor and backup-code entries carry no secret, code or phone number. **The
+entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
+its parts, filed under its `seller_id`) **carry no free text and no shopper field**: the store's
+full entry, with the reason, the note and the customer, is written with `seller_id` null and
+store visibility, and a second thin entry for the supplier names only the action, the order
+number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §7.6).
 
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). A second
@@ -180,7 +185,7 @@ every other tenant read.
 | **Merchant Manager** | Customer page › Activity; own activity | Shopper activity on the customer page; their own actions *(confirm whether Managers also see the whole store log)* |
 | **Merchant Staff** | Own activity | Their own actions |
 | **Vendor** | Own activity | Their own actions only *(proposed; ACCESS.md §10 left this open)* |
-| **Shopper** | Storefront account › Sign-in activity | Their own sign-ins *(release: decide)* |
+| **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §7.6) |
 
 - **"Own activity"** is a profile screen in every portal: the signed-in person's own
   entries in that scope, so anyone can check what was done under their name.

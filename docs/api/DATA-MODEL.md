@@ -84,11 +84,15 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   readable by `app_system` (sign-in, acceptance, the second factor) and never by
   `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
   the same way, with one exception decided 2026-10-02: **a person may read and change their
-  own number** (My profile; SMS 2-factor is sent to it). A column grant cannot be limited to
-  one row, so the exception is a pair of `security definer` functions owned by the migration
-  role, `own_phone()` and `set_own_phone(text)`, that act only on the row whose `id` equals
-  the session's `app.user_id` (§5.1), written the way such functions must be: `set
-  search_path = pg_catalog, public` pinned on each, `revoke execute … from public` then
+  own number** (My profile; SMS 2-factor is sent to it). **Not built yet; the design is**: a
+  column grant cannot be limited to one row, so the exception is a pair of `security definer`
+  functions owned by the migration role, `own_phone()` and `set_own_phone(text)`, that act
+  only on the row whose `id` equals the session's `app.user_id` (§5.1, a setting the
+  `RlsSettings` in `db/rls/settings.ts` gains with it). Because `"user"` is `FORCE ROW LEVEL
+  SECURITY` and its update policy admits only the platform and system scopes, the definer
+  needs an own-row policy too: `user_update_own` for store scope on `id = app.user_id`.
+  Written the way such functions must be: a pinned `search_path` (`pg_catalog, public`, as
+  0007's `membership_check_parents()` pins its own), `revoke execute … from public` then
   `grant execute` to `app_request` alone, `set_own_phone` validating E.164 and refusing
   anything else, and an empty `app.user_id` matching no row (no session, no phone).
   `app_request` keeps no `select` or `update` on the column. The isolation matrix has the
@@ -125,11 +129,11 @@ supplier-facing serializer omitting what the row's rule says it omits.
 | `stock_movement(id, store_id, seller_id, product_id, version_id null, warehouse_id, delta, resulting_quantity, reason, source_kind, source_id, actor, created_at)` | store and seller | The ledger; reasons `received`, `returned`, `damaged`, `counted`, `typed`, `order`, `import`, `starting` | PLATFORM-PROMPT §5.4 Inventory |
 | `return(id, store_id, order_id, state, reason, label_sent_at, received_at)` | store | The store's record; states `requested`, `received`, `refunded`, `cancelled`. **`reason` is coded** (`doesnt_fit`, `changed_mind`, `damaged`, `wrong_item`, `not_as_described`, the prototype's five), never free text, so nothing a supplier reads can name the shopper; any note the store adds is a store-only column the supplier serializer omits. A supplier reaches a return only through its own lines (a derived read, ACCESS.md §3.3), never the whole return | ACCESS.md §7.3 |
 | `return_line(return_id, store_id, seller_id null, order_line_id, quantity, destination_warehouse_id)` | store and seller | `seller_id` is the line owner's, copied from the order line; the destination follows that owner's shipping mode | ACCESS.md §7.3 |
-| `refund(id, store_id, seller_id null, order_id, amount, currency, reason, restock, override_of_seller_id null, by_user_id, created_at)`, `refund_line(refund_id, store_id, seller_id null, order_line_id, quantity, amount, currency)` | store and seller | `seller_id` is the owner of the refunded lines (null = the merchant's own); a supplier reads its own, including an override the store made against it (`override_of_seller_id` = its id); never another supplier's. **The supplier serializer omits `by_user_id` (the supplier sees "the store") and, on override rows, the free-text `reason`**, which may name the shopper a `to-store` supplier must never see (ACCESS §7.3); the isolation matrix tests both omissions | ACCESS.md §7.3 |
+| `refund(id, store_id, seller_id null, order_id, amount, currency, reason (coded), note null, restock, override_of_seller_id null, by_user_id, created_at)`, `refund_line(refund_id, store_id, seller_id null, order_line_id, quantity, amount, currency)` | store and seller | `seller_id` is the owner of the refunded lines (null = the merchant's own); a supplier reads its own, including an override the store made against it (`override_of_seller_id` = its id); never another supplier's. **A supplier never receives `by_user_id` (it sees "the store") nor `note`, the store's free text**, which may name the shopper a `to-store` supplier must never see (ACCESS §7.3); `reason` is coded. The isolation matrix tests both omissions | ACCESS.md §7.3 |
 | `supplier_ledger_entry(id, store_id, seller_id, amount, currency, kind, refund_id null, note, created_at)` | store and seller | What a supplier owes or is owed, settled outside the platform; the first `kind` is `refund_override`. A supplier reads only its own entries and balance, and **its serializer omits `note`** (the store's free text, which may name the shopper); the supplier sees the kind, the amount and the refund it points at. The isolation matrix tests the omission | PLATFORM-PROMPT §5.4 Payments |
 | `product` + `hidden_by` (`seller_suspended`, `seller_removed`, null), `status_before_hide` | store and seller | Set when a supplier is suspended or removed; resuming restores `status_before_hide` where `hidden_by = 'seller_suspended'` and clears both | ACCESS.md §7.5 |
 | `badge(id, store_id, label, rule, …)` and `product_badge(product_id, badge_id, store_id, seller_id null)` (the product's owner, copied as `return_line` does) | store | Rules `new_30_days`, `top_5_this_month`, `below_compare_price`, `few_left`, `manual`; only `manual` badges are picked per product | CATALOG-DESIGN S5 |
-| `product_market_price(product_id, market_id, store_id, seller_id null, amount, currency)` (`store_id` and `seller_id` copied from the product, so a supplier reads and writes its own rows only) | store and seller | A fixed price per market for a product without versions (Business plan); absent means the main price with the market's adjustment | CATALOG-DESIGN O13 |
+| `version_market_price(version_id, market_id, store_id, seller_id null, amount, currency)` (`store_id` and `seller_id` copied from the version, so a supplier reads and writes its own rows only; per version because price lives on the version, CATALOG fact 2) | store and seller | A fixed price per market for a product without versions (Business plan); absent means the main price with the market's adjustment | CATALOG-DESIGN O13 |
 | `custom_domain` + `state` (`dns`, `verifying`, `cert`, `live`, `failed`), `last_checked_at`, `checks_until` | store (account level) | The portal's four steps; checked every 15 minutes for 3 days | SAAS.md §8 |
 | `access_request(id, store_id, by_user_id, kind (`feature`, `area`), what, created_at, resolved_at null, resolution (`acted`, `dismissed`))` | store | A Manager's or Staff's "Send request" that lands on the Owner's Home | ACCESS.md §5.1 |
 | `user` + `two_factor_method` (`app`, `sms`, null), `two_factor_enrolled_at`, `theme` (`light`, `dark`, null); `user_backup_code(user_id, code_hash, used_at null)`; `user_session` + `device_label`, `user_agent` | partner (people pool) | 2-factor, backup codes and "Where you're signed in" (§3.3) | ACCESS.md §2, §4 |
@@ -175,20 +179,29 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
 ```
 user        (id, partner_id, email, email_verified_at, password_hash NULL, name, phone NULL,
              two_factor_secret_enc NULL, two_factor_method NULL, two_factor_enrolled_at NULL,
-             theme NULL, status, created_at)
+             theme NULL, locale NULL, time_zone NULL, status, created_at)
             UNIQUE (partner_id, email)
             -- two_factor_method: 'app' | 'sms'; required for an Owner, optional otherwise
-            -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice
+            -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice;
+            -- locale and time_zone: the portal UI follows the person (CATALOG fact 40)
 user_backup_code (id, user_id, partner_id, code_hash, used_at NULL)
-            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4);
-            -- partner_id denormalised from user so the §5.2 partner policy applies directly
+            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4).
+            -- Policy: own rows only, in store scope, on user_id = app.user_id, plus system;
+            -- NO partner branch (a partner user never reads a merchant's 2-factor state);
+            -- code_hash readable by app_system alone (§2.1)
 user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
              absolute_expires_at, remember, device_label, user_agent)
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
             -- extends the absolute bound, never removes it; device_label and user_agent
-            -- are what "Where you're signed in" lists
+            -- are what "Where you're signed in" lists. Policy as user_backup_code: own
+            -- rows on user_id = app.user_id in store scope, plus system; no partner branch
 
-seller      (id, store_id, name, access_level, shipping_mode, status, created_at)
+seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
+             hide_products_while_suspended boolean NULL, removed_at NULL, created_at)
+            -- status: invited | active | suspended | removed (0002 has no check yet; the
+            -- next migration adds it); the row survives removal so products stay marked
+            -- as the removed supplier's (ACCESS.md §7.5); hide_products_while_suspended is
+            -- the Owner's choice at suspension (decided 2026-10-03)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
@@ -204,7 +217,8 @@ membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by
             -- and membership.store.partner_id = user.partner_id (trigger or composite FK)
 
 invitation  (id, store_id, seller_id NULL, email, role_key, token_hash, expires_at,
-             invited_by_user_id, accepted_at NULL, revoked_at NULL)
+             invited_by_user_id, sent_at, accepted_at NULL, revoked_at NULL)
+            -- sent_at moves on resend ("Last sent …", SetTeam), as partner_invitation's does
 ```
 
 - A **merchant-side** membership (`seller_id` null) holds Owner, Manager or Staff.

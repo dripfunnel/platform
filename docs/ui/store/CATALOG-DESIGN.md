@@ -393,10 +393,11 @@ must store all of it per store, and enforce the pricing-currency lock.
     `(release: decide)`)*. The product type (§3 fact 12) is related but separate. Don't show
     every section on every product.
 32. **Downgrading must not destroy content.** When a plan loses a feature or limit, existing
-    content is **kept**. Ask what the storefront does with it (keep showing it, or hide it
-    until upgrade). Adding more is blocked with a clear explanation. Over-limit catalogues
-    (e.g. 600 products on a 500-product plan) keep working; only adding is blocked. The engine
-    enforces the same rule.
+    content is **kept**. Decided 2026-10-03 (SAAS §6.2, the prototype's *Choose what to
+    keep*): what is over the new limit is **paused**, hidden from shoppers and kept intact,
+    and the Owner chooses which items stay within the limit before the change takes effect;
+    an upgrade brings the rest back. Adding more is blocked with a clear explanation. The
+    engine enforces the same rule (DATA-MODEL §7.3 `product.hidden_by = 'plan'`).
 33. **Past due is read-only** (DESIGN-BRIEF fact 9, PLATFORM-PROMPT §2 item 7): writes are
     blocked, the merchant is never locked out. Plan gating is different: a merchant in good
     standing on a smaller plan can edit everything they have. Don't confuse the two banners.
@@ -864,9 +865,11 @@ with validation before any write, partial-failure reports, and translation and c
 - L5. Merchant edits a pending vendor product before approving.
 - L6. A vendor-supplied product in the merchant list is marked with the supplier's name, and
   can be filtered by supplier.
-- L7. A suspended supplier's products are hidden until the supplier is resumed; a removed
-  supplier's are hidden and kept, still marked as theirs, for the merchant to publish or
-  delete (settled 2026-10-02, ACCESS.md §7.5). Show the count and the hidden list.
+- L7. Suspending a supplier asks the Owner whether to **hide its products or keep selling
+  them** from the stock in hand (settled 2026-10-03 with the prototype's suspend modal,
+  ACCESS.md §7.5); hidden ones return on resume. A removed supplier's products are hidden and
+  kept, still marked as theirs, for the merchant to publish or delete (settled 2026-10-02).
+  Show the count and the hidden list.
 - L8. A vendor at the Stock only tier (§4).
 - L9. Vendor filters and collections: whether a vendor can see or assign them *(ask)*.
 
