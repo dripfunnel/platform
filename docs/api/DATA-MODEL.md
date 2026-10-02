@@ -87,9 +87,14 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   own number** (My profile; SMS 2-factor is sent to it). A column grant cannot be limited to
   one row, so the exception is a pair of `security definer` functions owned by the migration
   role, `own_phone()` and `set_own_phone(text)`, that act only on the row whose `id` equals
-  the session's `app.user_id` (§5.1); `app_request` gets `execute` on them and still no
-  `select` or `update` on the column. The isolation matrix has the row: user A, holding user
-  B's id, can neither read nor write B's phone. No other screen shows a merchant user's phone.
+  the session's `app.user_id` (§5.1), written the way such functions must be: `set
+  search_path = pg_catalog, public` pinned on each, `revoke execute … from public` then
+  `grant execute` to `app_request` alone, `set_own_phone` validating E.164 and refusing
+  anything else, and an empty `app.user_id` matching no row (no session, no phone).
+  `app_request` keeps no `select` or `update` on the column. The isolation matrix has the
+  rows: user A, holding user B's id, can neither read nor write B's phone; and a call with an
+  empty `app.user_id` returns nothing and changes nothing. No other screen shows a merchant
+  user's phone.
 - **State history is the activity log** (LOGGING.md): `partner.*` and `store.*` entries with
   the partner or store as target, visibility `partner`. No history table.
 - **Transitions** are enforced in `saas/partners/states.ts` and `saas/stores/states.ts`, which
