@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import type { ActivityPage } from '../../api/activity'
 import { messages } from '../../messages'
 import { ActivityRow } from './ActivityRow'
-import { Pager } from '@dripfunnel/shared/ui'
+import { Pager } from './Pager'
 import './activity.css'
 
 const words = messages.activity
@@ -30,7 +30,7 @@ export const ActivityList = ({ page, pageLink }: ActivityListProps) => {
       </ul>
       <div className="df-activity-foot">
         <p className="df-muted">{words.readOnlyNote}</p>
-        <Pager words={messages.common.pager} label={words.pagerLabel} pageInfo={page.pageInfo} link={pageLink} />
+        <Pager label={words.pagerLabel} pageInfo={page.pageInfo} link={pageLink} />
       </div>
     </>
   )

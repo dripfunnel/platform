@@ -1,6 +1,7 @@
 // States (?state=): see impersonateHarness.ts. Without one: the open sessions of both kinds, then
 // the history, newest first (FIRST-RELEASE.md §8). A Partner manager is sent to setup pages only.
-import { SessionNotice, ErrorState, LoadingState, FilterSelect, Pager, type PagerProps } from '@dripfunnel/shared/ui'
+import { SessionNotice, ErrorState, LoadingState, FilterSelect } from '@dripfunnel/shared/ui'
+import { Pager, type PagerProps } from '../common/Pager'
 import type { ReactNode } from 'react'
 import { sessionDates, sessionKinds, type SessionAction, type SessionFilter, type SessionPage, type StaffSession } from '../../api/impersonation'
 import { fill, formatTime, messages } from '../../messages'
@@ -113,7 +114,7 @@ export const ImpersonateSessions = ({ page, filter, forced, role, openCount, now
         <section className="df-imp-section" aria-labelledby="df-imp-history">
           <h2 id="df-imp-history">{sessionWords.history}</h2>
           <SessionList label={sessionWords.historyLabel} sessions={history} empty={sessionWords.historyEmpty} now={now} onAction={onAction} />
-          {history.length > 0 && <Pager words={messages.common.pager} label={sessionWords.pagerLabel} pageInfo={page.history.pageInfo} link={pageLink} />}
+          {history.length > 0 && <Pager label={sessionWords.pagerLabel} pageInfo={page.history.pageInfo} link={pageLink} />}
         </section>
       </>
     )

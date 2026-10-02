@@ -11,7 +11,7 @@ Last updated: 2026-10-02 (#115).
 
 | Export | Holds | Today |
 |---|---|---|
-| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `Pager`, `ClickableRow`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
+| `@dripfunnel/shared/ui` | Components, the screen-state kit and its `?state=` harness (#110), the console chrome both consoles draw (#111), the list primitives both consoles' lists use (#115), and the staff-session pieces both portals use (#46) | `Button`; `EmptyState`, `LoadingState`, `ErrorState`, `PermissionDenied`, `ReadOnlyNotice`, `ConfirmDialog`, `StateView` (with `ConfirmDemo`), `screenStates`, `useScreenState`, `useAnnouncement`; `SideNav`, `NavDrawer`, `UserMenu`, `Icon`, `initials`, `isBackdropClick`, `useTheme`; `StatusPill`, `ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`; `environmentFor`, `EnvironmentBanner`; `isHarnessEnabled`, `parseScreenState`; `ImpBanner`, `SessionNotice`, `SessionEndCard`, `StaffSessionLayer`, `PortalSessionRoot`, `HandoffScreen` (with `handoffSearch`), `SessionControls`, `adminConsoleUrlFor`, `blockedFor`, `staffSessionCopy`, `usePolling`; `createPortalSession`, the portals' fixture until #68 |
 | `@dripfunnel/shared/ui/tokens.css` | Design tokens as CSS variables (`--df-*`), light and dark | colour, radius, spacing, font |
 | `@dripfunnel/shared/ui/states.css` | The kit's stylesheet, for a screen that uses its classes (`df-button`, `df-field`, `df-dialog`, `df-visually-hidden`) without rendering a kit component | loaded by every kit component itself |
 | `@dripfunnel/shared/ui/shell.css` | The console chrome's stylesheet (header, banners, side bar, drawer, user menu, page title), for an app's own shell composition | loaded by every shell component itself |
@@ -74,12 +74,12 @@ From [../../code/DESIGN.md](../../code/DESIGN.md) §5:
 - **List primitives** (#115, moved for the partner console's Stores list, the admin console's
   lists' second user): `ListHeader` (eyebrow, title, lede and an action), `SearchField` (debounced,
   with an optional validator for text the URL would drop), `FilterSelect` (the label inside
-  the control, tinted when a value is chosen), `Pager` (Previous and Next from a `PageInfo`'s
-  cursors, with the words and the link as props: cursor paging with no total, decided on
-  #19), and `ClickableRow` (a table row that hands a plain click to its title link). `list.css`
+  the control, tinted when a value is chosen) and `ClickableRow` (a table row that hands a plain click to its title link). `list.css`
   holds their styles; each console keeps its detail-page styles until a second console draws
   a detail page. The zod helpers for URL searches are their own entry, `@dripfunnel/shared/search`,
-  so an app without a list never bundles zod; `PageInfo` is the API's, in `graphql`.
+  so an app without a list never bundles zod; `PageInfo` is the API's, in `graphql`. The admin
+  console's `Pager` (Previous and Next) stays there: the partner console's lists end in "Show 25
+  more" (ui/platform/FIRST-RELEASE.md §16).
 - **Environment**: `environmentFor(hostname)` names the four environments for both consoles
   (`prod` only on the two exact production hosts, `dev` on the `dev-*.dripfunnel.ai` hosts,
   `local` on localhost, everything else `feature`, so a look-alike is never production), and

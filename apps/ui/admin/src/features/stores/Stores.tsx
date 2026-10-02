@@ -3,7 +3,8 @@
 import { Link } from '@tanstack/react-router'
 import type { StoreFilter, StorePage } from '../../api/stores'
 import { messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, ListHeader, Pager } from '@dripfunnel/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ReadOnlyNotice, ListHeader } from '@dripfunnel/shared/ui'
+import { Pager } from '../common/Pager'
 import { isFiltered } from './isFiltered'
 import type { StoresState } from './storeHarness'
 import { StoreFilters } from './StoreFilters'
@@ -72,7 +73,6 @@ export const Stores = ({ page, filter, forced, readOnly, onFilterChange, onReloa
         <>
           <StoresTable stores={page.items} />
           <Pager
-            words={messages.common.pager}
             label={words.pagerLabel}
             pageInfo={page.pageInfo}
             link={(cursor, label) => (

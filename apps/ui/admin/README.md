@@ -41,7 +41,7 @@ number links to the list it counts with the filter in the URL; the partner filte
 `/partners` (`src/features/partners/`) is the list of FIRST-RELEASE.md §4.1: filters
 `?status=` and `?setup=`, search `?q=`, and cursor pages `?after=` / `?before=`, all in the URL.
 The list primitives every list here is built from (`ListHeader`, `SearchField`,
-`FilterSelect`, `Pager`, `ClickableRow` and `list.css`) come from `@dripfunnel/shared/ui`, the
+`FilterSelect`, `ClickableRow` and `list.css`) come from `@dripfunnel/shared/ui`, the
 URL-search helpers from `@dripfunnel/shared/search` and `PageInfo` from
 `@dripfunnel/shared/graphql`, moved on #115 for the partner console's Stores list;
 `src/features/common/detail.css` keeps the detail-page styles only this console draws.
