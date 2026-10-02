@@ -71,6 +71,22 @@ type ActivityTarget {
   type: String
 }
 
+type AttentionReason {
+  attempt: Int
+  daysPastDue: Int
+  kind: String
+  reason: String
+  state: String
+  step: String
+}
+
+type AttentionStore {
+  id: ID
+  name: String
+  partnerName: String
+  reason: AttentionReason
+}
+
 input CreatePartnerInput {
   country: String!
   kind: String
@@ -79,6 +95,64 @@ input CreatePartnerInput {
   ownerName: String
   region: String
   sendInvitation: Boolean!
+}
+
+type Dashboard {
+  asOf: String
+  attention: DashboardAttention
+  awaiting: DashboardAwaiting
+  partnerId: ID
+  partnerOptions: [PartnerOption!]
+  partners: DashboardPartners
+  signups: DashboardSignups
+  stores: DashboardStores
+}
+
+type DashboardAttention {
+  pastDue: Int
+  setupFailed: Int
+  setupStuck: Int
+  stores: [AttentionStore!]
+  suspended: Int
+  total: Int
+}
+
+type DashboardAwaiting {
+  count: Int
+  oldest: DashboardOldestAwaiting
+}
+
+type DashboardNewStoresByPartner {
+  count: Int
+  id: ID
+  name: String
+}
+
+type DashboardOldestAwaiting {
+  id: ID
+  name: String
+  submittedAt: String
+  waitingSeconds: Int
+}
+
+type DashboardPartners {
+  awaiting: Int
+  draft: Int
+  live: Int
+  paused: Int
+}
+
+type DashboardSignups {
+  completed: Int
+  failed: Int
+  medianSecondsToReady: Int
+  started: Int
+}
+
+type DashboardStores {
+  newThisWeek: Int
+  newThisWeekByPartner: [DashboardNewStoresByPartner!]
+  total: Int
 }
 
 type GoLiveChecks {
@@ -120,6 +194,12 @@ type Mutation {
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
   unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
+}
+
+type NavBadges {
+  openSessions: Int
+  partnersAwaitingApproval: Int
+  provisioningAttention: Int
 }
 
 type PageInfo {
@@ -218,6 +298,14 @@ type PartnerManager {
   since: String
 }
 
+type PartnerMatch {
+  host: String
+  id: ID
+  name: String
+  ownerEmail: String
+  state: String
+}
+
 type PartnerMutationOutcome {
   approvals: Int
   code: String
@@ -225,6 +313,11 @@ type PartnerMutationOutcome {
   id: ID
   ok: Boolean
   state: String
+}
+
+type PartnerOption {
+  id: ID
+  name: String
 }
 
 type PartnerOwner {
@@ -299,10 +392,13 @@ type PartnerUser {
 
 type Query {
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
+  dashboard(partnerId: ID): Dashboard
   health: String
   me: Staff
+  navBadges: NavBadges
   partner(id: ID!): Partner
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
+  search(query: String!): SearchResult
   store(id: ID!): Store
   stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
 }
@@ -310,6 +406,11 @@ type Query {
 type Ref {
   id: ID
   name: String
+}
+
+type SearchResult {
+  partners: [PartnerMatch!]
+  stores: [StoreMatch!]
 }
 
 type SetupDoneBy {
@@ -392,6 +493,16 @@ input StoreFilter {
 type StoreJob {
   actions: JobActions
   id: ID
+}
+
+type StoreMatch {
+  code: String
+  host: String
+  id: ID
+  name: String
+  ownerEmail: String
+  partnerName: String
+  status: String
 }
 
 type StoreMutationOutcome {

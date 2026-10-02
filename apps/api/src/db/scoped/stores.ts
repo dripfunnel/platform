@@ -266,6 +266,10 @@ const storeProjection = (tx: ScopedSql) => tx`
 export const selectStoreListRow = async (tx: ScopedSql, id: string): Promise<StoreListRow | null> =>
   (await tx<StoreListRow[]>`${storeProjection(tx)} where s.id = ${id}`)[0] ?? null
 
+/** The latest job `j` is running and its step has outlasted its allowance (SAAS.md §5). */
+export const stuckJobPredicate = (tx: ScopedSql, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date) =>
+  tx`(j.state = 'running' and j.step_started_at < ${now}::timestamptz - ((${JSON.stringify(stuckAfterMinutes)}::text::jsonb ->> j.step) || ' minutes')::interval)`
+
 export const selectStores = async (
   tx: ScopedSql,
   filter: StoreFilter,
@@ -276,7 +280,7 @@ export const selectStores = async (
 ): Promise<StoreListRow[]> => {
   const backwards = page.before !== undefined
   const q = filter.q ? likePattern(filter.q) : null
-  const stuck = tx`(j.state = 'running' and j.step_started_at < ${now}::timestamptz - ((${JSON.stringify(stuckAfterMinutes)}::text::jsonb ->> j.step) || ' minutes')::interval)`
+  const stuck = stuckJobPredicate(tx, stuckAfterMinutes, now)
   const rows = await tx<StoreListRow[]>`
     ${storeProjection(tx)}
     where true

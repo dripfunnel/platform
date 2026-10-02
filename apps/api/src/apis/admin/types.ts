@@ -1,4 +1,5 @@
 import type { PageInfo } from '#saas/activity/index'
+import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
 
 /** The cursor page every console list returns (ui/admin/FIRST-RELEASE.md §12). */
@@ -25,6 +26,12 @@ export const PermissionType = builder.objectRef<Permission>('ActionPermission').
     failingChecks: t.stringList({ nullable: true, resolve: (p) => p.failingChecks }),
   }),
 })
+
+/** The per-request service, or the one refusal every signed-out caller gets (scope.ts). */
+export const signedIn = <T>(service: T | null): T => {
+  if (service === null) throw unauthenticated()
+  return service
+}
 
 export const iso = (d: Date | null): string | null => (d ? d.toISOString() : null)
 

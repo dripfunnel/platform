@@ -22,6 +22,7 @@ import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDoma
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
+import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
@@ -136,7 +137,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -154,6 +155,7 @@ const handleAdmin = async (
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,
       stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
+      dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
 }

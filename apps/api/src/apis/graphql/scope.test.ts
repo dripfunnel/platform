@@ -148,6 +148,7 @@ const contextFor = (staff: StaffMember | null, assigned: readonly string[] = [])
   activity: async () => ({ ok: false, code: 'INVALID_FILTER' }),
   partners: null,
   stores: null,
+  dashboard: null,
 })
 
 const fieldName = (permission: string) => permission.replaceAll('.', '_')
