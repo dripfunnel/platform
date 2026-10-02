@@ -200,7 +200,7 @@ const relayWith = async (env: Env, work: (sql: postgres.Sql) => Promise<void>): 
 }
 
 // An error nobody caught is a logged 500, never Cloudflare's own error page (LOGGING.md §9).
-const guarded = async (request: Request, work: () => Promise<{ response: Response; area: Area | null }>): Promise<{ response: Response; area: Area | null }> => {
+export const guarded = async (request: Request, work: () => Promise<{ response: Response; area: Area | null }>): Promise<{ response: Response; area: Area | null }> => {
   try {
     return await work()
   } catch (error) {

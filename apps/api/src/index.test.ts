@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import worker from './index'
+import worker, { guarded } from './index'
 
 const env = {
   ADMIN_HOST: 'admin.dripfunnel.com',
@@ -139,5 +139,32 @@ describe('worker', () => {
     expect((await call('https://platform.dripfunnel.com/shop-api')).status).toBe(404)
     expect((await call('https://store.partner.com/')).status).toBe(404)
     expect((await call('https://hooks.dripfunnel.com/stripe')).status).toBe(404)
+  })
+})
+
+describe('guarded', () => {
+  it('turns an error nothing caught into a bodyless 500 and one log line by code, never the message', async () => {
+    const lines: string[] = []
+    const log = console.log
+    console.log = (line: string) => void lines.push(line)
+    let result: Awaited<ReturnType<typeof guarded>>
+    try {
+      result = await guarded(new Request('https://admin.dripfunnel.com/api/', { headers: { 'cf-ray': 'ray-500' } }), () =>
+        Promise.reject(Object.assign(new Error('permission denied to set role "app_system" for user app_login'), { name: 'PostgresError', code: '42501' })),
+      )
+    } finally {
+      console.log = log
+    }
+    expect(result.response.status).toBe(500)
+    expect(await result.response.text()).toBe('')
+    expect(result.area).toBeNull()
+    expect(lines.map((l) => JSON.parse(l) as Record<string, unknown>)).toEqual([{ event: 'request_failed', requestId: 'ray-500', host: 'admin.dripfunnel.com', status: 500, code: 'PostgresError:42501' }])
+    expect(lines.join('\n')).not.toContain('app_login')
+  })
+
+  it('passes a response through untouched', async () => {
+    const result = await guarded(new Request('https://admin.dripfunnel.com/api/'), async () => ({ response: new Response('ok', { status: 200 }), area: 'admin' as const }))
+    expect(result.response.status).toBe(200)
+    expect(result.area).toBe('admin')
   })
 })

@@ -153,7 +153,8 @@ export const handleAuth = async (request: Request, deps: AuthDeps): Promise<Resp
     } catch (error) {
       if (error instanceof SignInFailed) return refuse(error.refusal)
       // An outage mid-sign-in, not a refusal: no `sign_in_refused` for a staff member who was
-      // not refused, a technical line by code (LOGGING.md §9), and the screen's own state.
+      // not refused, a technical line by code (LOGGING.md §9), and the screen's own state. On
+      // re-authentication the session cookie is left as it is, so the person stays signed in.
       logEvent({ event: 'sign_in_unavailable', api: 'admin', requestId: facts.requestId, code: failureCode(error) })
       return new Response(null, { status: 302, headers: [['location', `${signInPath}?outcome=unavailable`], ['set-cookie', clearHandshake()]] })
     }
