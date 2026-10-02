@@ -16,7 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
-import type { ScopedSql } from './index'
+import { pageLimit, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -261,7 +261,7 @@ export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page:
       ${page.after !== undefined ? (sort === 'newest' ? tx`and (${key}, p.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx`and (${key}, p.id) > (${page.after.occurredAt}, ${page.after.id}::uuid)`) : tx``}
       ${page.before !== undefined ? (sort === 'newest' ? tx`and (${key}, p.id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx`and (${key}, p.id) < (${page.before.occurredAt}, ${page.before.id}::uuid)`) : tx``}
     ${forward ? tx`order by ${key} desc, p.id desc` : tx`order by ${key} asc, p.id asc`}
-    limit ${limit + 1}
+    limit ${pageLimit(limit) + 1}
   `
   return backwards ? rows.reverse() : rows
 }

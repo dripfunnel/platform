@@ -17,7 +17,6 @@ export const storeTransitions: Readonly<Record<StoreStatus, readonly StoreStatus
 export const canTransitionStore = (from: StoreStatus, to: StoreStatus): boolean => storeTransitions[from].includes(to)
 
 export type StoreTransition =
-  | { to: 'trial'; trialEndsAt: Date }
   | { to: 'active' }
   | { to: 'past_due' }
   | { to: 'suspended'; reason: string; by: string }
@@ -39,9 +38,6 @@ export const transitionStore = async (tx: ScopedSql, store: StoreRow, change: St
   }
   if (!canTransitionStore(store.status, change.to)) return { ok: false, code: 'INVALID_TRANSITION' }
   switch (change.to) {
-    case 'trial':
-      await updateStoreStatus(tx, store.id, { status: 'trial', trialEndsAt: change.trialEndsAt })
-      break
     case 'active':
       await updateStoreStatus(tx, store.id, { status: 'active', pastDueSince: null })
       break

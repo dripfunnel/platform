@@ -129,8 +129,11 @@ describe('the fields the admin console shows', () => {
   })
 
   it('Stores list (§5.1): partner, owner, plan, status facts, storefront, domain and status, signup state, created', async () => {
+    // Asking for 200 gets the maximum, 100, and one more as the "is there another page" row.
     const rows = await as(staff, (tx) => selectStores(tx, {}, {}, 200, stuckAfterMinutes, now))
-    const byName = new Map(rows.map((r) => [r.name, r]))
+    expect(rows).toHaveLength(101)
+    const all = [...rows, ...(await as(staff, (tx) => selectStores(tx, {}, { after: { occurredAt: rows[99]?.created_at ?? now, id: rows[99]?.id ?? '' } }, 100, stuckAfterMinutes, now)))]
+    const byName = new Map(all.map((r) => [r.name, r]))
     expect(byName.get('Kiko Kids')).toMatchObject({ partner_name: 'Bazaar Cloud', owner_name: 'Fatima Al Nuaimi', plan_name: 'Growth UAE', status: 'past_due', domain_host: 'kikokids.example', domain_status: 'live', build_state: 'live' })
     expect(byName.get('Kiko Kids')?.past_due_since).not.toBeNull()
     expect(byName.get('Redline Moto Parts')).toMatchObject({ status: 'suspended', suspended_reason: 'Chargeback', suspended_by_label: 'Arjun Menon', suspended_previous_status: 'active' })
@@ -328,7 +331,7 @@ describe('isolation (ACCESS.md §11.1)', () => {
   it('a partner may not write a plan or a user under another partner, nor list another store', async () => {
     await expect(as(partner(a), (tx) => insertPlan(tx, { partnerId: b, name: 'Forged' }))).rejects.toThrow(/row-level security/i)
     await expect(as(partner(a), (tx) => insertPartnerUser(tx, { partnerId: b, email: 'x@b', name: 'X', role: 'partner-admin', status: 'invited' }))).rejects.toThrow(/row-level security/i)
-    expect((await as(partner(a), (tx) => selectStores(tx, {}, {}, 500, stuckAfterMinutes, now))).every((s) => s.partner_id === a)).toBe(true)
+    expect((await as(partner(a), (tx) => selectStores(tx, {}, {}, 100, stuckAfterMinutes, now))).every((s) => s.partner_id === a)).toBe(true)
     expect((await as(partner(a), (tx) => selectPartners(tx, {}, {}, 25))).map((p) => p.id)).toEqual([a])
   })
 

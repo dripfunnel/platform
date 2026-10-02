@@ -14,7 +14,7 @@ import type {
   StoreStatus,
   UserRow,
 } from '../schema/saas'
-import type { ScopedSql } from './index'
+import { pageLimit, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
   const row = rows[0]
@@ -275,7 +275,7 @@ export const selectStores = async (
       ${page.after !== undefined ? tx`and s.created_at <= ${page.after.occurredAt} and (s.created_at, s.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}
       ${page.before !== undefined ? tx`and s.created_at >= ${page.before.occurredAt} and (s.created_at, s.id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx``}
     ${backwards ? tx`order by s.created_at asc, s.id asc` : tx`order by s.created_at desc, s.id desc`}
-    limit ${limit + 1}
+    limit ${pageLimit(limit) + 1}
   `
   return backwards ? rows.reverse() : rows
 }
