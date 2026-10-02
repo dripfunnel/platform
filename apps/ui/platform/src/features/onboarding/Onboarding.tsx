@@ -6,7 +6,7 @@ import '@dripfunnel/shared/ui/states.css'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { Me } from '../../api/me'
-import { failingCheck, itemsLeft, partnerOnlyItems, runTestSignup, submitForApproval, type Onboarding as OnboardingData, type OnboardingRefusal } from '../../api/onboarding'
+import { checksLeft, failingCheck, partnerOnlyItems, runTestSignup, submitForApproval, type Onboarding as OnboardingData, type OnboardingRefusal } from '../../api/onboarding'
 import { fill, formatDate, formatWait, messages } from '../../messages'
 import { Checklist } from './Checklist'
 import './onboarding.css'
@@ -37,7 +37,7 @@ export const Onboarding = ({ me, onboarding: initial, staffSetup, welcome }: Onb
   const [welcomeShown, setWelcomeShown] = useState(welcome)
   const state = onboarding.state
   const canSubmit = me.role === 'partner-owner' || me.role === 'partner-admin'
-  const left = itemsLeft(onboarding)
+  const left = checksLeft(onboarding)
   // Submit is the eleventh step and counts once the partner has submitted.
   const done = onboarding.items.filter((x) => x.status === 'done').length + (state === 'awaiting' || state === 'live' ? 1 : 0)
   const total = onboarding.items.length + 1
