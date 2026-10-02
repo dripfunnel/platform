@@ -10,7 +10,7 @@ import { isFiltered } from './isFiltered'
 import { PartnerFilters } from './PartnerFilters'
 import { CreatePartner, PartnersHeader } from './PartnersHeader'
 import { PartnersTable } from './PartnersTable'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './partners.css'
 
 const words = messages.partners

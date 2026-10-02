@@ -6,7 +6,7 @@ import type { ImpersonationTarget, TargetStatus } from '../../api/impersonation'
 import { fill, formatCount, formatDate, messages } from '../../messages'
 import { ActionControl } from '../common/ActionControl'
 import { membershipLine, refusalText } from './sessionText'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './impersonate.css'
 
 const words = messages.impersonate

@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { fill, formatCount, messages } from '../../messages'
 import { DetailTabs } from '../common/DetailTabs'
-import { ListHeader } from '../common/ListHeader'
+import { ListHeader } from '@dripfunnel/shared/ui'
 
 const words = messages.impersonate
 const tabs = ['users', 'sessions'] as const

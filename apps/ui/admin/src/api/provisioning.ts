@@ -4,7 +4,7 @@
 // the API's answer; the screens only render it.
 import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
-import type { PageInfo, PageRequest } from './pageInfo'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission } from './permissions'
 import { provisioningServer, type Pace } from './provisioningSample'
 import type { ProvisioningStep } from './provisioningSteps'

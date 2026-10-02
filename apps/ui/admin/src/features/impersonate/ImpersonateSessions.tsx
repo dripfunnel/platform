@@ -1,18 +1,17 @@
 // States (?state=): see impersonateHarness.ts. Without one: the open sessions of both kinds, then
 // the history, newest first (FIRST-RELEASE.md §8). A Partner manager is sent to setup pages only.
-import { SessionNotice, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
+import { SessionNotice, ErrorState, LoadingState, FilterSelect } from '@dripfunnel/shared/ui'
+import { Pager, type PagerProps } from '../common/Pager'
 import type { ReactNode } from 'react'
 import { sessionDates, sessionKinds, type SessionAction, type SessionFilter, type SessionPage, type StaffSession } from '../../api/impersonation'
 import { fill, formatTime, messages } from '../../messages'
-import { FilterSelect } from '../common/FilterSelect'
-import { Pager, type PagerProps } from '../common/Pager'
 import type { StaffRole } from '../shell/staffRoles'
 import type { SessionsState } from './impersonateHarness'
 import { ImpersonateHeader } from './ImpersonateHeader'
 import { ImpersonateDenied } from './ImpersonateUsers'
 import { SessionRow } from './SessionRow'
 import { firstOf, timeLeftText } from './sessionText'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './impersonate.css'
 
 const words = messages.impersonate

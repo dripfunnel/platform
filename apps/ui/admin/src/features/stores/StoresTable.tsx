@@ -2,9 +2,9 @@ import { formatMoney } from '@dripfunnel/shared/format'
 import { Link } from '@tanstack/react-router'
 import type { StoreRow } from '../../api/stores'
 import { fill, formatDate, locale, messages } from '../../messages'
-import { ClickableRow } from '../common/ClickableRow'
+import { ClickableRow } from '@dripfunnel/shared/ui'
 import { DomainNote, LiveLink, StatusSub, StorefrontPill, StoreStatusPill } from './storeLook'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './stores.css'
 
 const words = messages.stores

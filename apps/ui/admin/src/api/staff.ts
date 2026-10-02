@@ -2,7 +2,7 @@
 // talks to the API about staff. Whether an action is allowed, and why not, is the API's answer.
 import { harnessEnabled } from '../harness'
 import type { StaffRole } from '../features/shell/staffRoles'
-import type { PageInfo, PageRequest } from './pageInfo'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import type { ActionPermission } from './permissions'
 import { staffServer } from './staffSample'
 

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { messages } from '../../messages'
-import './list.css'
+import './detail.css'
 
 export interface MoreActionsProps {
   // Each item closes the panel as it runs, through this callback.

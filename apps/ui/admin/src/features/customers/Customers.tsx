@@ -3,10 +3,9 @@
 // sees contacts masked, is the view to check. Without a state the screen shows the API's
 // customers, newest first.
 import { messages } from '../../messages'
-import { ListHeader } from '../common/ListHeader'
-import { ReadOnlyNotice } from '@dripfunnel/shared/ui'
+import { ReadOnlyNotice, ListHeader } from '@dripfunnel/shared/ui'
 import { CustomersList, type CustomersListProps } from './CustomersList'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.customers
 

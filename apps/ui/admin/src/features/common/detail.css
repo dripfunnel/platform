@@ -1,272 +1,6 @@
-/* Lists and detail pages across the console: the pattern the Partners screens set (#19)
-   and the Stores screens reuse (#20). Scoped under .df-list, so names shared with the
-   Dashboard sheet never collide. */
-
-.df-page.df-list {
-  gap: var(--df-space-4);
-}
-
-.df-list :is(p, h2, h3) {
-  margin: 0;
-}
-
-.df-list .df-eyebrow {
-  color: var(--df-color-muted);
-  font-family: var(--df-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.df-list .df-muted {
-  color: var(--df-color-muted);
-  font-size: 13px;
-}
-
-.df-list a:not(.df-button) {
-  color: var(--df-color-link);
-  text-decoration: none;
-}
-
-.df-list a:not(.df-button):hover {
-  color: var(--df-color-link-hover);
-  text-decoration: underline;
-}
-
-.df-list :is(a, button, input, select, [tabindex]):focus-visible {
-  outline: 2px solid var(--df-color-focus);
-  outline-offset: 2px;
-}
-
-.df-list a.df-row-title,
-.df-list .df-row-title {
-  color: var(--df-color-heading);
-  font-weight: 700;
-}
-
-.df-list a.df-row-title:hover {
-  color: var(--df-color-link-hover);
-}
-
-.df-list .df-row-link {
-  font-weight: 700;
-}
-
-.df-stack {
-  display: grid;
-  justify-items: start;
-  gap: 2px;
-}
-
-.df-host {
-  font-family: var(--df-font-mono);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.df-table .df-host,
-.df-nowrap {
-  white-space: nowrap;
-}
-
-/* Header */
-
-.df-list-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--df-space-3) var(--df-space-6);
-}
-
-.df-list-heading {
-  display: grid;
-  gap: var(--df-space-2);
-  max-width: 44rem;
-}
-
-/* Filters */
-
-.df-list-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--df-space-2) var(--df-space-4);
-}
-
-.df-list-filters {
-  display: flex;
-  flex: 1 1 36rem;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--df-space-2);
-}
-
-.df-list-search {
-  flex: 0 1 20rem;
-}
-
-.df-list-search input {
-  width: 100%;
-  min-height: var(--df-control-height);
-  padding: 0 var(--df-space-3);
-  border: 1px solid var(--df-color-field-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-surface);
-  color: var(--df-color-text);
-  font: inherit;
-}
-
-/* The label sits inside the control, as the prototype draws its filters. */
-.df-list-select {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--df-space-2);
-  min-height: var(--df-control-height);
-  padding: 0 var(--df-space-1) 0 var(--df-space-3);
-  border: 1px solid var(--df-color-field-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-surface);
-  color: var(--df-color-muted);
-  font-size: 14px;
-}
-
-.df-list-select:has(select:focus-visible) {
-  outline: 2px solid var(--df-color-focus);
-  outline-offset: 2px;
-}
-
-.df-list-select--active {
-  border-color: var(--df-color-info-border);
-  background: var(--df-color-info-surface);
-}
-
-.df-list-select select {
-  min-height: 34px;
-  border: 0;
-  background: transparent;
-  color: var(--df-color-text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.df-list .df-list-select select:focus-visible {
-  outline: none;
-}
-
-.df-link-button {
-  min-height: var(--df-control-height);
-  padding: 0 var(--df-space-2);
-  border: 0;
-  background: none;
-  color: var(--df-color-link);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* Table */
-
-.df-table-scroll {
-  overflow-x: auto;
-  border: 1px solid var(--df-color-border);
-  border-radius: var(--df-radius-card);
-  background: var(--df-color-surface);
-}
-
-.df-table {
-  width: 100%;
-  min-width: 960px;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.df-table :is(th, td) {
-  padding: var(--df-space-3) var(--df-space-4);
-  border-bottom: 1px solid var(--df-color-border);
-  text-align: left;
-  vertical-align: top;
-}
-
-.df-table thead th {
-  color: var(--df-color-muted);
-  font-family: var(--df-font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.df-table tbody tr:last-child :is(th, td) {
-  border-bottom: 0;
-}
-
-.df-table tbody tr:hover {
-  background: var(--df-color-hover);
-}
-
-.df-table tbody tr.df-row-clickable {
-  cursor: pointer;
-}
-
-.df-table tbody th {
-  font-weight: 400;
-}
-
-.df-table .df-number {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.df-name-cell {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--df-space-3);
-  min-width: 13rem;
-}
-
-.df-name-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--df-space-2);
-}
-
-.df-initials {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--df-radius);
-  background: var(--df-color-side);
-  color: var(--df-color-side-strong);
-  font-family: var(--df-font-heading);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.df-initials--neutral {
-  background: var(--df-color-neutral-surface);
-  color: var(--df-color-neutral);
-}
-
-.df-initials--large {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--df-radius-card);
-  font-size: 18px;
-}
-
-.df-pager {
-  display: flex;
-  gap: var(--df-space-2);
-  justify-content: flex-end;
-}
+/* Detail pages across this console (#19, #20): header, tabs, panels, menus and toasts, beside
+   the lists' @dripfunnel/shared/ui/list.css. Link rules outrank its `.df-list a` on specificity,
+   so the two sheets may load in any order. */
 
 /* Detail header */
 
@@ -352,7 +86,7 @@
   color: var(--df-color-muted);
 }
 
-.df-list a.df-meta-link {
+.df-list .df-detail-meta a.df-meta-link {
   font-weight: 600;
   text-decoration: none;
 }
@@ -456,7 +190,7 @@
   list-style: none;
 }
 
-.df-list a.df-tab {
+.df-list .df-tabs a.df-tab {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -468,12 +202,12 @@
   white-space: nowrap;
 }
 
-.df-list a.df-tab:hover {
+.df-list .df-tabs a.df-tab:hover {
   color: var(--df-color-heading);
   text-decoration: none;
 }
 
-.df-list a.df-tab[aria-current='page'] {
+.df-list .df-tabs a.df-tab[aria-current='page'] {
   border-bottom-color: var(--df-color-brand);
   color: var(--df-color-heading);
   font-weight: 700;
@@ -656,36 +390,4 @@
   font-family: var(--df-font);
   font-size: 14px;
   font-weight: 600;
-}
-
-.df-list-search-label {
-  color: var(--df-color-muted);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.df-list-search--labelled {
-  display: inline-flex;
-  flex: 0 1 12rem;
-  gap: var(--df-space-2);
-  align-items: center;
-  padding-left: var(--df-space-3);
-  border: 1px solid var(--df-color-field-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-surface);
-}
-
-.df-list-search--labelled input {
-  border: 0;
-}
-
-/* Keeps the field a direct item of its toolbar, with its error beside it. */
-.df-list-search-field {
-  display: contents;
-}
-
-.df-list-search-error {
-  align-self: center;
-  color: var(--df-color-danger);
-  font-size: 0.8125rem;
 }

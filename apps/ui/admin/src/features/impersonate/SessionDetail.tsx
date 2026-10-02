@@ -11,7 +11,8 @@ import type { StaffRole } from '../shell/staffRoles'
 import type { SessionScreenState } from './impersonateHarness'
 import { outcomeLook, SessionEntriesLink } from './SessionRow'
 import { roleText, refusalText, sessionPlace, sessionTitle, timeLeftText } from './sessionText'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
+import '../common/detail.css'
 import './impersonate.css'
 
 const words = messages.impersonate

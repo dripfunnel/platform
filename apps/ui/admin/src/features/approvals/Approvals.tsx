@@ -3,12 +3,11 @@
 import { Link } from '@tanstack/react-router'
 import type { PartnerPage } from '../../api/partners'
 import { messages } from '../../messages'
-import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { ListHeader } from '../common/ListHeader'
+import { EmptyState, ErrorState, LoadingState, ListHeader } from '@dripfunnel/shared/ui'
 import { Pager } from '../common/Pager'
 import { ApprovalCard } from './ApprovalCard'
 import type { ApprovalsScreenState } from './approvalsHarness'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 import './approvals.css'
 
 const words = messages.approvals

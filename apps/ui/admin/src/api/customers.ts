@@ -3,7 +3,7 @@
 // role that may not see them; the screens display what they are given and never unmask.
 import type { StaffRole } from '../features/shell/staffRoles'
 import { customersServer } from './customersSample'
-import type { PageInfo, PageRequest } from './pageInfo'
+import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
 import { harnessEnabled } from '../harness'
 
 export const customerStatuses = ['active', 'unverified', 'deleted'] as const

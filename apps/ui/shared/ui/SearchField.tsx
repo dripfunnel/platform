@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import { searchMaxLength } from './searchParams'
+import { searchMaxLength } from '../search/searchMaxLength'
 import './list.css'
 
 // Waits for a pause in typing, so each keystroke doesn't become a request.

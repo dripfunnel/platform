@@ -5,15 +5,15 @@ import { useRef, type ReactNode } from 'react'
 import type { ImpersonationTarget, TargetFilter, TargetPage } from '../../api/impersonation'
 import { fill, messages } from '../../messages'
 import { EmptyState, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
-import { InfoNote } from '../common/InfoNote'
 import { Pager, type PagerProps } from '../common/Pager'
+import { InfoNote } from '../common/InfoNote'
 import type { StaffRole } from '../shell/staffRoles'
 import type { UsersState } from './impersonateHarness'
 import { ImpersonateHeader } from './ImpersonateHeader'
 import { TargetFilters } from './TargetFilters'
 import { TargetsTable } from './TargetsTable'
 import type { TargetPageResult } from './useTargetPage'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.impersonate
 

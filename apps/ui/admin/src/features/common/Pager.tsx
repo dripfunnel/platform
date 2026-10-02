@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import type { PageInfo } from '../../api/pageInfo'
+import type { PageInfo } from '@dripfunnel/shared/graphql'
 import { messages } from '../../messages'
-import './list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 const words = messages.common.pager
 

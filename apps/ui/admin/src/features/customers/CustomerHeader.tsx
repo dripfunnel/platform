@@ -3,7 +3,8 @@ import type { Customer } from '../../api/customers'
 import { fill, messages } from '../../messages'
 import { Tile } from '../common/Tile'
 import { CustomerStatusPill } from './customerLook'
-import '../common/list.css'
+import '@dripfunnel/shared/ui/list.css'
+import '../common/detail.css'
 
 const words = messages.customer
 

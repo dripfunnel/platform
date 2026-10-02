@@ -1,8 +1,7 @@
 import { jobStates, type JobFilter } from '../../api/provisioning'
 import { provisioningSteps } from '../../api/provisioningSteps'
 import { messages } from '../../messages'
-import { FilterSelect } from '../common/FilterSelect'
-import { SearchField } from '../common/SearchField'
+import { FilterSelect, SearchField } from '@dripfunnel/shared/ui'
 
 const words = messages.provisioning
 const stateOptions = jobStates.map((state) => ({ value: state, label: words.states[state] }))

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { loadApprovals } from '../../api/approvals'
 import { loadMe } from '../../api/me'
 import { callerFor } from '../../features/common/harnessCaller'
-import { idParam } from '../../features/common/searchParams'
+import { idParam } from '@dripfunnel/shared/search'
 import { ApprovalsLoading } from '../../features/approvals/Approvals'
 import { ApprovalsRouteError, ApprovalsScreen } from '../../features/approvals/ApprovalsScreen'
 

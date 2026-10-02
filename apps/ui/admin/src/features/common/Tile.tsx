@@ -1,4 +1,4 @@
-import './list.css'
+import '@dripfunnel/shared/ui/list.css'
 
 // A record's initials, standing in for its logo until the API serves logo files.
 // `neutral` is for records without a brand colour of their own, such as stores. `initials`

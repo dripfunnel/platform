@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import './list.css'
+import './detail.css'
 
 export interface TabLinkProps {
   className: string

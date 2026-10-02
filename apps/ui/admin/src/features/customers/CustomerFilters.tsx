@@ -1,7 +1,6 @@
 import { customerStatuses, customerWindows, signInMethods, type CustomerFilter, type CustomerPage } from '../../api/customers'
 import { messages } from '../../messages'
-import { FilterSelect } from '../common/FilterSelect'
-import { SearchField } from '../common/SearchField'
+import { FilterSelect, SearchField } from '@dripfunnel/shared/ui'
 import './customers.css'
 
 const words = messages.customers

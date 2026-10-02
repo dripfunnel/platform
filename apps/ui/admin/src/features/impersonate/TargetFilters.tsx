@@ -1,7 +1,6 @@
 import { membershipRoles, targetKinds, targetStatuses, type TargetFilter, type TargetPage } from '../../api/impersonation'
 import { messages } from '../../messages'
-import { FilterSelect } from '../common/FilterSelect'
-import { SearchField } from '../common/SearchField'
+import { FilterSelect, SearchField } from '@dripfunnel/shared/ui'
 
 const words = messages.impersonate
 const typeOptions = targetKinds.map((kind) => ({ value: kind, label: words.kinds[kind] }))
