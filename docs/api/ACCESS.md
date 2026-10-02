@@ -43,10 +43,10 @@ Last updated: 2026-10-02.
 | **Postgres row-level security as the backstop** (decided 2026-09-28; policies in [DATA-MODEL.md](DATA-MODEL.md) §5) | Application filtering only | If the scoped layer is bypassed by a bug, the database still refuses other stores', suppliers' and partners' rows (PLATFORM-PROMPT §5.1). |
 | **Suppliers manage their own team** (decided 2026-09-28): the merchant sets the supplier's access level; Supplier admins manage its users' team roles within it | The merchant manages every supplier user | The merchant decides what a supplier may do, not who works there ([DATA-MODEL.md](DATA-MODEL.md) §4.2). |
 | **How a supplier ships is a per-supplier setting the merchant controls** (decided 2026-10-02 on #182): `seller.shipping_mode` is **to the store's warehouse** (the supplier sees nothing of the shopper) or **to the shopper** (the supplier fulfils its own lines and sees name and delivery address only) (§7.3) | One model for every supplier; a store-wide switch; a store default with per-supplier override | A local maker sends stock to the store while a distant one drop-ships, and both happen in one store. One model loses a real case; a store-wide switch makes such a store pick; a default plus override is a third state for no clear gain. |
-| **Each supplier refunds its own items; the store can override; both go to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
+| **Each supplier refunds its own items; the store can override; the override goes to a ledger settled outside the platform** (decided 2026-10-02) | Payouts inside the platform (Stripe Connect, Razorpay Route); merchant-only refunds | No payout provider is chosen and onboarding one is months of work before the first sale; the ledger is what the override copy and the activity log need anyway. In-platform payouts stay a later card (PLATFORM-PROMPT §5.4 Payments). |
 | **2-factor is required for Owners and optional for everyone else** in the people pool (decided 2026-10-02): authenticator app or SMS, ten single-use backup codes (§2, §4) | Everyone; nobody | The Owner holds billing and the customer list; the prototype's My profile designs the enrolment and backup flows in full. |
 | **An approved supplier product goes back to pending only when its name, a price or its photos change, and is hidden until approved** (decided 2026-10-02) | Re-approve every edit; keep the last approved version live while the edit is pending | Only those three fields change what the shopper is sold. Keeping the old version live needs a pending copy of three fields; Gaurav chose the simpler model knowing a supplier can take its own product off sale by editing it (§7.2). |
-| **A suspended supplier's products are hidden while suspended and restored on resume; a removed supplier's are hidden and kept, still marked as theirs** (decided 2026-10-02) | Products stay on sale while suspended; delete on removal | Nothing is sold that nobody can supply; nothing the merchant may want to keep selling is lost (§7.5). |
+| **On suspending a supplier the Owner chooses whether its products are hidden or keep selling from stock in hand; hidden ones return on resume. A removed supplier's products are hidden and kept, still marked as theirs** (suspend: decided 2026-10-03 with the prototype's modal, replacing "always hidden"; remove: 2026-10-02) | Always hidden on suspend; delete on removal | A suspension is often about the relationship, not the stock: the merchant may hold weeks of the supplier's goods. Nothing the merchant may want to keep selling is lost (§7.5). |
 
 ---
 
@@ -724,9 +724,11 @@ another vendor holds (DESIGN-BRIEF fact 10).
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
   few minutes").
-- **Suspend** (decided 2026-10-02): the vendor's memberships stop resolving and its API keys
-  stop working; its products are **hidden while it is suspended** and return to the status
-  they had when the merchant resumes it. Each product keeps its `seller_id`.
+- **Suspend** (decided 2026-10-03): the vendor's memberships stop resolving and its API keys
+  stop working. The Owner chooses, in the suspend dialog, whether the vendor's products are
+  **hidden while it is suspended** (`seller.hide_products_while_suspended`) or **keep
+  selling** from the stock in hand; hidden products return to the status they had when the
+  merchant resumes it. Each product keeps its `seller_id`.
 - **Remove** (decided 2026-10-02): its users lose access at once; its products are **hidden
   and kept**, still marked as the removed supplier's, for the merchant to publish (they then
   become the merchant's to maintain) or delete. The portal says the count and offers the
@@ -1096,10 +1098,10 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   2026-10-02**: only for name, price or photo changes, hidden until approved (§7.2).
 - ~~**What may a vendor see of a customer?**~~ **Settled 2026-10-02**: by shipping mode;
   nothing, or name and delivery address (§7.3).
-- ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02**:
-  hidden (§7.5).
+- ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02 and
+  2026-10-03**: removed → hidden and kept; suspended → the Owner chooses (§7.5).
 - ~~**Refunds, returns and cancellations across vendors**: first release or later?~~ **Designed
-  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's
+  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's (to be written on #184)
   (#184).
 - ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
   both in the same store (DATA-MODEL §1, §7.5).

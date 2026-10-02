@@ -84,11 +84,15 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   readable by `app_system` (sign-in, acceptance, the second factor) and never by
   `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
   the same way, with one exception decided 2026-10-02: **a person may read and change their
-  own number** (My profile; SMS 2-factor is sent to it). A column grant cannot be limited to
-  one row, so the exception is a pair of `security definer` functions owned by the migration
-  role, `own_phone()` and `set_own_phone(text)`, that act only on the row whose `id` equals
-  the session's `app.user_id` (§5.1), written the way such functions must be: `set
-  search_path = pg_catalog, public` pinned on each, `revoke execute … from public` then
+  own number** (My profile; SMS 2-factor is sent to it). **Not built yet; the design is**: a
+  column grant cannot be limited to one row, so the exception is a pair of `security definer`
+  functions owned by the migration role, `own_phone()` and `set_own_phone(text)`, that act
+  only on the row whose `id` equals the session's `app.user_id` (§5.1, a setting the
+  `RlsSettings` in `db/rls/settings.ts` gains with it). Because `"user"` is `FORCE ROW LEVEL
+  SECURITY` and its update policy admits only the platform and system scopes, the definer
+  needs an own-row policy too: `user_update_own` for store scope on `id = app.user_id`.
+  Written the way such functions must be: a pinned `search_path` (`pg_catalog, public`, as
+  0007's `membership_check_parents()` pins its own), `revoke execute … from public` then
   `grant execute` to `app_request` alone, `set_own_phone` validating E.164 and refusing
   anything else, and an empty `app.user_id` matching no row (no session, no phone).
   `app_request` keeps no `select` or `update` on the column. The isolation matrix has the
@@ -153,20 +157,29 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
 ```
 user        (id, partner_id, email, email_verified_at, password_hash NULL, name, phone NULL,
              two_factor_secret_enc NULL, two_factor_method NULL, two_factor_enrolled_at NULL,
-             theme NULL, status, created_at)
+             theme NULL, locale NULL, time_zone NULL, status, created_at)
             UNIQUE (partner_id, email)
             -- two_factor_method: 'app' | 'sms'; required for an Owner, optional otherwise
-            -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice
+            -- (ACCESS.md §2, decided 2026-10-02); theme: the person's light/dark choice;
+            -- locale and time_zone: the portal UI follows the person (CATALOG fact 40)
 user_backup_code (id, user_id, partner_id, code_hash, used_at NULL)
-            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4);
-            -- partner_id denormalised from user so the §5.2 partner policy applies directly
+            -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4).
+            -- Policy: own rows only, in store scope, on user_id = app.user_id, plus system;
+            -- NO partner branch (a partner user never reads a merchant's 2-factor state);
+            -- code_hash readable by app_system alone (§2.1)
 user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
              absolute_expires_at, remember, device_label, user_agent)
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
             -- extends the absolute bound, never removes it; device_label and user_agent
-            -- are what "Where you're signed in" lists
+            -- are what "Where you're signed in" lists. Policy as user_backup_code: own
+            -- rows on user_id = app.user_id in store scope, plus system; no partner branch
 
-seller      (id, store_id, name, access_level, shipping_mode, status, created_at)
+seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
+             hide_products_while_suspended boolean NULL, removed_at NULL, created_at)
+            -- status: invited | active | suspended | removed (0002 has no check yet; the
+            -- next migration adds it); the row survives removal so products stay marked
+            -- as the removed supplier's (ACCESS.md §7.5); hide_products_while_suspended is
+            -- the Owner's choice at suspension (decided 2026-10-03)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
@@ -182,7 +195,8 @@ membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by
             -- and membership.store.partner_id = user.partner_id (trigger or composite FK)
 
 invitation  (id, store_id, seller_id NULL, email, role_key, token_hash, expires_at,
-             invited_by_user_id, accepted_at NULL, revoked_at NULL)
+             invited_by_user_id, sent_at, accepted_at NULL, revoked_at NULL)
+            -- sent_at moves on resend ("Last sent …", SetTeam), as partner_invitation's does
 ```
 
 - A **merchant-side** membership (`seller_id` null) holds Owner, Manager or Staff.

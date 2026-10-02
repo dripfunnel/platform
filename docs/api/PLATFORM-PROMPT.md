@@ -406,9 +406,8 @@ Design each module's responsibilities, tables, public API, events and invariants
   order part. ACCESS.md §7.3 owns the rules; DATA-MODEL.md owns the tables.
 - **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
   credentials, encrypted at rest; webhooks idempotent; refunds. **Vendor payouts, decided
-  2026-10-02**: not in the platform for now. A per-store **supplier ledger** records what each
-  supplier owes or is owed (refund overrides first), and the merchant settles it outside. A
-  marketplace model (Stripe Connect, Razorpay Route) is a later card, if ever.
+  2026-10-02**: not in the platform for now; a per-store supplier ledger, settled outside
+  (ACCESS.md §7.3 owns the rule, DATA-MODEL.md §7.6 the table); a marketplace model is later.
 - **Shipping**: methods, zones, the charge strategies (free, fixed, the courier's rate passed
   through, free over a threshold), courier adapters (Shiprocket first, the archived
   `courier_partner` model), tracking status sync. **Designed 2026-10-02** (`SetOps`,
@@ -418,7 +417,8 @@ Design each module's responsibilities, tables, public API, events and invariants
   per-supplier shipping mode (ACCESS.md §5.2).
 - **Customers**: accounts, addresses, **groups** (named, with members; used by offers),
   **tags**, a **note** only the team sees, **marketing consent** (opted in at checkout or by
-  email, asked to stop, never asked; recorded with when and where; only the shopper opts in,
+  email, asked to stop, declined by not ticking the box, never asked; recorded with when and
+  where; only the shopper opts in,
   the store may record a stop), customers added by hand (order emails only), export. What a
   vendor sees of a customer is decided by the supplier's shipping mode and applied in the
   serializer (ACCESS.md §7.3): nothing, or name and delivery address.
@@ -719,7 +719,7 @@ State what the smallest sellable first release is, and what is explicitly deferr
   Route), or is it outside the platform?~~ **Settled 2026-10-02**: outside, from a per-store
   supplier ledger (§5.4 Payments); in-platform payouts later.
 - ~~Refunds, returns and cancellations across vendors: first release or later?~~ **Designed
-  2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's.
+  2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's (to be written on #184).
 - Digital products, services, gift cards: first release or later?
 - Which "needs backend" items from the catalogue and offers prompts are first release?
 - When is stock reserved: added to cart, checkout started, or payment?

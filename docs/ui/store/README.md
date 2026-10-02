@@ -240,10 +240,10 @@ they change this portal:
   mode (ACCESS.md §7.3).
 - ~~Whether editing an approved product sends it back for approval.~~ **Settled 2026-10-02**:
   only name, price or photo changes, hidden until approved (ACCESS.md §7.2).
-- ~~What happens to a removed or suspended vendor's products.~~ **Settled 2026-10-02**: hidden
-  (ACCESS.md §7.5).
+- ~~What happens to a removed or suspended vendor's products.~~ **Settled 2026-10-02 and
+  2026-10-03**: removed → hidden and kept; suspended → the Owner chooses (ACCESS.md §7.5).
 - ~~Refunds and returns across vendors.~~ **Designed 2026-10-02** (ACCESS.md §7.3); the release
-  is FIRST-RELEASE.md's (#184).
+  is FIRST-RELEASE.md's (to be written on #184).
 - Staff: export, and a read-only offers list?
 - Vendors: import/export, translations, other-currency prices, collections?
 - ~~2-factor for Owners only, or everyone.~~ **Settled 2026-10-02**: Owners required, others

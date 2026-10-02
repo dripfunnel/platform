@@ -106,12 +106,13 @@ apps/ui/<app>/
   - Each `index.html` carries a **small inline script** that sets the attribute before the
     first paint. It is deliberately duplicated rather than imported, because a module runs
     after the first paint and the page would flash the wrong theme.
-  - **Each app stores its own choice** under the key its prototype uses: `df-admin-theme`,
-    `df-platform-theme` and, since the Store prototype's dark mode of 2026-10-02,
-    `df-store-theme` (My profile › Appearance, `PortalProfile`). `shared/ui/theme.ts` holds
-    the resolution the app uses after load. In the merchant portal the choice is the
-    person's, saved on their account too (DATA-MODEL.md §3.3 `user.theme`), and never
-    changes the shop.
+  - **Each app stores its own choice**: `df-admin-theme` and `df-store-theme` are the keys
+    the Admin and Store prototypes use (the Store's since its dark mode of 2026-10-02; the
+    merchant portal will store it once My profile › Appearance is built, and until then its
+    script follows the OS); the Platform prototype has no key, and the console uses
+    `df-platform-theme`. `shared/ui/theme.ts` holds the resolution the app uses after load. In
+    the merchant portal the choice is the person's, saved on their account too (DATA-MODEL.md
+    §3.3 `user.theme`), and never changes the shop.
 - **Fonts**: Inter for text, Manrope for headings, IBM Plex Mono for the side bar's group
   headings. **Self-hosted**, through `@fontsource` packages imported once by
   `@dripfunnel/shared/ui/fonts.css` (revised 2026-09-29; they were loaded from Google Fonts

@@ -211,10 +211,11 @@ line says who it is for and the thing most likely to be missed.
     as well as their first user.
 16. **Change a vendor's access level**: Owner. Takes effect on the vendor's next request
     (PLATFORM-PROMPT §5.2); say so, and say what the vendor loses or gains.
-17. **Suspend or remove a vendor**: Owner. Decided 2026-10-02 (ACCESS.md §7.5): suspending
-    **hides** their products until the vendor is resumed; removing hides them and keeps them,
-    still marked as theirs, for the merchant to publish or delete. The screen states the
-    count and offers the hidden list.
+17. **Suspend or remove a vendor**: Owner. Decided 2026-10-02 and 2026-10-03 (ACCESS.md
+    §7.5): suspending asks whether to **hide** their products or keep selling them from stock
+    in hand, and hidden ones return on resume; removing hides them and keeps them, still
+    marked as theirs, for the merchant to publish or delete. The screen states the count and
+    offers the hidden list.
 18. **Approval setting**: Owner. The per-store switch that decides whether
     vendor products go live immediately.
 19. **Approval queue**: Owner, only when that setting is on. Review, approve,
@@ -447,11 +448,12 @@ will probably settle them; flag them when you hit one rather than assuming:
   2026-10-02:** only for name, price or photo changes, and the product is hidden until
   approved; a vendor can take its own product off sale that way, accepted (ACCESS.md §7.2).
 - ~~What happens to a removed or suspended vendor's products (flow 17).~~ **Settled
-  2026-10-02:** hidden; restored on resume, kept after removal (ACCESS.md §7.5).
+  2026-10-02 and 2026-10-03:** removed → hidden and kept; suspended → the Owner chooses hide
+  or keep selling, hidden ones restored on resume (ACCESS.md §7.5).
 - ~~Whether refunds spanning vendors are the merchant's problem alone (flows 41, 71).~~
   **Settled 2026-10-02:** each supplier refunds its own lines, the store can override into a
   supplier ledger settled outside the platform (ACCESS.md §7.3). Whether returns are in the
-  first release is FIRST-RELEASE.md's (#184).
+  first release is FIRST-RELEASE.md's (to be written on #184).
 - ~~Whether the portal remembers the last store or asks every time (flow 3).~~ **Settled by
   the first platform's build:** the portal remembers the last store and offers it as one button with
   the full list underneath, an offer rather than a choice made for the person; one membership

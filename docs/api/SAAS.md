@@ -62,7 +62,7 @@ layer's tables, by scope:
 |---|---|---|
 | **Platform** | `staff_user`, platform settings (automatic publish interval, entitlement ceilings, feature flags), `core_release`, storefront templates, integration credentials (references only) | Admin API only |
 | **Partner** (`partner_id`) | `partner`, `partner_user`, `partner_look` (versioned), `partner_words`, `partner_domain`, `partner_email_sender`, `email_template`, `plan`, `plan_entitlement`, `plan_price`, partner billing account and invoices | Platform API for that partner; Admin API for staff |
-| **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_entitlement_override`, `store_usage` (meters per period), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_access_setting`, `support_session`, `job` rows for the store | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
+| **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_entitlement_override`, `store_usage` (meters per period), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_session`, `job` rows for the store (the merchant's support-access consent is the `store.support_access_allowed` column, DATA-MODEL §2.1, not a table) | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
 | **Store and seller** | None of its own. Audit entries and usage attributed to a vendor carry `seller_id` for filtering | n/a |
 | **Cross-scope, append-only** | `activity_log` (actor, partner, store, seller, customer where relevant; [LOGGING.md](LOGGING.md)), `billing_event` (Stripe event ids), `job` (platform-wide rows such as fleet rollouts carry no `store_id`) | Written by the SaaS layer only; read per scope |
 
@@ -290,8 +290,13 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 - **Meters count atomically** and reset per the store's billing period. A **failed build never
   counts** against the "Publish now" allowance (decided).
 - A limit reached explains itself and points to the upgrade, shown to the Owner only.
-- Lowering a limit below current usage never deletes data: existing items stay, new ones are
-  blocked.
+- **Lowering a limit below current usage pauses what is over it, never deletes it, and the
+  Owner chooses what stays** (decided 2026-10-03 with the prototype's *Choose what to keep*;
+  this reverses "existing items keep working"): before the smaller plan takes effect, the
+  Owner picks which products, staff, payment gateways, couriers and markets remain within
+  the new limits; the rest is paused, invisible to shoppers and kept intact, and comes back
+  on an upgrade. Adding more is blocked with a clear explanation. Rejected: everything
+  existing keeps selling (over-limit catalogues would make the limit meaningless).
 
 ### 6.3 Changing and retiring plans
 
@@ -344,7 +349,9 @@ partner's billing, or both) is open (§14).
 - **A paid-to-paid plan change is prorated** (decided 2026-10-02, `PortalBilling`): the
   merchant is charged today for the days left in the period on the new plan minus the unused
   part of the old one, then the new price from the next period; the screen states both amounts
-  and the date before confirming.
+  and the date before confirming. The change is one invoice with a charge line and a credit
+  line (DATA-MODEL §7.9). A downgrade is scheduled for the period end and the chosen plan is
+  recorded on the subscription until then (§6.3).
 - **The merchant's billing details** on DripFunnel's invoices (decided 2026-10-02): legal name,
   address, email and an optional tax number (GSTIN for India, VAT number for the EU), editable
   by the Owner. Where the number is valid, the invoice applies the local rule (reverse charge
@@ -525,7 +532,7 @@ USERS-AND-DOMAINS §4.1. In short, and not to be restated elsewhere:
   deleted, and its entries appear on the store and partner pages they concern
   (CONSOLE-DESIGN P1–P3).
 
-The SaaS layer owns the `support_access_setting`, `support_session` and `activity_log` tables
+The SaaS layer owns `store.support_access_allowed`, the `support_session` table and the `activity_log`
 and the services that write them; every Platform and Admin API write goes through a resolver
 scope that writes the activity entry structurally, so "did this write log?" is never a review
 question.
