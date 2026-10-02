@@ -1,8 +1,8 @@
+import { StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { partnerStates, type DashboardData, type PartnerState } from '../../api/dashboard'
 import { formatCount, messages } from '../../messages'
-import { StatusPill, type StatusTone } from '../common/StatusPill'
 import { DashboardCard } from './DashboardCard'
 
 const words = messages.dashboard

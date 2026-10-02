@@ -1,8 +1,8 @@
+import { StatusPill } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useId } from 'react'
 import { goLiveChecks, type PartnerApproval, type PartnerRow } from '../../api/partners'
 import { fill, formatCount, formatTime, formatWait, messages } from '../../messages'
-import { StatusPill } from '../common/StatusPill'
 import { Tile } from '../common/Tile'
 import './approvals.css'
 

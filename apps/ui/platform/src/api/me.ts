@@ -36,7 +36,18 @@ export const callerFor = (role: PartnerRole, state: string | undefined): Partner
   return (forced && viewAs[forced]) ?? role
 }
 
-// ?partner=draft|awaiting|sentback shows the shell as a partner in that state sees it (FIRST-RELEASE
-// §2.3, §4), the way the prototype's Partner control does.
-export const partnerStateFor = (state: PartnerState, requested: string | undefined): PartnerState =>
-  (harnessEnabled && parseScreenState(requested, partnerStates)) || state
+// ?partner=draft|awaiting|sentback shows the console as a partner in that state sees it (FIRST-RELEASE
+// §2.3, §4), the way the prototype's Partner control does: its pre-Live partner is Kaufladen Digital.
+const kaufladen: Me = {
+  id: 'pu-jonas',
+  name: 'Jonas Weber',
+  email: 'jonas@kaufladen.de',
+  role: 'partner-owner',
+  partner: { id: 'p-kaufladen', name: 'Kaufladen Digital', product: 'Kaufladen Shops', state: 'draft' },
+}
+
+export const meForPartnerState = (me: Me, requested: string | undefined): Me => {
+  const state = harnessEnabled ? parseScreenState(requested, partnerStates) : null
+  if (!state || state === me.partner.state) return me
+  return state === 'live' ? { ...me, partner: { ...me.partner, state } } : { ...kaufladen, role: me.role, partner: { ...kaufladen.partner, state } }
+}

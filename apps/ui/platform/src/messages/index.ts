@@ -14,3 +14,8 @@ export const formatTime = (iso: string): string => formatDateTime(iso, locale, '
 export const formatWait = (seconds: number): string => formatDuration(seconds, locale)
 
 export const formatCount = (count: number): string => formatNumber(count, locale)
+
+const dateFormat = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+
+// A day, not a moment: shown without a time, so it needs no zone name beside it.
+export const formatDate = (iso: string): string => dateFormat.format(new Date(iso))
