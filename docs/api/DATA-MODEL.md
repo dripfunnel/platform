@@ -79,9 +79,10 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   frontend), the current step and when it started, attempts and the error in plain words. The
   raw detail and the compensation log are `job_detail`, a table staff alone read (FIRST-RELEASE
   §7). Stuck is derived from a limit per step (`saas/provisioning/stuck.ts`), never stored.
-- **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc` and
-  the `token_hash` of both invitation tables are readable by `app_system` (sign-in, acceptance)
-  and never by `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
+- **Credentials are granted column by column**: `password_hash`, `two_factor_secret_enc`,
+  `user_backup_code.code_hash` (§3.3) and the `token_hash` of both invitation tables are
+  readable by `app_system` (sign-in, acceptance, the second factor) and never by
+  `app_request`, whatever the row policy admits (§5.3). `user.phone` is granted
   the same way, with one exception decided 2026-10-02: **a person may read and change their
   own number** (My profile; SMS 2-factor is sent to it), through a request scope limited to
   the session's own `user` row. No other screen shows a merchant user's phone.
@@ -96,7 +97,7 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
 
 ### 2.2 Entities named by the 2026-10-02 design decisions (#182)
 
-Folded into §7 on #187, so each table has one home: the supplier shipping mode and the
+Folded into §7 on #187, so each table has one home: the supplier shipping mode (§3.3) and the
 custom-domain states (§7.2), badges, per-market prices and the approval snapshot (§7.3),
 stock movements (§7.4), customer groups, tags, notes and consent (§7.5), returns, refunds
 and the supplier ledger (§7.6), access requests (§7.10); the 2-factor, backup-code and
@@ -155,9 +156,11 @@ user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
             -- extends the absolute bound, never removes it; device_label and user_agent
             -- are what "Where you're signed in" lists
 
-seller      (id, store_id, name, access_level, status, created_at)
+seller      (id, store_id, name, access_level, shipping_mode, status, created_at)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
+            -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
+            -- decided 2026-10-02); copied onto the order's part at placement
 
 membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store
@@ -359,7 +362,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 | Role | Used by | Can |
 |---|---|---|
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1) |
+| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes) |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
 
@@ -449,9 +452,7 @@ store (+ columns)   home_country, tax_inclusive boolean, time_zone, unit_system 
 store_language      (store_id, language, status, position)   UNIQUE (store_id, language)
                     -- offered on the storefront; main_language is one of them
 
-seller (+ columns)  shipping_mode ('to-store'|'to-shopper')
-                    -- how the supplier ships, set by the merchant (ACCESS §5.2, §7.3, decided
-                    -- 2026-10-02); copied onto order_part at placement (§7.6)
+seller.shipping_mode   see §3.3 (to-store | to-shopper); copied onto order_part at placement (§7.6)
 custom_domain (+ columns) last_checked_at, checks_until, removed_at
                     -- as built on #34: status ∈ waiting | verifying | issuing | live | failed |
                     -- expiring | broken (migration 0007). The portal's four steps map onto it
@@ -733,7 +734,10 @@ refund              (id, store_id, seller_id NULL, order_id, return_id NULL, amo
                      override_of_seller_id NULL, by_user_id, created_at)
                     -- seller_id = owner of the refunded lines (null = the merchant's own);
                     -- override_of_seller_id set when the store refunded a supplier's lines;
-                    -- a supplier reads its own, overrides included, never another's
+                    -- a supplier reads its own, overrides included, never another's, and
+                    -- its serializer omits by_user_id ("the store") and, on override rows,
+                    -- the free-text reason, which may name the shopper (ACCESS §7.3);
+                    -- the isolation matrix tests both omissions
 refund_line         (refund_id, order_line_id, store_id, seller_id NULL, quantity, amount)
 supplier_ledger_entry (id, store_id, seller_id, amount, currency, kind ('refund_override'
                      |'adjustment'), refund_id NULL, note, created_by, created_at)
