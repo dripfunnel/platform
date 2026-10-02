@@ -161,7 +161,8 @@ seller      (id, store_id, name, access_level, shipping_mode, status, created_at
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
-            -- decided 2026-10-02); copied onto the order's part at placement
+            -- decided 2026-10-02); copied onto order_part.shipping_mode at placement, and
+            -- an order follows the mode it was placed under, never the live seller row
 
 membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store
@@ -363,7 +364,7 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 
 | Role | Used by | Can |
 |---|---|---|
-| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes) |
+| `app_request` | Every API request | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; and §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc` and `token_enc` on courier, payment, webhook and external-connection rows) |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; never used by the Worker at run time |
 
@@ -424,8 +425,10 @@ here. The model's own open points are in §6.
   per language for web addresses, never global.
 - **Money**: every column named `amount` or `*_amount` is `bigint` in minor units with a
   `currency char(3)` on the same row, every time, whatever table it is in, subscriptions,
-  invoices and every line included; the one allowed inheritance is `order_line`, whose
-  amounts are in `"order".currency` (PLATFORM-PROMPT §5.4 Money; AGENTS.md "Data").
+  invoices and every line included; the one allowed inheritance is the order's two children,
+  `order_line` and `order_adjustment`, whose amounts are in `"order".currency`, because an
+  order has exactly one currency and a presentment currency, if one ever exists, is a column
+  on the order, not on its lines (PLATFORM-PROMPT §5.4 Money; AGENTS.md "Data").
   Percentages are basis points (`_bps integer`).
 - **Time**: every `*_at` column is `timestamptz`, stored in UTC; display converts and names
   the zone (api/README.md; the store's `time_zone` is for display and scheduling only).
@@ -684,10 +687,17 @@ customer_data_request (id, store_id, customer_id, kind ('export'|'delete'), requ
                     -- GDPR / DPDP (AGENTS.md "Data"). Export gathers the customer row,
                     -- customer_address, the customer's orders with their email, phone and
                     -- address snapshots, promotion_usage rows and consent history. Deletion
-                    -- keeps orders and usage rows (money history) but anonymises every copy:
-                    -- customer.name/email/phone, customer_address rows, "order".email, phone,
-                    -- shipping_address and billing_address, promotion_usage.customer_email,
-                    -- and the shopper's activity entries' personal fields (LOGGING §8)
+                    -- keeps orders and usage rows (money history) and applies one rule:
+                    -- EVERY column on these tables that can hold personal data is blanked or
+                    -- replaced by a placeholder, and every search tsvector built from one is
+                    -- rebuilt. Named so the migration and its test cover them: customer
+                    -- name/email/phone and search; customer_address rows; "order" email,
+                    -- phone, shipping_address, billing_address, notes and search;
+                    -- promotion_usage.customer_email; refund.reason and return notes;
+                    -- fulfilment.courier_label and tracking_url; label and return-label
+                    -- assets (the address is on them) deleted from R2; the shopper's activity
+                    -- entries' personal fields (LOGGING §8). The request row itself keeps
+                    -- only kind, dates and state. A supplier never saw any of it.
 ```
 
 ### 7.6 Carts, orders, fulfilment, returns, refunds and the supplier ledger
@@ -719,14 +729,16 @@ order_adjustment    (id, order_id, order_line_id NULL, store_id, kind ('discount
                      |'tax'|'duties'|'rounding'), promotion_id NULL, promotion_code_id NULL,
                      label, amount)
                     -- discounts as adjustments carrying the shopper-facing name (OFFERS fact 13);
-                    -- order-level discounts spread across lines by the engine (fact 11)
+                    -- order-level discounts spread across lines by the engine (fact 11);
+                    -- amount in "order".currency (§7.1)
 order_part          (id, order_id, store_id, seller_id NULL, shipping_mode ('store'|'to-store'
                      |'to-shopper'), state ('to_ship'|'sent_to_store'|'partly_shipped'|'shipped'
                      |'delivered'|'cancelled'), warehouse_id NULL)
                     UNIQUE NULLS NOT DISTINCT (order_id, seller_id)
                     -- one part per owner, the merchant's null owner included (DESIGN-BRIEF
-                    -- fact 6, flow 70); shipping_mode is the
-                    -- supplier's seller.shipping_mode at placement; 'store' for the merchant's own
+                    -- fact 6, flow 70); shipping_mode is the supplier's seller.shipping_mode
+                    -- at placement and the order follows it, never the live seller row
+                    -- (ACCESS §7.3); 'store' for the merchant's own
 fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind ('booked'|'manual'
                      |'sent_to_store'|'pickup'), warehouse_id, courier_account_id NULL, courier_label,
                      tracking_number NULL, tracking_url NULL, label_asset_id NULL,
@@ -928,7 +940,8 @@ against this list and nothing else:
   exists for it: `app.seller_id = '' OR EXISTS (SELECT 1 FROM order_part p WHERE p.order_id =
   "order".id AND p.seller_id = app.seller_id)` (and the same over `return_line` for
   `return`), indexed on `(order_id, seller_id)`. The supplier's serializer then applies the
-  shipping-mode rule to the fields it returns (ACCESS §7.3): nothing of the shopper for
+  rule of the mode **stored on the part** (`order_part.shipping_mode`) to the fields it
+  returns (ACCESS §7.3): nothing of the shopper for
   `to-store`, name and delivery address for `to-shopper`, never totals, never
   `order_adjustment`.
 - **Inside the store, no supplier branch at all**: `order_adjustment`, `payment`,
@@ -936,7 +949,7 @@ against this list and nothing else:
   `customer_group_member`, `customer_data_request`, `promotion` and its children,
   `collection` and its children, `menu`, `menu_item`, `badge` (definitions), `story_block`,
   `access_request`, `webhook_endpoint`, `webhook_delivery`, `external_connection`, every
-  settings table in §7.2, `store_billing_details`, `invoice`, `invoice_line`. The
+  settings table in §7.2, `store_billing_details`. The
   credential columns among them (`webhook_endpoint.secret_enc`,
   `external_connection.token_enc`, the `credentials_enc` and `webhook_secret_enc` of
   courier and payment accounts) follow §2.1: readable by `app_system` only. `filter` and `filter_value` are the one exception: a supplier reads them
@@ -945,8 +958,9 @@ against this list and nothing else:
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` (state and
   summary; the prompt is the merchant's), `ai_run` (metering), `store_usage`,
-  `store_entitlement_override`, `store_subscription`, `invoice` (status and amounts for the
-  partner that bills), `custom_domain`, and `billing_event`, which is cross-scope and
+  `store_entitlement_override`, `store_subscription`, `invoice` and `invoice_line` (status
+  and amounts for the partner that bills; `store_billing_details` stays store-only),
+  `custom_domain`, and `billing_event`, which is cross-scope and
   append-only like §2's `activity_log` row (a Stripe event names a store or a partner, and
   only the SaaS layer writes it). Nothing else in §7: a table in none of these classes is a
   gap the structural test (§5.4) reports.
