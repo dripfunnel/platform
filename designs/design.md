@@ -57,6 +57,7 @@ Every child receives a single `app` prop (see §3).
 | Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets` |
 | Billing | `PortalBilling` | Plan, card, invoices, downgrade, cancel |
 | Choose what to keep | `PortalKeep` | Trial-ended downgrade: pick which products stay live |
+| My profile | `PortalProfile` | Name, email, password, two-step sign-in, backup codes, appearance (light/dark) |
 
 Helper: `offers-lib.js` → `window.DFOffers` (offer maths, per-region wording
 such as *coupon* vs *voucher*, *shipping* vs *delivery*). Loaded by `Offers`
