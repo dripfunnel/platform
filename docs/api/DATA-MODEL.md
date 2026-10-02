@@ -426,9 +426,10 @@ here. The model's own open points are in §6.
   `size_chart`, `product_story`, `import_job`) carries the parent's `seller_id` denormalised,
   set by a trigger from the parent and never from input, so the store-and-seller policy
   applies to it directly and never joins. `translation` carries the `seller_id` of the entity
-  it translates (null for a store-owned entity). The isolation matrix (ACCESS §11.1) lists
-  every such child, `translation` included: two suppliers in one store, each reading prices,
-  photos, compliance text, translated names, stock and shipped quantities, seeing only its own.
+  it translates (null for a store-owned entity). ACCESS §11.1's "rows added with §7" list
+  names every such child, `translation` included: two suppliers in one store, each reading
+  prices, photos, compliance text, translated names, stock and shipped quantities, seeing
+  only its own. Every "the matrix has the row" below refers to that list.
 - **Keys**: `id uuid` primary keys; `created_at`; `updated_at` and a `revision integer` on
   anything two people may edit at once, so a save can refuse a stale revision (CATALOG E4,
   OFFERS N6). Unique constraints are per store (SKU, web address, coupon code, group name),
@@ -808,7 +809,11 @@ return_line         (return_id, order_line_id, store_id, seller_id NULL, quantit
 refund              (id, store_id, seller_id NULL, order_id, return_id NULL, amount, currency,
                      reason ('returned'|'goodwill'|'cancelled'|'other'), restock boolean,
                      override_of_seller_id NULL, by_user_id, created_at)
-                    -- seller_id = owner of the refunded lines (null = the merchant's own);
+                    -- one refund per owner: a refund covering several owners' lines is split
+                    -- at creation into one row per owner, so seller_id is never ambiguous;
+                    -- every refund_line.seller_id equals its refund's (check), and
+                    -- refund.amount equals the sum of its lines plus any goodwill amount the
+                    -- store adds to its own row (trigger); seller_id null = the merchant's own;
                     -- override_of_seller_id set when the store refunded a supplier's lines;
                     -- a supplier reads its own, overrides included, never another's, and
                     -- its serializer omits by_user_id ("the store") and, on override rows,

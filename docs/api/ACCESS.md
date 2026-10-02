@@ -997,6 +997,35 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
   session is itself a failure;
 - the Staff-in-A / vendor-in-B person leaks neither way (§9).
 
+**Rows added with DATA-MODEL.md §7 (2026-10-02, #187)**, each a test the engine card that
+builds the table must ship:
+
+- two suppliers in one store, each reading its own products and every child row (options,
+  prices and price history, per-market prices, photos, compliance, specs, FAQs, filter
+  assignments, badges, translations), stock levels and movements, fulfilment lines, return
+  lines, refunds and ledger entries, and seeing nothing of the other's, counts and search
+  included (DATA-MODEL §7.1, §7.11);
+- a supplier's view of orders and returns: a `to-store` supplier's search and count by a
+  shopper's email return nothing; a `to-shopper` supplier sees the name and shipping address
+  of its own parts and no total; a direct query on `"order"` or `"return"` as the supplier
+  role is refused; a supplier switched `to-store → to-shopper` still sees nothing on orders
+  placed before the switch (§7.3; DATA-MODEL §7.11);
+- a supplier reading its own refunds never receives `by_user_id`, an override's `reason`, a
+  return's `note` or a ledger entry's `note` (DATA-MODEL §7.6);
+- a supplier reads only the labels it printed for its own parts, never an invoice or packing
+  slip (`order_document`); a partner or staff query on `import_job` or `export_job` returns
+  nothing (DATA-MODEL §7.10, §7.11);
+- a supplier reads the settings rows §7.11 names (`filter`, `filter_value`, `tax_class`,
+  `store_language`, `store_currency`, `store_feature`, `badge`, `market` without duties and
+  domain) and no other settings table, no `tax_rate`, and no `*_enc` column;
+- two guests in one store, each reading only the cart and order whose token it presents,
+  snapshots included; a Shop API query can never return `product_version.cost_amount`
+  (DATA-MODEL §7.11);
+- a partner-scope query on `design_version` or `ai_run` returns metering columns and never a
+  prompt, summary, preview or gate result (DATA-MODEL §7.11);
+- user A, holding user B's id, can neither read nor write B's phone through the own-row
+  functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1).
+
 ### 11.2 Structural tests
 
 - Every GraphQL field in every schema declares `api`, `scope` and `permission`; every
