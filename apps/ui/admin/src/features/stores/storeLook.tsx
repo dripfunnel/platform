@@ -1,7 +1,7 @@
+import { StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
 import type { SetupState, StoreDomain, StorefrontState, StoreState } from '../../api/stores'
 import { fill, formatCount, formatDate, messages, plural } from '../../messages'
-import { StatusPill, type StatusTone } from '../common/StatusPill'
 
 const words = messages.stores
 

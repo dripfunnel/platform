@@ -53,6 +53,24 @@ place, with this console's words.
 The harness (`?state=`, `?partner=` and `/states`) is on under `vite dev`, and in a build only
 when `VITE_STATE_HARNESS=1` is set at build time. Production never sets it.
 
+## Onboarding
+
+`/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;
+FIRST-RELEASE.md §4): the ten items of SAAS §3.2 with done · in progress · to do, who completed
+each, a link to its screen (Settings and Domains are placeholders until their cards land), the
+test signup button, and Submit for approval as the eleventh step, disabled with the reason until
+the required items are done. Payment method and payout details are the partner's own: locked
+with "{partner} enters this itself" in a staff setup session, "Your turn" to the Owner. Awaiting
+approval shows what happens next; Sent back shows DripFunnel's reason with the fix linked and
+Submit again; Live shows a one-time card, then the Dashboard (#114).
+
+The fixture in `src/api/onboarding.ts` refuses a submit while a go-live check fails
+(`GO_LIVE_CHECK_FAILED`, naming the check) and refuses Support, Finance and Read-only
+(`OWNERS_AND_ADMINS_ONLY`). Harness: `?partner=draft|awaiting|sentback|live` (the shell's),
+`?setup=dripfunnel` for a partner set up by staff (items "Done by DripFunnel", the Owner's
+welcome card), `?state=setup` for the staff member's own view (the setup-session bar), and
+`?moment=live` for the Live card.
+
 ## Signed-out screens
 
 `/sign-in` (`src/features/auth/`, #112) is the front door of FIRST-RELEASE.md §3: work email

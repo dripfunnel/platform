@@ -1,10 +1,9 @@
-import { Icon, type StatusIconName } from '@dripfunnel/shared/ui'
+import { Icon, type StatusIconName, StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
 import type { ActivityEntry, ActivityResult, PersonKind } from '../../api/activity'
 import { fill, formatTime, messages } from '../../messages'
 import { changeText, entryParts, whoOf } from './activityText'
-import { StatusPill, type StatusTone } from './StatusPill'
 import './activity.css'
 
 const words = messages.activity

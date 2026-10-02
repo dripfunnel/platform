@@ -326,5 +326,124 @@
       "title": "This link no longer works",
       "body": "Staff session links work once, from the DripFunnel admin console. Start a new session there."
     }
+  },
+  "onboarding": {
+    "draft": {
+      "title": "Set up {product}",
+      "lede": "You can leave and come back; your progress is saved."
+    },
+    "awaiting": {
+      "title": "Awaiting approval",
+      "submitted": "Submitted on {date}.",
+      "submittedByDripFunnel": "Submitted by DripFunnel on {date}.",
+      "nextTitle": "What happens next",
+      "next": [
+        {
+          "title": "Contract and KYC check",
+          "body": "DripFunnel checks your signed contract and company documents."
+        },
+        {
+          "title": "Setup review",
+          "body": "We sign up as a test merchant and check your branding, plans and legal pages."
+        },
+        {
+          "title": "Decision",
+          "body": "Usually within 2 business days. You’ll get an email either way."
+        }
+      ],
+      "note": "Merchants can’t sign up at your portal until you’re approved. You can still change branding and plans."
+    },
+    "sentBack": {
+      "title": "Sent back by DripFunnel",
+      "lede": "Fix the item below and submit again.",
+      "reason": "DripFunnel’s reason"
+    },
+    "live": {
+      "title": "{product} is live at {host}.",
+      "body": "New signups there become your stores. Share your sign-up link: {host}/signup",
+      "dismiss": "Got it"
+    },
+    "welcome": {
+      "title": "Welcome, {name}.",
+      "body": "DripFunnel has set up most of {product} for you. Check what’s done and finish the rest.",
+      "bodySubmitted": "DripFunnel set up {product} for you and submitted it for approval. While they review it, add the two things only you can.",
+      "left": "{count} steps left.",
+      "leftOne": "1 step left.",
+      "yours": "Still yours: {items}, which only you can add.",
+      "dismiss": "Got it"
+    },
+    "and": " and ",
+    "checklistTitle": "Setup checklist",
+    "progress": "{done} of {total} done",
+    "status": {
+      "done": "Done",
+      "progress": "In progress",
+      "missing": "To do"
+    },
+    "doneBy": "Done by {who}",
+    "entersThis": "{partner} enters this",
+    "entersThisItself": "{partner} enters this itself",
+    "yourTurn": "Your turn",
+    "ownerAdds": "Owner adds this",
+    "items": {
+      "company": {
+        "label": "Company details"
+      },
+      "branding": {
+        "label": "Branding"
+      },
+      "portalHost": {
+        "label": "Portal address"
+      },
+      "wildcards": {
+        "label": "Preview and shop addresses"
+      },
+      "emailSender": {
+        "label": "Email sender"
+      },
+      "plan": {
+        "label": "At least one priced plan"
+      },
+      "legal": {
+        "label": "Legal pages"
+      },
+      "paymentMethod": {
+        "label": "Payment method"
+      },
+      "payoutDetails": {
+        "label": "Payout details"
+      },
+      "testSignup": {
+        "label": "A test merchant signup",
+        "doneDetail": "Test store created and removed"
+      }
+    },
+    "runTest": "Run test signup",
+    "testDone": "Test signup worked: account, store and portal were ready in {seconds}.",
+    "submit": "Submit for approval",
+    "submitAgain": "Submit again",
+    "submitDetail": "DripFunnel reviews your contract and KYC.",
+    "finishFirst": "Finish the {count} {items} above first. Payment method and payout details can come later.",
+    "itemOne": "item",
+    "itemMany": "items",
+    "checks": {
+      "portalHost": "the portal address is live",
+      "emailDomain": "the email sender is verified or the fallback sender accepted",
+      "pricedPlan": "at least one plan is priced",
+      "legalPages": "the legal pages are set",
+      "testSignup": "a test signup has completed"
+    },
+    "refused": {
+      "OWNERS_AND_ADMINS_ONLY": "Your role can’t submit for approval. Owners and Admins can.",
+      "GO_LIVE_CHECK_FAILED": "Not yet: DripFunnel checks that {check}. Fix it above and try again.",
+      "ALREADY_SUBMITTED": "Already submitted. DripFunnel is reviewing it.",
+      "NOT_CONNECTED": "Submitting isn’t connected yet. It arrives with the Platform API."
+    },
+    "confirm": {
+      "title": "Submit for approval?",
+      "consequence": "DripFunnel reviews your contract, KYC and setup. That usually takes 2 business days. You can keep editing, but merchants can’t sign up until you’re approved.",
+      "note": "Payment method and payout details can come later.",
+      "cancel": "Cancel"
+    }
   }
 }

@@ -1,7 +1,7 @@
+import { StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
 import type { CustomerStatus } from '../../api/customers'
 import { messages } from '../../messages'
-import { StatusPill, type StatusTone } from '../common/StatusPill'
 
 // The admin prototype's customer pills (designs/DF Admin Prototype.dc.html: cB).
 const statusLook: Record<CustomerStatus, { tone: StatusTone; icon: StatusIconName }> = {

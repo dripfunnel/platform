@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ScreenPlaceholder } from '../../features/shell/ScreenPlaceholder'
+import { HomeScreen } from '../../features/onboarding/HomeScreen'
 
-export const Route = createFileRoute('/_app/dashboard')({ component: () => <ScreenPlaceholder screen="dashboard" /> })
+// The checklist until Live, then the Dashboard (#114): FIRST-RELEASE.md §4.
+export const Route = createFileRoute('/_app/dashboard')({ component: HomeScreen })

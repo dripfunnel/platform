@@ -1,5 +1,5 @@
-import { Icon, type StatusIconName } from '@dripfunnel/shared/ui'
-import './list.css'
+import { Icon, type StatusIconName } from './Icon'
+import './pill.css'
 
 export type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral' | 'solid'
 

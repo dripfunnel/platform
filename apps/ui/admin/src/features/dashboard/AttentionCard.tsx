@@ -1,8 +1,8 @@
+import { StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
 import type { StatusIconName } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import type { AttentionReason, AttentionStore, DashboardData } from '../../api/dashboard'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { StatusPill, type StatusTone } from '../common/StatusPill'
 import { DashboardCard } from './DashboardCard'
 
 const words = messages.dashboard.attention

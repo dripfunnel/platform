@@ -1,7 +1,7 @@
+import { StatusPill } from '@dripfunnel/shared/ui'
 import type { SessionPermission } from '../../api/impersonation'
 import type { Partner, PartnerAction, PartnerUser } from '../../api/partners'
 import { fill, formatDate, formatTime, messages } from '../../messages'
-import { StatusPill } from '../common/StatusPill'
 import { ActionControl } from '../common/ActionControl'
 import { refusalText as sessionRefusal } from '../impersonate/sessionText'
 import { refusalText } from './refusal'
