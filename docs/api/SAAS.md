@@ -391,8 +391,9 @@ failed; a live hostname can become expiring or broken if its records change.
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check
-   it* → *Security certificate* → *Live*, with the states `dns`, `verifying`, `cert`, `live`
-   and `failed` (record not found, with what was looked for and when). After "Check now" the
+   it* → *Security certificate* → *Live*, which map onto the states built on #34
+   (`waiting`, `verifying`, `issuing`, `live`; `failed` shows the record looked for and when;
+   DATA-MODEL.md §7.2). After "Check now" the
    platform **re-checks every 15 minutes for 3 days** and emails the merchant when the domain
    is live; the merchant can leave the page. Removing the domain sends shoppers back to the
    `{shop}.shops.<partnerdomain>` address.
