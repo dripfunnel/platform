@@ -694,15 +694,19 @@ customer_data_request (id, store_id, customer_id, kind ('export'|'delete'), requ
                     -- rebuilt. Named so the migration and its test cover them: customer
                     -- name, email, phone, note, tags, consent_source, added_by_user_id and
                     -- search; customer_address rows; "order" email, phone, shipping_address,
-                    -- billing_address, notes, access_token_hash and search;
+                    -- billing_address, notes, cancel_reason, access_token_hash and search;
                     -- promotion_usage.customer_email; refund.reason and "return".note;
                     -- fulfilment.courier_label and tracking_url; every order_document asset
                     -- of the customer's orders (invoices, packing slips, labels carry the
                     -- name and address) deleted from R2, the rows keeping kind, number and
                     -- date; any export_job or customer_data_request file not yet expired
-                    -- that contains the person, deleted from R2; the shopper's activity
-                    -- entries' personal fields (LOGGING §8). The request row itself keeps
-                    -- only kind, dates and state. A supplier never saw any of it.
+                    -- that contains the person, deleted from R2, and the export_job.filter
+                    -- that named them blanked; the shopper's activity entries' personal
+                    -- fields (LOGGING §8). The request row itself keeps only kind, dates and
+                    -- state (requested_by is a kind, 'customer' or 'store', never an
+                    -- identity). Every other free-text column on these tables is checked
+                    -- against this rule when its migration is written. A supplier never saw
+                    -- any of it.
 ```
 
 ### 7.6 Carts, orders, fulfilment, returns, refunds and the supplier ledger
@@ -798,7 +802,10 @@ order_document      (id, order_id, store_id, seller_id NULL, kind ('invoice'|'pa
                      return_id NULL, fulfilment_id NULL)
                     -- every printable rendered from the order and invoice_settings, stored as
                     -- an asset so an issued invoice never changes; the link a deletion job
-                    -- follows to purge them (§7.5); seller_id only on a supplier's own labels
+                    -- follows to purge them (§7.5). Store-and-seller class (§7.11): seller_id
+                    -- is set only on a label or return_label a supplier printed for its own
+                    -- part, so a supplier reads exactly those; invoices, packing slips and the
+                    -- GST copy have seller_id null and are the merchant's alone
 ```
 
 Order events (placed, paid, shipped, return started, refunded, "sent to warehouse by
@@ -951,7 +958,9 @@ against this list and nothing else:
   approval snapshot), `product_story`, `size_chart`, `size_chart_rule`, `translation`,
   `asset`, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`,
   `fulfilment`, `fulfilment_line`, `return_line`, `refund`, `refund_line`,
-  `supplier_ledger_entry`, `import_job`, `export_job`. **No partner or platform branch** on
+  `supplier_ledger_entry`, `order_document` (a supplier reads only the labels it printed for
+  its own parts; invoices and packing slips carry a null owner and never reach it, a matrix
+  row of its own), `import_job`, `export_job`. **No partner or platform branch** on
   any of them: a partner never reads a supplier's import problems or a store's catalogue.
 - **Inside the store, with a supplier read branch through its own parts**: `order` and
   `return`. The policy admits a row to a supplier role only when a part or line of its own
