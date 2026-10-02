@@ -22,7 +22,7 @@ export const SearchResults = ({ query, matches, onPick }: SearchResultsProps) =>
     <ul className="df-search-results">
       {matches.map((match) => (
         <li key={match.id}>
-          <Link to="/stores" search={{ store: match.id }} className="df-search-result" onClick={onPick}>
+          <Link to="/stores/$storeId" params={{ storeId: match.id }} className="df-search-result" onClick={onPick}>
             <span className="df-search-initials" aria-hidden="true">
               {initials(match.name)}
             </span>

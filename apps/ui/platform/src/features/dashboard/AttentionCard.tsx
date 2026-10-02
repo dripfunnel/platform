@@ -23,11 +23,11 @@ export const AttentionCard = ({ attention }: { attention: readonly AttentionItem
         {attention.map((item) => (
           <li key={`${item.storeId}-${item.kind}`} className="df-attention-row">
             <StatusPill tone={look[item.kind].tone} icon={look[item.kind].icon} label={words.kinds[item.kind]} />
-            <Link to="/stores" search={{ store: item.storeId, tab: item.tab }} className="df-row-title">
+            <Link to="/stores/$storeId" params={{ storeId: item.storeId }} search={{ tab: item.tab }} className="df-row-title">
               {item.storeName} · {item.detail}
             </Link>
             {item.action.allowed ? (
-              <Link to="/stores" search={{ store: item.storeId, tab: item.tab }} className="df-button df-button--small">
+              <Link to="/stores/$storeId" params={{ storeId: item.storeId }} search={{ tab: item.tab }} className="df-button df-button--small">
                 {words.actions[item.kind]}
               </Link>
             ) : (

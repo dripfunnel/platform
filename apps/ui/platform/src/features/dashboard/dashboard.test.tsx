@@ -24,7 +24,7 @@ describe('the partner Dashboard', () => {
     const html = await dashboard(await loadDashboard('month', 'partner-owner'))
     const text = textOf(html)
     for (const title of [words.stores.title, words.revenue.title, words.attention.title, words.signups.title, words.usage.title, words.top.title]) expect(text).toContain(title)
-    for (const href of ['/stores?status=active', '/stores?status=trial', '/stores?status=pastdue', '/stores?status=suspended', '/stores?created=month', '/stores?near=yes', '/billing', '/billing?tab=payouts', '/reports?tab=stores', '/stores?store=st-juniper']) {
+    for (const href of ['/stores?status=active', '/stores?status=trial', '/stores?status=pastdue', '/stores?status=suspended', '/stores?created=month', '/stores?near=yes', '/billing', '/billing?tab=payouts', '/reports?tab=stores', '/stores/st-juniper?tab=plan']) {
       expect(html).toContain(`href="${href.replace(/&/g, '&amp;')}`)
     }
     expect(text).toContain('86 in total')

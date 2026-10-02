@@ -59,7 +59,7 @@ when `VITE_STATE_HARNESS=1` is set at build time. Production never sets it.
 Once the partner is Live, `/dashboard` (`src/features/dashboard/`, #114; FIRST-RELEASE.md §5)
 draws six cards: Stores, Revenue, Needs attention, Signups, Usage and Top stores by sales. Every
 number is a link to the Stores list with the filter in the URL (`?status=`, `?created=`,
-`?near=yes`, `?store=`), to Billing or to Reports. The date range lives in `?range=` (`month`,
+`?near=yes`), to a store's page and its tab (`/stores/<id>?tab=`), to Billing or to Reports. The date range lives in `?range=` (`month`,
 `last`, `q`) and applies to every card. The fixture in `src/api/dashboard.ts` supplies every
 comparison and conversion as words; the screen formats and links and computes nothing. States:
 `?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` is a brand-new Live partner
@@ -75,8 +75,7 @@ and created. Filters `?status=`, `?plan=`, `?created=` (`month`, `30d`, `90d`), 
 `?near=yes` and search `?q=` live in the URL and show as removable chips with Clear all. The
 list pages by cursor on the API (`stores(filter, after, before)`, §16): **"Show 25 more"** asks for
 the page after the last row's cursor and appends it in place, as the prototype does; the URL
-carries no cursor, no page number and no total. Rows open the store, landing on this list with `?store=` until #116 adds
-the detail page. A partner that is not Live sees `NotLive` (`src/features/shell/`) pointing at the
+carries no cursor, no page number and no total. Rows open the store's page. A partner that is not Live sees `NotLive` (`src/features/shell/`) pointing at the
 checklist. States: `?state=loading`, `empty`, `error`, `readonly`, `denied`.
 
 `/stores/new` (FIRST-RELEASE.md §6.2) creates a merchant: store name, owner's name and email,
@@ -92,6 +91,52 @@ place this app talks to the API about stores, on the fixture in `storesSample.ts
 
 Not here yet: **Export accounts (CSV)** and the **Billing status** column of own-billing mode
 (§6.1, §11.4), both recorded on #115's follow-up.
+
+## Store detail
+
+`/stores/<id>` (`src/features/stores/StoreDetail*.tsx` and `tabs/`, #116; FIRST-RELEASE.md §6.3,
+§6.4) is one merchant's account as its partner sees it: the header (initials, "Store · {product}",
+name, status with the API's line, code, the live link, **Actions ▾**) and eight tabs held in
+`?tab=`: Overview (the account-level sentence, Account, Contacts, Plan and status history), Plan
+and limits (a bar per limit from the API's percent, overrides with their reason), Billing (the
+subscription as the API states it, who charges, invoices; a card is its last four digits only),
+Storefront (read-only), Domains (status, the CNAME record with Copy, Re-check now), Setup (the
+five signup steps), Support (the merchant's consent, its people and past sessions, read-only:
+sessions start from Support) and Activity (this account's entries from the fixture until the
+Activity log card). A suspended or past-due store carries the API's notice under the tabs.
+
+**Actions** go through the shared `ConfirmDialog`, each stating its consequence first: Change
+plan (the plan and when, from the API's plans and proration), Extend trial, Add a limit
+override, Suspend (reason shown to the owner, the store name typed), Restore (reason), Resend
+owner invitation, and Retry this step on the Setup tab. Which actions a store's state offers,
+and who may take them, is the fixture's answer (`store(id).actions`, codes from §6.4): Owner and
+Admin take them all, Finance only Extend trial, Support and Read-only none; a refused action
+stays in place, disabled with the reason and who can. States: `?state=loading`, `error`,
+`readonly`, `denied`, `confirm` (opens the first dialog the caller may use).
+
+## Plans
+
+`/plans` (`src/features/plans/`, #117; FIRST-RELEASE.md §7) is the partner's catalogue: name and
+description, monthly and yearly price per currency with "DripFunnel's fee … / store / month"
+under them, trial, stores (a link to the filtered list), status (Draft · Live · Retired), and
+**New plan** for Owners and Admins. `/plans/<id>` (`new` for an empty one) is the editor, laid
+out as design.md §7 says: cards on the left (name, description and trial; prices; what's
+included), a sticky summary on the right (status, stores on it, Make live, Retire plan), and a
+save bar that appears only when the draft differs from the saved plan. Beside each price the
+fee and margin arrive from the fixture as `Money` ("You keep $31.00 of $49.00", or in red
+"Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. The
+entitlement matrix has the three kinds of SAAS.md §6.1 and shows DripFunnel's ceiling on every
+row; a value above it is marked "Can't be more than 20,000." and Save is disabled with "Fix the
+highlighted rows first." The fixture refuses it too (`ABOVE_CEILING`, naming the row); nothing
+is clamped. Saving a plan stores are on asks who gets the change (new signups only, or everyone
+at renewal); retiring hides the plan from signup and asks whether its stores keep it or move to
+another plan on a date; retiring the last Live plan is refused (`LAST_LIVE_PLAN`). Owner and
+Admin edit everything, Finance prices only (the other fields are disabled with the reason),
+Support and Read-only view. States: `?state=loading`, `empty`, `error`, `readonly`, `denied` on
+the list; `loading`, `error`, `readonly`, `denied`, `confirm` on the editor.
+
+Not here: **Compare plans** and **Defaults for new stores** (§7.4, §7.5, the next batch) and
+promotions (SAAS §14). The Create store form's plan picker reads this fixture's Live plans.
 
 ## Onboarding
 

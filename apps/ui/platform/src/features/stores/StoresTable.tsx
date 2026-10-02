@@ -19,12 +19,12 @@ export const Sales = ({ money }: { money: StoreRow['salesLastMonth'] }) =>
     <span className="df-muted">{words.noSales}</span>
   )
 
-// The prototype's columns, in its order. Opening a store lands on this list with `?store=` until #116.
+// The prototype's columns, in its order.
 const Row = ({ store }: { store: StoreRow }) => (
   <ClickableRow>
     <th scope="row">
       <div className="df-stack">
-        <Link to="/stores" search={{ store: store.id }} className="df-row-title">
+        <Link to="/stores/$storeId" params={{ storeId: store.id }} className="df-row-title">
           {store.name}
         </Link>
         <code className="df-muted">{store.code}</code>
