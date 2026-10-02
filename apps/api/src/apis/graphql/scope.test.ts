@@ -146,6 +146,7 @@ const contextFor = (staff: StaffMember | null, assigned: readonly string[] = [])
   staff,
   isAssigned: async (_, target: AccessTarget) => assigned.includes('partnerId' in target ? target.partnerId : target.storeId),
   activity: async () => ({ ok: false, code: 'INVALID_FILTER' }),
+  partners: null,
 })
 
 const fieldName = (permission: string) => permission.replaceAll('.', '_')

@@ -1,8 +1,9 @@
 import { GraphQLError } from 'graphql'
 import type { RecordedChange } from '#core/redaction'
 import type { ActivityRow } from '#db/schema/activity'
-import type { ActivityPage, PageInfo } from '#saas/activity/index'
+import type { ActivityPage } from '#saas/activity/index'
 import { builder } from './builder'
+import { PageInfoType } from './types'
 
 // The activity log as the admin console reads it (LOGGING.md §6: staff see every entry, IP
 // and user agent included). #38 adds the person timeline, the people search and the export.
@@ -76,15 +77,6 @@ const Entry = builder.objectRef<ActivityRow>('ActivityEntry').implement({
     ip: t.exposeString('ip', { nullable: true }),
     userAgent: t.exposeString('user_agent', { nullable: true }),
     visibility: t.exposeString('visibility'),
-  }),
-})
-
-const PageInfoType = builder.objectRef<PageInfo>('PageInfo').implement({
-  fields: (t) => ({
-    startCursor: t.exposeString('startCursor', { nullable: true }),
-    endCursor: t.exposeString('endCursor', { nullable: true }),
-    hasPreviousPage: t.exposeBoolean('hasPreviousPage'),
-    hasNextPage: t.exposeBoolean('hasNextPage'),
   }),
 })
 
