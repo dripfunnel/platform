@@ -409,12 +409,24 @@ here. The model's own open points are in §6.
 - **Scope first** (§2): every table names its scope; store tables carry `store_id`, supplier-
   readable tables carry `seller_id` (null = the merchant's own), and RLS gets the matching
   policy from §5.2. Each store-and-seller table is a row of the isolation matrix (ACCESS §11.1).
+- **Supplier ownership reaches every child row** (review on #188): a table whose parent a
+  supplier may own (`product`, `product_version`, `warehouse`, `order_part`, `fulfilment`,
+  `size_chart`, `product_story`, `import_job`) carries the parent's `seller_id` denormalised,
+  set by a trigger from the parent and never from input, so the store-and-seller policy
+  applies to it directly and never joins. `translation` carries the `seller_id` of the entity
+  it translates (null for a store-owned entity). The isolation matrix (ACCESS §11.1) lists
+  every such child, `translation` included: two suppliers in one store, each reading prices,
+  photos, compliance text, translated names, stock and shipped quantities, seeing only its own.
 - **Keys**: `id uuid` primary keys; `created_at`; `updated_at` and a `revision integer` on
   anything two people may edit at once, so a save can refuse a stale revision (CATALOG E4,
   OFFERS N6). Unique constraints are per store (SKU, web address, coupon code, group name),
   per language for web addresses, never global.
-- **Money**: `amount bigint` in minor units with a `currency char(3)` beside it, every time
-  (PLATFORM-PROMPT §5.4 Money). Percentages are basis points (`_bps integer`).
+- **Money**: every column named `amount` or `*_amount` is `bigint` in minor units with a
+  `currency char(3)` on the same row (or the order's, for lines), every time, whatever table it
+  is in, subscriptions and invoices included (PLATFORM-PROMPT §5.4 Money; AGENTS.md "Data").
+  Percentages are basis points (`_bps integer`).
+- **Time**: every `*_at` column is `timestamptz`, stored in UTC; display converts and names
+  the zone (api/README.md; the store's `time_zone` is for display and scheduling only).
 - **Soft delete** (`deleted_at`) where history points at the row: products, versions,
   collections, promotions, customers, warehouses. Orders are never deleted.
 - **Translations** live in one table, `translation(store_id, entity, entity_id, field,
@@ -537,11 +549,11 @@ product             (id, store_id, seller_id NULL, name, slug, description, prod
                     -- (ACCESS §7.2); re-approval compares name, prices and photos with
                     -- product_approved_snapshot; product_type and publish_at (release: decide)
 product_approved_snapshot
-                    (product_id PK, name, prices jsonb, photo_ids uuid[], approved_at, approved_by)
+                    (product_id PK, store_id, seller_id NULL, name, prices jsonb, photo_ids uuid[], approved_at, approved_by)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
-product_option      (id, product_id, store_id, name, position)         -- "Size", "Colour" (fact 3)
-product_option_value(id, option_id, store_id, name, position)
+product_option      (id, product_id, store_id, seller_id NULL, name, position)         -- "Size", "Colour" (fact 3)
+product_option_value(id, option_id, store_id, seller_id NULL, name, position)
 product_version     (id, product_id, store_id, seller_id NULL, sku, barcode, name,
                      option_value_ids uuid[], visibility, tax_class_id, hs_code, weight_grams,
                      length_mm, width_mm, height_mm, cost_amount, cost_currency,
@@ -551,29 +563,29 @@ product_version     (id, product_id, store_id, seller_id NULL, sku, barcode, nam
                     -- every product has at least one (fact 1); price, stock, SKU, code, tax
                     -- class and weight live here (fact 2); nulls inherit the store default
                     -- (fact 10); barcode check digit validated (fact 44, release: decide)
-version_price       (version_id, store_id, currency, amount, compare_at_amount NULL,
+version_price       (version_id, store_id, seller_id NULL, currency, amount, compare_at_amount NULL,
                      source ('manual'|'converted'), updated_at)
                     PRIMARY KEY (version_id, currency)                    -- fact 25
-price_history       (id, version_id, store_id, currency, amount, compare_at_amount, from_at, to_at)
+price_history       (id, version_id, store_id, seller_id NULL, currency, amount, compare_at_amount, from_at, to_at)
                     -- the EU 30-day reference price (fact 41, release: decide); written on
                     -- every version_price change
-product_market_price(product_id, market_id, store_id, amount, currency)
+product_market_price(product_id, market_id, store_id, seller_id NULL, amount, currency)
                     PRIMARY KEY (product_id, market_id)
                     -- a fixed price per market for a product without versions (Business
                     -- plan; CatEditor "Price per market"); absent = main price + adjustment
-product_photo       (id, product_id, version_id NULL, store_id, asset_id, position, alt)
+product_photo       (id, product_id, version_id NULL, store_id, seller_id NULL, asset_id, position, alt)
                     -- alt per language in translation (fact 23, release: decide)
-product_video       (product_id, store_id, asset_id NULL, url NULL)      -- plan-gated (CATALOG F9, S7)
-product_market_rule (product_id, store_id, mode ('only'|'except'), countries text[])
+product_video       (product_id, store_id, seller_id NULL, asset_id NULL, url NULL)      -- plan-gated (CATALOG F9, S7)
+product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries text[])
                     -- "Where you sell" per product (fact 42, release: decide)
-product_flag        (product_id, store_id, age_restricted boolean, hazardous boolean)   -- fact 43
-product_compliance  (product_id, store_id, region, field, value)
+product_flag        (product_id, store_id, seller_id NULL, age_restricted boolean, hazardous boolean)   -- fact 43
+product_compliance  (product_id, store_id, seller_id NULL, region, field, value)
                     UNIQUE (product_id, region, field)                     -- facts 34, 45–46
-product_spec        (id, product_id, store_id, name, value, filterable boolean, position)
+product_spec        (id, product_id, store_id, seller_id NULL, name, value, filterable boolean, position)
                     -- filterable rows mirror a filter_value (fact 30)
-product_faq         (id, product_id, store_id, question, answer, position)
-product_related     (product_id, related_product_id, store_id, mode ('manual'|'auto_collection'))
-product_badge       (product_id, badge_id, store_id)             -- manual badges only (S5)
+product_faq         (id, product_id, store_id, seller_id NULL, question, answer, position)
+product_related     (product_id, related_product_id, store_id, seller_id NULL, mode ('manual'|'auto_collection'))
+product_badge       (product_id, badge_id, store_id, seller_id NULL)             -- manual badges only (S5)
 
 collection          (id, store_id, name, slug, description, kind ('manual'|'automatic'),
                      match ('all'|'any'), parent_id NULL, inherit_parent boolean,
@@ -590,7 +602,7 @@ collection_product  (collection_id, product_id, store_id, position, source ('man
 
 filter              (id, store_id, name, position, shopper_visible boolean)   -- I1; internal tags
 filter_value        (id, filter_id, store_id, name, position)                   -- are shopper_visible = false
-product_filter_value(product_id, version_id NULL, filter_value_id, store_id)
+product_filter_value(product_id, version_id NULL, filter_value_id, store_id, seller_id NULL)
                     -- product-level or version-level (fact 13)
 
 menu                (id, store_id, key ('main'), name)
@@ -608,11 +620,12 @@ story_block         (id, store_id, kind ('brand_story'), content jsonb, updated_
 size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems text[],
                      rows jsonb, measurements jsonb, how_to_measure jsonb, fit_notes, model_info,
                      revision, deleted_at)                          -- CATALOG R
-size_chart_rule     (id, size_chart_id, store_id, kind ('collection'|'filter_value'|'category'),
+size_chart_rule     (id, size_chart_id, store_id, seller_id NULL, kind ('collection'|'filter_value'|'category'),
                      target_id NULL, value NULL)                    -- R6 (release: decide)
 
-translation         (store_id, entity, entity_id, field, language, text, updated_at)
-                    PRIMARY KEY (store_id, entity, entity_id, field, language)   -- §7.1
+translation         (store_id, seller_id NULL, entity, entity_id, field, language, text, updated_at)
+                    PRIMARY KEY (store_id, entity, entity_id, field, language)
+                    -- §7.1: seller_id is the translated entity's owner, denormalised
 ```
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
@@ -711,7 +724,7 @@ fulfilment          (id, order_part_id, order_id, store_id, seller_id NULL, kind
                     -- or without a tracking number (PortalOrders "Label and tracking");
                     -- 'sent_to_store' is a to-store supplier's hand-off; shipped lines come out
                     -- of warehouse_id as stock_movement 'order'
-fulfilment_line     (fulfilment_id, order_line_id, store_id, quantity)
+fulfilment_line     (fulfilment_id, order_line_id, store_id, seller_id NULL, quantity)
 
 payment             (id, order_id, store_id, provider, provider_account_id, provider_ref, kind
                      ('card'|'wallet'|'upi'|'cod'|'bank_transfer'|…), state ('pending'|'authorised'
@@ -887,18 +900,42 @@ columns are nothing like a provisioning run's.
 
 ### 7.11 Row-level security and indexes for §7
 
-- Catalogue, inventory, order lines and parts, fulfilments, return lines, refunds, ledger
-  entries, size charts, stories, import and export jobs: the **store-and-seller** policy of
-  §5.2 (a supplier sees `seller_id = app.seller_id` only).
-- Orders, returns, promotions, customers, groups, settings, storefront, billing: the
-  **inside-the-store** policy with no supplier branch; a supplier reaches an order or a
-  return only through the scoped layer's join on its own lines, and the serializer applies
-  the shipping-mode rule (ACCESS §7.3).
-- The Shop API's `shop` scope reads visible catalogue rows, its own customer's rows and its
-  own cart or orders; it never reads a supplier id as data, only as attribution where the
-  merchant shows it.
-- Account-level rows (`storefront`, `publish_run`, `store_subscription`, `invoice`,
-  `store_usage`, `custom_domain`, `import_job` state) have the partner and platform branches
-  §2 gives account-level tables; everything else in §7 has none.
+Three policy classes, named per table so the isolation tests (ACCESS §11.1) are written
+against this list and nothing else:
+
+- **Store-and-seller** (§5.2; a supplier reads and writes `seller_id = app.seller_id` only,
+  the merchant everything): `product` and every child in §7.3 that carries `seller_id`
+  (options and values, versions, prices and price history, per-market prices, photos, video,
+  market rules, flags, compliance, specs, FAQs, related, badges, filter assignments, the
+  approval snapshot), `product_story`, `size_chart`, `size_chart_rule`, `translation`,
+  `asset`, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`,
+  `fulfilment`, `fulfilment_line`, `return_line`, `refund`, `refund_line`,
+  `supplier_ledger_entry`, `import_job`, `export_job`. **No partner or platform branch** on
+  any of them: a partner never reads a supplier's import problems or a store's catalogue.
+- **Inside the store, with a supplier read branch through its own parts**: `order` and
+  `return`. The policy admits a row to a supplier role only when a part or line of its own
+  exists for it: `app.seller_id = '' OR EXISTS (SELECT 1 FROM order_part p WHERE p.order_id =
+  "order".id AND p.seller_id = app.seller_id)` (and the same over `return_line` for
+  `return`), indexed on `(order_id, seller_id)`. The supplier's serializer then applies the
+  shipping-mode rule to the fields it returns (ACCESS §7.3): nothing of the shopper for
+  `to-store`, name and delivery address for `to-shopper`, never totals, never
+  `order_adjustment`.
+- **Inside the store, no supplier branch at all**: `order_adjustment`, `payment`,
+  `payment_refund`, `customer` and its children, `customer_group`, `promotion` and its
+  children, `collection` and its children, `menu`, `menu_item`, `badge` (definitions),
+  `access_request`, every settings table in §7.2, `store_billing_details`, `invoice`,
+  `invoice_line`. `filter` and `filter_value` are the one exception: a supplier reads them
+  (it assigns values to its own products) and writes none (CATALOG L9 keeps whether it may
+  see collections *(ask)*).
+- **Account level** (the partner and platform branches §2 gives account-level tables, for
+  state only, never content): `storefront`, `publish_run`, `design_version` (state and
+  summary; the prompt is the merchant's), `ai_run` (metering), `store_usage`,
+  `store_entitlement_override`, `store_subscription`, `invoice` (status and amounts for the
+  partner that bills), `custom_domain`. Nothing else in §7.
+- **The Shop API's `shop` scope** reads visible catalogue rows, filters, collections and
+  menus, its own customer's rows, and its own cart and orders; it never reads `seller_id` as
+  data, only as attribution where the merchant shows it.
 - Every policy's columns lead an index; list screens get a composite on
-  `(store_id, <filter>, created_at desc, id desc)` for keyset paging (ui/admin/FIRST-RELEASE §12).
+  `(store_id, <filter>, created_at desc, id desc)` for keyset paging (ui/admin/FIRST-RELEASE
+  §12); the supplier-branch `EXISTS` on orders and returns is backed by `order_part
+  (order_id, seller_id)` and `return_line (return_id, seller_id)`.
