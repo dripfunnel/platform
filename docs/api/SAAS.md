@@ -291,7 +291,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   counts** against the "Publish now" allowance (decided).
 - A limit reached explains itself and points to the upgrade, shown to the Owner only.
 - **Lowering a limit below current usage pauses what is over it, never deletes it, and the
-  Owner chooses what stays** (decided 2026-10-03 with the prototype's *Choose what to keep*;
+  Owner chooses what stays** (decided 2026-10-02 with Gaurav on #186's review, recorded on #182, with the prototype's *Choose what to keep*;
   this reverses "existing items keep working"): before the smaller plan takes effect, the
   Owner picks which products, staff, payment gateways, couriers and markets remain within
   the new limits; the rest is paused, invisible to shoppers and kept intact, and comes back

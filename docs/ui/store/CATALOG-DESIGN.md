@@ -393,7 +393,7 @@ must store all of it per store, and enforce the pricing-currency lock.
     `(release: decide)`)*. The product type (§3 fact 12) is related but separate. Don't show
     every section on every product.
 32. **Downgrading must not destroy content.** When a plan loses a feature or limit, existing
-    content is **kept**. Decided 2026-10-03 (SAAS §6.2, the prototype's *Choose what to
+    content is **kept**. Decided 2026-10-02 on #186's review (SAAS §6.2, the prototype's *Choose what to
     keep*): what is over the new limit is **paused**, hidden from shoppers and kept intact,
     and the Owner chooses which items stay within the limit before the change takes effect;
     an upgrade brings the rest back. Adding more is blocked with a clear explanation. The
@@ -866,7 +866,7 @@ with validation before any write, partial-failure reports, and translation and c
 - L6. A vendor-supplied product in the merchant list is marked with the supplier's name, and
   can be filtered by supplier.
 - L7. Suspending a supplier asks the Owner whether to **hide its products or keep selling
-  them** from the stock in hand (settled 2026-10-03 with the prototype's suspend modal,
+  them** from the stock in hand (settled 2026-10-02 on #186's review with the prototype's suspend modal,
   ACCESS.md §7.5); hidden ones return on resume. A removed supplier's products are hidden and
   kept, still marked as theirs, for the merchant to publish or delete (settled 2026-10-02).
   Show the count and the hidden list.

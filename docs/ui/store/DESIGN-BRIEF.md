@@ -211,7 +211,7 @@ line says who it is for and the thing most likely to be missed.
     as well as their first user.
 16. **Change a vendor's access level**: Owner. Takes effect on the vendor's next request
     (PLATFORM-PROMPT §5.2); say so, and say what the vendor loses or gains.
-17. **Suspend or remove a vendor**: Owner. Decided 2026-10-02 and 2026-10-03 (ACCESS.md
+17. **Suspend or remove a vendor**: Owner. Decided 2026-10-02 (ACCESS.md
     §7.5): suspending asks whether to **hide** their products or keep selling them from stock
     in hand, and hidden ones return on resume; removing hides them and keeps them, still
     marked as theirs, for the merchant to publish or delete. The screen states the count and
@@ -448,7 +448,7 @@ will probably settle them; flag them when you hit one rather than assuming:
   2026-10-02:** only for name, price or photo changes, and the product is hidden until
   approved; a vendor can take its own product off sale that way, accepted (ACCESS.md §7.2).
 - ~~What happens to a removed or suspended vendor's products (flow 17).~~ **Settled
-  2026-10-02 and 2026-10-03:** removed → hidden and kept; suspended → the Owner chooses hide
+  2026-10-02:** removed → hidden and kept; suspended → the Owner chooses hide
   or keep selling, hidden ones restored on resume (ACCESS.md §7.5).
 - ~~Whether refunds spanning vendors are the merchant's problem alone (flows 41, 71).~~
   **Settled 2026-10-02:** each supplier refunds its own lines, the store can override into a

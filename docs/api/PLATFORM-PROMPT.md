@@ -737,8 +737,8 @@ State what the smallest sellable first release is, and what is explicitly deferr
 **Carried from the first platform, still open**
 - ~~Does editing an approved vendor product send it back for approval?~~ **Settled 2026-10-02**:
   only for name, price or photo changes, hidden until approved (ACCESS.md §7.2).
-- ~~What happens to a removed or suspended vendor's products?~~ **Settled 2026-10-02**: hidden
-  (ACCESS.md §7.5).
+- ~~What happens to a removed or suspended vendor's products?~~ **Settled 2026-10-02**: removed →
+  hidden and kept; suspended → the Owner chooses hide or keep selling (ACCESS.md §7.5).
 - ~~2-factor for Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
   optional for everyone else (ACCESS.md §2).
 - What happens to a past-due store's vendors? (Past due never blocks sign-in: §2 item 7.)
