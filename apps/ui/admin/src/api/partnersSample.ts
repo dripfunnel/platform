@@ -18,8 +18,7 @@ import type {
   PartnerUser,
   SetupRow,
 } from './partners'
-import type { PageRequest } from '@dripfunnel/shared/graphql'
-import { samplePage } from './samplePage'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { impersonatePermission, setupStarters } from './sessionRules'
 
 export type SamplePartner = Omit<Partner, 'actions' | 'impersonate' | 'setup' | 'portalHost' | 'submittedAt' | 'approval'>
@@ -413,7 +412,7 @@ export const createSampleServer = (seed: readonly SamplePartner[], now: () => st
 
   const list = (filter: PartnerFilter, page: PageRequest, size: number, caller: StaffRole): PartnerPage => {
     const all = partners.filter((partner) => matches(partner, filter)).sort(filter.sort === 'oldestSubmitted' ? oldestSubmitted : newestFirst)
-    const { items, pageInfo } = samplePage(all, page, size)
+    const { items, pageInfo } = pageByCursor(all, page, size)
     return {
       items: items.map(rowOf),
       pageInfo,

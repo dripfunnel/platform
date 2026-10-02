@@ -4,8 +4,7 @@
 // masked is each answer, by the caller's role. It stands in for the server until #36.
 import type { StaffRole } from '../features/shell/staffRoles'
 import type { Customer, CustomerFilter, CustomerMatch, CustomerPage, CustomerRow, CustomerStatus, SignInMethod } from './customers'
-import type { PageRequest } from '@dripfunnel/shared/graphql'
-import { samplePage } from './samplePage'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { sampleStores } from './storesSample'
 
 interface SamplePhone {
@@ -174,7 +173,7 @@ export const createCustomersServer = (seed: readonly SampleCustomer[], now: () =
   // The list is masked for every role: full values are matched, never shown in it (§5.4).
   const list = (filter: CustomerFilter, page: PageRequest, search: string | null, size: number): CustomerPage => {
     const all = seed.filter((one) => matches(one, filter, now()) && (!search || matchesSearch(one, search))).sort(newestFirst)
-    const { items, pageInfo } = samplePage(all, page, size)
+    const { items, pageInfo } = pageByCursor(all, page, size)
     return {
       items: items.map((one) => rowOf(one, false)),
       pageInfo,

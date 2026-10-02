@@ -26,6 +26,7 @@ import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppStoresNewRouteImport } from './routes/_app/stores_.new'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -110,6 +111,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppStoresNewRoute = AppStoresNewRouteImport.update({
+  id: '/stores_/new',
+  path: '/stores/new',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -127,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/stores/new': typeof AppStoresNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/stores/new': typeof AppStoresNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/stores_/new': typeof AppStoresNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
+    | '/stores/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
+    | '/stores/new'
   id:
     | '__root__'
     | '/_app'
@@ -219,6 +230,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/stores_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -348,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/stores_/new': {
+      id: '/_app/stores_/new'
+      path: '/stores/new'
+      fullPath: '/stores/new'
+      preLoaderRoute: typeof AppStoresNewRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -364,6 +383,7 @@ interface AppRouteChildren {
   AppStoresRoute: typeof AppStoresRoute
   AppSupportRoute: typeof AppSupportRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppStoresNewRoute: typeof AppStoresNewRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -379,6 +399,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStoresRoute: AppStoresRoute,
   AppSupportRoute: AppSupportRoute,
   AppIndexRoute: AppIndexRoute,
+  AppStoresNewRoute: AppStoresNewRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

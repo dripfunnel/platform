@@ -245,8 +245,9 @@ store, or share your sign-up link: {host}/signup".
 
 Filters: Status, Plan, Created (This month · Last 30 days · Last 90 days), Storefront, Near a
 limit (80%+). Search: name, code, domain, owner email. All in the URL as removable chips with
-"Clear all"; "12 of 86 stores"; "No stores match" with Clear filters. Newest first, **"Show 25
-more"** (§16 for the contract). On a phone, cards: name and status, plan · domain. Header
+"Clear all"; "No stores match" with Clear filters. Newest first, **"Show 25 more"** (§16 for the
+contract: cursor pages carry no total, so the prototype's "12 of 86 stores" is not drawn;
+decided 2026-10-02 on #115). On a phone, cards: name and status, plan · domain. Header
 buttons: **Export accounts (CSV)** ("Orders, customers and products are never included.") and
 **Create store** (Owner, Admin).
 

@@ -6,7 +6,7 @@ import type { Me } from '../../api/me'
 import logo from '../../assets/dripfunnel-logo-inverse.svg'
 import { fill, messages } from '../../messages'
 import './partner.css'
-import { SearchPlaceholder } from './SearchPlaceholder'
+import { SearchPalette } from './SearchPalette'
 
 const words = messages.shell
 
@@ -43,7 +43,7 @@ export const AppHeader = ({ me, menuOpen, onOpenMenu }: AppHeaderProps) => {
         <span className="df-visually-hidden">{words.signedInForLabel} </span>
         <span className="df-for-name">{me.partner.name}</span>
       </span>
-      <SearchPlaceholder />
+      <SearchPalette />
       <a className="df-help" href={words.helpUrl} target="_blank" rel="noopener noreferrer">
         {words.help}
         <span className="df-visually-hidden"> {words.opensInNewTab}</span>

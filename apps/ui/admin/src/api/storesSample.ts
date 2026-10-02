@@ -4,9 +4,8 @@
 import type { StaffRole } from '../features/shell/staffRoles'
 import { jobPermissionsFor, stateOf, stepsFor, type SampleSetup } from './jobSample'
 import type { ActionPermission } from './permissions'
-import type { PageRequest } from '@dripfunnel/shared/graphql'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { samplePartners } from './partnersSample'
-import { samplePage } from './samplePage'
 import { impersonatePermission } from './sessionRules'
 import { storeNoteMaxLength } from './stores'
 import type {
@@ -533,7 +532,7 @@ export const createStoresServer = (seed: readonly SampleStore[], now: () => stri
 
   const list = (filter: StoreFilter, page: PageRequest, size: number): StorePage => {
     const all = stores.filter((store) => matches(store, filter, now())).sort(newestFirst)
-    const { items, pageInfo } = samplePage(all, page, size)
+    const { items, pageInfo } = pageByCursor(all, page, size)
     return {
       items: items.map(rowOf),
       pageInfo,

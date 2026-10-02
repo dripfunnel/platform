@@ -13,8 +13,7 @@ import type {
   PersonMatch,
 } from './activity'
 import { activityActions, type ActionCode } from './activityActions'
-import type { PageRequest } from '@dripfunnel/shared/graphql'
-import { samplePage } from './samplePage'
+import { pageByCursor, type PageRequest } from '@dripfunnel/shared/graphql'
 import { sampleCustomers } from './customersSample'
 import { sampleStores } from './storesSample'
 
@@ -327,7 +326,7 @@ export const createActivityServer = (seed: readonly ActivityEntry[], options: Ac
   }
 
   const list = (filter: ActivityFilter, page: PageRequest, size: number, caller: StaffRole): ActivityPage => {
-    const { items, pageInfo } = samplePage(matching(filter), page, size)
+    const { items, pageInfo } = pageByCursor(matching(filter), page, size)
     return {
       items,
       pageInfo,

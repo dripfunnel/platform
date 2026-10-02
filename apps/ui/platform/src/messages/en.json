@@ -114,8 +114,18 @@
     "helpUrl": "https://help.dripfunnel.com/partners",
     "opensInNewTab": "(opens in a new tab)",
     "search": {
-      "button": "Search your stores",
-      "notYet": "Search arrives with the Stores screen."
+      "button": "Search stores by name, domain or owner email",
+      "label": "Search stores",
+      "placeholder": "Store name, domain or owner email",
+      "shortcut": "⌘K",
+      "shortcutLabel": "Search stores, shortcut Command K",
+      "esc": "Esc",
+      "hint": "Search your stores by name, domain or an owner’s email.",
+      "searching": "Searching…",
+      "none": "No store matches “{query}”. Search by store name, domain or owner email.",
+      "result": "{email} · {host}",
+      "all": "Show every match in Stores",
+      "failed": "Search didn’t answer. Try again in a moment."
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
@@ -171,7 +181,13 @@
       }
     },
     "placeholder": "This screen isn’t built yet.",
-    "signedInForLabel": "Signed in for"
+    "signedInForLabel": "Signed in for",
+    "notLive": {
+      "title": "{what} appear once {product} is live",
+      "awaiting": "DripFunnel is reviewing your setup. This fills in when merchants start signing up.",
+      "draft": "Finish your setup checklist and submit it for approval. Merchants can’t sign up until DripFunnel approves you.",
+      "link": "Open the setup checklist"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -544,5 +560,167 @@
       "body": "You can keep reading. Saving is paused and comes back when you reconnect."
     },
     "refresh": "Refresh now"
+  },
+  "stores": {
+    "loading": "Loading stores",
+    "tableLabel": "Stores",
+    "newestFirst": "Newest first",
+    "columns": {
+      "store": "Store",
+      "owner": "Owner",
+      "plan": "Plan",
+      "status": "Status",
+      "sales": "Sales last month",
+      "storefront": "Storefront",
+      "domain": "Domain",
+      "created": "Created"
+    },
+    "statuses": {
+      "trial": "Trial",
+      "active": "Active",
+      "pastdue": "Past due",
+      "suspended": "Suspended",
+      "cancelled": "Cancelled"
+    },
+    "statusSub": {
+      "trialDays": {
+        "one": "{count} day left",
+        "other": "{count} days left"
+      },
+      "trialToday": "Ends today",
+      "trialTomorrow": "Ends tomorrow",
+      "pastdue": {
+        "one": "{count} day · changes blocked, still selling",
+        "other": "{count} days · changes blocked, still selling"
+      },
+      "cancelled": "Since {date}"
+    },
+    "storefronts": {
+      "live": "Live",
+      "building": "Building",
+      "failed": "Failed",
+      "own": "Own storefront"
+    },
+    "domainStatus": {
+      "waiting": "Waiting for DNS",
+      "failed": "Failed"
+    },
+    "near": "{percent}% of {limit}",
+    "limits": {
+      "products": "products",
+      "staff": "staff seats",
+      "suppliers": "suppliers",
+      "ai": "AI design prompts",
+      "publish": "“Publish now” presses"
+    },
+    "noSales": "—",
+    "opensInNewTab": "{host}, opens in a new tab",
+    "showMore": "Show {count} more",
+    "moreShown": {
+      "one": "{count} more store shown",
+      "other": "{count} more stores shown"
+    },
+    "filters": {
+      "label": "Filter stores",
+      "search": "Search",
+      "searchPlaceholder": "Store name, code, domain or owner email",
+      "status": "Status",
+      "anyStatus": "Any status",
+      "plan": "Plan",
+      "anyPlan": "Any plan",
+      "created": "Created",
+      "anyTime": "Any time",
+      "month": "This month",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days",
+      "storefront": "Storefront",
+      "anyStorefront": "Any storefront",
+      "near": "Near a limit",
+      "anyNear": "Any",
+      "nearYes": "Near a limit (80%+)",
+      "yes": "Yes",
+      "chipsLabel": "Applied filters",
+      "remove": "Remove filter {filter}",
+      "clearAll": "Clear all",
+      "clear": "Clear filters"
+    },
+    "empty": {
+      "title": "Create your first store, or share your sign-up link",
+      "body": "Merchants who sign up at {host}/signup become your stores automatically.",
+      "action": "Create your first store"
+    },
+    "noMatch": {
+      "title": "No stores match",
+      "body": "Try another search, or clear the filters."
+    },
+    "error": {
+      "title": "We couldn’t load your stores",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Your filters are kept.",
+      "retry": "Try again"
+    },
+    "moreError": {
+      "title": "We couldn’t load more stores",
+      "body": "The rows above are still right. Try again in a moment."
+    },
+    "create": "Create store",
+    "refused": {
+      "OWNERS_AND_ADMINS_ONLY": "Your role can’t create stores. Owners and Admins can.",
+      "PARTNER_NOT_LIVE": "Stores can be created once {product} is live.",
+      "PARTNER_PAUSED": "Paused by DripFunnel: no new stores for now.",
+      "STORE_LIMIT_REACHED": "You’ve reached the store limit in your contract.",
+      "READ_ONLY": "The console is read-only, so no store can be created."
+    },
+    "new": {
+      "title": "Create a store",
+      "lede": "For a merchant you’ve signed yourself. Merchants can also sign up at {host}/signup.",
+      "breadcrumb": "Breadcrumb",
+      "loading": "Loading the form",
+      "fields": {
+        "name": "Store name",
+        "namePlaceholder": "e.g. Cascade Coffee",
+        "owner": "Owner’s name",
+        "email": "Owner’s email",
+        "country": "Country",
+        "plan": "Plan",
+        "trial": "Trial"
+      },
+      "trials": {
+        "none": "No trial",
+        "days": "{count} days"
+      },
+      "planOption": "{plan} · {price} / month",
+      "price": "{price} / month, charged by {who}",
+      "afterTrial": ", after a {days}-day trial.",
+      "fromToday": ", from today.",
+      "invitation": "The owner gets an invitation to set their own password.",
+      "invalid": "Fill in the store name, the owner’s name and a valid email.",
+      "submit": "Create store",
+      "setup": {
+        "title": "Setting up {store}",
+        "note": "This takes under two minutes. You can leave this page.",
+        "steps": {
+          "account": "Account",
+          "store": "Store",
+          "portal": "Portal ready",
+          "storefront": "Storefront building",
+          "done": "Done"
+        },
+        "states": {
+          "done": "Done",
+          "running": "Working",
+          "waiting": "Waiting",
+          "failed": "Failed"
+        },
+        "ready": "Ready in {duration}. {owner} has an invitation to set their password.",
+        "open": "Open the store",
+        "again": "Create another"
+      },
+      "error": {
+        "title": "We couldn’t open the form",
+        "body": "The partner service didn’t answer in time. Nothing was changed.",
+        "retry": "Try again"
+      },
+      "failed": "We couldn’t create the store. Nothing was changed. Try again in a moment."
+    }
   }
 }
