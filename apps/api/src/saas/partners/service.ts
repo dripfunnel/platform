@@ -324,9 +324,11 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     approval: row.state === 'awaiting' ? { setUpBy: f.rule.setUpBy?.name ?? null, rule: f.rule.rule, approvals: f.approvers.length } : null,
   })
 
-  // A malformed id is NOT_FOUND (or null), never a database error; the row policy guards only a Partner manager's.
+  // A malformed id is NOT_FOUND (or null), never a database error, and so is a partner outside a
+  // Partner manager's assignment (ACCESS.md §5.4): the service enforces it, not the resolver alone.
   const isId = (id: string) => z.guid().safeParse(id).success
   const notFound: Refusal = { ok: false, code: 'NOT_FOUND' }
+  const visible = async (partnerId: string): Promise<boolean> => isId(partnerId) && (await assigned(partnerId))
 
   const list = async (filter: unknown, page: PageRequest): Promise<Result<{ page: PartnerPage }>> => {
     const parsed = partnerFilter.safeParse(filter ?? {})
@@ -370,7 +372,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const get = async (id: string): Promise<PartnerDto | null> =>
-    !isId(id) ? null : withScope(sql, context, async (tx) => {
+    !(await visible(id)) ? null : withScope(sql, context, async (tx) => {
       const partner = await selectPartner(tx, id)
       if (!partner) return null
       const listRow = await selectPartnerListRow(tx, id)
@@ -407,7 +409,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     action: PartnerAuditAction,
     change: (partner: PartnerRow) => Parameters<typeof transitionPartner>[2] | Refusal,
   ): Promise<Result<{ state: PartnerState }>> => {
-    if (!isId(id)) return notFound
+    if (!(await visible(id))) return notFound
     const parsedReason = reasonText.safeParse(reason ?? '')
     if (!parsedReason.success) return { ok: false, code: 'REASON_REQUIRED' }
     return withScope(sql, context, async (tx): Promise<Result<{ state: PartnerState }>> => {
@@ -423,7 +425,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const approvePartner = async (id: string, reason: string | null): Promise<Result<{ state: PartnerState; approvals: number }>> => {
-    if (!isId(id)) return notFound
+    if (!(await visible(id))) return notFound
     const refused = refusedBy('partners.approve')
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
@@ -504,7 +506,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const invite = async (id: string, resend: boolean): Promise<Result> => {
-    if (!isId(id)) return notFound
+    if (!(await visible(id))) return notFound
     const refused = refusedBy(resend ? 'partners.invite.resend' : 'partners.invite')
     if (refused) return refused
     return withScope(sql, context, async (tx): Promise<Result> => {
@@ -536,7 +538,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   }
 
   const startSetupSession = async (id: string, reason: string | null, ticket: string | null): Promise<Result<{ sessionId: string; expiresAt: Date; handoff: string }>> => {
-    if (!isId(id)) return notFound
+    if (!(await visible(id))) return notFound
     const refused = refusedBy('partners.setup')
     if (refused) return refused
     const parsed = reasonText.safeParse(reason ?? '')
@@ -571,7 +573,8 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
   const endStaffSession = async (sessionId: string): Promise<Result> =>
     !isId(sessionId) ? notFound : withScope(sql, context, async (tx): Promise<Result> => {
       const session = await selectSetupSession(tx, sessionId)
-      if (!session) return { ok: false, code: 'NOT_FOUND' }
+      // Outside the caller's assignment the session does not exist, not even as "ended".
+      if (!session || !(await assigned(session.partner_id))) return notFound
       const at = now()
       const permission = sessionDto(session, at).end
       if (!permission.allowed) return { ok: false, code: permission.reason }
@@ -583,7 +586,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     })
 
   const recheckDomain = async (id: string, kind: string): Promise<Result<{ status: 'queued' }>> => {
-    if (!isId(id)) return notFound
+    if (!(await visible(id))) return notFound
     const refused = refusedBy('domains.recheck')
     if (refused) return refused
     if (!(domainKinds as readonly string[]).includes(kind)) return { ok: false, code: 'INVALID_INPUT' }

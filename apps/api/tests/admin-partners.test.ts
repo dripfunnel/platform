@@ -380,7 +380,8 @@ describe('setup sessions (ACCESS.md §8.2, §8.3)', () => {
     expect((await run<Ended>(end, as('staff-super-admin'), { id: second })).data?.['endStaffSession']).toMatchObject({ ok: true })
     await db.sql`update partner_setup_session set ended_at = null, expires_at = ${new Date(now.getTime() + 3600_000)} where id = ${id}`
 
-    // Ending: the owner or a Super admin, once.
+    // Ending: the owner or a Super admin, once. A manager not assigned to the partner learns nothing, not even that it exists.
+    expect((await run<Ended>(end, secondPm, { id })).data?.['endStaffSession']).toMatchObject({ ok: false, code: 'NOT_FOUND' })
     expect((await run<Ended>(end, as('staff-partner-manager'), { id })).data?.['endStaffSession']).toMatchObject({ ok: false, code: 'NOT_SESSION_OWNER' })
     expect((await run<Ended>(end, as('staff-super-admin'), { id })).data?.['endStaffSession']).toMatchObject({ ok: true })
     expect((await run<Ended>(end, as('staff-super-admin'), { id })).data?.['endStaffSession']).toMatchObject({ ok: false, code: 'SESSION_ENDED' })
@@ -465,6 +466,27 @@ describe('malformed ids', () => {
       expect(['NOT_FOUND', 'FORBIDDEN'], field).toContain(code)
     }
     for (const [field, args] of operations) expect((await call(field, args, as('staff-read-only'))).code, field).toBe('FORBIDDEN')
+  })
+})
+
+describe('the service enforces the assignment itself (ACCESS.md §5.4)', () => {
+  it('answers an unassigned Partner manager with null or NOT_FOUND without a resolver in front', async () => {
+    // Northstar is assigned to the second manager only; Priya reaches the service directly, as a job or script would.
+    const northstar = await partnerIdOf('Northstar Commerce')
+    const service = createPartnersService({
+      sql: db.sql,
+      staff: as('staff-partner-manager'),
+      reauthFresh: true,
+      facts: factsOf(request),
+      activity: activityLog,
+      isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
+      now: () => now,
+    })
+    expect(await service.get(northstar)).toBeNull()
+    expect(await service.sendBackPartner(northstar, 'not mine')).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    expect(await service.resendPartnerOwnerInvite(northstar)).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    expect(await service.recheckDomain(northstar, 'portal')).toMatchObject({ ok: false, code: 'NOT_FOUND' })
+    expect(await service.startSetupSession(northstar, 'help', null)).toMatchObject({ ok: false, code: 'NOT_FOUND' })
   })
 })
 
