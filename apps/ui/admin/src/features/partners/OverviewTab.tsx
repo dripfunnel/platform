@@ -3,6 +3,7 @@ import type { StatusIconName } from '@dripfunnel/shared/ui'
 import type { HistoryEntry, Partner, SetupRow } from '../../api/partners'
 import { fill, formatCountry, formatDate, formatCount, messages } from '../../messages'
 import './partners.css'
+import '../common/records.css'
 
 const words = messages.partner.overview
 const listWords = messages.partners

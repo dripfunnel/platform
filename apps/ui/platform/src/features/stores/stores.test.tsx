@@ -95,7 +95,7 @@ describe('the partner Stores list', () => {
   it('links a store to its page and never to an order, customer or product', async () => {
     const html = await list()
     const links = hrefs(html)
-    expect(links).toContain('/stores?store=st-fieldnote')
+    expect(links).toContain('/stores/st-fieldnote')
     expect(links.some((href) => /orders|customers|products/.test(href))).toBe(false)
     const headers = [...html.matchAll(/<th scope="col"[^>]*>([^<]*)<\/th>/g)].map((match) => match[1])
     expect(headers).not.toContain('Orders')

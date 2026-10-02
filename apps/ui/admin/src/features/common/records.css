@@ -1,0 +1,65 @@
+/* Lists inside this console's detail tabs: a record's people, history, checks and DNS findings
+   (#19, #20); the panels they sit in are @dripfunnel/shared/ui/detail.css. */
+
+.df-found--wrong {
+  color: var(--df-color-danger);
+}
+
+.df-plain-list,
+.df-checklist,
+.df-history,
+.df-people {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.df-plain-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px var(--df-space-4);
+  padding-top: var(--df-space-2);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-checklist li {
+  padding-top: var(--df-space-2);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-checklist li,
+.df-people li,
+.df-invitation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--df-space-2) var(--df-space-4);
+}
+
+.df-people li {
+  padding-bottom: var(--df-space-3);
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-people li:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.df-history li {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: var(--df-space-3);
+}
+
+.df-domain-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}

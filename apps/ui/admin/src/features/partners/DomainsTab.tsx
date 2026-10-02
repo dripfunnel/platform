@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { DomainKind, Partner, PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
-import { InfoNote } from '../common/InfoNote'
+import { InfoNote } from '@dripfunnel/shared/ui'
 import { HostPill } from './partnerLook'
 import './partners.css'
+import '../common/records.css'
 
 const words = messages.partner.domains
 

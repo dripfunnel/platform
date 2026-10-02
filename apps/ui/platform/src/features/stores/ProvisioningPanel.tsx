@@ -35,7 +35,7 @@ export const ProvisioningPanel = ({ storeId, storeName, ownerName, progress, onA
     </ol>
     {progress?.done && (
       <div className="df-actions">
-        <Link to="/stores" search={{ store: storeId }} className="df-button df-button--primary">
+        <Link to="/stores/$storeId" params={{ storeId: storeId }} className="df-button df-button--primary">
           {words.open}
         </Link>
         <button type="button" className="df-button" onClick={onAgain}>

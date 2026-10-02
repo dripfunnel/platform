@@ -1,9 +1,10 @@
 import { formatMoney } from '@dripfunnel/shared/format'
 import type { Store, StoreHistoryEntry } from '../../api/stores'
 import { fill, formatCount, formatCountry, formatDate, locale, messages } from '../../messages'
-import { InfoNote } from '../common/InfoNote'
+import { InfoNote } from '@dripfunnel/shared/ui'
 import { StatusSub, StoreStatusPill } from './storeLook'
 import './stores.css'
+import '../common/records.css'
 
 const words = messages.store.overview
 const events = words.events

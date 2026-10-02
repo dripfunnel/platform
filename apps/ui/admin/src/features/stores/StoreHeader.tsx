@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { fill, messages } from '../../messages'
-import { Tile } from '../common/Tile'
+import { Tile } from '@dripfunnel/shared/ui'
 import { StoreActions, type StoreActionsProps } from './StoreActions'
 import { DomainPill, StatusSub, StoreStatusPill } from './storeLook'
 import './stores.css'

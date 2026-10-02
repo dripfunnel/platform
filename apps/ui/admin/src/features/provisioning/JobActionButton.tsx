@@ -1,6 +1,6 @@
 import type { JobAction, JobPermissions } from '../../api/provisioning'
 import { fill, messages } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
+import { ActionControl } from '@dripfunnel/shared/ui'
 
 const words = messages.provisioning
 

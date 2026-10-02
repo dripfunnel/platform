@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { Partner, PartnerAction } from '../../api/partners'
 import { formatCount, messages } from '../../messages'
 import { PartnerActions } from './PartnerActions'
-import { Tile } from '../common/Tile'
+import { Tile } from '@dripfunnel/shared/ui'
 import { HostPill, HouseBadge, InvitationPill, PartnerStatePill } from './partnerLook'
 import './partners.css'
 

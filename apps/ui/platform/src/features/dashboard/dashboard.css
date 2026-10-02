@@ -101,25 +101,6 @@
   gap: var(--df-space-3);
 }
 
-.df-usage-bar {
-  display: block;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--df-color-skeleton);
-}
-
-.df-usage-bar-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--df-color-warning);
-}
-
-.df-usage-bar-fill--full {
-  background: var(--df-color-danger);
-}
-
 .df-top {
   display: grid;
   gap: var(--df-space-1);

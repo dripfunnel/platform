@@ -1,0 +1,180 @@
+/* Plans list and the plan editor (FIRST-RELEASE.md §7; designs/design.md §7), beside the shared list and detail styles. */
+
+.df-plans-table {
+  min-width: 900px;
+}
+
+.df-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: var(--df-space-4);
+  align-items: start;
+}
+
+.df-editor-main {
+  display: grid;
+  gap: var(--df-space-4);
+  min-width: 0;
+}
+
+.df-editor-side {
+  position: sticky;
+  top: var(--df-space-4);
+}
+
+.df-editor-card {
+  display: grid;
+  gap: var(--df-space-3);
+}
+
+.df-editor-card .df-field {
+  margin-bottom: 0;
+}
+
+.df-editor-basics {
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.df-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.df-editor-note,
+.df-editor-problem {
+  margin: 0;
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-neutral-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-neutral);
+  font-size: 14px;
+}
+
+.df-editor-problem {
+  border-color: var(--df-color-danger-border);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+}
+
+.df-price-row {
+  display: grid;
+  grid-template-columns: 4rem repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--df-space-3);
+  align-items: end;
+  padding-top: var(--df-space-3);
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-price-currency {
+  padding-bottom: 10px;
+  font-family: var(--df-font-mono);
+}
+
+.df-price-notes {
+  padding-bottom: 4px;
+  font-size: 13px;
+}
+
+.df-margin--keep {
+  color: var(--df-color-success);
+}
+
+.df-margin--loss {
+  color: var(--df-color-danger);
+  font-size: 12px;
+}
+
+.df-matrix {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-matrix li {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.3fr) minmax(6rem, 0.6fr) minmax(9rem, 1fr) minmax(9rem, 1fr);
+  gap: var(--df-space-2) var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-2) 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-matrix-kind {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-matrix-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--df-space-2);
+  cursor: pointer;
+}
+
+.df-matrix-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--df-color-brand);
+}
+
+.df-matrix-input {
+  height: 36px;
+  max-width: 10rem;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+}
+
+.df-matrix-input[aria-invalid='true'] {
+  border-color: var(--df-color-danger-border);
+}
+
+.df-matrix-input:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+/* The save bar: only when the draft differs from the saved plan (designs/design.md §7). */
+
+.df-save-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--df-space-3);
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  box-shadow: 0 -8px 24px -16px var(--df-color-backdrop);
+}
+
+.df-save-bar > span {
+  flex: 1 1 auto;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .df-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-editor-side {
+    position: static;
+  }
+
+  .df-matrix li {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}

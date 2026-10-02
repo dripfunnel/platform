@@ -44,7 +44,8 @@ The list primitives every list here is built from (`ListHeader`, `SearchField`,
 `FilterSelect`, `ClickableRow` and `list.css`) come from `@dripfunnel/shared/ui`, the
 URL-search helpers from `@dripfunnel/shared/search` and `PageInfo` from
 `@dripfunnel/shared/graphql`, moved on #115 for the partner console's Stores list;
-`src/features/common/detail.css` keeps the detail-page styles only this console draws.
+the detail-page pieces (`DetailTabs`, `MoreActions`, `ActionControl`, `Tile`, `InfoNote`,
+`Toast` and `detail.css`) followed on #116 for the partner console's Store detail.
 `/partners/<id>` is the detail page with the seven tabs of §4.2 (`?tab=`) and the §4.3 actions
 through `ConfirmDialog`. Both read `src/api/partners.ts`, the only place the app talks to the
 API about partners, on fixtures until #33. Whether each action is allowed, and why not, comes

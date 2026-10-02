@@ -1,7 +1,7 @@
 import type { ActivityExport as ExportJob, ActivityPage } from '../../api/activity'
 import { exportCap } from '../../api/activity'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
+import { ActionControl } from '@dripfunnel/shared/ui'
 import './activityLog.css'
 
 const words = messages.activity.export

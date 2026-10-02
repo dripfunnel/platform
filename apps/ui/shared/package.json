@@ -13,7 +13,8 @@
     "./ui/shell.css": "./ui/shell.css",
     "./ui/auth.css": "./ui/auth.css",
     "./ui/cards.css": "./ui/cards.css",
-    "./ui/list.css": "./ui/list.css"
+    "./ui/list.css": "./ui/list.css",
+    "./ui/detail.css": "./ui/detail.css"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

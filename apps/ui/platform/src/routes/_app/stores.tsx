@@ -5,7 +5,7 @@ import { createdWindows, loadStores, storefrontStates, storeStatuses } from '../
 import { StoresPending, StoresRouteError, StoresScreen } from '../../features/stores/StoresScreen'
 
 // `status`, not `state`: ?state= is the designed-states harness (docs/ui/README.md §6). Loose, so the
-// harness keys survive a filter change; `store` and `tab` are the Dashboard's links to a store (#116 reads them).
+// harness keys survive a filter change.
 const storesSearch = z.looseObject({
   status: optionalParam(z.enum(storeStatuses)),
   plan: idParam,
@@ -13,8 +13,6 @@ const storesSearch = z.looseObject({
   storefront: optionalParam(z.enum(storefrontStates)),
   near: optionalParam(z.literal('yes')),
   q: searchParam,
-  store: idParam,
-  tab: idParam,
 })
 
 export const Route = createFileRoute('/_app/stores')({

@@ -1,7 +1,6 @@
 import type { Partner, PartnerAction } from '../../api/partners'
 import { fill, messages } from '../../messages'
-import { ActionControl } from '../common/ActionControl'
-import { MoreActions } from '../common/MoreActions'
+import { ActionControl, MoreActions } from '@dripfunnel/shared/ui'
 import { refusalText } from './refusal'
 
 const words = messages.partner
@@ -40,7 +39,7 @@ export const PartnerActions = ({ partner, onAction }: PartnerActionsProps) => {
   return (
     <div className="df-detail-actions" role="group" aria-label={fill(words.actionsLabel, { name: partner.name })}>
       {headerActions.map((action) => control(action))}
-      {inMenu.length > 0 && <MoreActions>{(close) => inMenu.map((action) => control(action, close))}</MoreActions>}
+      {inMenu.length > 0 && <MoreActions label={messages.common.moreActions}>{(close) => inMenu.map((action) => control(action, close))}</MoreActions>}
     </div>
   )
 }
