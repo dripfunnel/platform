@@ -445,5 +445,104 @@
       "note": "Payment method and payout details can come later.",
       "cancel": "Cancel"
     }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "lede": "How {product} is doing.",
+    "loading": "Loading the dashboard",
+    "range": {
+      "label": "Date range",
+      "showing": "Showing",
+      "month": "This month",
+      "last": "Last month",
+      "q": "Last 90 days"
+    },
+    "stores": {
+      "title": "Stores",
+      "total": "{count} in total",
+      "statusLabel": "{count} {status} stores",
+      "status": {
+        "active": "Active",
+        "trial": "Trial",
+        "pastdue": "Past due",
+        "suspended": "Suspended"
+      },
+      "newThisMonth": "new this month"
+    },
+    "revenue": {
+      "title": "Revenue",
+      "collected": "Merchant subscriptions collected",
+      "fee": "DripFunnel’s fee",
+      "payout": "Your payout so far",
+      "comparison": "{comparison} · next payout {date}",
+      "fresh": "Your first payments arrive when merchants pay.",
+      "note": "Collected by DripFunnel for {partner}. CAD is converted at the payout rate."
+    },
+    "attention": {
+      "title": "Needs attention",
+      "none": "Nothing needs you right now.",
+      "kinds": {
+        "pastDue": "Past due",
+        "setupStuck": "Setup stuck",
+        "domainStuck": "Domain stuck",
+        "trialEnding": "Trial ending"
+      },
+      "actions": {
+        "pastDue": "Open billing",
+        "setupStuck": "Retry setup",
+        "domainStuck": "Re-check",
+        "trialEnding": "Extend trial"
+      },
+      "refused": {
+        "OWNERS_AND_ADMINS_ONLY": "Your role can’t retry a setup step. Owners and Admins can.",
+        "FINANCE_TRIAL_ONLY": "Your role can’t extend trials. Owners, Admins and Finance can."
+      }
+    },
+    "signups": {
+      "title": "Signups",
+      "thisWeek": "this week",
+      "started": "started",
+      "completed": "completed",
+      "conversion": "of trials became paid stores · {comparison}",
+      "fresh": "No trials have ended yet."
+    },
+    "usage": {
+      "title": "Usage",
+      "near": "{count} near a limit",
+      "none": "No store is at 80% of a limit.",
+      "of": "{used} of {limit} {name}",
+      "limits": {
+        "products": "products",
+        "staff": "staff seats",
+        "suppliers": "suppliers",
+        "ai": "AI design prompts this month",
+        "publish": "“Publish now” presses this month"
+      }
+    },
+    "top": {
+      "title": "Top stores by sales",
+      "report": "Report",
+      "sub": "Last month, totals only, in each store’s currency.",
+      "none": "No sales yet."
+    },
+    "empty": {
+      "title": "No stores yet",
+      "body": "Create your first store, or share your sign-up link: {host}/signup",
+      "action": "Create store"
+    },
+    "error": {
+      "title": "We couldn’t load the dashboard",
+      "body": "The partner service didn’t answer in time. Nothing was changed.",
+      "retry": "Try again"
+    },
+    "stale": {
+      "title": "Some numbers are from {time}.",
+      "body": "Stripe and GitHub are slow to answer. We’ll refresh automatically."
+    },
+    "offline": {
+      "title": "You’re offline.",
+      "body": "You can keep reading. Saving is paused and comes back when you reconnect."
+    },
+    "refresh": "Refresh now"
   }
 }

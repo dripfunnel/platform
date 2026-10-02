@@ -1,5 +1,5 @@
 import { useId, type ReactNode } from 'react'
-import './dashboard.css'
+import './cards.css'
 
 export interface DashboardCardProps {
   title: string

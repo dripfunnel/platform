@@ -1,0 +1,152 @@
+/* What only the partner Dashboard draws: the range control, revenue rows, attention rows, usage bars
+   and the top-stores list. Cards, tiles and figures are shared/ui/cards.css. */
+
+.df-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-range-option {
+  min-height: 34px;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: 999px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-range-option[aria-pressed='true'] {
+  border-color: var(--df-color-heading);
+  background: var(--df-color-heading);
+  color: var(--df-color-page);
+}
+
+.df-range-option:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-revenue-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+  padding: var(--df-space-2) 0;
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-revenue-row--payout strong {
+  color: var(--df-color-success);
+}
+
+.df-revenue-note {
+  font-size: 12px;
+}
+
+.df-attention {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-attention-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-2) 0;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-attention-row .df-row-title {
+  color: var(--df-color-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.df-signups {
+  text-decoration: none;
+}
+
+.df-usage {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-usage-row {
+  display: grid;
+  gap: var(--df-space-1);
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-usage-text {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-usage-bar {
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--df-color-skeleton);
+}
+
+.df-usage-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--df-color-warning);
+}
+
+.df-usage-bar-fill--full {
+  background: var(--df-color-danger);
+}
+
+.df-top {
+  display: grid;
+  gap: var(--df-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-top-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: var(--df-space-3);
+  align-items: center;
+  padding: var(--df-space-2) 0;
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-top-n {
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-top-name {
+  display: grid;
+}
+
+@media (max-width: 639px) {
+  .df-attention-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

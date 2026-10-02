@@ -3,7 +3,7 @@ import { getRouteApi, useRouterState } from '@tanstack/react-router'
 import { onboardingFor, setupVariants } from '../../api/onboarding'
 import { staffSession } from '../../api/staffSession'
 import { harnessEnabled } from '../../harness'
-import { ScreenPlaceholder } from '../shell/ScreenPlaceholder'
+import { DashboardScreen } from '../dashboard/DashboardScreen'
 import { LiveMoment } from './LiveMoment'
 import { Onboarding } from './Onboarding'
 
@@ -21,8 +21,8 @@ export const HomeScreen = () => {
   if (me.partner.state === 'live') {
     return (
       <>
-        {harnessEnabled && search.get('moment') === 'live' && <LiveMoment product={me.partner.product} host="shop.kaufladen.de" />}
-        <ScreenPlaceholder screen="dashboard" />
+        {harnessEnabled && search.get('moment') === 'live' && <LiveMoment product={me.partner.product} host={me.partner.host} />}
+        <DashboardScreen />
       </>
     )
   }

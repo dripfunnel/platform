@@ -1,5 +1,7 @@
+import { Icon } from './Icon'
 import './stale.css'
-import { useAnnouncement, Icon } from '@dripfunnel/shared/ui'
+import './states.css'
+import { useAnnouncement } from './useAnnouncement'
 
 export interface StaleNoticeProps {
   title: string

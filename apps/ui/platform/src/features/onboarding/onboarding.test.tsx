@@ -15,7 +15,7 @@ const render = async (element: ReactNode) => {
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
-const me = (role: PartnerRole = 'partner-owner'): Me => ({ id: 'pu-1', name: 'Jonas Weber', email: 'jonas@kaufladen.de', role, partner: { id: 'p-kl', name: 'Kaufladen Digital', product: 'Kaufladen Shops', state: 'draft' } })
+const me = (role: PartnerRole = 'partner-owner'): Me => ({ id: 'pu-1', name: 'Jonas Weber', email: 'jonas@kaufladen.de', role, partner: { id: 'p-kl', name: 'Kaufladen Digital', product: 'Kaufladen Shops', host: 'shop.kaufladen.de', state: 'draft' } })
 const words = messages.onboarding
 
 describe('the setup checklist', () => {

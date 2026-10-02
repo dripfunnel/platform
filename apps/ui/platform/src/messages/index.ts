@@ -1,4 +1,4 @@
-import { formatDateTime, formatDuration, formatNumber } from '@dripfunnel/shared/format'
+import { formatDateTime, formatDuration, formatMoney, formatNumber, type Money } from '@dripfunnel/shared/format'
 import en from './en.json'
 
 export const messages = en
@@ -19,3 +19,5 @@ const dateFormat = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'sho
 
 // A day, not a moment: shown without a time, so it needs no zone name beside it.
 export const formatDate = (iso: string): string => dateFormat.format(new Date(iso))
+
+export const formatAmount = (money: Money): string => formatMoney(money, locale)

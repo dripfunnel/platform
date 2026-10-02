@@ -53,6 +53,17 @@ place, with this console's words.
 The harness (`?state=`, `?partner=` and `/states`) is on under `vite dev`, and in a build only
 when `VITE_STATE_HARNESS=1` is set at build time. Production never sets it.
 
+## Dashboard
+
+Once the partner is Live, `/dashboard` (`src/features/dashboard/`, #114; FIRST-RELEASE.md §5)
+draws six cards: Stores, Revenue, Needs attention, Signups, Usage and Top stores by sales. Every
+number is a link to the Stores list with the filter in the URL (`?status=`, `?created=`,
+`?near=yes`, `?store=`), to Billing or to Reports. The date range lives in `?range=` (`month`,
+`last`, `q`) and applies to every card. The fixture in `src/api/dashboard.ts` supplies every
+comparison and conversion as words; the screen formats and links and computes nothing. States:
+`?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` is a brand-new Live partner
+and `?view=stale` numbers the API marks as old.
+
 ## Onboarding
 
 `/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;

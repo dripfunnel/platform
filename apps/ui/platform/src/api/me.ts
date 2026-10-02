@@ -11,7 +11,7 @@ export interface Me {
   name: string
   email: string
   role: PartnerRole
-  partner: { id: string; name: string; product: string; state: PartnerState }
+  partner: { id: string; name: string; product: string; host: string; state: PartnerState }
 }
 
 const fixture: Me = {
@@ -19,7 +19,7 @@ const fixture: Me = {
   name: 'Maya Ortiz',
   email: 'maya@northstar.com',
   role: 'partner-owner',
-  partner: { id: 'p-northstar', name: 'Northstar Commerce', product: 'Northstar Shops', state: 'live' },
+  partner: { id: 'p-northstar', name: 'Northstar Commerce', product: 'Northstar Shops', host: 'store.northstar.com', state: 'live' },
 }
 
 // Fixture until partner sign-in lands (#112), then the Platform API's `me` (FIRST-RELEASE.md §16).
@@ -43,7 +43,7 @@ const kaufladen: Me = {
   name: 'Jonas Weber',
   email: 'jonas@kaufladen.de',
   role: 'partner-owner',
-  partner: { id: 'p-kaufladen', name: 'Kaufladen Digital', product: 'Kaufladen Shops', state: 'draft' },
+  partner: { id: 'p-kaufladen', name: 'Kaufladen Digital', product: 'Kaufladen Shops', host: 'shop.kaufladen.de', state: 'draft' },
 }
 
 export const meForPartnerState = (me: Me, requested: string | undefined): Me => {
