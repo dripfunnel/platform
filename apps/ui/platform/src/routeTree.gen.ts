@@ -23,6 +23,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AppSupportRouteImport } from './routes/_app/support'
+import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 
@@ -94,6 +95,11 @@ const AppSupportRoute = AppSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AppRoute,
 } as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/support': typeof AppSupportRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
 }
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/states': typeof AppStatesRoute
   '/stores': typeof AppStoresRoute
   '/support': typeof AppSupportRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
 }
@@ -152,6 +160,7 @@ export interface FileRoutesById {
   '/_app/states': typeof AppStatesRoute
   '/_app/stores': typeof AppStoresRoute
   '/_app/support': typeof AppSupportRoute
+  '/_auth/accept-invite': typeof AuthAcceptInviteRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
@@ -171,6 +180,7 @@ export interface FileRouteTypes {
     | '/states'
     | '/stores'
     | '/support'
+    | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
   fileRoutesByTo: FileRoutesByTo
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/states'
     | '/stores'
     | '/support'
+    | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
   id:
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/_app/states'
     | '/_app/stores'
     | '/_app/support'
+    | '/_auth/accept-invite'
     | '/_auth/sign-in'
     | '/impersonate/enter'
     | '/_app/'
@@ -315,6 +327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSupportRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_auth/accept-invite': {
+      id: '/_auth/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
@@ -365,10 +384,12 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
   AuthSignInRoute: typeof AuthSignInRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
   AuthSignInRoute: AuthSignInRoute,
 }
 

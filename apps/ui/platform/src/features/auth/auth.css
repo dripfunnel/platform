@@ -39,8 +39,8 @@
   text-align: right;
 }
 
-.df-auth-summary p {
-  margin: 0;
+.df-auth-summary-note {
+  margin: calc(-1 * var(--df-space-1)) 0 0;
   color: var(--df-color-muted);
   font-size: 12px;
 }
