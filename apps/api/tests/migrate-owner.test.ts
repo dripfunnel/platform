@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -9,8 +10,10 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 // owns them when it cannot (DATA-MODEL.md §5.3).
 
 const owner = 'df_owner_test'
+// A plain login role, a member of nothing, so the refusal is exercised whatever the local role is.
+const outsider = 'df_outsider_test'
+const outsiderPassword = randomUUID().replaceAll('-', '')
 let db: TestDatabase
-let superuser = false
 
 const migrationWith = (name: string, sql: string): string => {
   const dir = mkdtempSync(path.join(tmpdir(), 'df-migrate-'))
@@ -20,10 +23,11 @@ const migrationWith = (name: string, sql: string): string => {
 
 beforeAll(async () => {
   db = await createTestDatabase()
-  const [me] = await db.sql<{ rolsuper: boolean }[]>`select rolsuper from pg_roles where rolname = current_user`
-  superuser = me?.rolsuper ?? false
-  // The role is cluster-wide, so it is created once and left in place for the next run.
+  // Roles are cluster-wide, so they are created once and left in place for the next run.
   await db.sql.unsafe(`do $$ begin if not exists (select 1 from pg_roles where rolname = '${owner}') then create role "${owner}" nologin; end if; end $$`)
+  await db.sql.unsafe(
+    `do $$ begin if not exists (select 1 from pg_roles where rolname = '${outsider}') then create role "${outsider}" login password '${outsiderPassword}'; else alter role "${outsider}" with login password '${outsiderPassword}'; end if; end $$`,
+  )
   await db.sql`grant usage, create on schema public to ${db.sql(owner)}`
 }, 120_000)
 
@@ -51,15 +55,13 @@ describe('migrations run as the owner of the schema', () => {
     await db.sql`alter table owner_probe owner to ${db.sql(owner)}`
   })
 
-  // A superuser is a member of every role, so only a plain role can be refused; known once the
-  // database exists, hence the skip at run time.
-  it('refuses a role that is neither the owner nor a member, naming both and the grant', async ({ skip }) => {
-    if (superuser) skip()
-    await db.sql`revoke ${db.sql(owner)} from current_user`
-    await expect(migrate(db.url, migrationWith('9003_never.sql', 'create table never_made (id int);'))).rejects.toThrow(
-      new RegExp(`Connected as \\w+, but the tables are owned by ${owner}.*grant "${owner}" to`),
+  it('refuses a role that is neither the owner nor a member, naming both and the grant', async () => {
+    const url = new URL(db.url)
+    url.username = outsider
+    url.password = outsiderPassword
+    await expect(migrate(url.toString(), migrationWith('9003_never.sql', 'create table never_made (id int);'))).rejects.toThrow(
+      `Connected as ${outsider}, but the tables are owned by ${owner}, so no migration can run. Either grant the membership (grant "${owner}" to "${outsider}") or connect as ${owner}.`,
     )
     expect(await db.sql`select 1 from pg_tables where tablename = 'never_made'`).toHaveLength(0)
-    await db.sql`grant ${db.sql(owner)} to current_user`
   })
 })
