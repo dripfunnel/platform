@@ -8,7 +8,7 @@
 <body>
 <x-dc>
 <div style="display:flex;flex-direction:column;">
-  <div style="background:#FFFFFF;border-bottom:1px solid #E8E2DC;display:flex;gap:20px;padding:0 {{ padX }};overflow:auto;">
+  <div style="background:var(--card,#FFFFFF);border-bottom:1px solid var(--border,#E8E2DC);display:flex;gap:20px;padding:0 {{ padX }};overflow:auto;">
     <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="9"><button onClick="{{ t.onClick }}" style="height:48px;border:0;border-bottom:3px solid {{ t.bd }};background:none;font-family:Manrope,sans-serif;font-weight:{{ t.fw }};font-size:14px;color:{{ t.fg }};cursor:pointer;white-space:nowrap;padding:0 2px;display:flex;align-items:center;gap:6px;">{{ t.label }}<sc-if value="{{ t.count }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;padding:1px 6px;border-radius:8px;background:{{ t.cBg }};color:{{ t.cFg }};">{{ t.count }}</span></sc-if></button></sc-for>
   </div>
   <sc-if value="{{ is.store }}" hint-placeholder-val="{{ true }}"><dc-import name="SetStore" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
@@ -32,7 +32,7 @@ class Component extends DCLogic {
     const defs = [['store', 'Store info'], ['people', 'People', String(ppl.length)], ['supplier', 'Supplier', String(sup.length)], ['payments', 'Payment setup'], ['shipping', 'Shipping', cs.some(x => x.status === 'failed') ? '!' : ''], ['warehouse', 'Warehouse', String((app.data('warehouses') || []).length)], ['tax', 'Tax setup'], ['markets', 'Markets', String((app.data('markets') || []).length)], ['catalogue', 'Catalogue']].filter(([k]) => k !== 'supplier' || app.caps.suppliersOn);
     const is = {}; defs.forEach(([k]) => { is[k] = s.tab === k; });
     return { app, is, padX: app.phone ? '14px' : '28px',
-      tabs: defs.map(([k, l, n]) => ({ label: l, count: n || '', cBg: n === '!' ? '#FDF0E8' : '#F2F0EC', cFg: n === '!' ? '#B8541F' : '#5A6472', bd: s.tab === k ? '#EC844F' : 'transparent', fg: s.tab === k ? '#14181F' : '#5A6472', fw: s.tab === k ? 700 : 500, onClick: () => this.setState({ tab: k }) })) };
+      tabs: defs.map(([k, l, n]) => ({ label: l, count: n || '', cBg: n === '!' ? 'var(--pbg,#FDF0E8)' : 'var(--sunk,#F2F0EC)', cFg: n === '!' ? 'var(--link,#B8541F)' : 'var(--muted,#5A6472)', bd: s.tab === k ? '#EC844F' : 'transparent', fg: s.tab === k ? 'var(--text,#14181F)' : 'var(--muted,#5A6472)', fw: s.tab === k ? 700 : 500, onClick: () => this.setState({ tab: k }) })) };
   }
 }
 </script>

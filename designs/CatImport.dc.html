@@ -8,8 +8,8 @@
 <body>
 <x-dc>
 <div style="padding:{{ pad }};display:flex;flex-direction:column;gap:18px;">
-  <button onClick="{{ backToProducts }}" style="align-self:flex-start;border:0;background:none;padding:0;color:#00519F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">← Products</button>
-  <div style="margin-top:-8px;"><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;">Import &amp; export</div><div style="font-size:14px;color:#5A6472;">Bring products in from a spreadsheet or Shopify. Nothing changes in your catalogue until you confirm.</div></div>
+  <button onClick="{{ backToProducts }}" style="align-self:flex-start;border:0;background:none;padding:0;color:var(--focus,#00519F);font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">← Products</button>
+  <div style="margin-top:-8px;"><div style="font-family:Manrope,sans-serif;font-weight:800;font-size:24px;letter-spacing:-0.02em;">Import &amp; export</div><div style="font-size:14px;color:var(--muted,#5A6472);">Bring products in from a spreadsheet or Shopify. Nothing changes in your catalogue until you confirm.</div></div>
 
   <div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
     <sc-for list="{{ steps }}" as="s" hint-placeholder-count="4">
@@ -20,85 +20,84 @@
   <sc-if value="{{ isStart }}" hint-placeholder-val="{{ true }}">
     <div style="display:grid;grid-template-columns:{{ threeCols }};gap:14px;">
       <sc-for list="{{ sources }}" as="s" hint-placeholder-count="3">
-        <button onClick="{{ s.onClick }}" style="background:#FFFFFF;border:{{ s.bd }};border-radius:12px;padding:20px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;">
-          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:16px;color:#14181F;">{{ s.title }}</span>
-          <span style="font-size:13px;color:#434A55;">{{ s.body }}</span>
-          <span style="font-size:13px;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;padding-top:4px;">{{ s.cta }}</span>
+        <button onClick="{{ s.onClick }}" style="background:var(--card,#FFFFFF);border:{{ s.bd }};border-radius:12px;padding:20px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;">
+          <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:16px;color:var(--text,#14181F);">{{ s.title }}</span>
+          <span style="font-size:13px;color:var(--text2,#434A55);">{{ s.body }}</span>
+          <span style="font-size:13px;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;padding-top:4px;">{{ s.cta }}</span>
         </button>
       </sc-for>
     </div>
     <sc-if value="{{ fileErr }}" hint-placeholder-val="{{ false }}">
-      <div role="alert" style="padding:14px 16px;border-radius:12px;background:#FDF0E8;border:1px solid #F0D4BF;color:#6B3312;font-size:14px;display:flex;flex-direction:column;gap:6px;max-width:720px;">
+      <div role="alert" style="padding:14px 16px;border-radius:12px;background:var(--pbg,#FDF0E8);border:1px solid var(--pbd,#F0D4BF);color:var(--pfg,#6B3312);font-size:14px;display:flex;flex-direction:column;gap:6px;max-width:720px;">
         <strong style="font-family:Manrope,sans-serif;">{{ fileErrTitle }}</strong><span>{{ fileErrBody }}</span>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:2px;"><button onClick="{{ a.pickFile }}" style="border:0;background:none;padding:0;color:#8F4017;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Choose another file</button><button onClick="{{ a.template }}" style="border:0;background:none;padding:0;color:#8F4017;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Download the template</button></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;padding-top:2px;"><button onClick="{{ a.pickFile }}" style="border:0;background:none;padding:0;color:var(--pfg,#8F4017);font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Choose another file</button><button onClick="{{ a.template }}" style="border:0;background:none;padding:0;color:var(--pfg,#8F4017);font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Download the template</button></div>
       </div>
     </sc-if>
     <sc-if value="{{ isShopify }}" hint-placeholder-val="{{ false }}">
-      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;max-width:620px;">
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:12px;max-width:620px;">
         <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Connect your Shopify store</span>
-        <sc-if value="{{ shopExpired }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px;border-radius:8px;background:#FDF0E8;border:1px solid #F0D4BF;color:#6B3312;font-size:13px;">{{ shopErr }}</div></sc-if>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;"><span style="flex:1;min-width:220px;display:flex;align-items:center;border:1px solid #D7D3CD;border-radius:8px;height:44px;padding:0 12px;gap:4px;"><input value="{{ shopUrl }}" onChange="{{ on.shopUrl }}" placeholder="your-store" style="border:0;outline:none;flex:1;font-size:14px;min-width:0;"><span style="color:#5A6472;font-size:14px;">.myshopify.com</span></span><button onClick="{{ a.connect }}" style="height:44px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ connectLabel }}</button></div>
-        <span style="font-size:12px;color:#5A6472;">We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have a Shopify export file instead? Use “Import from a spreadsheet”.</span>
+        <sc-if value="{{ shopExpired }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 12px;border-radius:8px;background:var(--pbg,#FDF0E8);border:1px solid var(--pbd,#F0D4BF);color:var(--pfg,#6B3312);font-size:13px;">{{ shopErr }}</div></sc-if>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><span style="flex:1;min-width:220px;display:flex;align-items:center;border:1px solid var(--field,#D7D3CD);border-radius:8px;height:44px;padding:0 12px;gap:4px;"><input value="{{ shopUrl }}" onChange="{{ on.shopUrl }}" placeholder="your-store" style="border:0;outline:none;flex:1;font-size:14px;min-width:0;"><span style="color:var(--muted,#5A6472);font-size:14px;">.myshopify.com</span></span><button onClick="{{ a.connect }}" style="height:44px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ connectLabel }}</button></div>
+        <span style="font-size:12px;color:var(--muted,#5A6472);">We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have a Shopify export file instead? Use “Import from a spreadsheet”.</span>
       </div>
     </sc-if>
   </sc-if>
 
   <sc-if value="{{ isPick }}" hint-placeholder-val="{{ false }}">
-    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
-      <div style="padding:12px 16px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Connected to {{ shopUrl }}.myshopify.com · pick products</span><button onClick="{{ a.pickAll }}" style="border:0;background:none;color:#00519F;font-size:13px;cursor:pointer;">{{ pickAllLabel }}</button></div>
-      <sc-for list="{{ shopRows }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.toggle }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 16px;border:0;border-bottom:1px solid #F1EEEA;background:{{ r.bg }};text-align:left;cursor:pointer;"><span style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ r.bd }};background:{{ r.cb }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;">{{ r.mark }}</span><span style="flex:1;font-size:14px;color:#14181F;">{{ r.name }}</span><span style="font-size:13px;color:#5A6472;">{{ r.meta }}</span></button></sc-for>
-      <div style="padding:12px 16px;display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.restart }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Back</button><button onClick="{{ a.toCheck }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Check {{ pickCount }} products</button></div>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:1px solid var(--border,#E8E2DC);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">Connected to {{ shopUrl }}.myshopify.com · pick products</span><button onClick="{{ a.pickAll }}" style="border:0;background:none;color:var(--focus,#00519F);font-size:13px;cursor:pointer;">{{ pickAllLabel }}</button></div>
+      <sc-for list="{{ shopRows }}" as="r" hint-placeholder-count="5"><button onClick="{{ r.toggle }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 16px;border:0;border-bottom:1px solid var(--border,#F1EEEA);background:{{ r.bg }};text-align:left;cursor:pointer;"><span style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ r.bd }};background:{{ r.cb }};color:#FFFFFF;font-size:11px;display:flex;align-items:center;justify-content:center;">{{ r.mark }}</span><span style="flex:1;font-size:14px;color:var(--text,#14181F);">{{ r.name }}</span><span style="font-size:13px;color:var(--muted,#5A6472);">{{ r.meta }}</span></button></sc-for>
+      <div style="padding:12px 16px;display:flex;justify-content:flex-end;gap:8px;"><button onClick="{{ a.restart }}" style="height:40px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:14px;cursor:pointer;">Back</button><button onClick="{{ a.toCheck }}" style="height:40px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Check {{ pickCount }} products</button></div>
     </div>
   </sc-if>
 
   <sc-if value="{{ isCheck }}" hint-placeholder-val="{{ false }}">
     <div style="display:grid;grid-template-columns:{{ threeCols }};gap:14px;">
-      <div style="background:#FFFFFF;border:1px solid #C3E0D2;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A6472;">{{ fileName }}</span><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:26px;color:#1D6B47;">{{ readyCount }} ready</span><span style="font-size:13px;color:#434A55;">{{ readyNote }}</span></div>
-      <div style="background:#FFFFFF;border:1px solid {{ probBd }};border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5A6472;">need fixing</span><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:26px;color:{{ probFg }};">{{ probCount }} with problems</span><span style="font-size:13px;color:#434A55;">Fix them in your file and upload again, or import the ready ones now.</span></div>
-      <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;">
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--okbd,#C3E0D2);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ fileName }}</span><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:26px;color:var(--okfg,#1D6B47);">{{ readyCount }} ready</span><span style="font-size:13px;color:var(--text2,#434A55);">{{ readyNote }}</span></div>
+      <div style="background:var(--card,#FFFFFF);border:1px solid {{ probBd }};border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">need fixing</span><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:26px;color:{{ probFg }};">{{ probCount }} with problems</span><span style="font-size:13px;color:var(--text2,#434A55);">Fix them in your file and upload again, or import the ready ones now.</span></div>
+      <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px;">
         <span style="font-size:13px;font-weight:600;">Products you already have ({{ matchCount }})</span>
-        <sc-for list="{{ matchOpts }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:8px;border:0;background:none;font-size:13px;cursor:pointer;padding:0;text-align:left;color:#14181F;"><span style="width:16px;height:16px;border-radius:50%;border:{{ m.dot }};"></span>{{ m.label }}</button></sc-for>
+        <sc-for list="{{ matchOpts }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.onClick }}" style="display:flex;align-items:center;gap:8px;border:0;background:none;font-size:13px;cursor:pointer;padding:0;text-align:left;color:var(--text,#14181F);"><span style="width:16px;height:16px;border-radius:50%;border:{{ m.dot }};"></span>{{ m.label }}</button></sc-for>
         <span style="font-size:13px;font-weight:600;padding-top:4px;">Put imported stock in</span>
-        <select value="{{ wh }}" onChange="{{ on.wh }}" style="height:38px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;padding:0 10px;font-size:13px;"><option value="1">{{ R.wh }} (default)</option><option value="2">{{ R.wh2 }}</option></select>
+        <select value="{{ wh }}" onChange="{{ on.wh }}" style="height:38px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);padding:0 10px;font-size:13px;"><sc-for list="{{ whOpts }}" as="w" hint-placeholder-count="2"><option value="{{ w.v }}">{{ w.l }}</option></sc-for></select>
       </div>
     </div>
-    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #E8E2DC;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">What to fix</span><button onClick="{{ a.dlErrors }}" style="border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Download file with a “Problems” column</button></div>
-      <sc-for list="{{ problems }}" as="e" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:70px 110px minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid #F1EEEA;font-size:13px;align-items:center;"><span style="font-family:'IBM Plex Mono',monospace;color:#5A6472;">Row {{ e.row }}</span><span style="font-family:'IBM Plex Mono',monospace;color:#434A55;">{{ e.col }}</span><span>{{ e.msg }}</span></div></sc-for>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border,#E8E2DC);gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;">What to fix</span><button onClick="{{ a.dlErrors }}" style="border:0;background:none;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;font-size:13px;cursor:pointer;">Download file with a “Problems” column</button></div>
+      <sc-for list="{{ problems }}" as="e" hint-placeholder-count="2"><div style="display:grid;grid-template-columns:70px 110px minmax(0,1fr);gap:12px;padding:10px 16px;border-bottom:1px solid var(--border,#F1EEEA);font-size:13px;align-items:center;"><span style="font-family:'IBM Plex Mono',monospace;color:var(--muted,#5A6472);">Row {{ e.row }}</span><span style="font-family:'IBM Plex Mono',monospace;color:var(--text2,#434A55);">{{ e.col }}</span><span>{{ e.msg }}</span></div></sc-for>
     </div>
-    <sc-if value="{{ overLimit }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 16px;background:#F4F8FB;border:1px solid #C9DAEC;border-radius:10px;font-size:13px;color:#00325F;"><strong>Your file has {{ newCount }} new products; your plan allows {{ room }} more.</strong> We’ll import the first {{ room }}. {{ limitCta }}</div></sc-if>
-    <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.restart }}" style="height:44px;padding:0 16px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Upload a fixed file</button><button onClick="{{ a.run }}" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ runLabel }}</button></div>
+    <sc-if value="{{ overLimit }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 16px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);border-radius:10px;font-size:13px;color:var(--ifg,#00325F);"><strong>Your file has {{ newCount }} new products; your plan allows {{ room }} more.</strong> We’ll import the first {{ room }}. {{ limitCta }}</div></sc-if>
+    <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.restart }}" style="height:44px;padding:0 16px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:14px;cursor:pointer;">Upload a fixed file</button><button onClick="{{ a.run }}" style="height:44px;padding:0 20px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">{{ runLabel }}</button></div>
   </sc-if>
 
   <sc-if value="{{ isRunning }}" hint-placeholder-val="{{ false }}">
-    <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px;max-width:620px;">
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px;max-width:620px;">
       <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:18px;">Importing {{ importTotal }} products</span>
-      <div style="height:10px;border-radius:5px;background:#EDEAE5;overflow:hidden;"><div style="width:{{ pct }};height:100%;background:#00519F;"></div></div>
-      <span style="font-size:14px;color:#434A55;">{{ doneCount }} of {{ importTotal }} done. You can leave this page — we’ll tell you when it’s finished.</span>
-      <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:10px 12px;border-radius:8px;background:#FFF6E5;border:1px solid #F2D9A6;color:#7A4B00;font-size:13px;"><strong>Paused — you’re offline.</strong> Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect.</div></sc-if>
-      <button onClick="{{ a.leave }}" style="align-self:flex-start;height:38px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Go to Products while it runs</button>
+      <div style="height:10px;border-radius:5px;background:var(--sunk,#EDEAE5);overflow:hidden;"><div style="width:{{ pct }};height:100%;background:#00519F;"></div></div>
+      <span style="font-size:14px;color:var(--text2,#434A55);">{{ doneCount }} of {{ importTotal }} done. You can leave this page — we’ll tell you when it’s finished.</span>
+      <sc-if value="{{ paused }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:10px 12px;border-radius:8px;background:var(--wbg,#FFF6E5);border:1px solid var(--wbd,#F2D9A6);color:var(--wfg,#7A4B00);font-size:13px;"><strong>Paused — you’re offline.</strong> Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect.</div></sc-if>
+      <button onClick="{{ a.leave }}" style="align-self:flex-start;height:38px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Go to Products while it runs</button>
     </div>
   </sc-if>
 
   <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
-    <div style="background:#FFFFFF;border:1px solid #C3E0D2;border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:10px;max-width:620px;">
-      <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:20px;color:#1D6B47;">{{ doneTitle }}</span>
-      <span style="font-size:14px;color:#434A55;">{{ doneBody }}</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.viewProducts }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">See your products</button><button onClick="{{ a.restart }}" style="height:40px;padding:0 14px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:14px;cursor:pointer;">Import another file</button></div>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--okbd,#C3E0D2);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:10px;max-width:620px;">
+      <span style="font-family:Manrope,sans-serif;font-weight:800;font-size:20px;color:var(--okfg,#1D6B47);">{{ doneTitle }}</span>
+      <span style="font-size:14px;color:var(--text2,#434A55);">{{ doneBody }}</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.viewProducts }}" style="height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">See your products</button><button onClick="{{ a.restart }}" style="height:40px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:14px;cursor:pointer;">Import another file</button></div>
     </div>
   </sc-if>
 
-  <div style="background:#FFFFFF;border:1px solid #E8E2DC;border-radius:12px;overflow:hidden;">
-    <div style="padding:14px 16px;border-bottom:1px solid #E8E2DC;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Export</span><span style="display:flex;gap:8px;"><button onClick="{{ a.exportHidden }}" style="height:36px;padding:0 12px;border:1px solid #D7D3CD;border-radius:8px;background:#FFFFFF;font-size:13px;cursor:pointer;">Export hidden only</button><button onClick="{{ a.exportAll }}" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:#0A2A4A;color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Export all {{ total }}</button></span></div>
-    <sc-if value="{{ exporting }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 16px;font-size:13px;color:#00325F;background:#F4F8FB;">Preparing your file… big exports run in the background.</div></sc-if>
-    <sc-for list="{{ exports }}" as="x" hint-placeholder-count="1"><div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid #F1EEEA;font-size:13px;"><span style="flex:1;">{{ x.label }} · {{ x.count }} products</span><span style="color:#5A6472;">{{ x.date }}</span><button onClick="{{ x.dl }}" style="border:0;background:none;color:#B8541F;font-family:Manrope,sans-serif;font-weight:600;cursor:pointer;">Download</button></div></sc-for>
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border,#E8E2DC);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Export</span><span style="display:flex;gap:8px;"><button onClick="{{ a.exportHidden }}" style="height:36px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Export hidden only</button><button onClick="{{ a.exportAll }}" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--navy,#0A2A4A);color:#FFFFFF;font-family:Manrope,sans-serif;font-weight:700;font-size:13px;cursor:pointer;">Export all {{ total }}</button></span></div>
+    <sc-if value="{{ exporting }}" hint-placeholder-val="{{ false }}"><div style="padding:10px 16px;font-size:13px;color:var(--ifg,#00325F);background:var(--ibg,#F4F8FB);">Preparing your file… big exports run in the background.</div></sc-if>
+    <sc-for list="{{ exports }}" as="x" hint-placeholder-count="1"><div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border,#F1EEEA);font-size:13px;"><span style="flex:1;">{{ x.label }} · {{ x.count }} products</span><span style="color:var(--muted,#5A6472);">{{ x.date }}</span><button onClick="{{ x.dl }}" style="border:0;background:none;color:var(--link,#B8541F);font-family:Manrope,sans-serif;font-weight:600;cursor:pointer;">Download</button></div></sc-for>
   </div>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  constructor(props) { super(props); this.state = { step: 'start', mode: (props.app && props.app.importMode) || null, shop: 'start', shopUrl: '', pick: [], fileErr: null, paused: false, match: 'update', wh: '1', pct: 0, exporting: false, result: null }; }
-  componentWillUnmount() { clearInterval(this._t); }
+  constructor(props) { super(props); const wd = ((props.app && props.app.data('warehouses')) || []).find(w => w.isDefault); this.state = { step: 'start', mode: (props.app && props.app.importMode) || null, shop: 'start', shopUrl: '', pick: [], fileErr: null, paused: false, match: 'update', wh: wd ? wd.id : 'w1', pct: 0, exporting: false, result: null }; }
   fileRows(R) {
     const P = v => R.mult(v);
     return [
@@ -124,61 +123,64 @@ class Component extends DCLogic {
     const room = Math.max(0, c.limits.products - app.allProducts.length);
     const willAdd = Math.min(news.length, room);
     const willUpdate = s.match === 'update' ? matches.length : 0;
-    const stepIdx = { start: 0, pick: 0, check: 1, running: 2, done: 3 }[s.step];
-    const steps = ['Choose', 'Check', 'Import', 'Done'].map((l, i) => ({ n: i < stepIdx ? '✓' : String(i + 1), label: l, bg: i < stepIdx ? '#1D6B47' : i === stepIdx ? '#00519F' : '#FFFFFF', fg: i <= stepIdx ? '#FFFFFF' : '#5A6472', bd: i < stepIdx ? '#1D6B47' : i === stepIdx ? '#00519F' : '#B9BEC6', w: i === stepIdx ? 800 : 500 }));
+    const stepIdx = { start: 0, pick: 0, check: 1, running: 2, done: 3 }[(app.job && app.job.label === 'import') ? (app.job.done ? 'done' : 'running') : s.step];
+    const steps = ['Choose', 'Check', 'Import', 'Done'].map((l, i) => ({ n: i < stepIdx ? '✓' : String(i + 1), label: l, bg: i < stepIdx ? '#1D6B47' : i === stepIdx ? '#00519F' : 'var(--card,#FFFFFF)', fg: i <= stepIdx ? '#FFFFFF' : 'var(--muted,#5A6472)', bd: i < stepIdx ? '#1D6B47' : i === stepIdx ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)', w: i === stepIdx ? 800 : 500 }));
+    const whs = (app.data('warehouses') || []).filter(w => !w.supplier);
+    const whName = (whs.find(w => w.id === s.wh) || whs.find(w => w.isDefault) || { name: R.wh }).name;
     const run = () => {
       const total = willAdd + willUpdate;
       if (!total) { app.toast('Nothing to import — every row has a problem or is skipped'); return; }
-      this.setState({ step: 'running', pct: 0 });
-      clearInterval(this._t);
-      this._t = setInterval(() => {
-        const ap = this.props.app; if (ap && ap.sim.offline) { if (!this.state.paused) this.setState({ paused: true }); return; } if (this.state.paused) this.setState({ paused: false });
-        const pct = Math.min(100, this.state.pct + 12);
-        this.setState({ pct });
-        if (pct >= 100) {
-          clearInterval(this._t);
+      if (c.readOnly) { app.toast('Your store is view-only until billing is sorted — nothing was imported'); return; }
+      this.setState({ step: 'running' });
+      app.startJob({ label: 'import', total, doneMsg: r => `Import finished — ${r.added} added, ${r.updated} updated`, apply: () => {
           const now = Date.now();
           const added = news.slice(0, willAdd).map((r, i) => ({ id: 'imp' + now + i, name: r.name, desc: '', status: 'visible', supplier: 'You', sentBack: '', type: 'physical', photos: i === 2 ? [] : [{ id: 'iph' + now + i, hue: (i * 53) % 360, alt: r.name }], price: r.price, compare: null, cost: null, stock: 10, stock2: 0, track: true, options: [], variants: [], sku: 'IMP-' + (200 + i), filters: {}, tags: [], taxClass: R.taxClasses[0], code: '', weight: '', box: '', legal: { fibre: '', origin: R.origin, care: '', batch: '', frText: '', arText: '' }, trans: {}, sizeChart: null, aplus: [], specs: [], highlights: [], man: '', updated: now - i, sample: false }));
           app.addProducts(added);
+          added.forEach(p => app.logStock({ pid: p.id, what: '', delta: 10, to: 10, reason: 'Imported from ' + (fromShop ? 'Shopify' : 'spring-range.csv'), where: whName }));
           if (willUpdate) app.updateProducts(app.allProducts.filter(p => matches.some(m => m.name === p.name)).map(p => p.id), p => ({ ...p, price: (matches.find(m => m.name === p.name) || {}).price || p.price, updated: now }));
-          this.setState({ step: 'done', result: { added: added.length, updated: willUpdate, photoFail: added.length > 2 ? 1 : 0 } });
-          app.toast(`Import finished — ${added.length} added, ${willUpdate} updated`, 'See them', () => app.go('products'));
-        }
-      }, 300);
+          return { added: added.length, updated: willUpdate, photoFail: added.length > 2 ? 1 : 0, skipped: probs.length };
+        } });
     };
-    const exportNow = (label, list) => { this.setState({ exporting: true }); setTimeout(() => { this.setState({ exporting: false }); app.setExports(e => [{ id: 'e' + Date.now(), label, count: list.length, date: 'Just now' }, ...e]); app.toast(`${label} is ready`, 'Download', () => app.toast('Downloading products.csv')); }, 1200); };
-    const res = s.result || {};
+    const job = app.job && app.job.label === 'import' ? app.job : null;
+    const step = job ? (job.done ? 'done' : 'running') : s.step;
+    const res0 = job && job.done ? job.result || {} : s.result || {};
+    const csvOf = list => [['Name', 'SKU', 'Price', 'Compare price', 'Stock', 'Status', R.codeLabel, 'Weight', 'Tax class', 'Supplier'], list.map(p => [p.name, p.sku, p.price, p.compare || '', (p.variants || []).length ? p.variants.reduce((a, v) => a + (v.removed ? 0 : Number(v.stock) || 0), 0) : p.stock, p.status, p.code || '', p.weight || '', p.taxClass || '', p.supplier])];
+    const dlList = (label, list) => { const [h, rows] = csvOf(list); app.download(label.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.csv', h, rows); };
+    const exportNow = (label, list) => { if (!app.allow('export', 'Exporting products')) return; this.setState({ exporting: true }); setTimeout(() => { this.setState({ exporting: false }); const ids = list.map(p => p.id); app.setExports(e => [{ id: 'e' + Date.now(), label, count: list.length, date: 'Just now', ids }, ...e]); app.toast(`${label} is ready`, 'Download', () => dlList(label, list)); }, 1200); };
+    const tplRows = [['Organic Cotton Tee', '28.00', '24', R.codeRequired ? '6109' : '', '0890123456789', '0.4', R.taxClasses[0], R.origin]];
+    const dlTemplate = () => app.download('template.csv', ['name', 'price', 'stock', 'product code', 'barcode', 'weight', 'tax class', 'country of origin'], tplRows);
+    const res = res0;
     const FE = { type: ['That file type can’t be imported', 'product-photos.zip is a ZIP file. Import takes CSV, XLSX or a Shopify export — add photo links in the “Image URL” column instead.'], empty: ['That file has no products in it', 'blank.csv has a header row but nothing under it. Add at least one product, one per row.'], cols: ['Some columns we need are missing', 'old-template.csv has no “price” or “name” column. Download the current template, or rename your columns to match it.'], big: ['That file is too big', 'full-catalogue.csv is 64 MB; the limit is 25 MB. Split it into two files, or import from Shopify instead.'] };
     const pickFile = () => app.modal({ title: 'Choose a file', body: 'Demo — pick a file to see what happens.', choices: [{ label: 'spring-range.csv', sub: '10 rows · works, with 2 rows to fix', value: 'ok' }, { label: 'product-photos.zip', sub: 'Wrong file type', value: 'type' }, { label: 'blank.csv', sub: 'Header only, no products', value: 'empty' }, { label: 'old-template.csv', sub: 'Missing required columns', value: 'cols' }, { label: 'full-catalogue.csv', sub: '64 MB', value: 'big' }], confirm: 'Upload', onConfirm: v => { if (v === 'ok') this.setState({ mode: 'file', step: 'check', fileErr: null }); else this.setState({ mode: 'file', fileErr: v }); } });
     return { backToProducts: () => app.go('products'),
       R, pad: phone ? '14px' : '22px 28px', threeCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))', steps,
-      isStart: s.step === 'start', isPick: s.step === 'pick', isCheck: s.step === 'check', isRunning: s.step === 'running', isDone: s.step === 'done',
+      isStart: step === 'start', isPick: step === 'pick', isCheck: step === 'check', isRunning: step === 'running', isDone: step === 'done', whOpts: whs.map(w => ({ v: w.id, l: w.name + (w.isDefault ? ' (default)' : '') })),
       sources: [
-        { title: 'Import from a spreadsheet', body: 'CSV or Excel, or a Shopify export file. Our template has one example row.', cta: 'Choose a file', bd: s.mode === 'file' ? '2px solid #00519F' : '1px solid #E8E2DC', onClick: () => { if (!app.allow('import', 'Import from a spreadsheet')) return; pickFile(); } },
-        { title: 'Bring products from Shopify', body: 'Connect your Shopify store and pick what to bring over — photos, choices and all.', cta: 'Connect Shopify', bd: fromShop ? '2px solid #00519F' : '1px solid #E8E2DC', onClick: () => { if (!app.allow('shopify', 'Bringing products from Shopify')) return; this.setState({ mode: 'shopify' }); } },
-        { title: 'Download the template', body: 'Columns: name, price, stock, product code, barcode, weight, tax class, country of origin.', cta: 'Download template.csv', bd: '1px solid #E8E2DC', onClick: () => app.toast('Downloading template.csv') }
+        { title: 'Import from a spreadsheet', body: 'CSV or Excel, or a Shopify export file. Our template has one example row.', cta: 'Choose a file', bd: s.mode === 'file' ? '2px solid var(--focus,#00519F)' : '1px solid var(--border,#E8E2DC)', onClick: () => { if (!app.allow('import', 'Import from a spreadsheet')) return; pickFile(); } },
+        { title: 'Bring products from Shopify', body: 'Connect your Shopify store and pick what to bring over — photos, choices and all.', cta: 'Connect Shopify', bd: fromShop ? '2px solid var(--focus,#00519F)' : '1px solid var(--border,#E8E2DC)', onClick: () => { if (!app.allow('shopify', 'Bringing products from Shopify')) return; this.setState({ mode: 'shopify' }); } },
+        { title: 'Download the template', body: 'Columns: name, price, stock, product code, barcode, weight, tax class, country of origin.', cta: 'Download template.csv', bd: '1px solid var(--border,#E8E2DC)', onClick: dlTemplate }
       ],
       fileErr: !!s.fileErr && s.step === 'start' && !fromShop, fileErrTitle: (FE[s.fileErr] || [])[0] || '', fileErrBody: (FE[s.fileErr] || [])[1] || '',
-      isShopify: fromShop && s.step === 'start', shopExpired: s.shop === 'expired' || s.shop === 'notfound', shopErr: s.shop === 'notfound' ? 'We couldn’t find ' + s.shopUrl + '.myshopify.com. Check the address in your Shopify admin — it’s under Settings › Domains.' : 'Shopify stopped letting us in — the connection expired. Connect again to carry on.', paused: s.paused, shopUrl: s.shopUrl, connectLabel: s.shop === 'connecting' ? 'Connecting…' : (s.shop === 'expired' ? 'Connect again' : 'Connect'),
-      shopRows: rows.map((r, i) => { const on = s.pick.includes(i); return { name: r.name, meta: r.price ? fmt(r.price) : 'no price', mark: on ? '✓' : '', cb: on ? '#00519F' : '#FFFFFF', bd: on ? '#00519F' : '#B9BEC6', bg: on ? '#F7FAFD' : '#FFFFFF', toggle: () => this.setState({ pick: on ? s.pick.filter(x => x !== i) : [...s.pick, i] }) }; }),
+      isShopify: fromShop && s.step === 'start', shopExpired: s.shop === 'expired' || s.shop === 'notfound', shopErr: s.shop === 'notfound' ? 'We couldn’t find ' + s.shopUrl + '.myshopify.com. Check the address in your Shopify admin — it’s under Settings › Domains.' : 'Shopify stopped letting us in — the connection expired. Connect again to carry on.', paused: !!(job && job.paused), shopUrl: s.shopUrl, connectLabel: s.shop === 'connecting' ? 'Connecting…' : (s.shop === 'expired' ? 'Connect again' : 'Connect'),
+      shopRows: rows.map((r, i) => { const on = s.pick.includes(i); return { name: r.name, meta: r.price ? fmt(r.price) : 'no price', mark: on ? '✓' : '', cb: on ? '#00519F' : '#FFFFFF', bd: on ? 'var(--focus,#00519F)' : 'var(--faint,#B9BEC6)', bg: on ? 'var(--hover,#F7FAFD)' : 'var(--card,#FFFFFF)', toggle: () => this.setState({ pick: on ? s.pick.filter(x => x !== i) : [...s.pick, i] }) }; }),
       pickCount: String(s.pick.length), pickAllLabel: s.pick.length === rows.length ? 'Clear all' : `Select all ${rows.length}`,
       fileName: fromShop ? s.shopUrl + '.myshopify.com' : 'spring-range.csv · ' + rows.length + ' rows', readyCount: String(ready.length), readyNote: `${news.length} new · ${matches.length} you already have (matched by product code)`,
-      probCount: String(probs.length), probBd: probs.length ? '#F0D4BF' : '#E8E2DC', probFg: probs.length ? '#B8541F' : '#1D6B47',
+      probCount: String(probs.length), probBd: probs.length ? 'var(--pbd,#F0D4BF)' : 'var(--border,#E8E2DC)', probFg: probs.length ? 'var(--link,#B8541F)' : 'var(--okfg,#1D6B47)',
       problems: probs.map(r => ({ row: r.err[0], col: r.err[1], msg: r.err[2] })), matchCount: String(matches.length),
-      matchOpts: [['update', 'Update them with the file'], ['skip', 'Skip them, only add new ones']].map(([k, l]) => ({ label: l, dot: s.match === k ? '5px solid #00519F' : '1.5px solid #9AA1AB', onClick: () => this.setState({ match: k }) })),
-      wh: s.wh, overLimit: news.length > room, newCount: String(news.length), room: String(room), limitCta: c.isOwner ? 'Growth allows up to 5,000.' : 'Ask your store owner to raise the limit.',
-      runLabel: `Import ${willAdd + willUpdate} products`, importTotal: String(willAdd + willUpdate), pct: s.pct + '%', doneCount: String(Math.round((willAdd + willUpdate) * s.pct / 100)),
-      doneTitle: `${res.added || 0} added · ${res.updated || 0} updated`, doneBody: res.photoFail ? `1 photo link didn’t work (it said “not found”), so that product has no photo yet. ${probs.length} rows with problems were skipped.` : `${probs.length} rows with problems were skipped.`,
+      matchOpts: [['update', 'Update them with the file'], ['skip', 'Skip them, only add new ones']].map(([k, l]) => ({ label: l, dot: s.match === k ? '5px solid var(--focus,#00519F)' : '1.5px solid var(--faint,#9AA1AB)', onClick: () => this.setState({ match: k }) })),
+      wh: s.wh, overLimit: news.length > room, newCount: String(news.length), room: String(room), limitCta: c.isOwner ? (c.P.rank < 1 ? 'Growth allows up to 100.' : 'Growth Pro allows up to 5,000.') : 'Ask your store owner to raise the limit.',
+      runLabel: `Import ${willAdd + willUpdate} products`, importTotal: String(job ? job.total : willAdd + willUpdate), pct: (job ? job.pct : 0) + '%', doneCount: String(job ? Math.round(job.total * job.pct / 100) : 0),
+      doneTitle: `${res.added || 0} added · ${res.updated || 0} updated`, doneBody: res.photoFail ? `1 photo link didn’t work (it said “not found”), so that product has no photo yet. ${res.skipped ?? probs.length} rows with problems were skipped.` : `${res.skipped ?? probs.length} rows with problems were skipped.`,
       total: String(app.allProducts.length), exporting: s.exporting,
-      exports: app.exports.map(x => ({ ...x, count: String(x.count), dl: () => app.toast('Downloading ' + x.label.toLowerCase().replace(/ /g, '-') + '.csv') })),
+      exports: app.exports.map(x => ({ ...x, count: String(x.count), dl: () => dlList(x.label, x.ids ? app.allProducts.filter(p => x.ids.includes(p.id)) : x.label.startsWith('Hidden') ? app.allProducts.filter(p => p.status === 'hidden') : app.allProducts) })),
       on: { shopUrl: e => this.setState({ shopUrl: e.target.value.replace(/\.myshopify\.com$/, '') }), wh: e => this.setState({ wh: e.target.value }) },
       a: {
-        pickFile, template: () => app.toast('Downloading template.csv'),
+        pickFile, template: dlTemplate,
         connect: () => { if (!s.shopUrl.trim()) { app.toast('Type your Shopify store address'); return; } if (!/^[a-z0-9][a-z0-9-]*$/i.test(s.shopUrl.trim()) || /^(test|nope|x)$/i.test(s.shopUrl.trim())) { this.setState({ shop: 'notfound' }); return; } this.setState({ shop: 'connecting' }); setTimeout(() => { if (app.sim.offline) { this.setState({ shop: 'expired' }); return; } this.setState({ shop: 'ok', step: 'pick', pick: [0, 1, 2, 3, 4, 5] }); app.toast('Connected — Shopify approved read-only access'); }, 1200); },
         pickAll: () => this.setState({ pick: s.pick.length === rows.length ? [] : rows.map((_, i) => i) }),
         toCheck: () => { if (!s.pick.length) { app.toast('Pick at least one product'); return; } this.setState({ step: 'check' }); },
-        restart: () => this.setState({ step: 'start', mode: null, shop: 'start', pick: [], fileErr: null, paused: false }), run, leave: () => app.go('products'), viewProducts: () => app.go('products'),
-        dlErrors: () => app.toast('Downloading spring-range-problems.csv'),
+        restart: () => { app.clearJob(); this.setState({ step: 'start', mode: null, shop: 'start', pick: [], fileErr: null, paused: false, result: null }); }, run, leave: () => app.go('products'), viewProducts: () => app.go('products'),
+        dlErrors: () => app.download('spring-range-problems.csv', ['row', 'column', 'problem', 'name'], probs.map(r => [r.err[0], r.err[1], r.err[2], r.name])),
         exportAll: () => exportNow('All products', app.allProducts), exportHidden: () => exportNow('Hidden products', app.allProducts.filter(p => p.status === 'hidden'))
       }
     };
