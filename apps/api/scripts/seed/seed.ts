@@ -19,6 +19,7 @@ import { setPartnerContract, setPlanCeiling, setPlanFee } from '#db/scoped/plans
 import { insertCustomDomain, insertJob, insertMembership, insertSeller, insertStore, insertStoreNote, insertUser, updateStoreStatus } from '#db/scoped/stores'
 import { toRow } from '#saas/activity/log'
 import { stepsFor } from '#saas/provisioning/stuck'
+import { mintInvitationToken } from '#auth/partnerTokens'
 import { assertLoopbackOnly } from '../migrate/host-guard'
 import { insertBranding } from '#db/scoped/branding'
 import { insertDomainRecords } from '#db/scoped/partnerDomains'
@@ -38,6 +39,8 @@ export interface SeedCounts {
   people: number
   jobs: number
   activity: number
+  /** A working `/accept-invite?token=` path for an invited team member, minted as the email would (#208). */
+  invitationPath: string | null
 }
 
 // Everything the seed owns, in dependency order. A local developer's database only
@@ -69,7 +72,7 @@ export const seed = async (connectionString: string, now: Date = new Date()): Pr
 }
 
 const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
-  const counts: SeedCounts = { staff: 0, partners: 0, partnerUsers: 0, plans: 0, stores: 0, people: 0, jobs: 0, activity: 0 }
+  const counts: SeedCounts = { staff: 0, partners: 0, partnerUsers: 0, plans: 0, stores: 0, people: 0, jobs: 0, activity: 0, invitationPath: null }
   const record = async (entry: ActivityEntry) => {
     await insertActivity(tx, toRow(entry))
     counts.activity += 1
@@ -196,6 +199,12 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
 
   await seedAccounts(tx, partnerIds, now)
   await seedMoney(tx, partnerIds, now)
+  const [open] = await tx<{ id: string }[]>`
+    select i.id from partner_invitation i join partner_user u on u.id = i.partner_user_id
+    where u.status = 'invited' and i.invited_by_kind = 'partner_user' and i.accepted_at is null and i.revoked_at is null order by u.email limit 1
+  `
+  const token = open ? await mintInvitationToken(tx, open.id, now) : null
+  counts.invitationPath = token ? `/accept-invite?token=${token}` : null
   return counts
 }
 
@@ -267,6 +276,17 @@ const seedPartner = async (
       lastSignInAt: member.lastSignInDaysAgo === null ? null : daysAgo(now, member.lastSignInDaysAgo),
     })
     partnerUserByName.set(member.name, id)
+    // An invited member has a sent invitation from the Owner, so the accept screen has one to open (#208).
+    if (member.lastSignInDaysAgo === null) {
+      await insertPartnerInvitation(tx, {
+        partnerId,
+        partnerUserId: id,
+        sentAt: daysAgo(now, 1),
+        expiresAt: new Date(daysAgo(now, 1).getTime() + 7 * 24 * 60 * 60 * 1000),
+        invitedByKind: 'partner_user',
+        invitedByLabel: p.owner.name,
+      })
+    }
   }
 
   for (const d of domainsFor(p)) {

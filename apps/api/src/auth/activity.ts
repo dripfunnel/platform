@@ -101,6 +101,15 @@ export const partnerSignedOut = (user: { id: string; partnerId: string }, reques
 
 export const partnerSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.signed_in', 'auth', user, request)
 
+/** ACCESS.md §6.2: the token proves the address; neither it nor the password is logged. */
+export const partnerInvitationAccepted = (user: { id: string; partnerId: string }, request: RequestFacts) =>
+  partnerUserEntry('partner_user.invitation_accepted', 'auth', user, request)
+
+export const partnerPasswordResetRequested = (user: { id: string; partnerId: string }, request: RequestFacts) =>
+  partnerUserEntry('partner_user.password_reset_requested', 'security', user, request)
+
+export const partnerPasswordReset = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.password_reset', 'security', user, request)
+
 export const partnerSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts) =>
   partnerUserEntry('partner_user.second_factor_enrolled', 'security', user, request)
 

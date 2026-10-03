@@ -317,8 +317,18 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   minute after they stop). Counting only failures would let a correct guess through a spent
   bucket, which is what the limit is for; the lock after five wrong codes, the per-address
   limit and the activity log are what show and stop the attacker. `next` is replaced by
-  `/dashboard` on the server unless it is a path on this host. Invitations and password reset
-  are #208's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  `/dashboard` on the server unless it is a path on this host. **Invitations and password
+  reset, built on #208** (`apis/platform/invitations.ts`): `POST /api/auth/invitation` reads an
+  invitation by its token's hash and answers `INVITATION_USED`, `INVITATION_REPLACED` (revoked
+  for a newer one), `INVITATION_EXPIRED` or `INVITATION_INVALID` (unknown, revoked, removed user,
+  closed partner); `accept-invitation` takes a name and a password of 10 characters or more
+  (`WEAK_PASSWORD`), activates the account and opens an `enrol` session: step 2 of 2 either
+  enrols or calls `skip-second-factor`, refused with `SECOND_FACTOR_REQUIRED` when the partner
+  requires it. `request-password-reset` answers byte for byte the same for any email, takes an
+  attempt per typed email, and writes a reset per active account the email has, each queued as
+  an email; `reset-password` works once, within 30 minutes of the email being sent, and ends
+  every session of that user (`RESET_INVALID` otherwise). Tokens are minted when the email is
+  sent (`auth/partnerTokens.ts`), so none rests in the outbox. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN

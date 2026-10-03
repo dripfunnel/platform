@@ -58,7 +58,8 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 `supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
 `two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
 detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
-`customer.exported`, `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+`customer.exported`, `partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
+`partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
 it). The two-factor and backup-code entries carry no secret, code or phone number. **The
 entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
