@@ -109,12 +109,21 @@ describe('the catalogue and the editor', () => {
     const second = await page(first?.pageInfo.endCursor ?? null)
     const all = (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.ns} order by date_trunc('milliseconds', created_at), id`).map((r) => r.id)
     expect([...(first?.items ?? []), ...(second?.items ?? [])].map((p) => p.id)).toEqual(all.slice(0, (first?.items.length ?? 0) + (second?.items.length ?? 0)))
+    const corrupt = await run('query { plans(after: "not-a-cursor") { items { id } } }', callerOf(ids.ns, 'partner-read-only'))
+    expect(corrupt.code).toBe('INVALID_INPUT')
   })
 
   it('refuses input it cannot read with a code, never an internal error', async () => {
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
     expect((await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.starter, input: { ...input, name: 'x'.repeat(61) }, applyTo: 'new' })).data?.updatePlan).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
     expect((await run<Outcome>(create, callerOf(ids.ns, 'partner-owner'), { input: { ...input, prices: [{ currency: 'usd', monthly: null, yearly: null }] } })).data?.createPlan).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+    const twice = [{ currency: 'USD', monthly: null, yearly: null }, { currency: 'USD', monthly: null, yearly: null }]
+    expect((await run<Outcome>(create, callerOf(ids.ns, 'partner-owner'), { input: { ...input, prices: twice } })).data?.createPlan).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+    // GraphQL's Int stops a value past 32 bits at the boundary; the service refuses one too.
+    const service = createPartnerPlansService({ sql: db.sql, caller: callerOf(ids.ns, 'partner-owner'), facts, activity: activityLog, now: () => now })
+    const huge = { ...input, prices: [{ currency: 'USD', monthly: { amount: 2_147_483_648, currency: 'USD' }, yearly: null }] }
+    expect(await service.updatePlan(ids.starter, huge, 'new')).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    expect(await service.updatePlan(ids.starter, { ...input, entitlements: { ...input.entitlements, languages: 2_147_483_648 } }, 'new')).toEqual({ ok: false, reason: 'INVALID_INPUT' })
     const retired = await run<Record<string, { reason: string }>>(`mutation($id: ID!, $input: RetirePlanInput!) { retirePlan(id: $id, input: $input) { ok reason } }`, callerOf(ids.ns, 'partner-owner'), {
       id: ids.starter,
       input: { keep: false, moveTo: ids.growth, on: 'next month' },

@@ -1,3 +1,4 @@
+import { GraphQLError } from 'graphql'
 import { unauthenticated } from '../graphql/scope'
 import { planAudit, type Margin, type Money, type PartnerPlansService, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
 import { builder } from './builder'
@@ -175,7 +176,11 @@ builder.queryFields((t) => ({
     type: PlansPageType,
     args: { after: t.arg.string(), first: t.arg.int() },
     extensions: { access: read },
-    resolve: (_, { after, first }, ctx) => service(ctx.plans).plans(after ?? null, first ?? 25),
+    resolve: async (_, { after, first }, ctx) => {
+      const page = await service(ctx.plans).plans(after ?? null, first ?? 25)
+      if (!page) throw new GraphQLError('That page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
+      return page
+    },
   }),
   planEditor: t.field({
     type: EditorType,

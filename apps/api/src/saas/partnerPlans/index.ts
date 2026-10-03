@@ -37,13 +37,18 @@ type AmountRow = keyof typeof amountRows
 export type EntitlementRow = SwitchRow | AmountRow
 export type RowEntitlements = Record<SwitchRow, boolean> & Record<AmountRow, number>
 
+// The columns are int4, so an amount or a value past it is unreadable input, not a database error.
+const int4 = z.number().int().min(0).max(2_147_483_647)
 const currency = z.string().regex(/^[A-Z]{3}$/)
-const money = z.strictObject({ amount: z.number().int().min(0), currency })
+const money = z.strictObject({ amount: int4, currency })
 export const planInput = z.strictObject({
   name: z.string().trim().min(1).max(60),
   description: z.string().trim().max(140),
   trialDays: z.number().int().min(0).max(90),
-  prices: z.array(z.strictObject({ currency, monthly: money.nullable(), yearly: money.nullable() })).max(10),
+  prices: z
+    .array(z.strictObject({ currency, monthly: money.nullable(), yearly: money.nullable() }))
+    .max(10)
+    .refine((prices) => new Set(prices.map((p) => p.currency)).size === prices.length, 'one row per currency'),
   entitlements: z.strictObject({
     domain: z.boolean(),
     offers: z.boolean(),
@@ -51,13 +56,13 @@ export const planInput = z.strictObject({
     powered: z.boolean(),
     aplus: z.boolean(),
     size: z.boolean(),
-    products: z.number().int().min(0),
-    staff: z.number().int().min(0),
-    suppliers: z.number().int().min(0),
-    languages: z.number().int().min(0),
-    currencies: z.number().int().min(0),
-    publish: z.number().int().min(0),
-    ai: z.number().int().min(0),
+    products: int4,
+    staff: int4,
+    suppliers: int4,
+    languages: int4,
+    currencies: int4,
+    publish: int4,
+    ai: int4,
   }),
 })
 export type PlanInput = z.infer<typeof planInput>
@@ -199,10 +204,12 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
     }
   }
 
-  const plans = (afterCursor: string | null, limit: number): Promise<PlansPage> =>
+  /** Null for a cursor that does not decode: refused, never read as the first page. */
+  const plans = (afterCursor: string | null, limit: number): Promise<PlansPage | null> =>
     withScope(sql, context, async (tx) => {
       const size = Math.min(Math.max(Math.floor(limit), 1), maxPlansPage)
-      const after = afterCursor ? (decodeCursor(afterCursor) ?? undefined) : undefined
+      const after = afterCursor === null ? undefined : decodeCursor(afterCursor)
+      if (after === null) return null
       const rows = await selectCatalogue(tx, partnerId, after, size + 1)
       const page = rows.slice(0, size)
       const versions = await selectCurrentVersions(tx, page.map((r) => r.id))
