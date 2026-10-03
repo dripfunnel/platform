@@ -179,6 +179,28 @@ describe('re-authentication', () => {
     const result = (await run<{ reauthenticate: { ok: boolean; reason: string | null; proof: string | null } }>(q.reauth, caller, { c: '123456' })).data?.reauthenticate
     expect(result).toMatchObject({ ok: false, reason: 'NO_SECOND_FACTOR', proof: null })
   })
+
+  it('refuses a proof after five minutes, a proof that is another user’s, and an empty reason', async () => {
+    const otto = callerOf(ids.ns, await agent(ids.ns, 'otto.one@northstar.example', 'partner-support'), 'partner-support')
+    const tara = callerOf(ids.ns, await agent(ids.ns, 'tara.two@northstar.example', 'partner-support'), 'partner-support')
+    const target = await membershipOf('tom@harborcoffee.example')
+    const startAs = async (caller: PartnerCaller, proof: string, reason = 'Help') => (await run<Started>(q.start, caller, { m: target, r: reason, p: proof })).data?.startSupportSession
+
+    const stale = await proofOf(otto)
+    clock = new Date(clock.getTime() + 5 * 60_000 + 1_000)
+    expect((await startAs(otto, stale))?.reason).toBe('REAUTH_REQUIRED')
+
+    const ottos = await proofOf(otto)
+    expect((await startAs(tara, ottos))?.reason).toBe('REAUTH_REQUIRED')
+    expect((await startAs(otto, ottos, '   '))?.reason).toBe('REASON_REQUIRED')
+    expect((await startAs(otto, '', ''))?.reason).toBe('REASON_REQUIRED')
+    expect(await db.sql`select 1 from support_session where membership_id = ${target} and ended_at is null`).toHaveLength(0)
+
+    const opened = await startAs(otto, ottos)
+    expect(opened?.ok).toBe(true)
+    await run(q.end, otto, { id: opened?.sessionId })
+  })
+
 })
 
 describe('sessions', () => {
