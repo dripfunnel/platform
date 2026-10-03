@@ -883,6 +883,13 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
   merchants' terms disclose staff impersonation (wording by legal).
+- **Built on #40** (the Admin API half): the `impersonation` row, 30 minutes from start, one
+  extension of 30 set on the row, one open per staff member at the index, the hashed one-time
+  handoff (five minutes, a return mints a fresh one and the old stops working), and the
+  entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
+  in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
+  (`SUPPLIER_NOT_SUPPORTED`). The portal's exchange, the `impersonation` caller and the blocked
+  list's structural test are #243.
 
 ### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
 

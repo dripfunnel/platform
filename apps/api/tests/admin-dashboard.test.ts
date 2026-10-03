@@ -23,6 +23,7 @@ const contextFor = (staff: StaffMember | null): AdminContext => ({
   partners: null,
   stores: null,
   provisioning: null,
+  staffSessions: null,
   dashboard: staff ? createDashboardService({ sql: db.sql, staff, now: () => now }) : null,
 })
 

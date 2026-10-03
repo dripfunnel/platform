@@ -57,7 +57,7 @@ export interface NavBadges {
   domainsWaiting: number
   /** Zero until merchant payments exist (#201). */
   billingFailedPayments: number
-  /** Zero until support sessions exist (#202). */
+  /** Support sessions open now, the caller's and its colleagues' (FIRST-RELEASE.md §16). */
   supportOpenSessions: number
 }
 
