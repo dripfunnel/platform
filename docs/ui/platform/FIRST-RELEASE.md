@@ -807,7 +807,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   moving now (`charge` and `credit` with an amount, or `none`; nothing on trial), and
   `nextBillingAt`. `changeStorePlan(id, planId, when, reason)` moves the subscription to the
   plan's current version now and records the proration for billing (#201), or schedules the
-  move for the next billing date. `PLAN_NOT_LIVE`, `SAME_PLAN`, `UNPRICED_CURRENCY`. The
+  move for the next billing date. `PLAN_NOT_LIVE`, `SAME_PLAN`, `UNPRICED_CURRENCY`, and
+  `NO_BILLING_DATE` for "next" on a store billing has not subscribed yet. The
   merchant's email goes through the outbox.
 - `extendTrial(id, days, reason)`: 3, 7 or 14 days from the later of the trial's end and now.
   A plan change scheduled for the trial's end moves with it.

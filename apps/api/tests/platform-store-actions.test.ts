@@ -112,6 +112,10 @@ describe('change plan', () => {
     expect(await act('changePlan', owner(), { id: store, planId: retired?.id, when: 'now', reason: 'x' })).toMatchObject({ ok: false, reason: 'PLAN_NOT_LIVE' })
     expect(await act('changePlan', owner(), { id: store, planId: sub?.plan_id, when: 'now', reason: 'x' })).toMatchObject({ ok: false, reason: 'SAME_PLAN' })
     expect(await act('changePlan', owner(), { id: store, planId: target?.id, when: 'later', reason: 'x' })).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+    // Before billing subscribes a store there is no billing date to move on.
+    await db.sql`delete from store_subscription where store_id = ${store}`
+    expect(await act('changePlan', owner(), { id: store, planId: target?.id, when: 'next', reason: 'x' })).toMatchObject({ ok: false, reason: 'NO_BILLING_DATE' })
+    expect(await db.sql`select plan_id from store where id = ${store}`).toEqual([{ plan_id: sub?.plan_id }])
   })
 })
 

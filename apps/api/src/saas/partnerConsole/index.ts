@@ -1,7 +1,8 @@
-import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller, PartnerConsoleState } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { PartnerSetupItemRow } from '#db/schema/saas'
+import { partnerEntry } from '#saas/activity/index'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { searchPartnerStores, selectNavCounts, selectOpenSetupSessionOn, selectShellFacts, type StoreSearchRow } from '#db/scoped/partnerConsole'
 import { selectPartner, selectPartnerDomainsFor, selectPartnerForUpdate, selectPlansFor, selectSetupItemsFor } from '#db/scoped/partners'
@@ -167,21 +168,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
       const at = now()
       const moved = await transitionPartner(tx, partner, { to: 'awaiting', by: { kind: 'partner_user', label: caller.user.name } }, at)
       if (!moved.ok) return { ok: false, code: submittedCode(partner.state) }
-      const entry: ActivityEntry = {
-        category: 'write',
-        action: submitAudit,
-        result: 'success',
-        actorKind: 'partner_user',
-        actorId: caller.user.id,
-        actorLabel: `${caller.user.name} <${caller.user.email}>`,
-        partnerId,
-        target: { type: 'partner', id: partnerId, label: partner.name },
-        reason: null,
-        api: 'platform',
-        visibility: 'partner',
-        ...facts,
-      }
-      await activity.record(tx, entry)
+      await activity.record(tx, partnerEntry(caller, facts)({ action: submitAudit, target: { type: 'partner', id: partnerId, label: partner.name }, reason: null }))
       return { ok: true, submittedAt: at }
     })
 
