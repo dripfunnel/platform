@@ -249,7 +249,7 @@ export interface StoreListRow extends StoreRow {
 }
 
 // The list's projection, shared with the single-row read so the two can never disagree.
-const storeProjection = (tx: ScopedSql) => tx`
+const storeProjection = (tx: ScopedSql, now: Date) => tx`
   select s.*, p.name as partner_name, p.state as partner_state, pl.name as plan_name,
     o.name as owner_name, o.email as owner_email, o.status as owner_status,
     exists (
@@ -268,24 +268,27 @@ const storeProjection = (tx: ScopedSql) => tx`
   ) o on true
   left join lateral (select host, status from custom_domain where store_id = s.id order by created_at desc limit 1) cd on true
   left join lateral (select * from job where store_id = s.id order by started_at desc limit 1) j on true
-  left join lateral (${usageAgainstLimits(tx, tx`s.id`, tx`s.plan_id`)} order by percent desc nulls last limit 1) nr on true
+  left join lateral (${usageAgainstLimits(tx, tx`s.id`, tx`s.plan_id`, now)} order by percent desc nulls last limit 1) nr on true
 `
+
+// The UTC month the service's clock is in, never the database's (SAAS §6.2 meters).
+const monthOf = (now: Date): string => `${now.toISOString().slice(0, 7)}-01`
 
 /**
  * Each limit's stored usage against the plan version the store bought (or the plan's current one
  * before billing exists), every active override added on top; a monthly meter counts only for
  * this month (DATA-MODEL §2.4). The list's near-limit and the detail's bars both read this.
  */
-const usageAgainstLimits = (tx: ScopedSql, storeId: ReturnType<ScopedSql>, planId: ReturnType<ScopedSql>) => tx`
+const usageAgainstLimits = (tx: ScopedSql, storeId: ReturnType<ScopedSql>, planId: ReturnType<ScopedSql>, now: Date) => tx`
   select u.key, used.n as used, (e.amount + coalesce(ov.extra, 0))::int as cap,
     (used.n * 100 / nullif(e.amount + coalesce(ov.extra, 0), 0))::int as percent
   from store_usage u
-  cross join lateral (select case when u.period_start is null or u.period_start = date_trunc('month', now())::date then u.used else 0 end as n) used
+  cross join lateral (select case when u.period_start is null or u.period_start = ${monthOf(now)}::date then u.used else 0 end as n) used
   join plan_entitlement e on e.plan_id = ${planId} and e.key = u.key and e.amount is not null
     and e.version = coalesce((select plan_version from store_subscription x where x.store_id = ${storeId}), (select version from plan where id = ${planId}))
   left join lateral (
     select sum(amount) as extra from store_limit_override o
-    where o.store_id = ${storeId} and o.key = u.key and o.removed_at is null and (o.duration = 'always' or o.month = date_trunc('month', now())::date)
+    where o.store_id = ${storeId} and o.key = u.key and o.removed_at is null and (o.duration = 'always' or o.month = ${monthOf(now)}::date)
   ) ov on true
   where u.store_id = ${storeId} and u.key in ('products', 'staff', 'suppliers', 'ai_prompts', 'publish_now')
 `
@@ -297,11 +300,11 @@ export interface UsageRow {
   percent: number | null
 }
 
-export const selectStoreUsage = (tx: ScopedSql, storeId: string, planId: string): Promise<UsageRow[]> =>
-  tx<UsageRow[]>`${usageAgainstLimits(tx, tx`${storeId}::uuid`, tx`${planId}::uuid`)} order by u.key`
+export const selectStoreUsage = (tx: ScopedSql, storeId: string, planId: string, now: Date): Promise<UsageRow[]> =>
+  tx<UsageRow[]>`${usageAgainstLimits(tx, tx`${storeId}::uuid`, tx`${planId}::uuid`, now)} order by u.key`
 
-export const selectStoreListRow = async (tx: ScopedSql, id: string): Promise<StoreListRow | null> =>
-  (await tx<StoreListRow[]>`${storeProjection(tx)} where s.id = ${id}`)[0] ?? null
+export const selectStoreListRow = async (tx: ScopedSql, id: string, now: Date): Promise<StoreListRow | null> =>
+  (await tx<StoreListRow[]>`${storeProjection(tx, now)} where s.id = ${id}`)[0] ?? null
 
 /** The latest job `j` is running and its step has outlasted its allowance (SAAS.md §5). */
 export const stuckJobPredicate = (tx: ScopedSql, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date) =>
@@ -319,7 +322,7 @@ export const selectStores = async (
   const q = filter.q ? likePattern(filter.q) : null
   const stuck = stuckJobPredicate(tx, stuckAfterMinutes, now)
   const rows = await tx<StoreListRow[]>`
-    ${storeProjection(tx)}
+    ${storeProjection(tx, now)}
     where true
       ${filter.partnerId !== undefined ? tx`and s.partner_id = ${filter.partnerId}` : tx``}
       ${filter.assignedTo !== undefined ? tx`and s.partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}

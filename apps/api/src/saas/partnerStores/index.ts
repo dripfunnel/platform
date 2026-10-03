@@ -186,9 +186,9 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
   const store = (id: string) =>
     withScope(sql, context, async (tx) => {
       if (!z.guid().safeParse(id).success) return null
-      const row = await selectStoreListRow(tx, id)
-      if (!row || row.partner_id !== partnerId) return null
       const at = now()
+      const row = await selectStoreListRow(tx, id, at)
+      if (!row || row.partner_id !== partnerId) return null
       const mode = await modeOf(tx)
       const account = await selectStoreAccount(tx, id)
       const people = await selectStorePeople(tx, id)
@@ -200,7 +200,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       const overrides = await selectOverrides(tx, id, undefined, 25)
       const counts = await selectStoreCounts(tx, id)
       // The same computation as the list's near-limit, so the two never disagree.
-      const measured = row.plan_id ? await selectStoreUsage(tx, id, row.plan_id) : []
+      const measured = row.plan_id ? await selectStoreUsage(tx, id, row.plan_id, at) : []
       const usage = (['products', 'staff', 'suppliers', 'ai_prompts', 'publish_now'] as const).map((key) => {
         const m = measured.find((u) => u.key === key)
         return { limit: key, used: m?.used ?? 0, cap: m?.cap ?? null, percent: m?.percent ?? null, monthly: key === 'ai_prompts' || key === 'publish_now' }
@@ -253,7 +253,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
     const parsed = billingStatusInput.safeParse(raw)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     return withScope(sql, context, async (tx): Promise<BillingResult> => {
-      const row = await selectStoreListRow(tx, id)
+      const row = await selectStoreListRow(tx, id, now())
       if (!row || row.partner_id !== partnerId) return { ok: false, reason: 'NOT_FOUND' }
       if ((await modeOf(tx)) !== 'own') return { ok: false, reason: 'NOT_SELF_BILLING' }
       if (row.status === 'cancelled' || row.status === 'closed') return { ok: false, reason: 'CANCELLED' }

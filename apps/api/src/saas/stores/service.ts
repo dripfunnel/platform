@@ -335,7 +335,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
   const get = async (id: string): Promise<StoreDto | null> => {
     if (!(await visible(id))) return null
     return withScope(sql, context, async (tx) => {
-      const row = await selectStoreListRow(tx, id)
+      const row = await selectStoreListRow(tx, id, now())
       if (!row) return null
       const [people, domains, notes, counts, history, shops, detail] = await Promise.all([
         selectStorePeople(tx, id),
