@@ -838,6 +838,16 @@ Browser → https://<store's portal host>/support/enter?token=…
 - A partner's support session never reaches a store of another partner; the host check (§9
   check 0) and the partner check at opening both refuse it.
 
+**Built on #202** (the Platform API half; ui/platform/FIRST-RELEASE.md §16 lists the fields):
+the session is on one **membership**, so the agent acts as that user ("Priya as Jenna", §12 of
+the console's FIRST-RELEASE), one agent per user and one session per agent at a time;
+re-authentication (A2) is the partner user's 2-factor code, which buys a proof valid five
+minutes and spent by the one start it allows; the agent, or the partner's Owner or Admin, may
+end a session. Returning to a session mints a fresh link only while a start would still be
+allowed (support on, store not cancelled, user not suspended). Elevation, the exchange and the
+support caller stay with the Store strand; the exchange spends a link only while the start's
+codes still allow a session.
+
 ### 8.1 Staff impersonation (decided 2026-09-28, USERS-AND-DOMAINS §4.2)
 
 Staff sign in **as a specific user** with that user's full permissions. It is the only way
@@ -885,6 +895,13 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
   merchants' terms disclose staff impersonation (wording by legal).
+- **Built on #40** (the Admin API half): the `impersonation` row, 30 minutes from start, one
+  extension of 30 set on the row, one open per staff member at the index, the hashed one-time
+  handoff (five minutes, a return mints a fresh one and the old stops working), and the
+  entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
+  in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
+  (`SUPPLIER_NOT_SUPPORTED`). The portal's exchange, the `impersonation` caller and the blocked
+  list's structural test are #243.
 
 ### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
 

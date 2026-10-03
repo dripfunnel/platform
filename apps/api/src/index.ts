@@ -45,9 +45,11 @@ import { createPartnerActivityService, exportLifetimeMs } from '#saas/partnerAct
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { createPartnerTeamService } from '#saas/partnerTeam/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
+import { createPartnerSupportService } from '#saas/support/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
+import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
@@ -169,7 +171,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, provisioning: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, staffSessions: null, provisioning: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -188,6 +190,9 @@ const handleAdmin = async (
         : null,
       stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
       provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, now: () => new Date() }) : null,
+      staffSessions: caller
+        ? createStaffSessionsService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, reauthFresh: caller.reauthFresh, platformHost: config.PLATFORM_HOST, now: () => new Date() })
+        : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
@@ -231,8 +236,9 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null })
+    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null })
   }
+  const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date())
     const deps = caller ? { sql, caller, facts: factsOf(request), activity: activityLog, now: () => new Date() } : null
@@ -248,6 +254,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       activity: deps ? createPartnerActivityService(deps) : null,
       team: deps ? createPartnerTeamService(deps) : null,
       reports: deps ? createPartnerReportsService(deps) : null,
+      support: deps ? createPartnerSupportService({ ...deps, secrets }) : null,
     })
   })
 }

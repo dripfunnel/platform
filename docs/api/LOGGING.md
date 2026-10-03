@@ -59,6 +59,9 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 `two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
 detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
 `customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind),
+`impersonation.started`, `impersonation.extended`, `impersonation.ended`,
+`staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,
+`support_session.ended`, `partner_user.reauthenticated` (never the proof),
 `partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
 `partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused

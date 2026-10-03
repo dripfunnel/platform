@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import { factsOf, partnerLocked, partnerSecondFactorEnrolled, partnerSecondFactorRefused, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
+import { factsOf, partnerSecondFactorEnrolled, partnerSecondFactorRefused, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
 import { safeNext } from '#auth/next'
 import { verifyPassword } from '#auth/password'
@@ -17,16 +17,15 @@ import {
   type SessionStage,
 } from '#auth/partnerSession'
 import type { SecretBox } from '#auth/secretBox'
+import { minutesUntil, wrongPartnerCode } from '#auth/partnerCode'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 import { acceptPartnerInvitation, lookUpInvitation, requestPasswordReset, resetPartnerPassword, skipSecondFactor } from './invitations'
-import { insertOutbox } from '#db/scoped/outbox'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   markPartnerSignedIn,
   partnerOfUser,
   recordGoodCode,
-  recordWrongCode,
   selectSecondFactorState,
   selectSignInCandidates,
   signInCandidateLimit,
@@ -58,16 +57,9 @@ const paths = {
 
 export const isPlatformAuthPath = (pathname: string): boolean => Object.values(paths).includes(pathname)
 
-// FIRST-RELEASE §3: five wrong codes pause sign-in for 15 minutes.
-export const maxCodeTries = 5
-export const lockMs = 15 * 60 * 1000
-
-const minutesUntil = (until: Date, now: Date) => Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 60_000))
-
 const signInInput = z.strictObject({ email: z.string().max(320), password: z.string().max(1024), next: z.string().max(2048).optional() })
 const codeInput = z.strictObject({ code: z.string().max(16) })
 const enrolInput = z.strictObject({ code: z.string().max(16).optional() })
-
 
 export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDeps): Promise<Response> => {
   const url = new URL(request.url)
@@ -164,21 +156,8 @@ const secondFactor = async (request: Request, deps: PlatformAuthDeps, facts: Req
   return outcome ? refuse(outcome) : json(200, { ok: true })
 }
 
-const wrongCode = async (tx: ScopedSql, deps: PlatformAuthDeps, facts: RequestFacts, state: SecondFactorState, now: Date): Promise<Refusal> => {
-  const lockedUntil = new Date(now.getTime() + lockMs)
-  const { triesLeft, locked } = await recordWrongCode(tx, state.id, maxCodeTries, lockedUntil)
-  if (!locked) return { code: 'WRONG_CODE', triesLeft }
-  await deps.activity.record(tx, partnerLocked({ id: state.id, partnerId: state.partner_id }, facts))
-  // The "we've emailed you" notice (FIRST-RELEASE §3), delivered once SES is wired (outbox-relay.ts).
-  await insertOutbox(tx, {
-    kind: 'email',
-    idempotencyKey: `partner-user-locked:${state.id}:${lockedUntil.toISOString()}`,
-    payload: { template: 'partner-user-locked', partnerUserId: state.id, to: state.email, minutes: lockMs / 60_000 },
-    partnerId: state.partner_id,
-    storeId: null,
-  })
-  return { code: 'LOCKED', minutes: lockMs / 60_000 }
-}
+const wrongCode = (tx: ScopedSql, deps: PlatformAuthDeps, facts: RequestFacts, state: SecondFactorState, now: Date): Promise<Refusal> =>
+  wrongPartnerCode(tx, deps.activity, facts, state, now)
 
 // Called first with no code, which issues the secret (shown once, as text and as the URI a QR
 // code encodes), then with the code that proves the app holds it.

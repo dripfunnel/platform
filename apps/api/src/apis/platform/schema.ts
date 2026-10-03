@@ -13,6 +13,7 @@ import './domains'
 import './activity'
 import './settings'
 import './reports'
+import './support'
 
 export type { PlatformContext } from './access'
 

@@ -312,6 +312,7 @@ type Mutation {
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
   createStore(input: CreateStoreInput!): CreateStoreResult
+  endSupportSession(id: ID!): SupportSessionResult
   exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
   exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
   exportStores(filter: StoreFilterInput): StoresExportResult
@@ -319,6 +320,7 @@ type Mutation {
   inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
+  reauthenticate(code: String!): ReauthResult
   recheckMerchantDomain(storeId: ID!): PartnerDomainResult
   recheckPartnerDomain(kind: String!): PartnerDomainResult
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
@@ -328,9 +330,11 @@ type Mutation {
   restoreStore(id: ID!, reason: String!): StoreActionResult
   retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
   retryProvisioningStep(id: ID!): StoreActionResult
+  returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
+  startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
   transferOwnership(toUserId: ID!): TeamResult
@@ -717,6 +721,7 @@ type Query {
   health: String
   me: Me
   merchantDomains(after: String, before: String, first: Int): MerchantDomainPage
+  mySupportSession: SupportSession
   navBadges: NavBadges
   onboarding: Onboarding
   partnerCompany: PartnerCompany
@@ -738,7 +743,18 @@ type Query {
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
   storesExport(id: ID!): StoresExportJob
+  supportSessions(after: String, before: String, first: Int, open: Boolean!): SupportSessionPage
+  supportTargets(after: String, before: String, first: Int, search: String): SupportTargetPage
   team(after: String, before: String, first: Int): TeamPage
+}
+
+type ReauthResult {
+  expiresAt: String
+  lockedMinutes: Int
+  ok: Boolean
+  proof: String
+  reason: String
+  triesLeft: Int
 }
 
 type ReportCountBar {
@@ -1073,6 +1089,91 @@ type SubmitForApprovalResult {
   code: String
   ok: Boolean
   submittedAt: String
+}
+
+type SupportColleague {
+  minutesLeft: Int
+  name: String
+}
+
+type SupportNamed {
+  id: ID
+  name: String
+}
+
+type SupportPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type SupportSession {
+  agent: SupportNamed
+  end: SupportVerdict
+  endedAt: String
+  endedBy: String
+  endedByName: String
+  expiresAt: String
+  id: ID
+  reason: String
+  return: SupportVerdict
+  startedAt: String
+  store: SupportNamed
+  ticket: String
+  user: SupportSessionUser
+  you: Boolean
+}
+
+type SupportSessionLink {
+  expiresAt: String
+  link: String
+  ok: Boolean
+  reason: String
+  sessionId: String
+}
+
+type SupportSessionPage {
+  items: [SupportSession!]
+  pageInfo: SupportPageInfo
+}
+
+type SupportSessionResult {
+  ok: Boolean
+  reason: String
+}
+
+type SupportSessionUser {
+  name: String
+  role: String
+  supplier: String
+}
+
+type SupportTarget {
+  colleague: SupportColleague
+  email: String
+  lastSignInAt: String
+  membershipId: ID
+  mySessionId: ID
+  name: String
+  role: String
+  start: SupportVerdict
+  status: String
+  store: SupportNamed
+  storeOwner: String
+  supplier: String
+  type: String
+  userId: ID
+}
+
+type SupportTargetPage {
+  items: [SupportTarget!]
+  pageInfo: SupportPageInfo
+}
+
+type SupportVerdict {
+  allowed: Boolean
+  reason: String
 }
 
 type TeamInvitationState {
