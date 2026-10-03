@@ -28,7 +28,7 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
   return {
     staff,
     isAssigned: assigned,
-    activity: async () => ({ ok: false, code: 'INVALID_FILTER' }),
+    staffActivity: null,
     partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
     stores: null,
     provisioning: null,

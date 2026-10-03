@@ -203,7 +203,8 @@ every other tenant read.
   call only** (decided on #44); every other staff role sees the control disabled with the
   reason. Partner Owner and Admin, merchant Owner in their portals. Every export is itself
   logged. An admin export has no IP column, caps at 100,000 entries, and its download link
-  expires after 1 hour. **A partner export (built on #198)** is an `export_job` row
+  expires after 1 hour (built on #38: an `export_job` of kind `staff_activity`, ending as too
+  large rather than as a partial file past the cap). **A partner export (built on #198)** is an `export_job` row
   (DATA-MODEL §2.6): queued through the outbox and built in the partner's own scope, so this
   section's policy decides what it holds. It caps at 10,000 entries (saying when it was cut),
   has no IP or user-agent column, and its CSV is readable for 1 hour after it's built, then deleted

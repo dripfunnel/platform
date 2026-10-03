@@ -27,13 +27,15 @@ import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDoma
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
+import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { activityLog, staffActivityReader } from '#saas/activity/index'
+import { activityLog } from '#saas/activity/index'
+import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -79,12 +81,9 @@ const deliverersFor = (sql: postgres.Sql): Deliverers => {
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
+    'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
   }
-}
-
-const notConnected = async () => {
-  throw new Error('no database for this request')
 }
 
 const notFound = () => new Response('Not found', { status: 404 })
@@ -171,7 +170,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, customers: null, staffSessions: null, provisioning: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, customers: null, staffSessions: null, provisioning: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -179,7 +178,7 @@ const handleAdmin = async (
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
       isAssigned: assigned,
-      activity: caller ? staffActivityReader(sql, caller.staff) : notConnected,
+      staffActivity: caller ? createStaffActivityService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,

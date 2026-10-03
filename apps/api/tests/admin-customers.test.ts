@@ -4,7 +4,8 @@ import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { activityLog, staffActivityReader } from '#saas/activity/index'
+import { activityLog } from '#saas/activity/index'
+import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createCustomersService } from '#saas/customers/index'
 import type { CallerContext } from '#core/tenancy'
 import { withScope } from '#db/scoped/index'
@@ -26,7 +27,7 @@ const shared = { email: 'arjun.rao@gmail.com', phone: '+919811122233' }
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
   isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
-  activity: staff ? staffActivityReader(db.sql, staff) : async () => ({ ok: false, code: 'INVALID_FILTER' }),
+  staffActivity: staff ? createStaffActivityService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, now: () => now }) : null,
   partners: null,
   stores: null,
   provisioning: null,
@@ -218,7 +219,7 @@ describe('the detail', () => {
 describe('the Activity tab', () => {
   const tab = `query($f: ActivityFilter) { activityLog(filter: $f, first: 50) { items { action } } }`
   const entriesFor = async (staff: StaffMember, customerId: string) => {
-    const got = await run<{ activityLog: { items: { action: string }[] } | null }>(tab, staff, { f: { customerId } })
+    const got = await run<{ activityLog: { items: { action: string }[] } | null }>(tab, staff, { f: { customer: customerId } })
     return { actions: got.data?.activityLog?.items.map((i) => i.action) ?? null, code: got.code }
   }
 
@@ -231,7 +232,7 @@ describe('the Activity tab', () => {
 
     expect((await entriesFor(as('staff-partner-manager'), ids.outside)).actions).toEqual([])
     expect((await entriesFor(as('staff-partner-manager'), ids.inside)).actions).toContain('customer.viewed')
-    expect((await entriesFor(as('staff-super-admin'), 'not-a-customer-id')).code).toBe('INVALID_FILTER')
+    expect((await entriesFor(as('staff-super-admin'), 'not-a-customer-id')).code).toBe('INVALID_INPUT')
   })
 
   it('keeps customer.viewed to staff: neither the customer’s partner nor its store reads it', async () => {

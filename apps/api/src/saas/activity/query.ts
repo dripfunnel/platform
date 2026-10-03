@@ -4,10 +4,8 @@ import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { CallerContext } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 import { activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
-import { activityWhos, selectActivity } from '#db/scoped/activity'
+import { activityLevels, activityWhos, selectActivity } from '#db/scoped/activity'
 import { withScope } from '#db/scoped/index'
-import { partnerScopedRoles } from '#auth/permissions'
-import type { StaffMember } from '#auth/staff'
 
 // The admin console reads 50 at a time (ui/admin/FIRST-RELEASE.md §9); nothing asks for more.
 export const activityPageSize = 50
@@ -24,12 +22,18 @@ export const activityFilter = z
     action: z.string().min(1).max(100).optional(),
     who: z.enum(activityWhos).optional(),
     result: z.enum(activityResults).optional(),
+    level: z.enum(activityLevels).optional(),
+    ip: z.union([z.ipv4(), z.ipv6()]).optional(),
+    accessRef: z.guid().optional(),
+    personKind: z.enum(actorKinds).optional(),
+    personId: z.string().min(1).max(200).optional(),
     /** UTC calendar days, inclusive (FIRST-RELEASE §9). */
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
   })
   .strict()
   .refine((f) => !f.from || !f.to || f.from <= f.to, { message: 'from is after to' })
+  .refine((f) => (f.personKind === undefined) === (f.personId === undefined), { message: 'a person needs its kind and id' })
 
 export type ActivityFilter = z.infer<typeof activityFilter>
 
@@ -99,6 +103,10 @@ export const listActivity = async (
         assignedTo: scope.assignedTo,
         who: f.who,
         result: f.result,
+        level: f.level,
+        ip: f.ip,
+        accessRef: f.accessRef,
+        person: f.personKind && f.personId ? { kind: f.personKind, id: f.personId } : undefined,
       },
       { after, before },
       limit,
@@ -126,11 +134,3 @@ export const listActivity = async (
     },
   }
 }
-
-/** The admin log as one staff member may read it: a Partner manager, its assigned partners only (ACCESS.md §5.4). */
-export const staffActivityReader =
-  (sql: postgres.Sql, staff: StaffMember) =>
-  (filter: unknown, page: ActivityPageRequest): Promise<ActivityResult> =>
-    listActivity(sql, { caller: { kind: 'staff', staffId: staff.id } }, filter, page, {
-      assignedTo: partnerScopedRoles.includes(staff.role) ? staff.id : undefined,
-    })
