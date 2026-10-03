@@ -5,7 +5,7 @@ import type { ActivityEntry } from '#auth/activity'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { withSystemScope } from '#db/scoped/index'
+import { pgArray, withSystemScope } from '#db/scoped/index'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -20,6 +20,8 @@ const now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
 const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
 const ids = { person: '', partner: '', storeA: '', storeB: '', imp: crypto.randomUUID(), su: crypto.randomUUID(), customer: '', staff: '' }
+// A Partner manager's assignment, a partner inside it and one outside, each with a shopper sharing one email.
+const reach = { assigned: new Set<string>(), insidePartner: '', insideCustomer: '', outsidePartner: '', outsidePerson: '', outsidePersonName: '', outsideCustomer: '' }
 
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
@@ -90,6 +92,28 @@ beforeAll(async () => {
   await record({ action: 'settings.changed', partnerId: ids.partner, storeId: ids.storeA, changes: [{ field: 'api_key', before: 'sk_live_oldsecret', after: 'sk_live_newsecret' }], api: 'store' })
   await record({ action: 'setup_session.started', actorKind: 'staff', actorId: ids.staff, actorLabel: 'Support', partnerId: ids.partner, access: { kind: 'setup_session', id: ids.su }, visibility: 'partner', api: 'admin' })
   await record({ action: 'customer.signed_in', actorKind: 'customer', actorId: ids.customer, actorLabel: 'Shopper One', customerId: ids.customer, storeId: ids.storeA, partnerId: ids.partner, api: 'shop', visibility: 'self' })
+
+  const pm = as('staff-partner-manager')
+  reach.assigned = new Set((await db.sql<{ partner_id: string }[]>`select partner_id from staff_partner_assignment where staff_user_id = ${pm.id} and removed_at is null`).map((r) => r.partner_id))
+  const [inside] = await db.sql<{ id: string; partner_id: string }[]>`select id, partner_id from store where partner_id = any(${pgArray([...reach.assigned])}::uuid[]) order by name limit 1`
+  const [outside] = await db.sql<{ id: string; name: string; partner_id: string; store_id: string }[]>`
+    select u.id, u.name, u.partner_id, s.id as store_id from "user" u join store s on s.partner_id = u.partner_id
+    where u.status <> 'deleted' and not (u.partner_id = any(${pgArray([...reach.assigned])}::uuid[])) order by u.name limit 1`
+  if (!inside || !outside) throw new Error('seed: the Partner manager needs a partner inside and one outside the assignment')
+  const shopper = (storeId: string, name: string) =>
+    db.sql<{ id: string }[]>`insert into customer (store_id, email, name, status) values (${storeId}, 'shopper.shared@example.com', ${name}, 'active') returning id`.then((r) => r[0]?.id ?? '')
+  Object.assign(reach, {
+    insidePartner: inside.partner_id,
+    insideCustomer: await shopper(inside.id, 'Shopper Inside'),
+    outsidePartner: outside.partner_id,
+    outsidePerson: outside.id,
+    outsidePersonName: outside.name,
+    outsideCustomer: await shopper(outside.store_id, 'Shopper Outside'),
+  })
+  await record({ action: 'reach.inside', actorKind: 'customer', actorId: reach.insideCustomer, actorLabel: 'Shopper Inside', customerId: reach.insideCustomer, storeId: inside.id, partnerId: inside.partner_id, api: 'shop' })
+  await record({ action: 'reach.outside', actorId: outside.id, actorLabel: outside.name, storeId: outside.store_id, partnerId: outside.partner_id })
+  await record({ action: 'reach.outside_shopper', actorKind: 'customer', actorId: reach.outsideCustomer, actorLabel: 'Shopper Outside', customerId: reach.outsideCustomer, storeId: outside.store_id, partnerId: outside.partner_id, api: 'shop' })
+  await record({ action: 'reach.outside_on_behalf', actorId: outside.id, actorLabel: outside.name, storeId: outside.store_id, partnerId: outside.partner_id, onBehalfOf: { kind: 'staff', id: ids.staff, label: 'Support' } })
 }, 120_000)
 
 afterAll(async () => {
@@ -156,17 +180,67 @@ describe('the person', () => {
     )
     expect((await run<People>(people, as('staff-super-admin'), { q: 'shopper.one@exa' })).raw).not.toContain('shopper.one@example.com')
     expect((await run(people, as('staff-super-admin'), { q: 'x' })).code).toBe('INVALID_INPUT')
-    const pm = as('staff-partner-manager')
-    const assigned = new Set((await db.sql<{ partner_id: string }[]>`select partner_id from staff_partner_assignment where staff_user_id = ${pm.id} and removed_at is null`).map((r) => r.partner_id))
-    const reach = (await run<People>(people, pm, { q: 'example' })).data?.activityPeople ?? []
-    for (const p of reach.filter((x) => x.kind === 'person' || x.kind === 'partner_user')) {
-      const [row] = await db.sql<{ partner_id: string }[]>`select partner_id from "user" where id = ${p.id.split(':')[1] ?? ''} union all select partner_id from partner_user where id = ${p.id.split(':')[1] ?? ''}`
-      expect(assigned.has(row?.partner_id ?? '')).toBe(true)
-    }
     const person = `query($p: String!) { activityPerson(person: $p) { name kind where memberships { where role } sameEmailAccounts } }`
     const rohan = (await run<{ activityPerson: { memberships: unknown[]; sameEmailAccounts: number } }>(person, as('staff-support'), { p: `person:${ids.person}` })).data?.activityPerson
     expect(rohan?.memberships.length).toBeGreaterThan(0)
     expect(rohan?.sameEmailAccounts).toBe(0)
+  })
+})
+
+describe('a Partner manager’s reach', () => {
+  const timeline = `query($p: String!) { personTimeline(person: $p, first: 50) { items { action partner { id } } } }`
+  const person = `query($p: String!) { activityPerson(person: $p) { name sameEmailAccounts } }`
+  type Timeline = { personTimeline: { items: { action: string; partner: { id: string } | null }[] } }
+  type Person = { activityPerson: { name: string; sameEmailAccounts: number } | null }
+  type Options = { activityLog: { items: { partner: { id: string } | null }[]; partners: { id: string }[]; stores: { partnerId: string }[] } }
+
+  it('reads the log, its filters’ choices and an unassigned partner’s filter only within the assignment', async () => {
+    const pm = as('staff-partner-manager')
+    expect(await actions(pm, { action: 'reach.inside' })).toEqual(['reach.inside'])
+    expect(await actions(pm, { action: 'reach.outside' })).toEqual([])
+    expect(await actions(pm, { partner: reach.outsidePartner })).toEqual([])
+    expect(await actions(as('staff-super-admin'), { action: 'reach.outside' })).toEqual(['reach.outside'])
+    const page = (await run<Options>(`query { activityLog(first: 50) { items { partner { id } } partners { id } stores { partnerId } } }`, pm)).data?.activityLog
+    expect(page?.items.length).toBeGreaterThan(0)
+    for (const e of page?.items ?? []) expect(reach.assigned.has(e.partner?.id ?? '')).toBe(true)
+    expect(page?.partners.length).toBeGreaterThan(0)
+    expect(page?.partners.every((p) => reach.assigned.has(p.id))).toBe(true)
+    expect(page?.stores.length).toBeGreaterThan(0)
+    expect(page?.stores.every((s) => reach.assigned.has(s.partnerId))).toBe(true)
+  })
+
+  it('shows no timeline entry of an unassigned partner, including those done in a staff member’s name', async () => {
+    const pm = as('staff-partner-manager')
+    const items = async (staff: StaffMember, p: string) => (await run<Timeline>(timeline, staff, { p })).data?.personTimeline.items ?? []
+    expect(await items(pm, `person:${reach.outsidePerson}`)).toEqual([])
+    expect(await items(pm, `customer:${reach.outsideCustomer}`)).toEqual([])
+    expect((await items(pm, `customer:${reach.insideCustomer}`)).map((e) => e.action)).toEqual(['reach.inside'])
+    const staffSeen = await items(pm, `staff:${ids.staff}`)
+    expect(staffSeen.every((e) => reach.assigned.has(e.partner?.id ?? ''))).toBe(true)
+    expect((await items(as('staff-super-admin'), `staff:${ids.staff}`)).map((e) => e.action)).toContain('reach.outside_on_behalf')
+  })
+
+  it('finds and opens only people of assigned partners, and counts the shared email only there', async () => {
+    const pm = as('staff-partner-manager')
+    const people = `query($q: String!) { activityPeople(query: $q) { id name kind } }`
+    type People = { activityPeople: { id: string; name: string; kind: string }[] }
+    const shoppers = (await run<People>(people, pm, { q: 'Shopper' })).data?.activityPeople ?? []
+    expect(shoppers.map((p) => p.id)).toContain(`customer:${reach.insideCustomer}`)
+    expect(shoppers.map((p) => p.id)).not.toContain(`customer:${reach.outsideCustomer}`)
+    expect((await run<People>(people, pm, { q: reach.outsidePersonName })).data?.activityPeople.map((p) => p.id)).not.toContain(`person:${reach.outsidePerson}`)
+    const found = (await run<People>(people, pm, { q: 'example' })).data?.activityPeople ?? []
+    expect(found.length).toBeGreaterThan(0)
+    for (const p of found.filter((x) => x.kind !== 'staff')) {
+      const id = p.id.split(':')[1] ?? ''
+      const [row] = await db.sql<{ partner_id: string }[]>`
+        select partner_id from "user" where id = ${id} union all select partner_id from partner_user where id = ${id}
+        union all select st.partner_id from customer c join store st on st.id = c.store_id where c.id = ${id}`
+      expect(reach.assigned.has(row?.partner_id ?? '')).toBe(true)
+    }
+    expect((await run<Person>(person, pm, { p: `person:${reach.outsidePerson}` })).data?.activityPerson).toBeNull()
+    expect((await run<Person>(person, pm, { p: `customer:${reach.outsideCustomer}` })).data?.activityPerson).toBeNull()
+    expect((await run<Person>(person, pm, { p: `customer:${reach.insideCustomer}` })).data?.activityPerson).toMatchObject({ name: 'Shopper Inside', sameEmailAccounts: 0 })
+    expect((await run<Person>(person, as('staff-super-admin'), { p: `customer:${reach.insideCustomer}` })).data?.activityPerson?.sameEmailAccounts).toBe(1)
   })
 })
 
@@ -181,6 +255,7 @@ describe('the export', () => {
     const asked = (await run<{ exportActivity: { ok: boolean; jobId: string } }>(start, as('staff-engineer'), { f: { partner: ids.partner } })).data?.exportActivity
     expect(asked?.ok).toBe(true)
     expect((await run<{ activityExport: { state: string } }>(job, as('staff-engineer'), { id: asked?.jobId })).data?.activityExport.state).toBe('preparing')
+    expect((await run<{ activityExport: unknown }>(job, as('staff-support'), { id: asked?.jobId })).data?.activityExport).toBeNull()
     await relay()
     const done = (await run<{ activityExport: { state: string; entries: number; csv: string } }>(job, as('staff-engineer'), { id: asked?.jobId })).data?.activityExport
     expect(done?.state).toBe('ready')
