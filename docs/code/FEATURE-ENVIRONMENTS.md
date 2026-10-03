@@ -41,7 +41,7 @@ For branch `#12/feature/offers` (slug `12-offers`):
 | Admin console | `https://12-offers-admin.dripfunnel.ai` | Pages project `dripfunnel-feature-admin` |
 | API | `/api/*` on the three hosts above; all of `12-offers-hooks.dripfunnel.ai` | Worker `dripfunnel-feature-12-offers`. Its `ADMIN_HOST`, `PLATFORM_HOST` and `HOOKS_HOST` point at the feature hosts, so the router behaves as in production |
 | Database | Neon branch `feature/12-offers` in `dripfunnel-dev` | Copied from the seeded default branch; the branch's own migrations are applied on each deploy |
-| Pooling | Hyperdrive config `feature-12-offers`, bound as `HYPERDRIVE` | Uses Neon's direct connection string, as Cloudflare advises for Hyperdrive. Production adds the same binding name when the API gets its database (PLATFORM-PROMPT §8 slice 3) |
+| Pooling | Hyperdrive config `feature-12-offers`, bound as `HYPERDRIVE`, with `HYPERDRIVE_REQUIRED` set to `"1"` | Uses Neon's direct connection string, as Cloudflare advises for Hyperdrive. The flag makes `/health` answer 503 if the binding goes missing (docs/api/README.md §7). Production adds the same binding name and flag when the API gets its database (PLATFORM-PROMPT §8 slice 3) |
 
 **Slug rules** (`names.ts`, tested). The branch name is read by the shared rules in
 [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs) ([WORKFLOW.md](WORKFLOW.md) §2):
