@@ -48,6 +48,7 @@ import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
 import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
 import { assignManager, unassignManager } from './assignments'
 import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from './goLive'
+import { countryOf } from '#core/countries'
 
 // Partners on the Admin API (card #33; ui/admin/FIRST-RELEASE.md §4, §12). The resolvers in
 // apis/admin/partners.ts are thin; everything a screen is told comes from here, and every
@@ -180,7 +181,8 @@ export const createPartnerInput = z
     name: z.string().trim().min(1).max(120),
     ownerEmail: z.email().max(254),
     ownerName: z.string().trim().min(1).max(120).optional(),
-    country: z.string().regex(/^[A-Z]{2}$/),
+    // One of the countries DripFunnel sells in (core/countries); the console's list is a courtesy.
+    country: z.string().refine((code) => countryOf(code) !== null),
     kind: z.string().trim().min(1).max(60).optional(),
     region: z.string().trim().min(1).max(120).optional(),
     sendInvitation: z.boolean(),

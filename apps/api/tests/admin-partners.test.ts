@@ -324,6 +324,9 @@ describe('createPartner and the Owner invitation (§4.3)', () => {
 
     expect((await run<Out>(create, as('staff-super-admin'), { input: { name: '', ownerEmail: 'not-an-email', country: 'France', sendInvitation: true } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
     expect((await run(create, as('staff-support'), { input: { name: 'X', ownerEmail: 'x@x.example', country: 'FR', sendInvitation: false } })).code).toBe('FORBIDDEN')
+    // A well-formed code DripFunnel doesn't sell in is refused by the server, not only by the console's list.
+    expect((await run<Out>(create, as('staff-super-admin'), { input: { name: 'Nowhere Partner', ownerEmail: 'x@nowhere.example', country: 'ZZ', sendInvitation: false } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+    expect((await run<Out>(create, as('staff-super-admin'), { input: { name: 'Proto Partner', ownerEmail: 'x@proto.example', country: 'constructor', sendInvitation: false } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
   })
 
   it('refuses a name another partner that is not closed has, ignoring case and spaces, and writes nothing', async () => {
@@ -335,6 +338,11 @@ describe('createPartner and the Owner invitation (§4.3)', () => {
     expect((await run<Out>(create, as('staff-super-admin'), input('  twin PARTNER ', 'two@twin.example'))).data?.['createPartner']).toMatchObject({ ok: false, code: 'NAME_TAKEN', id: null })
     expect(await count()).toBe(users)
     expect(await db.sql`select 1 from outbox where payload->>'to' = 'two@twin.example'`).toHaveLength(0)
+
+    // Names are unique across DripFunnel, so refusing a duplicate tells any creator, a Partner
+    // manager not assigned the other partner included, that the name is taken: a partner's name,
+    // to DripFunnel staff only (decided on #61).
+    expect((await run<Out>(create, as('staff-partner-manager'), input('Twin Partner', 'pm@twin.example'))).data?.['createPartner']).toMatchObject({ ok: false, code: 'NAME_TAKEN', id: null })
 
     await db.sql`update partner set state = 'closed' where id = ${first?.id ?? ''}`
     expect((await run<Out>(create, as('staff-super-admin'), input('Twin Partner', 'three@twin.example'))).data?.['createPartner']).toMatchObject({ ok: true })
