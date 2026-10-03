@@ -464,4 +464,4 @@ export const restartJobStep = async (tx: ScopedSql, jobId: string, at: Date): Pr
 
 /** Only a partner that bills its merchants itself sets this; the caller checks the mode, 0014's trigger too. */
 export const updateStoreBillingStatus = async (tx: ScopedSql, storeId: string, status: 'active' | 'past_due' | 'suspended'): Promise<boolean> =>
-  (await tx`update store set billing_status = ${status} where id = ${storeId} returning id`).length > 0
+  (await tx`update store set billing_status = ${status} where id = ${storeId} and status not in ('cancelled', 'closed') returning id`).length > 0

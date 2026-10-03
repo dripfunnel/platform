@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { StoreRow, StoreStatus } from '#db/schema/saas'
+import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectCurrentVersions, selectLivePlanChoices } from '#db/scoped/partnerPlans'
 import { amountKeys } from '#db/scoped/plans'
@@ -47,7 +48,7 @@ export const storeActionAudit = {
 } as const
 
 export type StateRefusal = 'NOT_ON_TRIAL' | 'ALREADY_SUSPENDED' | 'NOT_SUSPENDED' | 'CANCELLED' | 'NOT_STUCK' | 'NO_PENDING_INVITATION'
-export type InputRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'PLAN_NOT_LIVE' | 'SAME_PLAN' | 'UNPRICED_CURRENCY'
+export type InputRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'PLAN_NOT_LIVE' | 'SAME_PLAN' | 'UNPRICED_CURRENCY' | 'NO_BILLING_DATE'
 export type StoreActionRefusal = ActionRefusal | StateRefusal | InputRefusal
 export type StoreActionResult<T = object> = ({ ok: true } & T) | { ok: false; reason: StoreActionRefusal }
 
@@ -107,23 +108,8 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
   const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
   const by = { kind: 'partner_user' as const, label: caller.user.name }
 
-  const entry = (store: StoreRow, action: string, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry => ({
-    category: 'write',
-    action,
-    result: 'success',
-    actorKind: 'partner_user',
-    actorId: caller.user.id,
-    actorLabel: `${caller.user.name} <${caller.user.email}>`,
-    partnerId,
-    storeId: store.id,
-    target: { type: 'store', id: store.id, label: store.name ?? '' },
-    changes: [],
-    reason,
-    api: 'platform',
-    visibility: 'partner',
-    ...facts,
-    ...extra,
-  })
+  const entry = (store: StoreRow, action: string, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry =>
+    partnerEntry(caller, facts)({ action, reason, storeId: store.id, target: { type: 'store', id: store.id, label: store.name ?? '' }, changes: [], ...extra })
 
   /** Locks the partner's own store, then answers as its permission block does before `work` runs. */
   const act = <T extends object>(
@@ -175,8 +161,9 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
       if (!live) return { ok: false, reason: 'PLAN_NOT_LIVE' }
       const option = (await planOptions(tx, store, sub, at)).plans.find((p) => p.id === planId)
       if (!option) return { ok: false, reason: 'UNPRICED_CURRENCY' }
-      // Without a subscription nothing is billed yet: the store takes the plan now, and billing
-      // (#201) subscribes it to the plan's version then.
+      // Without a subscription there is no billing date to move on: "now" takes the plan, and
+      // billing (#201) subscribes the store to its version then.
+      if (!sub && when === 'next') return { ok: false, reason: 'NO_BILLING_DATE' }
       const proration = sub && when === 'now' ? option.proration : { kind: 'none' as const }
       if (sub && when === 'next') {
         await scheduleSubscriptionMove(tx, store.id, planId, option.version, nextBillingOf(sub))

@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
-import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { StoreStatus } from '#db/schema/saas'
@@ -8,8 +8,8 @@ import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
 import { selectPartner, selectPartnerDomainsFor } from '#db/scoped/partners'
 import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/scoped/storeAccount'
-import { selectCustomDomains, selectStoreCounts, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
-import { listActivity, type PageInfo } from '#saas/activity/index'
+import { selectCustomDomains, selectStoreCounts, selectStoreForUpdate, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
+import { listActivity, partnerEntry, type PageInfo } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/index'
 import { daysPastDue, trialDaysLeft } from '#saas/stores/index'
 import { actionsFor, type ActionPermission } from './verdicts'
@@ -233,28 +233,21 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
     const parsed = billingStatusInput.safeParse(raw)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     return withScope(sql, context, async (tx): Promise<BillingResult> => {
-      const row = await selectStoreListRow(tx, id, now())
+      // Locked, as the store actions are, so the check, the write and the entry's "before" agree.
+      const row = await selectStoreForUpdate(tx, id)
       if (!row || row.partner_id !== partnerId) return { ok: false, reason: 'NOT_FOUND' }
       if ((await modeOf(tx)) !== 'own') return { ok: false, reason: 'NOT_SELF_BILLING' }
-      if (row.status === 'cancelled' || row.status === 'closed') return { ok: false, reason: 'CANCELLED' }
-      await updateStoreBillingStatus(tx, id, parsed.data)
-      const entry: ActivityEntry = {
-        category: 'write',
-        action: storeAudit.setStoreBillingStatus,
-        result: 'success',
-        actorKind: 'partner_user',
-        actorId: caller.user.id,
-        actorLabel: `${caller.user.name} <${caller.user.email}>`,
-        partnerId,
-        storeId: id,
-        target: { type: 'store', id, label: row.name },
-        changes: [{ field: 'billing_status', before: row.billing_status, after: parsed.data }],
-        reason: null,
-        api: 'platform',
-        visibility: 'partner',
-        ...facts,
-      }
-      await activity.record(tx, entry)
+      if (row.status === 'cancelled' || row.status === 'closed' || !(await updateStoreBillingStatus(tx, id, parsed.data))) return { ok: false, reason: 'CANCELLED' }
+      await activity.record(
+        tx,
+        partnerEntry(caller, facts)({
+          action: storeAudit.setStoreBillingStatus,
+          storeId: id,
+          target: { type: 'store', id, label: row.name ?? '' },
+          changes: [{ field: 'billing_status', before: row.billing_status, after: parsed.data }],
+          reason: null,
+        }),
+      )
       return { ok: true }
     })
   }
