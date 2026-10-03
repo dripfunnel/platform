@@ -36,6 +36,9 @@ create index partner_domain_host_idx on partner_domain (lower(host));
 -- A partner adds its own address and its records; only the check (app_system) and staff write a
 -- status or what DNS returned, so a partner can no longer mark an address live itself.
 revoke update on partner_domain from app_partner;
+-- And what it inserts is waiting and unchecked: only the check moves an address on.
+create policy partner_domain_partner_adds_waiting on partner_domain as restrictive for insert to app_partner
+  with check (status = 'waiting' and found is null and checked_at is null);
 grant select, insert on partner_domain_record to app_partner;
 grant select, insert, update on partner_domain_record to app_platform, app_system;
 
