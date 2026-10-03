@@ -14,10 +14,12 @@ import {
   upsertPartnerDomain,
   upsertSetupItem,
 } from '#db/scoped/partners'
+import { setPartnerContract, setPlanCeiling, setPlanFee } from '#db/scoped/plans'
 import { insertCustomDomain, insertJob, insertMembership, insertSeller, insertStore, insertStoreNote, insertUser, updateStoreStatus } from '#db/scoped/stores'
 import { toRow } from '#saas/activity/log'
 import { stepsFor } from '#saas/provisioning/stuck'
 import { assertLoopbackOnly } from '../migrate/host-guard'
+import { catalogue, ceilings, contracts, fallbackEntitlements } from './catalogue'
 import { domainsFor, generated, generatedName, partners, recordFor, staff, stores, type SeedPartner, type SeedStore } from './data'
 
 export interface SeedCounts {
@@ -35,6 +37,7 @@ export interface SeedCounts {
 // (AGENTS.md "Working with the user" rule 3), so wiping it is the point.
 const owned = [
   'activity_log', 'outbox', 'store_note', 'job', 'invitation', 'membership', '"user"', 'custom_domain', 'store',
+  'plan_entitlement', 'plan_price', 'plan_version', 'plan_fee', 'plan_ceiling', 'partner_contract_rate', 'partner_contract',
   'plan', 'partner_setup_item', 'partner_domain', 'partner_invitation', 'partner_session', 'partner_user',
   'staff_partner_assignment', 'staff_session', 'staff_user', 'customer', 'seller', 'partner',
 ]
@@ -80,13 +83,31 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
   const planIds = new Map<string, string>()
   const partnerUserByName = new Map<string, string>()
 
+  for (const [key, amount] of Object.entries(ceilings)) await setPlanCeiling(tx, key as keyof typeof ceilings, amount)
+
   for (const p of partners) {
     const partnerId = await seedPartner(tx, p, now, record, partnerUserByName, staffByName)
     partnerIds.set(p.key, partnerId)
     counts.partners += 1
     counts.partnerUsers += 1 + p.team.length
+    const contract = contracts[p.key]
+    if (contract) await setPartnerContract(tx, { partnerId, ...contract })
     for (const plan of p.plans) {
-      planIds.set(`${p.key}:${plan.name}`, await insertPlan(tx, { partnerId, name: plan.name, status: plan.status, trialDays: plan.trialDays ?? 14, maxProducts: plan.maxProducts, maxStaff: plan.maxStaff }))
+      // SAAS §6.1: the house partner's plans carry a 10-day trial.
+      const entry = catalogue[`${p.key}:${plan.name}`]
+      const trialDays = entry?.trialDays ?? (p.house ? 10 : (plan.trialDays ?? 14))
+      const planId = await insertPlan(tx, {
+        partnerId,
+        name: plan.name,
+        status: plan.status,
+        trialDays,
+        maxProducts: plan.maxProducts,
+        maxStaff: plan.maxStaff,
+        prices: entry?.prices ?? [],
+        entitlements: entry?.entitlements ?? fallbackEntitlements(plan.maxProducts, plan.maxStaff),
+      })
+      planIds.set(`${p.key}:${plan.name}`, planId)
+      if (entry) await setPlanFee(tx, planId, partnerId, entry.feeMinor)
       counts.plans += 1
     }
   }

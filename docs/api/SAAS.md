@@ -270,7 +270,9 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   currencies); **meter**, counted per billing period (**"Publish now" presses**, AI prompts,
   build minutes, AI cost).
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
-  can't configure a plan above it (G2, R3).
+  can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
+  DripFunnel's wholesale fee per plan and the partner's contract (fee currency, conversion
+  rates, whether a plan may remove "Powered by"): DATA-MODEL.md §2.3.
 - **Who sets what**: the partner sets its plans and their entitlement values, including the
   monthly "Publish now" allowance, in the Platform API (USERS-AND-DOMAINS §4); Admin can set
   them on the partner's behalf, and sets the ceilings. The automatic publish interval is an
@@ -302,7 +304,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 
 - **Grandfathering is explicit** (G6): changing a plan that stores are on asks "Apply to new
   signups only, or to everyone at renewal?". Plans are versioned so a store's subscription
-  points at the version it bought.
+  points at the version it bought (built on #157: an edit writes the next `plan_version`).
 - **Retiring a plan** (G7) hides it from signup; existing stores keep it or move on a stated
   date.
 - Promotions on plans (first months discounted, signup coupons) are open (G8).

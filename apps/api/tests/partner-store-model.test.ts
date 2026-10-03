@@ -240,7 +240,11 @@ describe('filters, sort and paging (§4.1, §5.1)', () => {
       expect(rows.filter((r) => r.partner_id === ts)).toHaveLength(100)
       expect(rows.filter((r) => r.partner_id === kl)).toHaveLength(3)
     } finally {
-      await db.sql`delete from plan where id = any(${pgArray(inserted)}::uuid[])`
+      // A plan's versions go with it, in one transaction: the current-version key is checked at commit.
+      await db.sql.begin(async (tx) => {
+        await tx`delete from plan_version where plan_id = any(${pgArray(inserted)}::uuid[])`
+        await tx`delete from plan where id = any(${pgArray(inserted)}::uuid[])`
+      })
     }
   })
 })
