@@ -134,7 +134,8 @@ sign-up, password reset and invitation emails (CONSOLE-DESIGN §3 facts 4, 17; p
 ### 3.4 Words
 
 Product name ("Northstar Shops"), support email and URL, help centre, terms, privacy policy,
-data-processing agreement, and the **"Powered by DripFunnel"** line: on, off, or by the
+data-processing agreement (an **Impressum** too where the law requires one: a partner in DE, AT
+or CH, built on #162), and the **"Powered by DripFunnel"** line: on, off, or by the
 partner's plan with DripFunnel (fact 18). Whether a partner may hide DripFunnel everywhere is
 open (§14). Email templates (verification code, invitation, password reset, trial ending,
 payment failed, store suspended, receipts) are editable in subject and a small set of blocks,

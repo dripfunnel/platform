@@ -752,6 +752,25 @@ api/README.md §2.1); a partner id in a request is not authority.
   change already scheduled keeps it. Retiring with a move schedules them for the
   chosen date. Both are written in the change's own transaction.
 
+**Built on #162** (Branding, `apis/platform/branding.ts`, `saas/partnerBranding`):
+- `branding` returns the live look and words, or the draft while nothing is live
+  (`published` says which). It also carries `affects` (stores not closed), the contrast
+  report, `poweredByRule` (`choice` | `fixedOn`, from the contract), `impressumRequired`
+  (the partner's country is DE, AT or CH), `dpaRequired` and the publish permission.
+- `checkContrast(primary, accent)` and the publish use one function (`contrast.ts`, WCAG 2.2,
+  4.5:1).
+- `publishBranding(input)` refuses with the fixture's codes: `INVALID_INPUT` carries `field`,
+  and `CONTRAST_FAILS` carries `fix`. A role without `branding.write` gets `FORBIDDEN` from the
+  policy.
+- A publish adds a version with who and when. It keeps the partner row's look and "Powered by"
+  equal to it (`0017`), marks Branding (and Legal pages, once terms, privacy, the DPA and any
+  required Impressum are there) and queues the portal cache purge.
+- **Files are R2 keys under the partner's prefix**; a key under another prefix, or a URL, is
+  `INVALID_INPUT`. The upload itself is #219, which waits for the bucket.
+- This card ships the publish-now path only. `saveBrandingDraft`, `publishBranding(when)`
+  (scheduling), `cancelScheduledBranding`, `rollbackBranding`, the history and the email
+  templates are §8.3–§8.4's.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

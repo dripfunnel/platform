@@ -3,6 +3,96 @@ type ActionPermission {
   reason: String
 }
 
+type BrandFiles {
+  favicon: String
+  logoDark: String
+  logoLight: String
+  mark: String
+}
+
+input BrandFilesInput {
+  favicon: String!
+  logoDark: String!
+  logoLight: String!
+  mark: String!
+}
+
+type BrandLook {
+  accent: String
+  background: String
+  corner: String
+  files: BrandFiles
+  font: String
+  primary: String
+  productName: String
+}
+
+input BrandLookInput {
+  accent: String!
+  background: String!
+  corner: String!
+  files: BrandFilesInput!
+  font: String!
+  primary: String!
+  productName: String!
+}
+
+type BrandWords {
+  dpaUrl: String
+  helpUrl: String
+  impressum: String
+  poweredBy: Boolean
+  privacyUrl: String
+  supportEmail: String
+  supportUrl: String
+  termsUrl: String
+}
+
+input BrandWordsInput {
+  dpaUrl: String!
+  helpUrl: String!
+  impressum: String!
+  poweredBy: Boolean!
+  privacyUrl: String!
+  supportEmail: String!
+  supportUrl: String!
+  termsUrl: String!
+}
+
+type Branding {
+  affects: Int
+  contrast: ContrastReport
+  dpaRequired: Boolean
+  impressumRequired: Boolean
+  look: BrandLook
+  permission: BrandingPermission
+  poweredByRule: String
+  published: Boolean
+  words: BrandWords
+}
+
+input BrandingInput {
+  look: BrandLookInput!
+  words: BrandWordsInput!
+}
+
+type BrandingPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type ContrastPair {
+  key: String
+  passes: Boolean
+  ratio: String
+}
+
+type ContrastReport {
+  fix: String
+  pairs: [ContrastPair!]
+  passes: Boolean
+}
+
 type GoLiveChecks {
   emailDomain: Boolean
   legalPages: Boolean
@@ -32,6 +122,7 @@ input MoneyInput {
 type Mutation {
   createPlan(input: PlanInput!): PlanResult
   makePlanLive(id: ID!): PlanResult
+  publishBranding(input: BrandingInput!): PublishBrandingResult
   retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
   submitForApproval: SubmitForApprovalResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
@@ -216,7 +307,17 @@ type PoweredByRule {
   note: String
 }
 
+type PublishBrandingResult {
+  field: String
+  fix: String
+  ok: Boolean
+  publishedAt: String
+  reason: String
+}
+
 type Query {
+  branding: Branding
+  checkContrast(accent: String!, primary: String!): ContrastReport
   health: String
   me: Me
   navBadges: NavBadges

@@ -66,3 +66,32 @@ export const insertBranding = async (
   if (!inserted) throw new Error('partner_branding insert returned no row')
   return inserted.id
 }
+
+/** The partner's draft holds `b` afterwards: the existing one changed, or a new one added. Returns its id. */
+export const saveBrandingDraft = async (tx: ScopedSql, partnerId: string, b: BrandingFields, by: { kind: 'partner_user' | 'staff'; label: string }): Promise<string> => {
+  // Two first publishes at once would both find no draft and both insert one: they take turns.
+  await tx`select pg_advisory_xact_lock(hashtext(${`partner_branding:${partnerId}`}))`
+  const [draft] = await tx<{ id: string }[]>`select id from partner_branding where partner_id = ${partnerId} and state = 'draft' for update`
+  if (!draft) return insertBranding(tx, { ...b, partnerId, state: 'draft', by })
+  await tx`update partner_branding set ${tx(b, ...fields)} where id = ${draft.id}`
+  return draft.id
+}
+
+/** Publishes a draft now, at the database's clock (0016's trigger refuses a back-dated one). */
+export const publishBrandingDraft = async (tx: ScopedSql, id: string, label: string): Promise<Date> => {
+  const [row] = await tx<{ published_at: Date }[]>`
+    update partner_branding set state = 'published', published_at = now(), published_by_label = ${label}
+    where id = ${id} and state = 'draft' returning published_at
+  `
+  if (!row) throw new Error('partner_branding: no draft to publish')
+  return row.published_at
+}
+
+/** The partner row's look, which the admin console's lists read, kept equal to the live version (DATA-MODEL §2.5). */
+export const mirrorPartnerLook = async (tx: ScopedSql, partnerId: string, b: Pick<BrandingFields, 'product_name' | 'primary_color' | 'accent_color' | 'powered_by'>): Promise<void> => {
+  await tx`
+    update partner set product_name = ${b.product_name}, primary_color = ${b.primary_color}, accent_color = ${b.accent_color},
+      powered_by = case when powered_by = 'house' then 'house' when ${b.powered_by} then 'on' else 'off' end
+    where id = ${partnerId}
+  `
+}
