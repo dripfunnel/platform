@@ -149,6 +149,36 @@ describe('re-authentication', () => {
     expect(row).toBeDefined()
     expect(JSON.stringify(await db.sql`select * from activity_log where actor_id = ${ids.sam}`)).not.toContain(proof)
   })
+
+  it('locks at the fifth wrong code, emailing the owner, and refuses even a correct code while locked', async () => {
+    const lenaId = await agent(ids.ns, 'lena.lock@northstar.example', 'partner-support')
+    const lena = callerOf(ids.ns, lenaId, 'partner-support')
+    type Reauth = { reauthenticate: { ok: boolean; reason: string | null; proof: string | null; triesLeft: number | null; lockedMinutes: number | null } }
+    const attempt = async (code: string) => {
+      clock = new Date(clock.getTime() + 31_000)
+      return (await run<Reauth>(q.reauth, lena, { c: code })).data?.reauthenticate
+    }
+    for (const left of [4, 3, 2, 1]) expect(await attempt('000000')).toMatchObject({ ok: false, reason: 'WRONG_CODE', triesLeft: left })
+    expect(await attempt('000000')).toMatchObject({ ok: false, reason: 'LOCKED', lockedMinutes: 15, proof: null })
+    const emails = await db.sql<{ payload: { template: string; to: string } }[]>`select payload from outbox where kind = 'email' and payload->>'partnerUserId' = ${lenaId}`
+    expect(emails.map((e) => e.payload)).toEqual([expect.objectContaining({ template: 'partner-user-locked', to: 'lena.lock@northstar.example' })])
+    expect(await db.sql`select 1 from activity_log where action = 'partner_user.sign_in_locked' and actor_id = ${lenaId}`).toHaveLength(1)
+
+    const locked = await attempt(await codeAt(totp, stepAt(clock)))
+    expect(locked).toMatchObject({ ok: false, reason: 'LOCKED', proof: null })
+    const [row] = await db.sql<{ reauth_proof_hash: string | null }[]>`select reauth_proof_hash from partner_user where id = ${lenaId}`
+    expect(row?.reauth_proof_hash).toBeNull()
+    expect(await db.sql`select 1 from activity_log where action = 'partner_user.reauthenticated' and actor_id = ${lenaId}`).toHaveLength(0)
+  })
+
+  it('refuses a user with no second factor, with NO_SECOND_FACTOR and no proof', async () => {
+    const [nora] = await db.sql<{ id: string }[]>`
+      insert into partner_user (partner_id, email, name, role_key, status) values (${ids.ns}, 'nora.nofactor@northstar.example', 'nora', 'partner-support', 'active') returning id
+    `
+    const caller = callerOf(ids.ns, nora?.id ?? '', 'partner-support')
+    const result = (await run<{ reauthenticate: { ok: boolean; reason: string | null; proof: string | null } }>(q.reauth, caller, { c: '123456' })).data?.reauthenticate
+    expect(result).toMatchObject({ ok: false, reason: 'NO_SECOND_FACTOR', proof: null })
+  })
 })
 
 describe('sessions', () => {
