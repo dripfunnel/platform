@@ -11,6 +11,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { partnerCookieName } from '#auth/partnerSession'
+import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
 import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
@@ -163,14 +164,36 @@ const handleAdmin = async (
   })
 }
 
-const handlePlatform = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+// Imported once per isolate, like the identity provider, and only from configuration.
+let box: { key: string; secrets: Promise<SecretBox> } | undefined
+
+const secretsFor = (config: Config): Promise<SecretBox> | null => {
+  const key = config.CREDENTIALS_KEK
+  if (!key) return null
+  if (box?.key !== key) box = { key, secrets: secretBox(key) }
+  return box.secrets
+}
+
+const handlePlatform = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   // Every mutation on this cookie, as on the admin host (ACCESS.md §4).
   if (!originAllowed(request, config.PLATFORM_HOST)) return new Response('Bad origin', { status: 403 })
 
   const hyperdrive = config.HYPERDRIVE
   if (isPlatformAuthPath(url.pathname)) {
     if (!hyperdrive) return new Response(null, { status: 503 })
-    return withConnection(hyperdrive, ctx, (sql) => handlePlatformAuth(request, { sql, activity: activityLog, platformHost: config.PLATFORM_HOST }))
+    const limiter = env.SIGN_IN_RATE_LIMITER
+    if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+    const secrets = await secretsFor(config)
+    return withConnection(hyperdrive, ctx, (sql) =>
+      handlePlatformAuth(request, {
+        sql,
+        activity: activityLog,
+        platformHost: config.PLATFORM_HOST,
+        secrets,
+        now: () => new Date(),
+        allowAttempt: async (key) => (await limiter.limit({ key })).success,
+      }),
+    )
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
@@ -196,7 +219,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
-  if (area === 'platform') return { response: await handlePlatform(request, url, config, ctx), area }
+  if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
   return { response: await servers[area].fetch(request), area }
 }
 

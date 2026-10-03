@@ -151,7 +151,10 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
 `partner-read-only` (ACCESS.md §5.3, decided on #109). A partner's first user is its Owner.
 **Built on #32**: `partner_user` (with `status`, `last_sign_in_at`) and `partner_invitation`
 (token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 2 fills
-the password and 2-factor columns. **Built on #155**: `partner_session` as above, its hash
+the password and 2-factor columns (**built on #156**, with `two_factor_enrolled_at`,
+`failed_code_count`, `locked_until`, `last_code_step` beside them, granted to no request role,
+`partner.second_factor_required` for the Owner's switch, and `partner_session.stage` and
+`pending_secret_enc` for the step between password and code). **Built on #155**: `partner_session` as above, its hash
 read and written by `app_system` alone (no request role has a grant), and `remember` false
 until #156's sign-in sets it.
 

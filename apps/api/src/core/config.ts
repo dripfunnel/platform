@@ -10,6 +10,12 @@ const configSchema = z.object({
   ENTRA_TENANT_ID: z.string().min(1).optional(),
   ENTRA_CLIENT_ID: z.string().min(1).optional(),
   ENTRA_CLIENT_SECRET: z.string().min(1).optional(),
+  // The credential key-encryption key (THIRD-PARTY-ACCESS.md §5): 32 bytes in base64. Absent,
+  // nothing that reads or writes a 2-factor secret answers (NOT_CONNECTED).
+  CREDENTIALS_KEK: z
+    .string()
+    .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value), 'CREDENTIALS_KEK must be 32 bytes in base64')
+    .optional(),
 })
 
 export type Config = z.infer<typeof configSchema>

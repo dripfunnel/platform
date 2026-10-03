@@ -82,10 +82,9 @@ export const reauthenticated = (staff: { id: string; email: string; name: string
   ...request,
 })
 
-/** LOGGING.md §6: the partner's own users' actions are what its activity log shows. */
-export const partnerSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts): ActivityEntry => ({
-  category: 'auth',
-  action: 'partner_user.signed_out',
+const partnerUserEntry = (action: string, category: 'auth' | 'security', user: { id: string; partnerId: string }, request: RequestFacts): ActivityEntry => ({
+  category,
+  action,
   result: 'success',
   actorKind: 'partner_user',
   actorId: user.id,
@@ -94,6 +93,34 @@ export const partnerSignedOut = (user: { id: string; partnerId: string }, reques
   reason: null,
   api: 'platform',
   visibility: 'partner',
+  ...request,
+})
+
+/** LOGGING.md §6: the partner's own users' actions are what its activity log shows. */
+export const partnerSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.signed_out', 'auth', user, request)
+
+export const partnerSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.signed_in', 'auth', user, request)
+
+export const partnerSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts) =>
+  partnerUserEntry('partner_user.second_factor_enrolled', 'security', user, request)
+
+/** Five wrong codes (FIRST-RELEASE §3): the account's own partner sees it, as staff do. */
+export const partnerLocked = (user: { id: string; partnerId: string }, request: RequestFacts): ActivityEntry => ({
+  ...partnerUserEntry('partner_user.sign_in_locked', 'security', user, request),
+  result: 'denied',
+})
+
+/** Names no subject, like the staff refusal, so the log never becomes the enumeration the answer avoids. */
+export const partnerSignInRefused = (request: RequestFacts, reason: 'invalid_credentials' | 'locked'): ActivityEntry => ({
+  category: 'security',
+  action: 'partner_user.sign_in_refused',
+  result: 'denied',
+  actorKind: 'anonymous',
+  actorId: null,
+  actorLabel: null,
+  reason,
+  api: 'platform',
+  visibility: 'staff',
   ...request,
 })
 

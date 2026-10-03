@@ -58,7 +58,7 @@ merchant with the same address are two unrelated accounts.
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
 | **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, 2-factor **required for Owners and optional for everyone else** (decided 2026-10-02): an authenticator app or an SMS code to the person's own mobile number, plus ten single-use backup codes shown once when made; an Owner without it is sent to set it up at their next sign-in and can change the method but never turn it off (§4) | `(partner, email)`: the same email under two partners is two unrelated accounts |
-| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password; 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
+| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password (**built on #156**: PBKDF2-SHA256, 100,000 iterations — the most the Workers runtime allows — a 16-byte salt and a 32-byte key, `auth/password.ts`; one decoy derivation when no account matches, so an unknown email costs what a wrong password does); 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
 
@@ -296,7 +296,22 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
   (idle 2 h, absolute 12 h; `remember` arrives with #156's sign-in), `POST /api/auth/sign-out`
   logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
-  closed-partner session, as for an unknown one. Sign-in itself, and its entry, is #156's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  closed-partner session, as for an unknown one. **Sign-in, built on #156**
+  (`apis/platform/auth.ts`): `POST /api/auth/sign-in` answers `INVALID_CREDENTIALS`
+  byte for byte the same for an unknown email and a wrong password, after the same three
+  password derivations whatever the email (decoys make up the count); the same email may hold
+  an account under several partners, and the password decides which among its three most
+  recently used (the most recent first when two match). A password alone opens a session at stage `second-factor` (a user with
+  2-factor) or `enrol` (one whose partner requires it), good for 10 minutes and for nothing but
+  `second-factor` or `enrol-second-factor`. TOTP (RFC 6238, SHA-1, 30 s, 6 digits) accepts one
+  step of drift; a code up to five minutes old or already used is `CODE_EXPIRED` and not
+  counted; five wrong codes lock the account for 15 minutes (`LOCKED`, with minutes, even for
+  a right code), log `partner_user.sign_in_locked` and queue the notice email. The secret is
+  sealed with AES-256-GCM under `CREDENTIALS_KEK` (THIRD-PARTY-ACCESS §5); without the key the
+  second-factor routes answer `NOT_CONNECTED`. Every route except sign-out takes an attempt per
+  address, and sign-in one per typed email too (`RATE_LIMITED`). `next` is replaced by
+  `/dashboard` on the server unless it is a path on this host. Invitations and password reset
+  are #208's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
