@@ -1044,7 +1044,8 @@ builds the table must ship:
   not its own, a quantity above the refundable one and an amount above its lines' value, and
   succeeds within them; inserting a `fulfilment` for its own part succeeds (DATA-MODEL §5.3);
 - a guest inserting a cart whose `access_token_hash` is not the hash of the token it
-  presented is refused (DATA-MODEL §7.11);
+  presented is refused, and so is an insert with no token presented at all
+  (`current_order_token_hash()` returns null) (DATA-MODEL §7.11);
 - **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
   `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
   `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
