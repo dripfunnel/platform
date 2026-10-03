@@ -45,11 +45,16 @@ describe('the seeded catalogue', () => {
       { currency: 'USD', monthly: 4900, yearly: 49000 },
     ])
     expect(growth?.entitlements).toMatchObject({ custom_domain: true, products: 5000, publish_now: 60, ai_prompts: 200 })
-    expect(await as(partner(ids.ns), (tx) => tx`select amount from plan_fee where plan_id = ${ids.growth}`)).toEqual([{ amount: 1800 }])
+    expect(await as(partner(ids.ns), (tx) => tx`select amount, currency from plan_fee where plan_id = ${ids.growth}`)).toEqual([{ amount: 1800, currency: 'USD' }])
     expect((await as(partner(ids.ns), (tx) => tx`select key from plan_ceiling`)).length).toBe(7)
     const enterprise = (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.kl} and name = 'Enterprise'`)[0]?.id ?? ''
     const unpriced = await as(partner(ids.kl), (tx) => selectPlanVersion(tx, enterprise, 1))
     expect(unpriced?.prices).toEqual([{ currency: 'EUR', monthly: null, yearly: null }])
+  })
+
+  it('keeps a fee in its contract’s currency: the contract cannot change it under the fees', async () => {
+    await expect(as(staff, (tx) => tx`update partner_contract set fee_currency = 'EUR' where partner_id = ${ids.ns}`)).rejects.toThrow(/plan_fee_contract_currency_fkey/)
+    await expect(db.sql`update plan_fee set currency = 'EUR' where plan_id = ${ids.growth}`).rejects.toThrow(/plan_fee_contract_currency_fkey/)
   })
 
   it('gives the house partner’s plans a 10-day trial, and refuses a trial past 90 days', async () => {

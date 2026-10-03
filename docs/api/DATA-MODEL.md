@@ -128,8 +128,10 @@ plan_price           (plan_id, partner_id, version, currency, monthly_amount NUL
                       yearly_amount NULL)        -- minor units; null is "Not priced"
 plan_entitlement     (plan_id, partner_id, version, key, enabled NULL, amount NULL)
                      -- a switch key holds enabled, a limit or monthly allowance holds amount
-plan_fee             (plan_id PK, partner_id, amount)   -- DripFunnel's wholesale fee per store
-                     -- per month, in the contract's fee currency; no store policy at all
+plan_fee             (plan_id PK, partner_id, amount, currency)   -- DripFunnel's wholesale fee
+                     -- per store per month; (partner_id, currency) references the contract's
+                     -- fee currency, which cannot change while fees are stated in it; no
+                     -- store policy at all
 plan_ceiling         (key PK, amount)                   -- DripFunnel's maximum per limit
 partner_contract     (partner_id PK, fee_currency, powered_by_removable, powered_by_note
                       ('contract'|'firstYear'))

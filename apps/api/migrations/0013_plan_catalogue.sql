@@ -91,6 +91,7 @@ create table plan_fee (
   plan_id uuid primary key,
   partner_id uuid not null,
   amount integer not null check (amount >= 0),
+  currency text not null check (currency ~ '^[A-Z]{3}$'),
   foreign key (plan_id, partner_id) references plan (id, partner_id)
 );
 
@@ -106,8 +107,14 @@ create table partner_contract (
   partner_id uuid primary key references partner (id),
   fee_currency text not null check (fee_currency ~ '^[A-Z]{3}$'),
   powered_by_removable boolean not null default false,
-  powered_by_note text check (powered_by_note in ('contract', 'firstYear'))
+  powered_by_note text check (powered_by_note in ('contract', 'firstYear')),
+  unique (partner_id, fee_currency)
 );
+
+-- A fee is money with its own currency, and that currency is the contract's: the contract's
+-- fee currency cannot change while a fee is stated in the old one.
+alter table plan_fee add constraint plan_fee_contract_currency_fkey
+  foreign key (partner_id, currency) references partner_contract (partner_id, fee_currency);
 
 create table partner_contract_rate (
   partner_id uuid not null references partner_contract (partner_id),

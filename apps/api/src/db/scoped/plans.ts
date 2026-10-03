@@ -57,11 +57,15 @@ export const insertPlanVersion = async (tx: ScopedSql, v: NewPlanVersion): Promi
   return row.version
 }
 
+/** In the contract's fee currency, which the fee then holds (a contract must exist). */
 export const setPlanFee = async (tx: ScopedSql, planId: string, partnerId: string, amount: number): Promise<void> => {
-  await tx`
-    insert into plan_fee (plan_id, partner_id, amount) values (${planId}, ${partnerId}, ${amount})
-    on conflict (plan_id) do update set amount = excluded.amount
+  const rows = await tx`
+    insert into plan_fee (plan_id, partner_id, amount, currency)
+    select ${planId}, ${partnerId}, ${amount}, fee_currency from partner_contract where partner_id = ${partnerId}
+    on conflict (plan_id) do update set amount = excluded.amount, currency = excluded.currency
+    returning plan_id
   `
+  if (rows.length === 0) throw new Error('plan fee: the partner has no contract')
 }
 
 export const setPlanCeiling = async (tx: ScopedSql, key: AmountKey, amount: number): Promise<void> => {
