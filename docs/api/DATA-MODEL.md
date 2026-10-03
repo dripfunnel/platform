@@ -1251,9 +1251,8 @@ store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active
                      stripe_customer_id, stripe_subscription_id, payment_method_label,
                      payment_method_brand, payment_method_last4, payment_method_expires date)
                     -- status uses store.status's spellings (0007: trial, active, past_due,
-                    -- cancelled); core/tenancy.ts's Subscription type ('trialing',
-                    -- 'canceled') and ACCESS §3 are corrected to them on the card that
-                    -- builds this table. currency is the store's when USD, EUR or INR, else
+                    -- cancelled), which core/tenancy.ts's Subscription type and ACCESS §3
+                    -- use since #212. currency is the store's when USD, EUR or INR, else
                     -- USD (SAAS §6.1); the card is Stripe's: brand, last 4 and expiry only;
                     -- next_plan_* and change_at are a scheduled downgrade (SAAS §6.3,
                     -- PortalBilling "You'll move to Growth on 27 Oct"), and the Owner's

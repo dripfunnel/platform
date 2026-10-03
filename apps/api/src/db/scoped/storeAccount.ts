@@ -1,5 +1,5 @@
 import type { AmountKey } from './plans'
-import type { ScopedSql } from './index'
+import { pageLimit, type ScopedSql } from './index'
 
 // The store account tables of migrations/0014 (DATA-MODEL.md §7.9, §2.4).
 
@@ -69,8 +69,9 @@ export interface StoreAccount {
   usage: { key: AmountKey; used: number; period_start: Date | null }[]
 }
 
-/** The account fields of one store the caller's scope reaches; empty for one it does not. */
-export const selectStoreAccount = async (tx: ScopedSql, storeId: string): Promise<StoreAccount> => {
+/** The account fields of one store the caller's scope reaches, empty for one it does not; the two records newest first, at most `limit` each. */
+export const selectStoreAccount = async (tx: ScopedSql, storeId: string, limit = 25): Promise<StoreAccount> => {
+  const max = pageLimit(limit)
   const [subscription] = await tx<SubscriptionRow[]>`
     select store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end, trial_ends_at,
            next_plan_id, next_plan_version, change_at, payment_method_last4
@@ -78,10 +79,10 @@ export const selectStoreAccount = async (tx: ScopedSql, storeId: string): Promis
   `
   const overrides = await tx<StoreAccount['overrides']>`
     select id, key, amount, duration, month, reason, created_by_label, created_at from store_limit_override
-    where store_id = ${storeId} and removed_at is null order by created_at desc
+    where store_id = ${storeId} and removed_at is null order by created_at desc, id desc limit ${max}
   `
   const trialExtensions = await tx<StoreAccount['trialExtensions']>`
-    select days, ends_at, reason, created_by_label, created_at from store_trial_extension where store_id = ${storeId} order by created_at desc
+    select days, ends_at, reason, created_by_label, created_at from store_trial_extension where store_id = ${storeId} order by created_at desc, id desc limit ${max}
   `
   const usage = await tx<StoreAccount['usage']>`select key, used, period_start from store_usage where store_id = ${storeId} order by key`
   return { subscription: subscription ?? null, overrides, trialExtensions, usage }

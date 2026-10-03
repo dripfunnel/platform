@@ -79,6 +79,26 @@ describe('who reads and writes the account', () => {
     expect(await as(inStore(ids.ns, ids.nsStore, 'shopper'), (tx) => tx`select store_id from store_usage`)).toEqual([])
   })
 
+  it('shows a merchant nothing of a sibling store under the same partner', async () => {
+    const [sibling] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and id <> ${ids.nsStore} order by name limit 1`
+    const read = await as(inStore(ids.ns, ids.nsStore, 'person'), (tx) => selectStoreAccount(tx, sibling?.id ?? ''))
+    expect(read).toEqual({ subscription: null, overrides: [], trialExtensions: [], usage: [] })
+  })
+
+  it('shows a partner no other partner’s subscription or usage by direct select, and removes no other partner’s override', async () => {
+    expect(await as(partner(ids.ns), (tx) => tx`select store_id from store_subscription where store_id = ${ids.bzStore}`)).toEqual([])
+    expect(await as(partner(ids.ns), (tx) => tx`select store_id from store_usage where store_id = ${ids.bzStore}`)).toEqual([])
+    await db.sql`insert into store_limit_override (store_id, key, amount, duration, reason, created_by_kind, created_by_label) values (${ids.bzStore}, 'products', 1, 'always', 'theirs', 'staff', 'x')`
+    const removed = await as(partner(ids.ns), (tx) => tx`update store_limit_override set removed_at = now(), removed_by_label = 'x' where store_id = ${ids.bzStore} returning id`)
+    expect(removed).toEqual([])
+    expect(await db.sql`select removed_at from store_limit_override where store_id = ${ids.bzStore}`).toEqual([{ removed_at: null }])
+  })
+
+  it('returns at most the page size of overrides', async () => {
+    for (let i = 0; i < 3; i += 1) await as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.nsStore)))
+    expect((await as(partner(ids.ns), (tx) => selectStoreAccount(tx, ids.nsStore, 2))).overrides).toHaveLength(2)
+  })
+
   it('lets a partner add an override on its own store only, and never write usage', async () => {
     await expect(as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.nsStore)))).resolves.toBeUndefined()
     await expect(as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.bzStore)))).rejects.toThrow(/row-level security/i)
