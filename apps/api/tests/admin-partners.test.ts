@@ -322,6 +322,20 @@ describe('createPartner and the Owner invitation (§4.3)', () => {
     expect((await run(create, as('staff-support'), { input: { name: 'X', ownerEmail: 'x@x.example', country: 'FR', sendInvitation: false } })).code).toBe('FORBIDDEN')
   })
 
+  it('refuses a name another partner that is not closed has, ignoring case and spaces, and writes nothing', async () => {
+    const input = (name: string, email: string) => ({ input: { name, ownerEmail: email, country: 'DE', sendInvitation: true } })
+    const first = (await run<Out>(create, as('staff-super-admin'), input('Twin Partner', 'one@twin.example'))).data?.['createPartner']
+    expect(first).toMatchObject({ ok: true })
+    const count = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from partner_user`)[0]?.n
+    const users = await count()
+    expect((await run<Out>(create, as('staff-super-admin'), input('  twin PARTNER ', 'two@twin.example'))).data?.['createPartner']).toMatchObject({ ok: false, code: 'NAME_TAKEN', id: null })
+    expect(await count()).toBe(users)
+    expect(await db.sql`select 1 from outbox where payload->>'to' = 'two@twin.example'`).toHaveLength(0)
+
+    await db.sql`update partner set state = 'closed' where id = ${first?.id ?? ''}`
+    expect((await run<Out>(create, as('staff-super-admin'), input('Twin Partner', 'three@twin.example'))).data?.['createPartner']).toMatchObject({ ok: true })
+  })
+
   it('sends a held invitation once, resends a sent one with the old link revoked, and refuses an accepted one', async () => {
     const nordlicht = await partnerIdOf('Nordlicht Media')
     expect((await run<Out>(resend, as('staff-super-admin'), { id: nordlicht })).data?.['resendPartnerOwnerInvite']).toMatchObject({ ok: false, code: 'INVITATION_HELD' })

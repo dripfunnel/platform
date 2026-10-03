@@ -14,7 +14,7 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   endSetupSession,
   expireStaleSetupSessions,
-  insertPartner,
+  insertNamedPartner,
   insertPartnerApproval,
   insertPartnerInvitation,
   insertPartnerUser,
@@ -91,6 +91,7 @@ export type RefusalCode =
   | 'INVALID_STATE'
   | 'REASON_REQUIRED'
   | 'INVALID_INPUT'
+  | 'NAME_TAKEN'
   | 'INVALID_HOSTNAME'
   | 'NOT_FOUND'
   | 'NOT_A_PARTNER_MANAGER'
@@ -484,7 +485,8 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     const data = parsed.data
     return withScope(sql, context, async (tx): Promise<Result<{ id: string }>> => {
       const at = now()
-      const id = await insertPartner(tx, { name: data.name, country: data.country, kind: data.kind ?? null, region: data.region ?? null, createdAt: at })
+      const id = await insertNamedPartner(tx, { name: data.name, country: data.country, kind: data.kind ?? null, region: data.region ?? null, createdAt: at })
+      if (!id) return { ok: false, code: 'NAME_TAKEN' }
       const ownerId = await insertPartnerUser(tx, { partnerId: id, email: data.ownerEmail, name: data.ownerName ?? data.ownerEmail, role: 'partner-owner', status: 'invited' })
       const invitationId = await insertPartnerInvitation(tx, {
         partnerId: id,

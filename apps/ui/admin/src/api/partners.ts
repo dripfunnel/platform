@@ -1,9 +1,9 @@
 // The Partners operations on the Admin API (FIRST-RELEASE.md §4, §12): the only place this app
 // talks to the API about partners. The screens only render what these return; in particular
 // whether an action is allowed, and why not, is the API's answer (decided on #19).
-import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
+import { ApiError, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
-import { mutate, query } from './client'
+import { mutate, outcome, query } from './client'
 import { compactActions, hostStatusSchema, isoString, pageInfoSchema, permissionSchema, type HostStatus } from './decode'
 import type { SessionPermission } from './sessionRefusals'
 import type { ActionPermission as Permission } from './permissions'
@@ -342,4 +342,28 @@ export const runPartnerAction = async (id: string, action: Exclude<PartnerAction
 // new status to return yet.
 export const recheckDomain = async (id: string, kind: DomainKind): Promise<void> => {
   await mutate('recheckDomain', 'recheckDomain(id: $id, kind: $kind)', '($id: ID!, $kind: String!)', { id, kind })
+}
+
+// Whether the caller may create a partner: the same answer the list's button shows.
+export const loadCreatePermission = async (): Promise<ActionPermission> => {
+  const { partners } = await query(`query PartnerCreatePermission { partners(first: 1) { create ${permissionSelection} } }`, z.object({ partners: z.object({ create: permission }) }))
+  return partners.create
+}
+
+export interface NewPartner {
+  name: string
+  ownerEmail: string
+  country: string
+  // False holds the Owner invitation until someone sends it from the partner's page (§4.3).
+  sendInvitation: boolean
+}
+
+const createdSchema = z.object({ createPartner: z.object({ ok: z.boolean(), code: z.string().nullable(), id: z.string().nullable() }) })
+
+// The new partner's id; a refusal arrives as an ApiError with the API's code, NAME_TAKEN among them.
+export const createPartner = async (input: NewPartner): Promise<string> => {
+  const { createPartner: result } = await query(`mutation CreatePartner($input: CreatePartnerInput!) { createPartner(input: $input) { ok code id } }`, createdSchema, { input })
+  const { id } = outcome(result)
+  if (id === null) throw new ApiError('BAD_RESPONSE', 'createPartner succeeded without an id.')
+  return id
 }

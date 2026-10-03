@@ -51,6 +51,16 @@ export const insertPartner = async (tx: ScopedSql, p: NewPartner): Promise<strin
     'partner',
   )
 
+/** A new draft partner, or null when a partner that isn't closed already has the name (0031). */
+export const insertNamedPartner = async (tx: ScopedSql, p: NewPartner): Promise<string | null> => {
+  try {
+    return await tx.savepoint((sp) => insertPartner(sp, p))
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') return null
+    throw error
+  }
+}
+
 /** The columns a state change writes (saas/partners/states.ts decides which). */
 export interface PartnerStatePatch {
   state: PartnerState

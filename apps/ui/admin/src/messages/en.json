@@ -65,7 +65,6 @@
       "provisioningAttention": "{count} failed or stuck",
       "openSessions": "{count} open now"
     },
-    "placeholder": "This screen isn't built yet.",
     "signedOut": "Your session ended. Sign in again."
   },
   "nav": {
@@ -322,6 +321,46 @@
       "title": "This partner isn’t in your assignment",
       "body": "Partner managers see only the partners assigned to them. Ask a Super admin if you need this one.",
       "back": "Back to Partners"
+    },
+    "createForm": {
+      "level": "Platform · new partner",
+      "title": "Create partner",
+      "sub": "A new partner starts as a draft. You choose whether its owner is invited now or once setup is done.",
+      "formLabel": "New partner",
+      "name": "Partner name",
+      "namePlaceholder": "Kaufladen Digital",
+      "ownerEmail": "Owner’s email",
+      "ownerEmailPlaceholder": "owner@company.com",
+      "ownerEmailHint": "The partner’s owner signs in to the partner console with this address.",
+      "country": "Country",
+      "countryPlaceholder": "Choose a country",
+      "invitation": "Owner invitation",
+      "invitations": {
+        "send": {
+          "label": "Send it now",
+          "body": "The owner is invited straight away and can sign in, even though the partner console is still empty."
+        },
+        "hold": {
+          "label": "Hold it until setup is done",
+          "body": "Nobody is invited until someone uses Send owner invitation on the partner’s page."
+        }
+      },
+      "errors": {
+        "nameRequired": "Enter the partner’s name.",
+        "nameTooLong": "Keep the name to 120 characters or fewer.",
+        "emailInvalid": "Enter a full email address, like owner@company.com.",
+        "countryRequired": "Choose the partner’s country.",
+        "NAME_TAKEN": "Another partner already has this name. Choose a different one."
+      },
+      "failed": "The partner couldn’t be created. Nothing was saved; try again.",
+      "submit": "Create partner",
+      "submitting": "Creating…",
+      "cancel": "Cancel",
+      "loading": "Loading the form…",
+      "denied": {
+        "title": "You can’t create partners",
+        "back": "Back to Partners"
+      }
     }
   },
   "partner": {
