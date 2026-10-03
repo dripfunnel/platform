@@ -53,3 +53,10 @@ describe('starting', () => {
     expect(await loadMySessions()).toEqual([])
   })
 })
+
+describe('a refusal this console doesn’t know', () => {
+  it('is an error with its own code, never worded as a known refusal', async () => {
+    stubApi({ data: { startImpersonation: { ok: false, reason: 'SOMETHING_NEW', handoff: null, session: null } } })
+    await expect(startImpersonation('t1', 'm1', 'Fixing', null)).rejects.toMatchObject({ code: 'SOMETHING_NEW' })
+  })
+})
