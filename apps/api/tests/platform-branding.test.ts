@@ -156,4 +156,41 @@ describe('publishing', () => {
     expect(await as(ids.ns, 'off')).toEqual([{ powered_by: 'off' }])
     await db.sql`update partner set powered_by = 'on' where id = ${ids.ns}`
   })
+
+  it('holds a published version’s "Powered by" to the contract at the database', async () => {
+    const scope = { caller: { kind: 'partner-user' as const, partnerUserId: 'pu' }, partnerId: ids.kl }
+    const [draft] = await db.sql<{ id: string }[]>`
+      insert into partner_branding
+      select (jsonb_populate_record(null::partner_branding, to_jsonb(b) || jsonb_build_object('id', gen_random_uuid(), 'state', 'draft', 'published_at', null, 'published_by_label', null))).*
+      from partner_branding b where b.partner_id = ${ids.kl} and b.state = 'published' order by b.published_at desc limit 1
+      returning id`
+    await withScope(db.sql, scope, (tx) => tx`update partner_branding set powered_by = false where id = ${draft?.id ?? ''}`)
+    await expect(
+      withScope(db.sql, scope, (tx) => tx`update partner_branding set state = 'published', published_at = now() + interval '1 minute', published_by_label = 'x' where id = ${draft?.id ?? ''}`),
+    ).rejects.toThrow(/fixed by the contract/)
+    await db.sql`update partner_branding set powered_by = true where id = ${draft?.id ?? ''}`
+  })
+})
+
+describe('isolation and access', () => {
+  it('answers a signed-out caller UNAUTHENTICATED and each partner with only its own branding', async () => {
+    const signedOut = await graphql({ schema: platformSchema as GraphQLSchema, source: brandingQuery, contextValue: { caller: null, console: null, plans: null, branding: null } })
+    expect(signedOut.errors?.[0]?.extensions['code']).toBe('UNAUTHENTICATED')
+    const ns = (await run<B>(brandingQuery, callerOf(ids.ns, 'partner-read-only'))).data?.branding
+    const kl = (await run<B>(brandingQuery, callerOf(ids.kl, 'partner-read-only'))).data?.branding
+    expect(ns?.look.productName).toMatch(/^Northstar/)
+    expect(kl?.look.productName).toMatch(/^Kaufladen/)
+    expect(JSON.stringify(kl)).not.toContain('northstar')
+  })
+
+  it('refuses every role without branding.write at the policy, and a partner’s publish never writes another’s rows', async () => {
+    const ns = (await run<B>(brandingQuery, callerOf(ids.ns, 'partner-owner'))).data?.branding
+    const input = { look: ns?.look, words: ns?.words }
+    for (const role of ['partner-support', 'partner-finance', 'partner-read-only'] as const) {
+      expect((await run('mutation($i: BrandingInput!) { publishBranding(input: $i) { ok } }', callerOf(ids.ns, role), { i: input })).code, role).toBe('FORBIDDEN')
+    }
+    const before = await db.sql`select id, state, product_name from partner_branding where partner_id = ${ids.ns} order by id`
+    await run('mutation($i: BrandingInput!) { publishBranding(input: $i) { ok } }', callerOf(ids.kl, 'partner-owner'), { i: input })
+    expect(await db.sql`select id, state, product_name from partner_branding where partner_id = ${ids.ns} order by id`).toEqual(before)
+  })
 })
