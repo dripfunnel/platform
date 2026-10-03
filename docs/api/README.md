@@ -367,18 +367,23 @@ install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partiall
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
 `.dev.vars.example` or `wrangler.jsonc` ever points at
-`dbpg01.softobotics.org`. The only exception is the `dev` deploy workflow
-(`.github/workflows/dev.yml`), which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply
-migrations to the persistent Neon `dev` branch; the guard
+`dbpg01.softobotics.org`. The exceptions are the deploy workflows, each of
+which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own Neon
+branch: `dev.yml` (the persistent `dev` branch), `prod.yml` (production) and
+`feature-env.yml` (the feature environment's branch). The guard
 (`scripts/migrate/host-guard.ts`) also requires `CI=true` (set automatically
 by GitHub Actions) so the override can't be tripped by an env var left in a
 shell profile or `.env` on a developer machine, and requires the connection
-string's host to exactly match the `ALLOWED_MIGRATION_HOST` GitHub Actions
-variable (set to the `dev` branch's literal Neon hostname), so a
-misconfigured `DATABASE_URL` can't silently migrate a different Neon project
-(production included).
+string's host to exactly match `ALLOWED_MIGRATION_HOST`, so a misconfigured
+`DATABASE_URL` can't silently migrate a different Neon project (production
+included). In `dev.yml` and `prod.yml` that is the `ALLOWED_MIGRATION_HOST`
+variable of the job's GitHub environment (`dev` or `prod`), set to that
+branch's literal Neon hostname. In `feature-env.yml` it is the host the run's
+own *Database branch* step just created (`steps.neon.outputs.host`), since a
+feature branch's host is new per branch and no fixed variable could name it
+([FEATURE-ENVIRONMENTS.md §3](../code/FEATURE-ENVIRONMENTS.md)).
 
-The same workflow's Gates step (`build typecheck lint test`) is a second,
+The `dev` and `prod` workflows' Gates step (`build typecheck lint test`) is a second,
 separate exception: it runs against `TEST_DATABASE_URL`, a dedicated,
 disposable Neon branch kept only for CI test runs, not the persistent `dev`
 branch above (docs/code/THIRD-PARTY-ACCESS.md §2.2). **It runs behind the same

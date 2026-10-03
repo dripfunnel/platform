@@ -67,6 +67,16 @@ gains them. Each gets its own `<slug>`-named resource, created in `prepare` and 
 | Nightly (03:17 UTC) | `prune` | Finds every environment (Workers, Hyperdrive configs and Neon branches with the feature prefixes). Destroys those whose branch no longer exists or has had no commit for 14 days. This also catches missed delete events and half-created environments |
 | Manual "destroy" | `destroy` | For the branch the workflow is run on |
 
+**Migrations and the host guard (fixed on #73).** `migrate` refuses any non-local host unless
+CI opts in with `ALLOW_REMOTE_MIGRATIONS=1` and names the one host it may reach in
+`ALLOWED_MIGRATION_HOST`, matched exactly (#66). `dev` and `prod` each have one fixed host, so a
+repository variable names it. A feature environment's host is created per branch by the run's
+own *Database branch* step, so no fixed variable could name it, and a suffix such as `.neon.tech`
+would let the opt-in reach production. The *Migrations* step therefore takes
+`ALLOWED_MIGRATION_HOST` from `steps.neon.outputs.host`, the host this run just created, and
+`DATABASE_URL` from the same step: it can never name a host the run didn't provision. A test
+(`apps/api/scripts/migrate/host-guard.test.ts`) holds both the guard and that wiring.
+
 The `destroy` path never touches a name without the feature prefix. It refuses to delete a
 Neon default branch.
 
@@ -133,7 +143,7 @@ relying on them.
 
 ## 6. To verify on the first run
 
-These follow Cloudflare's documented behaviour, but no deploy has run yet:
+These follow Cloudflare's and Neon's documented behaviour, but no deploy has run yet:
 
 - **Custom domain on a branch alias through the API.** The documentation describes adding
   the domain to the project and pointing its proxied CNAME at `<branch>.<project>.pages.dev`.
@@ -145,6 +155,10 @@ These follow Cloudflare's documented behaviour, but no deploy has run yet:
 - **Deleting a Pages deployment that has an alias** with `?force=true`.
 - **The token's permission list** in §4 step 2 is enough for Worker custom domains and route
   deletion.
+- **`neondatabase/create-branch-action@v6` exposes a `host` output.** Its documented outputs
+  include one, and the *Migrations* step's opt-in reads it (§3). If that step fails with
+  "ALLOWED_MIGRATION_HOST is not set", the output is named differently; the guard refuses an
+  empty host, so the failure is safe. Link the first green run on #73.
 
 ---
 
