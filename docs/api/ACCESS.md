@@ -1042,7 +1042,11 @@ builds the table must ship:
 - **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
   `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
   `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
-  another shopper's `customer_address` is refused (DATA-MODEL §5.3);
+  another shopper's `customer_address` is refused; a shopper updating a placed order's
+  address, email or pickup flag is refused (`state = 'cart'` in `USING` and `WITH CHECK`); a
+  shopper writing `currency`, `market_id` or `shipping_method_id` directly after a line was
+  added is refused, and `cart_set_currency` reprices every line; a shopper inserting a cart
+  with another customer's id, or with `state <> 'cart'`, is refused (DATA-MODEL §5.3, §7.11);
 - the AI metering view returns partner A's stores to partner A and none of partner B's, every
   store to platform scope, and nothing in shop scope (DATA-MODEL §5.3).
 
