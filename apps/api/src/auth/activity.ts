@@ -82,6 +82,21 @@ export const reauthenticated = (staff: { id: string; email: string; name: string
   ...request,
 })
 
+/** LOGGING.md §6: the partner's own users' actions are what its activity log shows. */
+export const partnerSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts): ActivityEntry => ({
+  category: 'auth',
+  action: 'partner_user.signed_out',
+  result: 'success',
+  actorKind: 'partner_user',
+  actorId: user.id,
+  actorLabel: null,
+  partnerId: user.partnerId,
+  reason: null,
+  api: 'platform',
+  visibility: 'partner',
+  ...request,
+})
+
 /** A refusal names no subject: the entry must not become the enumeration the response avoids. */
 export const signInRefused = (request: RequestFacts, refusal: SignInRefusal): ActivityEntry => ({
   category: 'security',

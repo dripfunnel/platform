@@ -1,12 +1,14 @@
 import type { CallerContext, Scope } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 
-/** The database role each caller kind runs as (DATA-MODEL.md §5.3). The partner, supplier and
- *  shopper roles arrive with their first cards; until then they run as `app_request`. */
-export type RequestRole = 'app_request' | 'app_platform'
+/** The database role each caller kind runs as (DATA-MODEL.md §5.3). The supplier and shopper
+ *  roles arrive with their first cards; until then they run as `app_request`. */
+export type RequestRole = 'app_request' | 'app_partner' | 'app_platform'
 
-export const roleFor = (context: CallerContext): RequestRole =>
-  isTenantContext(context) || isPartnerContext(context) ? 'app_request' : 'app_platform'
+export const roleFor = (context: CallerContext): RequestRole => {
+  if (isTenantContext(context)) return 'app_request'
+  return isPartnerContext(context) ? 'app_partner' : 'app_platform'
+}
 
 // The per-transaction settings of DATA-MODEL.md §5.1, from the caller's context and never
 // from request input. `boundary.test.ts` holds them to this file and `db/scoped`.
@@ -18,6 +20,7 @@ export interface RlsSettings {
   'app.customer_id': string
   'app.support': '' | 'read' | 'write'
   'app.impersonation_id': string
+  'app.user_id': string
 }
 
 const empty = {
@@ -27,6 +30,7 @@ const empty = {
   'app.customer_id': '',
   'app.support': '' as const,
   'app.impersonation_id': '',
+  'app.user_id': '',
 }
 
 export const settingsFor = (context: CallerContext): RlsSettings => {
@@ -44,10 +48,17 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       'app.support': caller.kind === 'support' ? caller.access : '',
       // Grants nothing; it attributes the write (LOGGING.md §4).
       'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
+      'app.user_id': caller.kind === 'person' ? caller.userId : '',
     }
   }
   if (isPartnerContext(context)) {
-    return { ...empty, 'app.scope': 'partner', 'app.partner_id': context.partnerId }
+    const { caller } = context
+    return {
+      ...empty,
+      'app.scope': 'partner',
+      'app.partner_id': context.partnerId,
+      'app.user_id': caller.kind === 'partner-user' ? caller.partnerUserId : '',
+    }
   }
   return { ...empty, 'app.scope': 'platform' }
 }

@@ -319,11 +319,12 @@ that fixes it, rather than failing on Postgres's bare "must be owner".
 **Which role a request runs as** (DATA-MODEL.md §5.3, built on #205). `withScope`
 (`src/db/scoped/index.ts`) issues `set local role` with what `roleFor`
 (`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
-`app_platform`; merchant-side people, suppliers, shoppers, support sessions and partner users
-run as `app_request` until their own roles (`app_supplier`, `app_shop`, `app_partner`) arrive;
+`app_platform`; partner users and staff setup sessions run as `app_partner` (#155);
+merchant-side people, suppliers, shoppers and support sessions run as `app_request` until their
+own roles (`app_supplier`, `app_shop`) arrive;
 jobs run as `app_system` through `withSystemScope`. Every policy names the roles that may use
-it, and on every tenant table three restrictive policies (`request_scope`, `platform_scope`,
-`system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
+it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
+`platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
 role's branch. A card that adds a role adds, in one migration, the role, its grants, the
 policies `TO` it and its pin on every tenant table (taking its scope out of `request_scope`), plus one case in `roleFor`; the structural
 tests in `tests/isolation.test.ts` fail until all four are there. Two deploy facts follow. The role that

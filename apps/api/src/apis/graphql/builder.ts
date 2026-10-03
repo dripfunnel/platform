@@ -10,5 +10,5 @@ export const createSchema = (api: Api) => {
       health: t.string({ extensions: { access: { api, scope: 'public', permission: null } }, resolve: () => 'ok' }),
     }),
   })
-  return secureSchema(builder.toSchema(), { api, scopes: ['public'], authorize: async () => {} })
+  return secureSchema(builder.toSchema(), { api, scopes: ['public'], permissions: [], authorize: async () => {} })
 }

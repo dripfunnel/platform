@@ -150,8 +150,10 @@ partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
 `role_key` ∈ `partner-owner`, `partner-admin`, `partner-support`, `partner-finance`,
 `partner-read-only` (ACCESS.md §5.3, decided on #109). A partner's first user is its Owner.
 **Built on #32**: `partner_user` (with `status`, `last_sign_in_at`) and `partner_invitation`
-(token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 1 adds
-`partner_session`, PAPI 2 fills the password and 2-factor columns.
+(token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 2 fills
+the password and 2-factor columns. **Built on #155**: `partner_session` as above, its hash
+read and written by `app_system` alone (no request role has a grant), and `remember` false
+until #156's sign-in sets it.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 
@@ -405,12 +407,12 @@ Row policies cannot tell a supplier from the merchant or a shopper from either (
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
 (`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
-run as `app_platform`, every other request as `app_request`, and `app_definer` exists (owning
+run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155), every
+other request as `app_request`, and `app_definer` exists (owning
 only 0007's membership trigger, which checks parents the caller may not see); the first
-supplier, shopper and partner cards add `app_supplier`, `app_shop` and `app_partner` the same
-way (api/README.md §7). Every tenant table carries a restrictive pin per role holding it to
-its own `app.scope` values (`request_scope`: `store`, `shop`, `partner`; `platform_scope`;
-`system_scope`), so a policy shared by two roles never lets one use the other's branch.
+supplier and shopper cards add `app_supplier` and `app_shop` the same way (api/README.md §7).
+Every tenant table carries a restrictive pin per role holding it to its own `app.scope`
+values (`request_scope`: `store`, `shop`; `partner_scope`; `platform_scope`; `system_scope`), so a policy shared by two roles never lets one use the other's branch.
 
 | Role | Used by | Can |
 |---|---|---|

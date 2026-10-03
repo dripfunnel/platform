@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 ---
 
@@ -186,8 +186,11 @@ partner or store it acts on, or `'none'` for a list, which filters its own rows.
 wraps every Query and Mutation field so the check runs before the body. It **throws while the
 schema is built** if a field declares nothing, names another API, uses a scope its API doesn't
 serve, pairs a permission with `public` or `session` (or omits one elsewhere), or omits the
-target. So the Worker, `pnpm schema` and every test refuse to start; a missing declaration never
-means allowed. The Platform, Store and Shop APIs serve only `public` until their cards add a
+target, or names a permission outside its own API's catalogue (§5.3 for the Platform API, §5.4
+for the Admin API). So the Worker, `pnpm schema` and every test refuse to start; a missing
+declaration never means allowed. The Platform API serves `public`, `session` and `partner`
+from #155 (`apis/platform/access.ts`: the partner role's permission, always within the
+session's own partner); the Store and Shop APIs serve only `public` until their cards add a
 policy. A field on any other type may declare a stricter permission and then reads as `null`
 when refused, so full contact details are `Customer.email` declaring `customers.contact.read`.
 `audit` is declared from the first audited mutation on.
@@ -290,7 +293,10 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
-  store. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
+  (idle 2 h, absolute 12 h; `remember` arrives with #156's sign-in), `POST /api/auth/sign-out`
+  logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
+  closed-partner session, as for an unknown one. Sign-in itself, and its entry, is #156's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
@@ -407,7 +413,8 @@ The last Owner of a partner can't be removed or demoted, as for merchants and st
 **Permission names** (decided 2026-10-01 on #109), one per screen need in
 ui/platform/FIRST-RELEASE.md, the way the staff set was derived on #14, and matching the
 prototype's own permission table. Every one is scoped to the caller's own partner by the
-session; `partner.read` is what every role holds.
+session; `partner.read` is what every role holds. **Built on #155** as fixed sets per role in
+`auth/partnerPermissions.ts`, held to this table row for row by `partnerPermissions.test.ts`.
 
 | Permission | Screen (FIRST-RELEASE) | Owner | Admin | Support | Finance | Read-only |
 |---|---|:--:|:--:|:--:|:--:|:--:|

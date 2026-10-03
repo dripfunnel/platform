@@ -7,11 +7,11 @@ export const setCookie = (id: string): string =>
 
 export const clearCookie = (): string => `${cookieName}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`
 
-export const readCookie = (header: string | null): string | null => {
+export const readCookie = (header: string | null, wanted: string = cookieName): string | null => {
   if (!header) return null
   for (const part of header.split(';')) {
     const [name, ...rest] = part.trim().split('=')
-    if (name === cookieName) return rest.join('=') || null
+    if (name === wanted) return rest.join('=') || null
   }
   return null
 }
@@ -20,12 +20,12 @@ export const readCookie = (header: string | null): string | null => {
  * ACCESS.md §4: SameSite=Lax plus an Origin check on every mutation. Lax alone still admits
  * top-level cross-site POSTs in some browsers, so the Origin is what actually decides.
  */
-export const originAllowed = (request: Request, adminHost: string): boolean => {
+export const originAllowed = (request: Request, host: string): boolean => {
   if (request.method === 'GET' || request.method === 'HEAD') return true
   const origin = request.headers.get('origin')
   if (!origin) return false
   try {
-    return new URL(origin).host === adminHost
+    return new URL(origin).host === host
   } catch {
     return false
   }

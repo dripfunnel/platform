@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 ---
 
@@ -581,8 +581,8 @@ store (§5.5 there).
 | Metrics and usage | Own usage against plan | Own partner and stores | Everything |
 | Integration credentials | | | Status only, never the value |
 
-Whether the Platform API is GraphQL like the others or internal only is open (PLATFORM-PROMPT
-§10).
+The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
+`apps/api/schema/platform.graphql`).
 
 ---
 

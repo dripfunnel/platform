@@ -1,3 +1,20 @@
+type Me {
+  email: String
+  id: ID
+  name: String
+  partner: Partner
+  role: String
+}
+
+type Partner {
+  host: String
+  id: ID
+  name: String
+  product: String
+  state: String
+}
+
 type Query {
   health: String
+  me: Me
 }

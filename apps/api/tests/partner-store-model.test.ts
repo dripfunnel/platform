@@ -336,8 +336,19 @@ describe('isolation (ACCESS.md §11.1)', () => {
     expect(await as(partner(a), (tx) => selectStorePeople(tx, storeB))).toEqual([])
     const users = await as(partner(a), (tx) => tx<{ partner_id: string }[]>`select partner_id from "user"`)
     expect(users.every((u) => u.partner_id === a)).toBe(true)
-    expect(await count(partner(a), 'store_note')).toBe(0)
-    expect(await count(partner(a), 'invitation')).toBe(0)
+    // Staff notes are not granted to app_partner at all (#155). Invitations are, and a partner
+    // reads only its own stores' owner invitations: what the Stores list shows.
+    await expect(count(partner(a), 'store_note')).rejects.toThrow(/permission denied/i)
+    await db.sql`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${storeA}, 'owner-to-be@juniper.example', 'owner', now() + interval '7 days', 'Maya Chen')`
+    const seen = await as(partner(a), (tx) => tx<{ store_id: string; role_key: string; seller_id: string | null }[]>`select store_id, role_key, seller_id from invitation`)
+    const [owned] = await db.sql<{ n: string }[]>`
+      select count(*)::text as n from invitation i join store s on s.id = i.store_id
+      where s.partner_id = ${a} and i.seller_id is null and i.role_key = 'owner'
+    `
+    expect(seen.length).toBe(Number(owned?.n))
+    expect(seen.length).toBeGreaterThan(0)
+    expect(seen.every((i) => i.role_key === 'owner' && i.seller_id === null)).toBe(true)
+    expect(await as(partner(a), (tx) => tx`select id from invitation where store_id = ${storeB}`)).toEqual([])
   })
 
   it('a partner may not write a plan or a user under another partner, nor list another store', async () => {
@@ -368,7 +379,7 @@ describe('isolation (ACCESS.md §11.1)', () => {
     const peak = await idOf('store', 'Peak Supply Co.')
     const df = await idOf('partner', 'DripFunnel')
     expect(await count(merchant(df, peak), 'job_detail')).toBe(0)
-    expect(await count(partner(df), 'job_detail')).toBe(0)
+    await expect(count(partner(df), 'job_detail')).rejects.toThrow(/permission denied/i)
     expect(await count(staff, 'job_detail')).toBeGreaterThan(0)
   })
 
@@ -429,6 +440,6 @@ describe('isolation (ACCESS.md §11.1)', () => {
   it('a partner-scope insert of its own partner data works, through the same helpers the seed uses', async () => {
     await expect(as(partner(a), (tx) => upsertSetupItem(tx, { partnerId: a, item: 'legal', status: 'done', doneAt: now, doneByKind: 'partner_user', doneByLabel: 'Maya Chen' }))).resolves.toBeUndefined()
     await expect(as(partner(a), (tx) => upsertPartnerDomain(tx, { partnerId: a, kind: 'email', host: 'mail.northstar.example', status: 'live', recordType: 'TXT', expected: 'x' }))).resolves.toBeUndefined()
-    await expect(as(partner(a), (tx) => insertPartner(tx, { name: 'Another' }))).rejects.toThrow(/row-level security/i)
+    await expect(as(partner(a), (tx) => insertPartner(tx, { name: 'Another' }))).rejects.toThrow(/permission denied/i)
   })
 })

@@ -35,7 +35,7 @@ export interface SeedCounts {
 // (AGENTS.md "Working with the user" rule 3), so wiping it is the point.
 const owned = [
   'activity_log', 'outbox', 'store_note', 'job', 'invitation', 'membership', '"user"', 'custom_domain', 'store',
-  'plan', 'partner_setup_item', 'partner_domain', 'partner_invitation', 'partner_user',
+  'plan', 'partner_setup_item', 'partner_domain', 'partner_invitation', 'partner_session', 'partner_user',
   'staff_partner_assignment', 'staff_session', 'staff_user', 'customer', 'seller', 'partner',
 ]
 
