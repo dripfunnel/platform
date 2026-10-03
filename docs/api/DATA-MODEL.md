@@ -93,7 +93,8 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   needs an own-row policy too: `user_update_own` for store scope on `id = app.user_id`.
   Written the way such functions must be: a pinned `search_path` (`pg_catalog, public`, as
   0007's `membership_check_parents()` pins its own), `revoke execute … from public` then
-  `grant execute` to `app_request` alone, `set_own_phone` validating E.164 and refusing
+  `grant execute` to the two roles a signed-in person of the people pool runs as,
+  `app_request` and `app_supplier` (§5.3), `set_own_phone` validating E.164 and refusing
   anything else, and an empty `app.user_id` matching no row (no session, no phone).
   `app_request` keeps no `select` or `update` on the column. The isolation matrix has the
   rows: user A, holding user B's id, can neither read nor write B's phone; and a call with an
@@ -339,6 +340,7 @@ request input, with one exception: the guest cart or order token, hashed before 
 | `app.customer_id` | The signed-in customer (shop scope), or empty |
 | `app.support` | `read` or `write` during a support session, else empty |
 | `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
+| `app.user_id` | The signed-in person's `user.id` (store scope) or `partner_user.id` (partner scope), else empty; the own-row functions and policies of §2.1 and §3.3 read it and nothing else does |
 | `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; read only by `order_token_matches()` (§7.11). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
 | `app.request_token_hash` | The hash of the token on a guest's data-request link (shop scope), else empty; read only by `request_token_matches()` (§7.11) |
 
@@ -402,7 +404,7 @@ API, built on #13–#35, onto `app_platform`).
 |---|---|---|
 | `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
 | `app_supplier` | Supplier users (store scope with `app.seller_id` set) | As `app_request` on the store-and-seller tables (§7.11), under the same policies; **no `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
-| `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11); `insert` on `"order"` (carts), `customer`, `customer_address`, `customer_data_request`; nothing else |
+| `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; `select` on the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, `shipping_zone`, `shipping_method`, and of `payment_provider_account` only `provider`, `mode` and `public_key`); its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11); `insert` on `"order"` (carts), `customer`, `customer_address`, `customer_data_request`; nothing else |
 | `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner; the same credential exclusions as `app_request` |
 | `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
 | `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `return_for_supplier`, the AI metering view) and the token functions `order_token_matches()`, `request_token_matches()` | `BYPASSRLS`, no login; each view filters on `app.store_id` and `app.seller_id` itself and is `security barrier`, so a view is never wider than the policy it replaces; the functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting |
@@ -820,7 +822,7 @@ stock_movement      (id, store_id, seller_id NULL, version_id, warehouse_id, del
 ### 7.5 Customers
 
 Store-scoped customer accounts (§2: the Admin API's Customers menu reads them through a
-read-only platform branch, masked by its serializer, the one role being `app_request`). Never
+read-only platform branch, as `app_platform`, masked by the Admin API's serializer). Never
 readable by a supplier; a `to-shopper` supplier sees a name and address only through its own
 order parts (ACCESS §7.3). A shopper (`app_shop`) reads and writes its own row and children.
 
@@ -1254,8 +1256,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   `customer_group`, `customer_group_member`, `story_block`, `badge` definitions (read-only
   for `app_supplier`, below), `access_request`, `webhook_endpoint`, `webhook_delivery`,
   `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
-  `cart_reminder_flow`, `cart_reminder_step`, `store_policy` (shop reads it), `store_ai_account`,
-  `store_billing_details`, and every other settings table in §7.2. `"order"` alone also has
+  `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`,
+  and every settings table in §7.2 not named in the next class. `"order"` alone also has
   the **shop branch** `customer_id = app.customer_id OR (customer_id IS NULL AND
   order_token_matches(id))`, where `order_token_matches(uuid)` is a `security definer`
   function owned by `app_definer` that compares the row's `access_token_hash` with
@@ -1270,6 +1272,18 @@ decide which columns and which tables each caller kind may select at all**. `app
   translate and price), `store_feature` and `badge` (to know which sections and manual badges
   exist), and `market` without its duties, domain and payment columns (to see which currencies
   a price is needed in); `app_supplier` has `select` on nothing else here.
+- **Shop-readable settings** (a `shop` read branch on `store_id = app.store_id`, with
+  `app_shop` granted the public columns only, §5.3): `store` (name, description, logo,
+  address and contact for pickup and receipts, `time_zone`, `pricing_currency`,
+  `main_language`, `tax_inclusive`, the pickup fields; never the order counter or the
+  defaults), `store_language`, `store_currency` (currency and rounding), `market` (name,
+  countries, currency, language, web mode, path and status; never duties rates or payment
+  links), `store_policy`, `badge` (label and tone), `shipping_zone`, `shipping_method`,
+  `payment_provider_account` (`provider`, `mode`, `public_key` only: the storefront mounts
+  the provider's element with them). Duties, tax and delivery-area checks are the engine's
+  (PLATFORM-PROMPT §5.5): the shop reads none of `tax_*`, `delivery_area`, `compliance_default`
+  or `store_feature`. The matrix row: a shopper selecting `payment_provider_account` gets the
+  three columns and nothing else, and no row of any other settings table.
 - **Customer accounts**: `customer`, `customer_address`, `customer_data_request`: inside the
   store, plus the read-only `platform` branch of §2 on `customer`, plus a **shop branch** on
   `customer_id = app.customer_id` (`customer_data_request` also by its own token for a guest),
