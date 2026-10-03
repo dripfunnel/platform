@@ -4,6 +4,7 @@ import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
+import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
@@ -59,6 +60,8 @@ interface Env extends Record<string, unknown> {
   // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
   // typing it as present would make the check below look like dead code.
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
+  // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
+  ASSETS?: R2Bucket | undefined
 }
 
 // The side effects the relay can deliver. `email` has no deliverer until SES is wired
@@ -200,6 +203,11 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   if (!originAllowed(request, config.PLATFORM_HOST)) return new Response('Bad origin', { status: 403 })
 
   const hyperdrive = config.HYPERDRIVE
+  if (url.pathname === brandUploadPath) {
+    if (!hyperdrive) return new Response(null, { status: 503 })
+    const assets = env.ASSETS ?? null
+    return withConnection(hyperdrive, ctx, (sql) => handleBrandUpload(request, { sql, activity: activityLog, store: assets, now: () => new Date() }))
+  }
   if (isPlatformAuthPath(url.pathname)) {
     if (!hyperdrive) return new Response(null, { status: 503 })
     const limiter = env.SIGN_IN_RATE_LIMITER
