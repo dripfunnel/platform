@@ -240,6 +240,32 @@ describe('the block and the mutations agree', () => {
     }
   })
 
+  it('lets a partner add or revoke only an owner invitation on its own store, at the database', async () => {
+    const scope = { caller: { kind: 'partner-user' as const, partnerUserId: 'pu' }, partnerId: ids.ns }
+    const mine = await storeWith(`s.status = 'active'`)
+    const theirs = await storeWith(`s.status = 'active'`, ids.bz)
+    const [seller] = await db.sql<{ id: string }[]>`select se.id from seller se join store s on s.id = se.store_id where s.partner_id = ${ids.ns} limit 1`
+    const invite = (storeId: string, role: string) =>
+      withScope(db.sql, scope, (tx) => tx`
+        insert into invitation (store_id, email, role_key, expires_at, invited_by_label)
+        values (${storeId}, 'x@shop.example', ${role}, ${now}, 'Northstar Commerce') returning id`)
+    expect(await invite(mine, 'owner')).toHaveLength(1)
+    await expect(invite(mine, 'manager')).rejects.toThrow(/row-level security/)
+    await expect(invite(theirs, 'owner')).rejects.toThrow(/row-level security/)
+    // A supplier's invitation names its seller, a column the partner role is not granted (0018).
+    await expect(
+      withScope(db.sql, scope, (tx) => tx`insert into invitation (store_id, seller_id, email, role_key, expires_at, invited_by_label) values (${mine}, ${seller?.id ?? null}, 's@shop.example', 'owner', ${now}, 'x')`),
+    ).rejects.toThrow(/permission denied/)
+    const [theirInvite] = await db.sql<{ id: string }[]>`
+      insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${theirs}, 'o@bz.example', 'owner', ${now}, 'Seed') returning id`
+    const [staffInvite] = await db.sql<{ id: string }[]>`
+      insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${mine}, 'm@shop.example', 'manager', ${now}, 'Seed') returning id`
+    for (const id of [theirInvite?.id ?? '', staffInvite?.id ?? '']) {
+      expect(await withScope(db.sql, scope, (tx) => tx`update invitation set revoked_at = ${now} where id = ${id} returning id`)).toEqual([])
+    }
+    await expect(withScope(db.sql, scope, (tx) => tx`update invitation set email = 'y@shop.example' where store_id = ${mine}`)).rejects.toThrow(/permission denied/)
+  })
+
   it('lets a partner restart only its store’s latest failed or running job, at the database', async () => {
     const scope = { caller: { kind: 'partner-user' as const, partnerUserId: 'pu' }, partnerId: ids.ns }
     const [done] = await db.sql<{ id: string }[]>`select j.id from job j join store s on s.id = j.store_id where s.partner_id = ${ids.ns} and j.state = 'done' limit 1`
