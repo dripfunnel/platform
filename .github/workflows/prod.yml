@@ -21,7 +21,7 @@ jobs:
     # workflow_dispatch can target any branch; push is already restricted to main above, but
     # this job also handles dispatch, so it needs its own guard.
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: prod
     defaults:
       run:
@@ -54,7 +54,7 @@ jobs:
   deploy:
     needs: gates
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: prod
     defaults:
       run:
