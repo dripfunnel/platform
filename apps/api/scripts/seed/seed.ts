@@ -19,7 +19,9 @@ import { insertCustomDomain, insertJob, insertMembership, insertSeller, insertSt
 import { toRow } from '#saas/activity/log'
 import { stepsFor } from '#saas/provisioning/stuck'
 import { assertLoopbackOnly } from '../migrate/host-guard'
+import { insertBranding } from '#db/scoped/branding'
 import { seedAccounts } from './account'
+import { brandings } from './branding'
 import { catalogue, ceilings, contracts, fallbackEntitlements, fallbackPrices } from './catalogue'
 import { domainsFor, generated, generatedName, partners, recordFor, staff, stores, type SeedPartner, type SeedStore } from './data'
 
@@ -39,7 +41,7 @@ export interface SeedCounts {
 const owned = [
   'activity_log', 'outbox', 'store_note', 'job', 'invitation', 'membership', '"user"', 'custom_domain',
   'store_usage', 'store_trial_extension', 'store_limit_override', 'store_subscription', 'store',
-  'plan_entitlement', 'plan_price', 'plan_version', 'plan_fee', 'plan_ceiling', 'partner_contract_rate', 'partner_contract',
+  'partner_branding', 'plan_entitlement', 'plan_price', 'plan_version', 'plan_fee', 'plan_ceiling', 'partner_contract_rate', 'partner_contract',
   'plan', 'partner_setup_item', 'partner_domain', 'partner_invitation', 'partner_session', 'partner_user',
   'staff_partner_assignment', 'staff_session', 'staff_user', 'customer', 'seller', 'partner',
 ]
@@ -94,6 +96,11 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
     counts.partnerUsers += 1 + p.team.length
     const contract = contracts[p.key]
     if (contract) await setPartnerContract(tx, { partnerId, ...contract })
+    const brand = brandings[p.key]
+    if (brand) {
+      const by = { kind: 'partner_user' as const, label: brand.by }
+      await insertBranding(tx, brand.state === 'draft' ? { ...brand.fields, partnerId, by, state: 'draft' } : { ...brand.fields, partnerId, by, state: 'published', publishedAt: daysAgo(now, p.createdDaysAgo - 5) })
+    }
     for (const plan of p.plans) {
       // SAAS §6.1: the house partner's plans carry a 10-day trial.
       const entry = catalogue[`${p.key}:${plan.name}`]

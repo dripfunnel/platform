@@ -42,7 +42,7 @@ platform            no row: DripFunnel itself; staff act here
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `signup` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `signup` (§7.10) |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
@@ -206,6 +206,36 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 - Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
   `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
   store_id)`, and the trigram indexes on store name and code, owner email and domain host.
+
+### 2.5 The partner's look and words (built on #211)
+
+Migration `0016`, from SAAS §3.3–§3.4 and the prototype's Branding screens:
+
+```
+partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), product_name, primary_color,
+                   accent_color, font, corner, background, logo_light_key, logo_dark_key,
+                   mark_key, favicon_key, support_email, support_url, help_url, terms_url,
+                   privacy_url, dpa_url, impressum, powered_by, created_by_kind,
+                   created_by_label, created_at, published_at, published_by_label)
+```
+
+- **At most one draft per partner** (a partial unique index). The **live** version is the newest
+  published one whose `published_at` has passed; one published with a later time is
+  scheduled (F8). Every published version is kept, which is the history FIRST-RELEASE §8.4
+  reads; a rollback publishes a copy.
+- **What changes** is held by a trigger, for the partner, staff and jobs alike. A version
+  starts as a draft. A draft is edited or published no earlier than now, so history is never
+  back-dated. A scheduled version (published, not live yet) may only be **cancelled**, nothing
+  else about it changing. A live or past version is never changed. Anything not a draft carries
+  who published it and when (a check constraint).
+- The files are R2 object keys, never a URL a browser was given; colours are `#RRGGBB`; the font,
+  corner and background come from the prototype's lists.
+- The partner reads and writes its own, inserting under its own kind (`partner_user`); staff and
+  jobs reach every partner's; no merchant role has a grant (the portal's look is resolved by
+  hostname, SAAS §3.3, on the Store API card that serves it). The four role pins are on the
+  table.
+- `partner.product_name`, `primary_color`, `accent_color` and `powered_by` (#32) stay what the
+  admin console's lists read; #162, which publishes, keeps them equal to the live version.
 
 ---
 
