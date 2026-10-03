@@ -1033,7 +1033,18 @@ builds the table must ship:
   invoice, label, export or import file (DATA-MODEL §7.11);
 - user A, holding user B's id, can neither read nor write B's phone through the own-row
   functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1);
-- a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3).
+- a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3);
+- **supplier writes are refused where they must be**: `app_supplier` updating
+  `order_line.unit_amount` or `quantity` on its own line, inserting or updating a
+  `return_line` or a `"return"`, updating an `order_part`, or inserting a `refund` above its
+  lines' value, is refused; inserting a `fulfilment` for its own part and a `refund` within
+  its lines' value succeeds (DATA-MODEL §5.3);
+- **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
+  `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
+  `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
+  another shopper's `customer_address` is refused (DATA-MODEL §5.3);
+- the AI metering view returns partner A's stores to partner A and none of partner B's, every
+  store to platform scope, and nothing in shop scope (DATA-MODEL §5.3).
 
 ### 11.2 Structural tests
 
