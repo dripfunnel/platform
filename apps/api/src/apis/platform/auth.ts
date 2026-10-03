@@ -19,6 +19,8 @@ import {
 import type { SecretBox } from '#auth/secretBox'
 import { minutesUntil, wrongPartnerCode } from '#auth/partnerCode'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
+import { json, readBody, refuse, type Refusal } from './authHttp'
+import { acceptPartnerInvitation, lookUpInvitation, requestPasswordReset, resetPartnerPassword, skipSecondFactor } from './invitations'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   markPartnerSignedIn,
@@ -41,38 +43,23 @@ export interface PlatformAuthDeps {
   allowAttempt: (key: string) => Promise<boolean>
 }
 
-// Invitations and password reset join these on #208 (FIRST-RELEASE §16).
 const paths = {
   signIn: '/api/auth/sign-in',
   secondFactor: '/api/auth/second-factor',
   enrol: '/api/auth/enrol-second-factor',
   signOut: '/api/auth/sign-out',
+  invitation: '/api/auth/invitation',
+  acceptInvitation: '/api/auth/accept-invitation',
+  skipSecondFactor: '/api/auth/skip-second-factor',
+  requestPasswordReset: '/api/auth/request-password-reset',
+  resetPassword: '/api/auth/reset-password',
 }
 
 export const isPlatformAuthPath = (pathname: string): boolean => Object.values(paths).includes(pathname)
 
-type Refusal =
-  | { code: 'INVALID_CREDENTIALS' | 'CODE_EXPIRED' | 'NOT_CONNECTED' | 'RATE_LIMITED' }
-  | { code: 'WRONG_CODE'; triesLeft?: number }
-  | { code: 'LOCKED'; minutes: number }
-
-const json = (status: number, body: unknown, cookie?: string): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...(cookie ? { 'set-cookie': cookie } : {}) } })
-
-const refuse = (refusal: Refusal): Response => json(refusal.code === 'RATE_LIMITED' ? 429 : 401, { ok: false, ...refusal })
-
 const signInInput = z.strictObject({ email: z.string().max(320), password: z.string().max(1024), next: z.string().max(2048).optional() })
 const codeInput = z.strictObject({ code: z.string().max(16) })
 const enrolInput = z.strictObject({ code: z.string().max(16).optional() })
-
-const readBody = async <T>(request: Request, schema: z.ZodType<T>): Promise<T | null> => {
-  try {
-    const parsed = schema.safeParse(await request.json())
-    return parsed.success ? parsed.data : null
-  } catch {
-    return null
-  }
-}
 
 export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDeps): Promise<Response> => {
   const url = new URL(request.url)
@@ -98,6 +85,11 @@ export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDep
 
   if (url.pathname === paths.signIn) return signIn(request, deps, facts)
   if (url.pathname === paths.secondFactor) return secondFactor(request, deps, facts, cookie)
+  if (url.pathname === paths.invitation) return lookUpInvitation(request, deps)
+  if (url.pathname === paths.acceptInvitation) return acceptPartnerInvitation(request, deps, facts)
+  if (url.pathname === paths.skipSecondFactor) return skipSecondFactor(deps, facts, cookie)
+  if (url.pathname === paths.requestPasswordReset) return requestPasswordReset(request, deps, facts)
+  if (url.pathname === paths.resetPassword) return resetPartnerPassword(request, deps, facts)
   return enrol(request, deps, facts, cookie)
 }
 

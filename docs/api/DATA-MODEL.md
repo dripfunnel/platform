@@ -324,6 +324,11 @@ column or an invitation token, which only sign-in and the deliverer write (as `a
 me" (ui/platform/FIRST-RELEASE.md §3). An email may belong to at most three partners' teams,
 refused by a trigger at the fourth (ACCESS.md §2) with a refusal that names no other partner,
 counted under a per-email lock; `lower(email)` is indexed for it and for sign-in.
+**Built on #208**: `partner_password_reset(id, request_id, partner_id, partner_user_id,
+token_hash NULL UNIQUE, expires_at NULL, used_at NULL, created_at)`, `app_system` alone, unique
+on `(request_id, partner_user_id)`: one row per account a reset request finds, written by the
+relay from the request's outbox row (`request_id`) so a redelivery adds none; the email's deliverer sets the token hash and the 30-minute expiry when it
+sends, and a reset spends every open row of that user.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 

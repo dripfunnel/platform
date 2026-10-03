@@ -12,6 +12,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { partnerCookieName } from '#auth/partnerSession'
+import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
 import { partnerScopedRoles } from '#auth/permissions'
@@ -28,6 +29,7 @@ import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
@@ -77,6 +79,7 @@ const deliverersFor = (sql: postgres.Sql): Deliverers => {
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
+    [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
   }
 }
 

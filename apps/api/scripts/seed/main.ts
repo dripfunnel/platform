@@ -10,3 +10,4 @@ console.log(
   `Seeded ${counts.partners} partners, ${counts.partnerUsers} partner users, ${counts.plans} plans, ${counts.stores} stores, ` +
     `${counts.people} people, ${counts.jobs} signup jobs, ${counts.staff} staff and ${counts.activity} activity entries.`,
 )
+if (counts.invitationPath) console.log(`Accept an invitation on the platform host at ${counts.invitationPath}`)

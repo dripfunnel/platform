@@ -110,3 +110,9 @@ export const recordReauthCode = async (tx: ScopedSql, partnerUserId: string, ste
     where id = ${partnerUserId}
   `
 }
+
+/** The user's partner and whether it requires 2-factor (FIRST-RELEASE §14.4): read from the partner, never the request. */
+export const selectSecondFactorPolicy = async (tx: ScopedSql, partnerUserId: string): Promise<{ partner_id: string; required: boolean } | null> =>
+  (await tx<{ partner_id: string; required: boolean }[]>`
+    select p.id as partner_id, p.second_factor_required as required from partner_user u join partner p on p.id = u.partner_id where u.id = ${partnerUserId}
+  `)[0] ?? null
