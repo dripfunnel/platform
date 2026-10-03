@@ -221,11 +221,18 @@ export interface SpentHandoff {
 
 /**
  * The exchange's half, in system scope: a handoff opens its session once, before its link
- * expires and while the session is open. The Store API's support caller calls it (ACCESS.md §8).
+ * expires, while the session is open and while support is still allowed on that user. The Store API's support caller calls it (ACCESS.md §8).
  */
 export const spendSupportHandoff = async (tx: ScopedSql, handoffHash: string, now: Date): Promise<SpentHandoff | null> =>
   (await tx<SpentHandoff[]>`
     update support_session set handoff_used_at = ${now}, handoff_hash = null
     where handoff_hash = ${handoffHash} and handoff_used_at is null and handoff_expires_at > ${now} and ended_at is null and expires_at > ${now}
+      -- Only while a start would still be allowed (saas/support startRefusal).
+      and exists (
+        select 1 from store s join membership m on m.store_id = s.id join "user" u on u.id = m.user_id
+        where s.id = support_session.store_id and m.id = support_session.membership_id
+          and s.support_access_allowed and s.status not in ('cancelled', 'closed')
+          and u.status not in ('suspended', 'invited', 'deleted') and m.status not in ('suspended', 'invited')
+      )
     returning id, store_id, membership_id, partner_user_id, expires_at
   `)[0] ?? null

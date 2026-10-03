@@ -209,6 +209,31 @@ describe('sessions', () => {
     await run(q.end, ana, { id: opened?.sessionId })
   })
 
+  it('refuses a return, and the exchange refuses a link already sent, once support is off, the store cancelled or the user suspended', async () => {
+    const ana = callerOf(ids.ns, ids.ana, 'partner-admin')
+    const membership = await membershipOf('tom@harborcoffee.example')
+    const opened = await openOn(ana, membership, 'Revoked later')
+    expect(opened?.ok).toBe(true)
+    const [row] = await db.sql<{ store_id: string; status: string; handoff_hash: string }[]>`
+      select ss.store_id, s.status, ss.handoff_hash from support_session ss join store s on s.id = ss.store_id where ss.id = ${opened?.sessionId ?? ''}`
+    const back = async () => (await run<{ returnToSupportSession: { ok: boolean; reason: string | null } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession
+    const spend = async (token: string) => withSystemScope(db.sql, async (tx) => spendSupportHandoff(tx, await hashSessionId(token), clock))
+    const revocations = [
+      { refusal: 'SUPPORT_OFF', revoke: db.sql`update store set support_access_allowed = false where id = ${row?.store_id ?? ''}`, undo: db.sql`update store set support_access_allowed = true where id = ${row?.store_id ?? ''}` },
+      { refusal: 'STORE_CANCELLED', revoke: db.sql`update store set status = 'cancelled' where id = ${row?.store_id ?? ''}`, undo: db.sql`update store set status = ${row?.status ?? ''} where id = ${row?.store_id ?? ''}` },
+      { refusal: 'SUSPENDED', revoke: db.sql`update membership set status = 'suspended' where id = ${membership}`, undo: db.sql`update membership set status = 'active' where id = ${membership}` },
+    ]
+    for (const { refusal, revoke, undo } of revocations) {
+      await revoke
+      expect(await back()).toMatchObject({ ok: false, reason: refusal })
+      expect((await db.sql<{ handoff_hash: string }[]>`select handoff_hash from support_session where id = ${opened?.sessionId ?? ''}`)[0]?.handoff_hash).toBe(row?.handoff_hash)
+      expect(await spend(tokenOf(opened?.link))).toBeNull()
+      await undo
+    }
+    expect((await spend(tokenOf(opened?.link)))?.id).toBe(opened?.sessionId)
+    await run(q.end, ana, { id: opened?.sessionId })
+  })
+
   it('lets the agent or an Owner or Admin end a session, never a colleague in Support; and no Read-only user reaches Support', async () => {
     const priya = callerOf(ids.ns, ids.priya, 'partner-support')
     const sam = callerOf(ids.ns, ids.sam, 'partner-support')

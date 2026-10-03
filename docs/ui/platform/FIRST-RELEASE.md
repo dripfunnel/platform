@@ -958,7 +958,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   session's id for **End it and continue**), `PORTAL_NOT_LIVE` until the partner's portal host is
   live, `REAUTH_REQUIRED` for a missing or spent proof. It answers the link to
   `https://<portal host>/support/enter?token=…` (ACCESS §8.3); `returnToSupportSession(id)` mints
-  a fresh one and the old stops working; `endSupportSession(id)` is the agent's, or an Owner's or
+  a fresh one and the old stops working, and is refused with the start's codes (`SUPPORT_OFF`,
+  `STORE_CANCELLED`, `SUSPENDED`) once one applies, as is a link not yet opened; `endSupportSession(id)` is the agent's, or an Owner's or
   Admin's. Each session says what the caller may do (`end`, `return`, with §8.3's codes).
 - `supportSessions(open, after, before)` and `mySupportSession`; History says who ended a session
   or that it expired. Start, return and end are `support` entries naming the store, so the
