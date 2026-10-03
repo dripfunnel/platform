@@ -188,11 +188,12 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
 
   const chargedBy = () => `DripFunnel for ${caller.partner.name}`
 
-  // A plan's own fee, or for a new one, until DripFunnel sets it, the lowest the contract charges.
-  const feeOf = async (tx: ScopedSql, row: CatalogueRow | null) => row?.fee ?? (await selectLowestFee(tx, partnerId)) ?? 0
+  // A plan's own fee, or for a new one, until DripFunnel sets it, the lowest the contract charges
+  // (read once per request: `lowest`).
+  const feeOf = (row: CatalogueRow | null, lowest: number | null) => row?.fee ?? lowest ?? 0
 
-  const dtoOf = async (tx: ScopedSql, terms: ContractTerms, row: CatalogueRow, prices: readonly PlanVersionPrice[]): Promise<PlanRowDto> => {
-    const fee = await feeOf(tx, row)
+  const dtoOf = (terms: ContractTerms, lowest: number | null, row: CatalogueRow, prices: readonly PlanVersionPrice[]): PlanRowDto => {
+    const fee = feeOf(row, lowest)
     return {
       id: row.id,
       name: row.name,
@@ -214,9 +215,10 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       const page = rows.slice(0, size)
       const versions = await selectCurrentVersions(tx, page.map((r) => r.id))
       const terms = await selectContractTerms(tx, partnerId)
+      const lowest = await selectLowestFee(tx, partnerId)
       const last = page[page.length - 1]
       return {
-        items: await Promise.all(page.map((r) => dtoOf(tx, terms, r, versions.get(r.id)?.prices ?? []))),
+        items: page.map((r) => dtoOf(terms, lowest, r, versions.get(r.id)?.prices ?? [])),
         pageInfo: { hasNextPage: rows.length > size, endCursor: last ? encodeCursor({ occurredAt: last.created_at, id: last.id }) : null },
         chargedBy: chargedBy(),
         actions: { create: may('plans.write') },
@@ -235,7 +237,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       const version = row ? (await selectCurrentVersions(tx, [row.id])).get(row.id) : undefined
       const ceilings = await selectCeilings(tx)
       return {
-        plan: row ? { ...(await dtoOf(tx, terms, row, version?.prices ?? [])), entitlements: toRows(version?.entitlements ?? {}) } : null,
+        plan: row ? { ...dtoOf(terms, await selectLowestFee(tx, partnerId), row, version?.prices ?? []), entitlements: toRows(version?.entitlements ?? {}) } : null,
         ceilings: Object.fromEntries(Object.entries(amountRows).map(([r, key]) => [r, ceilings[key] ?? null])) as Record<AmountRow, number | null>,
         powered: { allowed: terms.powered_by_removable, note: terms.powered_by_note },
         currencies: await currenciesOf(tx, terms),
@@ -251,7 +253,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
     withScope(sql, context, async (tx) => {
       const row = id === null ? null : await selectCataloguePlan(tx, partnerId, id)
       const terms = await selectContractTerms(tx, partnerId)
-      const fee = await feeOf(tx, row)
+      const fee = feeOf(row, await selectLowestFee(tx, partnerId))
       return prices.map((p) => priceOf(terms, fee, { currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
     })
 
