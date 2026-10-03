@@ -34,15 +34,15 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
 }
 
 const q = {
-  growth: `query($f: ReportFilterInput) { reportGrowth(filter: $f) { fresh summary rows { month signups newStores trialToPaidBps churned netStores } bars { label value } } }`,
-  revenue: `query($f: ReportFilterInput) { reportRevenue(filter: $f) { fresh summary currency currencyNote rows { month collected { amount currency } fee { amount } payout { amount } } mrr { plan amount { amount currency } approximate } payments { failed recovered } } }`,
+  growth: `query($f: ReportFilterInput) { reportGrowth(filter: $f) { fresh summary rows { month signups newStores trialToPaidBps churned netStores } bars { label count } } }`,
+  revenue: `query($f: ReportFilterInput) { reportRevenue(filter: $f) { fresh summary currency currencyNote rows { month collected { amount currency } fee { amount } payout { amount } } bars { label amount { amount currency } } mrr { plan amount { amount currency } approximate } payments { failed recovered } } }`,
   plans: `query($f: ReportFilterInput) { reportPlans(filter: $f) { fresh summary rows { plan stores } changes { from to stores } } }`,
   performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store storeId } decliningTruncated } }`,
   usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
   setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed rows { kind store } } }`,
 }
 
-type Rev = { reportRevenue: { fresh: boolean; summary: string; currency: string; currencyNote: string | null; rows: { collected: { amount: number }; fee: { amount: number } }[]; mrr: { amount: { amount: number } }[] } }
+type Rev = { reportRevenue: { fresh: boolean; summary: string; currency: string; currencyNote: string | null; rows: { collected: { amount: number }; fee: { amount: number } }[]; bars: { amount: { amount: number; currency: string } }[]; mrr: { amount: { amount: number } }[] } }
 type Growth = { reportGrowth: { fresh: boolean; summary: string; rows: { netStores: number; signups: number }[] } }
 
 beforeAll(async () => {
@@ -63,6 +63,7 @@ describe('the figures', () => {
     expect(r?.currency).toBe('USD')
     expect(r?.rows).toHaveLength(6)
     expect(r?.rows.slice(-2).map((m) => m.collected.amount)).toEqual([426140, 398840])
+    expect(r?.bars.at(-1)?.amount).toEqual({ amount: 398840, currency: 'USD' })
     expect(r?.rows.at(-1)?.fee.amount).toBe(146600)
     expect(r?.summary).toBe("You've collected $3,988.40 so far in September, behind August's $4,261.40.")
     expect(r?.currencyNote).toBe('All amounts in USD; CAD payments are converted at the payout rate.')

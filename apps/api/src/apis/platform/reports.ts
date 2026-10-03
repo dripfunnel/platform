@@ -21,8 +21,11 @@ type Usage = Of<'usage'>
 type Setup = Of<'setupHealth'>
 const iso = (d: Date) => d.toISOString()
 
-const Bar = builder.objectRef<{ label: string; value: number }>('ReportBar').implement({
-  fields: (t) => ({ label: t.exposeString('label'), value: t.expose('value', { type: 'MinorUnits' }) }),
+const CountBar = builder.objectRef<{ label: string; count: number }>('ReportCountBar').implement({
+  fields: (t) => ({ label: t.exposeString('label'), count: t.exposeInt('count') }),
+})
+const MoneyBar = builder.objectRef<Revenue['bars'][number]>('ReportMoneyBar').implement({
+  fields: (t) => ({ label: t.exposeString('label'), amount: t.field({ type: MoneyType, resolve: (b) => b.amount }) }),
 })
 
 const GrowthRow = builder.objectRef<Growth['rows'][number]>('GrowthRow').implement({
@@ -40,7 +43,7 @@ const GrowthType = builder.objectRef<Growth>('GrowthReport').implement({
     fresh: t.exposeBoolean('fresh'),
     summary: t.exposeString('summary'),
     rows: t.field({ type: [GrowthRow], resolve: (r) => r.rows }),
-    bars: t.field({ type: [Bar], resolve: (r) => r.bars }),
+    bars: t.field({ type: [CountBar], resolve: (r) => r.bars }),
   }),
 })
 
@@ -65,7 +68,7 @@ const RevenueType = builder.objectRef<Revenue>('RevenueReport').implement({
     currency: t.exposeString('currency'),
     currencyNote: t.exposeString('currencyNote', { nullable: true }),
     rows: t.field({ type: [RevenueRow], resolve: (r) => r.rows }),
-    bars: t.field({ type: [Bar], resolve: (r) => r.bars }),
+    bars: t.field({ type: [MoneyBar], resolve: (r) => r.bars }),
     mrr: t.field({ type: [MrrRow], resolve: (r) => r.mrr }),
     payments: t.field({ type: Payments, resolve: (r) => r.payments }),
   }),
@@ -82,7 +85,7 @@ const PlansType = builder.objectRef<Plans>('PlansReport').implement({
     fresh: t.exposeBoolean('fresh'),
     summary: t.exposeString('summary'),
     rows: t.field({ type: [PlanRow], resolve: (r) => r.rows }),
-    bars: t.field({ type: [Bar], resolve: (r) => r.bars }),
+    bars: t.field({ type: [CountBar], resolve: (r) => r.bars }),
     changes: t.field({ type: [PlanChange], resolve: (r) => r.changes }),
   }),
 })

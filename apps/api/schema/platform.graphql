@@ -220,7 +220,7 @@ type GoLiveChecks {
 }
 
 type GrowthReport {
-  bars: [ReportBar!]
+  bars: [ReportCountBar!]
   fresh: Boolean
   rows: [GrowthRow!]
   summary: String
@@ -648,7 +648,7 @@ type PlansPageInfo {
 }
 
 type PlansReport {
-  bars: [ReportBar!]
+  bars: [ReportCountBar!]
   changes: [PlanChangeRow!]
   fresh: Boolean
   rows: [PlanStoresRow!]
@@ -701,9 +701,9 @@ type Query {
   team(after: String, before: String, first: Int): TeamPage
 }
 
-type ReportBar {
+type ReportCountBar {
+  count: Int
   label: String
-  value: MinorUnits
 }
 
 type ReportExportJob {
@@ -727,6 +727,11 @@ input ReportFilterInput {
   range: String
 }
 
+type ReportMoneyBar {
+  amount: Money
+  label: String
+}
+
 input RetirePlanInput {
   keep: Boolean!
   moveTo: ID
@@ -739,7 +744,7 @@ type RetireTarget {
 }
 
 type RevenueReport {
-  bars: [ReportBar!]
+  bars: [ReportMoneyBar!]
   currency: String
   currencyNote: String
   fresh: Boolean

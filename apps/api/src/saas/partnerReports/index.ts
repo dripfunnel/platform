@@ -96,7 +96,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
           : ''
       const diff = (cur?.netStores ?? 0) - (prev?.netStores ?? 0)
       const stores = `You have ${plural(cur?.netStores ?? 0, 'store')}, ${Math.abs(diff)} ${diff >= 0 ? 'more' : 'fewer'} than in ${monthName(lastMonth)}.`
-      return { tab, fresh, summary: fresh ? emptyWords : `${conversion}${stores}`, currency: null, rows, bars: rows.map((r) => ({ label: monthName(r.month), value: r.signups })) }
+      return { tab, fresh, summary: fresh ? emptyWords : `${conversion}${stores}`, currency: null, rows, bars: rows.map((r) => ({ label: monthName(r.month), count: r.signups })) }
     }
 
     case 'revenue': {
@@ -127,7 +127,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
         currency,
         currencyNote: others.length > 0 ? `All amounts in ${currency}; ${others.join(', ')} payments are converted at the payout rate.` : null,
         rows: months.map((m) => ({ month: m.month, collected: { amount: m.collected, currency }, fee: { amount: m.fee, currency }, payout: { amount: m.payout, currency } })),
-        bars: months.map((m) => ({ label: monthName(m.month), value: m.collected })),
+        bars: months.map((m) => ({ label: monthName(m.month), amount: { amount: m.collected, currency } as Money })),
         mrr: [...mrr.values()].map((m) => ({ plan: m.plan, amount: { amount: m.amount, currency } as Money, approximate: m.converted })),
         payments: outcomes,
       }
@@ -163,7 +163,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
           : `${top?.plan ?? 'No plan'} is your most popular plan, with ${top?.stores ?? 0} of ${plural(total, 'store')}. ${plural(up, 'store')} upgraded and ${down} downgraded this month.`,
         currency: null,
         rows: perPlan.map((p) => ({ plan: p.plan, stores: p.stores })),
-        bars: perPlan.map((p) => ({ label: p.plan ?? 'No plan', value: p.stores })),
+        bars: perPlan.map((p) => ({ label: p.plan ?? 'No plan', count: p.stores })),
         changes: changes.map((c) => ({ from: names.get(c.from_plan) ?? c.from_plan, to: names.get(c.to_plan) ?? c.to_plan, stores: c.changes })),
       }
     }
