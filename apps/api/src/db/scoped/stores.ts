@@ -204,7 +204,7 @@ export const insertStoreNote = async (tx: ScopedSql, n: { storeId: string; staff
 
 export interface StoreFilter {
   partnerId?: string | undefined
-  status?: StoreStatus | undefined
+  status?: StoreStatus | readonly StoreStatus[] | undefined
   /** `own` is a store with its own frontend; the rest are build states (FIRST-RELEASE §5.1). */
   storefront?: BuildState | 'own' | undefined
   /** From the latest signup job, as saas/provisioning/stuck.ts derives it; `stuck` is a running step past its limit (decided on #43). */
@@ -214,6 +214,9 @@ export interface StoreFilter {
   q?: string | undefined
   /** A Partner manager's list is their assigned partners' stores (ACCESS.md §5.4). */
   assignedTo?: string | undefined
+  planId?: string | undefined
+  /** At 80% or more of some limit (ui/platform/FIRST-RELEASE.md §6.1). */
+  nearLimit?: boolean | undefined
 }
 
 export interface KeysetPage {
@@ -240,6 +243,9 @@ export interface StoreListRow extends StoreRow {
   job_step_started_at: Date | null
   job_started_at: Date | null
   job_last_error: string | null
+  /** The limit the store is closest to, in percent of the plan version's value plus active overrides. */
+  near_key: string | null
+  near_percent: number | null
 }
 
 // The list's projection, shared with the single-row read so the two can never disagree.
@@ -251,7 +257,8 @@ const storeProjection = (tx: ScopedSql) => tx`
     ) as owner_invitation_open,
     cd.host as domain_host, cd.status as domain_status,
     j.id as job_id, j.state as job_state, j.step as job_step, to_jsonb(j.steps) as job_steps, j.attempts as job_attempts,
-    j.step_started_at as job_step_started_at, j.started_at as job_started_at, j.last_error as job_last_error
+    j.step_started_at as job_step_started_at, j.started_at as job_started_at, j.last_error as job_last_error,
+    nr.key as near_key, nr.percent as near_percent
   from store s
   join partner p on p.id = s.partner_id
   left join plan pl on pl.id = s.plan_id
@@ -261,7 +268,37 @@ const storeProjection = (tx: ScopedSql) => tx`
   ) o on true
   left join lateral (select host, status from custom_domain where store_id = s.id order by created_at desc limit 1) cd on true
   left join lateral (select * from job where store_id = s.id order by started_at desc limit 1) j on true
+  left join lateral (${usageAgainstLimits(tx, tx`s.id`, tx`s.plan_id`)} order by percent desc nulls last limit 1) nr on true
 `
+
+/**
+ * Each limit's stored usage against the plan version the store bought (or the plan's current one
+ * before billing exists), every active override added on top; a monthly meter counts only for
+ * this month (DATA-MODEL §2.4). The list's near-limit and the detail's bars both read this.
+ */
+const usageAgainstLimits = (tx: ScopedSql, storeId: ReturnType<ScopedSql>, planId: ReturnType<ScopedSql>) => tx`
+  select u.key, used.n as used, (e.amount + coalesce(ov.extra, 0))::int as cap,
+    (used.n * 100 / nullif(e.amount + coalesce(ov.extra, 0), 0))::int as percent
+  from store_usage u
+  cross join lateral (select case when u.period_start is null or u.period_start = date_trunc('month', now())::date then u.used else 0 end as n) used
+  join plan_entitlement e on e.plan_id = ${planId} and e.key = u.key and e.amount is not null
+    and e.version = coalesce((select plan_version from store_subscription x where x.store_id = ${storeId}), (select version from plan where id = ${planId}))
+  left join lateral (
+    select sum(amount) as extra from store_limit_override o
+    where o.store_id = ${storeId} and o.key = u.key and o.removed_at is null and (o.duration = 'always' or o.month = date_trunc('month', now())::date)
+  ) ov on true
+  where u.store_id = ${storeId} and u.key in ('products', 'staff', 'suppliers', 'ai_prompts', 'publish_now')
+`
+
+export interface UsageRow {
+  key: 'products' | 'staff' | 'suppliers' | 'ai_prompts' | 'publish_now'
+  used: number
+  cap: number
+  percent: number | null
+}
+
+export const selectStoreUsage = (tx: ScopedSql, storeId: string, planId: string): Promise<UsageRow[]> =>
+  tx<UsageRow[]>`${usageAgainstLimits(tx, tx`${storeId}::uuid`, tx`${planId}::uuid`)} order by u.key`
 
 export const selectStoreListRow = async (tx: ScopedSql, id: string): Promise<StoreListRow | null> =>
   (await tx<StoreListRow[]>`${storeProjection(tx)} where s.id = ${id}`)[0] ?? null
@@ -286,7 +323,8 @@ export const selectStores = async (
     where true
       ${filter.partnerId !== undefined ? tx`and s.partner_id = ${filter.partnerId}` : tx``}
       ${filter.assignedTo !== undefined ? tx`and s.partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
-      ${filter.status !== undefined ? tx`and s.status = ${filter.status}` : tx``}
+      ${typeof filter.status === 'string' ? tx`and s.status = ${filter.status}` : tx``}
+      ${Array.isArray(filter.status) ? tx`and s.status = any(${pgArray(filter.status)}::text[])` : tx``}
       ${filter.storefront === 'own' ? tx`and s.storefront_kind = 'own'` : tx``}
       ${filter.storefront !== undefined && filter.storefront !== 'own' ? tx`and s.build_state = ${filter.storefront}` : tx``}
       ${filter.setup === 'done' ? tx`and (j.id is null or j.state in ('done', 'undone'))` : tx``}
@@ -295,6 +333,8 @@ export const selectStores = async (
       ${filter.setup === 'stuck' ? tx`and ${stuck}` : tx``}
       ${filter.setup === 'running' ? tx`and j.state = 'running' and not ${stuck}` : tx``}
       ${filter.createdAfter !== undefined ? tx`and s.created_at >= ${filter.createdAfter}` : tx``}
+      ${filter.planId !== undefined ? tx`and s.plan_id = ${filter.planId}` : tx``}
+      ${filter.nearLimit === true ? tx`and nr.percent >= 80` : tx``}
       ${q !== null ? tx`and (s.name ilike ${q} or s.code ilike ${q} or cd.host ilike ${q} or o.email ilike ${q})` : tx``}
       ${page.after !== undefined ? tx`and s.created_at <= ${page.after.occurredAt} and (s.created_at, s.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}
       ${page.before !== undefined ? tx`and s.created_at >= ${page.before.occurredAt} and (s.created_at, s.id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx``}
@@ -407,3 +447,7 @@ export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise
   `
   return row ?? { owners: 0, managers: 0, staff: 0, suppliers: 0 }
 }
+
+/** Only a partner that bills its merchants itself sets this; the caller checks the mode, 0014's trigger too. */
+export const updateStoreBillingStatus = async (tx: ScopedSql, storeId: string, status: 'active' | 'past_due' | 'suspended'): Promise<boolean> =>
+  (await tx`update store set billing_status = ${status} where id = ${storeId} returning id`).length > 0

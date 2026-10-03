@@ -73,7 +73,7 @@ export const seedAccounts = async (tx: ScopedSql, partnerKeys: ReadonlyMap<strin
     const share = nearLimit ? 0.9 + near / 50 : ((i * 37) % 70) / 100
     const usage: [AmountKey, number | null, Date | null][] = [
       ['products', s.products === null ? null : Math.floor(s.products * share), null],
-      ['staff', s.staff === null ? null : Math.min(s.staff, 1 + (i % 3)), null],
+      ['staff', s.staff === null ? null : Math.floor(s.staff * share), null],
       ['publish_now', s.publish === null ? null : Math.floor(s.publish * share), month],
       ['ai_prompts', s.ai === null ? null : Math.floor(s.ai * share), month],
     ]

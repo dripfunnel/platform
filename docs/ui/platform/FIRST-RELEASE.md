@@ -771,6 +771,27 @@ api/README.md §2.1); a partner id in a request is not authority.
   (scheduling), `cancelScheduledBranding`, `rollbackBranding`, the history and the email
   templates are §8.3–§8.4's.
 
+**Built on #159** (Stores, `apis/platform/stores.ts`, `saas/partnerStores`):
+- `stores(filter, after, first)`: newest first, cursor-paged, at most 25 a page, no total.
+  Filters: status (`pastdue` spelt as the console spells it; `cancelled` takes closed stores
+  too), plan, created window, storefront, near a limit (80%+ of any limit), search. A filter or cursor it can't read is `INVALID_INPUT`. The page carries
+  `plans`, `billingMode`, and the export and billing-status permissions.
+- `store(id)` returns `{ row, … }` with the tabs from today's rows: account, contacts, usage,
+  overrides, billing (subscription, next charge, card's last four, who charges), site links,
+  DNS records, setup, trial extensions, support (consent and people) and the account's
+  activity. Usage is measured once for both the list and the detail: against the plan version
+  the store bought plus every active override, a monthly meter counting only this month. An id
+  that isn't one finds nothing. **Sales, invoices and past support sessions arrive with #163, #201 and #202.**
+- `actions` is the §6.4 block, following the prototype. An action the state does not offer is
+  absent. One the role cannot use is refused: `FINANCE_TRIAL_ONLY` on Extend trial,
+  `OWNERS_AND_ADMINS_ONLY` on the rest. The record refusals (`ALREADY_SUSPENDED`, …) are the
+  mutations' (#160).
+- `setStoreBillingStatus(id, status)`: `stores.billingStatus` (else `BILLING_ROLES_ONLY`). It refuses `NOT_SELF_BILLING`
+  while DripFunnel bills, `CANCELLED` on a cancelled store, and `NOT_FOUND` and
+  `INVALID_INPUT`. It is logged once.
+- No type in the Platform API names an order, a customer or a product (a schema test).
+  Create and export are #221.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the
