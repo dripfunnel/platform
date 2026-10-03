@@ -908,8 +908,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   address (0011's limit) is answered identically too and creates nothing. Removal sets
   `removed`, revokes an open invitation and ends the person's sessions at once (0022's
   `end_partner_user_sessions`); re-inviting a removed address invites the same account again.
-  The invitation email (`partner-team-invitation`) goes through the outbox; accepting it is
-  #208's.
+  The invitation email (`partner-team-invitation`) goes through the outbox, throttled to 20 an
+  hour per inviter and 3 a day per address (`RATE_LIMITED`, ACCESS §6.3); accepting it is #208's.
 - `setSecondFactorPolicy(required)` (`security.manage`, Owner) sets
   `partner.second_factor_required`, which sign-in already reads; turning it off removes nobody's
   2-factor.

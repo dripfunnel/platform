@@ -7,11 +7,13 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertPartnerUser, revokeInvitation } from '#db/scoped/partners'
 import {
   countActiveOwners,
+  countRecentInvitations,
   endMemberSessions,
   insertTeamInvitation,
   lockTeam,
   markMemberRemoved,
   reinviteMember,
+  selectActiveWithRole,
   selectCompany,
   selectPlanFees,
   selectTeam,
@@ -43,7 +45,10 @@ export const teamPageSize = 25
 const invitationDays = 7
 const owner: PartnerRoleKey = 'partner-owner'
 
-export type TeamRefusal = 'LAST_OWNER' | 'OWNERS_ONLY' | 'CANNOT_REMOVE_SELF' | 'ALREADY_ON_TEAM' | 'NOT_FOUND' | 'INVALID_INPUT' | 'NO_PENDING_INVITATION' | 'NOT_ACTIVE'
+// ACCESS §13 item 13: an invitation can't be an email-bombing tool, per inviter or per address.
+export const invitationLimits = { perInviterPerHour: 20, perAddressPerDay: 3 } as const
+
+export type TeamRefusal = 'RATE_LIMITED' | 'LAST_OWNER' | 'OWNERS_ONLY' | 'CANNOT_REMOVE_SELF' | 'ALREADY_ON_TEAM' | 'NOT_FOUND' | 'INVALID_INPUT' | 'NO_PENDING_INVITATION' | 'NOT_ACTIVE'
 export type TeamResult = { ok: true } | { ok: false; reason: TeamRefusal }
 
 const inviteInput = z.strictObject({ name: z.string().trim().min(1).max(120), email: z.email().max(254), role: z.enum(partnerRoles) })
@@ -82,6 +87,10 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
     return me && me.status === 'active' ? me : null
   }
 
+  const throttled = async (tx: ScopedSql, targetId: string | null, at: Date): Promise<boolean> =>
+    (await countRecentInvitations(tx, partnerId, new Date(at.getTime() - 3_600_000), { actorId: caller.user.id })) >= invitationLimits.perInviterPerHour ||
+    (targetId !== null && (await countRecentInvitations(tx, partnerId, new Date(at.getTime() - 86_400_000), { targetId })) >= invitationLimits.perAddressPerDay)
+
   const queueInvitation = (tx: ScopedSql, invitationId: string, to: string) =>
     queueSideEffect(tx, {
       kind: 'email',
@@ -109,9 +118,8 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
     withScope(sql, context, async (tx) => {
       const company = await selectCompany(tx, partnerId)
       if (!company) return null
-      const members = await selectTeam(tx, partnerId, {}, 100)
-      const main = members.find((m) => m.role_key === owner && m.status === 'active') ?? null
-      const finance = members.find((m) => m.role_key === 'partner-finance' && m.status === 'active') ?? null
+      const main = await selectActiveWithRole(tx, partnerId, owner)
+      const finance = await selectActiveWithRole(tx, partnerId, 'partner-finance')
       return {
         name: company.name,
         country: company.country,
@@ -152,6 +160,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
       const at = now()
       const existing = await selectTeamMemberByEmail(tx, partnerId, email)
       if (existing && existing.status !== 'removed') return { ok: false, reason: 'ALREADY_ON_TEAM' }
+      if (await throttled(tx, existing?.id ?? null, at)) return { ok: false, reason: 'RATE_LIMITED' }
       let userId: string
       if (existing) {
         await reinviteMember(tx, existing.id, name, role)
@@ -176,6 +185,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
   const resendTeamInvite = (memberId: string) =>
     change(memberId, async (tx, member, _me, at) => {
       if (member.status !== 'invited' || !member.invitation_id) return { ok: false, reason: 'NO_PENDING_INVITATION' }
+      if (await throttled(tx, member.id, at)) return { ok: false, reason: 'RATE_LIMITED' }
       await revokeInvitation(tx, member.invitation_id, at)
       const invitationId = await insertTeamInvitation(tx, { partnerId, userId: member.id, sentAt: at, expiresAt: new Date(at.getTime() + invitationDays * 86_400_000), byLabel: caller.user.name })
       await queueInvitation(tx, invitationId, member.email)

@@ -166,3 +166,51 @@ describe('2-factor policy', () => {
     expect((await db.sql`select 1 from activity_log where action = 'partner.second_factor_policy_set' and partner_id = ${ids.ns}`).length).toBe(1)
   })
 })
+
+describe('the rest of the rules', () => {
+  it('pages the team both ways, 25 at most', async () => {
+    for (let i = 0; i < 30; i += 1) await addMember(`member${i}@northstar.example`, 'partner-support')
+    const q = `query($after: String, $before: String, $first: Int) { team(after: $after, before: $before, first: $first) { items { id } pageInfo { hasNextPage hasPreviousPage startCursor endCursor } } }`
+    type P = { team: { items: { id: string }[]; pageInfo: { hasNextPage: boolean; hasPreviousPage: boolean; startCursor: string; endCursor: string } } }
+    const reader = callerOf(ids.ns, 'partner-read-only')
+    const first = (await run<P>(q, reader, { first: 1000 })).data?.team
+    expect(first?.items).toHaveLength(25)
+    expect(first?.pageInfo.hasNextPage).toBe(true)
+    const second = (await run<P>(q, reader, { after: first?.pageInfo.endCursor, first: 25 })).data?.team
+    expect(second?.items.some((m) => first?.items.some((f) => f.id === m.id))).toBe(false)
+    expect(second?.pageInfo.hasPreviousPage).toBe(true)
+    const back = (await run<P>(q, reader, { before: second?.pageInfo.startCursor, first: 25 })).data?.team
+    expect(back?.items.map((m) => m.id)).toEqual(first?.items.map((m) => m.id))
+    const [active] = await db.sql<{ n: number }[]>`select count(*)::int as n from partner_user where partner_id = ${ids.ns} and status <> 'removed'`
+    expect((first?.items.length ?? 0) + (second?.items.length ?? 0)).toBe(Math.min(active?.n ?? 0, 50))
+  })
+
+  it('answers an address already at three partners the same, and creates nothing', async () => {
+    const email = 'busy.person@elsewhere.example'
+    const others = await db.sql<{ id: string }[]>`select id from partner where id <> ${ids.ns} order by name limit 3`
+    expect(others).toHaveLength(3)
+    for (const p of others) await db.sql`insert into partner_user (partner_id, email, name, role_key, status) values (${p.id}, ${email}, 'Busy', 'partner-support', 'active')`
+    const owner = callerOf(ids.ns, 'partner-owner', ids.owner)
+    const fresh = await run(invite, owner, { name: 'Brand New', email: 'brand.new@northstar.example', role: 'partner-support' })
+    const busy = await run(invite, owner, { name: 'Busy', email, role: 'partner-support' })
+    expect(busy.raw).toBe(fresh.raw)
+    expect(await member(email)).toBeUndefined()
+  })
+
+  it('refuses a caller who is no longer active, and an Admin making an Owner', async () => {
+    const suspended = await addMember('suspended.admin@northstar.example', 'partner-admin', 'suspended')
+    const target = await addMember('target@northstar.example', 'partner-support')
+    expect((await run<Res<'changeTeamRole'>>(role, callerOf(ids.ns, 'partner-admin', suspended), { id: target, role: 'partner-finance' })).data?.changeTeamRole).toEqual({ ok: false, reason: 'NOT_ACTIVE' })
+    expect((await run<Res<'changeTeamRole'>>(role, callerOf(ids.ns, 'partner-admin', ids.admin), { id: target, role: 'partner-owner' })).data?.changeTeamRole).toEqual({ ok: false, reason: 'OWNERS_ONLY' })
+  })
+
+  it('throttles invitations to one address', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner', ids.owner)
+    expect((await run<Res<'inviteTeamMember'>>(invite, owner, { name: 'Flood', email: 'flood@northstar.example', role: 'partner-support' })).data?.inviteTeamMember.ok).toBe(true)
+    const pending = await member('flood@northstar.example')
+    const resend = `mutation($id: ID!) { resendTeamInvite(id: $id) { ok reason } }`
+    const answers: (string | null | undefined)[] = []
+    for (let i = 0; i < 4; i += 1) answers.push((await run<Res<'resendTeamInvite'>>(resend, owner, { id: pending?.id })).data?.resendTeamInvite.reason)
+    expect(answers).toEqual([null, null, 'RATE_LIMITED', 'RATE_LIMITED'])
+  })
+})

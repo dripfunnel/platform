@@ -116,3 +116,22 @@ export const selectPlanFees = (tx: ScopedSql, partnerId: string): Promise<{ plan
     select p.name as plan, f.amount, f.currency from plan_fee f join plan p on p.id = f.plan_id
     where f.partner_id = ${partnerId} and p.status <> 'retired' order by f.amount, p.name limit 100
   `
+
+/** The partner's earliest active member with a role: the company's main or billing contact. */
+export const selectActiveWithRole = async (tx: ScopedSql, partnerId: string, role: PartnerRoleKey): Promise<{ name: string; email: string } | null> =>
+  (await tx<{ name: string; email: string }[]>`
+    select name, email from partner_user where partner_id = ${partnerId} and role_key = ${role} and status = 'active' order by created_at, id limit 1
+  `)[0] ?? null
+
+/**
+ * Invitation emails sent lately, from the log (ACCESS §6.2, §13 item 13): by this inviter in the
+ * partner, and to this account, so neither a person nor an address can be flooded.
+ */
+export const countRecentInvitations = async (tx: ScopedSql, partnerId: string, since: Date, by: { actorId: string } | { targetId: string }): Promise<number> =>
+  (
+    await tx<{ n: number }[]>`
+      select count(*)::int as n from activity_log
+      where partner_id = ${partnerId} and occurred_at >= ${since} and action in ('partner_user.invited', 'partner_user.invitation_resent')
+        ${'actorId' in by ? tx`and actor_kind = 'partner_user' and actor_id = ${by.actorId}` : tx`and target_type = 'partner_user' and target_id = ${by.targetId}`}
+    `
+  )[0]?.n ?? 0
