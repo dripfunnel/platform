@@ -123,7 +123,7 @@ type DashboardAttentionAction {
 }
 
 type DashboardMoney {
-  amount: Int
+  amount: Float
   currency: String
 }
 

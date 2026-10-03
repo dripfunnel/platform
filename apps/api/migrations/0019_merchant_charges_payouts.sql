@@ -11,18 +11,20 @@ create table merchant_charge (
   store_id uuid not null,
   kind text not null check (kind in ('subscription', 'proration', 'refund')),
   status text not null check (status in ('paid', 'failed', 'refunded', 'recovered')),
-  amount integer not null check (amount >= 0),
+  amount bigint not null check (amount >= 0),
   currency text not null check (currency ~ '^[A-Z]{3}$'),
   payout_currency text not null check (payout_currency ~ '^[A-Z]{3}$'),
-  payout_gross integer not null check (payout_gross >= 0),
-  fee_amount integer not null check (fee_amount >= 0),
-  partner_amount integer not null,
+  payout_gross bigint not null check (payout_gross >= 0),
+  fee_amount bigint not null check (fee_amount >= 0),
+  partner_amount bigint not null,
   card_last4 text check (card_last4 ~ '^[0-9]{4}$'),
   failure_reason text,
   invoice_id text,
   charged_at timestamptz(3) not null,
   created_at timestamptz(3) not null default now(),
   foreign key (store_id, partner_id) references store (id, partner_id),
+  -- One payout currency per partner, the contract's, so a sum never mixes or drops currencies.
+  foreign key (partner_id, payout_currency) references partner_contract (partner_id, fee_currency),
   constraint merchant_charge_share check (partner_amount = payout_gross - fee_amount)
 );
 
@@ -36,10 +38,10 @@ create table partner_payout (
   period_start date not null,
   period_end date not null,
   currency text not null check (currency ~ '^[A-Z]{3}$'),
-  gross integer not null check (gross >= 0),
-  fee integer not null check (fee >= 0),
-  adjustments integer not null default 0,
-  amount integer not null,
+  gross bigint not null check (gross >= 0),
+  fee bigint not null check (fee >= 0),
+  adjustments bigint not null default 0,
+  amount bigint not null,
   stores integer not null check (stores >= 0),
   status text not null check (status in ('scheduled', 'paid', 'held')),
   scheduled_for date not null,
@@ -47,6 +49,7 @@ create table partner_payout (
   held_reason text,
   adjustment_note text,
   unique (partner_id, period_start),
+  foreign key (partner_id, currency) references partner_contract (partner_id, fee_currency),
   constraint partner_payout_period check (period_end > period_start),
   constraint partner_payout_amount check (amount = gross - fee + adjustments),
   constraint partner_payout_held check ((status = 'held') = (held_reason is not null))
@@ -61,13 +64,14 @@ create table store_sales_month (
   partner_id uuid not null,
   month date not null check (month = date_trunc('month', month)),
   currency text not null check (currency ~ '^[A-Z]{3}$'),
-  amount integer not null check (amount >= 0),
+  amount bigint not null check (amount >= 0),
   -- The same total in the partner's payout currency, so stores in different currencies rank.
   payout_currency text not null check (payout_currency ~ '^[A-Z]{3}$'),
-  payout_amount integer not null check (payout_amount >= 0),
+  payout_amount bigint not null check (payout_amount >= 0),
   orders integer not null check (orders >= 0),
   primary key (store_id, month),
-  foreign key (store_id, partner_id) references store (id, partner_id)
+  foreign key (store_id, partner_id) references store (id, partner_id),
+  foreign key (partner_id, payout_currency) references partner_contract (partner_id, fee_currency)
 );
 
 create index store_sales_month_partner_idx on store_sales_month (partner_id, month, payout_amount desc);

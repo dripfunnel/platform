@@ -16,7 +16,9 @@ type Attention = DashboardDto['attention'][number]
 type Near = DashboardDto['usage']['stores'][number]
 type Top = DashboardDto['top'][number]
 
-const MoneyType = builder.objectRef<Money>('DashboardMoney').implement({ fields: (t) => ({ amount: t.exposeInt('amount'), currency: t.exposeString('currency') }) })
+// Minor units can pass GraphQL's 32-bit Int for a large partner, so the amount is a Float: an
+// integer, exact to 2^53.
+const MoneyType = builder.objectRef<Money>('DashboardMoney').implement({ fields: (t) => ({ amount: t.exposeFloat('amount'), currency: t.exposeString('currency') }) })
 
 const ByStatus = builder.objectRef<DashboardDto['stores']['byStatus']>('DashboardStoresByStatus').implement({
   fields: (t) => ({ active: t.exposeInt('active'), trial: t.exposeInt('trial'), pastdue: t.exposeInt('pastdue'), suspended: t.exposeInt('suspended') }),

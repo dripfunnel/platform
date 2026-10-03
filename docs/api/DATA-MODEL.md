@@ -1309,7 +1309,9 @@ is built on #212** (§2.4); `store_billing_details`, `invoice`, `invoice_line` a
 **Built on #163** (migration `0019`), what the partner Dashboard, Billing and Reports read, filled
 by Stripe Connect's sync later (THIRD-PARTY-ACCESS §2.7) and by the seed until then. Each is
 partner-scoped: a partner reads its own rows, staff and jobs every row, `app_system` writes, and
-no merchant branch exists yet. The four role pins are on each table.
+no merchant branch exists yet. The four role pins are on each table. Money columns are `bigint`
+minor units, and every payout currency is the contract's `fee_currency` by foreign key, so a
+sum never mixes or drops currencies.
 
 ```
 merchant_charge     (id, partner_id, store_id, kind ('subscription'|'proration'|'refund'),

@@ -133,7 +133,6 @@ describe('the cards', () => {
   it('counts each store figure as the Stores list filtered the way its link filters', async () => {
     const owner = callerOf(ids.ns, 'partner-owner')
     const d = await dashboard(owner, 'month')
-    console.log(JSON.stringify(d, null, 1))
     expect(await listed(owner, {})).toBe(d?.stores.total)
     for (const status of ['active', 'trial', 'pastdue', 'suspended']) expect(await listed(owner, { status }), status).toBe(d?.stores.byStatus[status])
     expect(await listed(owner, { created: 'month' })).toBe(d?.stores.newThisMonth)
@@ -189,5 +188,19 @@ describe('a new partner and isolation', () => {
     expect([...(theirs?.attention ?? []), ...(theirs?.usage.stores ?? [])].some((a) => 'storeId' in a && nsStores.has(String(a.storeId)))).toBe(false)
     const [count] = await db.sql<{ n: number }[]>`select count(*)::int as n from store where partner_id = ${ids.bz}`
     expect(theirs?.stores.total).toBe(count?.n)
+  })
+
+  it('sums past 32-bit minor units without overflowing', async () => {
+    await db.sql`insert into partner_contract (partner_id, fee_currency) values (${ids.bz}, 'USD') on conflict do nothing`
+    const [store] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.bz} limit 1`
+    for (let i = 0; i < 2; i += 1) {
+      await db.sql`
+        insert into merchant_charge (partner_id, store_id, kind, status, amount, currency, payout_currency, payout_gross, fee_amount, partner_amount, charged_at)
+        values (${ids.bz}, ${store?.id ?? ''}, 'subscription', 'paid', 2000000000, 'USD', 'USD', 2000000000, 500000000, 1500000000, ${new Date(now.getTime() - 3_600_000)})`
+    }
+    expect((await dashboard(callerOf(ids.bz, 'partner-owner'), 'month'))?.revenue).toMatchObject({ collected: { amount: 4_000_000_000 }, fee: { amount: 1_000_000_000 }, payout: { amount: 3_000_000_000 } })
+    await expect(db.sql`
+      insert into merchant_charge (partner_id, store_id, kind, status, amount, currency, payout_currency, payout_gross, fee_amount, partner_amount, charged_at)
+      values (${ids.bz}, ${store?.id ?? ''}, 'subscription', 'paid', 100, 'EUR', 'EUR', 100, 0, 100, ${now})`).rejects.toThrow(/foreign key/)
   })
 })

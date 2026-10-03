@@ -43,26 +43,25 @@ export interface RevenueSums {
 }
 
 /**
- * What was collected in the window and in the one it is compared with, in the partner's payout
- * currency (its latest charge's); a refund subtracts.
+ * What was collected in the window and in the one it is compared with, in the contract's payout
+ * currency (0019 holds every charge to it); a refund subtracts. Sums are bigint, read as float8:
+ * exact for minor units far beyond any partner's revenue.
  */
 export const sumRevenue = async (tx: ScopedSql, partnerId: string, current: Window, previous: Window): Promise<RevenueSums> =>
   (
     await tx<RevenueSums[]>`
-      with c as (
-        select payout_currency as currency from merchant_charge where partner_id = ${partnerId} order by charged_at desc, id desc limit 1
-      ), counted as (
-        select m.charged_at, case when m.kind = 'refund' then -1 else 1 end as sign, m.payout_gross, m.fee_amount, m.partner_amount
-        from merchant_charge m, c
-        where m.partner_id = ${partnerId} and m.payout_currency = c.currency
-          and (m.status in ('paid', 'recovered') or (m.kind = 'refund' and m.status = 'refunded'))
-          and m.charged_at >= least(${current.from}::timestamptz, ${previous.from}::timestamptz) and m.charged_at < greatest(${current.to}::timestamptz, ${previous.to}::timestamptz)
+      with counted as (
+        select charged_at, case when kind = 'refund' then -1 else 1 end as sign, payout_gross, fee_amount, partner_amount
+        from merchant_charge
+        where partner_id = ${partnerId}
+          and (status in ('paid', 'recovered') or (kind = 'refund' and status = 'refunded'))
+          and charged_at >= least(${current.from}::timestamptz, ${previous.from}::timestamptz) and charged_at < greatest(${current.to}::timestamptz, ${previous.to}::timestamptz)
       )
-      select (select currency from c) as currency,
-        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::int as collected,
-        coalesce(sum(sign * fee_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::int as fee,
-        coalesce(sum(sign * partner_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::int as payout,
-        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${previous.from} and charged_at < ${previous.to}), 0)::int as previous,
+      select (select fee_currency from partner_contract where partner_id = ${partnerId}) as currency,
+        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::float8 as collected,
+        coalesce(sum(sign * fee_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::float8 as fee,
+        coalesce(sum(sign * partner_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::float8 as payout,
+        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${previous.from} and charged_at < ${previous.to}), 0)::float8 as previous,
         (select min(scheduled_for)::text from partner_payout where partner_id = ${partnerId} and status = 'scheduled') as next_payout_at,
         (select count(*)::int from merchant_charge where partner_id = ${partnerId}) as charges
       from counted
@@ -139,7 +138,7 @@ export interface TopStoreRow {
 
 export const selectTopStores = (tx: ScopedSql, partnerId: string, month: Date, limit: number): Promise<TopStoreRow[]> =>
   tx<TopStoreRow[]>`
-    select m.store_id, s.name as store_name, p.name as plan_name, m.currency, m.amount
+    select m.store_id, s.name as store_name, p.name as plan_name, m.currency, m.amount::float8 as amount
     from store_sales_month m join store s on s.id = m.store_id left join plan p on p.id = s.plan_id
     where m.partner_id = ${partnerId} and m.month = ${month}::date and m.amount > 0
     order by m.payout_amount desc, s.name
