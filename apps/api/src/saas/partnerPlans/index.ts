@@ -249,13 +249,18 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       }
     })
 
-  const quotePlanPrices = (id: string | null, prices: PlanInput['prices']): Promise<PlanPrice[]> =>
-    withScope(sql, context, async (tx) => {
+  /** Null for prices a save would refuse: the same schema, so a quote never shows what cannot be saved. */
+  const quotePlanPrices = (id: string | null, raw: unknown): Promise<PlanPrice[] | null> => {
+    const parsed = planInput.shape.prices.safeParse(raw)
+    if (!parsed.success) return Promise.resolve(null)
+    const prices = parsed.data
+    return withScope(sql, context, async (tx) => {
       const row = id === null ? null : await selectCataloguePlan(tx, partnerId, id)
       const terms = await selectContractTerms(tx, partnerId)
       const fee = feeOf(row, await selectLowestFee(tx, partnerId))
       return prices.map((p) => priceOf(terms, fee, { currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
     })
+  }
 
   // The ceilings and the contract's "Powered by" rule, named by row; the database refuses the same (0013).
   const aboveCeiling = async (tx: ScopedSql, e: PlanInput['entitlements']): Promise<EntitlementRow | null> => {
@@ -360,6 +365,8 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       const required = terms.fee_currency ? await currenciesOf(tx, terms) : prices.map((p) => p.currency)
       const unpriced = required.find((cur) => (prices.find((p) => p.currency === cur)?.monthly ?? null) === null)
       if (unpriced) return { ok: false, reason: 'UNPRICED_CURRENCY', currency: unpriced }
+      // Nothing to charge at all is never Live, contract or not.
+      if (!prices.some((p) => p.monthly !== null)) return { ok: false, reason: 'UNPRICED_CURRENCY' }
       await updatePlanStatus(tx, id, partnerId, 'live', null)
       await activity.record(tx, entry(planAudit.makePlanLive, row, null))
       return { ok: true, id }
