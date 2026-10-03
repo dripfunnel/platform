@@ -52,6 +52,7 @@ input ActivityFilter {
   action: String
   actorId: String
   actorKind: String
+  customerId: ID
   from: String
   partnerId: ID
   storeId: ID
@@ -95,6 +96,88 @@ input CreatePartnerInput {
   ownerName: String
   region: String
   sendInvitation: Boolean!
+}
+
+type Customer implements CustomerAccount {
+  contactsMasked: Boolean
+  createdAt: String
+  deletedAt: String
+  email: String
+  emailVerified: Boolean
+  id: ID
+  lastSignInAt: String
+  name: String
+  orders: Int
+  partner: CustomerPlace
+  phone: String
+  phoneRegion: String
+  phoneVerified: Boolean
+  signsInWith: String
+  status: String
+  store: CustomerPlace
+  storeSuspension: CustomerStoreSuspension
+}
+
+interface CustomerAccount {
+  createdAt: String
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  orders: Int
+  partner: CustomerPlace
+  phone: String
+  phoneRegion: String
+  signsInWith: String
+  status: String
+  store: CustomerPlace
+}
+
+input CustomerFilter {
+  created: String
+  lastSignIn: String
+  partner: ID
+  status: String
+  store: ID
+  via: String
+}
+
+type CustomerMatch {
+  accounts: Int
+  kind: String
+  regions: [String!]
+}
+
+type CustomerPage {
+  items: [CustomerRow!]
+  match: CustomerMatch
+  pageInfo: PageInfo
+  partners: [CustomerPlace!]
+  stores: [CustomerPlace!]
+}
+
+type CustomerPlace {
+  id: ID
+  name: String
+}
+
+type CustomerRow implements CustomerAccount {
+  createdAt: String
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  orders: Int
+  partner: CustomerPlace
+  phone: String
+  phoneRegion: String
+  signsInWith: String
+  status: String
+  store: CustomerPlace
+}
+
+type CustomerStoreSuspension {
+  reason: String
 }
 
 type Dashboard {
@@ -492,6 +575,8 @@ type ProvisioningStore {
 
 type Query {
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
+  customer(id: ID!): Customer
+  customers(after: String, before: String, filter: CustomerFilter, first: Int, search: String): CustomerPage
   dashboard(partnerId: ID): Dashboard
   health: String
   impersonationTargets(after: String, before: String, filter: ImpersonationTargetFilter, first: Int, search: String): ImpersonationTargetPage

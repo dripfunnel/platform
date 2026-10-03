@@ -150,6 +150,7 @@ const contextFor = (staff: StaffMember | null, assigned: readonly string[] = [])
   stores: null,
   provisioning: null,
   staffSessions: null,
+  customers: null,
   dashboard: null,
 })
 

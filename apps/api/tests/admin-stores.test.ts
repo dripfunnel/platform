@@ -30,6 +30,7 @@ const contextFor = (staff: StaffMember | null): AdminContext => {
     stores: staff ? createStoresService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
     provisioning: null,
     staffSessions: null,
+    customers: null,
     dashboard: null,
   }
 }

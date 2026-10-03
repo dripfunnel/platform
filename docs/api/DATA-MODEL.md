@@ -401,7 +401,10 @@ store_customer_auth (store_id PK, email_enabled, phone_enabled)   -- Settings �
 ```
 
 The same email or phone may exist in any number of stores, as unrelated rows (ACCESS.md
-§2.1). Phone numbers in E.164.
+§2.1). Phone numbers in E.164. **Built on #36**: `last_sign_in_at` (the Shop API's sign-in will write it), and three
+stored forms a search compares, each indexed: `phone_digits`, `phone_country_code` (the E.164
+calling code, by `calling_code_of()`) and `phone_national`, so a phone matches on its digits with
+or without the calling code, never on a part of it (decided on #42).
 
 ### 3.5 Machine callers and session records
 

@@ -15,7 +15,6 @@ import { partnerCookieName } from '#auth/partnerSession'
 import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
-import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
@@ -34,7 +33,7 @@ import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { activityLog, listActivity } from '#saas/activity/index'
+import { activityLog, staffActivityReader } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -50,6 +49,7 @@ import { createPartnerStoreActions, createPartnerStoresService } from '#saas/par
 import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
+import { createCustomersService } from '#saas/customers/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
@@ -171,7 +171,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, staffSessions: null, provisioning: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, customers: null, staffSessions: null, provisioning: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -179,12 +179,7 @@ const handleAdmin = async (
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
       isAssigned: assigned,
-      activity: caller
-        ? (filter, page) =>
-            listActivity(sql, { caller: { kind: 'staff', staffId: caller.staff.id } }, filter, page, {
-              assignedTo: partnerScopedRoles.includes(caller.staff.role) ? caller.staff.id : undefined,
-            })
-        : notConnected,
+      activity: caller ? staffActivityReader(sql, caller.staff) : notConnected,
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,
@@ -193,6 +188,7 @@ const handleAdmin = async (
       staffSessions: caller
         ? createStaffSessionsService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, reauthFresh: caller.reauthFresh, platformHost: config.PLATFORM_HOST, now: () => new Date() })
         : null,
+      customers: caller ? createCustomersService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
