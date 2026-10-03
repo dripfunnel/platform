@@ -2,10 +2,11 @@ import type postgres from 'postgres'
 import type { ActivityLog } from '#auth/activity'
 import { factsOf } from '#auth/activity'
 import { resolvePartner } from '#auth/partnerCaller'
+import { partnerRoleHas } from '#auth/partnerPermissions'
 import { brandFileKinds, maxBrandFileBytes, uploadBrandFile, type BrandFileKind, type BrandFileStore } from '#saas/partnerBranding/index'
 
 // `POST /api/uploads/brand-file?kind=…` (card #219): the raw file as the body. The Worker has
-// checked the Origin; the session, the role and the bytes are checked here.
+// checked the Origin; the session and the role come before the query or the body is looked at.
 
 export const brandUploadPath = '/api/uploads/brand-file'
 
@@ -49,6 +50,7 @@ export const handleBrandUpload = async (request: Request, deps: BrandUploadRoute
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
   const caller = await resolvePartner(deps.sql, request, deps.now())
   if (!caller) return refuse(401, 'UNAUTHENTICATED')
+  if (!partnerRoleHas(caller.user.role, 'branding.write')) return refuse(403, 'FORBIDDEN')
   const kind = new URL(request.url).searchParams.get('kind')
   if (!(brandFileKinds as readonly string[]).includes(kind ?? '')) return refuse(400, 'INVALID_KIND')
   if (!deps.store) return refuse(503, 'NOT_CONNECTED')

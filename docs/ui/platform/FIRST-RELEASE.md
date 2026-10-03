@@ -769,11 +769,14 @@ api/README.md §2.1); a partner id in a request is not authority.
   required Impressum are there) and queues the portal cache purge.
 - **Files are R2 keys under the partner's prefix**; a key under another prefix, or a URL, is
   `INVALID_INPUT`. **The upload, built on #219**: `POST /api/uploads/brand-file?kind=logoLight|
-  logoDark|mark|favicon` with the file as the body, the session and `branding.write` checked;
+  logoDark|mark|favicon` with the file as the body. The session (`UNAUTHENTICATED`) and
+  `branding.write` (`FORBIDDEN`) are checked before the kind, the bucket or the body; then
   SVG, PNG or WebP by its bytes, at most 512 KB, an SVG that could run script or load anything
   refused (`UNSAFE_SVG`); it answers the key `partners/<partner>/brand/<uuid>.<ext>` and logs
   `branding.file_uploaded`. `NOT_CONNECTED` until the environment's assets bucket is bound
-  (THIRD-PARTY-ACCESS §2.1).
+  (THIRD-PARTY-ACCESS §2.1). The file is written inside the log entry's transaction, so a
+  failed write logs nothing; a commit that fails after the write leaves an unlogged object
+  that no branding names, and nothing sweeps those yet.
 - This card ships the publish-now path only. `saveBrandingDraft`, `publishBranding(when)`
   (scheduling), `cancelScheduledBranding`, `rollbackBranding`, the history and the email
   templates are §8.3–§8.4's.

@@ -30,7 +30,8 @@ export const uploadBrandFile = async ({ sql, caller, facts, activity, store }: B
   if (!checked.ok) return checked
   const key = `partners/${caller.partner.id}/brand/${crypto.randomUUID()}.${checked.type.ext}`
   const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId: caller.partner.id }
-  // The entry first, the file last: a failed write rolls the entry back, so no stored file goes unlogged.
+  // The file is written inside the entry's transaction: a failed write rolls the entry back, but a
+  // commit failing after it leaves an unlogged object that no branding names (FIRST-RELEASE §8).
   await withScope(sql, context, async (tx) => {
     await activity.record(tx, partnerEntry(caller, facts)({ action: brandUploadAudit, target: { type: 'file', id: key, label: kind }, reason: null }))
     await store.put(key, bytes, { httpMetadata: { contentType: checked.type.contentType } })
