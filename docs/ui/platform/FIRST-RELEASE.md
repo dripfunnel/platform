@@ -940,6 +940,9 @@ api/README.md §2.1); a partner id in a request is not authority.
   logged as `report.exported`; `reportExport(id)` answers it, never an activity export (and the
   activity read-back never a report). The CSV has fixed columns per tab, so an empty report still
   has its header; a list cut at 50 rows ends with a line saying so, and the job reports `truncated`.
+- Report lists are capped at 50 rows rather than cursor-paged (each is a top-N view, not a
+  browsable list): Store performance, its Declining list (its own query, biggest fall first), Usage
+  and Setup health each say `truncated` when cut.
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype

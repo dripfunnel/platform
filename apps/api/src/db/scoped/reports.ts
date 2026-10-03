@@ -212,3 +212,15 @@ export const countDecliningStores = async (tx: ScopedSql, s: ReportScope, month:
       where ${storeWhere(tx, s)} and b.month = ${before}::date and b.amount > 0 and coalesce(m.amount, 0) < b.amount * ${decline}::numeric
     `
   )[0]?.n ?? 0
+
+/** The stores `countDecliningStores` counts, the biggest fall first, `limit` at most. */
+export const selectDecliningStores = (tx: ScopedSql, s: ReportScope, month: Date, before: Date, decline: number, limit: number): Promise<StoreSalesRow[]> =>
+  tx<StoreSalesRow[]>`
+    select s.id as store_id, s.name as store_name, p.name as plan, b.currency, coalesce(m.amount, 0)::text as amount,
+      coalesce(m.payout_amount, 0)::text as payout_amount, coalesce(m.orders, 0)::int as orders, b.amount::text as previous
+    from store_sales_month b join store s on s.id = b.store_id left join plan p on p.id = s.plan_id
+    left join store_sales_month m on m.store_id = b.store_id and m.month = ${month}::date
+    where ${storeWhere(tx, s)} and b.month = ${before}::date and b.amount > 0 and coalesce(m.amount, 0) < b.amount * ${decline}::numeric
+    order by coalesce(m.amount, 0)::numeric / b.amount, s.name
+    limit ${limit}
+  `

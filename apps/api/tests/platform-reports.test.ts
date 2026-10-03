@@ -37,8 +37,8 @@ const q = {
   growth: `query($f: ReportFilterInput) { reportGrowth(filter: $f) { fresh summary rows { month signups newStores trialToPaidBps churned netStores } bars { label value } } }`,
   revenue: `query($f: ReportFilterInput) { reportRevenue(filter: $f) { fresh summary currency currencyNote rows { month collected { amount currency } fee { amount } payout { amount } } mrr { plan amount { amount currency } approximate } payments { failed recovered } } }`,
   plans: `query($f: ReportFilterInput) { reportPlans(filter: $f) { fresh summary rows { plan stores } changes { from to stores } } }`,
-  performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store } } }`,
-  usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
+  performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store storeId } decliningTruncated } }`,
+  usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
   setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed rows { kind store } } }`,
 }
 
@@ -83,8 +83,9 @@ describe('the figures', () => {
     expect(perf?.rows[0]).toMatchObject({ store: 'Juniper & Co.', sales: { amount: 1842000 } })
     expect(perf?.summary).toMatch(/^Juniper & Co\. sold the most last month \(\$18,420\.00\)\./)
     expect(perf?.note).toContain('Totals only')
-    const usage = (await run<{ reportUsage: { summary: string; rows: unknown[]; meters: { aiPrompts: number } } }>(q.usage, reader)).data?.reportUsage
+    const usage = (await run<{ reportUsage: { summary: string; rows: unknown[]; truncated: boolean; meters: { aiPrompts: number } } }>(q.usage, reader)).data?.reportUsage
     expect(usage?.summary).toMatch(/^\d+ stores? (is|are) at 80% or more of a limit\. AI prompts used this month: [\d,]+; 'Publish now' presses: [\d,]+\.$/)
+    expect(usage?.truncated).toBe(Number(/^\d+/.exec(usage?.summary ?? '')?.[0]) > (usage?.rows.length ?? 0))
     const setup = (await run<{ reportSetupHealth: { summary: string } }>(q.setup, reader)).data?.reportSetupHealth
     expect(setup?.summary).toMatch(/(A new store is ready in \d+ min \d+ s on average\.|No store finished setting up in the last 30 days\.) \d+ setups? (is|are) stuck and \d+ custom domains? (is|are) waiting for DNS\.$/)
   })
@@ -119,7 +120,14 @@ describe('edges', () => {
         select j.store_id from store_sales_month j join store_sales_month a on a.store_id = j.store_id and a.month = '2026-08-01' join store s on s.id = j.store_id
         where s.partner_id = ${ids.ns} and j.month = '2026-07-01' and j.amount > 0 and a.amount >= j.amount * 0.97 limit 1) returning store_id`
     expect(quiet).toBeDefined()
-    expect(count((await run<{ reportStorePerformance: { summary: string } }>(q.performance, reader)).data?.reportStorePerformance.summary ?? '')).toBe(count(before) + 1)
+    type Falling = { reportStorePerformance: { summary: string; rows: { storeId: string }[]; declining: { storeId: string }[]; decliningTruncated: boolean } }
+    const after = (await run<Falling>(q.performance, reader)).data?.reportStorePerformance
+    expect(count(after?.summary ?? '')).toBe(count(before) + 1)
+    // The Declining list is its own query: it names the store with no sales row, which the top-sellers list can't.
+    expect(after?.rows.map((r) => r.storeId)).not.toContain(quiet?.store_id)
+    expect(after?.declining.map((r) => r.storeId)).toContain(quiet?.store_id)
+    expect(after?.declining).toHaveLength(count(after?.summary ?? ''))
+    expect(after?.decliningTruncated).toBe(false)
     const [pair] = await db.sql<{ store_id: string }[]>`
       select j.store_id from store_sales_month j join store_sales_month a on a.store_id = j.store_id and a.month = '2026-08-01' join store s on s.id = j.store_id
       where s.partner_id = ${ids.ns} and j.month = '2026-07-01' limit 1`

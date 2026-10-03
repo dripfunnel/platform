@@ -8,6 +8,7 @@ import { selectContractTerms, selectCurrentVersions } from '#db/scoped/partnerPl
 import {
   countDecliningStores,
   countSetupProblems,
+  selectDecliningStores,
   selectGrowth,
   selectMrr,
   selectPaymentOutcomes,
@@ -19,6 +20,7 @@ import {
   selectStoresPerPlan,
   sumMeters,
   type ReportScope,
+  type StoreSalesRow,
 } from '#db/scoped/reports'
 import { selectNearestLimits } from '#db/scoped/stores'
 import { partnerEntry } from '#saas/activity/index'
@@ -169,13 +171,15 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
     case 'storePerformance': {
       const sales = await selectStoreSales(tx, scope, lastMonth, monthStart(now, 2), listMax + 1)
       const decliningCount = await countDecliningStores(tx, scope, lastMonth, monthStart(now, 2), decline)
-      const rows = sales.slice(0, listMax).map((s) => {
+      const falling = await selectDecliningStores(tx, scope, lastMonth, monthStart(now, 2), decline, listMax + 1)
+      const salesRow = (s: StoreSalesRow) => {
         const amount = exact(s.amount)
         const previous = s.previous === null ? null : exact(s.previous)
         return { storeId: s.store_id, store: s.store_name, plan: s.plan, sales: { amount, currency: s.currency }, orders: s.orders, changeBps: previous ? bps(amount - previous, previous) : null, declining: previous !== null && amount < previous * decline }
-      })
+      }
+      const rows = sales.slice(0, listMax).map(salesRow)
       const top = rows[0]
-      const declining = rows.filter((r) => r.declining)
+      const declining = falling.slice(0, listMax).map(salesRow)
       const fresh = rows.length === 0
       return {
         tab,
@@ -188,6 +192,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
         rows,
         truncated: sales.length > listMax,
         declining,
+        decliningTruncated: falling.length > listMax,
       }
     }
 
@@ -202,6 +207,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
         currency: null,
         rows: near.map((n) => ({ storeId: n.store_id, store: n.store_name, limit: n.key, used: n.used, cap: n.cap, percentBps: n.percent * 100 })),
         meters,
+        truncated: total > near.length,
       }
     }
 

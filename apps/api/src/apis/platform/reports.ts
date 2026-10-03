@@ -107,6 +107,7 @@ const PerformanceType = builder.objectRef<Performance>('StorePerformanceReport')
     rows: t.field({ type: [SalesRow], resolve: (r) => r.rows }),
     declining: t.field({ type: [SalesRow], resolve: (r) => r.declining }),
     truncated: t.exposeBoolean('truncated'),
+    decliningTruncated: t.exposeBoolean('decliningTruncated'),
   }),
 })
 
@@ -128,6 +129,7 @@ const UsageType = builder.objectRef<Usage>('UsageReport').implement({
     summary: t.exposeString('summary'),
     rows: t.field({ type: [UsageRow], resolve: (r) => r.rows }),
     meters: t.field({ type: Meters, resolve: (r) => r.meters }),
+    truncated: t.exposeBoolean('truncated'),
   }),
 })
 

@@ -901,6 +901,7 @@ type StorePeopleCount {
 
 type StorePerformanceReport {
   declining: [StoreSalesRow!]
+  decliningTruncated: Boolean
   fresh: Boolean
   note: String
   rows: [StoreSalesRow!]
@@ -1038,6 +1039,7 @@ type UsageReport {
   meters: UsageMeters
   rows: [UsageReportRow!]
   summary: String
+  truncated: Boolean
 }
 
 type UsageReportRow {
