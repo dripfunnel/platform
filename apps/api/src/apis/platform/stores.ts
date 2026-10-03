@@ -1,16 +1,11 @@
 import { GraphQLError } from 'graphql'
-import { storeAudit, type ActionPermission, type PartnerStoresService, type StoreDetailDto, type StorePageDto, type StoreRowDto, type StoreState } from '#saas/partnerStores/index'
-import { unauthenticated } from '../graphql/scope'
+import { storeAudit, type ActionPermission, type StoreDetailDto, type StorePageDto, type StoreRowDto, type StoreState } from '#saas/partnerStores/index'
 import { builder } from './builder'
 import { MoneyType } from './money'
+import { partnerRead, present, signedIn } from './fields'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6; card #159). Thin: saas/partnerStores
 // decides; account level only, so no type here reaches an order, a customer or a product.
-
-const service = (stores: PartnerStoresService | null): PartnerStoresService => {
-  if (!stores) throw unauthenticated()
-  return stores
-}
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null)
 
@@ -183,23 +178,21 @@ const BillingResult = builder.objectRef<{ ok: boolean; reason?: string }>('Store
   fields: (t) => ({ ok: t.exposeBoolean('ok'), reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }) }),
 })
 
-const read = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
 const invalid = () => new GraphQLError('That filter or page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
 // GraphQL gives an absent optional field as null; the filter schema expects it absent.
-const present = (o: Record<string, unknown> | null | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v !== null && v !== undefined))
 
 builder.queryFields((t) => ({
   stores: t.field({
     type: StorePage,
     args: { filter: t.arg({ type: FilterInput }), after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
-    extensions: { access: read },
+    extensions: { access: partnerRead },
     resolve: async (_, { filter, after, before, first }, ctx) => {
-      const page = await service(ctx.stores).stores(present(filter), { after: after ?? undefined, before: before ?? undefined, first: first ?? undefined })
+      const page = await signedIn(ctx.stores).stores(present(filter), { after: after ?? undefined, before: before ?? undefined, first: first ?? undefined })
       if (!page) throw invalid()
       return page
     },
   }),
-  store: t.field({ type: StoreDetailType, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: read }, resolve: (_, { id }, ctx) => service(ctx.stores).store(String(id)) }),
+  store: t.field({ type: StoreDetailType, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: partnerRead }, resolve: (_, { id }, ctx) => signedIn(ctx.stores).store(String(id)) }),
 }))
 
 builder.mutationFields((t) => ({
@@ -207,6 +200,6 @@ builder.mutationFields((t) => ({
     type: BillingResult,
     args: { id: t.arg.id({ required: true }), status: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.billingStatus', target: 'none', audit: storeAudit.setStoreBillingStatus } },
-    resolve: (_, { id, status }, ctx) => service(ctx.stores).setStoreBillingStatus(String(id), status),
+    resolve: (_, { id, status }, ctx) => signedIn(ctx.stores).setStoreBillingStatus(String(id), status),
   }),
 }))

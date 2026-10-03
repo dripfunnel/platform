@@ -11,6 +11,7 @@ import './dashboard'
 import './domains'
 import './activity'
 import './settings'
+import './reports'
 
 export type { PlatformContext } from './access'
 

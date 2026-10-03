@@ -201,6 +201,8 @@ every other tenant read.
   section's policy decides what it holds. It caps at 10,000 entries (saying when it was cut),
   has no IP or user-agent column, and its CSV is readable for 1 hour after it's built, then deleted
   (the request itself stays in the log as `activity.exported`).
+  A **report** export (built on #200) holds no log entries, only account-level totals, so every
+  partner role may ask for one (ACCESS §5.3 `exports`); it is logged as `report.exported`.
 
 ---
 

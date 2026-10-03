@@ -1,16 +1,11 @@
 import { GraphQLError } from 'graphql'
-import { unauthenticated } from '../graphql/scope'
-import { planAudit, type Margin, type PartnerPlansService, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
+import { planAudit, type Margin, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
 import { builder } from './builder'
 import { MoneyType } from './money'
+import { partnerRead, signedIn } from './fields'
 
 // Plans on the Platform API (ui/platform/FIRST-RELEASE.md §7; card #161). Thin: saas/partnerPlans
 // decides, and the scope is always the session's partner.
-
-const service = (plans: PartnerPlansService | null): PartnerPlansService => {
-  if (!plans) throw unauthenticated()
-  return plans
-}
 
 
 const MarginType = builder.objectRef<Margin>('PlanMargin').implement({
@@ -164,7 +159,6 @@ const RetireInputType = builder.inputType('RetirePlanInput', {
   fields: (t) => ({ keep: t.boolean({ required: true }), moveTo: t.id(), on: t.string() }),
 })
 
-const read = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
 const write = (audit: string, permission: 'plans.write' | 'plans.price' = 'plans.write') => ({ api: 'platform', scope: 'partner', permission, target: 'none', audit }) as const
 // GraphQL gives absent optional fields as null; the service's zod schemas expect them absent.
 const strip = <T extends Record<string, unknown>>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined))
@@ -173,9 +167,9 @@ builder.queryFields((t) => ({
   plans: t.field({
     type: PlansPageType,
     args: { after: t.arg.string(), first: t.arg.int() },
-    extensions: { access: read },
+    extensions: { access: partnerRead },
     resolve: async (_, { after, first }, ctx) => {
-      const page = await service(ctx.plans).plans(after ?? null, first ?? 25)
+      const page = await signedIn(ctx.plans).plans(after ?? null, first ?? 25)
       if (!page) throw new GraphQLError('That page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
       return page
     },
@@ -184,15 +178,15 @@ builder.queryFields((t) => ({
     type: EditorType,
     nullable: true,
     args: { id: t.arg.id() },
-    extensions: { access: read },
-    resolve: (_, { id }, ctx) => service(ctx.plans).planEditor(id === null || id === undefined ? null : String(id)),
+    extensions: { access: partnerRead },
+    resolve: (_, { id }, ctx) => signedIn(ctx.plans).planEditor(id === null || id === undefined ? null : String(id)),
   }),
   quotePlanPrices: t.field({
     type: [PriceType],
     args: { id: t.arg.id(), prices: t.arg({ type: [PriceInput], required: true }) },
-    extensions: { access: read },
+    extensions: { access: partnerRead },
     resolve: async (_, { id, prices }, ctx) => {
-      const quote = await service(ctx.plans).quotePlanPrices(
+      const quote = await signedIn(ctx.plans).quotePlanPrices(
         id === null || id === undefined ? null : String(id),
         prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })),
       )
@@ -207,7 +201,7 @@ builder.mutationFields((t) => ({
     type: ResultType,
     args: { input: t.arg({ type: PlanInputType, required: true }) },
     extensions: { access: write(planAudit.createPlan) },
-    resolve: (_, { input }, ctx) => service(ctx.plans).createPlan({ ...input, prices: input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })) }),
+    resolve: (_, { input }, ctx) => signedIn(ctx.plans).createPlan({ ...input, prices: input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })) }),
   }),
   // Finance holds plans.price only; the service lets it change prices and nothing else.
   updatePlan: t.field({
@@ -215,7 +209,7 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }), input: t.arg({ type: PlanInputType, required: true }), applyTo: t.arg.string() },
     extensions: { access: write(planAudit.updatePlan, 'plans.price') },
     resolve: (_, { id, input, applyTo }, ctx) =>
-      service(ctx.plans).updatePlan(
+      signedIn(ctx.plans).updatePlan(
         String(id),
         { ...input, prices: input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })) },
         applyTo === 'new' || applyTo === 'renewal' ? applyTo : null,
@@ -225,12 +219,12 @@ builder.mutationFields((t) => ({
     type: ResultType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: write(planAudit.makePlanLive) },
-    resolve: (_, { id }, ctx) => service(ctx.plans).makePlanLive(String(id)),
+    resolve: (_, { id }, ctx) => signedIn(ctx.plans).makePlanLive(String(id)),
   }),
   retirePlan: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), input: t.arg({ type: RetireInputType, required: true }) },
     extensions: { access: write(planAudit.retirePlan) },
-    resolve: (_, { id, input }, ctx) => service(ctx.plans).retirePlan(String(id), strip(input)),
+    resolve: (_, { id, input }, ctx) => signedIn(ctx.plans).retirePlan(String(id), strip(input)),
   }),
 }))

@@ -272,7 +272,7 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
 
 ### 2.6 Export jobs (built on #198)
 
-`export_job` (migration `0021`): partner, `kind` (`activity`), the filter as asked, `state`
+`export_job` (migration `0021`; `report` added by `0023`, #200): partner, `kind` (`activity`, `report`), the filter as asked, `state`
 (queued, done or failed), the row count and whether it was cut, the CSV, who asked, and when it was
 created, finished and expires. A partner inserts and reads its own; the `export.activity` job
 runs in that partner's scope and writes the result, or `failed` after the outbox's last attempt

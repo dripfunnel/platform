@@ -1,16 +1,11 @@
 import { GraphQLError } from 'graphql'
-import type { DashboardDto, PartnerDashboardService } from '#saas/partnerDashboard/index'
-import { unauthenticated } from '../graphql/scope'
+import type { DashboardDto } from '#saas/partnerDashboard/index'
 import { builder } from './builder'
 import { MoneyType } from './money'
+import { signedIn } from './fields'
 
 // The partner Dashboard (ui/platform/FIRST-RELEASE.md §5; card #163). Thin: saas/partnerDashboard
 // counts and words everything.
-
-const service = (dashboard: PartnerDashboardService | null): PartnerDashboardService => {
-  if (!dashboard) throw unauthenticated()
-  return dashboard
-}
 
 type Attention = DashboardDto['attention'][number]
 type Near = DashboardDto['usage']['stores'][number]
@@ -104,7 +99,7 @@ builder.queryFields((t) => ({
     args: { range: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } },
     resolve: async (_, { range }, ctx) => {
-      const data = await service(ctx.dashboard).dashboard(range)
+      const data = await signedIn(ctx.dashboard).dashboard(range)
       if (!data) throw new GraphQLError('That range does not work.', { extensions: { code: 'INVALID_INPUT' } })
       return data
     },

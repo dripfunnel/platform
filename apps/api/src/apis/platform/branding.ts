@@ -1,15 +1,10 @@
-import { brandingAudit, type BrandingDto, type BrandingInput, type PartnerBrandingService, type PublishResult } from '#saas/partnerBranding/index'
+import { brandingAudit, type BrandingDto, type BrandingInput, type PublishResult } from '#saas/partnerBranding/index'
 import type { ContrastReport } from '#saas/partnerBranding/index'
-import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
+import { partnerRead, signedIn } from './fields'
 
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162). Thin: saas/partnerBranding
 // decides, and the scope is always the session's partner.
-
-const service = (branding: PartnerBrandingService | null): PartnerBrandingService => {
-  if (!branding) throw unauthenticated()
-  return branding
-}
 
 const Files = builder.objectRef<BrandingInput['look']['files']>('BrandFiles').implement({
   fields: (t) => ({ logoLight: t.exposeString('logoLight'), logoDark: t.exposeString('logoDark'), mark: t.exposeString('mark'), favicon: t.exposeString('favicon') }),
@@ -106,16 +101,15 @@ const BrandingInputType = builder.inputType('BrandingInput', {
   fields: (t) => ({ look: t.field({ type: LookInput, required: true }), words: t.field({ type: WordsInput, required: true }) }),
 })
 
-const read = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
 
 builder.queryFields((t) => ({
-  branding: t.field({ type: BrandingType, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx.branding).branding() }),
+  branding: t.field({ type: BrandingType, nullable: true, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.branding).branding() }),
   checkContrast: t.field({
     type: Contrast,
     nullable: true,
     args: { primary: t.arg.string({ required: true }), accent: t.arg.string({ required: true }) },
-    extensions: { access: read },
-    resolve: (_, { primary, accent }, ctx) => service(ctx.branding).checkContrast(primary, accent),
+    extensions: { access: partnerRead },
+    resolve: (_, { primary, accent }, ctx) => signedIn(ctx.branding).checkContrast(primary, accent),
   }),
 }))
 
@@ -124,6 +118,6 @@ builder.mutationFields((t) => ({
     type: Result,
     args: { input: t.arg({ type: BrandingInputType, required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'branding.write', target: 'none', audit: brandingAudit.publishBranding } },
-    resolve: (_, { input }, ctx) => service(ctx.branding).publishBranding(input),
+    resolve: (_, { input }, ctx) => signedIn(ctx.branding).publishBranding(input),
   }),
 }))

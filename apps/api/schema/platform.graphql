@@ -219,6 +219,22 @@ type GoLiveChecks {
   testSignup: Boolean
 }
 
+type GrowthReport {
+  bars: [ReportCountBar!]
+  fresh: Boolean
+  rows: [GrowthRow!]
+  summary: String
+}
+
+type GrowthRow {
+  churned: Int
+  month: String
+  netStores: Int
+  newStores: Int
+  signups: Int
+  trialToPaidBps: Int
+}
+
 type Me {
   email: String
   id: ID
@@ -259,6 +275,12 @@ input MoneyInput {
   currency: String!
 }
 
+type MrrRow {
+  amount: Money
+  approximate: Boolean
+  plan: String
+}
+
 type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
@@ -266,6 +288,7 @@ type Mutation {
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
   exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
+  exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
   makePlanLive(id: ID!): PlanResult
@@ -484,6 +507,11 @@ type PartnerStoreRow {
   storefront: String
 }
 
+type PaymentOutcomes {
+  failed: Int
+  recovered: Int
+}
+
 type Plan {
   entitlements: PlanEntitlements
   row: PlanRow
@@ -497,6 +525,12 @@ type PlanCeilings {
   publish: Int
   staff: Int
   suppliers: Int
+}
+
+type PlanChangeRow {
+  from: String
+  stores: Int
+  to: String
 }
 
 type PlanEditor {
@@ -596,6 +630,11 @@ type PlanRow {
   trialDays: Int
 }
 
+type PlanStoresRow {
+  plan: String
+  stores: Int
+}
+
 type PlansPage {
   chargedBy: String
   create: PlanPermission
@@ -606,6 +645,14 @@ type PlansPage {
 type PlansPageInfo {
   endCursor: String
   hasNextPage: Boolean
+}
+
+type PlansReport {
+  bars: [ReportCountBar!]
+  changes: [PlanChangeRow!]
+  fresh: Boolean
+  rows: [PlanStoresRow!]
+  summary: String
 }
 
 type PoweredByRule {
@@ -641,10 +688,48 @@ type Query {
   planEditor(id: ID): PlanEditor
   plans(after: String, first: Int): PlansPage
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
+  reportExport(id: ID!): ReportExportJob
+  reportGrowth(filter: ReportFilterInput): GrowthReport
+  reportPlans(filter: ReportFilterInput): PlansReport
+  reportRevenue(filter: ReportFilterInput): RevenueReport
+  reportSetupHealth(filter: ReportFilterInput): SetupHealthReport
+  reportStorePerformance(filter: ReportFilterInput): StorePerformanceReport
+  reportUsage(filter: ReportFilterInput): UsageReport
   search(query: String!): [StoreSearchMatch!]
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
   team(after: String, before: String, first: Int): TeamPage
+}
+
+type ReportCountBar {
+  count: Int
+  label: String
+}
+
+type ReportExportJob {
+  csv: String
+  expiresAt: String
+  id: ID
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type ReportExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
+}
+
+input ReportFilterInput {
+  country: String
+  plan: ID
+  range: String
+}
+
+type ReportMoneyBar {
+  amount: Money
+  label: String
 }
 
 input RetirePlanInput {
@@ -656,6 +741,40 @@ input RetirePlanInput {
 type RetireTarget {
   id: ID
   name: String
+}
+
+type RevenueReport {
+  bars: [ReportMoneyBar!]
+  currency: String
+  currencyNote: String
+  fresh: Boolean
+  mrr: [MrrRow!]
+  payments: PaymentOutcomes
+  rows: [RevenueRow!]
+  summary: String
+}
+
+type RevenueRow {
+  collected: Money
+  fee: Money
+  month: String
+  payout: Money
+}
+
+type SetupHealthReport {
+  failed: Int
+  medianSeconds: Int
+  rows: [SetupProblemRow!]
+  summary: String
+  truncated: Boolean
+}
+
+type SetupProblemRow {
+  detail: String
+  kind: String
+  since: String
+  store: String
+  storeId: ID
 }
 
 type SetupSessionNotice {
@@ -785,6 +904,16 @@ type StorePeopleCount {
   suppliers: Int
 }
 
+type StorePerformanceReport {
+  declining: [StoreSalesRow!]
+  decliningTruncated: Boolean
+  fresh: Boolean
+  note: String
+  rows: [StoreSalesRow!]
+  summary: String
+  truncated: Boolean
+}
+
 type StorePerson {
   email: String
   id: ID
@@ -804,6 +933,16 @@ type StoreProration {
   amount: Int
   currency: String
   kind: String
+}
+
+type StoreSalesRow {
+  changeBps: Float
+  declining: Boolean
+  orders: Int
+  plan: String
+  sales: Money
+  store: String
+  storeId: ID
 }
 
 type StoreSearchMatch {
@@ -894,4 +1033,25 @@ type TeamPageInfo {
 type TeamResult {
   ok: Boolean
   reason: String
+}
+
+type UsageMeters {
+  aiPrompts: Int
+  publishNow: Int
+}
+
+type UsageReport {
+  meters: UsageMeters
+  rows: [UsageReportRow!]
+  summary: String
+  truncated: Boolean
+}
+
+type UsageReportRow {
+  cap: Int
+  limit: String
+  percentBps: Int
+  store: String
+  storeId: ID
+  used: Int
 }

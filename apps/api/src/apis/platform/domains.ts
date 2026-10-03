@@ -1,15 +1,10 @@
 import { GraphQLError } from 'graphql'
 import { domainAudit, type PartnerDomainsService } from '#saas/partnerDomains/index'
-import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
+import { signedIn } from './fields'
 
 // Domains on the Platform API (ui/platform/FIRST-RELEASE.md §9; card #197). Thin:
 // saas/partnerDomains decides, the session's partner is the scope.
-
-const service = (domains: PartnerDomainsService | null): PartnerDomainsService => {
-  if (!domains) throw unauthenticated()
-  return domains
-}
 
 type Overview = Awaited<ReturnType<PartnerDomainsService['partnerDomains']>>
 type Address = Overview['addresses'][number]
@@ -86,14 +81,14 @@ builder.queryFields((t) => ({
   partnerDomains: t.field({
     type: OverviewType,
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } },
-    resolve: (_, __, ctx) => service(ctx.domains).partnerDomains(),
+    resolve: (_, __, ctx) => signedIn(ctx.domains).partnerDomains(),
   }),
   merchantDomains: t.field({
     type: MerchantPageType,
     args: { after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } },
     resolve: async (_, { after, before, first }, ctx) => {
-      const page = await service(ctx.domains).merchantDomains({ after, before, first })
+      const page = await signedIn(ctx.domains).merchantDomains({ after, before, first })
       if (!page) throw new GraphQLError('That page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
       return page
     },
@@ -105,18 +100,18 @@ builder.mutationFields((t) => ({
     type: OutcomeType,
     args: { kind: t.arg.string({ required: true }), host: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.write', target: 'none', audit: domainAudit.addPartnerDomain } },
-    resolve: (_, { kind, host }, ctx) => service(ctx.domains).addPartnerDomain({ kind, host }),
+    resolve: (_, { kind, host }, ctx) => signedIn(ctx.domains).addPartnerDomain({ kind, host }),
   }),
   recheckPartnerDomain: t.field({
     type: OutcomeType,
     args: { kind: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.recheck', target: 'none', audit: domainAudit.recheckPartnerDomain } },
-    resolve: (_, { kind }, ctx) => service(ctx.domains).recheckPartnerDomain(kind),
+    resolve: (_, { kind }, ctx) => signedIn(ctx.domains).recheckPartnerDomain(kind),
   }),
   recheckMerchantDomain: t.field({
     type: OutcomeType,
     args: { storeId: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.recheck', target: 'none', audit: domainAudit.recheckMerchantDomain } },
-    resolve: (_, { storeId }, ctx) => service(ctx.domains).recheckMerchantDomain(String(storeId)),
+    resolve: (_, { storeId }, ctx) => signedIn(ctx.domains).recheckMerchantDomain(String(storeId)),
   }),
 }))
