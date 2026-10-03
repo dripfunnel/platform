@@ -130,6 +130,11 @@ begin
   if new.amount is not null and ceiling is not null and new.amount > ceiling then
     raise exception 'plan_entitlement: % above the ceiling of %', new.key, ceiling using errcode = 'check_violation';
   end if;
+  -- The contract decides whether a plan may remove "Powered by"; no contract means it may not.
+  if new.key = 'powered_by_removal' and new.enabled
+     and not coalesce((select powered_by_removable from partner_contract where partner_id = new.partner_id), false) then
+    raise exception 'plan_entitlement: the contract keeps "Powered by" on' using errcode = 'check_violation';
+  end if;
   return new;
 end
 $$;
@@ -137,11 +142,31 @@ $$;
 create trigger plan_entitlement_ceiling before insert on plan_entitlement
 for each row execute function plan_entitlement_within_ceiling();
 
+-- A request moves a plan's version only forward by one, with the version written beside it
+-- (the deferred key), and its trial only with a new version, so the current version can
+-- neither be rolled back nor disagree with its row (SAAS §6.3).
+create function plan_version_pointer_guard() returns trigger
+language plpgsql
+as $$
+begin
+  if current_user in ('app_request', 'app_partner', 'app_platform') and (
+    (new.version is distinct from old.version and new.version <> old.version + 1)
+    or (new.trial_days is distinct from old.trial_days and new.version = old.version)
+  ) then
+    raise exception 'plan: the version and trial change only by writing a new version' using errcode = 'check_violation';
+  end if;
+  return new;
+end
+$$;
+
+create trigger plan_version_pointer_guard before update of version, trial_days on plan
+for each row execute function plan_version_pointer_guard();
+
 create trigger plan_first_version after insert on plan
 for each row execute function plan_first_version();
 
 grant insert on plan_version to app_definer;
-grant select on plan_ceiling to app_definer;
+grant select on plan_ceiling, partner_contract to app_definer;
 alter function plan_first_version() owner to app_definer;
 alter function plan_entitlement_within_ceiling() owner to app_definer;
 revoke all on function plan_first_version(), plan_entitlement_within_ceiling() from public;
@@ -157,7 +182,9 @@ create index plan_fee_partner_idx on plan_fee (partner_id);
 grant select, insert on plan_version, plan_price, plan_entitlement to app_partner, app_platform;
 grant select on plan_fee, plan_ceiling, partner_contract, partner_contract_rate to app_partner;
 grant select, insert, update on plan_fee, plan_ceiling, partner_contract, partner_contract_rate to app_platform;
-grant select on plan_version, plan_price, plan_entitlement to app_request;
+-- Who wrote a version is the partner's business, not its merchants' (LOGGING §6).
+grant select (plan_id, partner_id, version, trial_days, created_at) on plan_version to app_request;
+grant select on plan_price, plan_entitlement to app_request;
 grant select on plan_version, plan_price, plan_entitlement, plan_fee, plan_ceiling, partner_contract, partner_contract_rate to app_system;
 
 do $$

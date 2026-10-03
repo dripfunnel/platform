@@ -88,6 +88,23 @@ describe('versions', () => {
     }
   })
 
+  it('removes "Powered by" only where the contract allows it', async () => {
+    const entitlements = (await as(partner(ids.kl), (tx) => selectPlanVersion(tx, ids.basis, 1)))?.entitlements as Entitlements
+    await expect(
+      as(partner(ids.kl), (tx) => insertPlanVersion(tx, { planId: ids.basis, partnerId: ids.kl, trialDays: 14, prices: [], entitlements: { ...entitlements, powered_by_removal: true }, by: { kind: 'partner_user', label: 'x' } })),
+    ).rejects.toThrow(/contract keeps "Powered by" on/)
+    const growth = (await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1)))?.entitlements as Entitlements
+    await expect(
+      as(partner(ids.ns), (tx) => insertPlanVersion(tx, { planId: ids.growth, partnerId: ids.ns, trialDays: 14, prices: [], entitlements: { ...growth, powered_by_removal: true }, by: { kind: 'partner_user', label: 'x' } })),
+    ).resolves.toBeGreaterThan(1)
+  })
+
+  it('lets no request roll the current version back or change the trial without a version', async () => {
+    await expect(as(partner(ids.ns), (tx) => tx`update plan set version = 1 where id = ${ids.growth}`)).rejects.toThrow(/change only by writing a new version/)
+    await expect(as(partner(ids.ns), (tx) => tx`update plan set trial_days = 90 where id = ${ids.growth}`)).rejects.toThrow(/change only by writing a new version/)
+    await expect(as(staff, (tx) => tx`update plan set version = version + 5 where id = ${ids.growth}`)).rejects.toThrow(/change only by writing a new version/)
+  })
+
   it('holds each entitlement to its kind: a switch has only enabled, a limit only amount', async () => {
     const bad = async (key: string, enabled: boolean | null, amount: number | null) =>
       db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled, amount) values (${ids.growth}, ${ids.ns}, 1, ${key}, ${enabled}, ${amount})`
@@ -151,6 +168,7 @@ describe('who reads what', () => {
       expect({ [table]: plans }).toEqual({ [table]: [{ plan_id: ids.growth }] })
     }
     await expect(as(merchant(ids.ns, ids.store), (tx) => tx`select amount from plan_fee`)).rejects.toThrow(/permission denied/i)
+    await expect(as(merchant(ids.ns, ids.store), (tx) => tx`select created_by_label from plan_version`)).rejects.toThrow(/permission denied/i)
   })
 
   it('lets staff read every partner’s catalogue', async () => {

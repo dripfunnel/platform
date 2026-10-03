@@ -150,7 +150,11 @@ partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, 
   plan already built a version 1 with its trial and no prices. Name, description and status
   stay on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
 - **Ceilings are enforced in the database**: a trigger refuses any `plan_entitlement` amount
-  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1). A check holds each key to
+  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1), and `powered_by_removal`
+  switched on unless the partner's contract allows it (no contract: not allowed). Another
+  refuses any request role moving `plan.version` other than forward by one, or changing
+  `plan.trial_days` without a new version. A merchant reads `plan_version` by column, never
+  `created_by_*`. A check holds each key to
   its kind: a switch has `enabled` and no `amount`, a limit or allowance the reverse.
 - **The entitlements are authoritative.** `plan.max_products` and `max_staff` (#32) are what
   the admin console's plan list still reads; they stop being written once #161 serves the
