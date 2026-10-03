@@ -51,12 +51,20 @@
       "staff-read-only": "Read-only"
     },
     "environment": {
-      "production": {
+      "prod": {
         "name": "Production",
         "warning": "Changes here reach real partners, stores and shoppers"
       },
-      "staging": {
-        "name": "Staging",
+      "dev": {
+        "name": "Dev",
+        "warning": "Test data. Nothing here reaches real merchants"
+      },
+      "feature": {
+        "name": "Feature",
+        "warning": "Test data. Nothing here reaches real merchants"
+      },
+      "local": {
+        "name": "Local",
         "warning": "Test data. Nothing here reaches real merchants"
       }
     },

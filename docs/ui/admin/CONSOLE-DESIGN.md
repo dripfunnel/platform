@@ -313,7 +313,7 @@ marker on non-production hosts only (decided 2026-10-01). First release:
   refused with no detail.
 - A2. Session timeout, re-authentication before dangerous actions (suspend, refund, delete,
   sign in as, change a price).
-- A3. An always-visible **environment marker** (Production in red, Staging) and the signed-in
+- A3. An always-visible **environment marker** (Production in red; Dev, Feature or Local in grey, #65) and the signed-in
   staff member's name and role.
 - A4. Staff with no access to a section see it disabled with the reason (§4).
 
@@ -657,7 +657,7 @@ USERS-AND-DOMAINS §4); how partners take part in personal-data requests is *(as
   ask the staff member to type the name for the most dangerous ones.
 - **Second approval pending**: who asked, who can approve, expiry.
 - **Undo**: where an action is reversible, a short undo; where it is not, say so before.
-- **Environment**: Production vs Staging, always visible.
+- **Environment**: Production, Dev, Feature or Local, from the hostname, always visible (#65).
 - **Brand context**: the current brand filter is always visible, and never silently kept
   when opening a store from another brand.
 
