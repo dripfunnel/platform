@@ -1,5 +1,5 @@
 import { brandingAudit, type BrandingDto, type BrandingInput, type PartnerBrandingService, type PublishResult } from '#saas/partnerBranding/index'
-import type { ContrastReport } from '#saas/partnerBranding/contrast'
+import type { ContrastReport } from '#saas/partnerBranding/index'
 import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
 

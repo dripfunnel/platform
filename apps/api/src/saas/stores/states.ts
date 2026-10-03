@@ -72,3 +72,10 @@ export const extendTrial = async (tx: ScopedSql, store: StoreRow, trialEndsAt: D
   await updateStoreStatus(tx, store.id, { status: 'trial', trialEndsAt })
   return { ok: true, status: 'trial' }
 }
+
+const dayMs = 24 * 60 * 60 * 1000
+
+// The day counts both consoles show, as the prototypes count them: a trial's days left round up,
+// days past due round down.
+export const trialDaysLeft = (endsAt: Date, now: Date): number => Math.max(0, Math.ceil((endsAt.getTime() - now.getTime()) / dayMs))
+export const daysPastDue = (since: Date, now: Date): number => Math.max(0, Math.floor((now.getTime() - since.getTime()) / dayMs))

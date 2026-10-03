@@ -4,6 +4,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { mirrorPartnerLook, publishBrandingDraft, saveBrandingDraft, selectBranding, type BrandingFields, type BrandingRow } from '#db/scoped/branding'
+import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
 import { selectShellFacts } from '#db/scoped/partnerConsole'
@@ -13,6 +14,8 @@ import { contrastReport, type ContrastReport } from './contrast'
 
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162): the look and the
 // words, the contrast computed here, and a publish that changes every merchant's portal.
+
+export type { ContrastReport } from './contrast'
 
 export const brandFonts = ['Nunito', 'Source Sans 3', 'Manrope', 'Lora', 'DM Sans'] as const
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/)
@@ -169,21 +172,8 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
   const checkContrast = (primary: string, accent: string): ContrastReport | null =>
     hex.safeParse(primary).success && hex.safeParse(accent).success ? contrastReport(primary, accent) : null
 
-  const entry = (publishedAt: Date): ActivityEntry => ({
-    category: 'write',
-    action: brandingAudit.publishBranding,
-    result: 'success',
-    actorKind: 'partner_user',
-    actorId: caller.user.id,
-    actorLabel: `${caller.user.name} <${caller.user.email}>`,
-    partnerId,
-    target: { type: 'partner', id: partnerId, label: caller.partner.name },
-    reason: null,
-    api: 'platform',
-    visibility: 'partner',
-    ...facts,
-    occurredAt: publishedAt,
-  })
+  const entry = (publishedAt: Date): ActivityEntry =>
+    partnerEntry(caller, facts)({ action: brandingAudit.publishBranding, target: { type: 'partner', id: partnerId, label: caller.partner.name }, reason: null, occurredAt: publishedAt })
 
   const publishBranding = async (raw: unknown): Promise<PublishResult> => {
     if (!permission().allowed) return { ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' }

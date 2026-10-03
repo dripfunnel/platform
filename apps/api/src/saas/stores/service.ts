@@ -11,12 +11,9 @@ import { selectActivity } from '#db/scoped/activity'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectPartnerDomainsOf } from '#db/scoped/partners'
 import {
-  insertStoreInvitation,
   insertStoreNote,
-  revokeStoreInvitation,
   selectCustomDomains,
   selectJobDetail,
-  selectOpenStoreInvitation,
   selectPartnerNames,
   selectStoreCounts,
   selectStoreForUpdate,
@@ -29,16 +26,16 @@ import {
 } from '#db/scoped/stores'
 import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { setupStateOf, stuckAfterMinutes, type SetupState } from '#saas/provisioning/stuck'
-import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/actions'
-import { extendTrial as extendTrialTo, transitionStore } from './states'
+import { setupStateOf, stuckAfterMinutes, type SetupState } from '#saas/provisioning/index'
+import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/index'
+import { reissueOwnerInvitation } from './invitations'
+import { daysPastDue, extendTrial as extendTrialTo, transitionStore, trialDaysLeft } from './states'
 
 // Stores on the Admin API (card #34; ui/admin/FIRST-RELEASE.md §5, §12). Every decision a
 // screen is told comes from here; every write records its entry in its transaction.
 
 export const storePageSize = 25
 export const storeNoteMaxLength = 2000
-export const storeInvitationDays = 7
 
 export const storeAudit = {
   suspendStore: 'store.suspended',
@@ -154,7 +151,7 @@ export const storeFilter = z
   })
   .strict()
 
-export type { PageRequest } from '#saas/staff/actions'
+export type { PageRequest } from '#saas/staff/index'
 
 export type Refusal = { ok: false; code: RefusalCode }
 export type Result<T = object> = ({ ok: true } & T) | Refusal
@@ -187,11 +184,11 @@ const dayMs = 24 * 60 * 60 * 1000
 const stateOf = (row: StoreRow, now: Date): StoreState => {
   switch (row.status) {
     case 'trial':
-      return { kind: 'trial', trialEndsAt: row.trial_ends_at ?? now, daysLeft: Math.max(0, Math.ceil(((row.trial_ends_at ?? now).getTime() - now.getTime()) / dayMs)) }
+      return { kind: 'trial', trialEndsAt: row.trial_ends_at ?? now, daysLeft: trialDaysLeft(row.trial_ends_at ?? now, now) }
     case 'active':
       return { kind: 'active' }
     case 'past_due':
-      return { kind: 'past_due', daysPastDue: Math.max(0, Math.floor((now.getTime() - (row.past_due_since ?? now).getTime()) / dayMs)) }
+      return { kind: 'past_due', daysPastDue: daysPastDue(row.past_due_since ?? now, now) }
     case 'suspended':
       return { kind: 'suspended', reason: row.suspended_reason ?? '', by: row.suspended_by_label ?? '', since: row.suspended_at ?? now, previous: row.suspended_previous_status ?? 'active' }
     case 'cancelled':
@@ -335,7 +332,7 @@ export const createStoresService = (deps: StoresServiceDeps) => {
   const get = async (id: string): Promise<StoreDto | null> => {
     if (!(await visible(id))) return null
     return withScope(sql, context, async (tx) => {
-      const row = await selectStoreListRow(tx, id)
+      const row = await selectStoreListRow(tx, id, now())
       if (!row) return null
       const [people, domains, notes, counts, history, shops, detail] = await Promise.all([
         selectStorePeople(tx, id),
@@ -472,20 +469,9 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     const refused = refusedBy('stores.invite.resend')
     if (refused) return refused
     return locked(id, async (tx, store): Promise<Result> => {
-      const open = await selectOpenStoreInvitation(tx, id)
-      if (!open) return { ok: false, code: 'NO_PENDING_INVITATION' }
-      const at = now()
-      // ACCESS.md §6.3: a fresh invitation; the old link stops working.
-      await revokeStoreInvitation(tx, open.id, at)
-      const invitationId = await insertStoreInvitation(tx, { storeId: id, email: open.email, role: 'owner', expiresAt: new Date(at.getTime() + storeInvitationDays * dayMs), invitedByLabel: staff.name })
-      await queueSideEffect(tx, {
-        kind: 'email',
-        idempotencyKey: `store-owner-invitation:${invitationId}`,
-        payload: { template: 'store-owner-invitation', invitationId, to: open.email, storeId: id },
-        partnerId: store.partner_id,
-        storeId: id,
-      })
-      await activity.record(tx, entry(store, storeAudit.resendStoreOwnerInvite, null, { target: { type: 'invitation', id: invitationId, label: open.email } }))
+      const reissued = await reissueOwnerInvitation(tx, store, staff.name, now())
+      if (!reissued) return { ok: false, code: 'NO_PENDING_INVITATION' }
+      await activity.record(tx, entry(store, storeAudit.resendStoreOwnerInvite, null, { target: { type: 'invitation', id: reissued.invitationId, label: reissued.email } }))
       return { ok: true }
     })
   }

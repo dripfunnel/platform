@@ -137,6 +137,8 @@ export interface StoreRow {
   last_build_at: Date | null
   last_publish_at: Date | null
   support_access_allowed: boolean
+  /** Set only by a partner that bills its merchants itself (0014). */
+  billing_status: 'active' | 'past_due' | 'suspended' | null
 }
 
 export interface CustomDomainRow {

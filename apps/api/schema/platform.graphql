@@ -81,6 +81,21 @@ type BrandingPermission {
   reason: String
 }
 
+type ChangePlanOption {
+  amount: Int
+  currency: String
+  id: ID
+  name: String
+  proration: StoreProration
+}
+
+type ChangePlanOptions {
+  nextBillingAt: String
+  ok: Boolean
+  plans: [ChangePlanOption!]
+  reason: String
+}
+
 type ContrastPair {
   key: String
   passes: Boolean
@@ -120,11 +135,20 @@ input MoneyInput {
 }
 
 type Mutation {
+  addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
+  changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   createPlan(input: PlanInput!): PlanResult
+  extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
+  removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  resendStoreOwnerInvite(id: ID!): StoreActionResult
+  restoreStore(id: ID!, reason: String!): StoreActionResult
   retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
+  retryProvisioningStep(id: ID!): StoreActionResult
+  setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
   submitForApproval: SubmitForApprovalResult
+  suspendStore(id: ID!, reason: String!): StoreActionResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
 
@@ -176,6 +200,39 @@ type PartnerState {
   setupSession: SetupSessionNotice
   state: String
   storeCount: Int
+}
+
+type PartnerStore {
+  actions: StoreActions
+  activity: [StoreActivityEntry!]
+  billing: StoreBilling
+  contacts: [StoreContact!]
+  country: String
+  more: StoreDetailMore
+  overrides: [StoreOverride!]
+  people: StorePeopleCount
+  price: StorePrice
+  records: [StoreDnsRecord!]
+  row: PartnerStoreRow
+  setup: StoreSetup
+  site: StoreSite
+  support: StoreSupport
+  trialExtensions: [StoreTrialExtension!]
+  usage: [StoreUsage!]
+}
+
+type PartnerStoreRow {
+  billingStatus: String
+  code: String
+  createdAt: String
+  domain: StoreDomain
+  id: ID
+  name: String
+  near: StoreNearLimit
+  owner: StoreOwner
+  plan: StorePlanRef
+  state: StoreState
+  storefront: String
 }
 
 type Plan {
@@ -317,6 +374,7 @@ type PublishBrandingResult {
 
 type Query {
   branding: Branding
+  changePlanOptions(storeId: ID!): ChangePlanOptions
   checkContrast(accent: String!, primary: String!): ContrastReport
   health: String
   me: Me
@@ -327,6 +385,8 @@ type Query {
   plans(after: String, first: Int): PlansPage
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
   search(query: String!): [StoreSearchMatch!]
+  store(id: ID!): PartnerStore
+  stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
 }
 
 input RetirePlanInput {
@@ -345,6 +405,154 @@ type SetupSessionNotice {
   staffName: String
 }
 
+type StoreActionPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type StoreActionResult {
+  ok: Boolean
+  overrideId: String
+  proration: StoreProration
+  reason: String
+  trialEndsAt: String
+}
+
+type StoreActions {
+  addOverride: StoreActionPermission
+  changePlan: StoreActionPermission
+  extendTrial: StoreActionPermission
+  resendInvite: StoreActionPermission
+  restore: StoreActionPermission
+  retryStep: StoreActionPermission
+  suspend: StoreActionPermission
+}
+
+type StoreActivityEntry {
+  action: String
+  at: String
+  id: ID
+  result: String
+  who: String
+}
+
+type StoreBilling {
+  cardLast4: String
+  interval: String
+  mode: String
+  nextChargeAt: String
+  partnerName: String
+}
+
+type StoreBillingStatusResult {
+  ok: Boolean
+  reason: String
+}
+
+type StoreContact {
+  email: String
+  name: String
+  role: String
+}
+
+type StoreDetailMore {
+  activity: Boolean
+  overrides: Boolean
+  people: Boolean
+  trialExtensions: Boolean
+}
+
+type StoreDnsRecord {
+  found: String
+  host: String
+  since: String
+  status: String
+  type: String
+  value: String
+}
+
+type StoreDomain {
+  custom: Boolean
+  host: String
+  status: String
+}
+
+input StoreFilterInput {
+  created: String
+  near: String
+  plan: ID
+  q: String
+  status: String
+  storefront: String
+}
+
+type StoreNearLimit {
+  limit: String
+  percent: Int
+}
+
+type StoreOverride {
+  amount: Int
+  at: String
+  by: String
+  duration: String
+  id: ID
+  limit: String
+  reason: String
+}
+
+type StoreOwner {
+  email: String
+  name: String
+}
+
+type StorePage {
+  billingMode: String
+  billingStatusPermission: StoreActionPermission
+  exportPermission: StoreActionPermission
+  items: [PartnerStoreRow!]
+  pageInfo: StorePageInfo
+  plans: [StorePlanRef!]
+}
+
+type StorePageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type StorePeopleCount {
+  count: Int
+  suppliers: Int
+}
+
+type StorePerson {
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  role: String
+  status: String
+  supplier: String
+}
+
+type StorePlanRef {
+  id: ID
+  name: String
+}
+
+type StorePrice {
+  amount: Int
+  currency: String
+}
+
+type StoreProration {
+  amount: Int
+  currency: String
+  kind: String
+}
+
 type StoreSearchMatch {
   code: String
   domain: String
@@ -352,6 +560,46 @@ type StoreSearchMatch {
   name: String
   ownerEmail: String
   status: String
+}
+
+type StoreSetup {
+  error: String
+  state: String
+  step: String
+  steps: [String!]
+}
+
+type StoreSite {
+  lastPublishAt: String
+  liveHost: String
+  previewHost: String
+}
+
+type StoreState {
+  daysLeft: Int
+  daysPastDue: Int
+  kind: String
+  reason: String
+  since: String
+  trialEndsAt: String
+}
+
+type StoreSupport {
+  allowed: Boolean
+  people: [StorePerson!]
+}
+
+type StoreTrialExtension {
+  days: Int
+  endsAt: String
+}
+
+type StoreUsage {
+  cap: Int
+  limit: String
+  monthly: Boolean
+  percent: Int
+  used: Int
 }
 
 type SubmitForApprovalResult {

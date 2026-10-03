@@ -5,6 +5,7 @@ import type { PartnerCaller } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { PlanStatus } from '#db/schema/saas'
+import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
 import { insertPlan } from '#db/scoped/partners'
@@ -271,20 +272,8 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
     return e.powered && !(await selectContractTerms(tx, partnerId)).powered_by_removable ? 'powered' : null
   }
 
-  const entry = (action: string, plan: { id: string; name: string }, reason: string | null): ActivityEntry => ({
-    category: 'write',
-    action,
-    result: 'success',
-    actorKind: 'partner_user',
-    actorId: caller.user.id,
-    actorLabel: `${caller.user.name} <${caller.user.email}>`,
-    partnerId,
-    target: { type: 'plan', id: plan.id, label: plan.name },
-    reason,
-    api: 'platform',
-    visibility: 'partner',
-    ...facts,
-  })
+  const entry = (action: string, plan: { id: string; name: string }, reason: string | null): ActivityEntry =>
+    partnerEntry(caller, facts)({ action, target: { type: 'plan', id: plan.id, label: plan.name }, reason })
 
   const by = { kind: 'partner_user' as const, label: caller.user.name }
   // Each amount is in its row's currency, and every row in a currency the contract states a fee in.

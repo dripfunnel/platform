@@ -179,7 +179,13 @@ Migration `0014`, for what the partner console's Stores list and store detail re
   `partner_id` so its composite keys hold the store and both plan versions to one partner
   (foreign keys skip RLS). Billing (`app_system`) and staff write it; a partner writes only the
   schedule (`next_plan_id`, `next_plan_version`, `change_at`, migration `0015`, #161), when
-  a plan change applies at renewal or a retired plan moves its stores. A partner reads it by
+  a plan change applies at renewal or a retired plan moves its stores, and since migration
+  `0018` (#160) a trial's end. A plan change "now" goes through `partner_move_subscription`
+  (owned by `app_definer`): its own store, a Live plan of its own, that plan's current version
+  at that version's price, never an amount the caller names. It adds what the move prorates,
+  which it holds to the price difference's sign and size and to zero on trial,
+  to `proration_amount` (minor units of the subscription's currency, above zero charged,
+  below zero credited, with `proration_at`) for billing (#201) to collect. A partner reads it by
   column (status, amounts, periods, the scheduled change, the card's last four); the merchant
   also reads the card's brand and expiry; neither reads the Stripe ids or the payment-method
   label. A store built before #212 has no row until billing (#201) creates one. `core/tenancy.ts`'s
@@ -203,6 +209,10 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 - Account level (§2): the store's merchant side reads its own rows in store scope; a supplier
   or a storefront reads none; the partner its own stores' (through the store policy); staff
   and jobs everything. The four role pins are on each table.
+- The store actions (`0018`, #160, ui/platform/FIRST-RELEASE.md §6.4): a partner may also insert
+  an owner invitation on its own store and revoke one (never a team member's or a supplier's,
+  never the token), and restart its own store's latest setup job when it is failed or running
+  (state, step start, attempts, error), back to running only.
 - Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
   `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
   store_id)`, and the trigram indexes on store name and code, owner email and domain host.
@@ -1302,7 +1312,8 @@ store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active
                      period_start, period_end, trial_ends_at, cancel_at NULL,
                      next_plan_id NULL, next_plan_version NULL, change_at NULL,
                      stripe_customer_id, stripe_subscription_id, payment_method_label,
-                     payment_method_brand, payment_method_last4, payment_method_expires date)
+                     payment_method_brand, payment_method_last4, payment_method_expires date,
+                     proration_amount NULL, proration_at NULL)
                     -- status uses store.status's spellings (0007: trial, active, past_due,
                     -- cancelled), which core/tenancy.ts's Subscription type and ACCESS §3
                     -- use since #212. currency is the store's when USD, EUR or INR, else

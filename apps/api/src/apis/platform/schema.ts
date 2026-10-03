@@ -5,6 +5,8 @@ import { builder } from './builder'
 import './shell'
 import './plans'
 import './branding'
+import './stores'
+import './storeActions'
 
 export type { PlatformContext } from './access'
 
