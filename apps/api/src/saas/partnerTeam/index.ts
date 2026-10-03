@@ -41,6 +41,9 @@ export const teamAudit = {
   setSecondFactorPolicy: 'partner.second_factor_policy_set',
 } as const
 
+// 0011's partner_user_email_limit raises this, and nothing else does.
+const emailLimitMessage = 'partner_user: email not accepted'
+
 export const teamPageSize = 25
 export const feesMax = 50
 const invitationDays = 7
@@ -173,7 +176,8 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
       } else {
         // 0011's email limit (three partners per address) refuses a fourth account; the answer is the same.
         const created = await tx.savepoint((sp) => insertPartnerUser(sp, { partnerId, email, name, role, status: 'invited' })).catch((error: unknown) => {
-          if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23514') return null
+          // Only that limit, by its own message; any other check failure is a real error.
+          if (typeof error === 'object' && error !== null && 'message' in error && error.message === emailLimitMessage) return null
           throw error
         })
         if (created === null) return { ok: true }
