@@ -4,7 +4,7 @@ import type {
   CustomDomainRow,
   HostStatus,
   JobDetailRow,
-
+  JobRow,
   JobState,
   MembershipRole,
   MembershipRow,
@@ -447,6 +447,20 @@ export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise
   `
   return row ?? { people: 0, owners: 0, managers: 0, staff: 0, suppliers: 0 }
 }
+
+export const updateStorePlan = async (tx: ScopedSql, storeId: string, planId: string): Promise<void> => {
+  await tx`update store set plan_id = ${planId} where id = ${storeId}`
+}
+
+export const selectLatestJobForUpdate = async (tx: ScopedSql, storeId: string): Promise<JobRow | null> =>
+  (await tx<JobRow[]>`select * from job where store_id = ${storeId} order by started_at desc limit 1 for update`)[0] ?? null
+
+/** The job's current step starts again; the steps before it, and the store's data, stay as they are. */
+export const restartJobStep = async (tx: ScopedSql, jobId: string, at: Date): Promise<number> =>
+  (await tx<{ attempts: number }[]>`
+    update job set state = 'running', step_started_at = ${at}, attempts = attempts + 1, finished_at = null, last_error = null
+    where id = ${jobId} returning attempts
+  `)[0]?.attempts ?? 0
 
 /** Only a partner that bills its merchants itself sets this; the caller checks the mode, 0014's trigger too. */
 export const updateStoreBillingStatus = async (tx: ScopedSql, storeId: string, status: 'active' | 'past_due' | 'suspended'): Promise<boolean> =>

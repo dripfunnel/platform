@@ -81,6 +81,21 @@ type BrandingPermission {
   reason: String
 }
 
+type ChangePlanOption {
+  amount: Int
+  currency: String
+  id: ID
+  name: String
+  proration: StoreProration
+}
+
+type ChangePlanOptions {
+  nextBillingAt: String
+  ok: Boolean
+  plans: [ChangePlanOption!]
+  reason: String
+}
+
 type ContrastPair {
   key: String
   passes: Boolean
@@ -120,12 +135,20 @@ input MoneyInput {
 }
 
 type Mutation {
+  addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
+  changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   createPlan(input: PlanInput!): PlanResult
+  extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
+  removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  resendStoreOwnerInvite(id: ID!): StoreActionResult
+  restoreStore(id: ID!, reason: String!): StoreActionResult
   retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
+  retryProvisioningStep(id: ID!): StoreActionResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
   submitForApproval: SubmitForApprovalResult
+  suspendStore(id: ID!, reason: String!): StoreActionResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
 
@@ -351,6 +374,7 @@ type PublishBrandingResult {
 
 type Query {
   branding: Branding
+  changePlanOptions(storeId: ID!): ChangePlanOptions
   checkContrast(accent: String!, primary: String!): ContrastReport
   health: String
   me: Me
@@ -384,6 +408,14 @@ type SetupSessionNotice {
 type StoreActionPermission {
   allowed: Boolean
   reason: String
+}
+
+type StoreActionResult {
+  ok: Boolean
+  overrideId: String
+  proration: StoreProration
+  reason: String
+  trialEndsAt: String
 }
 
 type StoreActions {
@@ -513,6 +545,12 @@ type StorePlanRef {
 type StorePrice {
   amount: Int
   currency: String
+}
+
+type StoreProration {
+  amount: Int
+  currency: String
+  kind: String
 }
 
 type StoreSearchMatch {

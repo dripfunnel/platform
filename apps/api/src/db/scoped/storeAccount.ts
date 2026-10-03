@@ -41,10 +41,50 @@ export interface NewOverride {
   at: Date
 }
 
-export const insertLimitOverride = async (tx: ScopedSql, o: NewOverride): Promise<void> => {
-  await tx`
+export const insertLimitOverride = async (tx: ScopedSql, o: NewOverride): Promise<string> => {
+  const [row] = await tx<{ id: string }[]>`
     insert into store_limit_override (store_id, key, amount, duration, month, reason, created_by_kind, created_by_label, created_at)
     values (${o.storeId}, ${o.key}, ${o.amount}, ${o.duration}, ${o.month}, ${o.reason}, ${o.by.kind}, ${o.by.label}, ${o.at})
+    returning id
+  `
+  if (!row) throw new Error('store_limit_override: the insert returned no row')
+  return row.id
+}
+
+/** Removes an active override of the store once; false when there is none to remove. */
+export const removeLimitOverride = async (tx: ScopedSql, storeId: string, id: string, byLabel: string, at: Date): Promise<OverrideRow | null> =>
+  (
+    await tx<OverrideRow[]>`
+      update store_limit_override set removed_at = ${at}, removed_by_label = ${byLabel}
+      where id = ${id} and store_id = ${storeId} and removed_at is null
+      returning id, key, amount, duration, month, reason, created_by_label, created_at
+    `
+  )[0] ?? null
+
+export const selectSubscriptionForUpdate = async (tx: ScopedSql, storeId: string): Promise<SubscriptionRow | null> =>
+  (
+    await tx<SubscriptionRow[]>`
+      select store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end, trial_ends_at,
+             next_plan_id, next_plan_version, change_at, payment_method_last4
+      from store_subscription where store_id = ${storeId} for update
+    `
+  )[0] ?? null
+
+/** Moves the store to the Live plan's current version at its price (0018's function); the proration adds up for billing. */
+export const moveSubscriptionNow = async (tx: ScopedSql, storeId: string, planId: string, proration: number, at: Date): Promise<void> => {
+  await tx`select partner_move_subscription(${storeId}, ${planId}, ${proration}, ${at})`
+}
+
+/** The move happens at `changeAt` (SAAS §6.3); billing (#201) applies it there. */
+export const scheduleSubscriptionMove = async (tx: ScopedSql, storeId: string, planId: string, version: number, changeAt: Date): Promise<void> => {
+  await tx`update store_subscription set next_plan_id = ${planId}, next_plan_version = ${version}, change_at = ${changeAt} where store_id = ${storeId}`
+}
+
+/** A plan change scheduled for the trial's end moves with it. */
+export const extendSubscriptionTrial = async (tx: ScopedSql, storeId: string, endsAt: Date): Promise<void> => {
+  await tx`
+    update store_subscription set trial_ends_at = ${endsAt}, change_at = case when change_at = trial_ends_at then ${endsAt} else change_at end
+    where store_id = ${storeId} and status = 'trial'
   `
 }
 

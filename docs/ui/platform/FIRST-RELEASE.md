@@ -795,6 +795,36 @@ api/README.md §2.1); a partner id in a request is not authority.
 - No type in the Platform API names an order, a customer or a product (a schema test).
   Create and export are #221.
 
+**Built on #160** (store actions, `apis/platform/storeActions.ts`, `saas/partnerStores/actions.ts`):
+- Every mutation locks the store and asks the same `actionsFor` as `store(id)`'s block. A role
+  without the action's permission is `FORBIDDEN` (the block names the code). An action the
+  state doesn't offer is refused: `NOT_ON_TRIAL`, `ALREADY_SUSPENDED`, `NOT_SUSPENDED`,
+  `CANCELLED`, or `NOT_STUCK` for Retry. Another partner's store, or an id that isn't one, is
+  `NOT_FOUND`. Every write logs one entry, with the reason, in its transaction.
+- `changePlanOptions(storeId)` (`stores.plan`): the Live plans priced in the subscription's
+  currency and interval, or monthly in USD before billing subscribes the store (SAAS §6.1);
+  unpriced plans are left out, each with the API's proration for
+  moving now (`charge` and `credit` with an amount, or `none`; nothing on trial), and
+  `nextBillingAt`. `changeStorePlan(id, planId, when, reason)` moves the subscription to the
+  plan's current version now and records the proration for billing (#201), or schedules the
+  move for the next billing date. `PLAN_NOT_LIVE`, `SAME_PLAN`, `UNPRICED_CURRENCY`. The
+  merchant's email goes through the outbox.
+- `extendTrial(id, days, reason)`: 3, 7 or 14 days from the later of the trial's end and now.
+  A plan change scheduled for the trial's end moves with it.
+- `addLimitOverride` and `removeLimitOverride(id, overrideId, reason)`: `stores.plan`, since
+  ACCESS §5.3 has no permission of its own for overrides. A month override is for the
+  current UTC month.
+- `suspendStore(id, reason)`: the reason is shown to the merchant, so it is trimmed, 1–500
+  characters, with no control characters or angle brackets. It queues the "Store suspended"
+  email and the storefront purge. Billing reads the suspended status and charges nothing until
+  the store is restored (#201). `restoreStore` puts back the status the store had.
+- `resendStoreOwnerInvite(id)` revokes the open owner invitation and sends a new one.
+  `retryProvisioningStep(id)` restarts the latest job's current step and queues
+  `provisioning.retry` keyed by the attempt. The job is checked again once it is locked, so a
+  step that finished meanwhile, or a second call, is refused.
+- No `READ_ONLY`: a closed partner has no session (ACCESS.md §4), and the contract's lapse is
+  not stored yet; that code arrives with the contract term (§2.3).
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

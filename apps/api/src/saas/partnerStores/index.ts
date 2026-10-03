@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
-import { partnerRoleHas, type PartnerPermission, type PartnerRole } from '#auth/partnerPermissions'
+import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { StoreStatus } from '#db/schema/saas'
 import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
@@ -12,7 +12,12 @@ import { selectCustomDomains, selectStoreCounts, selectStoreListRow, selectStore
 import { listActivity, type PageInfo } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/index'
 import { daysPastDue, trialDaysLeft } from '#saas/stores/index'
+import { actionsFor, type ActionPermission } from './verdicts'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
+
+export { actionsFor, storeActionPermission, storeActions, type ActionPermission, type ActionRefusal, type StoreAction } from './verdicts'
+export { createPartnerStoreActions, storeActionAudit, type PartnerStoreActions, type StoreActionResult } from './actions'
+export type { Proration } from './proration'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6.1, §6.3, §6.4; card #159): the
 // partner's merchants at account level, never an order, a customer or a product.
@@ -37,11 +42,6 @@ export type StoreState =
   | { kind: 'pastdue'; daysPastDue: number }
   | { kind: 'suspended'; reason: string }
   | { kind: 'cancelled'; since: Date | null }
-
-export type ActionRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'FINANCE_TRIAL_ONLY' | 'BILLING_ROLES_ONLY'
-export type ActionPermission = { allowed: true } | { allowed: false; reason: ActionRefusal }
-export const storeActions = ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'restore', 'suspend', 'retryStep'] as const
-export type StoreAction = (typeof storeActions)[number]
 
 export interface StoreRowDto {
   id: string
@@ -79,33 +79,6 @@ export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'pa
     default:
       return { kind: 'active' }
   }
-}
-
-// FIRST-RELEASE §6.4 "Offered when", then the permission each needs (ACCESS.md §5.3): an action
-// the state does not offer is absent; one the role cannot use is present and refused.
-export const storeActionPermission: Record<StoreAction, PartnerPermission> = {
-  changePlan: 'stores.plan',
-  extendTrial: 'stores.trial',
-  addOverride: 'stores.plan',
-  resendInvite: 'stores.invite.resend',
-  restore: 'stores.suspend',
-  suspend: 'stores.suspend',
-  retryStep: 'setup.retry',
-}
-
-export const actionsFor = (row: StoreListRow, role: PartnerRole, now: Date): Partial<Record<StoreAction, ActionPermission>> => {
-  const setup = setupStateOf(row.job_state && row.job_step && row.job_step_started_at ? { state: row.job_state, step: row.job_step, step_started_at: row.job_step_started_at } : null, now)
-  const offered: StoreAction[] = [
-    ...(row.status !== 'cancelled' && row.status !== 'closed' ? (['changePlan', 'addOverride'] as const) : []),
-    ...(row.status === 'trial' ? (['extendTrial'] as const) : []),
-    ...(row.status === 'active' || row.status === 'trial' || row.status === 'past_due' ? (['suspend'] as const) : []),
-    ...(row.status === 'suspended' ? (['restore'] as const) : []),
-    'resendInvite' as const,
-    ...(setup === 'stuck' || setup === 'failed' ? (['retryStep'] as const) : []),
-  ]
-  return Object.fromEntries(
-    offered.map((action) => [action, partnerRoleHas(role, storeActionPermission[action]) ? { allowed: true } : { allowed: false, reason: action === 'extendTrial' ? 'FINANCE_TRIAL_ONLY' : 'OWNERS_AND_ADMINS_ONLY' }]),
-  )
 }
 
 // A closed store reads as cancelled (FIRST-RELEASE §6.1), so the filter takes both.

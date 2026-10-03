@@ -12,4 +12,5 @@ export {
   type StoreState,
   type StoreUserDto,
 } from './service'
+export { reissueOwnerInvitation, storeInvitationDays } from './invitations'
 export { canTransitionStore, daysPastDue, extendTrial, transitionStore, trialDaysLeft, type StoreTransition } from './states'
