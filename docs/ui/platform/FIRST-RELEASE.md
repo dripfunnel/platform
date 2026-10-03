@@ -959,14 +959,14 @@ api/README.md §2.1); a partner id in a request is not authority.
   live, `REAUTH_REQUIRED` for a missing or spent proof. It answers the link to
   `https://<portal host>/support/enter?token=…` (ACCESS §8.3); `returnToSupportSession(id)` mints
   a fresh one and the old stops working, and is refused with the start's codes (`SUPPORT_OFF`,
-  `STORE_CANCELLED`, `SUSPENDED`) once one applies, as is a link not yet opened; `endSupportSession(id)` is the agent's, or an Owner's or
-  Admin's. Each session says what the caller may do (`end`, `return`, with §8.3's codes).
+  `STORE_CANCELLED`, `SUSPENDED`) once one applies; `endSupportSession(id)` is the agent's, or an
+  Owner's or Admin's. Each session says what the caller may do (`end`, `return`, with §8.3's codes).
 - `supportSessions(open, after, before)` and `mySupportSession`; History says who ended a session
   or that it expired. Start, return and end are `support` entries naming the store, so the
   partner's log and the store's both show them. `navBadges.supportOpenSessions` counts open ones.
 - **Not here**: the handoff exchange on the portal, the support caller, read-only enforcement in
-  the store, the merchant's Allow/Deny of writes (the Store strand). `spendSupportHandoff` in
-  `db/scoped` is the exchange's database half, tested here.
+  the store, the merchant's Allow/Deny of writes (the Store strand), which spends a link only
+  while the start's codes still allow a session (ACCESS §8.3; decided on #235's review).
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
