@@ -18,8 +18,9 @@ jobs:
           POSTGRES_USER: dripfunnel_dev
           POSTGRES_PASSWORD: dripfunnel_dev
           POSTGRES_DB: dripfunnel
+        # Docker picks the host port, so two jobs on the shared self-hosted runner never collide.
         ports:
-          - 5432:5432
+          - 5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -30,4 +31,4 @@ jobs:
       - uses: ./.github/actions/setup
       - run: pnpm turbo run build typecheck lint test
         env:
-          DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel
+          DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:${{ job.services.postgres.ports['5432'] }}/dripfunnel
