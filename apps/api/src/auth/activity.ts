@@ -68,13 +68,13 @@ export const signedOut = (staffId: string, request: RequestFacts): ActivityEntry
   ...request,
 })
 
-/** CONSOLE-DESIGN A2: the credential behind a dangerous action, recorded like the sign-in. */
 /** The invitee bound their SSO account (ui/admin/FIRST-RELEASE.md §10); no token is logged. */
 export const invitationAccepted = (staff: { id: string; email: string; name: string }, request: RequestFacts): ActivityEntry => ({
   ...signedIn(staff, request),
   action: 'staff.invitation_accepted',
 })
 
+/** CONSOLE-DESIGN A2: the credential behind a dangerous action, recorded like the sign-in. */
 export const reauthenticated = (staff: { id: string; email: string; name: string }, request: RequestFacts): ActivityEntry => ({
   category: 'auth',
   action: 'staff.reauthenticated',
