@@ -3,6 +3,7 @@ import type { PartnerConsoleService } from '#saas/partnerConsole/index'
 import type { PartnerBrandingService } from '#saas/partnerBranding/index'
 import type { PartnerPlansService } from '#saas/partnerPlans/index'
 import type { PartnerStoresService } from '#saas/partnerStores/index'
+import type { PartnerStoreActions } from '#saas/partnerStores/actions'
 import { isPartnerPermission, partnerPermissions, partnerRoleHas } from '#auth/partnerPermissions'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
@@ -14,6 +15,7 @@ export interface PlatformContext extends Record<string, unknown> {
   plans: PartnerPlansService | null
   branding: PartnerBrandingService | null
   stores: PartnerStoresService | null
+  storeActions: PartnerStoreActions | null
 }
 
 /** ACCESS.md §5.3: the partner role's permission, always within the session's own partner. */
