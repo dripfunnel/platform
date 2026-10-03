@@ -1,5 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
+import { roleHas } from '#auth/permissions'
+import { staffById } from '#auth/staff'
 import { completeExportJob, failExportJob, markExportTooLarge, saveExportProgress, selectStaffExportJob } from '#db/scoped/exportJobs'
 import { withScope } from '#db/scoped/index'
 import { selectEntryNames } from '#db/scoped/staffActivity'
@@ -35,6 +37,12 @@ export const staffActivityExportDeliverer = (sql: postgres.Sql, now: () => Date 
     try {
       const job = await withScope(sql, context, (tx) => selectStaffExportJob(tx, jobId))
       if (job?.state !== 'queued' || job.requested_by_id !== staffId) return
+      // Every chunk checks again: a requester deactivated or demoted since asking gets nothing more.
+      const staff = await withScope(sql, context, (tx) => staffById(tx, staffId))
+      if (!staff || !roleHas(staff.role, 'activity.export')) {
+        await withScope(sql, context, (tx) => failExportJob(tx, jobId, at, expiresAt))
+        return
+      }
       const lines = [job.csv ?? staffCsvHeader]
       let rows = job.rows ?? 0
       let after = job.cursor

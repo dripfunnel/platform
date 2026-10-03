@@ -286,7 +286,8 @@ finished and expires.
   holding `activity.export` (Super admin and Engineer on call, who see every partner). Its job
   reads the log as the staff member who asked, a chunk per delivery, keeping the file so
   far and the `cursor` on the row between chunks; past LOGGING §6's 100,000 entries it ends
-  `too_large`, never as a partial file.
+  `too_large`, never as a partial file. Every chunk first checks that the requester is still
+  active and still holds `activity.export`, and fails the job if not.
 
 Any export ends `failed` after the outbox's last attempt (the cron also fails a queued job whose
 `export.*` outbox row the relay gave up on, a timeout included); the per-minute cron deletes an
