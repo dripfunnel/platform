@@ -4,8 +4,10 @@ import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { activityLog, listActivity } from '#saas/activity/index'
+import { activityLog, staffActivityReader } from '#saas/activity/index'
 import { createCustomersService } from '#saas/customers/index'
+import type { CallerContext } from '#core/tenancy'
+import { withScope } from '#db/scoped/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -16,7 +18,7 @@ let db: TestDatabase
 const now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
 const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
-const ids = { priyaMehta: '', priyaKiko: '', usNumber: '', deleted: '', mehta: '', kiko: '', ns: '', inside: '', outside: '', outsidePartner: '' }
+const ids = { priyaMehta: '', priyaKiko: '', usNumber: '', deleted: '', mehta: '', kiko: '', ns: '', inside: '', outside: '', outsidePartner: '', insideStore: '', insidePartner: '' }
 const priya = { email: 'priya.sharma@gmail.com', phone: '+919876543210' }
 // One email at a store the Partner manager is assigned and at one it is not.
 const shared = { email: 'arjun.rao@gmail.com', phone: '+919811122233' }
@@ -24,7 +26,7 @@ const shared = { email: 'arjun.rao@gmail.com', phone: '+919811122233' }
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
   isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
-  activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
+  activity: staff ? staffActivityReader(db.sql, staff) : async () => ({ ok: false, code: 'INVALID_FILTER' }),
   partners: null,
   stores: null,
   provisioning: null,
@@ -88,6 +90,8 @@ beforeAll(async () => {
   const [inside, outside] = [await storeOf(true), await storeOf(false)]
   if (!inside || !outside) throw new Error('the seed needs a store inside and one outside the Partner manager’s assignment')
   ids.outsidePartner = outside.partner_id
+  ids.insideStore = inside.id
+  ids.insidePartner = inside.partner_id
   ids.inside = await customer(inside.id, { ...shared, name: 'Arjun Rao' })
   ids.outside = await customer(outside.id, { ...shared, name: 'Arjun Rao' })
 }, 120_000)
@@ -208,6 +212,35 @@ describe('the detail', () => {
     const got = (await run<Detail>(detail, as('staff-super-admin'), { id: ids.deleted })).data?.customer
     expect(got).toMatchObject({ name: null, email: null, phone: null, status: 'deleted', contactsMasked: false })
     expect((await run<Detail>(detail, as('staff-super-admin'), { id: crypto.randomUUID() })).data?.customer).toBeNull()
+  })
+})
+
+describe('the Activity tab', () => {
+  const tab = `query($f: ActivityFilter) { activityLog(filter: $f, first: 50) { items { action } } }`
+  const entriesFor = async (staff: StaffMember, customerId: string) => {
+    const got = await run<{ activityLog: { items: { action: string }[] } | null }>(tab, staff, { f: { customerId } })
+    return { actions: got.data?.activityLog?.items.map((i) => i.action) ?? null, code: got.code }
+  }
+
+  it('lists the customer’s own entries, nothing for a Partner manager outside its assignment, and refuses an id that is not one', async () => {
+    for (const id of [ids.inside, ids.outside]) await run<Detail>(detail, as('staff-super-admin'), { id })
+    const mine = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where customer_id = ${ids.inside}`
+    const admin = await entriesFor(as('staff-super-admin'), ids.inside)
+    expect(admin.actions).toContain('customer.viewed')
+    expect(admin.actions).toHaveLength(mine[0]?.n ?? -1)
+
+    expect((await entriesFor(as('staff-partner-manager'), ids.outside)).actions).toEqual([])
+    expect((await entriesFor(as('staff-partner-manager'), ids.inside)).actions).toContain('customer.viewed')
+    expect((await entriesFor(as('staff-super-admin'), 'not-a-customer-id')).code).toBe('INVALID_FILTER')
+  })
+
+  it('keeps customer.viewed to staff: neither the customer’s partner nor its store reads it', async () => {
+    await run<Detail>(detail, as('staff-super-admin'), { id: ids.inside })
+    const views = (context: CallerContext) =>
+      withScope(db.sql, context, async (tx) => (await tx`select 1 from activity_log where action = 'customer.viewed' and customer_id = ${ids.inside}`).length)
+    expect(await views({ caller: { kind: 'staff', staffId: as('staff-super-admin').id } })).toBeGreaterThan(0)
+    expect(await views({ caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.insidePartner })).toBe(0)
+    expect(await views({ caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: ids.insidePartner, storeId: ids.insideStore, sellerScope: { kind: 'all' }, subscription: 'active' })).toBe(0)
   })
 })
 

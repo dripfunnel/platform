@@ -6,6 +6,8 @@ import { isPartnerContext, isTenantContext } from '#core/tenancy'
 import { activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
 import { activityWhos, selectActivity } from '#db/scoped/activity'
 import { withScope } from '#db/scoped/index'
+import { partnerScopedRoles } from '#auth/permissions'
+import type { StaffMember } from '#auth/staff'
 
 // The admin console reads 50 at a time (ui/admin/FIRST-RELEASE.md §9); nothing asks for more.
 export const activityPageSize = 50
@@ -124,3 +126,11 @@ export const listActivity = async (
     },
   }
 }
+
+/** The admin log as one staff member may read it: a Partner manager, its assigned partners only (ACCESS.md §5.4). */
+export const staffActivityReader =
+  (sql: postgres.Sql, staff: StaffMember) =>
+  (filter: unknown, page: ActivityPageRequest): Promise<ActivityResult> =>
+    listActivity(sql, { caller: { kind: 'staff', staffId: staff.id } }, filter, page, {
+      assignedTo: partnerScopedRoles.includes(staff.role) ? staff.id : undefined,
+    })

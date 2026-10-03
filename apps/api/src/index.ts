@@ -15,7 +15,6 @@ import { partnerCookieName } from '#auth/partnerSession'
 import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
-import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
@@ -34,7 +33,7 @@ import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { activityLog, listActivity } from '#saas/activity/index'
+import { activityLog, staffActivityReader } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -180,12 +179,7 @@ const handleAdmin = async (
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
       isAssigned: assigned,
-      activity: caller
-        ? (filter, page) =>
-            listActivity(sql, { caller: { kind: 'staff', staffId: caller.staff.id } }, filter, page, {
-              assignedTo: partnerScopedRoles.includes(caller.staff.role) ? caller.staff.id : undefined,
-            })
-        : notConnected,
+      activity: caller ? staffActivityReader(sql, caller.staff) : notConnected,
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,
