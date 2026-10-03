@@ -443,7 +443,8 @@ describe('isolation (ACCESS.md §11.1)', () => {
 
   it('a partner-scope insert of its own partner data works, through the same helpers the seed uses', async () => {
     await expect(as(partner(a), (tx) => upsertSetupItem(tx, { partnerId: a, item: 'legal', status: 'done', doneAt: now, doneByKind: 'partner_user', doneByLabel: 'Maya Chen' }))).resolves.toBeUndefined()
-    await expect(as(partner(a), (tx) => upsertPartnerDomain(tx, { partnerId: a, kind: 'email', host: 'mail.northstar.example', status: 'live', recordType: 'TXT', expected: 'x' }))).resolves.toBeUndefined()
+    // A partner adds an address but never writes its status (0020): only the check does.
+    await expect(as(partner(a), (tx) => upsertPartnerDomain(tx, { partnerId: a, kind: 'email', host: 'mail.northstar.example', status: 'live', recordType: 'TXT', expected: 'x' }))).rejects.toThrow(/permission denied/i)
     await expect(as(partner(a), (tx) => insertPartner(tx, { name: 'Another' }))).rejects.toThrow(/permission denied/i)
   })
 })

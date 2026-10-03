@@ -850,6 +850,29 @@ api/README.md §2.1); a partner id in a request is not authority.
   the payout currency and shown in each store's own. Refunds subtract from revenue, and only a
   store's latest domain is checked.
 
+**Built on #197** (Domains, `apis/platform/domains.ts`, `saas/partnerDomains`):
+- `partnerDomains` (`partner.read`): the four kinds, each with `added`, host, status, since,
+  checked and its records (purpose, type, name, value to add, what DNS returned, `matches`);
+  `fallbackSender` (`no-reply@{label}.dripfunnel-mail.com`) while the email sender isn't live;
+  `add.allowed` for `domains.write` while fewer than four exist.
+- `addPartnerDomain(kind, host)` (`domains.write`; ACCESS §5.3's `domains.manage` is this
+  permission). The refusals are `NOT_A_HOSTNAME`, `DRIPFUNNEL_DOMAIN`, `ALREADY_YOURS`,
+  `HOST_TAKEN` (another partner's, without saying whose), `BARE_DOMAIN_FOR_WILDCARD` (a
+  wildcard or the email sender on a bare domain), `KIND_TAKEN` and `INVALID_INPUT`. A root
+  portal domain is refused with `APEX_NOT_AVAILABLE` until SAAS §8's apex question gives us an
+  address to publish; then it gets an A record and `apex: true` for the warning. A wildcard's
+  `*.` is added by the API. Each address also gets an ownership TXT with its own token, so a
+  claim on someone else's host waits and fails rather than blocking them; `HOST_TAKEN` means the
+  host is verified by another partner. The address is created waiting, its first check is
+  queued, and it's logged.
+- `recheckPartnerDomain(kind)` and `recheckMerchantDomain(storeId)` (`domains.recheck`, every
+  role) queue the existing deliverers: `TOO_SOON` within a minute of the last check, and a
+  press that folds into one already queued is not logged again. `merchantDomains(after, before,
+  first)` pages the partner's stores' domains, 25 at most, no total.
+- Waiting and failed addresses are re-checked every 10 minutes, and "We'll email you when it's live" is
+  `partner-domain-live` queued in the outbox; it's delivered once SES's `email` deliverer is
+  wired, as every email effect is.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

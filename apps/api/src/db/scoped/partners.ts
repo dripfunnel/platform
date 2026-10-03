@@ -126,7 +126,7 @@ export interface NewPartnerDomain {
   kind: DomainKind
   host: string
   status: HostStatus
-  recordType: 'CNAME' | 'TXT'
+  recordType: 'CNAME' | 'TXT' | 'A'
   expected: string
   found?: string | null
   checkedAt?: Date | null

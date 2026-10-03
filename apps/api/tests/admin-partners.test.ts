@@ -6,6 +6,7 @@ import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { emailRecords } from '#saas/domains/index'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
 import { createPartnersService, partnerAudit } from '#saas/partners/index'
@@ -407,7 +408,9 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
     const lookup: DnsLookup = {
       resolve: async (host, type) => {
         looked.push(`${type} ${host}`)
-        return type === 'TXT' ? ['v=spf1 include:mail.dripfunnel.net ~all'] : []
+        // The email sender's three records (SAAS §3.6), each answered as expected.
+        if (host.startsWith('_dmarc.')) return [emailRecords.dmarc]
+        return type === 'TXT' ? [emailRecords.spf] : [emailRecords.dkim]
       },
     }
     expect((await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'email' })).data?.['recheckDomain']).toMatchObject({ ok: true })
@@ -416,8 +419,8 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
 
     const counts = await relayDue(db.sql, { 'domain.recheck': domainRecheckDeliverer(db.sql, lookup, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
     expect(counts.delivered).toBe(1)
-    expect(looked).toEqual(['TXT mail.kaufladen.example'])
-    expect((await db.sql<{ status: string; found: string }[]>`select status, found from partner_domain where partner_id = ${kaufladen} and kind = 'email'`)[0]).toEqual({ status: 'live', found: 'v=spf1 include:mail.dripfunnel.net ~all' })
+    expect(looked).toEqual(['TXT mail.kaufladen.example', 'CNAME df1._domainkey.mail.kaufladen.example', 'TXT _dmarc.mail.kaufladen.example'])
+    expect((await db.sql<{ status: string; found: string }[]>`select status, found from partner_domain where partner_id = ${kaufladen} and kind = 'email'`)[0]).toEqual({ status: 'live', found: emailRecords.spf })
     expect(await db.sql`select 1 from activity_log where partner_id = ${kaufladen} and action = 'partner.domain_status_changed'`).toHaveLength(1)
     // Within the same minute a second request folds into the first.
     expect((await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'email' })).data?.['recheckDomain']).toMatchObject({ ok: true })

@@ -42,7 +42,7 @@ platform            no row: DripFunnel itself; staff act here
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `signup` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `partner_domain_record` (§2.1), `signup` (§7.10) |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
@@ -66,6 +66,18 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   `sent_back_reason`, `approved_at`, `paused_at`, `pause_reason`), the published look the admin
   console shows (`product_name`, colours, `powered_by`) and `fallback_sender_accepted`. PAPI 3
   adds the versioned branding and prices.
+- **Partner addresses' records** (`0020`, #197): `partner_domain_record` (domain, partner,
+  position, `purpose` pointer | ownership | spf | dkim | dmarc, `record_type` CNAME | TXT | A,
+  the name to resolve, `expected`, `found`, `checked_at`). The portal and wildcards have one
+  pointer record (an A record for a root portal domain); the email sender has SPF, DKIM and DMARC
+  (SAAS §3.6); every address added from #197 on also has an ownership TXT
+  (`_dripfunnel.{host}` = `dripfunnel-verify={token}`, a token per address). An address is live
+  once every record matches, SPF by including ours and DMARC by being one. Since a claim proves
+  nothing until its token is found, `partner_domain_host_key` holds a host only for addresses
+  past waiting and failed; a second claim that verifies later fails. `partner_domain.record_type`/`expected` stay
+  the first record's. A partner inserts its own address and records but holds no `update` on
+  `partner_domain`, so only the check (`app_system`) and staff write a status. A trigger keeps
+  a record on its address's partner.
 - **Store**: `name`, `code` (unique per partner, used in hostnames), `country`, `status`
   (SAAS.md §4.2 plus `closed`) with its facts (`trial_ends_at`, `past_due_since`, the
   suspension's time, reason, who and **the status it had before**, so Restore returns to it),
