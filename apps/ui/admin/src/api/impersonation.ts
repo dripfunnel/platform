@@ -1,6 +1,6 @@
 // Staff sessions on the Admin API (ACCESS.md §8.1, §8.2; FIRST-RELEASE.md §8): impersonating a
 // partner or store user, and setup sessions. The only place this app talks to the API about them.
-import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
+import { ApiError, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { isApiError, query } from './client'
 import { compactActions, filterOf, isoString, pageInfoSchema, permissionSchema, refSchema } from './decode'
@@ -27,6 +27,9 @@ export type Membership =
   | { id: string; level: 'store'; partner: Ref; store: Ref; role: StoreUser['role']; supplier: string | null }
 
 export type MembershipRole = Membership['role']
+
+// The place a session acts in: a membership as the session names it, without a membership id.
+export type SessionMembership = Membership extends infer M ? (M extends Membership ? Omit<M, 'id'> : never) : never
 
 export const membershipRoles = ['owner', 'admin', 'support', 'finance', 'readOnly', 'manager', 'staff', 'supplierAdmin', 'supplierMember'] as const satisfies readonly MembershipRole[]
 
@@ -71,7 +74,7 @@ export interface StaffSession {
   kind: SessionKind
   staff: Ref
   target: Ref | null
-  membership: Membership | null
+  membership: SessionMembership | null
   partner: Ref
   store: Ref | null
   host: string
@@ -228,12 +231,12 @@ const sessionSchema = z
     // The session names its place; the membership adds only the role there and the supplier.
     const level = s.store ? 'store' : 'partner'
     const role = s.membership ? roleOf(level, s.membership.role) : undefined
-    const membership: Membership | null =
+    const membership: SessionMembership | null =
       !s.membership || !role
         ? null
         : s.store
-          ? { id: s.target?.id ?? s.id, level: 'store', partner: s.partner, store: s.store, role: role as StoreUser['role'], supplier: s.membership.supplier }
-          : { id: s.target?.id ?? s.id, level: 'partner', partner: s.partner, role: role as PartnerUserRole }
+          ? { level: 'store', partner: s.partner, store: s.store, role: role as StoreUser['role'], supplier: s.membership.supplier }
+          : { level: 'partner', partner: s.partner, role: role as PartnerUserRole }
     return { ...s, membership, actions: compactActions(s.actions) }
   })
 const sessionFields = `id kind staff { id name } target { id name } membership { role supplier } partner { id name } store { id name } host reason ticket
@@ -266,9 +269,11 @@ export const loadSession = async (id: string): Promise<SessionLookup> => {
 export const loadMySessions = async (): Promise<readonly StaffSession[]> =>
   (await orDenied(query(`{ myStaffSessions { ${sessionFields} } }`, z.object({ myStaffSessions: z.array(sessionSchema) }))))?.myStaffSessions ?? []
 
+// A code this console doesn't know is an error with that code, so it is never worded as a known one.
 const refusalOf = (reason: string | null): SessionRefusal => {
   const known = z.enum(sessionRefusals).safeParse(reason)
-  return known.success ? known.data : 'NOT_FOUND'
+  if (!known.success) throw new ApiError(reason ?? 'UNKNOWN', 'The API refused the session with a code this console does not know.')
+  return known.data
 }
 
 const startSchema = z.object({ ok: z.boolean(), reason: z.string().nullable(), handoff: z.string().nullable(), session: sessionSchema.nullable() })

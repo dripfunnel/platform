@@ -1,21 +1,21 @@
 import { secondsLeft } from '@dripfunnel/shared/ui'
-import type { ImpersonationTarget, Membership, SessionRefusal, StaffSession } from '../../api/impersonation'
+import type { ImpersonationTarget, Membership, SessionMembership, SessionRefusal, StaffSession } from '../../api/impersonation'
 import { fill, formatWait, messages } from '../../messages'
 
 const words = messages.impersonate
 
-export const roleText = (membership: Membership): string => {
+export const roleText = (membership: Membership | SessionMembership): string => {
   const role = words.roles[membership.role]
   return membership.level === 'store' && membership.supplier ? fill(words.where.supplierRole, { role, supplier: membership.supplier }) : role
 }
 
-export const whereText = (membership: Membership): string =>
+export const whereText = (membership: Membership | SessionMembership): string =>
   membership.level === 'partner' ? fill(words.where.partner, { partner: membership.partner.name }) : membership.store.name
 
 export const membershipLine = (membership: Membership): string => fill(words.where.line, { where: whereText(membership), role: roleText(membership) })
 
 // Where everyone signed in sees the banner.
-export const placeText = (membership: Membership): string =>
+export const placeText = (membership: Membership | SessionMembership): string =>
   membership.level === 'partner' ? fill(words.where.partnerConsole, { partner: membership.partner.name }) : membership.store.name
 
 export const firstOf = (name: string): string => name.split(' ')[0] ?? name
