@@ -6,8 +6,8 @@ import type { PartnerRole } from '#auth/partnerPermissions'
 import { secretBox } from '#auth/secretBox'
 import { hashSessionId } from '#auth/session'
 import { codeAt, newTotpSecret, stepAt } from '#auth/totp'
-import { withScope, withSystemScope } from '#db/scoped/index'
-import { insertSupportSession, spendSupportHandoff } from '#db/scoped/supportSessions'
+import { withScope } from '#db/scoped/index'
+import { insertSupportSession } from '#db/scoped/supportSessions'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerSupportService } from '#saas/support/index'
@@ -190,22 +190,52 @@ describe('sessions', () => {
     expect(history.find((s) => s.id === opened?.sessionId)).toMatchObject({ endedBy: 'expired', return: { reason: 'SESSION_EXPIRED' } })
   })
 
-  it('spends a handoff once, before it expires; returning mints a fresh one and the old stops working', async () => {
+  it('stores only the newest link’s hash, valid 5 minutes from issue; returning replaces it and ending clears it', async () => {
     const ana = callerOf(ids.ns, ids.ana, 'partner-admin')
     const opened = await openOn(ana, await membershipOf('tom@harborcoffee.example'))
     expect(opened?.ok).toBe(true)
+    const stored = async () => (await db.sql<{ handoff_hash: string | null; handoff_expires_at: Date | null }[]>`select handoff_hash, handoff_expires_at from support_session where id = ${opened?.sessionId ?? ''}`)[0]
+    const fiveMinutes = new Date(clock.getTime() + 5 * 60_000)
     const first = tokenOf(opened?.link)
-    const spend = async (token: string, at = clock) => withSystemScope(db.sql, async (tx) => spendSupportHandoff(tx, await hashSessionId(token), at))
-    expect((await spend(first))?.id).toBe(opened?.sessionId)
-    expect(await spend(first)).toBeNull()
-    const again = (await run<{ returnToSupportSession: { ok: boolean; link: string } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession
-    const second = tokenOf(again?.link)
-    const third = tokenOf((await run<{ returnToSupportSession: { link: string } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession.link)
-    expect(await spend(second)).toBeNull()
-    expect(await spend(third, new Date(clock.getTime() + 6 * 60_000))).toBeNull()
-    expect((await spend(third))?.id).toBe(opened?.sessionId)
-    const stored = await db.sql`select handoff_hash from support_session where id = ${opened?.sessionId ?? ''}`
-    expect(stored[0]?.['handoff_hash']).toBeNull()
+    expect(await stored()).toEqual({ handoff_hash: await hashSessionId(first), handoff_expires_at: fiveMinutes })
+    expect((await stored())?.handoff_hash).not.toBe(first)
+
+    clock = new Date(clock.getTime() + 60_000)
+    const back = async () => (await run<{ returnToSupportSession: { ok: boolean; link: string } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession
+    const second = tokenOf((await back())?.link)
+    const third = tokenOf((await back())?.link)
+    expect(new Set([first, second, third]).size).toBe(3)
+    expect(await stored()).toEqual({ handoff_hash: await hashSessionId(third), handoff_expires_at: new Date(clock.getTime() + 5 * 60_000) })
+
+    await run(q.end, ana, { id: opened?.sessionId })
+    expect((await stored())?.handoff_hash).toBeNull()
+  })
+
+  it('refuses a fresh link once support is off, the store cancelled or the user suspended, and leaves the old one as it was', async () => {
+    const ana = callerOf(ids.ns, ids.ana, 'partner-admin')
+    const tom = await membershipOf('tom@harborcoffee.example')
+    const [store] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and name = 'Harbor Coffee Co.'`
+    const storeId = store?.id ?? ''
+    const opened = await openOn(ana, tom)
+    expect(opened?.ok).toBe(true)
+    const hash = async () => (await db.sql<{ handoff_hash: string | null }[]>`select handoff_hash from support_session where id = ${opened?.sessionId ?? ''}`)[0]?.handoff_hash
+    const back = async () => (await run<{ returnToSupportSession: { ok: boolean; reason: string | null; link: string | null } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession
+    const changes = [
+      { reason: 'SUPPORT_OFF', apply: () => db.sql`update store set support_access_allowed = false where id = ${storeId}`, undo: () => db.sql`update store set support_access_allowed = true where id = ${storeId}` },
+      { reason: 'STORE_CANCELLED', apply: () => db.sql`update store set status = 'cancelled' where id = ${storeId}`, undo: () => db.sql`update store set status = 'trial' where id = ${storeId}` },
+      { reason: 'SUSPENDED', apply: () => db.sql`update membership set status = 'suspended' where id = ${tom}`, undo: () => db.sql`update membership set status = 'active' where id = ${tom}` },
+    ]
+    for (const change of changes) {
+      const before = await hash()
+      expect(before).toBeTruthy()
+      await change.apply()
+      expect(await back()).toEqual({ ok: false, reason: change.reason, link: null })
+      expect(await hash()).toBe(before)
+      await change.undo()
+      const again = await back()
+      expect(again?.ok).toBe(true)
+      expect(await hash()).toBe(await hashSessionId(tokenOf(again?.link)))
+    }
     await run(q.end, ana, { id: opened?.sessionId })
   })
 

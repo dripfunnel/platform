@@ -196,9 +196,6 @@ export const selectSupportSessions = async (tx: ScopedSql, partnerId: string, op
   return backwards ? rows.reverse() : rows
 }
 
-export const countOpenSupportSessions = async (tx: ScopedSql, partnerId: string, now: Date): Promise<number> =>
-  (await tx<{ n: number }[]>`select count(*)::int as n from support_session where partner_id = ${partnerId} and ended_at is null and expires_at > ${now}`)[0]?.n ?? 0
-
 export const endSupportSession = async (tx: ScopedSql, id: string, endedBy: string, now: Date): Promise<boolean> =>
   (await tx`update support_session set ended_at = ${now}, ended_by_partner_user_id = ${endedBy}, handoff_hash = null where id = ${id} and ended_at is null`).count > 0
 
@@ -210,22 +207,3 @@ export const reissueSupportHandoff = async (tx: ScopedSql, id: string, handoffHa
 /** The partner's live portal host, where the store's portal opens (USERS-AND-DOMAINS.md §2). */
 export const selectLivePortalHost = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>
   (await tx<{ host: string }[]>`select host from partner_domain where partner_id = ${partnerId} and kind = 'portal' and status = 'live'`)[0]?.host ?? null
-
-export interface SpentHandoff {
-  id: string
-  store_id: string
-  membership_id: string
-  partner_user_id: string
-  expires_at: Date
-}
-
-/**
- * The exchange's half, in system scope: a handoff opens its session once, before its link
- * expires and while the session is open. The Store API's support caller calls it (ACCESS.md §8).
- */
-export const spendSupportHandoff = async (tx: ScopedSql, handoffHash: string, now: Date): Promise<SpentHandoff | null> =>
-  (await tx<SpentHandoff[]>`
-    update support_session set handoff_used_at = ${now}, handoff_hash = null
-    where handoff_hash = ${handoffHash} and handoff_used_at is null and handoff_expires_at > ${now} and ended_at is null and expires_at > ${now}
-    returning id, store_id, membership_id, partner_user_id, expires_at
-  `)[0] ?? null

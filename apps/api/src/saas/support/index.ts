@@ -219,9 +219,16 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
   const sessionEntry = (action: string, s: SupportSessionRow) =>
     entry({ category: 'support', action, reason: null, storeId: s.store_id, access: { kind: 'support_session', id: s.id }, target: { type: 'user', id: s.user_id, label: `${s.user_name} (${s.store_name})` } })
 
+  type ReturnRefusal = SessionRefusal | Extract<StartRefusal, 'SUPPORT_OFF' | 'STORE_CANCELLED' | 'SUSPENDED'>
+
   const returnToSupportSession = (sessionId: string) =>
-    onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true; link: string; expiresAt: Date } | { ok: false; reason: SessionRefusal }> => {
+    onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true; link: string; expiresAt: Date } | { ok: false; reason: ReturnRefusal }> => {
       if (!dto.return.allowed) return { ok: false, reason: dto.return.reason as SessionRefusal }
+      // What a start would refuse now refuses a fresh link too (ACCESS.md §8: switching support off ends it).
+      const target = await selectSupportTarget(tx, partnerId, s.membership_id, at)
+      if (!target) return { ok: false, reason: 'NOT_FOUND' }
+      const refusal = startRefusal(target, caller.user.id)
+      if (refusal === 'SUPPORT_OFF' || refusal === 'STORE_CANCELLED' || refusal === 'SUSPENDED') return { ok: false, reason: refusal }
       const host = await selectLivePortalHost(tx, partnerId)
       if (!host) return { ok: false, reason: 'PORTAL_NOT_LIVE' }
       const token = newSessionId()
