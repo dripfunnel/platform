@@ -135,10 +135,9 @@ export interface PartnerBrandingDeps {
   caller: PartnerCaller
   facts: RequestFacts
   activity: ActivityLog
-  now: () => Date
 }
 
-export const createPartnerBrandingService = ({ sql, caller, facts, activity, now }: PartnerBrandingDeps) => {
+export const createPartnerBrandingService = ({ sql, caller, facts, activity }: PartnerBrandingDeps) => {
   const partnerId = caller.partner.id
   const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
   const permission = (): BrandingDto['permission'] => (partnerRoleHas(caller.user.role, 'branding.write') ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
@@ -154,7 +153,7 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity, now
 
   const branding = (): Promise<BrandingDto | null> =>
     withScope(sql, context, async (tx) => {
-      const { live, draft } = await selectBranding(tx, partnerId, now())
+      const { live, draft } = await selectBranding(tx, partnerId)
       const shown = live ?? draft
       if (!shown) return null
       const input = toInput(shown)

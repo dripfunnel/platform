@@ -38,10 +38,10 @@ const fields = [
   'support_email', 'support_url', 'help_url', 'terms_url', 'privacy_url', 'dpa_url', 'impressum', 'powered_by',
 ] as const
 
-/** The partner's live version (the newest published at or before `now`) and its draft, if any. */
-export const selectBranding = async (tx: ScopedSql, partnerId: string, now: Date): Promise<{ live: BrandingRow | null; draft: BrandingRow | null }> => {
+/** The partner's live version (the newest published by the database's clock, the one publish stamps) and its draft. */
+export const selectBranding = async (tx: ScopedSql, partnerId: string): Promise<{ live: BrandingRow | null; draft: BrandingRow | null }> => {
   const [live] = await tx<BrandingRow[]>`
-    select * from partner_branding where partner_id = ${partnerId} and state = 'published' and published_at <= ${now}
+    select * from partner_branding where partner_id = ${partnerId} and state = 'published' and published_at <= now()
     order by published_at desc, id desc limit 1
   `
   const [draft] = await tx<BrandingRow[]>`select * from partner_branding where partner_id = ${partnerId} and state = 'draft'`
@@ -80,7 +80,7 @@ export const saveBrandingDraft = async (tx: ScopedSql, partnerId: string, b: Bra
 /** Publishes a draft now, at the database's clock (0016's trigger refuses a back-dated one). */
 export const publishBrandingDraft = async (tx: ScopedSql, id: string, label: string): Promise<Date> => {
   const [row] = await tx<{ published_at: Date }[]>`
-    update partner_branding set state = 'published', published_at = now(), published_by_label = ${label}
+    update partner_branding set state = 'published', published_at = date_trunc('milliseconds', now()), published_by_label = ${label}
     where id = ${id} and state = 'draft' returning published_at
   `
   if (!row) throw new Error('partner_branding: no draft to publish')
