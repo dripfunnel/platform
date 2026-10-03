@@ -47,7 +47,8 @@ describe('the seeded catalogue', () => {
     expect(growth?.entitlements).toMatchObject({ custom_domain: true, products: 5000, publish_now: 60, ai_prompts: 200 })
     expect(await as(partner(ids.ns), (tx) => tx`select amount from plan_fee where plan_id = ${ids.growth}`)).toEqual([{ amount: 1800 }])
     expect((await as(partner(ids.ns), (tx) => tx`select key from plan_ceiling`)).length).toBe(7)
-    const unpriced = await as(partner(ids.kl), (tx) => selectPlanVersion(tx, ids.basis, 1))
+    const enterprise = (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.kl} and name = 'Enterprise'`)[0]?.id ?? ''
+    const unpriced = await as(partner(ids.kl), (tx) => selectPlanVersion(tx, enterprise, 1))
     expect(unpriced?.prices).toEqual([{ currency: 'EUR', monthly: null, yearly: null }])
   })
 

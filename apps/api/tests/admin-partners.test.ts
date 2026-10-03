@@ -247,7 +247,11 @@ describe('approval (§4.3, two staff unless a Super admin counts for both)', () 
     await db.sql`update partner set state = 'awaiting', submitted_at = ${now}, submitted_by_kind = 'partner_user', submitted_by_label = 'Freya Lind' where id = ${nordlicht}`
     await db.sql`update partner_domain set status = 'live', found = expected where partner_id = ${nordlicht}`
     await db.sql`update partner_setup_item set status = 'done', done_at = now(), done_by_kind = 'staff', done_by_label = 'DripFunnel' where partner_id = ${nordlicht}`
-    await db.sql`insert into plan (partner_id, name, status) values (${nordlicht}, 'Standard', 'live')`
+    // A priced plan (its version 1 is the table's trigger's): the go-live check reads the price.
+    await db.sql`
+      with p as (insert into plan (partner_id, name, status) values (${nordlicht}, 'Standard', 'live') returning id, partner_id)
+      insert into plan_price (plan_id, partner_id, version, currency, monthly_amount) select id, partner_id, 1, 'EUR', 2900 from p
+    `
     const sa = as('staff-super-admin')
     await db.sql`insert into partner_setup_session (staff_user_id, partner_id, reason, started_at, expires_at, ended_at) values (${sa.id}, ${nordlicht}, 'set up', ${new Date(now.getTime() - 3600_000)}, ${now}, ${now})`
     const alone = (await run<Approved>(approve, sa, { id: nordlicht, reason: 'All set' })).data?.approvePartner

@@ -41,6 +41,7 @@ const usdCad = (usd: [number, number], cad: [number, number]): PlanVersionPrice[
   { currency: 'CAD', monthly: cad[0], yearly: cad[1] },
 ]
 const unpricedEur: PlanVersionPrice[] = [{ currency: 'EUR', monthly: null, yearly: null }]
+const eur = (monthly: number, yearly: number): PlanVersionPrice[] => [{ currency: 'EUR', monthly, yearly }]
 
 export const catalogue: Record<string, CatalogueEntry> = {
   'ns:Starter': { trialDays: 14, prices: usdCad([2900, 29000], [3900, 39000]), feeMinor: 1200, entitlements: e([false, false, false, false, false, true], [500, 2, 0, 1, 1, 20, 50]) },
@@ -48,11 +49,16 @@ export const catalogue: Record<string, CatalogueEntry> = {
   'ns:Pro': { trialDays: 14, prices: usdCad([9900, 99000], [12900, 129000]), feeMinor: 3500, entitlements: e([true, true, true, true, true, true], [10000, 15, 20, 4, 3, 150, 500]) },
   // The prototype's "Basic (2024)".
   'ns:Launch (retired)': { trialDays: 0, prices: usdCad([1900, 19000], [2500, 25000]), feeMinor: 1000, entitlements: e([false, false, false, false, false, false], [200, 1, 0, 1, 1, 10, 0]) },
-  // Kaufladen's three plans are unpriced; the third is the prototype's "Profi".
-  'kl:Basis': { trialDays: 14, prices: unpricedEur, feeMinor: 1100, entitlements: e([false, false, false, false, false, true], [500, 2, 0, 2, 1, 20, 50]) },
-  'kl:Plus': { trialDays: 14, prices: unpricedEur, feeMinor: 1700, entitlements: e([true, true, true, false, true, true], [5000, 5, 5, 2, 1, 60, 200]) },
+  // The seed's Kaufladen is Awaiting approval with "Basis and Plus are priced" (the admin
+  // console's view), so those two carry prices; the prototype's Draft has none. The third is
+  // the prototype's "Profi", still unpriced.
+  'kl:Basis': { trialDays: 14, prices: eur(2500, 25000), feeMinor: 1100, entitlements: e([false, false, false, false, false, true], [500, 2, 0, 2, 1, 20, 50]) },
+  'kl:Plus': { trialDays: 14, prices: eur(4500, 45000), feeMinor: 1700, entitlements: e([true, true, true, false, true, true], [5000, 5, 5, 2, 1, 60, 200]) },
   'kl:Enterprise': { trialDays: 14, prices: unpricedEur, feeMinor: 3200, entitlements: e([true, true, true, false, true, true], [10000, 15, 20, 2, 1, 150, 500]) },
 }
+
+/** A Live plan the prototype does not price still reads as priced, as the admin seed assumes (#33's go-live check). */
+export const fallbackPrices = (status: string): PlanVersionPrice[] => (status === 'live' ? [{ currency: 'USD', monthly: 2900, yearly: 29000 }] : [])
 
 /** A plan the prototype does not price: its #32 limits, nothing else switched on. */
 export const fallbackEntitlements = (maxProducts: number | null, maxStaff: number | null): Entitlements =>
