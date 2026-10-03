@@ -42,7 +42,7 @@ platform            no row: DripFunnel itself; staff act here
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `signup` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `signup` (§7.10) |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
@@ -177,7 +177,15 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 - **`store_subscription`** exactly as §7.9 designs it, pointing at the plan **version** (§2.3),
   with `next_plan_id`, `next_plan_version` and `change_at` for a scheduled change. It carries
   `partner_id` so its composite keys hold the store and both plan versions to one partner
-  (foreign keys skip RLS). Billing (`app_system`) and staff write it. A partner reads it by
+  (foreign keys skip RLS). Billing (`app_system`) and staff write it; a partner writes only the
+  schedule (`next_plan_id`, `next_plan_version`, `change_at`, migration `0015`, #161), when
+  a plan change applies at renewal or a retired plan moves its stores, and since migration
+  `0018` (#160) a trial's end. A plan change "now" goes through `partner_move_subscription`
+  (owned by `app_definer`): its own store, a Live plan of its own, that plan's current version
+  at that version's price, never an amount the caller names. It adds what the move prorates,
+  which it holds to the price difference's sign and size and to zero on trial,
+  to `proration_amount` (minor units of the subscription's currency, above zero charged,
+  below zero credited, with `proration_at`) for billing (#201) to collect. A partner reads it by
   column (status, amounts, periods, the scheduled change, the card's last four); the merchant
   also reads the card's brand and expiry; neither reads the Stripe ids or the payment-method
   label. A store built before #212 has no row until billing (#201) creates one. `core/tenancy.ts`'s
@@ -201,9 +209,47 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 - Account level (§2): the store's merchant side reads its own rows in store scope; a supplier
   or a storefront reads none; the partner its own stores' (through the store policy); staff
   and jobs everything. The four role pins are on each table.
+- The store actions (`0018`, #160, ui/platform/FIRST-RELEASE.md §6.4): a partner may also insert
+  an owner invitation on its own store and revoke one (never a team member's or a supplier's,
+  never the token), and restart its own store's latest setup job when it is failed or running
+  (state, step start, attempts, error), back to running only.
 - Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
   `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
   store_id)`, and the trigram indexes on store name and code, owner email and domain host.
+
+### 2.5 The partner's look and words (built on #211)
+
+Migration `0016`, from SAAS §3.3–§3.4 and the prototype's Branding screens:
+
+```
+partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), product_name, primary_color,
+                   accent_color, font, corner, background, logo_light_key, logo_dark_key,
+                   mark_key, favicon_key, support_email, support_url, help_url, terms_url,
+                   privacy_url, dpa_url, impressum, powered_by, created_by_kind,
+                   created_by_label, created_at, published_at, published_by_label)
+```
+
+- **At most one draft per partner** (a partial unique index). The **live** version is the newest
+  published one whose `published_at` has passed; one published with a later time is
+  scheduled (F8). Every published version is kept, which is the history FIRST-RELEASE §8.4
+  reads; a rollback publishes a copy.
+- **What changes** is held by a trigger, for the partner, staff and jobs alike. A version
+  starts as a draft. A draft is edited or published no earlier than now, so history is never
+  back-dated. A scheduled version (published, not live yet) may only be **cancelled**, nothing
+  else about it changing. A live or past version is never changed. Anything not a draft carries
+  who published it and when (a check constraint).
+- The files are R2 object keys, never a URL a browser was given; colours are `#RRGGBB`; the font,
+  corner and background come from the prototype's lists.
+- The partner reads and writes its own, inserting under its own kind (`partner_user`); staff and
+  jobs reach every partner's; no merchant role has a grant (the portal's look is resolved by
+  hostname, SAAS §3.3, on the Store API card that serves it). The four role pins are on the
+  table.
+- `partner.product_name`, `primary_color`, `accent_color` and `powered_by` (#32) stay what the
+  admin console's lists read; a publish (#162) keeps them equal to the live version, the
+  partner role holding `update (powered_by)` for it (`0017`). A trigger holds that write to the
+  contract: a partner never sets or leaves `house`, and turns it `off` only when
+  `partner_contract.powered_by_removable` allows it. A second trigger holds `partner_branding`
+  the same way: a partner may draft without the line, but publishes it off only when allowed.
 
 ---
 
@@ -1258,7 +1304,32 @@ Billing on DripFunnel's account, the partner's or DripFunnel's own plans. Distin
 store's own `payment_provider_account` rows (flow 61). `store.plan_id` and `trial_ends_at`
 (built on #32) are mirrors of this table, written by the same transaction. **`store_subscription`
 is built on #212** (§2.4); `store_billing_details`, `invoice`, `invoice_line` and
-`billing_event` are #163's and #201's.
+`billing_event` are #201's.
+
+**Built on #163** (migration `0019`), what the partner Dashboard, Billing and Reports read, filled
+by Stripe Connect's sync later (THIRD-PARTY-ACCESS §2.7) and by the seed until then. Each is
+partner-scoped: a partner reads its own rows, staff and jobs every row, `app_system` writes, and
+no merchant branch exists yet. The four role pins are on each table. Money columns are `bigint`
+minor units, and every payout currency is the contract's `fee_currency` by foreign key, so a
+sum never mixes or drops currencies.
+
+```
+merchant_charge     (id, partner_id, store_id, kind ('subscription'|'proration'|'refund'),
+                     status ('paid'|'failed'|'refunded'|'recovered'), amount, currency,
+                     payout_currency, payout_gross, fee_amount, partner_amount
+                     (= payout_gross - fee_amount), card_last4, failure_reason, invoice_id,
+                     charged_at)          -- (store_id, partner_id) keyed to the store's partner;
+                    -- a refund's amounts are positive and subtracted when summed
+partner_payout      (id, partner_id, period_start, period_end, currency, gross, fee,
+                     adjustments, amount (= gross - fee + adjustments), stores,
+                     status ('scheduled'|'paid'|'held'), scheduled_for, paid_at, held_reason,
+                     adjustment_note)     -- one per partner and period
+store_sales_month   (store_id, partner_id, month, currency, amount, payout_currency,
+                     payout_amount, orders)  -- payout_amount ranks stores across currencies
+                    -- the engine's monthly totals: all a partner sees of a merchant's orders
+partner_billing_feed (partner_id PK, synced_at, stale_since)
+                    -- the sync job's last run; the Dashboard's asOf and staleSince
+```
 
 ```
 store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active'|'past_due'
@@ -1266,7 +1337,8 @@ store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active
                      period_start, period_end, trial_ends_at, cancel_at NULL,
                      next_plan_id NULL, next_plan_version NULL, change_at NULL,
                      stripe_customer_id, stripe_subscription_id, payment_method_label,
-                     payment_method_brand, payment_method_last4, payment_method_expires date)
+                     payment_method_brand, payment_method_last4, payment_method_expires date,
+                     proration_amount NULL, proration_at NULL)
                     -- status uses store.status's spellings (0007: trial, active, past_due,
                     -- cancelled), which core/tenancy.ts's Subscription type and ACCESS §3
                     -- use since #212. currency is the store's when USD, EUR or INR, else

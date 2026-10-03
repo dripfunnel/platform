@@ -725,6 +725,131 @@ api/README.md §2.1); a partner id in a request is not authority.
 - "Priced" in the go-live checks now means a Live plan whose current version has a monthly
   price (#157's catalogue), for the admin console too.
 
+**Built on #161** (Plans, `apis/platform/plans.ts`, `saas/partnerPlans`):
+- **`plans(after, first)`**, cursor-paged, oldest first, at most 50 a page, no total; and
+  **`planEditor(id)`** (not `plan(id)`; `id` null for a new plan). The editor's
+  `plan` is `{ row, entitlements }`. It carries the ceilings per row, the contract's
+  "Powered by" rule (`powered { allowed, note }`), the currencies the partner sells in, the
+  trials, `chargedBy`, the `edit` and `price` permissions, the retire targets and the three
+  first-of-month dates.
+- **`quotePlanPrices(id, prices)` carries the fee and the margin**, as `Money`: a second
+  currency's fee is converted at the contract rate with integer arithmetic, and a price below the
+  fee is a `loss`. Where the contract states no rate for a currency, `fee` is null and the
+  margin `noFee`. A new plan's fee is the lowest the partner's contract charges today, until
+  DripFunnel sets one.
+- `createPlan(input)`, `updatePlan(id, input, applyTo)` (`plans.price`, so Finance reaches it
+  and is held to prices), `makePlanLive(id)` and `retirePlan(id, { keep } | { keep: false,
+  moveTo, on })`. They refuse with the fixture's codes, plus `NOT_FOUND`, `INVALID_STATE` (not
+  Draft or not Live, or editing a retired plan), `INVALID_TARGET` (not another Live plan, or not
+  an offered date), `INVALID_CURRENCY` (an amount in another currency than its row, or a
+  currency the contract states no fee in) and `INVALID_INPUT` (input that fails validation). Make live requires the contract's currencies. With
+  no contract yet, it requires the plan's own. Retiring locks the Live plans, so two retirements
+  at once never leave none.
+- A role without `plans.write` gets `FORBIDDEN` from the policy. The permission blocks carry
+  `OWNERS_AND_ADMINS_ONLY`.
+- **Everyone at renewal** schedules each subscription on the plan for its first renewal at least
+  30 days away (a past-due one too) and queues `plan-change-at-renewal` (§7.3's 30 days). A
+  subscription already moving within this plan is re-pointed to the newest version and date; one
+  moving to another plan (the store's own change) keeps it. Retiring with a move does the same for
+  the chosen date and queues `plan-retired-move` for each store moved. Both are written in the
+  change's own transaction.
+
+**Built on #162** (Branding, `apis/platform/branding.ts`, `saas/partnerBranding`):
+- `branding` returns the live look and words, or the draft while nothing is live
+  (`published` says which). It also carries `affects` (stores not closed), the contrast
+  report, `poweredByRule` (`choice` | `fixedOn`, from the contract), `impressumRequired`
+  (the partner's country is DE, AT or CH), `dpaRequired` and the publish permission.
+- `checkContrast(primary, accent)` and the publish use one function (`contrast.ts`, WCAG 2.2,
+  4.5:1).
+- `publishBranding(input)` refuses with the fixture's codes: `INVALID_INPUT` carries `field`,
+  and `CONTRAST_FAILS` carries `fix`. A role without `branding.write` gets `FORBIDDEN` from the
+  policy.
+- A publish adds a version with who and when. It keeps the partner row's look and "Powered by"
+  equal to it (`0017`), marks Branding (and Legal pages, once terms, privacy, the DPA and any
+  required Impressum are there) and queues the portal cache purge.
+- **Files are R2 keys under the partner's prefix**; a key under another prefix, or a URL, is
+  `INVALID_INPUT`. The upload itself is #219, which waits for the bucket.
+- This card ships the publish-now path only. `saveBrandingDraft`, `publishBranding(when)`
+  (scheduling), `cancelScheduledBranding`, `rollbackBranding`, the history and the email
+  templates are §8.3–§8.4's.
+
+**Built on #159** (Stores, `apis/platform/stores.ts`, `saas/partnerStores`):
+- `stores(filter, after, before, first)`: newest first, cursor-paged both ways, at most 25 a
+  page, no total.
+  Filters: status (`pastdue` spelt as the console spells it; `cancelled` takes closed stores
+  too), plan, created window, storefront, near a limit (80%+ of any limit), search. A filter or cursor it can't read is `INVALID_INPUT`. The page carries
+  `plans`, `billingMode`, and the export and billing-status permissions.
+- `store(id)` returns `{ row, … }` with the tabs from today's rows: account, contacts, usage,
+  overrides, billing (subscription, next charge, card's last four, the billing mode and the partner's name, from
+  which the console words who charges), site links,
+  DNS records, setup, trial extensions, support (consent and people) and the account's
+  activity. Usage is measured once for both the list and the detail: against the plan version
+  the store bought plus every active override, a monthly meter counting only this month. An id
+  that isn't one finds nothing. Overrides, trial extensions and activity show their newest 25,
+  people their first 100, and `more` says which tab has further rows. **Sales, invoices and past support sessions arrive with #163, #201 and #202.**
+- `actions` is the §6.4 block, following the prototype. An action the state does not offer is
+  absent. One whose ACCESS §5.3 permission the role lacks is refused: `FINANCE_TRIAL_ONLY` on Extend trial,
+  `OWNERS_AND_ADMINS_ONLY` on the rest. The record refusals (`ALREADY_SUSPENDED`, …) are the
+  mutations' (#160).
+- `setStoreBillingStatus(id, status)`: `stores.billingStatus` (else `BILLING_ROLES_ONLY`). It refuses `NOT_SELF_BILLING`
+  while DripFunnel bills, `CANCELLED` on a cancelled store, and `NOT_FOUND` and
+  `INVALID_INPUT`. It is logged once.
+- No type in the Platform API names an order, a customer or a product (a schema test).
+  Create and export are #221.
+
+**Built on #160** (store actions, `apis/platform/storeActions.ts`, `saas/partnerStores/actions.ts`):
+- Every mutation locks the store and asks the same `actionsFor` as `store(id)`'s block. A role
+  without the action's permission is `FORBIDDEN` (the block names the code). An action the
+  state doesn't offer is refused: `NOT_ON_TRIAL`, `ALREADY_SUSPENDED`, `NOT_SUSPENDED`,
+  `CANCELLED`, or `NOT_STUCK` for Retry. Another partner's store, or an id that isn't one, is
+  `NOT_FOUND`. Every write logs one entry, with the reason, in its transaction.
+- `changePlanOptions(storeId)` (`stores.plan`): the Live plans priced in the subscription's
+  currency and interval, or monthly in USD before billing subscribes the store (SAAS §6.1);
+  unpriced plans are left out, each with the API's proration for
+  moving now (`charge` and `credit` with an amount, or `none`; nothing on trial), and
+  `nextBillingAt`. `changeStorePlan(id, planId, when, reason)` moves the subscription to the
+  plan's current version now and records the proration for billing (#201), or schedules the
+  move for the next billing date. `PLAN_NOT_LIVE`, `SAME_PLAN`, `UNPRICED_CURRENCY`, and
+  `NO_BILLING_DATE` for "next" on a store billing has not subscribed yet. The
+  merchant's email goes through the outbox.
+- `extendTrial(id, days, reason)`: 3, 7 or 14 days from the later of the trial's end and now.
+  A plan change scheduled for the trial's end moves with it.
+- `addLimitOverride` and `removeLimitOverride(id, overrideId, reason)`: `stores.plan`, since
+  ACCESS §5.3 has no permission of its own for overrides. A month override is for the
+  current UTC month.
+- `suspendStore(id, reason)`: the reason is shown to the merchant, so it is trimmed, 1–500
+  characters, with no control characters or angle brackets. It queues the "Store suspended"
+  email and the storefront purge. Billing reads the suspended status and charges nothing until
+  the store is restored (#201). `restoreStore` puts back the status the store had.
+- `resendStoreOwnerInvite(id)` revokes the open owner invitation and sends a new one.
+  `retryProvisioningStep(id)` restarts the latest job's current step and queues
+  `provisioning.retry` keyed by the attempt. The job is checked again once it is locked, so a
+  step that finished meanwhile, or a second call, is refused.
+- No `READ_ONLY`: a closed partner has no session (ACCESS.md §4), and the contract's lapse is
+  not stored yet; that code arrives with the contract term (§2.3).
+
+**Built on #163** (Dashboard, `apis/platform/dashboard.ts`, `saas/partnerDashboard`):
+- `dashboard(range)` (`partner.read`) for `month`, `last` and `q` returns the §5 cards. The
+  windows are: this month so far against all of last month; last month against the month
+  before; the last 90 days against the 90 before. Each card is one SQL count or sum over the
+  partner's rows. Revenue is what was charged (DATA-MODEL §7.9), in the contract's payout currency
+  (USD without a contract). Every amount on the Platform API is the one `Money` type, whose `amount` is the `MinorUnits`
+  scalar: whole minor units past GraphQL's 32-bit `Int`, refused if not exact. `asOf` and `staleSince` come from the sync job's
+  `partner_billing_feed`, and `fresh` is a Live partner with no store and no charge.
+- **Comparisons are English sentences composed by the API**, as §5 requires ("94% of August so
+  far, with 2 days to go", "+4% vs July", "+15% vs the 90 days before"; "up from 29% last
+  month"). Conversion is the share of trials that ended in the range and became paid, `null`
+  when none ended.
+- Each store count matches the Stores list under the filter its link applies: status,
+  `created=month` (also Signups started), and `near=yes`.
+- Needs attention lists past-due stores, stuck setup (the console's step names), a domain
+  waiting for DNS for more than a day, and trials ending within 3 days, at most 10 rows. Retry
+  and Extend take their verdicts from `store(id)`'s block. Open billing and Re-check are
+  allowed for every role.
+- Top stores are the five with the highest `store_sales_month` totals for last month, ranked in
+  the payout currency and shown in each store's own. Refunds subtract from revenue, and only a
+  store's latest domain is checked.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

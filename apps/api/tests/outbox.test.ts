@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
+import { insertOutboxMany } from '#db/scoped/outbox'
 import { backoffMs, defaultRelayOptions, relayDue, type Deliverers, type Effect, type RelayOptions } from '#jobs/queues/outbox-relay'
 import { queueSideEffect } from '#saas/outbox/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -101,6 +102,16 @@ describe('a side effect follows its transaction', () => {
     expect(await queued(partner(t.partnerA), 'email', 'twice', { partnerId: t.partnerA, storeId: t.storeA2 })).not.toBeNull()
     const [r] = await db.sql<{ n: string }[]>`select count(*)::text as n from outbox where idempotency_key like '%:twice'`
     expect(Number(r?.n)).toBe(4)
+  })
+})
+
+describe('many at once', () => {
+  it('queues a batch in one statement and, with a key already queued, skips just that row', async () => {
+    const row = (key: string) => ({ kind: 'email', idempotencyKey: key, payload: { key }, partnerId: t.partnerA, storeId: t.storeA1 })
+    await withScope(db.sql, partner(t.partnerA), (tx) => insertOutboxMany(tx, [row('many-1'), row('many-2')]))
+    await withScope(db.sql, partner(t.partnerA), (tx) => insertOutboxMany(tx, [row('many-2'), row('many-3')]))
+    const keys = await db.sql<{ k: string }[]>`select payload->>'key' as k from outbox where payload->>'key' like 'many-%' order by 1`
+    expect(keys.map((r) => r.k)).toEqual(['many-1', 'many-2', 'many-3'])
   })
 })
 

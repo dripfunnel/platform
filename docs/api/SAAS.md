@@ -126,14 +126,16 @@ sign-up, password reset and invitation emails (CONSOLE-DESIGN §3 facts 4, 17; p
 - name, logo (light and dark), mark and favicon, primary and accent colours, font, corner
   style, sign-in background;
 - **contrast checked to WCAG AA before saving**, with an explanation when a colour fails;
-- **versioned**: every change is recorded, can be rolled back, and can be scheduled (F8);
+- **versioned**: every change is recorded, can be rolled back, and can be scheduled (F8)
+  (`partner_branding`, built on #211, DATA-MODEL §2.5; publishing is #162);
 - resolved **by hostname** at the edge of every request, cached with explicit invalidation on
   change (PLATFORM-PROMPT §5.3).
 
 ### 3.4 Words
 
 Product name ("Northstar Shops"), support email and URL, help centre, terms, privacy policy,
-data-processing agreement, and the **"Powered by DripFunnel"** line: on, off, or by the
+data-processing agreement (an **Impressum** too where the law requires one: a partner in DE, AT
+or CH, built on #162), and the **"Powered by DripFunnel"** line: on, off, or by the
 partner's plan with DripFunnel (fact 18). Whether a partner may hide DripFunnel everywhere is
 open (§14). Email templates (verification code, invitation, password reset, trial ending,
 payment failed, store suspended, receipts) are editable in subject and a small set of blocks,
@@ -349,6 +351,10 @@ partner's billing, or both) is open (§14).
 - The webhook updates `store_subscription` (or the partner's account), invalidates the cached
   status on sessions, and writes outbox events for emails and storefront rules, in one
   transaction.
+- **What was charged and paid out** is stored as rows (built on #163, DATA-MODEL §7.9):
+  `merchant_charge` with DripFunnel's fee and the partner's share in the payout currency,
+  `partner_payout` per month, and `store_sales_month`. The Dashboard and Reports sum these, never
+  a plan price times a count.
 - **Trials** end at `trial_ends_at`, with a "trial ending" email from the partner's templates.
 - **A paid-to-paid plan change is prorated** (decided 2026-10-02, `PortalBilling`): the
   merchant is charged today for the days left in the period on the new plan minus the unused

@@ -3,6 +3,11 @@ import { secureSchema } from '../graphql/scope'
 import { platformPolicy } from './access'
 import { builder } from './builder'
 import './shell'
+import './plans'
+import './branding'
+import './stores'
+import './storeActions'
+import './dashboard'
 
 export type { PlatformContext } from './access'
 
