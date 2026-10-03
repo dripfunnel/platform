@@ -214,3 +214,33 @@ describe('the rest of the rules', () => {
     expect(answers).toEqual([null, null, 'RATE_LIMITED', 'RATE_LIMITED'])
   })
 })
+
+describe('inviter throttle and isolation', () => {
+  it('throttles one inviter past twenty an hour', async () => {
+    const inviter = await addMember('busy.inviter@northstar.example', 'partner-admin')
+    for (let i = 0; i < 20; i += 1) {
+      await db.sql`insert into activity_log (category, action, result, actor_kind, actor_id, actor_label, partner_id, target_type, target_id, target_label, changes, api, visibility)
+        values ('write', 'partner_user.invited', 'success', 'partner_user', ${inviter}, 'Busy', ${ids.ns}, 'partner_user', ${crypto.randomUUID()}, 'x', '[]'::jsonb, 'platform', 'partner')`
+    }
+    expect((await run<Res<'inviteTeamMember'>>(invite, callerOf(ids.ns, 'partner-admin', inviter), { name: 'One More', email: 'one.more@northstar.example', role: 'partner-support' })).data?.inviteTeamMember).toEqual({ ok: false, reason: 'RATE_LIMITED' })
+  })
+
+  it('never changes another partner’s member, whatever the mutation', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner', ids.owner)
+    const [theirs] = await db.sql<{ id: string; role_key: string; status: string }[]>`select id, role_key, status from partner_user where partner_id = ${ids.bz} and status = 'active' limit 1`
+    const mutations: [string, Record<string, unknown>][] = [
+      [`mutation($id: ID!) { r: resendTeamInvite(id: $id) { ok reason } }`, { id: theirs?.id }],
+      [`mutation($id: ID!) { r: revokeTeamInvite(id: $id) { ok reason } }`, { id: theirs?.id }],
+      [`mutation($id: ID!) { r: changeTeamRole(id: $id, role: "partner-read-only") { ok reason } }`, { id: theirs?.id }],
+      [`mutation($id: ID!) { r: removeTeamMember(id: $id) { ok reason } }`, { id: theirs?.id }],
+      [`mutation($id: ID!) { r: transferOwnership(toUserId: $id) { ok reason } }`, { id: theirs?.id }],
+    ]
+    for (const [source, variables] of mutations) expect((await run<{ r: unknown }>(source, owner, variables)).data?.r, source).toEqual({ ok: false, reason: 'NOT_FOUND' })
+    expect(await db.sql`select id, role_key, status from partner_user where id = ${theirs?.id ?? ''}`).toEqual([theirs])
+  })
+
+  it('logs a transfer by ids, never addresses', async () => {
+    const [entry] = await db.sql<{ changes: { before: unknown; after: unknown }[] }[]>`select changes from activity_log where action = 'partner.ownership_transferred' and partner_id = ${ids.ns} limit 1`
+    expect(JSON.stringify(entry?.changes)).not.toContain('@')
+  })
+})

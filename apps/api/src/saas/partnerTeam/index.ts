@@ -244,8 +244,9 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
           action: teamAudit.transferOwnership,
           target: { type: 'partner_user', id: member.id, label: member.email },
           reason: null,
+          // Ids, not addresses: the log stays pseudonymisable (LOGGING §9); the target names the new Owner.
           changes: [
-            { field: 'owner', before: caller.user.email, after: member.email },
+            { field: 'owner', before: me.id, after: member.id },
             { field: 'previous_owner_role', before: owner, after: 'partner-admin' },
           ],
         }),
