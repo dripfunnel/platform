@@ -9,12 +9,22 @@ to build first: [FIRST-RELEASE.md](../../../docs/ui/platform/FIRST-RELEASE.md).
 pnpm --filter ./apps/ui/platform dev   # http://localhost:5174, /api proxied to the local Worker
 ```
 
+**Wired to the Platform API** (#164): sign-in, 2-factor, accepting an invitation, sign-out, `me`
+and the session guard, the partner-state banners, the nav badges, the header search and the
+setup checklist with Submit. **Still on fixtures**, until their cards: the Dashboard's numbers,
+Stores and Store detail (#166), Plans and Branding (#165). Domains, Reports, Billing, Support,
+Activity log and Settings are placeholders. Against the local seed, `pnpm seed` prints an
+invitation link to accept (set a password there, then sign in), and
+`pnpm --filter ./apps/api session --partner <email>` prints a session cookie for any active
+partner user.
+
 ## The shell
 
 `src/routes/_app.tsx` is the shell every signed-in screen sits in (`src/features/shell/`, built
-on #111): the header, the strips under it, the side bar, and the phone drawer. Its loader reads
-the signed-in partner user and the nav badge counts from `src/api/me.ts` and
-`src/api/navBadges.ts`, which are fixtures until the Platform API's `me` arrives.
+on #111): the header, the strips under it, the side bar, and the phone drawer. It reads `me`
+first: nobody signed in goes to `/sign-in?next=` and comes back after. Its loader then reads
+`partnerState` and `navBadges` (`src/api/partnerState.ts`, `navBadges.ts`). When the API
+doesn't answer, the shell shows the load error with Try again (`ShellError`).
 
 - **Navigation is data** in `src/nav.ts`: the ten rows of FIRST-RELEASE.md §2.1, with the roles
   that see each. A row a role can't use is absent, not disabled: Billing for Support, Support
@@ -29,8 +39,10 @@ the signed-in partner user and the nav badge counts from `src/api/me.ts` and
   alone draws.
 - **Strips under the header**: the environment strip on every host but production (Dev,
   Feature, Local by hostname from the shared `environmentFor`; decided 2026-10-01 on #109),
-  and the partner-state strip while the partner is Draft, Awaiting approval or Sent back
-  (FIRST-RELEASE §2.3).
+  then `PartnerBanners`, worded here from `partnerState`'s facts (FIRST-RELEASE §2.3): the
+  Draft, Awaiting approval and Sent back strip, Paused with DripFunnel's reason, Offboarding,
+  the hosts that stopped pointing at DripFunnel, and a staff setup session. The contract,
+  store-limit, payout and card banners wait for facts the API doesn't send yet.
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 
@@ -177,20 +189,22 @@ fonts the picker offers are loaded for the preview alone (designs/design.md §6)
 ## Onboarding
 
 `/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;
-FIRST-RELEASE.md §4): the ten items of SAAS §3.2 with done · in progress · to do, who completed
-each, a link to its screen (Settings and Domains are placeholders until their cards land), the
-test signup button, and Submit for approval as the eleventh step, disabled with the reason until
-the required items are done. Payment method and payout details are the partner's own: locked
+FIRST-RELEASE.md §4): the Platform API's `onboarding`, ten items with done · in progress · to do,
+the API's detail (or the item's own hint), who completed each and the screen it links to; Run
+test signup, disabled with its reason until its API exists; and Submit for approval as the
+eleventh step, disabled with the API's verdict (`canSubmit`) or with the go-live checks it says
+still fail. Payment method and payout details are the partner's own: locked
 with "{partner} enters this itself" in a staff setup session, "Your turn" to the Owner. Awaiting
 approval shows what happens next; Sent back shows DripFunnel's reason with the fix linked and
 Submit again; Live shows a one-time card, then the Dashboard (#114).
 
-The fixture in `src/api/onboarding.ts` refuses a submit while a go-live check fails
-(`GO_LIVE_CHECK_FAILED`, naming the check) and refuses Support, Finance and Read-only
-(`OWNERS_AND_ADMINS_ONLY`). Harness: `?partner=draft|awaiting|sentback|live` (the shell's),
-`?setup=dripfunnel` for a partner set up by staff (items "Done by DripFunnel", the Owner's
-welcome card), `?state=setup` for the staff member's own view (the setup-session bar), and
-`?moment=live` for the Live card.
+`submitForApproval` answers `GO_LIVE_CHECK_FAILED` (naming the check), `ALREADY_SUBMITTED`,
+`ALREADY_APPROVED` or, from the access layer, `FORBIDDEN`, which reads as the Owners-and-Admins
+refusal. Harness: `?partner=draft|awaiting|sentback|live|paused|offboarding` (the shell's),
+`?setup=dripfunnel` for the Owner's welcome card, `?state=setup` for the staff member's own
+view (the setup-session bar), and `?moment=live` for the Live card. The welcome card and the
+Live card stay harness-only: the API says neither whether this is the Owner's first sign-in
+after staff set up nor whether Live is new.
 
 ## Signed-out screens
 
@@ -199,23 +213,25 @@ and password, then the 2-factor code, then `next` (same-origin only, `safeNext` 
 `src/api/auth.ts`); forgot password is a step of the same card and answers the same way whether
 or not the email exists. There is no sign-up and no Google button anywhere.
 
-The fixture in `src/api/auth.ts` stands in for the Platform API's auth routes and refuses what
-they will refuse, with the same message and the same timing for an unknown email and a wrong
-password: `INVALID_CREDENTIALS`, `WRONG_CODE` (with the tries left), `CODE_EXPIRED`, `LOCKED`
-(15 minutes after five wrong codes), `NOT_CONNECTED` when the harness is off. Under `vite dev`
-sign in as `maya@northstar.com` / `northstar-partners` (2-factor: code `123456`; `000000` is an
-expired code) or `alex@northstar.com` with the same password (no 2-factor). States:
-`?state=wrong`, `code`, `wrongCode`, `expiredCode`, `locked`, `forgot`, `sent`, `expired`,
-`notConnected`; `?outcome=expired` is the Worker's real result and is read in every build.
+`src/api/auth.ts` calls the Platform API's `/api/auth/*` routes; each refusal is a stable code:
+`INVALID_CREDENTIALS` (one message for an unknown email and a wrong password), `WRONG_CODE`
+(with the tries left), `CODE_EXPIRED`, `LOCKED` (with its minutes), `RATE_LIMITED`, and
+`NOT_CONNECTED` for anything the API never promised or no answer at all. A user whose partner
+requires 2-factor and who has none enrols before reaching the console (the API's `enrol` step).
+Sign out posts a form to `/api/auth/sign-out`, which ends the session and redirects. States:
+`?state=wrong`, `code`, `wrongCode`, `expiredCode`, `locked`, `enrol`, `forgot`, `sent`,
+`expired`, `notConnected`, `rateLimited`; `?outcome=expired` is the Worker's real result and is
+read in every build.
 
 `/accept-invite?token=` (#128) is the invitation side: the partner, role and invited email, a
 name and a 10-character password, then 2-factor as step 2 of 2, required when the partner's
-Owner requires it and otherwise skippable. The route loader fetches the invitation, so a bad
-link is known before anything renders. Fixture tokens, also reachable as `?state=`: `expired`,
-`used`, `replaced`, `invalid`, `member` (invited by the Owner), `required` (2-factor required),
-anything else the Owner's own invitation; `twoFactor` jumps to step 2. Codes:
-`INVITATION_EXPIRED`, `INVITATION_USED`, `INVITATION_REPLACED`, `INVITATION_INVALID`,
-`WEAK_PASSWORD`, `SECOND_FACTOR_REQUIRED`.
+Owner requires it and otherwise skippable. The route loader looks the token up, so a bad link
+is known before anything renders; the 2-factor step asks the API for a secret and shows it as a
+text key (the QR code is still a placeholder). `?state=` substitutes the answer instead:
+`expired`, `used`, `replaced`, `invalid`, `member` (invited by the Owner), `required` (2-factor
+required), and `twoFactor` for step 2. Codes: `INVITATION_EXPIRED`, `INVITATION_USED`,
+`INVITATION_REPLACED`, `INVITATION_INVALID`, `NAME_REQUIRED`, `WEAK_PASSWORD`,
+`SECOND_FACTOR_REQUIRED`.
 
 ## Staff sessions
 

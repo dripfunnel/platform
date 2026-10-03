@@ -8,12 +8,12 @@ import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
 import { EnvironmentStrip } from './EnvironmentStrip'
 import { navWords } from './navWords'
-import { PartnerStrip } from './PartnerStrip'
+import { PartnerBanners } from './PartnerBanners'
 
 const shellRoute = getRouteApi('/_app')
 
 export const AppShell = () => {
-  const { me, badges } = shellRoute.useLoaderData()
+  const { me, facts, badges } = shellRoute.useLoaderData()
   const [menuOpen, setMenuOpen] = useState(false)
   const rows = navView(navFor(me.role), badges, navWords)
   const words = messages.shell
@@ -27,7 +27,7 @@ export const AppShell = () => {
       <AppHeader me={me} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
       <div className="df-banners">
         <EnvironmentStrip />
-        <PartnerStrip state={me.partner.state} />
+        <PartnerBanners me={me} facts={facts} />
       </div>
       <div className="df-shell-body">
         <SideNav rows={rows} variant="bar" label={words.navLabel} footer={footer} />

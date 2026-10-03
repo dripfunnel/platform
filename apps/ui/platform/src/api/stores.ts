@@ -85,14 +85,6 @@ export interface StorePage {
   actions: { create: CreatePermission; export: ActionPermission; billingStatus?: ActionPermission }
 }
 
-export interface StoreMatch {
-  id: string
-  name: string
-  email: string
-  host: string
-  state: StoreState
-}
-
 export interface CreateStoreForm {
   permission: CreatePermission
   countries: readonly { name: string; currency: string }[]
@@ -255,8 +247,6 @@ export interface ChangePlanOptions {
 // The API's cap on a page; it answers with fewer when there are fewer.
 export const storePageSize = 25
 
-export const searchMaxResults = 8
-
 const notConnected = () => Promise.reject(new Error('The Platform API has no stores operations yet.'))
 
 // Seam: the sample stands in for the Platform API's stores operations until they land; it is invented,
@@ -276,9 +266,6 @@ export type BillingStatusResult = { ok: true } | { ok: false; reason: ActionRefu
 
 export const setStoreBillingStatus = (id: string, status: BillingStatus, caller: PartnerRole): Promise<BillingStatusResult> =>
   harnessEnabled ? Promise.resolve(storesServer.setBillingStatus(id, status, caller)) : notConnected()
-
-export const searchStores = (query: string): Promise<readonly StoreMatch[]> =>
-  harnessEnabled ? Promise.resolve(storesServer.search(query)) : notConnected()
 
 export const loadCreateStoreForm = (caller: PartnerRole, partnerState: PartnerState): Promise<CreateStoreForm> =>
   harnessEnabled ? Promise.resolve(storesServer.form(caller, partnerState)) : notConnected()

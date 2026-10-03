@@ -55,15 +55,6 @@ describe('the stores fixture, as the Platform API would answer', () => {
     }
     expect(server().form('partner-owner', 'draft').permission).toEqual({ allowed: false, reason: 'PARTNER_NOT_LIVE' })
   })
-
-  it('searches name, code, domain and owner email, eight at most', () => {
-    const s = server()
-    expect(s.search('juniper').map((match) => match.name)).toContain('Juniper & Co.')
-    expect(s.search('baysidepets.com').map((match) => match.id)).toEqual(['st-bayside'])
-    expect(s.search('ethan@').map((match) => match.id)).toEqual(['st-bayside'])
-    expect(s.search('co').length).toBeLessThanOrEqual(8)
-    expect(s.search('  ')).toEqual([])
-  })
 })
 
 describe('creating a store', () => {

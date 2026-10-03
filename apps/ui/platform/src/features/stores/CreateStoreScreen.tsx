@@ -17,11 +17,11 @@ export const CreateStoreScreen = () => {
 
 export const CreateStorePending = () => {
   const { me } = createRoute.useRouteContext()
-  return <CreateStoreLoading host={me.partner.host} />
+  return <CreateStoreLoading host={me.partner.host ?? ''} />
 }
 
 export const CreateStoreRouteError = () => {
   const router = useRouter()
   const { me } = createRoute.useRouteContext()
-  return <CreateStoreError host={me.partner.host} onRetry={() => void router.invalidate()} />
+  return <CreateStoreError host={me.partner.host ?? ''} onRetry={() => void router.invalidate()} />
 }

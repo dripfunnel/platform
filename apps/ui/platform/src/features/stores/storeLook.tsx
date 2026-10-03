@@ -1,4 +1,5 @@
 import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
+import type { SearchStatus } from '../../api/search'
 import type { StoreDomain, StoreState, StorefrontState } from '../../api/stores'
 import { fill, formatCount, formatDate, messages, plural } from '../../messages'
 
@@ -54,6 +55,18 @@ export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'w
 }
 
 export const StoreStatusPill = ({ state }: { state: StoreState }) => <StatusPill {...statusLook[state.kind]} label={words.statuses[state.kind]} />
+
+// A search result carries the API's status as stored, closed included (FIRST-RELEASE §2.2).
+const searchLook: Record<SearchStatus, Look & { label: string }> = {
+  trial: { ...statusLook.trial, label: words.statuses.trial },
+  active: { ...statusLook.active, label: words.statuses.active },
+  past_due: { ...statusLook.pastdue, label: words.statuses.pastdue },
+  suspended: { ...statusLook.suspended, label: words.statuses.suspended },
+  cancelled: { ...statusLook.cancelled, label: words.statuses.cancelled },
+  closed: { tone: 'neutral', icon: 'cross', label: words.statuses.closed },
+}
+
+export const SearchStatusPill = ({ status }: { status: SearchStatus }) => <StatusPill {...searchLook[status]} />
 
 export const StatusSub = ({ state }: { state: StoreState }) => {
   const sub = statusSub(state)

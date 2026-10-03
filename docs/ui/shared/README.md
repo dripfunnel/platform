@@ -17,14 +17,14 @@ Last updated: 2026-10-02 (#134).
 | `@dripfunnel/shared/ui/shell.css` | The console chrome's stylesheet (header, banners, side bar, drawer, user menu, page title), for an app's own shell composition | loaded by every shell component itself |
 | `@dripfunnel/shared/ui/list.css` | The list stylesheet: the `.df-list` page, its header, toolbar, filters, search, table, name cells and pager, for a list screen's own markup | loaded by every list primitive itself |
 | `@dripfunnel/shared/ui/detail.css` | The detail-page stylesheet: detail header, breadcrumb, meta, actions, menu, tabs, panels, facts, lists, info note and toast, for a detail screen's own markup | loaded by every detail piece itself |
-| `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code; the cursor page shape every list query answers with (#19) and the paging a fixture does over a sorted list | `createApiClient`, `ApiError`; `PageInfo`, `PageRequest`, `pageByCursor`; `ExportJob`, `ExportState` |
+| `@dripfunnel/shared/graphql` | The client for `/api`: same-origin cookie, timeout, errors as `ApiError` with the API's code; every answer decoded with a zod schema, a mutation's `{ ok, code }` outcome turned into an `ApiError` (moved here from the admin console when the partner console needed them, #164); the cursor page shape every list query answers with (#19) and the paging a fixture does over a sorted list | `createApiClient`, `ApiError`, `typedQuery`, `outcome`, `isApiError`; `PageInfo`, `PageRequest`, `pageByCursor`; `ExportJob`, `ExportState` |
 | `@dripfunnel/shared/search` | zod helpers for a route's URL search (#115): a value that doesn't fit is dropped, never a failed page | `optionalParam`, `searchParam`, `idParam` |
 | `@dripfunnel/shared/format` | Money, dates, numbers and addresses through `Intl` | `formatMoney` (integer minor units + currency), `formatDateTime` (always naming its time zone), `formatDuration`, `formatNumber`, `pluralForm` (the locale's plural rules over an app's `one`/`other` forms), `csv`, `csvCell` and `csvLink` (a CSV that no spreadsheet runs as a formula, and its download link) |
 
 ```
 apps/ui/shared/
   ui/          components, the state kit (+ states.css), the console chrome (+ shell.css), the list primitives (+ list.css), the detail pieces (+ detail.css), tokens.css, index.ts
-  graphql/     client.ts, pageInfo.ts, pageByCursor.ts (+ .test.ts), index.ts
+  graphql/     client.ts, typed.ts, pageInfo.ts, pageByCursor.ts (+ .test.ts), index.ts
   search/      searchParams.ts, searchMaxLength.ts, index.ts
   format/      money.ts, dateTime.ts, duration.ts, number.ts, plural.ts (each + .test.ts), index.ts
   package.json exports map; peer dependencies on react, @tanstack/react-router and zod

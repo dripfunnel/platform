@@ -57,7 +57,7 @@ export const Dashboard = ({ me, data: loaded, forced, onRangeChange, onReload }:
       {fresh && (
         <EmptyState
           title={words.empty.title}
-          body={fill(words.empty.body, { host: me.partner.host })}
+          body={fill(words.empty.body, { host: me.partner.host ?? '' })}
           action={
             <Link to="/stores" className="df-button df-button--primary">
               {words.empty.action}

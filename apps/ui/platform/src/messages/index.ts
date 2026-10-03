@@ -17,6 +17,10 @@ export const formatCount = (count: number): string => formatNumber(count, locale
 
 const dateFormat = new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
 
+const listFormat = new Intl.ListFormat(locale, { type: 'conjunction' })
+
+export const formatList = (items: readonly string[]): string => listFormat.format(items)
+
 // A day, not a moment: shown without a time, so it needs no zone name beside it.
 export const formatDate = (iso: string): string => dateFormat.format(new Date(iso))
 

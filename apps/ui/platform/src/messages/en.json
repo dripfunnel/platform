@@ -3,10 +3,13 @@
     "logoAlt": "DripFunnel",
     "productLabel": "Partners",
     "footer": "New to the console? Use the link in your invitation email.",
-    "notConnected": "Sign-in isn’t connected yet. It arrives with the Platform API.",
+    "notConnected": "We couldn’t reach the partner service. Nothing was changed. Try again in a moment.",
     "codeLabel": "6-digit code",
     "codePlaceholder": "000000",
-    "goToSignIn": "Go to sign in"
+    "goToSignIn": "Go to sign in",
+    "rateLimited": "Too many attempts in a short time. Wait a few minutes, then try again.",
+    "enrolStale": "This step timed out. Sign in again to set up 2-factor.",
+    "retry": "Try again"
   },
   "signIn": {
     "credentials": {
@@ -123,9 +126,9 @@
       "hint": "Search your stores by name, domain or an owner’s email.",
       "searching": "Searching…",
       "none": "No store matches “{query}”. Search by store name, domain or owner email.",
-      "result": "{email} · {host}",
       "all": "Show every match in Stores",
-      "failed": "Search didn’t answer. Try again in a moment."
+      "failed": "Search didn’t answer. Try again in a moment.",
+      "separator": " · "
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
@@ -160,11 +163,24 @@
       }
     },
     "badges": {
-      "storesAttention": "{count} need attention",
-      "brandingSetupLeft": "{count} setup item left",
-      "domainsWaiting": "{count} waiting for DNS",
-      "billingFailedPayments": "{count} failed payments",
-      "supportOpenSessions": "{count} open now"
+      "storesAttention": {
+        "one": "{count} needs attention",
+        "other": "{count} need attention"
+      },
+      "brandingSetupLeft": {
+        "one": "{count} setup item left",
+        "other": "{count} setup items left"
+      },
+      "domainsWaiting": {
+        "other": "{count} waiting for DNS"
+      },
+      "billingFailedPayments": {
+        "one": "{count} failed payment",
+        "other": "{count} failed payments"
+      },
+      "supportOpenSessions": {
+        "other": "{count} open now"
+      }
     },
     "partnerState": {
       "draft": {
@@ -187,6 +203,37 @@
       "awaiting": "DripFunnel is reviewing your setup. This fills in when merchants start signing up.",
       "draft": "Finish your setup checklist and submit it for approval. Merchants can’t sign up until DripFunnel approves you.",
       "link": "Open the setup checklist"
+    },
+    "loadError": {
+      "title": "We couldn’t load the partner console",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "banners": {
+      "storesOne": "Your {count} store keeps running.",
+      "storesMany": "Your {count} stores keep running.",
+      "partnerManager": "Contact your partner manager",
+      "partnerManagerHref": "mailto:partners@dripfunnel.com",
+      "paused": {
+        "title": "DripFunnel paused {product}.",
+        "body": "New merchants can’t sign up at {host} and you can’t create stores. {stores}",
+        "bodyNoHost": "New merchants can’t sign up and you can’t create stores. {stores}",
+        "reason": "Reason: {reason}"
+      },
+      "offboarding": {
+        "title": "{partner} is offboarding.",
+        "body": "No new stores or signups. Move or close your stores before your contract ends; they keep running until then.",
+        "link": "What happens next",
+        "href": "https://help.dripfunnel.com/partners/offboarding"
+      },
+      "domains": {
+        "title": "{hosts} stopped pointing at DripFunnel.",
+        "body": "Merchants can’t reach your portal and emails aren’t sending.",
+        "link": "Open Domains"
+      },
+      "setup": {
+        "link": "See their changes"
+      }
     }
   },
   "nav": {
@@ -403,39 +450,47 @@
     "ownerAdds": "Owner adds this",
     "items": {
       "company": {
-        "label": "Company details"
+        "label": "Company details",
+        "hint": "Legal name, address, tax id and region"
       },
       "branding": {
-        "label": "Branding"
+        "label": "Branding",
+        "hint": "Logo, colours and font"
       },
       "portalHost": {
-        "label": "Portal address"
+        "label": "Portal address",
+        "hint": "The address your merchants sign up at, live"
       },
       "wildcards": {
-        "label": "Preview and shop addresses"
+        "label": "Preview and shop addresses",
+        "hint": "The preview and shop addresses, live"
       },
       "emailSender": {
-        "label": "Email sender"
+        "label": "Email sender",
+        "hint": "DKIM, SPF and DMARC verified. Until then, emails use a fallback sender."
       },
       "plan": {
-        "label": "At least one priced plan"
+        "label": "At least one priced plan",
+        "hint": "A Live plan with a price in every currency"
       },
       "legal": {
-        "label": "Legal pages"
+        "label": "Legal pages",
+        "hint": "Terms, privacy and data-processing agreement"
       },
       "paymentMethod": {
-        "label": "Payment method"
+        "label": "Payment method",
+        "hint": "The card DripFunnel charges for its invoices"
       },
       "payoutDetails": {
-        "label": "Payout details"
+        "label": "Payout details",
+        "hint": "The bank account DripFunnel pays you into, verified"
       },
       "testSignup": {
         "label": "A test merchant signup",
-        "doneDetail": "Test store created and removed"
+        "hint": "Sign up as a merchant at your portal to check the whole flow"
       }
     },
     "runTest": "Run test signup",
-    "testDone": "Test signup worked: account, store and portal were ready in {seconds}.",
     "submit": "Submit for approval",
     "submitAgain": "Submit again",
     "submitDetail": "DripFunnel reviews your contract and KYC.",
@@ -453,14 +508,17 @@
       "OWNERS_AND_ADMINS_ONLY": "Your role can’t submit for approval. Owners and Admins can.",
       "GO_LIVE_CHECK_FAILED": "Not yet: DripFunnel checks that {check}. Fix it above and try again.",
       "ALREADY_SUBMITTED": "Already submitted. DripFunnel is reviewing it.",
-      "NOT_CONNECTED": "Submitting isn’t connected yet. It arrives with the Platform API."
+      "NOT_CONNECTED": "We couldn’t reach the partner service. Nothing was changed. Try again in a moment.",
+      "ALREADY_APPROVED": "Already approved. There’s nothing to submit."
     },
     "confirm": {
       "title": "Submit for approval?",
       "consequence": "DripFunnel reviews your contract, KYC and setup. That usually takes 2 business days. You can keep editing, but merchants can’t sign up until you’re approved.",
       "note": "Payment method and payout details can come later.",
       "cancel": "Cancel"
-    }
+    },
+    "fix": "Fix: {item}",
+    "testUnavailable": "Test signups aren’t available yet. They arrive with merchant sign-up."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -580,7 +638,8 @@
       "active": "Active",
       "pastdue": "Past due",
       "suspended": "Suspended",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "closed": "Closed"
     },
     "statusSub": {
       "trialDays": {

@@ -2,7 +2,7 @@ import { Icon, isBackdropClick } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { searchStores, type StoreMatch } from '../../api/stores'
+import { searchMinLength, searchStores, type StoreMatch } from '../../api/search'
 import { messages } from '../../messages'
 import './search.css'
 import { SearchResults } from './SearchResults'
@@ -41,7 +41,7 @@ export const SearchPalette = () => {
   }, [])
 
   useEffect(() => {
-    if (query.trim() === '') return setMatches(null)
+    if (query.trim().length < searchMinLength) return setMatches(null)
     setMatches(null)
     let current = true
     const timer = setTimeout(() => {

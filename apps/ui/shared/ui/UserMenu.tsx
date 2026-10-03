@@ -26,6 +26,8 @@ export interface UserMenuItem {
   label: string
   to: string
   search?: Record<string, string>
+  // Runs instead of following `to`, which stays the link's address (Sign out ends the session first).
+  onSelect?: () => void
 }
 
 export const UserMenu = ({ name, email, roleLabel, words, themeStorageKey, items }: UserMenuProps) => {
@@ -112,7 +114,18 @@ export const UserMenu = ({ name, email, roleLabel, words, themeStorageKey, items
             </li>
             {items.map((item) => (
               <li key={item.key} role="none">
-                <Link to={item.to} {...(item.search ? { search: item.search } : {})} role="menuitem" className="df-user-menu-item" onClick={() => setOpen(false)}>
+                <Link
+                  to={item.to}
+                  {...(item.search ? { search: item.search } : {})}
+                  role="menuitem"
+                  className="df-user-menu-item"
+                  onClick={(event) => {
+                    setOpen(false)
+                    if (!item.onSelect) return
+                    event.preventDefault()
+                    item.onSelect()
+                  }}
+                >
                   {item.label}
                 </Link>
               </li>

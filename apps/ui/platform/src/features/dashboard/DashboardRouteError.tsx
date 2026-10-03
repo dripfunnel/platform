@@ -1,7 +1,7 @@
 import { ErrorState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
-import type { Me } from '../../api/me'
+import { isPreLive, type Me } from '../../api/me'
 import { fill, messages } from '../../messages'
 import './dashboard.css'
 import { DashboardLoading } from './DashboardLoading'
@@ -29,4 +29,4 @@ export const DashboardPending = () => {
 }
 
 const DashboardLoadingFor = ({ me }: { me: Me }) =>
-  me.partner.state === 'live' ? <DashboardLoading product={me.partner.product} /> : <div className="df-page"><div className="df-skeleton" aria-hidden="true" /></div>
+  !isPreLive(me.partner.state) ? <DashboardLoading product={me.partner.product} /> : <div className="df-page"><div className="df-skeleton" aria-hidden="true" /></div>

@@ -2,6 +2,7 @@ import { Icon, initials, UserMenu } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import '@dripfunnel/shared/ui/states.css'
 import { Link } from '@tanstack/react-router'
+import { signOut } from '../../api/auth'
 import type { Me } from '../../api/me'
 import logo from '../../assets/dripfunnel-logo-inverse.svg'
 import { fill, messages } from '../../messages'
@@ -54,11 +55,10 @@ export const AppHeader = ({ me, menuOpen, onOpenMenu }: AppHeaderProps) => {
         roleLabel={role}
         words={{ buttonLabel: fill(words.userMenu.label, { name: me.name, role }), theme: words.userMenu.theme }}
         themeStorageKey="df-platform-theme"
-        // My activity is the signed-in user's own timeline (FIRST-RELEASE.md §13); Sign out is a
-        // stand-in until #112 adds partner sign-in and the Platform API's sign-out.
+        // My activity is the signed-in user's own timeline (FIRST-RELEASE.md §13).
         items={[
           { key: 'activity', label: words.userMenu.myActivity, to: '/activity', search: { person: me.id } },
-          { key: 'signOut', label: words.userMenu.signOut, to: '/sign-in' },
+          { key: 'signOut', label: words.userMenu.signOut, to: '/sign-in', onSelect: signOut },
         ]}
       />
     </header>

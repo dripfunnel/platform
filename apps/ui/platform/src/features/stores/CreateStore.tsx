@@ -78,7 +78,8 @@ export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateSt
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<{ storeId: string; name: string; owner: string } | null>(null)
   const progress = useProvisioning(created?.storeId ?? null, progressOf)
-  const host = me.partner.host
+  // Creating a store needs Live, and a Live partner has its portal host (FIRST-RELEASE §4).
+  const host = me.partner.host ?? ''
 
   if (forced === 'loading') return <CreateStoreLoading host={host} />
   if (forced === 'error') return <CreateStoreError host={host} onRetry={() => undefined} />

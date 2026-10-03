@@ -2,11 +2,10 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { invitation } from '../../api/auth'
 import { messages } from '../../messages'
 import { AcceptInvite } from './AcceptInvite'
-import { acceptInviteStates, credentialsView, inviteToken, signInReducer, signInStates, type AcceptInviteState } from './authStates'
-import { SignIn } from './SignIn'
+import { acceptInviteStates, credentialsView, sampleInvitation, signInReducer, signInStates, type AcceptInviteState } from './authStates'
+import { refusalWords, SignIn } from './SignIn'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 
@@ -18,10 +17,7 @@ const render = async (element: ReactNode, search = '') => {
 }
 const signInAt = (search: string, props: { next?: string; outcome?: string } = {}) => render(<SignIn search={props} />, search)
 
-const inviteAt = async (state: AcceptInviteState | null, token?: string) => {
-  const loaded = await invitation(inviteToken(state, token))
-  return render(<AcceptInvite search={{ token }} loaded={loaded} />, state ? `?state=${state}` : '')
-}
+const inviteAt = (state: AcceptInviteState) => render(<AcceptInvite search={{}} loaded={sampleInvitation(state)} />, `?state=${state}`)
 
 const signIn = messages.signIn
 const invite = messages.acceptInvite
@@ -44,6 +40,8 @@ describe('the sign-in screen', () => {
     wrongCode: signIn.code.title,
     expiredCode: signIn.code.title,
     locked: signIn.code.title,
+    enrol: invite.twoFactor.title,
+    rateLimited: signIn.credentials.title,
     forgot: signIn.forgot.title,
     sent: signIn.sent.title,
     expired: signIn.expired.title,
@@ -64,6 +62,21 @@ describe('the sign-in screen', () => {
     expect(html).toMatch(/<input[^>]*autocomplete="one-time-code"[^>]*disabled=""/i)
   })
 
+  it('makes a user whose partner requires 2-factor enrol before the console, with no Skip', async () => {
+    const text = textOf(await signInAt('?state=enrol'))
+    expect(text).toContain(invite.twoFactor.bodyRequired)
+    expect(text).toContain('JBSW Y3DP EHPK 3PXP')
+    expect(text).not.toContain(invite.twoFactor.skip)
+    expect(text).not.toContain(invite.twoFactor.step)
+  })
+
+  it('words a lock with the minutes the API says are left, and the tries left on a wrong code', () => {
+    expect(refusalWords('LOCKED', undefined, 7)).toContain('paused for 7 minutes')
+    expect(refusalWords('WRONG_CODE', 1)).toBe('That code isn’t right. 1 try left.')
+    expect(refusalWords('RATE_LIMITED')).toBe(messages.auth.rateLimited)
+    expect(refusalWords('INVITATION_USED')).toBe(messages.auth.notConnected)
+  })
+
   it('reads ?outcome=expired as the Worker’s real result', async () => {
     expect(textOf(await signInAt('', { outcome: 'expired' }))).toContain(signIn.expired.title)
   })
@@ -78,7 +91,8 @@ describe('accepting an invitation', () => {
   })
 
   it('shows the Owner invitation from DripFunnel with the partner, role and fixed email', async () => {
-    const text = textOf(await inviteAt(null, 'anything'))
+    const owner = { partner: 'Kaufladen Digital', role: 'partner-owner', email: 'jonas@kaufladen.de', invitedBy: 'DripFunnel', secondFactorRequired: false } as const
+    const text = textOf(await render(<AcceptInvite search={{ token: 'tok' }} loaded={{ ok: true, invitation: owner }} />))
     expect(text).toContain('Join Kaufladen Digital')
     expect(text).toContain('DripFunnel invited you to be the Owner')
     expect(text).toContain('jonas@kaufladen.de')

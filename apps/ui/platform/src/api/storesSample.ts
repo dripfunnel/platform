@@ -7,7 +7,6 @@ import { plansServer } from './plansSample'
 import {
   createStoreInput,
   provisioningSteps,
-  searchMaxResults,
   storePageSize,
   type ActionPermission,
   type BillingMode,
@@ -25,7 +24,6 @@ import {
   type StoreActionInput,
   type StoreActionResult,
   type StoreFilter,
-  type StoreMatch,
   type StorePage,
   type StorePermissions,
   type StoreRow,
@@ -425,7 +423,6 @@ export const createStoresServer = (initial: readonly Seed[], options: StoresServ
   let seeds = [...initial]
   const jobs = new Map<string, { startedAt: number }>()
   const exports = new Map<string, ExportJob & { expiresAtMs: number | null }>()
-  const rows = () => seeds.map(rowOf)
   const find = (id: string) => seeds.find((seed) => seed.id === id)
   const update = (id: string, change: (seed: Seed) => Seed) => {
     seeds = seeds.map((seed) => (seed.id === id ? change(seed) : seed))
@@ -478,16 +475,6 @@ export const createStoresServer = (initial: readonly Seed[], options: StoresServ
     if (!billers.includes(caller)) return { ok: false, reason: 'FINANCE_TRIAL_ONLY' }
     update(id, (current) => ({ ...current, status, ...(status === 'pastdue' ? { pastDueSince: dayOf(new Date(today).toISOString()) } : {}), ...(status === 'suspended' ? { suspendedOn: dayOf(new Date(today).toISOString()), previous: current.status === 'suspended' ? 'active' : current.status } : {}) }))
     return { ok: true }
-  }
-
-  const search = (query: string): readonly StoreMatch[] => {
-    const q = query.trim().toLowerCase()
-    if (!q) return []
-    return rows()
-      .filter((row) => `${row.name} ${row.code} ${row.domain.host} ${row.owner.email}`.toLowerCase().includes(q))
-      .sort(newestFirst)
-      .slice(0, searchMaxResults)
-      .map((row) => ({ id: row.id, name: row.name, email: row.owner.email, host: row.domain.host, state: row.state }))
   }
 
   const get = (id: string, caller: PartnerRole): Store | null => {
@@ -627,7 +614,7 @@ export const createStoresServer = (initial: readonly Seed[], options: StoresServ
     }
   }
 
-  return { list, search, get, changePlanOptions, run, recheck, form, create, progress, startExport, exportJob, setBillingStatus }
+  return { list, get, changePlanOptions, run, recheck, form, create, progress, startExport, exportJob, setBillingStatus }
 }
 
 export const sampleStores: readonly Seed[] = [...named, ...generated()]

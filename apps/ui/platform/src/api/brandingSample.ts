@@ -72,8 +72,9 @@ const contrast = (primary: string, accent: string): ContrastReport => {
 
 export const createBrandingServer = (initial: Record<string, Seed>) => {
   const state = structuredClone(initial)
+  // A real signed-in partner has no seed of its own until #165 wires Branding: it sees the first.
   const seedOf = (partnerId: string) => {
-    const seed = state[partnerId]
+    const seed = state[partnerId] ?? Object.values(state)[0]
     if (!seed) throw new Error('No such partner.')
     return seed
   }
