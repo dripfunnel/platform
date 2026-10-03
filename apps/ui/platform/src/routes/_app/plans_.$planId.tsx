@@ -7,7 +7,7 @@ import { PlanEditorRouteError, PlanEditorScreen } from '../../features/plans/Pla
 // `new` is the empty editor; any other id is a plan of the catalogue (FIRST-RELEASE.md §7.2).
 export const Route = createFileRoute('/_app/plans_/$planId')({
   validateSearch: z.looseObject({ state: z.string().optional(), partner: z.string().optional() }),
-  loader: ({ params, context }) => loadPlanEditor(params.planId === 'new' ? null : params.planId, context.me.role),
+  loader: ({ params }) => loadPlanEditor(params.planId === 'new' ? null : params.planId),
   pendingComponent: PlanEditorLoading,
   errorComponent: PlanEditorRouteError,
   component: PlanEditorScreen,

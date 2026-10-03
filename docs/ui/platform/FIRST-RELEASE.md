@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -756,7 +756,9 @@ api/README.md §2.1); a partner id in a request is not authority.
 
 **Built on #162** (Branding, `apis/platform/branding.ts`, `saas/partnerBranding`):
 - `branding` returns the live look and words, or the draft while nothing is live
-  (`published` says which). It also carries `affects` (stores not closed), the contrast
+  (`published` says which); a partner that never saved one gets a first draft from its own
+  product name and colours (DripFunnel's brand pair where it has none) and the form's defaults
+  (#165). It also carries `affects` (stores not closed), the contrast
   report, `poweredByRule` (`choice` | `fixedOn`, from the contract), `impressumRequired`
   (the partner's country is DE, AT or CH), `dpaRequired` and the publish permission.
 - `checkContrast(primary, accent)` and the publish use one function (`contrast.ts`, WCAG 2.2,

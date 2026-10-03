@@ -1138,7 +1138,13 @@
       "ABOVE_CEILING": "{row} is above DripFunnel’s maximum.",
       "LAST_LIVE_PLAN": "This is your last Live plan. Make another plan Live first.",
       "UNPRICED_CURRENCY": "Price {currency} before making this plan live.",
-      "NEEDS_APPLY_TO": "Say who gets the change first."
+      "NEEDS_APPLY_TO": "Say who gets the change first.",
+      "UNPRICED": "Add a monthly price first. A plan needs one before it can go live.",
+      "NOT_FOUND": "This plan was removed. Go back to Plans.",
+      "INVALID_STATE": "This plan changed while you were editing it, so nothing was saved. Reload to see it as it is now.",
+      "INVALID_TARGET": "The plan you picked for its stores isn’t live any more. Pick another.",
+      "INVALID_CURRENCY": "A price is in a currency your contract doesn’t cover. Remove it, or ask your partner manager.",
+      "INVALID_INPUT": "Something in the plan isn’t valid. Check the highlighted fields."
     },
     "empty": {
       "title": "No plans yet",
@@ -1234,7 +1240,9 @@
         "missing": "Enter a value for {rows}.",
         "loss": "A price is below DripFunnel’s fee.",
         "invalid": "A price isn’t a number."
-      }
+      },
+      "noCeiling": "No DripFunnel maximum",
+      "noFee": "DripFunnel hasn’t set its fee for this currency yet, so there’s no margin to show."
     },
     "dialogs": {
       "save": {
@@ -1339,7 +1347,8 @@
         "favicon": "Favicon"
       },
       "replace": "Replace",
-      "replaceLabel": "Replace {file}"
+      "replaceLabel": "Replace {file}",
+      "noFile": "None yet"
     },
     "words": {
       "supportEmail": "Support email",
@@ -1408,6 +1417,18 @@
       "published": "Published. Merchants see the new look at their next page load.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
       "refused": "The partner service refused it: {reason}"
+    },
+    "upload": {
+      "done": "{file} uploaded. Publish to use it.",
+      "refused": "That file wasn’t uploaded: {reason}",
+      "codes": {
+        "TOO_LARGE": "it’s larger than 512 KB.",
+        "UNSUPPORTED_TYPE": "use a PNG, WebP or SVG file.",
+        "UNSAFE_SVG": "the SVG contains scripts or links, which aren’t allowed.",
+        "FORBIDDEN": "your role can’t change branding. Owners and Admins can.",
+        "NOT_CONNECTED": "file storage isn’t available right now. Nothing was changed.",
+        "UNAUTHENTICATED": "your session ended. Sign in again."
+      }
     }
   }
 }

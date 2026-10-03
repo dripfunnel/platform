@@ -1,85 +1,102 @@
-import { describe, expect, it } from 'vitest'
-import { planInput, type PlanInput } from './plans'
-import { createPlansServer, samplePlans } from './plansSample'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { growthEditors } from '../features/plans/plansTestData'
+import { loadPlanEditor, loadPlans, makePlanLive, retirePlan, savePlan, type PlanInput } from './plans'
 
-const server = () => createPlansServer(samplePlans)
+// The Platform API's rules for plans are its own tests' (apps/api tests/platform-plans.test.ts);
+// these check the client reads every answer the way the screens expect it.
+const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
+beforeEach(() => {
+  answer.mockReset()
+  vi.stubGlobal('fetch', (_: string, init: RequestInit) => Promise.resolve(new Response(JSON.stringify(answer(JSON.parse(String(init.body)) as { query: string })))))
+})
+afterEach(() => vi.unstubAllGlobals())
 
-const growth = (): PlanInput => {
-  const plan = server().editor('growth', 'partner-owner')?.plan
-  if (!plan) throw new Error('growth')
-  return planInput.parse({
-    name: plan.name,
-    description: plan.description,
-    trialDays: plan.trialDays,
-    prices: plan.prices.map((price) => ({ currency: price.currency, monthly: price.monthly, yearly: price.yearly })),
-    entitlements: plan.entitlements,
-  })
-}
+const usd = (amount: number) => ({ amount, currency: 'USD' })
+const row = { id: 'p1', name: 'Growth', description: 'Daily sellers', status: 'live', trialDays: 14, stores: 3, prices: [{ currency: 'USD', monthly: usd(4900), yearly: null, fee: usd(1800), converted: false, margin: { kind: 'keep', amount: usd(3100), of: usd(4900) } }] }
+const entitlements = { domain: true, offers: true, suppliersOn: false, powered: true, aplus: false, size: true, products: 5000, staff: 5, suppliers: 0, languages: 2, currencies: 2, publish: 60, ai: 100 }
+const growth = growthEditors['partner-owner'].plan
+const input: PlanInput = { name: 'Growth', description: '', trialDays: 14, prices: [{ currency: 'USD', monthly: usd(4900), yearly: null }], entitlements }
 
-describe('the plans fixture, as the Platform API would answer', () => {
-  it('lists the catalogue with the fee and margin beside every price as Money', () => {
-    const page = server().list('partner-owner')
-    expect(page.items.map((plan) => plan.name)).toEqual(['Starter', 'Growth', 'Pro', 'Basic (2024)'])
-    const growthRow = page.items[1]
-    expect(growthRow?.prices[0]).toMatchObject({ currency: 'USD', monthly: { amount: 4900, currency: 'USD' }, fee: { amount: 1800, currency: 'USD' }, converted: false, margin: { kind: 'keep', amount: { amount: 3100, currency: 'USD' }, of: { amount: 4900, currency: 'USD' } } })
-    expect(growthRow?.prices[1]).toMatchObject({ currency: 'CAD', converted: true })
-    expect(page.actions.create).toEqual({ allowed: true })
-    expect(server().list('partner-finance').actions.create).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+describe('loadPlans', () => {
+  it('reads the catalogue and the create block as the screens use them', async () => {
+    answer.mockReturnValue({ data: { plans: { items: [row], chargedBy: 'DripFunnel for Northstar', create: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' } } } })
+    const page = await loadPlans()
+    expect(page.actions.create).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+    expect(page.items[0]?.prices[0]?.margin).toEqual({ kind: 'keep', amount: usd(3100), of: usd(4900) })
   })
 
-  it('quotes a loss when a price is below the fee, and nothing when unpriced, with the plan’s own fee', () => {
-    expect(server().quote('pro', [{ currency: 'USD', monthly: { amount: 9900, currency: 'USD' }, yearly: null }])[0]?.margin).toEqual({ kind: 'keep', amount: { amount: 6400, currency: 'USD' }, of: { amount: 9900, currency: 'USD' } })
-    const quotes = server().quote(null, [
-      { currency: 'USD', monthly: { amount: 1500, currency: 'USD' }, yearly: null },
-      { currency: 'CAD', monthly: null, yearly: null },
-    ])
-    expect(quotes[0]?.margin).toEqual({ kind: 'loss', amount: { amount: 300, currency: 'USD' } })
-    expect(quotes[1]?.margin).toEqual({ kind: 'unpriced' })
+  it('refuses a margin without its amounts and a refusal code it was never promised', async () => {
+    answer.mockReturnValueOnce({ data: { plans: { items: [{ ...row, prices: [{ ...row.prices[0], margin: { kind: 'keep', amount: null, of: null } }] }], chargedBy: 'x', create: { allowed: true, reason: null } } } })
+    await expect(loadPlans()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+    answer.mockReturnValueOnce({ data: { plans: { items: [], chargedBy: 'x', create: { allowed: false, reason: 'SOMETHING_NEW' } } } })
+    await expect(loadPlans()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+  })
+})
+
+describe('loadPlanEditor', () => {
+  it('joins the row and its entitlements, and the ceilings with the Powered-by rule; a missing ceiling stays null', async () => {
+    answer.mockReturnValue({
+      data: {
+        planEditor: {
+          plan: { row, entitlements },
+          ceilings: { products: 10000, staff: 10, suppliers: null, languages: 3, currencies: 3, publish: 100, ai: 200 },
+          powered: { allowed: false, note: 'contract' },
+          currencies: ['USD'],
+          trials: [0, 7, 14, 30],
+          chargedBy: 'DripFunnel for Northstar',
+          edit: { allowed: false, reason: 'PRICES_ONLY' },
+          price: { allowed: true, reason: null },
+          retireTargets: [{ id: 'p2', name: 'Pro' }],
+          retireDates: ['2026-11-01T00:00:00.000Z'],
+        },
+      },
+    })
+    const editor = await loadPlanEditor('p1')
+    expect(editor?.plan).toMatchObject({ id: 'p1', name: 'Growth', entitlements })
+    expect(editor?.ceilings).toMatchObject({ products: 10000, suppliers: null, powered: { allowed: false, note: 'contract' } })
+    expect(editor?.permission).toEqual({ edit: { allowed: false, reason: 'PRICES_ONLY' }, price: { allowed: true } })
   })
 
-  it('refuses a value above DripFunnel’s ceiling, naming the row, and never clamps', () => {
-    const s = server()
-    const input = growth()
-    const result = s.save('growth', { ...input, entitlements: { ...input.entitlements, products: 25000 } }, 'new', 'partner-owner')
-    expect(result).toEqual({ ok: false, reason: 'ABOVE_CEILING', row: 'products' })
-    expect(s.editor('growth', 'partner-owner')?.plan?.entitlements.products).toBe(5000)
+  it('reads a plan this partner doesn’t have as null', async () => {
+    answer.mockReturnValue({ data: { planEditor: null } })
+    expect(await loadPlanEditor('elsewhere')).toBeNull()
+  })
+})
+
+describe('the plan mutations', () => {
+  it('creates a new plan and updates an existing one, sending applyTo only to the update', async () => {
+    answer.mockReturnValue({ data: { createPlan: { ok: true, id: 'p9', reason: null, row: null, currency: null }, updatePlan: { ok: true, id: 'p1', reason: null, row: null, currency: null } } })
+    expect(await savePlan(null, input, null)).toEqual({ ok: true, id: 'p9' })
+    expect(answer.mock.calls[0]?.[0].query).toContain('createPlan(input: $input)')
+    expect(await savePlan('p1', input, 'renewal')).toEqual({ ok: true, id: 'p1' })
+    expect(answer.mock.calls[1]?.[0]).toMatchObject({ variables: { id: 'p1', applyTo: 'renewal' } })
   })
 
-  it('lets Finance change prices and nothing else', () => {
-    const s = server()
-    const input = growth()
-    const repriced = { ...input, prices: input.prices.map((price) => (price.currency === 'USD' ? { ...price, monthly: { amount: 5900, currency: 'USD' } } : price)) }
-    expect(s.save('growth', repriced, 'new', 'partner-finance')).toEqual({ ok: true, id: 'growth' })
-    expect(s.editor('growth', 'partner-finance')?.plan?.prices[0]?.monthly).toEqual({ amount: 5900, currency: 'USD' })
-    expect(s.save('growth', { ...input, name: 'Growth Plus' }, 'new', 'partner-finance')).toEqual({ ok: false, reason: 'PRICES_ONLY' })
-    expect(s.save('growth', input, 'new', 'partner-support')).toEqual({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-    expect(s.editor('growth', 'partner-finance')?.permission).toEqual({ edit: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }, price: { allowed: true } })
-    expect(s.editor(null, 'partner-finance')?.permission.price).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+  it('names the row above its ceiling and the currency without a price', async () => {
+    answer.mockReturnValueOnce({ data: { updatePlan: { ok: false, id: null, reason: 'ABOVE_CEILING', row: 'products', currency: null } } })
+    expect(await savePlan('p1', input, null)).toEqual({ ok: false, reason: 'ABOVE_CEILING', row: 'products' })
+    answer.mockReturnValueOnce({ data: { makePlanLive: { ok: false, id: null, reason: 'UNPRICED_CURRENCY', row: null, currency: 'CAD' } } })
+    expect(await makePlanLive('p1')).toEqual({ ok: false, reason: 'UNPRICED_CURRENCY', currency: 'CAD' })
+    answer.mockReturnValueOnce({ data: { retirePlan: { ok: false, id: null, reason: 'LAST_LIVE_PLAN', row: null, currency: null } } })
+    expect(await retirePlan('p1', { keep: true })).toEqual({ ok: false, reason: 'LAST_LIVE_PLAN' })
   })
 
-  it('asks who gets a change to a plan stores are on, and saves a new plan as a draft', () => {
-    const s = server()
-    expect(s.save('growth', growth(), null, 'partner-owner')).toEqual({ ok: false, reason: 'NEEDS_APPLY_TO' })
-    expect(s.save('growth', growth(), 'renewal', 'partner-owner')).toEqual({ ok: true, id: 'growth' })
-    const created = s.save(null, { ...growth(), name: 'Scale' }, null, 'partner-owner')
-    expect(created.ok).toBe(true)
-    if (!created.ok) return
-    expect(s.editor(created.id, 'partner-owner')?.plan).toMatchObject({ name: 'Scale', status: 'draft', stores: 0 })
-    expect(planInput.safeParse({ ...growth(), name: '  ' }).success).toBe(false)
+  it('reads a price DripFunnel has no fee for yet, a plan with no price at all, and a plan that moved on', async () => {
+    answer.mockReturnValueOnce({ data: { quotePlanPrices: [{ ...row.prices[0], fee: null, margin: { kind: 'noFee', amount: null, of: null } }] } })
+    const { quotePlanPrices } = await import('./plans')
+    expect((await quotePlanPrices('p1', input.prices))[0]).toMatchObject({ fee: null, margin: { kind: 'noFee' } })
+    answer.mockReturnValueOnce({ data: { makePlanLive: { ok: false, id: null, reason: 'UNPRICED_CURRENCY', row: null, currency: null } } })
+    expect(await makePlanLive('p1')).toEqual({ ok: false, reason: 'UNPRICED_CURRENCY', currency: null })
+    answer.mockReturnValueOnce({ data: { updatePlan: { ok: false, id: null, reason: 'INVALID_STATE', row: null, currency: null } } })
+    expect(await savePlan('p1', input, null)).toEqual({ ok: false, reason: 'INVALID_STATE' })
   })
 
-  it('makes a draft live only once every currency is priced, and never retires the last Live plan', () => {
-    const s = server()
-    const created = s.save(null, { ...growth(), name: 'Scale', prices: [{ currency: 'USD', monthly: { amount: 14900, currency: 'USD' }, yearly: null }, { currency: 'CAD', monthly: null, yearly: null }] }, null, 'partner-owner')
-    if (!created.ok) throw new Error(created.reason)
-    expect(s.makeLive(created.id, 'partner-owner')).toEqual({ ok: false, reason: 'UNPRICED_CURRENCY', currency: 'CAD' })
-    expect(s.makeLive('growth', 'partner-finance')).toEqual({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-    expect(s.retire('starter', { keep: true }, 'partner-owner')).toEqual({ ok: true })
-    expect(() => s.retire('growth', { keep: false, moveTo: 'basic24', on: '2026-11-01T00:00:00Z' }, 'partner-owner')).toThrow()
-    expect(s.retire('growth', { keep: false, moveTo: 'pro', on: '2026-11-01T00:00:00Z' }, 'partner-owner')).toEqual({ ok: true })
-    expect(s.list('partner-owner').items.find((plan) => plan.id === 'pro')?.stores).toBe(55)
-    expect(s.list('partner-owner').items.find((plan) => plan.id === 'growth')?.stores).toBe(0)
-    expect(s.retire('pro', { keep: true }, 'partner-owner')).toEqual({ ok: false, reason: 'LAST_LIVE_PLAN' })
-    expect(s.editor('pro', 'partner-owner')?.retireTargets).toEqual([])
+  it('throws on a refusal the API never promised for that mutation', async () => {
+    answer.mockReturnValue({ data: { retirePlan: { ok: false, id: null, reason: 'NEEDS_APPLY_TO', row: null, currency: null } } })
+    await expect(retirePlan('p1', { keep: true })).rejects.toMatchObject({ code: 'NEEDS_APPLY_TO' })
   })
+})
+
+it('keeps the screen tests’ Growth plan in the API’s shape', () => {
+  expect(growth?.entitlements.products).toBeGreaterThan(0)
 })

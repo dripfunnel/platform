@@ -106,7 +106,10 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
     const brand = brandings[p.key]
     if (brand) {
       const by = { kind: 'partner_user' as const, label: brand.by }
-      await insertBranding(tx, brand.state === 'draft' ? { ...brand.fields, partnerId, by, state: 'draft' } : { ...brand.fields, partnerId, by, state: 'published', publishedAt: daysAgo(now, p.createdDaysAgo - 5) })
+      // A file key lives under the partner's own id, or publishing refuses it as another's (partnerBranding).
+      const own = (key: string | null) => key && key.replace(`partners/${p.key}/`, `partners/${partnerId}/`)
+      const fields = { ...brand.fields, logo_light_key: own(brand.fields.logo_light_key), logo_dark_key: own(brand.fields.logo_dark_key), mark_key: own(brand.fields.mark_key), favicon_key: own(brand.fields.favicon_key) }
+      await insertBranding(tx, brand.state === 'draft' ? { ...fields, partnerId, by, state: 'draft' } : { ...fields, partnerId, by, state: 'published', publishedAt: daysAgo(now, p.createdDaysAgo - 5) })
     }
     for (const plan of p.plans) {
       // SAAS §6.1: the house partner's plans carry a 10-day trial.

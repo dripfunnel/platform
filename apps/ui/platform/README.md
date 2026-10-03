@@ -9,10 +9,10 @@ to build first: [FIRST-RELEASE.md](../../../docs/ui/platform/FIRST-RELEASE.md).
 pnpm --filter ./apps/ui/platform dev   # http://localhost:5174, /api proxied to the local Worker
 ```
 
-**Wired to the Platform API** (#164): sign-in, 2-factor, accepting an invitation, sign-out, `me`
-and the session guard, the partner-state banners, the nav badges, the header search and the
-setup checklist with Submit. **Still on fixtures**, until their cards: the Dashboard's numbers,
-Stores and Store detail (#166), Plans and Branding (#165). Domains, Reports, Billing, Support,
+**Wired to the Platform API**: sign-in, 2-factor, accepting an invitation, sign-out, `me` and the
+session guard, the partner-state banners, the nav badges, the header search and the setup
+checklist with Submit (#164); Plans and Branding, with brand-file uploads (#165). **Still on
+fixtures**, until #166: the Dashboard's numbers, Stores, Store detail and Create store. Domains, Reports, Billing, Support,
 Activity log and Settings are placeholders. Against the local seed, `pnpm seed` prints an
 invitation link to accept (set a password there, then sign in), and
 `pnpm --filter ./apps/api session --partner <email>` prints a session cookie for any active
@@ -144,20 +144,23 @@ under them, trial, stores (a link to the filtered list), status (Draft · Live �
 out as design.md §7 says: cards on the left (name, description and trial; prices; what's
 included), a sticky summary on the right (status, stores on it, Make live, Retire plan), and a
 save bar that appears only when the draft differs from the saved plan. Beside each price the
-fee and margin arrive from the fixture as `Money` ("You keep $31.00 of $49.00", or in red
+fee and margin arrive from the API's `quotePlanPrices` as `Money` ("You keep $31.00 of $49.00", or in red
 "Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. The
 entitlement matrix has the three kinds of SAAS.md §6.1 and shows DripFunnel's ceiling on every
 row; a value above it is marked "Can't be more than 20,000." and Save is disabled with "Fix the
-highlighted rows first." The fixture refuses it too (`ABOVE_CEILING`, naming the row); nothing
-is clamped. Saving a plan stores are on asks who gets the change (new signups only, or everyone
+highlighted rows first." The API refuses it too (`ABOVE_CEILING`, naming the row); nothing is
+clamped, and a row DripFunnel sets no ceiling for says so. Saving a plan stores are on asks who gets the change (new signups only, or everyone
 at renewal); retiring hides the plan from signup and asks whether its stores keep it or move to
 another plan on a date; retiring the last Live plan is refused (`LAST_LIVE_PLAN`). Owner and
 Admin edit everything, Finance prices only (the other fields are disabled with the reason),
-Support and Read-only view. States: `?state=loading`, `empty`, `error`, `readonly`, `denied` on
-the list; `loading`, `error`, `readonly`, `denied`, `confirm` on the editor.
+Support and Read-only view, each from the API's `create`, `edit` and `price` blocks. States:
+`?state=loading`, `empty`, `error`, `readonly`, `denied` on the list; `loading`, `error`,
+`readonly`, `denied`, `confirm` on the editor. `denied` can't make the API refuse: to see a role's
+refusals, sign in as that role (`pnpm --filter ./apps/api session --partner <email>`).
 
 Not here: **Compare plans** and **Defaults for new stores** (§7.4, §7.5, the next batch) and
-promotions (SAAS §14). The Create store form's plan picker reads this fixture's Live plans.
+promotions (SAAS §14). The Create store form's plan picker still reads the Stores fixture's copy of
+the catalogue until #166 wires `createStoreForm`.
 
 ## Branding
 
@@ -173,13 +176,15 @@ that says "In your brand. The console itself doesn't change." The preview's colo
 `--pv-*` variables on the frame; the console's `--df-*` tokens are never touched (README §4). Any
 change shows "Unpublished changes. Merchants still see the published version. This affects 84
 stores." with Discard and **Publish…**, which states the consequence first through
-`ConfirmDialog`. Contrast is the server's check: the fixture refuses a failing pair
+`ConfirmDialog`. Replace uploads the file at once (`POST /api/uploads/brand-file?kind=`, #219)
+and puts the key it gets back in the draft; it shows only once published. Contrast is the
+server's check: publishing refuses a failing pair
 (`CONTRAST_FAILS`, with the fix), a "Powered by" choice the contract keeps on
 (`POWERED_BY_FIXED_BY_CONTRACT`) and a missing Impressum where required (`IMPRESSUM_REQUIRED`);
 the screen marks the same (the contrast panel, the Impressum field) and never clamps or fixes a colour. Owner and Admin edit; others view
 with the controls disabled and the reason. States: `?state=loading`, `error`, `readonly`,
-`denied`, `confirm`; `?partner=draft` shows Kaufladen's branding, whose contract keeps "Powered
-by" on and which needs an Impressum.
+`denied`, `confirm`. Kaufladen's fixed "Powered by" and required Impressum come from the API:
+sign in as its Owner (`jonas@kaufladen.example`) rather than switching `?partner=`.
 
 Not here: email templates (§8.3), history, rollback and scheduling (§8.4), the Sign up, Products
 and Settings sample screens of §8.1 (the card asks for the sign-in card and the header), and the

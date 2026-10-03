@@ -61,7 +61,7 @@ export const PlanEditorScreen = () => {
     const input = inputOf(draft)
     if (!input) return
     setBusy(true)
-    savePlan(editor.plan?.id ?? null, input, applyTo, me.role)
+    savePlan(editor.plan?.id ?? null, input, applyTo)
       .then(async (result) => {
         setBusy(false)
         if (!result.ok) {
@@ -81,10 +81,17 @@ export const PlanEditorScreen = () => {
   const makeLive = () => {
     if (!editor.plan) return
     setBusy(true)
-    makePlanLive(editor.plan.id, me.role)
+    makePlanLive(editor.plan.id)
       .then(async (result) => {
         setBusy(false)
-        if (!result.ok) return refused(result.reason === 'UNPRICED_CURRENCY' ? fill(messages.plans.refused.UNPRICED_CURRENCY, { currency: result.currency }) : messages.plans.refused[result.reason])
+        if (!result.ok)
+          return refused(
+            result.reason !== 'UNPRICED_CURRENCY'
+              ? messages.plans.refused[result.reason]
+              : result.currency
+                ? fill(messages.plans.refused.UNPRICED_CURRENCY, { currency: result.currency })
+                : messages.plans.refused.UNPRICED,
+          )
         setToast(fill(messages.plans.toasts.live, { plan: name }))
         await router.invalidate()
       })
@@ -98,7 +105,7 @@ export const PlanEditorScreen = () => {
     const input = retireInput(picks)
     if (!editor.plan || !input) return
     setBusy(true)
-    retirePlan(editor.plan.id, input, me.role)
+    retirePlan(editor.plan.id, input)
       .then(async (result) => {
         setBusy(false)
         if (!result.ok) return refused(messages.plans.refused[result.reason])

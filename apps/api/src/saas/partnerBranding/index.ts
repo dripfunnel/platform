@@ -10,6 +10,7 @@ import { insertOutbox } from '#db/scoped/outbox'
 import { selectShellFacts } from '#db/scoped/partnerConsole'
 import { selectContractTerms } from '#db/scoped/partnerPlans'
 import { selectPartner, upsertSetupItem } from '#db/scoped/partners'
+import type { PartnerRow } from '#db/schema/saas'
 import { contrastReport, type ContrastReport } from './contrast'
 
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162): the look and the
@@ -140,6 +141,11 @@ export interface PartnerBrandingDeps {
   activity: ActivityLog
 }
 
+// A partner created without colours starts from DripFunnel's own (the style guide's brand tokens),
+// a pair that passes the contrast check until the partner picks theirs.
+const defaultPrimary = '#4A1B0C'
+const defaultAccent = '#EC844F'
+
 export const createPartnerBrandingService = ({ sql, caller, facts, activity }: PartnerBrandingDeps) => {
   const partnerId = caller.partner.id
   const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
@@ -154,15 +160,29 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
     }
   }
 
+  // A partner that has never saved a look starts from what its creation recorded (name and
+  // colours) and the form's defaults, unpublished, with the same rules and permission.
+  const firstDraft = (partner: PartnerRow | null): BrandingInput => ({
+    look: {
+      productName: partner?.product_name ?? partner?.name ?? '',
+      primary: partner?.primary_color ?? defaultPrimary,
+      accent: partner?.accent_color ?? defaultAccent,
+      font: brandFonts[0],
+      corner: 'rounded',
+      background: 'sand',
+      files: { logoLight: '', logoDark: '', mark: '', favicon: '' },
+    },
+    words: { supportEmail: '', supportUrl: '', helpUrl: '', termsUrl: '', privacyUrl: '', dpaUrl: '', impressum: '', poweredBy: true },
+  })
+
   const branding = (): Promise<BrandingDto | null> =>
     withScope(sql, context, async (tx) => {
       const { live, draft } = await selectBranding(tx, partnerId)
       const shown = live ?? draft
-      if (!shown) return null
-      const input = toInput(shown)
+      const input = shown ? toInput(shown) : firstDraft(await selectPartner(tx, partnerId))
       return {
         ...input,
-        published: shown === live,
+        published: shown !== null && shown === live,
         affects: (await selectShellFacts(tx, partnerId)).store_count,
         contrast: contrastReport(input.look.primary, input.look.accent),
         ...(await rules(tx)),

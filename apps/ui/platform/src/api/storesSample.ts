@@ -3,7 +3,6 @@ import { pageByCursor, type ExportJob, type PageRequest } from '@dripfunnel/shar
 import type { PartnerRole } from '../features/shell/partnerRoles'
 import { storesCsv } from '../features/stores/storesCsv'
 import type { PartnerState } from './me'
-import { plansServer } from './plansSample'
 import {
   createStoreInput,
   provisioningSteps,
@@ -44,9 +43,11 @@ const countries: readonly { name: Country; currency: string }[] = [
   { name: 'Canada', currency: 'CAD' },
 ]
 
-// The catalogue is the plans fixture's (#117), read on every call so a retired or new plan shows here too.
+// Northstar's plans as #117 drew them, until #166 replaces this fixture with the Platform API.
+const planCatalogue: readonly { id: string; name: string; status: string; prices: Record<string, readonly (number | null)[]>; limits: Record<LimitKey, number> }[] = [{"id": "starter", "name": "Starter", "status": "live", "prices": {"USD": [2900, 29000], "CAD": [3900, 39000]}, "limits": {"products": 500, "staff": 2, "suppliers": 0, "ai": 50, "publish": 20}}, {"id": "growth", "name": "Growth", "status": "live", "prices": {"USD": [4900, 49000], "CAD": [6500, 65000]}, "limits": {"products": 5000, "staff": 5, "suppliers": 5, "ai": 200, "publish": 60}}, {"id": "pro", "name": "Pro", "status": "live", "prices": {"USD": [9900, 99000], "CAD": [12900, 129000]}, "limits": {"products": 10000, "staff": 15, "suppliers": 20, "ai": 500, "publish": 150}}, {"id": "basic24", "name": "Basic (2024)", "status": "retired", "prices": {"USD": [1900, 19000], "CAD": [2500, 25000]}, "limits": {"products": 200, "staff": 1, "suppliers": 0, "ai": 0, "publish": 10}}]
+
 const catalogue = () =>
-  plansServer.catalogue().map((plan) => ({
+  planCatalogue.map((plan) => ({
     id: plan.id,
     name: plan.name,
     status: plan.status,

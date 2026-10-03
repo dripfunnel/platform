@@ -1,56 +1,74 @@
-import { describe, expect, it } from 'vitest'
-import { brandingServer, createBrandingServer } from './brandingSample'
-import type { BrandingInput } from './branding'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { checkContrast, loadBranding, publishBranding, uploadBrandFile } from './branding'
+import { northstarBranding } from '../features/branding/brandingTestData'
 
-const fresh = () => createBrandingServer({ 'p-northstar': { branding: brandingServer.get('p-northstar', 'partner-owner'), affects: 84, poweredBy: { kind: 'choice' }, impressumRequired: false }, 'p-kaufladen': { branding: brandingServer.get('p-kaufladen', 'partner-owner'), affects: 0, poweredBy: { kind: 'fixedOn' }, impressumRequired: true } })
+// Branding's rules are the Platform API's (apps/api tests/platform-branding.test.ts); these check
+// how the client reads each answer and the upload route.
+const respond = vi.fn<(url: string, init: RequestInit) => Response>()
+beforeEach(() => {
+  respond.mockReset()
+  vi.stubGlobal('fetch', (url: string, init: RequestInit) => Promise.resolve(respond(url, init)))
+})
+afterEach(() => vi.unstubAllGlobals())
 
-const inputOf = (partnerId: string): BrandingInput => {
-  const { look, words } = brandingServer.get(partnerId, 'partner-owner')
-  return { look, words }
-}
+const graphql = (data: unknown) => new Response(JSON.stringify({ data }))
+const { look, words } = northstarBranding['partner-owner']
+const contrast = { pairs: [{ key: 'primaryOnWhite', ratio: '6.9 : 1', passes: true }, { key: 'accentOnDark', ratio: '9.8 : 1', passes: true }], passes: true, fix: null }
 
-describe('the branding fixture, as the Platform API would answer', () => {
-  it('reports the contrast of both pairs, worded with the fix when one fails', () => {
-    const passing = brandingServer.contrast('#0F5E63', '#E8C9A0')
-    expect(passing.passes).toBe(true)
-    expect(passing.pairs.map((pair) => pair.passes)).toEqual([true, true])
-    const failing = brandingServer.contrast('#9ACDD6', '#E8C9A0')
-    expect(failing.passes).toBe(false)
-    expect(failing.pairs[0]?.passes).toBe(false)
-    expect(failing.fix).toMatch(/^White button text on #9ACDD6 is \d\.\d:1\. It needs 4\.5:1 to be readable; try a darker primary\.$/)
-    expect(brandingServer.contrast('#0F5E63', '#555555').fix).toContain('try a lighter accent')
+describe('loadBranding', () => {
+  it('reads the contract’s Powered-by rule and the permission as the screens use them', async () => {
+    respond.mockReturnValue(graphql({ branding: { look, words, affects: 84, contrast, poweredByRule: 'fixedOn', impressumRequired: true, dpaRequired: false, permission: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' } } }))
+    const branding = await loadBranding()
+    expect(branding.poweredBy).toEqual({ kind: 'fixedOn' })
+    expect(branding.permission).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+    expect(branding.impressumRequired).toBe(true)
+  })
+})
+
+describe('checkContrast and publishBranding', () => {
+  it('asks the API for the report with both colours', async () => {
+    respond.mockReturnValue(graphql({ checkContrast: contrast }))
+    expect(await checkContrast('#0F5E63', '#E8C9A0')).toEqual(contrast)
+    expect(JSON.parse(String(respond.mock.calls[0]?.[1].body))).toMatchObject({ variables: { primary: '#0F5E63', accent: '#E8C9A0' } })
   })
 
-  it('refuses a failing pair with the fix and changes nothing', () => {
-    const s = fresh()
-    const input = inputOf('p-northstar')
-    const result = s.publish('p-northstar', { ...input, look: { ...input.look, primary: '#9ACDD6' } }, 'partner-owner')
-    expect(result.ok).toBe(false)
-    if (result.ok) return
-    expect(result.reason).toBe('CONTRAST_FAILS')
-    expect(s.get('p-northstar', 'partner-owner').look.primary).toBe('#0F5E63')
+  it('reads success, the contrast fix, each refusal, and an unknown one as invalid input', async () => {
+    respond.mockReturnValueOnce(graphql({ publishBranding: { ok: true, reason: null, fix: null, field: null } }))
+    expect(await publishBranding({ look, words })).toEqual({ ok: true })
+    respond.mockReturnValueOnce(graphql({ publishBranding: { ok: false, reason: 'CONTRAST_FAILS', fix: 'try a darker primary', field: null } }))
+    expect(await publishBranding({ look, words })).toEqual({ ok: false, reason: 'CONTRAST_FAILS', fix: 'try a darker primary' })
+    respond.mockReturnValueOnce(graphql({ publishBranding: { ok: false, reason: 'IMPRESSUM_REQUIRED', fix: null, field: null } }))
+    expect(await publishBranding({ look, words })).toEqual({ ok: false, reason: 'IMPRESSUM_REQUIRED' })
+    respond.mockReturnValueOnce(graphql({ publishBranding: { ok: false, reason: 'SOMETHING_NEW', fix: null, field: 'look.font' } }))
+    expect(await publishBranding({ look, words })).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+  })
+})
+
+describe('uploadBrandFile', () => {
+  const file = new Blob(['<svg/>'], { type: 'image/svg+xml' })
+
+  it('posts the raw file for its slot and reads back the stored key', async () => {
+    respond.mockReturnValue(new Response(JSON.stringify({ ok: true, key: 'partners/p1/logoLight-abc.svg' })))
+    expect(await uploadBrandFile('logoLight', file)).toEqual({ ok: true, key: 'partners/p1/logoLight-abc.svg' })
+    const [url, init] = respond.mock.calls[0] ?? []
+    expect(url).toBe('/api/uploads/brand-file?kind=logoLight')
+    expect(init).toMatchObject({ method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'image/svg+xml' } })
+    expect(init?.body).toBe(file)
   })
 
-  it('keeps "Powered by" on where the contract says so, and needs the Impressum in Germany', () => {
-    const s = fresh()
-    expect(s.get('p-kaufladen', 'partner-owner').poweredBy).toEqual({ kind: 'fixedOn' })
-    const input = inputOf('p-kaufladen')
-    expect(s.publish('p-kaufladen', { ...input, words: { ...input.words, poweredBy: false, impressum: 'Kaufladen Digital GmbH, Torstraße 140, 10119 Berlin' } }, 'partner-owner')).toEqual({ ok: false, reason: 'POWERED_BY_FIXED_BY_CONTRACT' })
-    expect(s.publish('p-kaufladen', input, 'partner-owner')).toEqual({ ok: false, reason: 'IMPRESSUM_REQUIRED' })
-    expect(s.publish('p-kaufladen', { ...input, words: { ...input.words, impressum: 'Kaufladen Digital GmbH, Torstraße 140, 10119 Berlin' } }, 'partner-owner')).toEqual({ ok: true })
-    expect(s.get('p-northstar', 'partner-owner').poweredBy).toEqual({ kind: 'choice' })
+  it.each(['TOO_LARGE', 'UNSUPPORTED_TYPE', 'UNSAFE_SVG', 'FORBIDDEN', 'UNAUTHENTICATED', 'NOT_CONNECTED'])('passes %s through by its code', async (code) => {
+    respond.mockReturnValue(new Response(JSON.stringify({ ok: false, code }), { status: 400 }))
+    expect(await uploadBrandFile('mark', file)).toEqual({ ok: false, code })
   })
 
-  it('lets Owners and Admins publish and refuses the other roles', () => {
-    const s = fresh()
-    const input = inputOf('p-northstar')
-    for (const role of ['partner-finance', 'partner-support', 'partner-read-only'] as const) {
-      expect(s.publish('p-northstar', input, role)).toEqual({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-      expect(s.get('p-northstar', role).permission).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-    }
-    expect(s.publish('p-northstar', { ...input, look: { ...input.look, files: { ...input.look.files, mark: '' } } }, 'partner-admin')).toEqual({ ok: false, reason: 'INVALID_INPUT' })
-    expect(s.publish('p-northstar', { ...input, look: { ...input.look, productName: 'Northstar Stores' } }, 'partner-admin')).toEqual({ ok: true })
-    expect(s.get('p-northstar', 'partner-owner').look.productName).toBe('Northstar Stores')
-    expect(s.get('p-northstar', 'partner-owner').affects).toBe(84)
+  it('reads a code it was never promised, a non-JSON answer or no answer as not connected', async () => {
+    respond.mockReturnValueOnce(new Response(JSON.stringify({ ok: false, code: 'INVALID_KIND' }), { status: 400 }))
+    expect(await uploadBrandFile('mark', file)).toEqual({ ok: false, code: 'NOT_CONNECTED' })
+    respond.mockReturnValueOnce(new Response('', { status: 502 }))
+    expect(await uploadBrandFile('mark', file)).toEqual({ ok: false, code: 'NOT_CONNECTED' })
+    respond.mockImplementationOnce(() => {
+      throw new TypeError('Failed to fetch')
+    })
+    expect(await uploadBrandFile('mark', file)).toEqual({ ok: false, code: 'NOT_CONNECTED' })
   })
 })

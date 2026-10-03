@@ -45,15 +45,36 @@ beforeAll(async () => {
   await seed(db.url, now)
   ids.ns = (await db.sql<{ id: string }[]>`select id from partner where name = 'Northstar Commerce'`)[0]?.id ?? ''
   ids.kl = (await db.sql<{ id: string }[]>`select id from partner where name = 'Kaufladen Digital'`)[0]?.id ?? ''
-  // The seed's keys are the prototype's names; publish takes keys under the partner's own prefix.
-  for (const id of [ids.ns, ids.kl]) {
-    await db.sql`
-      update partner_branding set logo_light_key = 'partners/' || partner_id || '/brand/logo.svg', logo_dark_key = 'partners/' || partner_id || '/brand/logo-dark.svg',
-        mark_key = 'partners/' || partner_id || '/brand/mark.svg', favicon_key = 'partners/' || partner_id || '/brand/favicon.png'
-      where partner_id = ${id}
-    `
-  }
 }, 120_000)
+
+describe('the seed', () => {
+  // Publish refuses a key outside the partner's own prefix, so the seed's must already be inside it.
+  it('keys every brand file under its partner', async () => {
+    for (const id of [ids.ns, ids.kl]) {
+      const { look } = await current(id)
+      for (const key of Object.values(look.files)) expect(key.startsWith(`partners/${id}/`)).toBe(true)
+    }
+  })
+})
+
+describe('a partner that has never saved a look', () => {
+  it('reads a first draft from its own name and colours, unpublished, with its rules and permission', async () => {
+    const [p] = await db.sql<{ id: string }[]>`insert into partner (name, country, product_name, primary_color, accent_color) values ('Neuer Partner', 'DE', 'Neu Shops', '#123456', '#FEDCBA') returning id`
+    const pid = p?.id ?? ''
+    const first = (await run<B>(brandingQuery, callerOf(pid, 'partner-owner'))).data?.branding
+    expect(first).toMatchObject({ published: false, impressumRequired: true, poweredByRule: 'fixedOn', permission: { allowed: true } })
+    expect(first?.look).toMatchObject({ productName: 'Neu Shops', primary: '#123456', accent: '#FEDCBA', files: { logoLight: '', logoDark: '', mark: '', favicon: '' } })
+    expect(first?.words.poweredBy).toBe(true)
+    expect((await run<B>(brandingQuery, callerOf(pid, 'partner-finance'))).data?.branding.permission).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+  })
+
+  it('starts from DripFunnel’s colours, which pass the contrast check, when the partner has none', async () => {
+    const [p] = await db.sql<{ id: string }[]>`insert into partner (name, country) values ('Plain Partner', 'US') returning id`
+    const first = (await run<B>(brandingQuery, callerOf(p?.id ?? '', 'partner-owner'))).data?.branding
+    expect(first?.look).toMatchObject({ productName: 'Plain Partner', primary: '#4A1B0C', accent: '#EC844F' })
+    expect(first?.contrast.passes).toBe(true)
+  })
+})
 
 afterAll(async () => {
   await db?.drop()

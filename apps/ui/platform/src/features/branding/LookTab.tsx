@@ -1,5 +1,5 @@
 import { StatusPill } from '@dripfunnel/shared/ui'
-import { brandBackgrounds, brandCorners, brandFiles, brandFonts, hexColour, type Branding, type ContrastReport } from '../../api/branding'
+import { brandBackgrounds, brandCorners, brandFiles, brandFonts, hexColour, type BrandFile, type Branding, type ContrastReport } from '../../api/branding'
 import { fill, messages } from '../../messages'
 import type { BrandDraft, DraftField } from './brandDraft'
 
@@ -11,6 +11,7 @@ export interface LookTabProps {
   invalid: readonly DraftField[]
   disabled: boolean
   onChange: (look: Branding['look']) => void
+  onUpload: (file: BrandFile, picked: File) => void
 }
 
 const ColourField = ({ id, label, pickLabel, value, invalid, disabled, onChange }: { id: string; label: string; pickLabel: string; value: string; invalid: boolean; disabled: boolean; onChange: (value: string) => void }) => (
@@ -29,7 +30,7 @@ const ColourField = ({ id, label, pickLabel, value, invalid, disabled, onChange 
 )
 
 // The look (§8.1): name, colours with the API's contrast report, font, corners, background, the four files.
-export const LookTab = ({ draft, contrast, invalid, disabled, onChange }: LookTabProps) => {
+export const LookTab = ({ draft, contrast, invalid, disabled, onChange, onUpload }: LookTabProps) => {
   const set = (patch: Partial<Branding['look']>) => onChange({ ...draft.look, ...patch })
   return (
     <section className="df-panel df-brand-card" aria-label={messages.branding.tabs.look}>
@@ -93,7 +94,7 @@ export const LookTab = ({ draft, contrast, invalid, disabled, onChange }: LookTa
         {brandFiles.map((file) => (
           <li key={file}>
             <strong>{words.files[file]}</strong>
-            <code className="df-muted">{draft.look.files[file]}</code>
+            <code className="df-muted">{draft.look.files[file].split('/').pop() || words.noFile}</code>
             <label className={disabled ? 'df-brand-replace df-brand-replace--off' : 'df-brand-replace'}>
               {words.replace}
               <input
@@ -103,8 +104,9 @@ export const LookTab = ({ draft, contrast, invalid, disabled, onChange }: LookTa
                 aria-label={fill(words.replaceLabel, { file: words.files[file] })}
                 disabled={disabled}
                 onChange={(event) => {
-                  const name = event.target.files?.[0]?.name
-                  if (name) set({ files: { ...draft.look.files, [file]: name } })
+                  const picked = event.target.files?.[0]
+                  if (picked) onUpload(file, picked)
+                  event.target.value = ''
                 }}
               />
             </label>

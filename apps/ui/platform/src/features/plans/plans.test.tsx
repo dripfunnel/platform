@@ -3,13 +3,13 @@ import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Me } from '../../api/me'
-import { createPlansServer, samplePlans } from '../../api/plansSample'
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { PlanEditor } from './PlanEditor'
 import { draftOf, inputOf, isDirty, minorOf, rowsAboveCeiling } from './planDraft'
 import { retireDialog, retireInput, saveDialog } from './planDialogs'
 import { Plans } from './Plans'
+import { growthEditors, newPlanEditor, plansPages } from './plansTestData'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 const hrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map((match) => (match[1] ?? '').replace(/&amp;/g, '&'))
@@ -19,19 +19,14 @@ const render = async (element: ReactNode, path = '/plans') => {
   return renderToString(<RouterProvider router={router} />)
 }
 const owner: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', role: 'partner-owner', partner: { id: 'p-1', name: 'Northstar Commerce', product: 'Northstar Shops', host: 'store.northstar.com', state: 'live' } }
-const server = createPlansServer(samplePlans)
 const noop = () => undefined
 const words = messages.plans
 
-const editorFor = (id: string | null, role: PartnerRole = 'partner-owner') => {
-  const editor = server.editor(id, role)
-  if (!editor) throw new Error(String(id))
-  return editor
-}
+const editorFor = (id: 'growth' | null, role: PartnerRole = 'partner-owner') => (id === null ? newPlanEditor : growthEditors[role])
 
 describe('the Plans list', () => {
   it('shows every plan with its prices per currency, the fee, trial, stores and status, and New plan for Owners', async () => {
-    const html = await render(<Plans me={owner} page={server.list('partner-owner')} forced={null} onReload={noop} />)
+    const html = await render(<Plans me={owner} page={plansPages['partner-owner']} forced={null} onReload={noop} />)
     const text = textOf(html)
     for (const column of Object.values(words.columns)) expect(text).toContain(column)
     expect(text).toContain('$49.00 / month · $490.00 / year')
@@ -47,7 +42,7 @@ describe('the Plans list', () => {
 
   it('disables New plan with the reason for Finance, Support and Read-only', async () => {
     for (const role of ['partner-finance', 'partner-support', 'partner-read-only'] as const) {
-      const html = await render(<Plans me={{ ...owner, role }} page={server.list(role)} forced={null} onReload={noop} />)
+      const html = await render(<Plans me={{ ...owner, role }} page={plansPages[role]} forced={null} onReload={noop} />)
       expect(hrefs(html)).not.toContain('/plans/new')
       expect(textOf(html)).toContain(words.refused.OWNERS_AND_ADMINS_ONLY)
     }

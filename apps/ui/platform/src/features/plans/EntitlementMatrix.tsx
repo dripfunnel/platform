@@ -44,7 +44,7 @@ export const EntitlementMatrix = ({ draft, ceilings, disabled, onToggle, onNumbe
         }
         const key = row.key as NumberKey
         const max = ceilings[key]
-        const over = numberOf(draft.numbers[key]) > max
+        const over = max !== null && numberOf(draft.numbers[key]) > max
         const missing = rowsMissing(draft).includes(key)
         return (
           <li key={key}>
@@ -63,11 +63,11 @@ export const EntitlementMatrix = ({ draft, ceilings, disabled, onToggle, onNumbe
               />
               {(over || missing) && (
                 <span id={`ceiling-${key}`} className="df-margin df-margin--loss">
-                  {over ? fill(words.overCeiling, { max: formatCount(max) }) : words.missing}
+                  {over && max !== null ? fill(words.overCeiling, { max: formatCount(max) }) : words.missing}
                 </span>
               )}
             </div>
-            <span className="df-muted">{fill(row.kind === 'allowance' ? words.ceilingMonthly : words.ceiling, { max: formatCount(max) })}</span>
+            <span className="df-muted">{max === null ? words.noCeiling : fill(row.kind === 'allowance' ? words.ceilingMonthly : words.ceiling, { max: formatCount(max) })}</span>
           </li>
         )
       })}
