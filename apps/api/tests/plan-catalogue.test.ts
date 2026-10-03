@@ -79,6 +79,28 @@ describe('versions', () => {
     await expect(as(staff, (tx) => tx`update plan_entitlement set amount = 1 where plan_id = ${ids.growth} and version = 1`)).rejects.toThrow(/permission denied/i)
   })
 
+  it('refuses a value above DripFunnel’s ceiling, for the partner and for staff', async () => {
+    const entitlements = (await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1)))?.entitlements as Entitlements
+    for (const context of [partner(ids.ns), staff]) {
+      await expect(
+        as(context, (tx) => insertPlanVersion(tx, { planId: ids.growth, partnerId: ids.ns, trialDays: 14, prices: [], entitlements: { ...entitlements, products: 20001 }, by: { kind: 'staff', label: 'x' } })),
+      ).rejects.toThrow(/products above the ceiling of 20000/)
+    }
+  })
+
+  it('holds each entitlement to its kind: a switch has only enabled, a limit only amount', async () => {
+    const bad = async (key: string, enabled: boolean | null, amount: number | null) =>
+      db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, enabled, amount) values (${ids.growth}, ${ids.ns}, 1, ${key}, ${enabled}, ${amount})`
+    await expect(bad('products', true, 5)).rejects.toThrow(/plan_entitlement_kind/)
+    await expect(bad('products', null, null)).rejects.toThrow(/plan_entitlement_kind/)
+    await expect(bad('offers', true, 5)).rejects.toThrow(/plan_entitlement_kind/)
+  })
+
+  it('gives any new plan a first version, however it is inserted', async () => {
+    const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status, trial_days) values (${ids.ns}, 'Raw insert', 'draft', 7) returning id`
+    expect(await db.sql`select version, trial_days from plan_version where plan_id = ${plan?.id ?? ''}`).toEqual([{ version: 1, trial_days: 7 }])
+  })
+
   it('refuses a current version that does not exist, and a replacement plan of another partner', async () => {
     await expect(db.sql`update plan set version = 99 where id = ${ids.growth}`).rejects.toThrow(/plan_current_version_fkey/)
     await expect(db.sql`update plan set retire_move_to_plan_id = ${ids.basis} where id = ${ids.growth}`).rejects.toThrow(/plan_retire_move_to_fkey/)

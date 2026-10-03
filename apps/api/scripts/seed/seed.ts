@@ -105,7 +105,6 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
         maxStaff: plan.maxStaff,
         prices: entry?.prices ?? [],
         entitlements: entry?.entitlements ?? fallbackEntitlements(plan.maxProducts, plan.maxStaff),
-        by: { kind: 'system', label: 'Seed' },
       })
       planIds.set(`${p.key}:${plan.name}`, planId)
       if (entry) await setPlanFee(tx, planId, partnerId, entry.feeMinor)

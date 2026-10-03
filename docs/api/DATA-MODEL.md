@@ -145,9 +145,16 @@ partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, 
   `plan.version` moves to it. Versions are **insert-only**: no role holds `update` on the three
   version tables, so a subscription keeps exactly the version it bought (§7.9's
   `store_subscription.plan_version`). `plan.version` always names an existing version (a
-  deferred foreign key; `insertPlan` writes version 1 with the plan, and `0013` gave every plan
-  already built a version 1 with its trial and no prices). Name, description and status stay
-  on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
+  deferred foreign key): a trigger owned by `app_definer` writes version 1 for every plan
+  inserted, by whatever role, so the release still live keeps working, and `0013` gave every
+  plan already built a version 1 with its trial and no prices. Name, description and status
+  stay on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
+- **Ceilings are enforced in the database**: a trigger refuses any `plan_entitlement` amount
+  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1). A check holds each key to
+  its kind: a switch has `enabled` and no `amount`, a limit or allowance the reverse.
+- **The entitlements are authoritative.** `plan.max_products` and `max_staff` (#32) are what
+  the admin console's plan list still reads; they stop being written once #161 serves the
+  catalogue, and a later migration drops them.
 - `plan.trial_days` is `0..90` (was `0, 7, 14, 30`), so the house plans' 10 days fit.
 - **Who reads what**: the partner reads and writes its own versions, and reads its own fee,
   contract and rates and every ceiling; the fee, the ceilings and the contract are written by

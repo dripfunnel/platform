@@ -23,32 +23,29 @@ export interface NewPlanVersion {
   by: { kind: 'partner_user' | 'staff' | 'system'; label: string }
 }
 
-/** Writes one version's rows. Versions are insert-only: nothing ever updates one. */
+/** One version's prices and values; its `plan_version` row too unless it is the first, which the plan's own trigger writes. */
 export const writeVersionRows = async (tx: ScopedSql, v: Omit<NewPlanVersion, 'entitlements'> & { version: number; entitlements: Entitlements | null }): Promise<void> => {
-  await tx`
-    insert into plan_version (plan_id, partner_id, version, trial_days, created_by_kind, created_by_label)
-    values (${v.planId}, ${v.partnerId}, ${v.version}, ${v.trialDays}, ${v.by.kind}, ${v.by.label})
-  `
-  for (const price of v.prices) {
+  if (v.version > 1) {
     await tx`
-      insert into plan_price (plan_id, partner_id, version, currency, monthly_amount, yearly_amount)
-      values (${v.planId}, ${v.partnerId}, ${v.version}, ${price.currency}, ${price.monthly}, ${price.yearly})
+      insert into plan_version (plan_id, partner_id, version, trial_days, created_by_kind, created_by_label)
+      values (${v.planId}, ${v.partnerId}, ${v.version}, ${v.trialDays}, ${v.by.kind}, ${v.by.label})
     `
   }
-  if (!v.entitlements) return
-  for (const key of switchKeys) {
-    await tx`insert into plan_entitlement (plan_id, partner_id, version, key, enabled) values (${v.planId}, ${v.partnerId}, ${v.version}, ${key}, ${v.entitlements[key]})`
+  const base = { plan_id: v.planId, partner_id: v.partnerId, version: v.version }
+  if (v.prices.length > 0) {
+    const prices = v.prices.map((p) => ({ ...base, currency: p.currency, monthly_amount: p.monthly, yearly_amount: p.yearly }))
+    await tx`insert into plan_price ${tx(prices, 'plan_id', 'partner_id', 'version', 'currency', 'monthly_amount', 'yearly_amount')}`
   }
-  for (const key of amountKeys) {
-    await tx`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${v.planId}, ${v.partnerId}, ${v.version}, ${key}, ${v.entitlements[key]})`
-  }
+  const values = v.entitlements
+  if (!values) return
+  const rows = [
+    ...switchKeys.map((key) => ({ ...base, key, enabled: values[key], amount: null })),
+    ...amountKeys.map((key) => ({ ...base, key, enabled: null, amount: values[key] })),
+  ]
+  await tx`insert into plan_entitlement ${tx(rows, 'plan_id', 'partner_id', 'version', 'key', 'enabled', 'amount')}`
 }
 
-/**
- * Adds the plan's next version and makes it current; earlier versions and every subscription
- * pointing at one are left exactly as they were (SAAS §6.3). The update takes the plan's row
- * lock, so two edits at once become two versions, never one number twice.
- */
+/** The next version, under the plan's row lock so concurrent edits never share a number (SAAS §6.3). */
 export const insertPlanVersion = async (tx: ScopedSql, v: NewPlanVersion): Promise<number> => {
   const [row] = await tx<{ version: number }[]>`
     update plan set version = version + 1, trial_days = ${v.trialDays}

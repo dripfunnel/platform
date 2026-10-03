@@ -33,8 +33,21 @@ create table plan_version (
 insert into plan_version (plan_id, partner_id, version, trial_days, created_by_kind, created_by_label)
 select id, partner_id, 1, trial_days, 'system', 'Migration 0013' from plan;
 
--- The current version always exists; deferred, because a plan and its first version are
--- written in one transaction.
+-- Every plan is born with version 1, whoever inserts it (the release still live included), so
+-- the current version always exists. Owned by app_definer: the inserting role may hold no
+-- grant on plan_version.
+create function plan_first_version() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into plan_version (plan_id, partner_id, version, trial_days, created_by_kind, created_by_label)
+  values (new.id, new.partner_id, 1, new.trial_days, 'system', 'Plan created');
+  return new;
+end
+$$;
+
 alter table plan add constraint plan_current_version_fkey foreign key (id, version)
   references plan_version (plan_id, version) deferrable initially deferred;
 
@@ -65,8 +78,10 @@ create table plan_entitlement (
   primary key (plan_id, version, key),
   foreign key (plan_id, version, partner_id) references plan_version (plan_id, version, partner_id),
   constraint plan_entitlement_kind check (
-    (key in ('custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'))
-    = (enabled is not null and amount is null)
+    case when key in ('custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts')
+      then enabled is not null and amount is null
+      else amount is not null and enabled is null
+    end
   )
 );
 
@@ -101,6 +116,35 @@ create table partner_contract_rate (
   per_fee_unit numeric(14, 6) not null check (per_fee_unit > 0),
   primary key (partner_id, currency)
 );
+
+-- SAAS §6.1: no partner, nor staff on its behalf, configures a plan above DripFunnel's ceiling.
+create function plan_entitlement_within_ceiling() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ceiling integer;
+begin
+  select amount into ceiling from plan_ceiling where key = new.key;
+  if new.amount is not null and ceiling is not null and new.amount > ceiling then
+    raise exception 'plan_entitlement: % above the ceiling of %', new.key, ceiling using errcode = 'check_violation';
+  end if;
+  return new;
+end
+$$;
+
+create trigger plan_entitlement_ceiling before insert on plan_entitlement
+for each row execute function plan_entitlement_within_ceiling();
+
+create trigger plan_first_version after insert on plan
+for each row execute function plan_first_version();
+
+grant insert on plan_version to app_definer;
+grant select on plan_ceiling to app_definer;
+alter function plan_first_version() owner to app_definer;
+alter function plan_entitlement_within_ceiling() owner to app_definer;
+revoke all on function plan_first_version(), plan_entitlement_within_ceiling() from public;
 
 create index plan_version_partner_idx on plan_version (partner_id);
 create index plan_price_partner_idx on plan_price (partner_id);
