@@ -177,7 +177,9 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 - **`store_subscription`** exactly as §7.9 designs it, pointing at the plan **version** (§2.3),
   with `next_plan_id`, `next_plan_version` and `change_at` for a scheduled change. It carries
   `partner_id` so its composite keys hold the store and both plan versions to one partner
-  (foreign keys skip RLS). Billing (`app_system`) and staff write it. A partner reads it by
+  (foreign keys skip RLS). Billing (`app_system`) and staff write it; a partner writes only the
+  schedule (`next_plan_id`, `next_plan_version`, `change_at`, migration `0015`, #161), when
+  a plan change applies at renewal or a retired plan moves its stores. A partner reads it by
   column (status, amounts, periods, the scheduled change, the card's last four); the merchant
   also reads the card's brand and expiry; neither reads the Stripe ids or the payment-method
   label. A store built before #212 has no row until billing (#201) creates one. `core/tenancy.ts`'s

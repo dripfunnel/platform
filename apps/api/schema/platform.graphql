@@ -19,8 +19,22 @@ type Me {
   role: String
 }
 
+type Money {
+  amount: Int
+  currency: String
+}
+
+input MoneyInput {
+  amount: Int!
+  currency: String!
+}
+
 type Mutation {
+  createPlan(input: PlanInput!): PlanResult
+  makePlanLive(id: ID!): PlanResult
+  retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
   submitForApproval: SubmitForApprovalResult
+  updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
 
 type NavBadges {
@@ -73,13 +87,150 @@ type PartnerState {
   storeCount: Int
 }
 
+type Plan {
+  entitlements: PlanEntitlements
+  row: PlanRow
+}
+
+type PlanCeilings {
+  ai: Int
+  currencies: Int
+  languages: Int
+  products: Int
+  publish: Int
+  staff: Int
+  suppliers: Int
+}
+
+type PlanEditor {
+  ceilings: PlanCeilings
+  chargedBy: String
+  currencies: [String!]
+  edit: PlanPermission
+  plan: Plan
+  powered: PoweredByRule
+  price: PlanPermission
+  retireDates: [String!]
+  retireTargets: [RetireTarget!]
+  trials: [Int!]
+}
+
+type PlanEntitlements {
+  ai: Int
+  aplus: Boolean
+  currencies: Int
+  domain: Boolean
+  languages: Int
+  offers: Boolean
+  powered: Boolean
+  products: Int
+  publish: Int
+  size: Boolean
+  staff: Int
+  suppliers: Int
+  suppliersOn: Boolean
+}
+
+input PlanEntitlementsInput {
+  ai: Int!
+  aplus: Boolean!
+  currencies: Int!
+  domain: Boolean!
+  languages: Int!
+  offers: Boolean!
+  powered: Boolean!
+  products: Int!
+  publish: Int!
+  size: Boolean!
+  staff: Int!
+  suppliers: Int!
+  suppliersOn: Boolean!
+}
+
+input PlanInput {
+  description: String!
+  entitlements: PlanEntitlementsInput!
+  name: String!
+  prices: [PlanPriceInput!]!
+  trialDays: Int!
+}
+
+type PlanMargin {
+  amount: Money
+  kind: String
+  of: Money
+}
+
+type PlanPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type PlanPrice {
+  converted: Boolean
+  currency: String
+  fee: Money
+  margin: PlanMargin
+  monthly: Money
+  yearly: Money
+}
+
+input PlanPriceInput {
+  currency: String!
+  monthly: MoneyInput
+  yearly: MoneyInput
+}
+
+type PlanResult {
+  currency: String
+  id: String
+  ok: Boolean
+  reason: String
+  row: String
+}
+
+type PlanRow {
+  description: String
+  id: ID
+  name: String
+  prices: [PlanPrice!]
+  status: String
+  stores: Int
+  trialDays: Int
+}
+
+type PlansPage {
+  chargedBy: String
+  create: PlanPermission
+  items: [PlanRow!]
+}
+
+type PoweredByRule {
+  allowed: Boolean
+  note: String
+}
+
 type Query {
   health: String
   me: Me
   navBadges: NavBadges
   onboarding: Onboarding
   partnerState: PartnerState
+  planEditor(id: ID): PlanEditor
+  plans: PlansPage
+  quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
   search(query: String!): [StoreSearchMatch!]
+}
+
+input RetirePlanInput {
+  keep: Boolean!
+  moveTo: ID
+  on: String
+}
+
+type RetireTarget {
+  id: ID
+  name: String
 }
 
 type SetupSessionNotice {

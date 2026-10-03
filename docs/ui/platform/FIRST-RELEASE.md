@@ -725,6 +725,32 @@ api/README.md §2.1); a partner id in a request is not authority.
 - "Priced" in the go-live checks now means a Live plan whose current version has a monthly
   price (#157's catalogue), for the admin console too.
 
+**Built on #161** (Plans, `apis/platform/plans.ts`, `saas/partnerPlans`):
+- `plans` and **`planEditor(id)`** (not `plan(id)`; `id` null for a new plan). The editor's
+  `plan` is `{ row, entitlements }`. It carries the ceilings per row, the contract's
+  "Powered by" rule (`powered { allowed, note }`), the currencies the partner sells in, the
+  trials, `chargedBy`, the `edit` and `price` permissions, the retire targets and the three
+  first-of-month dates.
+- **`quotePlanPrices(id, prices)` carries the fee and the margin**, as `Money`: a second
+  currency's fee is converted at the contract rate with integer arithmetic, and a price below the
+  fee is a `loss`. Where the contract states no rate for a currency, `fee` is null and the
+  margin `noFee`. A new plan's fee is the lowest the partner's contract charges today, until
+  DripFunnel sets one.
+- `createPlan(input)`, `updatePlan(id, input, applyTo)` (`plans.price`, so Finance reaches it
+  and is held to prices), `makePlanLive(id)` and `retirePlan(id, { keep } | { keep: false,
+  moveTo, on })`. They refuse with the fixture's codes, plus `NOT_FOUND`, `INVALID_STATE` (not
+  Draft or not Live, or editing a retired plan), `INVALID_TARGET` (not another Live plan, or not
+  an offered date) and `INVALID_CURRENCY` (an amount in another currency than its row, or a
+  currency the contract states no fee in). Make live requires the contract's currencies. With
+  no contract yet, it requires the plan's own. Retiring locks the Live plans, so two retirements
+  at once never leave none.
+- A role without `plans.write` gets `FORBIDDEN` from the policy. The permission blocks carry
+  `OWNERS_AND_ADMINS_ONLY`.
+- **Everyone at renewal** schedules each subscription on the plan for its first renewal at least
+  30 days away (a past-due one too) and queues `plan-change-at-renewal`. A subscription with a
+  change already scheduled keeps it. Retiring with a move schedules them for the
+  chosen date. Both are written in the change's own transaction.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the
