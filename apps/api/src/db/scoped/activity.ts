@@ -1,5 +1,5 @@
 import type { Keyset } from '#core/cursor'
-import type { ActivityRow, ActorKind, NewActivityRow } from '../schema/activity'
+import type { ActivityResult, ActivityRow, ActorKind, NewActivityRow } from '../schema/activity'
 import { pageLimit, type ScopedSql } from './index'
 
 export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promise<string> => {
@@ -36,7 +36,13 @@ export interface ActivityQuery {
   to?: Date | undefined
   /** A Partner manager reads entries of their assigned partners only (ACCESS.md §5.4). */
   assignedTo?: string | undefined
+  /** The partner console's "Who" chip (ui/platform/FIRST-RELEASE.md §13). */
+  who?: ActivityWho | undefined
+  result?: ActivityResult | undefined
 }
+
+export const activityWhos = ['team', 'staff', 'setup', 'support', 'events'] as const
+export type ActivityWho = (typeof activityWhos)[number]
 
 export interface KeysetPage {
   after?: Keyset | undefined
@@ -62,6 +68,12 @@ export const selectActivity = async (tx: ScopedSql, query: ActivityQuery, page: 
       ${query.action !== undefined ? tx`and action = ${query.action}` : tx``}
       ${query.from !== undefined ? tx`and occurred_at >= ${query.from}` : tx``}
       ${query.to !== undefined ? tx`and occurred_at < ${query.to}` : tx``}
+      ${query.result !== undefined ? tx`and result = ${query.result}` : tx``}
+      ${query.who === 'team' ? tx`and actor_kind = 'partner_user' and access_kind is null` : tx``}
+      ${query.who === 'staff' ? tx`and actor_kind = 'staff' and access_kind is null` : tx``}
+      ${query.who === 'setup' ? tx`and access_kind = 'setup_session'` : tx``}
+      ${query.who === 'support' ? tx`and access_kind = 'support_session'` : tx``}
+      ${query.who === 'events' ? tx`and actor_kind in ('job', 'provider', 'person')` : tx``}
       ${query.assignedTo !== undefined ? tx`and partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${query.assignedTo} and a.removed_at is null)` : tx``}
       ${page.after !== undefined ? tx`and occurred_at <= ${page.after.occurredAt} and (occurred_at, id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}
       ${page.before !== undefined ? tx`and occurred_at >= ${page.before.occurredAt} and (occurred_at, id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx``}

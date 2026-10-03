@@ -42,7 +42,7 @@ platform            no row: DripFunnel itself; staff act here
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `partner_domain_record` (§2.1), `signup` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `partner_branding` (§2.5), `partner_domain_record` (§2.1), `export_job` (§2.6), `signup` (§7.10) |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
@@ -264,6 +264,17 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
   the same way: a partner may draft without the line, but publishes it off only when allowed.
 
 ---
+
+### 2.6 Export jobs (built on #198)
+
+`export_job` (migration `0021`): partner, `kind` (`activity`), the filter as asked, `state`
+(queued, done or failed), the row count and whether it was cut, the CSV, who asked, and when it was
+created, finished and expires. A partner inserts and reads its own; the `export.activity` job
+runs in that partner's scope and writes the result, or `failed` after the outbox's last attempt
+(the cron also fails a queued job whose outbox row the relay gave up on, a timeout included);
+the per-minute cron deletes an export an hour after it finishes (failed included), and one
+never finished after a day. The CSV lives on the row because no R2
+bucket is bound yet; a file key replaces it when one is. The four role pins are on the table.
 
 ## 3. Identity pools
 

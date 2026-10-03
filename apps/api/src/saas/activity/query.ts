@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { CallerContext } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
-import { actorKinds, type ActivityRow } from '#db/schema/activity'
-import { selectActivity } from '#db/scoped/activity'
+import { activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
+import { activityWhos, selectActivity } from '#db/scoped/activity'
 import { withScope } from '#db/scoped/index'
 
 // The admin console reads 50 at a time (ui/admin/FIRST-RELEASE.md §9); nothing asks for more.
@@ -19,6 +19,8 @@ export const activityFilter = z
     partnerId: z.guid().optional(),
     storeId: z.guid().optional(),
     action: z.string().min(1).max(100).optional(),
+    who: z.enum(activityWhos).optional(),
+    result: z.enum(activityResults).optional(),
     /** UTC calendar days, inclusive (FIRST-RELEASE §9). */
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
@@ -91,6 +93,8 @@ export const listActivity = async (
         from: f.from ? dayStart(f.from) : undefined,
         to: f.to ? nextDay(f.to) : undefined,
         assignedTo: scope.assignedTo,
+        who: f.who,
+        result: f.result,
       },
       { after, before },
       limit,
