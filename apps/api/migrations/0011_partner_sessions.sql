@@ -59,7 +59,11 @@ grant update (name, product_name, primary_color, accent_color, fallback_sender_a
 grant select, insert, update on store, partner_domain, partner_setup_item, plan to app_partner;
 grant select on seller, custom_domain, job, membership to app_partner;
 grant select, insert on activity_log to app_partner;
-grant insert on outbox, partner_user, partner_invitation to app_partner;
+grant insert on outbox to app_partner;
+-- Insert by column too: a partner adds a team member or an invitation, never a password, a
+-- 2-factor secret, a lock or a token (those are sign-in's and the deliverer's, as app_system).
+grant insert (id, partner_id, email, name, role_key, status, created_at) on partner_user to app_partner;
+grant insert (id, partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label, created_at) on partner_invitation to app_partner;
 grant select (id, partner_id, email, name, role_key, status, last_sign_in_at, created_at),
       update (email, name, role_key, status, last_sign_in_at) on partner_user to app_partner;
 grant select (id, partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label, accepted_at, revoked_at, created_at),
