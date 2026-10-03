@@ -51,7 +51,11 @@ using (app_setting_text('app.scope') = 'system') with check (app_setting_text('a
 -- What the partner branches admit today (ACCESS.md §5.3): its own partner and team, its
 -- stores at account level, and the credential columns withheld as from app_request (§2.1).
 grant usage on schema public to app_partner;
-grant select, update on partner to app_partner;
+-- By column (#214): what a partner edits of itself, and the state columns its own submission
+-- writes; never is_house, kind, region, created_at. The trigger below holds the state columns.
+grant select on partner to app_partner;
+grant update (name, product_name, primary_color, accent_color, fallback_sender_accepted, state, submitted_at,
+  submitted_by_kind, submitted_by_label, sent_back_reason, approved_at, paused_at, pause_reason) on partner to app_partner;
 grant select, insert, update on store, partner_domain, partner_setup_item, plan to app_partner;
 grant select on seller, custom_domain, job, membership to app_partner;
 grant select, insert on activity_log to app_partner;
@@ -119,3 +123,24 @@ begin
   end loop;
 end
 $$;
+
+-- A partner moves itself only from Draft to Awaiting approval (SAAS §3.1); approval, pausing
+-- and their facts are DripFunnel's (#214).
+create function partner_self_update_guard() returns trigger
+language plpgsql
+as $$
+begin
+  if current_user = 'app_partner' and (
+    (new.state is distinct from old.state and not (old.state = 'draft' and new.state = 'awaiting'))
+    or new.approved_at is distinct from old.approved_at
+    or new.paused_at is distinct from old.paused_at
+    or new.pause_reason is distinct from old.pause_reason
+  ) then
+    raise exception 'partner: a partner may only submit itself for approval' using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end
+$$;
+
+create trigger partner_self_update_guard before update on partner
+for each row execute function partner_self_update_guard();

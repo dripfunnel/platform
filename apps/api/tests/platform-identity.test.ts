@@ -126,4 +126,16 @@ describe('app_partner', () => {
     await expect(withScope(db.sql, context, (tx) => tx`select id_hash from partner_session`)).rejects.toThrow(/permission denied/i)
     await expect(withScope(db.sql, context, (tx) => tx`select password_hash from partner_user`)).rejects.toThrow(/permission denied/i)
   })
+
+  it('may not approve, pause or re-house itself, nor leave a state but by submitting (#214)', async () => {
+    const context = { ...partnerA, partnerId: t.partnerA }
+    const write = (set: string) => withScope(db.sql, context, (tx) => tx.unsafe(`update partner set ${set} where id = '${t.partnerA}'`))
+    await expect(write(`state = 'live'`)).rejects.toThrow(/may only submit itself/)
+    await expect(write(`approved_at = now()`)).rejects.toThrow(/may only submit itself/)
+    await expect(write(`pause_reason = 'x'`)).rejects.toThrow(/may only submit itself/)
+    await expect(write(`is_house = true`)).rejects.toThrow(/permission denied/i)
+    await expect(write(`state = 'awaiting'`)).resolves.toBeDefined()
+    await db.sql`update partner set state = 'draft' where id = ${t.partnerA}`
+    await expect(write(`product_name = 'Northstar Shops'`)).resolves.toBeDefined()
+  })
 })
