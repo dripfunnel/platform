@@ -1233,7 +1233,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   `select` on `refund.by_user_id`, `refund.note` or `supplier_ledger_entry.note` (§5.3).
   **Shop branches, explicit**: `product`, its children, `collection`, `collection_product`,
   `filter`, `filter_value`, `product_filter_value`, `menu`, `menu_item`, `product_story`
-  (live only), `size_chart`, `translation` and `product_search` get a `shop` read policy on
+  (live only), `story_block` (when a live story embeds it), `size_chart`, `translation` and
+  `product_search` get a `shop` read policy on
   visibility (`visibility = 'visible'`, `deleted_at IS NULL`, the product not hidden, the
   version priced in the shopper's currency); **`asset`** has no such columns, so its `shop`
   branch is `EXISTS` a `product_photo`, `product_story`, `collection.image_asset_id`,
@@ -1267,7 +1268,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   `EXISTS` on its own order, so a shopper's order page shows its discount, shipping and tax
   lines, and `app_shop` has `select` on it), `payment`, `payment_refund`,
   `promotion` and its children,
-  `customer_group`, `customer_group_member`, `story_block`, `badge` definitions (read-only
+  `customer_group`, `customer_group_member`, `story_block` (inside the store for writes; its
+  shop read branch is above), `badge` definitions (read-only
   for `app_supplier`, below), `access_request`, `webhook_endpoint`, `webhook_delivery`,
   `external_connection`, `api_key`, `app_grant`, `invitation` (§3.3), `cart_reminder`,
   `cart_reminder_flow`, `cart_reminder_step`, `store_ai_account`, `store_billing_details`,
