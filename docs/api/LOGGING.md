@@ -58,7 +58,12 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 `supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
 `two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
 detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
-`customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+`customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind),
+`impersonation.started`, `impersonation.extended`, `impersonation.ended`,
+`staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,
+`support_session.ended`, `partner_user.reauthenticated` (never the proof),
+`partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
+`partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
 it). The two-factor and backup-code entries carry no secret, code or phone number. **The
 entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
@@ -198,7 +203,8 @@ every other tenant read.
   call only** (decided on #44); every other staff role sees the control disabled with the
   reason. Partner Owner and Admin, merchant Owner in their portals. Every export is itself
   logged. An admin export has no IP column, caps at 100,000 entries, and its download link
-  expires after 1 hour. **A partner export (built on #198)** is an `export_job` row
+  expires after 1 hour (built on #38: an `export_job` of kind `staff_activity`, ending as too
+  large rather than as a partial file past the cap). **A partner export (built on #198)** is an `export_job` row
   (DATA-MODEL §2.6): queued through the outbox and built in the partner's own scope, so this
   section's policy decides what it holds. It caps at 10,000 entries (saying when it was cut),
   has no IP or user-agent column, and its CSV is readable for 1 hour after it's built, then deleted

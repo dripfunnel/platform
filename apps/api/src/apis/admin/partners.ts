@@ -352,7 +352,12 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }) },
     // Any staff member may ask; whose session it is decides, in the service (ACCESS.md §8.2).
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'setupSessions.read', target: 'none', audit: partnerAudit.endStaffSession } },
-    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).endStaffSession(String(args.id))),
+    resolve: async (_, args, ctx) => {
+      // An impersonation is #40's to end; anything else is a setup session (#33).
+      const ended = ctx.staffSessions ? await ctx.staffSessions.endImpersonationSession(String(args.id)) : null
+      if (ended) return ended.ok ? outcome({ ok: true }) : { ...outcome({ ok: true }), ok: false, code: ended.reason }
+      return outcome(await signedIn(ctx.partners).endStaffSession(String(args.id)))
+    },
   }),
   recheckDomain: t.field({
     type: OutcomeType,

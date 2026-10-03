@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { listActivity } from '#saas/activity/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -20,10 +19,12 @@ const secret = 'ghs_abcdefghijklmnopqrstuvwxyz0123456789'
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
   isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
-  activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
+  staffActivity: null,
   partners: null,
   stores: null,
   provisioning: staff ? createProvisioningService({ sql: db.sql, staff, now: () => now }) : null,
+  staffSessions: null,
+  customers: null,
   staffMembers: null,
   dashboard: null,
 })

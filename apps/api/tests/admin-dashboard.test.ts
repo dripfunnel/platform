@@ -4,7 +4,6 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { listActivity } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -19,10 +18,12 @@ const staffByRole = new Map<StaffRole, StaffMember>()
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
   isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
-  activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
+  staffActivity: null,
   partners: null,
   stores: null,
   provisioning: null,
+  staffSessions: null,
+  customers: null,
   staffMembers: null,
   dashboard: staff ? createDashboardService({ sql: db.sql, staff, now: () => now }) : null,
 })

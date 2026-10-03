@@ -23,10 +23,12 @@ const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
   isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
-  activity: async () => ({ ok: false, code: 'INVALID_FILTER' }),
+  staffActivity: null,
   staffMembers: staff ? createStaffMembersService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, now: () => now }) : null,
   partners: null,
   stores: null,
+  customers: null,
+  staffSessions: null,
   provisioning: null,
   dashboard: null,
 })

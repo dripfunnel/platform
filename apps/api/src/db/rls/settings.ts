@@ -25,6 +25,8 @@ export interface RlsSettings {
   'app.support': '' | 'read' | 'write'
   'app.impersonation_id': string
   'app.user_id': string
+  /** The signed-in staff member (platform scope): who may start an impersonation as themselves (0030). */
+  'app.staff_id': string
 }
 
 const empty = {
@@ -35,6 +37,7 @@ const empty = {
   'app.support': '' as const,
   'app.impersonation_id': '',
   'app.user_id': '',
+  'app.staff_id': '',
 }
 
 export const settingsFor = (context: CallerContext): RlsSettings => {
@@ -64,5 +67,5 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       'app.user_id': caller.kind === 'partner-user' ? caller.partnerUserId : '',
     }
   }
-  return { ...empty, 'app.scope': 'platform' }
+  return { ...empty, 'app.scope': 'platform', 'app.staff_id': context.caller.staffId }
 }

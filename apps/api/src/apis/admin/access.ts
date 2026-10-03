@@ -1,11 +1,13 @@
 import type { AccessTarget } from '#auth/assignment'
 import { isStaffPermission, partnerScopedRoles, roleHas, staffPermissions } from '#auth/permissions'
 import type { StaffMember } from '#auth/staff'
-import type { ActivityPageRequest, ActivityResult } from '#saas/activity/index'
+import type { StaffActivityService } from '#saas/staffActivity/index'
 import type { PartnersService } from '#saas/partners/index'
 import type { DashboardService } from '#saas/dashboard/index'
 import type { StoresService } from '#saas/stores/index'
 import type { ProvisioningService } from '#saas/provisioning/index'
+import type { StaffSessionsService } from '#saas/staffSessions/index'
+import type { CustomersService } from '#saas/customers/index'
 import type { StaffMembersService } from '#saas/staffMembers/index'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
@@ -13,10 +15,12 @@ export interface AdminContext extends Record<string, unknown> {
   staff: StaffMember | null
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
   /** The services in the staff member's scope; built by the composition root per request, null when signed out. */
-  activity: (filter: unknown, page: ActivityPageRequest) => Promise<ActivityResult>
+  staffActivity: StaffActivityService | null
   partners: PartnersService | null
   stores: StoresService | null
   provisioning: ProvisioningService | null
+  staffSessions: StaffSessionsService | null
+  customers: CustomersService | null
   staffMembers: StaffMembersService | null
   dashboard: DashboardService | null
 }

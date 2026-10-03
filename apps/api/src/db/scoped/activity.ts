@@ -31,6 +31,7 @@ export interface ActivityQuery {
   targetId?: string | undefined
   partnerId?: string | undefined
   storeId?: string | undefined
+  customerId?: string | undefined
   action?: string | undefined
   from?: Date | undefined
   to?: Date | undefined
@@ -39,7 +40,18 @@ export interface ActivityQuery {
   /** The partner console's "Who" chip (ui/platform/FIRST-RELEASE.md §13). */
   who?: ActivityWho | undefined
   result?: ActivityResult | undefined
+  /** The admin console's level (FIRST-RELEASE §9): every security or system entry, or an API's other ones, as each entry is labelled. */
+  level?: ActivityLevel | undefined
+  ip?: string | undefined
+  /** An impersonation, setup session or support session: everything done under it. */
+  accessRef?: string | undefined
+  /** One person's timeline: what they did, and what was done in their name (LOGGING §6). */
+  person?: { kind: ActorKind; id: string } | undefined
 }
+
+export const activityLevels = ['admin', 'partner', 'store', 'storefront', 'system', 'security'] as const
+export type ActivityLevel = (typeof activityLevels)[number]
+const apiOfLevel = { admin: 'admin', partner: 'platform', store: 'store', storefront: 'shop' } as const
 
 export const activityWhos = ['team', 'staff', 'setup', 'support', 'events'] as const
 export type ActivityWho = (typeof activityWhos)[number]
@@ -65,10 +77,21 @@ export const selectActivity = async (tx: ScopedSql, query: ActivityQuery, page: 
       ${query.targetId !== undefined ? tx`and target_id = ${query.targetId}` : tx``}
       ${query.partnerId !== undefined ? tx`and partner_id = ${query.partnerId}` : tx``}
       ${query.storeId !== undefined ? tx`and store_id = ${query.storeId}` : tx``}
+      ${query.customerId !== undefined ? tx`and customer_id = ${query.customerId}` : tx``}
       ${query.action !== undefined ? tx`and action = ${query.action}` : tx``}
       ${query.from !== undefined ? tx`and occurred_at >= ${query.from}` : tx``}
       ${query.to !== undefined ? tx`and occurred_at < ${query.to}` : tx``}
       ${query.result !== undefined ? tx`and result = ${query.result}` : tx``}
+      ${query.level === 'security' ? tx`and category = 'security'` : tx``}
+      ${query.level === 'system' ? tx`and category = 'system'` : tx``}
+      ${query.level !== undefined && query.level !== 'security' && query.level !== 'system' ? tx`and api = ${apiOfLevel[query.level]} and category not in ('security', 'system')` : tx``}
+      ${query.ip !== undefined ? tx`and ip = ${query.ip}` : tx``}
+      ${query.accessRef !== undefined ? tx`and access_ref = ${query.accessRef}` : tx``}
+      ${
+        query.person !== undefined
+          ? tx`and ((actor_kind = ${query.person.kind} and actor_id = ${query.person.id}) or (on_behalf_of_kind = ${query.person.kind} and on_behalf_of_id = ${query.person.id}))`
+          : tx``
+      }
       ${query.who === 'team' ? tx`and actor_kind = 'partner_user' and access_kind is null` : tx``}
       ${query.who === 'staff' ? tx`and actor_kind = 'staff' and access_kind is null` : tx``}
       ${query.who === 'setup' ? tx`and access_kind = 'setup_session'` : tx``}

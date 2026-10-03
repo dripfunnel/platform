@@ -711,8 +711,8 @@ api/README.md §2.1); a partner id in a request is not authority.
 - `navBadges`: `storesAttention` (failed or stuck signups, plus merchants whose latest domain is
   failed, broken or waiting over 24 h), `brandingSetupLeft` (Branding and Legal items not
   done, until first approved) and
-  `domainsWaiting` are counted. `billingFailedPayments` and `supportOpenSessions` are 0
-  until #201 and #202.
+  `domainsWaiting` and `supportOpenSessions` (the partner's open support sessions, #202) are
+  counted. `billingFailedPayments` is 0 until #201.
 - `search(query)`: two characters or more, at most 8 matches, the caller's partner only.
 - `onboarding`: each item has `key`, `status`, `detail`, `doneBy` (DripFunnel or a first
   name) and `to` (its screen). A payment or payout item a staff session marked done reads as
@@ -942,7 +942,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   `removed`, revokes an open invitation and ends the person's sessions at once (0022's
   `end_partner_user_sessions`); re-inviting a removed address invites the same account again.
   The invitation email (`partner-team-invitation`) goes through the outbox, throttled to 20 an
-  hour per inviter and 3 a day per address (`RATE_LIMITED`, ACCESS §6.3); accepting it is #208's.
+  hour per inviter and 3 a day per address (`RATE_LIMITED`, ACCESS §6.3); accepting it is built on
+  #208 (ACCESS §4).
 - `setSecondFactorPolicy(required)` (`security.manage`, Owner) sets
   `partner.second_factor_required` under the team lock, on the caller's role as it is now, which
   sign-in already reads; turning it off removes nobody's
@@ -975,6 +976,30 @@ api/README.md §2.1); a partner id in a request is not authority.
 - Report lists are capped at 50 rows rather than cursor-paged (each is a top-N view, not a
   browsable list): Store performance, its Declining list (its own query, biggest fall first), Usage
   and Setup health each say `truncated` when cut.
+
+**Built on #202** (Support, `apis/platform/support.ts`, `saas/support`, `db/scoped/supportSessions.ts`):
+- Every Support field needs `support.session` (Owner, Admin, Support); Finance and Read-only get
+  `FORBIDDEN`, so §12.1's "the role" refusal is the access layer's, as on #159.
+- `supportTargets(search, after, before)`: the store and supplier users of the partner's stores
+  (never its team, staff or shoppers), each with `start` (allowed, or `STORE_CANCELLED`,
+  `SUPPORT_OFF`, `NOT_ACCEPTED`, `SUSPENDED`, `COLLEAGUE_IN_SESSION`), the facts the sentence
+  names (`storeOwner`, `colleague` with minutes left) and `mySessionId` for **Return to session**.
+- `reauthenticate(code)`: the caller's 2-factor code buys one proof, valid 5 minutes and spent
+  by the start it allows; a wrong code counts toward sign-in's five-code lock.
+- `startSupportSession(membershipId, reason, ticket, proof)`: 30 minutes, one open session per
+  partner user and one agent per merchant user (`SUPPORT_SESSION_ALREADY_OPEN` carries the open
+  session's id for **End it and continue**), `PORTAL_NOT_LIVE` until the partner's portal host is
+  live, `REAUTH_REQUIRED` for a missing or spent proof. It answers the link to
+  `https://<portal host>/support/enter?token=…` (ACCESS §8.3); `returnToSupportSession(id)` mints
+  a fresh one and the old stops working, but refuses with `SUPPORT_OFF`, `STORE_CANCELLED` or
+  `SUSPENDED`, leaving the old link as it was, once a start would be refused for that reason; `endSupportSession(id)` is the agent's, or an Owner's or
+  Admin's. Each session says what the caller may do (`end`, `return`, with §8.3's codes).
+- `supportSessions(open, after, before)` and `mySupportSession`; History says who ended a session
+  or that it expired. Start, return and end are `support` entries naming the store, so the
+  partner's log and the store's both show them. `navBadges.supportOpenSessions` counts open ones.
+- **Not here**: the handoff exchange on the portal, the support caller, read-only enforcement in
+  the store, the merchant's Allow/Deny of writes (the Store strand). That exchange spends a link
+  only while the start's codes still allow a session (ACCESS §8).
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype

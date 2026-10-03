@@ -4,7 +4,7 @@ import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { CallerContext } from '#core/tenancy'
 import { isPartnerContext, isTenantContext } from '#core/tenancy'
 import { activityResults, actorKinds, type ActivityRow } from '#db/schema/activity'
-import { activityWhos, selectActivity } from '#db/scoped/activity'
+import { activityLevels, activityWhos, selectActivity } from '#db/scoped/activity'
 import { withScope } from '#db/scoped/index'
 
 // The admin console reads 50 at a time (ui/admin/FIRST-RELEASE.md §9); nothing asks for more.
@@ -18,15 +18,22 @@ export const activityFilter = z
     targetId: z.string().min(1).max(200).optional(),
     partnerId: z.guid().optional(),
     storeId: z.guid().optional(),
+    customerId: z.guid().optional(),
     action: z.string().min(1).max(100).optional(),
     who: z.enum(activityWhos).optional(),
     result: z.enum(activityResults).optional(),
+    level: z.enum(activityLevels).optional(),
+    ip: z.union([z.ipv4(), z.ipv6()]).optional(),
+    accessRef: z.guid().optional(),
+    personKind: z.enum(actorKinds).optional(),
+    personId: z.string().min(1).max(200).optional(),
     /** UTC calendar days, inclusive (FIRST-RELEASE §9). */
     from: z.iso.date().optional(),
     to: z.iso.date().optional(),
   })
   .strict()
   .refine((f) => !f.from || !f.to || f.from <= f.to, { message: 'from is after to' })
+  .refine((f) => (f.personKind === undefined) === (f.personId === undefined), { message: 'a person needs its kind and id' })
 
 export type ActivityFilter = z.infer<typeof activityFilter>
 
@@ -89,12 +96,17 @@ export const listActivity = async (
         targetId: f.targetId,
         partnerId: f.partnerId,
         storeId: f.storeId,
+        customerId: f.customerId,
         action: f.action,
         from: f.from ? dayStart(f.from) : undefined,
         to: f.to ? nextDay(f.to) : undefined,
         assignedTo: scope.assignedTo,
         who: f.who,
         result: f.result,
+        level: f.level,
+        ip: f.ip,
+        accessRef: f.accessRef,
+        person: f.personKind && f.personId ? { kind: f.personKind, id: f.personId } : undefined,
       },
       { after, before },
       limit,

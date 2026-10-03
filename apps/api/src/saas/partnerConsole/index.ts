@@ -57,7 +57,7 @@ export interface NavBadges {
   domainsWaiting: number
   /** Zero until merchant payments exist (#201). */
   billingFailedPayments: number
-  /** Zero until support sessions exist (#202). */
+  /** Support sessions open now, the caller's and its colleagues' (FIRST-RELEASE.md §16). */
   supportOpenSessions: number
 }
 
@@ -118,7 +118,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
 
   const navBadges = async (): Promise<NavBadges> => {
     const counts = await withScope(sql, context, (tx) => selectNavCounts(tx, partnerId, stuckAfterMinutes, now()))
-    return { storesAttention: counts.stores_attention, brandingSetupLeft: counts.branding_left, domainsWaiting: counts.domains_waiting, billingFailedPayments: 0, supportOpenSessions: 0 }
+    return { storesAttention: counts.stores_attention, brandingSetupLeft: counts.branding_left, domainsWaiting: counts.domains_waiting, billingFailedPayments: 0, supportOpenSessions: counts.support_open }
   }
 
   const search = async (query: string): Promise<StoreSearchRow[]> => {

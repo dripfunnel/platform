@@ -9,9 +9,14 @@ type ActivityAccess {
   kind: String
 }
 
-type ActivityAgent {
+type ActivityActor {
   id: ID
   kind: String
+  label: String
+}
+
+type ActivityAgent {
+  id: ID
   label: String
 }
 
@@ -25,50 +30,105 @@ type ActivityChange {
 type ActivityEntry {
   access: ActivityAccess
   action: String
-  actorId: String
-  actorKind: String
-  actorLabel: String
-  api: String
-  category: String
+  actor: ActivityActor
   changes: [ActivityChange!]
-  customerId: ID
-  host: String
   id: ID
   ip: String
+  level: String
   occurredAt: String
   onBehalfOf: ActivityAgent
-  partnerId: ID
+  partner: ActivityNamed
   reason: String
   requestId: String
   result: String
-  sellerId: ID
-  storeId: ID
+  store: ActivityNamed
   target: ActivityTarget
   userAgent: String
-  visibility: String
+}
+
+type ActivityExportJob {
+  csv: String
+  entries: Int
+  expiresAt: String
+  id: ID
+  state: String
+}
+
+type ActivityExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
 }
 
 input ActivityFilter {
   action: String
-  actorId: String
-  actorKind: String
+  actor: String
+  customer: ID
+  date: String
   from: String
-  partnerId: ID
-  storeId: ID
-  targetId: String
-  targetType: String
+  imp: ID
+  ip: String
+  level: String
+  partner: ID
+  person: String
+  result: String
+  store: ID
+  su: ID
+  target: String
   to: String
 }
 
+type ActivityMembership {
+  role: String
+  where: String
+}
+
+type ActivityNamed {
+  id: ID
+  name: String
+}
+
 type ActivityPage {
+  export: ActionPermission
   items: [ActivityEntry!]
   pageInfo: PageInfo
+  partners: [ActivityNamed!]
+  stores: [ActivityStoreOption!]
+}
+
+type ActivityPerson {
+  email: String
+  id: ID
+  kind: String
+  memberships: [ActivityMembership!]
+  name: String
+  sameEmailAccounts: Int
+  where: String
+}
+
+type ActivityPersonMatch {
+  email: String
+  id: ID
+  kind: String
+  name: String
+  where: String
+}
+
+type ActivityStoreOption {
+  id: ID
+  name: String
+  partnerId: ID
 }
 
 type ActivityTarget {
   id: ID
   label: String
   type: String
+}
+
+type ActivityTimeline {
+  items: [ActivityEntry!]
+  pageInfo: PageInfo
 }
 
 type AttentionReason {
@@ -95,6 +155,88 @@ input CreatePartnerInput {
   ownerName: String
   region: String
   sendInvitation: Boolean!
+}
+
+type Customer implements CustomerAccount {
+  contactsMasked: Boolean
+  createdAt: String
+  deletedAt: String
+  email: String
+  emailVerified: Boolean
+  id: ID
+  lastSignInAt: String
+  name: String
+  orders: Int
+  partner: CustomerPlace
+  phone: String
+  phoneRegion: String
+  phoneVerified: Boolean
+  signsInWith: String
+  status: String
+  store: CustomerPlace
+  storeSuspension: CustomerStoreSuspension
+}
+
+interface CustomerAccount {
+  createdAt: String
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  orders: Int
+  partner: CustomerPlace
+  phone: String
+  phoneRegion: String
+  signsInWith: String
+  status: String
+  store: CustomerPlace
+}
+
+input CustomerFilter {
+  created: String
+  lastSignIn: String
+  partner: ID
+  status: String
+  store: ID
+  via: String
+}
+
+type CustomerMatch {
+  accounts: Int
+  kind: String
+  regions: [String!]
+}
+
+type CustomerPage {
+  items: [CustomerRow!]
+  match: CustomerMatch
+  pageInfo: PageInfo
+  partners: [CustomerPlace!]
+  stores: [CustomerPlace!]
+}
+
+type CustomerPlace {
+  id: ID
+  name: String
+}
+
+type CustomerRow implements CustomerAccount {
+  createdAt: String
+  email: String
+  id: ID
+  lastSignInAt: String
+  name: String
+  orders: Int
+  partner: CustomerPlace
+  phone: String
+  phoneRegion: String
+  signsInWith: String
+  status: String
+  store: CustomerPlace
+}
+
+type CustomerStoreSuspension {
+  reason: String
 }
 
 type Dashboard {
@@ -170,6 +312,41 @@ type HistoryEntry {
   note: String
 }
 
+type ImpersonationMembership {
+  id: ID
+  level: String
+  partner: StaffSessionRef
+  role: String
+  store: StaffSessionRef
+  supplier: String
+}
+
+type ImpersonationTarget {
+  email: String
+  id: ID
+  impersonate: ActionPermission
+  kind: String
+  lastSignInAt: String
+  memberships: [ImpersonationMembership!]
+  name: String
+  openSession: ID
+  status: String
+}
+
+input ImpersonationTargetFilter {
+  partner: ID
+  role: String
+  status: String
+  store: ID
+  type: String
+}
+
+type ImpersonationTargetPage {
+  items: [ImpersonationTarget!]
+  pageInfo: PageInfo
+  partners: [StaffSessionRef!]
+}
+
 type JobActionResult {
   code: String
   ok: Boolean
@@ -193,6 +370,8 @@ type Mutation {
   changeStaffRole(id: ID!, role: String!): StaffResult
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
   endStaffSession(id: ID!): PartnerMutationOutcome
+  exportActivity(filter: ActivityFilter): ActivityExportResult
+  extendImpersonation(id: ID!): StaffSessionExtend
   extendTrial(id: ID!, trialEndsAt: String!): StoreMutationOutcome
   inviteStaff(email: String!, role: String!): StaffResult
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
@@ -205,9 +384,11 @@ type Mutation {
   restoreStore(id: ID!, reason: String!): StoreMutationOutcome
   resumePartner(id: ID!, reason: String!): PartnerMutationOutcome
   retryJob(id: ID!): JobActionResult
+  returnToSession(id: ID!): StaffSessionStart
   revokeStaffInvite(id: ID!): StaffResult
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
   unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
@@ -458,17 +639,27 @@ type ProvisioningStore {
 }
 
 type Query {
+  activityExport(id: ID!): ActivityExportJob
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
+  activityPeople(query: String!): [ActivityPersonMatch!]
+  activityPerson(person: String!): ActivityPerson
+  customer(id: ID!): Customer
+  customers(after: String, before: String, filter: CustomerFilter, first: Int, search: String): CustomerPage
   dashboard(partnerId: ID): Dashboard
   health: String
+  impersonationTargets(after: String, before: String, filter: ImpersonationTargetFilter, first: Int, search: String): ImpersonationTargetPage
   me: Staff
+  myStaffSessions: [StaffSession!]
   navBadges: NavBadges
   partner(id: ID!): Partner
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
+  personTimeline(after: String, before: String, filter: ActivityFilter, first: Int, person: String!): ActivityTimeline
   provisioningJob(id: ID!): JobProgress
   provisioningJobs(after: String, before: String, filter: ProvisioningFilter, first: Int): ProvisioningJobPage
   search(query: String!): SearchResult
   staff(after: String, before: String, first: Int): StaffPage
+  staffSession(id: ID!): StaffSessionLookup
+  staffSessions(after: String, before: String, filter: StaffSessionFilter, first: Int): StaffSessionPage
   store(id: ID!): Store
   stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
 }
@@ -536,6 +727,80 @@ type StaffPage {
 type StaffResult {
   ok: Boolean
   reason: String
+}
+
+type StaffSession {
+  actions: StaffSessionActions
+  endedAt: String
+  expiresAt: String
+  extendedAt: String
+  host: String
+  id: ID
+  kind: String
+  membership: StaffSessionMembership
+  mine: Boolean
+  outcome: String
+  partner: StaffSessionRef
+  reason: String
+  staff: StaffSessionRef
+  startedAt: String
+  store: StaffSessionRef
+  target: StaffSessionRef
+  ticket: String
+}
+
+type StaffSessionActions {
+  end: ActionPermission
+  extend: ActionPermission
+  return: ActionPermission
+}
+
+type StaffSessionExtend {
+  expiresAt: String
+  ok: Boolean
+  reason: String
+}
+
+input StaffSessionFilter {
+  date: String
+  kind: String
+  partner: ID
+  staff: ID
+  store: ID
+}
+
+type StaffSessionHistory {
+  items: [StaffSession!]
+  pageInfo: PageInfo
+}
+
+type StaffSessionLookup {
+  kind: String
+  session: StaffSession
+}
+
+type StaffSessionMembership {
+  role: String
+  supplier: String
+}
+
+type StaffSessionPage {
+  history: StaffSessionHistory
+  open: [StaffSession!]
+  partners: [StaffSessionRef!]
+}
+
+type StaffSessionRef {
+  id: ID
+  name: String
+}
+
+type StaffSessionStart {
+  handoff: String
+  ok: Boolean
+  openSessionId: String
+  reason: String
+  session: StaffSession
 }
 
 type Store {
