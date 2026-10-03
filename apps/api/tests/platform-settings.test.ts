@@ -245,9 +245,11 @@ describe('inviter throttle and isolation', () => {
     expect(await db.sql`select id, role_key, status from partner_user where id = ${theirs?.id ?? ''}`).toEqual([theirs])
   })
 
-  it('logs a transfer by ids, never addresses', async () => {
-    const [entry] = await db.sql<{ changes: { before: unknown; after: unknown }[] }[]>`select changes from activity_log where action = 'partner.ownership_transferred' and partner_id = ${ids.ns} limit 1`
+  it('keeps addresses out of a transfer’s changes; the label names the new Owner, as LOGGING §4 says', async () => {
+    const [entry] = await db.sql<{ changes: { before: unknown; after: unknown }[]; target_label: string }[]>`select changes, target_label from activity_log where action = 'partner.ownership_transferred' and partner_id = ${ids.ns} limit 1`
     expect(JSON.stringify(entry?.changes)).not.toContain('@')
+    // Labels are the fields erasure clears (LOGGING §8); `changes` is not, so it holds ids.
+    expect(entry?.target_label).toBe('heir@northstar.example')
   })
 })
 
