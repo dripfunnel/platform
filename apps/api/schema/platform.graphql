@@ -406,10 +406,10 @@ type StoreActivityEntry {
 
 type StoreBilling {
   cardLast4: String
-  chargedBy: String
   interval: String
   mode: String
   nextChargeAt: String
+  partnerName: String
 }
 
 type StoreBillingStatusResult {

@@ -14,6 +14,8 @@ import { contrastReport, type ContrastReport } from './contrast'
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162): the look and the
 // words, the contrast computed here, and a publish that changes every merchant's portal.
 
+export type { ContrastReport } from './contrast'
+
 export const brandFonts = ['Nunito', 'Source Sans 3', 'Manrope', 'Lora', 'DM Sans'] as const
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 // Every merchant portal renders these as links, so https only: never javascript: or data:.

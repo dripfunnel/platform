@@ -29,8 +29,8 @@ import {
 } from '#db/scoped/stores'
 import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { setupStateOf, stuckAfterMinutes, type SetupState } from '#saas/provisioning/stuck'
-import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/actions'
+import { setupStateOf, stuckAfterMinutes, type SetupState } from '#saas/provisioning/index'
+import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/index'
 import { daysPastDue, extendTrial as extendTrialTo, transitionStore, trialDaysLeft } from './states'
 
 // Stores on the Admin API (card #34; ui/admin/FIRST-RELEASE.md §5, §12). Every decision a
@@ -154,7 +154,7 @@ export const storeFilter = z
   })
   .strict()
 
-export type { PageRequest } from '#saas/staff/actions'
+export type { PageRequest } from '#saas/staff/index'
 
 export type Refusal = { ok: false; code: RefusalCode }
 export type Result<T = object> = ({ ok: true } & T) | Refusal

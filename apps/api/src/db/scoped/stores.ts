@@ -355,7 +355,7 @@ export interface StorePerson extends MembershipRow {
 }
 
 /** Everyone in the store, merchant side and each supplier's team (FIRST-RELEASE §5.2 Users). */
-export const selectStorePeople = (tx: ScopedSql, storeId: string): Promise<StorePerson[]> =>
+export const selectStorePeople = (tx: ScopedSql, storeId: string, limit = maxPageSize): Promise<StorePerson[]> =>
   tx<StorePerson[]>`
     select m.*, u.name, u.email, u.status as user_status, u.last_sign_in_at, se.name as seller_name
     from membership m
@@ -364,7 +364,7 @@ export const selectStorePeople = (tx: ScopedSql, storeId: string): Promise<Store
     where m.store_id = ${storeId}
     order by case m.role_key when 'owner' then 0 when 'manager' then 1 when 'staff' then 2 when 'supplier-admin' then 3 else 4 end,
       se.name nulls first, u.name
-    limit ${maxPageSize}
+    limit ${limit}
   `
 
 export const selectCustomDomains = (tx: ScopedSql, storeId: string): Promise<CustomDomainRow[]> =>

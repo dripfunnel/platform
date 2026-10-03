@@ -10,9 +10,9 @@ import { selectPartner, selectPartnerDomainsFor } from '#db/scoped/partners'
 import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/scoped/storeAccount'
 import { selectCustomDomains, selectStoreCounts, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
 import { listActivity, type PageInfo } from '#saas/activity/index'
-import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
-import { daysPastDue, trialDaysLeft } from '#saas/stores/states'
-import { decodePage, pageOf, type PageRequest } from '#saas/staff/actions'
+import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/index'
+import { daysPastDue, trialDaysLeft } from '#saas/stores/index'
+import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6.1, §6.3, §6.4; card #159): the
 // partner's merchants at account level, never an order, a customer or a product.
@@ -189,7 +189,8 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       if (!row || row.partner_id !== partnerId) return null
       const mode = await modeOf(tx)
       const account = await selectStoreAccount(tx, id)
-      const people = await selectStorePeople(tx, id)
+      const listed = await selectStorePeople(tx, id, maxPageSize + 1)
+      const people = listed.slice(0, maxPageSize)
       const domains = await selectCustomDomains(tx, id)
       const partner = await selectPartner(tx, partnerId)
       const partnerDomains = await selectPartnerDomainsFor(tx, [partnerId])
@@ -218,7 +219,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           nextChargeAt: account.subscription ? (account.subscription.status === 'trial' ? account.subscription.trial_ends_at : account.subscription.period_end) : null,
           cardLast4: account.subscription?.payment_method_last4 ?? null,
           mode,
-          chargedBy: mode === 'own' ? null : `DripFunnel for ${partner?.name ?? caller.partner.name}`,
+          partnerName: partner?.name ?? caller.partner.name,
         },
         site: {
           liveHost: domains.find((d) => d.status === 'live')?.host ?? (wildcard('shops') ? `${row.code}.${wildcard('shops')}` : null),
@@ -242,7 +243,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
         more: {
           overrides: overrides.length > detailListSize,
           trialExtensions: extensions.length > detailListSize,
-          people: people.length >= maxPageSize,
+          people: listed.length > maxPageSize,
           activity: activityPage.ok && activityPage.page.pageInfo.hasNextPage,
         },
         actions: actionsFor(row, role, at),
