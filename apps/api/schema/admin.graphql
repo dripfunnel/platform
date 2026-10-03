@@ -170,9 +170,20 @@ type HistoryEntry {
   note: String
 }
 
+type JobActionResult {
+  code: String
+  ok: Boolean
+}
+
 type JobActions {
   retry: ActionPermission
   undo: ActionPermission
+}
+
+type JobProgress {
+  id: ID
+  state: String
+  step: String
 }
 
 type Mutation {
@@ -193,12 +204,14 @@ type Mutation {
   resendStoreOwnerInvite(id: ID!): StoreMutationOutcome
   restoreStore(id: ID!, reason: String!): StoreMutationOutcome
   resumePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  retryJob(id: ID!): JobActionResult
   revokeStaffInvite(id: ID!): StaffResult
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
   suspendStore(id: ID!, reason: String!): StoreMutationOutcome
   unassignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
+  undoJob(id: ID!, reason: String!): JobActionResult
 }
 
 type NavBadges {
@@ -395,6 +408,55 @@ type PartnerUser {
   status: String
 }
 
+input ProvisioningFilter {
+  partner: ID
+  q: String
+  status: String
+  step: String
+}
+
+type ProvisioningJob {
+  actions: ProvisioningJobActions
+  attempts: Int
+  details: String
+  error: String
+  id: ID
+  owner: ProvisioningOwner
+  partner: ProvisioningPartner
+  startedAt: String
+  state: String
+  step: String
+  steps: [String!]
+  store: ProvisioningStore
+}
+
+type ProvisioningJobActions {
+  retry: ActionPermission
+  undo: ActionPermission
+}
+
+type ProvisioningJobPage {
+  items: [ProvisioningJob!]
+  pageInfo: PageInfo
+  partners: [ProvisioningPartner!]
+}
+
+type ProvisioningOwner {
+  email: String
+  name: String
+}
+
+type ProvisioningPartner {
+  id: ID
+  name: String
+}
+
+type ProvisioningStore {
+  code: String
+  id: ID
+  name: String
+}
+
 type Query {
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
   dashboard(partnerId: ID): Dashboard
@@ -403,6 +465,8 @@ type Query {
   navBadges: NavBadges
   partner(id: ID!): Partner
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
+  provisioningJob(id: ID!): JobProgress
+  provisioningJobs(after: String, before: String, filter: ProvisioningFilter, first: Int): ProvisioningJobPage
   search(query: String!): SearchResult
   staff(after: String, before: String, first: Int): StaffPage
   store(id: ID!): Store

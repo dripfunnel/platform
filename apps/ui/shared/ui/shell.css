@@ -311,14 +311,18 @@
 }
 
 /* Only production is red (decided on #65); the other three share the grey. */
-.df-env-banner--prod {
+.df-env-banner--prod,
+.df-env-pill--prod {
   background: var(--df-color-env-production);
 }
 
 .df-env-banner--dev,
 .df-env-banner--feature,
-.df-env-banner--local {
-  background: var(--df-color-env-staging);
+.df-env-banner--local,
+.df-env-pill--dev,
+.df-env-pill--feature,
+.df-env-pill--local {
+  background: var(--df-color-env-test);
 }
 
 /* Side bar */

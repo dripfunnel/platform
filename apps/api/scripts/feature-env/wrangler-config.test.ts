@@ -17,6 +17,7 @@ describe('featureConfig', () => {
       ADMIN_HOST: 'offers-admin.dripfunnel.ai',
       PLATFORM_HOST: 'offers-platform.dripfunnel.ai',
       HOOKS_HOST: 'offers-hooks.dripfunnel.ai',
+      HYPERDRIVE_REQUIRED: '1',
     })
   })
 

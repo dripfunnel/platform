@@ -126,7 +126,7 @@ navigation below, from the parts of CONSOLE-DESIGN §6, is the target:
 | Settings | O, R, S | Staff and roles, integrations, flags, ceilings, publish schedule, data and compliance |
 | Activity log | P | Every write and sign-in at every level; search by person (LOGGING.md §7) |
 
-Always visible: the **environment marker** (Production in red, Staging), the signed-in
+Always visible: the **environment marker** (Production in red; Dev, Feature or Local in grey, #65), the signed-in
 staff member's name and role, and the **current partner filter**, which is never silently
 kept when opening a store under another partner.
 
