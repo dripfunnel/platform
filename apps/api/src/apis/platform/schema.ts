@@ -4,6 +4,7 @@ import { platformPolicy } from './access'
 import { builder } from './builder'
 import './shell'
 import './plans'
+import './branding'
 
 export type { PlatformContext } from './access'
 
