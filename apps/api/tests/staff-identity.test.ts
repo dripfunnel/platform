@@ -195,6 +195,24 @@ describe('row-level security on the staff tables', () => {
     await expect(asPlatform((tx) => tx`insert into staff_user (sso_subject, email, name, role_key, status) values ('s', 'e@x.com', 'n', 'staff-super-admin', 'active')`)).rejects.toThrow(/permission denied/i)
     await expect(asPlatform((tx) => tx`insert into staff_user (email, name, role_key, status) values ('e@x.com', '', 'staff-super-admin', 'active')`)).rejects.toThrow(/row-level security/i)
   })
+
+  it('lets a staff request only remove a member, never activate or suspend one', async () => {
+    const [invited] = await db.sql<{ id: string }[]>`
+      insert into staff_user (email, name, role_key, status) values ('invited@softobotics.com', '', 'staff-super-admin', 'invited') returning id`
+    if (!invited) throw new Error('fixture missing invited member')
+    for (const status of ['active', 'suspended']) {
+      await expect(asPlatform((tx) => tx`update staff_user set status = ${status} where id = ${invited.id}`), status).rejects.toThrow(/may only remove/i)
+    }
+    await expect(asPlatform((tx) => tx`update staff_user set status = 'active' where id = ${suspended}`)).rejects.toThrow(/may only remove/i)
+    await asPlatform((tx) => tx`update staff_user set status = 'removed' where id = ${invited.id}`)
+    await expect(asPlatform((tx) => tx`update staff_user set status = 'invited' where id = ${invited.id}`)).rejects.toThrow(/may only remove/i)
+    expect((await db.sql`select status from staff_user where id = ${invited.id}`)[0]?.status).toBe('removed')
+  })
+
+  it('never lets a staff request read the hash of an invitation link', async () => {
+    await expect(asPlatform((tx) => tx`select token_hash from staff_invitation`)).rejects.toThrow(/permission denied/i)
+    await expect(asPlatform((tx) => tx`select id from staff_invitation`)).resolves.toBeDefined()
+  })
 })
 
 describe('the sign-in routes', () => {

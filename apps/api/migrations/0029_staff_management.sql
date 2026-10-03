@@ -55,6 +55,22 @@ create policy staff_user_platform_update on staff_user for update to app_platfor
 create policy staff_user_system_update on staff_user for update to app_system
   using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
 
+-- A staff request only ever removes a member: activating one is sign-in's, once SSO binds it
+-- (ACCESS.md §6.3), so the last-Super-admin count never includes someone who cannot sign in.
+create function staff_user_platform_status_guard() returns trigger
+language plpgsql
+as $$
+begin
+  if current_user = 'app_platform' and new.status is distinct from old.status and new.status <> 'removed' then
+    raise exception 'staff_user: a staff request may only remove a member' using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end
+$$;
+
+create trigger staff_user_platform_status_guard before update of status on staff_user
+for each row execute function staff_user_platform_status_guard();
+
 -- Removing a member ends their sessions at once; the hashes are app_system's alone (0004), so a
 -- definer function does it for the Admin API, for one member and nothing else.
 create function end_staff_user_sessions(p_staff uuid) returns integer

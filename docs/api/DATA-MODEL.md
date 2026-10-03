@@ -289,7 +289,8 @@ bucket is bound yet; a file key replaces it when one is. The four role pins are 
 staff_user     (id, sso_subject NULL UNIQUE, email, name, role_key, status, last_sign_in_at NULL,
                 two_factor NULL, created_at)
                  -- status: active | invited | suspended | removed. An invited member has no
-                 -- sso_subject until they accept; a removed one keeps the row the log names (#39)
+                 -- sso_subject until they accept; a removed one keeps the row the log names (#39).
+                 -- A staff request may set status only to removed; activation is sign-in's
 staff_invitation (id, staff_user_id, token_hash NULL UNIQUE, sent_at, expires_at, accepted_at NULL,
                   revoked_at NULL, invited_by_staff_id, created_at)
                  -- 7 days, single use, a resend revokes the open one (#39); the email's
