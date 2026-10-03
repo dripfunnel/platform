@@ -2,6 +2,7 @@ import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
+import { scheduleSubscriptionMoves } from '#db/scoped/partnerPlans'
 import type { PartnerRole } from '#auth/partnerPermissions'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -245,6 +246,12 @@ describe('saving', () => {
     expect(await db.sql`select next_plan_id from store_subscription where store_id = ${kept?.store_id ?? ''}`).toEqual([{ next_plan_id: ids.starter }])
     const [emails] = await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where payload->>'template' = 'plan-change-at-renewal' and payload->>'planId' = ${ids.growth}`
     expect(emails?.n).toBe(scheduled.length)
+    // A second save re-points the stores already moving within Growth to the newest version.
+    expect((await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.growth, input, applyTo: 'renewal' })).data?.updatePlan).toMatchObject({ ok: true })
+    const again = await db.sql<{ next_plan_version: number }[]>`select next_plan_version from store_subscription where plan_id = ${ids.growth} and status <> 'cancelled' and next_plan_id = ${ids.growth}`
+    expect(again.length).toBe(scheduled.length)
+    expect(again.every((s) => s.next_plan_version === 4)).toBe(true)
+    expect(await db.sql`select next_plan_id from store_subscription where store_id = ${kept?.store_id ?? ''}`).toEqual([{ next_plan_id: ids.starter }])
   })
 })
 
@@ -286,6 +293,19 @@ describe('making live and retiring', () => {
     const results = await Promise.all([a, b].map((plan) => run<Record<string, { ok: boolean; reason: string | null }>>(retire, owner, { id: plan?.id ?? '', input: { keep: true } })))
     expect(results.map((r) => r.data?.['retirePlan']?.ok).sort()).toEqual([false, true])
     expect(await db.sql`select count(*)::int as n from plan where partner_id = ${pid} and status = 'live'`).toEqual([{ n: 1 }])
+  })
+
+  it('moves a store already moving within the retiring plan, and keeps one moving to another plan', async () => {
+    const scope = { caller: { kind: 'partner-user' as const, partnerUserId: 'pu' }, partnerId: ids.ns }
+    const [within, elsewhere] = await db.sql<{ store_id: string; plan_version: number }[]>`
+      select store_id, plan_version from store_subscription where plan_id = ${ids.starter} and status <> 'cancelled' order by store_id limit 2`
+    const [growth] = await db.sql<{ version: number }[]>`select version from plan where id = ${ids.growth}`
+    await db.sql`update store_subscription set next_plan_id = ${ids.starter}, next_plan_version = ${within?.plan_version ?? 1}, change_at = '2026-12-01T00:00:00Z' where store_id = ${within?.store_id ?? ''}`
+    await db.sql`update store_subscription set next_plan_id = ${ids.growth}, next_plan_version = ${growth?.version ?? 1}, change_at = '2026-12-01T00:00:00Z' where store_id = ${elsewhere?.store_id ?? ''}`
+    const moved = await withScope(db.sql, scope, (tx) => scheduleSubscriptionMoves(tx, ids.ns, ids.starter, { planId: ids.growth, version: growth?.version ?? 1 }, { on: new Date('2026-11-01T00:00:00Z') }))
+    expect(moved.map((m) => m.store_id)).toContain(within?.store_id)
+    expect(await db.sql`select next_plan_id, change_at from store_subscription where store_id = ${within?.store_id ?? ''}`).toEqual([{ next_plan_id: ids.growth, change_at: new Date('2026-11-01T00:00:00Z') }])
+    expect(await db.sql`select change_at from store_subscription where store_id = ${elsewhere?.store_id ?? ''}`).toEqual([{ change_at: new Date('2026-12-01T00:00:00Z') }])
   })
 
   it('retires with the stores moved on an offered date, and never the last Live plan', async () => {
