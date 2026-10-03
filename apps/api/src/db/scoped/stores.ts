@@ -436,16 +436,17 @@ export const selectStoreForUpdate = async (tx: ScopedSql, id: string): Promise<S
   (await tx<StoreRow[]>`select * from store where id = ${id} for update`)[0] ?? null
 
 /** Who is in the store, by role (FIRST-RELEASE §5.2 Overview), one query. */
-export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise<{ owners: number; managers: number; staff: number; suppliers: number }> => {
-  const [row] = await tx<{ owners: number; managers: number; staff: number; suppliers: number }[]>`
+export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise<{ people: number; owners: number; managers: number; staff: number; suppliers: number }> => {
+  const [row] = await tx<{ people: number; owners: number; managers: number; staff: number; suppliers: number }[]>`
     select
+      count(*)::int as people,
       count(*) filter (where m.seller_id is null and m.role_key = 'owner')::int as owners,
       count(*) filter (where m.seller_id is null and m.role_key = 'manager')::int as managers,
       count(*) filter (where m.seller_id is null and m.role_key = 'staff')::int as staff,
       (select count(*)::int from seller se where se.store_id = ${storeId}) as suppliers
     from membership m where m.store_id = ${storeId} and m.status <> 'suspended'
   `
-  return row ?? { owners: 0, managers: 0, staff: 0, suppliers: 0 }
+  return row ?? { people: 0, owners: 0, managers: 0, staff: 0, suppliers: 0 }
 }
 
 /** Only a partner that bills its merchants itself sets this; the caller checks the mode, 0014's trigger too. */

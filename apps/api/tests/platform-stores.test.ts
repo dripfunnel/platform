@@ -39,7 +39,7 @@ const detailQuery = `query($id: ID!) { store(id: $id) { row { id name state { ki
   records { host status value } setup { state } trialExtensions { days } support { allowed people { email role } } activity { action }
   actions { changePlan { allowed reason } extendTrial { allowed reason } addOverride { allowed reason } resendInvite { allowed } restore { allowed } suspend { allowed } retryStep { allowed } } } }`
 type Actions = Record<string, { allowed: boolean; reason: string | null } | null>
-type Detail = { store: { row: { id: string }; usage: { limit: string }[]; actions: Actions; billing: { mode: string; chargedBy: string | null } } | null }
+type Detail = { store: { row: { id: string }; people: { count: number; suppliers: number }; usage: { limit: string }[]; actions: Actions; billing: { mode: string; chargedBy: string | null } } | null }
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -102,6 +102,9 @@ describe('the detail', () => {
     expect(detail?.row.id).toBe(mine?.id)
     expect(detail?.usage.map((u) => u.limit)).toEqual(['products', 'staff', 'suppliers', 'ai_prompts', 'publish_now'])
     expect(detail?.billing).toMatchObject({ mode: 'dripfunnel', chargedBy: expect.stringContaining('DripFunnel for') })
+    const [counted] = await db.sql<{ people: number; suppliers: number }[]>`
+      select (select count(*)::int from membership where store_id = ${mine?.id ?? ''} and status <> 'suspended') as people, (select count(*)::int from seller where store_id = ${mine?.id ?? ''}) as suppliers`
+    expect(detail?.people).toEqual({ count: counted?.people, suppliers: counted?.suppliers })
     const [theirs] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.bz} limit 1`
     expect((await run<Detail>(detailQuery, callerOf(ids.ns, 'partner-owner'), { id: theirs?.id })).data?.store).toBeNull()
   })
@@ -157,5 +160,14 @@ describe('billing status', () => {
     expect((await db.sql`select 1 from activity_log where action = 'store.billing_status_set' and store_id = ${store?.id ?? ''}`).length).toBe(1)
     expect((await run<Record<string, unknown>>(set, finance, { id: 'not-a-uuid', status: 'active' })).data?.['setStoreBillingStatus']).toEqual({ ok: false, reason: 'NOT_FOUND' })
     expect((await list(callerOf(ids.ns, 'partner-support')))?.billingStatusPermission).toEqual({ allowed: false, reason: 'BILLING_ROLES_ONLY' })
+  })
+
+  it('never reaches another partner’s store', async () => {
+    await db.sql`update partner set billing_mode = 'own' where id = ${ids.bz}`
+    const [theirs] = await db.sql<{ id: string; billing_status: string | null }[]>`select id, billing_status from store where partner_id = ${ids.bz} and status = 'active' limit 1`
+    const finance = callerOf(ids.ns, 'partner-finance', 'Alex Rivera')
+    expect((await run<Record<string, unknown>>(set, finance, { id: theirs?.id, status: 'suspended' })).data?.['setStoreBillingStatus']).toEqual({ ok: false, reason: 'NOT_FOUND' })
+    expect(await db.sql`select billing_status from store where id = ${theirs?.id ?? ''}`).toEqual([{ billing_status: theirs?.billing_status ?? null }])
+    expect((await db.sql`select 1 from activity_log where store_id = ${theirs?.id ?? ''} and action = 'store.billing_status_set'`).length).toBe(0)
   })
 })

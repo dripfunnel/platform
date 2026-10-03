@@ -9,7 +9,7 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
 import { selectPartner, selectPartnerDomainsFor } from '#db/scoped/partners'
 import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/scoped/storeAccount'
-import { selectCustomDomains, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
+import { selectCustomDomains, selectStoreCounts, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
 import { listActivity } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
 
@@ -198,6 +198,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       const wildcard = (kind: 'preview' | 'shops') => partnerDomains.find((d) => d.kind === kind)?.host.replace(/^\*\./, '') ?? null
       const activityPage = await listActivity(sql, context, { storeId: id }, { first: 25 })
       const overrides = await selectOverrides(tx, id, undefined, 25)
+      const counts = await selectStoreCounts(tx, id)
       // The same computation as the list's near-limit, so the two never disagree.
       const measured = row.plan_id ? await selectStoreUsage(tx, id, row.plan_id) : []
       const usage = (['products', 'staff', 'suppliers', 'ai_prompts', 'publish_now'] as const).map((key) => {
@@ -209,7 +210,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
         ...rowDto(row, mode),
         country: row.country,
         price: account.subscription ? { amount: account.subscription.amount, currency: account.subscription.currency } : null,
-        people: { count: people.length, suppliers: new Set(people.filter((p) => p.seller_id !== null).map((p) => p.seller_id)).size },
+        people: { count: counts.people, suppliers: counts.suppliers },
         contacts: merchantSide.map((p) => ({ name: p.name, email: p.email, role: p.role_key })),
         usage,
         overrides: overrides.map((o) => ({ id: o.id, limit: o.key, amount: o.amount, duration: o.duration, reason: o.reason, by: o.created_by_label, at: o.created_at })),
