@@ -326,8 +326,14 @@ jobs run as `app_system` through `withSystemScope`. Every policy names the roles
 it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
 `platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
 role's branch. A card that adds a role adds, in one migration, the role, its grants, the
-policies `TO` it and its pin on every tenant table (taking its scope out of `request_scope`), plus one case in `roleFor`; the structural
-tests in `tests/isolation.test.ts` fail until all four are there. Two deploy facts follow. The role that
+policies `TO` it and its pin on every tenant table (taking its scope out of `request_scope`), plus one case in `roleFor`. The
+structural tests in `tests/isolation.test.ts` fail when a policy is `TO PUBLIC` or a table
+lacks a pin; the role's grants and its `roleFor` case are proved by that card's own isolation
+tests, which run its caller through `withScope`. **Expand, then contract**: a migration
+must work with the release still live (AGENTS.md "Data"), and that release runs its callers
+under the old role, so a new role is added *beside* the old one first (the policies name
+both, the old role's pin keeps the scope), and a later card removes the old role once the
+new Worker is promoted (#210 does this for `app_platform`). Two deploy facts follow. The role that
 runs migrations creates these roles, so it needs `CREATEROLE` and, because `app_definer` is the
 one role with `BYPASSRLS`, `BYPASSRLS` itself; 0010 then makes it a member of `app_definer` to
 hand over the membership trigger. The Worker's login must be a member of every request role:
