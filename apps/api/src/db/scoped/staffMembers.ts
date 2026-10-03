@@ -116,16 +116,16 @@ export const selectStaffInvitationByToken = async (tx: ScopedSql, tokenHash: str
     `
   )[0] ?? null
 
-/** Whether the SSO account is another member's; a removed member's row gives it up, so a re-invited person can bind it. */
-export const subjectTaken = async (tx: ScopedSql, subject: string): Promise<boolean> => {
-  await tx`update staff_user set sso_subject = null where sso_subject = ${subject} and status = 'removed'`
-  return (await tx`select 1 from staff_user where sso_subject = ${subject}`).length > 0
-}
+/** Whether the SSO account is another current member's; a removed member's doesn't count. */
+export const subjectTaken = async (tx: ScopedSql, subject: string): Promise<boolean> =>
+  (await tx`select 1 from staff_user where sso_subject = ${subject} and status <> 'removed'`).length > 0
 
 export const acceptStaffInvitation = async (
   tx: ScopedSql,
   a: { invitationId: string; staffUserId: string; subject: string; name: string; twoFactor: boolean; at: Date },
 ): Promise<void> => {
+  // A removed member's row gives the SSO account up, so a re-invited person can bind it (unique index).
+  await tx`update staff_user set sso_subject = null where sso_subject = ${a.subject} and status = 'removed'`
   await tx`
     update staff_user set sso_subject = ${a.subject}, name = ${a.name}, status = 'active', last_sign_in_at = ${a.at}, two_factor = ${a.twoFactor}
     where id = ${a.staffUserId}`
