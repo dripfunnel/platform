@@ -127,6 +127,20 @@ describe('app_partner', () => {
     await expect(withScope(db.sql, context, (tx) => tx`select password_hash from partner_user`)).rejects.toThrow(/permission denied/i)
   })
 
+  it('adds a team member without a password, a secret or a token (#207 review)', async () => {
+    const context = { ...partnerA, partnerId: t.partnerA }
+    await expect(
+      withScope(db.sql, context, (tx) => tx`insert into partner_user (partner_id, email, name, role_key, status, password_hash) values (${t.partnerA}, 'eve@northstar.example', 'Eve', 'partner-owner', 'active', 'x')`),
+    ).rejects.toThrow(/permission denied/i)
+    await expect(
+      withScope(db.sql, context, (tx) => tx`insert into partner_user (partner_id, email, name, role_key, status, two_factor_secret_enc) values (${t.partnerA}, 'eve@northstar.example', 'Eve', 'partner-owner', 'active', 'x')`),
+    ).rejects.toThrow(/permission denied/i)
+    const [invited] = await withScope(db.sql, context, (tx) => tx<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'eve@northstar.example', 'Eve', 'partner-admin', 'invited') returning id`)
+    await expect(
+      withScope(db.sql, context, (tx) => tx`insert into partner_invitation (partner_id, partner_user_id, token_hash, invited_by_kind, invited_by_label) values (${t.partnerA}, ${invited?.id ?? ''}, 'h', 'partner_user', 'Maya')`),
+    ).rejects.toThrow(/permission denied/i)
+  })
+
   it('may not approve, pause or re-house itself, nor leave a state but by submitting (#214)', async () => {
     const context = { ...partnerA, partnerId: t.partnerA }
     const write = (set: string) => withScope(db.sql, context, (tx) => tx.unsafe(`update partner set ${set} where id = '${t.partnerA}'`))

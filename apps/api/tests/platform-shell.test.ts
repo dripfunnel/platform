@@ -59,6 +59,11 @@ describe('partnerState', () => {
     await db.sql`insert into partner_setup_session (staff_user_id, partner_id, reason, expires_at) values (${staff?.id ?? ''}, ${ids.kl}, 'setup', ${new Date(now.getTime() + 3600_000)})`
     const { data } = await run<{ partnerState: { setupSession: { staffName: string } } }>('{ partnerState { setupSession { staffName endsAt } } }', callerOf(ids.kl, 'partner-owner'))
     expect(data?.partnerState.setupSession.staffName).toBe('Priya')
+    // The one read made in system scope: another partner never sees this session.
+    for (const other of [ids.ns, ids.bz]) {
+      const seen = await run<{ partnerState: { setupSession: unknown } }>('{ partnerState { setupSession { staffName } } }', callerOf(other, 'partner-owner'))
+      expect(seen.data?.partnerState.setupSession).toBeNull()
+    }
   })
 })
 
@@ -113,6 +118,24 @@ describe('search', () => {
     expect(theirs).toBeDefined()
     const found = async (query: string) => (await run<{ search: { id: string; name: string; ownerEmail: string | null }[] }>('query($q: String!) { search(query: $q) { id name code domain ownerEmail status } }', callerOf(ids.ns, 'partner-read-only'), { q: query })).data?.search ?? []
     expect((await found(mine?.code ?? '')).map((s) => s.name)).toContain(mine?.name)
+    const [byOwner] = await db.sql<{ id: string; email: string }[]>`
+      select s.id, u.email from store s join membership m on m.store_id = s.id and m.role_key = 'owner' and m.seller_id is null join "user" u on u.id = m.user_id
+      where s.partner_id = ${ids.ns} order by s.name limit 1
+    `
+    expect((await found(byOwner?.email ?? '')).map((s) => s.id)).toContain(byOwner?.id)
+    const [theirOwner] = await db.sql<{ email: string }[]>`
+      select u.email from store s join membership m on m.store_id = s.id and m.role_key = 'owner' join "user" u on u.id = m.user_id where s.partner_id = ${ids.bz} limit 1
+    `
+    expect(await found(theirOwner?.email ?? '')).toEqual([])
+    const [mineStore, theirStore] = await Promise.all([
+      db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} order by name limit 1`,
+      db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.bz} order by name limit 1`,
+    ])
+    // Later than the seed's own domains, so each is its store's current domain.
+    const later = new Date(now.getTime() + 3_600_000)
+    await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token, created_at) values (${mineStore[0]?.id ?? ''}, 'shop.mine-search.example', 'live', 'x', 't', ${later}), (${theirStore[0]?.id ?? ''}, 'shop.theirs-search.example', 'live', 'x', 't', ${later})`
+    expect((await found('mine-search')).map((s) => s.id)).toEqual([mineStore[0]?.id])
+    expect(await found('theirs-search')).toEqual([])
     expect(await found(theirs?.name ?? '')).toEqual([])
     expect((await found('e')).length).toBe(0)
     expect((await found('.example')).length).toBeLessThanOrEqual(8)
