@@ -238,7 +238,8 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
   admin console's lists read; a publish (#162) keeps them equal to the live version, the
   partner role holding `update (powered_by)` for it (`0017`). A trigger holds that write to the
   contract: a partner never sets or leaves `house`, and turns it `off` only when
-  `partner_contract.powered_by_removable` allows it.
+  `partner_contract.powered_by_removable` allows it. A second trigger holds `partner_branding`
+  the same way: a partner may draft without the line, but publishes it off only when allowed.
 
 ---
 
