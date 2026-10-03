@@ -1,15 +1,217 @@
 name: ci
 
+# A pull request runs review, gates, naming one after another, each only if the one before
+# passed (WORKFLOW.md §2.2). A push to main runs the gates alone.
+
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
   push:
     branches: [main]
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Claude's second pass, which fails closed: no verdict is no review (WORKFLOW.md §7).
+  # Claude Code runs in the job itself; see §7 for why not the action.
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      VERDICT: ${{ github.workspace }}/.claude-review-verdict
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # The head commit, not the merge ref, so a line Claude reads is the line an inline
+      # comment anchors to; no token left in .git/config for the review to read.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      # The pull request controls the checkout, so nothing in it may configure the review:
+      # project settings, hooks and MCP servers go, and a verdict committed to the branch too.
+      - name: Drop the pull request's own Claude configuration
+        run: rm -rf .claude .mcp.json .claude.json CLAUDE.md "${VERDICT}"
+
+      - name: Check the review can authenticate
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "${CLAUDE_CODE_OAUTH_TOKEN}" ]; then
+            echo "::error::The repository secret CLAUDE_CODE_OAUTH_TOKEN is not set, so the review cannot run. Mint one with 'claude setup-token' and add it under Settings → Secrets and variables → Actions (docs/code/THIRD-PARTY-ACCESS.md §2.6)."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pinned: the next step hands this package a personal token (THIRD-PARTY-ACCESS.md §2.6).
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code@2.1.287
+
+      # The two writes the review may make: a summary and inline comments on the head commit,
+      # through these scripts and never `gh` itself; both refuse a body that looks like a token.
+      - name: Write the comment helpers
+        run: |
+          cat > "${RUNNER_TEMP}/no-token" <<'GUARD'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          if printf '%s' "$1" | grep -Eq 'gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-ant-[A-Za-z0-9_-]{20,}'; then
+            echo "refused: the comment body carries something shaped like a token" >&2
+            exit 1
+          fi
+          GUARD
+          cat > "${RUNNER_TEMP}/inline-comment" <<'HELPER'
+          #!/usr/bin/env bash
+          # usage: inline-comment <path> <line> <body>
+          set -euo pipefail
+          "${RUNNER_TEMP}/no-token" "$1"
+          "${RUNNER_TEMP}/no-token" "$3"
+          # -F reads a file for a value starting with @, so the line must be digits only.
+          if ! [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+            echo "refused: the line is not a positive number" >&2
+            exit 1
+          fi
+          gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments" \
+            -f commit_id="${HEAD_SHA}" -f side=RIGHT -f path="$1" -F line="$2" -f body="$3" >/dev/null
+          HELPER
+          cat > "${RUNNER_TEMP}/summary-comment" <<'HELPER'
+          #!/usr/bin/env bash
+          # usage: summary-comment <body>
+          set -euo pipefail
+          "${RUNNER_TEMP}/no-token" "$1"
+          gh pr comment "${PR_NUMBER}" --body "$1" >/dev/null
+          HELPER
+          chmod 555 "${RUNNER_TEMP}/no-token" "${RUNNER_TEMP}/inline-comment" "${RUNNER_TEMP}/summary-comment"
+
+      - name: Write the review prompt
+        run: |
+          cat > "${RUNNER_TEMP}/review-prompt.md" <<'PROMPT'
+          Review pull request PR_NUMBER of REPOSITORY against **this repository's own rules**,
+          not generic best practice. Its head commit (HEAD_SHA) is checked out in the working
+          directory; `gh pr diff PR_NUMBER` shows what it changes and
+          `gh pr view PR_NUMBER --json title,body --jq '.title, .body'` its description (ask for
+          those two fields only: the job's token cannot read check statuses).
+
+          Read first, before reviewing:
+          - AGENTS.md — the rules for all work here
+          - docs/code/WORKFLOW.md §7 — the reviewer's checklist. Use it as your checklist.
+          - the documents the pull request description says it followed
+
+          Weight your attention by blast radius. In order:
+
+          1. **Tenancy.** Every tenant read and write goes through `db/scoped` with a
+             TenantContext. No store, seller, brand or partner id is taken from the client
+             as authority. Isolation tests exist for anything touching tenant data. A leak
+             here includes counts, search results, empty states, exports and error
+             messages.
+          2. **Authorisation.** Every operation is authorised on the server. A hidden or
+             disabled control is not access control.
+          3. **Secrets and personal data.** Nothing secret in code, logs, error messages or
+             client bundles. No personal data in logs.
+          4. **Layers.** A folder imports only from its own layer or lower
+             (docs/api/README.md §4); no deep imports across modules; the change sits in
+             the lowest layer it belongs to.
+          5. **Correctness.** Money is integer minor units with a currency, never a float
+             or a bare number. Timestamps are UTC. Every list is paginated with a maximum
+             page size. No N+1 queries. Parameterised queries only.
+          6. **Reuse.** Nothing duplicated that already exists in the app's own modules or
+             `apps/ui/shared/`. Code moves to `apps/ui/shared/` only when a second app
+             uses it — never in advance.
+          7. **UI.** Every designed state present (empty, loading, error, permission
+             denied, read-only); text from `messages/`, never a literal; `--df-*` tokens,
+             never a raw colour; keyboard and focus work; WCAG 2.2 AA.
+          8. **Tests and docs.** Tests cover the rules, not only the happy path, and none
+             was weakened to pass. A doc the change makes wrong is fixed in the same
+             pull request.
+          9. **Scope.** The change matches its card, and nothing from the card's
+             "Not in this item" slipped in.
+
+          How to report:
+          - Only post GitHub comments, with `gh`. Do not write the review as a chat message.
+          - A finding anchored to a line is an inline review comment on the head commit:
+            `INLINE_COMMENT <file path from the repository root> <line number in the file as it is now> <the finding>`
+            The line must be one the pull request's diff touches; otherwise put the finding in
+            the summary with the file and line named.
+          - Post one summary with `SUMMARY_COMMENT <text>`: what you checked and the headline
+            findings. Say which tests you ran, or that you ran none.
+          - **Say what is wrong and why it matters, with the input or state that breaks
+            it.** No praise, no summary of what the code does, no restating the diff.
+          - Raise something only if you would ask the author to change it. If you found
+            nothing worth changing, say exactly that in one line.
+          - You are a second pass, not the reviewer of record. A human still approves.
+
+          **Last, and not optional: record your verdict.** After you have posted your
+          comments, use the Write tool to write a file at the repository root called
+          `.claude-review-verdict` containing exactly one word and nothing else:
+
+          - `pass` — you found nothing you would ask the author to change.
+          - `changes` — you found at least one thing you would ask them to change.
+
+          This is the same bar as "Raise something only if you would ask the author to
+          change it" above, so the verdict and your comments must agree: if you posted a
+          finding, the verdict is `changes`.
+
+          The check fails if this file is missing, because a review that did not finish
+          is not a review that passed. Write it even if something went wrong earlier —
+          and if you could not complete the review, write `changes` and say why in your
+          summary comment.
+          PROMPT
+          sed -i "s|PR_NUMBER|${PR_NUMBER}|g; s|REPOSITORY|${GH_REPO}|g; s|HEAD_SHA|${HEAD_SHA}|g; s|INLINE_COMMENT|${RUNNER_TEMP}/inline-comment|g; s|SUMMARY_COMMENT|${RUNNER_TEMP}/summary-comment|g" "${RUNNER_TEMP}/review-prompt.md"
+
+      # The writes are the two helpers and the verdict file; reads keep out of the places a
+      # token can be found, so no text the review meets can make it quote one (WORKFLOW.md §7).
+      - name: Review
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          claude -p "$(cat "${RUNNER_TEMP}/review-prompt.md")" \
+            --output-format text \
+            --setting-sources user \
+            --allowedTools "Edit(.claude-review-verdict),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*),Bash(${RUNNER_TEMP}/summary-comment:*)" \
+            --disallowedTools "Read(//proc/**),Read(//etc/**),Read(//root/**),Read(//home/**/.config/**),Read(//home/**/.claude/**),Read(//home/**/.npmrc),Read(//tmp/**),Read(//home/**/work/_temp/**),Read(.git/**),Grep(//proc/**),Grep(//home/**/.config/**),Grep(//home/**/.claude/**),Grep(//home/**/work/_temp/**),Grep(.git/**)"
+
+      # Not after a cancel: a superseded run has no verdict to judge.
+      - name: Apply the review's verdict
+        if: ${{ !cancelled() }}
+        run: |
+          if [ ! -f "${VERDICT}" ]; then
+            echo "::error::The review did not record a verdict, so it did not finish. This is not a pass. Check the step above for what stopped it, then re-run the job."
+            exit 1
+          fi
+
+          verdict="$(tr -d '[:space:]' < "${VERDICT}" | tr '[:upper:]' '[:lower:]')"
+
+          case "${verdict}" in
+            pass)
+              echo "Claude found nothing it would ask the author to change."
+              ;;
+            changes)
+              echo "::error::Claude asked for changes. Read its comments on this pull request, then fix each one or reply saying why not and push — the same loop WORKFLOW.md §7 describes for a human reviewer. Re-running this job is not the way past it."
+              exit 1
+              ;;
+            *)
+              echo "::error::The review wrote an unrecognised verdict (${verdict}). Expected 'pass' or 'changes'. Treating it as a failure rather than guessing."
+              exit 1
+              ;;
+          esac
+
   gates:
+    needs: review
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.review.result == 'success') }}
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -31,3 +233,20 @@ jobs:
       - run: pnpm turbo run build typecheck lint test
         env:
           DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel
+
+  naming:
+    needs: gates
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: ./.github/actions/naming
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

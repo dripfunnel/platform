@@ -106,9 +106,9 @@ platform/
       shared/               README.md
     code/                   ARCHITECTURE.md, DESIGN.md: repo-wide decisions and conventions
     storefront/             ARCHITECTURE.md, DESIGN.md: storefront template and AI design
-  .github/workflows/        ci.yml (the gates), naming.yml, claude-review.yml,
+  .github/workflows/        ci.yml (review, gates, naming in turn), naming.yml,
                             feature-env.yml, dev.yml, prod.yml
-  .github/actions/          setup (pnpm, Node, install), pages-deploy, worker-deploy,
+  .github/actions/          setup (pnpm, Node, install), naming, pages-deploy, worker-deploy,
                             worker-upload (prod: version upload, no live promotion)
   .changeset/               for storefront-core only
   package.json  pnpm-workspace.yaml  turbo.json  tsconfig.base.json  eslint.config.js
