@@ -20,7 +20,7 @@ const callerOf = (partnerId: string, role: PartnerRole, name = 'Maya Chen'): Par
   user: { id: crypto.randomUUID(), name, email: 'maya@northstar.example', role },
   partner: { id: partnerId, name: 'Partner', product: 'Shops', host: null, state: 'live' },
 })
-const serviceFor = (caller: PartnerCaller) => createPartnerBrandingService({ sql: db.sql, caller, facts, activity: activityLog, now: () => now })
+const serviceFor = (caller: PartnerCaller) => createPartnerBrandingService({ sql: db.sql, caller, facts, activity: activityLog })
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, console: null, plans: null, branding: serviceFor(caller) } })
