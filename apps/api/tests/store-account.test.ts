@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { insertLimitOverride, selectStoreAccount } from '#db/scoped/storeAccount'
+import { insertLimitOverride, insertTrialExtension, selectStoreAccount, setUsage } from '#db/scoped/storeAccount'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -92,6 +92,23 @@ describe('who reads and writes the account', () => {
     const removed = await as(partner(ids.ns), (tx) => tx`update store_limit_override set removed_at = now(), removed_by_label = 'x' where store_id = ${ids.bzStore} returning id`)
     expect(removed).toEqual([])
     expect(await db.sql`select removed_at from store_limit_override where store_id = ${ids.bzStore}`).toEqual([{ removed_at: null }])
+  })
+
+  it('keeps trial extensions to the partner’s own stores, for reading and adding', async () => {
+    const extension = (storeId: string) => (tx: ScopedSql) =>
+      insertTrialExtension(tx, { storeId, days: 3, endsAt: now, reason: 'test', by: { kind: 'partner_user', label: 'x' }, at: now })
+    await expect(as(partner(ids.ns), extension(ids.bzStore))).rejects.toThrow(/row-level security/i)
+    await db.sql`insert into store_trial_extension (store_id, days, ends_at, reason, created_by_kind, created_by_label) values (${ids.bzStore}, 2, now(), 'theirs', 'staff', 'x')`
+    expect(await as(partner(ids.ns), (tx) => tx`select id from store_trial_extension where store_id = ${ids.bzStore}`)).toEqual([])
+    expect((await as(partner(ids.bz), (tx) => tx`select id from store_trial_extension where store_id = ${ids.bzStore}`)).length).toBe(1)
+  })
+
+  it('lets the merchant add nothing to any of the four tables', async () => {
+    const merchant = inStore(ids.ns, ids.nsStore, 'person')
+    await expect(as(merchant, (tx) => insertLimitOverride(tx, override(ids.nsStore)))).rejects.toThrow(/permission denied/i)
+    await expect(as(merchant, (tx) => insertTrialExtension(tx, { storeId: ids.nsStore, days: 1, endsAt: now, reason: 'x', by: { kind: 'staff', label: 'x' }, at: now }))).rejects.toThrow(/permission denied/i)
+    await expect(as(merchant, (tx) => setUsage(tx, ids.nsStore, 'products', 0, null, now))).rejects.toThrow(/permission denied/i)
+    await expect(as(merchant, (tx) => tx`insert into store_subscription (store_id) values (${ids.nsStore})`)).rejects.toThrow(/permission denied/i)
   })
 
   it('returns at most the page size of overrides', async () => {

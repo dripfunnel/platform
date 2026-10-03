@@ -1222,15 +1222,18 @@ ai_run              (id, store_id, kind ('design'|'description'|'translation'), 
                     -- SAAS §9.2 metering for design runs; CATALOG C2 and N9 for text; the
                     -- AI meters below and the cost figure both read it; prompt and
                     -- gate_results are the merchant's (§5.3)
-store_usage         (store_id, period_start, meter ('publish_now'|'ai_prompts'|'ai_tokens'
-                     |'build_minutes'|'bandwidth_bytes'), count bigint)
-                    PRIMARY KEY (store_id, period_start, meter)
-                    -- SAAS §6.2: atomic, reset per billing period; AI cost is not a meter
-                    -- but the sum of ai_run.cost_amount for the period (§7.1 Money);
-                    -- purchased extra bandwidth is a store_entitlement_override that
-                    -- expires at period end
-store_entitlement_override (id, store_id, key, value, reason, set_by_kind, set_by_id,
-                     expires_at NULL)                           -- SAAS §6.1 per-store overrides
+store_usage         (store_id, key, used, period_start NULL, updated_at)
+                    PRIMARY KEY (store_id, key)                 -- built on #212 (§2.4)
+                    -- one row per limit and per monthly allowance (the plan keys of §2.3);
+                    -- an allowance's period_start says which period it counts, reset per
+                    -- billing period (SAAS §6.2). The meters with no plan value
+                    -- (ai_tokens, build_minutes, bandwidth_bytes) and a history per period
+                    -- are added by the card that first writes them. AI cost is not a meter
+                    -- but the sum of ai_run.cost_amount for the period (§7.1 Money)
+store_limit_override (id, store_id, key, amount, duration ('month'|'always'), month NULL,
+                     reason, created_by_*, created_at, removed_at, removed_by_label)
+                    -- built on #212 (§2.4); SAAS §6.1 per-store overrides; purchased extra
+                    -- bandwidth will be a 'month' override
 ```
 
 ### 7.9 Merchant billing
@@ -1479,7 +1482,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
   prompt, summary, preview or gate result; a merchant's design prompts are store content,
-  USERS-AND-DOMAINS §4), `store_usage`, `store_entitlement_override`, `store_subscription`, `invoice` and
+  USERS-AND-DOMAINS §4), `store_usage`, `store_limit_override`, `store_subscription`, `invoice` and
   `invoice_line` (status and amounts for the partner that bills), `custom_domain`, and
   `billing_event`, which is cross-scope and append-only like `activity_log` (§2; a Stripe
   event names a store or a partner, and only the SaaS layer writes it).
