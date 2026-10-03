@@ -410,7 +410,9 @@ Row policies cannot tell a supplier from the merchant or a shopper from either (
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
 (`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
-run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155), every
+run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155; it updates its own `partner`
+row by column only, and a trigger lets it change `state` only from Draft to Awaiting approval,
+#214), every
 other request as `app_request`, and `app_definer` exists (owning
 only 0007's membership trigger, which checks parents the caller may not see); the first
 supplier and shopper cards add `app_supplier` and `app_shop` the same way (api/README.md §7).
