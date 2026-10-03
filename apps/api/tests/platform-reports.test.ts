@@ -180,5 +180,11 @@ describe('export', () => {
     const asActivity = (await run<{ activityExport: unknown }>(`query($id: ID!) { activityExport(id: $id) { id } }`, callerOf(ids.ns, 'partner-owner'), { id: asked?.jobId })).data?.activityExport
     expect(asActivity).toBeNull()
     expect((await run<{ reportExport: unknown }>(`query($id: ID!) { reportExport(id: $id) { id } }`, callerOf(ids.bz), { id: asked?.jobId })).data?.reportExport).toBeNull()
+    // A declining store's negative change stays a number a spreadsheet can sum.
+    const perf = (await run<{ exportReport: { jobId: string } }>(start, callerOf(ids.ns), { tab: 'storePerformance' })).data?.exportReport
+    await relayDue(db.sql, { 'export.report': reportExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    const csv = (await run<{ reportExport: { csv: string } }>(`query($id: ID!) { reportExport(id: $id) { csv } }`, callerOf(ids.ns), { id: perf?.jobId })).data?.reportExport.csv ?? ''
+    expect(csv).toMatch(/,-\d+,/)
+    expect(csv).not.toContain(",'-")
   })
 })
