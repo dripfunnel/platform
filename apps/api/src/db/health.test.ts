@@ -64,6 +64,10 @@ describe('checkHealth', () => {
     expect(await checkHealth(config, ctx)).toBe('unconfigured')
   })
 
+  it('is missing when the environment requires the binding and it is not set', async () => {
+    expect(await checkHealth({ HYPERDRIVE_REQUIRED: '1' }, ctx)).toBe('missing')
+  })
+
   it(
     'is down without hanging when HYPERDRIVE points to a host that never completes the connection',
     async () => {

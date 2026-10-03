@@ -355,8 +355,10 @@ There's no equivalent step in production: `apps/api/wrangler.jsonc` has no top-l
 `hyperdrive` binding yet. To provision one, run
 `wrangler hyperdrive create <name> --connection-string="postgres://..."` and add the returned
 id as `{ "binding": "HYPERDRIVE", "id": "<resource-id>" }` under `hyperdrive` in
-`wrangler.jsonc`. Until that's done, `/health` reports `{ ok: true, db: "unconfigured" }`
-rather than failing.
+`wrangler.jsonc`, **with `"HYPERDRIVE_REQUIRED": "1"` in that environment's vars**. Until
+that's done, `/health` reports `{ ok: true, db: "unconfigured" }` rather than failing. Where
+`HYPERDRIVE_REQUIRED` is set (dev, local and every feature environment today, built on #30), a
+missing binding answers 503 with `db: "missing"`, so a lost or renamed binding goes red.
 
 Migrations may declare `create extension if not exists "..."`; the runner checks every
 required extension is installed on the server before applying anything

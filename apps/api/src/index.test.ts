@@ -43,6 +43,14 @@ describe('worker', () => {
     expect(await response.json()).toEqual({ ok: true, area: 'platform', db: 'unconfigured', version: 'test-version' })
   })
 
+  it('reports 503 when the environment requires a database and the binding is gone (#30)', async () => {
+    const lost = { ...env, HYPERDRIVE: undefined, HYPERDRIVE_REQUIRED: '1' }
+    const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })
+    const response = await worker.fetch(request as Parameters<typeof worker.fetch>[0], lost, ctx)
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ ok: false, area: 'platform', db: 'missing', version: 'test-version' })
+  })
+
   it('rate-limits /health', async () => {
     const limited = { ...env, HEALTH_RATE_LIMITER: { limit: async () => ({ success: false }) } }
     const request = new Request('https://platform.dripfunnel.com/api/health', { headers: { 'cf-connecting-ip': '203.0.113.1' } })

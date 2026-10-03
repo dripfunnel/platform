@@ -29,7 +29,8 @@
       "vars": {
         "ADMIN_HOST": "admin.localhost",
         "PLATFORM_HOST": "platform.localhost",
-        "HOOKS_HOST": "hooks.localhost"
+        "HOOKS_HOST": "hooks.localhost",
+        "HYPERDRIVE_REQUIRED": "1"
       },
       "ratelimits": [
         { "name": "HEALTH_RATE_LIMITER", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
@@ -47,7 +48,8 @@
       "vars": {
         "ADMIN_HOST": "dev-admin.dripfunnel.ai",
         "PLATFORM_HOST": "dev-platform.dripfunnel.ai",
-        "HOOKS_HOST": "dev-hooks.dripfunnel.ai"
+        "HOOKS_HOST": "dev-hooks.dripfunnel.ai",
+        "HYPERDRIVE_REQUIRED": "1"
       },
       "routes": [
         { "pattern": "dev-admin.dripfunnel.ai/api/*", "zone_name": "dripfunnel.ai" },
@@ -66,7 +68,8 @@
     // `main` and promoted to 100% by .github/workflows/promote.yml (§6). Same values as the
     // top-level config (kept as the implicit default for now); explicit so the workflows can
     // name the env instead of relying on that default.
-    // No `hyperdrive` binding yet: see the top-level comment above.
+    // No `hyperdrive` binding yet: see the top-level comment above. When #51 adds it, add
+    // "HYPERDRIVE_REQUIRED": "1" to vars too, so a lost binding turns /health red (#30).
     "prod": {
       "name": "dripfunnel-api",
       "vars": {
