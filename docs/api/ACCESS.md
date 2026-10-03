@@ -999,6 +999,17 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
   session is itself a failure;
 - the Staff-in-A / vendor-in-B person leaks neither way (§9).
 
+**Rows added on #182 (2026-10-02)**, each a test the engine card that builds the table must
+ship (#187's data model adds its own below this list):
+
+- a supplier switched `to-store → to-shopper` still sees nothing of the shopper on orders
+  placed before the switch, because visibility follows `order_part.shipping_mode` (§7.3);
+- a supplier reading its own refunds and ledger entries never receives `by_user_id`, a
+  refund's `note`, a return's `note` or a ledger entry's `note` (DATA-MODEL §2.2);
+- user A, holding user B's id, can neither read nor write B's phone through the own-row
+  functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1);
+- a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3).
+
 ### 11.2 Structural tests
 
 - Every GraphQL field in every schema declares `api`, `scope` and `permission`; every
