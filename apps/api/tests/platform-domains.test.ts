@@ -80,8 +80,11 @@ describe('the four addresses', () => {
     ])
     expect(ns?.fallbackSender).toBeNull()
     expect(ns?.add).toEqual({ allowed: false })
+    // Until the sender is live, mail goes from DripFunnel's domain (SAAS §3.6).
+    await db.sql`update partner_domain set status = 'waiting' where partner_id = ${ids.kl} and kind = 'email'`
     const kl = (await run<Overview>(overview, callerOf(ids.kl, 'partner-owner'))).data?.partnerDomains
-    if (kl?.addresses.find((a) => a.kind === 'email')?.status !== 'live') expect(kl?.fallbackSender).toMatch(/^no-reply@[a-z0-9-]+\.dripfunnel-mail\.com$/)
+    expect(kl?.addresses.find((a) => a.kind === 'email')?.status).toBe('waiting')
+    expect(kl?.fallbackSender).toMatch(/^no-reply@[a-z0-9-]+\.dripfunnel-mail\.com$/)
     expect(JSON.stringify(kl)).not.toContain('northstar')
   })
 })
@@ -119,6 +122,20 @@ describe('adding an address', () => {
     expect(await db.sql`select host from partner_domain where id = ${wildcard?.id ?? ''}`).toEqual([{ host: '*.shops.freshpartner.example' }])
     expect((await run<Added>(add, owner, { kind: 'portal', host: 'mail.freshpartner.example' })).data?.addPartnerDomain.reason).toBe('ALREADY_YOURS')
     expect((await run<Added>(add, owner, { kind: 'email', host: 'post.freshpartner.example' })).data?.addPartnerDomain.reason).toBe('KIND_TAKEN')
+  })
+
+  it('holds partner_domain_record to its partner at the database', async () => {
+    const { withScope } = await import('#db/scoped/index')
+    const asBazaar = <T>(work: Parameters<typeof withScope<T>>[2]) => withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.bz }, work)
+    const [nsDomain] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.ns} and kind = 'portal'`
+    const nsRecords = await db.sql`select 1 from partner_domain_record where partner_id = ${ids.ns}`
+    expect(nsRecords.length).toBeGreaterThan(0)
+    expect(await asBazaar((tx) => tx`select id from partner_domain_record where partner_id = ${ids.ns}`)).toEqual([])
+    const insert = (partnerId: string) => (tx: Parameters<Parameters<typeof withScope>[2]>[0]) => tx`
+      insert into partner_domain_record (domain_id, partner_id, position, purpose, record_type, name, expected)
+      values (${nsDomain?.id ?? ''}, ${partnerId}, 9, 'pointer', 'CNAME', 'x.example', 'y.example')`
+    await expect(asBazaar(insert(ids.bz))).rejects.toThrow(/belongs to another partner/)
+    await expect(asBazaar(insert(ids.ns))).rejects.toThrow(/row-level security/)
   })
 
   it('never lets a partner mark its own address live', async () => {
