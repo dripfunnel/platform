@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerRole } from '#auth/partnerPermissions'
+import { withScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerBrandingService, type BrandingInput } from '#saas/partnerBranding/index'
 import { seed } from '../scripts/seed/seed'
@@ -143,5 +144,16 @@ describe('publishing', () => {
     expect(await db.sql`select status from partner_setup_item where partner_id = ${ids.kl} and item = 'legal'`).toEqual([{ status: 'done' }])
     expect((await run<B>(brandingQuery, callerOf(ids.kl, 'partner-owner'))).data?.branding).toMatchObject({ published: true, dpaRequired: false })
     expect(await db.sql`select id, product_name from partner_branding where partner_id = ${ids.ns} order by id`).toEqual(before)
+  })
+
+  it('holds "Powered by" to the contract at the database, whoever writes it', async () => {
+    const as = (partnerId: string, value: string) =>
+      withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId }, (tx) => tx`update partner set powered_by = ${value} where id = ${partnerId} returning powered_by`)
+    await expect(as(ids.kl, 'off')).rejects.toThrow(/fixed by the contract/)
+    const [house] = await db.sql<{ id: string }[]>`select id from partner where powered_by = 'house' limit 1`
+    if (house) await expect(as(house.id, 'on')).rejects.toThrow(/fixed by the contract/)
+    await expect(as(ids.ns, 'house')).rejects.toThrow(/fixed by the contract/)
+    expect(await as(ids.ns, 'off')).toEqual([{ powered_by: 'off' }])
+    await db.sql`update partner set powered_by = 'on' where id = ${ids.ns}`
   })
 })

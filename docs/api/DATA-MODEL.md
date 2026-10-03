@@ -246,7 +246,9 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
   table.
 - `partner.product_name`, `primary_color`, `accent_color` and `powered_by` (#32) stay what the
   admin console's lists read; a publish (#162) keeps them equal to the live version, the
-  partner role holding `update (powered_by)` for it (`0017`).
+  partner role holding `update (powered_by)` for it (`0017`). A trigger holds that write to the
+  contract: a partner never sets or leaves `house`, and turns it `off` only when
+  `partner_contract.powered_by_removable` allows it.
 
 ---
 
