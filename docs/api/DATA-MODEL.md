@@ -181,8 +181,11 @@ Migration `0014`, for what the partner console's Stores list and store detail re
 - **`store_limit_override`** (key, amount, `month` or `always` with the month it applies to,
   reason, who, when, `removed_at`) and **`store_trial_extension`** (days, the new end,
   reason, who, when): SAAS §6.1's per-store overrides, added by the partner for its own
-  stores or by staff, and never rewritten: the only update is an override's `removed_at` and
-  `removed_by_label`.
+  stores or by staff, and never rewritten. A trigger pins `created_by_kind` to the writing
+  role (a partner writes `partner_user`, staff `staff`) and lets an override be removed once,
+  with who removed it, and not changed after. The merchant reads both by column (key,
+  amount, duration, month, days, dates), never the partner's reason or who wrote it. Reads
+  page newest first by keyset (`db/scoped/storeAccount.ts`).
 - **`store_usage`** (store, key, used, `period_start` for a meter): the stored counter behind
   "4,210 of 5,000 products", written where the work happens (by `app_system`), never a
   count across tenants. Paused items (§7.1) are not counted.

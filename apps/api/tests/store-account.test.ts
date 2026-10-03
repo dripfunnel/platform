@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { insertLimitOverride, insertTrialExtension, selectStoreAccount, setUsage } from '#db/scoped/storeAccount'
+import { insertLimitOverride, insertTrialExtension, selectOverrides, selectStoreAccount, selectTrialExtensions, setUsage } from '#db/scoped/storeAccount'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -65,15 +65,21 @@ describe('the seeded accounts', () => {
 
 describe('who reads and writes the account', () => {
   it('lets a partner read its own stores’ account, and nothing of another partner’s', async () => {
-    expect((await as(partner(ids.ns), (tx) => selectStoreAccount(tx, ids.nsStore))).overrides.length).toBe(1)
-    const theirs = await as(partner(ids.ns), (tx) => selectStoreAccount(tx, ids.bzStore))
-    expect(theirs).toEqual({ subscription: null, overrides: [], trialExtensions: [], usage: [] })
+    expect(await as(partner(ids.ns), (tx) => selectOverrides(tx, ids.nsStore, undefined, 25))).toHaveLength(1)
+    expect(await as(partner(ids.ns), (tx) => selectStoreAccount(tx, ids.bzStore))).toEqual({ subscription: null, usage: [] })
+    expect(await as(partner(ids.ns), (tx) => selectOverrides(tx, ids.bzStore, undefined, 25))).toEqual([])
+    expect(await as(partner(ids.ns), (tx) => selectTrialExtensions(tx, ids.bzStore, undefined, 25))).toEqual([])
   })
 
   it('lets the merchant read its own store’s, and never a supplier or a storefront', async () => {
     const own = await as(inStore(ids.ns, ids.nsStore, 'person'), (tx) => selectStoreAccount(tx, ids.nsStore))
     expect(own.subscription?.store_id).toBe(ids.nsStore)
     expect(own.usage.length).toBeGreaterThan(0)
+    // What changed its limits, never the partner's reason or who wrote it.
+    const merchant = inStore(ids.ns, ids.nsStore, 'person')
+    expect((await as(merchant, (tx) => tx`select key, amount, duration from store_limit_override`)).length).toBe(1)
+    await expect(as(merchant, (tx) => tx`select reason from store_limit_override`)).rejects.toThrow(/permission denied/i)
+    await expect(as(merchant, (tx) => tx`select created_by_label from store_trial_extension`)).rejects.toThrow(/permission denied/i)
     expect(ids.seller).not.toBe('')
     expect(await as(inStore(ids.ns, ids.sellerStore, 'person', ids.seller), (tx) => tx`select store_id from store_subscription`)).toEqual([])
     expect(await as(inStore(ids.ns, ids.nsStore, 'shopper'), (tx) => tx`select store_id from store_usage`)).toEqual([])
@@ -81,8 +87,10 @@ describe('who reads and writes the account', () => {
 
   it('shows a merchant nothing of a sibling store under the same partner', async () => {
     const [sibling] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and id <> ${ids.nsStore} order by name limit 1`
-    const read = await as(inStore(ids.ns, ids.nsStore, 'person'), (tx) => selectStoreAccount(tx, sibling?.id ?? ''))
-    expect(read).toEqual({ subscription: null, overrides: [], trialExtensions: [], usage: [] })
+    const merchant = inStore(ids.ns, ids.nsStore, 'person')
+    expect(await as(merchant, (tx) => selectStoreAccount(tx, sibling?.id ?? ''))).toEqual({ subscription: null, usage: [] })
+    expect(await as(merchant, (tx) => tx`select id from store_limit_override where store_id = ${sibling?.id ?? ''}`)).toEqual([])
+    expect(await as(merchant, (tx) => tx`select id from store_trial_extension where store_id = ${sibling?.id ?? ''}`)).toEqual([])
   })
 
   it('shows a partner no other partner’s subscription or usage by direct select, and removes no other partner’s override', async () => {
@@ -111,9 +119,30 @@ describe('who reads and writes the account', () => {
     await expect(as(merchant, (tx) => tx`insert into store_subscription (store_id) values (${ids.nsStore})`)).rejects.toThrow(/permission denied/i)
   })
 
-  it('returns at most the page size of overrides', async () => {
-    for (let i = 0; i < 3; i += 1) await as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.nsStore)))
-    expect((await as(partner(ids.ns), (tx) => selectStoreAccount(tx, ids.nsStore, 2))).overrides).toHaveLength(2)
+  it('pages overrides newest first, a keyset at a time', async () => {
+    for (let i = 0; i < 3; i += 1) await as(partner(ids.ns), (tx) => insertLimitOverride(tx, { ...override(ids.nsStore), at: new Date(now.getTime() + (i + 1) * 1000) }))
+    const all = await as(partner(ids.ns), (tx) => selectOverrides(tx, ids.nsStore, undefined, 100))
+    const first = await as(partner(ids.ns), (tx) => selectOverrides(tx, ids.nsStore, undefined, 2))
+    const last = first[first.length - 1]
+    const second = await as(partner(ids.ns), (tx) => selectOverrides(tx, ids.nsStore, last ? { occurredAt: last.created_at, id: last.id } : undefined, 2))
+    expect([...first, ...second].map((o) => o.id)).toEqual(all.slice(0, 4).map((o) => o.id))
+  })
+
+  it('removes an override once, with who removed it, and never changes it after', async () => {
+    const [own] = await as(partner(ids.ns), (tx) => selectOverrides(tx, ids.nsStore, undefined, 1))
+    const update = (set: string) => as(partner(ids.ns), (tx) => tx.unsafe(`update store_limit_override set ${set} where id = '${own?.id ?? ''}'`))
+    await expect(update(`removed_at = now()`)).rejects.toThrow(/removed once, with who removed it/)
+    await expect(update(`removed_at = now(), removed_by_label = 'Diego Alvarez'`)).resolves.toBeDefined()
+    await expect(update(`removed_at = null, removed_by_label = null`)).rejects.toThrow(/removed once, with who removed it/)
+    await expect(update(`removed_by_label = 'Someone else'`)).rejects.toThrow(/removed once, with who removed it/)
+  })
+
+  it('records the writer’s own kind, never one the caller names', async () => {
+    await expect(as(partner(ids.ns), (tx) => insertLimitOverride(tx, { ...override(ids.nsStore), by: { kind: 'staff', label: 'DripFunnel' } }))).rejects.toThrow(/created_by_kind must be the writer/)
+    await expect(
+      as(partner(ids.ns), (tx) => insertTrialExtension(tx, { storeId: ids.nsStore, days: 1, endsAt: now, reason: 'x', by: { kind: 'staff', label: 'x' }, at: now })),
+    ).rejects.toThrow(/created_by_kind must be the writer/)
+    await expect(as(staff, (tx) => insertLimitOverride(tx, { ...override(ids.nsStore), by: { kind: 'partner_user', label: 'x' } }))).rejects.toThrow(/created_by_kind must be the writer/)
   })
 
   it('lets a partner add an override on its own store only, and never write usage', async () => {

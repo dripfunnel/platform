@@ -121,7 +121,11 @@ create index store_usage_key_idx on store_usage (key, store_id);
 -- The subscription is billing's (#201) and staff's to write; a partner reads it (§7.9), and a
 -- plan change (#160) decides its own path. Overrides and extensions are a record: added, an
 -- override removed, never rewritten.
-grant select on store_subscription, store_limit_override, store_trial_extension, store_usage to app_request, app_partner, app_platform;
+grant select on store_subscription, store_limit_override, store_trial_extension, store_usage to app_partner, app_platform;
+-- The merchant reads what changed its limits and trial, never the partner's reason or who wrote it.
+grant select on store_subscription, store_usage to app_request;
+grant select (id, store_id, key, amount, duration, month, created_at, removed_at) on store_limit_override to app_request;
+grant select (id, store_id, days, ends_at, created_at) on store_trial_extension to app_request;
 grant insert on store_limit_override, store_trial_extension to app_partner, app_platform;
 grant update (removed_at, removed_by_label) on store_limit_override to app_partner, app_platform;
 grant select, insert, update on store_subscription, store_usage to app_system;
@@ -153,3 +157,25 @@ begin
   end loop;
 end
 $$;
+
+-- The record holds (SAAS §6.1, LOGGING §4): who wrote a row is the writing role's kind, and an
+-- override is removed once, with who removed it, and never changed after.
+create function store_record_guard() returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if (current_user = 'app_partner' and new.created_by_kind <> 'partner_user') or (current_user = 'app_platform' and new.created_by_kind <> 'staff') then
+      raise exception '%: created_by_kind must be the writer''s own', tg_table_name using errcode = 'check_violation';
+    end if;
+  elsif old.removed_at is not null or new.removed_at is null or coalesce(new.removed_by_label, '') = '' then
+    raise exception 'store_limit_override: removed once, with who removed it, and never changed after' using errcode = 'check_violation';
+  end if;
+  return new;
+end
+$$;
+
+create trigger store_limit_override_guard before insert or update on store_limit_override
+for each row execute function store_record_guard();
+create trigger store_trial_extension_guard before insert on store_trial_extension
+for each row execute function store_record_guard();

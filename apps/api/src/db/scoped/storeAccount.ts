@@ -1,4 +1,5 @@
 import type { AmountKey } from './plans'
+import type { Keyset } from '#core/cursor'
 import { pageLimit, type ScopedSql } from './index'
 
 // The store account tables of migrations/0014 (DATA-MODEL.md §7.9, §2.4).
@@ -64,26 +65,53 @@ export const setUsage = async (tx: ScopedSql, storeId: string, key: AmountKey, u
 
 export interface StoreAccount {
   subscription: SubscriptionRow | null
-  overrides: { id: string; key: AmountKey; amount: number; duration: 'month' | 'always'; month: Date | null; reason: string; created_by_label: string; created_at: Date }[]
-  trialExtensions: { days: number; ends_at: Date; reason: string; created_by_label: string; created_at: Date }[]
   usage: { key: AmountKey; used: number; period_start: Date | null }[]
 }
 
-/** The account fields of one store the caller's scope reaches, empty for one it does not; the two records newest first, at most `limit` each. */
-export const selectStoreAccount = async (tx: ScopedSql, storeId: string, limit = 25): Promise<StoreAccount> => {
-  const max = pageLimit(limit)
+/** One store's subscription and usage, for a scope that reaches the store; empty otherwise. */
+export const selectStoreAccount = async (tx: ScopedSql, storeId: string): Promise<StoreAccount> => {
   const [subscription] = await tx<SubscriptionRow[]>`
     select store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end, trial_ends_at,
            next_plan_id, next_plan_version, change_at, payment_method_last4
     from store_subscription where store_id = ${storeId}
   `
-  const overrides = await tx<StoreAccount['overrides']>`
-    select id, key, amount, duration, month, reason, created_by_label, created_at from store_limit_override
-    where store_id = ${storeId} and removed_at is null order by created_at desc, id desc limit ${max}
-  `
-  const trialExtensions = await tx<StoreAccount['trialExtensions']>`
-    select days, ends_at, reason, created_by_label, created_at from store_trial_extension where store_id = ${storeId} order by created_at desc, id desc limit ${max}
-  `
   const usage = await tx<StoreAccount['usage']>`select key, used, period_start from store_usage where store_id = ${storeId} order by key`
-  return { subscription: subscription ?? null, overrides, trialExtensions, usage }
+  return { subscription: subscription ?? null, usage }
 }
+
+export interface OverrideRow {
+  id: string
+  key: AmountKey
+  amount: number
+  duration: 'month' | 'always'
+  month: Date | null
+  reason: string
+  created_by_label: string
+  created_at: Date
+}
+
+// Newest first, a keyset page at a time (core/cursor.ts): the records are append-only and grow.
+export const selectOverrides = (tx: ScopedSql, storeId: string, after: Keyset | undefined, limit: number): Promise<OverrideRow[]> =>
+  tx<OverrideRow[]>`
+    select id, key, amount, duration, month, reason, created_by_label, created_at from store_limit_override
+    where store_id = ${storeId} and removed_at is null
+      ${after ? tx`and (created_at, id) < (${after.occurredAt}, ${after.id})` : tx``}
+    order by created_at desc, id desc limit ${pageLimit(limit)}
+  `
+
+export interface TrialExtensionRow {
+  id: string
+  days: number
+  ends_at: Date
+  reason: string
+  created_by_label: string
+  created_at: Date
+}
+
+export const selectTrialExtensions = (tx: ScopedSql, storeId: string, after: Keyset | undefined, limit: number): Promise<TrialExtensionRow[]> =>
+  tx<TrialExtensionRow[]>`
+    select id, days, ends_at, reason, created_by_label, created_at from store_trial_extension
+    where store_id = ${storeId}
+      ${after ? tx`and (created_at, id) < (${after.occurredAt}, ${after.id})` : tx``}
+    order by created_at desc, id desc limit ${pageLimit(limit)}
+  `
