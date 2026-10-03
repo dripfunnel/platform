@@ -66,10 +66,14 @@ jobs:
         env:
           FEATURE_DATABASE_URL: ${{ steps.neon.outputs.db_url }}
 
+      # The guard's opt-in names exactly the host the Database branch step just created: a feature
+      # branch's host is new each run, so no fixed variable could name it (FEATURE-ENVIRONMENTS §2).
       - name: Migrations
         run: pnpm run --if-present migrate
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+          ALLOW_REMOTE_MIGRATIONS: '1'
+          ALLOWED_MIGRATION_HOST: ${{ steps.neon.outputs.host }}
 
       - name: 'SPA: store'
         uses: ./.github/actions/pages-deploy
