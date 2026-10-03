@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   gates:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     services:
       postgres:
         image: postgres:18
