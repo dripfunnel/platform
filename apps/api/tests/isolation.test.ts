@@ -180,6 +180,10 @@ describe('staff on the Admin API', () => {
     expect(row?.name).toBeNull()
   })
 
+  it('never read a customer’s password hash', async () => {
+    await expect(withScope(db.sql, staff, (tx) => tx`select password_hash from customer`)).rejects.toThrow(/permission denied/i)
+  })
+
   it('cannot insert a customer: the grant refuses it outright', async () => {
     await expect(
       withScope(db.sql, staff, async (tx) => {

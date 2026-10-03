@@ -5,9 +5,13 @@ import { isPartnerContext, isTenantContext } from '#core/tenancy'
  *  roles arrive with their first cards; until then they run as `app_request`. */
 export type RequestRole = 'app_request' | 'app_partner' | 'app_platform'
 
+// Exhaustive, with the narrow role as the only fall-through: a context kind added later must
+// be named here before it can run as staff.
 export const roleFor = (context: CallerContext): RequestRole => {
   if (isTenantContext(context)) return 'app_request'
-  return isPartnerContext(context) ? 'app_partner' : 'app_platform'
+  if (isPartnerContext(context)) return 'app_partner'
+  if (context.caller.kind === 'staff') return 'app_platform'
+  throw new Error('roleFor: unknown caller kind')
 }
 
 // The per-transaction settings of DATA-MODEL.md §5.1, from the caller's context and never
