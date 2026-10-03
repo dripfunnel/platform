@@ -458,7 +458,8 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | `billing.write` (who bills the merchants) | §11.4 | ✓ | | | ✓ | |
 | `payout.write`, `card.write` (payout account, payment method) | §14.3 | ✓ | | | ✓ | |
 | `support.session` (start, return to, end own; request write elevation) | §12 | ✓ | ✓ | ✓ | | |
-| `exports` (stores, reports, activity CSV) | §6.1, §10, §13 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `exports` (stores, reports) | §6.1, §10 | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `activity.export` (the activity CSV, and reading an export back; LOGGING §6) | §13 | ✓ | ✓ | | | |
 | `team.manage` (invite, change role, remove; never an Owner unless the caller is one) | §14.2 | ✓ | ✓ | | | |
 | `team.transfer` | §14.2 | ✓ | | | | |
 | `security.manage` (the 2-factor switch) | §14.4 | ✓ | | | | |
