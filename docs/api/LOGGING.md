@@ -196,7 +196,11 @@ every other tenant read.
   call only** (decided on #44); every other staff role sees the control disabled with the
   reason. Partner Owner and Admin, merchant Owner in their portals. Every export is itself
   logged. An admin export has no IP column, caps at 100,000 entries, and its download link
-  expires after 1 hour.
+  expires after 1 hour. **A partner export (built on #198)** is an `export_job` row
+  (DATA-MODEL §2.6): queued through the outbox and built in the partner's own scope, so this
+  section's policy decides what it holds. It caps at 10,000 entries (saying when it was cut),
+  has no IP or user-agent column, and its CSV is readable for 1 hour after it's built, then deleted
+  (the request itself stays in the log as `activity.exported`).
 
 ---
 
@@ -217,7 +221,8 @@ The same log screen in all three portals, fed by each app's API. The component l
   its page (with its own Activity tab).
 - **An entry expanded** shows the changes (before and after), the reason, the session or
   support agent, and for staff the request id.
-- **Plain words**: each action code has a message per locale ("Priya suspended Mehta
+- **Plain words** (the Platform API returns the code and its facts, and the partner console
+  words them, built on #198): each action code has a message per locale ("Priya suspended Mehta
   Textiles: chargeback"), never the raw code. The codes so far are listed in
   `apps/ui/admin/src/api/activityActions.ts`, the draft contract offered to #38.
 

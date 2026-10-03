@@ -873,6 +873,22 @@ api/README.md §2.1); a partner id in a request is not authority.
   `partner-domain-live` queued in the outbox; it's delivered once SES's `email` deliverer is
   wired, as every email effect is.
 
+**Built on #198** (Activity log, `apis/platform/activity.ts`, `saas/partnerActivity`):
+- `activityLog(filter, after, before, first)` (`partner.read`): the §13 chips are `who` (team,
+  staff, setup, support, events), `action`, `result`, `storeId` and `date` (today, 7d, 30d).
+  What a partner may read is the log's own policy (LOGGING §6): entries with `partner`
+  visibility in its partner, never one inside a store or a shopper's. Each entry is the code
+  and its facts (actor, through a setup or support session, store, target, changes, reason),
+  which the console words per locale (LOGGING §7). The store's Activity tab is `storeId`, and
+  My activity is `personTimeline` with the caller.
+- `personTimeline(person, filter, …)`: `person` is `team:{id}` or `owner:{id}`, a team member
+  or one of the partner's merchants' Owners; anyone else is `INVALID_INPUT`.
+  `activityPeople(query)`: at least 2 characters, at most 8 matches, the team and merchants'
+  Owners only, with no email in the answer.
+- `exportActivity(filter)` (Owner and Admin, `OWNERS_AND_ADMINS_ONLY` otherwise) queues an
+  `export_job` and logs `activity.exported`. `activityExport(id)` answers queued, done (with the
+  CSV, its row count and `truncated` past 10,000) or expired an hour later.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

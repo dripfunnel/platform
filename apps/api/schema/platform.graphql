@@ -3,6 +3,46 @@ type ActionPermission {
   reason: String
 }
 
+type ActivityActor {
+  id: String
+  kind: String
+  label: String
+}
+
+type ActivityChange {
+  after: String
+  before: String
+  field: String
+}
+
+type ActivityExportJob {
+  csv: String
+  expiresAt: String
+  id: ID
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type ActivityExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
+}
+
+type ActivityPerson {
+  detail: String
+  kind: String
+  name: String
+  ref: String
+}
+
+type ActivityTarget {
+  id: String
+  label: String
+  type: String
+}
+
 type BrandFiles {
   favicon: String
   logoDark: String
@@ -224,6 +264,7 @@ type Mutation {
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   createPlan(input: PlanInput!): PlanResult
+  exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
@@ -278,6 +319,41 @@ type Partner {
   name: String
   product: String
   state: String
+}
+
+type PartnerActivityEntry {
+  action: String
+  actor: ActivityActor
+  at: String
+  category: String
+  changes: [ActivityChange!]
+  id: ID
+  onBehalfOf: String
+  reason: String
+  result: String
+  storeId: String
+  target: ActivityTarget
+  through: String
+}
+
+input PartnerActivityFilterInput {
+  action: String
+  date: String
+  result: String
+  storeId: ID
+  who: String
+}
+
+type PartnerActivityPage {
+  items: [PartnerActivityEntry!]
+  pageInfo: PartnerActivityPageInfo
+}
+
+type PartnerActivityPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
 }
 
 type PartnerAddress {
@@ -510,6 +586,9 @@ type PublishBrandingResult {
 }
 
 type Query {
+  activityExport(id: ID!): ActivityExportJob
+  activityLog(after: String, before: String, filter: PartnerActivityFilterInput, first: Int): PartnerActivityPage
+  activityPeople(query: String!): [ActivityPerson!]
   branding: Branding
   changePlanOptions(storeId: ID!): ChangePlanOptions
   checkContrast(accent: String!, primary: String!): ContrastReport
@@ -521,6 +600,7 @@ type Query {
   onboarding: Onboarding
   partnerDomains: PartnerDomains
   partnerState: PartnerState
+  personTimeline(after: String, before: String, filter: PartnerActivityFilterInput, first: Int, person: String!): PartnerActivityPage
   planEditor(id: ID): PlanEditor
   plans(after: String, first: Int): PlansPage
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
