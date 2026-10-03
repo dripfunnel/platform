@@ -203,6 +203,12 @@ type PlansPage {
   chargedBy: String
   create: PlanPermission
   items: [PlanRow!]
+  pageInfo: PlansPageInfo
+}
+
+type PlansPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
 }
 
 type PoweredByRule {
@@ -217,7 +223,7 @@ type Query {
   onboarding: Onboarding
   partnerState: PartnerState
   planEditor(id: ID): PlanEditor
-  plans: PlansPage
+  plans(after: String, first: Int): PlansPage
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
   search(query: String!): [StoreSearchMatch!]
 }

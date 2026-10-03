@@ -1,5 +1,5 @@
 import { unauthenticated } from '../graphql/scope'
-import { planAudit, type Margin, type Money, type PartnerPlansService, type PlanEditorDto, type PlanPrice, type PlanRowDto, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
+import { planAudit, type Margin, type Money, type PartnerPlansService, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
 import { builder } from './builder'
 
 // Plans on the Platform API (ui/platform/FIRST-RELEASE.md §7; card #161). Thin: saas/partnerPlans
@@ -75,9 +75,14 @@ const PermissionType = builder.objectRef<{ allowed: boolean; reason?: string }>(
   fields: (t) => ({ allowed: t.exposeBoolean('allowed'), reason: t.string({ nullable: true, resolve: (p) => p.reason ?? null }) }),
 })
 
-const PlansPageType = builder.objectRef<{ items: PlanRowDto[]; chargedBy: string; actions: { create: { allowed: boolean; reason?: string } } }>('PlansPage').implement({
+const PageInfoType = builder.objectRef<PlansPage['pageInfo']>('PlansPageInfo').implement({
+  fields: (t) => ({ hasNextPage: t.exposeBoolean('hasNextPage'), endCursor: t.exposeString('endCursor', { nullable: true }) }),
+})
+
+const PlansPageType = builder.objectRef<PlansPage>('PlansPage').implement({
   fields: (t) => ({
     items: t.field({ type: [PlanRowType], resolve: (p) => p.items }),
+    pageInfo: t.field({ type: PageInfoType, resolve: (p) => p.pageInfo }),
     chargedBy: t.exposeString('chargedBy'),
     create: t.field({ type: PermissionType, resolve: (p) => p.actions.create }),
   }),
@@ -166,7 +171,12 @@ const write = (audit: string, permission: 'plans.write' | 'plans.price' = 'plans
 const strip = <T extends Record<string, unknown>>(o: T) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== null && v !== undefined))
 
 builder.queryFields((t) => ({
-  plans: t.field({ type: PlansPageType, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx.plans).plans() }),
+  plans: t.field({
+    type: PlansPageType,
+    args: { after: t.arg.string(), first: t.arg.int() },
+    extensions: { access: read },
+    resolve: (_, { after, first }, ctx) => service(ctx.plans).plans(after ?? null, first ?? 25),
+  }),
   planEditor: t.field({
     type: EditorType,
     nullable: true,

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
+import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { PlanStatus } from '#db/schema/saas'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
@@ -11,6 +12,10 @@ import {
   lockLivePlans,
   scheduleSubscriptionMoves,
   selectCatalogue,
+  selectCataloguePlan,
+  selectLivePlanChoices,
+  selectLowestFee,
+  selectPlanCurrencies,
   selectCeilings,
   selectContractTerms,
   selectCurrentVersions,
@@ -76,7 +81,7 @@ export interface PlanPrice {
 
 export type Refusal =
   | 'OWNERS_AND_ADMINS_ONLY' | 'PRICES_ONLY' | 'ABOVE_CEILING' | 'LAST_LIVE_PLAN' | 'UNPRICED_CURRENCY' | 'NEEDS_APPLY_TO'
-  | 'NOT_FOUND' | 'INVALID_STATE' | 'INVALID_TARGET' | 'INVALID_CURRENCY'
+  | 'NOT_FOUND' | 'INVALID_STATE' | 'INVALID_TARGET' | 'INVALID_CURRENCY' | 'INVALID_INPUT'
 export type Permission = { allowed: true } | { allowed: false; reason: Refusal }
 export type Result = { ok: true; id: string } | { ok: false; reason: Refusal; row?: EntitlementRow; currency?: string }
 
@@ -89,6 +94,15 @@ export interface PlanRowDto {
   prices: PlanPrice[]
   stores: number
 }
+
+export interface PlansPage {
+  items: PlanRowDto[]
+  pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  chargedBy: string
+  actions: { create: Permission }
+}
+
+export const maxPlansPage = 50
 
 export interface PlanEditorDto {
   plan: (PlanRowDto & { entitlements: RowEntitlements }) | null
@@ -167,66 +181,71 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
     return { currency: p.currency, monthly, yearly: p.yearly === null ? null : { amount: p.yearly, currency: p.currency }, fee: f, converted, margin }
   }
 
-  // A new plan's fee, until DripFunnel sets one on it: the lowest the contract charges today.
-  const defaultFee = (rows: readonly CatalogueRow[]) => Math.min(...rows.map((r) => r.fee ?? Number.POSITIVE_INFINITY), Number.POSITIVE_INFINITY)
+  const chargedBy = () => `DripFunnel for ${caller.partner.name}`
 
-  const catalogue = async (tx: ScopedSql) => {
-    const rows = await selectCatalogue(tx, partnerId)
-    const versions = await selectCurrentVersions(tx, rows.map((r) => r.id))
-    const terms = await selectContractTerms(tx, partnerId)
-    const fallback = defaultFee(rows)
-    const feeOf = (row: CatalogueRow | null) => row?.fee ?? (Number.isFinite(fallback) ? fallback : 0)
-    const toDto = (row: CatalogueRow): PlanRowDto => ({
+  // A plan's own fee, or for a new one, until DripFunnel sets it, the lowest the contract charges.
+  const feeOf = async (tx: ScopedSql, row: CatalogueRow | null) => row?.fee ?? (await selectLowestFee(tx, partnerId)) ?? 0
+
+  const dtoOf = async (tx: ScopedSql, terms: ContractTerms, row: CatalogueRow, prices: readonly PlanVersionPrice[]): Promise<PlanRowDto> => {
+    const fee = await feeOf(tx, row)
+    return {
       id: row.id,
       name: row.name,
       description: row.description ?? '',
       status: row.status,
       trialDays: row.trial_days,
-      prices: (versions.get(row.id)?.prices ?? []).map((p) => priceOf(terms, feeOf(row), p)),
+      prices: prices.map((p) => priceOf(terms, fee, p)),
       stores: row.stores,
-    })
-    return { rows, versions, terms, feeOf, toDto }
+    }
   }
 
-  const chargedBy = () => `DripFunnel for ${caller.partner.name}`
-
-  const plans = () =>
+  const plans = (afterCursor: string | null, limit: number): Promise<PlansPage> =>
     withScope(sql, context, async (tx) => {
-      const c = await catalogue(tx)
-      return { items: c.rows.map(c.toDto), chargedBy: chargedBy(), actions: { create: may('plans.write') } }
+      const size = Math.min(Math.max(Math.floor(limit), 1), maxPlansPage)
+      const after = afterCursor ? (decodeCursor(afterCursor) ?? undefined) : undefined
+      const rows = await selectCatalogue(tx, partnerId, after, size + 1)
+      const page = rows.slice(0, size)
+      const versions = await selectCurrentVersions(tx, page.map((r) => r.id))
+      const terms = await selectContractTerms(tx, partnerId)
+      const last = page[page.length - 1]
+      return {
+        items: await Promise.all(page.map((r) => dtoOf(tx, terms, r, versions.get(r.id)?.prices ?? []))),
+        pageInfo: { hasNextPage: rows.length > size, endCursor: last ? encodeCursor({ occurredAt: last.created_at, id: last.id }) : null },
+        chargedBy: chargedBy(),
+        actions: { create: may('plans.write') },
+      }
     })
 
   // What the partner sells in: its contract's currencies, or with no contract yet those its plans use.
-  const currenciesOf = (terms: ContractTerms, versions: Map<string, { prices: PlanVersionPrice[] }>): string[] => {
-    if (terms.fee_currency) return [terms.fee_currency, ...Object.keys(terms.rates)]
-    return [...new Set([...versions.values()].flatMap((v) => v.prices.map((p) => p.currency)))]
-  }
-
+  const currenciesOf = async (tx: ScopedSql, terms: ContractTerms): Promise<string[]> =>
+    terms.fee_currency ? [terms.fee_currency, ...Object.keys(terms.rates)] : selectPlanCurrencies(tx, partnerId)
 
   const planEditor = (id: string | null): Promise<PlanEditorDto | null> =>
     withScope(sql, context, async (tx) => {
-      const c = await catalogue(tx)
-      const row = id === null ? null : (c.rows.find((r) => r.id === id) ?? null)
+      const row = id === null ? null : await selectCataloguePlan(tx, partnerId, id)
       if (id !== null && !row) return null
+      const terms = await selectContractTerms(tx, partnerId)
+      const version = row ? (await selectCurrentVersions(tx, [row.id])).get(row.id) : undefined
       const ceilings = await selectCeilings(tx)
       return {
-        plan: row ? { ...c.toDto(row), entitlements: toRows(c.versions.get(row.id)?.entitlements ?? {}) } : null,
+        plan: row ? { ...(await dtoOf(tx, terms, row, version?.prices ?? [])), entitlements: toRows(version?.entitlements ?? {}) } : null,
         ceilings: Object.fromEntries(Object.entries(amountRows).map(([r, key]) => [r, ceilings[key] ?? null])) as Record<AmountRow, number | null>,
-        powered: { allowed: c.terms.powered_by_removable, note: c.terms.powered_by_note },
-        currencies: currenciesOf(c.terms, c.versions),
+        powered: { allowed: terms.powered_by_removable, note: terms.powered_by_note },
+        currencies: await currenciesOf(tx, terms),
         trials,
         chargedBy: chargedBy(),
         permission: { edit: may('plans.write'), price: row ? may('plans.price') : may('plans.write') },
-        retireTargets: c.rows.filter((r) => r.status === 'live' && r.id !== id).map((r) => ({ id: r.id, name: r.name })),
+        retireTargets: (await selectLivePlanChoices(tx, partnerId, id)).map(({ id: target, name }) => ({ id: target, name })),
         retireDates: firstOfMonths(now(), 3),
       }
     })
 
   const quotePlanPrices = (id: string | null, prices: PlanInput['prices']): Promise<PlanPrice[]> =>
     withScope(sql, context, async (tx) => {
-      const c = await catalogue(tx)
-      const row = id === null ? null : (c.rows.find((r) => r.id === id) ?? null)
-      return prices.map((p) => priceOf(c.terms, c.feeOf(row), { currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
+      const row = id === null ? null : await selectCataloguePlan(tx, partnerId, id)
+      const terms = await selectContractTerms(tx, partnerId)
+      const fee = await feeOf(tx, row)
+      return prices.map((p) => priceOf(terms, fee, { currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
     })
 
   // The ceilings and the contract's "Powered by" rule, named by row; the database refuses the same (0013).
@@ -263,7 +282,9 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   const createPlan = async (raw: unknown): Promise<Result> => {
     const refused = may('plans.write')
     if (!refused.allowed) return { ok: false, reason: refused.reason }
-    const input = planInput.parse(raw)
+    const parsed = planInput.safeParse(raw)
+    if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
+    const input = parsed.data
     return withScope(sql, context, async (tx): Promise<Result> => {
       const row = await aboveCeiling(tx, input.entitlements)
       if (row) return { ok: false, reason: 'ABOVE_CEILING', row }
@@ -276,23 +297,25 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   }
 
   const updatePlan = async (id: string, raw: unknown, applyTo: 'new' | 'renewal' | null): Promise<Result> => {
-    const input = planInput.parse(raw)
+    const parsed = planInput.safeParse(raw)
+    if (!parsed.success) return { ok: false, reason: 'INVALID_INPUT' }
+    const input = parsed.data
     return withScope(sql, context, async (tx): Promise<Result> => {
-      const c = await catalogue(tx)
-      const row = c.rows.find((r) => r.id === id)
+      const row = await selectCataloguePlan(tx, partnerId, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
+      const terms = await selectContractTerms(tx, partnerId)
       // A retired plan is kept as its stores bought it; its move is retirePlan's.
       if (row.status === 'retired') return { ok: false, reason: 'INVALID_STATE' }
       if (!may('plans.write').allowed) {
         // Finance changes prices only (ACCESS.md §5.3): everything else must match the saved plan.
-        const current = c.versions.get(id)
+        const current = (await selectCurrentVersions(tx, [id])).get(id)
         const sameRest = row.name === input.name && (row.description ?? '') === input.description && row.trial_days === input.trialDays && JSON.stringify(toRows(current?.entitlements ?? {})) === JSON.stringify(input.entitlements)
         if (!may('plans.price').allowed) return { ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' }
         if (!sameRest) return { ok: false, reason: 'PRICES_ONLY' }
       }
       const over = await aboveCeiling(tx, input.entitlements)
       if (over) return { ok: false, reason: 'ABOVE_CEILING', row: over }
-      const bad = badCurrency(input, c.terms)
+      const bad = badCurrency(input, terms)
       if (bad) return { ok: false, reason: 'INVALID_CURRENCY', currency: bad }
       if (row.stores > 0 && applyTo === null) return { ok: false, reason: 'NEEDS_APPLY_TO' }
       await updatePlanText(tx, id, partnerId, input.name, input.description)
@@ -319,13 +342,13 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
 
   const makePlanLive = (id: string): Promise<Result> =>
     withScope(sql, context, async (tx): Promise<Result> => {
-      const c = await catalogue(tx)
-      const row = c.rows.find((r) => r.id === id)
+      const row = await selectCataloguePlan(tx, partnerId, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
       if (row.status !== 'draft') return { ok: false, reason: 'INVALID_STATE' }
-      const prices = c.versions.get(id)?.prices ?? []
+      const prices = (await selectCurrentVersions(tx, [id])).get(id)?.prices ?? []
+      const terms = await selectContractTerms(tx, partnerId)
       // The contract's currencies; with no contract yet, the draft's own (other plans never block it).
-      const required = c.terms.fee_currency ? currenciesOf(c.terms, c.versions) : prices.map((p) => p.currency)
+      const required = terms.fee_currency ? await currenciesOf(tx, terms) : prices.map((p) => p.currency)
       const unpriced = required.find((cur) => (prices.find((p) => p.currency === cur)?.monthly ?? null) === null)
       if (unpriced) return { ok: false, reason: 'UNPRICED_CURRENCY', currency: unpriced }
       await updatePlanStatus(tx, id, partnerId, 'live', null)
@@ -336,10 +359,11 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   const retireInput = z.discriminatedUnion('keep', [z.strictObject({ keep: z.literal(true) }), z.strictObject({ keep: z.literal(false), moveTo: z.string().uuid(), on: z.iso.datetime() })])
 
   const retirePlan = (id: string, raw: unknown): Promise<Result> => {
-    const input = retireInput.parse(raw)
+    const parsed = retireInput.safeParse(raw)
+    if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
+    const input = parsed.data
     return withScope(sql, context, async (tx): Promise<Result> => {
-      const c = await catalogue(tx)
-      const row = c.rows.find((r) => r.id === id)
+      const row = await selectCataloguePlan(tx, partnerId, id)
       if (!row) return { ok: false, reason: 'NOT_FOUND' }
       if (row.status !== 'live') return { ok: false, reason: 'INVALID_STATE' }
       // Locked, so two retirements at once cannot leave the partner with no Live plan.
@@ -348,7 +372,8 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       if (input.keep) {
         await updatePlanStatus(tx, id, partnerId, 'retired', { at, moveTo: null })
       } else {
-        const target = c.rows.find((r) => r.id === input.moveTo && r.status === 'live' && r.id !== id)
+        const candidate = input.moveTo === id ? null : await selectCataloguePlan(tx, partnerId, input.moveTo)
+        const target = candidate?.status === 'live' ? candidate : null
         const on = new Date(input.on)
         if (!target || !firstOfMonths(at, 3).some((d) => d.getTime() === on.getTime())) return { ok: false, reason: 'INVALID_TARGET' }
         await updatePlanStatus(tx, id, partnerId, 'retired', { at: on, moveTo: target.id })

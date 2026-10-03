@@ -1,5 +1,6 @@
 import type { PlanStatus } from '../schema/saas'
-import { pgArray, type ScopedSql } from './index'
+import type { Keyset } from '#core/cursor'
+import { maxPageSize, pgArray, type ScopedSql } from './index'
 import type { AmountKey, Entitlements, PlanVersionPrice } from './plans'
 
 // The partner's own catalogue as the Plans screens read and change it (ui/platform/FIRST-RELEASE.md
@@ -14,18 +15,47 @@ export interface CatalogueRow {
   version: number
   stores: number
   fee: number | null
-  retire_at: Date | null
+  created_at: Date
 }
 
-export const selectCatalogue = (tx: ScopedSql, partnerId: string): Promise<CatalogueRow[]> =>
+const catalogueColumns = (tx: ScopedSql) => tx`
+  p.id, p.name, p.description, p.status, p.trial_days, p.version, p.created_at,
+  (select count(*)::int from store s where s.plan_id = p.id and s.status <> 'closed') as stores,
+  (select amount from plan_fee f where f.plan_id = p.id) as fee
+`
+
+/**
+ * One page of the catalogue, oldest first after the keyset cursor (core/cursor.ts). The cursor
+ * holds milliseconds and plan.created_at microseconds, so both sides compare at milliseconds.
+ */
+export const selectCatalogue = (tx: ScopedSql, partnerId: string, after: Keyset | undefined, limit: number): Promise<CatalogueRow[]> =>
   tx<CatalogueRow[]>`
-    select p.id, p.name, p.description, p.status, p.trial_days, p.version, p.retire_at,
-      (select count(*)::int from store s where s.plan_id = p.id and s.status <> 'closed') as stores,
-      (select amount from plan_fee f where f.plan_id = p.id) as fee
-    from plan p where p.partner_id = ${partnerId}
-    order by case p.status when 'live' then 0 when 'draft' then 1 else 2 end, p.created_at, p.id
-    limit 100
+    select ${catalogueColumns(tx)} from plan p
+    where p.partner_id = ${partnerId}
+      ${after ? tx`and (date_trunc('milliseconds', p.created_at), p.id) > (${after.occurredAt}::timestamptz, ${after.id}::uuid)` : tx``}
+    order by date_trunc('milliseconds', p.created_at), p.id limit ${limit}
   `
+
+export const selectCataloguePlan = async (tx: ScopedSql, partnerId: string, id: string): Promise<CatalogueRow | null> =>
+  (await tx<CatalogueRow[]>`select ${catalogueColumns(tx)} from plan p where p.partner_id = ${partnerId} and p.id = ${id}`)[0] ?? null
+
+/** The Live plans a retiring plan's stores may move to: a choice list, so capped at a page. */
+export const selectLivePlanChoices = (tx: ScopedSql, partnerId: string, except: string | null): Promise<{ id: string; name: string; version: number }[]> =>
+  tx<{ id: string; name: string; version: number }[]>`
+    select id, name, version from plan where partner_id = ${partnerId} and status = 'live' and id is distinct from ${except}
+    order by name, id limit ${maxPageSize}
+  `
+
+/** The lowest fee the partner's contract charges today; null when no plan has one. */
+export const selectLowestFee = async (tx: ScopedSql, partnerId: string): Promise<number | null> =>
+  (await tx<{ amount: number | null }[]>`select min(amount) as amount from plan_fee where partner_id = ${partnerId}`)[0]?.amount ?? null
+
+/** The currencies the partner's current plan versions are priced in. */
+export const selectPlanCurrencies = async (tx: ScopedSql, partnerId: string): Promise<string[]> =>
+  (await tx<{ currency: string }[]>`
+    select distinct pp.currency from plan_price pp join plan p on p.id = pp.plan_id and pp.version = p.version
+    where p.partner_id = ${partnerId} order by pp.currency
+  `).map((r) => r.currency)
 
 /** Each plan's current-version prices and values, keyed by plan id. */
 export const selectCurrentVersions = async (tx: ScopedSql, planIds: readonly string[]): Promise<Map<string, { prices: PlanVersionPrice[]; entitlements: Partial<Entitlements> }>> => {

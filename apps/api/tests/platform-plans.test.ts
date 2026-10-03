@@ -96,6 +96,32 @@ describe('the catalogue and the editor', () => {
     expect(data?.planEditor.retireDates).toEqual(['2026-11-01T00:00:00.000Z', '2026-12-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z'])
   })
 
+  it('pages the catalogue by cursor, every plan reachable', async () => {
+    const page = async (after: string | null) =>
+      (await run<{ plans: { items: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } }>(
+        'query($after: String) { plans(after: $after, first: 3) { items { id } pageInfo { hasNextPage endCursor } } }',
+        callerOf(ids.ns, 'partner-read-only'),
+        { after },
+      )).data?.plans
+    const first = await page(null)
+    expect(first?.items).toHaveLength(3)
+    expect(first?.pageInfo.hasNextPage).toBe(true)
+    const second = await page(first?.pageInfo.endCursor ?? null)
+    const all = (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.ns} order by date_trunc('milliseconds', created_at), id`).map((r) => r.id)
+    expect([...(first?.items ?? []), ...(second?.items ?? [])].map((p) => p.id)).toEqual(all.slice(0, (first?.items.length ?? 0) + (second?.items.length ?? 0)))
+  })
+
+  it('refuses input it cannot read with a code, never an internal error', async () => {
+    const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
+    expect((await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.starter, input: { ...input, name: 'x'.repeat(61) }, applyTo: 'new' })).data?.updatePlan).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+    expect((await run<Outcome>(create, callerOf(ids.ns, 'partner-owner'), { input: { ...input, prices: [{ currency: 'usd', monthly: null, yearly: null }] } })).data?.createPlan).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+    const retired = await run<Record<string, { reason: string }>>(`mutation($id: ID!, $input: RetirePlanInput!) { retirePlan(id: $id, input: $input) { ok reason } }`, callerOf(ids.ns, 'partner-owner'), {
+      id: ids.starter,
+      input: { keep: false, moveTo: ids.growth, on: 'next month' },
+    })
+    expect(retired.data?.['retirePlan']).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
+  })
+
   it('shows another partner nothing of this catalogue', async () => {
     expect((await run<{ planEditor: unknown }>(editorQuery, callerOf(ids.kl, 'partner-owner'), { id: ids.growth })).data?.planEditor).toBeNull()
     const { data } = await run<{ plans: { items: { id: string }[] } }>('{ plans { items { id } } }', callerOf(ids.kl, 'partner-owner'))
