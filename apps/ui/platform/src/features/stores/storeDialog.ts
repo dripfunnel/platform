@@ -1,6 +1,7 @@
 import type { ConfirmChoice, ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import type { ChangePlanOptions, LimitKey, Store, StoreAction, StoreActionInput } from '../../api/stores'
 import { fill, formatAmount, formatCount, formatDate, messages } from '../../messages'
+import { chargedByOf, planNameOf } from './storeLook'
 
 const words = messages.store.dialogs
 
@@ -13,7 +14,7 @@ const limits: readonly LimitKey[] = ['products', 'staff', 'suppliers', 'ai', 'pu
 // What each confirmation says before the confirm (FIRST-RELEASE.md §6.4), in the prototype's words.
 // `options` is the API's answer for Change plan: the plans offered, the next billing date, the proration.
 export const storeDialog = (action: StoreAction, store: Store, options: ChangePlanOptions | null): StoreDialog => {
-  const values = { name: store.name, owner: store.owner.name, email: store.owner.email, who: store.billing.chargedBy }
+  const values = { name: store.name, owner: store.owner.name, email: store.owner.email, who: chargedByOf(store.billing.mode, store.billing.partnerName) }
   const base = { target: store.name, danger: false }
   switch (action) {
     case 'changePlan': {
@@ -32,7 +33,7 @@ export const storeDialog = (action: StoreAction, store: Store, options: ChangePl
         consequence: (_value, picks) => {
           const to = plans.find((plan) => plan.id === picks.planId)
           if (!to) return spec.pick
-          const moved = fill(spec.consequence, { ...values, from: store.plan.name, fromPrice: formatAmount(store.planPrice), to: to.name, toPrice: formatAmount(to.price) })
+          const moved = fill(spec.consequence, { ...values, from: planNameOf(store.plan), fromPrice: store.planPrice ? formatAmount(store.planPrice) : '', to: to.name, toPrice: formatAmount(to.price) })
           const proration = options?.proration[to.id]
           if (picks.when !== 'now' || !proration || proration.kind === 'none') return moved
           return `${moved} ${proration.kind === 'charge' ? fill(spec.chargedToday, { amount: formatAmount(proration.amount) }) : spec.credited}`
@@ -44,7 +45,7 @@ export const storeDialog = (action: StoreAction, store: Store, options: ChangePl
             key: 'when',
             label: spec.when,
             options: [
-              { value: 'next', label: fill(spec.next, { date: options ? formatDate(options.nextBillingAt) : '' }) },
+              { value: 'next', label: fill(spec.next, { date: options?.nextBillingAt ? formatDate(options.nextBillingAt) : '' }) },
               { value: 'now', label: spec.now },
             ],
             initial: 'next',
@@ -56,7 +57,7 @@ export const storeDialog = (action: StoreAction, store: Store, options: ChangePl
     }
     case 'extendTrial': {
       const spec = words.extendTrial
-      const from = store.state.kind === 'trial' ? formatDate(store.state.trialEndsAt) : ''
+      const from = store.state.kind === 'trial' && store.state.trialEndsAt ? formatDate(store.state.trialEndsAt) : ''
       return {
         ...base,
         title: fill(spec.title, values),
@@ -165,7 +166,7 @@ export const storeToast = (input: StoreActionInput, store: Store, options: Chang
   switch (input.action) {
     case 'changePlan': {
       const plan = options?.plans.find((candidate) => candidate.id === input.planId)?.name ?? input.planId
-      return input.when === 'now' ? fill(words.changePlanNow, { name: store.name, plan }) : fill(words.changePlanNext, { name: store.name, plan, date: options ? formatDate(options.nextBillingAt) : '' })
+      return input.when === 'now' ? fill(words.changePlanNow, { name: store.name, plan }) : fill(words.changePlanNext, { name: store.name, plan, date: options?.nextBillingAt ? formatDate(options.nextBillingAt) : '' })
     }
     case 'extendTrial':
       return fill(words.extendTrial, { date: formatDate(store.trialExtensions.find((candidate) => candidate.days === input.days)?.endsAt ?? '') })

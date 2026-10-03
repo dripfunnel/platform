@@ -1,175 +1,139 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { messages } from '../messages'
-import { createStoreInput, storePageSize } from './stores'
-import { createStoresServer, sampleStores } from './storesSample'
+import { createStore, loadChangePlanOptions, loadCreateStoreForm, loadStore, loadStores, loadStoresExport, runStoreAction, setStoreBillingStatus, startStoresExport } from './stores'
 
-const server = () => createStoresServer(sampleStores)
+// The stores rules are the Platform API's (apps/api tests/platform-stores, platform-create-store,
+// platform-store-actions); these check the client reads each answer the way the screens expect.
+const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
+beforeEach(() => {
+  answer.mockReset()
+  vi.stubGlobal('fetch', (_: string, init: RequestInit) => Promise.resolve(new Response(JSON.stringify(answer(JSON.parse(String(init.body)) as { query: string })))))
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
-describe('the stores fixture, as the Platform API would answer', () => {
-  it('pages by cursor with the API cap and no total', () => {
-    const first = server().list({}, {}, 'partner-owner')
-    expect(first.items).toHaveLength(storePageSize)
-    expect(first.pageInfo.hasNextPage).toBe(true)
-    expect(Object.keys(first)).not.toContain('total')
-    const after = first.pageInfo.endCursor ?? ''
-    const next = server().list({}, { after }, 'partner-owner')
-    expect(next.items[0]?.id).not.toBe(first.items[0]?.id)
-    expect(new Set([...first.items, ...next.items].map((row) => row.id)).size).toBe(storePageSize * 2)
-    const back = server().list({}, { before: next.pageInfo.startCursor ?? '' }, 'partner-owner')
-    expect(back.items.map((row) => row.id)).toEqual(first.items.map((row) => row.id))
+const permission = (allowed: boolean, reason: string | null = null) => ({ allowed, reason })
+const state = (kind: string, extra: object = {}) => ({ kind, trialEndsAt: null, daysLeft: null, daysPastDue: null, reason: null, since: null, ...extra })
+const row = { id: 's1', name: 'Juniper & Co.', code: 'juniper-co', owner: { name: 'Anjali Nair', email: 'anjali@x.example' }, plan: { id: 'p1', name: 'Pro' }, near: { percent: 84, limit: 'ai_prompts' }, state: state('pastdue', { daysPastDue: 9 }), storefront: 'live', domain: null, createdAt: '2025-12-01T00:00:00.000Z', billingStatus: 'past_due' }
+const pageInfo = { startCursor: null, endCursor: 'c1', hasPreviousPage: false, hasNextPage: true }
+
+describe('loadStores', () => {
+  it('sends only the declared filter, reads the API’s keys as the console’s, and the three permissions', async () => {
+    answer.mockReturnValue({ data: { stores: { items: [row], pageInfo, plans: [], billingMode: 'own', createPermission: permission(false, 'PARTNER_PAUSED'), exportPermission: permission(true), billingStatusPermission: permission(false, 'BILLING_ROLES_ONLY') } } })
+    const page = await loadStores({ status: 'pastdue', ...({ state: 'empty', billing: 'own' } as object) }, { after: 'c0' })
+    expect(answer.mock.calls[0]?.[0].variables).toEqual({ filter: { status: 'pastdue' }, after: 'c0' })
+    expect(page.items[0]).toMatchObject({ near: { percent: 84, limit: 'ai' }, state: { kind: 'pastdue', daysPastDue: 9 }, billingStatus: 'pastdue', domain: null, salesLastMonth: null })
+    expect(page.actions).toEqual({ create: { allowed: false, reason: 'PARTNER_PAUSED' }, export: { allowed: true }, billingStatus: { allowed: false, reason: 'BILLING_ROLES_ONLY' } })
+    expect(page.pageInfo.hasNextPage).toBe(true)
   })
 
-  it('sorts newest first and filters by status, plan, created, storefront, near a limit and text', () => {
-    const all = server().list({}, {}, 'partner-owner').items
-    expect(all.map((row) => row.createdAt)).toEqual([...all.map((row) => row.createdAt)].sort().reverse())
-    const trials = server().list({ status: 'trial' }, {}, 'partner-owner').items
-    expect(trials.length).toBeGreaterThan(0)
-    expect(trials.every((row) => row.state.kind === 'trial')).toBe(true)
-    expect(server().list({ plan: 'pro' }, {}, 'partner-owner').items.every((row) => row.plan.id === 'pro')).toBe(true)
-    expect(server().list({ created: 'month' }, {}, 'partner-owner').items.every((row) => row.createdAt >= '2026-09-01')).toBe(true)
-    expect(server().list({ storefront: 'own' }, {}, 'partner-owner').items.map((row) => row.name)).toEqual(['Copperline Audio'])
-    const near = server().list({ near: 'yes' }, {}, 'partner-owner').items
-    expect(near.length).toBeGreaterThan(0)
-    expect(near.every((row) => row.near !== null && row.near.percent >= 80)).toBe(true)
-    expect(server().list({ q: 'chloe@mapleandpine' }, {}, 'partner-owner').items.map((row) => row.name)).toEqual(['Maple & Pine'])
+  it('keeps a store with no trial end or owner on record, and refuses a refusal it was never promised', async () => {
+    answer.mockReturnValueOnce({ data: { stores: { items: [{ ...row, owner: { name: null, email: null }, state: state('trial') }], pageInfo, plans: [], billingMode: 'dripfunnel', createPermission: permission(true), exportPermission: permission(true), billingStatusPermission: null } } })
+    expect((await loadStores({}, {})).items[0]).toMatchObject({ owner: { name: '', email: '' }, state: { kind: 'trial', trialEndsAt: null, daysLeft: null } })
+    answer.mockReturnValueOnce({ data: { stores: { items: [], pageInfo, plans: [], billingMode: 'dripfunnel', createPermission: permission(false, 'SOMETHING_NEW'), exportPermission: permission(true), billingStatusPermission: null } } })
+    await expect(loadStores({}, {})).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
+  })
+})
+
+const storeDetail = {
+    row: { ...row, state: state('trial', { trialEndsAt: '2026-10-10T00:00:00.000Z', daysLeft: 2 }), domain: null },
+    country: 'US',
+    price: { amount: 9900, currency: 'USD' },
+    people: { count: 9, suppliers: 3 },
+    contacts: [],
+    usage: [{ limit: 'publish_now', used: 48, cap: 160, percent: 30, monthly: true }],
+    overrides: [{ id: 'o1', limit: 'publish_now', amount: 10, duration: 'month', reason: 'Diwali', by: 'Diego', at: '2026-09-02T12:00:00.000Z' }],
+    billing: { interval: 'month', nextChargeAt: '2026-10-10T00:00:00.000Z', cardLast4: null, mode: 'dripfunnel', partnerName: 'Northstar Commerce' },
+    site: { previewHost: 'juniper-co.preview.northstar.example', liveHost: 'juniper-co.shops.northstar.example', lastPublishAt: null },
+    records: [],
+    setup: { state: 'stuck', error: null },
+    trialExtensions: [],
+    support: { allowed: true, people: [{ id: 'u1', name: 'Ana', email: 'ana@x.example', role: 'supplier-admin', supplier: 'Loomcraft', status: 'active', lastSignInAt: null }] },
+    activity: [{ id: 'a1', at: '2026-03-01T12:00:00.000Z', who: 'Diego', action: 'store.plan_changed', result: 'success' }],
+    actions: { changePlan: permission(true), extendTrial: permission(false, 'FINANCE_TRIAL_ONLY'), addOverride: null, resendInvite: null, restore: null, suspend: permission(true), retryStep: permission(true) },
+}
+
+describe('loadStore', () => {
+  const detail = storeDetail
+
+  it('assembles the page from the store and its signup steps, keeping only the actions the store offers', async () => {
+    answer.mockImplementation(({ query }) =>
+      query.includes('provisioning(') ? { data: { provisioning: { done: false, elapsedSeconds: 600, steps: [{ key: 'account', state: 'done' }, { key: 'store', state: 'running' }] } } } : { data: { store: detail } },
+    )
+    const store = await loadStore('s1')
+    expect(store?.domain).toEqual({ host: 'juniper-co.shops.northstar.example', custom: false, status: 'live' })
+    expect(store?.billing).toMatchObject({ cycle: 'monthly', next: { kind: 'firstCharge', at: '2026-10-10T00:00:00.000Z' }, payment: 'noCard' })
+    expect(store?.setup.steps).toEqual([{ key: 'account', state: 'done', detail: null }, { key: 'store', state: 'slow', detail: null }])
+    expect(store?.overrides[0]).toMatchObject({ limit: 'publish', amount: 10 })
+    expect(store?.support.people[0]).toMatchObject({ role: 'supplier-admin', supplier: 'Loomcraft' })
+    expect(Object.keys(store?.actions ?? {})).toEqual(['changePlan', 'extendTrial', 'suspend', 'retryStep'])
   })
 
-  it('words each status as the screen shows it, from the fixture clock', () => {
-    const byId = new Map(server().list({ q: 'st-' }, {}, 'partner-owner').items.map((row) => [row.id, row]))
-    const rows = server()
-    const find = (id: string) => rows.list({ q: id.replace('st-', '').replace('-', ' ') }, {}, 'partner-owner').items.find((row) => row.id === id) ?? byId.get(id)
-    expect(find('st-tidewater')?.state).toEqual({ kind: 'pastdue', daysPastDue: 9 })
-    expect(find('st-harbor')?.state).toMatchObject({ kind: 'trial', daysLeft: 2 })
-    expect(find('st-redline')?.state).toEqual({ kind: 'suspended', reason: 'Chargebacks on 3 orders ($2,840).' })
-    expect(find('st-summit')?.state).toEqual({ kind: 'cancelled', since: '2026-09-02T00:00:00Z' })
-    expect(find('st-oakline')?.near).toEqual({ percent: 100, limit: 'staff' })
-    expect(find('st-juniper')?.salesLastMonth).toEqual({ amount: 1842000, currency: 'USD' })
-    expect(find('st-maple')?.salesLastMonth?.currency).toBe('CAD')
+  it('reads a store that isn’t the partner’s as null', async () => {
+    answer.mockReturnValue({ data: { store: null } })
+    expect(await loadStore('elsewhere')).toBeNull()
+  })
+})
+
+describe('the store actions', () => {
+  it('sends each action as its mutation, the limit in the API’s key, and reads a refusal by code', async () => {
+    answer.mockReturnValueOnce({ data: { addLimitOverride: { ok: true, reason: null } } })
+    expect(await runStoreAction('s1', { action: 'addOverride', limit: 'ai', amount: 50, duration: 'month', reason: 'Launch' })).toEqual({ ok: true })
+    expect(answer.mock.calls[0]?.[0]).toMatchObject({ variables: { id: 's1', limit: 'ai_prompts', amount: 50, duration: 'month', reason: 'Launch' } })
+    answer.mockReturnValueOnce({ data: { changeStorePlan: { ok: false, reason: 'NO_BILLING_DATE' } } })
+    expect(await runStoreAction('s1', { action: 'changePlan', planId: 'p2', when: 'next', reason: 'Upgrade' })).toEqual({ ok: false, reason: 'NO_BILLING_DATE' })
   })
 
-  it('lets only Owners and Admins create a store, and says who can', () => {
-    expect(server().list({}, {}, 'partner-owner').actions.create).toEqual({ allowed: true })
-    expect(server().list({}, {}, 'partner-admin').actions.create).toEqual({ allowed: true })
-    for (const role of ['partner-support', 'partner-finance', 'partner-read-only'] as const) {
-      expect(server().list({}, {}, role).actions.create).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-    }
-    expect(server().form('partner-owner', 'draft').permission).toEqual({ allowed: false, reason: 'PARTNER_NOT_LIVE' })
+  it('reads the plan options with each proration as Money', async () => {
+    answer.mockReturnValue({ data: { changePlanOptions: { ok: true, reason: null, nextBillingAt: null, plans: [{ id: 'p2', name: 'Growth', amount: 4900, currency: 'USD', proration: { kind: 'credit', amount: 1700, currency: 'USD' } }] } } })
+    expect(await loadChangePlanOptions('s1')).toEqual({ plans: [{ id: 'p2', name: 'Growth', price: { amount: 4900, currency: 'USD' } }], nextBillingAt: null, proration: { p2: { kind: 'credit', amount: { amount: 1700, currency: 'USD' } } } })
+  })
+
+  it('sets the billing status in the API’s word for past due', async () => {
+    answer.mockReturnValue({ data: { setStoreBillingStatus: { ok: false, reason: 'NOT_SELF_BILLING' } } })
+    expect(await setStoreBillingStatus('s1', 'pastdue')).toEqual({ ok: false, reason: 'NOT_SELF_BILLING' })
+    expect(answer.mock.calls[0]?.[0].variables).toEqual({ id: 's1', status: 'past_due' })
   })
 })
 
 describe('creating a store', () => {
-  beforeEach(() => vi.useFakeTimers({ now: Date.parse('2026-10-02T10:00:00Z') }))
-  afterEach(() => vi.useRealTimers())
-
-  const input = createStoreInput.parse({ name: 'Cascade Coffee', ownerName: 'Rin Ota', ownerEmail: 'rin@cascade.coffee', country: 'Canada', planId: 'growth', trialDays: 14 })
-
-  it('refuses the roles that may not, and the partner that is not live', () => {
-    expect(server().create(input, 'partner-finance', 'live')).toEqual({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-    expect(server().create(input, 'partner-owner', 'awaiting')).toEqual({ ok: false, reason: 'PARTNER_NOT_LIVE' })
+  it('reads the form with each plan’s prices by currency and its own trial', async () => {
+    answer.mockReturnValue({ data: { createStoreForm: { permission: permission(true), countries: [{ code: 'US', name: 'United States', currency: 'USD' }], plans: [{ id: 'p1', name: 'Starter', prices: [{ amount: 2900, currency: 'USD' }], trialDays: 14 }], trials: [0, 7, 14, 30], billingMode: 'dripfunnel' } } })
+    expect((await loadCreateStoreForm()).plans[0]).toEqual({ id: 'p1', name: 'Starter', trialDays: 14, price: { USD: { amount: 2900, currency: 'USD' } } })
   })
 
-  it('adds the store on trial, newest first, and walks the signup steps to done', () => {
-    const s = createStoresServer(sampleStores, { now: () => Date.now() })
-    const result = s.create(input, 'partner-admin', 'live')
-    if (!result.ok) throw new Error(result.reason)
-    const row = s.list({}, {}, 'partner-admin').items[0]
-    expect(row).toMatchObject({ id: result.storeId, name: 'Cascade Coffee', storefront: 'building', state: { kind: 'trial', daysLeft: 14 }, createdAt: '2026-09-29T00:00:00Z' })
-    expect(row?.domain.host).toBe('cascade-coffee.shops.northstar.com')
-    expect(s.progress(result.storeId).steps.map((step) => step.state)).toEqual(['running', 'waiting', 'waiting', 'waiting', 'waiting'])
-    vi.advanceTimersByTime(1900)
-    expect(s.progress(result.storeId).steps.map((step) => step.state)).toEqual(['done', 'done', 'running', 'waiting', 'waiting'])
-    vi.advanceTimersByTime(2000)
-    const finished = s.progress(result.storeId)
-    expect(finished.done).toBe(true)
-    expect(finished.steps.every((step) => step.state === 'done')).toBe(true)
-    expect(s.list({ q: 'cascade' }, {}, 'partner-admin').items[0]?.storefront).toBe('live')
-  })
-
-  it('rejects input the form would never send', () => {
-    expect(createStoreInput.safeParse({ ...input, ownerEmail: 'not-an-email' }).success).toBe(false)
-    expect(createStoreInput.safeParse({ ...input, trialDays: 3.5 }).success).toBe(false)
-    expect(() => server().create({ ...input, trialDays: 21 }, 'partner-owner', 'live')).toThrow()
+  it('creates, and reads a refusal by its code', async () => {
+    answer.mockReturnValueOnce({ data: { createStore: { ok: true, storeId: 's9', reason: null, field: null } } })
+    expect(await createStore({ name: 'Nimbus', ownerName: 'Ann', ownerEmail: 'ann@x.example', country: 'US', planId: 'p1', trialDays: 14 })).toEqual({ ok: true, storeId: 's9' })
+    answer.mockReturnValueOnce({ data: { createStore: { ok: false, storeId: null, reason: 'STORE_LIMIT_REACHED', field: null } } })
+    expect(await createStore({ name: 'Nimbus', ownerName: 'Ann', ownerEmail: 'ann@x.example', country: 'US', planId: 'p1', trialDays: 14 })).toEqual({ ok: false, reason: 'STORE_LIMIT_REACHED' })
   })
 })
 
-describe('the store actions, as the Platform API would run them', () => {
-  const fresh = () => createStoresServer(sampleStores)
-
-  it('refuses by role with the §6.4 code and changes nothing', () => {
-    const s = fresh()
-    expect(s.run('st-harbor', { action: 'suspend', reason: 'Fraud' }, 'partner-finance')).toEqual({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
-    expect(s.get('st-harbor', 'partner-owner')?.state.kind).toBe('trial')
-    expect(() => s.run('st-summit', { action: 'suspend', reason: 'x' }, 'partner-owner')).toThrow()
-  })
-
-  it('suspends with the reason and restores to the state before', () => {
-    const s = fresh()
-    expect(s.run('st-tidewater', { action: 'suspend', reason: 'Chargebacks' }, 'partner-admin')).toEqual({ ok: true })
-    const suspended = s.get('st-tidewater', 'partner-admin')
-    expect(suspended?.state).toEqual({ kind: 'suspended', reason: 'Chargebacks' })
-    expect(suspended?.notice?.text).toContain('Suspended on Sep 29, 2026: Chargebacks')
-    expect(Object.keys(suspended?.actions ?? {})).toContain('restore')
-    expect(s.run('st-tidewater', { action: 'restore', reason: 'Paid up' }, 'partner-admin')).toEqual({ ok: true })
-    expect(s.get('st-tidewater', 'partner-admin')?.state.kind).toBe('pastdue')
-  })
-
-  it('extends a trial, changes a plan with the API’s proration, adds an override and retries a stuck step', () => {
-    const s = fresh()
-    expect(s.run('st-harbor', { action: 'extendTrial', days: 7, reason: 'Asked nicely' }, 'partner-finance')).toEqual({ ok: true })
-    expect(s.get('st-harbor', 'partner-owner')?.state).toMatchObject({ kind: 'trial', trialEndsAt: '2026-10-08T00:00:00Z', daysLeft: 9 })
-    const options = s.changePlanOptions('st-harbor')
-    expect(options.plans.map((plan) => plan.id)).toEqual(['starter', 'pro'])
-    expect(options.proration.pro).toEqual({ kind: 'charge', amount: { amount: 333, currency: 'USD' } })
-    expect(options.proration.starter).toEqual({ kind: 'credit' })
-    expect(s.run('st-harbor', { action: 'changePlan', planId: 'pro', when: 'now', reason: 'Growing' }, 'partner-owner')).toEqual({ ok: true })
-    const changed = s.get('st-harbor', 'partner-owner')
-    expect(changed?.plan.name).toBe('Pro')
-    expect(changed?.history[0]?.text).toBe('Growth → Pro')
-    expect(s.run('st-harbor', { action: 'addOverride', limit: 'publish', amount: 10, duration: 'month', reason: 'Launch week' }, 'partner-owner')).toEqual({ ok: true })
-    const withOverride = s.get('st-harbor', 'partner-owner')
-    expect(withOverride?.overrides[0]).toMatchObject({ what: '+10 “Publish now” presses this month', reason: 'Launch week', by: 'Maya Ortiz' })
-    expect(withOverride?.usage.find((usage) => usage.limit === 'publish')?.cap).toBe(160)
-    expect(s.run('st-fieldnote', { action: 'retryStep' }, 'partner-owner')).toEqual({ ok: true })
-    expect(s.get('st-fieldnote', 'partner-owner')?.storefront).toBe('live')
-    expect(s.get('st-fieldnote', 'partner-owner')?.actions.retryStep).toBeUndefined()
+describe('Extend trial’s choices', () => {
+  it('counts 3, 7 and 14 days from the trial’s end, or from now once that has passed', async () => {
+    vi.useFakeTimers({ now: Date.parse('2026-10-04T00:00:00Z') })
+    const lapsed = { row: { ...row, state: state('trial', { trialEndsAt: '2026-10-01T00:00:00.000Z', daysLeft: 0 }) } }
+    answer.mockImplementation(({ query }) => (query.includes('provisioning(') ? { data: { provisioning: null } } : { data: { store: { ...storeDetail, ...lapsed } } }))
+    expect((await loadStore('s1'))?.trialExtensions).toEqual([3, 7, 14].map((days) => ({ days, endsAt: new Date(Date.parse('2026-10-04T00:00:00Z') + days * 86_400_000).toISOString() })))
   })
 })
 
-describe('the store accounts export and the billing status', () => {
-  it('runs the export as a job, with the account columns only, and expires the link', () => {
-    const waits: (() => void)[] = []
-    let clock = Date.parse('2026-09-29T17:42:00Z')
-    let written = ''
-    const s = createStoresServer(sampleStores, { now: () => clock, wait: (_ms, then) => void waits.push(then), link: (text) => ((written = text), 'blob:stores') })
-    const job = s.startExport({ status: 'trial' })
-    expect(job.state).toBe('preparing')
-    expect(s.exportJob(job.id)?.state).toBe('preparing')
-    waits.forEach((then) => then())
-    const ready = s.exportJob(job.id)
-    expect(ready).toMatchObject({ state: 'ready', url: 'blob:stores' })
-    const [header, ...lines] = written.split('\r\n')
-    expect(header).toBe(Object.values(messages.stores.export.columns).join(','))
-    expect(header?.toLowerCase()).not.toMatch(/order|customer|product/)
-    expect(lines.length).toBeGreaterThan(0)
-    expect(lines.length).toBe(ready?.entries)
-    expect(lines.some((line) => line.startsWith('Harbor Coffee Co.,harbor-coffee,Jenna Park,jenna@harborcoffee.co,Growth,Trial,"$1,240.00",USD,Live,'))).toBe(true)
-    clock += 61 * 60_000
-    expect(s.exportJob(job.id)).toMatchObject({ state: 'expired', url: null })
-    expect(s.exportJob('nope')).toBeNull()
-  })
-
-  it('carries a billing status per store only in own-billing mode, set by Finance and refused for Support', () => {
-    const s = createStoresServer(sampleStores)
-    expect(s.list({}, {}, 'partner-owner').items.every((row) => row.billingStatus === null)).toBe(true)
-    expect(s.list({}, {}, 'partner-owner').actions.billingStatus).toBeUndefined()
-    const own = s.list({ q: 'tidewater' }, {}, 'partner-finance', 'own')
-    expect(own.billingMode).toBe('own')
-    expect(own.items[0]?.billingStatus).toBe('pastdue')
-    expect(own.actions.billingStatus).toEqual({ allowed: true })
-    expect(s.list({ q: 'summit' }, {}, 'partner-finance', 'own').items[0]?.billingStatus).toBeNull()
-    expect(s.setBillingStatus('st-tidewater', 'active', 'partner-finance')).toEqual({ ok: true })
-    expect(s.list({ q: 'tidewater' }, {}, 'partner-finance', 'own').items[0]?.billingStatus).toBe('active')
-    expect(s.get('st-tidewater', 'partner-finance')?.state.kind).toBe('active')
-    expect(s.setBillingStatus('st-tidewater', 'suspended', 'partner-support')).toEqual({ ok: false, reason: 'FINANCE_TRIAL_ONLY' })
+describe('the store accounts export', () => {
+  it('starts, maps the API’s job states, and makes one link per ready job, revoked when it expires', async () => {
+    vi.useFakeTimers({ now: Date.parse('2026-10-04T10:00:00Z') })
+    const revoked: string[] = []
+    vi.stubGlobal('URL', Object.assign(Object.create(URL) as typeof URL, { createObjectURL: () => 'blob:stores', revokeObjectURL: (url: string) => revoked.push(url) }))
+    answer.mockReturnValueOnce({ data: { exportStores: { ok: true, jobId: 'x1', reason: null } } })
+    expect(await startStoresExport({ status: 'trial' })).toMatchObject({ id: 'x1', state: 'preparing' })
+    answer.mockReturnValueOnce({ data: { storesExport: { id: 'x1', state: 'queued', rows: null, csv: null, expiresAt: null } } })
+    expect((await loadStoresExport('x1'))?.state).toBe('preparing')
+    answer.mockReturnValueOnce({ data: { storesExport: { id: 'x1', state: 'done', rows: 86, csv: 'a,b', expiresAt: '2026-10-04T11:00:00.000Z' } } })
+    expect(await loadStoresExport('x1')).toMatchObject({ state: 'ready', entries: 86, url: 'blob:stores' })
+    vi.advanceTimersByTime(60 * 60_000)
+    expect(revoked).toEqual(['blob:stores'])
+    answer.mockReturnValueOnce({ data: { storesExport: { id: 'x1', state: 'too_large', rows: null, csv: null, expiresAt: null } } })
+    expect((await loadStoresExport('x1'))?.state).toBe('tooLarge')
   })
 })

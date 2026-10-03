@@ -4,11 +4,11 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Me } from '../../api/me'
 import { storeActions, storeTabs, type Store, type StoreAction, type StoreTab } from '../../api/stores'
-import { createStoresServer, sampleStores } from '../../api/storesSample'
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { StoreDetail } from './StoreDetail'
 import { storeDialog } from './storeDialog'
+import { harborPlanOptions, storeAs } from './storesTestData'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 const hrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map((match) => (match[1] ?? '').replace(/&amp;/g, '&'))
@@ -18,14 +18,9 @@ const render = async (element: ReactNode, path = '/stores/st-juniper') => {
   return renderToString(<RouterProvider router={router} />)
 }
 const owner: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', role: 'partner-owner', partner: { id: 'p-1', name: 'Northstar Commerce', product: 'Northstar Shops', host: 'store.northstar.com', state: 'live' } }
-const server = createStoresServer(sampleStores)
 const noop = () => undefined
 const words = messages.store
-const get = (id: string, role: PartnerRole = 'partner-owner') => {
-  const store = server.get(id, role)
-  if (!store) throw new Error(id)
-  return store
-}
+const get = (id: string, role: PartnerRole = 'partner-owner') => storeAs(id, role)
 const detail = (store: Store, tab: StoreTab = 'overview', role: PartnerRole = 'partner-owner') =>
   render(<StoreDetail me={{ ...owner, role }} store={store} tab={tab} forced={null} onAction={noop} onRecheck={() => Promise.resolve()} onReload={noop} />)
 
@@ -48,9 +43,9 @@ describe('the partner Store detail', () => {
 
   it('states a suspended and a past-due store in the API’s words', async () => {
     const suspended = textOf(await detail(get('st-redline')))
-    expect(suspended).toContain('Suspended on Sep 24, 2026: Chargebacks on 3 orders ($2,840).')
+    expect(suspended).toContain('Suspended: Chargebacks on 3 orders ($2,840).')
     const pastDue = textOf(await detail(get('st-tidewater')))
-    expect(pastDue).toContain('Past due for 9 days. Marco’s team can’t make changes, but the shop is still selling. We retry the card on Sep 30, 2026.')
+    expect(pastDue).toContain('Past due for 9 days. Marco’s team can’t make changes, but the shop is still selling.')
   })
 
   it('shows each tab’s contents from the fixture', async () => {
@@ -87,8 +82,17 @@ describe('the partner Store detail', () => {
     expect(sessions).toContain('Priya Nair as Anjali Nair')
     expect(sessions).toContain(words.support.how.ended)
     const activity = textOf(await detail(get('st-juniper'), 'activity'))
-    expect(activity).toContain('Growth → Pro')
+    // The API sends the action's code; the tab words it, and shows an unknown one as its code.
+    expect(activity).toContain(words.activity.actions['store.plan_changed'])
     expect(activity).toContain(words.activity.results.success)
+    const unknown = textOf(await detail({ ...get('st-juniper'), activity: [{ id: 'a9', at: '2026-09-01T00:00:00Z', who: 'Maya', action: 'store.something_new', result: 'success' }] }, 'activity'))
+    expect(unknown).toContain('store.something_new')
+  })
+
+  it('words the API’s role keys and country code', async () => {
+    const store = { ...get('st-maple'), country: 'CA', support: { ...get('st-maple').support, people: [{ id: 'u9', name: 'Ana', email: 'ana@x.example', role: 'supplier-admin', supplier: 'Loomcraft', status: 'active' as const, lastSignInAt: null }] } }
+    expect(textOf(await detail(store, 'support'))).toContain('Supplier admin · Loomcraft')
+    expect(textOf(await detail(store, 'overview'))).toContain('Canada')
   })
 
   it('offers each action as the fixture allows it per role, disabled with the reason otherwise', async () => {
@@ -118,7 +122,7 @@ describe('the partner Store detail', () => {
 
   it('states each action’s consequence before the confirm, names the target, and makes Suspend type the store name', () => {
     const store = get('st-harbor')
-    const options = server.changePlanOptions(store.id)
+    const options = harborPlanOptions
     const consequenceOf = (action: StoreAction, picks: Record<string, string> = {}, value = '') => {
       const dialog = storeDialog(action, store, options)
       return typeof dialog.consequence === 'function' ? dialog.consequence(value, picks) : dialog.consequence

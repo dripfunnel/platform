@@ -3,7 +3,7 @@
 import { dashboardNotice, EmptyState, ErrorState, StaleNotice, type DashboardState } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/cards.css'
 import { Link } from '@tanstack/react-router'
-import { freshDashboard, type DashboardData, type DashboardRange } from '../../api/dashboard'
+import { asFresh, type DashboardData, type DashboardRange } from '../../api/dashboard'
 import type { Me } from '../../api/me'
 import { fill, formatTime, messages } from '../../messages'
 import { AttentionCard } from './AttentionCard'
@@ -29,7 +29,7 @@ export interface DashboardProps {
 
 export const Dashboard = ({ me, data: loaded, forced, onRangeChange, onReload }: DashboardProps) => {
   // ?state=empty shows the brand-new partner exactly as the API would describe one.
-  const data = forced === 'empty' ? freshDashboard(loaded.range) : loaded
+  const data = forced === 'empty' ? asFresh(loaded) : loaded
   if (forced === 'loading') return <DashboardLoading product={me.partner.product} />
   const lede = fill(words.lede, { product: me.partner.product })
   if (forced === 'error') {

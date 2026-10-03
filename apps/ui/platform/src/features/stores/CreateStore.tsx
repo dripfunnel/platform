@@ -4,11 +4,12 @@ import '@dripfunnel/shared/ui/list.css'
 import { Link } from '@tanstack/react-router'
 import { useId, useState, type FormEvent } from 'react'
 import type { Me } from '../../api/me'
-import { createStoreInput, type CreateStoreForm, type CreateStoreInput, type CreateStoreResult, type ProvisioningProgress } from '../../api/stores'
+import { createStoreInput, type CreateRefusal, type CreateStoreForm, type CreateStoreInput, type CreateStoreResult, type ProvisioningProgress } from '../../api/stores'
 import { fill, formatAmount, formatCount, messages } from '../../messages'
 import { ProvisioningPanel } from './ProvisioningPanel'
 import type { CreateState } from './storeHarness'
 import './stores.css'
+import { chargedByOf } from './storeLook'
 
 const words = messages.stores.new
 
@@ -61,18 +62,29 @@ const useProvisioning = (storeId: string | null, progressOf: CreateStoreProps['p
   return value?.storeId === storeId ? value.progress : null
 }
 
+// The plan's own trial when the form offers that length, else the form's first (§6.2, §7.2).
+const trialFor = (form: CreateStoreForm, planId: string): string => {
+  const own = form.plans.find((plan) => plan.id === planId)?.trialDays
+  return String(own !== undefined && form.trials.includes(own) ? own : (form.trials[0] ?? 0))
+}
+
+// The refusals about the input itself; the others are the permission's (FIRST-RELEASE §6.2).
+const formRefusals: readonly CreateRefusal[] = ['INVALID_INPUT', 'UNPRICED_CURRENCY', 'PLAN_NOT_LIVE']
+
 export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateStoreProps) => {
   const ids = { name: useId(), owner: useId(), email: useId(), country: useId(), plan: useId(), trial: useId(), error: useId() }
   const initial: Fields = {
     name: '',
     ownerName: '',
     ownerEmail: '',
-    country: form.countries[0]?.name ?? '',
+    country: form.countries[0]?.code ?? '',
     planId: form.plans[0]?.id ?? '',
-    trialDays: String(form.defaultTrial),
+    trialDays: trialFor(form, form.plans[0]?.id ?? ''),
   }
   const [fields, setFields] = useState(initial)
   const [invalid, setInvalid] = useState(false)
+  // A refusal about what was typed or picked: worded by the form, which stays usable.
+  const [formRefusal, setFormRefusal] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [refused, setRefused] = useState<Exclude<CreateStoreResult, { ok: true }> | null>(null)
   const [busy, setBusy] = useState(false)
@@ -84,12 +96,15 @@ export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateSt
   if (forced === 'loading') return <CreateStoreLoading host={host} />
   if (forced === 'error') return <CreateStoreError host={host} onRetry={() => undefined} />
 
-  const set = (patch: Partial<Fields>) => setFields((current) => ({ ...current, ...patch }))
+  const set = (patch: Partial<Fields>) => {
+    setFormRefusal(null)
+    setFields((current) => ({ ...current, ...patch }))
+  }
   const plan = form.plans.find((candidate) => candidate.id === fields.planId)
-  const currency = form.countries.find((candidate) => candidate.name === fields.country)?.currency
+  const currency = form.countries.find((candidate) => candidate.code === fields.country)?.currency
   const price = plan && currency ? plan.price[currency] : undefined
   const priceLine = price
-    ? fill(words.price, { price: formatAmount(price), who: form.chargedBy }) + (fields.trialDays === '0' ? words.fromToday : fill(words.afterTrial, { days: fields.trialDays }))
+    ? fill(words.price, { price: formatAmount(price), who: chargedByOf(form.billingMode, me.partner.name) }) + (fields.trialDays === '0' ? words.fromToday : fill(words.afterTrial, { days: fields.trialDays }))
     : null
   const permission = refused ? { allowed: false as const, reason: refused.reason } : form.permission
 
@@ -104,6 +119,7 @@ export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateSt
       (result) => {
         setBusy(false)
         if (result.ok) setCreated({ storeId: result.storeId, name: parsed.data.name, owner: parsed.data.ownerName })
+        else if (formRefusals.includes(result.reason)) setFormRefusal(messages.stores.refused[result.reason])
         else setRefused(result)
       },
       () => {
@@ -132,10 +148,10 @@ export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateSt
           }}
         />
       ) : (
-        <form className="df-create-form" onSubmit={submit} noValidate aria-describedby={invalid || failed ? ids.error : undefined}>
-          {(invalid || failed) && (
+        <form className="df-create-form" onSubmit={submit} noValidate aria-describedby={invalid || failed || formRefusal ? ids.error : undefined}>
+          {(invalid || failed || formRefusal) && (
             <p id={ids.error} role="alert" className="df-create-error">
-              {invalid ? words.invalid : words.failed}
+              {formRefusal ?? (invalid ? words.invalid : words.failed)}
             </p>
           )}
           <div className="df-field">
@@ -157,7 +173,7 @@ export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateSt
               <label htmlFor={ids.country}>{words.fields.country}</label>
               <select id={ids.country} value={fields.country} onChange={(event) => set({ country: event.target.value })}>
                 {form.countries.map((country) => (
-                  <option key={country.name} value={country.name}>
+                  <option key={country.code} value={country.code}>
                     {country.name}
                   </option>
                 ))}
@@ -165,7 +181,7 @@ export const CreateStore = ({ me, form, forced, onCreate, progressOf }: CreateSt
             </div>
             <div className="df-field">
               <label htmlFor={ids.plan}>{words.fields.plan}</label>
-              <select id={ids.plan} value={fields.planId} onChange={(event) => set({ planId: event.target.value })}>
+              <select id={ids.plan} value={fields.planId} onChange={(event) => set({ planId: event.target.value, trialDays: trialFor(form, event.target.value) })}>
                 {form.plans.map((option) => {
                   const optionPrice = currency ? option.price[currency] : undefined
                   return (

@@ -1,6 +1,7 @@
 import { InfoNote } from '@dripfunnel/shared/ui'
 import type { Store } from '../../../api/stores'
-import { fill, formatAmount, formatCount, formatDate, messages } from '../../../messages'
+import { fill, formatAmount, formatCount, formatCountry, formatDate, messages } from '../../../messages'
+import { chargedByOf, planNameOf, roleOf } from '../storeLook'
 
 const words = messages.store.overview
 
@@ -8,9 +9,9 @@ const words = messages.store.overview
 export const OverviewTab = ({ store }: { store: Store }) => {
   const facts: readonly [string, string][] = [
     [words.owner, `${store.owner.name} · ${store.owner.email}`],
-    [words.country, store.country],
+    [words.country, formatCountry(store.country)],
     [words.created, formatDate(store.createdAt)],
-    [words.plan, fill(words.planLine, { plan: store.plan.name, price: formatAmount(store.planPrice), who: store.billing.chargedBy })],
+    [words.plan, store.planPrice ? fill(words.planLine, { plan: planNameOf(store.plan), price: formatAmount(store.planPrice), who: chargedByOf(store.billing.mode, store.billing.partnerName) }) : planNameOf(store.plan)],
     [words.people, fill(words.peopleLine, { count: formatCount(store.people.count), suppliers: formatCount(store.people.suppliers) })],
     [words.sales, store.salesLastMonth && store.ordersLastMonth !== null ? fill(words.salesLine, { sales: formatAmount(store.salesLastMonth), orders: formatCount(store.ordersLastMonth) }) : words.noSales],
   ]
@@ -32,7 +33,7 @@ export const OverviewTab = ({ store }: { store: Store }) => {
               <li key={contact.email}>
                 <strong>{contact.name}</strong>
                 <span className="df-muted">{contact.email}</span>
-                <span>{contact.role}</span>
+                <span>{roleOf(contact.role)}</span>
               </li>
             ))}
           </ul>

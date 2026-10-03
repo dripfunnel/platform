@@ -1,6 +1,7 @@
 import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
 import type { Store, StorePerson, StoreSession } from '../../../api/stores'
 import { fill, formatTime, messages } from '../../../messages'
+import { roleOf } from '../storeLook'
 
 const words = messages.store.support
 
@@ -36,7 +37,7 @@ export const SupportTab = ({ store, partner }: { store: Store; partner: string }
                 <strong>{person.name}</strong>
                 <span className="df-muted">{person.email}</span>
               </span>
-              <span>{person.role}</span>
+              <span>{roleOf(person.role, person.supplier)}</span>
               <StatusPill {...personLook[person.status]} label={words.statuses[person.status]} />
               <span className="df-muted">{person.lastSignInAt ? fill(words.lastSignIn, { time: formatTime(person.lastSignInAt) }) : words.neverSignedIn}</span>
             </li>

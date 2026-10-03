@@ -1,7 +1,7 @@
 import { parseScreenState } from '@dripfunnel/shared/ui'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { dashboardRanges, dashboardVariants, loadDashboard } from '../../api/dashboard'
+import { asVariant, dashboardRanges, dashboardVariants, loadDashboard } from '../../api/dashboard'
 import { loadOnboarding } from '../../api/onboarding'
 import { isPreLive } from '../../api/me'
 import { DashboardPending, DashboardRouteError } from '../../features/dashboard/DashboardRouteError'
@@ -16,7 +16,7 @@ export const Route = createFileRoute('/_app/dashboard')({
   loader: async ({ context, deps }) =>
     isPreLive(context.me.partner.state)
       ? { dashboard: null, onboarding: await loadOnboarding() }
-      : { dashboard: await loadDashboard(parseScreenState(deps.range, dashboardRanges) ?? 'month', context.me.role, (harnessEnabled && parseScreenState(deps.view, dashboardVariants)) || 'northstar'), onboarding: null },
+      : { dashboard: asVariant(await loadDashboard(parseScreenState(deps.range, dashboardRanges) ?? 'month'), harnessEnabled ? parseScreenState(deps.view, dashboardVariants) : null), onboarding: null },
   pendingComponent: DashboardPending,
   errorComponent: DashboardRouteError,
   component: HomeScreen,

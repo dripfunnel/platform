@@ -12,7 +12,7 @@ export const CreateStoreScreen = () => {
   const form = createRoute.useLoaderData()
   const { me } = shellRoute.useLoaderData()
   const forced = useScreenState(createStates, harnessEnabled)
-  return <CreateStore me={me} form={form} forced={forced} onCreate={(input) => createStore(input, me.role, me.partner.state)} progressOf={loadProvisioning} />
+  return <CreateStore me={me} form={form} forced={forced} onCreate={createStore} progressOf={loadProvisioning} />
 }
 
 export const CreateStorePending = () => {

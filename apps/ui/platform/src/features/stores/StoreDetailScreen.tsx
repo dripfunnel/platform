@@ -38,7 +38,7 @@ export const StoreDetailScreen = () => {
     const { options } = pending
     setPending(null)
     if (!input) return
-    runStoreAction(store.id, input, me.role)
+    runStoreAction(store.id, input)
       .then((result) => {
         if (!result.ok) return setToast(fill(messages.store.toasts.refused, { reason: fill(messages.store.refused[result.reason], { verb: messages.store.verbs[input.action], name: store.name }) }))
         setToast(storeToast(input, store, options))
@@ -50,7 +50,10 @@ export const StoreDetailScreen = () => {
   const onRecheck = () =>
     store
       ? recheckStoreDomain(store.id)
-          .then((status) => setToast(fill(messages.store.domains.rechecked[status], { host: store.domain.host })))
+          .then(async () => {
+            setToast(fill(messages.store.domains.recheckAsked, { host: store.domain?.host ?? store.code }))
+            await router.invalidate()
+          })
           .catch(failed)
       : Promise.resolve()
 

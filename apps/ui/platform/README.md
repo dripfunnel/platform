@@ -11,8 +11,10 @@ pnpm --filter ./apps/ui/platform dev   # http://localhost:5174, /api proxied to 
 
 **Wired to the Platform API**: sign-in, 2-factor, accepting an invitation, sign-out, `me` and the
 session guard, the partner-state banners, the nav badges, the header search and the setup
-checklist with Submit (#164); Plans and Branding, with brand-file uploads (#165). **Still on
-fixtures**, until #166: the Dashboard's numbers, Stores, Store detail and Create store. Domains, Reports, Billing, Support,
+checklist with Submit (#164); Plans and Branding, with brand-file uploads (#165); the Dashboard,
+Stores, Store detail with its actions, Create store and the export (#166). **No screen reads a
+fixture any more.** The one sample left is the staff-session handoff (`src/api/staffSession.ts`),
+whose exchange arrives with #243. Domains, Reports, Billing, Support,
 Activity log and Settings are placeholders. Against the local seed, `pnpm seed` prints an
 invitation link to accept (set a password there, then sign in), and
 `pnpm --filter ./apps/api session --partner <email>` prints a session cookie for any active
@@ -72,10 +74,10 @@ Once the partner is Live, `/dashboard` (`src/features/dashboard/`, #114; FIRST-R
 draws six cards: Stores, Revenue, Needs attention, Signups, Usage and Top stores by sales. Every
 number is a link to the Stores list with the filter in the URL (`?status=`, `?created=`,
 `?near=yes`), to a store's page and its tab (`/stores/<id>?tab=`), to Billing or to Reports. The date range lives in `?range=` (`month`,
-`last`, `q`) and applies to every card. The fixture in `src/api/dashboard.ts` supplies every
-comparison and conversion as words; the screen formats and links and computes nothing. States:
-`?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` is a brand-new Live partner
-and `?view=stale` numbers the API marks as old.
+`last`, `q`) and applies to every card. `dashboard(range)` supplies every comparison and
+conversion as words; the screen formats and links and computes nothing. States:
+`?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` (a brand-new Live partner's
+zeros) and `?view=stale` (the answer marked old) transform the real answer.
 
 ## Stores
 
@@ -91,15 +93,17 @@ carries no cursor, no page number and no total. Rows open the store's page. A pa
 checklist. States: `?state=loading`, `empty`, `error`, `readonly`, `denied`.
 
 `/stores/new` (FIRST-RELEASE.md §6.2) creates a merchant: store name, owner's name and email,
-country, plan (Live plans priced in the country's currency, from the fixture until #117's plans)
-and trial, with the price line and "The owner gets an invitation to set their own password."
+country, plan (Live plans priced in the country's currency, from `createStoreForm`) and trial
+(starting from the plan's own), with the price line and "The owner gets an invitation to set their own password."
 Submitting shows **Setting up {store}** with the signup job's steps (SAAS.md §5) polled every
 half second, then "Ready in …" with Open the store and Create another. Whether the caller may
 create is the API's answer: Owner and Admin may; Finance, Support and Read-only see the button
 disabled with the reason, and so does a partner that is not Live. The list primitives
 (`ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`, `list.css`), the URL-search
 helpers and cursor paging come from `@dripfunnel/shared`. `src/api/stores.ts` is the only
-place this app talks to the API about stores, on the fixture in `storesSample.ts`.
+place this app talks to the API about stores. It reads the API's keys (`ai_prompts`, `past_due`,
+`month`) as the console's, and leaves empty what the API doesn't send yet: last month's sales
+and orders, invoices, the status history and support sessions.
 
 **Export accounts (CSV)** (#134) is a job (§16): the header button starts `exportStores(filter)`
 for everything the current filter matches, the shared `ExportWatcher` in the shell follows it on
@@ -107,11 +111,10 @@ any screen and says when it is ready, and the status line under the button offer
 until the link expires. The file carries the account columns only; "Orders, customers and
 products are never included." Every role may export (ACCESS.md §5.3 `exports`).
 
-**Billing status** (#134; §6.1, §11.4) appears as a column only when the partner bills its
-merchants itself (`?billing=own` asks the fixture for that mode until the Billing card carries
-the setting): Active · Past due · Suspended, set inline by Owner, Admin and Finance; the other
-roles see it disabled with the reason once above the table. The fixture records the status as
-the store's account state, and a cancelled store has none.
+**Billing status** (#134; §6.1, §11.4) appears as a column only when the API says the partner
+bills its merchants itself (`billingMode: own`): Active · Past due · Suspended, set inline by
+Owner, Admin and Finance; the other roles see it disabled with the reason once above the table.
+A cancelled store has none.
 
 ## Store detail
 
@@ -123,14 +126,15 @@ and limits (a bar per limit from the API's percent, overrides with their reason)
 subscription as the API states it, who charges, invoices; a card is its last four digits only),
 Storefront (read-only), Domains (status, the CNAME record with Copy, Re-check now), Setup (the
 five signup steps), Support (the merchant's consent, its people and past sessions, read-only:
-sessions start from Support) and Activity (this account's entries from the fixture until the
-Activity log card). A suspended or past-due store carries the API's notice under the tabs.
+sessions start from Support) and Activity (the API's action codes, worded here; an unknown one
+shows as its code). A suspended or past-due store carries a notice under the tabs, worded here
+from the API's state.
 
 **Actions** go through the shared `ConfirmDialog`, each stating its consequence first: Change
 plan (the plan and when, from the API's plans and proration), Extend trial, Add a limit
 override, Suspend (reason shown to the owner, the store name typed), Restore (reason), Resend
 owner invitation, and Retry this step on the Setup tab. Which actions a store's state offers,
-and who may take them, is the fixture's answer (`store(id).actions`, codes from §6.4): Owner and
+and who may take them, is the API's answer (`store(id).actions`, codes from §6.4): Owner and
 Admin take them all, Finance only Extend trial, Support and Read-only none; a refused action
 stays in place, disabled with the reason and who can. States: `?state=loading`, `error`,
 `readonly`, `denied`, `confirm` (opens the first dialog the caller may use).
@@ -159,8 +163,7 @@ Support and Read-only view, each from the API's `create`, `edit` and `price` blo
 refusals, sign in as that role (`pnpm --filter ./apps/api session --partner <email>`).
 
 Not here: **Compare plans** and **Defaults for new stores** (§7.4, §7.5, the next batch) and
-promotions (SAAS §14). The Create store form's plan picker still reads the Stores fixture's copy of
-the catalogue until #166 wires `createStoreForm`.
+promotions (SAAS §14).
 
 ## Branding
 

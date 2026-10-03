@@ -28,7 +28,7 @@ export const StoresScreen = () => {
   // The export job lives in the shell's store, so it keeps going and is announced after leaving this screen.
   const onExport = () => void startExport(startStoresExport(filter))
   const onBillingStatus = (store: StoreRow, status: BillingStatus) =>
-    setStoreBillingStatus(store.id, status, me.role)
+    setStoreBillingStatus(store.id, status)
       .then(async (result) => {
         if (!result.ok) return setToast(fill(messages.store.refused[result.reason], { verb: messages.store.verbs.billingStatus, name: store.name }))
         setToast(fill(messages.stores.billingStatus.set, { name: store.name, status: messages.stores.billingStatus.statuses[status] }))
@@ -44,7 +44,7 @@ export const StoresScreen = () => {
         forced={forced}
         onFilterChange={onFilterChange}
         onReload={() => void router.invalidate()}
-        loadMore={(after) => loadStores(filter, { after }, me.role, page.billingMode)}
+        loadMore={(after) => loadStores(filter, { after })}
         exportJob={job}
         onExport={onExport}
         onBillingStatus={onBillingStatus}

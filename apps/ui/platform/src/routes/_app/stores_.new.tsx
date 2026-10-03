@@ -6,7 +6,7 @@ import { CreateStorePending, CreateStoreRouteError, CreateStoreScreen } from '..
 // The form's options and whether this caller may create a store are the API's (FIRST-RELEASE.md §6.2).
 export const Route = createFileRoute('/_app/stores_/new')({
   validateSearch: z.looseObject({ state: z.string().optional(), partner: z.string().optional() }),
-  loader: ({ context }) => loadCreateStoreForm(context.me.role, context.me.partner.state),
+  loader: () => loadCreateStoreForm(),
   pendingComponent: CreateStorePending,
   errorComponent: CreateStoreRouteError,
   component: CreateStoreScreen,

@@ -8,7 +8,7 @@ import { StoreDetailScreen, StoreRouteError } from '../../features/stores/StoreD
 // `tab` is the page's own address for each section (§6.3); loose, so the harness keys stay.
 export const Route = createFileRoute('/_app/stores_/$storeId')({
   validateSearch: z.looseObject({ tab: optionalParam(z.enum(storeTabs)) }),
-  loader: ({ params, context }) => loadStore(params.storeId, context.me.role),
+  loader: ({ params }) => loadStore(params.storeId),
   pendingComponent: StoreLoading,
   errorComponent: StoreRouteError,
   component: StoreDetailScreen,

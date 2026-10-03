@@ -727,7 +727,10 @@
       "PARTNER_NOT_LIVE": "Stores can be created once {product} is live.",
       "PARTNER_PAUSED": "Paused by DripFunnel: no new stores for now.",
       "STORE_LIMIT_REACHED": "You’ve reached the store limit in your contract.",
-      "READ_ONLY": "The console is read-only, so no store can be created."
+      "READ_ONLY": "The console is read-only, so no store can be created.",
+      "PLAN_NOT_LIVE": "That plan isn’t live any more. Pick another.",
+      "UNPRICED_CURRENCY": "That plan has no price in the country’s currency yet. Pick another plan or country.",
+      "INVALID_INPUT": "Something in the form isn’t valid. Check the highlighted fields."
     },
     "new": {
       "title": "Create a store",
@@ -820,7 +823,9 @@
       "note": "You bill these merchants yourself; the status you set is what each store’s team sees.",
       "set": "{name}: billing status set to {status}.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment."
-    }
+    },
+    "noPlan": "No plan",
+    "chargedByDripFunnel": "DripFunnel for {partner}"
   },
   "store": {
     "level": "Store · {product}",
@@ -855,7 +860,17 @@
       "NOT_SUSPENDED": "{name} is not suspended.",
       "NOT_ON_TRIAL": "{name} is not on a trial.",
       "NO_PENDING_INVITATION": "The owner has already set a password.",
-      "READ_ONLY": "The console is read-only, so nothing here can change."
+      "READ_ONLY": "The console is read-only, so nothing here can change.",
+      "BILLING_ROLES_ONLY": "Your role can’t {verb}. Owners, Admins and Finance can.",
+      "NOT_STUCK": "Nothing is stuck: the setup is running or finished.",
+      "NO_BILLING_DATE": "{name} has no billing date yet, so the change can’t wait for one. Move it now instead.",
+      "SAME_PLAN": "{name} is already on that plan.",
+      "PLAN_NOT_LIVE": "That plan isn’t live, so no store can move to it.",
+      "UNPRICED_CURRENCY": "That plan has no price in {name}’s currency yet.",
+      "NOT_SELF_BILLING": "DripFunnel bills your merchants, so it sets their billing status.",
+      "CANCELLED": "{name} is cancelled, so nothing here can change.",
+      "NOT_FOUND": "{name} is no longer one of your stores. Reload the list.",
+      "INVALID_INPUT": "Something in the form isn’t valid. Check it and try again."
     },
     "verbs": {
       "changePlan": "change a store’s plan",
@@ -916,7 +931,9 @@
         "suppliers": "Suppliers",
         "ai": "AI design prompts",
         "publish": "“Publish now” presses"
-      }
+      },
+      "overrideMonth": "+{amount} {limit} this month",
+      "overrideAlways": "+{amount} {limit} for good"
     },
     "billing": {
       "subscription": "Subscription",
@@ -949,7 +966,8 @@
       "invoiceStatus": {
         "paid": "Paid",
         "failed": "Failed"
-      }
+      },
+      "noSubscription": "No subscription on record yet"
     },
     "storefront": {
       "title": "Storefront",
@@ -958,7 +976,8 @@
       "preview": "Preview",
       "lastPublish": "Last publish",
       "notPublished": "Not published yet",
-      "readOnly": "Read-only. The merchant designs and publishes their shop."
+      "readOnly": "Read-only. The merchant designs and publishes their shop.",
+      "noPreview": "No preview address yet"
     },
     "domains": {
       "waitingSince": "Waiting since {date}",
@@ -983,7 +1002,8 @@
         "live": "Live",
         "waiting": "Waiting for DNS",
         "failed": "Failed"
-      }
+      },
+      "recheckAsked": "We’re checking {host} again. This page shows the answer once it’s in."
     },
     "setup": {
       "title": "Signup steps",
@@ -1029,7 +1049,31 @@
         "denied": "Denied",
         "failed": "Failed"
       },
-      "details": "Details of {text}"
+      "details": "Details of {text}",
+      "who": "Who",
+      "actions": {
+        "store.created": "Store created",
+        "store.suspended": "Store suspended",
+        "store.restored": "Store restored",
+        "store.trial_extended": "Trial extended",
+        "store.plan_changed": "Plan changed",
+        "store.limit_override_added": "Limit raised",
+        "store.limit_override_removed": "Raised limit removed",
+        "store.invitation_resent": "Owner invitation resent",
+        "store.setup_step_retried": "Setup step retried",
+        "store.billing_status_set": "Billing status set",
+        "store.note_added": "Note added",
+        "store.domain_recheck_requested": "Domain check asked for",
+        "store.domain_status_changed": "Domain status changed",
+        "store.trial_started": "Trial started",
+        "store.activated": "Became active",
+        "store.past_due": "Went past due",
+        "store.cancelled": "Cancelled",
+        "support_session.started": "Support session started",
+        "support_session.ended": "Support session ended",
+        "impersonation.started": "DripFunnel support signed in",
+        "impersonation.ended": "DripFunnel support signed out"
+      }
     },
     "dialogs": {
       "changePlan": {
@@ -1106,6 +1150,18 @@
       "retryStep": "Retried. {name}’s storefront is live.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
       "refused": "The partner service refused it: {reason}"
+    },
+    "notice": {
+      "suspended": "Suspended: {reason}",
+      "suspendedNoReason": "Suspended. Its storefront shows a notice and its team can’t sign in.",
+      "pastdue": "Past due for {days} days. {owner}’s team can’t make changes, but the shop is still selling."
+    },
+    "roles": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "staff": "Staff",
+      "supplier-admin": "Supplier admin",
+      "supplier-member": "Supplier member"
     }
   },
   "plans": {
