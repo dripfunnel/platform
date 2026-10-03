@@ -23,7 +23,7 @@ const callerOf = (partnerId: string, role: PartnerRole, name = 'Maya Chen'): Par
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
   const deps = { sql: db.sql, caller, facts, activity: activityLog, now: () => now }
-  const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, console: createPartnerConsoleService(deps), plans: createPartnerPlansService(deps) } })
+  const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue: { caller, console: createPartnerConsoleService(deps), plans: createPartnerPlansService(deps), branding: null } })
   const error = result.errors?.[0]
   if (error && error.extensions['code'] === undefined) throw error
   return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }

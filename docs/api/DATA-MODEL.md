@@ -235,7 +235,8 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
   hostname, SAAS §3.3, on the Store API card that serves it). The four role pins are on the
   table.
 - `partner.product_name`, `primary_color`, `accent_color` and `powered_by` (#32) stay what the
-  admin console's lists read; #162, which publishes, keeps them equal to the live version.
+  admin console's lists read; a publish (#162) keeps them equal to the live version, the
+  partner role holding `update (powered_by)` for it (`0017`).
 
 ---
 
