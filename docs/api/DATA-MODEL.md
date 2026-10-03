@@ -1373,7 +1373,12 @@ decide which columns and which tables each caller kind may select at all**. `app
   engine sends names the request's own token in its link, and verifying requires that token
   and the code together, so a code fulfils only the request the person holds the link for;
   another filer's request for the same email can never be fulfilled by the victim's code, and
-  lapses at its `expires_at`. The `WITH CHECK` also pins `requested_by = 'customer'` and `kind
+  lapses at its `expires_at`. **The filing token dies at verification**: the filer knows it,
+  and the verification link carrying it went to the subject, so on a correct code the engine
+  replaces `access_token_hash` with the hash of a new token it sends only to the verified
+  subject (in the "your export is ready" message, or for a deletion the confirmation), and
+  the file is reachable with that token alone, or by the signed-in customer; the filer's
+  token opens nothing after that. The `WITH CHECK` also pins `requested_by = 'customer'` and `kind
   IN ('export', 'delete')`, and `state` has `DEFAULT 'requested'`. After verification the
   engine sets `expires_at` again, to the file's retention (7 days for an export, cleared for
   a deletion once done), so the column always means "when this row stops mattering". No
