@@ -1359,15 +1359,18 @@ decide which columns and which tables each caller kind may select at all**. `app
   NULL AND (subject_email IS NOT NULL OR subject_phone IS NOT NULL) AND access_token_hash =
   current_request_token_hash())`, the function returning the hash of the token the Shop API
   minted for this request (null when none), so an anonymous filing is bound to the store and
-  to a token only its filer holds; `app_shop` has no write on `subject_verified_at`, `state`
-  or `file_asset_id`, so verification and the export are the engine's alone (§7.5); and the
+  to a token only its filer holds; `app_shop` has no write on `subject_verified_at`, `state`,
+  `expires_at` or `file_asset_id`, so verification, the expiry and the export are the
+  engine's alone (§7.5); and the
   Shop API rate-limits filings per subject and per client (ACCESS §4). **No uniqueness on
   the subject**: a unique index would let an anonymous filer block the person's own request
   and would reveal, through the refusal, that a request exists for an email (ACCESS §2
   "never reveal whether an account exists"). Instead every filing is accepted with the same
-  response, an unverified request expires after 24 hours (`expires_at`, set on insert), and
-  verifying a code fulfils the newest unverified request for that subject while the older
-  ones lapse. No supplier branch.
+  response, an unverified request expires after 24 hours (`expires_at` has `DEFAULT now() +
+  interval '24 hours'`, `app_shop` has no write on it, and the `WITH CHECK` requires
+  `subject_verified_at IS NULL AND state = 'requested'`, so a filer sets neither the expiry
+  nor the state), and verifying a code fulfils the newest unverified request for that
+  subject while the older ones lapse. No supplier branch.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a

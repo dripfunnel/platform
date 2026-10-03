@@ -1048,7 +1048,8 @@ builds the table must ship:
   (`current_order_token_hash()` returns null) (DATA-MODEL §7.11);
 - a shopper filing a data request for another person's email can insert it only in the
   acting store, bound to the token minted for it, and cannot set `subject_verified_at`,
-  `state` or `file_asset_id`; a second filing for the same subject is accepted with the
+  `state`, `expires_at` or `file_asset_id` (the expiry is the column default, and a filer
+  setting it is refused); a second filing for the same subject is accepted with the
   same response as the first (nothing reveals that a request exists) and the unverified ones
   expire; no export is built until the engine verifies the code sent to that email, and the
   file is reachable only by that customer or the request's token (DATA-MODEL §7.5, §7.11);
