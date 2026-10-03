@@ -36,6 +36,7 @@ export interface NavCounts {
   stores_attention: number
   branding_left: number
   domains_waiting: number
+  support_open: number
 }
 
 /** §2.1's badges that have data today; each an indexed, partner-scoped count. */
@@ -56,9 +57,10 @@ export const selectNavCounts = async (tx: ScopedSql, partnerId: string, stuckAft
       (select count(*)::int from partner_setup_item i join partner p on p.id = i.partner_id
         where i.partner_id = ${partnerId} and p.approved_at is null and i.item in ('branding', 'legal') and i.status <> 'done') as branding_left,
       (select count(*)::int from partner_domain where partner_id = ${partnerId} and status in ('waiting', 'verifying', 'issuing', 'failed', 'broken'))
-        + (select n from stuck_domains) as domains_waiting
+        + (select n from stuck_domains) as domains_waiting,
+      (select count(*)::int from support_session where partner_id = ${partnerId} and ended_at is null and expires_at > ${now}) as support_open
   `
-  return row ?? { stores_attention: 0, branding_left: 0, domains_waiting: 0 }
+  return row ?? { stores_attention: 0, branding_left: 0, domains_waiting: 0, support_open: 0 }
 }
 
 export interface ShellFacts {

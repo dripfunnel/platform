@@ -7,6 +7,8 @@ import './partners'
 import './stores'
 import './dashboard'
 import './provisioning'
+import './staffSessions'
+import './customers'
 
 export type { AdminContext } from './access'
 

@@ -192,7 +192,10 @@ declaration never means allowed. The Platform API serves `public`, `session` and
 from #155 (`apis/platform/access.ts`: the partner role's permission, always within the
 session's own partner); the Store and Shop APIs serve only `public` until their cards add a
 policy. A field on any other type may declare a stricter permission and then reads as `null`
-when refused, so full contact details are `Customer.email` declaring `customers.contact.read`.
+when refused. Full contact details are the exception (built on #36): `Customer.email` and
+`phone` are masked rather than null for a role without `customers.contact.read`: the service
+reads the stored values and masks them (`saas/customers/mask.ts`) before the response, and
+`contactsMasked` says so.
 `audit` is declared from the first audited mutation on.
 
 Refusals carry a fixed message and one of two stable codes, whatever the target, so neither
@@ -317,8 +320,20 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   minute after they stop). Counting only failures would let a correct guess through a spent
   bucket, which is what the limit is for; the lock after five wrong codes, the per-address
   limit and the activity log are what show and stop the attacker. `next` is replaced by
-  `/dashboard` on the server unless it is a path on this host. Invitations and password reset
-  are #208's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  `/dashboard` on the server unless it is a path on this host. **Invitations and password
+  reset, built on #208** (`apis/platform/invitations.ts`): `POST /api/auth/invitation` reads an
+  invitation by its token's hash and answers `INVITATION_USED`, `INVITATION_REPLACED` (revoked
+  for a newer one), `INVITATION_EXPIRED` or `INVITATION_INVALID` (unknown, revoked, removed user,
+  closed partner); `accept-invitation` takes a name (`NAME_REQUIRED` when blank) and a password
+  of 10 characters or more (`WEAK_PASSWORD`), activates the account and opens an `enrol` session: step 2 of 2 either
+  enrols or calls `skip-second-factor`, refused with `SECOND_FACTOR_REQUIRED` when the partner
+  requires it. `request-password-reset` answers byte for byte the same for any email, takes an
+  attempt per typed email, and does the same work for any email, so its timing reveals nothing
+  either: one outbox row (`partner_password_reset.request`). The relay then writes a reset per
+  active account the email has, once per request, each queued as an email with its activity
+  entry; `reset-password` works once, within 30 minutes of the email being sent, and ends
+  every session of that user (`RESET_INVALID` otherwise). Tokens are minted when the email is
+  sent (`auth/partnerTokens.ts`), so none rests in the outbox. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
@@ -826,6 +841,16 @@ Browser → https://<store's portal host>/support/enter?token=…
 - A partner's support session never reaches a store of another partner; the host check (§9
   check 0) and the partner check at opening both refuse it.
 
+**Built on #202** (the Platform API half; ui/platform/FIRST-RELEASE.md §16 lists the fields):
+the session is on one **membership**, so the agent acts as that user ("Priya as Jenna", §12 of
+the console's FIRST-RELEASE), one agent per user and one session per agent at a time;
+re-authentication (A2) is the partner user's 2-factor code, which buys a proof valid five
+minutes and spent by the one start it allows; the agent, or the partner's Owner or Admin, may
+end a session. Returning to a session mints a fresh link only while a start would still be
+allowed (support on, store not cancelled, user not suspended). Elevation, the exchange and the
+support caller stay with the Store strand; the exchange spends a link only while the start's
+codes still allow a session.
+
 ### 8.1 Staff impersonation (decided 2026-09-28, USERS-AND-DOMAINS §4.2)
 
 Staff sign in **as a specific user** with that user's full permissions. It is the only way
@@ -873,6 +898,13 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
   merchants' terms disclose staff impersonation (wording by legal).
+- **Built on #40** (the Admin API half): the `impersonation` row, 30 minutes from start, one
+  extension of 30 set on the row, one open per staff member at the index, the hashed one-time
+  handoff (five minutes, a return mints a fresh one and the old stops working), and the
+  entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
+  in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
+  (`SUPPLIER_NOT_SUPPORTED`). The portal's exchange, the `impersonation` caller and the blocked
+  list's structural test are #243.
 
 ### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
 

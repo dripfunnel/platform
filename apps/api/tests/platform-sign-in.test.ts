@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { handlePlatformAuth, lockMs, type PlatformAuthDeps } from '#apis/platform/auth'
+import { handlePlatformAuth, type PlatformAuthDeps } from '#apis/platform/auth'
+import { lockMs } from '#auth/partnerCode'
 import { resolvePartner } from '#auth/partnerCaller'
 import { hashPassword } from '#auth/password'
 import { partnerCookieName } from '#auth/partnerSession'

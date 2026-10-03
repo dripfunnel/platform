@@ -337,6 +337,7 @@ describe('the backstop itself', () => {
       'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
       'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
       'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job',
+      'partner_password_reset',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -348,6 +349,31 @@ describe('the backstop itself', () => {
         [row.relname]: [true, true],
       })
     }
+  })
+
+  it('keeps password resets to system scope: no request, partner or staff role reads or writes one (#208)', async () => {
+    const [user] = await db.sql<{ id: string }[]>`
+      insert into partner_user (partner_id, email, name, role_key, status) values (${t.partnerA}, 'reset.isolation@partner-a.example', 'Reset', 'partner-owner', 'active') returning id
+    `
+    await db.sql`
+      insert into partner_password_reset (request_id, partner_id, partner_user_id, token_hash, expires_at)
+      values (gen_random_uuid(), ${t.partnerA}, ${user?.id ?? ''}, 'isolation-hash', now() + interval '30 minutes')
+    `
+    const as = (role: string, scope: string, work: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+      db.sql.begin(async (tx: postgres.TransactionSql) => {
+        await tx.unsafe(`set local role ${role}`)
+        await tx`select set_config('app.scope', ${scope}, true)`
+        await tx`select set_config('app.partner_id', ${t.partnerA}, true)`
+        await tx`select set_config('app.store_id', ${t.storeA1}, true)`
+        return work(tx)
+      })
+    for (const [role, scope] of [['app_request', 'store'], ['app_partner', 'partner'], ['app_platform', 'platform']] as const) {
+      await expect(as(role, scope, (tx) => tx`select token_hash from partner_password_reset`)).rejects.toThrow(/permission denied/)
+      await expect(
+        as(role, scope, (tx) => tx`insert into partner_password_reset (request_id, partner_id, partner_user_id) values (gen_random_uuid(), ${t.partnerA}, ${user?.id ?? ''})`),
+      ).rejects.toThrow(/permission denied/)
+    }
+    expect(await as('app_system', 'system', async (tx) => (await tx`select 1 from partner_password_reset where token_hash = 'isolation-hash'`).length)).toBe(1)
   })
 
   it('runs staff as app_platform, partner callers as app_partner and store callers as app_request (#205, #155)', async () => {
