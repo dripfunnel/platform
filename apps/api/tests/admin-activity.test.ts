@@ -5,7 +5,8 @@ import type { ActivityEntry } from '#auth/activity'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import type { StaffMember, StaffRole } from '#auth/staff'
-import { pgArray, withSystemScope } from '#db/scoped/index'
+import { failDeadExports } from '#db/scoped/exportJobs'
+import { pgArray, withScope, withSystemScope } from '#db/scoped/index'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -183,6 +184,10 @@ describe('the person', () => {
     )
     expect((await run<People>(people, as('staff-super-admin'), { q: 'shopper.one@exa' })).raw).not.toContain('shopper.one@example.com')
     expect((await run(people, as('staff-super-admin'), { q: 'x' })).code).toBe('INVALID_INPUT')
+    await db.sql`insert into customer (store_id, email, name, status) values (${ids.storeA}, 'nameless@example.com', null, 'active')`
+    const nameless = await run<People>(people, as('staff-super-admin'), { q: 'nameless@example.com' })
+    expect(nameless.code).toBeUndefined()
+    expect(nameless.data?.activityPeople.filter((p) => p.kind === 'customer')).toEqual([expect.objectContaining({ name: '', email: '' })])
     const person = `query($p: String!) { activityPerson(person: $p) { name kind where memberships { where role } sameEmailAccounts } }`
     const rohan = (await run<{ activityPerson: { memberships: unknown[]; sameEmailAccounts: number } }>(person, as('staff-support'), { p: `person:${ids.person}` })).data?.activityPerson
     expect(rohan?.memberships.length).toBeGreaterThan(0)
@@ -278,17 +283,68 @@ describe('the export', () => {
     for (let i = 0; i < 20; i += 1) await relay({ budgetMs: -1 })
     const done = (await run<{ activityExport: { state: string; entries: number; csv: string } }>(job, as('staff-super-admin'), { id: asked?.jobId })).data?.activityExport
     expect(done?.state).toBe('ready')
-    const total = (await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where occurred_at <= ${new Date()}`)[0]?.n ?? 0
+    // Every entry staff can read, once each: nothing skipped or repeated where one chunk ends and the next begins.
+    const visible = await withScope(db.sql, { caller: { kind: 'staff', staffId: as('staff-super-admin').id } }, async (tx) => (await tx<{ n: number }[]>`select count(*)::int as n from activity_log`)[0]?.n ?? -1)
     expect(done?.entries).toBeGreaterThan(50)
-    expect(done?.entries).toBeLessThanOrEqual(total)
+    expect(done?.entries).toBe(visible)
     expect(new Set(done?.csv.split('\n').slice(1)).size).toBe(done?.entries)
-    expect(await db.sql`select 1 from outbox where kind = 'export.staff_activity' and payload->>'jobId' = ${asked?.jobId ?? ''}`).not.toHaveLength(1)
+    // The deliveries chained: chunk 0 queued chunk 1, and so on, with none missing.
+    const chunks = (await db.sql<{ chunk: number }[]>`
+      select coalesce((payload->>'chunk')::int, 0) as chunk from outbox where kind = 'export.staff_activity' and payload->>'jobId' = ${asked?.jobId ?? ''} order by 1
+    `).map((r) => r.chunk)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks).toEqual(chunks.map((_, i) => i))
   })
 
   it('ends as too large past the cap, rather than as a partial file', async () => {
     const asked = (await run<{ exportActivity: { jobId: string } }>(start, as('staff-super-admin'), { f: {} })).data?.exportActivity
     await relay({ cap: 2 })
     expect((await run<{ activityExport: { state: string; csv: string | null } }>(job, as('staff-super-admin'), { id: asked?.jobId })).data?.activityExport).toMatchObject({ state: 'tooLarge', csv: null })
+  })
+})
+
+describe('an export that cannot finish', () => {
+  const start = `mutation($f: ActivityFilter) { exportActivity(filter: $f) { ok jobId reason } }`
+  const job = `query($id: ID!) { activityExport(id: $id) { state csv } }`
+  type Job = { activityExport: { state: string; csv: string | null } | null }
+  const relay = () => relayDue(db.sql, { 'export.staff_activity': staffActivityExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+  const ask = async (staff: StaffMember) => (await run<{ exportActivity: { jobId: string } }>(start, staff, { f: {} })).data?.exportActivity.jobId ?? ''
+  const stateOf = async (id: string) => (await db.sql<{ state: string; csv: string | null }[]>`select state, csv from export_job where id = ${id}`)[0]
+
+  it('fails, building nothing, when the requester is demoted or suspended before it runs', async () => {
+    for (const change of ['role', 'status'] as const) {
+      const [row] = await db.sql<{ id: string }[]>`
+        insert into staff_user (sso_subject, email, name, role_key, status) values (${crypto.randomUUID()}, ${`exporter.${change}@dripfunnel.com`}, 'Exporter', 'staff-super-admin', 'active') returning id
+      `
+      const exporter: StaffMember = { id: row?.id ?? '', email: `exporter.${change}@dripfunnel.com`, name: 'Exporter', role: 'staff-super-admin' }
+      const id = await ask(exporter)
+      if (change === 'role') await db.sql`update staff_user set role_key = 'staff-read-only' where id = ${exporter.id}`
+      else await db.sql`update staff_user set status = 'suspended' where id = ${exporter.id}`
+      await relay()
+      expect(await stateOf(id), change).toEqual({ state: 'failed', csv: null })
+    }
+  })
+
+  it('fails when its last attempt throws, and when the relay gives up on it', async () => {
+    const thrown = await ask(as('staff-super-admin'))
+    // A filter the log refuses makes the delivery throw; this is its eighth and last attempt.
+    await db.sql`update export_job set filter = '{"surprise": 1}'::jsonb where id = ${thrown}`
+    await db.sql`update outbox set attempts = ${defaultRelayOptions.maxAttempts - 1} where kind = 'export.staff_activity' and payload->>'jobId' = ${thrown}`
+    await relay()
+    expect((await run<Job>(job, as('staff-super-admin'), { id: thrown })).data?.activityExport).toEqual({ state: 'failed', csv: null })
+
+    const dead = await ask(as('staff-super-admin'))
+    await db.sql`update outbox set failed_at = now() where kind = 'export.staff_activity' and payload->>'jobId' = ${dead}`
+    expect(await withSystemScope(db.sql, (tx) => failDeadExports(tx, now, new Date(now.getTime() + 60 * 60_000)))).toBeGreaterThan(0)
+    expect((await stateOf(dead))?.state).toBe('failed')
+  })
+
+  it('reads as expired, with no file, once its hour is up', async () => {
+    const id = await ask(as('staff-super-admin'))
+    await relay()
+    expect((await run<Job>(job, as('staff-super-admin'), { id })).data?.activityExport?.state).toBe('ready')
+    await db.sql`update export_job set expires_at = ${new Date(now.getTime() - 1000)} where id = ${id}`
+    expect((await run<Job>(job, as('staff-super-admin'), { id })).data?.activityExport).toEqual({ state: 'expired', csv: null })
   })
 })
 
