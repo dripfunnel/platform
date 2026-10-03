@@ -35,10 +35,10 @@ afterAll(async () => {
 
 describe('the seeded branding', () => {
   it('has Northstar’s look published and Kaufladen’s only as a draft with no Impressum', async () => {
-    const ns = await as(partner(ids.ns), (tx) => selectBranding(tx, ids.ns, now))
+    const ns = await as(partner(ids.ns), (tx) => selectBranding(tx, ids.ns))
     expect(ns.live).toMatchObject({ product_name: 'Northstar Shops', primary_color: '#0F5E63', font: 'Nunito', powered_by: false })
     expect(ns.draft).toBeNull()
-    const kl = await as(partner(ids.kl), (tx) => selectBranding(tx, ids.kl, now))
+    const kl = await as(partner(ids.kl), (tx) => selectBranding(tx, ids.kl))
     expect(kl.live).toBeNull()
     expect(kl.draft).toMatchObject({ product_name: 'Kaufladen Shops', impressum: null, powered_by: true })
   })
@@ -46,7 +46,7 @@ describe('the seeded branding', () => {
 
 describe('who reads and writes it', () => {
   it('shows a partner only its own, a merchant none, staff every partner’s', async () => {
-    expect(await as(partner(ids.kl), (tx) => selectBranding(tx, ids.ns, now))).toEqual({ live: null, draft: null })
+    expect(await as(partner(ids.kl), (tx) => selectBranding(tx, ids.ns))).toEqual({ live: null, draft: null })
     const merchant: CallerContext = { caller: { kind: 'person', userId: 'u', sessionId: 's' }, partnerId: ids.ns, storeId: ids.store, sellerScope: { kind: 'all' }, subscription: 'active' }
     await expect(as(merchant, (tx) => tx`select id from partner_branding`)).rejects.toThrow(/permission denied/i)
     const partners = await as(staff, (tx) => tx<{ n: number }[]>`select count(distinct partner_id)::int as n from partner_branding`)
@@ -61,7 +61,7 @@ describe('who reads and writes it', () => {
     for (const context of [partner(ids.ns), staff]) {
       expect(await as(context, (tx) => tx`update partner_branding set product_name = 'Rewritten' where id = ${draft} returning id`)).toEqual([])
     }
-    expect((await as(partner(ids.ns), (tx) => selectBranding(tx, ids.ns, new Date()))).live?.product_name).toBe('Northstar Stores')
+    expect((await as(partner(ids.ns), (tx) => selectBranding(tx, ids.ns))).live?.product_name).toBe('Northstar Stores')
   })
 
   it('lets a partner write only its own, under its own name, and never another partner’s', async () => {
@@ -83,7 +83,7 @@ describe('publishing, scheduling and cancelling', () => {
       await tx`update partner_branding set state = 'published', published_at = ${later}, published_by_label = 'Jonas Weber' where partner_id = ${ids.kl} and state = 'draft'`
       return (await tx<{ id: string }[]>`select id from partner_branding where partner_id = ${ids.kl} and published_at = ${later}`)[0]?.id ?? ''
     })
-    expect((await as(partner(ids.kl), (tx) => selectBranding(tx, ids.kl, new Date()))).live).toBeNull()
+    expect((await as(partner(ids.kl), (tx) => selectBranding(tx, ids.kl))).live).toBeNull()
     await expect(as(partner(ids.kl), (tx) => tx`update partner_branding set product_name = 'Changed', state = 'cancelled' where id = ${scheduled}`)).rejects.toThrow(/never changed, only a scheduled one cancelled/)
     expect(await as(partner(ids.kl), (tx) => tx`update partner_branding set state = 'cancelled' where id = ${scheduled} returning state`)).toEqual([{ state: 'cancelled' }])
     expect(await as(partner(ids.kl), (tx) => tx`update partner_branding set state = 'published' where id = ${scheduled} returning id`)).toEqual([])
