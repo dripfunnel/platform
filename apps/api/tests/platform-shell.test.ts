@@ -63,13 +63,34 @@ describe('partnerState', () => {
 })
 
 describe('navBadges', () => {
-  it('counts this partner’s stores needing attention and domains waiting, zero where nothing exists yet', async () => {
-    const { data } = await run<{ navBadges: Record<string, number> }>('{ navBadges { storesAttention brandingSetupLeft domainsWaiting billingFailedPayments supportOpenSessions } }', callerOf(ids.bz, 'partner-support'))
-    const [waiting] = await db.sql<{ n: number }[]>`select count(*)::int as n from partner_domain where partner_id = ${ids.bz} and status in ('waiting', 'verifying', 'issuing', 'failed', 'broken')`
-    expect(data?.navBadges['domainsWaiting']).toBeGreaterThanOrEqual(waiting?.n ?? -1)
-    expect(data?.navBadges['brandingSetupLeft']).toBe(0)
-    expect(data?.navBadges['billingFailedPayments']).toBe(0)
-    expect(data?.navBadges['supportOpenSessions']).toBe(0)
+  const shell = `{ navBadges { storesAttention brandingSetupLeft domainsWaiting billingFailedPayments supportOpenSessions }
+    partnerState { storeCount brokenHosts } onboarding { items { key status doneBy } } }`
+  type Shell = { navBadges: Record<string, number>; partnerState: { storeCount: number; brokenHosts: string[] }; onboarding: unknown }
+  const shellOf = async (partnerId: string) => (await run<Shell>(shell, callerOf(partnerId, 'partner-owner'))).data
+
+  it('counts exactly this partner’s rows: another partner’s failed signup, broken host, waiting domain and open item never move them', async () => {
+    const before = await shellOf(ids.ns)
+    const otherBefore = await shellOf(ids.bz)
+    const [store] = await db.sql<{ id: string }[]>`select id from store s where partner_id = ${ids.bz} and not exists (select 1 from job j where j.store_id = s.id and j.state <> 'done') limit 1`
+    await db.sql`insert into job (store_id, kind, state, steps, step) values (${store?.id ?? ''}, 'provision-store', 'failed', '{accountAndStore}'::text[], 'accountAndStore')`
+    await db.sql`update partner_domain set status = 'broken' where partner_id = ${ids.bz} and kind = 'portal'`
+    await db.sql`update partner_domain set status = 'waiting' where partner_id = ${ids.bz} and kind = 'preview'`
+    await db.sql`update partner set approved_at = null where id = ${ids.bz}`
+    await db.sql`update partner_setup_item set status = 'missing', done_at = null, done_by_kind = null, done_by_label = null where partner_id = ${ids.bz} and item = 'branding'`
+
+    expect(await shellOf(ids.ns)).toEqual(before)
+    const other = await shellOf(ids.bz)
+    expect(other?.navBadges['storesAttention']).toBe((otherBefore?.navBadges['storesAttention'] ?? 0) + 1)
+    expect(other?.navBadges['brandingSetupLeft']).toBe(1)
+    expect(other?.navBadges['domainsWaiting']).toBe((otherBefore?.navBadges['domainsWaiting'] ?? 0) + 2)
+    expect(other?.partnerState.brokenHosts).toEqual(['portal.bazaarcloud.example'])
+    expect(other?.navBadges['billingFailedPayments']).toBe(0)
+    expect(other?.navBadges['supportOpenSessions']).toBe(0)
+  })
+
+  it('stops counting branding setup once the partner has been approved', async () => {
+    await db.sql`update partner set approved_at = now() where id = ${ids.bz}`
+    expect((await shellOf(ids.bz))?.navBadges['brandingSetupLeft']).toBe(0)
   })
 
   it('counts a merchant’s domain waiting over a day, not one replaced since', async () => {
@@ -126,6 +147,14 @@ describe('onboarding and submitForApproval', () => {
     }
   })
 
+  it('tells a Live or Paused partner it was approved, not that it submitted', async () => {
+    expect((await run<Sub>(submit, callerOf(ids.ns, 'partner-owner'))).data?.submitForApproval).toMatchObject({ ok: false, code: 'ALREADY_APPROVED' })
+    const southwind = await partnerId('Southwind Retail')
+    expect(await db.sql`select state from partner where id = ${southwind}`).toEqual([{ state: 'paused' }])
+    expect((await run<Sub>(submit, callerOf(southwind, 'partner-owner'))).data?.submitForApproval).toMatchObject({ ok: false, code: 'ALREADY_APPROVED' })
+    expect((await run<Ob>(onboardingQuery, callerOf(southwind, 'partner-owner'))).data?.onboarding.canSubmit).toEqual({ allowed: false, reason: 'ALREADY_APPROVED' })
+  })
+
   it('names the first failing check, then submits a sent-back partner once it passes, with one entry, into the admin queue', async () => {
     await db.sql`update partner set state = 'draft', sent_back_reason = 'Legal pages missing an Impressum' where id = ${ids.kl}`
     await db.sql`update partner_setup_item set status = 'missing', done_at = null, done_by_kind = null, done_by_label = null where partner_id = ${ids.kl} and item = 'legal'`
@@ -135,6 +164,11 @@ describe('onboarding and submitForApproval', () => {
     expect((await run<Sub>(submit, callerOf(ids.kl, 'partner-admin'))).data?.submitForApproval).toMatchObject({ ok: false, code: 'GO_LIVE_CHECK_FAILED', check: 'legalPages' })
 
     await db.sql`update partner_setup_item set status = 'done', done_at = now(), done_by_kind = 'partner_user', done_by_label = 'Jonas Weber' where partner_id = ${ids.kl} and item = 'legal'`
+    // A Live plan with no monthly price is not "priced" (#157's catalogue).
+    await db.sql`update plan_price set monthly_amount = null where partner_id = ${ids.kl}`
+    expect((await run<Ob>(onboardingQuery, callerOf(ids.kl, 'partner-admin'))).data?.onboarding.checks['pricedPlan']).toBe(false)
+    expect((await run<Sub>(submit, callerOf(ids.kl, 'partner-admin'))).data?.submitForApproval).toMatchObject({ ok: false, code: 'GO_LIVE_CHECK_FAILED', check: 'pricedPlan' })
+    await db.sql`update plan_price set monthly_amount = 2500 where partner_id = ${ids.kl} and currency = 'EUR' and yearly_amount is not null`
     const done = await run<Sub>(submit, callerOf(ids.kl, 'partner-admin', 'Petra Lang'))
     expect(done.data?.submitForApproval).toMatchObject({ ok: true, code: null })
     expect(await db.sql`select state, submitted_by_kind, submitted_by_label, sent_back_reason from partner where id = ${ids.kl}`).toEqual([

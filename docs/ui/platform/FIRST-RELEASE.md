@@ -718,7 +718,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   name) and `to` (its screen). A payment or payout item a staff session marked done reads as
   missing. `fixes` lists the items behind the failing go-live checks, as `{ item, to }`
   keys the console words itself. `canSubmit` is the action's permission block.
-- `submitForApproval` returns `GO_LIVE_CHECK_FAILED` with `check`, or `ALREADY_SUBMITTED`. A
+- `submitForApproval` returns `GO_LIVE_CHECK_FAILED` with `check`, `ALREADY_SUBMITTED` (Awaiting
+  approval) or `ALREADY_APPROVED` (Live, Paused, Offboarding; the console adds this code). A
   role without `onboarding.submit` gets `FORBIDDEN` from the policy;
   `canSubmit.reason = OWNERS_AND_ADMINS_ONLY` is what disables the button first.
 - "Priced" in the go-live checks now means a Live plan whose current version has a monthly
