@@ -4,7 +4,7 @@ How work moves from a task card to `main`. It applies to every person and every 
 working in this repo. The coding rules themselves are in [../../AGENTS.md](../../AGENTS.md)
 and [DESIGN.md](DESIGN.md); this document is about the process around them.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 ---
 
@@ -19,7 +19,7 @@ Last updated: 2026-10-02.
 | **Claude reviews every pull request, and the check fails** (§7) — reversed 2026-09-30 (#70); it was advisory until then | Advisory only, which is what we had | Advisory meant two things went unnoticed: a review that found something, and a review that never ran at all, because `continue-on-error` made a broken token look exactly like a clean bill of health. **The cost is accepted knowingly**: a non-deterministic judgement can now turn a check red, and the temptation will be to re-run until it passes. That is not the way past it — fix the finding or reply saying why not (§7). If it goes red for bad reasons often, fix the prompt, don't loosen the check. |
 | **Only new feature development gets a feature environment** (`feature/…`). Tasks and bugs run the gates only | An environment for every branch or pull request | Environments cost money and Hyperdrive slots (at most about 25 at once, [FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md) §5). Only a new feature needs clicking through before it merges |
 | **Small pull requests: about 400 changed lines at most**, not counting generated files and the lockfile | Large pull requests that ship a whole area | A reviewer can read every line properly, so mistakes in tenancy, layers and reuse get caught |
-| **`main` and `dev` are protected**: pull requests only, the `gates` and `naming` checks must pass, no force-push, no direct push or commit by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
+| **`main` and `dev` are protected**: pull requests only, the `review`, `gates` and `naming` checks must pass, no force-push, no direct push or commit by anyone, AI agents included | Direct pushes | Pushing `main` is a production action ([../ARCHITECTURE.md](../ARCHITECTURE.md) §6) |
 | **Reviews follow experience**: the senior developer reviews junior work; the lead reviews senior work, with `/code-review` as a second pass | Self-merge; review by whoever is free | Every change is read by someone who knows the architecture at least as well as its author |
 | **Squash and merge** *(proposed)* | Merge commits; rebase merges | `main` gets one commit per work item, easy to read and to revert |
 
@@ -89,7 +89,8 @@ owner or repo admin):
    - Block force pushes.
    - Require a pull request before merging: 1 approval; dismiss stale approvals on new
      commits; allowed merge method *Squash* (§1, *(proposed)*).
-   - Require status checks to pass: `gates` and `naming`; branches must be up to date.
+   - Require status checks to pass: `review`, `gates` and `naming`; branches must be up to date.
+     All three, because GitHub counts a skipped check as passed, and a red review skips the other two.
 2. **`branch-names`**, target *all branches*, excluding `main`, `dev` and the patterns
    `#*/feature/*`, `#*/task/*` and `#*/bug/*`, enforcement *Active*:
    - Restrict creations.
@@ -218,7 +219,7 @@ names are checked by the `naming` job alone; the review has no opinion on them.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
-Making it a required check is a deliberate later step.
+When the ruleset is set it is required with the other two (§2.2): the gates run behind it.
 
 Anything that becomes a core type or a shared component (`core/`, `db/scoped`,
 `apps/ui/shared/`) gets a careful line-by-line review, whoever wrote it.
@@ -257,7 +258,7 @@ each one. The reviewer approves only when every point is closed.
 
 ## 8. Merge and after
 
-1. Squash and merge once the `gates` and `naming` checks pass and the reviewer approves. Only
+1. Squash and merge once the `review`, `gates` and `naming` checks pass and the reviewer approves. Only
    after that.
 2. **Delete the branch.** For a feature, this also removes its environment.
 3. Move the card to done. Cards that needed this one can start now.
