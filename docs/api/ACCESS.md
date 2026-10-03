@@ -149,7 +149,7 @@ interface TenantContext {
   storeId: string;                           // resolved server-side, never from input as authority
   sellerScope: SellerScope;
   permissions: ReadonlySet<Permission>;
-  subscription: 'trialing' | 'active' | 'past_due' | 'canceled' | 'suspended';
+  subscription: 'trial' | 'active' | 'past_due' | 'cancelled' | 'suspended';  // DATA-MODEL §7.9's spellings (#212)
 }
 ```
 
