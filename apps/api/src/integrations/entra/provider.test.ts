@@ -19,7 +19,8 @@ beforeAll(async () => {
   signingKey = ours.privateKey
   otherKey = theirs.privateKey
   jwks = { keys: [{ ...(await exportJWK(ours.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' }] }
-})
+  // Two RSA key pairs: seconds on a loaded machine, past the default 10 s while the gates run in parallel.
+}, 60_000)
 
 const idToken = async (
   claims: Record<string, unknown> = {},
@@ -92,7 +93,13 @@ describe('the token exchange', () => {
       subject: 'subject-1',
       email: 'staff@dripfunnel.com',
       name: 'A Staff Member',
+      twoFactor: false,
     })
+  })
+
+  it('reports a second factor when the token says one was used (#39)', async () => {
+    fakeEntra({ body: { id_token: await idToken({ amr: ['pwd', 'mfa'] }) } })
+    await expect(exchange()).resolves.toMatchObject({ twoFactor: true })
   })
 
   it('refuses a token from another tenant', async () => {

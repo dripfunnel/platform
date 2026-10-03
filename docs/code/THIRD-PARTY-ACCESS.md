@@ -151,6 +151,10 @@ staying shaped that way.
 **`tid` is checked on every token.** A registration left on "any Microsoft account" would
 otherwise let a personal account reach the staff lookup.
 
+**Add `amr` as an optional ID-token claim** on the registration (#39): the Staff list shows
+whether each member's last sign-in used a second factor, read from `amr` containing `mfa`.
+Without the claim every sign-in reads as without one, and the list warns accordingly.
+
 The OIDC app's values below belong to the API Worker, and the Cloudflare Access client to
 Cloudflare Zero Trust. The admin SPA needs none: it sends the browser to
 the Worker's `/api` sign-in route, and the Worker redirects to the identity provider, handles

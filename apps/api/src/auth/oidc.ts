@@ -8,7 +8,7 @@ export interface IdentityProvider {
   /** Where to send the browser, and the state to remember for the callback. */
   authorizeUrl: (options: { redirectUri: string; state: string; nonce: string; prompt?: 'login' }) => string
   /** Exchange the callback's code. Throws `SignInFailed` for anything the caller may not see. */
-  exchange: (options: { code: string; redirectUri: string; nonce: string }) => Promise<IdentityClaims>
+  exchange: (options: { code: string; redirectUri: string; nonce: string }) => Promise<z.input<typeof identityClaims>>
 }
 
 export const identityClaims = z.object({
@@ -16,6 +16,8 @@ export const identityClaims = z.object({
   subject: z.string().min(1),
   email: z.string().email(),
   name: z.string().min(1),
+  /** Whether this sign-in used a second factor, as the provider reports it (decided on #45). */
+  twoFactor: z.boolean().default(false),
 })
 
 /**
@@ -73,6 +75,8 @@ export type SignInRefusal =
   | 'wrong_tenant'
   | 'no_session_to_reauth'
   | 'reauth_session_mismatch'
+  | 'invitation_invalid'
+  | 'invitation_email_mismatch'
 
 /**
  * Every refusal the caller is allowed to see, which is one refusal. CONSOLE-DESIGN A1:

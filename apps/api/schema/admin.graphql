@@ -179,16 +179,21 @@ type Mutation {
   addStoreNote(id: ID!, text: String!): StoreMutationOutcome
   approvePartner(id: ID!, reason: String!): PartnerMutationOutcome
   assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
+  changeStaffRole(id: ID!, role: String!): StaffResult
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
   endStaffSession(id: ID!): PartnerMutationOutcome
   extendTrial(id: ID!, trialEndsAt: String!): StoreMutationOutcome
+  inviteStaff(email: String!, role: String!): StaffResult
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
   recheckStoreDomain(id: ID!): StoreMutationOutcome
+  removeStaff(id: ID!): StaffResult
   resendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  resendStaffInvite(id: ID!): StaffResult
   resendStoreOwnerInvite(id: ID!): StoreMutationOutcome
   restoreStore(id: ID!, reason: String!): StoreMutationOutcome
   resumePartner(id: ID!, reason: String!): PartnerMutationOutcome
+  revokeStaffInvite(id: ID!): StaffResult
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   startPartnerSetupSession(id: ID!, reason: String!, ticket: String): SetupSessionStart
@@ -399,6 +404,7 @@ type Query {
   partner(id: ID!): Partner
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
   search(query: String!): SearchResult
+  staff(after: String, before: String, first: Int): StaffPage
   store(id: ID!): Store
   stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
 }
@@ -431,6 +437,41 @@ type Staff {
   id: ID
   name: String
   role: String
+}
+
+type StaffActions {
+  changeRole: ActionPermission
+  remove: ActionPermission
+  resend: ActionPermission
+  revoke: ActionPermission
+}
+
+type StaffInvitation {
+  expired: Boolean
+  expiresAt: String
+  sentAt: String
+}
+
+type StaffMember {
+  actions: StaffActions
+  email: String
+  id: ID
+  invitation: StaffInvitation
+  lastSignInAt: String
+  name: String
+  role: String
+  twoFactor: String
+}
+
+type StaffPage {
+  items: [StaffMember!]
+  pageInfo: PageInfo
+  soleSuperAdmin: Boolean
+}
+
+type StaffResult {
+  ok: Boolean
+  reason: String
 }
 
 type Store {

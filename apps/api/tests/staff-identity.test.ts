@@ -186,10 +186,14 @@ describe('row-level security on the staff tables', () => {
     ).rejects.toThrow(/permission denied/i)
   })
 
-  it('lets no request scope write the staff directory it can read', async () => {
-    await expect(asPlatform((tx) => tx`update staff_user set role_key = 'staff-super-admin'`)).rejects.toThrow(
-      /permission denied/i,
-    )
+  // #39: the Staff menu changes a role or a status, and the service holds that to Super admins;
+  // who a member is (their SSO account, email and name) is sign-in's alone.
+  it('lets a staff request change only a role or a status, never who a member is', async () => {
+    for (const set of ["sso_subject = 'stolen'", "email = 'x@example.com'", "name = 'x'", 'last_sign_in_at = now()']) {
+      await expect(asPlatform((tx) => tx.unsafe(`update staff_user set ${set} where id = '${active}'`)), set).rejects.toThrow(/permission denied/i)
+    }
+    await expect(asPlatform((tx) => tx`insert into staff_user (sso_subject, email, name, role_key, status) values ('s', 'e@x.com', 'n', 'staff-super-admin', 'active')`)).rejects.toThrow(/permission denied/i)
+    await expect(asPlatform((tx) => tx`insert into staff_user (email, name, role_key, status) values ('e@x.com', '', 'staff-super-admin', 'active')`)).rejects.toThrow(/row-level security/i)
   })
 })
 

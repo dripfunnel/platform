@@ -641,7 +641,12 @@ Accept: token + password (new) or token + signed-in session (existing)
   invites that account anew. Partner invitations and resends are throttled: 20 an hour per
   inviter and 3 a day per address (`RATE_LIMITED`).
 - **Staff invitations** (admin console) work the same way, except that accepting binds the
-  invitee's company SSO account instead of setting a password (ui/admin/FIRST-RELEASE.md §10).
+  invitee's company SSO account instead of setting a password (ui/admin/FIRST-RELEASE.md §10). **Built on #39**: the email's link is `/api/auth/accept-invitation?token=…`, which starts
+  SSO with the token's hash in the handshake cookie; the callback binds the SSO account only
+  when its email is the invited address and the invitation is still open (else the sign-in is
+  refused like any other), activates the member and signs them in. The last accepted Super
+  admin can't be demoted or removed, checked under a lock so two demotions at once can't both
+  pass (`LAST_SUPER_ADMIN`); removing a member ends their sessions.
 - **Expiry**: 7 days *(confirm)*; 7 days for staff (decided on #45). Pending invitations show their expiry; expired ones are
   obvious and offer resend (flow 10).
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already

@@ -286,7 +286,14 @@ bucket is bound yet; a file key replaces it when one is. The four role pins are 
 ### 3.1 DripFunnel staff (platform)
 
 ```
-staff_user     (id, sso_subject UNIQUE, email, name, role_key, status, created_at)
+staff_user     (id, sso_subject NULL UNIQUE, email, name, role_key, status, last_sign_in_at NULL,
+                two_factor NULL, created_at)
+                 -- status: active | invited | suspended | removed. An invited member has no
+                 -- sso_subject until they accept; a removed one keeps the row the log names (#39)
+staff_invitation (id, staff_user_id, token_hash NULL UNIQUE, sent_at, expires_at, accepted_at NULL,
+                  revoked_at NULL, invited_by_staff_id, created_at)
+                 -- 7 days, single use, a resend revokes the open one (#39); the email's
+                 -- deliverer writes the hash, never readable by a staff request
 staff_session  (id_hash, staff_user_id, created_at, last_seen_at, expires_at, reauth_at)
 staff_partner_assignment (id, staff_user_id, partner_id, created_at, assigned_by_staff_id,
                           removed_at NULL, removed_by_staff_id NULL)
