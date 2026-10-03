@@ -79,7 +79,8 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   once every record matches, SPF by including ours and DMARC by being one. Since a claim proves
   nothing until its token is found, `partner_domain_host_key` holds a host only for addresses
   past waiting and failed; a second claim that verifies later fails. `partner_domain.record_type`/`expected` stay
-  the first record's. A partner inserts its own address and records but holds no `update` on
+  the first record's. A partner inserts its own address (waiting and unchecked only, by a
+  restrictive policy) and records but holds no `update` on
   `partner_domain`, so only the check (`app_system`) and staff write a status. A trigger keeps
   a record on its address's partner.
 - **Store**: `name`, `code` (unique per partner, used in hostnames), `country`, `status`
