@@ -13,11 +13,11 @@ const ids = { ns: '', kl: '', growth: '', basis: '', store: '' }
 
 const partner = (partnerId: string): CallerContext => ({ caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId })
 const staff: CallerContext = { caller: { kind: 'staff', staffId: 'st' } }
-const merchant = (partnerId: string, storeId: string): CallerContext => ({
+const merchant = (partnerId: string, storeId: string, sellerId?: string): CallerContext => ({
   caller: { kind: 'person', userId: 'u', sessionId: 's' },
   partnerId,
   storeId,
-  sellerScope: { kind: 'all' },
+  sellerScope: sellerId ? { kind: 'seller', sellerId } : { kind: 'all' },
   subscription: 'active',
 })
 const as = <T>(context: CallerContext, work: (tx: ScopedSql) => Promise<T>) => withScope(db.sql, context, work)
@@ -132,14 +132,24 @@ describe('who reads what', () => {
     await expect(as(partner(ids.ns), (tx) => tx`update partner_contract set powered_by_removable = true`)).rejects.toThrow(/permission denied/i)
   })
 
+  it('shows a supplier in the same store none of the plan', async () => {
+    const [seller] = await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${ids.store}, 'Loom Supply', 'vendor-stock', 'active') returning id`
+    const supplier = merchant(ids.ns, ids.store, seller?.id ?? '')
+    for (const table of ['plan_version', 'plan_price', 'plan_entitlement']) {
+      expect({ [table]: await as(supplier, (tx) => tx.unsafe(`select plan_id from ${table}`)) }).toEqual({ [table]: [] })
+    }
+  })
+
   it('shows a storefront none of the plan', async () => {
     const shopper: CallerContext = { caller: { kind: 'shopper', customerId: null }, partnerId: ids.ns, storeId: ids.store, sellerScope: { kind: 'all' }, subscription: 'active' }
     expect(await as(shopper, (tx) => tx`select plan_id from plan_version`)).toEqual([])
   })
 
-  it('lets a merchant read its own plan’s versions and never the fee or another plan', async () => {
-    const versions = await as(merchant(ids.ns, ids.store), (tx) => tx<{ plan_id: string }[]>`select distinct plan_id from plan_version`)
-    expect(versions).toEqual([{ plan_id: ids.growth }])
+  it('lets a merchant read its own plan’s versions, prices and values, and never the fee or another plan', async () => {
+    for (const table of ['plan_version', 'plan_price', 'plan_entitlement']) {
+      const plans = await as(merchant(ids.ns, ids.store), (tx) => tx.unsafe<{ plan_id: string }[]>(`select distinct plan_id from ${table}`))
+      expect({ [table]: plans }).toEqual({ [table]: [{ plan_id: ids.growth }] })
+    }
     await expect(as(merchant(ids.ns, ids.store), (tx) => tx`select amount from plan_fee`)).rejects.toThrow(/permission denied/i)
   })
 
