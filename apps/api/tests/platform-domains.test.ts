@@ -144,6 +144,12 @@ describe('adding an address', () => {
     await expect(
       withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.fresh }, (tx) => tx`update partner_domain set status = 'live' where id = ${mine?.id ?? ''}`),
     ).rejects.toThrow(/permission denied/i)
+    // Nor insert one already live, skipping the ownership proof.
+    await expect(
+      withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.fresh }, (tx) => tx`
+        insert into partner_domain (partner_id, kind, host, status, record_type, expected, found)
+        values (${ids.fresh}, 'preview', '*.preview.unclaimed.example', 'live', 'CNAME', 'preview.edge.dripfunnel.net', 'preview.edge.dripfunnel.net')`),
+    ).rejects.toThrow(/row-level security/i)
   })
 })
 
