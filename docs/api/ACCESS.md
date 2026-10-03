@@ -1039,9 +1039,12 @@ builds the table must ship:
 - a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3);
 - **supplier writes are refused where they must be**: `app_supplier` updating
   `order_line.unit_amount` or `quantity` on its own line, inserting or updating a
-  `return_line` or a `"return"`, updating an `order_part`, or inserting a `refund` above its
-  lines' value, is refused; inserting a `fulfilment` for its own part and a `refund` within
-  its lines' value succeeds (DATA-MODEL §5.3);
+  `return_line` or a `"return"`, updating an `order_part`, or inserting a `refund` or
+  `refund_line` directly, is refused by the grant; `supplier_refund()` refuses a line that is
+  not its own, a quantity above the refundable one and an amount above its lines' value, and
+  succeeds within them; inserting a `fulfilment` for its own part succeeds (DATA-MODEL §5.3);
+- a guest inserting a cart whose `access_token_hash` is not the hash of the token it
+  presented is refused (DATA-MODEL §7.11);
 - **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
   `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
   `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
