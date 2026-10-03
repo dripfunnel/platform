@@ -1,8 +1,9 @@
 import { GraphQLError } from 'graphql'
-import { storeAudit, type ActionPermission, type StoreDetailDto, type StorePageDto, type StoreRowDto, type StoreState } from '#saas/partnerStores/index'
+import { storeAudit, storesExportAudit, type ActionPermission, type PartnerStoresService, type StoreDetailDto, type StorePageDto, type StoreRowDto, type StoreState } from '#saas/partnerStores/index'
 import { builder } from './builder'
 import { MoneyType } from './money'
-import { partnerRead, present, signedIn } from './fields'
+import { CreatePermissionType } from './storeCreate'
+import { exportResultType, partnerRead, present, signedIn } from './fields'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6; card #159). Thin: saas/partnerStores
 // decides; account level only, so no type here reaches an order, a customer or a product.
@@ -64,6 +65,7 @@ const StorePage = builder.objectRef<StorePageDto>('StorePage').implement({
     pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }),
     plans: t.field({ type: [Named], resolve: (p) => p.plans }),
     billingMode: t.exposeString('billingMode'),
+    createPermission: t.field({ type: CreatePermissionType, resolve: (p) => p.actions.create }),
     exportPermission: t.field({ type: Permission, resolve: (p) => p.actions.export }),
     billingStatusPermission: t.field({ type: Permission, nullable: true, resolve: (p) => p.actions.billingStatus }),
   }),
@@ -174,6 +176,18 @@ const FilterInput = builder.inputType('StoreFilterInput', {
   fields: (t) => ({ status: t.string(), plan: t.id(), created: t.string(), storefront: t.string(), near: t.string(), q: t.string() }),
 })
 
+type ExportJob = NonNullable<Awaited<ReturnType<PartnerStoresService['storesExport']>>>
+const ExportJobType = builder.objectRef<ExportJob>('StoresExportJob').implement({
+  fields: (t) => ({
+    id: t.exposeID('id'),
+    state: t.exposeString('state'),
+    rows: t.exposeInt('rows', { nullable: true }),
+    truncated: t.exposeBoolean('truncated'),
+    csv: t.exposeString('csv', { nullable: true }),
+    expiresAt: t.string({ nullable: true, resolve: (j) => j.expiresAt?.toISOString() ?? null }),
+  }),
+})
+
 const BillingResult = builder.objectRef<{ ok: boolean; reason?: string }>('StoreBillingStatusResult').implement({
   fields: (t) => ({ ok: t.exposeBoolean('ok'), reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }) }),
 })
@@ -193,9 +207,22 @@ builder.queryFields((t) => ({
     },
   }),
   store: t.field({ type: StoreDetailType, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: partnerRead }, resolve: (_, { id }, ctx) => signedIn(ctx.stores).store(String(id)) }),
+  storesExport: t.field({ type: ExportJobType, nullable: true, args: { id: t.arg.id({ required: true }) }, extensions: { access: exportsAccess }, resolve: (_, { id }, ctx) => signedIn(ctx.stores).storesExport(String(id)) }),
 }))
 
+const exportsAccess = { api: 'platform', scope: 'partner', permission: 'exports', target: 'none' } as const
+
 builder.mutationFields((t) => ({
+  exportStores: t.field({
+    type: exportResultType('StoresExportResult'),
+    args: { filter: t.arg({ type: FilterInput }) },
+    extensions: { access: { ...exportsAccess, audit: storesExportAudit } },
+    resolve: async (_, { filter }, ctx) => {
+      const result = await signedIn(ctx.stores).exportStores(present(filter))
+      if (!result.ok) throw invalid()
+      return result
+    },
+  }),
   setStoreBillingStatus: t.field({
     type: BillingResult,
     args: { id: t.arg.id({ required: true }), status: t.arg.string({ required: true }) },

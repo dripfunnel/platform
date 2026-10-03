@@ -1,3 +1,4 @@
+import { redactSecretsInText } from '#core/secretText'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
@@ -359,7 +360,8 @@ export const createStoresService = (deps: StoresServiceDeps) => {
           previewHost: row.storefront_kind === 'own' ? null : `${row.code}.preview.${shopsDomain ?? 'dripfunnel.example'}`,
           liveHost: liveHostOf(row, shopsDomain),
         },
-        provisioning: { error: row.job_last_error, details: detail?.details ?? null },
+        // Never a secret in either (decided on #43), as on the Provisioning list.
+        provisioning: { error: redactSecretsInText(row.job_last_error), details: redactSecretsInText(detail?.details ?? null) },
         records: recordsFor(domain, liveHostOf(row, shopsDomain)),
         users: people.map((p) => ({
           id: p.user_id,
