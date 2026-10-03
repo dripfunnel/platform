@@ -3,8 +3,7 @@ import type { Keyset } from '#core/cursor'
 import { maxPageSize, pgArray, type ScopedSql } from './index'
 import type { AmountKey, Entitlements, PlanVersionPrice } from './plans'
 
-// The partner's own catalogue as the Plans screens read and change it (ui/platform/FIRST-RELEASE.md
-// §7). Every query names the partner as well as running under its RLS scope.
+// The partner's catalogue as FIRST-RELEASE §7 reads it; every query names the partner too.
 
 export interface CatalogueRow {
   id: string
@@ -114,11 +113,7 @@ export const updatePlanStatus = async (tx: ScopedSql, planId: string, partnerId:
     where id = ${planId} and partner_id = ${partnerId} returning id
   `).length > 0
 
-/**
- * SAAS §6.3: the stores on a plan move to a version at a date — each at its first renewal on or
- * after `atRenewalAfter`, or all `on` a date. A store with a change already scheduled (its own
- * downgrade, an earlier move) keeps it. The partner writes only these three columns (0015).
- */
+/** SAAS §6.3's move, at each store's first renewal on or after a date, or on one; a store already scheduled keeps its own. */
 export const scheduleSubscriptionMoves = (
   tx: ScopedSql,
   fromPlanId: string,
