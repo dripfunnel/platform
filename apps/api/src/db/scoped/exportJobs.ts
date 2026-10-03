@@ -2,15 +2,19 @@ import type { ScopedSql } from './index'
 
 // Exports as jobs (migrations/0021; LOGGING §6): asked for, built after commit, read back by id.
 
+export type PartnerExportKind = 'activity' | 'report' | 'stores'
+
 export interface ExportJobRow {
   id: string
-  partner_id: string
-  kind: 'activity' | 'report' | 'stores'
+  // Null only for a staff export (0028).
+  partner_id: string | null
+  kind: PartnerExportKind | 'staff_activity'
   filter: Record<string, unknown>
-  state: 'queued' | 'done' | 'failed'
+  state: 'queued' | 'done' | 'failed' | 'too_large'
   rows: number | null
   truncated: boolean
   csv: string | null
+  cursor: string | null
   requested_by_id: string
   requested_by_label: string
   created_at: Date
@@ -18,7 +22,7 @@ export interface ExportJobRow {
   expires_at: Date | null
 }
 
-export const insertExportJob = async (tx: ScopedSql, j: { partnerId: string; kind: 'activity' | 'report' | 'stores'; filter: Record<string, unknown>; byId: string; byLabel: string }): Promise<string> => {
+export const insertExportJob = async (tx: ScopedSql, j: { partnerId: string; kind: PartnerExportKind; filter: Record<string, unknown>; byId: string; byLabel: string }): Promise<string> => {
   const id = crypto.randomUUID()
   await tx`
     insert into export_job (id, partner_id, kind, filter, requested_by_id, requested_by_label)
@@ -70,16 +74,7 @@ export const insertStaffExportJob = async (tx: ScopedSql, j: { filter: Record<st
   return id
 }
 
-export interface StaffExportRow {
-  id: string
-  state: string
-  rows: number | null
-  csv: string | null
-  cursor: string | null
-  expires_at: Date | null
-  filter: Record<string, unknown>
-  requested_by_id: string
-}
+export type StaffExportRow = Pick<ExportJobRow, 'id' | 'state' | 'rows' | 'csv' | 'cursor' | 'expires_at' | 'filter' | 'requested_by_id'>
 
 export const selectStaffExportJob = async (tx: ScopedSql, id: string): Promise<StaffExportRow | null> =>
   (await tx<StaffExportRow[]>`
