@@ -31,6 +31,7 @@ import { createPartnersService } from '#saas/partners/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
+import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
@@ -201,7 +202,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null })
+    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date())
@@ -213,6 +214,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       branding: deps ? createPartnerBrandingService(deps) : null,
       stores: deps ? createPartnerStoresService(deps) : null,
       storeActions: deps ? createPartnerStoreActions(deps) : null,
+      dashboard: deps ? createPartnerDashboardService(deps) : null,
     })
   })
 }

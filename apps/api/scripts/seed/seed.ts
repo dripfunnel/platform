@@ -21,6 +21,7 @@ import { stepsFor } from '#saas/provisioning/stuck'
 import { assertLoopbackOnly } from '../migrate/host-guard'
 import { insertBranding } from '#db/scoped/branding'
 import { seedAccounts } from './account'
+import { seedMoney } from './money'
 import { brandings } from './branding'
 import { catalogue, ceilings, contracts, fallbackEntitlements, fallbackPrices } from './catalogue'
 import { domainsFor, generated, generatedName, partners, recordFor, staff, stores, type SeedPartner, type SeedStore } from './data'
@@ -191,6 +192,7 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
   }
 
   await seedAccounts(tx, partnerIds, now)
+  await seedMoney(tx, partnerIds, now)
   return counts
 }
 

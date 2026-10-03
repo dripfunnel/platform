@@ -15,7 +15,7 @@ import { daysPastDue, trialDaysLeft } from '#saas/stores/index'
 import { actionsFor, type ActionPermission } from './verdicts'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
-export { actionsFor, storeActionPermission, storeActions, type ActionPermission, type ActionRefusal, type StoreAction } from './verdicts'
+export { actionsFor, permissionFor, storeActionPermission, storeActions, type ActionPermission, type ActionRefusal, type StoreAction } from './verdicts'
 export { createPartnerStoreActions, storeActionAudit, type PartnerStoreActions, type StoreActionResult } from './actions'
 export type { Proration } from './proration'
 

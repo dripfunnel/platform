@@ -1,7 +1,8 @@
 import { GraphQLError } from 'graphql'
 import { unauthenticated } from '../graphql/scope'
-import { planAudit, type Margin, type Money, type PartnerPlansService, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
+import { planAudit, type Margin, type PartnerPlansService, type PlanEditorDto, type PlanPrice, type PlanRowDto, type PlansPage, type Result, type RowEntitlements } from '#saas/partnerPlans/index'
 import { builder } from './builder'
+import { MoneyType } from './money'
 
 // Plans on the Platform API (ui/platform/FIRST-RELEASE.md §7; card #161). Thin: saas/partnerPlans
 // decides, and the scope is always the session's partner.
@@ -11,9 +12,6 @@ const service = (plans: PartnerPlansService | null): PartnerPlansService => {
   return plans
 }
 
-const MoneyType = builder.objectRef<Money>('Money').implement({
-  fields: (t) => ({ amount: t.exposeInt('amount'), currency: t.exposeString('currency') }),
-})
 
 const MarginType = builder.objectRef<Margin>('PlanMargin').implement({
   fields: (t) => ({

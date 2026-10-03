@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import { storeAudit, type ActionPermission, type PartnerStoresService, type StoreDetailDto, type StorePageDto, type StoreRowDto, type StoreState } from '#saas/partnerStores/index'
 import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
+import { MoneyType } from './money'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6; card #159). Thin: saas/partnerStores
 // decides; account level only, so no type here reaches an order, a customer or a product.
@@ -74,7 +75,6 @@ const StorePage = builder.objectRef<StorePageDto>('StorePage').implement({
 })
 
 type Detail = StoreDetailDto
-const Money = builder.objectRef<NonNullable<Detail['price']>>('StorePrice').implement({ fields: (t) => ({ amount: t.exposeInt('amount'), currency: t.exposeString('currency') }) })
 const People = builder.objectRef<Detail['people']>('StorePeopleCount').implement({ fields: (t) => ({ count: t.exposeInt('count'), suppliers: t.exposeInt('suppliers') }) })
 const Contact = builder.objectRef<Detail['contacts'][number]>('StoreContact').implement({
   fields: (t) => ({ name: t.exposeString('name'), email: t.exposeString('email'), role: t.exposeString('role') }),
@@ -158,7 +158,7 @@ const StoreDetailType = builder.objectRef<Detail>('PartnerStore').implement({
   fields: (t) => ({
     row: t.field({ type: StoreRowType, resolve: (s) => s }),
     country: t.exposeString('country', { nullable: true }),
-    price: t.field({ type: Money, nullable: true, resolve: (s) => s.price }),
+    price: t.field({ type: MoneyType, nullable: true, resolve: (s) => s.price }),
     people: t.field({ type: People, resolve: (s) => s.people }),
     contacts: t.field({ type: [Contact], resolve: (s) => s.contacts }),
     usage: t.field({ type: [Usage], resolve: (s) => s.usage }),
