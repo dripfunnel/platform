@@ -151,19 +151,24 @@ for each row execute function partner_self_update_guard();
 -- One platform host signs every partner's users in by email, and sign-in checks a fixed three
 -- accounts per email so its timing never says how many exist (ACCESS.md §2). So an address may
 -- belong to at most three partners' teams; a fourth is refused here, where it would otherwise
--- be an account that can never sign in. Owned by app_definer: it counts across partners.
+-- be an account that can never sign in. Owned by app_definer: it counts across partners, so
+-- its refusal says nothing about them, and a per-email lock makes concurrent adds count in turn.
 create function partner_user_email_limit() returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
+  perform pg_advisory_xact_lock(hashtext('partner_user_email:' || lower(new.email)));
   if (select count(*) from partner_user where lower(email) = lower(new.email) and id <> new.id) >= 3 then
-    raise exception 'partner_user: this email already belongs to three partners'' teams' using errcode = 'check_violation';
+    raise exception 'partner_user: email not accepted' using errcode = 'check_violation';
   end if;
   return new;
 end
 $$;
+
+-- Sign-in finds every account for an email, and the limit counts them, by this.
+create index partner_user_lower_email_idx on partner_user (lower(email));
 
 create trigger partner_user_email_limit before insert or update of email on partner_user
 for each row execute function partner_user_email_limit();

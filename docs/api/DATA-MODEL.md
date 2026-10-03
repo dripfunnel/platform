@@ -248,7 +248,8 @@ members and invitations by column only: never a password hash, a 2-factor secret
 column or an invitation token, which only sign-in and the deliverer write (as `app_system`).
 `partner_session` has no `remember` column: the partner sign-in screen offers no "Remember
 me" (ui/platform/FIRST-RELEASE.md §3). An email may belong to at most three partners' teams,
-refused by a trigger at the fourth (ACCESS.md §2).
+refused by a trigger at the fourth (ACCESS.md §2) with a refusal that names no other partner,
+counted under a per-email lock; `lower(email)` is indexed for it and for sign-in.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 

@@ -110,10 +110,25 @@ describe('one email on several partners', () => {
     const third = await userIn(p3?.id ?? '', 'multi@example.test', null)
     await db.sql`update partner_user set password_hash = ${await hashPassword('another-password')} where id = ${third}`
     await userIn(t.partnerA, 'MULTI@example.test', null)
-    await expect(userIn(p4?.id ?? '', 'multi@example.test', null)).rejects.toThrow(/already belongs to three partners/)
+    // The refusal names no other partner: the same words as any email the database will not take.
+    await expect(userIn(p4?.id ?? '', 'multi@example.test', null)).rejects.toThrow(/^partner_user: email not accepted$/)
+    const [moving] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${p4?.id ?? ''}, 'elsewhere@example.test', 'X', 'partner-admin', 'invited') returning id`
+    await expect(db.sql`update partner_user set email = 'Multi@example.test' where id = ${moving?.id ?? ''}`).rejects.toThrow(/email not accepted/)
     expect(await signedInAs(cookieOf(await post('sign-in', { email: 'multi@example.test', password: 'another-password' })))).toBe(third)
     expect(await signedInAs(cookieOf(await post('sign-in', { email: 'multi@example.test', password })))).not.toBe(third)
     expect(other).not.toBe(third)
+  })
+})
+
+describe('the three-partner limit under concurrency', () => {
+  it('lets only one of two simultaneous adds become the third account', async () => {
+    const partners = await db.sql<{ id: string }[]>`insert into partner (name) values ('Race A'), ('Race B'), ('Race C') returning id`
+    await userIn(partners[0]?.id ?? '', 'race@example.test', null)
+    await userIn(partners[1]?.id ?? '', 'race@example.test', null)
+    const [d] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Race D') returning id`
+    const results = await Promise.allSettled([userIn(partners[2]?.id ?? '', 'race@example.test', null), userIn(d?.id ?? '', 'race@example.test', null)])
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
+    expect((await db.sql`select id from partner_user where lower(email) = 'race@example.test'`).length).toBe(3)
   })
 })
 
