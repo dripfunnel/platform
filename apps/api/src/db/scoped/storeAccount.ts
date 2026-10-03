@@ -90,7 +90,8 @@ export interface OverrideRow {
   created_at: Date
 }
 
-// Newest first, a keyset page at a time (core/cursor.ts): the records are append-only and grow.
+// The partner's and staff's view, with why and who: a merchant is not granted those columns
+// (0014), and its own read comes with the Store API. Newest first, a keyset page at a time.
 export const selectOverrides = (tx: ScopedSql, storeId: string, after: Keyset | undefined, limit: number): Promise<OverrideRow[]> =>
   tx<OverrideRow[]>`
     select id, key, amount, duration, month, reason, created_by_label, created_at from store_limit_override

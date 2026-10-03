@@ -77,7 +77,11 @@ describe('who reads and writes the account', () => {
     expect(own.usage.length).toBeGreaterThan(0)
     // What changed its limits, never the partner's reason or who wrote it.
     const merchant = inStore(ids.ns, ids.nsStore, 'person')
-    expect((await as(merchant, (tx) => tx`select key, amount, duration from store_limit_override`)).length).toBe(1)
+    expect((await as(merchant, (tx) => tx`select key, amount, duration, month from store_limit_override`)).length).toBe(1)
+    const [extended] = await db.sql<{ store_id: string }[]>`select e.store_id from store_trial_extension e join store s on s.id = e.store_id where s.partner_id = ${ids.ns} limit 1`
+    const ownExtension = await as(inStore(ids.ns, extended?.store_id ?? '', 'person'), (tx) => tx<{ days: number }[]>`select days, ends_at, created_at from store_trial_extension`)
+    expect(ownExtension.map((e) => e.days)).toEqual([7])
+    await expect(as(merchant, (tx) => selectOverrides(tx, ids.nsStore, undefined, 25))).rejects.toThrow(/permission denied/i)
     await expect(as(merchant, (tx) => tx`select reason from store_limit_override`)).rejects.toThrow(/permission denied/i)
     for (const column of ['stripe_customer_id', 'stripe_subscription_id', 'payment_method_label']) {
       await expect(as(merchant, (tx) => tx.unsafe(`select ${column} from store_subscription`))).rejects.toThrow(/permission denied/i)
