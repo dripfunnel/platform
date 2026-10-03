@@ -28,6 +28,7 @@ import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
+import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
 
@@ -197,11 +198,13 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null })
+    return servers.platform.fetch(request, { caller: null, console: null })
   }
-  return withConnection(hyperdrive, ctx, async (sql) =>
-    servers.platform.fetch(request, { caller: await resolvePartner(sql, request, new Date()) }),
-  )
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const caller = await resolvePartner(sql, request, new Date())
+    const partnerConsole = caller ? createPartnerConsoleService({ sql, caller, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null
+    return servers.platform.fetch(request, { caller, console: partnerConsole })
+  })
 }
 
 const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {

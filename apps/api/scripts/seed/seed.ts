@@ -19,7 +19,7 @@ import { insertCustomDomain, insertJob, insertMembership, insertSeller, insertSt
 import { toRow } from '#saas/activity/log'
 import { stepsFor } from '#saas/provisioning/stuck'
 import { assertLoopbackOnly } from '../migrate/host-guard'
-import { catalogue, ceilings, contracts, fallbackEntitlements } from './catalogue'
+import { catalogue, ceilings, contracts, fallbackEntitlements, fallbackPrices } from './catalogue'
 import { domainsFor, generated, generatedName, partners, recordFor, staff, stores, type SeedPartner, type SeedStore } from './data'
 
 export interface SeedCounts {
@@ -103,7 +103,7 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
         trialDays,
         maxProducts: plan.maxProducts,
         maxStaff: plan.maxStaff,
-        prices: entry?.prices ?? [],
+        prices: entry?.prices ?? fallbackPrices(plan.status),
         entitlements: entry?.entitlements ?? fallbackEntitlements(plan.maxProducts, plan.maxStaff),
         by: { kind: 'system', label: 'Seed' },
       })

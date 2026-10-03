@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -701,6 +701,28 @@ api/README.md §2.1); a partner id in a request is not authority.
 | Support | `supportTargets(search, after, before)`, `supportSessions(filter, after, before)`, `mySupportSession` | `reauthenticate(code)` (a single-use proof), `startSupportSession(membershipId, reason, ticket, proof)`, `endSupportSession(id)`, `returnToSupportSession(id)` (a fresh handoff link); the merchant's Allow/Deny of write access is the Store API's (ACCESS §8) |
 | Activity log | `activityLog(filter, after, before)`, `personTimeline(personRef, filter, after, before)`, `activityPeople(query)` | `exportActivity(filter)` (a job) |
 | Settings | `partnerCompany`, `team(after, before)`, `payoutAccount`, `paymentMethod` | `inviteTeamMember`, `resendTeamInvite`, `revokeTeamInvite`, `changeTeamRole`, `removeTeamMember`, `transferOwnership`, `setPayoutAccount`, `setPaymentMethod(token)` (a hosted-field token, never a card number), `setSecondFactorPolicy(required)` |
+
+**Built on #158** (the shell and onboarding rows, `apis/platform/shell.ts`, `saas/partnerConsole`):
+- `partnerState` returns facts, never sentences: `state`, `sentBackReason`, `pausedAt`,
+  `pauseReason`, `storeCount`, `brokenHosts` (portal or email sender hosts now `broken`) and
+  `setupSession { staffName, endsAt }`. The contract term, grace, lapse and store limit
+  have no model yet, nor do held payouts or a declined card (#201); their banners wait for
+  them, and nothing reports a guess.
+- `navBadges`: `storesAttention` (failed or stuck signups, plus merchants whose latest domain is
+  failed, broken or waiting over 24 h), `brandingSetupLeft` (Branding and Legal items not
+  done, until first approved) and
+  `domainsWaiting` are counted. `billingFailedPayments` and `supportOpenSessions` are 0
+  until #201 and #202.
+- `search(query)`: two characters or more, at most 8 matches, the caller's partner only.
+- `onboarding`: each item has `key`, `status`, `detail`, `doneBy` (DripFunnel or a first
+  name) and `to` (its screen). A payment or payout item a staff session marked done reads as
+  missing. `fixes` lists the items behind the failing go-live checks, as `{ item, to }`
+  keys the console words itself. `canSubmit` is the action's permission block.
+- `submitForApproval` returns `GO_LIVE_CHECK_FAILED` with `check`, or `ALREADY_SUBMITTED`. A
+  role without `onboarding.submit` gets `FORBIDDEN` from the policy;
+  `canSubmit.reason = OWNERS_AND_ADMINS_ONLY` is what disables the button first.
+- "Priced" in the go-live checks now means a Live plan whose current version has a monthly
+  price (#157's catalogue), for the admin console too.
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype

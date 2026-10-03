@@ -6,14 +6,11 @@ export type GoLiveCheck = (typeof goLiveChecks)[number]
 
 export type GoLiveChecks = Record<GoLiveCheck, boolean>
 
-/**
- * Each check is a fact about the rows, never a stored flag. "Priced" means a Live plan until
- * PAPI 3 brings prices (noted on #33).
- */
+/** Each check is a fact about the rows, never a stored flag. "Priced": a Live plan whose current version has a price (#157). */
 export const goLiveChecksFor = (
   domains: readonly Pick<PartnerDomainRow, 'kind' | 'status'>[],
   items: readonly Pick<PartnerSetupItemRow, 'item' | 'status'>[],
-  plans: readonly Pick<PlanRow, 'status'>[],
+  plans: readonly (Pick<PlanRow, 'status'> & { priced: boolean })[],
   fallbackSenderAccepted: boolean,
 ): GoLiveChecks => {
   const live = (kind: PartnerDomainRow['kind']) => domains.some((d) => d.kind === kind && d.status === 'live')
@@ -21,7 +18,7 @@ export const goLiveChecksFor = (
   return {
     portalHost: live('portal'),
     emailDomain: live('email') || fallbackSenderAccepted,
-    pricedPlan: plans.some((p) => p.status === 'live'),
+    pricedPlan: plans.some((p) => p.status === 'live' && p.priced),
     legalPages: done('legal'),
     testSignup: done('testSignup'),
   }

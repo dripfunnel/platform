@@ -2,6 +2,7 @@ import type { PartnerCaller } from '#auth/partnerCaller'
 import { secureSchema } from '../graphql/scope'
 import { platformPolicy } from './access'
 import { builder } from './builder'
+import './shell'
 
 export type { PlatformContext } from './access'
 
