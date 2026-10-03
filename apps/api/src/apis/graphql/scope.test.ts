@@ -145,7 +145,7 @@ const staffAs = (role: StaffRole): StaffMember => ({ id: 'staff-1', email: 's@so
 const contextFor = (staff: StaffMember | null, assigned: readonly string[] = []): AdminContext => ({
   staff,
   isAssigned: async (_, target: AccessTarget) => assigned.includes('partnerId' in target ? target.partnerId : target.storeId),
-  activity: async () => ({ ok: false, code: 'INVALID_FILTER' }),
+  staffActivity: null,
   partners: null,
   stores: null,
   dashboard: null,

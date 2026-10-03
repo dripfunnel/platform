@@ -7,7 +7,7 @@ import type { StaffMember, StaffRole } from '#auth/staff'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
-import { activityLog, listActivity } from '#saas/activity/index'
+import { activityLog } from '#saas/activity/index'
 import { createStoresService, storeAudit } from '#saas/stores/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -25,7 +25,7 @@ const contextFor = (staff: StaffMember | null): AdminContext => {
   return {
     staff,
     isAssigned: assigned,
-    activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
+    staffActivity: null,
     partners: null,
     stores: staff ? createStoresService({ sql: db.sql, staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
     dashboard: null,

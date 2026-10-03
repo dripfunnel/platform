@@ -13,7 +13,6 @@ import { resolvePartner } from '#auth/partnerCaller'
 import { partnerCookieName } from '#auth/partnerSession'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
-import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
 import type { IdentityProvider } from '#auth/oidc'
 import { SignInFailed } from '#auth/oidc'
@@ -25,12 +24,14 @@ import { entraProvider } from '#integrations/entra/provider'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
+import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
-import { activityLog, listActivity } from '#saas/activity/index'
+import { activityLog } from '#saas/activity/index'
+import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -69,11 +70,8 @@ const deliverersFor = (sql: postgres.Sql): Deliverers => {
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
+    'export.staff_activity': staffActivityExportDeliverer(sql),
   }
-}
-
-const notConnected = async () => {
-  throw new Error('no database for this request')
 }
 
 const notFound = () => new Response('Not found', { status: 404 })
@@ -160,7 +158,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, staffActivity: null, partners: null, stores: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -168,12 +166,7 @@ const handleAdmin = async (
     return servers.admin.fetch(request, {
       staff: caller?.staff ?? null,
       isAssigned: assigned,
-      activity: caller
-        ? (filter, page) =>
-            listActivity(sql, { caller: { kind: 'staff', staffId: caller.staff.id } }, filter, page, {
-              assignedTo: partnerScopedRoles.includes(caller.staff.role) ? caller.staff.id : undefined,
-            })
-        : notConnected,
+      staffActivity: caller ? createStaffActivityService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       partners: caller
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,

@@ -9,9 +9,14 @@ type ActivityAccess {
   kind: String
 }
 
-type ActivityAgent {
+type ActivityActor {
   id: ID
   kind: String
+  label: String
+}
+
+type ActivityAgent {
+  id: ID
   label: String
 }
 
@@ -25,50 +30,105 @@ type ActivityChange {
 type ActivityEntry {
   access: ActivityAccess
   action: String
-  actorId: String
-  actorKind: String
-  actorLabel: String
-  api: String
-  category: String
+  actor: ActivityActor
   changes: [ActivityChange!]
-  customerId: ID
-  host: String
   id: ID
   ip: String
+  level: String
   occurredAt: String
   onBehalfOf: ActivityAgent
-  partnerId: ID
+  partner: ActivityNamed
   reason: String
   requestId: String
   result: String
-  sellerId: ID
-  storeId: ID
+  store: ActivityNamed
   target: ActivityTarget
   userAgent: String
-  visibility: String
+}
+
+type ActivityExportJob {
+  csv: String
+  entries: Int
+  expiresAt: String
+  id: ID
+  state: String
+}
+
+type ActivityExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
 }
 
 input ActivityFilter {
   action: String
-  actorId: String
-  actorKind: String
+  actor: String
+  customer: ID
+  date: String
   from: String
-  partnerId: ID
-  storeId: ID
-  targetId: String
-  targetType: String
+  imp: ID
+  ip: String
+  level: String
+  partner: ID
+  person: String
+  result: String
+  store: ID
+  su: ID
+  target: String
   to: String
 }
 
+type ActivityMembership {
+  role: String
+  where: String
+}
+
+type ActivityNamed {
+  id: ID
+  name: String
+}
+
 type ActivityPage {
+  export: ActionPermission
   items: [ActivityEntry!]
   pageInfo: PageInfo
+  partners: [ActivityNamed!]
+  stores: [ActivityStoreOption!]
+}
+
+type ActivityPerson {
+  email: String
+  id: ID
+  kind: String
+  memberships: [ActivityMembership!]
+  name: String
+  sameEmailAccounts: Int
+  where: String
+}
+
+type ActivityPersonMatch {
+  email: String
+  id: ID
+  kind: String
+  name: String
+  where: String
+}
+
+type ActivityStoreOption {
+  id: ID
+  name: String
+  partnerId: ID
 }
 
 type ActivityTarget {
   id: ID
   label: String
   type: String
+}
+
+type ActivityTimeline {
+  items: [ActivityEntry!]
+  pageInfo: PageInfo
 }
 
 type AttentionReason {
@@ -181,6 +241,7 @@ type Mutation {
   assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
   endStaffSession(id: ID!): PartnerMutationOutcome
+  exportActivity(filter: ActivityFilter): ActivityExportResult
   extendTrial(id: ID!, trialEndsAt: String!): StoreMutationOutcome
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
@@ -391,13 +452,17 @@ type PartnerUser {
 }
 
 type Query {
+  activityExport(id: ID!): ActivityExportJob
   activityLog(after: String, before: String, filter: ActivityFilter, first: Int): ActivityPage
+  activityPeople(query: String!): [ActivityPersonMatch!]
+  activityPerson(person: String!): ActivityPerson
   dashboard(partnerId: ID): Dashboard
   health: String
   me: Staff
   navBadges: NavBadges
   partner(id: ID!): Partner
   partners(after: String, before: String, filter: PartnerFilter, first: Int): PartnerPage
+  personTimeline(after: String, before: String, filter: ActivityFilter, first: Int, person: String!): ActivityTimeline
   search(query: String!): SearchResult
   store(id: ID!): Store
   stores(after: String, before: String, filter: StoreFilter, first: Int): StorePage
