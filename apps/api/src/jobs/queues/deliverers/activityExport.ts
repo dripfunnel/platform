@@ -43,7 +43,7 @@ export const activityExportDeliverer = (sql: postgres.Sql, now: () => Date = () 
     try {
       await build(sql, scope, jobId, now)
     } catch (error) {
-      if (effect.attempt >= defaultRelayOptions.maxAttempts) await withScope(sql, scope, (tx) => failExportJob(tx, jobId, now()))
+      if (effect.attempt >= defaultRelayOptions.maxAttempts) await withScope(sql, scope, (tx) => failExportJob(tx, jobId, now(), new Date(now().getTime() + exportLifetimeMs)))
       throw error
     }
   },

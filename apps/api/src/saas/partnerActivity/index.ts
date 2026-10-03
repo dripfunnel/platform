@@ -22,6 +22,7 @@ export const activityAudit = { exportActivity: 'activity.exported' } as const
 export const peopleMax = 8
 export const exportMaxRows = 10_000
 export const exportLifetimeMs = 60 * 60 * 1000
+const exporters: readonly string[] = ['partner-owner', 'partner-admin']
 
 // FIRST-RELEASE §13's chips, as the console spells them; all optional and in the URL.
 export const partnerActivityFilter = z.strictObject({
@@ -108,9 +109,9 @@ export const createPartnerActivityService = ({ sql, caller, facts, activity, now
 
   type ExportResult = { ok: true; jobId: string } | { ok: false; reason: 'OWNERS_AND_ADMINS_ONLY' | 'INVALID_INPUT' }
 
-  // LOGGING §6: Owner and Admin export; every export is itself logged.
+  // LOGGING §6: Owner and Admin export, and only they read an export back; every export is logged.
   const exportActivity = (raw: unknown): Promise<ExportResult> => {
-    if (caller.user.role !== 'partner-owner' && caller.user.role !== 'partner-admin') return Promise.resolve({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+    if (!exporters.includes(caller.user.role)) return Promise.resolve({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
     const parsed = partnerActivityFilter.safeParse(raw ?? {})
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const filter = logFilterOf(parsed.data, now())
@@ -122,9 +123,9 @@ export const createPartnerActivityService = ({ sql, caller, facts, activity, now
     })
   }
 
-  /** The job's state; its CSV until it expires. Null for an id that isn't one of the partner's. */
+  /** The job's state; its CSV until it expires. Null for an id that isn't the partner's, or for a role that may not export. */
   const exportJob = (id: string) => {
-    if (!z.guid().safeParse(id).success) return Promise.resolve(null)
+    if (!exporters.includes(caller.user.role) || !z.guid().safeParse(id).success) return Promise.resolve(null)
     return withScope(sql, context, async (tx) => {
       const job = await selectExportJob(tx, id)
       if (!job) return null

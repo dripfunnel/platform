@@ -121,6 +121,13 @@ describe('people', () => {
     expect(found).toBe('INVALID_INPUT')
     const people = (await run<{ activityPeople: { ref: string; kind: string; name: string }[] }>(q, owner, { q: 'an' })).data?.activityPeople ?? []
     expect(people.length).toBeLessThanOrEqual(8)
+    expect(new Set(people.map((p) => p.ref)).size).toBe(people.length)
+    // An Owner of two of the partner's stores is one person in the search.
+    const [owner2] = await db.sql<{ name: string }[]>`select name from "user" where id = ${ids.owner}`
+    const [second] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and id <> ${ids.nsStore} order by name limit 1`
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${ids.owner}, ${second?.id ?? ''}, 'owner', 'active') on conflict do nothing`
+    const twice = (await run<{ activityPeople: { ref: string }[] }>(q, owner, { q: owner2?.name ?? 'zz' })).data?.activityPeople ?? []
+    expect(twice.filter((p) => p.ref === `owner:${ids.owner}`)).toHaveLength(1)
     expect(people.every((p) => p.kind === 'team' || p.kind === 'owner')).toBe(true)
     const staff = (await run<{ activityPeople: unknown[] }>(q, owner, { q: 'Neha' })).data?.activityPeople
     expect(staff).toEqual([])
@@ -151,9 +158,13 @@ describe('export', () => {
     expect((await run<{ exportActivity: { reason: string } }>(start, callerOf(ids.ns, 'partner-support'))).data?.exportActivity).toMatchObject({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
     const asked = (await run<{ exportActivity: { ok: boolean; jobId: string } }>(start, callerOf(ids.ns, 'partner-admin', ids.maya), { f: { storeId: ids.nsStore } })).data?.exportActivity
     expect(asked?.ok).toBe(true)
-    expect((await run<{ activityExport: { state: string } }>(job, callerOf(ids.ns, 'partner-read-only'), { id: asked?.jobId })).data?.activityExport.state).toBe('queued')
+    expect((await run<{ activityExport: { state: string } }>(job, callerOf(ids.ns, 'partner-owner'), { id: asked?.jobId })).data?.activityExport.state).toBe('queued')
     await relayDue(db.sql, { 'export.activity': activityExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
-    const done = (await run<{ activityExport: { state: string; rows: number; csv: string } }>(job, callerOf(ids.ns, 'partner-read-only'), { id: asked?.jobId })).data?.activityExport
+    const done = (await run<{ activityExport: { state: string; rows: number; csv: string } }>(job, callerOf(ids.ns, 'partner-owner'), { id: asked?.jobId })).data?.activityExport
+    // Only Owners and Admins read an export back, as only they may make one (LOGGING §6).
+    for (const role of ['partner-read-only', 'partner-support', 'partner-finance'] as const) {
+      expect((await run<{ activityExport: unknown }>(job, callerOf(ids.ns, role), { id: asked?.jobId })).data?.activityExport, role).toBeNull()
+    }
     expect(done?.state).toBe('done')
     const lines = done?.csv.split('\n') ?? []
     expect(lines[0]).toBe('When (UTC),Who,Who kind,Through,Action,Result,Store id,Target,Changes,Reason')
@@ -175,7 +186,7 @@ describe('export', () => {
     const failing = { ...effect(defaultRelayOptions.maxAttempts), payload: { jobId: asked?.jobId, partnerId: ids.ns, partnerUserId: ids.maya } }
     await db.sql`update export_job set filter = '{"from": "not a date"}'::jsonb where id = ${asked?.jobId ?? ''}`
     await expect(deliverer.deliver(failing, new AbortController().signal)).rejects.toThrow()
-    expect(await db.sql`select state from export_job where id = ${asked?.jobId ?? ''}`).toEqual([{ state: 'failed' }])
+    expect(await db.sql`select state, expires_at is not null as expires from export_job where id = ${asked?.jobId ?? ''}`).toEqual([{ state: 'failed', expires: true }])
     await db.sql`update export_job set state = 'done', rows = 0, csv = '', finished_at = ${now}, expires_at = ${new Date(Date.now() - 1000)} where id = ${asked?.jobId ?? ''}`
     const { deleteExpiredExports } = await import('#db/scoped/exportJobs')
     const { withSystemScope } = await import('#db/scoped/index')

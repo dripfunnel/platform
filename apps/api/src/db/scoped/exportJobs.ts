@@ -37,10 +37,10 @@ export const completeExportJob = async (tx: ScopedSql, id: string, r: { rows: nu
   `
 }
 
-export const failExportJob = async (tx: ScopedSql, id: string, at: Date): Promise<void> => {
-  await tx`update export_job set state = 'failed', finished_at = ${at} where id = ${id} and state = 'queued'`
+export const failExportJob = async (tx: ScopedSql, id: string, at: Date, expiresAt: Date): Promise<void> => {
+  await tx`update export_job set state = 'failed', finished_at = ${at}, expires_at = ${expiresAt} where id = ${id} and state = 'queued'`
 }
 
-/** An export's CSV is personal data kept for its hour only (LOGGING §6); the request stays in the log. */
+/** An export is kept for its hour, and one never finished for a day at most (LOGGING §6); the request stays in the log. */
 export const deleteExpiredExports = async (tx: ScopedSql, now: Date): Promise<number> =>
-  (await tx`delete from export_job where expires_at < ${now} returning id`).length
+  (await tx`delete from export_job where expires_at < ${now} or created_at < ${new Date(now.getTime() - 24 * 60 * 60 * 1000)} returning id`).length

@@ -887,7 +887,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   Owners only, with no email in the answer.
 - `exportActivity(filter)` (Owner and Admin, `OWNERS_AND_ADMINS_ONLY` otherwise) queues an
   `export_job` and logs `activity.exported`. `activityExport(id)` answers queued, done (with the
-  CSV, its row count and `truncated` past 10,000) or expired an hour later.
+  CSV, its row count and `truncated` past 10,000), failed, or expired an hour later, to Owners
+  and Admins only (anyone else gets null). An Owner of several stores is one person in the search.
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype

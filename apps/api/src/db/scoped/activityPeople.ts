@@ -18,10 +18,10 @@ export const selectActivityPeople = (tx: ScopedSql, partnerId: string, term: str
       where u.partner_id = ${partnerId} and (u.name ilike ${like} or u.email ilike ${like})
       order by u.name limit ${limit})
     union all
-    (select 'owner', p.id, p.name, s.name from membership m
+    (select distinct on (p.name, p.id) 'owner', p.id, p.name, s.name from membership m
       join "user" p on p.id = m.user_id join store s on s.id = m.store_id
       where s.partner_id = ${partnerId} and m.seller_id is null and m.role_key = 'owner' and (p.name ilike ${like} or p.email ilike ${like})
-      order by p.name limit ${limit})
+      order by p.name, p.id, s.name limit ${limit})
     order by name, kind
     limit ${limit}
   `
