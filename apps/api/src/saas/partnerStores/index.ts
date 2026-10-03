@@ -1,3 +1,4 @@
+import { redactSecretsInText } from '#core/secretText'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
@@ -204,7 +205,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           steps: row.job_steps ?? [],
           step: row.job_step,
           state: setupStateOf(row.job_state && row.job_step && row.job_step_started_at ? { state: row.job_state, step: row.job_step, step_started_at: row.job_step_started_at } : null, at),
-          error: row.job_last_error,
+          error: redactSecretsInText(row.job_last_error),
         },
         trialExtensions: extensions.slice(0, detailListSize).map((e) => ({ days: e.days, endsAt: e.ends_at })),
         support: {
