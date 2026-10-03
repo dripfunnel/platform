@@ -11,6 +11,7 @@ import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/
 import { selectCustomDomains, selectStoreCounts, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
 import { listActivity, type PageInfo } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
+import { daysPastDue, trialDaysLeft } from '#saas/stores/states'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/actions'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6.1, §6.3, §6.4; card #159): the
@@ -64,14 +65,12 @@ export interface StorePageDto {
   actions: { export: ActionPermission; billingStatus: ActionPermission | null }
 }
 
-const pastDueDays = (row: StoreListRow, now: Date) => (row.past_due_since ? Math.max(1, Math.ceil((now.getTime() - row.past_due_since.getTime()) / day)) : 0)
-
 export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'past_due_since' | 'suspended_reason' | 'cancelled_at'>, now: Date): StoreState => {
   switch (row.status) {
     case 'trial':
-      return { kind: 'trial', trialEndsAt: row.trial_ends_at, daysLeft: row.trial_ends_at ? Math.max(0, Math.ceil((row.trial_ends_at.getTime() - now.getTime()) / day)) : null }
+      return { kind: 'trial', trialEndsAt: row.trial_ends_at, daysLeft: row.trial_ends_at ? trialDaysLeft(row.trial_ends_at, now) : null }
     case 'past_due':
-      return { kind: 'pastdue', daysPastDue: pastDueDays(row as StoreListRow, now) }
+      return { kind: 'pastdue', daysPastDue: row.past_due_since ? daysPastDue(row.past_due_since, now) : 0 }
     case 'suspended':
       return { kind: 'suspended', reason: row.suspended_reason ?? '' }
     case 'cancelled':

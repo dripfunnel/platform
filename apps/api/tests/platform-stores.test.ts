@@ -152,10 +152,15 @@ describe('the detail', () => {
 
   it('derives every verdict from the role’s permissions', async () => {
     const [trial] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and status = 'trial' limit 1`
-    for (const role of partnerRoles) {
-      const actions = (await run<Detail>(detailQuery, callerOf(ids.ns, role), { id: trial?.id })).data?.store?.actions ?? {}
-      for (const action of ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'suspend'] as const) {
-        expect(actions[action]?.allowed, `${role} ${action}`).toBe(partnerRoleHas(role, storeActionPermission[action]))
+    const [suspended] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and status = 'suspended' limit 1`
+    const [failed] = await db.sql<{ id: string }[]>`
+      update job set state = 'failed' where id = (select j.id from job j join store s on s.id = j.store_id where s.partner_id = ${ids.ns} order by j.started_at desc limit 1)
+      returning store_id as id`
+    const offered = { [trial?.id ?? '']: ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'suspend'], [suspended?.id ?? '']: ['restore'], [failed?.id ?? '']: ['retryStep'] } as const
+    for (const [id, actionsOffered] of Object.entries(offered)) {
+      for (const role of partnerRoles) {
+        const actions = (await run<Detail>(detailQuery, callerOf(ids.ns, role), { id })).data?.store?.actions ?? {}
+        for (const action of actionsOffered) expect(actions[action]?.allowed, `${role} ${action}`).toBe(partnerRoleHas(role, storeActionPermission[action]))
       }
     }
   })

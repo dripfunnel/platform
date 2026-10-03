@@ -31,7 +31,7 @@ import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { setupStateOf, stuckAfterMinutes, type SetupState } from '#saas/provisioning/stuck'
 import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/actions'
-import { extendTrial as extendTrialTo, transitionStore } from './states'
+import { daysPastDue, extendTrial as extendTrialTo, transitionStore, trialDaysLeft } from './states'
 
 // Stores on the Admin API (card #34; ui/admin/FIRST-RELEASE.md §5, §12). Every decision a
 // screen is told comes from here; every write records its entry in its transaction.
@@ -187,11 +187,11 @@ const dayMs = 24 * 60 * 60 * 1000
 const stateOf = (row: StoreRow, now: Date): StoreState => {
   switch (row.status) {
     case 'trial':
-      return { kind: 'trial', trialEndsAt: row.trial_ends_at ?? now, daysLeft: Math.max(0, Math.ceil(((row.trial_ends_at ?? now).getTime() - now.getTime()) / dayMs)) }
+      return { kind: 'trial', trialEndsAt: row.trial_ends_at ?? now, daysLeft: trialDaysLeft(row.trial_ends_at ?? now, now) }
     case 'active':
       return { kind: 'active' }
     case 'past_due':
-      return { kind: 'past_due', daysPastDue: Math.max(0, Math.floor((now.getTime() - (row.past_due_since ?? now).getTime()) / dayMs)) }
+      return { kind: 'past_due', daysPastDue: daysPastDue(row.past_due_since ?? now, now) }
     case 'suspended':
       return { kind: 'suspended', reason: row.suspended_reason ?? '', by: row.suspended_by_label ?? '', since: row.suspended_at ?? now, previous: row.suspended_previous_status ?? 'active' }
     case 'cancelled':
