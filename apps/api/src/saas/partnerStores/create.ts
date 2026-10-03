@@ -27,11 +27,11 @@ import { stepsFor } from '#saas/provisioning/index'
 // Creating a store for a merchant the partner signed (ui/platform/FIRST-RELEASE.md §6.2, SAAS.md
 // §5; card #221) and the five steps the screen polls.
 
-export const trialOptions = [0, 7, 14, 30] as const
+const trialOptions = [0, 7, 14, 30] as const
 const invitationDays = 7
 const day = 24 * 60 * 60 * 1000
 
-export const createStoreInput = z.strictObject({
+const createStoreInput = z.strictObject({
   name: z.string().trim().min(1).max(80),
   ownerName: z.string().trim().min(1).max(80),
   ownerEmail: z.email().max(254),
@@ -42,7 +42,7 @@ export const createStoreInput = z.strictObject({
 
 export type CreateRefusal = 'OWNERS_AND_ADMINS_ONLY' | 'PARTNER_NOT_LIVE' | 'PARTNER_PAUSED' | 'INVALID_INPUT'
 export type CreatePermission = { allowed: true } | { allowed: false; reason: Exclude<CreateRefusal, 'INVALID_INPUT'> }
-export type CreateResult = { ok: true; storeId: string } | { ok: false; reason: CreateRefusal; field?: string }
+type CreateResult = { ok: true; storeId: string } | { ok: false; reason: CreateRefusal; field?: string }
 
 export const createAudit = 'store.created'
 

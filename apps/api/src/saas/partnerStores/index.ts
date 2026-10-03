@@ -18,7 +18,7 @@ import { storeFilter, toStoreFilter } from './filter'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
 export { storeFilter, toStoreFilter, type StoreFilterInput } from './filter'
-export { createAudit, createStoreInput, trialOptions, type CreatePermission, type CreateResult } from './create'
+export { createAudit, type CreatePermission } from './create'
 export { storesCsv, storesExportAudit, storesExportLifetimeMs, storesExportMax } from './export'
 export { actionsFor, permissionFor, storeActionPermission, storeActions, type ActionPermission, type ActionRefusal, type StoreAction } from './verdicts'
 export { createPartnerStoreActions, storeActionAudit, type PartnerStoreActions, type StoreActionResult } from './actions'
@@ -29,7 +29,6 @@ export type { Proration } from './proration'
 
 export const storePageSize = 25
 const detailListSize = 25
-
 
 export type StoreState =
   | { kind: 'trial'; trialEndsAt: Date | null; daysLeft: number | null }
@@ -75,8 +74,6 @@ export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'pa
       return { kind: 'active' }
   }
 }
-
-// A closed store reads as cancelled (FIRST-RELEASE §6.1), so the filter takes both.
 
 export interface PartnerStoresDeps {
   sql: postgres.Sql

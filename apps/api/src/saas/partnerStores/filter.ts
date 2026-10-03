@@ -16,6 +16,7 @@ export const storeFilter = z.strictObject({
 })
 export type StoreFilterInput = z.infer<typeof storeFilter>
 
+// A closed store reads as cancelled (FIRST-RELEASE §6.1), so the filter takes both.
 const statusFor: Record<NonNullable<StoreFilterInput['status']>, StoreStatus | readonly StoreStatus[]> = {
   trial: 'trial',
   active: 'active',
