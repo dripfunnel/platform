@@ -143,7 +143,7 @@ relying on them.
 
 ## 6. To verify on the first run
 
-These follow Cloudflare's documented behaviour, but no deploy has run yet:
+These follow Cloudflare's and Neon's documented behaviour, but no deploy has run yet:
 
 - **Custom domain on a branch alias through the API.** The documentation describes adding
   the domain to the project and pointing its proxied CNAME at `<branch>.<project>.pages.dev`.
@@ -155,6 +155,10 @@ These follow Cloudflare's documented behaviour, but no deploy has run yet:
 - **Deleting a Pages deployment that has an alias** with `?force=true`.
 - **The token's permission list** in §4 step 2 is enough for Worker custom domains and route
   deletion.
+- **`neondatabase/create-branch-action@v6` exposes a `host` output.** Its documented outputs
+  include one, and the *Migrations* step's opt-in reads it (§3). If that step fails with
+  "ALLOWED_MIGRATION_HOST is not set", the output is named differently; the guard refuses an
+  empty host, so the failure is safe. Link the first green run on #73.
 
 ---
 
