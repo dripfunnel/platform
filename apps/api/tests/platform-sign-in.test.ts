@@ -167,4 +167,20 @@ describe('enrolment when the partner requires 2-factor', () => {
     expect(await secrets.open(row?.two_factor_secret_enc ?? '')).toBe(issued.secret)
     expect((await bodyOf(await post('sign-in', { email: 'jonas@kaufladen.example', password }))).step).toBe('second-factor')
   })
+
+  it('never lets a stale enrol session replace a secret the user has since set up', async () => {
+    const ids2 = await db.sql<{ id: string }[]>`
+      insert into partner_user (partner_id, email, name, role_key, status, password_hash)
+      values (${t.partnerB}, 'petra@kaufladen.example', 'Petra', 'partner-admin', 'active', ${await hashPassword(password)}) returning id
+    `
+    const stale = cookieOf(await post('sign-in', { email: 'petra@kaufladen.example', password }))
+    const staleSecret = ((await (await post('enrol-second-factor', {}, stale)).json()) as { secret: string }).secret
+    const fresh = cookieOf(await post('sign-in', { email: 'petra@kaufladen.example', password }))
+    const freshSecret = ((await (await post('enrol-second-factor', {}, fresh)).json()) as { secret: string }).secret
+    expect(await (await post('enrol-second-factor', { code: await codeAt(freshSecret, stepAt(now)) }, fresh)).json()).toEqual({ ok: true })
+    expect(await (await post('enrol-second-factor', { code: await codeAt(staleSecret, stepAt(now)) }, stale)).json()).toEqual({ ok: false, code: 'INVALID_CREDENTIALS' })
+    expect(await (await post('enrol-second-factor', {}, stale)).json()).toEqual({ ok: false, code: 'INVALID_CREDENTIALS' })
+    const [row] = await db.sql<{ two_factor_secret_enc: string }[]>`select two_factor_secret_enc from partner_user where id = ${ids2[0]?.id ?? ''}`
+    expect(await secrets.open(row?.two_factor_secret_enc ?? '')).toBe(freshSecret)
+  })
 })

@@ -194,7 +194,9 @@ const enrol = async (request: Request, deps: PlatformAuthDeps, facts: RequestFac
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | { secret: string; uri: string } | null> => {
     const pending = cookie ? await readPendingSession(tx, cookie, 'enrol', now) : null
     const state = pending ? await selectSecondFactorState(tx, pending.partnerUserId) : null
-    if (!cookie || !pending || !state || !input) return { code: 'INVALID_CREDENTIALS' }
+    // Enrolment only ever sets a first secret: a stale enrol session must not replace one the
+    // user has since set up elsewhere, which this session never proved.
+    if (!cookie || !pending || !state || !input || state.two_factor_secret_enc !== null) return { code: 'INVALID_CREDENTIALS' }
     if (input.code === undefined) {
       const secret = newTotpSecret()
       await setPendingSecret(tx, cookie, await secrets.seal(secret))
