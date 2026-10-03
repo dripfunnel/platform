@@ -712,6 +712,7 @@ type ReportExportJob {
   id: ID
   rows: Int
   state: String
+  truncated: Boolean
 }
 
 type ReportExportResult {

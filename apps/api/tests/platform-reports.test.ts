@@ -184,6 +184,7 @@ describe('export', () => {
     const perf = (await run<{ exportReport: { jobId: string } }>(start, callerOf(ids.ns), { tab: 'storePerformance' })).data?.exportReport
     await relayDue(db.sql, { 'export.report': reportExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
     const csv = (await run<{ reportExport: { csv: string } }>(`query($id: ID!) { reportExport(id: $id) { csv } }`, callerOf(ids.ns), { id: perf?.jobId })).data?.reportExport.csv ?? ''
+    expect(csv.split('\n')[0]).toBe('storeId,store,plan,sales (minor units),sales currency,orders,changeBps,declining')
     expect(csv).toMatch(/,-\d+,/)
     expect(csv).not.toContain(",'-")
   })

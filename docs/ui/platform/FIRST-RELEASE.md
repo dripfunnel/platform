@@ -938,7 +938,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   field's scope and every table `db/scoped/reports.ts` names.
 - `exportReport(tab, filter)` (`exports`, every role) queues an `export_job` of kind `report`,
   logged as `report.exported`; `reportExport(id)` answers it, never an activity export (and the
-  activity read-back never a report).
+  activity read-back never a report). The CSV has fixed columns per tab, so an empty report still
+  has its header; a list cut at 50 rows ends with a line saying so, and the job reports `truncated`.
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype

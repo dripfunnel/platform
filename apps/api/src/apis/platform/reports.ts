@@ -156,6 +156,7 @@ const JobType = builder.objectRef<Job>('ReportExportJob').implement({
     id: t.exposeID('id'),
     state: t.exposeString('state'),
     rows: t.exposeInt('rows', { nullable: true }),
+    truncated: t.exposeBoolean('truncated'),
     csv: t.exposeString('csv', { nullable: true }),
     expiresAt: t.string({ nullable: true, resolve: (j) => j.expiresAt?.toISOString() ?? null }),
   }),
