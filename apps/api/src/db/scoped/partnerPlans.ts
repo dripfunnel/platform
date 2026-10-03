@@ -116,6 +116,7 @@ export const updatePlanStatus = async (tx: ScopedSql, planId: string, partnerId:
 /** SAAS §6.3's move, at each store's first renewal on or after a date, or on one; a store already scheduled keeps its own. */
 export const scheduleSubscriptionMoves = (
   tx: ScopedSql,
+  partnerId: string,
   fromPlanId: string,
   to: { planId: string; version: number },
   when: { atRenewalAfter: Date } | { on: Date },
@@ -129,6 +130,7 @@ export const scheduleSubscriptionMoves = (
                  from generate_series(0, 120) n
                  where period_end + n * case interval when 'year' then interval '1 year' else interval '1 month' end >= ${when.atRenewalAfter}::timestamptz)`
       }
-    where plan_id = ${fromPlanId} and status <> 'cancelled' and next_plan_id is null
+    -- A move already scheduled within this plan is re-pointed; one to another plan is the store's own and kept.
+    where partner_id = ${partnerId} and plan_id = ${fromPlanId} and status <> 'cancelled' and (next_plan_id is null or next_plan_id = ${fromPlanId})
     returning store_id, change_at
   `

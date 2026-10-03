@@ -25,6 +25,38 @@ export const insertOutbox = async (tx: ScopedSql, row: NewOutboxRow): Promise<st
   }
 }
 
+/**
+ * Many effects in one statement per chunk, as `insertOutbox` would queue them one by one. A key
+ * already queued sends the chunk back through `insertOutbox`, which skips just that row.
+ */
+export const insertOutboxMany = async (tx: ScopedSql, rows: readonly NewOutboxRow[]): Promise<void> => {
+  for (let i = 0; i < rows.length; i += outboxChunk) {
+    const chunk = rows.slice(i, i + outboxChunk)
+    const values = chunk.map((row) => ({
+      id: crypto.randomUUID(),
+      kind: row.kind,
+      idempotency_key: `${row.kind}:${row.partnerId ?? 'platform'}:${row.storeId ?? ''}:${row.idempotencyKey}`,
+      payload: JSON.stringify(row.payload),
+      partner_id: row.partnerId,
+      store_id: row.storeId,
+    }))
+    try {
+      await tx.savepoint(
+        (sp) => sp`
+          insert into outbox (id, kind, idempotency_key, payload, partner_id, store_id)
+          select id, kind, idempotency_key, payload::jsonb, partner_id, store_id
+          from json_to_recordset(${JSON.stringify(values)}::text::json) as r(id uuid, kind text, idempotency_key text, payload text, partner_id uuid, store_id uuid)
+        `,
+      )
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error
+      for (const row of chunk) await insertOutbox(tx, row)
+    }
+  }
+}
+
+const outboxChunk = 500
+
 const isUniqueViolation = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
 

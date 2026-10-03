@@ -7,7 +7,7 @@ import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { PlanStatus } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { insertOutbox } from '#db/scoped/outbox'
+import { insertOutboxMany } from '#db/scoped/outbox'
 import { insertPlan } from '#db/scoped/partners'
 import {
   lockLivePlans,
@@ -332,16 +332,17 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
 
   // In the same transaction as the change (0015 grants the schedule columns); each store hears 30 days ahead.
   const moveAtRenewal = async (tx: ScopedSql, planId: string, version: number) => {
-    const moved = await scheduleSubscriptionMoves(tx, planId, { planId, version }, { atRenewalAfter: new Date(now().getTime() + noticeMs) })
-    for (const m of moved) {
-      await insertOutbox(tx, {
+    const moved = await scheduleSubscriptionMoves(tx, partnerId, planId, { planId, version }, { atRenewalAfter: new Date(now().getTime() + noticeMs) })
+    await insertOutboxMany(
+      tx,
+      moved.map((m) => ({
         kind: 'email',
         idempotencyKey: `plan-change-at-renewal:${m.store_id}:${planId}:${version}`,
         payload: { template: 'plan-change-at-renewal', storeId: m.store_id, planId, version, changeAt: m.change_at.toISOString() },
         partnerId,
         storeId: m.store_id,
-      })
-    }
+      })),
+    )
   }
 
   const makePlanLive = (id: string): Promise<Result> =>
@@ -383,7 +384,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
         const on = new Date(input.on)
         if (!target || !firstOfMonths(at, 3).some((d) => d.getTime() === on.getTime())) return { ok: false, reason: 'INVALID_TARGET' }
         await updatePlanStatus(tx, id, partnerId, 'retired', { at: on, moveTo: target.id })
-        await scheduleSubscriptionMoves(tx, id, { planId: target.id, version: target.version }, { on })
+        await scheduleSubscriptionMoves(tx, partnerId, id, { planId: target.id, version: target.version }, { on })
       }
       await activity.record(tx, entry(planAudit.retirePlan, row, input.keep ? 'stores keep it' : 'stores move on a date'))
       return { ok: true, id }
