@@ -187,6 +187,26 @@ type Me {
   role: String
 }
 
+type MerchantDomain {
+  host: String
+  since: String
+  status: String
+  storeId: ID
+  storeName: String
+}
+
+type MerchantDomainPage {
+  items: [MerchantDomain!]
+  pageInfo: MerchantDomainPageInfo
+}
+
+type MerchantDomainPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
 scalar MinorUnits
 
 type Money {
@@ -201,11 +221,14 @@ input MoneyInput {
 
 type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
+  addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   createPlan(input: PlanInput!): PlanResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
+  recheckMerchantDomain(storeId: ID!): PartnerDomainResult
+  recheckPartnerDomain(kind: String!): PartnerDomainResult
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
   restoreStore(id: ID!, reason: String!): StoreActionResult
@@ -257,6 +280,16 @@ type Partner {
   state: String
 }
 
+type PartnerAddress {
+  added: Boolean
+  checkedAt: String
+  host: String
+  kind: String
+  records: [PartnerDomainRecord!]
+  since: String
+  status: String
+}
+
 type PartnerDashboard {
   asOf: String
   attention: [DashboardAttention!]
@@ -268,6 +301,32 @@ type PartnerDashboard {
   stores: DashboardStores
   top: [DashboardTopStore!]
   usage: DashboardUsage
+}
+
+type PartnerDomainAddPermission {
+  allowed: Boolean
+}
+
+type PartnerDomainRecord {
+  found: String
+  matches: Boolean
+  name: String
+  purpose: String
+  type: String
+  value: String
+}
+
+type PartnerDomainResult {
+  apex: Boolean
+  id: String
+  ok: Boolean
+  reason: String
+}
+
+type PartnerDomains {
+  add: PartnerDomainAddPermission
+  addresses: [PartnerAddress!]
+  fallbackSender: String
 }
 
 type PartnerState {
@@ -457,8 +516,10 @@ type Query {
   dashboard(range: String!): PartnerDashboard
   health: String
   me: Me
+  merchantDomains(after: String, before: String, first: Int): MerchantDomainPage
   navBadges: NavBadges
   onboarding: Onboarding
+  partnerDomains: PartnerDomains
   partnerState: PartnerState
   planEditor(id: ID): PlanEditor
   plans(after: String, first: Int): PlansPage

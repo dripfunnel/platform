@@ -72,7 +72,7 @@ export interface PartnerDomainRow {
   kind: DomainKind
   host: string
   status: HostStatus
-  record_type: 'CNAME' | 'TXT'
+  record_type: 'CNAME' | 'TXT' | 'A'
   expected: string
   found: string | null
   checked_at: Date | null

@@ -24,6 +24,7 @@ import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
@@ -32,6 +33,7 @@ import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
+import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
@@ -202,7 +204,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null })
+    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date())
@@ -215,6 +217,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       stores: deps ? createPartnerStoresService(deps) : null,
       storeActions: deps ? createPartnerStoreActions(deps) : null,
       dashboard: deps ? createPartnerDashboardService(deps) : null,
+      domains: deps ? createPartnerDomainsService(deps) : null,
     })
   })
 }
@@ -285,9 +288,16 @@ export default {
     return response
   },
 
-  // The outbox sweep (api/README.md §5), every minute from wrangler.jsonc's cron trigger.
+  // Every minute from wrangler.jsonc's cron trigger: due domain checks (SAAS §8), then the outbox
+  // sweep (api/README.md §5) that delivers them.
   async scheduled(_controller, env) {
     await relayWith(env, async (sql) => {
+      // A scheduling failure is logged and never holds up the outbox sweep below.
+      const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
       const counts = await relayDue(sql, deliverersFor(sql))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })

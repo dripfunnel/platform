@@ -336,7 +336,7 @@ describe('the backstop itself', () => {
       'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
       'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
       'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
-      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed',
+      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class

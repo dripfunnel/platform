@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { judge, nameToResolve } from './check'
+import { judge } from './check'
+import { nameToResolve } from './records'
 
 describe('judging a DNS answer (SAAS.md §8)', () => {
   const expected = 'portal.edge.dripfunnel.example'

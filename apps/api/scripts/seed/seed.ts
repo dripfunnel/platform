@@ -10,6 +10,7 @@ import {
   insertPartnerUser,
   insertPlan,
   insertSetupSession,
+  selectPartnerDomain,
   updatePartnerState,
   upsertPartnerDomain,
   upsertSetupItem,
@@ -20,11 +21,13 @@ import { toRow } from '#saas/activity/log'
 import { stepsFor } from '#saas/provisioning/stuck'
 import { assertLoopbackOnly } from '../migrate/host-guard'
 import { insertBranding } from '#db/scoped/branding'
+import { insertDomainRecords } from '#db/scoped/partnerDomains'
+import { recordsFor } from '#saas/domains/index'
 import { seedAccounts } from './account'
 import { seedMoney } from './money'
 import { brandings } from './branding'
 import { catalogue, ceilings, contracts, fallbackEntitlements, fallbackPrices } from './catalogue'
-import { domainsFor, generated, generatedName, partners, recordFor, staff, stores, type SeedPartner, type SeedStore } from './data'
+import { domainsFor, generated, generatedName, partners, staff, stores, type SeedPartner, type SeedStore } from './data'
 
 export interface SeedCounts {
   staff: number
@@ -267,17 +270,24 @@ const seedPartner = async (
   }
 
   for (const d of domainsFor(p)) {
-    const { recordType, expected } = recordFor(d.kind)
+    const records = recordsFor(d.kind, d.host, false) ?? []
+    const [first] = records
+    if (!first) continue
     await upsertPartnerDomain(tx, {
       partnerId,
       kind: d.kind,
       host: d.host,
       status: d.status,
-      recordType,
-      expected,
-      found: d.status === 'live' ? expected : (d.found ?? null),
+      recordType: first.recordType,
+      expected: first.expected,
+      found: d.status === 'live' ? first.expected : (d.found ?? null),
       checkedAt: minutesAgo(now, 30),
     })
+    const domain = await selectPartnerDomain(tx, partnerId, d.kind)
+    if (domain) {
+      const found = (r: { expected: string }, i: number) => (d.status === 'live' ? r.expected : i === 0 ? (d.found ?? null) : null)
+      await insertDomainRecords(tx, domain.id, partnerId, records.map((r, i) => ({ ...r, found: found(r, i) })), minutesAgo(now, 30))
+    }
   }
 
   for (const item of p.setup) {

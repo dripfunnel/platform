@@ -100,7 +100,6 @@ const allDone = (by: string, portal: string, mail: string): SeedSetupItem[] => [
   { item: 'testSignup', status: 'done', detail: 'Test store created and removed', by },
 ]
 
-const edge = 'edge.dripfunnel.example'
 
 export const partners: readonly SeedPartner[] = [
   {
@@ -425,9 +424,6 @@ export const domainsFor = (p: SeedPartner): SeedDomain[] => {
   ]
   return standard.map((d) => p.domains?.find((o) => o.kind === d.kind) ?? d)
 }
-
-export const recordFor = (kind: DomainKind): { recordType: 'CNAME' | 'TXT'; expected: string } =>
-  kind === 'email' ? { recordType: 'TXT', expected: 'v=spf1 include:mail.dripfunnel.net ~all' } : { recordType: 'CNAME', expected: `${kind}.${edge}` }
 
 export interface SeedPerson {
   name: string
