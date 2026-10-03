@@ -42,7 +42,7 @@ import {
 } from '#db/scoped/partners'
 import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/actions'
+import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/index'
 import { transitionPartner } from './states'
 import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
 import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
@@ -172,7 +172,7 @@ export const partnerFilter = z
 
 export type PartnerFilter = z.infer<typeof partnerFilter>
 
-export type { PageRequest } from '#saas/staff/actions'
+export type { PageRequest } from '#saas/staff/index'
 
 export const createPartnerInput = z
   .object({

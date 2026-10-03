@@ -778,7 +778,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   too), plan, created window, storefront, near a limit (80%+ of any limit), search. A filter or cursor it can't read is `INVALID_INPUT`. The page carries
   `plans`, `billingMode`, and the export and billing-status permissions.
 - `store(id)` returns `{ row, … }` with the tabs from today's rows: account, contacts, usage,
-  overrides, billing (subscription, next charge, card's last four, who charges), site links,
+  overrides, billing (subscription, next charge, card's last four, the billing mode and the partner's name, from
+  which the console words who charges), site links,
   DNS records, setup, trial extensions, support (consent and people) and the account's
   activity. Usage is measured once for both the list and the detail: against the plan version
   the store bought plus every active override, a monthly meter counting only this month. An id

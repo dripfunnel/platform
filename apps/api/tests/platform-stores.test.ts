@@ -35,11 +35,11 @@ type Page = { stores: { items: { id: string; state: { kind: string }; plan: { id
 const list = async (caller: PartnerCaller, variables: Record<string, unknown> = {}) => (await run<Page>(listQuery, caller, variables)).data?.stores
 
 const detailQuery = `query($id: ID!) { store(id: $id) { row { id name state { kind } } country price { amount currency } people { count suppliers } contacts { email role }
-  usage { limit used cap percent } overrides { limit amount reason by } billing { interval nextChargeAt cardLast4 mode chargedBy } site { liveHost previewHost }
+  usage { limit used cap percent } overrides { limit amount reason by } billing { interval nextChargeAt cardLast4 mode partnerName } site { liveHost previewHost }
   records { host status value } setup { state } trialExtensions { days } support { allowed people { email role } } activity { action }
   more { overrides trialExtensions people activity } actions { changePlan { allowed reason } extendTrial { allowed reason } addOverride { allowed reason } resendInvite { allowed } restore { allowed } suspend { allowed } retryStep { allowed } } } }`
 type Actions = Record<string, { allowed: boolean; reason: string | null } | null>
-type Detail = { store: { row: { id: string }; more: Record<string, boolean>; overrides: unknown[]; people: { count: number; suppliers: number }; usage: { limit: string }[]; actions: Actions; billing: { mode: string; chargedBy: string | null } } | null }
+type Detail = { store: { row: { id: string }; more: Record<string, boolean>; overrides: unknown[]; people: { count: number; suppliers: number }; usage: { limit: string }[]; actions: Actions; billing: { mode: string; partnerName: string } } | null }
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -106,7 +106,7 @@ describe('the detail', () => {
     const detail = (await run<Detail>(detailQuery, callerOf(ids.ns, 'partner-read-only'), { id: mine?.id })).data?.store
     expect(detail?.row.id).toBe(mine?.id)
     expect(detail?.usage.map((u) => u.limit)).toEqual(['products', 'staff', 'suppliers', 'ai_prompts', 'publish_now'])
-    expect(detail?.billing).toMatchObject({ mode: 'dripfunnel', chargedBy: expect.stringContaining('DripFunnel for') })
+    expect(detail?.billing).toMatchObject({ mode: 'dripfunnel', partnerName: 'Northstar Commerce' })
     const [counted] = await db.sql<{ people: number; suppliers: number }[]>`
       select (select count(*)::int from membership where store_id = ${mine?.id ?? ''} and status <> 'suspended') as people, (select count(*)::int from seller where store_id = ${mine?.id ?? ''}) as suppliers`
     expect(detail?.more).toEqual({ overrides: false, trialExtensions: false, people: false, activity: false })

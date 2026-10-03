@@ -99,7 +99,7 @@ const Billing = builder.objectRef<Detail['billing']>('StoreBilling').implement({
     nextChargeAt: t.string({ nullable: true, resolve: (b) => iso(b.nextChargeAt) }),
     cardLast4: t.exposeString('cardLast4', { nullable: true }),
     mode: t.exposeString('mode'),
-    chargedBy: t.exposeString('chargedBy', { nullable: true }),
+    partnerName: t.exposeString('partnerName'),
   }),
 })
 const Site = builder.objectRef<Detail['site']>('StoreSite').implement({

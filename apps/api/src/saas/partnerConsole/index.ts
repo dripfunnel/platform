@@ -7,7 +7,7 @@ import { searchPartnerStores, selectNavCounts, selectOpenSetupSessionOn, selectS
 import { selectPartner, selectPartnerDomainsFor, selectPartnerForUpdate, selectPlansFor, selectSetupItemsFor } from '#db/scoped/partners'
 import type postgres from 'postgres'
 import { failingChecks, goLiveChecksFor, transitionPartner, type GoLiveCheck, type GoLiveChecks } from '#saas/partners/index'
-import { stuckAfterMinutes } from '#saas/provisioning/stuck'
+import { stuckAfterMinutes } from '#saas/provisioning/index'
 
 // The partner console's shell and Home until Live (ui/platform/FIRST-RELEASE.md §2, §4; card
 // #158). Every read runs as the caller's partner; nothing here takes a partner id from a request.
