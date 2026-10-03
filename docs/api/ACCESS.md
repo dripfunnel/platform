@@ -999,16 +999,76 @@ Enumerate every field × caller kind × role or tier × acting store × seller �
   session is itself a failure;
 - the Staff-in-A / vendor-in-B person leaks neither way (§9).
 
-**Rows added on #182 (2026-10-02)**, each a test the engine card that builds the table must
-ship (#187's data model adds its own below this list):
+**Rows added with DATA-MODEL.md §7 (2026-10-02, #187)**, each a test the engine card that
+builds the table must ship:
 
-- a supplier switched `to-store → to-shopper` still sees nothing of the shopper on orders
-  placed before the switch, because visibility follows `order_part.shipping_mode` (§7.3);
-- a supplier reading its own refunds and ledger entries never receives `by_user_id`, a
-  refund's `note`, a return's `note` or a ledger entry's `note` (DATA-MODEL §2.2);
+- two suppliers in one store, each reading its own products and every child row (options,
+  prices and price history, per-market prices, photos, compliance, specs, FAQs, filter
+  assignments, badges, translations), stock levels and movements, fulfilment lines, return
+  lines, refunds and ledger entries, and seeing nothing of the other's, counts and search
+  included (DATA-MODEL §7.1, §7.11);
+- a supplier's view of orders and returns: a `to-store` supplier's search and count by a
+  shopper's email return nothing; a `to-shopper` supplier sees the name and shipping address
+  of its own parts and no total; `app_supplier` selecting from `"order"` or `"return"`
+  directly is refused by the grant, and the views return only the columns DATA-MODEL §7.11
+  lists; a supplier switched `to-store → to-shopper` still sees nothing on orders placed
+  before the switch; a `to-store` supplier never reads the store's onward shipment of its
+  lines (`fulfilment` with a null owner); `app_supplier` selecting an `*_amount`, tax rate or
+  zone column of `order_line` is refused by the grant, and `order_line_for_supplier` returns
+  its own lines' unit and line amounts with the currency and never a discount, tax or total
+  (§7.3; DATA-MODEL §7.6, §7.11);
+- a supplier reading its own refunds never receives `by_user_id`, an override's `note`, a
+  return's `note` or a ledger entry's `note` (DATA-MODEL §7.6, §5.3);
+- a shopper reads only visible catalogue rows and never a cost, a stock movement, a refund,
+  a ledger entry or a job (DATA-MODEL §7.11 shop branches);
+- a supplier reads only the labels it printed for its own parts, never an invoice or packing
+  slip (`order_document`); a partner or staff query on `import_job` or `export_job` returns
+  nothing (DATA-MODEL §7.10, §7.11);
+- a supplier reads the settings rows §7.11 names (`filter`, `filter_value`, `tax_class`,
+  `store_language`, `store_currency`, `store_feature`, `badge`, `market` without duties and
+  domain) and no other settings table, no `tax_rate`, and no `*_enc` column;
+- two guests in one store, each reading only the cart and order whose token it presents,
+  snapshots included, and only its own data request; a Shop API query can never return
+  `product_version.cost_amount` (DATA-MODEL §7.11);
+- a partner-scope or platform-scope query on `design_version` or `ai_run` returns metering
+  columns and never a prompt, summary, preview or gate result (DATA-MODEL §7.11);
+- a shopper selecting an `asset` by id gets a product photo of a visible product and never an
+  invoice, label, export or import file (DATA-MODEL §7.11);
 - user A, holding user B's id, can neither read nor write B's phone through the own-row
   functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1);
-- a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3).
+- a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3);
+- **supplier writes are refused where they must be**: `app_supplier` updating
+  `order_line.unit_amount` or `quantity` on its own line, inserting or updating a
+  `return_line` or a `"return"`, updating an `order_part`, or inserting a `refund` or
+  `refund_line` directly, is refused by the grant; `supplier_refund()` refuses a line that is
+  not its own, a quantity above the refundable one and an amount above its lines' value, and
+  succeeds within them; inserting a `fulfilment` for its own part succeeds (DATA-MODEL §5.3);
+- a guest inserting a cart whose `access_token_hash` is not the hash of the token it
+  presented is refused, and so is an insert with no token presented at all
+  (`current_order_token_hash()` returns null) (DATA-MODEL §7.11);
+- a shopper filing a data request for another person's email can insert it only in the
+  acting store, bound to the token minted for it, and cannot set `subject_verified_at`,
+  `state`, `expires_at` or `file_asset_id` (the expiry is the column default, and a filer
+  setting it is refused); a second filing for the same subject is accepted with the
+  same response as the first (nothing reveals that a request exists) and the unverified ones
+  expire; a code verifies only the request whose token accompanies it, so the victim's own
+  code never fulfils the anonymous filer's request; a filer setting `requested_by`, `state`
+  or an unknown `kind` is refused; no export is built until the engine verifies the code
+  sent to that email; the filing token stops working at verification, and the file is
+  reachable only by the signed-in customer or by the new token sent to the verified subject,
+  so a hostile filer whose victim confirms still collects nothing (DATA-MODEL §7.5, §7.11);
+- a shopper reads and writes `shopper_note` on its own cart and never reads `"order".notes`
+  (DATA-MODEL §7.6);
+- **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
+  `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
+  `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating
+  another shopper's `customer_address` is refused; a shopper updating a placed order's
+  address, email or pickup flag is refused (`state = 'cart'` in `USING` and `WITH CHECK`); a
+  shopper writing `currency`, `market_id` or `shipping_method_id` directly after a line was
+  added is refused, and `cart_set_currency` reprices every line; a shopper inserting a cart
+  with another customer's id, or with `state <> 'cart'`, is refused (DATA-MODEL §5.3, §7.11);
+- the AI metering view returns partner A's stores to partner A and none of partner B's, every
+  store to platform scope, and nothing in shop scope (DATA-MODEL §5.3).
 
 ### 11.2 Structural tests
 
