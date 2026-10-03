@@ -27,6 +27,6 @@ export const handleHealthCheck = async (
   const { success } = await rateLimiter.limit({ key: `${area}:${ip}` })
   if (!success) return new Response('Too many requests', { status: 429 })
   const db = await checkHealth(config, ctx)
-  const ok = db !== 'down'
+  const ok = db === 'ok' || db === 'unconfigured'
   return Response.json({ ok, area, db, version }, { status: ok ? 200 : 503 })
 }

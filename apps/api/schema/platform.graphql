@@ -148,6 +148,30 @@ type ContrastReport {
   passes: Boolean
 }
 
+type CreateStoreForm {
+  billingMode: String
+  countries: [StoreCountry!]
+  permission: StoreCreatePermission
+  plans: [StoreCreatePlan!]
+  trials: [Int!]
+}
+
+input CreateStoreInput {
+  country: String!
+  name: String!
+  ownerEmail: String!
+  ownerName: String!
+  planId: ID!
+  trialDays: Int!
+}
+
+type CreateStoreResult {
+  field: String
+  ok: Boolean
+  reason: String
+  storeId: String
+}
+
 type DashboardAttention {
   action: DashboardAttentionAction
   detail: String
@@ -287,8 +311,10 @@ type Mutation {
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
   changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
+  createStore(input: CreateStoreInput!): CreateStoreResult
   exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
   exportReport(filter: ReportFilterInput, tab: String!): ReportExportResult
+  exportStores(filter: StoreFilterInput): StoresExportResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
   inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
   makePlanLive(id: ID!): PlanResult
@@ -660,6 +686,17 @@ type PoweredByRule {
   note: String
 }
 
+type ProvisioningProgress {
+  done: Boolean
+  elapsedSeconds: Int
+  steps: [ProvisioningStep!]
+}
+
+type ProvisioningStep {
+  key: String
+  state: String
+}
+
 type PublishBrandingResult {
   field: String
   fix: String
@@ -675,6 +712,7 @@ type Query {
   branding: Branding
   changePlanOptions(storeId: ID!): ChangePlanOptions
   checkContrast(accent: String!, primary: String!): ContrastReport
+  createStoreForm: CreateStoreForm
   dashboard(range: String!): PartnerDashboard
   health: String
   me: Me
@@ -687,6 +725,7 @@ type Query {
   personTimeline(after: String, before: String, filter: PartnerActivityFilterInput, first: Int, person: String!): PartnerActivityPage
   planEditor(id: ID): PlanEditor
   plans(after: String, first: Int): PlansPage
+  provisioning(storeId: ID!): ProvisioningProgress
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
   reportExport(id: ID!): ReportExportJob
   reportGrowth(filter: ReportFilterInput): GrowthReport
@@ -698,6 +737,7 @@ type Query {
   search(query: String!): [StoreSearchMatch!]
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
+  storesExport(id: ID!): StoresExportJob
   team(after: String, before: String, first: Int): TeamPage
 }
 
@@ -832,6 +872,24 @@ type StoreContact {
   role: String
 }
 
+type StoreCountry {
+  code: String
+  currency: String
+  name: String
+}
+
+type StoreCreatePermission {
+  allowed: Boolean
+  reason: String
+}
+
+type StoreCreatePlan {
+  id: ID
+  name: String
+  prices: [Money!]
+  trialDays: Int
+}
+
 type StoreDetailMore {
   activity: Boolean
   overrides: Boolean
@@ -886,6 +944,7 @@ type StoreOwner {
 type StorePage {
   billingMode: String
   billingStatusPermission: StoreActionPermission
+  createPermission: StoreCreatePermission
   exportPermission: StoreActionPermission
   items: [PartnerStoreRow!]
   pageInfo: StorePageInfo
@@ -992,6 +1051,21 @@ type StoreUsage {
   monthly: Boolean
   percent: Int
   used: Int
+}
+
+type StoresExportJob {
+  csv: String
+  expiresAt: String
+  id: ID
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+type StoresExportResult {
+  jobId: String
+  ok: Boolean
+  reason: String
 }
 
 type SubmitForApprovalResult {
