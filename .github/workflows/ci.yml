@@ -79,6 +79,11 @@ jobs:
           set -euo pipefail
           "${RUNNER_TEMP}/no-token" "$1"
           "${RUNNER_TEMP}/no-token" "$3"
+          # -F reads a file for a value starting with @, so the line must be digits only.
+          if ! [[ "$2" =~ ^[1-9][0-9]*$ ]]; then
+            echo "refused: the line is not a positive number" >&2
+            exit 1
+          fi
           gh api --method POST "repos/${GH_REPO}/pulls/${PR_NUMBER}/comments" \
             -f commit_id="${HEAD_SHA}" -f side=RIGHT -f path="$1" -F line="$2" -f body="$3" >/dev/null
           HELPER
