@@ -4,6 +4,7 @@ import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
 import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
+import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
@@ -44,6 +45,7 @@ import { createPartnerTeamService } from '#saas/partnerTeam/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
+import { createProvisioningService } from '#saas/provisioning/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
@@ -59,6 +61,8 @@ interface Env extends Record<string, unknown> {
   // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
   // typing it as present would make the check below look like dead code.
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
+  // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
+  ASSETS?: R2Bucket | undefined
 }
 
 // The side effects the relay can deliver. `email` has no deliverer until SES is wired
@@ -162,7 +166,7 @@ const handleAdmin = async (
   // No cookie, or no database to check one against: the caller is nobody, not an error —
   // `me` decides whether the console offers sign-in (apis/admin/schema.ts).
   if (!hyperdrive || readCookie(request.headers.get('cookie')) === null) {
-    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, dashboard: null })
+    return servers.admin.fetch(request, { staff: null, isAssigned: async () => false, activity: notConnected, partners: null, stores: null, provisioning: null, dashboard: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolveStaff(sql, request, new Date())
@@ -180,6 +184,7 @@ const handleAdmin = async (
         ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
         : null,
       stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
+      provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, now: () => new Date() }) : null,
       dashboard: caller ? createDashboardService({ sql, staff: caller.staff, now: () => new Date() }) : null,
     })
   })
@@ -200,6 +205,11 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   if (!originAllowed(request, config.PLATFORM_HOST)) return new Response('Bad origin', { status: 403 })
 
   const hyperdrive = config.HYPERDRIVE
+  if (url.pathname === brandUploadPath) {
+    if (!hyperdrive) return new Response(null, { status: 503 })
+    const assets = env.ASSETS ?? null
+    return withConnection(hyperdrive, ctx, (sql) => handleBrandUpload(request, { sql, activity: activityLog, store: assets, now: () => new Date() }))
+  }
   if (isPlatformAuthPath(url.pathname)) {
     if (!hyperdrive) return new Response(null, { status: 503 })
     const limiter = env.SIGN_IN_RATE_LIMITER

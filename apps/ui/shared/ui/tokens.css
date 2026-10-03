@@ -54,7 +54,7 @@
   --df-color-side-control-border: rgb(255 255 255 / 0.14);
   --df-color-side-divider: rgb(255 255 255 / 0.2);
   --df-color-env-production: #b42318;
-  --df-color-env-staging: #4a5360;
+  --df-color-env-test: #4a5360;
   --df-color-env-text: #ffffff;
   /* The staff-session bar (designs/ImpBanner.dc.html). The same in dark, so it never recedes. */
   --df-color-session: #ffc53d;

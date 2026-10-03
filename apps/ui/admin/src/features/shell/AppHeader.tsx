@@ -1,12 +1,10 @@
-import { Icon, UserMenu } from '@dripfunnel/shared/ui'
+import { Icon, UserMenu, type Environment } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import '@dripfunnel/shared/ui/states.css'
 import { Link } from '@tanstack/react-router'
 import type { Me } from '../../api/me'
 import logo from '../../assets/dripfunnel-logo-inverse.svg'
 import { fill, messages } from '../../messages'
-import type { Environment } from './environment'
-import './environment.css'
 import { SearchButton } from './SearchButton'
 
 const words = messages.shell

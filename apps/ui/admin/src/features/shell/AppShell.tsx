@@ -1,4 +1,4 @@
-import { ExportWatcher, NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
+import { EnvironmentBanner, environmentFor, ExportWatcher, NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet, useRouter } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
@@ -9,8 +9,6 @@ import { SessionStrip } from '../impersonate/SessionStrip'
 import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
-import { environmentFor } from './environment'
-import { EnvironmentBanner } from './EnvironmentBanner'
 import { navWords } from './navWords'
 
 const shellRoute = getRouteApi('/_app')
@@ -34,7 +32,7 @@ export const AppShell = () => {
       </a>
       <AppHeader me={me} environment={environment} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
       <BannerStack>
-        <EnvironmentBanner environment={environment} />
+        <EnvironmentBanner environment={environment} words={messages.shell.environment[environment]} />
       </BannerStack>
       <div className="df-shell-body">
         <SideNav rows={rows} variant="bar" label={messages.shell.navLabel} footer={messages.shell.navFooter} />

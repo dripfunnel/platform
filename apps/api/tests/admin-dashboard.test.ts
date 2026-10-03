@@ -22,6 +22,7 @@ const contextFor = (staff: StaffMember | null): AdminContext => ({
   activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
   partners: null,
   stores: null,
+  provisioning: null,
   dashboard: staff ? createDashboardService({ sql: db.sql, staff, now: () => now }) : null,
 })
 
