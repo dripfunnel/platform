@@ -19,7 +19,6 @@ export const judge = (previous: HostStatus, expected: string, found: string[]): 
   return { status: previous === 'live' || previous === 'broken' ? 'broken' : 'failed', found: other }
 }
 
-
 export const checkDomain = async (domain: Pick<PartnerDomainRow, 'host' | 'status' | 'record_type' | 'expected'>, lookup: DnsLookup, signal: AbortSignal): Promise<DomainCheck> => {
   const found = await lookup.resolve(nameToResolve(domain.host), domain.record_type, signal)
   return judge(domain.status, domain.expected, found)
