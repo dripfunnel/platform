@@ -41,6 +41,7 @@ import { createPartnerActivityService, exportLifetimeMs } from '#saas/partnerAct
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { createPartnerTeamService } from '#saas/partnerTeam/index'
 import { createPartnerReportsService } from '#saas/partnerReports/index'
+import { createPartnerSupportService } from '#saas/support/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
@@ -216,8 +217,9 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null })
+    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null })
   }
+  const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date())
     const deps = caller ? { sql, caller, facts: factsOf(request), activity: activityLog, now: () => new Date() } : null
@@ -233,6 +235,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       activity: deps ? createPartnerActivityService(deps) : null,
       team: deps ? createPartnerTeamService(deps) : null,
       reports: deps ? createPartnerReportsService(deps) : null,
+      support: deps ? createPartnerSupportService({ ...deps, secrets }) : null,
     })
   })
 }
