@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
-import { partnerRoleHas, type PartnerRole } from '#auth/partnerPermissions'
+import { partnerRoleHas, type PartnerPermission, type PartnerRole } from '#auth/partnerPermissions'
 import type { StoreStatus } from '#db/schema/saas'
 import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
@@ -82,16 +82,16 @@ export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'pa
   }
 }
 
-// FIRST-RELEASE §6.4 "Offered when", then who may (ACCESS.md §5.3): an action the state does not
-// offer is absent; one the role cannot use is present and refused.
-const roleCan: Record<StoreAction, readonly PartnerRole[]> = {
-  changePlan: ['partner-owner', 'partner-admin'],
-  extendTrial: ['partner-owner', 'partner-admin', 'partner-finance'],
-  addOverride: ['partner-owner', 'partner-admin'],
-  resendInvite: ['partner-owner', 'partner-admin'],
-  restore: ['partner-owner', 'partner-admin'],
-  suspend: ['partner-owner', 'partner-admin'],
-  retryStep: ['partner-owner', 'partner-admin'],
+// FIRST-RELEASE §6.4 "Offered when", then the permission each needs (ACCESS.md §5.3): an action
+// the state does not offer is absent; one the role cannot use is present and refused.
+export const storeActionPermission: Record<StoreAction, PartnerPermission> = {
+  changePlan: 'stores.plan',
+  extendTrial: 'stores.trial',
+  addOverride: 'stores.plan',
+  resendInvite: 'stores.invite.resend',
+  restore: 'stores.suspend',
+  suspend: 'stores.suspend',
+  retryStep: 'setup.retry',
 }
 
 export const actionsFor = (row: StoreListRow, role: PartnerRole, now: Date): Partial<Record<StoreAction, ActionPermission>> => {
@@ -105,7 +105,7 @@ export const actionsFor = (row: StoreListRow, role: PartnerRole, now: Date): Par
     ...(setup === 'stuck' || setup === 'failed' ? (['retryStep'] as const) : []),
   ]
   return Object.fromEntries(
-    offered.map((action) => [action, roleCan[action].includes(role) ? { allowed: true } : { allowed: false, reason: action === 'extendTrial' ? 'FINANCE_TRIAL_ONLY' : 'OWNERS_AND_ADMINS_ONLY' }]),
+    offered.map((action) => [action, partnerRoleHas(role, storeActionPermission[action]) ? { allowed: true } : { allowed: false, reason: action === 'extendTrial' ? 'FINANCE_TRIAL_ONLY' : 'OWNERS_AND_ADMINS_ONLY' }]),
   )
 }
 

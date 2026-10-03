@@ -785,7 +785,7 @@ api/README.md §2.1); a partner id in a request is not authority.
   that isn't one finds nothing. Overrides, trial extensions and activity show their newest 25,
   people their first 100, and `more` says which tab has further rows. **Sales, invoices and past support sessions arrive with #163, #201 and #202.**
 - `actions` is the §6.4 block, following the prototype. An action the state does not offer is
-  absent. One the role cannot use is refused: `FINANCE_TRIAL_ONLY` on Extend trial,
+  absent. One whose ACCESS §5.3 permission the role lacks is refused: `FINANCE_TRIAL_ONLY` on Extend trial,
   `OWNERS_AND_ADMINS_ONLY` on the rest. The record refusals (`ALREADY_SUSPENDED`, …) are the
   mutations' (#160).
 - `setStoreBillingStatus(id, status)`: `stores.billingStatus` (else `BILLING_ROLES_ONLY`). It refuses `NOT_SELF_BILLING`

@@ -2,9 +2,9 @@ import { graphql, isObjectType, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
-import type { PartnerRole } from '#auth/partnerPermissions'
+import { partnerRoleHas, partnerRoles, type PartnerRole } from '#auth/partnerPermissions'
 import { activityLog } from '#saas/activity/index'
-import { createPartnerStoresService } from '#saas/partnerStores/index'
+import { createPartnerStoresService, storeActionPermission } from '#saas/partnerStores/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -148,6 +148,16 @@ describe('the detail', () => {
     expect(finance?.['changePlan']).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
     const support = (await run<Detail>(detailQuery, callerOf(ids.ns, 'partner-support'), { id: trial?.id })).data?.store?.actions
     expect(support?.['extendTrial']).toEqual({ allowed: false, reason: 'FINANCE_TRIAL_ONLY' })
+  })
+
+  it('derives every verdict from the role’s permissions', async () => {
+    const [trial] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} and status = 'trial' limit 1`
+    for (const role of partnerRoles) {
+      const actions = (await run<Detail>(detailQuery, callerOf(ids.ns, role), { id: trial?.id })).data?.store?.actions ?? {}
+      for (const action of ['changePlan', 'extendTrial', 'addOverride', 'resendInvite', 'suspend'] as const) {
+        expect(actions[action]?.allowed, `${role} ${action}`).toBe(partnerRoleHas(role, storeActionPermission[action]))
+      }
+    }
   })
 
   it('has no type in the Platform API that reaches an order, a customer or a product', () => {
