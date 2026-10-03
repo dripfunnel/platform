@@ -59,8 +59,10 @@ grant select (id, staff_user_id, partner_id, reason, ticket, started_at, expires
 
 -- Each policy goes to the roles whose scopes it names: store, shop and partner are
 -- app_request's until their own roles arrive, platform is app_platform's, system app_system's.
+-- app_request keeps every platform branch until #210: the Worker still live when this runs
+-- serves staff as app_request, and must work until the new one is promoted.
 alter policy partner_read on partner to app_request, app_platform;
-alter policy partner_insert on partner to app_platform;
+alter policy partner_insert on partner to app_request, app_platform;
 alter policy partner_update on partner to app_request, app_platform;
 alter policy partner_system on partner to app_system;
 alter policy store_read on store to app_request, app_platform;
@@ -73,11 +75,11 @@ alter policy seller_update on seller to app_request;
 alter policy customer_read on customer to app_request, app_platform;
 alter policy customer_insert on customer to app_request;
 alter policy customer_update on customer to app_request;
-alter policy staff_user_read on staff_user to app_platform, app_system;
+alter policy staff_user_read on staff_user to app_request, app_platform, app_system;
 alter policy staff_session_write on staff_session to app_system;
-alter policy staff_partner_assignment_read on staff_partner_assignment to app_platform, app_system;
-alter policy staff_partner_assignment_write on staff_partner_assignment to app_platform;
-alter policy staff_partner_assignment_update on staff_partner_assignment to app_platform;
+alter policy staff_partner_assignment_read on staff_partner_assignment to app_request, app_platform, app_system;
+alter policy staff_partner_assignment_write on staff_partner_assignment to app_request, app_platform;
+alter policy staff_partner_assignment_update on staff_partner_assignment to app_request, app_platform;
 alter policy activity_log_read on activity_log to app_request, app_platform, app_system;
 alter policy activity_log_insert on activity_log to app_request, app_platform, app_system;
 alter policy outbox_insert on outbox to app_request, app_platform, app_system;
@@ -88,27 +90,27 @@ alter policy custom_domain_read on custom_domain to app_request, app_platform, a
 alter policy custom_domain_write on custom_domain to app_request, app_platform, app_system;
 alter policy custom_domain_update on custom_domain to app_request, app_platform, app_system;
 alter policy job_read on job to app_request, app_platform, app_system;
-alter policy job_write on job to app_platform, app_system;
-alter policy job_update on job to app_platform, app_system;
+alter policy job_write on job to app_request, app_platform, app_system;
+alter policy job_update on job to app_request, app_platform, app_system;
 alter policy membership_read on membership to app_request, app_platform, app_system;
 alter policy membership_write on membership to app_request, app_platform, app_system;
 alter policy membership_update on membership to app_request, app_platform, app_system;
 alter policy user_read on "user" to app_request, app_platform, app_system;
-alter policy user_write on "user" to app_platform, app_system;
-alter policy user_update on "user" to app_platform, app_system;
+alter policy user_write on "user" to app_request, app_platform, app_system;
+alter policy user_update on "user" to app_request, app_platform, app_system;
 alter policy invitation_read on invitation to app_request, app_platform, app_system;
 alter policy invitation_write on invitation to app_request, app_platform, app_system;
 alter policy invitation_update on invitation to app_request, app_platform, app_system;
-alter policy store_note_read on store_note to app_platform;
-alter policy store_note_write on store_note to app_platform;
-alter policy job_detail_read on job_detail to app_platform, app_system;
-alter policy job_detail_write on job_detail to app_platform, app_system;
-alter policy job_detail_update on job_detail to app_platform, app_system;
-alter policy partner_setup_session_read on partner_setup_session to app_platform, app_system;
-alter policy partner_setup_session_insert on partner_setup_session to app_platform;
-alter policy partner_setup_session_update on partner_setup_session to app_platform, app_system;
-alter policy partner_approval_read on partner_approval to app_platform;
-alter policy partner_approval_insert on partner_approval to app_platform;
+alter policy store_note_read on store_note to app_request, app_platform;
+alter policy store_note_write on store_note to app_request, app_platform;
+alter policy job_detail_read on job_detail to app_request, app_platform, app_system;
+alter policy job_detail_write on job_detail to app_request, app_platform, app_system;
+alter policy job_detail_update on job_detail to app_request, app_platform, app_system;
+alter policy partner_setup_session_read on partner_setup_session to app_request, app_platform, app_system;
+alter policy partner_setup_session_insert on partner_setup_session to app_request, app_platform;
+alter policy partner_setup_session_update on partner_setup_session to app_request, app_platform, app_system;
+alter policy partner_approval_read on partner_approval to app_request, app_platform;
+alter policy partner_approval_insert on partner_approval to app_request, app_platform;
 
 do $$
 declare
@@ -131,15 +133,16 @@ begin
     execute format('alter policy support_no_delete on %I to app_request', t);
   end loop;
 
-  -- The pins: a role reaches only the rows its own scopes admit, whatever app.scope says.
+  -- The pins: a role reaches only the rows its own scopes admit, whatever app.scope says
+  -- (platform stays in app_request's until #210, as above).
   for t in
     select c.relname from pg_class c
     where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') and c.relrowsecurity
   loop
     execute format(
       'create policy request_scope on %I as restrictive for all to app_request
-         using (app_setting_text(''app.scope'') in (''store'', ''shop'', ''partner''))
-         with check (app_setting_text(''app.scope'') in (''store'', ''shop'', ''partner''))', t);
+         using (app_setting_text(''app.scope'') in (''store'', ''shop'', ''partner'', ''platform''))
+         with check (app_setting_text(''app.scope'') in (''store'', ''shop'', ''partner'', ''platform''))', t);
     execute format(
       'create policy platform_scope on %I as restrictive for all to app_platform
          using (app_setting_text(''app.scope'') = ''platform'')

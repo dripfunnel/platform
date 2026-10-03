@@ -411,6 +411,9 @@ supplier, shopper and partner cards add `app_supplier`, `app_shop` and `app_part
 way (api/README.md §7). Every tenant table carries a restrictive pin per role holding it to
 its own `app.scope` values (`request_scope`: `store`, `shop`, `partner`; `platform_scope`;
 `system_scope`), so a policy shared by two roles never lets one use the other's branch.
+**Until #210** `app_request` also keeps every platform branch and `platform` in its pin: the
+Worker live when 0010 runs serves staff as `app_request` (api/README.md §7, expand then
+contract).
 
 | Role | Used by | Can |
 |---|---|---|

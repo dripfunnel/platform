@@ -369,7 +369,9 @@ describe('the backstop itself', () => {
       })
     expect(await partnersSeen('app_platform', 'platform')).toBeGreaterThan(1)
     expect(await partnersSeen('app_request', 'partner')).toBe(1)
-    expect(await partnersSeen('app_request', 'platform')).toBe(0)
+    // Until #210: the Worker live before #205 serves staff as app_request, and must keep working
+    // until the new one is promoted. #210 makes this 0.
+    expect(await partnersSeen('app_request', 'platform')).toBeGreaterThan(1)
     expect(await partnersSeen('app_platform', 'partner')).toBe(0)
     expect(await partnersSeen('app_system', 'platform')).toBe(0)
   })
