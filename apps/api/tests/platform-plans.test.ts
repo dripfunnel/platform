@@ -89,6 +89,15 @@ describe('the catalogue and the editor', () => {
     expect(data?.quotePlanPrices).toEqual([{ currency: 'USD', monthly: { amount: 1500, currency: 'USD' }, yearly: null, fee: { amount: 1800, currency: 'USD' }, converted: false, margin: { kind: 'loss', amount: { amount: 300, currency: 'USD' }, of: null } }])
   })
 
+  it('quotes a partner with no fee yet as noFee, never as a whole-price margin', async () => {
+    const [bz] = await db.sql<{ id: string }[]>`select id from partner where name = 'Bazaar Cloud'`
+    expect((await db.sql`select 1 from plan_fee where partner_id = ${bz?.id ?? ''}`).length).toBe(0)
+    const { data } = await run<{ quotePlanPrices: unknown[] }>(`query($prices: [PlanPriceInput!]!) { quotePlanPrices(prices: $prices) { ${priceFields} } }`, callerOf(bz?.id ?? '', 'partner-owner'), {
+      prices: [{ currency: 'INR', monthly: { amount: 99900, currency: 'INR' } }],
+    })
+    expect(data?.quotePlanPrices).toEqual([{ currency: 'INR', monthly: { amount: 99900, currency: 'INR' }, yearly: null, fee: null, converted: false, margin: { kind: 'noFee', amount: null, of: null } }])
+  })
+
   it('opens the editor with the ceilings, the contract’s rule, the currencies and who may do what', async () => {
     const { data } = await run<{ planEditor: { ceilings: { products: number }; powered: { allowed: boolean }; currencies: string[]; trials: number[]; edit: { allowed: boolean; reason: string | null }; price: { allowed: boolean }; retireTargets: { id: string }[]; retireDates: string[] } }>(editorQuery, callerOf(ids.ns, 'partner-finance'), { id: ids.growth })
     expect(data?.planEditor).toMatchObject({ ceilings: { products: 20000 }, powered: { allowed: true }, trials: [0, 7, 14, 30], edit: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }, price: { allowed: true } })

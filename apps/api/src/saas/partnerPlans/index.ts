@@ -166,14 +166,15 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
 
   // The fee in a price's currency: the contract's own, or converted at its rate exactly (a
   // decimal string, scaled to integers; never a float). Unknown where the contract has no rate.
-  const feeIn = (terms: ContractTerms, fee: number, currencyCode: string): { fee: Money | null; converted: boolean } => {
+  const feeIn = (terms: ContractTerms, fee: number | null, currencyCode: string): { fee: Money | null; converted: boolean } => {
+    if (fee === null) return { fee: null, converted: false }
     const base = terms.fee_currency ?? currencyCode
     if (currencyCode === base) return { fee: { amount: fee, currency: currencyCode }, converted: false }
     const rate = terms.rates[currencyCode]
     return rate ? { fee: { amount: convert(fee, rate), currency: currencyCode }, converted: true } : { fee: null, converted: false }
   }
 
-  const priceOf = (terms: ContractTerms, fee: number, p: PlanVersionPrice): PlanPrice => {
+  const priceOf = (terms: ContractTerms, fee: number | null, p: PlanVersionPrice): PlanPrice => {
     const { fee: f, converted } = feeIn(terms, fee, p.currency)
     const monthly = p.monthly === null ? null : { amount: p.monthly, currency: p.currency }
     const margin: Margin =
@@ -190,8 +191,8 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   const chargedBy = () => `DripFunnel for ${caller.partner.name}`
 
   // A plan's own fee, or for a new one, until DripFunnel sets it, the lowest the contract charges
-  // (read once per request: `lowest`).
-  const feeOf = (row: CatalogueRow | null, lowest: number | null) => row?.fee ?? lowest ?? 0
+  // (read once per request: `lowest`); null when no fee is known, so the margin reads `noFee`.
+  const feeOf = (row: CatalogueRow | null, lowest: number | null): number | null => row?.fee ?? lowest
 
   const dtoOf = (terms: ContractTerms, lowest: number | null, row: CatalogueRow, prices: readonly PlanVersionPrice[]): PlanRowDto => {
     const fee = feeOf(row, lowest)
