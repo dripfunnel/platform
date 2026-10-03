@@ -23,19 +23,22 @@ export interface ContrastReport {
   fix: string | null
 }
 
+// A failing pair rounds down, so it never reads as the minimum (4.48 shows as 4.4, not 4.5).
+const shown = (value: number): string => `${(value < minimumRatio ? Math.floor(value * 10) / 10 : value).toFixed(1)}:1`
+
 export const contrastReport = (primary: string, accent: string): ContrastReport => {
   const onPrimary = ratio(primary, white)
   const onAccent = ratio(accent, ink)
   const fix =
     onPrimary < minimumRatio
-      ? `White button text on ${primary} is ${onPrimary.toFixed(1)}:1. It needs 4.5:1 to be readable; try a darker primary.`
+      ? `White button text on ${primary} is ${shown(onPrimary)}. It needs 4.5:1 to be readable; try a darker primary.`
       : onAccent < minimumRatio
-        ? `Dark text on ${accent} is ${onAccent.toFixed(1)}:1. It needs 4.5:1 to be readable; try a lighter accent.`
+        ? `Dark text on ${accent} is ${shown(onAccent)}. It needs 4.5:1 to be readable; try a lighter accent.`
         : null
   return {
     pairs: [
-      { key: 'primaryOnWhite', ratio: `${onPrimary.toFixed(1)}:1`, passes: onPrimary >= minimumRatio },
-      { key: 'accentOnDark', ratio: `${onAccent.toFixed(1)}:1`, passes: onAccent >= minimumRatio },
+      { key: 'primaryOnWhite', ratio: shown(onPrimary), passes: onPrimary >= minimumRatio },
+      { key: 'accentOnDark', ratio: shown(onAccent), passes: onAccent >= minimumRatio },
     ],
     passes: fix === null,
     fix,
