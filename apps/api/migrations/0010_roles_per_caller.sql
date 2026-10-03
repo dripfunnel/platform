@@ -38,7 +38,8 @@ $$;
 -- (§2.1). The Customers menu and the Users tab read customers and suppliers, never write them.
 grant usage on schema public to app_platform;
 grant select, insert, update on partner, store to app_platform;
-grant select on seller, customer, staff_user to app_platform;
+grant select on seller, staff_user to app_platform;
+grant select (id, store_id, email, email_verified_at, phone, phone_verified_at, name, status, created_at) on customer to app_platform;
 grant select, insert, update on staff_partner_assignment to app_platform;
 grant select, insert on activity_log to app_platform;
 grant insert on outbox to app_platform;

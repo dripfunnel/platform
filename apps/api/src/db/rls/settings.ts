@@ -5,8 +5,13 @@ import { isPartnerContext, isTenantContext } from '#core/tenancy'
  *  shopper roles arrive with their first cards; until then they run as `app_request`. */
 export type RequestRole = 'app_request' | 'app_platform'
 
-export const roleFor = (context: CallerContext): RequestRole =>
-  isTenantContext(context) || isPartnerContext(context) ? 'app_request' : 'app_platform'
+// Exhaustive, with the narrow role as the only fall-through: a context kind added later must
+// be named here before it can run as staff.
+export const roleFor = (context: CallerContext): RequestRole => {
+  if (isTenantContext(context) || isPartnerContext(context)) return 'app_request'
+  if (context.caller.kind === 'staff') return 'app_platform'
+  throw new Error('roleFor: unknown caller kind')
+}
 
 // The per-transaction settings of DATA-MODEL.md §5.1, from the caller's context and never
 // from request input. `boundary.test.ts` holds them to this file and `db/scoped`.
