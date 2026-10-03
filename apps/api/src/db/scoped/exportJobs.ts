@@ -5,7 +5,7 @@ import type { ScopedSql } from './index'
 export interface ExportJobRow {
   id: string
   partner_id: string
-  kind: 'activity' | 'report'
+  kind: 'activity' | 'report' | 'stores'
   filter: Record<string, unknown>
   state: 'queued' | 'done' | 'failed'
   rows: number | null
@@ -18,7 +18,7 @@ export interface ExportJobRow {
   expires_at: Date | null
 }
 
-export const insertExportJob = async (tx: ScopedSql, j: { partnerId: string; kind: 'activity' | 'report'; filter: Record<string, unknown>; byId: string; byLabel: string }): Promise<string> => {
+export const insertExportJob = async (tx: ScopedSql, j: { partnerId: string; kind: 'activity' | 'report' | 'stores'; filter: Record<string, unknown>; byId: string; byLabel: string }): Promise<string> => {
   const id = crypto.randomUUID()
   await tx`
     insert into export_job (id, partner_id, kind, filter, requested_by_id, requested_by_label)
@@ -54,7 +54,7 @@ export const failDeadExports = async (tx: ScopedSql, now: Date, expiresAt: Date)
     await tx`
       update export_job set state = 'failed', finished_at = ${now}, expires_at = ${expiresAt}
       where state = 'queued' and id in (
-        select (payload->>'jobId')::uuid from outbox where kind in ('export.activity', 'export.report') and failed_at is not null
+        select (payload->>'jobId')::uuid from outbox where kind in ('export.activity', 'export.report', 'export.stores') and failed_at is not null
       )
       returning id
     `
