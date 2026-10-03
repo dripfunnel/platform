@@ -1027,8 +1027,10 @@ builds the table must ship:
 - two guests in one store, each reading only the cart and order whose token it presents,
   snapshots included, and only its own data request; a Shop API query can never return
   `product_version.cost_amount` (DATA-MODEL §7.11);
-- a partner-scope query on `design_version` or `ai_run` returns metering columns and never a
-  prompt, summary, preview or gate result (DATA-MODEL §7.11);
+- a partner-scope or platform-scope query on `design_version` or `ai_run` returns metering
+  columns and never a prompt, summary, preview or gate result (DATA-MODEL §7.11);
+- a shopper selecting an `asset` by id gets a product photo of a visible product and never an
+  invoice, label, export or import file (DATA-MODEL §7.11);
 - user A, holding user B's id, can neither read nor write B's phone through the own-row
   functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1).
 

@@ -394,14 +394,17 @@ Row policies cannot tell a supplier from the merchant or a shopper from either (
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
 (`db/scoped/index.ts`) issues `set local role <role>` from the caller kind; today it always
-says `app_request`, and the first supplier, shopper and partner cards add the others.
+says `app_request`, which is right for the merchant-side callers that exist, and the first
+supplier, shopper, partner and staff-role cards add the others (the staff one moves the Admin
+API, built on #13–#35, onto `app_platform`).
 
 | Role | Used by | Can |
 |---|---|---|
-| `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope; partner users in partner scope; staff in platform scope | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
+| `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; insert-only on `activity_log` and `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
 | `app_supplier` | Supplier users (store scope with `app.seller_id` set) | As `app_request` on the store-and-seller tables (§7.11), under the same policies; **no `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
 | `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11); `insert` on `"order"` (carts), `customer`, `customer_address`, `customer_data_request`; nothing else |
-| `app_partner` | Partner users reading a store at account level (partner scope) | `select` on the account-level tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner |
+| `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner; the same credential exclusions as `app_request` |
+| `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
 | `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `return_for_supplier`, the AI metering view) and the token functions `order_token_matches()`, `request_token_matches()` | `BYPASSRLS`, no login; each view filters on `app.store_id` and `app.seller_id` itself and is `security barrier`, so a view is never wider than the policy it replaces; the functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; owns the tables and the functions of §2.1; never used by the Worker at run time |
@@ -1224,9 +1227,14 @@ decide which columns and which tables each caller kind may select at all**. `app
   `select` on `refund.by_user_id`, `refund.note` or `supplier_ledger_entry.note` (§5.3).
   **Shop branches, explicit**: `product`, its children, `collection`, `collection_product`,
   `filter`, `filter_value`, `product_filter_value`, `menu`, `menu_item`, `product_story`
-  (live only), `size_chart`, `translation`, `product_search` and `asset` get a `shop` read
-  policy on visibility (`visibility = 'visible'`, `deleted_at IS NULL`, the product not
-  hidden, the version priced in the shopper's currency); `order_line`, `order_adjustment`,
+  (live only), `size_chart`, `translation` and `product_search` get a `shop` read policy on
+  visibility (`visibility = 'visible'`, `deleted_at IS NULL`, the product not hidden, the
+  version priced in the shopper's currency); **`asset`** has no such columns, so its `shop`
+  branch is `EXISTS` a `product_photo`, `product_story`, `collection.image_asset_id`,
+  `story_block` or `store.logo_asset_id` reference whose owner row passes that visibility
+  rule, and **never** an asset referenced by `order_document`, `invoice.pdf_asset_id`,
+  `export_job`, `customer_data_request`, `import_job` or `delivery_area` (the matrix row: a
+  shopper selecting an invoice or export asset by id gets nothing); `order_line`, `order_adjustment`,
   `order_part` and `fulfilment` get a `shop` read policy of `EXISTS (SELECT 1 FROM "order" o
   WHERE o.id = order_id)`, which carries the guest rule below through the order's own policy.
   Every other table in this class has **no `shop` branch**, and `app_shop` has no `select`
@@ -1269,9 +1277,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   `request_token_matches(id)`. No supplier branch.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
-  (`app_partner` reads them through the metering view of §5.3 and never a prompt, summary,
-  preview or gate result; a merchant's design prompts are store content, USERS-AND-DOMAINS
-  §4), `store_usage`, `store_entitlement_override`, `store_subscription`, `invoice` and
+  (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
+  prompt, summary, preview or gate result; a merchant's design prompts are store content,
+  USERS-AND-DOMAINS §4), `store_usage`, `store_entitlement_override`, `store_subscription`, `invoice` and
   `invoice_line` (status and amounts for the partner that bills), `custom_domain`, and
   `billing_event`, which is cross-scope and append-only like `activity_log` (§2; a Stripe
   event names a store or a partner, and only the SaaS layer writes it).
@@ -1279,7 +1287,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   a table in none of these classes is a gap the structural test (§5.4) reports.
 - **Column rules**, all by role (§5.3): `product_version.cost_amount` and `cost_currency`
   never to `app_shop`; `access_token_hash` and every `*_enc` and `key_enc` to no request
-  role; the AI prompt columns never to `app_partner`; the refund, return and ledger free
+  role; the AI prompt columns never to `app_partner` or `app_platform`; the refund, return and ledger free
   text never to `app_supplier`. The Shop API schema has no field for a cost, and the matrix
   has the row that proves a shopper query cannot return one.
 - Every policy's columns lead an index; list screens get a composite on
