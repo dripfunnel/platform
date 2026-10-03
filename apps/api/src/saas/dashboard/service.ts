@@ -22,7 +22,7 @@ import {
 } from '#db/scoped/dashboard'
 import { withScope } from '#db/scoped/index'
 import { selectPartnerNames } from '#db/scoped/stores'
-import { stuckAfterMinutes } from '#saas/provisioning/stuck'
+import { stuckAfterMinutes } from '#saas/provisioning/index'
 
 // The Dashboard, the menu badges and the header search (ui/admin/FIRST-RELEASE.md §2, §3;
 // card #35). Every number is counted in SQL and handed over finished: the console never adds

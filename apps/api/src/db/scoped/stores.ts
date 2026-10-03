@@ -4,7 +4,7 @@ import type {
   CustomDomainRow,
   HostStatus,
   JobDetailRow,
-
+  JobRow,
   JobState,
   MembershipRole,
   MembershipRow,
@@ -204,7 +204,7 @@ export const insertStoreNote = async (tx: ScopedSql, n: { storeId: string; staff
 
 export interface StoreFilter {
   partnerId?: string | undefined
-  status?: StoreStatus | undefined
+  status?: StoreStatus | readonly StoreStatus[] | undefined
   /** `own` is a store with its own frontend; the rest are build states (FIRST-RELEASE §5.1). */
   storefront?: BuildState | 'own' | undefined
   /** From the latest signup job, as saas/provisioning/stuck.ts derives it; `stuck` is a running step past its limit (decided on #43). */
@@ -214,6 +214,9 @@ export interface StoreFilter {
   q?: string | undefined
   /** A Partner manager's list is their assigned partners' stores (ACCESS.md §5.4). */
   assignedTo?: string | undefined
+  planId?: string | undefined
+  /** At 80% or more of some limit (ui/platform/FIRST-RELEASE.md §6.1). */
+  nearLimit?: boolean | undefined
 }
 
 export interface KeysetPage {
@@ -240,10 +243,13 @@ export interface StoreListRow extends StoreRow {
   job_step_started_at: Date | null
   job_started_at: Date | null
   job_last_error: string | null
+  /** The limit the store is closest to, in percent of the plan version's value plus active overrides. */
+  near_key: string | null
+  near_percent: number | null
 }
 
 // The list's projection, shared with the single-row read so the two can never disagree.
-const storeProjection = (tx: ScopedSql) => tx`
+const storeProjection = (tx: ScopedSql, now: Date) => tx`
   select s.*, p.name as partner_name, p.state as partner_state, pl.name as plan_name,
     o.name as owner_name, o.email as owner_email, o.status as owner_status,
     exists (
@@ -251,7 +257,8 @@ const storeProjection = (tx: ScopedSql) => tx`
     ) as owner_invitation_open,
     cd.host as domain_host, cd.status as domain_status,
     j.id as job_id, j.state as job_state, j.step as job_step, to_jsonb(j.steps) as job_steps, j.attempts as job_attempts,
-    j.step_started_at as job_step_started_at, j.started_at as job_started_at, j.last_error as job_last_error
+    j.step_started_at as job_step_started_at, j.started_at as job_started_at, j.last_error as job_last_error,
+    nr.key as near_key, nr.percent as near_percent
   from store s
   join partner p on p.id = s.partner_id
   left join plan pl on pl.id = s.plan_id
@@ -261,10 +268,39 @@ const storeProjection = (tx: ScopedSql) => tx`
   ) o on true
   left join lateral (select host, status from custom_domain where store_id = s.id order by created_at desc limit 1) cd on true
   left join lateral (select * from job where store_id = s.id order by started_at desc limit 1) j on true
+  left join lateral (${usageAgainstLimits(tx, tx`s.id`, tx`s.plan_id`, now)} order by percent desc nulls last limit 1) nr on true
 `
 
-export const selectStoreListRow = async (tx: ScopedSql, id: string): Promise<StoreListRow | null> =>
-  (await tx<StoreListRow[]>`${storeProjection(tx)} where s.id = ${id}`)[0] ?? null
+// The UTC month the service's clock is in, never the database's (SAAS §6.2 meters).
+const monthOf = (now: Date): string => `${now.toISOString().slice(0, 7)}-01`
+
+// Usage against the bought plan version plus active overrides, this UTC month (DATA-MODEL §2.4).
+const usageAgainstLimits = (tx: ScopedSql, storeId: ReturnType<ScopedSql>, planId: ReturnType<ScopedSql>, now: Date) => tx`
+  select u.key, used.n as used, (e.amount + coalesce(ov.extra, 0))::int as cap,
+    (used.n * 100 / nullif(e.amount + coalesce(ov.extra, 0), 0))::int as percent
+  from store_usage u
+  cross join lateral (select case when u.period_start is null or u.period_start = ${monthOf(now)}::date then u.used else 0 end as n) used
+  join plan_entitlement e on e.plan_id = ${planId} and e.key = u.key and e.amount is not null
+    and e.version = coalesce((select plan_version from store_subscription x where x.store_id = ${storeId}), (select version from plan where id = ${planId}))
+  left join lateral (
+    select sum(amount) as extra from store_limit_override o
+    where o.store_id = ${storeId} and o.key = u.key and o.removed_at is null and (o.duration = 'always' or o.month = ${monthOf(now)}::date)
+  ) ov on true
+  where u.store_id = ${storeId} and u.key in ('products', 'staff', 'suppliers', 'ai_prompts', 'publish_now')
+`
+
+export interface UsageRow {
+  key: 'products' | 'staff' | 'suppliers' | 'ai_prompts' | 'publish_now'
+  used: number
+  cap: number
+  percent: number | null
+}
+
+export const selectStoreUsage = (tx: ScopedSql, storeId: string, planId: string, now: Date): Promise<UsageRow[]> =>
+  tx<UsageRow[]>`${usageAgainstLimits(tx, tx`${storeId}::uuid`, tx`${planId}::uuid`, now)} order by u.key`
+
+export const selectStoreListRow = async (tx: ScopedSql, id: string, now: Date): Promise<StoreListRow | null> =>
+  (await tx<StoreListRow[]>`${storeProjection(tx, now)} where s.id = ${id}`)[0] ?? null
 
 /** The latest job `j` is running and its step has outlasted its allowance (SAAS.md §5). */
 export const stuckJobPredicate = (tx: ScopedSql, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date) =>
@@ -282,11 +318,12 @@ export const selectStores = async (
   const q = filter.q ? likePattern(filter.q) : null
   const stuck = stuckJobPredicate(tx, stuckAfterMinutes, now)
   const rows = await tx<StoreListRow[]>`
-    ${storeProjection(tx)}
+    ${storeProjection(tx, now)}
     where true
       ${filter.partnerId !== undefined ? tx`and s.partner_id = ${filter.partnerId}` : tx``}
       ${filter.assignedTo !== undefined ? tx`and s.partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
-      ${filter.status !== undefined ? tx`and s.status = ${filter.status}` : tx``}
+      ${typeof filter.status === 'string' ? tx`and s.status = ${filter.status}` : tx``}
+      ${Array.isArray(filter.status) ? tx`and s.status = any(${pgArray(filter.status)}::text[])` : tx``}
       ${filter.storefront === 'own' ? tx`and s.storefront_kind = 'own'` : tx``}
       ${filter.storefront !== undefined && filter.storefront !== 'own' ? tx`and s.build_state = ${filter.storefront}` : tx``}
       ${filter.setup === 'done' ? tx`and (j.id is null or j.state in ('done', 'undone'))` : tx``}
@@ -295,6 +332,8 @@ export const selectStores = async (
       ${filter.setup === 'stuck' ? tx`and ${stuck}` : tx``}
       ${filter.setup === 'running' ? tx`and j.state = 'running' and not ${stuck}` : tx``}
       ${filter.createdAfter !== undefined ? tx`and s.created_at >= ${filter.createdAfter}` : tx``}
+      ${filter.planId !== undefined ? tx`and s.plan_id = ${filter.planId}` : tx``}
+      ${filter.nearLimit === true ? tx`and nr.percent >= 80` : tx``}
       ${q !== null ? tx`and (s.name ilike ${q} or s.code ilike ${q} or cd.host ilike ${q} or o.email ilike ${q})` : tx``}
       ${page.after !== undefined ? tx`and s.created_at <= ${page.after.occurredAt} and (s.created_at, s.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx``}
       ${page.before !== undefined ? tx`and s.created_at >= ${page.before.occurredAt} and (s.created_at, s.id) > (${page.before.occurredAt}, ${page.before.id}::uuid)` : tx``}
@@ -316,7 +355,7 @@ export interface StorePerson extends MembershipRow {
 }
 
 /** Everyone in the store, merchant side and each supplier's team (FIRST-RELEASE §5.2 Users). */
-export const selectStorePeople = (tx: ScopedSql, storeId: string): Promise<StorePerson[]> =>
+export const selectStorePeople = (tx: ScopedSql, storeId: string, limit = maxPageSize): Promise<StorePerson[]> =>
   tx<StorePerson[]>`
     select m.*, u.name, u.email, u.status as user_status, u.last_sign_in_at, se.name as seller_name
     from membership m
@@ -325,7 +364,7 @@ export const selectStorePeople = (tx: ScopedSql, storeId: string): Promise<Store
     where m.store_id = ${storeId}
     order by case m.role_key when 'owner' then 0 when 'manager' then 1 when 'staff' then 2 when 'supplier-admin' then 3 else 4 end,
       se.name nulls first, u.name
-    limit ${maxPageSize}
+    limit ${limit}
   `
 
 export const selectCustomDomains = (tx: ScopedSql, storeId: string): Promise<CustomDomainRow[]> =>
@@ -396,14 +435,33 @@ export const selectStoreForUpdate = async (tx: ScopedSql, id: string): Promise<S
   (await tx<StoreRow[]>`select * from store where id = ${id} for update`)[0] ?? null
 
 /** Who is in the store, by role (FIRST-RELEASE §5.2 Overview), one query. */
-export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise<{ owners: number; managers: number; staff: number; suppliers: number }> => {
-  const [row] = await tx<{ owners: number; managers: number; staff: number; suppliers: number }[]>`
+export const selectStoreCounts = async (tx: ScopedSql, storeId: string): Promise<{ people: number; owners: number; managers: number; staff: number; suppliers: number }> => {
+  const [row] = await tx<{ people: number; owners: number; managers: number; staff: number; suppliers: number }[]>`
     select
+      count(*)::int as people,
       count(*) filter (where m.seller_id is null and m.role_key = 'owner')::int as owners,
       count(*) filter (where m.seller_id is null and m.role_key = 'manager')::int as managers,
       count(*) filter (where m.seller_id is null and m.role_key = 'staff')::int as staff,
       (select count(*)::int from seller se where se.store_id = ${storeId}) as suppliers
     from membership m where m.store_id = ${storeId} and m.status <> 'suspended'
   `
-  return row ?? { owners: 0, managers: 0, staff: 0, suppliers: 0 }
+  return row ?? { people: 0, owners: 0, managers: 0, staff: 0, suppliers: 0 }
 }
+
+export const updateStorePlan = async (tx: ScopedSql, storeId: string, planId: string): Promise<void> => {
+  await tx`update store set plan_id = ${planId} where id = ${storeId}`
+}
+
+export const selectLatestJobForUpdate = async (tx: ScopedSql, storeId: string): Promise<JobRow | null> =>
+  (await tx<JobRow[]>`select * from job where store_id = ${storeId} order by started_at desc limit 1 for update`)[0] ?? null
+
+/** The job's current step starts again; the steps before it, and the store's data, stay as they are. */
+export const restartJobStep = async (tx: ScopedSql, jobId: string, at: Date): Promise<number> =>
+  (await tx<{ attempts: number }[]>`
+    update job set state = 'running', step_started_at = ${at}, attempts = attempts + 1, finished_at = null, last_error = null
+    where id = ${jobId} returning attempts
+  `)[0]?.attempts ?? 0
+
+/** Only a partner that bills its merchants itself sets this; the caller checks the mode, 0014's trigger too. */
+export const updateStoreBillingStatus = async (tx: ScopedSql, storeId: string, status: 'active' | 'past_due' | 'suspended'): Promise<boolean> =>
+  (await tx`update store set billing_status = ${status} where id = ${storeId} and status not in ('cancelled', 'closed') returning id`).length > 0

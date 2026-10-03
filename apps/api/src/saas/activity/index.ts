@@ -1,4 +1,5 @@
 export { activityLog } from './log'
+export { partnerEntry } from './partnerEntry'
 export {
   activityFilter,
   activityPageSize,

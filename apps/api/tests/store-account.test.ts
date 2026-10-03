@@ -155,7 +155,7 @@ describe('who reads and writes the account', () => {
   })
 
   it('lets a partner add an override on its own store only, and never write usage', async () => {
-    await expect(as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.nsStore)))).resolves.toBeUndefined()
+    await expect(as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.nsStore)))).resolves.toMatch(/^[0-9a-f-]{36}$/)
     await expect(as(partner(ids.ns), (tx) => insertLimitOverride(tx, override(ids.bzStore)))).rejects.toThrow(/row-level security/i)
     await expect(as(partner(ids.ns), (tx) => tx`update store_usage set used = 0`)).rejects.toThrow(/permission denied/i)
   })

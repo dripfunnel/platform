@@ -85,3 +85,11 @@ export const selectOpenSetupSessionOn = async (tx: ScopedSql, partnerId: string,
   `
   return row ?? null
 }
+
+/** Who bills the partner's merchants (SAAS §7.1). */
+export const selectBillingMode = async (tx: ScopedSql, partnerId: string): Promise<'dripfunnel' | 'own'> =>
+  (await tx<{ billing_mode: 'dripfunnel' | 'own' }[]>`select billing_mode from partner where id = ${partnerId}`)[0]?.billing_mode ?? 'dripfunnel'
+
+/** The partner's plans a filter may name: a choice list, capped at a page. */
+export const selectPlanChoices = (tx: ScopedSql, partnerId: string): Promise<{ id: string; name: string }[]> =>
+  tx<{ id: string; name: string }[]>`select id, name from plan where partner_id = ${partnerId} and status <> 'retired' order by name, id limit 100`
