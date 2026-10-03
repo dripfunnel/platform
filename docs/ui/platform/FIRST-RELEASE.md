@@ -866,7 +866,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   host is verified by another partner. The address is created waiting, its first check is
   queued, and it's logged.
 - `recheckPartnerDomain(kind)` and `recheckMerchantDomain(storeId)` (`domains.recheck`, every
-  role) queue the existing deliverers, at most once a minute. `merchantDomains(after, before,
+  role) queue the existing deliverers: `TOO_SOON` within a minute of the last check, and a
+  press that folds into one already queued is not logged again. `merchantDomains(after, before,
   first)` pages the partner's stores' domains, 25 at most, no total.
 - Waiting and failed addresses are re-checked every 10 minutes, and "We'll email you when it's live" is
   `partner-domain-live` through the outbox.

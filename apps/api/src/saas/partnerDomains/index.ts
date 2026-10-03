@@ -126,7 +126,9 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
     })
   }
 
-  type RecheckResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'INVALID_INPUT' }
+  type RecheckResult = { ok: true } | { ok: false; reason: 'NOT_FOUND' | 'INVALID_INPUT' | 'TOO_SOON' }
+  // Re-check now is a nudge, not a loop: a minute after the last check, and logged only when queued.
+  const recentlyChecked = (checkedAt: Date | null) => checkedAt !== null && now().getTime() - checkedAt.getTime() < 60_000
 
   const recheckPartnerDomain = (rawKind: unknown): Promise<RecheckResult> => {
     const kind = z.enum(domainKinds).safeParse(rawKind)
@@ -134,8 +136,9 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
     return withScope(sql, context, async (tx): Promise<RecheckResult> => {
       const domain = (await selectPartnerDomainsWithRecords(tx, partnerId)).find((r) => r.domain.kind === kind.data)?.domain
       if (!domain) return { ok: false, reason: 'NOT_FOUND' }
-      await queueSideEffect(tx, { kind: 'domain.recheck', idempotencyKey: `${domain.id}:${minute(now())}`, payload: { partnerId, domainId: domain.id }, partnerId, storeId: null })
-      await activity.record(tx, entry({ action: domainAudit.recheckPartnerDomain, target: { type: 'domain', id: domain.id, label: domain.host }, reason: null }))
+      if (recentlyChecked(domain.checked_at)) return { ok: false, reason: 'TOO_SOON' }
+      const queued = await queueSideEffect(tx, { kind: 'domain.recheck', idempotencyKey: `${domain.id}:${minute(now())}`, payload: { partnerId, domainId: domain.id }, partnerId, storeId: null })
+      if (queued) await activity.record(tx, entry({ action: domainAudit.recheckPartnerDomain, target: { type: 'domain', id: domain.id, label: domain.host }, reason: null }))
       return { ok: true }
     })
   }
@@ -146,8 +149,9 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
       // RLS shows a partner its own stores' domains only; another partner's store finds none.
       const domain = (await selectCustomDomains(tx, storeId))[0]
       if (!domain) return { ok: false, reason: 'NOT_FOUND' }
-      await queueSideEffect(tx, { kind: 'custom_domain.recheck', idempotencyKey: `${domain.id}:${minute(now())}`, payload: { storeId, customDomainId: domain.id }, partnerId, storeId })
-      await activity.record(tx, entry({ action: domainAudit.recheckMerchantDomain, storeId, target: { type: 'domain', id: domain.id, label: domain.host }, reason: null }))
+      if (recentlyChecked(domain.checked_at)) return { ok: false, reason: 'TOO_SOON' }
+      const queued = await queueSideEffect(tx, { kind: 'custom_domain.recheck', idempotencyKey: `${domain.id}:${minute(now())}`, payload: { storeId, customDomainId: domain.id }, partnerId, storeId })
+      if (queued) await activity.record(tx, entry({ action: domainAudit.recheckMerchantDomain, storeId, target: { type: 'domain', id: domain.id, label: domain.host }, reason: null }))
       return { ok: true }
     })
   }

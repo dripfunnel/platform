@@ -1,9 +1,6 @@
 import type { DomainKind } from '#db/schema/saas'
 
-// The records each partner address needs (SAAS §3.5–3.6; designs/partner-data.js DOMAINS): a
-// CNAME to DripFunnel's edge, an A record for a root portal domain, and the email sender's SPF,
-// DKIM and DMARC. The apex address is null until SAAS §8's "verify before building" settles it;
-// until then a root portal domain is refused rather than given an address that is not ours.
+// The records each partner address needs (SAAS §3.5–3.6); the apex address waits on SAAS §8.
 
 export type RecordPurpose = 'pointer' | 'ownership' | 'spf' | 'dkim' | 'dmarc'
 

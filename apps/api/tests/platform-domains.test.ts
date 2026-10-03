@@ -135,6 +135,10 @@ describe('checking', () => {
     expect((await run<Record<string, unknown>>(recheck, callerOf(ids.ns, 'partner-support'), { kind: 'portal' })).data?.['recheckPartnerDomain']).toEqual({ ok: true, reason: null })
     expect((await run<Record<string, unknown>>(recheck, callerOf(ids.ns, 'partner-read-only'), { kind: 'portal' })).data?.['recheckPartnerDomain']).toEqual({ ok: true, reason: null })
     expect((await db.sql`select 1 from outbox o join partner_domain d on d.id::text = o.payload->>'domainId' where d.partner_id = ${ids.ns} and d.kind = 'portal'`).length).toBe(1)
+    // The second press in the same minute folds into the first, and is not logged again.
+    expect((await db.sql`select 1 from activity_log where partner_id = ${ids.ns} and action = 'partner.domain_recheck_requested'`).length).toBe(1)
+    await db.sql`update partner_domain set checked_at = ${new Date(now.getTime() - 20_000)} where partner_id = ${ids.ns} and kind = 'preview'`
+    expect((await run<Record<string, unknown>>(recheck, callerOf(ids.ns, 'partner-owner'), { kind: 'preview' })).data?.['recheckPartnerDomain']).toEqual({ ok: false, reason: 'TOO_SOON' })
     expect((await run<Record<string, unknown>>(recheck, callerOf(ids.fresh, 'partner-owner'), { kind: 'portal' })).data?.['recheckPartnerDomain']).toEqual({ ok: false, reason: 'NOT_FOUND' })
   })
 
@@ -197,10 +201,19 @@ describe('checking', () => {
 
 describe('merchants’ domains', () => {
   it('pages the partner’s stores’ domains both ways and never another partner’s, nor re-checks them', async () => {
+    // Enough rows on both partners that paging and disjointness are really exercised.
+    for (const [partnerId, prefix, n] of [[ids.ns, 'nsshop', 4], [ids.bz, 'bzshop', 2]] as const) {
+      const stores = await db.sql<{ id: string }[]>`select id from store where partner_id = ${partnerId} and id not in (select store_id from custom_domain) order by name limit ${n}`
+      for (const [i, s] of stores.entries()) {
+        await db.sql`insert into custom_domain (store_id, host, status, expected_cname, ownership_token) values (${s.id}, ${`${prefix}${i}.example`}, 'waiting', 'shops.edge.dripfunnel.net', ${`df-verify=${prefix}${i}`})`
+      }
+    }
     const owner = callerOf(ids.ns, 'partner-owner')
     const all = await db.sql<{ id: string }[]>`select d.id from custom_domain d join store s on s.id = d.store_id where s.partner_id = ${ids.ns}`
+    expect(all.length).toBeGreaterThan(2)
     const first = (await run<Merchants>(merchants, owner, { first: 2 })).data?.merchantDomains
-    expect(first?.items.length).toBe(Math.min(2, all.length))
+    expect(first?.items).toHaveLength(2)
+    expect(first?.pageInfo.hasNextPage).toBe(true)
     const seen = [...(first?.items ?? [])]
     let page = first
     while (page?.pageInfo.hasNextPage) {
@@ -208,12 +221,18 @@ describe('merchants’ domains', () => {
       seen.push(...(page?.items ?? []))
     }
     expect(seen).toHaveLength(all.length)
-    if (page?.pageInfo.hasPreviousPage) expect((await run<Merchants>(merchants, owner, { before: page.pageInfo.startCursor, first: 2 })).data?.merchantDomains.items.length).toBeGreaterThan(0)
+    expect(page?.pageInfo.hasPreviousPage).toBe(true)
+    const back = (await run<Merchants>(merchants, owner, { before: page?.pageInfo.startCursor, first: 2 })).data?.merchantDomains.items ?? []
+    expect(back.length).toBeGreaterThan(0)
+    expect(back.every((d) => seen.some((m) => m.storeId === d.storeId))).toBe(true)
     const theirs = (await run<Merchants>(merchants, callerOf(ids.bz, 'partner-owner'), { first: 25 })).data?.merchantDomains.items ?? []
+    expect(theirs.length).toBeGreaterThan(0)
     expect(theirs.some((d) => seen.some((m) => m.storeId === d.storeId))).toBe(false)
-    const [nsStore] = await db.sql<{ store_id: string }[]>`select d.store_id from custom_domain d join store s on s.id = d.store_id where s.partner_id = ${ids.ns} limit 1`
+    const [nsStore] = await db.sql<{ store_id: string }[]>`
+      update custom_domain set checked_at = null where id = (select d.id from custom_domain d join store s on s.id = d.store_id where s.partner_id = ${ids.ns} limit 1) returning store_id`
     expect((await run<Record<string, unknown>>(recheckStore, callerOf(ids.bz, 'partner-owner'), { id: nsStore?.store_id })).data?.['recheckMerchantDomain']).toEqual({ ok: false, reason: 'NOT_FOUND' })
     expect((await run<Record<string, unknown>>(recheckStore, callerOf(ids.ns, 'partner-support'), { id: nsStore?.store_id })).data?.['recheckMerchantDomain']).toEqual({ ok: true, reason: null })
     expect((await run(merchants, owner, { after: 'nope' })).code).toBe('INVALID_INPUT')
   })
+
 })
