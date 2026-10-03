@@ -50,6 +50,23 @@ the categories; each API's resolvers declare their own action codes (§5).
 | **System** | Jobs, webhooks, schedules | Provisioning steps, billing status changes from Stripe, automatic publishes, dunning, retention jobs, with the job or provider as the actor |
 | **Security** (any level) | Anyone, or unknown | Failed sign-ins for unknown accounts, rate-limit hits, attempted tenant crossings (ACCESS.md §4), denied authorizations. Visibility: staff only |
 
+**Merchant-portal action codes added 2026-10-02 (#182)**, for what the Store prototype now
+designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
+`return.received`, `return.cancelled`, `refund.issued` (with the owner of the lines),
+`refund.overridden` (the store refunding a supplier's lines; the ledger entry is its change),
+`supplier.shipping_mode_changed`, `supplier.suspended`, `supplier.resumed`,
+`supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
+`two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
+detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
+`customer.exported`, `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
+it). The two-factor and backup-code entries carry no secret, code or phone number. **The
+entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
+its parts, filed under its `seller_id`) **carry no free text and no shopper field**: the store's
+full entry, with the reason, the note and the customer, is written with `seller_id` null and
+store visibility, and a second thin entry for the supplier names only the action, the order
+number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
+
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). A second
 exception: **staff opening a customer's detail page** in the admin console is logged
@@ -168,7 +185,7 @@ every other tenant read.
 | **Merchant Manager** | Customer page › Activity; own activity | Shopper activity on the customer page; their own actions *(confirm whether Managers also see the whole store log)* |
 | **Merchant Staff** | Own activity | Their own actions |
 | **Vendor** | Own activity | Their own actions only *(proposed; ACCESS.md §10 left this open)* |
-| **Shopper** | Storefront account › Sign-in activity | Their own sign-ins *(release: decide)* |
+| **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §2.2) |
 
 - **"Own activity"** is a profile screen in every portal: the signed-in person's own
   entries in that scope, so anyone can check what was done under their name.

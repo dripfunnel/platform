@@ -19,7 +19,7 @@ controls reach the states. `designs/DF Store Pricing.dc.html` says what each pla
 which is what the portal's plan gates and upgrade prompts follow. The prototype decides
 **behaviour**, `docs/` decides **scope and rules** ([../../README.md](../../README.md) §3).
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-02.
 
 | Document | Covers |
 |---|---|
@@ -80,8 +80,10 @@ authoritative; this table must match it).
 | Area | Owner | Manager | Staff | Vendor · Stock only | Vendor · Products and stock | Vendor · + their orders |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Home | ✓ | ✓ | ✓ | own | own | own |
-| Orders | all | all | all | | | |
-| Customers | all | all | all | | | |
+| Orders | all | all | all | | | own lines; the shopper's name and address only when the supplier **ships to the shopper**, nothing when it **ships to your warehouse** (ACCESS.md §7.3) |
+| Refunds and returns | ✓ | ✓ | | | | own lines, up to their value; the store can override |
+| Customers | all, add and edit | all, add and edit | all, add and edit | | | |
+| Customers export | ✓ | ✓ | | | | |
 | Reports | ✓ | ✓ | | | | |
 | Products | all, edit | all, edit | all, **read-only** | own, **quantity only** | own, create and edit | own, create and edit |
 | Collections, filters, menus | edit | edit | read-only | | | |
@@ -98,12 +100,15 @@ authoritative; this table must match it).
 | Activity on a customer's page | ✓ | ✓ | | | | |
 | Own activity (profile) | ✓ | ✓ | ✓ | ✓ *(proposed)* | ✓ *(proposed)* | ✓ *(proposed)* |
 | Your sales (own lines, **no totals**) | | | | | | ✓ |
-| To ship (fulfil own lines) | | | | | | ✓ |
+| To ship (own lines: to the shopper, or marked as sent to the store's warehouse, by the supplier's shipping mode) | | | | | | ✓ |
+| My profile (details, password, 2-factor, appearance, signed-in devices) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 Keys: `owner`, `manager`, `staff`; supplier access levels `vendor-stock`, `vendor-catalogue`,
-`vendor-orders-fulfil`, set by the merchant **per supplier**. Inside a supplier, its own
-team roles: **Supplier admin** (manages the supplier's team) and **Supplier member**
-*(proposed, DATA-MODEL.md §4.2)*.
+`vendor-orders-fulfil`, set by the merchant **per supplier**, as is the supplier's **shipping
+mode**, `to-store` or `to-shopper` (ACCESS.md §5.2, decided 2026-10-02). Inside a supplier,
+its own team roles: **Supplier admin** (manages the supplier's team) and **Supplier member**
+(DATA-MODEL.md §4.2, decided 2026-10-02). **2-factor is required for Owners and optional for
+everyone else** (ACCESS.md §2).
 A fourth vendor tier, `vendor-orders-read` (own sales, no fulfilment), is defined but not
 offered on the Suppliers screen (ACCESS.md §5).
 
@@ -136,9 +141,12 @@ the feature is found.
 - **People is a Settings tab**, not a row. Suppliers, warehouses and the approval queue live
   in Settings too.
 - **Collections, Filters and Menus** are three tabs of one destination.
-- Settings tabs, in order: Store info, People, Supplier, Payment setup, Shipping,
-  Warehouse, Tax setup, Custom domain, then Customer accounts (email, mobile or both for
-  shopper sign-in, ACCESS.md §2.1), Developers, Support access and Activity log (new).
+- Settings tabs, in order: Store info (now with time zone, units and order numbers), People,
+  Supplier, Payment setup, Shipping, Warehouse, Tax setup, Custom domain, **Catalogue**
+  (rich-listing features and badges, CATALOG-DESIGN P1) and **Markets** (CATALOG-DESIGN part
+  T), then Customer accounts (email, mobile or both for shopper sign-in, ACCESS.md §2.1),
+  Developers, Support access and Activity log (new). **My profile** is in the user menu, not
+  Settings (`PortalProfile`).
 - Where vendors manage their own warehouses *(decide)*; the merchant sees them in the
   Warehouse tab in a labelled group but can't rename or remove them.
 
@@ -228,12 +236,16 @@ From DESIGN-BRIEF §1, CATALOG-DESIGN §8 and OFFERS-DESIGN §8:
 Carried from DESIGN-BRIEF §4, CATALOG-DESIGN §9, OFFERS-DESIGN §9 and ACCESS.md, where
 they change this portal:
 
-- What a vendor may see of a customer (name and address to ship; email and phone?).
-- Whether editing an approved product sends it back for approval.
-- What happens to a removed or suspended vendor's products.
-- Refunds and returns across vendors.
+- ~~What a vendor may see of a customer.~~ **Settled 2026-10-02**: by the supplier's shipping
+  mode (ACCESS.md §7.3).
+- ~~Whether editing an approved product sends it back for approval.~~ **Settled 2026-10-02**:
+  only name, price or photo changes, hidden until approved (ACCESS.md §7.2).
+- ~~What happens to a removed or suspended vendor's products.~~ **Settled 2026-10-02**: removed → hidden and kept; suspended → the Owner chooses (ACCESS.md §7.5).
+- ~~Refunds and returns across vendors.~~ **Designed 2026-10-02** (ACCESS.md §7.3); the release
+  is FIRST-RELEASE.md's (to be written on #184).
 - Staff: export, and a read-only offers list?
 - Vendors: import/export, translations, other-currency prices, collections?
-- 2-factor for Owners only, or everyone.
+- ~~2-factor for Owners only, or everyone.~~ **Settled 2026-10-02**: Owners required, others
+  optional (ACCESS.md §2).
 - Whether past due blocks sign-in, and what happens to the store's vendors.
 - Shopper sign-in options may be limited by the partner's plans? (ACCESS.md §2.1)

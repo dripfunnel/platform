@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-02.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -244,10 +244,9 @@ promotions tests before relying on it.
    These are the states [DESIGN-BRIEF.md](DESIGN-BRIEF.md) fact 11 warns are routinely
    confused. Each needs a distinct colour, icon **and** word; never colour alone.
    - Dates are stored as instants. The UI shows and accepts them in the **store's time zone**
-     and says which ("Ends 31 Aug, 23:59 London time"). The store gets a real time-zone
-     setting (PLATFORM-PROMPT §3.3 "Stores: a real time zone"), `(release: decide)`; until it
-     exists the offers screens can't be built honestly. "Ends at midnight" means 23:59:59
-     local, not 00:00 the next day.
+     and says which ("Ends 31 Aug, 23:59 London time"). The store's time-zone setting lives
+     in **Settings › Store info** and ships in the first release (decided 2026-10-02,
+     PLATFORM-PROMPT §3.3). "Ends at midnight" means 23:59:59 local, not 00:00 the next day.
 10. **Money is in minor units, with a currency on every amount.**
     - Fixed amounts ($ off, minimum order total) are integers in minor units with a currency
       code (PLATFORM-PROMPT §5.4 "Money"). The UI shows and accepts major units formatted
@@ -275,7 +274,9 @@ promotions tests before relying on it.
       shopper's real total from the engine, not a naive subtraction.
 12. **Customer groups are part of the engine; segments are not yet.** The engine provides
     customer groups (PLATFORM-PROMPT §3.2 "Customers", §5.4). A merchant can make a group
-    ("VIP") and add customers to it (Customers screen). Automatic segments ("spent over
+    ("VIP") and add customers to it (the Customers screen's Groups tab and each customer's
+    page, designed 2026-10-02; the same list the offer editor picks from and creates into).
+    Automatic segments ("spent over
     $500", "hasn't ordered in 90 days", "subscribed to emails") are an engine requirement,
     `(release: decide)`. Design picking a group, creating one inline, and seeing "12
     customers in VIP".
@@ -289,7 +290,9 @@ promotions tests before relying on it.
     - The name and description are **translatable** (part S).
 14. **Deleting stops an offer applying; past orders keep their discount.** Order lines carry
     immutable price snapshots (PLATFORM-PROMPT §5.4 "Orders"), so orders already placed still
-    show what was taken off. Whether deletion is soft (the row kept and hidden) *(decide)*.
+    show what was taken off. ~~Whether deletion is soft (the row kept and hidden) *(decide)*.~~
+    **Settled 2026-10-02 on #188's review** (DATA-MODEL §7.7): soft; the code stays unique per store including
+    spent and deleted ones.
 15. **Offers are the merchant's alone** ([DESIGN-BRIEF.md](DESIGN-BRIEF.md) fact 11,
     PLATFORM-PROMPT §2 item 5).
     - Promotions are store-scoped rows (`store_id`), read and written only through the scoped
@@ -502,7 +505,8 @@ Items marked `(release: decide)` are engine requirements whose release is open (
 - I2. Customer groups: pick one or more. Several groups mean "any of", which relies on OR
   conditions (§3 fact 2: the engine supports OR; whether the portal exposes it, *ask*).
   Create a group inline, see its size, link to the Customers screen.
-- I3. Specific customers (search by name or email): `(release: decide)` (§3 fact 3).
+- I3. Specific customers (search by name or email; designed 2026-10-02 over the real customer
+  list): `(release: decide)` (§3 fact 3).
 - I4. First order only / new customers: `(release: decide)`. This is the most requested
   welcome offer; design it.
 - I5. Signed-in customers only, email subscribers, segments ("spent over $500"):
@@ -714,7 +718,8 @@ Ready-made starting points that fill the form and leave the merchant to adjust:
   default? Is "one code per order" store-wide or per offer? (§3 fact 7, M4)
 - Do cancelled or refunded orders give a use back? How are guests recognised for
   per-customer limits? (§3 fact 8)
-- When does the store time-zone setting ship, and where in Settings does it live? (§3 fact 9)
+- ~~When does the store time-zone setting ship, and where in Settings does it live? (§3 fact 9)~~
+  **Settled 2026-10-02**: first release, Settings › Store info.
 - Multi-currency stores: how are per-currency amounts entered, and what is the fallback if
   they are not in the first release? (§3 fact 10)
 - Can Staff read offers? (§4)

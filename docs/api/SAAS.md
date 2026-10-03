@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-02.
 
 ---
 
@@ -62,7 +62,7 @@ layer's tables, by scope:
 |---|---|---|
 | **Platform** | `staff_user`, platform settings (automatic publish interval, entitlement ceilings, feature flags), `core_release`, storefront templates, integration credentials (references only) | Admin API only |
 | **Partner** (`partner_id`) | `partner`, `partner_user`, `partner_look` (versioned), `partner_words`, `partner_domain`, `partner_email_sender`, `email_template`, `plan`, `plan_entitlement`, `plan_price`, partner billing account and invoices | Platform API for that partner; Admin API for staff |
-| **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_entitlement_override`, `store_usage` (meters per period), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_access_setting`, `support_session`, `job` rows for the store | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
+| **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_entitlement_override`, `store_usage` (meters per period), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_session`, `job` rows for the store (the merchant's support-access consent is the `store.support_access_allowed` column, DATA-MODEL §2.1, not a table) | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
 | **Store and seller** | None of its own. Audit entries and usage attributed to a vendor carry `seller_id` for filtering | n/a |
 | **Cross-scope, append-only** | `activity_log` (actor, partner, store, seller, customer where relevant; [LOGGING.md](LOGGING.md)), `billing_event` (Stripe event ids), `job` (platform-wide rows such as fleet rollouts carry no `store_id`) | Written by the SaaS layer only; read per scope |
 
@@ -259,7 +259,12 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 
 - **Plans are per partner.** Each has a name, description, monthly and yearly price per
   currency, trial length, and entitlements (CONSOLE-DESIGN G1). The house partner's plans are
-  DripFunnel's retail plans. Plan names and contents are open (§14).
+  DripFunnel's retail plans. Plan names and contents are open (§14). **Decided 2026-10-02**: the
+  house partner's plans carry a **10-day trial** (`designs/DF Store Pricing.dc.html`), trial
+  length staying a per-plan value; and DripFunnel's own prices to a merchant are quoted and
+  invoiced **in the store's currency when it is USD, EUR or INR, and in USD for any other
+  currency**. Rejected: a nearest-regional-currency mapping (one more table to explain) and
+  restricting sign-up to the three currencies.
 - **Three entitlement kinds**: **on/off** (custom domain, offers, vendors, "Powered by"
   removal, A+ content, size charts); **limit** (products, staff seats, vendors, languages,
   currencies); **meter**, counted per billing period (**"Publish now" presses**, AI prompts,
@@ -285,8 +290,13 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 - **Meters count atomically** and reset per the store's billing period. A **failed build never
   counts** against the "Publish now" allowance (decided).
 - A limit reached explains itself and points to the upgrade, shown to the Owner only.
-- Lowering a limit below current usage never deletes data: existing items stay, new ones are
-  blocked.
+- **Lowering a limit below current usage pauses what is over it, never deletes it, and the
+  Owner chooses what stays** (decided 2026-10-02 with Gaurav on #186's review, recorded on #182, with the prototype's *Choose what to keep*;
+  this reverses "existing items keep working"): before the smaller plan takes effect, the
+  Owner picks which products, staff, payment gateways, couriers and markets remain within
+  the new limits; the rest is paused, invisible to shoppers and kept intact, and comes back
+  on an upgrade. Adding more is blocked with a clear explanation. Rejected: everything
+  existing keeps selling (over-limit catalogues would make the limit meaningless).
 
 ### 6.3 Changing and retiring plans
 
@@ -336,6 +346,17 @@ partner's billing, or both) is open (§14).
   status on sessions, and writes outbox events for emails and storefront rules, in one
   transaction.
 - **Trials** end at `trial_ends_at`, with a "trial ending" email from the partner's templates.
+- **A paid-to-paid plan change is prorated** (decided 2026-10-02, `PortalBilling`): the
+  merchant is charged today for the days left in the period on the new plan minus the unused
+  part of the old one, then the new price from the next period; the screen states both amounts
+  and the date before confirming. The change is one invoice with a charge line and a credit
+  line (DATA-MODEL §2.2's billing row; the tables in full on #187). A downgrade is scheduled for the period end and the chosen plan is
+  recorded on the subscription until then (§6.3).
+- **The merchant's billing details** on DripFunnel's invoices (decided 2026-10-02): legal name,
+  address, email and an optional tax number (GSTIN for India, VAT number for the EU), editable
+  by the Owner. Where the number is valid, the invoice applies the local rule (reverse charge
+  in the EU; input tax credit on the GST invoice in India). New invoices follow new details;
+  issued ones are never rewritten.
 - **Finance actions** (H3): change plan, extend trial, apply credit, refund, retry a failed
   payment, mark an invoice paid, cancel at period end or now. Each states the money effect
   before confirming and is audited. Money is integer minor units with a currency.
@@ -376,6 +397,9 @@ failed; a live hostname can become expiring or broken if its records change.
    issuing) arrive with the Cloudflare for SaaS integration (THIRD-PARTY-ACCESS §2.1).
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
+   **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check
+   it* → *Security certificate* → *Live*; their mapping onto the built states, the re-check
+   schedule and removal are data facts in DATA-MODEL.md §7.2.
 5. The hostname and its state live in `custom_domain` (merchant) or `partner_domain`
    (partner), never on the store row.
 
@@ -504,7 +528,7 @@ USERS-AND-DOMAINS §4.1. In short, and not to be restated elsewhere:
   deleted, and its entries appear on the store and partner pages they concern
   (CONSOLE-DESIGN P1–P3).
 
-The SaaS layer owns the `support_access_setting`, `support_session` and `activity_log` tables
+The SaaS layer owns `store.support_access_allowed`, the `support_session` table and the `activity_log`
 and the services that write them; every Platform and Admin API write goes through a resolver
 scope that writes the activity entry structurally, so "did this write log?" is never a review
 question.

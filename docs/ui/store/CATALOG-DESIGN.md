@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-02.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -393,10 +393,11 @@ must store all of it per store, and enforce the pricing-currency lock.
     `(release: decide)`)*. The product type (§3 fact 12) is related but separate. Don't show
     every section on every product.
 32. **Downgrading must not destroy content.** When a plan loses a feature or limit, existing
-    content is **kept**. Ask what the storefront does with it (keep showing it, or hide it
-    until upgrade). Adding more is blocked with a clear explanation. Over-limit catalogues
-    (e.g. 600 products on a 500-product plan) keep working; only adding is blocked. The engine
-    enforces the same rule.
+    content is **kept**. Decided 2026-10-02 on #186's review (SAAS §6.2, the prototype's *Choose what to
+    keep*): what is over the new limit is **paused**, hidden from shoppers and kept intact,
+    and the Owner chooses which items stay within the limit before the change takes effect;
+    an upgrade brings the rest back. Adding more is blocked with a clear explanation. The
+    engine enforces the same rule (DATA-MODEL §2.2 `product.hidden_by = 'plan'`).
 33. **Past due is read-only** (DESIGN-BRIEF fact 9, PLATFORM-PROMPT §2 item 7): writes are
     blocked, the merchant is never locked out. Plan gating is different: a merchant in good
     standing on a smaller plan can edit everything they have. Don't confuse the two banners.
@@ -735,8 +736,10 @@ depend on an engine capability whose release is not yet chosen.
 - E1. Editing a supplier's product: a banner says "This is Northwind Textiles' product. They will
   see your changes."
 - E2. A vendor editing their own product sees "Your store owner can also edit this product."
-- E3. A vendor edits an already-approved product. Does it go back to waiting for approval?
-  *(open, §9)*. Design both answers.
+- E3. A vendor edits an already-approved product. Settled 2026-10-02 (ACCESS.md §7.2): it goes
+  back to waiting for approval, and off the storefront, **only when the name, a price or the
+  photos changed**; every other edit goes live. The save says which: "Your price, title or
+  photo change needs approval" or "Saved — live now".
 - E4. Two people edit the same product. The second save sees "Someone else changed this product
   2 minutes ago", with a choice to review or overwrite. The engine must detect the conflict (a
   version number or updated-at check on save).
@@ -769,9 +772,11 @@ depend on an engine capability whose release is not yet chosen.
 - G1. One warehouse: a single quantity field.
 - G2. Several warehouses: expand to per-warehouse quantities, default warehouse first.
 - G3. Show "12 in stock · 3 reserved for orders", and explain "reserved".
-- G4. Adjust with a reason ("Received new stock +20", "Damaged −2") vs overwrite *(ask)*. The
-  engine keeps a stock-movement ledger with reasons either way (PLATFORM-PROMPT §5.4
-  Inventory), so an overwrite is recorded as a movement; the question is what the form offers.
+- G4. Adjust with a reason, settled 2026-10-02: the form offers "Change stock with a reason"
+  (Received new stock, Returned by a shopper, Damaged or lost, Counted again) and a typed
+  number is recorded as "Typed a new number". The engine keeps the stock-movement ledger
+  either way (PLATFORM-PROMPT §5.4 Inventory), and the product shows its **Stock history**:
+  every change, by hand, by orders, by suppliers and by imports, per product and per version.
 - G5. Low-stock threshold and low-stock badges.
 - G6. A stock-only vendor sees exactly this and nothing else.
 - G7. A vendor never sees merchant or other-vendor quantities, including totals.
@@ -860,8 +865,11 @@ with validation before any write, partial-failure reports, and translation and c
 - L5. Merchant edits a pending vendor product before approving.
 - L6. A vendor-supplied product in the merchant list is marked with the supplier's name, and
   can be filtered by supplier.
-- L7. A suspended supplier's products: still in the catalogue. Show what the merchant sees and
-  what the merchant can do (hide all, keep selling) *(open: ACCESS.md, PLATFORM-PROMPT §10)*.
+- L7. Suspending a supplier asks the Owner whether to **hide its products or keep selling
+  them** from the stock in hand (settled 2026-10-02 on #186's review with the prototype's suspend modal,
+  ACCESS.md §7.5); hidden ones return on resume. A removed supplier's products are hidden and
+  kept, still marked as theirs, for the merchant to publish or delete (settled 2026-10-02).
+  Show the count and the hidden list.
 - L8. A vendor at the Stock only tier (§4).
 - L9. Vendor filters and collections: whether a vendor can see or assign them *(ask)*.
 
@@ -964,9 +972,10 @@ with validation before any write, partial-failure reports, and translation and c
 
 ### P. Catalogue features: configuration and plan
 
-- P1. **Settings › Catalogue** (a new Settings tab; the store settings behind it are an engine
-  requirement, `(release: decide)`): the Owner switches rich-listing features on or off for the
-  store:
+- P1. **Settings › Catalogue** (a Settings tab, designed in the prototype's `CatSettings` on
+  2026-10-02 with the badge definitions of S5; the store settings behind it are an engine
+  requirement, `(release: decide)` in FIRST-RELEASE.md): the Owner switches rich-listing
+  features on or off for the store:
   - size charts, A+ content, specifications, highlights, FAQs, badges, related products and
     video;
   - the legal information defaults (§3 fact 34).
@@ -988,7 +997,8 @@ with validation before any write, partial-failure reports, and translation and c
   itself instead of vanishing.
 - P7. **Metered features** (AI descriptions, AI translations, background removal if offered):
   remaining allowance shown before running, not after.
-- P8. **Trial**: everything included, labelled "Included in your trial until 12 Oct".
+- P8. **Trial**: everything included, labelled "Included in your trial · 7 days left" (the
+  house partner's trial is 10 days, SAAS.md §6.1).
   Before the trial ends, show what will be locked and what happens to content already made.
 - P9. **Downgrade** (§3 fact 32): a summary before confirming ("A+ content on 34 products will
   be hidden from your store; you keep it"), and afterwards an "over limit" state that never
@@ -1113,8 +1123,11 @@ information (S4)**, which is configuration only.
     Not yet in EU: add the EU responsible person"), with an explanation of why. They don't
     block other markets.
   - Never plan-gated.
-- S5. **Badges**: "New", "Bestseller", "Handmade", "Sale", either set by hand or automatic
-  (New = added in the last 30 days, `(release: decide)`). Show a preview on the product card.
+- S5. **Badges**: defined in Settings › Catalogue (P1) with a label of up to 18 characters and
+  one rule, designed 2026-10-02: added in the last 30 days, your 5 best sellers this month,
+  lower than its compare price, only a few left (3 or fewer), or **manual** ("you choose the
+  products"). Automatic badges come and go by themselves; only manual ones are picked on the
+  product. Show a preview on the product card. Release `(release: decide)` in FIRST-RELEASE.md.
 - S6. **Related products / Frequently bought together**: pick by hand, or "Automatic (same
   collection)". Vendors can pick only their own products.
 - S7. **Video**: upload or paste a YouTube link, with a poster image *(plan-gated; ask whether
@@ -1251,8 +1264,10 @@ Design once, apply everywhere:
 
 ## 9. Open questions: ask, don't assume
 
-- Does editing an approved vendor product send it back for approval? (E3, PLATFORM-PROMPT §10)
-- What happens to a removed or suspended supplier's products? (L7, PLATFORM-PROMPT §10)
+- ~~Does editing an approved vendor product send it back for approval? (E3)~~ **Settled
+  2026-10-02** (E3, ACCESS.md §7.2).
+- ~~What happens to a removed or suspended supplier's products? (L7)~~ **Settled 2026-10-02**
+  (L7, ACCESS.md §7.5).
 - Can vendors see or assign collections and filters? Can they import or export? (L9, K9)
 - Can Staff export? (§4)
 - Exact copy for publishing, and whether price and stock read live on the live static site.
@@ -1266,7 +1281,8 @@ Design once, apply everywhere:
 - Does the engine keep "child collection limited to its parent's products"? (§3 fact 11)
 - Does changing a web address keep a redirect from the old one? (§3 fact 15)
 - Maximum options and versions per product. (D3)
-- Stock adjustments with reasons, or plain overwrite? (G4)
+- ~~Stock adjustments with reasons, or plain overwrite? (G4)~~ **Settled 2026-10-02**: with
+  reasons, and a stock history (G4).
 - Video on products? (F9)
 - AI help for descriptions and photos in the catalogue, and is it metered against the plan?
   (C2)
@@ -1303,8 +1319,10 @@ Design once, apply everywhere:
   34, 45)
 - **Regions**: which countries and regions are in scope at launch (US, Canada, UK, EU, India,
   Gulf, Australia, Southeast Asia…)? (§3 fact 36, T1, PLATFORM-PROMPT §10)
-- Global store settings: home country, selling markets, tax registrations, unit system, time
-  zone, and any-format postal codes and regions. Which release ships them? (§3 fact 36)
+- Global store settings: home country, selling markets, tax registrations, and any-format
+  postal codes and regions. Which release ships them? (§3 fact 36) ~~Unit system, time zone~~
+  **Settled 2026-10-02**: first release, in Settings › Store info with the order-number format
+  (PLATFORM-PROMPT §3.3).
 - Classification code: which markets make it required, and does the engine offer a
   plain-words code lookup? (§3 fact 7)
 - US sales tax: the engine's own zones and rates, or a tax service (Stripe Tax, Avalara,

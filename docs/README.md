@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-02.
 
 ---
 
@@ -48,7 +48,7 @@ docs/
     README.md               guide: the four APIs and callers, apps/api layout, layers, how to add code, testing
     PLATFORM-PROMPT.md      spec: the engine (tenancy, identity, commerce modules, public APIs, jobs), open questions
     ACCESS.md               spec: identity, sessions, roles and permissions for every portal, invitations, vendors, support access, authorization checks
-    DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security
+    DATA-MODEL.md           spec: tenancy tree, table scopes, users and roles in every pool, supplier teams, row-level security, the commerce tables (§7)
     LOGGING.md              spec: the activity (audit) log at every level, who sees what, search by person, retention
     SAAS.md                 spec: partners, merchant accounts, provisioning, plans, billing, domains, publishing, fleet, metrics
   ui/
@@ -123,7 +123,7 @@ touch.
 | Any server code | [api/README.md](api/README.md), [code/DESIGN.md](code/DESIGN.md) |
 | Engine, commerce modules, public APIs | [api/PLATFORM-PROMPT.md](api/PLATFORM-PROMPT.md) |
 | Sign-in, sessions, roles, permissions, invitations, vendors, support access | [api/ACCESS.md](api/ACCESS.md) |
-| Tables, tenancy, where users and roles are stored, row-level security | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
+| Tables, tenancy, where users and roles are stored, row-level security, the commerce tables | [api/DATA-MODEL.md](api/DATA-MODEL.md) |
 | Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md), and `designs/DF Store Pricing.dc.html` for what each plan includes |
 | Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
 | Any SPA code | [ui/README.md](ui/README.md), then the app's guide, then the screen in its prototype ([../designs/design.md](../designs/design.md)) |
