@@ -44,3 +44,18 @@ export const failExportJob = async (tx: ScopedSql, id: string, at: Date, expires
 /** An export is kept for its hour, and one never finished for a day at most (LOGGING §6); the request stays in the log. */
 export const deleteExpiredExports = async (tx: ScopedSql, now: Date): Promise<number> =>
   (await tx`delete from export_job where expires_at < ${now} or created_at < ${new Date(now.getTime() - 24 * 60 * 60 * 1000)} returning id`).length
+
+/**
+ * A job whose outbox row the relay gave up on (its last attempt timed out or threw) is failed,
+ * so the console stops waiting; the relay's timeout never reaches the deliverer's own catch.
+ */
+export const failDeadExports = async (tx: ScopedSql, now: Date, expiresAt: Date): Promise<number> =>
+  (
+    await tx`
+      update export_job set state = 'failed', finished_at = ${now}, expires_at = ${expiresAt}
+      where state = 'queued' and id in (
+        select (payload->>'jobId')::uuid from outbox where kind = 'export.activity' and failed_at is not null
+      )
+      returning id
+    `
+  ).length

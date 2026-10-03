@@ -25,7 +25,7 @@ import { entraProvider } from '#integrations/entra/provider'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
-import { deleteExpiredExports } from '#db/scoped/exportJobs'
+import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
@@ -36,7 +36,7 @@ import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
-import { createPartnerActivityService } from '#saas/partnerActivity/index'
+import { createPartnerActivityService, exportLifetimeMs } from '#saas/partnerActivity/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
@@ -307,7 +307,11 @@ export default {
         return 0
       })
       if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
-      const purged = await withSystemScope(sql, (tx) => deleteExpiredExports(tx, new Date())).catch((error: unknown) => {
+      const purged = await withSystemScope(sql, async (tx) => {
+        const at = new Date()
+        await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+        return deleteExpiredExports(tx, at)
+      }).catch((error: unknown) => {
         logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
         return 0
       })

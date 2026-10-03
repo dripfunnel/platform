@@ -193,4 +193,14 @@ describe('export', () => {
     expect(await withSystemScope(db.sql, (tx) => deleteExpiredExports(tx, new Date()))).toBeGreaterThan(0)
     expect(await db.sql`select 1 from export_job where id = ${asked?.jobId ?? ''}`).toEqual([])
   })
+
+  it('says failed once the relay gives up, even when the last attempt timed out', async () => {
+    const asked = (await run<{ exportActivity: { jobId: string } }>(start, callerOf(ids.ns, 'partner-owner', ids.maya))).data?.exportActivity
+    // The relay's dead path: the outbox row is marked failed, the deliverer never saw an error.
+    await db.sql`update outbox set failed_at = ${now} where kind = 'export.activity' and payload->>'jobId' = ${asked?.jobId ?? ''}`
+    const { failDeadExports } = await import('#db/scoped/exportJobs')
+    const { withSystemScope } = await import('#db/scoped/index')
+    expect(await withSystemScope(db.sql, (tx) => failDeadExports(tx, now, new Date(now.getTime() + 3_600_000)))).toBe(1)
+    expect((await run<{ activityExport: { state: string } }>(job, callerOf(ids.ns, 'partner-owner'), { id: asked?.jobId })).data?.activityExport.state).toBe('failed')
+  })
 })

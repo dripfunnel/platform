@@ -270,7 +270,8 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
 `export_job` (migration `0021`): partner, `kind` (`activity`), the filter as asked, `state`
 (queued, done or failed), the row count and whether it was cut, the CSV, who asked, and when it was
 created, finished and expires. A partner inserts and reads its own; the `export.activity` job
-runs in that partner's scope and writes the result, or `failed` after the outbox's last attempt;
+runs in that partner's scope and writes the result, or `failed` after the outbox's last attempt
+(the cron also fails a queued job whose outbox row the relay gave up on, a timeout included);
 the per-minute cron deletes an export an hour after it finishes (failed included), and one
 never finished after a day. The CSV lives on the row because no R2
 bucket is bound yet; a file key replaces it when one is. The four role pins are on the table.
