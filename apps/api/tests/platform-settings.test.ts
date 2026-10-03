@@ -56,12 +56,13 @@ afterAll(async () => {
 describe('company and team', () => {
   it('reads the company with its contract and contacts, and only its own team', async () => {
     const company = (await run<{ partnerCompany: { name: string; contract: { feeCurrency: string; fees: { plan: string }[] }; mainContact: { email: string } } }>(
-      `{ partnerCompany { name country contract { feeCurrency poweredByRemovable fees { plan fee { amount currency } } } mainContact { name email } billingContact { email } secondFactorRequired } }`,
+      `{ partnerCompany { name country contract { feeCurrency poweredByRemovable moreFees fees { plan fee { amount currency } } } mainContact { name email } billingContact { email } secondFactorRequired } }`,
       callerOf(ids.ns, 'partner-read-only'),
     )).data?.partnerCompany
     expect(company?.name).toBe('Northstar Commerce')
     expect(company?.contract.feeCurrency).toBe('USD')
     expect(company?.contract.fees.length).toBeGreaterThan(0)
+    expect(company?.contract.fees.length).toBeLessThanOrEqual(50)
     const items = (await run<Team>(teamQuery, callerOf(ids.ns, 'partner-read-only', ids.owner))).data?.team.items ?? []
     expect(items.some((m) => m.you && m.id === ids.owner)).toBe(true)
     const bz = await db.sql<{ email: string }[]>`select email from partner_user where partner_id = ${ids.bz}`
@@ -158,6 +159,11 @@ describe('roles, removal and ownership', () => {
 })
 
 describe('2-factor policy', () => {
+  it('judges a stale Owner session by the role as it is now', async () => {
+    const policy = `mutation($r: Boolean!) { setSecondFactorPolicy(required: $r) { ok reason } }`
+    expect((await run<Res<'setSecondFactorPolicy'>>(policy, callerOf(ids.ns, 'partner-owner', ids.admin), { r: false })).data?.setSecondFactorPolicy).toEqual({ ok: false, reason: 'OWNERS_ONLY' })
+  })
+
   it('is the Owner’s to set, and logged', async () => {
     const policy = `mutation($r: Boolean!) { setSecondFactorPolicy(required: $r) { ok reason } }`
     expect((await run(policy, callerOf(ids.ns, 'partner-admin', ids.admin), { r: true })).code).toBe('FORBIDDEN')

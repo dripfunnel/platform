@@ -893,7 +893,8 @@ api/README.md §2.1); a partner id in a request is not authority.
 **Built on #199** (Settings, `apis/platform/settings.ts`, `saas/partnerTeam`):
 - `partnerCompany` (`partner.read`): name, country, region, kind, the main contact
   and billing contact (an active Owner and an active Finance user), the contract (fee currency, the "Powered by"
-  clause, the fee per plan as `Money`) and `secondFactorRequired`. The legal address and tax id
+  clause, the fee per plan as `Money`, at most 50 with `moreFees` past that) and
+  `secondFactorRequired`. The legal address and tax id
   aren't stored yet; they arrive with the company-details request (§15).
 - `team(after, before, first)`: everyone not removed, with role, `you`, last sign-in, the open
   invitation (sent, expired) and 2-factor on or off; cursor-paged, 25 at most.
@@ -911,7 +912,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   The invitation email (`partner-team-invitation`) goes through the outbox, throttled to 20 an
   hour per inviter and 3 a day per address (`RATE_LIMITED`, ACCESS §6.3); accepting it is #208's.
 - `setSecondFactorPolicy(required)` (`security.manage`, Owner) sets
-  `partner.second_factor_required`, which sign-in already reads; turning it off removes nobody's
+  `partner.second_factor_required` under the team lock, on the caller's role as it is now, which
+  sign-in already reads; turning it off removes nobody's
   2-factor.
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list

@@ -110,11 +110,11 @@ export const selectCompany = async (tx: ScopedSql, partnerId: string): Promise<C
     `
   )[0] ?? null
 
-/** The wholesale fee per plan in the contract's currency, at most a page of plans. */
-export const selectPlanFees = (tx: ScopedSql, partnerId: string): Promise<{ plan: string; amount: number; currency: string }[]> =>
+/** The wholesale fee per plan in the contract's currency, `limit` at most, and one more to say there are. */
+export const selectPlanFees = (tx: ScopedSql, partnerId: string, limit: number): Promise<{ plan: string; amount: number; currency: string }[]> =>
   tx<{ plan: string; amount: number; currency: string }[]>`
     select p.name as plan, f.amount, f.currency from plan_fee f join plan p on p.id = f.plan_id
-    where f.partner_id = ${partnerId} and p.status <> 'retired' order by f.amount, p.name limit 100
+    where f.partner_id = ${partnerId} and p.status <> 'retired' order by f.amount, p.name limit ${limit + 1}
   `
 
 /** The partner's earliest active member with a role: the company's main or billing contact. */

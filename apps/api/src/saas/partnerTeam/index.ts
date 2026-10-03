@@ -42,6 +42,7 @@ export const teamAudit = {
 } as const
 
 export const teamPageSize = 25
+export const feesMax = 50
 const invitationDays = 7
 const owner: PartnerRoleKey = 'partner-owner'
 
@@ -114,6 +115,12 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
     })
   }
 
+  // The fee per Live or draft plan: the contract block lists at most `feesMax`, and says if there are more.
+  const feesOf = async (tx: ScopedSql) => {
+    const fees = await selectPlanFees(tx, partnerId, feesMax)
+    return { fees: fees.slice(0, feesMax), moreFees: fees.length > feesMax }
+  }
+
   const partnerCompany = () =>
     withScope(sql, context, async (tx) => {
       const company = await selectCompany(tx, partnerId)
@@ -127,9 +134,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
         kind: company.kind,
         mainContact: main ? { name: main.name, email: main.email } : null,
         billingContact: finance ? { name: finance.name, email: finance.email } : null,
-        contract: company.fee_currency
-          ? { feeCurrency: company.fee_currency, poweredByRemovable: company.powered_by_removable ?? false, poweredByNote: company.powered_by_note, fees: await selectPlanFees(tx, partnerId) }
-          : null,
+        contract: company.fee_currency ? { feeCurrency: company.fee_currency, poweredByRemovable: company.powered_by_removable ?? false, poweredByNote: company.powered_by_note, ...(await feesOf(tx)) } : null,
         secondFactorRequired: company.second_factor_required,
       }
     })
@@ -258,7 +263,12 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
   const setSecondFactorPolicy = (required: unknown): Promise<TeamResult> => {
     const parsed = z.boolean().safeParse(required)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
-    return withScope(sql, context, async (tx) => {
+    return withScope(sql, context, async (tx): Promise<TeamResult> => {
+      // As every team change: the caller's role as it is now, under the team lock.
+      await lockTeam(tx, partnerId)
+      const me = await freshCaller(tx)
+      if (!me) return { ok: false, reason: 'NOT_ACTIVE' }
+      if (me.role_key !== owner) return { ok: false, reason: 'OWNERS_ONLY' }
       const before = (await selectCompany(tx, partnerId))?.second_factor_required ?? false
       if (before === parsed.data) return { ok: true }
       await setSecondFactorRequired(tx, partnerId, parsed.data)

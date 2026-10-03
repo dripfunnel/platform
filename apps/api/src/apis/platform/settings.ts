@@ -30,6 +30,7 @@ const ContractType = builder.objectRef<Contract>('PartnerContractTerms').impleme
     poweredByRemovable: t.exposeBoolean('poweredByRemovable'),
     poweredByNote: t.exposeString('poweredByNote', { nullable: true }),
     fees: t.field({ type: [Fee], resolve: (c) => c.fees }),
+    moreFees: t.exposeBoolean('moreFees'),
   }),
 })
 

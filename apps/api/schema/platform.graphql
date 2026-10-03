@@ -392,6 +392,7 @@ type PartnerContact {
 type PartnerContractTerms {
   feeCurrency: String
   fees: [PartnerPlanFee!]
+  moreFees: Boolean
   poweredByNote: String
   poweredByRemovable: Boolean
 }
