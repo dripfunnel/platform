@@ -799,8 +799,7 @@ support_session(store_id, partner_user_id, reason, access 'read',
    │  one-time handoff token, short-lived, single use
    ▼
 Browser → https://<store's portal host>/support/enter?token=…
-   → Store API exchanges it for a support cookie on that host (separate from any person session),
-     only while support is still allowed, the store not cancelled and the user not suspended
+   → Store API exchanges it for a support cookie on that host (separate from any person session)
    → TenantContext { caller: support, sellerScope: all, permissions: support read set }
 ```
 

@@ -6,8 +6,8 @@ import type { PartnerRole } from '#auth/partnerPermissions'
 import { secretBox } from '#auth/secretBox'
 import { hashSessionId } from '#auth/session'
 import { codeAt, newTotpSecret, stepAt } from '#auth/totp'
-import { withScope } from '#db/scoped/index'
-import { insertSupportSession } from '#db/scoped/supportSessions'
+import { withScope, withSystemScope } from '#db/scoped/index'
+import { insertSupportSession, spendSupportHandoff } from '#db/scoped/supportSessions'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerSupportService } from '#saas/support/index'
@@ -190,44 +190,22 @@ describe('sessions', () => {
     expect(history.find((s) => s.id === opened?.sessionId)).toMatchObject({ endedBy: 'expired', return: { reason: 'SESSION_EXPIRED' } })
   })
 
-  it('stores only the hash of the newest link: returning mints a fresh one and the old stops matching', async () => {
+  it('spends a handoff once, before it expires; returning mints a fresh one and the old stops working', async () => {
     const ana = callerOf(ids.ns, ids.ana, 'partner-admin')
     const opened = await openOn(ana, await membershipOf('tom@harborcoffee.example'))
     expect(opened?.ok).toBe(true)
-    const stored = async () => (await db.sql<{ handoff_hash: string; handoff_expires_at: Date }[]>`select handoff_hash, handoff_expires_at from support_session where id = ${opened?.sessionId ?? ''}`)[0]
     const first = tokenOf(opened?.link)
-    expect((await stored())?.handoff_hash).toBe(await hashSessionId(first))
+    const spend = async (token: string, at = clock) => withSystemScope(db.sql, async (tx) => spendSupportHandoff(tx, await hashSessionId(token), at))
+    expect((await spend(first))?.id).toBe(opened?.sessionId)
+    expect(await spend(first)).toBeNull()
     const again = (await run<{ returnToSupportSession: { ok: boolean; link: string } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession
     const second = tokenOf(again?.link)
-    expect(second).not.toBe(first)
-    const row = await stored()
-    expect(row?.handoff_hash).toBe(await hashSessionId(second))
-    expect(row?.handoff_hash).not.toContain(second)
-    expect(row?.handoff_expires_at.getTime()).toBe(clock.getTime() + 5 * 60_000)
-    await run(q.end, ana, { id: opened?.sessionId })
-    expect((await stored())?.handoff_hash).toBeNull()
-  })
-
-  it('refuses a return once support is off, the store cancelled or the user suspended, and reissues nothing', async () => {
-    const ana = callerOf(ids.ns, ids.ana, 'partner-admin')
-    const membership = await membershipOf('tom@harborcoffee.example')
-    const opened = await openOn(ana, membership, 'Revoked later')
-    expect(opened?.ok).toBe(true)
-    const [row] = await db.sql<{ store_id: string; status: string; handoff_hash: string }[]>`
-      select ss.store_id, s.status, ss.handoff_hash from support_session ss join store s on s.id = ss.store_id where ss.id = ${opened?.sessionId ?? ''}`
-    const back = async () => (await run<{ returnToSupportSession: { ok: boolean; reason: string | null } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession
-    const revocations = [
-      { refusal: 'SUPPORT_OFF', revoke: db.sql`update store set support_access_allowed = false where id = ${row?.store_id ?? ''}`, undo: db.sql`update store set support_access_allowed = true where id = ${row?.store_id ?? ''}` },
-      { refusal: 'STORE_CANCELLED', revoke: db.sql`update store set status = 'cancelled' where id = ${row?.store_id ?? ''}`, undo: db.sql`update store set status = ${row?.status ?? ''} where id = ${row?.store_id ?? ''}` },
-      { refusal: 'SUSPENDED', revoke: db.sql`update membership set status = 'suspended' where id = ${membership}`, undo: db.sql`update membership set status = 'active' where id = ${membership}` },
-    ]
-    for (const { refusal, revoke, undo } of revocations) {
-      await revoke
-      expect(await back()).toMatchObject({ ok: false, reason: refusal })
-      expect((await db.sql<{ handoff_hash: string }[]>`select handoff_hash from support_session where id = ${opened?.sessionId ?? ''}`)[0]?.handoff_hash).toBe(row?.handoff_hash)
-      await undo
-    }
-    expect(await back()).toMatchObject({ ok: true })
+    const third = tokenOf((await run<{ returnToSupportSession: { link: string } }>(q.back, ana, { id: opened?.sessionId })).data?.returnToSupportSession.link)
+    expect(await spend(second)).toBeNull()
+    expect(await spend(third, new Date(clock.getTime() + 6 * 60_000))).toBeNull()
+    expect((await spend(third))?.id).toBe(opened?.sessionId)
+    const stored = await db.sql`select handoff_hash from support_session where id = ${opened?.sessionId ?? ''}`
+    expect(stored[0]?.['handoff_hash']).toBeNull()
     await run(q.end, ana, { id: opened?.sessionId })
   })
 

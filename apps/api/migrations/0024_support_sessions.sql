@@ -26,12 +26,12 @@ create unique index support_session_target_open_key on support_session (membersh
 create index support_session_partner_idx on support_session (partner_id, started_at desc, id desc);
 create index support_session_store_idx on support_session (store_id, started_at desc);
 
--- The handoff hash is a credential: the partner writes it and no role here reads it back; the
--- Store strand's exchange grants its own reader (ACCESS.md §8.3).
+-- The handoff hash is a credential: the partner writes it, only the exchange (app_system) reads it.
 grant select (id, partner_id, store_id, membership_id, partner_user_id, reason, ticket, started_at, expires_at, ended_at, ended_by_partner_user_id, handoff_expires_at, handoff_used_at),
   insert (partner_id, store_id, membership_id, partner_user_id, reason, ticket, started_at, expires_at, handoff_hash, handoff_expires_at),
   update (ended_at, ended_by_partner_user_id, handoff_hash, handoff_expires_at, handoff_used_at) on support_session to app_partner;
 grant select (id, partner_id, store_id, membership_id, partner_user_id, reason, ticket, started_at, expires_at, ended_at, ended_by_partner_user_id, handoff_expires_at, handoff_used_at) on support_session to app_platform;
+grant select, update on support_session to app_system;
 
 alter table support_session enable row level security;
 alter table support_session force row level security;
@@ -59,6 +59,7 @@ create policy support_session_partner_insert on support_session for insert to ap
 create policy support_session_partner_update on support_session for update to app_partner
   using (partner_id = app_setting_uuid('app.partner_id')) with check (partner_id = app_setting_uuid('app.partner_id'));
 create policy support_session_staff on support_session for select to app_platform using (true);
+create policy support_session_system on support_session for all to app_system using (true) with check (true);
 
 -- Re-authentication (ACCESS.md §8: "re-authentication (A2)"): a 2-factor code buys one proof,
 -- valid five minutes and spent by the start it allows. No request role reads or writes these.

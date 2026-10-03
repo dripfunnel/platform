@@ -220,13 +220,8 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
     entry({ category: 'support', action, reason: null, storeId: s.store_id, access: { kind: 'support_session', id: s.id }, target: { type: 'user', id: s.user_id, label: `${s.user_name} (${s.store_name})` } })
 
   const returnToSupportSession = (sessionId: string) =>
-    onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true; link: string; expiresAt: Date } | { ok: false; reason: SessionRefusal | StartRefusal }> => {
+    onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true; link: string; expiresAt: Date } | { ok: false; reason: SessionRefusal }> => {
       if (!dto.return.allowed) return { ok: false, reason: dto.return.reason as SessionRefusal }
-      // What refuses a start refuses a return: support turned off, the store cancelled or the user suspended since.
-      const target = await selectSupportTarget(tx, partnerId, s.membership_id, at)
-      if (!target) return { ok: false, reason: 'NOT_FOUND' }
-      const refusal = startRefusal(target, caller.user.id)
-      if (refusal) return { ok: false, reason: refusal }
       const host = await selectLivePortalHost(tx, partnerId)
       if (!host) return { ok: false, reason: 'PORTAL_NOT_LIVE' }
       const token = newSessionId()
