@@ -138,7 +138,6 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
       const changes = await selectPlanChanges(tx, scope, thisMonth, to)
       const ids = [...new Set(changes.flatMap((c) => [c.from_plan, c.to_plan]))]
       const versions = await selectCurrentVersions(tx, ids)
-      const names = new Map(perPlan.filter((p) => p.plan_id).map((p) => [p.plan_id, p.plan]))
       // Up or down by monthly price, compared only in one currency both plans are priced in.
       const monthly = (id: string) => new Map((versions.get(id)?.prices ?? []).filter((p) => p.monthly !== null).map((p) => [p.currency, p.monthly ?? 0]))
       let up = 0
@@ -164,7 +163,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
         currency: null,
         rows: perPlan.map((p) => ({ plan: p.plan, stores: p.stores })),
         bars: perPlan.map((p) => ({ label: p.plan ?? 'No plan', count: p.stores })),
-        changes: changes.map((c) => ({ from: names.get(c.from_plan) ?? c.from_plan, to: names.get(c.to_plan) ?? c.to_plan, stores: c.changes })),
+        changes: changes.map((c) => ({ from: c.from_name ?? 'A removed plan', to: c.to_name ?? 'A removed plan', stores: c.changes })),
       }
     }
 

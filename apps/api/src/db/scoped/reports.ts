@@ -106,8 +106,9 @@ export const selectStoresPerPlan = (tx: ScopedSql, s: ReportScope): Promise<{ pl
   `
 
 /** Plan changes made in the window, from the log's own entries (#160: `store.plan_changed`, before and after plan ids). */
-export const selectPlanChanges = (tx: ScopedSql, s: ReportScope, from: Date, to: Date): Promise<{ from_plan: string; to_plan: string; changes: number }[]> =>
-  tx<{ from_plan: string; to_plan: string; changes: number }[]>`
+export const selectPlanChanges = (tx: ScopedSql, s: ReportScope, from: Date, to: Date): Promise<{ from_plan: string; to_plan: string; from_name: string | null; to_name: string | null; changes: number }[]> =>
+  tx<{ from_plan: string; to_plan: string; from_name: string | null; to_name: string | null; changes: number }[]>`
+    select x.from_plan, x.to_plan, pf.name as from_name, pt.name as to_name, x.changes from (
     select c->>'before' as from_plan, c->>'after' as to_plan, count(*)::int as changes
     from activity_log a cross join lateral jsonb_array_elements(a.changes) c
     join store s on s.id = a.store_id
@@ -115,7 +116,11 @@ export const selectPlanChanges = (tx: ScopedSql, s: ReportScope, from: Date, to:
       and a.occurred_at >= ${from} and a.occurred_at < ${to} and c->>'field' = 'plan' and ${storeWhere(tx, s)}
       -- A store given its first plan, or losing it, is not a change between plans.
       and c->>'before' is not null and c->>'after' is not null
-    group by 1, 2 order by changes desc
+    group by 1, 2
+    ) x
+    -- A plan nobody is on any more still has its name.
+    left join plan pf on pf.id::text = x.from_plan left join plan pt on pt.id::text = x.to_plan
+    order by x.changes desc
   `
 
 export interface StoreSalesRow {

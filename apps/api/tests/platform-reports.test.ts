@@ -113,6 +113,15 @@ describe('edges', () => {
       values ('write', 'store.plan_changed', 'success', 'partner_user', 'x', 'Maya', ${ids.ns}, ${store?.id ?? ''}, 'store', ${store?.id ?? ''}, 'x',
         ${JSON.stringify([{ field: 'plan', before: null, after: store?.plan_id }])}::text::jsonb, 'platform', 'partner')`
     expect((await run<{ reportPlans: { summary: string } }>(q.plans, reader)).data?.reportPlans.summary).toMatch(/most popular plan/)
+    // A change away from a plan nobody is on any more is still named, never shown as an id.
+    const [gone] = await db.sql<{ id: string; name: string }[]>`insert into plan (partner_id, name, status) values (${ids.ns}, 'Legacy', 'retired') returning id, name`
+    if (!gone) throw new Error('plan not inserted')
+    await db.sql`insert into activity_log (category, action, result, actor_kind, actor_id, actor_label, partner_id, store_id, target_type, target_id, target_label, changes, api, visibility, occurred_at)
+      values ('write', 'store.plan_changed', 'success', 'partner_user', 'x', 'Maya', ${ids.ns}, ${store?.id ?? ''}, 'store', ${store?.id ?? ''}, 'x',
+        ${JSON.stringify([{ field: 'plan', before: gone.id, after: store?.plan_id }])}::text::jsonb, 'platform', 'partner', '2026-09-15T00:00:00Z')`
+    const changes = (await run<{ reportPlans: { changes: { from: string }[] } }>(q.plans, reader)).data?.reportPlans.changes ?? []
+    expect(changes.map((c) => c.from)).toContain(gone.name)
+    expect(changes.map((c) => c.from)).not.toContain(gone.id)
     const before = (await run<{ reportStorePerformance: { summary: string } }>(q.performance, reader)).data?.reportStorePerformance.summary ?? ''
     const count = (text: string) => Number(/(\d+) stores? sold less/.exec(text)?.[1] ?? '0')
     // A store that sold in August and nothing in September now counts as declining.
