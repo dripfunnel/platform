@@ -890,6 +890,30 @@ api/README.md §2.1); a partner id in a request is not authority.
   CSV, its row count and `truncated` past 10,000), failed, or expired an hour later, to Owners
   and Admins only (anyone else gets null). An Owner of several stores is one person in the search.
 
+**Built on #199** (Settings, `apis/platform/settings.ts`, `saas/partnerTeam`):
+- `partnerCompany` (`partner.read`): name, country, region, kind, the main contact
+  and billing contact (an active Owner and an active Finance user), the contract (fee currency, the "Powered by"
+  clause, the fee per plan as `Money`) and `secondFactorRequired`. The legal address and tax id
+  aren't stored yet; they arrive with the company-details request (§15).
+- `team(after, before, first)`: everyone not removed, with role, `you`, last sign-in, the open
+  invitation (sent, expired) and 2-factor on or off; cursor-paged, 25 at most.
+- `inviteTeamMember`, `resendTeamInvite`, `revokeTeamInvite`, `changeTeamRole`,
+  `removeTeamMember` (`team.manage`) and `transferOwnership` (`team.transfer`, Owner): every team
+  change takes the partner's team lock, so the last active Owner survives concurrent requests
+  (`LAST_OWNER`). An Admin never invites, changes or removes an Owner (`OWNERS_ONLY`); nobody
+  removes themselves (`CANNOT_REMOVE_SELF`). The caller's own role is read again under the lock,
+  so a demotion made meanwhile counts (`NOT_ACTIVE` if they were removed). `ALREADY_ON_TEAM` names only this team's own
+  member. Accounts are per partner (ACCESS §2), so an address with an account under another
+  partner gets a new account here, answered identically; a fourth partner account for an
+  address (0011's limit) is answered identically too and creates nothing. Removal sets
+  `removed`, revokes an open invitation and ends the person's sessions at once (0022's
+  `end_partner_user_sessions`); re-inviting a removed address invites the same account again.
+  The invitation email (`partner-team-invitation`) goes through the outbox; accepting it is
+  #208's.
+- `setSecondFactorPolicy(required)` (`security.manage`, Owner) sets
+  `partner.second_factor_required`, which sign-in already reads; turning it off removes nobody's
+  2-factor.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

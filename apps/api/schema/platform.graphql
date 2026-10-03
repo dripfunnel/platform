@@ -263,21 +263,28 @@ type Mutation {
   addLimitOverride(amount: Int!, duration: String!, id: ID!, limit: String!, reason: String!): StoreActionResult
   addPartnerDomain(host: String!, kind: String!): PartnerDomainResult
   changeStorePlan(id: ID!, planId: ID!, reason: String!, when: String!): StoreActionResult
+  changeTeamRole(id: ID!, role: String!): TeamResult
   createPlan(input: PlanInput!): PlanResult
   exportActivity(filter: PartnerActivityFilterInput): ActivityExportResult
   extendTrial(days: Int!, id: ID!, reason: String!): StoreActionResult
+  inviteTeamMember(email: String!, name: String!, role: String!): TeamResult
   makePlanLive(id: ID!): PlanResult
   publishBranding(input: BrandingInput!): PublishBrandingResult
   recheckMerchantDomain(storeId: ID!): PartnerDomainResult
   recheckPartnerDomain(kind: String!): PartnerDomainResult
   removeLimitOverride(id: ID!, overrideId: ID!, reason: String!): StoreActionResult
+  removeTeamMember(id: ID!): TeamResult
   resendStoreOwnerInvite(id: ID!): StoreActionResult
+  resendTeamInvite(id: ID!): TeamResult
   restoreStore(id: ID!, reason: String!): StoreActionResult
   retirePlan(id: ID!, input: RetirePlanInput!): PlanResult
   retryProvisioningStep(id: ID!): StoreActionResult
+  revokeTeamInvite(id: ID!): TeamResult
+  setSecondFactorPolicy(required: Boolean!): TeamResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
   submitForApproval: SubmitForApprovalResult
   suspendStore(id: ID!, reason: String!): StoreActionResult
+  transferOwnership(toUserId: ID!): TeamResult
   updatePlan(applyTo: String, id: ID!, input: PlanInput!): PlanResult
 }
 
@@ -366,6 +373,29 @@ type PartnerAddress {
   status: String
 }
 
+type PartnerCompany {
+  billingContact: PartnerContact
+  contract: PartnerContractTerms
+  country: String
+  kind: String
+  mainContact: PartnerContact
+  name: String
+  region: String
+  secondFactorRequired: Boolean
+}
+
+type PartnerContact {
+  email: String
+  name: String
+}
+
+type PartnerContractTerms {
+  feeCurrency: String
+  fees: [PartnerPlanFee!]
+  poweredByNote: String
+  poweredByRemovable: Boolean
+}
+
 type PartnerDashboard {
   asOf: String
   attention: [DashboardAttention!]
@@ -403,6 +433,11 @@ type PartnerDomains {
   add: PartnerDomainAddPermission
   addresses: [PartnerAddress!]
   fallbackSender: String
+}
+
+type PartnerPlanFee {
+  fee: Money
+  plan: String
 }
 
 type PartnerState {
@@ -598,6 +633,7 @@ type Query {
   merchantDomains(after: String, before: String, first: Int): MerchantDomainPage
   navBadges: NavBadges
   onboarding: Onboarding
+  partnerCompany: PartnerCompany
   partnerDomains: PartnerDomains
   partnerState: PartnerState
   personTimeline(after: String, before: String, filter: PartnerActivityFilterInput, first: Int, person: String!): PartnerActivityPage
@@ -607,6 +643,7 @@ type Query {
   search(query: String!): [StoreSearchMatch!]
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
+  team(after: String, before: String, first: Int): TeamPage
 }
 
 input RetirePlanInput {
@@ -822,4 +859,38 @@ type SubmitForApprovalResult {
   code: String
   ok: Boolean
   submittedAt: String
+}
+
+type TeamInvitationState {
+  expired: Boolean
+  sentAt: String
+}
+
+type TeamMember {
+  email: String
+  id: ID
+  invitation: TeamInvitationState
+  lastSignInAt: String
+  name: String
+  role: String
+  secondFactor: Boolean
+  status: String
+  you: Boolean
+}
+
+type TeamPage {
+  items: [TeamMember!]
+  pageInfo: TeamPageInfo
+}
+
+type TeamPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type TeamResult {
+  ok: Boolean
+  reason: String
 }
