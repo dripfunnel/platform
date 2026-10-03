@@ -2,10 +2,8 @@ import type { ProvisioningStep } from '../schema/saas'
 import type { ScopedSql } from './index'
 import { stuckJobPredicate } from './stores'
 
-// The partner's Reports (ui/platform/FIRST-RELEASE.md §10; card #200): totals over the partner's
-// stores at account level. Every query here reads `store`, `job`, `store_usage`, `store_sales_month`,
-// `merchant_charge`, `store_subscription`, `custom_domain`, `plan` and the activity log's partner
-// entries only; nothing inside a store (LOGGING §6). RLS already holds each to the partner.
+// The partner's Reports (ui/platform/FIRST-RELEASE.md §10): account-level totals only (LOGGING §6);
+// tests/platform-reports.test.ts holds this file to its list of tables.
 
 export interface ReportScope {
   partnerId: string

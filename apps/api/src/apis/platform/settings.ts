@@ -1,16 +1,11 @@
 import { GraphQLError } from 'graphql'
 import { teamAudit, type PartnerTeamService, type TeamMemberDto } from '#saas/partnerTeam/index'
-import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
 import { MoneyType } from './money'
+import { partnerRead, signedIn } from './fields'
 
 // Settings on the Platform API (ui/platform/FIRST-RELEASE.md §14; card #199). Thin:
 // saas/partnerTeam decides; payout account and payment method are #201's.
-
-const service = (team: PartnerTeamService | null): PartnerTeamService => {
-  if (!team) throw unauthenticated()
-  return team
-}
 
 type Company = NonNullable<Awaited<ReturnType<PartnerTeamService['partnerCompany']>>>
 type Contract = NonNullable<Company['contract']>
@@ -82,16 +77,15 @@ const Result = builder.objectRef<{ ok: boolean; reason?: string }>('TeamResult')
   fields: (t) => ({ ok: t.exposeBoolean('ok'), reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }) }),
 })
 
-const read = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
 
 builder.queryFields((t) => ({
-  partnerCompany: t.field({ type: CompanyType, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx.team).partnerCompany() }),
+  partnerCompany: t.field({ type: CompanyType, nullable: true, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.team).partnerCompany() }),
   team: t.field({
     type: TeamPageType,
     args: { after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
-    extensions: { access: read },
+    extensions: { access: partnerRead },
     resolve: async (_, { after, before, first }, ctx) => {
-      const page = await service(ctx.team).team({ after, before, first })
+      const page = await signedIn(ctx.team).team({ after, before, first })
       if (!page) throw new GraphQLError('That page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
       return page
     },
@@ -105,27 +99,27 @@ builder.mutationFields((t) => ({
     type: Result,
     args: { name: t.arg.string({ required: true }), email: t.arg.string({ required: true }), role: t.arg.string({ required: true }) },
     extensions: manage(teamAudit.inviteTeamMember),
-    resolve: (_, args, ctx) => service(ctx.team).inviteTeamMember(args),
+    resolve: (_, args, ctx) => signedIn(ctx.team).inviteTeamMember(args),
   }),
-  resendTeamInvite: t.field({ type: Result, args: { id: t.arg.id({ required: true }) }, extensions: manage(teamAudit.resendTeamInvite), resolve: (_, { id }, ctx) => service(ctx.team).resendTeamInvite(String(id)) }),
-  revokeTeamInvite: t.field({ type: Result, args: { id: t.arg.id({ required: true }) }, extensions: manage(teamAudit.revokeTeamInvite), resolve: (_, { id }, ctx) => service(ctx.team).revokeTeamInvite(String(id)) }),
+  resendTeamInvite: t.field({ type: Result, args: { id: t.arg.id({ required: true }) }, extensions: manage(teamAudit.resendTeamInvite), resolve: (_, { id }, ctx) => signedIn(ctx.team).resendTeamInvite(String(id)) }),
+  revokeTeamInvite: t.field({ type: Result, args: { id: t.arg.id({ required: true }) }, extensions: manage(teamAudit.revokeTeamInvite), resolve: (_, { id }, ctx) => signedIn(ctx.team).revokeTeamInvite(String(id)) }),
   changeTeamRole: t.field({
     type: Result,
     args: { id: t.arg.id({ required: true }), role: t.arg.string({ required: true }) },
     extensions: manage(teamAudit.changeTeamRole),
-    resolve: (_, { id, role }, ctx) => service(ctx.team).changeTeamRole(String(id), role),
+    resolve: (_, { id, role }, ctx) => signedIn(ctx.team).changeTeamRole(String(id), role),
   }),
-  removeTeamMember: t.field({ type: Result, args: { id: t.arg.id({ required: true }) }, extensions: manage(teamAudit.removeTeamMember), resolve: (_, { id }, ctx) => service(ctx.team).removeTeamMember(String(id)) }),
+  removeTeamMember: t.field({ type: Result, args: { id: t.arg.id({ required: true }) }, extensions: manage(teamAudit.removeTeamMember), resolve: (_, { id }, ctx) => signedIn(ctx.team).removeTeamMember(String(id)) }),
   transferOwnership: t.field({
     type: Result,
     args: { toUserId: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'team.transfer', target: 'none', audit: teamAudit.transferOwnership } },
-    resolve: (_, { toUserId }, ctx) => service(ctx.team).transferOwnership(String(toUserId)),
+    resolve: (_, { toUserId }, ctx) => signedIn(ctx.team).transferOwnership(String(toUserId)),
   }),
   setSecondFactorPolicy: t.field({
     type: Result,
     args: { required: t.arg.boolean({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'security.manage', target: 'none', audit: teamAudit.setSecondFactorPolicy } },
-    resolve: (_, { required }, ctx) => service(ctx.team).setSecondFactorPolicy(required),
+    resolve: (_, { required }, ctx) => signedIn(ctx.team).setSecondFactorPolicy(required),
   }),
 }))

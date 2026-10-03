@@ -1,14 +1,9 @@
-import { submitAudit, type NavBadges, type Onboarding, type OnboardingItem, type PartnerConsoleService, type PartnerStateFacts, type StoreSearchRow, type SubmitResult } from '#saas/partnerConsole/index'
-import { unauthenticated } from '../graphql/scope'
+import { submitAudit, type NavBadges, type Onboarding, type OnboardingItem, type PartnerStateFacts, type StoreSearchRow, type SubmitResult } from '#saas/partnerConsole/index'
 import { builder } from './builder'
+import { signedIn } from './fields'
 
 // The shell and Home until Live on the Platform API (ui/platform/FIRST-RELEASE.md §2, §4; card
 // #158). Thin: saas/partnerConsole decides, and the scope is always the session's partner.
-
-const service = (partnerConsole: PartnerConsoleService | null): PartnerConsoleService => {
-  if (!partnerConsole) throw unauthenticated()
-  return partnerConsole
-}
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null)
 const partnerRead = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
@@ -101,15 +96,15 @@ const SubmitResultType = builder.objectRef<SubmitResult>('SubmitForApprovalResul
 })
 
 builder.queryFields((t) => ({
-  partnerState: t.field({ type: PartnerStateType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => service(ctx.console).partnerState() }),
-  navBadges: t.field({ type: NavBadgesType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => service(ctx.console).navBadges() }),
+  partnerState: t.field({ type: PartnerStateType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.console).partnerState() }),
+  navBadges: t.field({ type: NavBadgesType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.console).navBadges() }),
   search: t.field({
     type: [StoreMatch],
     args: { query: t.arg.string({ required: true }) },
     extensions: { access: partnerRead },
-    resolve: (_, { query }, ctx) => service(ctx.console).search(query),
+    resolve: (_, { query }, ctx) => signedIn(ctx.console).search(query),
   }),
-  onboarding: t.field({ type: OnboardingType, nullable: true, extensions: { access: partnerRead }, resolve: (_, __, ctx) => service(ctx.console).onboarding() }),
+  onboarding: t.field({ type: OnboardingType, nullable: true, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.console).onboarding() }),
 }))
 
 builder.mutationType({})
@@ -118,6 +113,6 @@ builder.mutationFields((t) => ({
   submitForApproval: t.field({
     type: SubmitResultType,
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'onboarding.submit', target: 'none', audit: submitAudit } },
-    resolve: (_, __, ctx) => service(ctx.console).submitForApproval(),
+    resolve: (_, __, ctx) => signedIn(ctx.console).submitForApproval(),
   }),
 }))

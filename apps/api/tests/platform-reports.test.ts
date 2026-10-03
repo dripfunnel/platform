@@ -39,7 +39,7 @@ const q = {
   plans: `query($f: ReportFilterInput) { reportPlans(filter: $f) { fresh summary rows { plan stores } changes { from to stores } } }`,
   performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store storeId } decliningTruncated } }`,
   usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
-  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed rows { kind store } } }`,
+  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed rows { kind storeId store } } }`,
 }
 
 type Rev = { reportRevenue: { fresh: boolean; summary: string; currency: string; currencyNote: string | null; rows: { collected: { amount: number }; fee: { amount: number } }[]; bars: { amount: { amount: number; currency: string } }[]; mrr: { amount: { amount: number } }[] } }
@@ -164,6 +164,36 @@ describe('scope', () => {
     expect((await run<Rev>(q.revenue, callerOf(ids.bz))).data?.reportRevenue.rows.every((m) => m.collected.amount === 0)).toBe(true)
   })
 
+  it('holds every tab to the caller’s partner, a plan filter naming another partner’s plan included', async () => {
+    const bz = callerOf(ids.bz)
+    const ns = new Set((await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns}`).map((s) => s.id))
+    const [own] = await db.sql<{ n: number }[]>`select count(*)::int as n from store where partner_id = ${ids.bz} and status not in ('cancelled', 'closed')`
+    type Ids = { rows: { storeId: string }[] }
+    for (const [query, key] of [[q.performance, 'reportStorePerformance'], [q.usage, 'reportUsage'], [q.setup, 'reportSetupHealth']] as const) {
+      const rows = (await run<Record<string, Ids>>(query, bz)).data?.[key]?.rows ?? []
+      expect(rows.some((r) => ns.has(r.storeId)), key).toBe(false)
+    }
+    const plans = (await run<{ reportPlans: { rows: { stores: number }[] } }>(q.plans, bz)).data?.reportPlans.rows ?? []
+    expect(plans.reduce((a, r) => a + r.stores, 0)).toBe(own?.n)
+    const [theirPlan] = await db.sql<{ id: string }[]>`select plan_id as id from store where partner_id = ${ids.ns} and plan_id is not null limit 1`
+    const narrowed = { f: { plan: theirPlan?.id } }
+    expect((await run<Growth>(q.growth, bz, narrowed)).data?.reportGrowth.rows.every((r) => r.netStores === 0 && r.signups === 0)).toBe(true)
+    expect((await run<{ reportPlans: { rows: unknown[] } }>(q.plans, bz, narrowed)).data?.reportPlans.rows).toEqual([])
+    expect((await run<{ reportStorePerformance: Ids }>(q.performance, bz, narrowed)).data?.reportStorePerformance.rows).toEqual([])
+    expect((await run<{ reportUsage: Ids }>(q.usage, bz, narrowed)).data?.reportUsage.rows).toEqual([])
+    expect((await run<Rev>(q.revenue, bz, narrowed)).data?.reportRevenue.rows.every((m) => m.collected.amount === 0)).toBe(true)
+  })
+
+  it('answers no session with UNAUTHENTICATED on every report field', async () => {
+    const fields = Object.keys((platformSchema as GraphQLSchema).getQueryType()?.getFields() ?? {}).filter((f) => f.startsWith('report'))
+    expect(fields).toHaveLength(7)
+    for (const source of [...Object.values(q), `query { reportExport(id: "${crypto.randomUUID()}") { id } }`]) {
+      const contextValue = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, team: null, activity: null, reports: null }
+      const result = await graphql({ schema: platformSchema as GraphQLSchema, source, contextValue })
+      expect(result.errors?.[0]?.extensions['code'], source).toBe('UNAUTHENTICATED')
+    }
+  })
+
   it('declares only the partner scope on every report field, and reads no table inside a store', () => {
     const query = (platformSchema as GraphQLSchema).getQueryType()?.getFields() ?? {}
     const reportFields = Object.entries(query).filter(([name]) => name.startsWith('report'))
@@ -182,7 +212,7 @@ describe('scope', () => {
 })
 
 describe('export', () => {
-  it('builds a tab’s CSV as a job any role may ask for, logged once, and only readable as a report export', async () => {
+  it('builds a tab’s CSV as a job any role may ask for, logged once, readable by any user of the partner and only as a report export', async () => {
     const start = `mutation($tab: String!) { exportReport(tab: $tab) { ok jobId reason } }`
     expect((await run<{ exportReport: { reason: string } }>(start, callerOf(ids.ns), { tab: 'orders' })).data?.exportReport).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
     const asked = (await run<{ exportReport: { ok: boolean; jobId: string } }>(start, callerOf(ids.ns, 'partner-support'), { tab: 'revenue' })).data?.exportReport

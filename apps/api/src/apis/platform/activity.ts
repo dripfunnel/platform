@@ -1,15 +1,10 @@
 import { GraphQLError } from 'graphql'
 import { activityAudit, type PartnerActivityEntry, type PartnerActivityPage, type PartnerActivityService } from '#saas/partnerActivity/index'
-import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
+import { exportResultType, partnerRead, present, signedIn } from './fields'
 
 // The partner Activity log (ui/platform/FIRST-RELEASE.md §13; card #198). Thin:
 // saas/partnerActivity reads within the log's own policy; the console words each entry.
-
-const service = (activity: PartnerActivityService | null): PartnerActivityService => {
-  if (!activity) throw unauthenticated()
-  return activity
-}
 
 const invalid = () => new GraphQLError('That filter, person or page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
 
@@ -79,47 +74,39 @@ const JobType = builder.objectRef<Job>('ActivityExportJob').implement({
   }),
 })
 
-const ExportResult = builder.objectRef<{ ok: boolean; jobId?: string; reason?: string }>('ActivityExportResult').implement({
-  fields: (t) => ({
-    ok: t.exposeBoolean('ok'),
-    jobId: t.string({ nullable: true, resolve: (r) => r.jobId ?? null }),
-    reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }),
-  }),
-})
+const ExportResult = exportResultType('ActivityExportResult')
 
 const FilterInput = builder.inputType('PartnerActivityFilterInput', {
   fields: (t) => ({ who: t.string(), action: t.string(), result: t.string(), storeId: t.id(), date: t.string() }),
 })
 
 // GraphQL gives an absent optional field as null; the filter schema expects it absent.
-const present = (o: Record<string, unknown> | null | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v !== null && v !== undefined))
-const read = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
 
 builder.queryFields((t) => ({
   activityLog: t.field({
     type: Page,
     args: { filter: t.arg({ type: FilterInput }), after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
-    extensions: { access: read },
-    resolve: async (_, { filter, after, before, first }, ctx) => (await service(ctx.activity).activityLog(present(filter), { after, before, first })) ?? Promise.reject(invalid()),
+    extensions: { access: partnerRead },
+    resolve: async (_, { filter, after, before, first }, ctx) => (await signedIn(ctx.activity).activityLog(present(filter), { after, before, first })) ?? Promise.reject(invalid()),
   }),
   personTimeline: t.field({
     type: Page,
     args: { person: t.arg.string({ required: true }), filter: t.arg({ type: FilterInput }), after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
-    extensions: { access: read },
-    resolve: async (_, { person, filter, after, before, first }, ctx) => (await service(ctx.activity).personTimeline(person, present(filter), { after, before, first })) ?? Promise.reject(invalid()),
+    extensions: { access: partnerRead },
+    resolve: async (_, { person, filter, after, before, first }, ctx) => (await signedIn(ctx.activity).personTimeline(person, present(filter), { after, before, first })) ?? Promise.reject(invalid()),
   }),
   activityPeople: t.field({
     type: [PersonType],
     args: { query: t.arg.string({ required: true }) },
-    extensions: { access: read },
-    resolve: async (_, { query }, ctx) => (await service(ctx.activity).activityPeople(query)) ?? Promise.reject(invalid()),
+    extensions: { access: partnerRead },
+    resolve: async (_, { query }, ctx) => (await signedIn(ctx.activity).activityPeople(query)) ?? Promise.reject(invalid()),
   }),
   activityExport: t.field({
     type: JobType,
     nullable: true,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'activity.export', target: 'none' } },
-    resolve: (_, { id }, ctx) => service(ctx.activity).exportJob(String(id)),
+    resolve: (_, { id }, ctx) => signedIn(ctx.activity).exportJob(String(id)),
   }),
 }))
 
@@ -128,6 +115,6 @@ builder.mutationFields((t) => ({
     type: ExportResult,
     args: { filter: t.arg({ type: FilterInput }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'activity.export', target: 'none', audit: activityAudit.exportActivity } },
-    resolve: (_, { filter }, ctx) => service(ctx.activity).exportActivity(present(filter)),
+    resolve: (_, { filter }, ctx) => signedIn(ctx.activity).exportActivity(present(filter)),
   }),
 }))

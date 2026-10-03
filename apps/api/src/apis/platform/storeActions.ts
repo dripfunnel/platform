@@ -1,15 +1,10 @@
-import { storeActionAudit, type PartnerStoreActions, type StoreActionResult } from '#saas/partnerStores/index'
+import { storeActionAudit, type StoreActionResult } from '#saas/partnerStores/index'
 import type { Proration } from '#saas/partnerStores/index'
-import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
+import { signedIn } from './fields'
 
 // The store actions of FIRST-RELEASE §6.4 (card #160). Thin: saas/partnerStores/actions decides. A
 // role without the permission is FORBIDDEN here; the block in `store(id)` names its code.
-
-const service = (actions: PartnerStoreActions | null): PartnerStoreActions => {
-  if (!actions) throw unauthenticated()
-  return actions
-}
 
 type Result = StoreActionResult<{ trialEndsAt?: Date; overrideId?: string; proration?: Proration; currency?: string }>
 type Option = { id: string; name: string; version: number; price: { amount: number; currency: string }; proration: Proration }
@@ -57,7 +52,7 @@ builder.queryFields((t) => ({
     type: OptionsType,
     args: { storeId: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.plan', target: 'none' } },
-    resolve: (_, { storeId }, ctx) => service(ctx.storeActions).changePlanOptions(String(storeId)),
+    resolve: (_, { storeId }, ctx) => signedIn(ctx.storeActions).changePlanOptions(String(storeId)),
   }),
 }))
 
@@ -66,13 +61,13 @@ builder.mutationFields((t) => ({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), planId: t.arg.id({ required: true }), when: t.arg.string({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.plan', target: 'none', audit: storeActionAudit.changeStorePlan } },
-    resolve: (_, { id, planId, when, reason }, ctx) => service(ctx.storeActions).changeStorePlan(String(id), { planId: String(planId), when, reason }),
+    resolve: (_, { id, planId, when, reason }, ctx) => signedIn(ctx.storeActions).changeStorePlan(String(id), { planId: String(planId), when, reason }),
   }),
   extendTrial: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), days: t.arg.int({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.trial', target: 'none', audit: storeActionAudit.extendTrial } },
-    resolve: (_, { id, days, reason }, ctx) => service(ctx.storeActions).extendTrial(String(id), { days, reason }),
+    resolve: (_, { id, days, reason }, ctx) => signedIn(ctx.storeActions).extendTrial(String(id), { days, reason }),
   }),
   addLimitOverride: t.field({
     type: ResultType,
@@ -84,36 +79,36 @@ builder.mutationFields((t) => ({
       reason: t.arg.string({ required: true }),
     },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.plan', target: 'none', audit: storeActionAudit.addLimitOverride } },
-    resolve: (_, { id, ...input }, ctx) => service(ctx.storeActions).addLimitOverride(String(id), input),
+    resolve: (_, { id, ...input }, ctx) => signedIn(ctx.storeActions).addLimitOverride(String(id), input),
   }),
   removeLimitOverride: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), overrideId: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.plan', target: 'none', audit: storeActionAudit.removeLimitOverride } },
-    resolve: (_, { id, overrideId, reason }, ctx) => service(ctx.storeActions).removeLimitOverride(String(id), { overrideId: String(overrideId), reason }),
+    resolve: (_, { id, overrideId, reason }, ctx) => signedIn(ctx.storeActions).removeLimitOverride(String(id), { overrideId: String(overrideId), reason }),
   }),
   suspendStore: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.suspend', target: 'none', audit: storeActionAudit.suspendStore } },
-    resolve: (_, { id, reason }, ctx) => service(ctx.storeActions).suspendStore(String(id), reason),
+    resolve: (_, { id, reason }, ctx) => signedIn(ctx.storeActions).suspendStore(String(id), reason),
   }),
   restoreStore: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }), reason: t.arg.string({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.suspend', target: 'none', audit: storeActionAudit.restoreStore } },
-    resolve: (_, { id, reason }, ctx) => service(ctx.storeActions).restoreStore(String(id), reason),
+    resolve: (_, { id, reason }, ctx) => signedIn(ctx.storeActions).restoreStore(String(id), reason),
   }),
   resendStoreOwnerInvite: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'stores.invite.resend', target: 'none', audit: storeActionAudit.resendStoreOwnerInvite } },
-    resolve: (_, { id }, ctx) => service(ctx.storeActions).resendStoreOwnerInvite(String(id)),
+    resolve: (_, { id }, ctx) => signedIn(ctx.storeActions).resendStoreOwnerInvite(String(id)),
   }),
   retryProvisioningStep: t.field({
     type: ResultType,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'setup.retry', target: 'none', audit: storeActionAudit.retryProvisioningStep } },
-    resolve: (_, { id }, ctx) => service(ctx.storeActions).retryProvisioningStep(String(id)),
+    resolve: (_, { id }, ctx) => signedIn(ctx.storeActions).retryProvisioningStep(String(id)),
   }),
 }))

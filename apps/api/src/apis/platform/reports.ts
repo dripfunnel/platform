@@ -1,16 +1,11 @@
 import { GraphQLError } from 'graphql'
 import { reportAudit, type PartnerReportsService, type ReportDto, type ReportTab } from '#saas/partnerReports/index'
-import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
 import { MoneyType } from './money'
+import { exportResultType, partnerRead, present, signedIn } from './fields'
 
 // Reports on the Platform API (ui/platform/FIRST-RELEASE.md §10; card #200). Thin:
 // saas/partnerReports composes every number and sentence; each field is partner scope only.
-
-const service = (reports: PartnerReportsService | null): PartnerReportsService => {
-  if (!reports) throw unauthenticated()
-  return reports
-}
 
 type Of<T extends ReportTab> = Extract<ReportDto, { tab: T }>
 type Growth = Of<'growth'>
@@ -166,34 +161,30 @@ const JobType = builder.objectRef<Job>('ReportExportJob').implement({
     expiresAt: t.string({ nullable: true, resolve: (j) => j.expiresAt?.toISOString() ?? null }),
   }),
 })
-const ExportResult = builder.objectRef<{ ok: boolean; jobId?: string; reason?: string }>('ReportExportResult').implement({
-  fields: (t) => ({ ok: t.exposeBoolean('ok'), jobId: t.string({ nullable: true, resolve: (r) => r.jobId ?? null }), reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }) }),
-})
+const ExportResult = exportResultType('ReportExportResult')
 
 const FilterInput = builder.inputType('ReportFilterInput', { fields: (t) => ({ range: t.string(), plan: t.id(), country: t.string() }) })
-const present = (o: Record<string, unknown> | null | undefined) => Object.fromEntries(Object.entries(o ?? {}).filter(([, v]) => v !== null && v !== undefined))
-const read = { api: 'platform', scope: 'partner', permission: 'partner.read', target: 'none' } as const
 
 /** One report resolver: the partner scope, the read permission, INVALID_INPUT for a filter it cannot read. */
 const reportOf = async <T extends ReportTab>(reports: PartnerReportsService | null, tab: T, filter: Record<string, unknown> | null | undefined): Promise<Of<T>> => {
-  const report = await service(reports).report(tab, present(filter))
+  const report = await signedIn(reports).report(tab, present(filter))
   if (!report || report.tab !== tab) throw new GraphQLError('That filter does not work.', { extensions: { code: 'INVALID_INPUT' } })
   return report as Of<T>
 }
 
 builder.queryFields((t) => ({
-  reportGrowth: t.field({ type: GrowthType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: read }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'growth', filter) }),
-  reportRevenue: t.field({ type: RevenueType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: read }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'revenue', filter) }),
-  reportPlans: t.field({ type: PlansType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: read }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'plans', filter) }),
-  reportStorePerformance: t.field({ type: PerformanceType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: read }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'storePerformance', filter) }),
-  reportUsage: t.field({ type: UsageType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: read }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'usage', filter) }),
-  reportSetupHealth: t.field({ type: SetupType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: read }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'setupHealth', filter) }),
+  reportGrowth: t.field({ type: GrowthType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'growth', filter) }),
+  reportRevenue: t.field({ type: RevenueType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'revenue', filter) }),
+  reportPlans: t.field({ type: PlansType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'plans', filter) }),
+  reportStorePerformance: t.field({ type: PerformanceType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'storePerformance', filter) }),
+  reportUsage: t.field({ type: UsageType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'usage', filter) }),
+  reportSetupHealth: t.field({ type: SetupType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'setupHealth', filter) }),
   reportExport: t.field({
     type: JobType,
     nullable: true,
     args: { id: t.arg.id({ required: true }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'exports', target: 'none' } },
-    resolve: (_, { id }, ctx) => service(ctx.reports).reportExport(String(id)),
+    resolve: (_, { id }, ctx) => signedIn(ctx.reports).reportExport(String(id)),
   }),
 }))
 
@@ -202,6 +193,6 @@ builder.mutationFields((t) => ({
     type: ExportResult,
     args: { tab: t.arg.string({ required: true }), filter: t.arg({ type: FilterInput }) },
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'exports', target: 'none', audit: reportAudit.exportReport } },
-    resolve: (_, { tab, filter }, ctx) => service(ctx.reports).exportReport(tab, present(filter)),
+    resolve: (_, { tab, filter }, ctx) => signedIn(ctx.reports).exportReport(tab, present(filter)),
   }),
 }))

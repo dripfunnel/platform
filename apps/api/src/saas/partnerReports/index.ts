@@ -28,10 +28,8 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { stuckAfterMinutes } from '#saas/provisioning/index'
 export { reportCsv } from './csv'
 
-// Reports on the Platform API (ui/platform/FIRST-RELEASE.md §10; card #200). Every number, trend
-// and sentence is composed here from SQL totals over the partner's stores at account level;
-// nothing reads inside a store (LOGGING §6). Money is integer minor units with its currency,
-// percentages are basis points, and each report is in one currency, the partner's payout one.
+// Reports (ui/platform/FIRST-RELEASE.md §10, §16): every figure and sentence, from account-level
+// totals only (LOGGING §6); percentages are basis points, money is in the payout currency.
 
 export const reportTabs = ['growth', 'revenue', 'plans', 'storePerformance', 'usage', 'setupHealth'] as const
 export type ReportTab = (typeof reportTabs)[number]
@@ -60,10 +58,7 @@ const exact = (text: string): number => {
   return Number(n)
 }
 
-/**
- * Minor units of `from` as minor units of `to`: `amount ÷ rate`, the contract's rate a decimal
- * string of `from` per unit of `to`, minding each currency's own digits (JPY has none), rounded half up.
- */
+/** Minor units of `from` as minor units of `to` at the contract's rate (`from` per `to`), rounded half up. */
 export const toPayoutCurrency = (amount: number, rate: string, from: string, to: string): number => {
   const [whole = '0', fraction = ''] = rate.split('.')
   const numerator = BigInt(amount) * 10n ** BigInt(fraction.length) * 10n ** BigInt(minorDigits(to))
