@@ -174,14 +174,21 @@ export const findActivityPeople = async (term: string): Promise<readonly PersonM
   (await query(`query People($term: String!) { activityPeople(query: $term) { id name email kind where } }`, z.object({ activityPeople: z.array(z.object(match)) }), { term })).activityPeople
 
 // No storage bucket is bound yet, so the API sends the file inline (THIRD-PARTY-ACCESS §2.1):
-// it becomes a link here, made once per job so polling doesn't pile up object URLs.
+// it becomes a link here, made once per job and revoked when the job expires, so the personal
+// data in it doesn't outlive the API's own hour.
 const links = new Map<string, string>()
-const linkFor = (id: string, csv: string | null): string | null => {
+const revoke = (id: string) => {
+  const url = links.get(id)
+  if (url) URL.revokeObjectURL(url)
+  links.delete(id)
+}
+const linkFor = (id: string, csv: string | null, expiresAt: string | null): string | null => {
   if (csv === null) return null
   const known = links.get(id)
   if (known) return known
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
   links.set(id, url)
+  if (expiresAt) setTimeout(() => revoke(id), Math.max(0, Date.parse(expiresAt) - Date.now()))
   return url
 }
 
@@ -191,7 +198,8 @@ const jobSchema = z.object({
 
 export const loadActivityExport = async (id: string): Promise<ActivityExport | null> => {
   const { activityExport: job } = await query(`query Export($id: ID!) { activityExport(id: $id) { id state entries csv expiresAt } }`, jobSchema, { id })
-  return job && { id: job.id, state: job.state, entries: job.entries, url: job.state === 'ready' ? linkFor(job.id, job.csv) : null, expiresAt: job.expiresAt }
+  if (!job || job.state !== 'ready') revoke(id)
+  return job && { id: job.id, state: job.state, entries: job.entries, url: job.state === 'ready' ? linkFor(job.id, job.csv, job.expiresAt) : null, expiresAt: job.expiresAt }
 }
 
 // Asking is the write (audited); the job is prepared out of the request and polled after.

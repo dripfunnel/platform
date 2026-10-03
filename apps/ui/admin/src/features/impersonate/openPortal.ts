@@ -28,8 +28,8 @@ const pollMs = 500
 const giveUpMs = 10 * 60_000
 
 // The company SSO's fresh sign-in runs in the tab the portal will open in (ACCESS.md §8.1): the
-// API stamps this session and sends the tab back to `/`, which is when the dialog carries on. A
-// tab at Microsoft can't be read; back on this host it can, and sign-in means it was refused.
+// API stamps this session and sends the tab back to `/`, which is when the dialog asks again. A
+// tab at Microsoft can't be read; back on this host it can. The API's answer is the real proof.
 const reauthenticateIn = (tab: Window): Promise<Reauth> =>
   new Promise((resolve) => {
     const startedAt = Date.now()
@@ -45,7 +45,8 @@ const reauthenticateIn = (tab: Window): Promise<Reauth> =>
         return
       }
       if (path === 'blank' || path.startsWith('/api/auth/')) return
-      done(path.startsWith('/sign-in') ? { ok: false, outcome: 'failed' } : { ok: true })
+      // Success lands on `/`; a refusal on /sign-in?outcome=…, and anything else is no proof either.
+      done(path === '/' ? { ok: true } : { ok: false, outcome: 'failed' })
     }, pollMs)
     const done = (result: Reauth) => {
       clearInterval(timer)

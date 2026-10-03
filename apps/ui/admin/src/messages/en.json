@@ -2082,7 +2082,8 @@
       "started": "Signed in as {name} in a new tab.",
       "startedSetup": "{partner}’s console opened in a new tab.",
       "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this console, then use Return to session.",
-      "failed": "That didn’t go through. Try again."
+      "failed": "That didn’t go through. Try again.",
+      "targetNotFound": "We couldn’t find that person to act as. They may have been removed. Reload and try again."
     },
     "start": {
       "label": "Impersonate · {name}",

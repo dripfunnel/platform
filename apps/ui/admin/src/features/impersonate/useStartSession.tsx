@@ -54,5 +54,5 @@ export const useStartSession = (caller: StaffRole, meName: string) => {
     </>
   )
 
-  return { start: setSubject, returnTo, element }
+  return { start: setSubject, returnTo, say: setToast, element }
 }
