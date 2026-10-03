@@ -393,9 +393,8 @@ database being refused by the host match.
 `pnpm test` needs this same database up and `.dev.vars` exported (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
 `scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
-default above when unset). CI does the same on the self-hosted runner's own Postgres 18, set up
-as above with no Docker (`.github/workflows/ci.yml`); the repository variable
-`CI_DATABASE_URL` overrides the default URL when the runner's port or role differ.
+default above when unset), the way CI's `postgres:18` service does
+(`.github/workflows/ci.yml`).
 
 `/health` is unauthenticated and opens a Hyperdrive connection per call, so it's rate-limited
 (30/min per area, per IP, `HEALTH_RATE_LIMITER` in `wrangler.jsonc`) to stop a request storm
