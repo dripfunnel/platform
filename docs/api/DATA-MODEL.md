@@ -852,7 +852,7 @@ customer_group      (id, store_id, name, description, deleted_at)   UNIQUE (stor
 customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY (group_id, customer_id)
                     -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
 customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subject_phone NULL,
-                     subject_verified_at, access_token_hash NULL, kind ('export'|'delete'),
+                     subject_verified_at, expires_at, access_token_hash NULL, kind ('export'|'delete'),
                      requested_by ('customer'|'store'), state ('requested'|'ready'|'done'|'refused'),
                      file_asset_id NULL, done_at)
                     -- access_token_hash: a guest reaches its own request only through the
@@ -1361,9 +1361,13 @@ decide which columns and which tables each caller kind may select at all**. `app
   minted for this request (null when none), so an anonymous filing is bound to the store and
   to a token only its filer holds; `app_shop` has no write on `subject_verified_at`, `state`
   or `file_asset_id`, so verification and the export are the engine's alone (§7.5); and the
-  Shop API rate-limits filings per subject and per client (ACCESS §4), one open request per
-  subject at a time (a partial unique index on `(store_id, lower(subject_email))` and on
-  `(store_id, subject_phone)` where `state = 'requested'`). No supplier branch.
+  Shop API rate-limits filings per subject and per client (ACCESS §4). **No uniqueness on
+  the subject**: a unique index would let an anonymous filer block the person's own request
+  and would reveal, through the refusal, that a request exists for an email (ACCESS §2
+  "never reveal whether an account exists"). Instead every filing is accepted with the same
+  response, an unverified request expires after 24 hours (`expires_at`, set on insert), and
+  verifying a code fulfils the newest unverified request for that subject while the older
+  ones lapse. No supplier branch.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
