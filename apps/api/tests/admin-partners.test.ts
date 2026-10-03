@@ -30,6 +30,7 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
     activity: async (filter, page) => listActivity(db.sql, { caller: { kind: 'staff', staffId: staff?.id ?? '' } }, filter, page),
     partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
     stores: null,
+    staffSessions: null,
     dashboard: null,
   }
 }
