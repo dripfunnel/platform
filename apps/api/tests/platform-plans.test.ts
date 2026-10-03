@@ -6,6 +6,7 @@ import type { PartnerRole } from '#auth/partnerPermissions'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
+import { withScope } from '#db/scoped/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -131,12 +132,49 @@ describe('the catalogue and the editor', () => {
     expect(retired.data?.['retirePlan']).toMatchObject({ ok: false, reason: 'INVALID_INPUT' })
   })
 
+  it('caps a page at 50 whatever is asked', async () => {
+    const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Many Plans') returning id`
+    await db.sql`insert into plan (partner_id, name, status) select ${p?.id ?? ''}, 'Plan ' || n, 'draft' from generate_series(1, 55) n`
+    const { data } = await run<{ plans: { items: unknown[]; pageInfo: { hasNextPage: boolean } } }>('{ plans(first: 1000) { items { id } pageInfo { hasNextPage } } }', callerOf(p?.id ?? '', 'partner-read-only'))
+    expect(data?.plans.items).toHaveLength(50)
+    expect(data?.plans.pageInfo.hasNextPage).toBe(true)
+  })
+
+  it('refuses a quote a save would refuse', async () => {
+    const quote = (prices: unknown[]) => run(`query($p: [PlanPriceInput!]!) { quotePlanPrices(prices: $p) { currency } }`, callerOf(ids.ns, 'partner-owner'), { p: prices })
+    expect((await quote([{ currency: 'usd' }])).code).toBe('INVALID_INPUT')
+    expect((await quote(Array.from({ length: 11 }, (_, i) => ({ currency: `A${String.fromCharCode(65 + i)}A` })))).code).toBe('INVALID_INPUT')
+  })
+
   it('shows another partner nothing of this catalogue', async () => {
     expect((await run<{ planEditor: unknown }>(editorQuery, callerOf(ids.kl, 'partner-owner'), { id: ids.growth })).data?.planEditor).toBeNull()
     const { data } = await run<{ plans: { items: { id: string }[] } }>('{ plans { items { id } } }', callerOf(ids.kl, 'partner-owner'))
     expect(data?.plans.items.map((p) => p.id)).not.toContain(ids.growth)
     const input = await inputFrom(ids.growth, callerOf(ids.ns, 'partner-owner'))
     expect((await run<Outcome>(update, callerOf(ids.kl, 'partner-owner'), { id: ids.growth, input, applyTo: 'new' })).data?.updatePlan).toMatchObject({ ok: false, reason: 'NOT_FOUND' })
+    const kl = callerOf(ids.kl, 'partner-owner')
+    expect((await run<Record<string, unknown>>(`mutation($id: ID!) { makePlanLive(id: $id) { ok reason } }`, kl, { id: ids.growth })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'NOT_FOUND' })
+    expect((await run<Record<string, unknown>>(`mutation($id: ID!, $input: RetirePlanInput!) { retirePlan(id: $id, input: $input) { ok reason } }`, kl, { id: ids.growth, input: { keep: true } })).data?.['retirePlan']).toMatchObject({ ok: false, reason: 'NOT_FOUND' })
+    // A quote for another partner's plan id never shows that plan's fee.
+    const quoted = await run<{ quotePlanPrices: { fee: { amount: number } | null }[] }>(`query($id: ID, $p: [PlanPriceInput!]!) { quotePlanPrices(id: $id, prices: $p) { fee { amount } } }`, kl, { id: ids.growth, p: [{ currency: 'EUR', monthly: { amount: 100, currency: 'EUR' } }] })
+    expect(quoted.data?.quotePlanPrices[0]?.fee?.amount).not.toBe(1800)
+  })
+
+  it('lets a partner write only the schedule of its own stores’ subscriptions', async () => {
+    const [own] = await db.sql<{ store_id: string }[]>`select store_id from store_subscription where partner_id = ${ids.ns} limit 1`
+    const [theirs] = await db.sql<{ store_id: string }[]>`select store_id from store_subscription where partner_id <> ${ids.ns} limit 1`
+    const asPartner = (partnerId: string, query: string) =>
+      withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId }, (tx) => tx.unsafe(query))
+    await expect(asPartner(ids.ns, `update store_subscription set amount = 0 where store_id = '${own?.store_id ?? ''}'`)).rejects.toThrow(/permission denied/i)
+    await expect(asPartner(ids.ns, `update store_subscription set status = 'active' where store_id = '${own?.store_id ?? ''}'`)).rejects.toThrow(/permission denied/i)
+    expect(await asPartner(ids.ns, `update store_subscription set change_at = now() where store_id = '${theirs?.store_id ?? ''}' returning store_id`)).toEqual([])
+    // A retirement cannot move its stores onto another partner's Live plan.
+    const [klPlus] = await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.kl} and name = 'Plus'`
+    const moved = await run<Record<string, unknown>>(`mutation($id: ID!, $input: RetirePlanInput!) { retirePlan(id: $id, input: $input) { ok reason } }`, callerOf(ids.ns, 'partner-owner'), {
+      id: ids.starter,
+      input: { keep: false, moveTo: klPlus?.id ?? '', on: '2026-11-01T00:00:00.000Z' },
+    })
+    expect(moved.data?.['retirePlan']).toMatchObject({ ok: false, reason: 'INVALID_TARGET' })
   })
 })
 
@@ -204,6 +242,14 @@ describe('saving', () => {
 describe('making live and retiring', () => {
   const live = `mutation($id: ID!) { makePlanLive(id: $id) { ok reason currency } }`
   const retire = `mutation($id: ID!, $input: RetirePlanInput!) { retirePlan(id: $id, input: $input) { ok reason } }`
+
+  it('never makes a plan with nothing to charge live, contract or not', async () => {
+    const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('No Contract') returning id`
+    const owner = callerOf(p?.id ?? '', 'partner-owner')
+    const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
+    const made = (await run<Outcome>(create, owner, { input: { ...input, entitlements: { ...input.entitlements, powered: false }, prices: [] } })).data?.createPlan
+    expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'UNPRICED_CURRENCY' })
+  })
 
   it('makes a draft live only once every currency the partner sells in has a monthly price', async () => {
     const input = await inputFrom(ids.growth, callerOf(ids.ns, 'partner-owner'))

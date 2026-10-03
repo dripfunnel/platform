@@ -193,11 +193,14 @@ builder.queryFields((t) => ({
     type: [PriceType],
     args: { id: t.arg.id(), prices: t.arg({ type: [PriceInput], required: true }) },
     extensions: { access: read },
-    resolve: (_, { id, prices }, ctx) =>
-      service(ctx.plans).quotePlanPrices(
+    resolve: async (_, { id, prices }, ctx) => {
+      const quote = await service(ctx.plans).quotePlanPrices(
         id === null || id === undefined ? null : String(id),
         prices.map((p) => ({ currency: p.currency, monthly: p.monthly ?? null, yearly: p.yearly ?? null })),
-      ),
+      )
+      if (!quote) throw new GraphQLError('Those prices cannot be quoted.', { extensions: { code: 'INVALID_INPUT' } })
+      return quote
+    },
   }),
 }))
 
