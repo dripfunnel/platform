@@ -1,5 +1,5 @@
-import { storeActionAudit, type PartnerStoreActions, type StoreActionResult } from '#saas/partnerStores/actions'
-import type { Proration } from '#saas/partnerStores/proration'
+import { storeActionAudit, type PartnerStoreActions, type StoreActionResult } from '#saas/partnerStores/index'
+import type { Proration } from '#saas/partnerStores/index'
 import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
 

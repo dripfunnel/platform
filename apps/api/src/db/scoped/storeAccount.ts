@@ -47,7 +47,8 @@ export const insertLimitOverride = async (tx: ScopedSql, o: NewOverride): Promis
     values (${o.storeId}, ${o.key}, ${o.amount}, ${o.duration}, ${o.month}, ${o.reason}, ${o.by.kind}, ${o.by.label}, ${o.at})
     returning id
   `
-  return row?.id ?? ''
+  if (!row) throw new Error('store_limit_override: the insert returned no row')
+  return row.id
 }
 
 /** Removes an active override of the store once; false when there is none to remove. */

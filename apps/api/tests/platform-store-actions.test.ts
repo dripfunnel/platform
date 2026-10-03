@@ -190,9 +190,8 @@ describe('invitation and setup', () => {
 })
 
 describe('the block and the mutations agree', () => {
-  // Every role on a store in each state: refused in the block is FORBIDDEN by the same permission;
-  // absent is refused for the state. Allowed verdicts are exercised by the tests above.
-  const stateCodes = ['NOT_ON_TRIAL', 'ALREADY_SUSPENDED', 'NOT_SUSPENDED', 'CANCELLED', 'NOT_STUCK']
+  // Every role on a store in each state, every action: allowed in the block passes the mutation's
+  // gate, refused is FORBIDDEN by the same permission, absent is refused with the state's code.
   const input: Record<string, Record<string, unknown>> = {
     changePlan: { planId: crypto.randomUUID(), when: 'now', reason: 'x' },
     extendTrial: { days: 3, reason: 'x' },
@@ -202,22 +201,47 @@ describe('the block and the mutations agree', () => {
     resendInvite: {},
     retryStep: {},
   }
+  const absentCode = (action: string, status: string) =>
+    ({ extendTrial: 'NOT_ON_TRIAL', restore: 'NOT_SUSPENDED', retryStep: 'NOT_STUCK', suspend: status === 'suspended' ? 'ALREADY_SUSPENDED' : 'CANCELLED' })[action] ?? 'CANCELLED'
+  // Past the gate, an unknown plan and a store with no open invitation are the only refusals.
+  const pastTheGate = ['PLAN_NOT_LIVE', 'NO_PENDING_INVITATION']
 
-  it('refuses exactly what store(id) refuses, with the same reason', async () => {
-    for (const status of ['trial', 'active', 'suspended', 'cancelled']) {
-      const store = await storeWith(`s.status = '${status}' and not exists (select 1 from job j where j.store_id = s.id and j.state <> 'done')`)
+  it('answers every action as store(id) does, for every role and state', async () => {
+    const failing = await storeWith(`s.status = 'active' and exists (select 1 from job j where j.store_id = s.id) and s.name > 'M'`)
+    await db.sql`update job set state = 'failed' where id = (select id from job where store_id = ${failing} order by started_at desc limit 1)`
+    const stores: [string, string][] = [['failed', failing]]
+    for (const status of ['trial', 'active', 'suspended', 'cancelled']) stores.push([status, await storeWith(`s.status = '${status}' and not exists (select 1 from job j where j.store_id = s.id and j.state <> 'done')`)])
+    for (const [status, store] of stores) {
+      const [snapshot] = await db.sql`select status, trial_ends_at, suspended_at, suspended_reason, suspended_by_label, suspended_previous_status from store where id = ${store}`
+      const jobs = await db.sql`select id, state, step_started_at, attempts, last_error, finished_at from job where store_id = ${store}`
       for (const role of partnerRoles) {
         const block = (await run<{ store: { actions: Block } }>(blockQuery, callerOf(ids.ns, role), { id: store })).data?.store?.actions ?? {}
         for (const action of ['changePlan', 'extendTrial', 'addOverride', 'suspend', 'restore', 'resendInvite', 'retryStep'] as const) {
           const verdict = block[action]
-          if (verdict?.allowed) continue
           const answer = await act(action, callerOf(ids.ns, role), { id: store, ...input[action] })
-          const permitted = partnerRoleHas(role, storeActionPermission[action])
-          if (verdict) expect(answer, `${status} ${role} ${action}`).toBe('FORBIDDEN')
-          else if (permitted) expect(stateCodes, `${status} ${role} ${action}`).toContain((answer as Result).reason)
-          else expect(answer, `${status} ${role} ${action}`).toBe('FORBIDDEN')
+          const label = `${status} ${role} ${action}`
+          if (verdict?.allowed) {
+            expect(typeof answer, label).toBe('object')
+            const r = answer as Result
+            expect(r.ok || pastTheGate.includes(r.reason ?? ''), `${label}: ${r.reason}`).toBe(true)
+            await db.sql`update store set ${db.sql(snapshot as Record<string, unknown>)} where id = ${store}`
+            for (const job of jobs) await db.sql`update job set ${db.sql(job as Record<string, unknown>, 'state', 'step_started_at', 'attempts', 'last_error', 'finished_at')} where id = ${job['id'] as string}`
+          } else if (verdict || !partnerRoleHas(role, storeActionPermission[action])) {
+            expect(answer, label).toBe('FORBIDDEN')
+          } else {
+            expect(answer, label).toMatchObject({ ok: false, reason: absentCode(action, status === 'failed' ? 'active' : status) })
+          }
         }
       }
+    }
+  })
+
+  it('lets a partner restart only its store’s latest failed or running job, at the database', async () => {
+    const scope = { caller: { kind: 'partner-user' as const, partnerUserId: 'pu' }, partnerId: ids.ns }
+    const [done] = await db.sql<{ id: string }[]>`select j.id from job j join store s on s.id = j.store_id where s.partner_id = ${ids.ns} and j.state = 'done' limit 1`
+    const [theirs] = await db.sql<{ id: string }[]>`update job set state = 'failed' where id = (select j.id from job j join store s on s.id = j.store_id where s.partner_id = ${ids.bz} limit 1) returning id`
+    for (const id of [done?.id ?? '', theirs?.id ?? '']) {
+      expect(await withScope(db.sql, scope, (tx) => tx`update job set state = 'running' where id = ${id} returning id`)).toEqual([])
     }
   })
 })

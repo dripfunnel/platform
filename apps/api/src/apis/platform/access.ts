@@ -3,7 +3,7 @@ import type { PartnerConsoleService } from '#saas/partnerConsole/index'
 import type { PartnerBrandingService } from '#saas/partnerBranding/index'
 import type { PartnerPlansService } from '#saas/partnerPlans/index'
 import type { PartnerStoresService } from '#saas/partnerStores/index'
-import type { PartnerStoreActions } from '#saas/partnerStores/actions'
+import type { PartnerStoreActions } from '#saas/partnerStores/index'
 import { isPartnerPermission, partnerPermissions, partnerRoleHas } from '#auth/partnerPermissions'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 

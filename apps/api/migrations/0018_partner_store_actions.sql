@@ -65,9 +65,27 @@ create policy invitation_partner_update on invitation for update to app_partner
 using (app_setting_text('app.scope') = 'partner' and seller_id is null and role_key = 'owner' and store_id in (select id from store))
 with check (app_setting_text('app.scope') = 'partner' and seller_id is null and role_key = 'owner' and store_id in (select id from store));
 
--- Retry this step: the latest setup job of its own store starts its step again.
+-- Retry this step: only the latest setup job of its own store, failed or running (whether a
+-- running step is stuck is the service's, from SAAS §5's limits), and only back to running.
 grant update (state, step_started_at, attempts, finished_at, last_error) on job to app_partner;
 
+-- A policy on job can't read job without recursing, so the latest is found by the definer.
+create function latest_job_of(p_store uuid) returns uuid
+language sql stable security definer set search_path = public
+as $$
+  select j.id from job j join store s on s.id = j.store_id
+  where j.store_id = p_store and s.partner_id = app_setting_uuid('app.partner_id')
+  order by j.started_at desc limit 1
+$$;
+
+grant select on job, store to app_definer;
+alter function latest_job_of(uuid) owner to app_definer;
+revoke all on function latest_job_of(uuid) from public;
+grant execute on function latest_job_of(uuid) to app_partner;
+
 create policy job_partner_retry on job for update to app_partner
-using (app_setting_text('app.scope') = 'partner' and store_id in (select id from store))
+using (
+  app_setting_text('app.scope') = 'partner' and store_id in (select id from store) and state in ('failed', 'running')
+  and id = latest_job_of(store_id)
+)
 with check (app_setting_text('app.scope') = 'partner' and store_id in (select id from store) and state = 'running');

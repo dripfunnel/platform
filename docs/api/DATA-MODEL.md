@@ -211,7 +211,8 @@ Migration `0014`, for what the partner console's Stores list and store detail re
   and jobs everything. The four role pins are on each table.
 - The store actions (`0018`, #160, ui/platform/FIRST-RELEASE.md §6.4): a partner may also insert
   an owner invitation on its own store and revoke one (never a team member's or a supplier's,
-  never the token), and restart its own store's setup job (state, step start, attempts, error).
+  never the token), and restart its own store's latest setup job when it is failed or running
+  (state, step start, attempts, error), back to running only.
 - Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
   `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
   store_id)`, and the trigram indexes on store name and code, owner email and domain host.

@@ -11,12 +11,9 @@ import { selectActivity } from '#db/scoped/activity'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectPartnerDomainsOf } from '#db/scoped/partners'
 import {
-  insertStoreInvitation,
   insertStoreNote,
-  revokeStoreInvitation,
   selectCustomDomains,
   selectJobDetail,
-  selectOpenStoreInvitation,
   selectPartnerNames,
   selectStoreCounts,
   selectStoreForUpdate,
@@ -31,6 +28,7 @@ import type { PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { setupStateOf, stuckAfterMinutes, type SetupState } from '#saas/provisioning/index'
 import { decodePage, pageOf, reasonText, roleGuard, staffEntry, type PageRequest } from '#saas/staff/index'
+import { reissueOwnerInvitation } from './invitations'
 import { daysPastDue, extendTrial as extendTrialTo, transitionStore, trialDaysLeft } from './states'
 
 // Stores on the Admin API (card #34; ui/admin/FIRST-RELEASE.md §5, §12). Every decision a
@@ -38,7 +36,6 @@ import { daysPastDue, extendTrial as extendTrialTo, transitionStore, trialDaysLe
 
 export const storePageSize = 25
 export const storeNoteMaxLength = 2000
-export const storeInvitationDays = 7
 
 export const storeAudit = {
   suspendStore: 'store.suspended',
@@ -472,20 +469,9 @@ export const createStoresService = (deps: StoresServiceDeps) => {
     const refused = refusedBy('stores.invite.resend')
     if (refused) return refused
     return locked(id, async (tx, store): Promise<Result> => {
-      const open = await selectOpenStoreInvitation(tx, id)
-      if (!open) return { ok: false, code: 'NO_PENDING_INVITATION' }
-      const at = now()
-      // ACCESS.md §6.3: a fresh invitation; the old link stops working.
-      await revokeStoreInvitation(tx, open.id, at)
-      const invitationId = await insertStoreInvitation(tx, { storeId: id, email: open.email, role: 'owner', expiresAt: new Date(at.getTime() + storeInvitationDays * dayMs), invitedByLabel: staff.name })
-      await queueSideEffect(tx, {
-        kind: 'email',
-        idempotencyKey: `store-owner-invitation:${invitationId}`,
-        payload: { template: 'store-owner-invitation', invitationId, to: open.email, storeId: id },
-        partnerId: store.partner_id,
-        storeId: id,
-      })
-      await activity.record(tx, entry(store, storeAudit.resendStoreOwnerInvite, null, { target: { type: 'invitation', id: invitationId, label: open.email } }))
+      const reissued = await reissueOwnerInvitation(tx, store, staff.name, now())
+      if (!reissued) return { ok: false, code: 'NO_PENDING_INVITATION' }
+      await activity.record(tx, entry(store, storeAudit.resendStoreOwnerInvite, null, { target: { type: 'invitation', id: reissued.invitationId, label: reissued.email } }))
       return { ok: true }
     })
   }
