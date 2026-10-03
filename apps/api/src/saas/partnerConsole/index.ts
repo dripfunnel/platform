@@ -6,8 +6,7 @@ import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { searchPartnerStores, selectNavCounts, selectOpenSetupSessionOn, selectShellFacts, type StoreSearchRow } from '#db/scoped/partnerConsole'
 import { selectPartner, selectPartnerDomainsFor, selectPartnerForUpdate, selectPlansFor, selectSetupItemsFor } from '#db/scoped/partners'
 import type postgres from 'postgres'
-import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from '#saas/partners/goLive'
-import { transitionPartner } from '#saas/partners/states'
+import { failingChecks, goLiveChecksFor, transitionPartner, type GoLiveCheck, type GoLiveChecks } from '#saas/partners/index'
 import { stuckAfterMinutes } from '#saas/provisioning/stuck'
 
 // The partner console's shell and Home until Live (ui/platform/FIRST-RELEASE.md §2, §4; card
@@ -78,10 +77,14 @@ export interface Onboarding {
   submittedBy: 'partner' | 'DripFunnel' | null
   sentBackReason: string | null
   fixes: { item: ChecklistItem; to: ConsoleLink }[]
-  canSubmit: { allowed: true } | { allowed: false; reason: 'OWNERS_AND_ADMINS_ONLY' | 'ALREADY_SUBMITTED' }
+  canSubmit: { allowed: true } | { allowed: false; reason: 'OWNERS_AND_ADMINS_ONLY' | SubmittedCode }
 }
 
-export type SubmitResult = { ok: true; submittedAt: Date } | { ok: false; code: 'ALREADY_SUBMITTED' } | { ok: false; code: 'GO_LIVE_CHECK_FAILED'; check: GoLiveCheck }
+/** Awaiting is submitted; Live, Paused and Offboarding were approved (SAAS §3.1). A closed partner has no session. */
+type SubmittedCode = 'ALREADY_SUBMITTED' | 'ALREADY_APPROVED'
+const submittedCode = (state: string): SubmittedCode => (state === 'awaiting' ? 'ALREADY_SUBMITTED' : 'ALREADY_APPROVED')
+
+export type SubmitResult = { ok: true; submittedAt: Date } | { ok: false; code: SubmittedCode } | { ok: false; code: 'GO_LIVE_CHECK_FAILED'; check: GoLiveCheck }
 
 export interface PartnerConsoleDeps {
   sql: postgres.Sql
@@ -146,7 +149,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
       submittedBy: partner.submitted_by_kind === null ? null : partner.submitted_by_kind === 'staff' ? 'DripFunnel' : 'partner',
       sentBackReason: partner.sent_back_reason,
       fixes: partner.sent_back_reason ? failingChecks(checks).map((check) => ({ item: itemForCheck[check], to: linkFor[itemForCheck[check]] })) : [],
-      canSubmit: !may ? { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' } : submitted ? { allowed: false, reason: 'ALREADY_SUBMITTED' } : { allowed: true },
+      canSubmit: !may ? { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' } : submitted ? { allowed: false, reason: submittedCode(partner.state) } : { allowed: true },
     }
   }
 
@@ -158,12 +161,12 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
     withScope(sql, context, async (tx): Promise<SubmitResult> => {
       const partner = await selectPartnerForUpdate(tx, partnerId)
       const current = partner ? await onboardingFrom(tx) : null
-      if (!partner || !current || partner.state !== 'draft') return { ok: false, code: 'ALREADY_SUBMITTED' }
+      if (!partner || !current || partner.state !== 'draft') return { ok: false, code: submittedCode(partner?.state ?? 'closed') }
       const failing = failingChecks(current.checks)[0]
       if (failing) return { ok: false, code: 'GO_LIVE_CHECK_FAILED', check: failing }
       const at = now()
       const moved = await transitionPartner(tx, partner, { to: 'awaiting', by: { kind: 'partner_user', label: caller.user.name } }, at)
-      if (!moved.ok) return { ok: false, code: 'ALREADY_SUBMITTED' }
+      if (!moved.ok) return { ok: false, code: submittedCode(partner.state) }
       const entry: ActivityEntry = {
         category: 'write',
         action: submitAudit,

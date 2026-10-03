@@ -150,7 +150,11 @@ partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, 
   plan already built a version 1 with its trial and no prices. Name, description and status
   stay on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
 - **Ceilings are enforced in the database**: a trigger refuses any `plan_entitlement` amount
-  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1). A check holds each key to
+  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1), and `powered_by_removal`
+  switched on unless the partner's contract allows it (no contract: not allowed). Another
+  refuses any request role moving `plan.version` other than forward by one, or changing
+  `plan.trial_days` without a new version. A merchant reads `plan_version` by column, never
+  `created_by_*`. A check holds each key to
   its kind: a switch has `enabled` and no `amount`, a limit or allowance the reverse.
 - **The entitlements are authoritative.** `plan.max_products` and `max_staff` (#32) are what
   the admin console's plan list still reads; they stop being written once #161 serves the
@@ -485,7 +489,9 @@ Row policies cannot tell a supplier from the merchant or a shopper from either (
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
 (`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
-run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155), every
+run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155; it updates its own `partner`
+row by column only, and a trigger lets it change `state` only from Draft to Awaiting approval,
+#214), every
 other request as `app_request`, and `app_definer` exists (owning
 only 0007's membership trigger, which checks parents the caller may not see); the first
 supplier and shopper cards add `app_supplier` and `app_shop` the same way (api/README.md §7).
