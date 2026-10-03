@@ -1,0 +1,178 @@
+/* The phone states (designs/DF Admin Prototype.dc.html at Phone · 375). Targets are 44px at least, the primary button 48px. */
+
+.df-phone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+}
+
+.df-phone-title {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.df-phone-lede,
+.df-phone-note,
+.df-phone-status {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-phone-note {
+  font-size: 13px;
+}
+
+.df-phone-status:empty {
+  display: none;
+}
+
+.df-phone-search {
+  box-sizing: border-box;
+  height: 48px;
+  width: 100%;
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.df-phone-search:focus-visible,
+.df-phone-result:focus-visible,
+.df-phone-back:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-phone-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-phone-result,
+.df-phone-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 12px;
+  background: var(--df-color-surface);
+}
+
+.df-phone-result {
+  min-height: 44px;
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-phone-result .df-pill {
+  align-self: flex-start;
+}
+
+.df-phone-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--df-space-2);
+}
+
+.df-phone-result-head strong {
+  color: var(--df-color-heading);
+  font-size: 15px;
+}
+
+.df-phone-result-head span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-phone-failed {
+  display: grid;
+  gap: var(--df-space-2);
+  justify-items: start;
+}
+
+.df-phone-failed p {
+  margin: 0;
+}
+
+.df-phone-back {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.df-phone .df-eyebrow {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.df-phone-status-card {
+  align-items: flex-start;
+}
+
+.df-phone-facts {
+  gap: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.df-phone-facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-phone-facts > div:last-child {
+  border-bottom: 0;
+}
+
+.df-phone-facts dt {
+  color: var(--df-color-muted);
+}
+
+.df-phone-facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.df-phone-action :is(.df-button, .df-denied .df-button),
+.df-phone-primary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.df-phone-action .df-denied {
+  display: grid;
+  gap: var(--df-space-1);
+  text-align: center;
+}

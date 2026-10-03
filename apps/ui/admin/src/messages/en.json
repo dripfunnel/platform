@@ -2009,5 +2009,40 @@
       "reauthFailed": "We couldn’t confirm it’s you with your company sign-in. Nothing started.",
       "reauthCancelled": "You cancelled the company sign-in. Nothing started."
     }
+  },
+  "phone": {
+    "find": {
+      "title": "Find a store",
+      "label": "Search stores",
+      "placeholder": "Name, domain, code or owner email",
+      "none": "No store matches that.",
+      "searching": "Searching…",
+      "failed": "Stores couldn’t be loaded. Nothing was changed.",
+      "retry": "Try again",
+      "resultsLabel": "Stores"
+    },
+    "store": {
+      "back": "Find a store",
+      "level": "Store · {partner}",
+      "rows": {
+        "storefront": "Storefront",
+        "domain": "Domain",
+        "setup": "Setup",
+        "plan": "Plan",
+        "owner": "Owner"
+      },
+      "domainState": "{host} · {status}",
+      "setupAt": "{state} at {step}",
+      "actions": {
+        "suspend": "Suspend store",
+        "restore": "Restore store"
+      },
+      "elsewhere": "Everything else about this store is on a larger screen."
+    },
+    "laptop": {
+      "title": "Use a larger screen for this",
+      "body": "On a phone you can find a store and see its status. Everything else needs a laptop.",
+      "action": "Find a store"
+    }
   }
 }

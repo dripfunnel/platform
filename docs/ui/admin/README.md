@@ -145,7 +145,10 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
 - **Money previews**: every billing action shows its effect before confirming ("Refund
   ₹4,999.00 to card ending 4242").
 - **Desktop first**; on a phone an on-call engineer must still find a store and see its
-  status.
+  status. Below 640px the console shows only three states, chosen by viewport on the same
+  URLs (#62): **Find a store** for the Dashboard and Stores, a **short store view** with its
+  one action (Suspend, or Restore, through the same confirmation as on a laptop), and "needs
+  a laptop" for every other page.
 - **No `brand/` folder**: the branding studio previews partner looks by rendering portal
   screens with the partner's tokens.
 
