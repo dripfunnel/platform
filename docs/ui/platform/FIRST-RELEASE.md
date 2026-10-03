@@ -748,9 +748,11 @@ api/README.md §2.1); a partner id in a request is not authority.
 - A role without `plans.write` gets `FORBIDDEN` from the policy. The permission blocks carry
   `OWNERS_AND_ADMINS_ONLY`.
 - **Everyone at renewal** schedules each subscription on the plan for its first renewal at least
-  30 days away (a past-due one too) and queues `plan-change-at-renewal`. A subscription with a
-  change already scheduled keeps it. Retiring with a move schedules them for the
-  chosen date. Both are written in the change's own transaction.
+  30 days away (a past-due one too) and queues `plan-change-at-renewal` (§7.3's 30 days). A
+  subscription already moving within this plan is re-pointed to the newest version and date; one
+  moving to another plan (the store's own change) keeps it. Retiring with a move does the same for
+  the chosen date and queues `plan-retired-move` for each store moved. Both are written in the
+  change's own transaction.
 
 **Built on #162** (Branding, `apis/platform/branding.ts`, `saas/partnerBranding`):
 - `branding` returns the live look and words, or the draft while nothing is live

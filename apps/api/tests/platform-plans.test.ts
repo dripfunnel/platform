@@ -308,6 +308,19 @@ describe('making live and retiring', () => {
     expect(await db.sql`select change_at from store_subscription where store_id = ${elsewhere?.store_id ?? ''}`).toEqual([{ change_at: new Date('2026-12-01T00:00:00Z') }])
   })
 
+  it('tells each store moved by a retirement', async () => {
+    const [pro] = await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.ns} and name = 'Pro'`
+    const [onPro] = await db.sql<{ n: number }[]>`select count(*)::int as n from store_subscription where plan_id = ${pro?.id ?? ''} and status <> 'cancelled' and (next_plan_id is null or next_plan_id = plan_id)`
+    expect(onPro?.n).toBeGreaterThan(0)
+    const retired = await run<Record<string, unknown>>(`mutation($id: ID!, $input: RetirePlanInput!) { retirePlan(id: $id, input: $input) { ok reason } }`, callerOf(ids.ns, 'partner-owner'), {
+      id: pro?.id,
+      input: { keep: false, moveTo: ids.growth, on: '2026-11-01T00:00:00.000Z' },
+    })
+    expect(retired.data?.['retirePlan']).toMatchObject({ ok: true })
+    const [emails] = await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where payload->>'template' = 'plan-retired-move' and payload->>'planId' = ${ids.growth}`
+    expect(emails?.n).toBe(onPro?.n)
+  })
+
   it('retires with the stores moved on an offered date, and never the last Live plan', async () => {
     const owner = callerOf(ids.kl, 'partner-owner', 'Jonas Weber')
     const [basis, plus] = await Promise.all([

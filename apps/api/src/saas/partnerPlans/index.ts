@@ -126,7 +126,7 @@ export const planAudit = { createPlan: 'plan.created', updatePlan: 'plan.updated
 
 // FIRST-RELEASE §7.2's trial choices; the house partner's 10 days is set by staff.
 const trials = [0, 7, 14, 30]
-// SAAS §6.3: stores moved at renewal hear 30 days ahead.
+// FIRST-RELEASE §7.3: "Everyone, at their next renewal (they get an email 30 days ahead)".
 const noticeMs = 30 * 24 * 60 * 60 * 1000
 
 const toRows = (e: Partial<Entitlements>): RowEntitlements => ({
@@ -384,7 +384,18 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
         const on = new Date(input.on)
         if (!target || !firstOfMonths(at, 3).some((d) => d.getTime() === on.getTime())) return { ok: false, reason: 'INVALID_TARGET' }
         await updatePlanStatus(tx, id, partnerId, 'retired', { at: on, moveTo: target.id })
-        await scheduleSubscriptionMoves(tx, partnerId, id, { planId: target.id, version: target.version }, { on })
+        const moved = await scheduleSubscriptionMoves(tx, partnerId, id, { planId: target.id, version: target.version }, { on })
+        // §7.3 offers the dates; the merchant hears of the move as a renewal move is announced.
+        await insertOutboxMany(
+          tx,
+          moved.map((m) => ({
+            kind: 'email',
+            idempotencyKey: `plan-retired-move:${m.store_id}:${id}:${target.id}`,
+            payload: { template: 'plan-retired-move', storeId: m.store_id, planId: target.id, version: target.version, changeAt: m.change_at.toISOString() },
+            partnerId,
+            storeId: m.store_id,
+          })),
+        )
       }
       await activity.record(tx, entry(planAudit.retirePlan, row, input.keep ? 'stores keep it' : 'stores move on a date'))
       return { ok: true, id }
