@@ -1,7 +1,5 @@
--- Partner password reset (ui/platform/FIRST-RELEASE.md §3, ACCESS.md §4; #208). The relay writes
--- a row per account a request's email has, once per request (`request_id`, its outbox row); the
--- email's deliverer mints the token when it sends, so no secret rests in the outbox (ACCESS.md
--- §6.1), and the link works for 30 minutes from then.
+-- Partner password reset (#208): how a request becomes rows and a token is in ACCESS.md §4 and
+-- §6.1 and DATA-MODEL.md §3.2.
 
 create table partner_password_reset (
   id uuid primary key default gen_random_uuid(),
