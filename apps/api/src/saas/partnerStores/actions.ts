@@ -23,13 +23,12 @@ import {
   selectStoreForUpdate,
   selectStoreListRow,
   updateStorePlan,
-  updateStoreStatus,
   type StoreListRow,
 } from '#db/scoped/stores'
 import { queueSideEffect } from '#saas/outbox/index'
 import { setupStateOf } from '#saas/provisioning/index'
 import { reasonText } from '#saas/staff/index'
-import { reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
+import { extendTrial as extendStoreTrial, reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
 import { actionsFor, type ActionRefusal, type StoreAction } from './verdicts'
 import { prorate, signed, type Proration } from './proration'
 
@@ -209,10 +208,11 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
     const parsed = trialChange.safeParse(raw)
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const { days, reason } = parsed.data
-    return act(storeId, 'extendTrial', async (tx, store, _row, at) => {
+    return act<{ trialEndsAt: Date }>(storeId, 'extendTrial', async (tx, store, _row, at) => {
       const from = store.trial_ends_at && store.trial_ends_at > at ? store.trial_ends_at : at
       const trialEndsAt = new Date(from.getTime() + days * 24 * 60 * 60 * 1000)
-      await updateStoreStatus(tx, store.id, { status: 'trial', trialEndsAt })
+      // The admin console's own transition, so a guard added there holds here too.
+      if (!(await extendStoreTrial(tx, store, trialEndsAt)).ok) return { ok: false, reason: 'NOT_ON_TRIAL' }
       await extendSubscriptionTrial(tx, store.id, trialEndsAt)
       await insertTrialExtension(tx, { storeId: store.id, days, endsAt: trialEndsAt, reason, by, at })
       await activity.record(
