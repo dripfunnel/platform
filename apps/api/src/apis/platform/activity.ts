@@ -118,7 +118,7 @@ builder.queryFields((t) => ({
     type: JobType,
     nullable: true,
     args: { id: t.arg.id({ required: true }) },
-    extensions: { access: read },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'activity.export', target: 'none' } },
     resolve: (_, { id }, ctx) => service(ctx.activity).exportJob(String(id)),
   }),
 }))
