@@ -19,16 +19,23 @@ const input: PlanInput = { name: 'Growth', description: '', trialDays: 14, price
 
 describe('loadPlans', () => {
   it('reads the catalogue and the create block as the screens use them', async () => {
-    answer.mockReturnValue({ data: { plans: { items: [row], chargedBy: 'DripFunnel for Northstar', create: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' } } } })
+    answer.mockReturnValue({ data: { plans: { items: [row], chargedBy: 'DripFunnel for Northstar', create: { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }, pageInfo: { hasNextPage: false, endCursor: null } } } })
     const page = await loadPlans()
     expect(page.actions.create).toEqual({ allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
     expect(page.items[0]?.prices[0]?.margin).toEqual({ kind: 'keep', amount: usd(3100), of: usd(4900) })
   })
 
+  it('follows the pages to the end, so no plan beyond the first 50 goes missing', async () => {
+    const pageOf = (id: string, next: string | null) => ({ data: { plans: { items: [{ ...row, id }], chargedBy: 'x', create: { allowed: true, reason: null }, pageInfo: { hasNextPage: next !== null, endCursor: next } } } })
+    answer.mockReturnValueOnce(pageOf('p1', 'c1')).mockReturnValueOnce(pageOf('p2', null))
+    expect((await loadPlans()).items.map((plan) => plan.id)).toEqual(['p1', 'p2'])
+    expect(answer.mock.calls[1]?.[0]).toMatchObject({ variables: { after: 'c1' } })
+  })
+
   it('refuses a margin without its amounts and a refusal code it was never promised', async () => {
-    answer.mockReturnValueOnce({ data: { plans: { items: [{ ...row, prices: [{ ...row.prices[0], margin: { kind: 'keep', amount: null, of: null } }] }], chargedBy: 'x', create: { allowed: true, reason: null } } } })
+    answer.mockReturnValueOnce({ data: { plans: { items: [{ ...row, prices: [{ ...row.prices[0], margin: { kind: 'keep', amount: null, of: null } }] }], chargedBy: 'x', create: { allowed: true, reason: null }, pageInfo: { hasNextPage: false, endCursor: null } } } })
     await expect(loadPlans()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
-    answer.mockReturnValueOnce({ data: { plans: { items: [], chargedBy: 'x', create: { allowed: false, reason: 'SOMETHING_NEW' } } } })
+    answer.mockReturnValueOnce({ data: { plans: { items: [], chargedBy: 'x', create: { allowed: false, reason: 'SOMETHING_NEW' }, pageInfo: { hasNextPage: false, endCursor: null } } } })
     await expect(loadPlans()).rejects.toMatchObject({ code: 'BAD_RESPONSE' })
   })
 })

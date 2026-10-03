@@ -182,13 +182,25 @@ const entitlementsSchema = z.object({
 })
 const entitlementFields = 'domain offers suppliersOn powered aplus size products staff suppliers languages currencies publish ai'
 
-// The catalogue; the API pages it, and a partner has a handful of plans, so one page of its maximum is the list.
+// The whole catalogue: the list shows every plan, so the API's pages are followed to the end.
+const plansPageSize = 50
+
 export const loadPlans = async (): Promise<PlansPage> => {
-  const { plans } = await query(
-    `{ plans(first: 50) { items { ${rowFields} } chargedBy create { allowed reason } } }`,
-    z.object({ plans: z.object({ items: z.array(rowSchema), chargedBy: z.string(), create: permission }) }),
-  )
-  return { items: plans.items, chargedBy: plans.chargedBy, actions: { create: plans.create } }
+  const pageSchema = z.object({
+    plans: z.object({ items: z.array(rowSchema), chargedBy: z.string(), create: permission, pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }) }),
+  })
+  const items: z.infer<typeof rowSchema>[] = []
+  let after: string | null = null
+  for (;;) {
+    const { plans }: z.infer<typeof pageSchema> = await query(
+      `query Plans($after: String) { plans(first: ${plansPageSize}, after: $after) { items { ${rowFields} } chargedBy create { allowed reason } pageInfo { hasNextPage endCursor } } }`,
+      pageSchema,
+      { after },
+    )
+    items.push(...plans.items)
+    if (!plans.pageInfo.hasNextPage || !plans.pageInfo.endCursor) return { items, chargedBy: plans.chargedBy, actions: { create: plans.create } }
+    after = plans.pageInfo.endCursor
+  }
 }
 
 const ceiling = z.number().int().nullable()
