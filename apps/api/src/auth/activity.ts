@@ -101,6 +101,9 @@ export const partnerSignedOut = (user: { id: string; partnerId: string }, reques
 
 export const partnerSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.signed_in', 'auth', user, request)
 
+/** ACCESS.md §8: a code given to open a support session; the proof itself is never logged. */
+export const partnerReauthenticated = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.reauthenticated', 'security', user, request)
+
 export const partnerSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts) =>
   partnerUserEntry('partner_user.second_factor_enrolled', 'security', user, request)
 

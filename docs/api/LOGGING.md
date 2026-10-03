@@ -60,7 +60,8 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
 `customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind),
 `impersonation.started`, `impersonation.extended`, `impersonation.ended`,
-`staff_session.link_reissued` (never the link), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+`staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,
+`support_session.ended`, `partner_user.reauthenticated` (never the proof), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
 it). The two-factor and backup-code entries carry no secret, code or phone number. **The
 entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on

@@ -102,3 +102,11 @@ export const recordGoodCode = async (tx: ScopedSql, partnerUserId: string, step:
 export const markPartnerSignedIn = async (tx: ScopedSql, partnerUserId: string, now: Date): Promise<void> => {
   await tx`update partner_user set last_sign_in_at = ${now} where id = ${partnerUserId}`
 }
+
+/** A good code given to re-authenticate: the count starts again, the step can't be replayed, and one proof is kept (0024). */
+export const recordReauthCode = async (tx: ScopedSql, partnerUserId: string, step: number, proofHash: string, expiresAt: Date): Promise<void> => {
+  await tx`
+    update partner_user set failed_code_count = 0, last_code_step = ${step}, reauth_proof_hash = ${proofHash}, reauth_proof_expires_at = ${expiresAt}
+    where id = ${partnerUserId}
+  `
+}

@@ -404,10 +404,18 @@ The same email or phone may exist in any number of stores, as unrelated rows (AC
 api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, created_by_user_id,
             expires_at NULL, last_used_at, revoked_at NULL)
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
-support_session (id, store_id, partner_user_id, reason, access, started_at, expires_at,
-                 elevated_at NULL, elevation_approved_by NULL, ended_at NULL)
-                 -- partner support into a store (ACCESS.md §8). Partner users only:
-                 -- staff never open one, they impersonate (§8.1), so there is no agent kind
+support_session (id, partner_id, store_id, membership_id, partner_user_id, reason, ticket NULL,
+                 started_at, expires_at, ended_at NULL, ended_by_partner_user_id NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL)
+                 -- partner support into a store as one of its users (ACCESS.md §8). Partner
+                 -- users only: staff never open one, they impersonate (§8.1). Built on #202:
+                 -- one open per partner user and one per membership (partial unique indexes),
+                 -- 30 minutes; the partner inserts only its own, on a store allowing support
+                 -- (policy). `access`, `elevated_at` and `elevation_approved_by` arrive with
+                 -- the Store strand's Allow/Deny. The handoff as on partner_setup_session.
+partner_user.reauth_proof_hash, reauth_proof_expires_at
+                 -- the single-use proof `reauthenticate` issues (#202), spent by the
+                 -- app_definer function spend_partner_reauth(); no request role reads them
 
 impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, partner_id,
                  store_id NULL, reason, ticket NULL, started_at, expires_at, extended_at NULL,

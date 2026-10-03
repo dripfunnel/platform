@@ -826,6 +826,16 @@ Browser → https://<store's portal host>/support/enter?token=…
 - A partner's support session never reaches a store of another partner; the host check (§9
   check 0) and the partner check at opening both refuse it.
 
+**Built on #202** (the Platform API half; ui/platform/FIRST-RELEASE.md §16 lists the fields):
+the session is on one **membership**, so the agent acts as that user ("Priya as Jenna", §12 of
+the console's FIRST-RELEASE), one agent per user and one session per agent at a time;
+re-authentication (A2) is the partner user's 2-factor code, which buys a proof valid five
+minutes and spent by the one start it allows; the agent, or the partner's Owner or Admin, may
+end a session. Returning to a session mints a fresh link only while a start would still be
+allowed (support on, store not cancelled, user not suspended). Elevation, the exchange and the
+support caller stay with the Store strand; the exchange spends a link only while the start's
+codes still allow a session.
+
 ### 8.1 Staff impersonation (decided 2026-09-28, USERS-AND-DOMAINS §4.2)
 
 Staff sign in **as a specific user** with that user's full permissions. It is the only way
