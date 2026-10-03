@@ -51,8 +51,6 @@ const paths = {
 
 export const isPlatformAuthPath = (pathname: string): boolean => Object.values(paths).includes(pathname)
 
-export { lockMs, maxCodeTries } from '#auth/partnerCode'
-
 type Refusal =
   | { code: 'INVALID_CREDENTIALS' | 'CODE_EXPIRED' | 'NOT_CONNECTED' | 'RATE_LIMITED' }
   | { code: 'WRONG_CODE'; triesLeft?: number }
@@ -62,7 +60,6 @@ const json = (status: number, body: unknown, cookie?: string): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...(cookie ? { 'set-cookie': cookie } : {}) } })
 
 const refuse = (refusal: Refusal): Response => json(refusal.code === 'RATE_LIMITED' ? 429 : 401, { ok: false, ...refusal })
-
 
 const signInInput = z.strictObject({ email: z.string().max(320), password: z.string().max(1024), next: z.string().max(2048).optional() })
 const codeInput = z.strictObject({ code: z.string().max(16) })
