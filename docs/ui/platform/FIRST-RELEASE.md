@@ -870,7 +870,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   press that folds into one already queued is not logged again. `merchantDomains(after, before,
   first)` pages the partner's stores' domains, 25 at most, no total.
 - Waiting and failed addresses are re-checked every 10 minutes, and "We'll email you when it's live" is
-  `partner-domain-live` through the outbox.
+  `partner-domain-live` queued in the outbox; it's delivered once SES's `email` deliverer is
+  wired, as every email effect is.
 
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype

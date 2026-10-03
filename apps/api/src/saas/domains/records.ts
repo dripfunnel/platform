@@ -11,6 +11,14 @@ export interface PlannedRecord {
   expected: string
 }
 
+// Registrable two-level suffixes, so "northstar.co.uk" reads as bare like "northstar.com".
+const twoLevelSuffixes = ['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz', 'co.in', 'co.jp', 'com.br', 'com.mx', 'co.za', 'com.sg', 'com.my', 'com.ng', 'com.tr', 'co.kr']
+
+export const registrableLabels = (host: string): number => (twoLevelSuffixes.includes(host.split('.').slice(-2).join('.')) ? 3 : 2)
+
+/** A registrable domain itself, with no subdomain: "northstar.com", "northstar.co.uk". */
+export const isBareDomain = (host: string): boolean => host.split('.').length <= registrableLabels(host)
+
 /** A wildcard is checked through a probe name under it, since DNS answers for names, not patterns. */
 export const nameToResolve = (host: string): string => (host.startsWith('*.') ? `df-probe.${host.slice(2)}` : host)
 
@@ -42,7 +50,7 @@ export const ownershipRecord = (host: string, token: string): PlannedRecord => (
 export const recordMatches = (purpose: RecordPurpose, expected: string, found: string): boolean => {
   const value = found.trim().toLowerCase()
   if (purpose === 'spf') return value.startsWith('v=spf1') && value.split(/\s+/).includes(emailRecords.spfInclude)
-  if (purpose === 'dmarc') return value.startsWith('v=dmarc1')
+  if (purpose === 'dmarc') return /^v=dmarc1\s*(;|$)/.test(value)
   return value === expected.toLowerCase()
 }
 

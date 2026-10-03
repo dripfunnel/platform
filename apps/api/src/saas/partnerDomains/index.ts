@@ -9,7 +9,7 @@ import { withScope } from '#db/scoped/index'
 import { hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
-import { ownershipRecord, recordMatches, recordsFor } from '#saas/domains/index'
+import { isBareDomain, ownershipRecord, recordMatches, recordsFor, registrableLabels } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
@@ -26,11 +26,6 @@ export const merchantDomainPageSize = 25
 
 // Never a partner's own address (FIRST-RELEASE §9.2 "Use a domain your company owns").
 const dripfunnelDomains = ['dripfunnel.com', 'dripfunnel.net', 'dripfunnel-mail.com']
-// Registrable two-level suffixes, so "northstar.co.uk" reads as bare like "northstar.com".
-const twoLevelSuffixes = ['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz', 'co.in', 'co.jp', 'com.br', 'com.mx', 'co.za']
-
-const registrableLabels = (host: string): number => (twoLevelSuffixes.includes(host.split('.').slice(-2).join('.')) ? 3 : 2)
-const isBare = (host: string): boolean => host.split('.').length <= registrableLabels(host)
 const isOurs = (host: string): boolean => dripfunnelDomains.some((d) => host === d || host.endsWith(`.${d}`))
 const wildcardKinds: readonly DomainKind[] = ['preview', 'shops']
 
@@ -100,9 +95,9 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
     const base = typed.host
     if (isOurs(base)) return Promise.resolve({ ok: false, reason: 'DRIPFUNNEL_DOMAIN' })
     // A wildcard or the email sender on a bare domain would clash with the partner's website.
-    if ((wildcard || kind === 'email') && isBare(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
+    if ((wildcard || kind === 'email') && isBareDomain(base)) return Promise.resolve({ ok: false, reason: 'BARE_DOMAIN_FOR_WILDCARD' })
     const host = wildcard ? `*.${base}` : base
-    const apex = kind === 'portal' && isBare(base)
+    const apex = kind === 'portal' && isBareDomain(base)
     const pointing = recordsFor(kind, host, apex)
     if (!pointing) return Promise.resolve({ ok: false, reason: 'APEX_NOT_AVAILABLE' })
     // The token is the partner's proof of control: another partner's claim on the host never verifies.
