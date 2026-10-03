@@ -66,6 +66,10 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   `sent_back_reason`, `approved_at`, `paused_at`, `pause_reason`), the published look the admin
   console shows (`product_name`, colours, `powered_by`) and `fallback_sender_accepted`. PAPI 3
   adds the versioned branding and prices.
+- **Partner team** (`0022`, #199): `partner_user.status` gains `removed` (signed out, never signed
+  in again, still named in the log); a partner reads `two_factor_enrolled_at` and sets
+  `partner.second_factor_required`; `end_partner_user_sessions(user)` (owned by `app_definer`)
+  ends its own users' sessions, since a partner role never touches `partner_session`.
 - **Partner addresses' records** (`0020`, #197): `partner_domain_record` (domain, partner,
   position, `purpose` pointer | ownership | spf | dkim | dmarc, `record_type` CNAME | TXT | A,
   the name to resolve, `expected`, `found`, `checked_at`). The portal and wildcards have one

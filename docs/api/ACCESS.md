@@ -636,7 +636,10 @@ Accept: token + password (new) or token + signed-in session (existing)
 
 - **Resend** mints a fresh token; the previous one stops working.
 - **Revoke** sets the invitation `revoked`. An `invited` account with no other pending
-  invitation and no membership is deleted.
+  invitation and no membership is deleted. **A partner team (built on #199)** keeps the row
+  instead and marks it `removed`, since the activity log names it; inviting the address again
+  invites that account anew. Partner invitations and resends are throttled: 20 an hour per
+  inviter and 3 a day per address (`RATE_LIMITED`).
 - **Staff invitations** (admin console) work the same way, except that accepting binds the
   invitee's company SSO account instead of setting a password (ui/admin/FIRST-RELEASE.md §10).
 - **Expiry**: 7 days *(confirm)*; 7 days for staff (decided on #45). Pending invitations show their expiry; expired ones are
