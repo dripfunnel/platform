@@ -206,7 +206,10 @@ the password and 2-factor columns (**built on #156**, with `two_factor_enrolled_
 `failed_code_count`, `locked_until`, `last_code_step` beside them, granted to no request role,
 `partner.second_factor_required` for the Owner's switch, and `partner_session.stage` and
 `pending_secret_enc` for the step between password and code). **Built on #155**: `partner_session` as above, its hash
-read and written by `app_system` alone (no request role has a grant), and `remember` false:
+read and written by `app_system` alone (no request role has a grant). A partner adds team
+members and invitations by column only: never a password hash, a 2-factor secret, a lock
+column or an invitation token, which only sign-in and the deliverer write (as `app_system`).
+`remember` is false:
 the partner sign-in screen offers no "Remember me" (ui/platform/FIRST-RELEASE.md §3).
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
