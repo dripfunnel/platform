@@ -1013,7 +1013,10 @@ builds the table must ship:
   directly is refused by the grant, and the views return only the columns DATA-MODEL §7.11
   lists; a supplier switched `to-store → to-shopper` still sees nothing on orders placed
   before the switch; a `to-store` supplier never reads the store's onward shipment of its
-  lines (`fulfilment` with a null owner) (§7.3; DATA-MODEL §7.6, §7.11);
+  lines (`fulfilment` with a null owner); `app_supplier` selecting an `*_amount`, tax rate or
+  zone column of `order_line` is refused by the grant, and `order_line_for_supplier` returns
+  its own lines' unit and line amounts with the currency and never a discount, tax or total
+  (§7.3; DATA-MODEL §7.6, §7.11);
 - a supplier reading its own refunds never receives `by_user_id`, an override's `note`, a
   return's `note` or a ledger entry's `note` (DATA-MODEL §7.6, §5.3);
 - a shopper reads only visible catalogue rows and never a cost, a stock movement, a refund,
