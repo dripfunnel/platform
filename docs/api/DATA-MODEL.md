@@ -71,7 +71,7 @@ tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_s
   suspension's time, reason, who and **the status it had before**, so Restore returns to it),
   `plan_id`, `storefront_kind` (`ai` or `own`), `build_state`, `core_version`, last build and
   publish, and `support_access_allowed` (the merchant's standing consent, USERS-AND-DOMAINS §4.1,
-  a column rather than the `support_access_setting` table named above).
+  a column; there is no support-access table).
 - **Setup checklist**: the ten items of ui/platform/FIRST-RELEASE.md §4, one row each with
   status, detail and who did it (a partner user, or staff in a setup session). The admin console's
   "Owner accepted" is read from `partner_user.status`, not an item.
