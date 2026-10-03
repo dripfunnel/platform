@@ -1051,8 +1051,11 @@ builds the table must ship:
   `state`, `expires_at` or `file_asset_id` (the expiry is the column default, and a filer
   setting it is refused); a second filing for the same subject is accepted with the
   same response as the first (nothing reveals that a request exists) and the unverified ones
-  expire; no export is built until the engine verifies the code sent to that email, and the
-  file is reachable only by that customer or the request's token (DATA-MODEL §7.5, §7.11);
+  expire; a code verifies only the request whose token accompanies it, so the victim's own
+  code never fulfils the anonymous filer's request; a filer setting `requested_by`, `state`
+  or an unknown `kind` is refused; no export is built until the engine verifies the code
+  sent to that email, and the file is reachable only by that customer or the request's
+  token (DATA-MODEL §7.5, §7.11);
 - a shopper reads and writes `shopper_note` on its own cart and never reads `"order".notes`
   (DATA-MODEL §7.6);
 - **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any

@@ -853,7 +853,7 @@ customer_group_member (group_id, customer_id, store_id, added_at)   PRIMARY KEY 
                     -- OFFERS fact 12; a group in use by a promotion warns before deletion (flow 72)
 customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subject_phone NULL,
                      subject_verified_at, expires_at, access_token_hash NULL, kind ('export'|'delete'),
-                     requested_by ('customer'|'store'), state ('requested'|'ready'|'done'|'refused'),
+                     requested_by ('customer'|'store'), state ('requested'|'ready'|'done'|'refused') DEFAULT 'requested',
                      file_asset_id NULL, done_at)
                     -- access_token_hash: a guest reaches its own request only through the
                     -- token in the link it was sent (§7.11); never selected by a request role.
@@ -1369,8 +1369,15 @@ decide which columns and which tables each caller kind may select at all**. `app
   response, an unverified request expires after 24 hours (`expires_at` has `DEFAULT now() +
   interval '24 hours'`, `app_shop` has no write on it, and the `WITH CHECK` requires
   `subject_verified_at IS NULL AND state = 'requested'`, so a filer sets neither the expiry
-  nor the state), and verifying a code fulfils the newest unverified request for that
-  subject while the older ones lapse. No supplier branch.
+  nor the state). **Verification is bound to one request, not to the subject**: the code the
+  engine sends names the request's own token in its link, and verifying requires that token
+  and the code together, so a code fulfils only the request the person holds the link for;
+  another filer's request for the same email can never be fulfilled by the victim's code, and
+  lapses at its `expires_at`. The `WITH CHECK` also pins `requested_by = 'customer'` and `kind
+  IN ('export', 'delete')`, and `state` has `DEFAULT 'requested'`. After verification the
+  engine sets `expires_at` again, to the file's retention (7 days for an export, cleared for
+  a deletion once done), so the column always means "when this row stops mattering". No
+  supplier branch.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
