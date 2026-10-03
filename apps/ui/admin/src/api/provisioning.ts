@@ -2,12 +2,13 @@
 // app talks to the API about signup jobs, from the Provisioning list and the store's
 // Provisioning tab alike (decided on #43). What is stuck, and whether an action is allowed, is
 // the API's answer; the screens only render it.
-import { harnessEnabled } from '../harness'
-import type { StaffRole } from '../features/shell/staffRoles'
 import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
+import { z } from 'zod'
+import type { StaffRole } from '../features/shell/staffRoles'
+import { mutate, query } from './client'
+import { compactActions, filterOf, isoString, pageInfoSchema, permissionSchema, refSchema } from './decode'
 import type { ActionPermission } from './permissions'
-import { provisioningServer, type Pace } from './provisioningSample'
-import type { ProvisioningStep } from './provisioningSteps'
+import { provisioningSteps, type ProvisioningStep } from './provisioningSteps'
 
 // `cleaning` is Undo and clean up running its compensations in reverse (SAAS.md §5).
 export const jobStates = ['running', 'stuck', 'failed'] as const
@@ -16,7 +17,8 @@ export type JobState = (typeof jobStates)[number] | 'cleaning'
 export const jobActions = ['retry', 'undo'] as const
 export type JobAction = (typeof jobActions)[number]
 
-export type JobRefusal = 'RETRIERS_ONLY' | 'CLEANERS_ONLY' | 'JOB_RUNNING'
+export const jobRefusals = ['RETRIERS_ONLY', 'CLEANERS_ONLY', 'JOB_RUNNING'] as const
+export type JobRefusal = (typeof jobRefusals)[number]
 
 export type JobPermissions = Partial<Record<JobAction, ActionPermission<JobRefusal>>>
 
@@ -64,23 +66,59 @@ export const provisioningRoles: readonly StaffRole[] = ['staff-super-admin', 'st
 // The API's cap on a page; it answers with fewer when there are fewer.
 export const jobPageSize = 25
 
-const notConnected = () => Promise.reject(new Error('The Admin API has no provisioning queries yet (#37).'))
+const step = z.enum(provisioningSteps)
+const state = z.enum([...jobStates, 'cleaning'])
+const permission = permissionSchema(jobRefusals).nullable()
 
-// Seam: replace the sample with the Admin API's `provisioningJobs(filter, after, before)` and
-// `provisioningJob(id)` queries and the `retryJob` and `undoJob` mutations through
-// createApiClient from @dripfunnel/shared/graphql once #37 lands
-// (https://github.com/dripfunnel/platform/issues/37). Both mutations start a Cloudflare Workflow
-// and return before it ends; the job reports its progress on the next query. `caller` and `pace` stand in for the session and the Workflow's real timing, and go
-// with the sample. The sample is invented, so it appears only where the ?state= harness does.
-export const loadProvisioningJobs = (filter: JobFilter, page: PageRequest, caller: StaffRole): Promise<JobPage | null> =>
-  harnessEnabled ? Promise.resolve(provisioningServer.list(filter, page, jobPageSize, caller)) : notConnected()
+const jobSchema = z
+  .object({
+    id: z.string(),
+    store: z.object({ id: z.string(), name: z.string(), code: z.string() }),
+    partner: refSchema,
+    owner: z.object({ name: z.string(), email: z.string() }),
+    state,
+    steps: z.array(step),
+    step,
+    startedAt: isoString,
+    attempts: z.number().int().nonnegative(),
+    error: z.string().nullable(),
+    details: z.string().nullable(),
+    actions: z.object({ retry: permission, undo: permission }),
+  })
+  .transform((job): ProvisioningJob => ({ ...job, actions: compactActions(job.actions) }))
 
-export const loadJobProgress = (jobId: string): Promise<JobProgress | null> =>
-  harnessEnabled ? Promise.resolve(provisioningServer.progress(jobId)) : notConnected()
+const pageSchema = z.object({ provisioningJobs: z.object({ items: z.array(jobSchema), pageInfo: pageInfoSchema, partners: z.array(refSchema) }) })
+const progressSchema = z.object({ provisioningJob: z.object({ id: z.string(), state, step }).nullable() })
 
-export const retryJob = (jobId: string, pace: Pace): Promise<void> =>
-  harnessEnabled ? Promise.resolve(provisioningServer.retry(jobId, pace)) : notConnected()
+// `caller` only spares a role the API would refuse the round trip: it gets the page's no-access view.
+export const loadProvisioningJobs = async (filter: JobFilter, page: PageRequest, caller: StaffRole): Promise<JobPage | null> => {
+  if (!provisioningRoles.includes(caller)) return null
+  const { provisioningJobs } = await query(
+    `query Jobs($filter: ProvisioningFilter, $after: String, $before: String) {
+      provisioningJobs(filter: $filter, after: $after, before: $before) {
+        items {
+          id store { id name code } partner { id name } owner { name email } state steps step startedAt attempts error details
+          actions { retry { allowed reason failingChecks } undo { allowed reason failingChecks } }
+        }
+        pageInfo { startCursor endCursor hasPreviousPage hasNextPage } partners { id name }
+      }
+    }`,
+    pageSchema,
+    { filter: filterOf(filter, ['partner', 'status', 'step', 'q']), after: page.after, before: page.before },
+  )
+  return provisioningJobs
+}
+
+export const loadJobProgress = async (jobId: string): Promise<JobProgress | null> =>
+  (await query(`query Job($id: ID!) { provisioningJob(id: $id) { id state step } }`, progressSchema, { id: jobId })).provisioningJob
+
+// Both start the signup Workflow and return before it ends; the job reports on the next query.
+// Until that Workflow exists they refuse with NO_EXECUTOR (apps/api src/saas/provisioning/jobs.ts).
+export const retryJob = (jobId: string): Promise<void> => mutate('retryJob', 'retryJob(id: $id)', '($id: ID!)', { id: jobId })
 
 // Every console write is audited with a reason (AGENTS.md), so Undo asks for one (decided on #20).
-export const undoJob = (jobId: string, reason: string, pace: Pace): Promise<void> =>
-  harnessEnabled ? Promise.resolve(provisioningServer.undo(jobId, reason, pace)) : notConnected()
+export const undoJob = (jobId: string, reason: string): Promise<void> =>
+  mutate('undoJob', 'undoJob(id: $id, reason: $reason)', '($id: ID!, $reason: String!)', { id: jobId, reason })
+
+// The codes Retry and Undo can refuse with, each worded by the screens.
+export const jobFailureCodes = ['NO_EXECUTOR', 'JOB_RUNNING', 'NOT_FOUND', 'NOT_FAILED', 'REASON_REQUIRED', 'FORBIDDEN'] as const

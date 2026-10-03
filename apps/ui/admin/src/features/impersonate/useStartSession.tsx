@@ -31,7 +31,7 @@ export const useStartSession = (caller: StaffRole, meName: string) => {
   // Opens the session's tab again with a fresh link; the tab is reserved on the click.
   const returnTo = (sessionId: string) => {
     const tab = reservePortalTab()
-    returnToSession(sessionId, caller)
+    returnToSession(sessionId)
       .then((result) => {
         if (!result.ok) {
           tab.close()

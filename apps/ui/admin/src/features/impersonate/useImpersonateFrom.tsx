@@ -1,4 +1,4 @@
-import { loadTarget } from '../../api/impersonation'
+import { loadTarget, type TargetPlace } from '../../api/impersonation'
 import type { StaffRole } from '../shell/staffRoles'
 import { useStartSession } from './useStartSession'
 
@@ -6,8 +6,8 @@ import { useStartSession } from './useStartSession'
 // place they were picked in, so the flow skips "Where should you act?".
 export const useImpersonateFrom = (caller: StaffRole, meName: string) => {
   const flow = useStartSession(caller, meName)
-  const impersonate = (membershipId: string) =>
-    void loadTarget(membershipId, caller)
+  const impersonate = (membershipId: string, place: TargetPlace) =>
+    void loadTarget(membershipId, place)
       .then((target) => target && flow.start({ kind: 'impersonation', target, membershipId }))
       .catch(() => undefined)
   return { start: flow.start, impersonate, element: flow.element }

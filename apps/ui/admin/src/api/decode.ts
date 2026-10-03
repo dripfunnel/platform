@@ -37,3 +37,8 @@ export const compactActions = <T extends Record<string, unknown>>(actions: T): {
 export const hostStatuses = ['waiting', 'verifying', 'issuing', 'live', 'failed', 'expiring', 'broken', 'notSet'] as const
 export type HostStatus = (typeof hostStatuses)[number]
 export const hostStatusSchema = z.enum(hostStatuses)
+
+// A filter as the API's input type declares it: a key the address carried for something else
+// (?state=, the harness's) would be refused as an unknown field.
+export const filterOf = <Filter extends object, Key extends keyof Filter>(filter: Filter, keys: readonly Key[]): Partial<Pick<Filter, Key>> =>
+  Object.fromEntries(keys.flatMap((key) => (filter[key] === undefined ? [] : [[key, filter[key]]]))) as Partial<Pick<Filter, Key>>

@@ -34,7 +34,7 @@ export const useSessionActions = (caller: StaffRole, onChanged: () => void) => {
 
   const run = ({ action, session }: Pending) => {
     setPending(null)
-    const request = action === 'end' ? endSession(session.id, caller) : extendImpersonation(session.id, caller)
+    const request = action === 'end' ? endSession(session.id) : extendImpersonation(session.id)
     request
       .then((result) => {
         if (!result.ok) setToast(refusalText(result.reason))

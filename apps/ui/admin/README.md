@@ -26,9 +26,13 @@ shape fails with the code `BAD_RESPONSE`. Errors are handled by their stable cod
 (docs/ui/README.md §3): `features/common/RouteError.tsx` maps a loader failure
 (`UNAUTHENTICATED` → sign-in, `FORBIDDEN` → the screen's denied view, else its error state with
 the code behind "Technical details") and `features/common/failure.ts` words a refused write
-from `messages.common.failures`. Dashboard, Partners, Stores and the header read the real API
-since #41; Provisioning, Customers, Impersonate, Activity and Staff still read their samples
-until their own cards land (#36–#40).
+from `messages.common.failures`. Every screen reads the real API: Dashboard, Partners, Stores
+and the header since #41; Customers, Provisioning, Activity log, Staff and Impersonate since
+#68. Each `src/api/<area>.ts` sends only the filter keys the API declares (`filterOf`), so a
+harness key in the address never reaches a query. When the API doesn't answer, the shell shows
+its load error (`ShellError`). The samples (`*Sample.ts`) remain only as the screen tests'
+fixtures. A `?state=` that asked the sample for another role (`denied`, a refusal on a row) no
+longer can: sign in as that role with a local session (below) to see it.
 
 **A local session.** Sign-in needs the Entra registration, so against the local database
 create a session for a seeded staff member and set the cookie it prints on
@@ -80,8 +84,7 @@ total: the API pages by cursor (§12). States: the list takes `?state=loading`, 
 `confirm`. `denied` shows the API's record with every action refused by the role code the API
 gives that action (`partnerHarness.ts`). `/stores` and `/stores/<id>` work the same way through
 `src/api/stores.ts` (`storeHarness.ts`); `src/api/partnersSample.ts` and `storesSample.ts`
-remain only as the screen tests' fixtures and as seeds for the samples of the areas still
-waiting for their API.
+remain only as the screen tests' fixtures.
 
 ## Impersonate
 
@@ -89,8 +92,11 @@ waiting for their API.
 `/impersonate/sessions` shows both kinds of staff session and `/impersonate/sessions/<id>` one
 of them. One start flow (`StartSessionDialog`) serves Impersonate, a partner's Team tab, a
 store's Users tab and a partner's setup entry. Everything goes through
-`src/api/impersonation.ts`, on a server-shaped sample until #40. A started session opens the
-store portal (port 5173) or the partner console (port 5174) in a new tab. States: Users takes
+`src/api/impersonation.ts` (#40's queries and mutations). A started session opens the store
+portal (port 5173) or the partner console (port 5174) in a new tab. The start asks the API
+first; when it answers `REAUTH_REQUIRED` (no fresh company sign-in in the last 5 minutes), the
+same new tab runs the SSO re-authentication (`/api/auth/reauth`) and the start is asked again,
+so the dialog keeps its place. Without Entra settings the local Worker refuses that sign-in. States: Users takes
 `?state=loading`, `empty`, `error`, `denied`, `nomatch`, `reauthFailed` and `reauthCancelled`;
 Sessions takes `loading`, `empty`, `error` and `denied`.
 

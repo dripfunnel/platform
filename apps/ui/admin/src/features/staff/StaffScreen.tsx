@@ -34,17 +34,17 @@ export const StaffScreen = () => {
 
   const run = (kind: StaffDialogKind, member: StaffMember | null, email: string | null, role: string | null): Promise<StaffResult> => {
     const picked = role !== null && isStaffRole(role) ? role : null
-    if (kind === 'invite') return email && picked ? inviteStaff(email, picked, caller) : Promise.reject(new Error('Invite needs an email and a role.'))
+    if (kind === 'invite') return email && picked ? inviteStaff(email, picked) : Promise.reject(new Error('Invite needs an email and a role.'))
     if (!member) return Promise.reject(new Error(`${kind} needs a staff member.`))
     switch (kind) {
       case 'changeRole':
-        return picked ? changeStaffRole(member.id, picked, caller) : Promise.reject(new Error('Change role needs a role.'))
+        return picked ? changeStaffRole(member.id, picked) : Promise.reject(new Error('Change role needs a role.'))
       case 'remove':
-        return removeStaff(member.id, caller)
+        return removeStaff(member.id)
       case 'resend':
-        return resendStaffInvite(member.id, caller)
+        return resendStaffInvite(member.id)
       case 'revoke':
-        return revokeStaffInvite(member.id, caller)
+        return revokeStaffInvite(member.id)
     }
   }
 

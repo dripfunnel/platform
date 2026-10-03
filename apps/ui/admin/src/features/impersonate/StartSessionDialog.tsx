@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
 import {
   endSession,
   loadMySessions,
-  reauthenticate,
   returnToSession,
   startImpersonation,
   startSetupSession,
@@ -65,7 +64,7 @@ export const StartSessionDialog = ({ subject, caller, meName, simulate, onClose,
     setStep(null)
     if (!dialog.open) dialog.showModal()
     let current = true
-    loadMySessions(caller)
+    loadMySessions()
       .then((sessions) => {
         if (!current) return
         setMine(sessions)
@@ -104,34 +103,42 @@ export const StartSessionDialog = ({ subject, caller, meName, simulate, onClose,
     onClose()
   }
 
+  // Started without a new sign-in when the last one is fresh; otherwise the API answers
+  // REAUTH_REQUIRED, the sign-in runs in the reserved tab, and the start is asked again.
   const confirm = () => {
     const tab = reservePortalTab()
-    setStep('reauth')
     const cleanTicket = ticket.trim() === '' ? null : ticket.trim()
-    reauthenticate(simulate)
-      .then((proof) => {
-        if (!proof.ok) return fail(proof.outcome === 'failed' ? words.reauthFailed : words.reauthCancelled, true, tab)
-        const start =
-          subject.kind === 'impersonation' && membershipId
-            ? startImpersonation(subject.target.id, membershipId, reason, cleanTicket, proof.proof, caller)
-            : subject.kind === 'setup'
-              ? startSetupSession(subject.partner.id, reason, cleanTicket, proof.proof, caller)
-              : null
-        return start?.then((result) => finish(result, tab))
+    const start = (): Promise<StartResult> | null =>
+      subject.kind === 'impersonation' && membershipId
+        ? startImpersonation(subject.target.id, membershipId, reason, cleanTicket)
+        : subject.kind === 'setup'
+          ? startSetupSession(subject.partner, reason, cleanTicket, meName)
+          : null
+    const signIn = (): Promise<Reauth> => (simulate ? Promise.resolve(simulate) : tab.reauthenticate())
+    setStep('reauth')
+    const first = simulate ? Promise.resolve<StartResult>({ ok: false, reason: 'REAUTH_REQUIRED' }) : start()
+    first
+      ?.then(async (result) => {
+        if (result.ok || result.reason !== 'REAUTH_REQUIRED') return finish(result, tab)
+        if (tab.blocked && !simulate) return fail(words.reauthBlocked, true, tab)
+        const fresh = await signIn()
+        if (!fresh.ok) return fail(fresh.outcome === 'failed' ? words.reauthFailed : words.reauthCancelled, true, tab)
+        const again = await start()
+        if (again) finish(again, tab)
       })
       .catch(() => fail(messages.impersonate.toasts.failed, true, tab))
   }
 
   const returnTo = (id: string) => {
     const tab = reservePortalTab()
-    returnToSession(id, caller)
+    returnToSession(id)
       .then((result) => finish(result, tab))
       .catch(() => fail(messages.impersonate.toasts.failed, false, tab))
   }
 
   const endOther = () => {
     if (!other) return
-    endSession(other.id, caller)
+    endSession(other.id)
       .then((result) => {
         if (!result.ok) return fail(refusalText(result.reason), false)
         sessionsChanged()

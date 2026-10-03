@@ -92,8 +92,3 @@
   background: var(--df-color-danger-surface);
   color: var(--df-color-danger);
 }
-
-.df-shell-error {
-  width: min(560px, 100% - 32px);
-  margin: var(--df-space-6) auto;
-}

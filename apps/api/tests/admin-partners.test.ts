@@ -28,7 +28,7 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
     staff,
     isAssigned: assigned,
     staffActivity: null,
-    partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
+    partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: 'platform.dripfunnel.test', now: () => now }) : null,
     stores: null,
     provisioning: null,
     staffSessions: null,
@@ -362,17 +362,19 @@ describe('setup sessions (ACCESS.md §8.2, §8.3)', () => {
 
     const started = (await run<Started>(start, as('staff-super-admin'), { id: tallis, reason: 'Finish the checklist' })).data?.startPartnerSetupSession
     expect(started).toMatchObject({ ok: true, code: null })
-    expect(started?.handoff).toMatch(/^[0-9a-f]{64}$/)
+    // The link the new tab opens, on the partner console, as for an impersonation (ACCESS.md §8.1, §8.2).
+    expect(started?.handoff).toMatch(/^https:\/\/platform\.dripfunnel\.test\/impersonate\/enter\?token=[0-9a-f]{64}$/)
+    const token = new URL(started?.handoff ?? 'https://x').searchParams.get('token') ?? ''
     expect(started?.expiresAt).toBe(new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString())
     // The token is nowhere but the answer: the row holds a hash, which no request may even read.
     const [row] = await db.sql<{ handoff_hash: string }[]>`select handoff_hash from partner_setup_session where id = ${started?.sessionId ?? ''}`
-    expect(row?.handoff_hash).not.toBe(started?.handoff)
+    expect(row?.handoff_hash).not.toBe(token)
     await expect(db.sql.begin(async (tx) => {
       await tx`set local role app_platform`
       await tx`select set_config('app.scope', 'platform', true)`
       return tx`select handoff_hash from partner_setup_session`
     })).rejects.toThrow(/permission denied/i)
-    expect(JSON.stringify(await db.sql`select * from activity_log where action = ${partnerAudit.startPartnerSetupSession}`)).not.toContain(started?.handoff ?? 'nothing')
+    expect(JSON.stringify(await db.sql`select * from activity_log where action = ${partnerAudit.startPartnerSetupSession}`)).not.toContain(token || 'nothing')
 
     expect((await run<Started>(start, as('staff-super-admin'), { id: tallis, reason: 'again' })).data?.startPartnerSetupSession).toMatchObject({ ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' })
 
@@ -491,6 +493,7 @@ describe('the service enforces the assignment itself (ACCESS.md §5.4)', () => {
       facts: factsOf(request),
       activity: activityLog,
       isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
+      platformHost: 'platform.dripfunnel.test',
       now: () => now,
     })
     expect(await service.get(northstar)).toBeNull()

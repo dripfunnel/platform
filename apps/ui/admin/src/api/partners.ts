@@ -210,7 +210,8 @@ const rowFields = {
 
 const rowSchema = z.object(rowFields)
 
-const partnerRoles: Record<string, PartnerUserRole> = {
+// The API's role keys for a partner user (ACCESS.md §5.3), shared with the staff-session decoders.
+export const partnerRoleOfKey: Record<string, PartnerUserRole> = {
   'partner-owner': 'owner',
   'partner-admin': 'admin',
   'partner-support': 'support',
@@ -221,7 +222,7 @@ const partnerRoles: Record<string, PartnerUserRole> = {
 const teamMember = z
   .object({ id: z.string(), name: z.string(), email: z.string(), role: z.string(), status: z.enum(['active', 'invited', 'suspended']), lastSignInAt: isoString.nullable() })
   .transform((u, ctx): PartnerUser => {
-    const role = partnerRoles[u.role]
+    const role = partnerRoleOfKey[u.role]
     if (!role) {
       ctx.addIssue({ code: 'custom', message: `unknown partner role ${u.role}` })
       return z.NEVER

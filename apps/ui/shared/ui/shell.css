@@ -576,3 +576,9 @@
   color: var(--df-color-text);
   font-family: var(--df-font);
 }
+
+/* The shell's load error, on the signed-out frame: the console couldn't learn who is signed in. */
+.df-shell-error {
+  width: min(560px, 100% - 32px);
+  margin: var(--df-space-6) auto;
+}

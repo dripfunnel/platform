@@ -1,5 +1,5 @@
 import type { ActivityChange, ActivityEntry } from '../../api/activity'
-import { activityActions } from '../../api/activityActions'
+import { activityActions, isActionCode } from '../../api/activityActions'
 import { fill, messages } from '../../messages'
 
 const words = messages.activity
@@ -12,14 +12,17 @@ export const whoOf = (entry: ActivityEntry): string => {
 }
 
 // The plain-words sentence for an entry, never its code (LOGGING.md §7).
+// A code without words reads as the actor and the code itself, so no entry ever disappears.
 export const actionText = (entry: ActivityEntry): string => {
-  const text = fill(words.actions[entry.action], {
+  const { action } = entry
+  if (!isActionCode(action)) return fill(entry.target ? words.row.unknownWithTarget : words.row.unknown, { actor: whoOf(entry), code: action, target: entry.target?.label ?? '' })
+  const text = fill(words.actions[action], {
     actor: whoOf(entry),
     target: entry.target?.label ?? '',
     store: entry.store?.name ?? '',
     partner: entry.partner?.name ?? '',
   })
-  const worded = ['write', 'support'].includes(activityActions[entry.action].category)
+  const worded = ['write', 'support'].includes(activityActions[action].category)
   if (!worded || entry.result === 'success') return text
   return fill(entry.result === 'denied' ? words.row.refused : words.row.failed, { text })
 }

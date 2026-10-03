@@ -69,7 +69,7 @@ export const PartnerDetailScreen = () => {
         readOnly={me.role === 'staff-read-only' || forced === 'readonly'}
         onAction={onAction}
         onRecheck={onRecheck}
-        onImpersonate={sessions.impersonate}
+        onImpersonate={(id) => partner && sessions.impersonate(id, { email: partner.team.find((person) => person.id === id)?.email ?? '', partner: partner.id })}
         onReload={() => void router.invalidate()}
         activity={
           partner && (

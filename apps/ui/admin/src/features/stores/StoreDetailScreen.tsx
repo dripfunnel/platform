@@ -12,7 +12,7 @@ import { callerFor } from '../common/harnessCaller'
 import { RouteError } from '../common/RouteError'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
-import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
+import { jobFailureWords, useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
 import { deniedStore, storeStates } from './storeHarness'
@@ -72,7 +72,7 @@ export const StoreDetailScreen = () => {
     setPending(null)
     if (next.kind === 'job') {
       if (!target.job) return
-      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch(failed)
+      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch((error: unknown) => setToast(jobFailureWords(error)))
       return
     }
     runStoreAction(target.id, next.action, reason, value)
@@ -118,7 +118,7 @@ export const StoreDetailScreen = () => {
         onJob={(action) => setPending({ kind: 'job', action })}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
-        onImpersonate={sessions.impersonate}
+        onImpersonate={(id) => store && sessions.impersonate(id, { email: store.users.find((user) => user.id === id)?.email ?? '', store: store.id })}
         customers={{
           filter: customerFilter,
           page: { after, before },

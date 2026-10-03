@@ -15,7 +15,7 @@ export const useActivityPage = (filter: ActivityFilter, page: PageRequest, calle
   useEffect(() => {
     let current = true
     setResult({ kind: 'loading' })
-    loadActivity(filter, page, caller)
+    loadActivity(filter, page)
       .then((loaded) => current && setResult({ kind: 'ready', page: loaded }))
       .catch(() => current && setResult({ kind: 'error' }))
     return () => {

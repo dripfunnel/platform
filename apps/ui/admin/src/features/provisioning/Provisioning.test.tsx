@@ -60,13 +60,12 @@ describe('Provisioning', () => {
     expect(textOf(await render({ page: pageFor('staff-support') }))).toContain('Only a Super admin or the Engineer on call can undo a failed signup.')
   })
 
-  it('keeps the sample pace and the filters on the next page', async () => {
+  it('keeps the filters on the next page', async () => {
     const page = createProvisioningServer(createStoresServer(sampleStores).signups, noop).list({ partner: 'df' }, {}, 1, 'staff-super-admin')
-    const html = await render({ page, filter: { partner: 'df' } }, '/provisioning?partner=df&pace=fast')
+    const html = await render({ page, filter: { partner: 'df' } }, '/provisioning?partner=df')
     const next = [...html.matchAll(/href="([^"]*)"/g)].map((match) => (match[1] ?? '').replace(/&amp;/g, '&')).find((href) => href.includes('after=')) ?? ''
     expect(next.startsWith('/provisioning?')).toBe(true)
     expect(next).toContain('partner=df')
-    expect(next).toContain('pace=fast')
   })
 
   it('says it is good news when nothing is running or failing', async () => {

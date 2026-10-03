@@ -74,7 +74,12 @@
       "openSessions": "{count} open now"
     },
     "placeholder": "This screen isn't built yet.",
-    "signedOut": "Your session ended. Sign in again."
+    "signedOut": "Your session ended. Sign in again.",
+    "loadError": {
+      "title": "We couldn’t load the admin console",
+      "body": "The admin service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    }
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -1317,6 +1322,14 @@
       "undo": "Cleaning up {name}.",
       "undone": "{name} is cleaned up. The merchant can sign up again.",
       "failed": "That didn't work. Nothing was changed. Try again."
+    },
+    "refused": {
+      "NO_EXECUTOR": "Retry and Undo can’t run yet: the signup Workflow that does them isn’t built. Nothing was changed.",
+      "JOB_RUNNING": "This job is already running. Wait for it to finish.",
+      "NOT_FOUND": "This job has finished or was removed. Nothing was changed.",
+      "NOT_FAILED": "This job hasn’t failed, so there’s nothing to retry. Nothing was changed.",
+      "REASON_REQUIRED": "Add a reason to undo this signup.",
+      "FORBIDDEN": "Your role can’t do this. Nothing was changed."
     }
   },
   "activity": {
@@ -1437,7 +1450,9 @@
       "detailsLabel": "Details of the entry at {time}",
       "withReason": "{text}: {reason}",
       "refused": "{text} (refused)",
-      "failed": "{text} (failed)"
+      "failed": "{text} (failed)",
+      "unknown": "{actor}: {code}",
+      "unknownWithTarget": "{actor}: {code} on {target}"
     },
     "facts": {
       "exactTime": "Exact time",
@@ -1544,7 +1559,60 @@
       "billing.payment_failed": "A card payment for {store} failed",
       "security.sign_in_blocked": "Sign-in to {store} blocked after repeated wrong passwords",
       "security.tenant_crossing": "{actor} tried to reach {target}, outside their account",
-      "security.authorization_denied": "{actor} was refused an action at {target}"
+      "security.authorization_denied": "{actor} was refused an action at {target}",
+      "staff.sign_in_refused": "Refused sign-in for {actor}",
+      "staff.invitation_accepted": "{actor} accepted the staff invitation",
+      "partner.manager_assigned": "{actor} assigned a partner manager to {target}",
+      "partner.manager_unassigned": "{actor} removed a partner manager from {target}",
+      "partner.invitation_sent": "{actor} sent the Owner invitation for {target}",
+      "partner.invitation_resent": "{actor} resent the Owner invitation for {target}",
+      "partner.approval_recorded": "{actor} recorded an approval step for {target}",
+      "partner.domain_recheck_requested": "{actor} asked to recheck {target}",
+      "partner.set_up": "{actor} finished setting up {target}",
+      "partner.offboarding": "{actor} started offboarding {target}",
+      "partner.closed": "{actor} closed {target}",
+      "store.note_added": "{actor} added a note to {target}",
+      "staff_session.link_reissued": "{actor} reissued the session link for {target}",
+      "partner_user.signed_out": "{actor} signed out of the partner console",
+      "partner_user.sign_in_refused": "Refused partner sign-in for {actor}",
+      "partner_user.sign_in_locked": "Partner sign-in locked for {actor} after wrong codes",
+      "partner_user.second_factor_enrolled": "{actor} set up 2-factor",
+      "partner_user.second_factor_refused": "A wrong 2-factor code for {actor}",
+      "partner_user.reauthenticated": "{actor} confirmed their identity again",
+      "partner_user.invitation_accepted": "{actor} accepted the invitation to {partner}",
+      "partner_user.password_reset_requested": "A password reset was asked for {actor}",
+      "partner_user.password_reset": "{actor} reset their password",
+      "partner_user.invited": "{actor} invited {target} to the team",
+      "partner_user.role_changed": "{actor} changed the role of {target}",
+      "partner_user.removed": "{actor} removed {target} from the team",
+      "partner_user.invitation_resent": "{actor} resent the invitation to {target}",
+      "partner_user.invitation_revoked": "{actor} revoked the invitation to {target}",
+      "partner.ownership_transferred": "{actor} transferred ownership of {partner} to {target}",
+      "partner.second_factor_policy_set": "{actor} changed the 2-factor rule for {partner}",
+      "partner.domain_added": "{actor} added the address {target}",
+      "branding.published": "{actor} published the branding of {partner}",
+      "branding.file_uploaded": "{actor} uploaded a brand file for {partner}",
+      "plan.updated": "{actor} changed the {target} plan",
+      "plan.made_live": "{actor} made the {target} plan live",
+      "plan.retired": "{actor} retired the {target} plan",
+      "store.created": "{actor} created {target}",
+      "store.plan_changed": "{actor} changed the plan of {target}",
+      "store.limit_override_added": "{actor} raised a limit for {target}",
+      "store.limit_override_removed": "{actor} removed a raised limit from {target}",
+      "store.billing_status_set": "{actor} set the billing status of {target}",
+      "store.setup_step_retried": "{actor} retried a setup step for {target}",
+      "store.invitation_resent": "{actor} resent the owner invitation for {target}",
+      "store.domain_recheck_requested": "{actor} asked to recheck the domain of {target}",
+      "stores.exported": "{actor} exported the store list",
+      "support_session.ended": "{actor} ended a support session in {target}",
+      "support_session.link_reissued": "{actor} reissued a support session link for {target}",
+      "partner.domain_status_changed": "The address {target} changed status",
+      "store.domain_status_changed": "The domain of {store} changed status",
+      "store.suspension_flagged_for_review": "{store} was flagged for a suspension review",
+      "store.trial_started": "{target} started its trial",
+      "store.activated": "{target} became active",
+      "store.past_due": "{target} went past due",
+      "store.cancelled": "{target} was cancelled"
     },
     "actionNames": {
       "staff.signed_in": "Staff signed in",
@@ -1599,7 +1667,60 @@
       "billing.payment_failed": "Payment failed",
       "security.sign_in_blocked": "Sign-in blocked",
       "security.tenant_crossing": "Tenant crossing refused",
-      "security.authorization_denied": "Action refused"
+      "security.authorization_denied": "Action refused",
+      "staff.sign_in_refused": "Sign-in refused",
+      "staff.invitation_accepted": "Staff invitation accepted",
+      "partner.manager_assigned": "Partner manager assigned",
+      "partner.manager_unassigned": "Partner manager removed",
+      "partner.invitation_sent": "Owner invitation sent",
+      "partner.invitation_resent": "Owner invitation resent",
+      "partner.approval_recorded": "Approval step recorded",
+      "partner.domain_recheck_requested": "Partner domain recheck",
+      "partner.set_up": "Partner set up",
+      "partner.offboarding": "Partner offboarding",
+      "partner.closed": "Partner closed",
+      "store.note_added": "Store note added",
+      "staff_session.link_reissued": "Session link reissued",
+      "partner_user.signed_out": "Partner sign-out",
+      "partner_user.sign_in_refused": "Partner sign-in refused",
+      "partner_user.sign_in_locked": "Partner sign-in locked",
+      "partner_user.second_factor_enrolled": "2-factor set up",
+      "partner_user.second_factor_refused": "2-factor code refused",
+      "partner_user.reauthenticated": "Partner re-authentication",
+      "partner_user.invitation_accepted": "Partner invitation accepted",
+      "partner_user.password_reset_requested": "Password reset asked",
+      "partner_user.password_reset": "Password reset",
+      "partner_user.invited": "Team member invited",
+      "partner_user.role_changed": "Team role changed",
+      "partner_user.removed": "Team member removed",
+      "partner_user.invitation_resent": "Team invitation resent",
+      "partner_user.invitation_revoked": "Team invitation revoked",
+      "partner.ownership_transferred": "Ownership transferred",
+      "partner.second_factor_policy_set": "2-factor rule changed",
+      "partner.domain_added": "Partner address added",
+      "branding.published": "Branding published",
+      "branding.file_uploaded": "Brand file uploaded",
+      "plan.updated": "Plan changed",
+      "plan.made_live": "Plan made live",
+      "plan.retired": "Plan retired",
+      "store.created": "Store created",
+      "store.plan_changed": "Store plan changed",
+      "store.limit_override_added": "Limit raised",
+      "store.limit_override_removed": "Raised limit removed",
+      "store.billing_status_set": "Billing status set",
+      "store.setup_step_retried": "Setup step retried",
+      "store.invitation_resent": "Store owner invitation resent",
+      "store.domain_recheck_requested": "Store domain recheck",
+      "stores.exported": "Stores exported",
+      "support_session.ended": "Support session ended",
+      "support_session.link_reissued": "Support link reissued",
+      "partner.domain_status_changed": "Partner address status",
+      "store.domain_status_changed": "Store domain status",
+      "store.suspension_flagged_for_review": "Suspension review flagged",
+      "store.trial_started": "Trial started",
+      "store.activated": "Store active",
+      "store.past_due": "Store past due",
+      "store.cancelled": "Store cancelled"
     }
   },
   "staff": {
@@ -1645,7 +1766,9 @@
       "SAME_ROLE": "{name} already has that role.",
       "NOT_PENDING": "{name} has already accepted the invitation.",
       "PENDING_INVITATION": "{name} hasn’t accepted yet. Revoke the invitation instead.",
-      "NOT_FOUND": "{name} is no longer on staff. The list is up to date now."
+      "NOT_FOUND": "{name} is no longer on staff. The list is up to date now.",
+      "INVALID_INPUT": "That email or role isn’t one the console accepts. Check it and try again.",
+      "RATE_LIMITED": "Too many invitations in a short time. Wait a few minutes, then try again."
     },
     "dialogs": {
       "cancel": "Cancel",
@@ -1804,7 +1927,9 @@
       "SESSION_EXPIRED": "This session has already expired.",
       "NOT_FOUND": "That session or user no longer exists.",
       "setupRole": "Only a Super admin or Partner manager can set up partners.",
-      "setupClosed": "{partner} is closed. Closed partners can’t be set up."
+      "setupClosed": "{partner} is closed. Closed partners can’t be set up.",
+      "SUPPLIER_NOT_SUPPORTED": "Supplier users can’t be acted as yet. That arrives with the merchant portal.",
+      "INVALID_INPUT": "That reason or ticket isn’t one the console accepts. Check it and try again."
     },
     "empty": {
       "title": "No one to impersonate yet",
@@ -2015,7 +2140,8 @@
       "confirmReauth": "Confirm with your company sign-in",
       "reauthWaiting": "Waiting for your company sign-in…",
       "reauthFailed": "We couldn’t confirm it’s you with your company sign-in. Nothing started.",
-      "reauthCancelled": "You cancelled the company sign-in. Nothing started."
+      "reauthCancelled": "You cancelled the company sign-in. Nothing started.",
+      "reauthBlocked": "Your browser blocked the tab for your company sign-in. Allow pop-ups for this console, then try again. Nothing started."
     }
   }
 }

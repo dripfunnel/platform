@@ -1,9 +1,8 @@
-import { useRouter, useRouterState } from '@tanstack/react-router'
+import { useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { loadJobProgress, retryJob, undoJob, type JobAction, type JobProgress } from '../../api/provisioning'
-import { paces, type Pace } from '../../api/provisioningSample'
+import { isApiError } from '../../api/client'
+import { jobFailureCodes, loadJobProgress, retryJob, undoJob, type JobAction, type JobProgress } from '../../api/provisioning'
 import { fill, messages } from '../../messages'
-import { harnessEnabled } from '../../harness'
 import type { JobTarget } from './jobDialog'
 
 const words = messages.provisioning
@@ -21,14 +20,6 @@ export type JobOutcome = 'retried' | 'failedAgain' | 'undone'
 
 const isActive = (job: JobOnScreen) => job.state === 'running' || job.state === 'cleaning'
 
-// ?pace=fast|normal|slow sets how long the sample Workflow takes over each step; it goes with
-// the sample.
-const usePace = (): Pace => {
-  const searchStr = useRouterState({ select: (state) => state.location.searchStr })
-  const pace = new URLSearchParams(searchStr).get('pace')
-  return harnessEnabled ? (paces.find((candidate) => candidate === pace) ?? 'normal') : 'normal'
-}
-
 interface Watched {
   action: JobAction
   name: string
@@ -39,7 +30,6 @@ interface Watched {
 // filtered or paged list can drop a job that is still running.
 export const useJobRuns = (jobs: readonly JobOnScreen[], onOutcome: (outcome: JobOutcome, message: string) => void) => {
   const router = useRouter()
-  const pace = usePace()
   const watched = useRef(new Map<string, Watched>())
   const [watching, setWatching] = useState(0)
 
@@ -73,14 +63,20 @@ export const useJobRuns = (jobs: readonly JobOnScreen[], onOutcome: (outcome: Jo
   // Resolves with what to tell staff once the Workflow has started; the outcome comes later.
   const run = useCallback(
     async (action: JobAction, jobId: string, target: JobTarget, reason: string | null) => {
-      await (action === 'undo' ? undoJob(jobId, reason ?? '', pace) : retryJob(jobId, pace))
+      await (action === 'undo' ? undoJob(jobId, reason ?? '') : retryJob(jobId))
       watched.current.set(jobId, { action, name: target.name })
       setWatching(watched.current.size)
       await router.invalidate()
       return fill(action === 'undo' ? words.toasts.undo : words.toasts.retry, { name: target.name, step: words.steps[target.step] })
     },
-    [pace, router],
+    [router],
   )
 
   return { run }
+}
+
+// What to tell staff when Retry or Undo was refused: by the API's code, never its message.
+export const jobFailureWords = (error: unknown): string => {
+  const code = jobFailureCodes.find((candidate) => isApiError(error, candidate))
+  return code ? words.refused[code] : words.toasts.failed
 }

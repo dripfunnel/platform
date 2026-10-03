@@ -199,6 +199,8 @@ export interface PartnersServiceDeps {
   facts: RequestFacts
   activity: ActivityLog
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
+  /** The partner console's host, where a setup session's handoff link opens (ACCESS.md §8.2). */
+  platformHost: string
   now: () => Date
 }
 
@@ -566,7 +568,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       // Two starts at once: the partial unique index decides, and the loser gets the same code.
       if (!sessionId) return { ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' }
       await activity.record(tx, entry(partner, partnerAudit.startPartnerSetupSession, parsed.data, { access: { kind: 'setup_session', id: sessionId } }))
-      return { ok: true, sessionId, expiresAt, handoff: token }
+      return { ok: true, sessionId, expiresAt, handoff: `https://${deps.platformHost}/impersonate/enter?token=${encodeURIComponent(token)}` }
     })
   }
 
