@@ -16,7 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
-import { writeVersionRows, type Entitlements, type NewPlanVersion, type PlanVersionPrice } from './plans'
+import { writeVersionRows, type Entitlements, type PlanVersionPrice } from './plans'
 import { maxPageSize, pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
@@ -172,10 +172,9 @@ export interface NewPlan {
   maxStaff?: number | null
   prices?: readonly PlanVersionPrice[]
   entitlements?: Entitlements | null
-  by?: NewPlanVersion['by']
 }
 
-/** A plan and its first version, in one transaction (DATA-MODEL.md §2.3); no prices or values means "Not priced". */
+/** A plan, its first version (written by the table's trigger) and that version's prices and values (DATA-MODEL.md §2.3). */
 export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> => {
   const id = one(
     await tx<{ id: string }[]>`
@@ -192,7 +191,7 @@ export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> => 
     trialDays: p.trialDays ?? 14,
     prices: p.prices ?? [],
     entitlements: p.entitlements ?? null,
-    by: p.by ?? { kind: 'system', label: 'System' },
+    by: { kind: 'system', label: 'Plan created' },
   })
   return id
 }
