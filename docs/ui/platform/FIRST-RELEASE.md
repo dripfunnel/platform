@@ -885,7 +885,7 @@ api/README.md §2.1); a partner id in a request is not authority.
   or one of the partner's merchants' Owners; anyone else is `INVALID_INPUT`.
   `activityPeople(query)`: at least 2 characters, at most 8 matches, the team and merchants'
   Owners only, with no email in the answer.
-- `exportActivity(filter)` (Owner and Admin, `OWNERS_AND_ADMINS_ONLY` otherwise) queues an
+- `exportActivity(filter)` (`activity.export`: Owner and Admin, ACCESS §5.3) queues an
   `export_job` and logs `activity.exported`. `activityExport(id)` answers queued, done (with the
   CSV, its row count and `truncated` past 10,000), failed, or expired an hour later, to Owners
   and Admins only (anyone else gets null). An Owner of several stores is one person in the search.

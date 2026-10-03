@@ -155,7 +155,8 @@ describe('export', () => {
   const job = `query($id: ID!) { activityExport(id: $id) { id state rows truncated csv expiresAt } }`
 
   it('is Owner and Admin only, survives leaving the page as a job, and holds only what the partner may see', async () => {
-    expect((await run<{ exportActivity: { reason: string } }>(start, callerOf(ids.ns, 'partner-support'))).data?.exportActivity).toMatchObject({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+    // `activity.export` (ACCESS §5.3): Owner and Admin; the policy refuses everyone else.
+    for (const role of ['partner-support', 'partner-finance', 'partner-read-only'] as const) expect((await run(start, callerOf(ids.ns, role))).code, role).toBe('FORBIDDEN')
     const asked = (await run<{ exportActivity: { ok: boolean; jobId: string } }>(start, callerOf(ids.ns, 'partner-admin', ids.maya), { f: { storeId: ids.nsStore } })).data?.exportActivity
     expect(asked?.ok).toBe(true)
     expect((await run<{ activityExport: { state: string } }>(job, callerOf(ids.ns, 'partner-owner'), { id: asked?.jobId })).data?.activityExport.state).toBe('queued')

@@ -24,6 +24,7 @@ const table: Record<PartnerPermission, string> = {
   'card.write': 'OW FI',
   'support.session': 'OW AD SU',
   exports: 'OW AD SU FI RO',
+  'activity.export': 'OW AD',
   'team.manage': 'OW AD',
   'team.transfer': 'OW',
   'security.manage': 'OW',

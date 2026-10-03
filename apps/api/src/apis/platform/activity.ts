@@ -127,7 +127,7 @@ builder.mutationFields((t) => ({
   exportActivity: t.field({
     type: ExportResult,
     args: { filter: t.arg({ type: FilterInput }) },
-    extensions: { access: { api: 'platform', scope: 'partner', permission: 'exports', target: 'none', audit: activityAudit.exportActivity } },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'activity.export', target: 'none', audit: activityAudit.exportActivity } },
     resolve: (_, { filter }, ctx) => service(ctx.activity).exportActivity(present(filter)),
   }),
 }))
