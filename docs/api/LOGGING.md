@@ -105,6 +105,8 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 - Whole request payloads. Only the changed fields, and only as §4 allows.
 - Shopper personal data beyond `customer_id` and `actor_label` (for example, an address
   change records "address changed", not the address).
+- The free text of a search. An export's entry records its filter with the search text
+  replaced by `searched`, since it is often a person's name or email.
 
 The redaction list lives in `apps/api/src/core/redaction.ts` (in `core/`, so the writer in
 `saas/` can use it; built on #15), matched on whole words of the field name, and a test fails

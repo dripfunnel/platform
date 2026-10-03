@@ -8,7 +8,7 @@ import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerActivityService } from '#saas/partnerActivity/index'
-import { createPartnerStoresService } from '#saas/partnerStores/index'
+import { createPartnerStoresService, storesExportMax } from '#saas/partnerStores/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
@@ -156,6 +156,7 @@ describe('export', () => {
     const asked = (await run<{ exportStores: { ok: boolean; jobId: string } }>(q.exportStores, callerOf(ids.ns, 'partner-read-only'), { f: { q: 'cedar-pine' } })).data?.exportStores
     expect(asked?.ok).toBe(true)
     expect((await run(q.exportStores, callerOf(ids.ns), { f: { status: 'nope' } })).code).toBe('INVALID_INPUT')
+    expect((await run<{ storesExport: unknown }>(q.job, callerOf(ids.bz), { id: asked?.jobId })).data?.storesExport).toBeNull()
     await relayDue(db.sql, { 'export.stores': storesExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
     const job = (await run<{ storesExport: { state: string; rows: number; csv: string } }>(q.job, callerOf(ids.ns, 'partner-finance'), { id: asked?.jobId })).data?.storesExport
     expect(job).toMatchObject({ state: 'done', rows: 2 })
@@ -165,8 +166,44 @@ describe('export', () => {
     expect(job?.csv).not.toMatch(/order|customer|product/i)
     expect((await run<{ storesExport: unknown }>(q.job, callerOf(ids.bz), { id: asked?.jobId })).data?.storesExport).toBeNull()
     expect((await run<{ activityExport: unknown }>(`query($id: ID!) { activityExport(id: $id) { id } }`, callerOf(ids.ns), { id: asked?.jobId })).data?.activityExport).toBeNull()
-    expect(await db.sql`select 1 from activity_log where action = 'stores.exported'`).toHaveLength(1)
+    const logged = await db.sql<{ changes: string }[]>`select changes::text from activity_log where action = 'stores.exported'`
+    expect(logged).toHaveLength(1)
+    expect(logged[0]?.changes).not.toContain('cedar-pine')
   })
+
+  const exportAs = async (caller: PartnerCaller, f: Record<string, unknown> = {}) => {
+    const jobId = (await run<{ exportStores: { jobId: string } }>(q.exportStores, caller, { f })).data?.exportStores.jobId
+    await relayDue(db.sql, { 'export.stores': storesExportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    return (await run<{ storesExport: { state: string; rows: number; truncated: boolean; csv: string } }>(q.job, caller, { id: jobId })).data?.storesExport
+  }
+
+  it('leaves every other partner’s stores out of an unfiltered export', async () => {
+    const job = await exportAs(callerOf(ids.ns))
+    const [ours] = await db.sql<{ n: number }[]>`select count(*)::int as n from store where partner_id = ${ids.ns}`
+    expect(job).toMatchObject({ state: 'done', rows: ours?.n, truncated: false })
+    const theirs = await db.sql<{ code: string }[]>`select code from store where partner_id <> ${ids.ns}`
+    expect(theirs.length).toBeGreaterThan(0)
+    expect(theirs.filter((t) => job?.csv.includes(`,${t.code},`))).toEqual([])
+  })
+
+  it('says failed when its last attempt throws', async () => {
+    const jobId = (await run<{ exportStores: { jobId: string } }>(q.exportStores, callerOf(ids.ns))).data?.exportStores.jobId ?? ''
+    await db.sql`update export_job set filter = '{"status": "nope"}'::jsonb where id = ${jobId}`
+    const [by] = await db.sql<{ requested_by_id: string }[]>`select requested_by_id from export_job where id = ${jobId}`
+    const effect = { id: crypto.randomUUID(), kind: 'export.stores', idempotencyKey: jobId, payload: { jobId, partnerId: ids.ns, partnerUserId: by?.requested_by_id ?? '' }, partnerId: ids.ns, storeId: null, attempt: defaultRelayOptions.maxAttempts }
+    await expect(storesExportDeliverer(db.sql, () => now).deliver(effect, new AbortController().signal)).rejects.toThrow()
+    expect(await db.sql`select state, expires_at is not null as expires from export_job where id = ${jobId}`).toEqual([{ state: 'failed', expires: true }])
+    expect((await run<{ storesExport: { state: string; csv: string | null } }>(q.job, callerOf(ids.ns), { id: jobId })).data?.storesExport).toMatchObject({ state: 'failed', csv: null })
+  })
+
+  it(`stops at ${storesExportMax} rows and says so on the last line`, async () => {
+    await db.sql`insert into store (partner_id, name, code) select ${ids.ns}, 'Bulk ' || g, 'bulk-' || g from generate_series(1, ${storesExportMax + 1}) g`
+    const job = await exportAs(callerOf(ids.ns))
+    expect(job).toMatchObject({ state: 'done', rows: storesExportMax, truncated: true })
+    const lines = job?.csv.split('\n') ?? []
+    expect(lines).toHaveLength(storesExportMax + 2)
+    expect(lines.at(-1)).toBe(`Only the first ${storesExportMax} stores are included; narrow the filter to see the rest.`)
+  }, 120_000)
 
   it('says on the Stores page whether the caller may create', async () => {
     const page = `{ stores(first: 1) { createPermission { allowed reason } } }`

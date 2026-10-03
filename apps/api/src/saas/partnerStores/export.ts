@@ -8,7 +8,7 @@ import { withScope } from '#db/scoped/index'
 import type { StoreListRow } from '#db/scoped/stores'
 import { partnerEntry } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
-import { storeFilter } from './filter'
+import { storeFilter, type StoreFilterInput } from './filter'
 
 // Export accounts (CSV) (ui/platform/FIRST-RELEASE.md §6.1; card #221): the list's account
 // columns, never an order, a customer or a product, built after commit like the other exports.
@@ -39,6 +39,9 @@ export const storesCsv = (rows: readonly StoreListRow[], truncated: boolean): st
     ...(truncated ? [csvLine([`Only the first ${rows.length} stores are included; narrow the filter to see the rest.`])] : []),
   ].join('\n')
 
+/** The search text can be an owner's name or email, so the entry says only that one was used (LOGGING §4.1). */
+const loggedFilter = ({ q, ...rest }: StoreFilterInput) => (q === undefined ? rest : { ...rest, q: 'searched' })
+
 export interface PartnerStoresExportDeps {
   sql: postgres.Sql
   caller: PartnerCaller
@@ -58,7 +61,7 @@ export const createPartnerStoresExport = ({ sql, caller, facts, activity, now }:
     return withScope(sql, context, async (tx) => {
       const jobId = await insertExportJob(tx, { partnerId, kind: 'stores', filter: parsed.data, byId: caller.user.id, byLabel: caller.user.name })
       await queueSideEffect(tx, { kind: 'export.stores', idempotencyKey: jobId, payload: { jobId, partnerId, partnerUserId: caller.user.id }, partnerId, storeId: null })
-      await activity.record(tx, partnerEntry(caller, facts)({ action: storesExportAudit, target: { type: 'export', id: jobId, label: 'Stores' }, reason: null, changes: [{ field: 'filter', before: null, after: JSON.stringify(parsed.data) }] }))
+      await activity.record(tx, partnerEntry(caller, facts)({ action: storesExportAudit, target: { type: 'export', id: jobId, label: 'Stores' }, reason: null, changes: [{ field: 'filter', before: null, after: JSON.stringify(loggedFilter(parsed.data)) }] }))
       return { ok: true as const, jobId }
     })
   }
