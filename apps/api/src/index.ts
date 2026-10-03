@@ -25,6 +25,7 @@ import { entraProvider } from '#integrations/entra/provider'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
+import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
@@ -69,6 +70,7 @@ const deliverersFor = (sql: postgres.Sql): Deliverers => {
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
+    'export.stores': storesExportDeliverer(sql),
   }
 }
 

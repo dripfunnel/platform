@@ -3,7 +3,6 @@ import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
-import type { StoreStatus } from '#db/schema/saas'
 import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
 import { selectPartner, selectPartnerDomainsFor } from '#db/scoped/partners'
@@ -13,8 +12,14 @@ import { listActivity, partnerEntry, type PageInfo } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/index'
 import { daysPastDue, trialDaysLeft } from '#saas/stores/index'
 import { actionsFor, type ActionPermission } from './verdicts'
+import { createPartnerCreateStore, createPermissionFor, type CreatePermission } from './create'
+import { createPartnerStoresExport } from './export'
+import { storeFilter, toStoreFilter } from './filter'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
+export { storeFilter, toStoreFilter, type StoreFilterInput } from './filter'
+export { createAudit, createStoreInput, trialOptions, type CreatePermission, type CreateResult } from './create'
+export { storesCsv, storesExportAudit, storesExportLifetimeMs, storesExportMax } from './export'
 export { actionsFor, permissionFor, storeActionPermission, storeActions, type ActionPermission, type ActionRefusal, type StoreAction } from './verdicts'
 export { createPartnerStoreActions, storeActionAudit, type PartnerStoreActions, type StoreActionResult } from './actions'
 export type { Proration } from './proration'
@@ -24,17 +29,7 @@ export type { Proration } from './proration'
 
 export const storePageSize = 25
 const detailListSize = 25
-const day = 24 * 60 * 60 * 1000
 
-export const storeFilter = z.strictObject({
-  status: z.enum(['trial', 'active', 'pastdue', 'suspended', 'cancelled']).optional(),
-  plan: z.guid().optional(),
-  created: z.enum(['month', '30d', '90d']).optional(),
-  storefront: z.enum(['live', 'building', 'failed', 'own']).optional(),
-  near: z.literal('yes').optional(),
-  q: z.string().trim().min(1).max(100).optional(),
-})
-export type StoreFilterInput = z.infer<typeof storeFilter>
 
 export type StoreState =
   | { kind: 'trial'; trialEndsAt: Date | null; daysLeft: number | null }
@@ -62,7 +57,7 @@ export interface StorePageDto {
   pageInfo: PageInfo
   plans: { id: string; name: string }[]
   billingMode: 'dripfunnel' | 'own'
-  actions: { export: ActionPermission; billingStatus: ActionPermission | null }
+  actions: { create: CreatePermission; export: ActionPermission; billingStatus: ActionPermission | null }
 }
 
 export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'past_due_since' | 'suspended_reason' | 'cancelled_at'>, now: Date): StoreState => {
@@ -82,13 +77,6 @@ export const stateOf = (row: Pick<StoreListRow, 'status' | 'trial_ends_at' | 'pa
 }
 
 // A closed store reads as cancelled (FIRST-RELEASE §6.1), so the filter takes both.
-const statusFor: Record<NonNullable<StoreFilterInput['status']>, StoreStatus | readonly StoreStatus[]> = {
-  trial: 'trial',
-  active: 'active',
-  pastdue: 'past_due',
-  suspended: 'suspended',
-  cancelled: ['cancelled', 'closed'],
-}
 
 export interface PartnerStoresDeps {
   sql: postgres.Sql
@@ -103,6 +91,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
   const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
   const role = caller.user.role
   const billers = partnerRoleHas(role, 'stores.billingStatus')
+  const creatingPermission = (state: string | null) => createPermissionFor(role, state)
 
   const rowDto = (row: StoreListRow, mode: 'dripfunnel' | 'own'): StoreRowDto => ({
     id: row.id,
@@ -126,13 +115,11 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
     if (!parsed.success) return Promise.resolve(null)
     const decoded = decodePage(page, storePageSize)
     if (!decoded.ok) return Promise.resolve(null)
-    const f = parsed.data
     const at = now()
-    const createdAfter = f.created === undefined ? undefined : f.created === 'month' ? new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1)) : new Date(at.getTime() - (f.created === '30d' ? 30 : 90) * day)
     return withScope(sql, context, async (tx) => {
       const rows = await selectStores(
         tx,
-        { partnerId, status: f.status ? statusFor[f.status] : undefined, planId: f.plan, createdAfter, storefront: f.storefront, nearLimit: f.near === 'yes', q: f.q },
+        toStoreFilter(partnerId, parsed.data, at),
         decoded,
         decoded.limit,
         stuckAfterMinutes,
@@ -147,6 +134,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
         plans,
         billingMode: mode,
         actions: {
+          create: creatingPermission((await selectPartner(tx, partnerId))?.state ?? null),
           export: partnerRoleHas(role, 'exports') ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' },
           billingStatus: mode === 'own' ? (billers ? { allowed: true } : { allowed: false, reason: 'BILLING_ROLES_ONLY' }) : null,
         },
@@ -252,7 +240,8 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
     })
   }
 
-  return { stores, store, setStoreBillingStatus }
+  const creating = createPartnerCreateStore({ sql, caller, facts, activity, now })
+  return { stores, store, setStoreBillingStatus, ...creating, ...createPartnerStoresExport({ sql, caller, facts, activity, now }) }
 }
 
 export const storeAudit = { setStoreBillingStatus: 'store.billing_status_set' } as const
