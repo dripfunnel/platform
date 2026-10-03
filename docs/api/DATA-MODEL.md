@@ -43,7 +43,7 @@ platform            no row: DripFunnel itself; staff act here
 |---|---|---|---|
 | **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
 | **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `signup` (§7.10) |
-| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
+| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `import_job`, `export_job`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
@@ -163,6 +163,34 @@ partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, 
   the four role pins (§5.3).
 - The paused-by-plan state of SAAS §6.2 is on the paused rows themselves (§7.1), so the
   catalogue holds only values; `saas/entitlements` counts paused items outside the limit.
+
+### 2.4 Store account fields (built on #212)
+
+Migration `0014`, for what the partner console's Stores list and store detail read beyond #32:
+
+- **`store_subscription`** exactly as §7.9 designs it, pointing at the plan **version** (§2.3),
+  with `next_plan_id`, `next_plan_version` and `change_at` for a scheduled change. It carries
+  `partner_id` so its composite keys hold the store and both plan versions to one partner
+  (foreign keys skip RLS). Billing (`app_system`) and staff write it; a partner only reads
+  it. A store built before #212 has no row until billing (#201) creates one. `core/tenancy.ts`'s
+  `Subscription` now uses §7.9's spellings (`trial`, `cancelled`).
+- **`store_limit_override`** (key, amount, `month` or `always` with the month it applies to,
+  reason, who, when, `removed_at`) and **`store_trial_extension`** (days, the new end,
+  reason, who, when): SAAS §6.1's per-store overrides, added by the partner for its own
+  stores or by staff, and never rewritten: the only update is an override's `removed_at` and
+  `removed_by_label`.
+- **`store_usage`** (store, key, used, `period_start` for a meter): the stored counter behind
+  "4,210 of 5,000 products", written where the work happens (by `app_system`), never a
+  count across tenants. Paused items (§7.1) are not counted.
+- **`partner.billing_mode`** (`dripfunnel` | `own`, SAAS §7.1) and **`store.billing_status`**
+  (`active` | `past_due` | `suspended`). A trigger refuses any change to the status unless
+  the store's partner bills its own merchants, whoever the writer is.
+- Account level (§2): the store's merchant side reads its own rows in store scope; a supplier
+  or a storefront reads none; the partner its own stores' (through the store policy); staff
+  and jobs everything. The four role pins are on each table.
+- Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
+  `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
+  store_id)`, and the trigram indexes on store name and code, owner email and domain host.
 
 ---
 
@@ -1205,7 +1233,9 @@ Store-scoped at account level (the partner reads status and amounts; staff read 
 but `store_billing_details`, which stays store-only). The money model is SAAS §7: Stripe
 Billing on DripFunnel's account, the partner's or DripFunnel's own plans. Distinct from the
 store's own `payment_provider_account` rows (flow 61). `store.plan_id` and `trial_ends_at`
-(built on #32) are mirrors of this table, written by the same transaction.
+(built on #32) are mirrors of this table, written by the same transaction. **`store_subscription`
+is built on #212** (§2.4); `store_billing_details`, `invoice`, `invoice_line` and
+`billing_event` are #163's and #201's.
 
 ```
 store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active'|'past_due'

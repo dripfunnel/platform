@@ -278,7 +278,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   them on the partner's behalf, and sets the ceilings. The automatic publish interval is an
   Admin setting with per-plan overrides (§9.2).
 - **Per-store overrides**: a partner or Admin can raise or lower one store's entitlement
-  (for example extra publishes this month), recorded and audited.
+  (for example extra publishes this month), recorded and audited (`store_limit_override`,
+  built on #212; the stored usage it is measured against is `store_usage`).
 - Allowed storefront templates, regions, currencies, languages, payment and courier providers,
   whether vendors are offered, and defaults for new stores are partner-level settings within
   platform limits (fact 19, G4–G5).
@@ -330,7 +331,8 @@ merchants" follows as a per-partner setting. For the house
 partner, DripFunnel bills its merchants directly, which is the second model with DripFunnel as
 the partner.
 
-When the partner bills its merchants itself, the platform still needs the store's status.
+**Built on #212**: `partner.billing_mode` (`dripfunnel` | `own`) and `store.billing_status`
+(DATA-MODEL §2.4). When the partner bills its merchants itself, the platform still needs the store's status.
 How it learns it (the partner sets status through the Platform API, a webhook from the
 partner's billing, or both) is open (§14).
 

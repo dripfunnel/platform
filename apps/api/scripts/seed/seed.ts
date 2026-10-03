@@ -19,6 +19,7 @@ import { insertCustomDomain, insertJob, insertMembership, insertSeller, insertSt
 import { toRow } from '#saas/activity/log'
 import { stepsFor } from '#saas/provisioning/stuck'
 import { assertLoopbackOnly } from '../migrate/host-guard'
+import { seedAccounts } from './account'
 import { catalogue, ceilings, contracts, fallbackEntitlements, fallbackPrices } from './catalogue'
 import { domainsFor, generated, generatedName, partners, recordFor, staff, stores, type SeedPartner, type SeedStore } from './data'
 
@@ -36,7 +37,8 @@ export interface SeedCounts {
 // Everything the seed owns, in dependency order. A local developer's database only
 // (AGENTS.md "Working with the user" rule 3), so wiping it is the point.
 const owned = [
-  'activity_log', 'outbox', 'store_note', 'job', 'invitation', 'membership', '"user"', 'custom_domain', 'store',
+  'activity_log', 'outbox', 'store_note', 'job', 'invitation', 'membership', '"user"', 'custom_domain',
+  'store_usage', 'store_trial_extension', 'store_limit_override', 'store_subscription', 'store',
   'plan_entitlement', 'plan_price', 'plan_version', 'plan_fee', 'plan_ceiling', 'partner_contract_rate', 'partner_contract',
   'plan', 'partner_setup_item', 'partner_domain', 'partner_invitation', 'partner_session', 'partner_user',
   'staff_partner_assignment', 'staff_session', 'staff_user', 'customer', 'seller', 'partner',
@@ -181,6 +183,7 @@ const seedInto = async (tx: ScopedSql, now: Date): Promise<SeedCounts> => {
     }
   }
 
+  await seedAccounts(tx, partnerIds, now)
   return counts
 }
 
