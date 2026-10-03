@@ -28,7 +28,8 @@ and store states).
 - **Every action states its consequence, asks for a reason where it changes someone's
   business, and is audited.** Nothing is deleted in this release.
 - **Designed states on every screen**: empty, loading, error, permission denied (disabled
-  with the reason), and the environment marker (Production in red, Staging).
+  with the reason), and the environment marker (Production in red; Dev, Feature or Local in grey, by hostname,
+  decided on #65).
 
 ---
 
