@@ -916,6 +916,30 @@ api/README.md §2.1); a partner id in a request is not authority.
   sign-in already reads; turning it off removes nobody's
   2-factor.
 
+**Built on #200** (Reports, `apis/platform/reports.ts`, `saas/partnerReports`, `db/scoped/reports.ts`):
+- `reportGrowth`, `reportRevenue`, `reportPlans`, `reportStorePerformance`, `reportUsage` and
+  `reportSetupHealth` (`partner.read`), each with `range` (`6m`, `3m`: the months up to this one),
+  `plan` and `country`. Each returns its table rows, the bar series and the summary sentence,
+  composed by the API from its own figures; `fresh` and "Reports fill in as your first
+  merchants sign up." for a partner with nothing yet. Money is integer minor units with its
+  currency (revenue and MRR in the contract's payout currency, other currencies converted at the
+  contract rate, minding each currency's minor digits, and marked approximate); percentages are basis points.
+- The figures: Growth counts stores created, setups finished, trials ended and converted,
+  cancellations and stores at month end; Revenue sums `merchant_charge` per month (refunds
+  subtract) with failed and recovered payments and MRR by plan from active subscriptions; Plans
+  counts open stores per plan and this month's plan changes from the log's `store.plan_changed`
+  entries (up or down by monthly price in a currency both plans share; a first plan isn't a
+  change); Store performance reads `store_sales_month` (up to 50 stores, `truncated` past that;
+  the declining count, every store more than 3% down including one that sold nothing, is counted
+  in SQL; `changeBps` is a whole number past 32 bits, so a Float); Usage reuses the near-limit measure and this month's
+  meters; Setup health is the median time to a ready store over 30 days, failed setups, and
+  the stores stuck or waiting for DNS over a day.
+- Only account-level tables are read (LOGGING §6); a structural test checks every report
+  field's scope and every table `db/scoped/reports.ts` names.
+- `exportReport(tab, filter)` (`exports`, every role) queues an `export_job` of kind `report`,
+  logged as `report.exported`; `reportExport(id)` answers it, never an activity export (and the
+  activity read-back never a report).
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

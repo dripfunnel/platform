@@ -24,6 +24,7 @@ import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
+import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
@@ -39,6 +40,7 @@ import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerActivityService, exportLifetimeMs } from '#saas/partnerActivity/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { createPartnerTeamService } from '#saas/partnerTeam/index'
+import { createPartnerReportsService } from '#saas/partnerReports/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
@@ -66,6 +68,7 @@ const deliverersFor = (sql: postgres.Sql): Deliverers => {
     'domain.recheck': domainRecheckDeliverer(sql, lookup),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
+    'export.report': reportExportDeliverer(sql),
   }
 }
 
@@ -213,7 +216,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null })
+    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date())
@@ -229,6 +232,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       domains: deps ? createPartnerDomainsService(deps) : null,
       activity: deps ? createPartnerActivityService(deps) : null,
       team: deps ? createPartnerTeamService(deps) : null,
+      reports: deps ? createPartnerReportsService(deps) : null,
     })
   })
 }

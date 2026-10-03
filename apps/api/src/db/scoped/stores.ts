@@ -307,12 +307,20 @@ export interface NearestLimitRow {
 }
 
 /** The stores at 80% or more of a limit, closest first, by the same measure as the list's `near` filter. */
-export const selectNearestLimits = (tx: ScopedSql, partnerId: string, now: Date, limit: number): Promise<NearestLimitRow[]> =>
+export const selectNearestLimits = (
+  tx: ScopedSql,
+  partnerId: string,
+  now: Date,
+  limit: number,
+  only: { planId?: string | undefined; country?: string | undefined } = {},
+): Promise<NearestLimitRow[]> =>
   tx<NearestLimitRow[]>`
     select s.id as store_id, s.name as store_name, nr.key, nr.used, nr.cap, nr.percent, count(*) over ()::int as total
     from store s
     join lateral (${usageAgainstLimits(tx, tx`s.id`, tx`s.plan_id`, now)} order by percent desc nulls last limit 1) nr on true
     where s.partner_id = ${partnerId} and nr.percent >= 80
+      ${only.planId ? tx`and s.plan_id = ${only.planId}` : tx``}
+      ${only.country ? tx`and s.country = ${only.country}` : tx``}
     order by nr.percent desc, s.name
     limit ${limit}
   `

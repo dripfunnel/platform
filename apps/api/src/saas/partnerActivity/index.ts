@@ -128,7 +128,7 @@ export const createPartnerActivityService = ({ sql, caller, facts, activity, now
     if (!partnerRoleHas(caller.user.role, 'activity.export') || !z.guid().safeParse(id).success) return Promise.resolve(null)
     return withScope(sql, context, async (tx) => {
       const job = await selectExportJob(tx, id)
-      if (!job) return null
+      if (job?.kind !== 'activity') return null
       const expired = job.expires_at !== null && job.expires_at <= now()
       return { id: job.id, state: expired ? ('expired' as const) : job.state, rows: job.rows, truncated: job.truncated, csv: expired ? null : job.csv, expiresAt: job.expires_at }
     })
