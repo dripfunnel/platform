@@ -10,6 +10,7 @@ import './storeActions'
 import './dashboard'
 import './domains'
 import './activity'
+import './settings'
 
 export type { PlatformContext } from './access'
 
