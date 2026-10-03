@@ -10,21 +10,17 @@ const nonce = 'nonce-we-sent'
 const redirectUri = 'https://admin.dripfunnel.com/api/auth/callback'
 
 let signingKey: CryptoKey
-let otherKey: CryptoKey
 let jwks: { keys: JWK[] }
 
 beforeAll(async () => {
   const ours = await generateKeyPair('RS256', { extractable: true })
-  const theirs = await generateKeyPair('RS256', { extractable: true })
   signingKey = ours.privateKey
-  otherKey = theirs.privateKey
   jwks = { keys: [{ ...(await exportJWK(ours.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' }] }
-  // Two RSA key pairs: seconds on a loaded machine, past the default 10 s while the gates run in parallel.
-}, 60_000)
+})
 
 const idToken = async (
   claims: Record<string, unknown> = {},
-  options: { key?: CryptoKey; expiresIn?: string } = {},
+  options: { expiresIn?: string } = {},
 ) =>
   new SignJWT({
     tid: tenantId,
@@ -39,7 +35,7 @@ const idToken = async (
     .setAudience(clientId)
     .setIssuedAt()
     .setExpirationTime(options.expiresIn ?? '5m')
-    .sign(options.key ?? signingKey)
+    .sign(signingKey)
 
 /** Entra, as far as the provider can tell: the key set and the token endpoint. */
 const fakeEntra = (token: { body: unknown; ok?: boolean }) =>
@@ -109,8 +105,11 @@ describe('the token exchange', () => {
     expect(await refusalFrom(exchange())).toBe('wrong_tenant')
   })
 
-  it('refuses a token signed by a key that is not in the tenant key set', async () => {
-    fakeEntra({ body: { id_token: await idToken({}, { key: otherKey }) } })
+  it('refuses a token whose signature the tenant key set does not verify', async () => {
+    // Another token's signature on these claims: what a key outside the set would produce, without a second RSA key pair.
+    const [header, payload] = (await idToken()).split('.')
+    const [, , foreign] = (await idToken({ oid: 'someone-else' })).split('.')
+    fakeEntra({ body: { id_token: `${header}.${payload}.${foreign}` } })
     expect(await refusalFrom(exchange())).toBe('bad_claims')
   })
 
