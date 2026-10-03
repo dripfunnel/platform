@@ -1046,6 +1046,12 @@ builds the table must ship:
 - a guest inserting a cart whose `access_token_hash` is not the hash of the token it
   presented is refused, and so is an insert with no token presented at all
   (`current_order_token_hash()` returns null) (DATA-MODEL §7.11);
+- a shopper filing a data request for another person's email can insert it but cannot set
+  `subject_verified_at`, `state` or `file_asset_id`; no export is built until the engine
+  verifies the code sent to that email, and the file is reachable only by that customer or
+  the request's token (DATA-MODEL §7.5, §7.11);
+- a shopper reads and writes `shopper_note` on its own cart and never reads `"order".notes`
+  (DATA-MODEL §7.6);
 - **shopper writes are bounded**: `app_shop` inserting an `order_line` or updating any
   `*_amount`, `state` or `payment_state` on `"order"` is refused; the same through the
   `app_definer` cart functions succeeds and writes the engine's figures; a shopper updating

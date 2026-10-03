@@ -376,8 +376,13 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
      OR  current_setting('app.scope') = 'platform')
 ```
 
+- **Every policy names its role** (`CREATE POLICY … TO app_request`, `TO app_supplier`, `TO
+  app_shop`, `TO app_partner`, `TO app_platform`, `TO app_system`): a shop branch is a policy
+  `TO app_shop` and nothing else can use it, a supplier branch a policy `TO app_supplier`, and
+  the templates above are the merchant-side (`app_request`) ones. The structural test (§5.4)
+  checks that no policy is `TO PUBLIC`.
 - **Suppliers**: tables a supplier must never read (offers, customers, the store's people
-  outside its own team, settings) add `AND current_setting('app.seller_id') = ''`.
+  outside its own team, settings) have no `TO app_supplier` policy at all.
 - **Shoppers** (`shop` scope): read policies return only what the Shop API may show
   (visible products, the customer's own orders and addresses via `app.customer_id`).
 - **Support sessions** run in `store` scope for the one store; `app.support = 'read'` makes
@@ -408,7 +413,7 @@ API, built on #13–#35, onto `app_platform`).
 |---|---|---|
 | `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; `select` and `insert` on `activity_log` (as 0006 grants; never update or delete) and `insert` on `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
 | `app_supplier` | Supplier users (store scope with `app.seller_id` set) | **Writes only what a supplier does** (ACCESS §5.2, §7.3), under the store-and-seller policies: DML on its own catalogue rows and their children (§7.3), `asset`, `warehouse`, `stock_level`, `stock_movement`, `size_chart`, `product_story`, `translation`, `import_job`, `export_job`; `insert` on `fulfilment` and `fulfilment_line` for its own parts and on `order_document` for its own labels; **its refunds only through `supplier_refund()`**, an `app_definer` function that checks, inside the database, that every line is the caller's, that the quantity does not exceed the line's refundable quantity and that the amount does not exceed the lines' value (`order_line_for_supplier`), then inserts the `refund` and `refund_line` rows: `app_supplier` has no direct `insert` on either, so the ceiling is a mechanism, not a promise; **`select` only, no write**, on `order_part`, `return_line`, `supplier_ledger_entry`, the refunds and documents the store wrote (its own refunds and labels it inserts, as above, and never updates), and on `order_line` **by column without any `*_amount`, tax rate or zone** (id, order and part ids, owner, version, product, name, version name, SKU, classification code, quantity, weight, the three fulfilled/returned/refunded quantities: what fulfilling needs); the money of its own lines it reads through `order_line_for_supplier` (§7.11), which carries the currency. The order's snapshot and a return's state are never a supplier's to change. **No `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
-| `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; `select` on the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, `shipping_zone`, `shipping_method`, and of `payment_provider_account` only `provider`, `mode` and `public_key`); its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11), **by column** on the children (§7.11: no supplier ids, tax rates, zones or codes on lines; part state and mode only; the shopper-facing fulfilment columns of shopper-facing fulfilments only), and on `"order"` never `notes`, `cancel_reason`, `reminders_stopped_note`, `reminders_stopped_by_user_id`, `recovered_by_*`, `device`, `search` or `access_token_hash`. **Writes**: `insert` and `update` on its own `customer` and `customer_address` rows (never `status` or the credential columns); `insert` on `customer_data_request`; on `"order"` only the contact and checkout columns of its own **carts** (`email`, `phone`, `language`, the two addresses, `pickup`, `notes`, `checkout_step`; on insert also `store_id`, `customer_id` and `access_token_hash`), under the write policy §7.11 states: `state = 'cart'` in both `USING` and `WITH CHECK`, `customer_id` equal to `app.customer_id` or null, the guest token rule for a guest. **Everything that prices the cart goes through engine functions owned by `app_definer`** (`cart_set_currency` and `cart_set_market`, which validate against `store_currency` and `market` and reprice every line; `cart_set_shipping_method`; `cart_add_line`, `cart_set_line_quantity`, `cart_apply_code`, `cart_place` and the like), which compute prices, discounts, tax, shipping and totals, write `order_line`, `order_adjustment`, `order_part`, `currency`, `market_id`, `shipping_method_id` and the `*_amount` and state columns, and run under the shopper's `app.*` settings; `app_shop` has no direct write on those tables or columns, so a shopper can never set a price, a total, a state or the currency the stored line amounts are in (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
+| `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; `select` on the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, `shipping_zone`, `shipping_method`, and of `payment_provider_account` only `provider`, `mode` and `public_key`); its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11), **by column** on the children (§7.11: no supplier ids, tax rates, zones or codes on lines; part state and mode only; the shopper-facing fulfilment columns of shopper-facing fulfilments only), and on `"order"` never `notes`, `cancel_reason`, `reminders_stopped_note`, `reminders_stopped_by_user_id`, `recovered_by_*`, `device`, `search` or `access_token_hash`. **Writes**: `insert` and `update` on its own `customer` and `customer_address` rows (never `status` or the credential columns); `insert` on `customer_data_request`; on `"order"` only the contact and checkout columns of its own **carts** (`email`, `phone`, `language`, the two addresses, `pickup`, `shopper_note`, `checkout_step`; on insert also `store_id`, `customer_id` and `access_token_hash`), under the write policy §7.11 states: `state = 'cart'` in both `USING` and `WITH CHECK`, `customer_id` equal to `app.customer_id` or null, the guest token rule for a guest. **Everything that prices the cart goes through engine functions owned by `app_definer`** (`cart_set_currency` and `cart_set_market`, which validate against `store_currency` and `market` and reprice every line; `cart_set_shipping_method`; `cart_add_line`, `cart_set_line_quantity`, `cart_apply_code`, `cart_place` and the like), which compute prices, discounts, tax, shipping and totals, write `order_line`, `order_adjustment`, `order_part`, `currency`, `market_id`, `shipping_method_id` and the `*_amount` and state columns, and run under the shopper's `app.*` settings; `app_shop` has no direct write on those tables or columns, so a shopper can never set a price, a total, a state or the currency the stored line amounts are in (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
 | `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner; the same credential exclusions as `app_request` |
 | `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
 | `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `order_token_matches()`, `request_token_matches()`, `current_order_token_hash()`, the cart functions above and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). The structural test (§5.4) lists each with its filter |
@@ -680,6 +685,8 @@ product             (id, store_id, seller_id NULL, name, slug, description, prod
 product_approved_snapshot
                     (product_id PK, store_id, seller_id NULL, name, prices jsonb, photo_ids uuid[],
                      approved_at, approved_by)
+                    -- prices is [{version_id, currency, amount, compare_at_amount}], one entry
+                    -- per version_price row at approval, every amount with its currency (§7.1)
                     -- what the last approval accepted, so a save knows whether it must go
                     -- back to pending (ACCESS §7.2, decided 2026-10-02)
 product_option      (id, product_id, store_id, seller_id NULL, name, position)   -- "Size", "Colour" (fact 3)
@@ -849,7 +856,15 @@ customer_data_request (id, store_id, customer_id NULL, subject_email NULL, subje
                      requested_by ('customer'|'store'), state ('requested'|'ready'|'done'|'refused'),
                      file_asset_id NULL, done_at)
                     -- access_token_hash: a guest reaches its own request only through the
-                    -- token in the link it was sent (§7.11); never selected by a request role
+                    -- token in the link it was sent (§7.11); never selected by a request role.
+                    -- Shop writes are bounded (§7.11): app_shop inserts with customer_id =
+                    -- app.customer_id (a signed-in shopper) or, for a guest, customer_id null
+                    -- and a subject_email or subject_phone; it never writes
+                    -- subject_verified_at, state or file_asset_id. The engine (app_system)
+                    -- sends the code to the subject, sets subject_verified_at on a correct
+                    -- code, and builds the export only for a verified request; the file is
+                    -- reachable only by that customer or that token. A shopper can therefore
+                    -- file a request naming someone else's email, and nothing follows
                     -- GDPR / DPDP (AGENTS.md "Data"). Filed by the store, or by the shopper
                     -- from the storefront (app_shop may insert, and reads its own request by
                     -- customer_id or by the request's own token, §7.11). A guest has no
@@ -905,10 +920,12 @@ view of the two.
                      reminders_stopped_at NULL, reminders_stopped_by_user_id NULL, reminders_stopped_note NULL,
                      recovered_by_order_id NULL, recovered_by_reminder_id NULL,
                      placed_at, paid_at, cancelled_at, cancel_reason, cart_expires_at,
-                     notes, access_token_hash NULL, search tsvector)
+                     shopper_note NULL, notes NULL, access_token_hash NULL, search tsvector)
                     UNIQUE (store_id, number) WHERE number IS NOT NULL
                     -- shipping_address and billing_address carry {name, line1, …}: the
-                    -- shopper's name lives there, not in a column of its own.
+                    -- shopper's name lives there, not in a column of its own. shopper_note is
+                    -- the shopper's own message at checkout (read and written by app_shop on
+                    -- its cart); notes is the merchant's internal note, never a shopper's.
                     -- access_token_hash: a guest's cart or order (customer_id null) is
                     -- reachable in the shop scope only with the hashed token the Shop API
                     -- handed the browser (a cookie or the order-status link); compared in
@@ -1262,7 +1279,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   in this class has **no `shop` branch**, and `app_shop` has no `select` on it either.
 - **Catalogue structure: inside the store, merchant-written, shop-readable**: `collection`,
   `collection_rule`, `collection_product`, `filter`, `filter_value`, `menu`, `menu_item`,
-  `custom_field_definition`, `badge` definitions. No supplier branch except the read-only
+  `custom_field_definition`, `badge` definitions, `product_search` (written by the outbox
+  consumer as `app_system`; its shop branch is the indexed product's rule, above). No
+  supplier branch except the read-only
   ones listed below (`filter`, `filter_value`, `badge`); a `shop` read branch on visibility
   (`collection.visibility = 'visible'`, `deleted_at IS NULL`, `filter.shopper_visible`, every
   menu item, every definition and badge), `collection_rule` excepted, which the shop never
@@ -1335,7 +1354,11 @@ decide which columns and which tables each caller kind may select at all**. `app
   store, plus the read-only `platform` branch of §2 on `customer`, plus a **shop branch** on
   `customer_id = app.customer_id` (`customer_data_request` also by its own token for a guest),
   and `insert` for `app_shop` on all three; a guest's own `customer_data_request` through
-  `request_token_matches(id)`. No supplier branch.
+  `request_token_matches(id)`. The `customer_data_request` insert `WITH CHECK` is
+  `customer_id = app.customer_id OR (customer_id IS NULL AND (subject_email IS NOT NULL OR
+  subject_phone IS NOT NULL))` with `app_shop` granted no write on `subject_verified_at`,
+  `state` or `file_asset_id`, so verification and the export are the engine's alone (§7.5).
+  No supplier branch.
 - **Account level** (the partner and platform branches §2 gives account-level tables, for
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
