@@ -31,6 +31,7 @@ import { createPartnersService } from '#saas/partners/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
+import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
 import { createPartnerStoreActions } from '#saas/partnerStores/index'
 import { createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
@@ -214,6 +215,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       branding: deps ? createPartnerBrandingService(deps) : null,
       stores: deps ? createPartnerStoresService(deps) : null,
       storeActions: deps ? createPartnerStoreActions(deps) : null,
+      dashboard: deps ? createPartnerDashboardService(deps) : null,
     })
   })
 }

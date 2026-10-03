@@ -108,6 +108,74 @@ type ContrastReport {
   passes: Boolean
 }
 
+type DashboardAttention {
+  action: DashboardAttentionAction
+  detail: String
+  kind: String
+  storeId: ID
+  storeName: String
+  tab: String
+}
+
+type DashboardAttentionAction {
+  allowed: Boolean
+  code: String
+}
+
+type DashboardMoney {
+  amount: Int
+  currency: String
+}
+
+type DashboardNearLimit {
+  limit: Int
+  limitKey: String
+  percent: Int
+  storeId: ID
+  storeName: String
+  used: Int
+}
+
+type DashboardRevenue {
+  collected: DashboardMoney
+  comparison: String
+  fee: DashboardMoney
+  nextPayoutAt: String
+  payout: DashboardMoney
+}
+
+type DashboardSignups {
+  comparison: String
+  completed: Int
+  conversion: String
+  started: Int
+}
+
+type DashboardStores {
+  byStatus: DashboardStoresByStatus
+  newThisMonth: Int
+  total: Int
+}
+
+type DashboardStoresByStatus {
+  active: Int
+  pastdue: Int
+  suspended: Int
+  trial: Int
+}
+
+type DashboardTopStore {
+  plan: String
+  sales: DashboardMoney
+  storeId: ID
+  storeName: String
+}
+
+type DashboardUsage {
+  nearCount: Int
+  stores: [DashboardNearLimit!]
+}
+
 type GoLiveChecks {
   emailDomain: Boolean
   legalPages: Boolean
@@ -190,6 +258,19 @@ type Partner {
   name: String
   product: String
   state: String
+}
+
+type PartnerDashboard {
+  asOf: String
+  attention: [DashboardAttention!]
+  fresh: Boolean
+  range: String
+  revenue: DashboardRevenue
+  signups: DashboardSignups
+  staleSince: String
+  stores: DashboardStores
+  top: [DashboardTopStore!]
+  usage: DashboardUsage
 }
 
 type PartnerState {
@@ -376,6 +457,7 @@ type Query {
   branding: Branding
   changePlanOptions(storeId: ID!): ChangePlanOptions
   checkContrast(accent: String!, primary: String!): ContrastReport
+  dashboard(range: String!): PartnerDashboard
   health: String
   me: Me
   navBadges: NavBadges

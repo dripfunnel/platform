@@ -351,6 +351,10 @@ partner's billing, or both) is open (§14).
 - The webhook updates `store_subscription` (or the partner's account), invalidates the cached
   status on sessions, and writes outbox events for emails and storefront rules, in one
   transaction.
+- **What was charged and paid out** is stored as rows (built on #163, DATA-MODEL §7.9):
+  `merchant_charge` with DripFunnel's fee and the partner's share in the payout currency,
+  `partner_payout` per month, and `store_sales_month`. The Dashboard and Reports sum these, never
+  a plan price times a count.
 - **Trials** end at `trial_ends_at`, with a "trial ending" email from the partner's templates.
 - **A paid-to-paid plan change is prorated** (decided 2026-10-02, `PortalBilling`): the
   merchant is charged today for the days left in the period on the new plan minus the unused

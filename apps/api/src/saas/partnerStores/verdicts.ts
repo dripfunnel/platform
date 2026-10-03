@@ -19,6 +19,10 @@ export const storeActionPermission: Record<StoreAction, PartnerPermission> = {
   retryStep: 'setup.retry',
 }
 
+/** Whether the role may take the action, with the code the console shows when it may not. */
+export const permissionFor = (action: StoreAction, role: PartnerRole): ActionPermission =>
+  partnerRoleHas(role, storeActionPermission[action]) ? { allowed: true } : { allowed: false, reason: action === 'extendTrial' ? 'FINANCE_TRIAL_ONLY' : 'OWNERS_AND_ADMINS_ONLY' }
+
 export const actionsFor = (row: StoreListRow, role: PartnerRole, now: Date): Partial<Record<StoreAction, ActionPermission>> => {
   const setup = setupStateOf(row.job_state && row.job_step && row.job_step_started_at ? { state: row.job_state, step: row.job_step, step_started_at: row.job_step_started_at } : null, now)
   const offered: StoreAction[] = [
@@ -29,8 +33,6 @@ export const actionsFor = (row: StoreListRow, role: PartnerRole, now: Date): Par
     'resendInvite' as const,
     ...(setup === 'stuck' || setup === 'failed' ? (['retryStep'] as const) : []),
   ]
-  return Object.fromEntries(
-    offered.map((action) => [action, partnerRoleHas(role, storeActionPermission[action]) ? { allowed: true } : { allowed: false, reason: action === 'extendTrial' ? 'FINANCE_TRIAL_ONLY' : 'OWNERS_AND_ADMINS_ONLY' }]),
-  )
+  return Object.fromEntries(offered.map((action) => [action, permissionFor(action, role)]))
 }
 

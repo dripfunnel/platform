@@ -296,6 +296,27 @@ export interface UsageRow {
   percent: number | null
 }
 
+export interface NearestLimitRow {
+  store_id: string
+  store_name: string
+  key: UsageRow['key']
+  used: number
+  cap: number
+  percent: number
+  total: number
+}
+
+/** The stores at 80% or more of a limit, closest first, by the same measure as the list's `near` filter. */
+export const selectNearestLimits = (tx: ScopedSql, partnerId: string, now: Date, limit: number): Promise<NearestLimitRow[]> =>
+  tx<NearestLimitRow[]>`
+    select s.id as store_id, s.name as store_name, nr.key, nr.used, nr.cap, nr.percent, count(*) over ()::int as total
+    from store s
+    join lateral (${usageAgainstLimits(tx, tx`s.id`, tx`s.plan_id`, now)} order by percent desc nulls last limit 1) nr on true
+    where s.partner_id = ${partnerId} and nr.percent >= 80
+    order by nr.percent desc, s.name
+    limit ${limit}
+  `
+
 export const selectStoreUsage = (tx: ScopedSql, storeId: string, planId: string, now: Date): Promise<UsageRow[]> =>
   tx<UsageRow[]>`${usageAgainstLimits(tx, tx`${storeId}::uuid`, tx`${planId}::uuid`, now)} order by u.key`
 

@@ -825,6 +825,27 @@ api/README.md §2.1); a partner id in a request is not authority.
 - No `READ_ONLY`: a closed partner has no session (ACCESS.md §4), and the contract's lapse is
   not stored yet; that code arrives with the contract term (§2.3).
 
+**Built on #163** (Dashboard, `apis/platform/dashboard.ts`, `saas/partnerDashboard`):
+- `dashboard(range)` (`partner.read`) for `month`, `last` and `q` returns the §5 cards. The
+  windows are: this month so far against all of last month; last month against the month
+  before; the last 90 days against the 90 before. Each card is one SQL count or sum over the
+  partner's rows. Revenue is what was charged (DATA-MODEL §7.9, in the payout currency, USD
+  before the first charge). `asOf` and `staleSince` come from the sync job's
+  `partner_billing_feed`, and `fresh` is a Live partner with no store and no charge.
+- **Comparisons are English sentences composed by the API**, as §5 requires ("94% of August so
+  far, with 2 days to go", "+4% vs July", "+15% vs the 90 days before"; "up from 29% last
+  month"). Conversion is the share of trials that ended in the range and became paid, `null`
+  when none ended.
+- Each store count matches the Stores list under the filter its link applies: status,
+  `created=month` (also Signups started), and `near=yes`.
+- Needs attention lists past-due stores, stuck setup (the console's step names), a domain
+  waiting for DNS for more than a day, and trials ending within 3 days, at most 10 rows. Retry
+  and Extend take their verdicts from `store(id)`'s block. Open billing and Re-check are
+  allowed for every role.
+- Top stores are the five with the highest `store_sales_month` totals for last month, ranked in
+  the payout currency and shown in each store's own. Refunds subtract from revenue, and only a
+  store's latest domain is checked.
+
 **Pagination is cursor-based**, as ui/admin/FIRST-RELEASE.md §12 decided on #19: every list
 takes `after` and `before`, a maximum page size, and returns **no total count**. The prototype
 renders lists as **"Show 25 more"** (`after` only) and that is what this console builds; the

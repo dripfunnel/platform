@@ -7,6 +7,7 @@ import './plans'
 import './branding'
 import './stores'
 import './storeActions'
+import './dashboard'
 
 export type { PlatformContext } from './access'
 

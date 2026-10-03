@@ -1,5 +1,6 @@
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerConsoleService } from '#saas/partnerConsole/index'
+import type { PartnerDashboardService } from '#saas/partnerDashboard/index'
 import type { PartnerBrandingService } from '#saas/partnerBranding/index'
 import type { PartnerPlansService } from '#saas/partnerPlans/index'
 import type { PartnerStoresService } from '#saas/partnerStores/index'
@@ -16,6 +17,7 @@ export interface PlatformContext extends Record<string, unknown> {
   branding: PartnerBrandingService | null
   stores: PartnerStoresService | null
   storeActions: PartnerStoreActions | null
+  dashboard: PartnerDashboardService | null
 }
 
 /** ACCESS.md §5.3: the partner role's permission, always within the session's own partner. */

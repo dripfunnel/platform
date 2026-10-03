@@ -1301,7 +1301,30 @@ Billing on DripFunnel's account, the partner's or DripFunnel's own plans. Distin
 store's own `payment_provider_account` rows (flow 61). `store.plan_id` and `trial_ends_at`
 (built on #32) are mirrors of this table, written by the same transaction. **`store_subscription`
 is built on #212** (§2.4); `store_billing_details`, `invoice`, `invoice_line` and
-`billing_event` are #163's and #201's.
+`billing_event` are #201's.
+
+**Built on #163** (migration `0019`), what the partner Dashboard, Billing and Reports read, filled
+by Stripe Connect's sync later (THIRD-PARTY-ACCESS §2.7) and by the seed until then. Each is
+partner-scoped: a partner reads its own rows, staff and jobs every row, `app_system` writes, and
+no merchant branch exists yet. The four role pins are on each table.
+
+```
+merchant_charge     (id, partner_id, store_id, kind ('subscription'|'proration'|'refund'),
+                     status ('paid'|'failed'|'refunded'|'recovered'), amount, currency,
+                     payout_currency, payout_gross, fee_amount, partner_amount
+                     (= payout_gross - fee_amount), card_last4, failure_reason, invoice_id,
+                     charged_at)          -- (store_id, partner_id) keyed to the store's partner;
+                    -- a refund's amounts are positive and subtracted when summed
+partner_payout      (id, partner_id, period_start, period_end, currency, gross, fee,
+                     adjustments, amount (= gross - fee + adjustments), stores,
+                     status ('scheduled'|'paid'|'held'), scheduled_for, paid_at, held_reason,
+                     adjustment_note)     -- one per partner and period
+store_sales_month   (store_id, partner_id, month, currency, amount, payout_currency,
+                     payout_amount, orders)  -- payout_amount ranks stores across currencies
+                    -- the engine's monthly totals: all a partner sees of a merchant's orders
+partner_billing_feed (partner_id PK, synced_at, stale_since)
+                    -- the sync job's last run; the Dashboard's asOf and staleSince
+```
 
 ```
 store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active'|'past_due'
