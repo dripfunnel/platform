@@ -16,8 +16,10 @@ let db: TestDatabase
 const now = new Date('2026-10-02T12:00:00Z')
 const staffByRole = new Map<StaffRole, StaffMember>()
 const request = new Request('https://admin.dripfunnel.com/api', { headers: { 'cf-ray': 'ray-test', 'cf-connecting-ip': '203.0.113.5', 'user-agent': 'test' } })
-const ids = { priyaMehta: '', priyaKiko: '', usNumber: '', deleted: '', mehta: '', kiko: '', ns: '' }
+const ids = { priyaMehta: '', priyaKiko: '', usNumber: '', deleted: '', mehta: '', kiko: '', ns: '', inside: '', outside: '', outsidePartner: '' }
 const priya = { email: 'priya.sharma@gmail.com', phone: '+919876543210' }
+// One email at a store the Partner manager is assigned and at one it is not.
+const shared = { email: 'arjun.rao@gmail.com', phone: '+919811122233' }
 
 const contextFor = (staff: StaffMember | null): AdminContext => ({
   staff,
@@ -71,6 +73,21 @@ beforeAll(async () => {
   // The same national number in another country: a different person (decided on #42).
   ids.usNumber = await customer(harbor?.id ?? '', { phone: '+19876543210', name: 'Dana Wells' })
   ids.deleted = await customer(ids.mehta, { email: 'gone.person@example.com', name: 'Gone Person', status: 'deleted' })
+  const pm = as('staff-partner-manager')
+  // Partners the fixtures above use are left out, so their filter tests keep their exact answers.
+  const storeOf = async (assigned: boolean) =>
+    (
+      await db.sql<{ id: string; partner_id: string }[]>`
+        select s.id, s.partner_id from store s
+        where (s.partner_id in (select partner_id from staff_partner_assignment where staff_user_id = ${pm.id} and removed_at is null)) = ${assigned}
+          and s.partner_id not in (select partner_id from store where id in (${ids.mehta}, ${ids.kiko}, ${harbor?.id ?? ids.mehta}))
+        order by s.name limit 1`
+    )[0]
+  const [inside, outside] = [await storeOf(true), await storeOf(false)]
+  if (!inside || !outside) throw new Error('the seed needs a store inside and one outside the Partner manager’s assignment')
+  ids.outsidePartner = outside.partner_id
+  ids.inside = await customer(inside.id, { ...shared, name: 'Arjun Rao' })
+  ids.outside = await customer(outside.id, { ...shared, name: 'Arjun Rao' })
 }, 120_000)
 
 afterAll(async () => {
@@ -85,6 +102,10 @@ describe('the list', () => {
       expect(response.raw, role).not.toContain('9876543210')
       const mine = response.data?.customers.items.find((r) => r.id === ids.priyaMehta)
       if (role !== 'staff-partner-manager') expect(mine, role).toMatchObject({ email: 'pr***@gmail.com', phone: '+91 ***** 43210', phoneRegion: '+91' })
+      const arjun = await run<List>(list, as(role), { s: 'arjun' })
+      expect(arjun.raw, role).not.toContain(shared.email)
+      expect(arjun.raw, role).not.toContain('9811122233')
+      expect(arjun.data?.customers.items.find((r) => r.id === ids.inside), role).toMatchObject({ email: 'ar***@gmail.com', phone: '+91 ***** 22233', phoneRegion: '+91' })
     }
   })
 
@@ -123,34 +144,62 @@ describe('the list', () => {
     expect((await run(list, sa, { s: '12' })).code).toBe('INVALID_INPUT')
   })
 
-  it('shows a Partner manager its assigned partners’ customers only', async () => {
+  it('shows a Partner manager its assigned partners’ customers only, in the list, a search, its count and the store choices', async () => {
     const pm = as('staff-partner-manager')
-    const seen = (await run<List>(list, pm)).data?.customers.items ?? []
+    const all = (await run<List>(list, pm)).data?.customers.items.map((r) => r.id) ?? []
+    expect(all).toContain(ids.inside)
+    expect(all).not.toContain(ids.outside)
     const assigned = new Set((await db.sql<{ partner_id: string }[]>`select partner_id from staff_partner_assignment where staff_user_id = ${pm.id} and removed_at is null`).map((r) => r.partner_id))
     const partnerOf = new Map((await db.sql<{ id: string; partner_id: string }[]>`select c.id, s.partner_id from customer c join store s on s.id = c.store_id`).map((r) => [r.id, r.partner_id]))
-    expect(seen.every((r) => assigned.has(partnerOf.get(r.id) ?? ''))).toBe(true)
-    const outside = [...partnerOf.entries()].find(([, p]) => !assigned.has(p))?.[0]
-    if (outside) expect((await run<Detail>(detail, pm, { id: outside })).data?.customer).toBeNull()
-    // Nor the store choices of a partner outside the assignment.
-    const other = (await db.sql<{ id: string }[]>`select id from partner where not (id::text = any(string_to_array(${[...assigned].join(',')}, ','))) limit 1`)[0]?.id
-    if (other) expect((await run<List>(list, pm, { f: { partner: other } })).data?.customers.stores).toEqual([])
+    expect(all.every((id) => assigned.has(partnerOf.get(id) ?? ''))).toBe(true)
+    for (const s of [shared.email, shared.phone, 'Arjun']) {
+      const found = (await run<List>(list, pm, { s })).data?.customers
+      expect(found?.items.map((r) => r.id), s).toEqual([ids.inside])
+      if (s !== 'Arjun') expect(found?.match?.accounts, s).toBe(1)
+    }
+    // The same search by a role without an assignment finds both, so the one above was scoped, not missing.
+    expect((await run<List>(list, as('staff-super-admin'), { s: shared.email })).data?.customers.match?.accounts).toBe(2)
+    const outsidePartner = (await run<List>(list, pm, { f: { partner: ids.outsidePartner } })).data?.customers
+    expect(outsidePartner).toMatchObject({ items: [], stores: [] })
+  })
+
+  it('never finds a deleted account by its old email, name or phone, nor counts it in a match', async () => {
+    for (const s of ['gone.person@example.com', 'Gone Person']) {
+      const found = (await run<List>(list, as('staff-super-admin'), { s })).data?.customers
+      expect(found?.items, s).toEqual([])
+      if (s.includes('@')) expect(found?.match, s).toEqual({ kind: 'email', accounts: 0, regions: [] })
+    }
+    const phone = await customer(ids.mehta, { phone: '+919800011122', name: 'Gone Mobile', status: 'deleted' })
+    const byPhone = (await run<List>(list, as('staff-super-admin'), { s: '+91 98000 11122' })).data?.customers
+    expect(byPhone).toMatchObject({ items: [], match: { kind: 'phone', accounts: 0, regions: [] } })
+    expect((await run<List>(list, as('staff-super-admin'), { f: { status: 'deleted' } })).data?.customers.items.map((r) => r.id).sort()).toEqual([ids.deleted, phone].sort())
   })
 })
 
 describe('the detail', () => {
   it('unmasks email and phone for Super admin and Support only, and logs every view naming staff, customer and store', async () => {
     for (const role of staffByRole.keys()) {
-      const before = (await db.sql`select 1 from activity_log where action = 'customer.viewed' and target_id = ${ids.priyaMehta}`).length
-      const got = (await run<Detail>(detail, as(role), { id: ids.priyaMehta })).data?.customer
-      if (role === 'staff-partner-manager' && got === null) continue
+      const pm = role === 'staff-partner-manager'
+      const id = pm ? ids.inside : ids.priyaMehta
+      const views = async () => (await db.sql`select 1 from activity_log where action = 'customer.viewed' and target_id = ${id}`).length
+      const before = await views()
+      const got = (await run<Detail>(detail, as(role), { id })).data?.customer
       const full = role === 'staff-super-admin' || role === 'staff-support'
-      expect(got, role).toMatchObject(full ? { email: priya.email, phone: priya.phone, contactsMasked: false } : { email: 'pr***@gmail.com', phone: '+91 ***** 43210', contactsMasked: true })
-      const after = (await db.sql`select 1 from activity_log where action = 'customer.viewed' and target_id = ${ids.priyaMehta}`).length
-      expect(after - before, role).toBe(1)
+      const contact = pm ? { email: 'ar***@gmail.com', phone: '+91 ***** 22233' } : { email: 'pr***@gmail.com', phone: '+91 ***** 43210' }
+      expect(got, role).toMatchObject(full ? { email: priya.email, phone: priya.phone, contactsMasked: false } : { ...contact, contactsMasked: true })
+      expect((await views()) - before, role).toBe(1)
     }
     const [entry] = await db.sql<{ actor_kind: string; actor_label: string; target_label: string; store_id: string; visibility: string; customer_id: string | null }[]>`
-      select actor_kind, actor_label, target_label, store_id, visibility, customer_id from activity_log where action = 'customer.viewed' order by occurred_at desc limit 1`
-    expect(entry).toMatchObject({ actor_kind: 'staff', target_label: 'Priya S. at Mehta Textiles', store_id: ids.mehta, visibility: 'staff', customer_id: ids.priyaMehta })
+      select actor_kind, actor_label, target_label, store_id, visibility, customer_id from activity_log
+      where action = 'customer.viewed' and target_id = ${ids.priyaMehta} order by occurred_at desc limit 1`
+    expect(entry).toMatchObject({ actor_kind: 'staff', target_label: 'Customer at Mehta Textiles', store_id: ids.mehta, visibility: 'staff', customer_id: ids.priyaMehta })
+    expect(entry?.target_label).not.toContain('Priya')
+  })
+
+  it('refuses a Partner manager the detail of a customer outside its assignment, as for an unknown id, and logs no view', async () => {
+    const got = await run<Detail>(detail, as('staff-partner-manager'), { id: ids.outside })
+    expect(got.data?.customer).toBeNull()
+    expect(await db.sql`select 1 from activity_log where customer_id = ${ids.outside}`).toHaveLength(0)
   })
 
   it('shows a deleted account with no personal field, for any role', async () => {

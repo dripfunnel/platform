@@ -16,6 +16,7 @@ export interface CustomerFilter {
   signedInAfter?: Date | undefined
   /** A Partner manager reads its assigned partners' stores only (ACCESS.md §5.4). */
   assignedTo?: string | undefined
+  /** Never matches a deleted account: an erased person's contact must not confirm they had one. */
   search?: CustomerSearch | undefined
 }
 
@@ -54,6 +55,7 @@ const where = (tx: ScopedSql, f: CustomerFilter) => tx`
   ${f.createdAfter !== undefined ? tx`and c.created_at >= ${f.createdAfter}` : tx``}
   ${f.signedInAfter !== undefined ? tx`and c.last_sign_in_at >= ${f.signedInAfter}` : tx``}
   ${f.assignedTo !== undefined ? tx`and s.partner_id in (select partner_id from staff_partner_assignment a where a.staff_user_id = ${f.assignedTo} and a.removed_at is null)` : tx``}
+  ${f.search !== undefined ? tx`and c.status <> 'deleted'` : tx``}
   ${f.search?.kind === 'name' ? tx`and c.name ilike ${`%${f.search.term.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`}` : tx``}
   ${f.search?.kind === 'email' ? tx`and lower(c.email) = lower(${f.search.email})` : tx``}
   ${f.search?.kind === 'phone' ? tx`and (c.phone_digits = ${f.search.digits} or c.phone_national = ${f.search.digits})` : tx``}

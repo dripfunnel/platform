@@ -124,7 +124,8 @@ export const createCustomersService = ({ sql, staff, facts, activity, now }: Cus
           storeId: c.store_id,
           // Named, so a search or a data request by customer finds who looked (staff-only visibility).
           customerId: c.id,
-          target: { type: 'customer', id: c.id, label: `${row.name ?? 'Deleted customer'} at ${c.store_name}` },
+          // No name in the label: erasure rewrites only actor_label (LOGGING.md §4.1, §8).
+          target: { type: 'customer', id: c.id, label: `Customer at ${c.store_name}` },
           visibility: 'staff',
         }),
       )
