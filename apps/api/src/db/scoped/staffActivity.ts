@@ -47,8 +47,8 @@ export const selectPeople = (tx: ScopedSql, term: string, limit: number, assigne
       (select 'person', u.id, u.name, u.email, p.name from "user" u join partner p on p.id = u.partner_id
         where u.status <> 'deleted' and (u.name ilike ${like} or u.email ilike ${like}) ${assigned(tx, tx`u.partner_id`, assignedTo)} order by u.name limit ${limit})
       union all
-      (select 'customer', c.id, c.name, c.email, st.name from customer c join store st on st.id = c.store_id
-        where c.status <> 'deleted' and (c.name ilike ${like} or lower(c.email) = lower(${term})) ${assigned(tx, tx`st.partner_id`, assignedTo)} order by c.name limit ${limit})
+      (select 'customer', c.id, coalesce(c.name, ''), c.email, st.name from customer c join store st on st.id = c.store_id
+        where c.status <> 'deleted' and (c.name ilike ${like} or lower(c.email) = lower(${term})) ${assigned(tx, tx`st.partner_id`, assignedTo)} order by coalesce(c.name, '') limit ${limit})
     ) people order by name, kind limit ${limit}
   `
 }
