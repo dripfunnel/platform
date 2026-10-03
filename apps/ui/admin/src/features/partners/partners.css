@@ -46,3 +46,87 @@
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius-small);
 }
+
+.df-create-partner {
+  max-width: 560px;
+}
+
+.df-field-error,
+.df-form-failure {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.df-form-failure {
+  margin-bottom: var(--df-space-6);
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+}
+
+.df-field [aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-choices {
+  display: grid;
+  gap: var(--df-space-3);
+  margin: 0 0 var(--df-space-6);
+  padding: 0;
+  border: 0;
+}
+
+.df-choices legend {
+  margin-bottom: var(--df-space-2);
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.df-choice {
+  display: flex;
+  gap: var(--df-space-3);
+  align-items: flex-start;
+  padding: var(--df-space-3) var(--df-space-4);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  cursor: pointer;
+}
+
+.df-choice:has(input:checked) {
+  border-color: var(--df-color-brand);
+}
+
+.df-choice input {
+  margin-top: 3px;
+  accent-color: var(--df-color-brand);
+}
+
+.df-choice input:focus-visible {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-choice > span {
+  display: grid;
+  gap: var(--df-space-1);
+}
+
+.df-choice-label {
+  font-weight: 600;
+}
+
+.df-choice-body {
+  color: var(--df-color-muted);
+  font-size: 0.8125rem;
+}
+
+.df-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--df-space-3);
+}

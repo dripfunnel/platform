@@ -61,7 +61,8 @@ Migration `0007` gives `partner` and `store` their business columns and adds the
 tables above (`partner_user`, `partner_invitation`, `partner_domain`, `partner_setup_item`,
 `plan`, `custom_domain`, `user`, `membership`, `invitation`, `job`, `store_note`).
 
-- **Partner**: `name`, `is_house` (one row, by a partial unique index), `kind`, `region`,
+- **Partner**: `name` (unique among partners that aren't closed, ignoring case and outer
+  spaces, `0031`, #61), `is_house` (one row, by a partial unique index), `kind`, `region`,
   `country`, `state` (SAAS.md §3.1) with the facts of each state (`submitted_at/by`,
   `sent_back_reason`, `approved_at`, `paused_at`, `pause_reason`), the published look the admin
   console shows (`product_name`, colours, `powered_by`) and `fallback_sender_accepted`. PAPI 3
