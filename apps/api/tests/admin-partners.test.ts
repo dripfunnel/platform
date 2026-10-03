@@ -359,7 +359,7 @@ describe('setup sessions (ACCESS.md §8.2, §8.3)', () => {
     const [row] = await db.sql<{ handoff_hash: string }[]>`select handoff_hash from partner_setup_session where id = ${started?.sessionId ?? ''}`
     expect(row?.handoff_hash).not.toBe(started?.handoff)
     await expect(db.sql.begin(async (tx) => {
-      await tx`set local role app_request`
+      await tx`set local role app_platform`
       await tx`select set_config('app.scope', 'platform', true)`
       return tx`select handoff_hash from partner_setup_session`
     })).rejects.toThrow(/permission denied/i)

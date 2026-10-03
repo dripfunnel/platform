@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 ---
 
@@ -404,10 +404,13 @@ USING ( (current_setting('app.scope') = 'partner' AND partner_id = current_setti
 Row policies cannot tell a supplier from the merchant or a shopper from either (all three were
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
-(`db/scoped/index.ts`) issues `set local role <role>` from the caller kind; today it always
-says `app_request`, which is right for the merchant-side callers that exist, and the first
-supplier, shopper, partner and staff-role cards add the others (the staff one moves the Admin
-API, built on #13–#35, onto `app_platform`).
+(`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
+run as `app_platform`, every other request as `app_request`, and `app_definer` exists (owning
+only 0007's membership trigger, which checks parents the caller may not see); the first
+supplier, shopper and partner cards add `app_supplier`, `app_shop` and `app_partner` the same
+way (api/README.md §7). Every tenant table carries a restrictive pin per role holding it to
+its own `app.scope` values (`request_scope`: `store`, `shop`, `partner`; `platform_scope`;
+`system_scope`), so a policy shared by two roles never lets one use the other's branch.
 
 | Role | Used by | Can |
 |---|---|---|

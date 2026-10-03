@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-03.
 
 | Document | Covers |
 |---|---|
@@ -315,6 +315,23 @@ the connecting role is another member of that owner it runs each migration under
 `set local role <owner>`, so what the migration creates stays the owner's; when it is neither
 the owner nor a member it stops before the first statement and names both roles and the grant
 that fixes it, rather than failing on Postgres's bare "must be owner".
+
+**Which role a request runs as** (DATA-MODEL.md §5.3, built on #205). `withScope`
+(`src/db/scoped/index.ts`) issues `set local role` with what `roleFor`
+(`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
+`app_platform`; merchant-side people, suppliers, shoppers, support sessions and partner users
+run as `app_request` until their own roles (`app_supplier`, `app_shop`, `app_partner`) arrive;
+jobs run as `app_system` through `withSystemScope`. Every policy names the roles that may use
+it, and on every tenant table three restrictive policies (`request_scope`, `platform_scope`,
+`system_scope`) hold each role to its own values of `app.scope`, so a role never passes another
+role's branch. A card that adds a role adds, in one migration, the role, its grants, the
+policies `TO` it and its pin on every tenant table (taking its scope out of `request_scope`), plus one case in `roleFor`; the structural
+tests in `tests/isolation.test.ts` fail until all four are there. Two deploy facts follow. The role that
+runs migrations creates these roles, so it needs `CREATEROLE` and, because `app_definer` is the
+one role with `BYPASSRLS`, `BYPASSRLS` itself; 0010 then makes it a member of `app_definer` to
+hand over the membership trigger. The Worker's login must be a member of every request role:
+0010 grants `app_platform` to whatever is already a member of `app_request`, and a card adding a
+role does the same.
 
 Wrangler refuses that connection string without a password, so give the local role one even
 where Postgres trusts loopback connections. The Worker's client runs with `fetch_types: false`

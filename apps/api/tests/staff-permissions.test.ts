@@ -7,6 +7,8 @@ let db: TestDatabase
 let tenants: Tenants
 let manager: string
 const nowhere = '00000000-0000-4000-8000-000000000000'
+// Platform scope is app_platform's alone (DATA-MODEL.md §5.3); the others run as app_request.
+const roleOf = (scope: string) => (scope === 'platform' ? 'app_platform' : 'app_request')
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -45,7 +47,7 @@ describe('a Partner manager assigned to partner A', () => {
 describe('the assignment table', () => {
   const asScope = (scope: string) =>
     db.sql.begin(async (tx) => {
-      await tx`set local role app_request`
+      await tx.unsafe(`set local role ${roleOf(scope)}`)
       await tx`select set_config('app.scope', ${scope}, true)`
       await tx`select set_config('app.partner_id', ${tenants.partnerA}, true)`
       await tx`select set_config('app.store_id', ${tenants.storeA1}, true)`
@@ -61,7 +63,7 @@ describe('the assignment table', () => {
   it('is written in platform scope only, never by a partner or a store (#60)', async () => {
     const insertAs = (scope: string) =>
       db.sql.begin(async (tx) => {
-        await tx`set local role app_request`
+        await tx.unsafe(`set local role ${roleOf(scope)}`)
         await tx`select set_config('app.scope', ${scope}, true)`
         await tx`select set_config('app.partner_id', ${tenants.partnerB}, true)`
         return tx`insert into staff_partner_assignment (staff_user_id, partner_id) values (${manager}, ${tenants.partnerB})`
