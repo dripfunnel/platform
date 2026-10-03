@@ -7,6 +7,7 @@ import {
   type GraphQLSchema,
 } from 'graphql'
 import type { AccessTarget } from '#auth/assignment'
+import type { PartnerPermission } from '#auth/partnerPermissions'
 import type { StaffPermission } from '#auth/permissions'
 
 export type Api = 'admin' | 'platform' | 'store' | 'shop'
@@ -17,7 +18,7 @@ export type FieldScope = 'public' | 'session' | 'store' | 'store-seller' | 'part
 export interface Access<Args = Record<string, unknown>> {
   api: Api
   scope: FieldScope
-  permission: StaffPermission | null
+  permission: StaffPermission | PartnerPermission | null
   /** What a targeted field acts on, so a partner-scoped role is held to its partners.
    *  `'none'` is a deliberate answer: a list, which filters its own rows. */
   target?: 'none' | ((args: Args) => AccessTarget)
@@ -48,6 +49,8 @@ export interface AccessPolicy<Context> {
   api: Api
   /** The scopes this API serves; any other fails the build. */
   scopes: readonly FieldScope[]
+  /** This API's permission catalogue; a field naming another API's permission fails the build. */
+  permissions: readonly string[]
   /** Throws `unauthenticated()` or `forbidden()`. Never called for `public` fields. */
   authorize: (access: Access, context: Context, args: Record<string, unknown>) => Promise<void>
 }
@@ -69,6 +72,9 @@ const checkDeclaration = <Context>(
   const open = access.scope === 'public' || access.scope === 'session'
   if (open !== (access.permission === null)) {
     throw new AccessDeclarationError(`${where}: only public and session fields go without a permission`)
+  }
+  if (access.permission !== null && !policy.permissions.includes(access.permission)) {
+    throw new AccessDeclarationError(`${where} declares ${access.permission}, which is not a ${policy.api} API permission`)
   }
   if (!open && access.target === undefined) {
     throw new AccessDeclarationError(`${where} declares no target; use 'none' for a list`)

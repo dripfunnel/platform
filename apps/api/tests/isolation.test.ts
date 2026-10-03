@@ -6,7 +6,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
 // The isolation matrix (ACCESS.md §11.1), counts included, since a count that leaks is a
-// leak. `withScope` sets the role to `app_request`: the connection here is a superuser, and
+// leak. `withScope` sets the caller kind's role: the connection here is a superuser, and
 // a superuser bypasses RLS, so without that every assertion would pass proving nothing.
 
 let db: TestDatabase
@@ -142,10 +142,11 @@ describe('a partner user', () => {
     expect(await idsOf(b, 'partner')).not.toContain(t.partnerA)
   })
 
-  it('never reaches inside a store: no customers', async () => {
+  it('never reaches inside a store: no customers, not even a count', async () => {
+    // app_partner holds no grant on customer (#155), so the read is refused outright.
     const a = partnerCaller(t.partnerA)
-    expect(await idsOf(a, 'customer')).toEqual([])
-    expect(await countOf(a, 'customer')).toBe(0)
+    await expect(idsOf(a, 'customer')).rejects.toThrow(/permission denied/i)
+    await expect(countOf(a, 'customer')).rejects.toThrow(/permission denied/i)
   })
 
   it('reads its own stores suppliers at account level, and no other partner stores suppliers', async () => {
@@ -169,24 +170,26 @@ describe('staff on the Admin API', () => {
   })
 
   it('cannot change a customer even though they can read one', async () => {
-    // The Customers menu is read-only (FIRST-RELEASE §5.4). An UPDATE filtered out by USING
-    // affects no rows rather than raising, so the assertion is that nothing changed.
-    const changed = await withScope(db.sql, staff, async (tx) => {
-      const rows = await tx`update customer set name = 'changed' where id = ${t.customerA1} returning id`
-      return rows.length
-    })
-    expect(changed).toBe(0)
+    // The Customers menu is read-only (FIRST-RELEASE §5.4): app_platform holds select alone on
+    // customer (#205), so the write is refused before any policy runs.
+    await expect(
+      withScope(db.sql, staff, async (tx) => tx`update customer set name = 'changed' where id = ${t.customerA1} returning id`),
+    ).rejects.toThrow(/permission denied/i)
 
     const [row] = await db.sql<{ name: string | null }[]>`select name from customer where id = ${t.customerA1}`
     expect(row?.name).toBeNull()
   })
 
-  it('cannot insert a customer: WITH CHECK refuses it outright', async () => {
+  it('never read a customer’s password hash', async () => {
+    await expect(withScope(db.sql, staff, (tx) => tx`select password_hash from customer`)).rejects.toThrow(/permission denied/i)
+  })
+
+  it('cannot insert a customer: the grant refuses it outright', async () => {
     await expect(
       withScope(db.sql, staff, async (tx) => {
         await tx`insert into customer (store_id, email, status) values (${t.storeA1}, 'new@example.com', 'active')`
       }),
-    ).rejects.toThrow(/row-level security/i)
+    ).rejects.toThrow(/permission denied/i)
   })
 
   it('read every supplier at account level, for the Users tab', async () => {
@@ -344,6 +347,61 @@ describe('the backstop itself', () => {
         [row.relname]: [true, true],
       })
     }
+  })
+
+  it('runs staff as app_platform, partner callers as app_partner and store callers as app_request (#205, #155)', async () => {
+    const roleOf = async (context: CallerContext) =>
+      withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
+    expect(await roleOf(staff)).toBe('app_platform')
+    expect(await roleOf(storeCaller(t.partnerA, t.storeA1))).toBe('app_request')
+    expect(await roleOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }))).toBe('app_request')
+    expect(await roleOf(shopper(t.partnerA, t.storeA1, null))).toBe('app_request')
+    expect(await roleOf(supportSession(t.partnerA, t.storeA1, 'read'))).toBe('app_request')
+    expect(await roleOf(partnerCaller(t.partnerA))).toBe('app_partner')
+  })
+
+  it('holds each role to its own scopes, whatever app.scope says', async () => {
+    const partnersSeen = async (role: string, scope: string) =>
+      db.sql.begin(async (tx: postgres.TransactionSql) => {
+        await tx.unsafe(`set local role ${role}`)
+        await tx`select set_config('app.scope', ${scope}, true)`
+        await tx`select set_config('app.partner_id', ${t.partnerA}, true)`
+        return (await tx`select id from partner`).length
+      })
+    expect(await partnersSeen('app_platform', 'platform')).toBeGreaterThan(1)
+    expect(await partnersSeen('app_partner', 'partner')).toBe(1)
+    expect(await partnersSeen('app_request', 'partner')).toBe(0)
+    // Until #210: the Worker live before #205 serves staff as app_request, and must keep working
+    // until the new one is promoted. #210 makes this 0.
+    expect(await partnersSeen('app_request', 'platform')).toBeGreaterThan(1)
+    expect(await partnersSeen('app_partner', 'platform')).toBe(0)
+    expect(await partnersSeen('app_platform', 'partner')).toBe(0)
+    expect(await partnersSeen('app_system', 'platform')).toBe(0)
+  })
+
+  it('names a role on every policy, and pins every role to its scopes on every tenant table', async () => {
+    const toPublic = await db.sql<{ policy: string }[]>`
+      select c.relname || '.' || p.polname as policy from pg_policy p
+      join pg_class c on c.oid = p.polrelid
+      where c.relnamespace = 'public'::regnamespace and 0 = any(p.polroles)
+    `
+    expect(toPublic.map((row) => row.policy)).toEqual([])
+    const unpinned = await db.sql<{ relname: string }[]>`
+      select c.relname from pg_class c
+      where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') and c.relrowsecurity
+        and (select count(*) from pg_policy p
+             where p.polrelid = c.oid and not p.polpermissive
+               and p.polname in ('request_scope', 'partner_scope', 'platform_scope', 'system_scope')) <> 4
+    `
+    expect(unpinned.map((row) => row.relname)).toEqual([])
+  })
+
+  it('reserves app_definer: no login, and the one role that bypasses RLS', async () => {
+    const roles = await db.sql<{ rolname: string; rolcanlogin: boolean; rolbypassrls: boolean }[]>`
+      select rolname, rolcanlogin, rolbypassrls from pg_roles where rolname like 'app\_%' order by rolname
+    `
+    expect(roles.filter((r) => r.rolbypassrls).map((r) => r.rolname)).toEqual(['app_definer'])
+    expect(roles.filter((r) => r.rolcanlogin)).toEqual([])
   })
 
   it('leaves no tenant table without a policy', async () => {

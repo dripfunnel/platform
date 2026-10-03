@@ -99,7 +99,7 @@ describe('a field without a valid declaration fails the build', () => {
         field: t.string({ extensions: { access: { api: 'store', scope: 'session', permission: null } }, resolve: () => 'ok' }),
       }),
     })
-    expect(() => secureSchema(builder.toSchema(), { api: 'store', scopes: ['public'], authorize: async () => {} })).toThrow(
+    expect(() => secureSchema(builder.toSchema(), { api: 'store', scopes: ['public'], permissions: [], authorize: async () => {} })).toThrow(
       'scope session',
     )
   })

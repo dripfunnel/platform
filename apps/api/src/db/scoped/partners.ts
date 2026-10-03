@@ -16,6 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
+import { writeVersionRows, type Entitlements, type PlanVersionPrice } from './plans'
 import { maxPageSize, pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
@@ -169,10 +170,13 @@ export interface NewPlan {
   trialDays?: number
   maxProducts?: number | null
   maxStaff?: number | null
+  prices?: readonly PlanVersionPrice[]
+  entitlements?: Entitlements | null
 }
 
-export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> =>
-  one(
+/** A plan, its first version (written by the table's trigger) and that version's prices and values (DATA-MODEL.md §2.3). */
+export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> => {
+  const id = one(
     await tx<{ id: string }[]>`
       insert into plan (partner_id, name, description, status, trial_days, max_products, max_staff)
       values (${p.partnerId}, ${p.name}, ${p.description ?? null}, ${p.status ?? 'draft'}, ${p.trialDays ?? 14}, ${p.maxProducts ?? null}, ${p.maxStaff ?? null})
@@ -180,6 +184,17 @@ export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> =>
     `,
     'plan',
   )
+  await writeVersionRows(tx, {
+    planId: id,
+    partnerId: p.partnerId,
+    version: 1,
+    trialDays: p.trialDays ?? 14,
+    prices: p.prices ?? [],
+    entitlements: p.entitlements ?? null,
+    by: { kind: 'system', label: 'Plan created' },
+  })
+  return id
+}
 
 export interface PartnerFilter {
   state?: PartnerState | undefined
@@ -394,10 +409,12 @@ export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Prom
 
 // Capped per partner, not per batch: a page of partners must never lose one partner's rows
 // to another's.
-export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(PlanRow & { store_count: number })[]> =>
-  tx<(PlanRow & { store_count: number })[]>`
+export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(PlanRow & { store_count: number; priced: boolean })[]> =>
+  tx<(PlanRow & { store_count: number; priced: boolean })[]>`
     select * from (
       select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count,
+        -- Priced: its current version has a monthly price in some currency (DATA-MODEL §2.3).
+        exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null) as priced,
         row_number() over (partition by pl.partner_id order by pl.created_at) as rn
       from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[])
     ) ranked where rn <= ${maxPageSize} order by created_at

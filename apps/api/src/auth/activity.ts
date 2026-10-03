@@ -82,6 +82,55 @@ export const reauthenticated = (staff: { id: string; email: string; name: string
   ...request,
 })
 
+const partnerUserEntry = (action: string, category: 'auth' | 'security', user: { id: string; partnerId: string }, request: RequestFacts): ActivityEntry => ({
+  category,
+  action,
+  result: 'success',
+  actorKind: 'partner_user',
+  actorId: user.id,
+  actorLabel: null,
+  partnerId: user.partnerId,
+  reason: null,
+  api: 'platform',
+  visibility: 'partner',
+  ...request,
+})
+
+/** LOGGING.md §6: the partner's own users' actions are what its activity log shows. */
+export const partnerSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.signed_out', 'auth', user, request)
+
+export const partnerSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => partnerUserEntry('partner_user.signed_in', 'auth', user, request)
+
+export const partnerSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts) =>
+  partnerUserEntry('partner_user.second_factor_enrolled', 'security', user, request)
+
+/** Five wrong codes (FIRST-RELEASE §3): the account's own partner sees it, as staff do. */
+export const partnerLocked = (user: { id: string; partnerId: string }, request: RequestFacts): ActivityEntry => ({
+  ...partnerUserEntry('partner_user.sign_in_locked', 'security', user, request),
+  result: 'denied',
+})
+
+/** A wrong or stale code: the account is known by then, so its partner sees the attempt too. */
+export const partnerSecondFactorRefused = (user: { id: string; partnerId: string }, request: RequestFacts, reason: 'WRONG_CODE' | 'CODE_EXPIRED'): ActivityEntry => ({
+  ...partnerUserEntry('partner_user.second_factor_refused', 'security', user, request),
+  result: 'denied',
+  reason,
+})
+
+/** Names no subject, like the staff refusal, so the log never becomes the enumeration the answer avoids. */
+export const partnerSignInRefused = (request: RequestFacts, reason: 'invalid_credentials' | 'locked'): ActivityEntry => ({
+  category: 'security',
+  action: 'partner_user.sign_in_refused',
+  result: 'denied',
+  actorKind: 'anonymous',
+  actorId: null,
+  actorLabel: null,
+  reason,
+  api: 'platform',
+  visibility: 'staff',
+  ...request,
+})
+
 /** A refusal names no subject: the entry must not become the enumeration the response avoids. */
 export const signInRefused = (request: RequestFacts, refusal: SignInRefusal): ActivityEntry => ({
   category: 'security',

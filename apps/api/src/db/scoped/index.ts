@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { CallerContext } from '#core/tenancy'
-import { settingsFor } from '../rls/settings'
+import { roleFor, settingsFor } from '../rls/settings'
 
 export type ScopedSql = postgres.TransactionSql
 
@@ -10,14 +10,15 @@ export const maxPageSize = 100
 export const pageLimit = (limit: number): number => Math.min(Math.max(Math.floor(limit), 1), maxPageSize)
 
 /** The only path to tenant data (api/README.md §4). One transaction, because `SET LOCAL`
- *  lives only that long; `app_request`, because a superuser bypasses RLS (DATA-MODEL §5). */
+ *  lives only that long; the caller kind's role, because a superuser bypasses RLS (DATA-MODEL §5.3). */
 export const withScope = async <T>(
   sql: postgres.Sql,
   context: CallerContext,
   work: (tx: ScopedSql) => Promise<T>,
 ): Promise<T> =>
   sql.begin(async (tx) => {
-    await tx`set local role app_request`
+    // A role is an identifier, never a parameter; roleFor returns only the literals it names.
+    await tx.unsafe(`set local role ${roleFor(context)}`)
     for (const [name, value] of Object.entries(settingsFor(context))) {
       await tx`select set_config(${name}, ${value}, true)`
     }

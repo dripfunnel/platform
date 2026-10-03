@@ -75,5 +75,8 @@ export const rolePermissions: Record<StaffRole, readonly StaffPermission[]> = {
 /** Roles that act only on the partners assigned to them (ACCESS.md §5.4). */
 export const partnerScopedRoles: readonly StaffRole[] = ['staff-partner-manager']
 
+export const isStaffPermission = (permission: string): permission is StaffPermission =>
+  (staffPermissions as readonly string[]).includes(permission)
+
 export const roleHas = (role: StaffRole, permission: StaffPermission): boolean =>
   rolePermissions[role].includes(permission)

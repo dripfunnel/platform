@@ -157,7 +157,7 @@ describe('who the request resolves to', () => {
 describe('row-level security on the staff tables', () => {
   const asPlatform = <T>(work: (tx: postgres.TransactionSql) => Promise<T>) =>
     db.sql.begin(async (tx) => {
-      await tx`set local role app_request`
+      await tx`set local role app_platform`
       await tx`select set_config('app.scope', 'platform', true)`
       return work(tx)
     })
