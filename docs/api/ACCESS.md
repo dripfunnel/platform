@@ -294,7 +294,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
   store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
-  (idle 2 h, absolute 12 h; `remember` arrives with #156's sign-in), `POST /api/auth/sign-out`
+  (idle 2 h, absolute 12 h; `remember` stays false: no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
   logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
   closed-partner session, as for an unknown one. **Sign-in, built on #156**
   (`apis/platform/auth.ts`): `POST /api/auth/sign-in` answers `INVALID_CREDENTIALS`
@@ -305,7 +305,8 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   2-factor) or `enrol` (one whose partner requires it), good for 10 minutes and for nothing but
   `second-factor` or `enrol-second-factor`. TOTP (RFC 6238, SHA-1, 30 s, 6 digits) accepts one
   step of drift; a code up to five minutes old or already used is `CODE_EXPIRED` and not
-  counted; five wrong codes lock the account for 15 minutes (`LOCKED`, with minutes, even for
+  counted; every wrong or stale code is logged as `partner_user.second_factor_refused`, which
+  the partner sees; five wrong codes lock the account for 15 minutes (`LOCKED`, with minutes, even for
   a right code), log `partner_user.sign_in_locked` and queue the notice email. The secret is
   sealed with AES-256-GCM under `CREDENTIALS_KEK` (THIRD-PARTY-ACCESS §5); without the key the
   second-factor routes answer `NOT_CONNECTED`. Every route except sign-out takes an attempt per

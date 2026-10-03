@@ -110,6 +110,13 @@ export const partnerLocked = (user: { id: string; partnerId: string }, request: 
   result: 'denied',
 })
 
+/** A wrong or stale code: the account is known by then, so its partner sees the attempt too. */
+export const partnerSecondFactorRefused = (user: { id: string; partnerId: string }, request: RequestFacts, reason: 'WRONG_CODE' | 'CODE_EXPIRED'): ActivityEntry => ({
+  ...partnerUserEntry('partner_user.second_factor_refused', 'security', user, request),
+  result: 'denied',
+  reason,
+})
+
 /** Names no subject, like the staff refusal, so the log never becomes the enumeration the answer avoids. */
 export const partnerSignInRefused = (request: RequestFacts, reason: 'invalid_credentials' | 'locked'): ActivityEntry => ({
   category: 'security',

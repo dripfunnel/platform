@@ -126,6 +126,8 @@ describe('the second factor', () => {
     expect(await (await post('second-factor', { code: '000001' }, cookie)).json()).toEqual({ ok: false, code: 'LOCKED', minutes: 15 })
     expect(await (await post('second-factor', { code: await codeAt(twoFactorSecret, stepAt(now)) }, cookie)).json()).toEqual({ ok: false, code: 'LOCKED', minutes: 15 })
     expect(await (await post('sign-in', { email: 'maya@northstar.example', password })).json()).toEqual({ ok: false, code: 'LOCKED', minutes: 15 })
+    const refusals = await db.sql<{ reason: string; visibility: string }[]>`select reason, visibility from activity_log where action = 'partner_user.second_factor_refused' and actor_id = ${ids.twoFactor}`
+    expect(refusals.filter((r) => r.reason === 'WRONG_CODE' && r.visibility === 'partner').length).toBeGreaterThanOrEqual(5)
     const [notice] = await db.sql<{ payload: { template: string; to: string } }[]>`select payload from outbox where kind = 'email'`
     expect(notice?.payload).toMatchObject({ template: 'partner-user-locked', to: 'maya@northstar.example' })
     now = new Date(now.getTime() + lockMs + 60_000)

@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import { factsOf, partnerLocked, partnerSecondFactorEnrolled, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
+import { factsOf, partnerLocked, partnerSecondFactorEnrolled, partnerSecondFactorRefused, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
 import { safeNext } from '#auth/next'
 import { verifyPassword } from '#auth/password'
@@ -159,7 +159,10 @@ const secondFactor = async (request: Request, deps: PlatformAuthDeps, facts: Req
     // A correct code during the lock is still refused (FIRST-RELEASE §3).
     if (state.locked_until && state.locked_until > now) return { code: 'LOCKED', minutes: minutesUntil(state.locked_until, now) }
     const checked = await checkCode(secret, input?.code ?? '', now, state.last_code_step === null ? null : Number(state.last_code_step))
-    if (!checked.ok) return checked.code === 'WRONG_CODE' ? wrongCode(tx, deps, facts, state, now) : { code: checked.code }
+    if (!checked.ok) {
+      await deps.activity.record(tx, partnerSecondFactorRefused({ id: state.id, partnerId: state.partner_id }, facts, checked.code))
+      return checked.code === 'WRONG_CODE' ? wrongCode(tx, deps, facts, state, now) : { code: checked.code }
+    }
     await recordGoodCode(tx, state.id, checked.step, now)
     await completePartnerSession(tx, cookie, now)
     await deps.activity.record(tx, partnerSignedIn({ id: state.id, partnerId: state.partner_id }, facts))
@@ -206,7 +209,10 @@ const enrol = async (request: Request, deps: PlatformAuthDeps, facts: RequestFac
     if (!secret) return { code: 'INVALID_CREDENTIALS' }
     const checked = await checkCode(secret, input.code, now, null)
     // Not counted towards the lock: the code is checked against a secret this session was just given.
-    if (!checked.ok) return { code: checked.code }
+    if (!checked.ok) {
+      await deps.activity.record(tx, partnerSecondFactorRefused({ id: state.id, partnerId: state.partner_id }, facts, checked.code))
+      return { code: checked.code }
+    }
     const user = { id: state.id, partnerId: state.partner_id }
     await recordGoodCode(tx, state.id, checked.step, now, pending.pendingSecretEnc)
     await completePartnerSession(tx, cookie, now)

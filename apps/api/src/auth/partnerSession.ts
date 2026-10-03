@@ -1,8 +1,8 @@
 import type { ScopedSql } from '#db/scoped/index'
 import { hashSessionId, newSessionId } from './session'
 
-// ACCESS.md §4: the session model every pool but staff's uses. "Remember me" and its longer
-// absolute bound arrive with sign-in (#156); until then every session takes the short one.
+// ACCESS.md §4: the session model every pool but staff's uses. No partner screen offers
+// "Remember me" (FIRST-RELEASE §3), so `remember` stays false and every session takes 12 h.
 export const idleMs = 2 * 60 * 60 * 1000
 export const absoluteMs = 12 * 60 * 60 * 1000
 
