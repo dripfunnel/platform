@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { partnerOfStore, selectCustomDomainById, updateCustomDomainCheck } from '#db/scoped/stores'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { activityLog } from '#saas/activity/index'
-import { judge } from '#saas/domains/check'
+import { judge } from '#saas/domains/index'
 import type { Deliverer } from '../outbox-relay'
 
 const payload = z.object({ storeId: z.guid(), customDomainId: z.guid() }).strict()

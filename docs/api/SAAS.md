@@ -398,7 +398,10 @@ failed; a live hostname can become expiring or broken if its records change.
    target and the ownership record Cloudflare asks for.
 3. A check runs on a schedule and on "Re-check now"; a stuck domain shows the record expected
    next to what DNS returns (M2). The portal keeps the step-by-step experience of DESIGN-BRIEF
-   flow 58. **Built on #33 for partner hostnames**: the console queues the check through the
+   flow 58. **Partner addresses on #197**: each address's records (DATA-MODEL §2.1), all of
+   which must match for live; waiting addresses are re-checked every 10 minutes from the
+   per-minute cron, and `partner-domain-live` is queued for the partner when one goes live
+   (delivered once SES's `email` deliverer is wired). **Built on #33 for partner hostnames**: the console queues the check through the
    outbox and `jobs/queues/deliverers/domainRecheck.ts` asks one fixed DNS-over-HTTPS resolver
    for the record after commit, so a user's hostname never becomes a host the Worker connects
    to; it moves waiting → live, or failed, or broken once a live record changes. **Merchant

@@ -8,6 +8,8 @@ import './branding'
 import './stores'
 import './storeActions'
 import './dashboard'
+import './domains'
+import './activity'
 
 export type { PlatformContext } from './access'
 

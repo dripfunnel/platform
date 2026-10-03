@@ -23,7 +23,11 @@ import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
+import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
+import { withSystemScope } from '#db/scoped/index'
+import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
@@ -32,6 +36,8 @@ import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerPlansService } from '#saas/partnerPlans/index'
 import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
+import { createPartnerActivityService, exportLifetimeMs } from '#saas/partnerActivity/index'
+import { createPartnerDomainsService } from '#saas/partnerDomains/index'
 import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
@@ -55,7 +61,11 @@ interface Env extends Record<string, unknown> {
 // (THIRD-PARTY-ACCESS.md §2.4), so a queued invitation waits, unclaimed (outbox-relay.ts).
 const deliverersFor = (sql: postgres.Sql): Deliverers => {
   const lookup = dohLookup()
-  return { 'domain.recheck': domainRecheckDeliverer(sql, lookup), 'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup) }
+  return {
+    'domain.recheck': domainRecheckDeliverer(sql, lookup),
+    'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
+    'export.activity': activityExportDeliverer(sql),
+  }
 }
 
 const notConnected = async () => {
@@ -202,7 +212,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   }
 
   if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null })
+    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null })
   }
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date())
@@ -215,6 +225,8 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
       stores: deps ? createPartnerStoresService(deps) : null,
       storeActions: deps ? createPartnerStoreActions(deps) : null,
       dashboard: deps ? createPartnerDashboardService(deps) : null,
+      domains: deps ? createPartnerDomainsService(deps) : null,
+      activity: deps ? createPartnerActivityService(deps) : null,
     })
   })
 }
@@ -285,9 +297,25 @@ export default {
     return response
   },
 
-  // The outbox sweep (api/README.md §5), every minute from wrangler.jsonc's cron trigger.
+  // Every minute from wrangler.jsonc's cron trigger: due domain checks (SAAS §8), then the outbox
+  // sweep (api/README.md §5) that delivers them.
   async scheduled(_controller, env) {
     await relayWith(env, async (sql) => {
+      // A scheduling failure is logged and never holds up the outbox sweep below.
+      const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
+      const purged = await withSystemScope(sql, async (tx) => {
+        const at = new Date()
+        await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+        return deleteExpiredExports(tx, at)
+      }).catch((error: unknown) => {
+        logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
       const counts = await relayDue(sql, deliverersFor(sql))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })

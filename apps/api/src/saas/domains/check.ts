@@ -1,5 +1,6 @@
 import type { HostStatus, PartnerDomainRow } from '#db/schema/saas'
-import type { DnsLookup } from '#integrations/dns/doh'
+import type { DnsLookup, DnsRecordType } from '#integrations/dns/doh'
+import { nameToResolve, recordMatches, type RecordPurpose } from './records'
 
 // SAAS.md §8: waiting for DNS → live once the record points at us; a record that points
 // elsewhere fails, and one that stops pointing at us after being live is broken. Certificate
@@ -18,10 +19,39 @@ export const judge = (previous: HostStatus, expected: string, found: string[]): 
   return { status: previous === 'live' || previous === 'broken' ? 'broken' : 'failed', found: other }
 }
 
-/** A wildcard is checked through a probe name under it, since DNS answers for names, not patterns. */
-export const nameToResolve = (host: string): string => (host.startsWith('*.') ? `df-probe.${host.slice(2)}` : host)
-
 export const checkDomain = async (domain: Pick<PartnerDomainRow, 'host' | 'status' | 'record_type' | 'expected'>, lookup: DnsLookup, signal: AbortSignal): Promise<DomainCheck> => {
   const found = await lookup.resolve(nameToResolve(domain.host), domain.record_type, signal)
   return judge(domain.status, domain.expected, found)
+}
+
+export interface RecordToCheck {
+  id: string
+  purpose: RecordPurpose
+  record_type: DnsRecordType
+  name: string
+  expected: string
+}
+
+/**
+ * An address with several records (the email sender's SPF, DKIM and DMARC, and every address's
+ * ownership token) is live once every one matches; any record pointing elsewhere fails it
+ * (broken once it was live); otherwise it waits.
+ */
+export const checkRecords = async (
+  previous: HostStatus,
+  records: readonly RecordToCheck[],
+  lookup: DnsLookup,
+  signal: AbortSignal,
+): Promise<{ status: HostStatus; found: string | null; records: { id: string; found: string | null }[] }> => {
+  const results: { id: string; status: 'live' | 'waiting' | 'failed'; found: string | null }[] = []
+  for (const record of records) {
+    const values = await lookup.resolve(record.name, record.record_type, signal)
+    const match = values.find((v) => recordMatches(record.purpose, record.expected, v))
+    results.push({ id: record.id, status: match ? 'live' : values.length === 0 ? 'waiting' : 'failed', found: match ?? values[0] ?? null })
+  }
+  const wasLive = previous === 'live' || previous === 'broken'
+  // No records means nothing was proved: never live (an empty `every` would say it was).
+  if (results.length === 0) return { status: wasLive ? 'broken' : 'waiting', found: null, records: [] }
+  const status: HostStatus = results.every((r) => r.status === 'live') ? 'live' : wasLive ? 'broken' : results.some((r) => r.status === 'failed') ? 'failed' : 'waiting'
+  return { status, found: results[0]?.found ?? null, records: results.map((r) => ({ id: r.id, found: r.found })) }
 }
