@@ -193,8 +193,9 @@ from #155 (`apis/platform/access.ts`: the partner role's permission, always with
 session's own partner); the Store and Shop APIs serve only `public` until their cards add a
 policy. A field on any other type may declare a stricter permission and then reads as `null`
 when refused. Full contact details are the exception (built on #36): `Customer.email` and
-`phone` are masked rather than null for a role without `customers.contact.read`, which the
-service decides before reading them, and `contactsMasked` says so.
+`phone` are masked rather than null for a role without `customers.contact.read`: the service
+reads the stored values and masks them (`saas/customers/mask.ts`) before the response, and
+`contactsMasked` says so.
 `audit` is declared from the first audited mutation on.
 
 Refusals carry a fixed message and one of two stable codes, whatever the target, so neither
