@@ -250,3 +250,13 @@ describe('inviter throttle and isolation', () => {
     expect(JSON.stringify(entry?.changes)).not.toContain('@')
   })
 })
+
+describe('the contract block', () => {
+  it('lists at most fifty fees and says when there are more', async () => {
+    const plans = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) select ${ids.ns}, 'Fee plan ' || g, 'draft' from generate_series(1, 51) g returning id`
+    for (const p of plans) await db.sql`insert into plan_fee (plan_id, partner_id, amount, currency) values (${p.id}, ${ids.ns}, 100, 'USD')`
+    const contract = (await run<{ partnerCompany: { contract: { fees: unknown[]; moreFees: boolean } } }>(`{ partnerCompany { contract { moreFees fees { plan } } } }`, callerOf(ids.ns, 'partner-read-only'))).data?.partnerCompany.contract
+    expect(contract?.fees).toHaveLength(50)
+    expect(contract?.moreFees).toBe(true)
+  })
+})
