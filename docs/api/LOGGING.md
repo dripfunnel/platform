@@ -58,8 +58,9 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 `supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
 `two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
 detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
-`customer.exported`, `support_session.started`, `support_session.link_reissued`,
-`support_session.ended`, `partner_user.reauthenticated` (never the proof), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
+`customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind),
+`support_session.started`, `support_session.link_reissued`, `support_session.ended`,
+`partner_user.reauthenticated` (never the proof), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
 it). The two-factor and backup-code entries carry no secret, code or phone number. **The
 entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
@@ -106,6 +107,8 @@ impersonation (ACCESS.md §8.1) logs reads the same way, as the user with the st
 - Whole request payloads. Only the changed fields, and only as §4 allows.
 - Shopper personal data beyond `customer_id` and `actor_label` (for example, an address
   change records "address changed", not the address).
+- The free text of a search. An export's entry records its filter with the search text
+  replaced by `searched`, since it is often a person's name or email.
 
 The redaction list lives in `apps/api/src/core/redaction.ts` (in `core/`, so the writer in
 `saas/` can use it; built on #15), matched on whole words of the field name, and a test fails
