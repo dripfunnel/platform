@@ -33,6 +33,7 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
     provisioning: null,
     staffSessions: null,
     customers: null,
+    staffMembers: null,
     dashboard: null,
   }
 }

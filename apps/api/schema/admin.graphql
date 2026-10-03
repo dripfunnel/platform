@@ -367,20 +367,25 @@ type Mutation {
   addStoreNote(id: ID!, text: String!): StoreMutationOutcome
   approvePartner(id: ID!, reason: String!): PartnerMutationOutcome
   assignPartnerManager(id: ID!, reason: String!, staffId: ID!): PartnerMutationOutcome
+  changeStaffRole(id: ID!, role: String!): StaffResult
   createPartner(input: CreatePartnerInput!): PartnerMutationOutcome
   endStaffSession(id: ID!): PartnerMutationOutcome
   exportActivity(filter: ActivityFilter): ActivityExportResult
   extendImpersonation(id: ID!): StaffSessionExtend
   extendTrial(id: ID!, trialEndsAt: String!): StoreMutationOutcome
+  inviteStaff(email: String!, role: String!): StaffResult
   pausePartner(id: ID!, reason: String!): PartnerMutationOutcome
   recheckDomain(id: ID!, kind: String!): PartnerMutationOutcome
   recheckStoreDomain(id: ID!): StoreMutationOutcome
+  removeStaff(id: ID!): StaffResult
   resendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
+  resendStaffInvite(id: ID!): StaffResult
   resendStoreOwnerInvite(id: ID!): StoreMutationOutcome
   restoreStore(id: ID!, reason: String!): StoreMutationOutcome
   resumePartner(id: ID!, reason: String!): PartnerMutationOutcome
   retryJob(id: ID!): JobActionResult
   returnToSession(id: ID!): StaffSessionStart
+  revokeStaffInvite(id: ID!): StaffResult
   sendBackPartner(id: ID!, reason: String!): PartnerMutationOutcome
   sendPartnerOwnerInvite(id: ID!): PartnerMutationOutcome
   startImpersonation(membershipId: ID!, reason: String!, targetId: ID!, ticket: String): StaffSessionStart
@@ -652,6 +657,7 @@ type Query {
   provisioningJob(id: ID!): JobProgress
   provisioningJobs(after: String, before: String, filter: ProvisioningFilter, first: Int): ProvisioningJobPage
   search(query: String!): SearchResult
+  staff(after: String, before: String, first: Int): StaffPage
   staffSession(id: ID!): StaffSessionLookup
   staffSessions(after: String, before: String, filter: StaffSessionFilter, first: Int): StaffSessionPage
   store(id: ID!): Store
@@ -686,6 +692,41 @@ type Staff {
   id: ID
   name: String
   role: String
+}
+
+type StaffActions {
+  changeRole: ActionPermission
+  remove: ActionPermission
+  resend: ActionPermission
+  revoke: ActionPermission
+}
+
+type StaffInvitation {
+  expired: Boolean
+  expiresAt: String
+  sentAt: String
+}
+
+type StaffMember {
+  actions: StaffActions
+  email: String
+  id: ID
+  invitation: StaffInvitation
+  lastSignInAt: String
+  name: String
+  role: String
+  twoFactor: String
+}
+
+type StaffPage {
+  items: [StaffMember!]
+  pageInfo: PageInfo
+  soleSuperAdmin: Boolean
+}
+
+type StaffResult {
+  ok: Boolean
+  reason: String
 }
 
 type StaffSession {

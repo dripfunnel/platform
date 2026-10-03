@@ -9,6 +9,7 @@ import './dashboard'
 import './provisioning'
 import './staffSessions'
 import './customers'
+import './staff'
 
 export type { AdminContext } from './access'
 

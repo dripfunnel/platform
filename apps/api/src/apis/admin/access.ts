@@ -8,6 +8,7 @@ import type { StoresService } from '#saas/stores/index'
 import type { ProvisioningService } from '#saas/provisioning/index'
 import type { StaffSessionsService } from '#saas/staffSessions/index'
 import type { CustomersService } from '#saas/customers/index'
+import type { StaffMembersService } from '#saas/staffMembers/index'
 import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface AdminContext extends Record<string, unknown> {
@@ -20,6 +21,7 @@ export interface AdminContext extends Record<string, unknown> {
   provisioning: ProvisioningService | null
   staffSessions: StaffSessionsService | null
   customers: CustomersService | null
+  staffMembers: StaffMembersService | null
   dashboard: DashboardService | null
 }
 

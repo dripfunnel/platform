@@ -122,5 +122,7 @@ const verifyIdToken = async (
     subject: payload.oid,
     email: typeof email === 'string' ? email : '',
     name: typeof payload.name === 'string' ? payload.name : '',
+    // `amr` lists how the person authenticated; Entra adds it as an optional claim (THIRD-PARTY-ACCESS §2.5).
+    twoFactor: Array.isArray(payload['amr']) && payload['amr'].includes('mfa'),
   }
 }
