@@ -172,7 +172,7 @@ jobs:
           claude -p "$(cat "${RUNNER_TEMP}/review-prompt.md")" \
             --output-format text \
             --setting-sources user \
-            --allowedTools "Write(.claude-review-verdict),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*),Bash(${RUNNER_TEMP}/summary-comment:*)" \
+            --allowedTools "Edit(.claude-review-verdict),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(${RUNNER_TEMP}/inline-comment:*),Bash(${RUNNER_TEMP}/summary-comment:*)" \
             --disallowedTools "Read(//proc/**),Read(//etc/**),Read(//root/**),Read(//home/**/.config/**),Read(//home/**/.claude/**),Read(//home/**/.npmrc),Read(//tmp/**),Read(//home/**/work/_temp/**),Read(.git/**),Grep(//proc/**),Grep(//home/**/.config/**),Grep(//home/**/.claude/**),Grep(//home/**/work/_temp/**),Grep(.git/**)"
 
       # Not after a cancel: a superseded run has no verdict to judge.

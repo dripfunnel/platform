@@ -202,7 +202,8 @@ narrow screens; phone turns it into an overlay drawer with a scrim.
 **Banners** sit under the header, full width: provisioning, trial ending,
 past due, offline, partner draft / awaiting approval / sent back, the
 Platform "setting up for" session bar, and the Admin environment strip
-(Production vs Staging, with a warning that changes reach real partners).
+(Production in red, with a warning that changes reach real partners; Dev, Feature or Local
+in grey, decided on #65).
 
 **Toast** — bottom centre, one line, optional action. 4.2s, or 8s with an
 action (for undo).
@@ -440,3 +441,6 @@ have, orange fills on navigation.
 - Open decisions from the brief still stand: what a supplier may see of a customer, refund ownership across suppliers, and whether editing an approved product sends it back for approval.
 - Support sessions are read-only only in wording: the Store prototype doesn't block saves yet.
 - `github.md`'s screen map still names the retired `DripFunnel Portal A1 Signup` spec file.
+- The Admin prototype's **Environment** control offers only Production and Staging. The product
+  has four environments, named by hostname (Production, Dev, Feature, Local; decided on #65), and
+  the console builds those; the prototype is behind it.

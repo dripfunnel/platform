@@ -768,7 +768,15 @@ api/README.md §2.1); a partner id in a request is not authority.
   equal to it (`0017`), marks Branding (and Legal pages, once terms, privacy, the DPA and any
   required Impressum are there) and queues the portal cache purge.
 - **Files are R2 keys under the partner's prefix**; a key under another prefix, or a URL, is
-  `INVALID_INPUT`. The upload itself is #219, which waits for the bucket.
+  `INVALID_INPUT`. **The upload, built on #219**: `POST /api/uploads/brand-file?kind=logoLight|
+  logoDark|mark|favicon` with the file as the body. The session (`UNAUTHENTICATED`) and
+  `branding.write` (`FORBIDDEN`) are checked before the kind, the bucket or the body; then
+  SVG, PNG or WebP by its bytes, at most 512 KB, an SVG that could run script or load anything
+  refused (`UNSAFE_SVG`); it answers the key `partners/<partner>/brand/<uuid>.<ext>` and logs
+  `branding.file_uploaded`. `NOT_CONNECTED` until the environment's assets bucket is bound
+  (THIRD-PARTY-ACCESS §2.1). The file is written inside the log entry's transaction, so a
+  failed write logs nothing; a commit that fails after the write leaves an unlogged object
+  that no branding names, and nothing sweeps those yet.
 - This card ships the publish-now path only. `saveBrandingDraft`, `publishBranding(when)`
   (scheduling), `cancelScheduledBranding`, `rollbackBranding`, the history and the email
   templates are §8.3–§8.4's.
@@ -795,7 +803,31 @@ api/README.md §2.1); a partner id in a request is not authority.
   while DripFunnel bills, `CANCELLED` on a cancelled store, and `NOT_FOUND` and
   `INVALID_INPUT`. It is logged once.
 - No type in the Platform API names an order, a customer or a product (a schema test).
-  Create and export are #221.
+
+**Built on #221** (create and export, `apis/platform/storeCreate.ts`, `saas/partnerStores/create.ts`, `export.ts`):
+- `createStoreForm`: the permission (the role, then the partner's state: `OWNERS_AND_ADMINS_ONLY`,
+  `PARTNER_PAUSED`, `PARTNER_NOT_LIVE`), the countries (code, name, currency) whose currency a
+  Live plan is priced in (`core/countries.ts`), each Live plan with its trial days and monthly
+  prices, the trials 0, 7, 14 and 30, and `billingMode`, from which the console words who
+  charges. The Stores page carries the same `createPermission`.
+- `createStore(input)` (`stores.create`): name, owner's name and email, country by **code**, plan,
+  trial. It creates, under one lock per partner, the store (its code from the name, `-2`… when
+  taken), the Owner (the person the email already is under the partner, or a new invited one)
+  with an invited Owner membership, the subscription in Trial (or Active with no trial) at the
+  plan's current version and its own monthly price in the country's currency, the setup job, and
+  the Owner's invitation, emailed through the outbox; logged as `store.created`. A plan or
+  country that doesn't fit is `INVALID_INPUT` with its `field`. **No store limit and no
+  read-only state exist yet** (§18), so `STORE_LIMIT_REACHED` and `READ_ONLY` are never answered.
+  0026 grants each insert by column and holds it by a policy: an invited Owner only, the store's
+  first job only, the plan's own price only.
+- `provisioning(storeId)`: SAAS §5's steps as the screen's five. Account, store and portal are
+  done in the creating transaction (their work today is those rows); the storefront **waits**
+  for its runner (decided on #159) unless the store runs its own, and `done` says the account is
+  ready.
+- `exportStores(filter)` (`exports`, every role) queues an `export_job` of kind `stores` with the
+  list's filter, logged as `stores.exported`; `storesExport(id)` answers it with the account
+  columns only (store, code, owner, plan, status, storefront, domain, country, created), up to
+  10,000 rows with a line saying when cut, readable for an hour.
 
 **Built on #160** (store actions, `apis/platform/storeActions.ts`, `saas/partnerStores/actions.ts`):
 - Every mutation locks the store and asks the same `actionsFor` as `store(id)`'s block. A role

@@ -44,11 +44,11 @@ pnpm --filter ./apps/api session arjun@softobotics.example   # prints __Host-df_
 - **Shared chrome**: the side bar, phone drawer, user menu, icon set, `initials` and
   `shell.css` come from `@dripfunnel/shared/ui` since #111, when the partner console became
   their second user. `navView.ts` turns this app's rows into what the shared side bar draws.
-  `AppHeader`, `AppShell`, the search dialog (`search.css`) and the environment pieces stay
-  here.
-- **Environment**: `admin.dripfunnel.com` shows Production; every other host shows Staging,
-  until #65 switches this app to the shared four-value `environmentFor` (`environment.css`
-  holds the two modifiers it will remove).
+  `AppHeader`, `AppShell` and the search dialog (`search.css`) stay here.
+- **Environment**: the shared `environmentFor` and `EnvironmentBanner` (#65): Production on
+  `admin.dripfunnel.com`, Dev on `dev-admin.dripfunnel.ai`, Feature on a feature environment's
+  `*.dripfunnel.ai` host and Local on localhost; a look-alike or unknown host is never
+  Production. The words are this app's (`shell.environment` in `messages/en.json`).
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 

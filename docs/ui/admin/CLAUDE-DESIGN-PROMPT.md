@@ -71,7 +71,8 @@ Staff roles (show the signed-in role in the header; design the permission-denied
 ## 4. The shell
 
 - **Header**, always visible:
-  - an **environment marker**: a red "Production" badge (and a grey "Staging" variant);
+  - an **environment marker** naming the environment: a red "Production" badge, and grey
+    "Dev", "Feature" or "Local" (decided on #65);
   - a **search box** with a keyboard shortcut (⌘K), searching partners and stores by name,
     domain, code or owner email, with results grouped by type and each result showing its
     partner;
