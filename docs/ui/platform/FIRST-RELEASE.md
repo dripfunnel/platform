@@ -831,7 +831,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   windows are: this month so far against all of last month; last month against the month
   before; the last 90 days against the 90 before. Each card is one SQL count or sum over the
   partner's rows. Revenue is what was charged (DATA-MODEL §7.9), in the contract's payout currency
-  (USD without a contract). Its amounts are GraphQL `Float`, integer minor units past 32 bits. `asOf` and `staleSince` come from the sync job's
+  (USD without a contract). Every amount on the Platform API is the one `Money` type, whose `amount` is the `MinorUnits`
+  scalar: whole minor units past GraphQL's 32-bit `Int`, refused if not exact. `asOf` and `staleSince` come from the sync job's
   `partner_billing_feed`, and `fresh` is a Live partner with no store and no charge.
 - **Comparisons are English sentences composed by the API**, as §5 requires ("94% of August so
   far, with 2 days to go", "+4% vs July", "+15% vs the 90 days before"; "up from 29% last

@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql'
 import type { DashboardDto, PartnerDashboardService } from '#saas/partnerDashboard/index'
 import { unauthenticated } from '../graphql/scope'
 import { builder } from './builder'
+import { MoneyType } from './money'
 
 // The partner Dashboard (ui/platform/FIRST-RELEASE.md §5; card #163). Thin: saas/partnerDashboard
 // counts and words everything.
@@ -11,14 +12,10 @@ const service = (dashboard: PartnerDashboardService | null): PartnerDashboardSer
   return dashboard
 }
 
-type Money = { amount: number; currency: string }
 type Attention = DashboardDto['attention'][number]
 type Near = DashboardDto['usage']['stores'][number]
 type Top = DashboardDto['top'][number]
 
-// Minor units can pass GraphQL's 32-bit Int for a large partner, so the amount is a Float: an
-// integer, exact to 2^53.
-const MoneyType = builder.objectRef<Money>('DashboardMoney').implement({ fields: (t) => ({ amount: t.exposeFloat('amount'), currency: t.exposeString('currency') }) })
 
 const ByStatus = builder.objectRef<DashboardDto['stores']['byStatus']>('DashboardStoresByStatus').implement({
   fields: (t) => ({ active: t.exposeInt('active'), trial: t.exposeInt('trial'), pastdue: t.exposeInt('pastdue'), suspended: t.exposeInt('suspended') }),

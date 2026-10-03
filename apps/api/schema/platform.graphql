@@ -122,11 +122,6 @@ type DashboardAttentionAction {
   code: String
 }
 
-type DashboardMoney {
-  amount: Float
-  currency: String
-}
-
 type DashboardNearLimit {
   limit: Int
   limitKey: String
@@ -137,11 +132,11 @@ type DashboardNearLimit {
 }
 
 type DashboardRevenue {
-  collected: DashboardMoney
+  collected: Money
   comparison: String
-  fee: DashboardMoney
+  fee: Money
   nextPayoutAt: String
-  payout: DashboardMoney
+  payout: Money
 }
 
 type DashboardSignups {
@@ -166,7 +161,7 @@ type DashboardStoresByStatus {
 
 type DashboardTopStore {
   plan: String
-  sales: DashboardMoney
+  sales: Money
   storeId: ID
   storeName: String
 }
@@ -192,8 +187,10 @@ type Me {
   role: String
 }
 
+scalar MinorUnits
+
 type Money {
-  amount: Int
+  amount: MinorUnits
   currency: String
 }
 
@@ -292,7 +289,7 @@ type PartnerStore {
   more: StoreDetailMore
   overrides: [StoreOverride!]
   people: StorePeopleCount
-  price: StorePrice
+  price: Money
   records: [StoreDnsRecord!]
   row: PartnerStoreRow
   setup: StoreSetup
@@ -622,11 +619,6 @@ type StorePerson {
 type StorePlanRef {
   id: ID
   name: String
-}
-
-type StorePrice {
-  amount: Int
-  currency: String
 }
 
 type StoreProration {

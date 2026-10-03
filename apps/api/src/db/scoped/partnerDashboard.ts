@@ -5,6 +5,13 @@ import { stuckJobPredicate } from './stores'
 // The partner Dashboard's reads (ui/platform/FIRST-RELEASE.md §5; #163): one query per card, each
 // a count or a sum over the partner's own rows, which RLS already holds it to.
 
+/** A bigint sum of minor units as a JS integer; past 2^53 it refuses rather than round. */
+const minorUnits = (value: string): number => {
+  const n = BigInt(value)
+  if (n > BigInt(Number.MAX_SAFE_INTEGER) || n < -BigInt(Number.MAX_SAFE_INTEGER)) throw new Error('money: beyond exact integer range')
+  return Number(n)
+}
+
 export interface Window {
   from: Date
   to: Date
@@ -44,12 +51,10 @@ export interface RevenueSums {
 
 /**
  * What was collected in the window and in the one it is compared with, in the contract's payout
- * currency (0019 holds every charge to it); a refund subtracts. Sums are bigint, read as float8:
- * exact for minor units far beyond any partner's revenue.
+ * currency (0019 holds every charge to it); a refund subtracts. Sums stay bigint to the edge.
  */
-export const sumRevenue = async (tx: ScopedSql, partnerId: string, current: Window, previous: Window): Promise<RevenueSums> =>
-  (
-    await tx<RevenueSums[]>`
+export const sumRevenue = async (tx: ScopedSql, partnerId: string, current: Window, previous: Window): Promise<RevenueSums> => {
+  const [row] = await tx<(Omit<RevenueSums, 'collected' | 'fee' | 'payout' | 'previous'> & Record<'collected' | 'fee' | 'payout' | 'previous', string>)[]>`
       with counted as (
         select charged_at, case when kind = 'refund' then -1 else 1 end as sign, payout_gross, fee_amount, partner_amount
         from merchant_charge
@@ -58,15 +63,17 @@ export const sumRevenue = async (tx: ScopedSql, partnerId: string, current: Wind
           and charged_at >= least(${current.from}::timestamptz, ${previous.from}::timestamptz) and charged_at < greatest(${current.to}::timestamptz, ${previous.to}::timestamptz)
       )
       select (select fee_currency from partner_contract where partner_id = ${partnerId}) as currency,
-        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::float8 as collected,
-        coalesce(sum(sign * fee_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::float8 as fee,
-        coalesce(sum(sign * partner_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::float8 as payout,
-        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${previous.from} and charged_at < ${previous.to}), 0)::float8 as previous,
+        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::text as collected,
+        coalesce(sum(sign * fee_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::text as fee,
+        coalesce(sum(sign * partner_amount) filter (where charged_at >= ${current.from} and charged_at < ${current.to}), 0)::text as payout,
+        coalesce(sum(sign * payout_gross) filter (where charged_at >= ${previous.from} and charged_at < ${previous.to}), 0)::text as previous,
         (select min(scheduled_for)::text from partner_payout where partner_id = ${partnerId} and status = 'scheduled') as next_payout_at,
         (select count(*)::int from merchant_charge where partner_id = ${partnerId}) as charges
       from counted
     `
-  )[0] ?? { currency: null, collected: 0, fee: 0, payout: 0, previous: 0, next_payout_at: null, charges: 0 }
+  if (!row) return { currency: null, collected: 0, fee: 0, payout: 0, previous: 0, next_payout_at: null, charges: 0 }
+  return { ...row, collected: minorUnits(row.collected), fee: minorUnits(row.fee), payout: minorUnits(row.payout), previous: minorUnits(row.previous) }
+}
 
 export interface AttentionRow {
   kind: 'pastDue' | 'setupStuck' | 'domainStuck' | 'trialEnding'
@@ -136,14 +143,16 @@ export interface TopStoreRow {
   amount: number
 }
 
-export const selectTopStores = (tx: ScopedSql, partnerId: string, month: Date, limit: number): Promise<TopStoreRow[]> =>
-  tx<TopStoreRow[]>`
-    select m.store_id, s.name as store_name, p.name as plan_name, m.currency, m.amount::float8 as amount
+export const selectTopStores = async (tx: ScopedSql, partnerId: string, month: Date, limit: number): Promise<TopStoreRow[]> =>
+  (
+    await tx<(Omit<TopStoreRow, 'amount'> & { amount: string })[]>`
+    select m.store_id, s.name as store_name, p.name as plan_name, m.currency, m.amount::text as amount
     from store_sales_month m join store s on s.id = m.store_id left join plan p on p.id = s.plan_id
     where m.partner_id = ${partnerId} and m.month = ${month}::date and m.amount > 0
     order by m.payout_amount desc, s.name
     limit ${limit}
   `
+  ).map((r) => ({ ...r, amount: minorUnits(r.amount) }))
 
 export const selectBillingFeed = async (tx: ScopedSql, partnerId: string): Promise<{ synced_at: Date; stale_since: Date | null } | null> =>
   (await tx<{ synced_at: Date; stale_since: Date | null }[]>`select synced_at, stale_since from partner_billing_feed where partner_id = ${partnerId}`)[0] ?? null
