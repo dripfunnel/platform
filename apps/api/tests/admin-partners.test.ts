@@ -31,6 +31,7 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
     partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
     stores: null,
     provisioning: null,
+    staffSessions: null,
     customers: null,
     dashboard: null,
   }

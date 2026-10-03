@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import { factsOf, partnerLocked, partnerSecondFactorEnrolled, partnerSecondFactorRefused, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
+import { factsOf, partnerSecondFactorEnrolled, partnerSecondFactorRefused, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
 import { safeNext } from '#auth/next'
 import { verifyPassword } from '#auth/password'
@@ -17,14 +17,15 @@ import {
   type SessionStage,
 } from '#auth/partnerSession'
 import type { SecretBox } from '#auth/secretBox'
+import { minutesUntil, wrongPartnerCode } from '#auth/partnerCode'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
-import { insertOutbox } from '#db/scoped/outbox'
+import { json, readBody, refuse, type Refusal } from './authHttp'
+import { acceptPartnerInvitation, lookUpInvitation, requestPasswordReset, resetPartnerPassword, skipSecondFactor } from './invitations'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   markPartnerSignedIn,
   partnerOfUser,
   recordGoodCode,
-  recordWrongCode,
   selectSecondFactorState,
   selectSignInCandidates,
   signInCandidateLimit,
@@ -42,44 +43,23 @@ export interface PlatformAuthDeps {
   allowAttempt: (key: string) => Promise<boolean>
 }
 
-// Invitations and password reset join these on #208 (FIRST-RELEASE §16).
 const paths = {
   signIn: '/api/auth/sign-in',
   secondFactor: '/api/auth/second-factor',
   enrol: '/api/auth/enrol-second-factor',
   signOut: '/api/auth/sign-out',
+  invitation: '/api/auth/invitation',
+  acceptInvitation: '/api/auth/accept-invitation',
+  skipSecondFactor: '/api/auth/skip-second-factor',
+  requestPasswordReset: '/api/auth/request-password-reset',
+  resetPassword: '/api/auth/reset-password',
 }
 
 export const isPlatformAuthPath = (pathname: string): boolean => Object.values(paths).includes(pathname)
 
-// FIRST-RELEASE §3: five wrong codes pause sign-in for 15 minutes.
-export const maxCodeTries = 5
-export const lockMs = 15 * 60 * 1000
-
-type Refusal =
-  | { code: 'INVALID_CREDENTIALS' | 'CODE_EXPIRED' | 'NOT_CONNECTED' | 'RATE_LIMITED' }
-  | { code: 'WRONG_CODE'; triesLeft?: number }
-  | { code: 'LOCKED'; minutes: number }
-
-const json = (status: number, body: unknown, cookie?: string): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...(cookie ? { 'set-cookie': cookie } : {}) } })
-
-const refuse = (refusal: Refusal): Response => json(refusal.code === 'RATE_LIMITED' ? 429 : 401, { ok: false, ...refusal })
-
-const minutesUntil = (until: Date, now: Date) => Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 60_000))
-
 const signInInput = z.strictObject({ email: z.string().max(320), password: z.string().max(1024), next: z.string().max(2048).optional() })
 const codeInput = z.strictObject({ code: z.string().max(16) })
 const enrolInput = z.strictObject({ code: z.string().max(16).optional() })
-
-const readBody = async <T>(request: Request, schema: z.ZodType<T>): Promise<T | null> => {
-  try {
-    const parsed = schema.safeParse(await request.json())
-    return parsed.success ? parsed.data : null
-  } catch {
-    return null
-  }
-}
 
 export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDeps): Promise<Response> => {
   const url = new URL(request.url)
@@ -105,6 +85,11 @@ export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDep
 
   if (url.pathname === paths.signIn) return signIn(request, deps, facts)
   if (url.pathname === paths.secondFactor) return secondFactor(request, deps, facts, cookie)
+  if (url.pathname === paths.invitation) return lookUpInvitation(request, deps)
+  if (url.pathname === paths.acceptInvitation) return acceptPartnerInvitation(request, deps, facts)
+  if (url.pathname === paths.skipSecondFactor) return skipSecondFactor(deps, facts, cookie)
+  if (url.pathname === paths.requestPasswordReset) return requestPasswordReset(request, deps, facts)
+  if (url.pathname === paths.resetPassword) return resetPartnerPassword(request, deps, facts)
   return enrol(request, deps, facts, cookie)
 }
 
@@ -171,21 +156,8 @@ const secondFactor = async (request: Request, deps: PlatformAuthDeps, facts: Req
   return outcome ? refuse(outcome) : json(200, { ok: true })
 }
 
-const wrongCode = async (tx: ScopedSql, deps: PlatformAuthDeps, facts: RequestFacts, state: SecondFactorState, now: Date): Promise<Refusal> => {
-  const lockedUntil = new Date(now.getTime() + lockMs)
-  const { triesLeft, locked } = await recordWrongCode(tx, state.id, maxCodeTries, lockedUntil)
-  if (!locked) return { code: 'WRONG_CODE', triesLeft }
-  await deps.activity.record(tx, partnerLocked({ id: state.id, partnerId: state.partner_id }, facts))
-  // The "we've emailed you" notice (FIRST-RELEASE §3), delivered once SES is wired (outbox-relay.ts).
-  await insertOutbox(tx, {
-    kind: 'email',
-    idempotencyKey: `partner-user-locked:${state.id}:${lockedUntil.toISOString()}`,
-    payload: { template: 'partner-user-locked', partnerUserId: state.id, to: state.email, minutes: lockMs / 60_000 },
-    partnerId: state.partner_id,
-    storeId: null,
-  })
-  return { code: 'LOCKED', minutes: lockMs / 60_000 }
-}
+const wrongCode = (tx: ScopedSql, deps: PlatformAuthDeps, facts: RequestFacts, state: SecondFactorState, now: Date): Promise<Refusal> =>
+  wrongPartnerCode(tx, deps.activity, facts, state, now)
 
 // Called first with no code, which issues the secret (shown once, as text and as the URI a QR
 // code encodes), then with the code that proves the app holds it.

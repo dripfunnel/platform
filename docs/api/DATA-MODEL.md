@@ -324,6 +324,11 @@ column or an invitation token, which only sign-in and the deliverer write (as `a
 me" (ui/platform/FIRST-RELEASE.md §3). An email may belong to at most three partners' teams,
 refused by a trigger at the fourth (ACCESS.md §2) with a refusal that names no other partner,
 counted under a per-email lock; `lower(email)` is indexed for it and for sign-in.
+**Built on #208**: `partner_password_reset(id, request_id, partner_id, partner_user_id,
+token_hash NULL UNIQUE, expires_at NULL, used_at NULL, created_at)`, `app_system` alone, unique
+on `(request_id, partner_user_id)`: one row per account a reset request finds, written by the
+relay from the request's outbox row (`request_id`) so a redelivery adds none; the email's deliverer sets the token hash and the 30-minute expiry when it
+sends, and a reset spends every open row of that user.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 
@@ -407,13 +412,26 @@ or without the calling code, never on a part of it (decided on #42).
 api_key    (id, store_id, seller_id NULL, name, prefix, secret_hash, scopes, created_by_user_id,
             expires_at NULL, last_used_at, revoked_at NULL)
 app_grant  (id, store_id, app_id, scopes, installed_by_user_id, revoked_at NULL)
-support_session (id, store_id, partner_user_id, reason, access, started_at, expires_at,
-                 elevated_at NULL, elevation_approved_by NULL, ended_at NULL)
-                 -- partner support into a store (ACCESS.md §8). Partner users only:
-                 -- staff never open one, they impersonate (§8.1), so there is no agent kind
+support_session (id, partner_id, store_id, membership_id, partner_user_id, reason, ticket NULL,
+                 started_at, expires_at, ended_at NULL, ended_by_partner_user_id NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL)
+                 -- partner support into a store as one of its users (ACCESS.md §8). Partner
+                 -- users only: staff never open one, they impersonate (§8.1). Built on #202:
+                 -- one open per partner user and one per membership (partial unique indexes),
+                 -- 30 minutes; the partner inserts only its own, on a store allowing support
+                 -- (policy). `access`, `elevated_at` and `elevation_approved_by` arrive with
+                 -- the Store strand's Allow/Deny. The handoff as on partner_setup_session.
+partner_user.reauth_proof_hash, reauth_proof_expires_at
+                 -- the single-use proof `reauthenticate` issues (#202), spent by the
+                 -- app_definer function spend_partner_reauth(); no request role reads them
 
-impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, reason,
-                 started_at, expires_at, extended_at NULL, ended_at NULL, ended_by NULL)
+impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, partner_id,
+                 store_id NULL, reason, ticket NULL, started_at, expires_at, extended_at NULL,
+                 ended_at NULL, ended_by NULL, end_reason NULL, handoff_hash NULL UNIQUE,
+                 handoff_expires_at NULL, handoff_used_at NULL)
+                 -- built on #40: one open per staff member (partial unique index on
+                 -- staff_user_id where ended_at is null); a staff member inserts only their
+                 -- own (`app.staff_id`); end_reason: staff | portal | target_gone | partner_closed
                  -- staff signed in as a partner user or store user (ACCESS.md §8.1);
                  -- extended_at records the single permitted 30-minute extension, so
                  -- "once" is enforced by the row, not by counting log entries;
@@ -516,6 +534,7 @@ request input, with one exception: the guest cart or order token, hashed before 
 | `app.support` | `read` or `write` during a support session, else empty |
 | `app.impersonation_id` | The impersonation id while staff act as a user, else empty (for the activity log; grants nothing) |
 | `app.user_id` | The signed-in person's `user.id` (store scope) or `partner_user.id` (partner scope), else empty; the own-row functions and policies of §2.1 and §3.3 read it and nothing else does |
+| `app.staff_id` | The signed-in staff member (platform scope), else empty; read by the policy that lets a staff member start an impersonation only as themselves (#40) |
 | `app.order_token_hash` | The hash of the guest cart or order token presented on this request (shop scope), else empty; read only by `order_token_matches()` and `current_order_token_hash()` (§7.11). `StoreCaller.shopper` (`core/tenancy.ts`) and `RlsSettings` gain it with the first Shop API card |
 | `app.request_token_hash` | The hash of the token on a guest's data-request link, or of the token just minted for a new request (shop scope), else empty; read only by `request_token_matches()` and `current_request_token_hash()` (§7.11) |
 

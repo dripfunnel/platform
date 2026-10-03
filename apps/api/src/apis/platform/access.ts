@@ -5,6 +5,7 @@ import type { PartnerDomainsService } from '#saas/partnerDomains/index'
 import type { PartnerActivityService } from '#saas/partnerActivity/index'
 import type { PartnerTeamService } from '#saas/partnerTeam/index'
 import type { PartnerReportsService } from '#saas/partnerReports/index'
+import type { PartnerSupportService } from '#saas/support/index'
 import type { PartnerBrandingService } from '#saas/partnerBranding/index'
 import type { PartnerPlansService } from '#saas/partnerPlans/index'
 import type { PartnerStoresService } from '#saas/partnerStores/index'
@@ -26,6 +27,7 @@ export interface PlatformContext extends Record<string, unknown> {
   activity: PartnerActivityService | null
   team: PartnerTeamService | null
   reports: PartnerReportsService | null
+  support: PartnerSupportService | null
 }
 
 /** ACCESS.md §5.3: the partner role's permission, always within the session's own partner. */
