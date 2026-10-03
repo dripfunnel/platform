@@ -142,10 +142,11 @@ describe('a partner user', () => {
     expect(await idsOf(b, 'partner')).not.toContain(t.partnerA)
   })
 
-  it('never reaches inside a store: no customers', async () => {
+  it('never reaches inside a store: no customers, not even a count', async () => {
+    // app_partner holds no grant on customer (#155), so the read is refused outright.
     const a = partnerCaller(t.partnerA)
-    expect(await idsOf(a, 'customer')).toEqual([])
-    expect(await countOf(a, 'customer')).toBe(0)
+    await expect(idsOf(a, 'customer')).rejects.toThrow(/permission denied/i)
+    await expect(countOf(a, 'customer')).rejects.toThrow(/permission denied/i)
   })
 
   it('reads its own stores suppliers at account level, and no other partner stores suppliers', async () => {
@@ -348,7 +349,7 @@ describe('the backstop itself', () => {
     }
   })
 
-  it('runs staff as app_platform and every other caller as app_request (#205)', async () => {
+  it('runs staff as app_platform, partner callers as app_partner and store callers as app_request (#205, #155)', async () => {
     const roleOf = async (context: CallerContext) =>
       withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
     expect(await roleOf(staff)).toBe('app_platform')
@@ -356,7 +357,7 @@ describe('the backstop itself', () => {
     expect(await roleOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }))).toBe('app_request')
     expect(await roleOf(shopper(t.partnerA, t.storeA1, null))).toBe('app_request')
     expect(await roleOf(supportSession(t.partnerA, t.storeA1, 'read'))).toBe('app_request')
-    expect(await roleOf(partnerCaller(t.partnerA))).toBe('app_request')
+    expect(await roleOf(partnerCaller(t.partnerA))).toBe('app_partner')
   })
 
   it('holds each role to its own scopes, whatever app.scope says', async () => {
@@ -368,10 +369,12 @@ describe('the backstop itself', () => {
         return (await tx`select id from partner`).length
       })
     expect(await partnersSeen('app_platform', 'platform')).toBeGreaterThan(1)
-    expect(await partnersSeen('app_request', 'partner')).toBe(1)
+    expect(await partnersSeen('app_partner', 'partner')).toBe(1)
+    expect(await partnersSeen('app_request', 'partner')).toBe(0)
     // Until #210: the Worker live before #205 serves staff as app_request, and must keep working
     // until the new one is promoted. #210 makes this 0.
     expect(await partnersSeen('app_request', 'platform')).toBeGreaterThan(1)
+    expect(await partnersSeen('app_partner', 'platform')).toBe(0)
     expect(await partnersSeen('app_platform', 'partner')).toBe(0)
     expect(await partnersSeen('app_system', 'platform')).toBe(0)
   })
@@ -388,7 +391,7 @@ describe('the backstop itself', () => {
       where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') and c.relrowsecurity
         and (select count(*) from pg_policy p
              where p.polrelid = c.oid and not p.polpermissive
-               and p.polname in ('request_scope', 'platform_scope', 'system_scope')) <> 3
+               and p.polname in ('request_scope', 'partner_scope', 'platform_scope', 'system_scope')) <> 4
     `
     expect(unpinned.map((row) => row.relname)).toEqual([])
   })

@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -694,7 +694,7 @@ State what the smallest sellable first release is, and what is explicitly deferr
 
 **Architecture**
 - Does tRPC survive for portal-only screens, or does the portal use the Store API alone?
-- Is the Platform API GraphQL too, or internal only?
+- ~~Is the Platform API GraphQL too, or internal only?~~ Decided 2026-10-03 on #155: GraphQL, like the Admin API.
 - ~~Postgres RLS as defence in depth?~~ Decided: yes, the backstop (DATA-MODEL.md §5).
 - One database for all brands and stores, or a shard or database per brand later?
 - Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?

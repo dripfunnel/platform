@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 ---
 
@@ -62,7 +62,7 @@ layer's tables, by scope:
 |---|---|---|
 | **Platform** | `staff_user`, platform settings (automatic publish interval, entitlement ceilings, feature flags), `core_release`, storefront templates, integration credentials (references only) | Admin API only |
 | **Partner** (`partner_id`) | `partner`, `partner_user`, `partner_look` (versioned), `partner_words`, `partner_domain`, `partner_email_sender`, `email_template`, `plan`, `plan_entitlement`, `plan_price`, partner billing account and invoices | Platform API for that partner; Admin API for staff |
-| **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_entitlement_override`, `store_usage` (meters per period), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_session`, `job` rows for the store (the merchant's support-access consent is the `store.support_access_allowed` column, DATA-MODEL §2.1, not a table) | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
+| **Store** (`store_id`, with its `partner_id` for account-level reads) | `store` (with `partner_id`), `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (DATA-MODEL §2.4), `custom_domain`, `storefront` (repo, hosting target, core version, publish state), `publish_run`, `ai_run`, `support_session`, `job` rows for the store (the merchant's support-access consent is the `store.support_access_allowed` column, DATA-MODEL §2.1, not a table) | Store API for the merchant; Platform API at account level for its partner; Admin API for staff |
 | **Store and seller** | None of its own. Audit entries and usage attributed to a vendor carry `seller_id` for filtering | n/a |
 | **Cross-scope, append-only** | `activity_log` (actor, partner, store, seller, customer where relevant; [LOGGING.md](LOGGING.md)), `billing_event` (Stripe event ids), `job` (platform-wide rows such as fleet rollouts carry no `store_id`) | Written by the SaaS layer only; read per scope |
 
@@ -270,13 +270,16 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   currencies); **meter**, counted per billing period (**"Publish now" presses**, AI prompts,
   build minutes, AI cost).
 - **Platform ceilings**: DripFunnel sets a maximum per entitlement in the Admin API; a partner
-  can't configure a plan above it (G2, R3).
+  can't configure a plan above it (G2, R3). **Built on #157** with the versioned catalogue,
+  DripFunnel's wholesale fee per plan and the partner's contract (fee currency, conversion
+  rates, whether a plan may remove "Powered by"): DATA-MODEL.md §2.3.
 - **Who sets what**: the partner sets its plans and their entitlement values, including the
   monthly "Publish now" allowance, in the Platform API (USERS-AND-DOMAINS §4); Admin can set
   them on the partner's behalf, and sets the ceilings. The automatic publish interval is an
   Admin setting with per-plan overrides (§9.2).
 - **Per-store overrides**: a partner or Admin can raise or lower one store's entitlement
-  (for example extra publishes this month), recorded and audited.
+  (for example extra publishes this month), recorded and audited (`store_limit_override`,
+  built on #212; the stored usage it is measured against is `store_usage`).
 - Allowed storefront templates, regions, currencies, languages, payment and courier providers,
   whether vendors are offered, and defaults for new stores are partner-level settings within
   platform limits (fact 19, G4–G5).
@@ -302,7 +305,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 
 - **Grandfathering is explicit** (G6): changing a plan that stores are on asks "Apply to new
   signups only, or to everyone at renewal?". Plans are versioned so a store's subscription
-  points at the version it bought.
+  points at the version it bought (built on #157: an edit writes the next `plan_version`).
 - **Retiring a plan** (G7) hides it from signup; existing stores keep it or move on a stated
   date.
 - Promotions on plans (first months discounted, signup coupons) are open (G8).
@@ -328,7 +331,8 @@ merchants" follows as a per-partner setting. For the house
 partner, DripFunnel bills its merchants directly, which is the second model with DripFunnel as
 the partner.
 
-When the partner bills its merchants itself, the platform still needs the store's status.
+**Built on #212**: `partner.billing_mode` (`dripfunnel` | `own`) and `store.billing_status`
+(DATA-MODEL §2.4). When the partner bills its merchants itself, the platform still needs the store's status.
 How it learns it (the partner sets status through the Platform API, a webhook from the
 partner's billing, or both) is open (§14).
 
@@ -581,8 +585,8 @@ store (§5.5 there).
 | Metrics and usage | Own usage against plan | Own partner and stores | Everything |
 | Integration credentials | | | Status only, never the value |
 
-Whether the Platform API is GraphQL like the others or internal only is open (PLATFORM-PROMPT
-§10).
+The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
+`apps/api/schema/platform.graphql`).
 
 ---
 

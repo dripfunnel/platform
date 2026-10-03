@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-03.
 
 ---
 
@@ -58,7 +58,7 @@ merchant with the same address are two unrelated accounts.
 | Pool | Who | Signs in at | Credentials | Unique by |
 |---|---|---|---|---|
 | **People** | Merchants (Owner, Manager, Staff) and vendor users | Their partner's **portal host** (e.g. `store.<partnerdomain>`), Store API at `/api` | Password (argon2id or the KDF chosen under Workers CPU limits, ARCHITECTURE §8), Google sign-in, 2-factor **required for Owners and optional for everyone else** (decided 2026-10-02): an authenticator app or an SMS code to the person's own mobile number, plus ten single-use backup codes shown once when made; an Owner without it is sent to set it up at their next sign-in and can change the method but never turn it off (§4) | `(partner, email)`: the same email under two partners is two unrelated accounts |
-| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password; 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
+| **Partner users** | A partner's own team | `platform.dripfunnel.com`, Platform API | Password (**built on #156**: PBKDF2-SHA256, 100,000 iterations — the most the Workers runtime allows — a 16-byte salt and a 32-byte key, `auth/password.ts`; one decoy derivation when no account matches, so an unknown email costs what a wrong password does); 2-factor (authenticator app) **optional per user, and the partner's Owner may require it for the whole team** (decided 2026-10-01 on #109: a user without it enrols at their next sign-in once required). No Google sign-in in the first release. **Invitation only, no self-signup**: the Owner is invited by Admin when the partner is created, everyone else by the partner's Owner or Admin (SAAS §3.2) | Email, within the partner |
 | **Staff** | DripFunnel employees | `admin.dripfunnel.com`, Admin API | **Company SSO with 2-factor** only; no self-signup, no password of ours (CONSOLE-DESIGN A1). Cloudflare Access in front of the host as an extra gate (recommended, ARCHITECTURE §7) | SSO subject |
 | **Shoppers** | A merchant's customers | The merchant's storefront, Shop API | Email + password and/or mobile + one-time code (SMS or WhatsApp), **as the store chooses** (§2.1) | Each identifier **per store**: a person buying from two stores has two customer accounts (USERS-AND-DOMAINS §1) |
 
@@ -149,7 +149,7 @@ interface TenantContext {
   storeId: string;                           // resolved server-side, never from input as authority
   sellerScope: SellerScope;
   permissions: ReadonlySet<Permission>;
-  subscription: 'trialing' | 'active' | 'past_due' | 'canceled' | 'suspended';
+  subscription: 'trial' | 'active' | 'past_due' | 'cancelled' | 'suspended';  // DATA-MODEL §7.9's spellings (#212)
 }
 ```
 
@@ -186,8 +186,11 @@ partner or store it acts on, or `'none'` for a list, which filters its own rows.
 wraps every Query and Mutation field so the check runs before the body. It **throws while the
 schema is built** if a field declares nothing, names another API, uses a scope its API doesn't
 serve, pairs a permission with `public` or `session` (or omits one elsewhere), or omits the
-target. So the Worker, `pnpm schema` and every test refuse to start; a missing declaration never
-means allowed. The Platform, Store and Shop APIs serve only `public` until their cards add a
+target, or names a permission outside its own API's catalogue (§5.3 for the Platform API, §5.4
+for the Admin API). So the Worker, `pnpm schema` and every test refuse to start; a missing
+declaration never means allowed. The Platform API serves `public`, `session` and `partner`
+from #155 (`apis/platform/access.ts`: the partner role's permission, always within the
+session's own partner); the Store and Shop APIs serve only `public` until their cards add a
 policy. A field on any other type may declare a stricter permission and then reads as `null`
 when refused, so full contact details are `Customer.email` declaring `customers.contact.read`.
 `audit` is declared from the first audited mutation on.
@@ -290,7 +293,32 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
 - **Rate limits** on sign-in, signup, invitation, password reset and code entry, per IP and per
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
-  store. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
+  store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
+  (idle 2 h, absolute 12 h; no "Remember me": no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
+  logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
+  closed-partner session, as for an unknown one. **Sign-in, built on #156**
+  (`apis/platform/auth.ts`): `POST /api/auth/sign-in` answers `INVALID_CREDENTIALS`
+  byte for byte the same for an unknown email and a wrong password, after the same three
+  password derivations whatever the email (decoys make up the count); the same email may hold
+  an account under up to three partners (a trigger refuses a fourth, so no account is ever
+  beyond what sign-in checks), and the password decides which (the most recently used first
+  when two match). A password alone opens a session at stage `second-factor` (a user with
+  2-factor) or `enrol` (one whose partner requires it), good for 10 minutes and for nothing but
+  `second-factor` or `enrol-second-factor`. TOTP (RFC 6238, SHA-1, 30 s, 6 digits) accepts one
+  step of drift; a code up to five minutes old or already used is `CODE_EXPIRED` and not
+  counted; every wrong or stale code is logged as `partner_user.second_factor_refused`, which
+  the partner sees; five wrong codes lock the account for 15 minutes (`LOCKED`, with minutes, even for
+  a right code), log `partner_user.sign_in_locked` and queue the notice email. The secret is
+  sealed with AES-256-GCM under `CREDENTIALS_KEK` (THIRD-PARTY-ACCESS §5); without the key the
+  second-factor routes answer `NOT_CONNECTED`. Every route except sign-out takes an attempt per
+  address, and sign-in one per typed email too (`RATE_LIMITED`). **Accepted on #207's review**:
+  the per-email bucket is spent before the password is checked, so someone hammering an
+  address can hold its owner off sign-in while they keep at it (10 attempts a minute, the
+  minute after they stop). Counting only failures would let a correct guess through a spent
+  bucket, which is what the limit is for; the lock after five wrong codes, the per-address
+  limit and the activity log are what show and stop the attacker. `next` is replaced by
+  `/dashboard` on the server unless it is a path on this host. Invitations and password reset
+  are #208's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that
   can suspend a store and impersonate a merchant, so it is the most valuable to steal; 8
   hours still covers a working day. They **re-authenticate before dangerous actions**: suspend, refund, delete, open a support session, change a price (CONSOLE-DESIGN
@@ -407,7 +435,8 @@ The last Owner of a partner can't be removed or demoted, as for merchants and st
 **Permission names** (decided 2026-10-01 on #109), one per screen need in
 ui/platform/FIRST-RELEASE.md, the way the staff set was derived on #14, and matching the
 prototype's own permission table. Every one is scoped to the caller's own partner by the
-session; `partner.read` is what every role holds.
+session; `partner.read` is what every role holds. **Built on #155** as fixed sets per role in
+`auth/partnerPermissions.ts`, held to this table row for row by `partnerPermissions.test.ts`.
 
 | Permission | Screen (FIRST-RELEASE) | Owner | Admin | Support | Finance | Read-only |
 |---|---|:--:|:--:|:--:|:--:|:--:|

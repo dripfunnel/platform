@@ -41,9 +41,9 @@ platform            no row: DripFunnel itself; staff act here
 
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
-| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note`, `app` (§7.10) |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_entitlement`, `signup` (§7.10) |
-| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
+| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `signup` (§7.10) |
+| **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `import_job`, `export_job`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
@@ -117,6 +117,94 @@ stock movements (§7.4), customer groups, tags, notes and consent (§7.5), retur
 and the supplier ledger (§7.6), access requests (§7.10); the 2-factor, backup-code and
 session columns are in §3.3.
 
+### 2.3 The plan catalogue (built on #157)
+
+Migration `0013`, from SAAS §6.1 and §6.3 and the prototype's Plans screens:
+
+```
+plan_version         (plan_id, partner_id, version, trial_days, created_at, created_by_kind,
+                      created_by_label)          PK (plan_id, version); plan.version is current
+plan_price           (plan_id, partner_id, version, currency, monthly_amount NULL,
+                      yearly_amount NULL)        -- minor units; null is "Not priced"
+plan_entitlement     (plan_id, partner_id, version, key, enabled NULL, amount NULL)
+                     -- a switch key holds enabled, a limit or monthly allowance holds amount
+plan_fee             (plan_id PK, partner_id, amount, currency)   -- DripFunnel's wholesale fee
+                     -- per store per month; (partner_id, currency) references the contract's
+                     -- fee currency, which cannot change while fees are stated in it; no
+                     -- store policy at all
+plan_ceiling         (key PK, amount)                   -- DripFunnel's maximum per limit
+partner_contract     (partner_id PK, fee_currency, powered_by_removable, powered_by_note
+                      ('contract'|'firstYear'))
+partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, not money
+```
+
+- **Keys**: switches `custom_domain`, `offers`, `suppliers_enabled`, `powered_by_removal`,
+  `aplus`, `size_charts`; limits `products`, `staff`, `suppliers`, `languages`, `currencies`;
+  monthly allowances `publish_now`, `ai_prompts` (the prototype's thirteen rows). Build
+  minutes and AI cost are meters with no plan value yet.
+- **An edit is a version** (`db/scoped/plans.ts` `insertPlanVersion`): prices, trial and
+  entitlements are written under `plan.version + 1`, taken under the plan's row lock, and
+  `plan.version` moves to it. Versions are **insert-only**: no role holds `update` on the three
+  version tables, so a subscription keeps exactly the version it bought (§7.9's
+  `store_subscription.plan_version`). `plan.version` always names an existing version (a
+  deferred foreign key): a trigger owned by `app_definer` writes version 1 for every plan
+  inserted, by whatever role, so the release still live keeps working, and `0013` gave every
+  plan already built a version 1 with its trial and no prices. Name, description and status
+  stay on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
+- **Ceilings are enforced in the database**: a trigger refuses any `plan_entitlement` amount
+  above `plan_ceiling` for its key, whoever writes it (SAAS §6.1), and `powered_by_removal`
+  switched on unless the partner's contract allows it (no contract: not allowed). Another
+  refuses any request role moving `plan.version` other than forward by one, or changing
+  `plan.trial_days` without a new version. A merchant reads `plan_version` by column, never
+  `created_by_*`. A check holds each key to
+  its kind: a switch has `enabled` and no `amount`, a limit or allowance the reverse.
+- **The entitlements are authoritative.** `plan.max_products` and `max_staff` (#32) are what
+  the admin console's plan list still reads; they stop being written once #161 serves the
+  catalogue, and a later migration drops them.
+- `plan.trial_days` is `0..90` (was `0, 7, 14, 30`), so the house plans' 10 days fit.
+- **Who reads what**: the partner reads and writes its own versions, and reads its own fee,
+  contract and rates and every ceiling; the fee, the ceilings and the contract are written by
+  staff only. A merchant reads its own store's plan versions in store scope only (SAAS §13
+  "read own plan"; never a storefront, never a supplier) and never the fee. Every child carries `partner_id`, held to the plan's by composite keys, and
+  the four role pins (§5.3).
+- The paused-by-plan state of SAAS §6.2 is on the paused rows themselves (§7.1), so the
+  catalogue holds only values; `saas/entitlements` counts paused items outside the limit.
+
+### 2.4 Store account fields (built on #212)
+
+Migration `0014`, for what the partner console's Stores list and store detail read beyond #32:
+
+- **`store_subscription`** exactly as §7.9 designs it, pointing at the plan **version** (§2.3),
+  with `next_plan_id`, `next_plan_version` and `change_at` for a scheduled change. It carries
+  `partner_id` so its composite keys hold the store and both plan versions to one partner
+  (foreign keys skip RLS). Billing (`app_system`) and staff write it. A partner reads it by
+  column (status, amounts, periods, the scheduled change, the card's last four); the merchant
+  also reads the card's brand and expiry; neither reads the Stripe ids or the payment-method
+  label. A store built before #212 has no row until billing (#201) creates one. `core/tenancy.ts`'s
+  `Subscription` now uses §7.9's spellings (`trial`, `cancelled`).
+- **`store_limit_override`** (key, amount, `month` or `always` with the month it applies to,
+  reason, who, when, `removed_at`) and **`store_trial_extension`** (days, the new end,
+  reason, who, when): SAAS §6.1's per-store overrides, added by the partner for its own
+  stores or by staff, and never rewritten. A trigger pins `created_by_kind` to the writing
+  role (a partner writes `partner_user`, staff `staff`) and lets an override be removed once,
+  with who removed it, and not changed after. The merchant reads both by column (key,
+  amount, duration, month, days, dates), never the partner's reason or who wrote it.
+  `selectOverrides` and `selectTrialExtensions` (`db/scoped/storeAccount.ts`) are the partner's
+  and staff's reads, with why and who, paged newest first by keyset; the merchant's own read
+  arrives with the Store API card that serves it.
+- **`store_usage`** (store, key, used, `period_start` for a meter): the stored counter behind
+  "4,210 of 5,000 products", written where the work happens (by `app_system`), never a
+  count across tenants. Paused items (§7.1) are not counted.
+- **`partner.billing_mode`** (`dripfunnel` | `own`, SAAS §7.1) and **`store.billing_status`**
+  (`active` | `past_due` | `suspended`). A trigger refuses any change to the status unless
+  the store's partner bills its own merchants, whoever the writer is.
+- Account level (§2): the store's merchant side reads its own rows in store scope; a supplier
+  or a storefront reads none; the partner its own stores' (through the store policy); staff
+  and jobs everything. The four role pins are on each table.
+- Indexes for FIRST-RELEASE §6.1: `(partner_id, status)`, `(partner_id, plan_id, created_at)`,
+  `(partner_id, created_at)`, `(partner_id, storefront_kind, build_state)`, `store_usage (key,
+  store_id)`, and the trigram indexes on store name and code, owner email and domain host.
+
 ---
 
 ## 3. Identity pools
@@ -144,14 +232,24 @@ partner_user     (id, partner_id, email, password_hash NULL, name, role_key, sta
                   two_factor_secret_enc NULL, created_at)
                  UNIQUE (partner_id, email)
 partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
-                  absolute_expires_at, remember)   -- same session model as user_session
+                  absolute_expires_at)   -- same session model as user_session; no "Remember me"
 ```
 
 `role_key` ∈ `partner-owner`, `partner-admin`, `partner-support`, `partner-finance`,
 `partner-read-only` (ACCESS.md §5.3, decided on #109). A partner's first user is its Owner.
 **Built on #32**: `partner_user` (with `status`, `last_sign_in_at`) and `partner_invitation`
-(token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 1 adds
-`partner_session`, PAPI 2 fills the password and 2-factor columns.
+(token hash, expiry, `sent_at` null while held, who invited, accepted, revoked); PAPI 2 fills
+the password and 2-factor columns (**built on #156**, with `two_factor_enrolled_at`,
+`failed_code_count`, `locked_until`, `last_code_step` beside them, granted to no request role,
+`partner.second_factor_required` for the Owner's switch, and `partner_session.stage` and
+`pending_secret_enc` for the step between password and code). **Built on #155**: `partner_session` as above, its hash
+read and written by `app_system` alone (no request role has a grant). A partner adds team
+members and invitations by column only: never a password hash, a 2-factor secret, a lock
+column or an invitation token, which only sign-in and the deliverer write (as `app_system`).
+`partner_session` has no `remember` column: the partner sign-in screen offers no "Remember
+me" (ui/platform/FIRST-RELEASE.md §3). An email may belong to at most three partners' teams,
+refused by a trigger at the fourth (ACCESS.md §2) with a refusal that names no other partner,
+counted under a per-email lock; `lower(email)` is indexed for it and for sign-in.
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 
@@ -405,12 +503,14 @@ Row policies cannot tell a supplier from the merchant or a shopper from either (
 `app_request` with different settings), and column grants are per role, so every "this column
 never reaches a supplier or a shopper" rule in §7 needs a role to grant against. `withScope`
 (`db/scoped/index.ts`) issues `set local role <role>` from the caller kind. **Built on #205**: staff requests
-run as `app_platform`, every other request as `app_request`, and `app_definer` exists (owning
+run as `app_platform`, partner users and staff setup sessions as `app_partner` (#155; it updates its own `partner`
+row by column only, and a trigger lets it change `state` only from Draft to Awaiting approval,
+#214), every
+other request as `app_request`, and `app_definer` exists (owning
 only 0007's membership trigger, which checks parents the caller may not see); the first
-supplier, shopper and partner cards add `app_supplier`, `app_shop` and `app_partner` the same
-way (api/README.md §7). Every tenant table carries a restrictive pin per role holding it to
-its own `app.scope` values (`request_scope`: `store`, `shop`, `partner`; `platform_scope`;
-`system_scope`), so a policy shared by two roles never lets one use the other's branch.
+supplier and shopper cards add `app_supplier` and `app_shop` the same way (api/README.md §7).
+Every tenant table carries a restrictive pin per role holding it to its own `app.scope`
+values (`request_scope`: `store`, `shop`; `partner_scope`; `platform_scope`; `system_scope`), so a policy shared by two roles never lets one use the other's branch.
 **Until #210** `app_request` also keeps every platform branch and `platform` in its pin: the
 Worker live when 0010 runs serves staff as `app_request` (api/README.md §7, expand then
 contract).
@@ -1136,15 +1236,18 @@ ai_run              (id, store_id, kind ('design'|'description'|'translation'), 
                     -- SAAS §9.2 metering for design runs; CATALOG C2 and N9 for text; the
                     -- AI meters below and the cost figure both read it; prompt and
                     -- gate_results are the merchant's (§5.3)
-store_usage         (store_id, period_start, meter ('publish_now'|'ai_prompts'|'ai_tokens'
-                     |'build_minutes'|'bandwidth_bytes'), count bigint)
-                    PRIMARY KEY (store_id, period_start, meter)
-                    -- SAAS §6.2: atomic, reset per billing period; AI cost is not a meter
-                    -- but the sum of ai_run.cost_amount for the period (§7.1 Money);
-                    -- purchased extra bandwidth is a store_entitlement_override that
-                    -- expires at period end
-store_entitlement_override (id, store_id, key, value, reason, set_by_kind, set_by_id,
-                     expires_at NULL)                           -- SAAS §6.1 per-store overrides
+store_usage         (store_id, key, used, period_start NULL, updated_at)
+                    PRIMARY KEY (store_id, key)                 -- built on #212 (§2.4)
+                    -- one row per limit and per monthly allowance (the plan keys of §2.3);
+                    -- an allowance's period_start says which period it counts, reset per
+                    -- billing period (SAAS §6.2). The meters with no plan value
+                    -- (ai_tokens, build_minutes, bandwidth_bytes) and a history per period
+                    -- are added by the card that first writes them. AI cost is not a meter
+                    -- but the sum of ai_run.cost_amount for the period (§7.1 Money)
+store_limit_override (id, store_id, key, amount, duration ('month'|'always'), month NULL,
+                     reason, created_by_*, created_at, removed_at, removed_by_label)
+                    -- built on #212 (§2.4); SAAS §6.1 per-store overrides; purchased extra
+                    -- bandwidth will be a 'month' override
 ```
 
 ### 7.9 Merchant billing
@@ -1153,7 +1256,9 @@ Store-scoped at account level (the partner reads status and amounts; staff read 
 but `store_billing_details`, which stays store-only). The money model is SAAS §7: Stripe
 Billing on DripFunnel's account, the partner's or DripFunnel's own plans. Distinct from the
 store's own `payment_provider_account` rows (flow 61). `store.plan_id` and `trial_ends_at`
-(built on #32) are mirrors of this table, written by the same transaction.
+(built on #32) are mirrors of this table, written by the same transaction. **`store_subscription`
+is built on #212** (§2.4); `store_billing_details`, `invoice`, `invoice_line` and
+`billing_event` are #163's and #201's.
 
 ```
 store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active'|'past_due'
@@ -1163,9 +1268,8 @@ store_subscription  (store_id PK, plan_id, plan_version, status ('trial'|'active
                      stripe_customer_id, stripe_subscription_id, payment_method_label,
                      payment_method_brand, payment_method_last4, payment_method_expires date)
                     -- status uses store.status's spellings (0007: trial, active, past_due,
-                    -- cancelled); core/tenancy.ts's Subscription type ('trialing',
-                    -- 'canceled') and ACCESS §3 are corrected to them on the card that
-                    -- builds this table. currency is the store's when USD, EUR or INR, else
+                    -- cancelled), which core/tenancy.ts's Subscription type and ACCESS §3
+                    -- use since #212. currency is the store's when USD, EUR or INR, else
                     -- USD (SAAS §6.1); the card is Stripe's: brand, last 4 and expiry only;
                     -- next_plan_* and change_at are a scheduled downgrade (SAAS §6.3,
                     -- PortalBilling "You'll move to Growth on 27 Oct"), and the Owner's
@@ -1185,10 +1289,9 @@ billing_event       (id PK = Stripe event id, store_id NULL, partner_id NULL, ty
                      handled_at)                                   -- SAAS §7.2 idempotency
 ```
 
-**Built, and to reconcile**: `plan.trial_days` (migration `0007`) is checked against
-`(0, 7, 14, 30)`, while the house partner's plans carry a 10-day trial (SAAS §6.1, decided
-2026-10-02). PAPI 3 (#157) widens the constraint, or makes it a positive integer, when it adds
-the plan's prices and entitlements.
+**Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
+30)`), so the house partner's 10-day trial fits (SAAS §6.1), and the seed's house plans carry
+it.
 
 ### 7.10 Integrations, jobs and requests
 
@@ -1393,7 +1496,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   state only, never content): `storefront`, `publish_run`, `design_version` and `ai_run`
   (`app_partner` and `app_platform` read them through the metering view of §5.3 and never a
   prompt, summary, preview or gate result; a merchant's design prompts are store content,
-  USERS-AND-DOMAINS §4), `store_usage`, `store_entitlement_override`, `store_subscription`, `invoice` and
+  USERS-AND-DOMAINS §4), `store_usage`, `store_limit_override`, `store_subscription`, `invoice` and
   `invoice_line` (status and amounts for the partner that bills), `custom_domain`, and
   `billing_event`, which is cross-scope and append-only like `activity_log` (§2; a Stripe
   event names a store or a partner, and only the SaaS layer writes it).

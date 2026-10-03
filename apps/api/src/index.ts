@@ -3,11 +3,15 @@ import { adminSchema, type AdminContext } from '#apis/admin/schema'
 import { handleAuth, isAuthPath } from '#apis/admin/auth'
 import { createServer } from '#apis/graphql/server'
 import { handleHealthCheck, isHealthPath } from '#apis/health'
-import { platformSchema } from '#apis/platform/schema'
+import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
+import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { storeSchema } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
+import { resolvePartner } from '#auth/partnerCaller'
+import { partnerCookieName } from '#auth/partnerSession'
+import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
 import { partnerScopedRoles } from '#auth/permissions'
 import { originAllowed, readCookie } from '#auth/cookie'
@@ -24,12 +28,13 @@ import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog, listActivity } from '#saas/activity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
+import { createPartnerConsoleService } from '#saas/partnerConsole/index'
 import { createStoresService } from '#saas/stores/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
-  platform: createServer(platformSchema, '/api'),
+  platform: createServer<PlatformContext>(platformSchema, '/api'),
   store: createServer(storeSchema, '/api'),
   shop: createServer(shopSchema, '/shop-api'),
 }
@@ -160,6 +165,48 @@ const handleAdmin = async (
   })
 }
 
+// Imported once per isolate, like the identity provider, and only from configuration.
+let box: { key: string; secrets: Promise<SecretBox> } | undefined
+
+const secretsFor = (config: Config): Promise<SecretBox> | null => {
+  const key = config.CREDENTIALS_KEK
+  if (!key) return null
+  if (box?.key !== key) box = { key, secrets: secretBox(key) }
+  return box.secrets
+}
+
+const handlePlatform = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  // Every mutation on this cookie, as on the admin host (ACCESS.md §4).
+  if (!originAllowed(request, config.PLATFORM_HOST)) return new Response('Bad origin', { status: 403 })
+
+  const hyperdrive = config.HYPERDRIVE
+  if (isPlatformAuthPath(url.pathname)) {
+    if (!hyperdrive) return new Response(null, { status: 503 })
+    const limiter = env.SIGN_IN_RATE_LIMITER
+    if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+    const secrets = await secretsFor(config)
+    return withConnection(hyperdrive, ctx, (sql) =>
+      handlePlatformAuth(request, {
+        sql,
+        activity: activityLog,
+        platformHost: config.PLATFORM_HOST,
+        secrets,
+        now: () => new Date(),
+        allowAttempt: async (key) => (await limiter.limit({ key })).success,
+      }),
+    )
+  }
+
+  if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
+    return servers.platform.fetch(request, { caller: null, console: null })
+  }
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const caller = await resolvePartner(sql, request, new Date())
+    const partnerConsole = caller ? createPartnerConsoleService({ sql, caller, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null
+    return servers.platform.fetch(request, { caller, console: partnerConsole })
+  })
+}
+
 const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {
   const url = new URL(request.url)
   let config
@@ -175,6 +222,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
+  if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
   return { response: await servers[area].fetch(request), area }
 }
 

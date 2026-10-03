@@ -14,7 +14,8 @@ export type StoreCaller =
   | { kind: 'impersonation'; impersonationId: string; staffId: string; userId: string }
   | { kind: 'support'; supportSessionId: string; partnerUserId: string; access: 'read' | 'write' }
 
-export type Subscription = 'trialing' | 'active' | 'past_due' | 'canceled' | 'suspended'
+// store_subscription.status's spellings (DATA-MODEL.md §7.9), plus the store's own suspension.
+export type Subscription = 'trial' | 'active' | 'past_due' | 'cancelled' | 'suspended'
 
 export interface TenantContext {
   caller: StoreCaller

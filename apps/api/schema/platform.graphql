@@ -1,3 +1,104 @@
+type ActionPermission {
+  allowed: Boolean
+  reason: String
+}
+
+type GoLiveChecks {
+  emailDomain: Boolean
+  legalPages: Boolean
+  portalHost: Boolean
+  pricedPlan: Boolean
+  testSignup: Boolean
+}
+
+type Me {
+  email: String
+  id: ID
+  name: String
+  partner: Partner
+  role: String
+}
+
+type Mutation {
+  submitForApproval: SubmitForApprovalResult
+}
+
+type NavBadges {
+  billingFailedPayments: Int
+  brandingSetupLeft: Int
+  domainsWaiting: Int
+  storesAttention: Int
+  supportOpenSessions: Int
+}
+
+type Onboarding {
+  canSubmit: ActionPermission
+  checks: GoLiveChecks
+  fallbackSenderAccepted: Boolean
+  fixes: [OnboardingFix!]
+  items: [OnboardingItem!]
+  sentBackReason: String
+  submittedAt: String
+  submittedBy: String
+}
+
+type OnboardingFix {
+  item: String
+  to: String
+}
+
+type OnboardingItem {
+  detail: String
+  doneBy: String
+  key: String
+  status: String
+  to: String
+}
+
+type Partner {
+  host: String
+  id: ID
+  name: String
+  product: String
+  state: String
+}
+
+type PartnerState {
+  brokenHosts: [String!]
+  pauseReason: String
+  pausedAt: String
+  sentBackReason: String
+  setupSession: SetupSessionNotice
+  state: String
+  storeCount: Int
+}
+
 type Query {
   health: String
+  me: Me
+  navBadges: NavBadges
+  onboarding: Onboarding
+  partnerState: PartnerState
+  search(query: String!): [StoreSearchMatch!]
+}
+
+type SetupSessionNotice {
+  endsAt: String
+  staffName: String
+}
+
+type StoreSearchMatch {
+  code: String
+  domain: String
+  id: ID
+  name: String
+  ownerEmail: String
+  status: String
+}
+
+type SubmitForApprovalResult {
+  check: String
+  code: String
+  ok: Boolean
+  submittedAt: String
 }
