@@ -186,11 +186,22 @@ export interface TargetPlace {
   store?: string | undefined
 }
 
+// How far a lookup pages before it gives up: an email matches a handful of accounts in one place.
+const lookupPages = 10
+
 // The person picked on a partner's Team tab or a store's Users tab: found by their email in that
-// place, then by the membership picked (the API has no lookup by membership).
+// place, then by the membership picked, page by page (the API has no lookup by membership).
 export const loadTarget = async (membershipId: string, place: TargetPlace): Promise<ImpersonationTarget | null> => {
-  const page = await loadTargets({ partner: place.partner, store: place.store }, {}, place.email)
-  return page?.items.find((target) => target.memberships.some((membership) => membership.id === membershipId)) ?? null
+  if (place.email.trim() === '') return null
+  let after: string | undefined
+  for (let page = 0; page < lookupPages; page += 1) {
+    const found = await loadTargets({ partner: place.partner, store: place.store }, after ? { after } : {}, place.email)
+    const target = found?.items.find((candidate) => candidate.memberships.some((membership) => membership.id === membershipId))
+    if (target) return target
+    if (!found?.pageInfo.hasNextPage || !found.pageInfo.endCursor) return null
+    after = found.pageInfo.endCursor
+  }
+  return null
 }
 
 const sessionSchema = z

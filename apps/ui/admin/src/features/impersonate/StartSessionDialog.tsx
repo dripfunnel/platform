@@ -14,7 +14,7 @@ import type { StaffRole } from '../shell/staffRoles'
 import { reservePortalTab, type PortalTab } from './openPortal'
 import { sessionsChanged } from './sessionEvents'
 import { firstOf, membershipLine, placeText, refusalText, roleText, timeLeftText, whereText } from './sessionText'
-import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, ticketError, type StartStep, type StartSubject } from './startFlow'
+import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, startWithReauth, ticketError, type StartStep, type StartSubject } from './startFlow'
 import '@dripfunnel/shared/ui/states.css'
 import './impersonate.css'
 
@@ -103,28 +103,22 @@ export const StartSessionDialog = ({ subject, caller, meName, simulate, onClose,
     onClose()
   }
 
-  // Started without a new sign-in when the last one is fresh; otherwise the API answers
-  // REAUTH_REQUIRED, the sign-in runs in the reserved tab, and the start is asked again.
   const confirm = () => {
     const tab = reservePortalTab()
     const cleanTicket = ticket.trim() === '' ? null : ticket.trim()
-    const start = (): Promise<StartResult> | null =>
+    const start = (): Promise<StartResult> =>
       subject.kind === 'impersonation' && membershipId
         ? startImpersonation(subject.target.id, membershipId, reason, cleanTicket)
         : subject.kind === 'setup'
           ? startSetupSession(subject.partner, reason, cleanTicket, meName)
-          : null
-    const signIn = (): Promise<Reauth> => (simulate ? Promise.resolve(simulate) : tab.reauthenticate())
+          : Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
+    // The harness's sign-in answer stands in for the API asking for one (?state=reauthFailed).
+    const asked = simulate ? (): Promise<StartResult> => Promise.resolve({ ok: false, reason: 'REAUTH_REQUIRED' }) : start
     setStep('reauth')
-    const first = simulate ? Promise.resolve<StartResult>({ ok: false, reason: 'REAUTH_REQUIRED' }) : start()
-    first
-      ?.then(async (result) => {
-        if (result.ok || result.reason !== 'REAUTH_REQUIRED') return finish(result, tab)
-        if (tab.blocked && !simulate) return fail(words.reauthBlocked, true, tab)
-        const fresh = await signIn()
-        if (!fresh.ok) return fail(fresh.outcome === 'failed' ? words.reauthFailed : words.reauthCancelled, true, tab)
-        const again = await start()
-        if (again) finish(again, tab)
+    startWithReauth(asked, () => (simulate ? Promise.resolve(simulate) : tab.reauthenticate()), tab.blocked && !simulate)
+      .then((outcome) => {
+        if (outcome.kind === 'done') return finish(outcome.result, tab)
+        fail(outcome.outcome === 'blocked' ? words.reauthBlocked : outcome.outcome === 'failed' ? words.reauthFailed : words.reauthCancelled, true, tab)
       })
       .catch(() => fail(messages.impersonate.toasts.failed, true, tab))
   }

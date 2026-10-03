@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import type { ImpersonationTarget, StaffSession } from '../../api/impersonation'
+import { describe, expect, it, vi } from 'vitest'
+import type { ImpersonationTarget, StaffSession, StartResult } from '../../api/impersonation'
 import { createImpersonationServer } from '../../api/impersonationSample'
-import { countedSteps, firstStep, ticketError, type StartSubject } from './startFlow'
+import { countedSteps, firstStep, startWithReauth, ticketError, type StartSubject } from './startFlow'
 
 const server = createImpersonationServer({ reauthDelayMs: 0 })
 const targetOf = (membershipId: string): ImpersonationTarget => {
@@ -62,5 +62,33 @@ describe('the ticket link', () => {
     expect(ticketError('http://support.dripfunnel.com/t/1')).toBe(true)
     expect(ticketError('javascript:alert(1)')).toBe(true)
     expect(ticketError('ticket 48213')).toBe(true)
+  })
+})
+
+describe('startWithReauth', () => {
+  const ok = { ok: true as const, session: {} as never, handoff: 'https://x/enter' }
+  const reauth = { ok: false as const, reason: 'REAUTH_REQUIRED' as const }
+
+  it('starts at once when the last sign-in is fresh, without asking for another', async () => {
+    const signIn = vi.fn()
+    expect(await startWithReauth(() => Promise.resolve(ok), signIn, false)).toEqual({ kind: 'done', result: ok })
+    expect(signIn).not.toHaveBeenCalled()
+  })
+
+  it('signs in again on REAUTH_REQUIRED and asks once more', async () => {
+    const start = vi.fn<() => Promise<StartResult>>().mockResolvedValueOnce(reauth).mockResolvedValueOnce(ok)
+    expect(await startWithReauth(start, () => Promise.resolve({ ok: true }), false)).toEqual({ kind: 'done', result: ok })
+    expect(start).toHaveBeenCalledTimes(2)
+  })
+
+  it('reads a second REAUTH_REQUIRED as a sign-in that failed, whatever page the tab reached', async () => {
+    expect(await startWithReauth(() => Promise.resolve(reauth), () => Promise.resolve({ ok: true }), false)).toEqual({ kind: 'signIn', outcome: 'failed' })
+  })
+
+  it('passes a cancelled sign-in through, and says a blocked tab can’t sign in', async () => {
+    expect(await startWithReauth(() => Promise.resolve(reauth), () => Promise.resolve({ ok: false, outcome: 'cancelled' }), false)).toEqual({ kind: 'signIn', outcome: 'cancelled' })
+    const signIn = vi.fn()
+    expect(await startWithReauth(() => Promise.resolve(reauth), signIn, true)).toEqual({ kind: 'signIn', outcome: 'blocked' })
+    expect(signIn).not.toHaveBeenCalled()
   })
 })

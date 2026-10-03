@@ -1,4 +1,4 @@
-import type { ImpersonationTarget, Ref, StaffSession } from '../../api/impersonation'
+import type { ImpersonationTarget, Reauth, Ref, StaffSession, StartResult } from '../../api/impersonation'
 
 export type StartSubject =
   | { kind: 'impersonation'; target: ImpersonationTarget; membershipId: string | null }
@@ -43,4 +43,18 @@ export const ticketError = (ticket: string): boolean => {
   } catch {
     return true
   }
+}
+
+export type StartOutcome = { kind: 'done'; result: StartResult } | { kind: 'signIn'; outcome: 'failed' | 'cancelled' | 'blocked' }
+
+// ACCESS.md §8.1: ask to start; only on REAUTH_REQUIRED sign in again (in the reserved tab) and
+// ask once more. A second REAUTH_REQUIRED means the sign-in didn't take, whatever page it ended on.
+export const startWithReauth = async (start: () => Promise<StartResult>, signIn: () => Promise<Reauth>, tabBlocked: boolean): Promise<StartOutcome> => {
+  const first = await start()
+  if (first.ok || first.reason !== 'REAUTH_REQUIRED') return { kind: 'done', result: first }
+  if (tabBlocked) return { kind: 'signIn', outcome: 'blocked' }
+  const fresh = await signIn()
+  if (!fresh.ok) return { kind: 'signIn', outcome: fresh.outcome }
+  const again = await start()
+  return !again.ok && again.reason === 'REAUTH_REQUIRED' ? { kind: 'signIn', outcome: 'failed' } : { kind: 'done', result: again }
 }

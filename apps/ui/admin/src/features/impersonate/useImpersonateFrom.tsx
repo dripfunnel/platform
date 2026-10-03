@@ -1,4 +1,5 @@
 import { loadTarget, type TargetPlace } from '../../api/impersonation'
+import { messages } from '../../messages'
 import type { StaffRole } from '../shell/staffRoles'
 import { useStartSession } from './useStartSession'
 
@@ -8,7 +9,7 @@ export const useImpersonateFrom = (caller: StaffRole, meName: string) => {
   const flow = useStartSession(caller, meName)
   const impersonate = (membershipId: string, place: TargetPlace) =>
     void loadTarget(membershipId, place)
-      .then((target) => target && flow.start({ kind: 'impersonation', target, membershipId }))
-      .catch(() => undefined)
+      .then((target) => (target ? flow.start({ kind: 'impersonation', target, membershipId }) : flow.say(messages.impersonate.toasts.targetNotFound)))
+      .catch(() => flow.say(messages.impersonate.toasts.failed))
   return { start: flow.start, impersonate, element: flow.element }
 }
