@@ -1,12 +1,16 @@
 import { EnvironmentBanner, environmentFor, ExportWatcher, NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
-import { getRouteApi, Outlet, useRouter } from '@tanstack/react-router'
+import { getRouteApi, Outlet, useRouter, useRouterState } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { loadActivityExport } from '../../api/activity'
 import { messages } from '../../messages'
 import { useSessionsVersion } from '../impersonate/sessionEvents'
 import { SessionStrip } from '../impersonate/SessionStrip'
 import { navFor } from '../../nav'
+import { NeedsLaptop } from '../common/NeedsLaptop'
+import { phoneView } from '../common/phoneView'
+import { usePhone } from '../common/usePhone'
+import { FindStore } from '../stores/FindStore'
 import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
 import { navWords } from './navWords'
@@ -20,6 +24,8 @@ export const AppShell = () => {
   const rows = navView(navFor(me.role), badges, navWords)
   const router = useRouter()
   const sessionsVersion = useSessionsVersion()
+  const routeId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId })
+  const view = usePhone() ? phoneView(routeId) : null
   // A session started or ended here moves the badge and the page under it at once.
   useEffect(() => {
     if (sessionsVersion > 0) void router.invalidate()
@@ -39,7 +45,7 @@ export const AppShell = () => {
         <main id="main" className="df-shell-main" tabIndex={-1}>
           <div className="df-shell-content">
             <SessionStrip caller={me.role} meName={me.name} />
-            <Outlet />
+            {view === 'find' ? <FindStore /> : view === 'laptop' ? <NeedsLaptop /> : <Outlet />}
           </div>
         </main>
       </div>

@@ -15,7 +15,9 @@ import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
 import { jobFailureWords, useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
-import { deniedStore, storeStates } from './storeHarness'
+import { usePhone } from '../common/usePhone'
+import { phoneAction, PhoneStore } from './PhoneStore'
+import { deniedStore, phoneStore, phoneStoreStates, storeStates } from './storeHarness'
 
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
 const shellRoute = getRouteApi('/_app')
@@ -46,10 +48,18 @@ export const StoreDetailScreen = () => {
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const forced = useScreenState(storeStates, harnessEnabled)
-  const store = loaded && forced === 'denied' ? deniedStore(loaded) : loaded
+  const phoneForced = useScreenState(phoneStoreStates, harnessEnabled)
+  // The harness's loading and error states are the laptop's; a phone has no others of its own.
+  const phone = usePhone() && forced !== 'loading' && forced !== 'error'
+  const denied = loaded && forced === 'denied' ? deniedStore(loaded) : loaded
+  const store = denied && phone && phoneForced ? phoneStore(denied, phoneForced) : denied
   const router = useRouter()
   const navigate = useNavigate()
-  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))
+  const [pending, setPending] = useState<Pending | null>(() => {
+    if (forced !== 'confirm') return null
+    const action = phone && store ? phoneAction(store) : null
+    return phone ? action && { kind: 'store', action } : firstAllowed(store)
+  })
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = (error: unknown) => setToast(failureText(error, messages.store.toasts.failed))
@@ -109,6 +119,9 @@ export const StoreDetailScreen = () => {
 
   return (
     <>
+      {phone && store ? (
+        <PhoneStore store={store} onAction={(action) => setPending({ kind: 'store', action })} />
+      ) : (
       <StoreDetail
         store={store}
         tab={tab}
@@ -143,6 +156,7 @@ export const StoreDetailScreen = () => {
           )
         }
       />
+      )}
       {store && (
         <ConfirmDialog
           open={dialog !== null}
