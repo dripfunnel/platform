@@ -102,6 +102,21 @@ describe('sign-in', () => {
   })
 })
 
+describe('one email on several partners', () => {
+  it('signs in the account the password belongs to, and refuses a fourth partner’s account for the same email', async () => {
+    const [p3] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Third Partner') returning id`
+    const [p4] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Fourth Partner') returning id`
+    const other = await userIn(t.partnerB, 'multi@example.test', null)
+    const third = await userIn(p3?.id ?? '', 'multi@example.test', null)
+    await db.sql`update partner_user set password_hash = ${await hashPassword('another-password')} where id = ${third}`
+    await userIn(t.partnerA, 'MULTI@example.test', null)
+    await expect(userIn(p4?.id ?? '', 'multi@example.test', null)).rejects.toThrow(/already belongs to three partners/)
+    expect(await signedInAs(cookieOf(await post('sign-in', { email: 'multi@example.test', password: 'another-password' })))).toBe(third)
+    expect(await signedInAs(cookieOf(await post('sign-in', { email: 'multi@example.test', password })))).not.toBe(third)
+    expect(other).not.toBe(third)
+  })
+})
+
 describe('the second factor', () => {
   const pending = async () => cookieOf(await post('sign-in', { email: 'maya@northstar.example', password }))
 

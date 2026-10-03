@@ -232,7 +232,7 @@ partner_user     (id, partner_id, email, password_hash NULL, name, role_key, sta
                   two_factor_secret_enc NULL, created_at)
                  UNIQUE (partner_id, email)
 partner_session  (id_hash, partner_user_id, created_at, last_seen_at,
-                  absolute_expires_at, remember)   -- same session model as user_session
+                  absolute_expires_at)   -- same session model as user_session; no "Remember me"
 ```
 
 `role_key` ∈ `partner-owner`, `partner-admin`, `partner-support`, `partner-finance`,
@@ -246,8 +246,9 @@ the password and 2-factor columns (**built on #156**, with `two_factor_enrolled_
 read and written by `app_system` alone (no request role has a grant). A partner adds team
 members and invitations by column only: never a password hash, a 2-factor secret, a lock
 column or an invitation token, which only sign-in and the deliverer write (as `app_system`).
-`remember` is false:
-the partner sign-in screen offers no "Remember me" (ui/platform/FIRST-RELEASE.md §3).
+`partner_session` has no `remember` column: the partner sign-in screen offers no "Remember
+me" (ui/platform/FIRST-RELEASE.md §3). An email may belong to at most three partners' teams,
+refused by a trigger at the fourth (ACCESS.md §2).
 
 ### 3.3 Merchants and supplier users (people pool, per partner)
 

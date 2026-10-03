@@ -294,14 +294,15 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   account (Workers rate-limit bindings and WAF, ARCHITECTURE §7).
 - **Partner users** use the same session model on `platform.dripfunnel.com`, with no acting
   store. **Built on #155**: the `__Host-df_platform_session` cookie, a `partner_session` row
-  (idle 2 h, absolute 12 h; `remember` stays false: no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
+  (idle 2 h, absolute 12 h; no "Remember me": no partner screen offers it, FIRST-RELEASE §3), `POST /api/auth/sign-out`
   logged as `partner_user.signed_out`, and `me` null for a missing, expired, suspended-user or
   closed-partner session, as for an unknown one. **Sign-in, built on #156**
   (`apis/platform/auth.ts`): `POST /api/auth/sign-in` answers `INVALID_CREDENTIALS`
   byte for byte the same for an unknown email and a wrong password, after the same three
   password derivations whatever the email (decoys make up the count); the same email may hold
-  an account under several partners, and the password decides which among its three most
-  recently used (the most recent first when two match). A password alone opens a session at stage `second-factor` (a user with
+  an account under up to three partners (a trigger refuses a fourth, so no account is ever
+  beyond what sign-in checks), and the password decides which (the most recently used first
+  when two match). A password alone opens a session at stage `second-factor` (a user with
   2-factor) or `enrol` (one whose partner requires it), good for 10 minutes and for nothing but
   `second-factor` or `enrol-second-factor`. TOTP (RFC 6238, SHA-1, 30 s, 6 digits) accepts one
   step of drift; a code up to five minutes old or already used is `CODE_EXPIRED` and not
@@ -310,7 +311,12 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   a right code), log `partner_user.sign_in_locked` and queue the notice email. The secret is
   sealed with AES-256-GCM under `CREDENTIALS_KEK` (THIRD-PARTY-ACCESS §5); without the key the
   second-factor routes answer `NOT_CONNECTED`. Every route except sign-out takes an attempt per
-  address, and sign-in one per typed email too (`RATE_LIMITED`). `next` is replaced by
+  address, and sign-in one per typed email too (`RATE_LIMITED`). **Accepted on #207's review**:
+  the per-email bucket is spent before the password is checked, so someone hammering an
+  address can hold its owner off sign-in while they keep at it (10 attempts a minute, the
+  minute after they stop). Counting only failures would let a correct guess through a spent
+  bucket, which is what the limit is for; the lock after five wrong codes, the per-address
+  limit and the activity log are what show and stop the attacker. `next` is replaced by
   `/dashboard` on the server unless it is a path on this host. Invitations and password reset
   are #208's. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that

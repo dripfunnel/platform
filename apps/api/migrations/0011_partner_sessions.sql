@@ -22,15 +22,14 @@ begin
 end
 $$;
 
--- The same session model as staff_session (ACCESS.md §4), with `remember` for the longer
--- absolute bound #156's sign-in offers. The hash is a credential: app_system alone touches it.
+-- The same session model as staff_session (ACCESS.md §4); no partner screen offers "Remember
+-- me" (FIRST-RELEASE §3). The hash is a credential: app_system alone touches it.
 create table partner_session (
   id_hash text primary key,
   partner_user_id uuid not null references partner_user (id),
   created_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
-  absolute_expires_at timestamptz not null,
-  remember boolean not null default false
+  absolute_expires_at timestamptz not null
 );
 
 create index partner_session_partner_user_id_idx on partner_session (partner_user_id);
@@ -148,3 +147,27 @@ $$;
 
 create trigger partner_self_update_guard before update on partner
 for each row execute function partner_self_update_guard();
+
+-- One platform host signs every partner's users in by email, and sign-in checks a fixed three
+-- accounts per email so its timing never says how many exist (ACCESS.md §2). So an address may
+-- belong to at most three partners' teams; a fourth is refused here, where it would otherwise
+-- be an account that can never sign in. Owned by app_definer: it counts across partners.
+create function partner_user_email_limit() returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if (select count(*) from partner_user where lower(email) = lower(new.email) and id <> new.id) >= 3 then
+    raise exception 'partner_user: this email already belongs to three partners'' teams' using errcode = 'check_violation';
+  end if;
+  return new;
+end
+$$;
+
+create trigger partner_user_email_limit before insert or update of email on partner_user
+for each row execute function partner_user_email_limit();
+
+grant select on partner_user to app_definer;
+alter function partner_user_email_limit() owner to app_definer;
+revoke all on function partner_user_email_limit() from public;
