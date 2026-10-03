@@ -11,24 +11,13 @@ permissions:
 jobs:
   gates:
     runs-on: self-hosted
-    services:
-      postgres:
-        image: postgres:18
-        env:
-          POSTGRES_USER: dripfunnel_dev
-          POSTGRES_PASSWORD: dripfunnel_dev
-          POSTGRES_DB: dripfunnel
-        # Docker picks the host port, so two jobs on the shared self-hosted runner never collide.
-        ports:
-          - 5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    # The runner's own Postgres 18, set up as docs/api/README.md §7 says (no Docker, AGENTS.md
+    # Testing); tests create and drop a uniquely named database per run on it.
+    env:
+      DATABASE_URL: ${{ vars.CI_DATABASE_URL || 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel' }}
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      - name: Postgres on the runner
+        run: pg_isready -d "$DATABASE_URL"
       - run: pnpm turbo run build typecheck lint test
-        env:
-          DATABASE_URL: postgres://dripfunnel_dev:dripfunnel_dev@localhost:${{ job.services.postgres.ports['5432'] }}/dripfunnel
