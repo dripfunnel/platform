@@ -50,4 +50,12 @@ describe('checkRecords', () => {
     expect((await checkRecords('live', records, lookup({ 'mail.x.example': [emailRecords.spf] }), signal)).status).toBe('broken')
     expect((await checkRecords('broken', records, lookup(both), signal)).status).toBe('live')
   })
+
+  it('never makes an address with no records live', async () => {
+    let looked = 0
+    const counting: DnsLookup = { resolve: async () => ((looked += 1), []) }
+    expect((await checkRecords('waiting', [], counting, signal)).status).toBe('waiting')
+    expect((await checkRecords('live', [], counting, signal)).status).toBe('broken')
+    expect(looked).toBe(0)
+  })
 })

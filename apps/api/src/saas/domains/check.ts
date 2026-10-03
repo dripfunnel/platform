@@ -51,6 +51,8 @@ export const checkRecords = async (
     results.push({ id: record.id, status: match ? 'live' : values.length === 0 ? 'waiting' : 'failed', found: match ?? values[0] ?? null })
   }
   const wasLive = previous === 'live' || previous === 'broken'
+  // No records means nothing was proved: never live (an empty `every` would say it was).
+  if (results.length === 0) return { status: wasLive ? 'broken' : 'waiting', found: null, records: [] }
   const status: HostStatus = results.every((r) => r.status === 'live') ? 'live' : wasLive ? 'broken' : results.some((r) => r.status === 'failed') ? 'failed' : 'waiting'
   return { status, found: results[0]?.found ?? null, records: results.map((r) => ({ id: r.id, found: r.found })) }
 }
