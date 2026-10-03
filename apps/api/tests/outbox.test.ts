@@ -17,13 +17,15 @@ const partner = (partnerId: string): CallerContext => ({ caller: { kind: 'partne
 // and otherwise only moves when a test moves it.
 let clock = Date.now()
 const now = () => new Date(clock)
-const catchUp = () => {
-  clock = Math.max(clock, Date.now())
+// Read from the database itself: its clock can run a millisecond ahead of this process's.
+const catchUp = async (sql: typeof db.sql) => {
+  const [r] = await sql<{ ms: string }[]>`select ceil(extract(epoch from clock_timestamp()) * 1000)::text as ms`
+  clock = Math.max(clock, Number(r?.ms ?? 0))
 }
 const options: RelayOptions = { ...defaultRelayOptions, now, timeoutMs: 100, maxAttempts: 3, baseDelayMs: 1_000, maxDelayMs: 60_000, leaseMs: 5_000, batch: 10 }
 
-const sweep: typeof relayDue = (...args) => {
-  catchUp()
+const sweep: typeof relayDue = async (...args) => {
+  await catchUp(args[0])
   return relayDue(...args)
 }
 
