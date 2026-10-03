@@ -272,14 +272,27 @@ partner_branding  (id, partner_id, state ('draft'|'published'|'cancelled'), prod
 
 ### 2.6 Export jobs (built on #198)
 
-`export_job` (migration `0021`; `report` added by `0023`, #200): partner, `kind` (`activity`, `report`), the filter as asked, `state`
-(queued, done or failed), the row count and whether it was cut, the CSV, who asked, and when it was
-created, finished and expires. A partner inserts and reads its own; the `export.activity` job
-runs in that partner's scope and writes the result, or `failed` after the outbox's last attempt
-(the cron also fails a queued job whose outbox row the relay gave up on, a timeout included);
-the per-minute cron deletes an export an hour after it finishes (failed included), and one
-never finished after a day. The CSV lives on the row because no R2
-bucket is bound yet; a file key replaces it when one is. The four role pins are on the table.
+`export_job` (migration `0021`; `report` added by `0023`, #200; `stores` by `0026`, #221;
+`staff_activity` by `0028`, #38): the partner (null only for a staff export, a check holds it),
+`kind` (`activity`, `report`, `stores`, `staff_activity`), the filter as asked, `state` (queued,
+done, failed, or `too_large` for a staff export past its cap), the row count and whether it was
+cut, the CSV, the `cursor` a chunked export resumes from, who asked, and when it was created,
+finished and expires.
+
+- **A partner's export** (`activity`, `report`, `stores`): the partner inserts and reads its own,
+  and its `export.*` job runs in that partner's scope and writes the result in one delivery
+  (`stores` cuts at 10,000 rows and says so).
+- **A staff export** (`staff_activity`): no partner; asked for, and read back by its id, by staff
+  holding `activity.export` (Super admin and Engineer on call, who see every partner). Its job
+  reads the log as the staff member who asked, a chunk per delivery, keeping the file so
+  far and the `cursor` on the row between chunks; past LOGGING §6's 100,000 entries it ends
+  `too_large`, never as a partial file.
+
+Any export ends `failed` after the outbox's last attempt (the cron also fails a queued job whose
+`export.*` outbox row the relay gave up on, a timeout included); the per-minute cron deletes an
+export an hour after it finishes (failed included), and one never finished after a day. The CSV
+lives on the row because no R2 bucket is bound yet; a file key replaces it when one is. The four
+role pins are on the table.
 
 ## 3. Identity pools
 
