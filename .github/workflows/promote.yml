@@ -28,7 +28,7 @@ jobs:
     # file it runs) restricted to main. commit_sha is checked out separately, below, only after
     # it's validated as an ancestor of origin/main.
     if: github.ref == 'refs/heads/main'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     environment: prod
     defaults:
       run:
