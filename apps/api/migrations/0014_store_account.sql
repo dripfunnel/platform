@@ -121,9 +121,17 @@ create index store_usage_key_idx on store_usage (key, store_id);
 -- The subscription is billing's (#201) and staff's to write; a partner reads it (§7.9), and a
 -- plan change (#160) decides its own path. Overrides and extensions are a record: added, an
 -- override removed, never rewritten.
-grant select on store_subscription, store_limit_override, store_trial_extension, store_usage to app_partner, app_platform;
--- The merchant reads what changed its limits and trial, never the partner's reason or who wrote it.
-grant select on store_subscription, store_usage to app_request;
+grant select on store_limit_override, store_trial_extension, store_usage to app_partner, app_platform;
+grant select on store_subscription to app_platform;
+-- By column (§7.9): the partner reads status and amounts and the card's last four; the
+-- merchant its own billing screen too, never the Stripe ids. The merchant also reads what
+-- changed its limits and trial, never the partner's reason or who wrote it.
+grant select (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end,
+  trial_ends_at, cancel_at, next_plan_id, next_plan_version, change_at, payment_method_last4) on store_subscription to app_partner;
+grant select (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end,
+  trial_ends_at, cancel_at, next_plan_id, next_plan_version, change_at, payment_method_brand, payment_method_last4,
+  payment_method_expires) on store_subscription to app_request;
+grant select on store_usage to app_request;
 grant select (id, store_id, key, amount, duration, month, created_at, removed_at) on store_limit_override to app_request;
 grant select (id, store_id, days, ends_at, created_at) on store_trial_extension to app_request;
 grant insert on store_limit_override, store_trial_extension to app_partner, app_platform;
