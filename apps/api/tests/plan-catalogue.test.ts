@@ -1,0 +1,128 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { CallerContext } from '#core/tenancy'
+import { withScope, type ScopedSql } from '#db/scoped/index'
+import { insertPlanVersion, selectPlanVersion, type Entitlements } from '#db/scoped/plans'
+import { seed } from '../scripts/seed/seed'
+import { createTestDatabase, type TestDatabase } from './support/database'
+
+// Card #157: the versioned plan catalogue, DripFunnel's fee and ceilings, and who reads them.
+
+let db: TestDatabase
+const now = new Date('2026-10-03T09:00:00Z')
+const ids = { ns: '', kl: '', growth: '', basis: '', store: '' }
+
+const partner = (partnerId: string): CallerContext => ({ caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId })
+const staff: CallerContext = { caller: { kind: 'staff', staffId: 'st' } }
+const merchant = (partnerId: string, storeId: string): CallerContext => ({
+  caller: { kind: 'person', userId: 'u', sessionId: 's' },
+  partnerId,
+  storeId,
+  sellerScope: { kind: 'all' },
+  subscription: 'active',
+})
+const as = <T>(context: CallerContext, work: (tx: ScopedSql) => Promise<T>) => withScope(db.sql, context, work)
+const idOf = async (sql: string, name: string) => ((await db.sql.unsafe<{ id: string }[]>(sql, [name]))[0]?.id ?? '')
+
+beforeAll(async () => {
+  db = await createTestDatabase()
+  await seed(db.url, now)
+  ids.ns = await idOf('select id from partner where name = $1', 'Northstar Commerce')
+  ids.kl = await idOf('select id from partner where name = $1', 'Kaufladen Digital')
+  ids.growth = (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.ns} and name = 'Growth'`)[0]?.id ?? ''
+  ids.basis = (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.kl} and name = 'Basis'`)[0]?.id ?? ''
+  ids.store = (await db.sql<{ id: string }[]>`select id from store where plan_id = ${ids.growth} limit 1`)[0]?.id ?? ''
+}, 120_000)
+
+afterAll(async () => {
+  await db?.drop()
+})
+
+describe('the seeded catalogue', () => {
+  it('holds the prototype’s Growth plan in minor units, its fee and the ceilings', async () => {
+    const growth = await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1))
+    expect(growth?.prices).toEqual([
+      { currency: 'CAD', monthly: 6500, yearly: 65000 },
+      { currency: 'USD', monthly: 4900, yearly: 49000 },
+    ])
+    expect(growth?.entitlements).toMatchObject({ custom_domain: true, products: 5000, publish_now: 60, ai_prompts: 200 })
+    expect(await as(partner(ids.ns), (tx) => tx`select amount from plan_fee where plan_id = ${ids.growth}`)).toEqual([{ amount: 1800 }])
+    expect((await as(partner(ids.ns), (tx) => tx`select key from plan_ceiling`)).length).toBe(7)
+    const unpriced = await as(partner(ids.kl), (tx) => selectPlanVersion(tx, ids.basis, 1))
+    expect(unpriced?.prices).toEqual([{ currency: 'EUR', monthly: null, yearly: null }])
+  })
+
+  it('gives the house partner’s plans a 10-day trial, and refuses a trial past 90 days', async () => {
+    const trials = await db.sql<{ trial_days: number }[]>`select distinct p.trial_days from plan p join partner pa on pa.id = p.partner_id where pa.is_house`
+    expect(trials).toEqual([{ trial_days: 10 }])
+    await expect(db.sql`update plan set trial_days = 91 where id = ${ids.growth}`).rejects.toThrow(/plan_trial_days_check/)
+  })
+})
+
+describe('versions', () => {
+  it('adds a version on an edit and leaves the bought one exactly as it was', async () => {
+    const before = await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1))
+    const entitlements = { ...(before?.entitlements as Entitlements), products: 6000 }
+    const version = await as(partner(ids.ns), (tx) =>
+      insertPlanVersion(tx, { planId: ids.growth, partnerId: ids.ns, trialDays: 7, prices: [{ currency: 'USD', monthly: 5900, yearly: 59000 }], entitlements, by: { kind: 'partner_user', label: 'Maya Chen' } }),
+    )
+    expect(version).toBe(2)
+    expect(await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1))).toEqual(before)
+    expect((await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 2)))?.entitlements.products).toBe(6000)
+    expect(await db.sql`select version, trial_days from plan where id = ${ids.growth}`).toEqual([{ version: 2, trial_days: 7 }])
+  })
+
+  it('makes two edits at once two versions, and never lets a written version change', async () => {
+    const entitlements = (await as(partner(ids.ns), (tx) => selectPlanVersion(tx, ids.growth, 1)))?.entitlements as Entitlements
+    const edit = () => as(partner(ids.ns), (tx) => insertPlanVersion(tx, { planId: ids.growth, partnerId: ids.ns, trialDays: 14, prices: [], entitlements, by: { kind: 'partner_user', label: 'x' } }))
+    expect((await Promise.all([edit(), edit()])).sort()).toEqual([3, 4])
+    await expect(as(partner(ids.ns), (tx) => tx`update plan_price set monthly_amount = 1 where plan_id = ${ids.growth} and version = 1`)).rejects.toThrow(/permission denied/i)
+    await expect(as(staff, (tx) => tx`update plan_entitlement set amount = 1 where plan_id = ${ids.growth} and version = 1`)).rejects.toThrow(/permission denied/i)
+  })
+
+  it('refuses a current version that does not exist, and a replacement plan of another partner', async () => {
+    await expect(db.sql`update plan set version = 99 where id = ${ids.growth}`).rejects.toThrow(/plan_current_version_fkey/)
+    await expect(db.sql`update plan set retire_move_to_plan_id = ${ids.basis} where id = ${ids.growth}`).rejects.toThrow(/plan_retire_move_to_fkey/)
+  })
+
+  it('will not version or price another partner’s plan', async () => {
+    const entitlements = (await as(partner(ids.kl), (tx) => selectPlanVersion(tx, ids.basis, 1)))?.entitlements as Entitlements
+    await expect(
+      as(partner(ids.ns), (tx) => insertPlanVersion(tx, { planId: ids.basis, partnerId: ids.kl, trialDays: 14, prices: [], entitlements, by: { kind: 'partner_user', label: 'x' } })),
+    ).rejects.toThrow(/no such plan in scope/)
+    await expect(as(partner(ids.ns), (tx) => tx`insert into plan_price (plan_id, partner_id, version, currency, monthly_amount) values (${ids.basis}, ${ids.kl}, 1, 'USD', 1)`)).rejects.toThrow(
+      /row-level security/i,
+    )
+  })
+})
+
+describe('who reads what', () => {
+  it('shows a partner only its own plans, fees and contract', async () => {
+    for (const table of ['plan_version', 'plan_price', 'plan_entitlement', 'plan_fee', 'partner_contract', 'partner_contract_rate']) {
+      const rows = await as(partner(ids.kl), (tx) => tx.unsafe<{ partner_id: string }[]>(`select partner_id from ${table}`))
+      expect(rows.every((r) => r.partner_id === ids.kl)).toBe(true)
+    }
+    expect(await as(partner(ids.kl), (tx) => tx`select plan_id from plan_fee where plan_id = ${ids.growth}`)).toEqual([])
+  })
+
+  it('never lets a partner set its fee, a ceiling or its contract', async () => {
+    await expect(as(partner(ids.ns), (tx) => tx`update plan_fee set amount = 0 where plan_id = ${ids.growth}`)).rejects.toThrow(/permission denied/i)
+    await expect(as(partner(ids.ns), (tx) => tx`update plan_ceiling set amount = 99999`)).rejects.toThrow(/permission denied/i)
+    await expect(as(partner(ids.ns), (tx) => tx`update partner_contract set powered_by_removable = true`)).rejects.toThrow(/permission denied/i)
+  })
+
+  it('shows a storefront none of the plan', async () => {
+    const shopper: CallerContext = { caller: { kind: 'shopper', customerId: null }, partnerId: ids.ns, storeId: ids.store, sellerScope: { kind: 'all' }, subscription: 'active' }
+    expect(await as(shopper, (tx) => tx`select plan_id from plan_version`)).toEqual([])
+  })
+
+  it('lets a merchant read its own plan’s versions and never the fee or another plan', async () => {
+    const versions = await as(merchant(ids.ns, ids.store), (tx) => tx<{ plan_id: string }[]>`select distinct plan_id from plan_version`)
+    expect(versions).toEqual([{ plan_id: ids.growth }])
+    await expect(as(merchant(ids.ns, ids.store), (tx) => tx`select amount from plan_fee`)).rejects.toThrow(/permission denied/i)
+  })
+
+  it('lets staff read every partner’s catalogue', async () => {
+    const partners = await as(staff, (tx) => tx<{ n: string }[]>`select count(distinct partner_id)::text as n from plan_version`)
+    expect(Number(partners[0]?.n)).toBeGreaterThan(2)
+  })
+})

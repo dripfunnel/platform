@@ -16,6 +16,7 @@ import type {
   PoweredBy,
   SetupItem,
 } from '../schema/saas'
+import { writeVersionRows, type Entitlements, type NewPlanVersion, type PlanVersionPrice } from './plans'
 import { maxPageSize, pageLimit, pgArray, type ScopedSql } from './index'
 
 const one = <T extends { id: string }>(rows: T[], table: string): string => {
@@ -169,10 +170,14 @@ export interface NewPlan {
   trialDays?: number
   maxProducts?: number | null
   maxStaff?: number | null
+  prices?: readonly PlanVersionPrice[]
+  entitlements?: Entitlements | null
+  by?: NewPlanVersion['by']
 }
 
-export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> =>
-  one(
+/** A plan and its first version, in one transaction (DATA-MODEL.md §2.3); no prices or values means "Not priced". */
+export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> => {
+  const id = one(
     await tx<{ id: string }[]>`
       insert into plan (partner_id, name, description, status, trial_days, max_products, max_staff)
       values (${p.partnerId}, ${p.name}, ${p.description ?? null}, ${p.status ?? 'draft'}, ${p.trialDays ?? 14}, ${p.maxProducts ?? null}, ${p.maxStaff ?? null})
@@ -180,6 +185,17 @@ export const insertPlan = async (tx: ScopedSql, p: NewPlan): Promise<string> =>
     `,
     'plan',
   )
+  await writeVersionRows(tx, {
+    planId: id,
+    partnerId: p.partnerId,
+    version: 1,
+    trialDays: p.trialDays ?? 14,
+    prices: p.prices ?? [],
+    entitlements: p.entitlements ?? null,
+    by: p.by ?? { kind: 'system', label: 'System' },
+  })
+  return id
+}
 
 export interface PartnerFilter {
   state?: PartnerState | undefined

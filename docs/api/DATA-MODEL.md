@@ -41,8 +41,8 @@ platform            no row: DripFunnel itself; staff act here
 
 | Scope | Columns | RLS allows | Examples |
 |---|---|---|---|
-| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `entitlement_ceiling`, `feature_flag`, `store_note`, `app` (§7.10) |
-| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_entitlement`, `signup` (§7.10) |
+| **Platform** | none | Admin API only | `staff_user`, `staff_session`, `impersonation`, `partner_setup_session`, `partner_approval`, `platform_setting`, `plan_ceiling` (§2.3; read by partners too), `feature_flag`, `store_note`, `app` (§7.10) |
+| **Partner** | `partner_id` | Its partner's users; Admin API | `partner`, `partner_user`, `partner_session`, `partner_invitation`, `partner_domain`, `partner_setup_item`, `plan`, `plan_version`, `plan_price`, `plan_entitlement`, `plan_fee`, `partner_contract`, `partner_contract_rate` (§2.3), `signup` (§7.10) |
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
@@ -116,6 +116,46 @@ custom-domain states (§7.2), badges, per-market prices and the approval snapsho
 stock movements (§7.4), customer groups, tags, notes and consent (§7.5), returns, refunds
 and the supplier ledger (§7.6), access requests (§7.10); the 2-factor, backup-code and
 session columns are in §3.3.
+
+### 2.3 The plan catalogue (built on #157)
+
+Migration `0013`, from SAAS §6.1 and §6.3 and the prototype's Plans screens:
+
+```
+plan_version         (plan_id, partner_id, version, trial_days, created_at, created_by_kind,
+                      created_by_label)          PK (plan_id, version); plan.version is current
+plan_price           (plan_id, partner_id, version, currency, monthly_amount NULL,
+                      yearly_amount NULL)        -- minor units; null is "Not priced"
+plan_entitlement     (plan_id, partner_id, version, key, enabled NULL, amount NULL)
+                     -- a switch key holds enabled, a limit or monthly allowance holds amount
+plan_fee             (plan_id PK, partner_id, amount)   -- DripFunnel's wholesale fee per store
+                     -- per month, in the contract's fee currency; no store policy at all
+plan_ceiling         (key PK, amount)                   -- DripFunnel's maximum per limit
+partner_contract     (partner_id PK, fee_currency, powered_by_removable, powered_by_note
+                      ('contract'|'firstYear'))
+partner_contract_rate (partner_id, currency, per_fee_unit numeric)   -- a rate, not money
+```
+
+- **Keys**: switches `custom_domain`, `offers`, `suppliers_enabled`, `powered_by_removal`,
+  `aplus`, `size_charts`; limits `products`, `staff`, `suppliers`, `languages`, `currencies`;
+  monthly allowances `publish_now`, `ai_prompts` (the prototype's thirteen rows). Build
+  minutes and AI cost are meters with no plan value yet.
+- **An edit is a version** (`db/scoped/plans.ts` `insertPlanVersion`): prices, trial and
+  entitlements are written under `plan.version + 1`, taken under the plan's row lock, and
+  `plan.version` moves to it. Versions are **insert-only**: no role holds `update` on the three
+  version tables, so a subscription keeps exactly the version it bought (§7.9's
+  `store_subscription.plan_version`). `plan.version` always names an existing version (a
+  deferred foreign key; `insertPlan` writes version 1 with the plan, and `0013` gave every plan
+  already built a version 1 with its trial and no prices). Name, description and status stay
+  on `plan`; `retire_move_to_plan_id` can only name a plan of the same partner.
+- `plan.trial_days` is `0..90` (was `0, 7, 14, 30`), so the house plans' 10 days fit.
+- **Who reads what**: the partner reads and writes its own versions, and reads its own fee,
+  contract and rates and every ceiling; the fee, the ceilings and the contract are written by
+  staff only. A merchant reads its own store's plan versions in store scope only (SAAS §13
+  "read own plan"; never a storefront, never a supplier) and never the fee. Every child carries `partner_id`, held to the plan's by composite keys, and
+  the four role pins (§5.3).
+- The paused-by-plan state of SAAS §6.2 is on the paused rows themselves (§7.1), so the
+  catalogue holds only values; `saas/entitlements` counts paused items outside the limit.
 
 ---
 
@@ -1190,10 +1230,9 @@ billing_event       (id PK = Stripe event id, store_id NULL, partner_id NULL, ty
                      handled_at)                                   -- SAAS §7.2 idempotency
 ```
 
-**Built, and to reconcile**: `plan.trial_days` (migration `0007`) is checked against
-`(0, 7, 14, 30)`, while the house partner's plans carry a 10-day trial (SAAS §6.1, decided
-2026-10-02). PAPI 3 (#157) widens the constraint, or makes it a positive integer, when it adds
-the plan's prices and entitlements.
+**Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
+30)`), so the house partner's 10-day trial fits (SAAS §6.1), and the seed's house plans carry
+it.
 
 ### 7.10 Integrations, jobs and requests
 
