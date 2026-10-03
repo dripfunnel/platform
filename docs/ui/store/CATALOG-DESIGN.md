@@ -397,7 +397,7 @@ must store all of it per store, and enforce the pricing-currency lock.
     keep*): what is over the new limit is **paused**, hidden from shoppers and kept intact,
     and the Owner chooses which items stay within the limit before the change takes effect;
     an upgrade brings the rest back. Adding more is blocked with a clear explanation. The
-    engine enforces the same rule (DATA-MODEL §7.3 `product.hidden_by = 'plan'`).
+    engine enforces the same rule (DATA-MODEL §2.2 `product.hidden_by = 'plan'`).
 33. **Past due is read-only** (DESIGN-BRIEF fact 9, PLATFORM-PROMPT §2 item 7): writes are
     blocked, the merchant is never locked out. Plan gating is different: a merchant in good
     standing on a smaller plan can edit everything they have. Don't confuse the two banners.

@@ -407,7 +407,7 @@ Design each module's responsibilities, tables, public API, events and invariants
 - **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
   credentials, encrypted at rest; webhooks idempotent; refunds. **Vendor payouts, decided
   2026-10-02**: not in the platform for now; a per-store supplier ledger, settled outside
-  (ACCESS.md §7.3 owns the rule, DATA-MODEL.md §7.6 the table); a marketplace model is later.
+  (ACCESS.md §7.3 owns the rule, DATA-MODEL.md §2.2 names the table); a marketplace model is later.
 - **Shipping**: methods, zones, the charge strategies (free, fixed, the courier's rate passed
   through, free over a threshold), courier adapters (Shiprocket first, the archived
   `courier_partner` model), tracking status sync. **Designed 2026-10-02** (`SetOps`,

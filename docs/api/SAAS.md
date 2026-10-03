@@ -350,7 +350,7 @@ partner's billing, or both) is open (§14).
   merchant is charged today for the days left in the period on the new plan minus the unused
   part of the old one, then the new price from the next period; the screen states both amounts
   and the date before confirming. The change is one invoice with a charge line and a credit
-  line (DATA-MODEL §7.9). A downgrade is scheduled for the period end and the chosen plan is
+  line (DATA-MODEL §2.2's billing row; the tables in full on #187). A downgrade is scheduled for the period end and the chosen plan is
   recorded on the subscription until then (§6.3).
 - **The merchant's billing details** on DripFunnel's invoices (decided 2026-10-02): legal name,
   address, email and an optional tax number (GSTIN for India, VAT number for the EU), editable

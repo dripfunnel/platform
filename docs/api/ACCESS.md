@@ -1032,7 +1032,8 @@ builds the table must ship:
 - a shopper selecting an `asset` by id gets a product photo of a visible product and never an
   invoice, label, export or import file (DATA-MODEL §7.11);
 - user A, holding user B's id, can neither read nor write B's phone through the own-row
-  functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1).
+  functions, and an empty `app.user_id` returns and changes nothing (DATA-MODEL §2.1);
+- a partner user reads no row of `user_backup_code` or `user_session` (DATA-MODEL §3.3).
 
 ### 11.2 Structural tests
 

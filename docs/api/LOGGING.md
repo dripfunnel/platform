@@ -65,7 +65,7 @@ entries a supplier may see** (its own refunds, overrides against it, returns and
 its parts, filed under its `seller_id`) **carry no free text and no shopper field**: the store's
 full entry, with the reason, the note and the customer, is written with `seller_id` null and
 store visibility, and a second thin entry for the supplier names only the action, the order
-number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §7.6).
+number, the lines and the amount (ACCESS.md §7.3; DATA-MODEL.md §2.2).
 
 **Reads are not logged**, with one exception: every support session logs what it opened,
 because the merchant has a right to know what support looked at (ACCESS.md §8). A second
@@ -185,7 +185,7 @@ every other tenant read.
 | **Merchant Manager** | Customer page › Activity; own activity | Shopper activity on the customer page; their own actions *(confirm whether Managers also see the whole store log)* |
 | **Merchant Staff** | Own activity | Their own actions |
 | **Vendor** | Own activity | Their own actions only *(proposed; ACCESS.md §10 left this open)* |
-| **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §7.6) |
+| **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §2.2) |
 
 - **"Own activity"** is a profile screen in every portal: the signed-in person's own
   entries in that scope, so anyone can check what was done under their name.
