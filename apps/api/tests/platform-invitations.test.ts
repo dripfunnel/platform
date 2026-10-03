@@ -2,9 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { handlePlatformAuth, type PlatformAuthDeps } from '#apis/platform/auth'
 import { resolvePartner } from '#auth/partnerCaller'
 import { createPartnerSession, partnerCookieName } from '#auth/partnerSession'
-import { mintInvitationToken, mintResetToken } from '#auth/partnerTokens'
+import { mintInvitationToken, mintResetToken, passwordResetRequestKind } from '#auth/partnerTokens'
 import { secretBox } from '#auth/secretBox'
 import { withSystemScope } from '#db/scoped/index'
+import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
+import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -18,6 +20,7 @@ const host = 'platform.dripfunnel.com'
 const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))
 let secrets: Awaited<ReturnType<typeof secretBox>>
 const attempts: string[] = []
+const spent = new Set<string>()
 
 const deps = (): PlatformAuthDeps => ({
   sql: db.sql,
@@ -27,7 +30,7 @@ const deps = (): PlatformAuthDeps => ({
   now: () => now,
   allowAttempt: async (k) => {
     attempts.push(k)
-    return true
+    return !spent.has(k)
   },
 })
 
@@ -40,6 +43,9 @@ const post = (path: string, body: unknown, cookie?: string) =>
     }),
     deps(),
   )
+
+const relayResets = () =>
+  relayDue(db.sql, { [passwordResetRequestKind]: partnerPasswordResetDeliverer(db.sql) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
 
 const cookieOf = (response: Response) => response.headers.get('set-cookie')?.match(new RegExp(`${partnerCookieName}=([^;]+)`))?.[1] ?? ''
 const signedInAs = async (cookie: string) => (await resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie: `${partnerCookieName}=${cookie}` } }), now))?.user.id
@@ -92,6 +98,14 @@ describe('invitations', () => {
     now = new Date('2026-10-03T09:00:00Z')
   })
 
+  it('refuses an empty name as NAME_REQUIRED, not as a weak password', async () => {
+    const { token, userId } = await invite(t.partnerA, 'noname@northstar.example')
+    const refused = await post('accept-invitation', { token, name: '   ', password: 'a-long-enough-password' })
+    expect([refused.status, await refused.json()]).toEqual([400, { ok: false, code: 'NAME_REQUIRED' }])
+    const [user] = await db.sql<{ status: string }[]>`select status from partner_user where id = ${userId}`
+    expect(user?.status).toBe('invited')
+  })
+
   it('accepts once: a weak password is refused, then the account is usable and the link reads as used', async () => {
     const { token, userId } = await invite(t.partnerA, 'accept@northstar.example')
     expect(await (await post('accept-invitation', { token, name: 'Accept Me', password: 'short' })).json()).toEqual({ ok: false, code: 'WEAK_PASSWORD' })
@@ -139,28 +153,72 @@ describe('invitations', () => {
 })
 
 describe('password reset', () => {
-  it('answers a known and an unknown email byte for byte the same, and queues an email only for the known one', async () => {
+  it('answers a known and an unknown email byte for byte the same, with the same single write, and resets only the known one', async () => {
     const [user] = await db.sql<{ id: string }[]>`
       insert into partner_user (partner_id, email, name, role_key, status, password_hash) values (${t.partnerA}, 'reset@northstar.example', 'Reset', 'partner-admin', 'active', 'x') returning id`
+    const counts = async () =>
+      (await db.sql<{ resets: number; outbox: number; activity: number }[]>`
+        select (select count(*)::int from partner_password_reset) as resets, (select count(*)::int from outbox) as outbox, (select count(*)::int from activity_log) as activity`)[0]
+    const before = await counts()
     const known = await post('request-password-reset', { email: 'RESET@northstar.example' })
+    const afterKnown = await counts()
     const unknown = await post('request-password-reset', { email: 'nobody@northstar.example' })
+    const afterUnknown = await counts()
     expect([known.status, [...known.headers], await known.text()]).toEqual([unknown.status, [...unknown.headers], await unknown.text()])
+    // ACCESS.md §2: timing must not tell them apart either, so each request writes one outbox row and nothing else.
+    expect(afterKnown).toEqual({ ...before, outbox: (before?.outbox ?? 0) + 1 })
+    expect(afterUnknown).toEqual({ ...before, outbox: (before?.outbox ?? 0) + 2 })
+    const requests = await db.sql<{ payload: Record<string, unknown> }[]>`select payload from outbox where kind = ${passwordResetRequestKind} order by created_at`
+    expect(requests.map((r) => Object.keys(r.payload).sort())).toEqual([
+      ['email', 'ip', 'requestId', 'requestedAt', 'userAgent'],
+      ['email', 'ip', 'requestId', 'requestedAt', 'userAgent'],
+    ])
+
+    expect((await relayResets()).delivered).toBe(2)
     const queued = await db.sql<{ payload: { to: string } }[]>`select payload from outbox where kind = 'email' and payload->>'template' = 'partner-password-reset'`
     expect(queued.map((q) => q.payload.to)).toEqual(['reset@northstar.example'])
     expect(JSON.stringify(queued)).not.toMatch(/token/i)
+    const logged = await db.sql<{ occurred_at: Date; ip: string }[]>`select occurred_at, ip from activity_log where actor_id = ${user?.id ?? ''} and action = 'partner_user.password_reset_requested'`
+    expect(logged.map((e) => [e.occurred_at.toISOString(), e.ip])).toEqual([[now.toISOString(), '203.0.113.9']])
     expect(attempts).toContain('reset:nobody@northstar.example')
-    expect(user).toBeDefined()
+
     // A closed partner's account gets no reset, as it gets no sign-in.
     const [closed] = await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Closed Partner', 'closed') returning id`
     await db.sql`insert into partner_user (partner_id, email, name, role_key, status, password_hash) values (${closed?.id ?? ''}, 'gone@closed.example', 'Gone', 'partner-admin', 'active', 'x')`
     await post('request-password-reset', { email: 'gone@closed.example' })
+    await relayResets()
     expect(await db.sql`select 1 from partner_password_reset r join partner_user u on u.id = r.partner_user_id where u.email = 'gone@closed.example'`).toHaveLength(0)
+  })
+
+  it('writes one reset, email and entry per request, however often the relay delivers it', async () => {
+    await post('request-password-reset', { email: 'reset@northstar.example' })
+    const [request] = await db.sql<{ id: string; payload: Record<string, unknown> }[]>`
+      select id, payload from outbox where kind = ${passwordResetRequestKind} and delivered_at is null`
+    const effect = { id: request?.id ?? '', kind: passwordResetRequestKind, idempotencyKey: 'k', payload: request?.payload, partnerId: null, storeId: null, attempt: 1 }
+    const deliverer = partnerPasswordResetDeliverer(db.sql)
+    await deliverer.deliver(effect, new AbortController().signal)
+    await deliverer.deliver(effect, new AbortController().signal)
+    expect(await db.sql`select 1 from partner_password_reset where request_id = ${request?.id ?? ''}`).toHaveLength(1)
+    const [reset] = await db.sql<{ id: string }[]>`select id from partner_password_reset where request_id = ${request?.id ?? ''}`
+    expect(await db.sql`select 1 from outbox where payload->>'partnerPasswordResetId' = ${reset?.id ?? ''}`).toHaveLength(1)
+    await relayResets()
+  })
+
+  it('refuses a spent email alike whether or not it has an account, and queues nothing', async () => {
+    spent.add('reset:reset@northstar.example').add('reset:nobody@northstar.example')
+    const before = await db.sql`select id from outbox`
+    const known = await post('request-password-reset', { email: ' Reset@Northstar.example ' })
+    const unknown = await post('request-password-reset', { email: 'nobody@northstar.example' })
+    expect([known.status, await known.json()]).toEqual([429, { ok: false, code: 'RATE_LIMITED' }])
+    expect([unknown.status, [...unknown.headers], await unknown.text()]).toEqual([known.status, [...known.headers], JSON.stringify({ ok: false, code: 'RATE_LIMITED' })])
+    expect(await db.sql`select id from outbox`).toHaveLength(before.length)
+    spent.clear()
   })
 
   it('resets once within 30 minutes and ends every session of that user', async () => {
     const [user] = await db.sql<{ id: string }[]>`select id from partner_user where email = 'reset@northstar.example'`
     const userId = user?.id ?? ''
-    const [reset] = await db.sql<{ id: string }[]>`select id from partner_password_reset where partner_user_id = ${userId}`
+    const [reset] = await db.sql<{ id: string }[]>`select id from partner_password_reset where partner_user_id = ${userId} order by created_at limit 1`
     const token = await withSystemScope(db.sql, (tx) => mintResetToken(tx, reset?.id ?? '', now))
     expect(await withSystemScope(db.sql, (tx) => mintResetToken(tx, reset?.id ?? '', now))).toBeNull()
     const sessions = await withSystemScope(db.sql, async (tx) => [await createPartnerSession(tx, userId, now), await createPartnerSession(tx, userId, now)])
@@ -174,6 +232,7 @@ describe('password reset', () => {
     expect(JSON.stringify(await db.sql`select * from activity_log where actor_id = ${userId}`)).not.toContain('a-brand-new-password')
 
     await post('request-password-reset', { email: 'reset@northstar.example' })
+    await relayResets()
     const [later] = await db.sql<{ id: string }[]>`select id from partner_password_reset where partner_user_id = ${userId} and used_at is null`
     const lateToken = await withSystemScope(db.sql, (tx) => mintResetToken(tx, later?.id ?? '', now))
     now = new Date(now.getTime() + 31 * 60_000)

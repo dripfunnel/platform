@@ -1,11 +1,12 @@
 import { z } from 'zod'
-import { partnerInvitationAccepted, partnerPasswordReset, partnerPasswordResetRequested, partnerSignedIn, type RequestFacts } from '#auth/activity'
+import { partnerInvitationAccepted, partnerPasswordReset, partnerSignedIn, type RequestFacts } from '#auth/activity'
 import { hashPassword, minPasswordLength } from '#auth/password'
 import { completePartnerSession, createPartnerSession, readPendingSession, setPartnerCookie } from '#auth/partnerSession'
+import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { hashSessionId } from '#auth/session'
 import { withSystemScope } from '#db/scoped/index'
 import { insertOutbox } from '#db/scoped/outbox'
-import { acceptInvitation, insertPasswordResets, resetPassword, selectInvitationByToken, selectResetByToken, type InvitationByToken } from '#db/scoped/partnerInvitations'
+import { acceptInvitation, resetPassword, selectInvitationByToken, selectResetByToken, type InvitationByToken } from '#db/scoped/partnerInvitations'
 import { markPartnerSignedIn, selectSecondFactorPolicy } from '#db/scoped/partnerUsers'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 import type { PlatformAuthDeps } from './auth'
@@ -56,7 +57,8 @@ export const acceptPartnerInvitation = async (request: Request, deps: PlatformAu
   const input = await readBody(request, acceptInput)
   if (!input) return refuse({ code: 'INVITATION_INVALID' })
   const name = input.name.trim()
-  if (name === '' || !strong(input.password)) return refuse({ code: 'WEAK_PASSWORD' })
+  if (name === '') return refuse({ code: 'NAME_REQUIRED' })
+  if (!strong(input.password)) return refuse({ code: 'WEAK_PASSWORD' })
   const tokenHash = await hashSessionId(input.token)
   const passwordHash = await hashPassword(input.password)
   const now = deps.now()
@@ -89,24 +91,21 @@ export const skipSecondFactor = async (deps: PlatformAuthDeps, facts: RequestFac
   return outcome ? refuse(outcome) : json(200, { ok: true })
 }
 
-// The same answer whether or not the email has an account (FIRST-RELEASE §3, ACCESS.md §2).
+// The same answer, and the same single write, whether or not the email has an account
+// (FIRST-RELEASE §3, ACCESS.md §2, §4): the relay finds the accounts (jobs/queues/deliverers/partnerPasswordReset.ts).
 export const requestPasswordReset = async (request: Request, deps: PlatformAuthDeps, facts: RequestFacts): Promise<Response> => {
   const input = await readBody(request, resetRequestInput)
   if (input && !(await deps.allowAttempt(`reset:${input.email.trim().toLowerCase()}`))) return refuse({ code: 'RATE_LIMITED' })
   if (input) {
-    await withSystemScope(deps.sql, async (tx) => {
-      for (const reset of await insertPasswordResets(tx, input.email.trim())) {
-        // The deliverer mints the token when it sends (auth/partnerTokens.ts), once SES is wired.
-        await insertOutbox(tx, {
-          kind: 'email',
-          idempotencyKey: `partner-password-reset:${reset.id}`,
-          payload: { template: 'partner-password-reset', partnerPasswordResetId: reset.id, to: reset.email },
-          partnerId: reset.partner_id,
-          storeId: null,
-        })
-        await deps.activity.record(tx, partnerPasswordResetRequested({ id: reset.partner_user_id, partnerId: reset.partner_id }, facts))
-      }
-    })
+    await withSystemScope(deps.sql, (tx) =>
+      insertOutbox(tx, {
+        kind: passwordResetRequestKind,
+        idempotencyKey: crypto.randomUUID(),
+        payload: { email: input.email.trim(), requestedAt: deps.now().toISOString(), ...facts },
+        partnerId: null,
+        storeId: null,
+      }),
+    )
   }
   return json(200, { ok: true })
 }

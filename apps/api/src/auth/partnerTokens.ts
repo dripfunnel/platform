@@ -7,6 +7,9 @@ import { hashSessionId, newSessionId } from './session'
 
 export const resetValidMs = 30 * 60 * 1000
 
+/** The outbox kind a reset request queues, whether or not the email has an account. */
+export const passwordResetRequestKind = 'partner_password_reset.request'
+
 /** The token for an open invitation's link, or null when it is no longer open; a new one replaces the last. */
 export const mintInvitationToken = async (tx: ScopedSql, invitationId: string, now: Date): Promise<string | null> => {
   const token = newSessionId()

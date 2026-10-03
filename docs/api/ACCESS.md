@@ -321,12 +321,14 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   reset, built on #208** (`apis/platform/invitations.ts`): `POST /api/auth/invitation` reads an
   invitation by its token's hash and answers `INVITATION_USED`, `INVITATION_REPLACED` (revoked
   for a newer one), `INVITATION_EXPIRED` or `INVITATION_INVALID` (unknown, revoked, removed user,
-  closed partner); `accept-invitation` takes a name and a password of 10 characters or more
-  (`WEAK_PASSWORD`), activates the account and opens an `enrol` session: step 2 of 2 either
+  closed partner); `accept-invitation` takes a name (`NAME_REQUIRED` when blank) and a password
+  of 10 characters or more (`WEAK_PASSWORD`), activates the account and opens an `enrol` session: step 2 of 2 either
   enrols or calls `skip-second-factor`, refused with `SECOND_FACTOR_REQUIRED` when the partner
   requires it. `request-password-reset` answers byte for byte the same for any email, takes an
-  attempt per typed email, and writes a reset per active account the email has, each queued as
-  an email; `reset-password` works once, within 30 minutes of the email being sent, and ends
+  attempt per typed email, and does the same work for any email, so its timing reveals nothing
+  either: one outbox row (`partner_password_reset.request`). The relay then writes a reset per
+  active account the email has, once per request, each queued as an email with its activity
+  entry; `reset-password` works once, within 30 minutes of the email being sent, and ends
   every session of that user (`RESET_INVALID` otherwise). Tokens are minted when the email is
   sent (`auth/partnerTokens.ts`), so none rests in the outbox. **Staff** sessions come from SSO on `admin.dripfunnel.com` and are **shorter than every
   other pool: idle 1 h, absolute 8 h** (decided 2026-10-01). A staff session is the one that

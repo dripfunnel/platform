@@ -1,15 +1,18 @@
--- Partner password reset (ui/platform/FIRST-RELEASE.md §3, ACCESS.md §4; #208). A request writes
--- a row per account the email has; the email's deliverer mints the token when it sends, so no
--- secret rests in the outbox (ACCESS.md §6.1), and the link works for 30 minutes from then.
+-- Partner password reset (ui/platform/FIRST-RELEASE.md §3, ACCESS.md §4; #208). The relay writes
+-- a row per account a request's email has, once per request (`request_id`, its outbox row); the
+-- email's deliverer mints the token when it sends, so no secret rests in the outbox (ACCESS.md
+-- §6.1), and the link works for 30 minutes from then.
 
 create table partner_password_reset (
   id uuid primary key default gen_random_uuid(),
+  request_id uuid not null,
   partner_id uuid not null references partner (id),
   partner_user_id uuid not null references partner_user (id),
   token_hash text unique,
   expires_at timestamptz(3),
   used_at timestamptz(3),
-  created_at timestamptz(3) not null default now()
+  created_at timestamptz(3) not null default now(),
+  unique (request_id, partner_user_id)
 );
 
 create index partner_password_reset_user_idx on partner_password_reset (partner_user_id, created_at desc);

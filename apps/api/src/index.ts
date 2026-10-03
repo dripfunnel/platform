@@ -11,6 +11,7 @@ import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
 import { partnerCookieName } from '#auth/partnerSession'
+import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
 import { partnerScopedRoles } from '#auth/permissions'
@@ -26,6 +27,7 @@ import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDoma
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
@@ -69,6 +71,7 @@ const deliverersFor = (sql: postgres.Sql): Deliverers => {
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
+    [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
   }
 }
 

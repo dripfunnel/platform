@@ -51,12 +51,13 @@ export const issueInvitationToken = async (tx: ScopedSql, invitationId: string, 
     where id = ${invitationId} and accepted_at is null and revoked_at is null and sent_at is not null and (expires_at is null or expires_at > ${now})
   `).count > 0
 
-/** One reset per active account the email has under a partner that isn't closed (as sign-in); none for an unknown email. */
-export const insertPasswordResets = (tx: ScopedSql, email: string): Promise<{ id: string; partner_id: string; partner_user_id: string; email: string }[]> =>
+/** One reset per active account the email has under a partner that isn't closed (as sign-in), once per request; none for an unknown email. */
+export const insertPasswordResets = (tx: ScopedSql, requestId: string, email: string): Promise<{ id: string; partner_id: string; partner_user_id: string; email: string }[]> =>
   tx<{ id: string; partner_id: string; partner_user_id: string; email: string }[]>`
-    insert into partner_password_reset (partner_id, partner_user_id)
-    select u.partner_id, u.id from partner_user u join partner p on p.id = u.partner_id
+    insert into partner_password_reset (request_id, partner_id, partner_user_id)
+    select ${requestId}, u.partner_id, u.id from partner_user u join partner p on p.id = u.partner_id
     where lower(u.email) = lower(${email}) and u.status = 'active' and p.state <> 'closed'
+    on conflict (request_id, partner_user_id) do nothing
     returning id, partner_id, partner_user_id, (select email from partner_user where id = partner_user_id) as email
   `
 

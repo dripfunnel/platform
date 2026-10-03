@@ -7,14 +7,14 @@ export type Refusal =
   | { code: 'INVALID_CREDENTIALS' | 'CODE_EXPIRED' | 'NOT_CONNECTED' | 'RATE_LIMITED' }
   | { code: 'WRONG_CODE'; triesLeft?: number }
   | { code: 'LOCKED'; minutes: number }
-  | { code: 'WEAK_PASSWORD' | 'SECOND_FACTOR_REQUIRED' | 'RESET_INVALID' }
+  | { code: 'NAME_REQUIRED' | 'WEAK_PASSWORD' | 'SECOND_FACTOR_REQUIRED' | 'RESET_INVALID' }
   | { code: 'INVITATION_EXPIRED' | 'INVITATION_USED' | 'INVITATION_REPLACED' | 'INVITATION_INVALID' }
 
 export const json = (status: number, body: unknown, cookie?: string): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...(cookie ? { 'set-cookie': cookie } : {}) } })
 
-// A link or a password the user can fix is a bad request; everything else about who you are is 401.
-const badRequest = new Set<Refusal['code']>(['WEAK_PASSWORD', 'SECOND_FACTOR_REQUIRED', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID'])
+// A link, a name or a password the user can fix is a bad request; everything else about who you are is 401.
+const badRequest = new Set<Refusal['code']>(['NAME_REQUIRED', 'WEAK_PASSWORD', 'SECOND_FACTOR_REQUIRED', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID'])
 
 export const refuse = (refusal: Refusal): Response => json(refusal.code === 'RATE_LIMITED' ? 429 : badRequest.has(refusal.code) ? 400 : 401, { ok: false, ...refusal })
 
