@@ -31,6 +31,7 @@ export interface ActivityQuery {
   targetId?: string | undefined
   partnerId?: string | undefined
   storeId?: string | undefined
+  customerId?: string | undefined
   action?: string | undefined
   from?: Date | undefined
   to?: Date | undefined
@@ -65,6 +66,7 @@ export const selectActivity = async (tx: ScopedSql, query: ActivityQuery, page: 
       ${query.targetId !== undefined ? tx`and target_id = ${query.targetId}` : tx``}
       ${query.partnerId !== undefined ? tx`and partner_id = ${query.partnerId}` : tx``}
       ${query.storeId !== undefined ? tx`and store_id = ${query.storeId}` : tx``}
+      ${query.customerId !== undefined ? tx`and customer_id = ${query.customerId}` : tx``}
       ${query.action !== undefined ? tx`and action = ${query.action}` : tx``}
       ${query.from !== undefined ? tx`and occurred_at >= ${query.from}` : tx``}
       ${query.to !== undefined ? tx`and occurred_at < ${query.to}` : tx``}

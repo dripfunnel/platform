@@ -95,6 +95,8 @@ const Filter = builder.inputType('ActivityFilter', {
     targetId: t.string(),
     partnerId: t.id(),
     storeId: t.id(),
+    // A customer's own sign-ins, account changes and orders: the Activity tab of §5.4's detail.
+    customerId: t.id(),
     action: t.string(),
     from: t.string(),
     to: t.string(),

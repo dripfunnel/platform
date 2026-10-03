@@ -6,6 +6,7 @@ import './activity'
 import './partners'
 import './stores'
 import './dashboard'
+import './customers'
 
 export type { AdminContext } from './access'
 

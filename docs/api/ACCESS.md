@@ -192,7 +192,9 @@ declaration never means allowed. The Platform API serves `public`, `session` and
 from #155 (`apis/platform/access.ts`: the partner role's permission, always within the
 session's own partner); the Store and Shop APIs serve only `public` until their cards add a
 policy. A field on any other type may declare a stricter permission and then reads as `null`
-when refused, so full contact details are `Customer.email` declaring `customers.contact.read`.
+when refused. Full contact details are the exception (built on #36): `Customer.email` and
+`phone` are masked rather than null for a role without `customers.contact.read`, which the
+service decides before reading them, and `contactsMasked` says so.
 `audit` is declared from the first audited mutation on.
 
 Refusals carry a fixed message and one of two stable codes, whatever the target, so neither
