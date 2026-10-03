@@ -1,8 +1,9 @@
 name: naming
 
+# Only a renamed pull request: on a push, naming runs last in ci.yml's chain.
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [edited]
 
 permissions:
   contents: read
@@ -17,16 +18,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/naming
         with:
-          node-version: 22
-      - name: Rules
-        run: node --test 'scripts/git/*.test.mjs'
-      - name: Branch, title, commits and issues
-        run: node scripts/git/naming.mjs check-pr
-        env:
-          HEAD_REF: ${{ github.head_ref }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}

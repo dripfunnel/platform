@@ -67,8 +67,14 @@ that also closes another issue names that one.
 | Where | What it refuses | Can it be skipped? |
 |---|---|---|
 | **Git hooks** in `.githooks/`, turned on once per clone with **`pnpm git-hooks`** | Committing on `main` or `dev`; committing on a branch not named `#<issue>/<kind>/<short-name>`; a commit message without `#<issue>`; pushing to `main` or `dev`; pushing a misnamed branch | Yes, with `--no-verify`, so the next two exist |
-| **`naming` check** on every pull request ([`.github/workflows/naming.yml`](../../.github/workflows/naming.yml)) | A misnamed branch; a commit or title without `#<issue>`; a title whose number isn't the branch's; a number that isn't an issue in this repo; a branch whose issue is closed | No, once it is a required check (below) |
+| **`naming` check** on every pull request, last in the chain below, and again by [`naming.yml`](../../.github/workflows/naming.yml) when a title is edited | A misnamed branch; a commit or title without `#<issue>`; a title whose number isn't the branch's; a number that isn't an issue in this repo; a branch whose issue is closed | No, once it is a required check (below) |
 | **GitHub rulesets** on `main` and `dev` (below) | Any push or merge that isn't a reviewed pull request with passing checks; force-push; deletion | Only by the people on the bypass list; keep it empty |
+
+**A pull request's checks run one after another**, in
+[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml): `review` (§7), then `gates`
+(`build typecheck lint test`), then `naming`. Each starts only if the one before passed, so a
+red review leaves the other two *skipped* until the next push (decided 2026-10-04). A push
+to `main` runs `gates` alone.
 
 The rules live in one place, [`scripts/git/naming.mjs`](../../scripts/git/naming.mjs), with
 tests beside it. The hooks, the pull-request check and the feature-environment names
@@ -178,7 +184,7 @@ to start.
 | AI agent | Whoever asked for the work |
 
 **Claude reviews every pull request too**, through
-[`.github/workflows/claude-review.yml`](../../.github/workflows/claude-review.yml): it reads
+the `review` job of [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), the first in its chain (§2.2): it reads
 AGENTS.md and this section's checklist, then comments inline and once at the top.
 
 **The check fails** (reversed 2026-09-30, §1) in two cases:
@@ -200,15 +206,15 @@ secret `CLAUDE_CODE_OAUTH_TOKEN` (THIRD-PARTY-ACCESS.md §2.6) and nothing else:
 the Claude Code CLI itself and posts its comments through `gh` with the workflow's own token,
 so they appear from `github-actions`. The review reads text an author controls (the
 description, the diff, the files), so it may write only through two helpers that refuse a
-token-shaped body, and it cannot read the places a token lives. It is skipped only on pull
-requests from forks, where secrets are not available.
+token-shaped body, and it cannot read the places a token lives. On a pull request from a
+fork, where secrets are not available, it fails at its first step, and the chain stops there.
 
 **Every pull request is reviewed, stacked ones included** (decided 2026-10-02, #167,
 reversing the same day's decision to skip them). `anthropics/claude-code-action` validates a
 pull request's **base** branch and refuses one starting with `#`
 ([anthropics/claude-code-action#751](https://github.com/anthropics/claude-code-action/issues/751)),
 with no input or event that avoids the check, so the workflow does not use the action. Branch
-names are checked by `naming.yml` alone; the review has no opinion on them.
+names are checked by the `naming` job alone; the review has no opinion on them.
 
 Note that `main` has no branch protection yet (ARCHITECTURE §6: the org needs upgrading to
 GitHub Team first), so today this check goes **red**, and nothing stops a merge over it.
