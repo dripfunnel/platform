@@ -74,12 +74,12 @@ using (
   and store_id in (select id from store)
 );
 
--- Policies whose only request branch is the partner one move to app_partner; those that also
--- serve the store side gain it.
-alter policy partner_read on partner to app_partner, app_platform;
-alter policy partner_update on partner to app_partner, app_platform;
-alter policy store_insert on store to app_partner, app_platform;
-alter policy store_update on store to app_partner, app_platform;
+-- Every policy with a partner branch gains app_partner. app_request stays on those with a
+-- platform branch until #210, for the Worker still live when this runs (as in 0010).
+alter policy partner_read on partner to app_request, app_partner, app_platform;
+alter policy partner_update on partner to app_request, app_partner, app_platform;
+alter policy store_insert on store to app_request, app_partner, app_platform;
+alter policy store_update on store to app_request, app_partner, app_platform;
 alter policy store_read on store to app_request, app_partner, app_platform;
 alter policy seller_read on seller to app_request, app_partner, app_platform, app_system;
 alter policy activity_log_read on activity_log to app_request, app_partner, app_platform, app_system;
@@ -95,12 +95,13 @@ declare
   t text;
 begin
   foreach t in array array['partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan'] loop
-    execute format('alter policy %I on %I to app_partner, app_platform, app_system', t || '_read', t);
-    execute format('alter policy %I on %I to app_partner, app_platform, app_system', t || '_insert', t);
-    execute format('alter policy %I on %I to app_partner, app_platform, app_system', t || '_update', t);
+    execute format('alter policy %I on %I to app_request, app_partner, app_platform, app_system', t || '_read', t);
+    execute format('alter policy %I on %I to app_request, app_partner, app_platform, app_system', t || '_insert', t);
+    execute format('alter policy %I on %I to app_request, app_partner, app_platform, app_system', t || '_update', t);
   end loop;
 
-  -- The pins of 0010: app_request keeps store and shop, app_partner gets partner.
+  -- The pins of 0010: app_request loses partner (no live Worker has a partner caller) and keeps
+  -- platform until #210; app_partner gets partner.
   for t in
     select c.relname from pg_class c
     where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') and c.relrowsecurity
@@ -108,8 +109,8 @@ begin
     if t <> 'partner_session' then
       execute format(
         'alter policy request_scope on %I
-           using (app_setting_text(''app.scope'') in (''store'', ''shop''))
-           with check (app_setting_text(''app.scope'') in (''store'', ''shop''))', t);
+           using (app_setting_text(''app.scope'') in (''store'', ''shop'', ''platform''))
+           with check (app_setting_text(''app.scope'') in (''store'', ''shop'', ''platform''))', t);
     end if;
     execute format(
       'create policy partner_scope on %I as restrictive for all to app_partner

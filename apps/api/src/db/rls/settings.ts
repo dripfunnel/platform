@@ -5,8 +5,8 @@ import { isPartnerContext, isTenantContext } from '#core/tenancy'
  *  roles arrive with their first cards; until then they run as `app_request`. */
 export type RequestRole = 'app_request' | 'app_partner' | 'app_platform'
 
-// Exhaustive, with the narrow role as the only fall-through: a context kind added later must
-// be named here before it can run as staff.
+// Exhaustive and failing closed: a context kind added later throws until it is named here, so it
+// can never run as staff by default.
 export const roleFor = (context: CallerContext): RequestRole => {
   if (isTenantContext(context)) return 'app_request'
   if (isPartnerContext(context)) return 'app_partner'
