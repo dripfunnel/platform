@@ -164,7 +164,7 @@ describe('export', () => {
     const done = (await run<{ activityExport: { state: string; rows: number; csv: string } }>(job, callerOf(ids.ns, 'partner-owner'), { id: asked?.jobId })).data?.activityExport
     // Only Owners and Admins read an export back, as only they may make one (LOGGING §6).
     for (const role of ['partner-read-only', 'partner-support', 'partner-finance'] as const) {
-      expect((await run<{ activityExport: unknown }>(job, callerOf(ids.ns, role), { id: asked?.jobId })).data?.activityExport, role).toBeNull()
+      expect((await run(job, callerOf(ids.ns, role), { id: asked?.jobId })).code, role).toBe('FORBIDDEN')
     }
     expect(done?.state).toBe('done')
     const lines = done?.csv.split('\n') ?? []
