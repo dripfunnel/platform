@@ -3,20 +3,21 @@ import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { partnerRoleHas, type PartnerRole } from '#auth/partnerPermissions'
-import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { StoreStatus } from '#db/schema/saas'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
 import { selectPartner, selectPartnerDomainsFor } from '#db/scoped/partners'
 import { selectOverrides, selectStoreAccount, selectTrialExtensions } from '#db/scoped/storeAccount'
 import { selectCustomDomains, selectStoreCounts, selectStoreListRow, selectStorePeople, selectStores, selectStoreUsage, updateStoreBillingStatus, type StoreListRow } from '#db/scoped/stores'
-import { listActivity } from '#saas/activity/index'
+import { listActivity, type PageInfo } from '#saas/activity/index'
 import { setupStateOf, stuckAfterMinutes } from '#saas/provisioning/stuck'
+import { decodePage, pageOf, type PageRequest } from '#saas/staff/actions'
 
 // Stores on the Platform API (ui/platform/FIRST-RELEASE.md §6.1, §6.3, §6.4; card #159): the
 // partner's merchants at account level, never an order, a customer or a product.
 
 export const storePageSize = 25
+const detailListSize = 25
 const day = 24 * 60 * 60 * 1000
 
 export const storeFilter = z.strictObject({
@@ -57,7 +58,7 @@ export interface StoreRowDto {
 
 export interface StorePageDto {
   items: StoreRowDto[]
-  pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  pageInfo: PageInfo
   plans: { id: string; name: string }[]
   billingMode: 'dripfunnel' | 'own'
   actions: { export: ActionPermission; billingStatus: ActionPermission | null }
@@ -148,31 +149,29 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
   const modeOf = (tx: ScopedSql) => selectBillingMode(tx, partnerId)
 
   /** Null for a filter or cursor it cannot read: refused, never read as no filter. */
-  const stores = (rawFilter: unknown, after: string | null, first: number): Promise<StorePageDto | null> => {
+  const stores = (rawFilter: unknown, page: PageRequest): Promise<StorePageDto | null> => {
     const parsed = storeFilter.safeParse(rawFilter ?? {})
     if (!parsed.success) return Promise.resolve(null)
-    const keyset = after === null ? undefined : decodeCursor(after)
-    if (keyset === null) return Promise.resolve(null)
+    const decoded = decodePage(page, storePageSize)
+    if (!decoded.ok) return Promise.resolve(null)
     const f = parsed.data
     const at = now()
     const createdAfter = f.created === undefined ? undefined : f.created === 'month' ? new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), 1)) : new Date(at.getTime() - (f.created === '30d' ? 30 : 90) * day)
     return withScope(sql, context, async (tx) => {
-      const size = Math.min(Math.max(Math.floor(first), 1), storePageSize)
       const rows = await selectStores(
         tx,
         { partnerId, status: f.status ? statusFor[f.status] : undefined, planId: f.plan, createdAfter, storefront: f.storefront, nearLimit: f.near === 'yes', q: f.q },
-        { after: keyset },
-        size,
+        decoded,
+        decoded.limit,
         stuckAfterMinutes,
         at,
       )
-      const page = rows.slice(0, size)
-      const last = page[page.length - 1]
+      const { rows: pageRows, pageInfo } = pageOf(rows, decoded, (r) => ({ occurredAt: r.created_at, id: r.id }))
       const mode = await modeOf(tx)
       const plans = await selectPlanChoices(tx, partnerId)
       return {
-        items: page.map((r) => rowDto(r, mode)),
-        pageInfo: { hasNextPage: rows.length > size, endCursor: last ? encodeCursor({ occurredAt: last.created_at, id: last.id }) : null },
+        items: pageRows.map((r) => rowDto(r, mode)),
+        pageInfo,
         plans,
         billingMode: mode,
         actions: {
@@ -196,8 +195,9 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
       const partner = await selectPartner(tx, partnerId)
       const partnerDomains = await selectPartnerDomainsFor(tx, [partnerId])
       const wildcard = (kind: 'preview' | 'shops') => partnerDomains.find((d) => d.kind === kind)?.host.replace(/^\*\./, '') ?? null
-      const activityPage = await listActivity(sql, context, { storeId: id }, { first: 25 })
-      const overrides = await selectOverrides(tx, id, undefined, 25)
+      const activityPage = await listActivity(sql, context, { storeId: id }, { first: detailListSize })
+      const overrides = await selectOverrides(tx, id, undefined, detailListSize + 1)
+      const extensions = await selectTrialExtensions(tx, id, undefined, detailListSize + 1)
       const counts = await selectStoreCounts(tx, id)
       // The same computation as the list's near-limit, so the two never disagree.
       const measured = row.plan_id ? await selectStoreUsage(tx, id, row.plan_id, at) : []
@@ -213,7 +213,7 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
         people: { count: counts.people, suppliers: counts.suppliers },
         contacts: merchantSide.map((p) => ({ name: p.name, email: p.email, role: p.role_key })),
         usage,
-        overrides: overrides.map((o) => ({ id: o.id, limit: o.key, amount: o.amount, duration: o.duration, reason: o.reason, by: o.created_by_label, at: o.created_at })),
+        overrides: overrides.slice(0, detailListSize).map((o) => ({ id: o.id, limit: o.key, amount: o.amount, duration: o.duration, reason: o.reason, by: o.created_by_label, at: o.created_at })),
         billing: {
           interval: account.subscription?.interval ?? null,
           nextChargeAt: account.subscription ? (account.subscription.status === 'trial' ? account.subscription.trial_ends_at : account.subscription.period_end) : null,
@@ -233,12 +233,19 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           state: setupStateOf(row.job_state && row.job_step && row.job_step_started_at ? { state: row.job_state, step: row.job_step, step_started_at: row.job_step_started_at } : null, at),
           error: row.job_last_error,
         },
-        trialExtensions: (await selectTrialExtensions(tx, id, undefined, 25)).map((e) => ({ days: e.days, endsAt: e.ends_at })),
+        trialExtensions: extensions.slice(0, detailListSize).map((e) => ({ days: e.days, endsAt: e.ends_at })),
         support: {
           allowed: row.support_access_allowed,
           people: people.map((p) => ({ id: p.user_id, name: p.name, email: p.email, role: p.role_key, supplier: p.seller_name, status: p.user_status, lastSignInAt: p.last_sign_in_at })),
         },
         activity: activityPage.ok ? activityPage.page.items.map((e) => ({ id: e.id, at: e.occurred_at, who: e.actor_label, action: e.action, result: e.result })) : [],
+        // A tab shows its newest rows and says when there are more (FIRST-RELEASE §16).
+        more: {
+          overrides: overrides.length > detailListSize,
+          trialExtensions: extensions.length > detailListSize,
+          people: people.length >= maxPageSize,
+          activity: activityPage.ok && activityPage.page.pageInfo.hasNextPage,
+        },
         actions: actionsFor(row, role, at),
       }
     })

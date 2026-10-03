@@ -274,11 +274,7 @@ const storeProjection = (tx: ScopedSql, now: Date) => tx`
 // The UTC month the service's clock is in, never the database's (SAAS §6.2 meters).
 const monthOf = (now: Date): string => `${now.toISOString().slice(0, 7)}-01`
 
-/**
- * Each limit's stored usage against the plan version the store bought (or the plan's current one
- * before billing exists), every active override added on top; a monthly meter counts only for
- * this month (DATA-MODEL §2.4). The list's near-limit and the detail's bars both read this.
- */
+// Usage against the bought plan version plus active overrides, this UTC month (DATA-MODEL §2.4).
 const usageAgainstLimits = (tx: ScopedSql, storeId: ReturnType<ScopedSql>, planId: ReturnType<ScopedSql>, now: Date) => tx`
   select u.key, used.n as used, (e.amount + coalesce(ov.extra, 0))::int as cap,
     (used.n * 100 / nullif(e.amount + coalesce(ov.extra, 0), 0))::int as percent

@@ -54,7 +54,12 @@ const StoreRowType = builder.objectRef<StoreRowDto>('PartnerStoreRow').implement
 })
 
 const PageInfo = builder.objectRef<StorePageDto['pageInfo']>('StorePageInfo').implement({
-  fields: (t) => ({ hasNextPage: t.exposeBoolean('hasNextPage'), endCursor: t.exposeString('endCursor', { nullable: true }) }),
+  fields: (t) => ({
+    hasNextPage: t.exposeBoolean('hasNextPage'),
+    hasPreviousPage: t.exposeBoolean('hasPreviousPage'),
+    startCursor: t.exposeString('startCursor', { nullable: true }),
+    endCursor: t.exposeString('endCursor', { nullable: true }),
+  }),
 })
 
 const StorePage = builder.objectRef<StorePageDto>('StorePage').implement({
@@ -145,6 +150,10 @@ const Actions = builder.objectRef<Detail['actions']>('StoreActions').implement({
   }),
 })
 
+const More = builder.objectRef<Detail['more']>('StoreDetailMore').implement({
+  fields: (t) => ({ overrides: t.exposeBoolean('overrides'), trialExtensions: t.exposeBoolean('trialExtensions'), people: t.exposeBoolean('people'), activity: t.exposeBoolean('activity') }),
+})
+
 const StoreDetailType = builder.objectRef<Detail>('PartnerStore').implement({
   fields: (t) => ({
     row: t.field({ type: StoreRowType, resolve: (s) => s }),
@@ -161,6 +170,7 @@ const StoreDetailType = builder.objectRef<Detail>('PartnerStore').implement({
     trialExtensions: t.field({ type: [Extension], resolve: (s) => s.trialExtensions }),
     support: t.field({ type: Support, resolve: (s) => s.support }),
     activity: t.field({ type: [Entry], resolve: (s) => s.activity }),
+    more: t.field({ type: More, resolve: (s) => s.more }),
     actions: t.field({ type: Actions, resolve: (s) => s.actions }),
   }),
 })
@@ -181,10 +191,10 @@ const present = (o: Record<string, unknown> | null | undefined) => Object.fromEn
 builder.queryFields((t) => ({
   stores: t.field({
     type: StorePage,
-    args: { filter: t.arg({ type: FilterInput }), after: t.arg.string(), first: t.arg.int() },
+    args: { filter: t.arg({ type: FilterInput }), after: t.arg.string(), before: t.arg.string(), first: t.arg.int() },
     extensions: { access: read },
-    resolve: async (_, { filter, after, first }, ctx) => {
-      const page = await service(ctx.stores).stores(present(filter), after ?? null, first ?? 25)
+    resolve: async (_, { filter, after, before, first }, ctx) => {
+      const page = await service(ctx.stores).stores(present(filter), { after: after ?? undefined, before: before ?? undefined, first: first ?? undefined })
       if (!page) throw invalid()
       return page
     },

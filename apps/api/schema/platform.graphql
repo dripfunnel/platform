@@ -185,6 +185,7 @@ type PartnerStore {
   billing: StoreBilling
   contacts: [StoreContact!]
   country: String
+  more: StoreDetailMore
   overrides: [StoreOverride!]
   people: StorePeopleCount
   price: StorePrice
@@ -361,7 +362,7 @@ type Query {
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
   search(query: String!): [StoreSearchMatch!]
   store(id: ID!): PartnerStore
-  stores(after: String, filter: StoreFilterInput, first: Int): StorePage
+  stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
 }
 
 input RetirePlanInput {
@@ -422,6 +423,13 @@ type StoreContact {
   role: String
 }
 
+type StoreDetailMore {
+  activity: Boolean
+  overrides: Boolean
+  people: Boolean
+  trialExtensions: Boolean
+}
+
 type StoreDnsRecord {
   found: String
   host: String
@@ -478,6 +486,8 @@ type StorePage {
 type StorePageInfo {
   endCursor: String
   hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
 }
 
 type StorePeopleCount {

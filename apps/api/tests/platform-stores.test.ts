@@ -28,18 +28,18 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
   return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }
 }
 
-const listQuery = `query($filter: StoreFilterInput, $after: String, $first: Int) { stores(filter: $filter, after: $after, first: $first) {
+const listQuery = `query($filter: StoreFilterInput, $after: String, $before: String, $first: Int) { stores(filter: $filter, after: $after, before: $before, first: $first) {
   items { id name code owner { name email } plan { id name } near { percent limit } state { kind daysLeft daysPastDue reason } storefront domain { host status } createdAt billingStatus }
-  pageInfo { hasNextPage endCursor } plans { id name } billingMode exportPermission { allowed } billingStatusPermission { allowed reason } } }`
-type Page = { stores: { items: { id: string; state: { kind: string }; plan: { id: string } | null; near: { percent: number } | null; billingStatus: string | null }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null }; billingMode: string; billingStatusPermission: { allowed: boolean; reason: string | null } | null } }
+  pageInfo { hasNextPage hasPreviousPage startCursor endCursor } plans { id name } billingMode exportPermission { allowed } billingStatusPermission { allowed reason } } }`
+type Page = { stores: { items: { id: string; state: { kind: string }; plan: { id: string } | null; near: { percent: number } | null; billingStatus: string | null }[]; pageInfo: { hasNextPage: boolean; hasPreviousPage: boolean; startCursor: string | null; endCursor: string | null }; billingMode: string; billingStatusPermission: { allowed: boolean; reason: string | null } | null } }
 const list = async (caller: PartnerCaller, variables: Record<string, unknown> = {}) => (await run<Page>(listQuery, caller, variables)).data?.stores
 
 const detailQuery = `query($id: ID!) { store(id: $id) { row { id name state { kind } } country price { amount currency } people { count suppliers } contacts { email role }
   usage { limit used cap percent } overrides { limit amount reason by } billing { interval nextChargeAt cardLast4 mode chargedBy } site { liveHost previewHost }
   records { host status value } setup { state } trialExtensions { days } support { allowed people { email role } } activity { action }
-  actions { changePlan { allowed reason } extendTrial { allowed reason } addOverride { allowed reason } resendInvite { allowed } restore { allowed } suspend { allowed } retryStep { allowed } } } }`
+  more { overrides trialExtensions people activity } actions { changePlan { allowed reason } extendTrial { allowed reason } addOverride { allowed reason } resendInvite { allowed } restore { allowed } suspend { allowed } retryStep { allowed } } } }`
 type Actions = Record<string, { allowed: boolean; reason: string | null } | null>
-type Detail = { store: { row: { id: string }; people: { count: number; suppliers: number }; usage: { limit: string }[]; actions: Actions; billing: { mode: string; chargedBy: string | null } } | null }
+type Detail = { store: { row: { id: string }; more: Record<string, boolean>; overrides: unknown[]; people: { count: number; suppliers: number }; usage: { limit: string }[]; actions: Actions; billing: { mode: string; chargedBy: string | null } } | null }
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -66,6 +66,11 @@ describe('the list', () => {
     const all = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns} order by created_at desc, id desc`
     expect(seen).toEqual(all.map((s) => s.id))
     expect((await list(owner, { first: 1000 }))?.items).toHaveLength(25)
+    const first = await list(owner, { first: 10 })
+    const second = await list(owner, { after: first?.pageInfo.endCursor, first: 10 })
+    expect(second?.pageInfo.hasPreviousPage).toBe(true)
+    const back = await list(owner, { before: second?.pageInfo.startCursor, first: 10 })
+    expect(back?.items.map((s) => s.id)).toEqual(first?.items.map((s) => s.id))
   })
 
   it('filters by status, plan, near a limit and search, in SQL', async () => {
@@ -104,6 +109,13 @@ describe('the detail', () => {
     expect(detail?.billing).toMatchObject({ mode: 'dripfunnel', chargedBy: expect.stringContaining('DripFunnel for') })
     const [counted] = await db.sql<{ people: number; suppliers: number }[]>`
       select (select count(*)::int from membership where store_id = ${mine?.id ?? ''} and status <> 'suspended') as people, (select count(*)::int from seller where store_id = ${mine?.id ?? ''}) as suppliers`
+    expect(detail?.more).toEqual({ overrides: false, trialExtensions: false, people: false, activity: false })
+    await db.sql`
+      insert into store_limit_override (store_id, key, amount, duration, reason, created_by_kind, created_by_label)
+      select ${mine?.id ?? ''}, 'products', 10, 'always', 'Holiday catalogue', 'staff', 'Seed' from generate_series(1, 26)`
+    const more = (await run<Detail>(detailQuery, callerOf(ids.ns, 'partner-read-only'), { id: mine?.id })).data?.store
+    expect(more?.overrides).toHaveLength(25)
+    expect(more?.more['overrides']).toBe(true)
     expect(detail?.people).toEqual({ count: counted?.people, suppliers: counted?.suppliers })
     const [theirs] = await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.bz} limit 1`
     expect((await run<Detail>(detailQuery, callerOf(ids.ns, 'partner-owner'), { id: theirs?.id })).data?.store).toBeNull()
@@ -117,7 +129,7 @@ describe('the detail', () => {
       expect(Math.max(...usage.map((u) => u.percent ?? 0))).toBe(row.near?.percent)
     }
     const [meter] = await db.sql<{ store_id: string }[]>`
-      update store_usage set period_start = (date_trunc('month', now()) - interval '1 month')::date, used = 7
+      update store_usage set period_start = (date_trunc('month', ${now}::timestamptz at time zone 'UTC') - interval '1 month')::date, used = 7
       where (store_id, key) = (select u.store_id, u.key from store_usage u join store s on s.id = u.store_id where s.partner_id = ${ids.ns} and u.key = 'ai_prompts' limit 1)
       returning store_id`
     const usage = (await run<{ store: { usage: { limit: string; used: number }[] } | null }>(detailQuery, owner, { id: meter?.store_id })).data?.store?.usage

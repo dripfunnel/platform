@@ -772,7 +772,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   templates are §8.3–§8.4's.
 
 **Built on #159** (Stores, `apis/platform/stores.ts`, `saas/partnerStores`):
-- `stores(filter, after, first)`: newest first, cursor-paged, at most 25 a page, no total.
+- `stores(filter, after, before, first)`: newest first, cursor-paged both ways, at most 25 a
+  page, no total.
   Filters: status (`pastdue` spelt as the console spells it; `cancelled` takes closed stores
   too), plan, created window, storefront, near a limit (80%+ of any limit), search. A filter or cursor it can't read is `INVALID_INPUT`. The page carries
   `plans`, `billingMode`, and the export and billing-status permissions.
@@ -781,7 +782,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   DNS records, setup, trial extensions, support (consent and people) and the account's
   activity. Usage is measured once for both the list and the detail: against the plan version
   the store bought plus every active override, a monthly meter counting only this month. An id
-  that isn't one finds nothing. **Sales, invoices and past support sessions arrive with #163, #201 and #202.**
+  that isn't one finds nothing. Overrides, trial extensions and activity show their newest 25,
+  people their first 100, and `more` says which tab has further rows. **Sales, invoices and past support sessions arrive with #163, #201 and #202.**
 - `actions` is the §6.4 block, following the prototype. An action the state does not offer is
   absent. One the role cannot use is refused: `FINANCE_TRIAL_ONLY` on Extend trial,
   `OWNERS_AND_ADMINS_ONLY` on the rest. The record refusals (`ALREADY_SUSPENDED`, …) are the
