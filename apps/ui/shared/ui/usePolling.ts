@@ -24,7 +24,8 @@ export const usePolling = <Value,>(load: (() => Promise<Value>) | null, interval
   useEffect(() => {
     if (!active) return
     refresh()
-    const timer = setInterval(refresh, intervalMs)
+    // A tab in the background doesn't ask; it catches up when it is shown again (below).
+    const timer = setInterval(() => document.visibilityState !== 'hidden' && refresh(), intervalMs)
     const onFocus = () => document.visibilityState === 'visible' && refresh()
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onFocus)
