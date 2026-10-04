@@ -677,6 +677,18 @@ One switch, **Owner only**: "Require 2-factor for everyone on the team" (decided
 §3). "2-factor is off for: Alex Kim. If you require it, they'll set it up at their next
 sign-in." Turning it off never removes anyone's 2-factor.
 
+**Built on #193, straight onto #199's API.**
+- **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the
+  confirmation dialog takes one field. Every other change goes through the dialog, with its
+  consequence stated.
+- **The Owner role** is offered only to Owners. The last Owner's row and the caller's own row are
+  disabled with the reason.
+- **Payout and payment** says nothing can be added until the payment provider is connected (#201).
+  No account or card is drawn as on file, and the card form is a slot for the provider's hosted
+  field, with no input of ours.
+- **The 2-factor-off list** names the team members loaded so far.
+- **"Your account"** (what a staff session can't change, #46) sits under Security.
+
 ---
 
 ## 15. Not in this release

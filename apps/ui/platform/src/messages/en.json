@@ -350,7 +350,165 @@
   },
   "settings": {
     "account": "Your account",
-    "accountSub": "What a staff session can’t change is turned off here, with the reason."
+    "accountSub": "What a staff session can’t change is turned off here, with the reason.",
+    "loading": "Loading settings",
+    "error": {
+      "title": "We couldn’t load settings",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "tabsLabel": "Settings",
+    "tabs": {
+      "company": "Company",
+      "team": "Team",
+      "payout": "Payout and payment",
+      "security": "Security"
+    },
+    "company": {
+      "title": "Company",
+      "name": "Name",
+      "country": "Country",
+      "region": "Region",
+      "kind": "Kind",
+      "mainContact": "Main contact",
+      "billingContact": "Billing contact",
+      "none": "Not set",
+      "contact": "{name} · {email}",
+      "contract": "Contract",
+      "contractNote": "Read-only. Ask your DripFunnel partner manager to change it.",
+      "feeCurrency": "Fees are in",
+      "fees": "Wholesale fee per plan",
+      "fee": "{fee} / store / month",
+      "moreFees": "More plans have fees too; the first 50 are listed.",
+      "poweredBy": "“Powered by” line",
+      "poweredByRemovable": "You may remove it, as your contract allows",
+      "poweredByKept": "Stays on every storefront",
+      "noContract": "No contract terms are on file yet.",
+      "detailsLater": "Your legal address and tax id are added with your DripFunnel partner manager.",
+      "poweredByFirstYear": "You may remove it after the first year"
+    },
+    "team": {
+      "title": "Team",
+      "label": "Team members",
+      "name": "Name",
+      "role": "Role",
+      "lastSignIn": "Last sign-in",
+      "twoFactor": "2-factor",
+      "actions": "Actions",
+      "you": "{name} (you)",
+      "never": "Never",
+      "invited": "Invitation sent",
+      "expired": "Invitation expired",
+      "on": "On",
+      "off": "Off",
+      "invite": "Invite",
+      "transfer": "Transfer ownership",
+      "remove": "Remove",
+      "resend": "Resend",
+      "revoke": "Revoke",
+      "roleOf": "Role of {name}",
+      "showMore": "Show more",
+      "moreFailed": "More of the team couldn’t be loaded. Try again.",
+      "refused": {
+        "manage": "Only Owners and Admins change the team.",
+        "transfer": "Only the Owner hands on ownership.",
+        "ownerRole": "Only an Owner gives or takes the Owner role.",
+        "self": "You can’t remove yourself.",
+        "lastOwner": "The last Owner can’t be removed or changed.",
+        "selfRole": "You can’t change your own role."
+      },
+      "inviteForm": {
+        "title": "Invite someone",
+        "name": "Name",
+        "email": "Work email",
+        "role": "Role",
+        "consequence": "They get an email to set a password and turn on 2-factor.",
+        "send": "Send invitation",
+        "sending": "Sending…",
+        "cancel": "Cancel",
+        "invalid": "Enter their name and a work email."
+      },
+      "dialogs": {
+        "role": {
+          "title": "Change {name}’s role?",
+          "consequence": "{name} becomes {role}. It applies on their next request.",
+          "confirm": "Change role"
+        },
+        "remove": {
+          "title": "Remove {name}?",
+          "consequence": "{name} is signed out now and can’t sign in again. What they did stays in the activity log.",
+          "confirm": "Remove"
+        },
+        "transfer": {
+          "title": "Transfer ownership",
+          "target": "Your partner account",
+          "consequence": "The new Owner can manage billing, payouts and the team. You become an Admin.",
+          "pick": "New Owner",
+          "typeLabel": "Type TRANSFER to confirm",
+          "typeHint": "This can only be undone by the new Owner.",
+          "expected": "TRANSFER",
+          "confirm": "Transfer ownership",
+          "none": "Nobody active yet"
+        },
+        "resend": {
+          "title": "Resend {name}’s invitation?",
+          "consequence": "A new link goes to {email}, and the old one stops working.",
+          "confirm": "Resend"
+        },
+        "revoke": {
+          "title": "Revoke {name}’s invitation?",
+          "consequence": "The link sent to {email} stops working. You can invite them again later.",
+          "confirm": "Revoke"
+        },
+        "cancel": "Cancel"
+      },
+      "toasts": {
+        "invited": "Invitation sent to {email}.",
+        "role": "{name} is now {role}.",
+        "removed": "{name} was removed.",
+        "transferred": "{name} is the Owner now. You’re an Admin.",
+        "resent": "A new invitation went to {email}.",
+        "revoked": "{name}’s invitation was revoked.",
+        "failed": "That didn’t work. Nothing was changed. Try again."
+      },
+      "refusals": {
+        "LAST_OWNER": "There must be at least one Owner. Transfer ownership first.",
+        "OWNERS_ONLY": "Admins can’t invite, change or remove Owners.",
+        "CANNOT_REMOVE_SELF": "You can’t remove yourself.",
+        "ALREADY_ON_TEAM": "{email} is already on the team.",
+        "NOT_FOUND": "That person isn’t on the team any more.",
+        "INVALID_INPUT": "Something in that wasn’t right. Check it and try again.",
+        "NO_PENDING_INVITATION": "There’s no open invitation to change.",
+        "NOT_ACTIVE": "Someone’s access changed meanwhile. Reload the page and try again.",
+        "RATE_LIMITED": "Too many invitations for now. Try again in an hour.",
+        "BLOCKED_WHILE_IMPERSONATING": "Only the user can change who is Owner.",
+        "PARTNER_ENTERS_THIS_ITSELF": "The partner decides who is Owner itself."
+      }
+    },
+    "payout": {
+      "title": "Payout and payment",
+      "notConnected": "Payouts and the payment method connect with DripFunnel’s payment provider, which isn’t switched on yet. Nothing can be added here until it is.",
+      "payoutAccount": "Payout account",
+      "payoutNote": "Only the last 4 digits are ever shown. DripFunnel checks a new account with a small test deposit, and payouts pause until it’s verified (1–2 business days).",
+      "paymentMethod": "Payment method",
+      "paymentNote": "DripFunnel charges this card for its invoices, such as priority support.",
+      "slot": "The card form opens here, from the payment provider. The card number never touches DripFunnel.",
+      "staffSession": "Payment method and payout details stay with {partner}. {partner} enters these itself."
+    },
+    "security": {
+      "title": "Security",
+      "switch": "Require 2-factor for everyone on the team",
+      "on": "Everyone on the team signs in with 2-factor.",
+      "off": "2-factor is each person’s choice.",
+      "offFor": "2-factor is off for: {names}. If you require it, they’ll set it up at their next sign-in.",
+      "allOn": "Everyone on the team has 2-factor on.",
+      "ownerOnly": "Only the Owner changes this.",
+      "turningOff": "Turning it off removes nobody’s 2-factor.",
+      "saved": {
+        "on": "2-factor is now required for everyone.",
+        "off": "2-factor is now each person’s choice."
+      }
+    }
   },
   "controls": {
     "password": "Change password",
