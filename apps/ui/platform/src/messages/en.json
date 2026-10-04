@@ -792,6 +792,10 @@
         "one": "Your export of {count} store account is ready.",
         "other": "Your export of {count} store accounts is ready."
       },
+      "truncated": {
+        "one": "Your export is ready with only the first {count} store account. Narrow the filter to export the rest.",
+        "other": "Your export is ready with only the first {count} store accounts. Narrow the filter to export the rest."
+      },
       "download": "Download CSV",
       "expires": "The link expires at {time}.",
       "expired": "The download link expired. Export again to get a new one.",

@@ -391,7 +391,7 @@ export const startStoresExport = async (filter: StoreFilter): Promise<ExportJob>
 export const loadStoresExport = async (id: string): Promise<ExportJob | null> => {
   const { storesExport: job } = await query(
     `query StoresExport($id: ID!) { storesExport(id: $id) { id state rows truncated csv expiresAt } }`,
-    z.object({ storesExport: z.object({ id: z.string(), state: z.enum(['queued', 'done', 'failed', 'too_large', 'expired']), rows: z.number().int().nullable(), csv: z.string().nullable(), expiresAt: z.string().nullable() }).nullable() }),
+    z.object({ storesExport: z.object({ id: z.string(), state: z.enum(['queued', 'done', 'failed', 'too_large', 'expired']), rows: z.number().int().nullable(), truncated: z.boolean(), csv: z.string().nullable(), expiresAt: z.string().nullable() }).nullable() }),
     { id },
   )
   const state = job ? exportStates[job.state] : null
@@ -399,7 +399,7 @@ export const loadStoresExport = async (id: string): Promise<ExportJob | null> =>
     revokeExport(id)
     return job && { id: job.id, state: state ?? 'failed', entries: job.rows, url: null, expiresAt: job.expiresAt }
   }
-  return { id: job.id, state, entries: job.rows, url: exportLink(job.id, job.csv, job.expiresAt), expiresAt: job.expiresAt }
+  return { id: job.id, state, entries: job.rows, url: exportLink(job.id, job.csv, job.expiresAt), expiresAt: job.expiresAt, truncated: job.truncated }
 }
 
 export type BillingStatusResult = { ok: true } | { ok: false; reason: ActionRefusal }
@@ -460,7 +460,6 @@ const detailSchema = z.object({
       site: z.object({ previewHost: z.string().nullable(), liveHost: z.string().nullable(), lastPublishAt: z.string().nullable() }),
       records: z.array(z.object({ host: z.string(), status: z.enum(['live', 'waiting', 'failed']), type: z.literal('CNAME'), value: z.string(), found: z.string().nullable(), since: z.string() })),
       setup: z.object({ state: z.enum(['done', 'running', 'stuck', 'failed', 'cleaning']), error: z.string().nullable() }),
-      trialExtensions: z.array(z.object({ days: z.number().int(), endsAt: z.string() })),
       support: z.object({
         allowed: z.boolean(),
         people: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.string(), supplier: z.string().nullable(), status: z.enum(['active', 'invited', 'suspended']), lastSignInAt: z.string().nullable() })),
@@ -493,7 +492,7 @@ export const loadStore = async (id: string): Promise<Store | null> => {
         row { ${rowFields} } country price { amount currency } people { count suppliers } contacts { name email role }
         usage { limit used cap percent monthly } overrides { id limit amount duration reason by at }
         billing { interval nextChargeAt cardLast4 mode partnerName } site { previewHost liveHost lastPublishAt }
-        records { host status type value found since } setup { state error } trialExtensions { days endsAt }
+        records { host status type value found since } setup { state error }
         support { allowed people { id name email role supplier status lastSignInAt } }
         activity { id at who action result }
         actions { ${storeActions.map((action) => `${action} { allowed reason }`).join(' ')} }
