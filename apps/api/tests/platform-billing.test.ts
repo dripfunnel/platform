@@ -252,21 +252,31 @@ describe('the Stripe webhook', () => {
     ])
   })
 
-  it('never records money in a currency the contract does not pay out in as handled', async () => {
+  it('answers 503 to money in a currency the contract does not pay out in, so Stripe keeps it, and marks the feed stale', async () => {
     now.payouts.set('po_eur', { id: 'po_eur', amount: 5_000, currency: 'eur', arrival_date: unix(new Date('2026-10-03T00:00:00Z')), status: 'paid', failure_message: null, destination: null })
-    expect(await deliver({ id: 'evt_eur', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_eur', object: 'payout' } })).toBe(200)
+    clock = new Date(start.getTime() + 160_000)
+    expect(await deliver({ id: 'evt_eur', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_eur', object: 'payout' } })).toBe(503)
     expect(await db.sql`select 1 from billing_event where id = 'evt_eur'`).toHaveLength(0)
     expect(await db.sql`select 1 from partner_payout where stripe_payout_id = 'po_eur'`).toHaveLength(0)
+    expect((await run<{ billingSettings: { staleSince: string | null } }>(q.settings, callerOf(ids.ns, 'partner-owner'))).data?.billingSettings.staleSince).toBe(clock.toISOString())
+    // Stripe delivers it again, and it is still refused rather than quietly dropped.
+    expect(await deliver({ id: 'evt_eur', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_eur', object: 'payout' } })).toBe(503)
   })
 
-  it("doesn't keep an event it can't place yet, so a later delivery is handled", async () => {
+  it("answers 503 to an event it can't place yet, so Stripe's next delivery is handled", async () => {
     now.accounts.set('acct_later', { id: 'acct_later', external_accounts: { data: [{ id: 'ba_9', bank_name: 'Chase', last4: '7777', status: 'verified' }] } })
-    expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(200)
+    expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(503)
     expect(await db.sql`select 1 from billing_event where id = 'evt_early'`).toHaveLength(0)
     await db.sql`insert into partner_billing_account (partner_id, stripe_account_id) values (${ids.bz}, 'acct_later')`
     expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(200)
     expect((await db.sql<{ payout_status: string }[]>`select payout_status from partner_billing_account where partner_id = ${ids.bz}`)[0]?.payout_status).toBe('verified')
     await db.sql`delete from partner_billing_account where partner_id = ${ids.bz}`
+  })
+
+  it('keeps and answers 200 an event of a kind it does not read', async () => {
+    expect(await deliver({ id: 'evt_cust1', type: 'customer.created', object: { id: 'cus_x', object: 'customer' } })).toBe(200)
+    expect(await deliver({ id: 'evt_cust1', type: 'customer.created', object: { id: 'cus_x', object: 'customer' } })).toBe(200)
+    expect(await db.sql`select 1 from billing_event where id = 'evt_cust1'`).toHaveLength(1)
   })
 })
 
@@ -369,15 +379,59 @@ describe('who bills, and one partner never another', () => {
     expect((await run<{ setBillingMode: { ok: boolean } }>(q.mode, finance, { m: 'dripfunnel' })).data?.setBillingMode.ok).toBe(true)
   })
 
-  it("shows Bazaar Cloud none of Northstar's payments, payouts, invoices or account", async () => {
+  it("shows each partner only its own payments, payouts, invoices, account, card, counts and stale strip", async () => {
+    await db.sql`insert into partner_contract (partner_id, fee_currency) values (${ids.bz}, 'INR') on conflict (partner_id) do nothing`
+    const currency = (await db.sql<{ fee_currency: string }[]>`select fee_currency from partner_contract where partner_id = ${ids.bz}`)[0]?.fee_currency ?? 'INR'
+    // Both sides seeded, so an empty answer can't pass by accident: one retrying charge each, and Bazaar's own payout, invoice, account and card.
+    for (const [partner, store, ref] of [[ids.bz, ids.bzStore, 'in_bzfail'], [ids.ns, ids.store, 'in_nsfail']] as const) {
+      const cur = partner === ids.bz ? currency : 'USD'
+      await db.sql`
+        insert into merchant_charge (stripe_ref, partner_id, store_id, kind, status, amount, currency, payout_currency, payout_gross, fee_amount, partner_amount, retry_at, attempt, charged_at)
+        values (${ref}, ${partner}, ${store}, 'subscription', 'failed', 1000, ${cur}, ${cur}, 0, 0, 0, ${new Date(start.getTime() + 86_400_000)}, 1, ${start})`
+    }
+    await db.sql`
+      insert into partner_payout (partner_id, period_start, period_end, currency, gross, fee, adjustments, amount, stores, status, scheduled_for, stripe_payout_id)
+      values (${ids.bz}, '2026-08-01', '2026-09-01', ${currency}, 900, 100, 0, 800, 1, 'paid', '2026-09-01', 'po_bz1')`
+    await db.sql`insert into partner_invoice (partner_id, stripe_invoice_id, what, amount, currency, status, issued_at) values (${ids.bz}, 'in_bzinv', 'Bazaar setup fee', 5000, ${currency}, 'open', ${start})`
+    await db.sql`
+      insert into partner_billing_account (partner_id, stripe_account_id, stripe_customer_id, payout_bank, payout_last4, payout_status, card_brand, card_last4, card_status)
+      values (${ids.bz}, 'acct_bazaar', 'cus_bazaar', 'HDFC', '2222', 'verified', 'mastercard', '5555', 'on_file')`
+    await db.sql`insert into partner_billing_feed (partner_id, synced_at, stale_since) values (${ids.bz}, ${start}, null) on conflict (partner_id) do update set stale_since = null`
+    await db.sql`update partner_billing_feed set stale_since = ${start} where partner_id = ${ids.ns}`
+
     const bazaar = callerOf(ids.bz, 'partner-owner')
-    const payments = (await run<Payments>(q.payments, bazaar)).data?.merchantPayments
-    const northstarStores = new Set((await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns}`).map((r) => r.id))
-    expect(payments?.items.some((p) => northstarStores.has(p.storeId))).toBe(false)
-    expect(payments?.failed).toEqual([])
-    expect((await run<{ partnerInvoices: { items: unknown[] } }>(q.invoices, bazaar)).data?.partnerInvoices.items).toEqual([])
-    expect((await run<{ payoutAccount: { last4: string | null } }>(q.account, bazaar)).data?.payoutAccount.last4).toBeNull()
+    const northstar = callerOf(ids.ns, 'partner-owner')
+    const storesOf = async (partner: string) => new Set((await db.sql<{ id: string }[]>`select id from store where partner_id = ${partner}`).map((r) => r.id))
+    const [nsStores, bzStores] = [await storesOf(ids.ns), await storesOf(ids.bz)]
+
+    const bzPayments = (await run<Payments>(q.payments, bazaar)).data?.merchantPayments
+    expect(bzPayments?.failed.map((f) => f.storeId)).toEqual([ids.bzStore])
+    expect(bzPayments?.items.every((p) => bzStores.has(p.storeId))).toBe(true)
+    expect((await run<Payments>(q.payments, northstar)).data?.merchantPayments.failed.every((f) => nsStores.has(f.storeId))).toBe(true)
+    expect((await run<{ navBadges: { billingFailedPayments: number } }>(q.badges, bazaar)).data?.navBadges.billingFailedPayments).toBe(1)
+
+    const bzPayouts = (await run<{ payouts: { items: { payout: { amount: number; currency: string } }[] } }>(q.payouts, bazaar)).data?.payouts.items
+    expect(bzPayouts).toEqual([expect.objectContaining({ payout: { amount: 800, currency } })])
+    // Bazaar has collected nothing, so Northstar's money must not make its next payout look due.
+    expect((await run<{ nextPayout: { state: string } }>(q.next, bazaar)).data?.nextPayout.state).toBe('first')
+    expect((await run<{ partnerInvoices: { items: { what: string }[] } }>(q.invoices, bazaar)).data?.partnerInvoices.items.map((i) => i.what)).toEqual(['Bazaar setup fee'])
+    expect((await run<{ billingSettings: { staleSince: string | null; payoutAccount: { last4: string } } }>(q.settings, bazaar)).data?.billingSettings).toMatchObject({ staleSince: null, payoutAccount: { last4: '2222' } })
+    expect((await run<{ paymentMethod: { last4: string } }>(q.card, bazaar)).data?.paymentMethod.last4).toBe('5555')
     const northstarInvoice = (await db.sql<{ id: string }[]>`select id from partner_invoice where partner_id = ${ids.ns}`)[0]?.id ?? ''
     expect((await run<{ downloadInvoice: { reason: string } }>(q.download, bazaar, { id: northstarInvoice })).data?.downloadInvoice.reason).toBe('NOT_FOUND')
+
+    // Bazaar's writes change Bazaar's rows and nothing of Northstar's.
+    const northstarRows = async () => ({
+      account: await db.sql`select * from partner_billing_account where partner_id = ${ids.ns}`,
+      mode: await db.sql`select billing_mode from partner where id = ${ids.ns}`,
+    })
+    const before = await northstarRows()
+    const finance = callerOf(ids.bz, 'partner-finance')
+    expect((await run<{ setBillingMode: { ok: boolean } }>(q.mode, finance, { m: 'own' })).data?.setBillingMode.ok).toBe(true)
+    expect((await run<{ setPayoutAccount: { ok: boolean } }>(q.payout, finance, { t: 'btok_bazaar1' })).data?.setPayoutAccount.ok).toBe(true)
+    expect((await run<{ setPaymentMethod: { ok: boolean } }>(q.pay, finance, { t: 'pm_bazaar1' })).data?.setPaymentMethod.ok).toBe(true)
+    expect(await northstarRows()).toEqual(before)
+    expect((await db.sql<{ stripe_account_id: string }[]>`select stripe_account_id from partner_billing_account where partner_id = ${ids.bz}`)[0]?.stripe_account_id).toBe('acct_bazaar')
+    await run(q.mode, finance, { m: 'dripfunnel' })
   })
 })

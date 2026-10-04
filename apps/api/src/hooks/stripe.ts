@@ -1,10 +1,10 @@
 import type postgres from 'postgres'
 import { logEvent } from '#core/log'
 import { eventSchema, StripeUnavailable, verifySignature, type StripeApi } from '#integrations/stripe/index'
-import { handleStripeEvent } from '#saas/billing/index'
+import { handleStripeEvent, retriedOutcomes } from '#saas/billing/index'
 
 // hooks.dripfunnel.com/stripe (SAAS §7.2; #201): signature first, then one event, answered 200
-// once it is recorded (or was already), 503 when Stripe couldn't be read back so it comes again.
+// once it is recorded (or was already), 503 when it couldn't be read back or applied yet so it comes again.
 export const stripeHookPath = '/stripe'
 
 // Stripe's events are a few kilobytes; anything far larger isn't one.
@@ -34,6 +34,8 @@ export const handleStripeHook = async (request: Request, { sql, stripe, signingS
   try {
     const outcome = await handleStripeEvent({ sql, stripe, event: event.data, now })
     logEvent({ event: 'stripe_event', api: 'hooks', code: outcome })
+    // Not applied yet: a non-2xx is the only way Stripe sends it again (saas/billing/webhook.ts).
+    if (retriedOutcomes.includes(outcome)) return new Response(null, { status: 503 })
     return Response.json({ received: true })
   } catch (error) {
     if (!(error instanceof StripeUnavailable)) throw error

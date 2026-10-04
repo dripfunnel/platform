@@ -27,9 +27,14 @@ import { payoutStatusOf } from './partner'
 // Stripe has it now, so a replay changes nothing and an old event arriving late can't undo a
 // newer one; the event id goes into billing_event in the same transaction as what it changed.
 
-// `mismatch`: money in a currency the partner's contract doesn't pay out in. Never shown as handled:
-// it is logged with the partner, and the event isn't kept, so it is applied once the contract is fixed.
-export type EventOutcome = 'handled' | 'duplicate' | 'ignored' | 'mismatch'
+// Stripe delivers again only after a non-2xx answer, so an event this can't apply yet is answered
+// 503 and not kept: `unplaced` (no partner holds its account, customer or store yet) and `mismatch`
+// (money in a currency the partner's contract doesn't pay out in, which also marks the feed stale).
+// Stripe retries for three days; `ignored` is a kind of event nothing here reads, kept and answered 200.
+export type EventOutcome = 'handled' | 'duplicate' | 'ignored' | 'unplaced' | 'mismatch'
+
+/** What the hook answers 503 to, so Stripe delivers it again. */
+export const retriedOutcomes: readonly EventOutcome[] = ['unplaced', 'mismatch']
 
 /** The partner an event was placed with, or why its money couldn't be. */
 type Placed = { partnerId: string; mismatch: boolean } | null
@@ -275,11 +280,17 @@ export const handleStripeEvent = async ({ sql, stripe, event, now }: { sql: post
   return withSystemScope(sql, async (tx) => {
     const at = now()
     if (!(await insertBillingEvent(tx, { id: event.id, type: event.type, partnerId: null, storeId: null, at }))) return 'duplicate'
+    if (subject.kind === 'none') return 'ignored'
     const result = await apply(tx, subject, event.type, at)
-    if (!result || result.mismatch) {
+    if (!result) {
       await deleteBillingEvent(tx, event.id)
-      if (result?.mismatch) logEvent({ event: 'stripe_event', api: 'hooks', partnerId: result.partnerId, code: 'currency_mismatch' })
-      return result ? 'mismatch' : 'ignored'
+      return 'unplaced'
+    }
+    if (result.mismatch) {
+      await deleteBillingEvent(tx, event.id)
+      await touchBillingFeed(tx, result.partnerId, at, true)
+      logEvent({ event: 'stripe_event', api: 'hooks', partnerId: result.partnerId, code: 'currency_mismatch' })
+      return 'mismatch'
     }
     const { partnerId } = result
     await setEventPartner(tx, event.id, partnerId)
