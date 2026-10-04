@@ -99,6 +99,15 @@ describe('the log', () => {
     // Each entry names its store, from the partner's own stores.
     const [store] = await db.sql<{ name: string }[]>`select name from store where id = ${ids.nsStore}`
     expect(tab.every((e) => e.storeName === store?.name)).toBe(true)
+    // A row naming another partner's store (it can't happen by design; here it is forced) never
+    // gets that store's name, because the names are read in this partner's own scope.
+    const [theirs] = await db.sql<{ id: string; name: string }[]>`select id, name from store where partner_id = ${ids.bz} limit 1`
+    await entry({ partnerId: ids.ns, storeId: theirs?.id ?? null, action: 'store.trial_extended', actorKind: 'partner_user', actorId: ids.maya, label: 'Maya Chen', visibility: 'partner' })
+    const after = await all(owner)
+    const forced = after.find((e) => e.storeId === theirs?.id)
+    expect(forced?.storeName).toBeNull()
+    expect(JSON.stringify(after)).not.toContain(theirs?.name ?? '~')
+    await db.sql`delete from activity_log where store_id = ${theirs?.id ?? ''} and partner_id = ${ids.ns}`
     const [inside] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${ids.nsStore} and visibility <> 'partner'`
     expect(inside?.n).toBe(6)
   })
