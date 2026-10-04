@@ -1,4 +1,4 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 export type SuppressionReason = 'bounce' | 'complaint'
 
@@ -13,16 +13,24 @@ export const addressHash = async (key: string, address: string): Promise<string>
   return [...new Uint8Array(mac)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-export const isSuppressed = async (tx: ScopedSql, key: string, address: string): Promise<boolean> => {
-  const rows = await tx<{ one: number }[]>`select 1 as one from email_suppression where address_hash = ${await addressHash(key, address)}`
-  return rows.length > 0
+const hashes = async (key: string, addresses: readonly string[]) => new Map(await Promise.all(addresses.map(async (a) => [await addressHash(key, a), a] as const)))
+
+/** Which of these addresses are on the list, in one query. */
+export const suppressedAmong = async (tx: ScopedSql, key: string, addresses: readonly string[]): Promise<Set<string>> => {
+  if (addresses.length === 0) return new Set()
+  const byHash = await hashes(key, addresses)
+  const rows = await tx<{ address_hash: string }[]>`select address_hash from email_suppression where address_hash = any(${pgArray([...byHash.keys()])}::text[])`
+  return new Set(rows.map((r) => byHash.get(r.address_hash) ?? '').filter((a) => a !== ''))
 }
 
-/** A complaint outranks a bounce: an address that complained stays recorded as one. */
-export const suppress = async (tx: ScopedSql, key: string, address: string, reason: SuppressionReason, at: Date): Promise<void> => {
+/** Adds them in one statement. A complaint outranks a bounce: an address that complained stays recorded as one. */
+export const suppressAll = async (tx: ScopedSql, key: string, addresses: readonly string[], reason: SuppressionReason, at: Date): Promise<void> => {
+  // Once each: one statement can't upsert the same row twice.
+  const unique = [...(await hashes(key, addresses)).keys()]
+  if (unique.length === 0) return
   await tx`
     insert into email_suppression (address_hash, reason, suppressed_at)
-    values (${await addressHash(key, address)}, ${reason}, ${at})
+    select hash, ${reason}, ${at} from unnest(${pgArray(unique)}::text[]) as hash
     on conflict (address_hash) do update set reason = case when email_suppression.reason = 'complaint' then 'complaint' else excluded.reason end
   `
 }

@@ -5,7 +5,7 @@ import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
-import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts } from '#db/scoped/partners'
+import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
 import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
 import { senderLabel } from '#saas/domains/index'
 import { en } from './messages'
@@ -127,6 +127,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
   switch (t) {
     case 'staff-invitation': {
       const p = parse(t)
+      // Staff email is DripFunnel's own: a row filed under any partner is not one.
+      if (row.partnerId !== null) return { send: false, reason: 'tenant_mismatch' }
       const token = await mintStaffInvitationToken(tx, p.staffInvitationId, now)
       if (!token) return { send: false, reason: 'link_closed' }
       const w = en.staffInvitation
@@ -135,6 +137,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     case 'partner-owner-invitation':
     case 'partner-team-invitation': {
       const p = parse(t)
+      if ((await selectRecordPartner(tx, 'invitation', p.partnerInvitationId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const token = await mintInvitationToken(tx, p.partnerInvitationId, now)
       if (!token) return { send: false, reason: 'link_closed' }
       const url = link(hosts.platformHost, '/accept-invite', token)
@@ -154,6 +157,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'partner-password-reset': {
       const p = parse(t)
+      if ((await selectRecordPartner(tx, 'reset', p.partnerPasswordResetId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const token = await mintResetToken(tx, p.partnerPasswordResetId, now)
       if (!token) return { send: false, reason: 'link_closed' }
       const w = en.partnerPasswordReset
@@ -161,6 +165,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'partner-user-locked': {
       const p = parse(t)
+      if ((await selectRecordPartner(tx, 'user', p.partnerUserId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerUserLocked
       return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] }, true)
     }

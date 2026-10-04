@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { logEvent } from '#core/log'
-import { isSuppressed } from '#db/scoped/emailSuppression'
+import { suppressedAmong } from '#db/scoped/emailSuppression'
 import { withSystemScope } from '#db/scoped/index'
 import { SesRefused, type SesApi } from '#integrations/ses/index'
 import { en, fromAddress, heldTemplates, prepareEmail, renderEmail, type EmailHosts } from '#saas/email/index'
@@ -29,8 +29,8 @@ export const emailDeliverer = (sql: postgres.Sql, ses: SesApi, { hosts, senderDo
       const prepared = await prepareEmail(tx, { payload: effect.payload, partnerId: effect.partnerId }, hosts, now())
       if (!prepared.send) return log('email_skipped', prepared.reason)
       // Account security goes out regardless: an invitation or reset that never arrives locks someone out.
-      const to: string[] = []
-      for (const address of prepared.to) if (prepared.accountSecurity || !(await isSuppressed(tx, suppressionKey, address))) to.push(address)
+      const suppressed = prepared.accountSecurity ? new Set<string>() : await suppressedAmong(tx, suppressionKey, prepared.to)
+      const to = prepared.to.filter((address) => !suppressed.has(address))
       if (to.length === 0) return log('email_skipped', 'suppressed')
       const rendered = renderEmail(prepared.brand, prepared.content, en.footer)
       try {

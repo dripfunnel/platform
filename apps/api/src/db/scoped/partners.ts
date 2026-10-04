@@ -333,6 +333,17 @@ export const selectActivePartnerEmails = async (tx: ScopedSql, partnerId: string
     `
   ).map((r) => r.email)
 
+/** The partner a record an account email names belongs to, or null when there is no such record. */
+export const selectRecordPartner = async (tx: ScopedSql, record: 'invitation' | 'reset' | 'user', id: string): Promise<string | null> => {
+  const rows =
+    record === 'invitation'
+      ? await tx<{ partner_id: string }[]>`select partner_id from partner_invitation where id = ${id}`
+      : record === 'reset'
+        ? await tx<{ partner_id: string }[]>`select partner_id from partner_password_reset where id = ${id}`
+        : await tx<{ partner_id: string }[]>`select partner_id from partner_user where id = ${id}`
+  return rows[0]?.partner_id ?? null
+}
+
 /** The role an open partner invitation offers, for its email. */
 export const selectInvitedPartnerRole = async (tx: ScopedSql, invitationId: string): Promise<PartnerUserRow['role_key'] | null> =>
   (

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { factsOf } from '#auth/activity'
 import { hashSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
-import { addressHash, suppress } from '#db/scoped/emailSuppression'
+import { addressHash, suppressAll } from '#db/scoped/emailSuppression'
 import { withSystemScope } from '#db/scoped/index'
 import { insertPasswordResets, selectResetByToken } from '#db/scoped/partnerInvitations'
 import { selectStaffInvitationByToken } from '#db/scoped/staffMembers'
@@ -163,7 +163,7 @@ describe('email delivery', () => {
   })
 
   it("skips a suppressed address for a merchant notice, and keeps only a keyed hash of it", async () => {
-    await withSystemScope(db.sql, (tx) => suppress(tx, suppressionKey, store.ownerEmail.toUpperCase(), 'complaint', now))
+    await withSystemScope(db.sql, (tx) => suppressAll(tx, suppressionKey, [store.ownerEmail.toUpperCase()], 'complaint', now))
     await queue('store-restored', { storeId: store.id, contact: 'partner-support' }, { partnerId: store.partnerId, storeId: store.id })
     const ses = fakeSes()
     expect(await relay(ses.api)).toMatchObject({ delivered: 1 })
@@ -176,8 +176,9 @@ describe('email delivery', () => {
   })
 
   it('still sends an invitation, reset or lock notice to a suppressed address', async () => {
-    await withSystemScope(db.sql, (tx) => suppress(tx, suppressionKey, 'locked.out@example.com', 'complaint', now))
-    await queue('partner-user-locked', { partnerUserId: crypto.randomUUID(), to: 'locked.out@example.com', minutes: 15 }, { partnerId: northstar.id, storeId: null })
+    await withSystemScope(db.sql, (tx) => suppressAll(tx, suppressionKey, ['locked.out@example.com', 'LOCKED.OUT@example.com'], 'complaint', now))
+    const [user] = await db.sql<{ id: string }[]>`select id from partner_user where partner_id = ${northstar.id} and status = 'active' limit 1`
+    await queue('partner-user-locked', { partnerUserId: user?.id, to: 'locked.out@example.com', minutes: 15 }, { partnerId: northstar.id, storeId: null })
     const ses = fakeSes()
     await relay(ses.api)
     expect(ses.sent.map((m) => m.to)).toEqual([['locked.out@example.com']])
@@ -260,6 +261,30 @@ describe('email delivery', () => {
     const ses = fakeSes()
     expect(await relay(ses.api)).toMatchObject({ delivered: 2, retry: 0 })
     expect(ses.sent).toEqual([])
+  })
+
+  it("mints no link and sends nothing when an account email's record isn't the outbox row's partner's", async () => {
+    const [other] = await db.sql<{ id: string }[]>`select id from partner where id <> ${northstar.id} limit 1`
+    // An invitation a link could be minted for (sent, open, unexpired), so only the partner check stops it.
+    const [invitee] = await db.sql<{ id: string }[]>`insert into partner_user (partner_id, email, name, role_key, status) values (${northstar.id}, 'invitee@northstar.example', 'Invitee', 'partner-support', 'invited') returning id`
+    const [invitation] = await db.sql<{ id: string; partner_id: string }[]>`
+      insert into partner_invitation (partner_id, partner_user_id, expires_at, sent_at, invited_by_kind, invited_by_label)
+      values (${northstar.id}, ${invitee?.id ?? ''}, ${new Date(now.getTime() + 7 * 86_400_000)}, ${now}, 'staff', 'DripFunnel') returning id, partner_id
+    `
+    const [user] = await db.sql<{ id: string }[]>`select id from partner_user where partner_id = ${northstar.id} limit 1`
+    if (!other || !invitation || !user) throw new Error('seed: need two partners and a user')
+    const wrong = other.id
+    const [reset] = await withSystemScope(db.sql, (tx) => insertPasswordResets(tx, crypto.randomUUID(), northstar.financeEmail))
+    const before = await db.sql<{ token_hash: string | null }[]>`select token_hash from partner_invitation where id = ${invitation.id}`
+    await queue('partner-team-invitation', { partnerInvitationId: invitation.id, to: 'someone@else.example', partnerName: 'Theirs' }, { partnerId: wrong, storeId: null })
+    await queue('partner-password-reset', { partnerPasswordResetId: reset?.id, to: 'someone@else.example' }, { partnerId: other.id, storeId: null })
+    await queue('partner-user-locked', { partnerUserId: user.id, to: 'someone@else.example', minutes: 15 }, { partnerId: other.id, storeId: null })
+    const [staffInvitation] = await db.sql<{ id: string }[]>`select id from staff_invitation where accepted_at is null and revoked_at is null and expires_at > ${now} order by created_at desc limit 1`
+    await queue('staff-invitation', { staffInvitationId: staffInvitation?.id, to: 'someone@else.example' }, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    expect(await relay(ses.api)).toMatchObject({ delivered: 4, retry: 0 })
+    expect(ses.sent).toEqual([])
+    expect(await db.sql`select token_hash from partner_invitation where id = ${invitation.id}`).toEqual(before)
   })
 })
 

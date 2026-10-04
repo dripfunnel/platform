@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import { logEvent } from '#core/log'
-import { suppress } from '#db/scoped/emailSuppression'
+import { suppressAll } from '#db/scoped/emailSuppression'
 import { withSystemScope } from '#db/scoped/index'
 import { isSnsUrl, snsMessageSchema, type SnsVerifier } from '#integrations/ses/index'
 
@@ -83,9 +83,7 @@ export const handleSesHook = async (request: Request, { sql, verifier, topicArn,
         : null
   if (addresses && addresses.list.length > 0) {
     const at = now()
-    await withSystemScope(sql, async (tx) => {
-      for (const r of addresses.list) await suppress(tx, suppressionKey, r.emailAddress, addresses.reason, at)
-    })
+    await withSystemScope(sql, (tx) => suppressAll(tx, suppressionKey, addresses.list.map((r) => r.emailAddress), addresses.reason, at))
   }
   logEvent({ event: 'ses_event', api: 'hooks', code: addresses ? addresses.reason : (type ?? 'unknown').toLowerCase(), count: addresses?.list.length ?? 0 })
   return new Response(null, { status: 200 })
