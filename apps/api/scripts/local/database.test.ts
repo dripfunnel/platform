@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { checkDatabase } from './database'
+import { checkDatabase, connectionFinding } from './database'
 
 const DATABASE_URL = process.env.DATABASE_URL ?? 'postgres://dripfunnel_dev:dripfunnel_dev@localhost:5432/dripfunnel'
 const migrationsDir = fileURLToPath(new URL('../../migrations', import.meta.url))
@@ -31,5 +31,16 @@ describe('checkDatabase', () => {
     writeFileSync(path.join(dir, '9999_not_applied.sql'), '')
     const [finding] = await checkDatabase(DATABASE_URL, dir, 'full')
     expect(finding?.problem).toBe('1 migration(s) not applied, starting with 9999_not_applied.sql.')
+  })
+
+  it('gives a reason when the connection error has no message of its own', () => {
+    const url = new URL('postgres://u:p@db.example.com:5432/db')
+    const inner = Object.assign(new Error('connect EHOSTUNREACH 10.0.0.1:5432'), { code: 'EHOSTUNREACH' })
+    expect(connectionFinding(new AggregateError([inner], ''), url).problem).toBe(
+      "Can't connect to Postgres on db.example.com:5432: connect EHOSTUNREACH 10.0.0.1:5432",
+    )
+    expect(connectionFinding(Object.assign(new AggregateError([], ''), { code: 'ENETUNREACH' }), url).problem).toBe(
+      "Can't connect to Postgres on db.example.com:5432: ENETUNREACH",
+    )
   })
 })

@@ -16,7 +16,14 @@ const describeTarget = (url: URL) => {
   return { port, where: `${url.hostname}:${port}`, database: url.pathname.slice(1), user: decodeURIComponent(url.username) || 'your user' }
 }
 
-const connectionFinding = (cause: unknown, url: URL): Finding => {
+// An AggregateError (one attempt per resolved address) has an empty message of its own (#341).
+const reason = (cause: unknown): string => {
+  const { message, code, errors } = cause as { message?: string; code?: string; errors?: unknown[] }
+  const inner = errors?.map((e) => (e as Error).message).filter(Boolean).join('; ')
+  return message || inner || code || 'unknown error'
+}
+
+export const connectionFinding = (cause: unknown, url: URL): Finding => {
   const { port, where, database, user } = describeTarget(url)
   const code = (cause as { code?: string }).code
   switch (code) {
@@ -33,7 +40,7 @@ const connectionFinding = (cause: unknown, url: URL): Finding => {
     case '28P01':
       return error(`Postgres refused the password for "${user}".`, 'Fix the password in DATABASE_URL in apps/api/.env.local.')
     default:
-      return error(`Can't connect to Postgres on ${where}: ${(cause as Error).message}`, 'Check DATABASE_URL in apps/api/.env.local (docs/api/README.md §7).')
+      return error(`Can't connect to Postgres on ${where}: ${reason(cause)}`, 'Check DATABASE_URL in apps/api/.env.local (docs/api/README.md §7).')
   }
 }
 
