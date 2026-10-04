@@ -20,9 +20,9 @@ export interface StartSupportDialogProps {
   onStarted: (name: string, tabBlocked: boolean) => void
 }
 
-const reauthText = (r: Extract<Reauth, { ok: false }>): string => {
+export const reauthText = (r: Extract<Reauth, { ok: false }>): string => {
   if (r.reason === 'WRONG_CODE') return r.triesLeft ? fill(words.reauth.WRONG_CODE, { tries: String(r.triesLeft) }) : words.reauth.WRONG_CODE_LAST
-  if (r.reason === 'LOCKED') return fill(words.reauth.LOCKED, { minutes: String(r.lockedMinutes ?? 15) })
+  if (r.reason === 'LOCKED') return r.lockedMinutes ? fill(words.reauth.LOCKED, { minutes: String(r.lockedMinutes) }) : words.reauth.LOCKED_NO_TIME
   return words.reauth[r.reason]
 }
 

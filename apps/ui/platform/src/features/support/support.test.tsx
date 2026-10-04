@@ -8,6 +8,7 @@ import { storeAs } from '../stores/storesTestData'
 import { SupportTab } from '../stores/tabs/SupportTab'
 import { SessionsTab } from './SessionsTab'
 import { codeComplete, firstStep } from './startFlow'
+import { reauthText } from './StartSupportDialog'
 import { SupportRefused } from './Support'
 import { session, target } from './supportTestData'
 import { refusalText, supportAllowed } from './supportText'
@@ -73,6 +74,13 @@ describe('Starting a session', () => {
     expect(firstStep(target({ start: { allowed: false, reason: 'SUSPENDED' } }), null)).toBe('blocked')
     expect(firstStep(target(), session())).toBe('busy')
     expect(firstStep(target(), null)).toBe('why')
+  })
+
+  it('words a refused code from the API’s facts only, never an invented lock time', () => {
+    expect(reauthText({ ok: false, reason: 'LOCKED', triesLeft: null, lockedMinutes: 10 })).toBe('Too many wrong codes. Try again in 10 min.')
+    expect(reauthText({ ok: false, reason: 'LOCKED', triesLeft: null, lockedMinutes: null })).toBe(words.start.reauth.LOCKED_NO_TIME)
+    expect(reauthText({ ok: false, reason: 'WRONG_CODE', triesLeft: 2, lockedMinutes: null })).toContain('2 more tries')
+    expect(reauthText({ ok: false, reason: 'WRONG_CODE', triesLeft: 0, lockedMinutes: null })).toBe(words.start.reauth.WRONG_CODE_LAST)
   })
 
   it('takes only a full 6-digit code', () => {

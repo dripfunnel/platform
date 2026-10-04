@@ -2489,6 +2489,7 @@
         "WRONG_CODE": "That code didn’t work. {tries} more tries before a short lock.",
         "WRONG_CODE_LAST": "That code didn’t work.",
         "LOCKED": "Too many wrong codes. Try again in {minutes} min.",
+        "LOCKED_NO_TIME": "Too many wrong codes. Try again in a few minutes.",
         "NOT_CONNECTED": "2-factor checks aren’t available right now. Try again later.",
         "NO_SECOND_FACTOR": "Set up 2-factor sign-in first: support sessions need it.",
         "CODE_EXPIRED": "That code has expired. Enter the current one."
