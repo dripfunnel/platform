@@ -12,4 +12,10 @@ const subscribe = (onChange: () => void) => {
 
 export const isPhone = (): boolean => window.matchMedia(phoneQuery).matches
 
+/** A route loader for a page a phone replaces (phoneView): nothing to load there. */
+export const unlessPhone = <T>(load: () => Promise<T>): Promise<T> | null => (isPhone() ? null : load())
+
+/** The screen has just widened past a phone's, so pages a phone skipped must load now. */
+export const widened = (wasPhone: boolean, phone: boolean): boolean => wasPhone && !phone
+
 export const usePhone = (): boolean => useSyncExternalStore(subscribe, isPhone, () => false)

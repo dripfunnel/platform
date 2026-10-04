@@ -9,7 +9,8 @@ import { textOf } from '../../testing/textOf'
 import { NeedsLaptop } from '../common/NeedsLaptop'
 import { phoneView } from '../common/phoneView'
 import type { StaffRole } from '../shell/staffRoles'
-import { FindStore, FindStoreView, firstFound, searchAfterTyping, typedFrom, type FindResult } from './FindStore'
+import { FindStore, FindStoreView, firstFound, nextGo, searchAfterTyping, typedFrom, type FindResult } from './FindStore'
+import { unlessPhone, widened } from '../common/usePhone'
 import { phoneAction, PhoneStore } from './PhoneStore'
 import { confirmOpening } from './StoreDetailScreen'
 import { storeDialog } from './storeDialog'
@@ -114,9 +115,47 @@ describe('Find a store’s search', () => {
     expect(firstFound({ kind: 'searching' })).toBeUndefined()
   })
 
+  it('holds ?q= to every search’s length', () => {
+    expect(typedFrom({ q: `  ${'x'.repeat(5000)}` })).toHaveLength(100)
+  })
+
+  it('opens the first store on Go, waits for a search on its way, and opens nothing without a match', () => {
+    const found: FindResult = { kind: 'found', rows: rows(), more: false }
+    const first = rows()[0]
+    expect(nextGo(false, { kind: 'go', result: found })).toEqual({ waiting: false, open: first })
+    expect(nextGo(false, { kind: 'go', result: { kind: 'found', rows: [], more: false } })).toEqual({ waiting: false, open: null })
+    expect(nextGo(false, { kind: 'go', result: { kind: 'failed' } })).toEqual({ waiting: false, open: null })
+    const pressed = nextGo(false, { kind: 'go', result: { kind: 'searching' } })
+    expect(pressed).toEqual({ waiting: true, open: null })
+    expect(nextGo(pressed.waiting, { kind: 'answered', result: { kind: 'searching' } })).toEqual({ waiting: true, open: null })
+    expect(nextGo(pressed.waiting, { kind: 'answered', result: found })).toEqual({ waiting: false, open: first })
+    expect(nextGo(pressed.waiting, { kind: 'answered', result: { kind: 'found', rows: [], more: false } })).toEqual({ waiting: false, open: null })
+    // Typing again cancels the wait, and a later answer opens nothing.
+    const typed = nextGo(pressed.waiting, { kind: 'typed' })
+    expect(typed).toEqual({ waiting: false, open: null })
+    expect(nextGo(typed.waiting, { kind: 'answered', result: found })).toEqual({ waiting: false, open: null })
+  })
+
   it('tells the person to type more when the API has more stores than one page', async () => {
     expect(textOf(await find({ kind: 'found', rows: rows(), more: true }, 'a'))).toContain(words.find.more)
     expect(textOf(await find({ kind: 'found', rows: rows(), more: false }, 'a'))).not.toContain(words.find.more)
+  })
+})
+
+describe('the pages a phone replaces', () => {
+  afterEach(() => void vi.unstubAllGlobals())
+  const atWidth = (phone: boolean) => vi.stubGlobal('window', { matchMedia: () => ({ matches: phone }) })
+
+  it('load nothing on a phone, load on a laptop, and load once the screen widens', async () => {
+    const load = vi.fn(async () => 'page')
+    atWidth(true)
+    expect(unlessPhone(load)).toBeNull()
+    expect(load).not.toHaveBeenCalled()
+    atWidth(false)
+    expect(await unlessPhone(load)).toBe('page')
+    expect(widened(true, false)).toBe(true)
+    expect(widened(false, false)).toBe(false)
+    expect(widened(false, true)).toBe(false)
   })
 })
 
