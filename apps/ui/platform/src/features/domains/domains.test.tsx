@@ -33,6 +33,9 @@ describe('the four addresses', () => {
     expect(text.match(new RegExp(words.recheck, 'g'))).toHaveLength(4)
     for (const column of [words.records.type, words.records.name, words.records.value, words.records.found]) expect(text).toContain(column)
     expect(text).toContain(words.purposes.dkim)
+    // Each Copy names its record, so a screen reader tells them apart.
+    const html = await domains(domainsPages.mixed)
+    expect(html).toContain('aria-label="Copy the value of the CNAME record df1._domainkey.mail"')
     expect(text).toContain(words.purposes.pointer.portal)
     expect(text).toContain(words.records.nothing)
     expect(text).toContain(words.records.mismatch)
