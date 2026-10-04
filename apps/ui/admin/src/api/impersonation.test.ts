@@ -42,10 +42,19 @@ describe('starting', () => {
     expect(await startImpersonation('t1', 'm1', 'Fixing', null)).toEqual({ ok: false, reason: 'REAUTH_REQUIRED' })
   })
 
-  it('builds a setup session from the link and the dialog’s facts', async () => {
-    stubApi({ data: { startPartnerSetupSession: { ok: true, code: null, handoff: 'https://platform.localhost/impersonate/enter?token=abc', sessionId: 'su1', expiresAt: '2026-10-04T12:00:00.000Z' } } })
-    const started = await startSetupSession({ id: 'p1', name: 'Tallis' }, 'Setup', null, 'Priya')
-    expect(started).toMatchObject({ ok: true, handoff: 'https://platform.localhost/impersonate/enter?token=abc', session: { id: 'su1', kind: 'setup', host: 'platform.localhost', staff: { name: 'Priya' } } })
+  it('reads the setup session it started back from the API', async () => {
+    const session = {
+      id: 'su1', kind: 'setup', staff: { id: 'st1', name: 'Priya' }, target: null, membership: null, partner: { id: 'p1', name: 'Tallis' }, store: null,
+      host: 'platform.localhost', reason: 'Setup', ticket: null, startedAt: '2026-10-04T10:00:00.000Z', expiresAt: '2026-10-04T12:00:00.000Z', endedAt: null, extendedAt: null,
+      outcome: 'open', mine: true, actions: { end: { allowed: true, reason: null, failingChecks: null }, extend: null, return: null },
+    }
+    const { calls } = stubApiSequence(
+      { data: { startPartnerSetupSession: { ok: true, code: null, handoff: 'https://platform.localhost/impersonate/enter?token=abc', sessionId: 'su1', expiresAt: '2026-10-04T12:00:00.000Z' } } },
+      { data: { staffSession: { kind: 'found', session } } },
+    )
+    const started = await startSetupSession({ id: 'p1', name: 'Tallis' }, 'Setup', null)
+    expect(calls[1]?.variables).toEqual({ id: 'su1' })
+    expect(started).toMatchObject({ ok: true, handoff: 'https://platform.localhost/impersonate/enter?token=abc', session: { id: 'su1', kind: 'setup', staff: { id: 'st1', name: 'Priya' }, startedAt: '2026-10-04T10:00:00.000Z' } })
   })
 
   it('shows no sessions to a role that may open none', async () => {
