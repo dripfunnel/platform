@@ -115,4 +115,14 @@ describe('shared staff-session reads', () => {
     expect(await reads.read('notice', next.load)).toBeNull()
     expect(next.calls.n).toBe(1)
   })
+
+  it('neither caches, shares nor latches a read that failed', async () => {
+    const posted: unknown[] = []
+    const reads = createSharedSessionReads({ channel: () => ({ postMessage: (m) => void posted.push(m), addEventListener: () => undefined }) })
+    await expect(reads.read('current', () => Promise.reject(new Error('RATE_LIMITED')))).rejects.toThrow()
+    expect(posted).toEqual([])
+    const next = counting(session)
+    expect(await reads.read('current', next.load)).toEqual(session)
+    expect(next.calls.n).toBe(1)
+  })
 })
