@@ -381,6 +381,19 @@ Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused wh
 (`READ_ONLY`), metered through `saas/entitlements` where a plan limits it (`PLAN_LIMIT` with the
 plan that unlocks it), and audited.
 
+**Every Store API and Shop API card keeps AGENTS.md's platform rules**, and its tests show the ones
+it touches:
+
+- **Outbound calls** (webhooks, Shopify, couriers, payment providers, image fetches): a timeout,
+  retries with backoff and a limit, and **SSRF protection on every user-supplied URL**: https
+  only, the host resolved and refused when private, loopback, link-local or metadata
+  (`169.254.169.254`), checked again on every redirect and every retry or replay.
+- **Rate limits** on sign-in, codes and every public Shop API call, per host and per IP, and
+  code lookups (`applyCode`, gift card balance and redemption, mobile sign-in codes, reminder
+  and unsubscribe links) answer **the same refusal whether or not the code exists**.
+- Side effects through the outbox; webhooks, jobs and payments idempotent; money in minor units
+  with a currency; every write audited with its actor; secrets never returned after creation.
+
 **Every Shop API call** builds its `TenantContext` (ACCESS §3) from the storefront's host or the
 public store key, never a secret; a store id in an argument is never authority. `products`,
 `search` and `orderHistory` are **cursor-paged** like the Store API, at most 50 a page. A
@@ -429,20 +442,20 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
 | SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; whose account decided first, §21), invoices settings | SAPI 3 |
 | SAPI 8 | Shop API catalogue and search, edge caching and purge; its isolation test: the tenant comes from the host or public key only, and the cache key carries store, language and currency, so store X's catalogue is never served on store Y's host | SAPI 3, SAPI 6 |
-| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23; the isolation matrix (caller kind × store × shopper, the guest order token included): a shopper reads only their own `order`, `orderHistory`, `account` and `addresses`, and a token opens one order of one store | SAPI 7, SAPI 8, SAPI 23 |
+| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23; the isolation matrix (caller kind × store × shopper, the guest order token included): a shopper reads only their own `order`, `orderHistory`, `account` and `addresses`, and a token opens one order of one store; `applyCode` and mobile sign-in codes rate-limited per host and IP, with one refusal for a wrong and a missing code | SAPI 7, SAPI 8, SAPI 23 |
 | SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment; cash on delivery, bank transfer, the unpaid-transfer release and "Mark as paid" **pending §21** (proposed in PLATFORM-PROMPT §5.4) | SAPI 9, SAPI 4 |
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says; isolation: store A can't read, ship, refund or mark paid store B's order, and a supplier reads, ships and refunds only its own lines | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
 | SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password); isolation: `customers`, `customer`, `customerGroups` and `exportCustomers` are store-scoped (no cross-store rows or counts) and refused to every supplier | SAPI 11 |
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test | SAPI 9 |
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only, and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
-| SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13) | SAPI 5 |
+| SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13); the Shopify connection and image fetches keep §19's outbound rules (SSRF-checked URLs, timeout, bounded retries), tested with a private and a metadata address; isolation: exports are store A's only, supplier A's never supplier B's, and a `to-store` supplier's export carries no customer field | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
 | SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17) | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, #201 |
-| SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants; isolation: a key minted for store A never authenticates on, nor is listed or revoked from, store B; webhooks, deliveries and `replayDelivery` stay in their store; a key's secret is shown once and never returned again | SAPI 11 |
+| SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants; isolation: a key minted for store A never authenticates on, nor is listed or revoked from, store B; webhooks, deliveries and `replayDelivery` stay in their store; a key's secret is shown once and never returned again; a webhook URL is SSRF-checked when saved and on every delivery and `replayDelivery` (private, loopback, link-local and metadata hosts refused, tested), with a timeout and bounded backoff | SAPI 11 |
 | SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test | SAPI 2, #202 |
-| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services; isolation: a gift card code redeems or shows a balance in its own store only, and a download link serves one paid order's file | SAPI 11, SUI 1 |
+| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services; isolation: a gift card code redeems or shows a balance in its own store only, and a download link serves one paid order's file; balance and redemption rate-limited per host and IP, with one refusal for a wrong and a missing code | SAPI 11, SUI 1 |
 | SAPI 23 | Shipping methods and charges, before checkout: flat rate, free over a threshold, collect in person, delivery areas, and the live-rate quote through the couriers (Shiprocket, and the US aggregator: EasyPost or Shippo, chosen here) | SAPI 3, SAPI 6 |
 
 **Store UI (apps/ui/store)**
