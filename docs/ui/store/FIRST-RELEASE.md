@@ -426,8 +426,8 @@ what must merge first.
 | SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix, including a supplier's masked `me` and `storeState` and seller-scoped `orderCounts` (§19) | SAPI 4 |
 | SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
 | SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; whose account decided first, §21), invoices settings | SAPI 3 |
-| SAPI 8 | Shop API catalogue and search, edge caching and purge | SAPI 3, SAPI 6 |
-| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23 | SAPI 7, SAPI 8, SAPI 23 |
+| SAPI 8 | Shop API catalogue and search, edge caching and purge; its isolation test: the tenant comes from the host or public key only, and the cache key carries store, language and currency, so store X's catalogue is never served on store Y's host | SAPI 3, SAPI 6 |
+| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23; the isolation matrix (caller kind × store × shopper, the guest order token included): a shopper reads only their own `order`, `orderHistory`, `account` and `addresses`, and a token opens one order of one store | SAPI 7, SAPI 8, SAPI 23 |
 | SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment; cash on delivery, bank transfer, the unpaid-transfer release and "Mark as paid" **pending §21** (proposed in PLATFORM-PROMPT §5.4) | SAPI 9, SAPI 4 |
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
