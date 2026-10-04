@@ -4,7 +4,7 @@ import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerRole } from '#auth/partnerPermissions'
 import { handleStripeHook } from '#hooks/stripe'
-import { signPayload, StripeRefused, StripeUnavailable, type StripeAccount, type StripeApi, type StripeCharge, type StripeInvoice, type StripePayout } from '#integrations/stripe/index'
+import { signPayload, StripeRefused, StripeUnavailable, type StripeAccount, type StripeApi, type StripeCharge, type StripeInvoice, type StripePayout, type StripeRefund } from '#integrations/stripe/index'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerBillingService, retryAttempts } from '#saas/billing/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -24,7 +24,7 @@ const unix = (d: Date) => Math.floor(d.getTime() / 1000)
 const cardNumber = '4242424242424242'
 
 // Stripe as it is now: the webhook reads these back, whatever the event said.
-const now = { invoices: new Map<string, StripeInvoice>(), charges: new Map<string, StripeCharge>(), payouts: new Map<string, StripePayout>(), accounts: new Map<string, StripeAccount>() }
+const now = { invoices: new Map<string, StripeInvoice>(), charges: new Map<string, StripeCharge>(), refunds: new Map<string, StripeRefund[]>(), payouts: new Map<string, StripePayout>(), accounts: new Map<string, StripeAccount>() }
 let down = false
 const got = <T>(map: Map<string, T>, id: string): T => {
   if (down) throw new StripeUnavailable('test: down')
@@ -42,6 +42,7 @@ const stripe: StripeApi = {
   createCustomer: async () => ({ id: 'cus_northstar' }),
   attachCard: async (_customer, pm) => ({ id: pm, card: { brand: 'visa', last4: '3009', exp_month: 12, exp_year: 2028 } }),
   charge: async (id) => got(now.charges, id),
+  refunds: async (id) => got(now.refunds, id),
   invoice: async (id) => got(now.invoices, id),
   payout: async (_account, id) => got(now.payouts, id),
   account: async (id) => got(now.accounts, id),
@@ -106,7 +107,7 @@ const merchantInvoice = (o: Partial<StripeInvoice> & { id: string }): StripeInvo
   metadata: {},
   subscription_details: { metadata: { store_id: ids.store } },
   lines: null,
-  charge: { id: 'ch_fail1', amount: 4900, currency: 'usd', failure_message: 'Your card was declined.', payment_method_details: { card: { last4: '1881' } }, transfer: null, refunds: null, invoice: o.id },
+  charge: { id: 'ch_fail1', amount: 4900, currency: 'usd', failure_message: 'Your card was declined.', payment_method_details: { card: { last4: '1881' } }, transfer: null, amount_refunded: 0, invoice: o.id },
   ...o,
 })
 
@@ -158,7 +159,7 @@ describe('the Stripe webhook', () => {
         attempt_count: 2,
         next_payment_attempt: null,
         status_transitions: { paid_at: unix(start), finalized_at: null },
-        charge: { id: 'ch_ok1', amount: 4900, currency: 'usd', failure_message: null, payment_method_details: { card: { last4: '1881' } }, transfer: { amount: 4410, currency: 'usd' }, refunds: null, invoice: 'in_fail1' },
+        charge: { id: 'ch_ok1', amount: 4900, currency: 'usd', failure_message: null, payment_method_details: { card: { last4: '1881' } }, transfer: { amount: 4410, currency: 'usd' }, amount_refunded: 0, invoice: 'in_fail1' },
       }),
     )
     expect(await deliver({ id: 'evt_paid1', type: 'invoice.paid', object: { id: 'in_fail1', object: 'invoice' } })).toBe(200)
@@ -178,12 +179,24 @@ describe('the Stripe webhook', () => {
     now.invoices.set('in_fail1', paid)
   })
 
+  it("never takes Billing's attempt count back, whichever failed read commits last", async () => {
+    const third = merchantInvoice({ id: 'in_fail2', attempt_count: 3, next_payment_attempt: unix(new Date(start.getTime() + 5 * 86_400_000)) })
+    now.invoices.set('in_fail2', third)
+    expect(await deliver({ id: 'evt_f2a3', type: 'invoice.payment_failed', object: { id: 'in_fail2', object: 'invoice' } })).toBe(200)
+    now.invoices.set('in_fail2', merchantInvoice({ id: 'in_fail2', attempt_count: 2 }))
+    expect(await deliver({ id: 'evt_f2a2', type: 'invoice.payment_failed', object: { id: 'in_fail2', object: 'invoice' } })).toBe(200)
+    expect((await db.sql<{ attempt: number }[]>`select attempt from merchant_charge where stripe_ref = 'in_fail2'`)[0]?.attempt).toBe(3)
+    now.invoices.set('in_fail2', { ...third, status: 'void', next_payment_attempt: null })
+    expect(await deliver({ id: 'evt_f2void', type: 'invoice.voided', object: { id: 'in_fail2', object: 'invoice' } })).toBe(200)
+  })
+
   it('records a refund as its own row, its payout share in proportion', async () => {
     const paid = now.invoices.get('in_fail1')
     const charge = paid?.charge && typeof paid.charge === 'object' ? paid.charge : null
     if (!paid || !charge) throw new Error('setup')
-    const refunded = { ...charge, refunds: { data: [{ id: 're_1', amount: 980, status: 'succeeded', created: unix(start) }] } }
+    const refunded = { ...charge, amount_refunded: 980 }
     now.charges.set('ch_ok1', refunded)
+    now.refunds.set('ch_ok1', [{ id: 're_1', amount: 980, status: 'succeeded', created: unix(start) }])
     now.invoices.set('in_fail1', { ...paid, charge: refunded })
     expect(await deliver({ id: 'evt_refund1', type: 'charge.refunded', object: { id: 'ch_ok1', object: 'charge' } })).toBe(200)
     expect(await chargeRows('re_1')).toEqual([expect.objectContaining({ kind: 'refund', status: 'refunded', amount: '980', payout_gross: '980', fee_amount: '98' })])
@@ -230,6 +243,20 @@ describe('the Stripe webhook', () => {
       { stripe_payout_id: 'po_2', status: 'failed', amount: '1000' },
       { stripe_payout_id: 'po_3', status: 'paid', amount: '1000' },
     ])
+    // September's charges are counted once: po_1 carries them, the failed po_2 and the later po_3 carry none.
+    const carried = await db.sql<{ stripe_payout_id: string; gross: string; stores: number }[]>`select stripe_payout_id, gross::text, stores from partner_payout where stripe_payout_id is not null order by stripe_payout_id`
+    expect(carried.find((r) => r.stripe_payout_id === 'po_1')?.gross).not.toBe('0')
+    expect(carried.filter((r) => r.stripe_payout_id !== 'po_1')).toEqual([
+      { stripe_payout_id: 'po_2', gross: '0', stores: 0 },
+      { stripe_payout_id: 'po_3', gross: '0', stores: 0 },
+    ])
+  })
+
+  it('never records money in a currency the contract does not pay out in as handled', async () => {
+    now.payouts.set('po_eur', { id: 'po_eur', amount: 5_000, currency: 'eur', arrival_date: unix(new Date('2026-10-03T00:00:00Z')), status: 'paid', failure_message: null, destination: null })
+    expect(await deliver({ id: 'evt_eur', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_eur', object: 'payout' } })).toBe(200)
+    expect(await db.sql`select 1 from billing_event where id = 'evt_eur'`).toHaveLength(0)
+    expect(await db.sql`select 1 from partner_payout where stripe_payout_id = 'po_eur'`).toHaveLength(0)
   })
 
   it("doesn't keep an event it can't place yet, so a later delivery is handled", async () => {
@@ -289,6 +316,10 @@ describe('payout account and card', () => {
     now.accounts.set('acct_northstar', { id: 'acct_northstar', external_accounts: { data: [{ id: 'ba_1', bank_name: 'Chase', last4: '1180', status: 'verified' }] } })
     expect(await deliver({ id: 'evt_acct2', type: 'account.updated', account: 'acct_northstar', object: { id: 'acct_northstar', object: 'account' } })).toBe(200)
     expect((await run<{ nextPayout: unknown }>(q.next, finance)).data?.nextPayout).toEqual({ state: 'scheduled', date: '2026-11-01', soFar: expect.objectContaining({ currency: 'USD' }), toLast4: '1180' })
+    // A read made before the test deposit landed, committing after it, leaves it verified.
+    now.accounts.set('acct_northstar', { id: 'acct_northstar', external_accounts: { data: [{ id: 'ba_1', bank_name: 'Chase', last4: '1180', status: 'new' }] } })
+    expect(await deliver({ id: 'evt_acct3', type: 'account.updated', account: 'acct_northstar', object: { id: 'acct_northstar', object: 'account' } })).toBe(200)
+    expect((await run<{ payoutAccount: { status: string } }>(q.account, finance)).data?.payoutAccount.status).toBe('verified')
   })
 
   it("says why Stripe refused a token", async () => {

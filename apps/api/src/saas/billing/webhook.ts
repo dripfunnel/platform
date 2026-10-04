@@ -1,15 +1,16 @@
 import type postgres from 'postgres'
+import { logEvent } from '#core/log'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   insertBillingEvent,
   saveBillingAccount,
   selectBillingAccount,
-  selectChargeByRef,
   selectContractCurrency,
   selectPartnerByAccount,
   deleteBillingEvent,
   selectPartnerByCustomer,
   selectPartnerByStoreCustomer,
+  selectPeriodCarried,
   selectPeriodTotals,
   selectStoreByCustomer,
   setEventPartner,
@@ -18,7 +19,7 @@ import {
   upsertPartnerInvoice,
   upsertPayout,
 } from '#db/scoped/partnerBilling'
-import { StripeUnavailable, type StripeAccount, type StripeApi, type StripeCharge, type StripeEvent, type StripeInvoice, type StripePayout } from '#integrations/stripe/index'
+import { StripeUnavailable, type StripeAccount, type StripeApi, type StripeCharge, type StripeEvent, type StripeInvoice, type StripePayout, type StripeRefund } from '#integrations/stripe/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { payoutStatusOf } from './partner'
 
@@ -26,12 +27,19 @@ import { payoutStatusOf } from './partner'
 // Stripe has it now, so a replay changes nothing and an old event arriving late can't undo a
 // newer one; the event id goes into billing_event in the same transaction as what it changed.
 
-export type EventOutcome = 'handled' | 'duplicate' | 'ignored'
+// `mismatch`: money in a currency the partner's contract doesn't pay out in. Never shown as handled:
+// it is logged with the partner, and the event isn't kept, so it is applied once the contract is fixed.
+export type EventOutcome = 'handled' | 'duplicate' | 'ignored' | 'mismatch'
+
+/** The partner an event was placed with, or why its money couldn't be. */
+type Placed = { partnerId: string; mismatch: boolean } | null
+const placed = (partnerId: string): Placed => ({ partnerId, mismatch: false })
+const mismatched = (partnerId: string): Placed => ({ partnerId, mismatch: true })
 
 /** What one event is about, read back from Stripe before anything is written. */
 type Subject =
-  | { kind: 'invoice'; invoice: StripeInvoice }
-  | { kind: 'charge'; charge: StripeCharge; invoice: StripeInvoice | null }
+  | { kind: 'invoice'; invoice: StripeInvoice; refunds: StripeRefund[] }
+  | { kind: 'charge'; invoice: StripeInvoice | null; refunds: StripeRefund[] }
   | { kind: 'payout'; accountId: string; payout: StripePayout }
   | { kind: 'account'; account: StripeAccount }
   | { kind: 'none' }
@@ -42,12 +50,24 @@ const upper = (c: string) => c.toUpperCase()
 /** `value × part / total` in integers, rounded half up. */
 const share = (value: number, part: number, total: number): number => (total === 0 ? 0 : Number((BigInt(value) * BigInt(part) * 2n + BigInt(total)) / (2n * BigInt(total))))
 
+const chargeOf = (invoice: StripeInvoice): StripeCharge | null => (invoice.charge && typeof invoice.charge === 'object' ? invoice.charge : null)
+
+/** The paying charge's refunds, read through Stripe's paged list, only when it has any. */
+const refundsOf = async (stripe: StripeApi, invoice: StripeInvoice | null): Promise<StripeRefund[]> => {
+  const charge = invoice ? chargeOf(invoice) : null
+  return charge && (charge.amount_refunded ?? 0) > 0 ? stripe.refunds(charge.id) : []
+}
+
 const fetchSubject = async (stripe: StripeApi, event: StripeEvent): Promise<Subject> => {
   const object = event.data.object
-  if (event.type.startsWith('invoice.')) return { kind: 'invoice', invoice: await stripe.invoice(object.id) }
+  if (event.type.startsWith('invoice.')) {
+    const invoice = await stripe.invoice(object.id)
+    return { kind: 'invoice', invoice, refunds: await refundsOf(stripe, invoice) }
+  }
   if (event.type.startsWith('charge.')) {
     const charge = await stripe.charge(object.id)
-    return { kind: 'charge', charge, invoice: charge.invoice ? await stripe.invoice(charge.invoice) : null }
+    const invoice = charge.invoice ? await stripe.invoice(charge.invoice) : null
+    return { kind: 'charge', invoice, refunds: await refundsOf(stripe, invoice) }
   }
   if (event.type.startsWith('payout.') && event.account) return { kind: 'payout', accountId: event.account, payout: await stripe.payout(event.account, object.id) }
   if (event.type.startsWith('account.')) {
@@ -58,17 +78,15 @@ const fetchSubject = async (stripe: StripeApi, event: StripeEvent): Promise<Subj
 }
 
 const metadataOf = (invoice: StripeInvoice) => ({ ...(invoice.subscription_details?.metadata ?? {}), ...invoice.metadata })
-const chargeOf = (invoice: StripeInvoice): StripeCharge | null => (invoice.charge && typeof invoice.charge === 'object' ? invoice.charge : null)
-
 // A merchant's subscription invoice is one merchant_charge row, whichever of its retries paid it.
-const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice): Promise<string | null> => {
+const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice, refunds: StripeRefund[]): Promise<Placed> => {
   const storeId = metadataOf(invoice)['store_id']
   if (!storeId || !/^[0-9a-f-]{36}$/i.test(storeId)) return null
   const store = await selectStoreByCustomer(tx, storeId, invoice.customer)
   if (!store) return null
-  if (invoice.status === 'draft' || (invoice.status === 'open' && invoice.attempt_count === 0)) return store.partner_id
+  if (invoice.status === 'draft' || (invoice.status === 'open' && invoice.attempt_count === 0)) return placed(store.partner_id)
   const payoutCurrency = await selectContractCurrency(tx, store.partner_id)
-  if (!payoutCurrency) return store.partner_id
+  if (!payoutCurrency) return mismatched(store.partner_id)
 
   const charge = chargeOf(invoice)
   const paid = invoice.status === 'paid'
@@ -80,13 +98,13 @@ const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice): Prom
     const transfer = charge?.transfer && typeof charge.transfer === 'object' ? charge.transfer : null
     if (transfer) {
       // Stripe converted the partner's part into the payout currency; DripFunnel's fee converts at the same rate.
-      if (upper(transfer.currency) !== payoutCurrency) return store.partner_id
+      if (upper(transfer.currency) !== payoutCurrency) return mismatched(store.partner_id)
       fee = share(appFee, transfer.amount, Math.max(amount - appFee, 0))
       gross = transfer.amount + fee
     } else if (upper(invoice.currency) === payoutCurrency) {
       fee = appFee
       gross = amount
-    } else return store.partner_id
+    } else return mismatched(store.partner_id)
   }
 
   await upsertCharge(tx, {
@@ -105,15 +123,14 @@ const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice): Prom
     invoiceId: invoice.id,
     // Billing stops retrying an uncollectible or void invoice; an open one says when it tries next.
     retryAt: !paid && invoice.status === 'open' && invoice.next_payment_attempt ? seconds(invoice.next_payment_attempt) : null,
-    attempt: !paid && invoice.status === 'open' && invoice.next_payment_attempt ? Math.max(invoice.attempt_count, 1) : null,
+    // Kept once retries stop too, so an older read can't take the count back (db/scoped/partnerBilling).
+    attempt: paid ? null : Math.max(invoice.attempt_count, 1),
     chargedAt: seconds(invoice.status_transitions?.paid_at ?? invoice.created),
   })
 
   // Each refund its own row, its payout part in proportion (migration 0019: refunds subtract).
-  for (const refund of charge?.refunds?.data ?? []) {
+  for (const refund of refunds) {
     if (refund.status !== 'succeeded') continue
-    const original = await selectChargeByRef(tx, invoice.id)
-    if (!original) continue
     await upsertCharge(tx, {
       stripeRef: refund.id,
       partnerId: store.partner_id,
@@ -123,8 +140,8 @@ const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice): Prom
       amount: refund.amount,
       currency: upper(invoice.currency),
       payoutCurrency,
-      payoutGross: share(original.payout_gross, refund.amount, original.amount),
-      fee: share(original.fee_amount, refund.amount, original.amount),
+      payoutGross: share(gross, refund.amount, amount),
+      fee: share(fee, refund.amount, amount),
       cardLast4: null,
       failureReason: null,
       invoiceId: invoice.id,
@@ -133,11 +150,11 @@ const applyMerchantInvoice = async (tx: ScopedSql, invoice: StripeInvoice): Prom
       chargedAt: seconds(refund.created),
     })
   }
-  return store.partner_id
+  return placed(store.partner_id)
 }
 
 // DripFunnel's invoice to the partner (§11.3), and what its payment says about the card.
-const applyPartnerInvoice = async (tx: ScopedSql, invoice: StripeInvoice, type: string, at: Date): Promise<string | null> => {
+const applyPartnerInvoice = async (tx: ScopedSql, invoice: StripeInvoice, type: string, at: Date): Promise<Placed> => {
   const partnerId = await selectPartnerByCustomer(tx, invoice.customer)
   if (!partnerId) return null
   if (invoice.status !== 'draft') {
@@ -161,60 +178,66 @@ const applyPartnerInvoice = async (tx: ScopedSql, invoice: StripeInvoice, type: 
   } else if (account?.card_status === 'declined' && invoice.status === 'paid') {
     await saveBillingAccount(tx, partnerId, { card_status: 'on_file' }, at)
   }
-  return partnerId
+  return placed(partnerId)
 }
 
-// A Connect payout pays the month before it arrives (§14.3: "on the 1st of each month").
-const applyPayout = async (tx: ScopedSql, accountId: string, payout: StripePayout): Promise<string | null> => {
+// A Connect payout pays the month before it arrives (§14.3: "on the 1st of each month"). When a month
+// has more than one (a retry after a failure, a manual payout), its totals are counted once: each
+// payout carries what the month's other live payouts don't, and a failed one carries none.
+const applyPayout = async (tx: ScopedSql, accountId: string, payout: StripePayout): Promise<Placed> => {
   const partnerId = await selectPartnerByAccount(tx, accountId)
   if (!partnerId) return null
   const currency = await selectContractCurrency(tx, partnerId)
-  if (!currency || upper(payout.currency) !== currency) return partnerId
+  if (!currency || upper(payout.currency) !== currency) return mismatched(partnerId)
   const arrival = seconds(payout.arrival_date)
   const periodEnd = new Date(Date.UTC(arrival.getUTCFullYear(), arrival.getUTCMonth(), 1))
   const periodStart = new Date(Date.UTC(arrival.getUTCFullYear(), arrival.getUTCMonth() - 1, 1))
-  const totals = await selectPeriodTotals(tx, partnerId, periodStart, periodEnd)
   const status = payout.status === 'paid' ? 'paid' : payout.status === 'failed' || payout.status === 'canceled' ? 'failed' : 'scheduled'
+  const month = await selectPeriodTotals(tx, partnerId, periodStart, periodEnd)
+  const carried = await selectPeriodCarried(tx, partnerId, periodStart, payout.id)
+  const live = status !== 'failed'
   await upsertPayout(tx, {
     stripePayoutId: payout.id,
     partnerId,
     periodStart,
     periodEnd,
     currency,
-    gross: totals.gross,
-    fee: totals.fee,
+    gross: live ? Math.max(month.gross - carried.gross, 0) : 0,
+    fee: live ? Math.max(month.fee - carried.fee, 0) : 0,
     amount: payout.amount,
-    stores: totals.stores,
+    stores: live && carried.stores === 0 ? month.stores : 0,
     status,
     scheduledFor: arrival,
     paidAt: status === 'paid' ? arrival : null,
     toLast4: payout.destination && typeof payout.destination === 'object' ? payout.destination.last4 : null,
     failureReason: payout.failure_message ?? null,
   })
-  return partnerId
+  return placed(partnerId)
 }
 
 // §14.3 "Verifying · Verified · Verification failed": the test deposit's outcome.
-const applyAccount = async (tx: ScopedSql, account: StripeAccount, at: Date): Promise<string | null> => {
+const applyAccount = async (tx: ScopedSql, account: StripeAccount, at: Date): Promise<Placed> => {
   const partnerId = await selectPartnerByAccount(tx, account.id)
   if (!partnerId) return null
   const bank = account.external_accounts?.data[0]
-  if (!bank) return partnerId
+  if (!bank) return placed(partnerId)
   const before = await selectBillingAccount(tx, partnerId)
   const status = payoutStatusOf(bank.status)
+  // The test deposit's outcome is final for that account: a read made before it never undoes it.
+  if (before?.payout_last4 === bank.last4 && (before.payout_status === 'verified' || before.payout_status === 'failed') && status === 'verifying') return placed(partnerId)
   await saveBillingAccount(tx, partnerId, { payout_bank: bank.bank_name ?? null, payout_last4: bank.last4, payout_status: status, payout_failure: status === 'failed' ? bank.status : null }, at)
   if (status === 'failed' && before?.payout_status !== 'failed') {
     await queueSideEffect(tx, { kind: 'email', idempotencyKey: `partner-payout-failed:${account.id}:${bank.last4}`, payload: { template: 'partner-payout-account-failed' }, partnerId, storeId: null })
   }
-  return partnerId
+  return placed(partnerId)
 }
 
-const apply = async (tx: ScopedSql, subject: Subject, type: string, at: Date): Promise<string | null> => {
+const apply = async (tx: ScopedSql, subject: Subject, type: string, at: Date): Promise<Placed> => {
   switch (subject.kind) {
     case 'invoice':
-      return (await selectPartnerByCustomer(tx, subject.invoice.customer)) ? applyPartnerInvoice(tx, subject.invoice, type, at) : applyMerchantInvoice(tx, subject.invoice)
+      return (await selectPartnerByCustomer(tx, subject.invoice.customer)) ? applyPartnerInvoice(tx, subject.invoice, type, at) : applyMerchantInvoice(tx, subject.invoice, subject.refunds)
     case 'charge':
-      return subject.invoice ? applyMerchantInvoice(tx, subject.invoice) : null
+      return subject.invoice ? applyMerchantInvoice(tx, subject.invoice, subject.refunds) : null
     case 'payout':
       return applyPayout(tx, subject.accountId, subject.payout)
     case 'account':
@@ -252,11 +275,13 @@ export const handleStripeEvent = async ({ sql, stripe, event, now }: { sql: post
   return withSystemScope(sql, async (tx) => {
     const at = now()
     if (!(await insertBillingEvent(tx, { id: event.id, type: event.type, partnerId: null, storeId: null, at }))) return 'duplicate'
-    const partnerId = await apply(tx, subject, event.type, at)
-    if (!partnerId) {
+    const result = await apply(tx, subject, event.type, at)
+    if (!result || result.mismatch) {
       await deleteBillingEvent(tx, event.id)
-      return 'ignored'
+      if (result?.mismatch) logEvent({ event: 'stripe_event', api: 'hooks', partnerId: result.partnerId, code: 'currency_mismatch' })
+      return result ? 'mismatch' : 'ignored'
     }
+    const { partnerId } = result
     await setEventPartner(tx, event.id, partnerId)
     await touchBillingFeed(tx, partnerId, at, false)
     return 'handled'
