@@ -79,6 +79,7 @@ const paymentDto = (p: PaymentRow) => ({
 })
 
 const retryingDto = (p: PaymentRow) => ({
+  id: p.id,
   storeId: p.store_id,
   storeName: p.store_name,
   amount: money(p.amount, p.currency),
@@ -150,7 +151,9 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
       const rows = await selectPayments(tx, partnerId, decoded, decoded.limit)
       const { rows: pageRows, pageInfo } = pageOf(rows, decoded, (r) => ({ occurredAt: r.charged_at, id: r.id }))
       const first = decoded.after === undefined && decoded.before === undefined
-      return { failed: first ? (await selectRetrying(tx, partnerId, retryingMax)).map(retryingDto) : [], items: pageRows.map(paymentDto), pageInfo }
+      // At most `retryingMax`, and whether there are more; the rest are in the paged list below it.
+      const retrying = first ? await selectRetrying(tx, partnerId, retryingMax + 1) : []
+      return { failed: retrying.slice(0, retryingMax).map(retryingDto), failedMore: retrying.length > retryingMax, items: pageRows.map(paymentDto), pageInfo }
     })
   }
 

@@ -326,6 +326,7 @@ type MerchantPayment {
 
 type MerchantPaymentsPage {
   failed: [RetryingPayment!]
+  failedMore: Boolean
   items: [MerchantPayment!]
   pageInfo: BillingPageInfo
 }
@@ -931,6 +932,7 @@ type RetryingPayment {
   attempt: Int
   attempts: Int
   cardLast4: String
+  id: ID
   retryAt: String
   storeId: ID
   storeName: String
