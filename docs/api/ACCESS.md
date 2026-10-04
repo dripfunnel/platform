@@ -421,7 +421,8 @@ supplier who can look and not touch.
 | `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
 | `orders.refund`: their own lines only, up to their value; never a return's start or an override (§7.3) | | | ✓ | |
 | `sales.read`: Your sales (`mySales`), their own sold lines, no totals; never `reports.read` | | | ✓ | ✓ |
-| `exports`: their own products, stock and (by tier) order lines, masked as their screens are (no totals; customer fields by shipping mode, §7.3) | ✓ | ✓ | ✓ | ✓ |
+| `exports.products`: their own products and stock | ✓ | ✓ | ✓ | ✓ |
+| `exports.orders`: their own order lines, masked as their screens are (no totals; customer fields by shipping mode, §7.3); only with `orders.read` | | | ✓ | ✓ |
 | `catalog.import`: their own products (decided on #184) | | ✓ | ✓ | ✓ |
 | Own activity (profile) | ✓ | ✓ | ✓ | ✓ |
 | Offers, customers (beyond what §7.3 lets a `to-shopper` supplier see), payments, shipping, tax, people, vendors, billing, settings | never | never | never | never |
