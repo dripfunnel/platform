@@ -31,6 +31,7 @@ document disagrees. Then open only the part your task touches:
 | Admin console (`apps/ui/admin`) | [docs/ui/admin/](docs/ui/admin/README.md), its FIRST-RELEASE (what to build now) and CONSOLE-DESIGN |
 | `apps/ui/shared` | [docs/ui/shared/](docs/ui/shared/README.md) |
 | Repo-wide conventions, workspaces, `storefront-core` releases | [docs/code/DESIGN.md](docs/code/DESIGN.md), [docs/code/ARCHITECTURE.md](docs/code/ARCHITECTURE.md) |
+| Running locally, setting up or deploying an environment | [docs/setup/](docs/setup/local.md): local, dev, prod |
 | Storefront template, `storefront-core`, AI design | [docs/storefront/ARCHITECTURE.md](docs/storefront/ARCHITECTURE.md), [DESIGN.md](docs/storefront/DESIGN.md) |
 
 The first platform's documents are ported into `docs/` and its repositories are gone;
@@ -40,8 +41,12 @@ The first platform's documents are ported into `docs/` and its repositories are 
 
 ```bash
 pnpm install
+pnpm setup:local                                 # once: install, check, migrate and seed locally
 pnpm turbo run build typecheck lint test         # every gate, only what changed
-pnpm dev                                         # the four apps: the Worker and the three SPAs
+pnpm dev                                         # the four apps: the Worker and the three SPAs,
+                                                 # after checking the local setup
+pnpm dev:https                                   # the same behind https://admin.localhost and
+                                                 # https://platform.localhost (needs Caddy)
 pnpm dev:all                                     # those plus the storefront template and
                                                  # storefront-core rebuilding on change
 pnpm dev:<api|store|platform|admin>              # one of the four on its own

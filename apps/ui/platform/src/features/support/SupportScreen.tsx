@@ -1,9 +1,11 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, reserveTab, useNow, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter, type ErrorComponentProps } from '@tanstack/react-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { endSupportSession, loadSupportSessions, loadSupportTargets, returnToSupportSession, type Page, type SupportSession, type SupportTarget } from '../../api/support'
+import { useCallback, useEffect, useState } from 'react'
+import type { Page } from '../../api/page'
+import { endSupportSession, loadSupportSessions, loadSupportTargets, returnToSupportSession, type SupportSession, type SupportTarget } from '../../api/support'
 import { harnessEnabled } from '../../harness'
+import { usePaged } from '../common/paged'
 import { fill, messages } from '../../messages'
 import { SessionsTab } from './SessionsTab'
 import { Support, SupportError, SupportLoading, SupportRefused } from './Support'
@@ -16,36 +18,6 @@ import { UsersTab } from './UsersTab'
 const supportRoute = getRouteApi('/_app/support')
 const shellRoute = getRouteApi('/_app')
 const words = messages.support
-
-type MoreState = 'idle' | 'busy' | 'failed'
-
-// A first page from the loader or a search, grown by Show more; a page still on its way when the
-// first one changes is dropped.
-const usePaged = <T,>(first: Page<T> | null, load: (after: string) => Promise<Page<T>>) => {
-  const [pages, setPages] = useState<{ items: readonly T[]; endCursor: string | null; more: boolean } | null>(null)
-  const [state, setState] = useState<MoreState>('idle')
-  const current = useRef(first)
-  useEffect(() => {
-    current.current = first
-    setPages(null)
-    setState('idle')
-  }, [first])
-  const shown = pages ?? { items: first?.items ?? [], endCursor: first?.pageInfo.endCursor ?? null, more: first?.pageInfo.hasNextPage ?? false }
-  const onMore = () => {
-    if (!shown.endCursor) return
-    const asked = first
-    setState('busy')
-    load(shown.endCursor).then(
-      (next) => {
-        if (current.current !== asked) return
-        setPages({ items: [...shown.items, ...next.items], endCursor: next.pageInfo.endCursor, more: next.pageInfo.hasNextPage })
-        setState('idle')
-      },
-      () => current.current === asked && setState('failed'),
-    )
-  }
-  return { items: shown.items, more: { show: shown.more, busy: state === 'busy', failed: state === 'failed' }, onMore }
-}
 
 export const SupportScreen = () => {
   const data = supportRoute.useLoaderData()

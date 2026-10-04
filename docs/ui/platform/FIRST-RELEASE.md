@@ -548,13 +548,15 @@ Northstar" reads "billed by Northstar" everywhere. SAAS §7.1 says this mode fol
 its API card comes after (§16). How the platform learns a store's status in this mode is open
 (SAAS §14).
 
-**Built on #195.** Who bills is the API's (`partnerState.billingMode`, read with the shell's facts). Merchants' payments,
-payouts and DripFunnel's invoices have no API until #201 connects the payment provider.
-- Until then, a Live partner sees "Payments, payouts and invoices connect with DripFunnel's payment
-  provider…", or for one that bills itself just the invoices. Both choices of who bills are shown,
-  with changing it waiting on the same.
-- The four parts are drawn from a sample in the `?state=` harness only (`sample`,
-  `failedPayments`, `payoutHeld`, `firstPayout`, `stale`, `prelive`, `own`).
+**Built on #195, wired on #204.** Who bills is the API's (`partnerState.billingMode`, read with the
+shell's facts); the four parts are #201's queries, read in one request, each list paged with
+**Show more** (`after`, 25 a page).
+- **Who bills** is the prototype's two radio choices: an Owner or Finance changes it on selection
+  (audited by the API); everyone else sees them disabled with why.
+- A held payout says why (no payout account yet, being verified, failed verification); the
+  invoice's **Tax invoice (PDF)** opens Stripe's fresh link in a tab opened on the click.
+- `?state=` keeps the screen's own states (`loading`, `error`, `denied`, `prelive`, `own`); there is
+  no sample any more.
 - Support is refused even by address. Only the last four digits of a card or account ever appear.
 
 ---
@@ -693,7 +695,8 @@ account elsewhere.
 
 **Payout account**: "Chase ending 1180 · Verified" (or Verifying · Verification failed ·
 Missing), "Only the last 4 digits are ever shown. Payouts go out on the 1st of each month in
-USD."; **Add / Change account** (Owner, Finance): account holder, account number or IBAN —
+USD."; **Add / Change account** (Owner, Finance): account holder, account number or IBAN in
+Stripe's own field, so only a token reaches DripFunnel (#201) —
 "DripFunnel checks it with a small test deposit. Payouts pause until it's verified (1–2
 business days)." **Payment method**: "Visa ending 3009 · On file" (or Declined · Missing),
 "DripFunnel charges this card for its invoices, such as priority support."; **Add / Change
@@ -1058,6 +1061,33 @@ api/README.md §2.1); a partner id in a request is not authority.
 - `supportSessions(open, after, before)` and `mySupportSession`; History says who ended a session
   or that it expired. Start, return and end are `support` entries naming the store, so the
   partner's log and the store's both show them. `navBadges.supportOpenSessions` counts open ones.
+
+**Built on #201** (Billing, `apis/platform/billing.ts`, `saas/billing`, `integrations/stripe`,
+`hooks/stripe.ts`, migration `0033`), **against Stripe answered in memory**: no Stripe account
+exists yet (THIRD-PARTY-ACCESS §2.7), so nothing has called Stripe; the keys arrive as Worker
+secrets and the same code runs.
+- Reads need `billing.read` (Owner, Admin, Finance, Read-only): `merchantPayments(after, before)`
+  with `failed` (the retrying block: why, the card's last 4, the next retry, attempt N of 4) on
+  the first page; `payouts(after, before)` (status `paid`, `scheduled`, `held` or `failed`, the
+  adjustment with its note, the account's last 4); `nextPayout` (`scheduled` with the date and
+  the partner's share so far; `heldNoAccount`, `heldVerifying` or `heldVerification` while the
+  payout account is missing, being verified or failed, §14.3; or `first`; `heldContract` waits on the
+  contract model, §18, and is never answered); `partnerInvoices(after, before)` (`overdue` is an
+  open invoice past its due date); `billingSettings` (who bills, the payout account, and the
+  stale strip's `asOf` and `staleSince` from the last Stripe event and since when Stripe has been
+  slow); `payoutAccount`, `paymentMethod`; and `downloadInvoice(id)`, Stripe's fresh PDF link,
+  **a query** because reading it changes nothing.
+- `setBillingMode(mode)` (`billing.write`: Owner, Finance) is audited and flips only what the
+  Stores list shows and what `setStoreBillingStatus` allows (#159).
+- `setPayoutAccount(token)` (`payout.write`) and `setPaymentMethod(token)` (`card.write`): Owner
+  and Finance, **never a staff session** (`BLOCKED_WHILE_IMPERSONATING`,
+  `PARTNER_ENTERS_THIS_ITSELF`), and they take only Stripe's tokens — a bank account from
+  Stripe.js (`btok_…`) and a card from its hosted field (`pm_…`). A number is `INVALID_INPUT`
+  before anything reads it; refusals are `NOT_CONNECTED` (no keys), `PROVIDER_UNAVAILABLE`,
+  `TOKEN_REFUSED`, `NO_COUNTRY`. The first payout account makes the partner's Connect account
+  (Custom, so the bank account is given here, not on a Stripe page); the test deposit's outcome
+  arrives by webhook. Only bank names and last 4 digits are stored.
+- `navBadges.billingFailedPayments` counts the retrying payments while DripFunnel bills.
 - **Not here**: the handoff exchange on the portal, the support caller, read-only enforcement in
   the store, the merchant's Allow/Deny of writes (the Store strand). That exchange spends a link
   only while the start's codes still allow a session (ACCESS §8).

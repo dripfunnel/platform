@@ -1,0 +1,16 @@
+# `pnpm dev:https`: the consoles on their production-shaped hosts over HTTPS, so Entra's
+# callback reaches the local Worker (docs/api/README.md §7).
+{
+	skip_install_trust
+	auto_https disable_redirects
+}
+
+admin.localhost {
+	tls internal
+	reverse_proxy localhost:5175
+}
+
+platform.localhost {
+	tls internal
+	reverse_proxy localhost:5174
+}

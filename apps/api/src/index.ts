@@ -25,6 +25,8 @@ import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
+import { stripeClient, type StripeApi } from '#integrations/stripe/index'
+import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
@@ -190,6 +192,16 @@ const handleAdmin = async (
   })
 }
 
+// Built once per isolate from configuration, like the identity provider.
+let stripeBuilt: { key: string; api: StripeApi } | undefined
+
+const stripeFor = (config: Config): StripeApi | null => {
+  const key = config.STRIPE_SECRET_KEY
+  if (!key) return null
+  if (stripeBuilt?.key !== key) stripeBuilt = { key, api: stripeClient({ secretKey: key }) }
+  return stripeBuilt.api
+}
+
 // Imported once per isolate, like the identity provider, and only from configuration.
 let box: { key: string; secrets: Promise<SecretBox> } | undefined
 
@@ -237,8 +249,19 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), now: () => new Date() }))
   })
+}
+
+// hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2). A route whose secrets aren't set doesn't exist.
+const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+  const stripe = stripeFor(config)
+  const signingSecret = config.STRIPE_WEBHOOK_SECRET
+  if (url.pathname !== stripeHookPath || !stripe || !signingSecret) return notFound()
+  const hyperdrive = config.HYPERDRIVE
+  // Stripe delivers again after a 503, so nothing is lost while the database is away.
+  if (!hyperdrive) return new Response(null, { status: 503 })
+  return withConnection(hyperdrive, ctx, (sql) => handleStripeHook(request, { sql, stripe, signingSecret, now: () => new Date() }))
 }
 
 const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise<{ response: Response; area: Area | null }> => {
@@ -251,7 +274,8 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
     return { response: new Response(null, { status: 500 }), area: null }
   }
   const area = resolveArea(url, config)
-  if (!area || area === 'hooks') return { response: notFound(), area: area ?? null }
+  if (!area) return { response: notFound(), area: null }
+  if (area === 'hooks') return { response: await handleHooks(request, url, config, ctx), area }
   if (isHealthPath(area, url.pathname)) {
     return { response: await handleHealthCheck(request, area, config, ctx, env.HEALTH_RATE_LIMITER, env.CF_VERSION_METADATA.id), area }
   }

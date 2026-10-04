@@ -1,4 +1,8 @@
+import { existsSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
+
+// Local values from apps/api/.env.local (#272); what the shell or CI already set wins.
+if (existsSync('.env.local')) process.loadEnvFile('.env.local')
 
 export default defineConfig({
   // Node loads Pothos and Yoga with the production build of graphql; without this, Vite gives

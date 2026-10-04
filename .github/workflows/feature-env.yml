@@ -108,6 +108,15 @@ jobs:
           config: wrangler.feature.json
           message: ${{ github.sha }}
 
+      # A feature Worker's values come from this workflow (#272): its hosts are in the generated
+      # config, and its own key-encryption key is made once, here, never copied from dev.
+      - name: Worker secrets
+        working-directory: apps/api
+        run: |
+          if ! pnpm exec wrangler secret list -c wrangler.feature.json | grep -q '"CREDENTIALS_KEK"'; then
+            openssl rand -base64 32 | pnpm exec wrangler secret put CREDENTIALS_KEK -c wrangler.feature.json
+          fi
+
       - name: Summary
         run: |
           {

@@ -14,6 +14,7 @@ import './activity'
 import './settings'
 import './reports'
 import './support'
+import './billing'
 
 export type { PlatformContext } from './access'
 

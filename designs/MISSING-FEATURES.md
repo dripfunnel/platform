@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-04.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -83,7 +83,7 @@ shows what is needed.
 | Pre-orders | ~ app | ✓ | — | — (only "Keep selling when out of stock") |
 | Product personalisation (custom text or upload on the product) | ~ app | ✓ | ✓ (custom fields) | — |
 | Express wallets (Apple Pay, Google Pay, Shop Pay) | ✓ | ✓ | ~ (via Stripe) | — (not mentioned) |
-| Local pickup with hours and locations | ✓ | ✓ | — | ~ (pickup exists, with no hours or location choice) |
+| Local pickup with hours and locations | ✓ | ✓ | — | ~ (pickup hours; no location choice) |
 | Local delivery (radius or postcode, time slots) | ✓ | ✓ | — | — |
 
 ### 2.3 Orders and fulfilment
@@ -92,25 +92,25 @@ shows what is needed.
 |---|---|---|---|---|
 | Draft or manual orders (phone, WhatsApp sales) ⚑ | ✓ | ✓ | ✓ | — |
 | Edit an order: items, quantities, address ⚑ | ✓ | ~ | ✓ (OrderModification) | — |
-| Returns / RMA: request, approve, receive, restock, exchange | ✓ | ~ | — | — (only a refund reason and a restock tick box) |
-| Buy and print shipping labels, book courier pickups ⚑ | ✓ | ✓ | ✓ (Shiprocket fulfilment handler) | — (a toast only) |
+| Returns / RMA: request, approve, receive, restock, exchange | ✓ | ~ | — | ~ (start, receive, refund, restock, cancel; no exchange) |
+| Buy and print shipping labels, book courier pickups ⚑ | ✓ | ✓ | ✓ (Shiprocket fulfilment handler) | ✓ (booked labels, courier pickup) |
 | Choose which location fulfils an order | ✓ | ~ | ✓ | — |
 | Fraud or risk analysis | ✓ | ~ | — | — (only "Looks like fraud" as a cancel reason) |
 | Order tags, date filters, saved views | ✓ | ✓ | ~ | — |
 | Bulk actions on orders: ship, print, archive | ✓ | ✓ | ~ | — |
 | Resend order emails, send an invoice or payment link | ✓ | ✓ | ~ | — |
-| Order number format, archiving | ✓ | ✓ | ✓ (OrderCodeStrategy) | — |
+| Order number format, archiving | ✓ | ✓ | ✓ (OrderCodeStrategy) | ~ (number format in Store info; no archiving) |
 | Tracking page for shoppers | ✓ | ✓ | ~ (Shiprocket sync) | — |
 
 ### 2.4 Customers and marketing
 
 | Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
-| Create or edit customers, notes, tags | ✓ | ✓ | ✓ | — (a read-only list built from orders) |
-| Customer groups ⚑ | ✓ (segments) | ✓ | ✓ | — (Offers refers to groups, but no screen manages them) |
+| Create or edit customers, notes, tags | ✓ | ✓ | ✓ | ✓ |
+| Customer groups ⚑ | ✓ (segments) | ✓ | ✓ | ✓ |
 | Customer segments by behaviour | ✓ | ✓ | — | — |
 | Customer history timeline ⚑ | ✓ | ✓ | ✓ | — |
-| Marketing consent per customer, import and export | ✓ | ✓ | — | — |
+| Marketing consent per customer, import and export | ✓ | ✓ | — | ~ (consent per customer and export; no import) |
 | Data requests: export or delete a customer (GDPR, DPDP) | ✓ | ✓ | — | — (required by AGENTS.md) |
 | Email marketing campaigns and automations | ✓ | ✓ | — | — (abandoned cart only) |
 | SMS / WhatsApp marketing | ~ app | ~ | — | ~ (WhatsApp for abandoned carts, India only) |
@@ -128,12 +128,12 @@ shows what is needed.
 | Bundles and kits | ✓ | ✓ | — | — |
 | Subscriptions and recurring products | ✓ | ✓ | — | — |
 | Services and bookings | ~ | ✓ | — | — ("Coming later") |
-| Product badges: define and assign | ~ | ✓ | — | — (the toggle exists, there is nothing to configure) |
+| Product badges: define and assign | ~ | ✓ | — | ✓ (Settings › Catalogue, picked per product) |
 | Custom fields / metafields for the merchant | ✓ | ✓ | ✓ | — (Business "custom fields" is only a plan flag) |
 | Scheduled publishing | ✓ | ~ | — | — |
 | Collection image and SEO, manual sort order | ✓ | ✓ | ✓ | — |
 | Price-range automatic collections | ✓ | ✓ | ~ | — ("isn't possible yet") |
-| Stock history / movement ledger ⚑ | ✓ | ~ | ✓ (StockMovement) | — (the adjustment reason promises a history that doesn't exist) |
+| Stock history / movement ledger ⚑ | ✓ | ~ | ✓ (StockMovement) | ✓ |
 | Stock transfers between locations | ✓ | — | ~ | — |
 | Purchase orders / receiving from suppliers | ✓ | — | — | — |
 | Stock per location for every variant | ✓ | ~ | ✓ | — (the 2-location split is for simple products only) |
@@ -160,7 +160,7 @@ shows what is needed.
 | Traffic, sessions and conversion funnel | ✓ | ✓ | — | — ("Visitor sources need analytics — not shown") |
 | Custom date range, trends over time | ✓ | ✓ | — | — (7 / 30 / 90 days only) |
 | Inventory, discount and customer (LTV, cohort) reports | ✓ | ✓ | — | — |
-| Custom report builder | ✓ | ~ | — | — (a toast only) |
+| Custom report builder | ✓ | ~ | — | ~ (rows and columns) |
 | Scheduled or emailed reports | ~ | ~ | — | — |
 
 ### 2.8 Sales channels and integrations
@@ -190,12 +190,12 @@ shows what is needed.
 
 | Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
-| My profile: name, email, password, 2FA set-up | ✓ | ✓ | ✓ | — (a toast only) |
-| Authenticator app / passkeys | ✓ | ✓ | — | — (SMS code only) |
+| My profile: name, email, password, 2FA set-up | ✓ | ✓ | ✓ | ✓ |
+| Authenticator app / passkeys | ✓ | ✓ | — | ~ (authenticator app and SMS; no passkeys) |
 | Granular or custom staff permissions ⚑ | ✓ | ✓ | ✓ (per-entity permissions) | — (3 fixed roles) |
 | Activity / audit log for the merchant ⚑ | ~ | ~ | ✓ (audit-log plugin) | — (per-object histories only) |
-| Store time zone, units, order-number format | ✓ | ✓ | ~ | — (Offers depends on a time zone that doesn't exist) |
-| Dark mode | ✓ | — | ✓ | — |
+| Store time zone, units, order-number format | ✓ | ✓ | ~ | ✓ (Store info) |
+| Dark mode | ✓ | — | ✓ | ✓ |
 
 ---
 
@@ -209,15 +209,9 @@ This is a suggested order of importance, from what a real shop needs first.
    - shipping zones and more than one method,
    - shopper accounts,
    - the cookie and consent banner,
-   - a customer data export and delete flow,
-   - store time zone,
-   - My profile and 2FA.
+   - a customer data export and delete flow.
 2. **Needed in the first months:**
-   - returns,
    - draft orders and order editing,
-   - shipping labels (Shiprocket),
-   - customer groups and customer create/edit,
-   - stock history,
    - redirects,
    - store-level SEO and tracking pixels,
    - content pages and the full-site AI editor,

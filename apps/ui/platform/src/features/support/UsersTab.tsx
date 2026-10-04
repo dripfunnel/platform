@@ -2,6 +2,7 @@ import { SearchField, StatusPill, type StatusIconName, type StatusTone } from '@
 import { Link } from '@tanstack/react-router'
 import type { SupportTarget } from '../../api/support'
 import { fill, formatTime, messages } from '../../messages'
+import { ShowMore, type More } from '../common/paged'
 import type { SearchState } from './supportHarness'
 import { firstOf, refusalText, roleText } from './supportText'
 
@@ -19,7 +20,7 @@ export interface UsersTabProps {
   search: string | undefined
   partner: string
   me: string
-  more: { show: boolean; busy: boolean; failed: boolean }
+  more: More
   onSearch: (search: string | undefined) => void
   onMore: () => void
   onOpen: (target: SupportTarget) => void
@@ -106,14 +107,7 @@ export const UsersTab = ({ users, state, search, partner, me, more, onSearch, on
           </tbody>
         </table>
       )}
-      {more.failed && <p role="alert">{words.moreFailed}</p>}
-      {more.show && (
-        <div className="df-show-more">
-          <button type="button" className="df-button" disabled={more.busy} onClick={onMore}>
-            {words.showMore}
-          </button>
-        </div>
-      )}
+      <ShowMore more={more} onMore={onMore} label={words.showMore} failed={words.moreFailed} />
     </section>
   </div>
 )

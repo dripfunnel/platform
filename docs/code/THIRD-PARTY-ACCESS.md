@@ -27,7 +27,7 @@ These restate [../ARCHITECTURE.md](../ARCHITECTURE.md) §7 and the AGENTS.md sec
 | **One set per environment** | local, preview, staging and production each get their own. Local and preview use test or sandbox modes only |
 | **Least scope the provider allows** | One Worker holds every secret, so each token is narrowed to exactly what it calls: named permissions, named zones, named accounts |
 | **No secret in an SPA or a storefront** | Only publishable identifiers (Stripe publishable key, public store key, analytics IDs) may reach a browser |
-| **Credentials merchants give us are encrypted at rest** | Payment, courier, AI and Shopify credentials go in Postgres, encrypted with a platform key-encryption key (§5). They are never shown again after saving, only a masked hint and "connected on" |
+| **Credentials partners and merchants give us are encrypted at rest** | A partner's AI, courier, SMS/WhatsApp, Google sign-in and support-chat credentials (§4) and a merchant's payment, courier, AI and Shopify credentials (§3) go in Postgres, encrypted with a platform key-encryption key (§5). They are never shown again after saving, only a masked hint and "connected on" |
 | **Every credential has an owner and a rotation date** | DF Admin shows its health, last check and rotation date, never its value ([../ui/admin/CONSOLE-DESIGN.md](../ui/admin/CONSOLE-DESIGN.md) R1) |
 | **CI secrets live in GitHub Actions** | Only secrets CI itself needs: deploying, Neon branches, publishing the package. Store repos hold **no platform secret** ([../api/SAAS.md](../api/SAAS.md) §5 step 5) |
 
@@ -117,7 +117,10 @@ GitHub holds the code, the store repos, builds and the package.
 
 ### 2.4 Amazon SES (email)
 
-SES sends every email for every partner.
+SES sends every email for every partner, from DripFunnel's own account; a partner gives only its
+sender domain's DNS records (§4). **Needed now** (decided 2026-10-04 on #272): the outbox already
+holds invitations (partner owner, partner team, staff, store owner), password resets, lock notices
+and plan, store, card and payout notices that nothing sends; **#274** builds the sender.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
@@ -165,7 +168,7 @@ the SPA has no use for them either.
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **Entra ID app registration** | Staff SSO with 2-factor on `admin.dripfunnel.com`; re-authentication before impersonation | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Worker secrets | 11 |
-| — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback`, `https://dev-admin.dripfunnel.ai/api/auth/callback` (ARCHITECTURE §6) and `https://admin.localhost/api/auth/callback` for local dev | — | — | — |
+| — | Redirect URIs: `https://admin.dripfunnel.com/api/auth/callback`, `https://dev-admin.dripfunnel.ai/api/auth/callback` (ARCHITECTURE §6) and `https://admin.localhost/api/auth/callback` for local dev (`pnpm dev:https`, docs/api/README.md §7) | — | — | — |
 | — | Single tenant ("Accounts in this organizational directory only"), so `tid` cannot be another tenant's | — | — | — |
 | **Same identity provider connected to Cloudflare Access** | The outer gate (§2.1) | A second OIDC client, or the same one | Cloudflare Zero Trust | 11 |
 | Group or role claims — **not used** | Staff roles live in our own table: DATA-MODEL.md §3.1 puts `role_key` on `staff_user` and #39 builds invite and change-role against it | — | — | — |
@@ -182,14 +185,16 @@ In the prototypes it covers:
 - the HS/HSN code "Find";
 - A+ content suggestions.
 
-AI is included from Growth Pro upward. On lower plans the merchant brings their own key (§3.3).
+**Decided 2026-10-04 on #272: DripFunnel holds no AI key of its own.** On a partner's plans that
+include AI, the **partner's** key pays (§4); on plans without it, the merchant brings their own
+(§3.3). The house partner's key is that partner's credential like any other.
 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
-| **Anthropic API account** (organisation, workspaces per environment, spend limits) | Every platform-paid AI call; metered per run in `ai_run` ([../api/SAAS.md](../api/SAAS.md) §9.2) | API key per environment | Worker secret | 9 (portal helpers can come earlier, in 5) |
-| — | Where the designer agent runs is **open** (ARCHITECTURE §8): in GitHub Actions the key must be an org Actions secret exposed only to the designer workflow, never to store repos' own workflows; in Cloudflare Containers it stays a Worker or container secret | — | *(decide)* | 9 |
+| **The partner's AI provider key** (Anthropic, or another provider) | Every AI call on the partner's plans that include AI; metered per run in `ai_run` ([../api/SAAS.md](../api/SAAS.md) §9.2) | API key per partner | Partner credential in Postgres (§4, #275) | 9 (portal helpers can come earlier, in 5) |
+| — | Where the designer agent runs is **open** (ARCHITECTURE §8). Wherever it runs, the partner's (or merchant's) key is handed to that run only, never stored in a store repo or its workflows | — | *(decide)* | 9 |
 | Cloudflare AI Gateway *(optional)* | Caching, rate limits and a cost log in front of the provider | Gateway ID; authenticated gateway token | Worker secret | 9 |
-| A second provider (e.g. OpenAI) *(optional)* | Fallback, or cheaper models for translation | API key | Worker secret | later |
+| A second provider (e.g. OpenAI) *(optional)* | A partner may connect one too, for fallback or cheaper translation models | API key | Partner credential (§4) | later |
 | **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, the `review` job in `.github/workflows/ci.yml`). **The check fails without it** (reversed 2026-09-30): the job stops in its first step with a message naming this secret, before installing or running anything. Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
 
 ### 2.7 Stripe: DripFunnel's own account
@@ -206,20 +211,29 @@ This account handles **platform** billing. Shoppers' payments are §3.1.
 | **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2) and US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up) | Enabled on the account; same key | — | 11 |
 | **Customer portal** configuration *(optional)* | Stripe-hosted "manage card / invoices" | Config | Stripe | 11 |
 
+**Registered so far: nothing** (#201, 2026-10-04). The Worker reads `STRIPE_SECRET_KEY` (the
+restricted key, `rk_…`) and `STRIPE_WEBHOOK_SECRET` (`whsec_…`) as Worker secrets; without them
+the billing writes answer `NOT_CONNECTED` and `hooks.dripfunnel.com/stripe` doesn't exist. The
+restricted key needs write on Accounts (Connect, Custom), Customers and Payment Methods, and read
+on Charges, Invoices and Payouts. The webhook endpoint listens for `invoice.*`, `charge.*`,
+`payout.*` (Connect) and `account.*` (Connect). Billing's retry schedule is set to four attempts
+until SAAS §7.3's dunning policy is decided. The publishable key and Stripe.js reach the console
+with the Billing wiring (#204).
+
 ### 2.8 Services still to choose
 
 Each row is an open question in the specs. Each needs an account and key once chosen.
 
 | Need | Where it's specified | Candidates | Credentials | Lead time |
 |---|---|---|---|---|
-| **SMS and WhatsApp one-time codes** | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1, *which provider? (ask)*) | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
-| **WhatsApp messages** | Abandoned-cart reminders in India (Carts prototype); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. *(ask whether each partner or merchant needs its own number, because white label)* |
+| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1, *which provider? (ask)*) | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
+| **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
 | **Exchange rates** | Automatic currency conversion, "rates updated 2 hours ago" (CATALOG-DESIGN §3 fact 26, *(release: decide)*) | ECB reference rates (free, no key, EUR base, daily), Open Exchange Rates, Fixer, currencyapi | API key (none for ECB) | — |
 | **Duties and import taxes at checkout** | Business plan feature (Pricing, SetMarkets, designed 2026-10-02: from each product's classification code or a flat percentage of the basket, with a de-minimis threshold); the provider behind it is still to choose | Zonos, Avalara Cross-Border, Stripe Tax (limited) | API key | Contract |
 | **Search engine** (only if Postgres full-text isn't enough) | PLATFORM-PROMPT §5.4 "Typesense later" | Typesense Cloud | Admin key (server) + search-only scoped keys | later |
 | **Logpush destination** | ARCHITECTURE §8 *(confirm)* | R2 (nothing extra), Axiom, Better Stack, Datadog | Ingest token | 12 |
 | **Error tracking** *(proposed, not in specs)* | Exceptions from the Worker and SPAs with request and store IDs, no personal data | Sentry | DSN (public in SPAs), auth token for source-map upload in CI | 1 |
-| **Support chat and help centre** | Pricing promises a "Help centre", "Email", "Chat", "Priority chat & phone" per plan | Intercom, Crisp, Zendesk, Help Scout | Workspace token; identity-verification secret (HMAC of the user ID) | 11 *(ask)* |
+| **Support chat and help centre** — **the partner's own widget** (decided on #272: merchants contact their partner's support, never DripFunnel's; credentials in §4) | Pricing promises a "Help centre", "Email", "Chat", "Priority chat & phone" per plan | Intercom, Crisp, Zendesk, Help Scout | Workspace token; identity-verification secret (HMAC of the user ID) | 11 *(ask)* |
 | **Status page** *(proposed)* | "Stripe is slow" / "Microsoft isn't answering" style notices, and our own uptime (Partner plan: uptime guarantee) | Better Stack, Instatus, Atlassian Statuspage | API token | 12 |
 
 ### 2.9 Google (portal sign-in)
@@ -230,8 +244,8 @@ on the partner console (*(ask)*, platform/README).
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **Google Cloud project** with an OAuth consent screen ("External", verified) | People (merchants, vendors) sign in with Google | Project | — | 4. **Lead time**: brand verification if sensitive scopes; only `openid email profile` are needed |
-| **OAuth client** (web) | The sign-in flow | Client ID + **client secret** | Worker secret | 4 |
-| — | **Redirect URIs on white-label hosts**: every partner portal host would need its own redirect URI, and Google caps and reviews them. The consent screen also shows *DripFunnel*, not the partner. *(decide)*: one central callback on a DripFunnel host that hands a one-time token back to the portal host, or one OAuth client per partner | — | — | 4 |
+| **OAuth client** (web), **one per partner** (decided 2026-10-04 on #272) | The sign-in flow; the consent screen shows the partner's name and the redirect URI is on the partner's own host | Client ID + **client secret** | Partner credential in Postgres (§4, #275) | 4 |
+| — | ~~Redirect URIs on white-label hosts: a central callback, or one OAuth client per partner?~~ **One client per partner** (decided on #272): each partner registers `https://<portal host>/api/auth/google/callback` in its own Google Cloud project, so Google's per-client limits and the consent screen's name are the partner's | — | — | 4 |
 | Google sign-in for shoppers *(not in specs)* | Not planned (ACCESS §2.1 allows email + password and/or mobile + code) | — | — | — |
 
 ### 2.10 Development and CI tools
@@ -295,7 +309,7 @@ first (PLATFORM-PROMPT §5.4).
 
 | Courier | Region | What the merchant gives | Notes |
 |---|---|---|---|
-| **Shiprocket** | IN | API user email + password (a dedicated API user); we exchange it for a token that lasts about 10 days and refresh it | Webhook for tracking, or polling as in the old plugin; needs the HSN code on products |
+| **Shiprocket** | IN | **The partner's account** (decided on #272, §4), not each merchant's: API user email + password (a dedicated API user); we exchange it for a token that lasts about 10 days and refresh it | Webhook for tracking, or polling as in the old plugin; needs the HSN code on products |
 | **USPS** | US | USPS APIs OAuth client ID + secret, plus the account for labels (EPS/permit) | The old Web Tools user ID is retired |
 | **UPS** | US | OAuth client ID + secret, shipper account number | — |
 | **FedEx** | US | API key + secret key, account number (production keys need FedEx validation of labels) | **Lead time**: label certification |
@@ -305,10 +319,11 @@ first (PLATFORM-PROMPT §5.4).
 | **Hermes / Evri** | DE | API client ID + secret, customer number | — |
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
-**Decided 2026-10-04 on #184:** the US carriers (USPS, UPS, FedEx) come **through one courier
-aggregator** (EasyPost or Shippo, chosen on its card), which replaces the US rows with **one
-DripFunnel API key** plus each merchant's carrier accounts connected inside it; India uses
-**Shiprocket**. The EU rows wait with the EU region.
+The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (EasyPost or Shippo,
+decided on #184), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
+2026-10-04 on #272, §4), stored encrypted per partner, never a DripFunnel key; a merchant's own
+carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
+region.
 
 ### 3.3 The merchant's own AI key
 
@@ -350,8 +365,28 @@ These are open questions (storefront/ARCHITECTURE §12 *(ask)*).
 
 ## 4. What partners provide
 
-| Item | What it is for | Credential |
-|---|---|---|
+**Decided 2026-10-04 on #272:** besides DNS, a partner brings its **own accounts** for the services
+below. They are partner credentials, encrypted in Postgres with `CREDENTIALS_KEK` (§1, §5), never
+environment variables. The partner's Owner or Admin enters them in the partner console
+(Settings › Integrations); the admin console shows each one's status and staff may set them in a
+setup session (ACCESS §8.2). Each shows a masked hint, its last check and *Test connection*, and is
+never shown again once saved (**#275** builds the table, the APIs and both screens).
+
+| Item | What it is for | Credential | Instead of |
+|---|---|---|---|
+| Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email (DripFunnel's SES sends from it) | DNS records only; no credential | — |
+| **AI provider key** (Anthropic; optionally a second provider) | AI on the partner's plans that include it (§2.6); merchants on other plans bring their own (§3.3) | API key, with the partner's own spend limit | A DripFunnel platform key, which no longer exists |
+| **Shiprocket** (India) | Rates, labels, pickups and tracking for the partner's Indian stores (§3.2) | API user email + password | A key per merchant |
+| **US courier aggregator** (EasyPost or Shippo) | USPS, UPS and FedEx rates, labels and tracking (§3.2) | API key | A DripFunnel key |
+| **SMS and WhatsApp sender** (MSG91, Twilio, Gupshup; WhatsApp Business) | Sign-up and two-step codes, shopper codes, WhatsApp reminders, in the partner's sender name (§2.8) | Account id + token or API key; sender ids, DLT entity and templates; WhatsApp phone-number id, system-user token and app secret | A DripFunnel sender |
+| **Google sign-in OAuth client** | "Continue with Google" on the partner's portal host, its name on the consent screen (§2.9) | Client id + client secret, redirect URI on the partner's host | One DripFunnel client |
+| **Support chat widget** (Intercom, Crisp, Zendesk, Help Scout) | Merchants chatting with their partner's support from the portal (§2.8) | Widget / app id (public) + identity-verification secret | A DripFunnel widget |
+| **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Through Stripe's own fields as a token (#201), never typed into our forms | — |
+| Card for DripFunnel's charges to the partner | Partner billing | Stripe Elements (§2.7) | — |
+| Partner's own billing system *(later, "partner bills its own merchants")* | How the platform learns a store's status (SAAS §14 *(ask)*) | A Platform API key we issue, or their webhook secret | — |
+| Partner brand fonts, logos | Branding | None | — |
+
+---|---|---|
 | Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email | DNS records only; no credential |
 | **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Collected by **Stripe Connect onboarding**, never typed into our forms |
 | Card for DripFunnel's charges to the partner | Partner billing | Stripe Elements (§2.7) |
@@ -391,9 +426,9 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS provider** (phone code, 2FA); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
 | 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy token; cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
-| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters (Stripe, Razorpay, Cashfree) in test mode; **Shiprocket** test account; SES configuration set and SNS; **WhatsApp** if shopper codes use it; tax service if chosen |
+| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters (Stripe, Razorpay, Cashfree) in test mode; the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** if shopper codes use it; tax service if chosen |
 | 8. Offers | None new |
-| 9. AI designer, sync bot | Anthropic production key and spend limits; designer sandbox (Actions or Containers) |
+| 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox (Actions or Containers) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |
 | 11. Billing, DF Admin, white label | **Stripe account activation and Connect review**, Billing keys and webhooks; **staff identity provider** and Cloudflare Access; SES identity permissions for partner domains; support chat tool |
 | 12. Search, import/export, reporting | **Shopify app review**; Logpush destination; (Typesense) |
@@ -404,15 +439,114 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 
 1. **Staff identity provider**: Microsoft Entra ID (docs) or Microsoft Entra ID (Admin
    prototype)? (§2.5)
-2. **SMS and WhatsApp provider**, and whether each partner or merchant needs its own sender
-   (ACCESS.md §2.1). (§2.8)
-3. **Google sign-in on white-label hosts**: a central callback, or a client per partner?
-   (§2.9)
+2. **SMS and WhatsApp provider** to recommend to partners. ~~Whether each partner needs its own
+   sender~~: yes, the partner's own account (#272, §4). (§2.8)
+3. ~~**Google sign-in on white-label hosts**: a central callback, or a client per partner?~~
+   A client per partner (#272). (§2.9)
 4. **Merchant Stripe**: pasted keys (decided so far) or Stripe Connect OAuth? (§3.1)
-5. **Where the AI designer runs**, which decides where the Anthropic key lives. (§2.6)
+5. **Where the AI designer runs**; the key is the partner's or merchant's, handed to the run (§2.6)
 6. **How store repos deploy to Cloudflare** without holding a platform token (PLATFORM-PROMPT
    §5.6), and how they read the package. (§2.1, §2.3)
-7. **Couriers**: a direct integration per courier, or one aggregator? Which DHL API? (§3.2)
+7. ~~**Couriers**: a direct integration per courier, or one aggregator?~~ An aggregator for the US and
+   Shiprocket for India, both the partner's accounts (#184, #272). Which DHL API, when the EU comes? (§3.2)
 8. **Exchange rates, US sales tax and duties providers.** (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
+
+---
+
+## 8. Every variable, key and secret, by name
+
+The one list of every value the code reads, with what it is for, how to make it, where it is
+kept and what reads it. **Decided 2026-10-04 on #272**: there is no central env file. Each app
+that reads values has its own **`.env.example`** (dummy values, committed) and **`.env.local`**
+(your real local values, gitignored): `apps/api` and the three consoles in `apps/ui/*`. A value
+two apps use is repeated in each. **A new variable is added to its app's `.env.example` and to
+this table in the change that first reads it.**
+
+Where it is kept:
+
+- **Worker variable / Worker secret** (dev, prod): the Cloudflare dashboard › **Workers & Pages ›
+  `dripfunnel-api-dev` or `dripfunnel-api` › Settings › Variables and Secrets** › *Add*, type
+  *Text* or *Secret*. Read at runtime. `wrangler.jsonc` holds **bindings only** and sets
+  `keep_vars`, so a deploy never deletes what is set there; the Worker refuses to start if a
+  required value is missing (`core/config.ts`). From a terminal, `wrangler secret put <NAME>
+  --env dev` writes the same place.
+- **Feature Worker**: set by the `feature-env` workflow when it creates the Worker: the hosts in
+  its generated config, and a fresh `CREDENTIALS_KEK`. Integrations it leaves unset (Entra,
+  Stripe, SES) answer `NOT_CONNECTED`.
+- **Local**: `apps/api/.env.local` (copy `apps/api/.env.example`). `pnpm dev`, the scripts and
+  the tests load it themselves; nothing to export. A value already in your shell wins.
+- **GitHub secret / var**: only what CI uses before or around the Worker (deploying, migrations,
+  feature databases, the review): repository → Settings → Environments → `dev`, `prod` or
+  `feature`. Migrations moving into the Worker is #276.
+- **Build var**: the consoles' two public flags, `VITE_STATE_HARNESS` and `VITE_ADMIN_URL`, read
+  at build time (decided on #272): `apps/ui/<app>/.env.local` locally, the CI build step
+  otherwise. Compiled into the public bundle, so **never** a secret.
+- **Your shell profile**: personal tokens (`GITHUB_PAT`).
+
+### 8.1 Read by the code today
+
+| Name | Role, and the least scope it needs | How to make it | Kept in (local · dev · prod) | Read by |
+|---|---|---|---|---|
+| `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` | Which hostname is which API; the router answers 404 elsewhere (ARCHITECTURE §2) | Fixed per environment: `*.localhost`, `dev-*.dripfunnel.ai`, `*.dripfunnel.com` | `.env.local` · Worker variable · Worker variable | `core/config.ts` |
+| `HYPERDRIVE_REQUIRED` | `"1"` where a Hyperdrive binding exists, so losing it turns `/health` red (#30) | — | `.env.local` · Worker variable · Worker variable once prod's binding exists | `core/config.ts` |
+| `HYPERDRIVE` *(binding)* | Postgres through Hyperdrive. Holds the Neon **pooled** string of the app role, without `BYPASSRLS` (§2.2) | `wrangler hyperdrive create <name> --connection-string=<pooled url>`, then its id in `wrangler.jsonc` | Cloudflare; `wrangler.jsonc` names it | `index.ts`, `db/client.ts` |
+| `ASSETS` *(binding)* | R2 bucket for uploads, exports and invoices (§2.1) | `wrangler r2 bucket create dripfunnel-assets-dev` (and `dripfunnel-assets`) | `wrangler.jsonc` | `index.ts` (brand uploads) |
+| `HEALTH_RATE_LIMITER`, `SIGN_IN_RATE_LIMITER`, `STAFF_SESSION_RATE_LIMITER` *(bindings)* | Rate limits on `/health`, sign-in and codes, and the staff-session routes (ARCHITECTURE §7) | Declared in `wrangler.jsonc` `ratelimits` | `wrangler.jsonc` | `index.ts` |
+| `CF_VERSION_METADATA` *(binding)* | The running Worker version, for `/health` and logs | Declared in `wrangler.jsonc` | `wrangler.jsonc` | `index.ts` |
+| `CREDENTIALS_KEK` | Encrypts 2-factor secrets and every merchant credential at rest (§5). One per environment; never reused across them | `openssl rand -base64 32` | `.env.local` · Worker secret · Worker secret | `core/config.ts`, `auth/secretBox.ts` |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Staff sign-in to the admin console (§2.5). Single-tenant registration, `openid profile email`, the `amr` optional claim | Entra admin center → App registrations → New (single tenant) → redirect URIs from §2.5 → *Certificates & secrets* → New client secret (copy it once; 24 months at most) | `.env.local` (optional) · Worker secret · Worker secret | `core/config.ts`, `integrations/entra` |
+| `STRIPE_SECRET_KEY` | DripFunnel's Stripe account: Connect accounts, customers, payment methods; reads charges, invoices, payouts (§2.7). A **restricted** key (`rk_`), test mode outside prod | Stripe Dashboard → Developers → API keys → *Create restricted key*, with write on Accounts, Customers, Payment methods and read on Charges, Invoices, Payouts, Refunds | `.env.local` (optional, test) · Worker secret (test) · Worker secret (live) | `core/config.ts`, `integrations/stripe` (since #201) |
+| `STRIPE_WEBHOOK_SECRET` | Verifies events at `hooks.<host>/stripe` (SAAS §7.2) | Stripe → Developers → Webhooks → *Add endpoint* `https://hooks.dripfunnel.com/stripe` (dev: `https://dev-hooks.dripfunnel.ai/stripe`) with `invoice.*`, `charge.*`, `payout.*`, `account.*` and *Listen to events on Connected accounts* → *Reveal signing secret*. Locally `stripe listen --forward-to localhost:8787/stripe --headers "Host: hooks.localhost"` prints one (the Worker picks the API by host, [setup/local.md](../setup/local.md) §8) | `.env.local` (optional) · Worker secret · Worker secret | `core/config.ts`, `hooks/stripe.ts` (since #201) |
+| `DATABASE_URL` | The local Postgres the migrate, seed and session scripts and the integration tests use. **Never** Neon or `dbpg01` locally (AGENTS.md rule 3) | Your local Postgres 18 (api/README §7) | `.env.local` · — · — | `scripts/*`, `tests/support/database.ts` |
+| `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` | What `wrangler dev --env local` uses in place of the Hyperdrive binding. Needs a password in the URL, even a dummy one | Same local Postgres as above | `.env.local` | wrangler |
+| `GITHUB_PAT` | Each developer's own GitHub token for Claude Code's GitHub MCP server: issues, pull requests and projects on `dripfunnel/platform` only (§2.11) | GitHub → Settings → Developer settings → Fine-grained tokens, 90 days at most ([GITHUB-MCP.md](GITHUB-MCP.md)) | Your shell profile, never a file in the repo | `.mcp.json` |
+| `ALLOWED_MIGRATION_HOST` | The one remote host migrations may touch; anything else fails closed (§2.2) | The hostname of `DEV_DATABASE_URL` or `PROD_DATABASE_URL` | — · GitHub var `dev` · GitHub var `prod` | `scripts/migrate/host-guard.ts` |
+| `ALLOWED_TEST_HOST` | The disposable test branch's host; the gates step passes it to the runner as `ALLOWED_MIGRATION_HOST` (§2.2) | The hostname of `TEST_DATABASE_URL` | — · GitHub var `dev` · GitHub var `prod` | `dev.yml`, `prod.yml` |
+| `ALLOW_REMOTE_MIGRATIONS`, `CI` | `"1"` with `CI=true` lets migrations reach the allowed remote host; locally both stay off | Set by the workflow step | — · workflow · workflow | `scripts/migrate/host-guard.ts` |
+| `CLOUDFLARE_API_TOKEN` | Deploys. One per GitHub environment, each on its own Cloudflare account and scoped as §2.1 lists (prod: Workers Scripts, Pages, Routes, Queues/Workflows/Hyperdrive; dev and feature: the `dripfunnel.ai` zone) | Cloudflare → My Profile → API Tokens → *Create token* → custom, with §2.1's permissions on the named account and zone only | — · GitHub secret `dev` and `feature` · GitHub secret `prod` | `dev.yml`, `feature-env.yml`, `prod.yml`, `promote.yml` |
+| `CLOUDFLARE_ACCOUNT_ID` | Which account a deploy targets | Cloudflare dashboard → the account's overview → *Account ID* | — · GitHub var · GitHub var | the same workflows |
+| `DEV_DATABASE_URL`, `PROD_DATABASE_URL` | Migrations before each deploy, as the migration role over Neon's **direct** connection (§2.2) | Neon → the project → the branch → *Connection details* → role `migrator`, direct (not pooled) | — · GitHub secret `dev` · GitHub secret `prod` | `dev.yml`, `prod.yml` |
+| `TEST_DATABASE_URL` | The disposable branch the CI gates run against (§2.2) | Neon → a branch made for tests → *Connection details* | — · GitHub secret `dev` · GitHub secret `prod` | `dev.yml`, `prod.yml` |
+| `NEON_API_KEY`, `NEON_PROJECT_ID` | Creating and deleting each feature environment's branch, in the dev project only (§2.2) | Neon → the dev project → Settings → *API keys* → project-scoped key; the project id from its settings | — · GitHub secret / var `feature` · — | `feature-env.yml`, `scripts/feature-env` |
+| `FEATURE_DOMAIN`, `FEATURE_ZONE_ID` | The `dripfunnel.ai` zone feature environments live in ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) | Cloudflare dev account → the zone → overview → *Zone ID* | — · GitHub var `feature` · — | `feature-env.yml`, `scripts/feature-env` |
+| `FEATURE_DATABASE_URL` | The feature branch's connection string, handed between the workflow's own steps | Output of the Neon branch step; nothing to set | — · workflow · — | `scripts/feature-env` |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude's review on every pull request (§2.6). Personal and expiring; reviews run as whoever minted it | `claude setup-token` on a Pro or Max subscription | — · GitHub repository secret · — | `ci.yml` |
+| `GITHUB_TOKEN` | Per-run token GitHub makes for each workflow | Nothing to make or set | — | `ci.yml`, `naming.yml` |
+| `VITE_STATE_HARNESS` | `"1"` builds the `?state=` harness into a console; dev and feature builds only, never production | — | Build var (feature and dev builds) | `apps/ui/*/src/harness.ts`, `shared/ui/screenState.ts` |
+| `VITE_ADMIN_URL` | Where the portals' staff-session links lead outside `vite dev`; https only, defaults to production | The admin console's address for that build | Build var | `shared/ui/adminConsoleUrl.ts` |
+
+### 8.2 Not read yet
+
+Named now so each card uses the same name. The SES values are **needed now** and already in
+`apps/api/.env.example`; the rest join their app's `.env.example` in the card that first reads them. Each row's role, scope and
+generation are in the section it cites.
+
+| Name | Role | Kept in | Section | First needed |
+|---|---|---|---|---|
+| `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | **Needed now**: every email the outbox already holds (invitations, resets, notices). IAM user limited to `ses:SendEmail`/`SendRawEmail`, plus the identity calls. Make the user in IAM → Users → *Create user* with that inline policy → *Security credentials* → *Create access key* | Worker secrets (dev: SES sandbox or a test identity; prod: production access) | §2.4 | **now, #274** |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | Store repos through the provisioning App | Ids as Worker variables; key and webhook secret as Worker secrets | §2.3 | slice 6 |
+| `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
+| `CF_STOREFRONT_DEPLOY_TOKEN`, `CF_CACHE_PURGE_TOKEN` | Publishing storefronts and purging their caches | Worker secrets | §2.1 | slice 6 |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Only if Connect events get their own endpoint *(decide)* | Worker secret | §2.7 | slice 11 |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
+| `AI_GATEWAY_TOKEN` | Cloudflare AI Gateway in front of every partner's AI calls *(optional)* | Worker secret | §2.6 | slice 9 |
+| `TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY` | Bot check on signup and codes *(proposed)* | Worker secret; site key as build var | §2.1 | slice 4 |
+| `HANDOFF_SIGNING_KEY` | Signing one-time handoff tokens across hosts | Worker secret | §5 | slice 4 / 11 |
+
+### 8.3 Partner credentials: in the database, never environment variables
+
+Each partner's own accounts (§4), encrypted with `CREDENTIALS_KEK` in Postgres (#275). They have
+no variable name: the partner enters them in the partner console, or staff in a setup session.
+
+| Credential | Role | How the partner makes it | Read by *(when built)* |
+|---|---|---|---|
+| AI provider key | AI on its plans that include AI | Anthropic Console → its own organisation → API keys, with a spend limit | AI runs (`ai_run`) |
+| Shiprocket API user | India rates, labels, tracking | Shiprocket → Settings → API → create an API user | Courier adapter |
+| US courier aggregator key | USPS, UPS, FedEx through EasyPost or Shippo | The aggregator's dashboard → API keys (production key) | Courier adapter |
+| SMS / WhatsApp sender | Codes and WhatsApp reminders in its name | The provider's console; DLT registration (India) and Meta business verification first | Codes and reminders |
+| Google OAuth client | "Continue with Google" on its portal host | Google Cloud → APIs & Services → Credentials → OAuth client (web), redirect `https://<portal host>/api/auth/google/callback` | Portal sign-in |
+| Support chat widget | Its support chat in the portal | The chat tool's settings → install / identity verification | The portal's chat widget |
+
+Merchants' own payment, courier, AI and Shopify credentials (§3) are stored the same way.
