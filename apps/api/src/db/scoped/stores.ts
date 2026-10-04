@@ -376,6 +376,16 @@ export const selectStores = async (
   return backwards ? rows.reverse() : rows
 }
 
+/** A store's Owners whose membership and account are both active, oldest first: who a store notice goes to. */
+export const selectActiveStoreOwnerEmails = async (tx: ScopedSql, storeId: string, limit: number): Promise<string[]> =>
+  (
+    await tx<{ email: string }[]>`
+      select u.email from membership m join "user" u on u.id = m.user_id
+      where m.store_id = ${storeId} and m.seller_id is null and m.role_key = 'owner' and m.status = 'active' and u.status = 'active'
+      order by m.created_at limit ${limit}
+    `
+  ).map((r) => r.email)
+
 export const selectStore = async (tx: ScopedSql, id: string): Promise<StoreRow | null> =>
   (await tx<StoreRow[]>`select * from store where id = ${id}`)[0] ?? null
 

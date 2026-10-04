@@ -6,7 +6,7 @@ import type { ScopedSql } from '#db/scoped/index'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
 import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts } from '#db/scoped/partners'
-import { selectStore, selectStorePeople } from '#db/scoped/stores'
+import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
 import { senderLabel } from '#saas/domains/index'
 import { en } from './messages'
 import type { Brand, EmailContent } from './render'
@@ -24,7 +24,7 @@ export type Prepared =
   /** `accountSecurity`: an invitation, reset or lock notice, which is sent even to a suppressed address. */
   | { send: true; to: string[]; voice: Voice; brand: Brand; content: EmailContent; accountSecurity: boolean }
   /** Nothing to send: the link is no longer open, or nobody is left to tell. A code, never a name. */
-  | { send: false; reason: 'link_closed' | 'no_recipient' | 'held' }
+  | { send: false; reason: 'link_closed' | 'no_recipient' | 'held' | 'tenant_mismatch' }
 
 /** Waits in the outbox until merchant sign-in can accept it (the Store card that follows #274). */
 export const heldTemplates = ['store-owner-invitation'] as const
@@ -80,15 +80,16 @@ const partnerBrand = async (tx: ScopedSql, partnerId: string): Promise<{ brand: 
 }
 
 // Owners whose membership and account are both live: never a suspended, deleted or never-joined one.
-const storeOwners = async (tx: ScopedSql, storeId: string) =>
-  (await selectStorePeople(tx, storeId))
-    .filter((p) => p.role_key === 'owner' && p.seller_id === null && p.status === 'active' && p.user_status === 'active')
-    .map((p) => p.email)
+const storeOwners = (tx: ScopedSql, storeId: string) => selectActiveStoreOwnerEmails(tx, storeId, maxRecipients)
 
-/** The store, its Owners and its partner's look, for every email about a store. */
-const merchant = async (tx: ScopedSql, storeId: string) => {
+/**
+ * The store, its Owners and its partner's look, for every email about a store. A store that isn't
+ * the outbox row's partner's is refused, so one partner's data never reaches another's people.
+ */
+const merchant = async (tx: ScopedSql, storeId: string, partnerId: string | null) => {
   const store = await selectStore(tx, storeId)
   if (!store) return null
+  if (store.partner_id !== partnerId) return 'mismatch' as const
   const look = await partnerBrand(tx, store.partner_id)
   if (!look) return null
   return { store, to: await storeOwners(tx, storeId), ...look }
@@ -165,8 +166,10 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'partner-domain-live': {
       const p = parse(t)
+      if (p.partnerId !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const domain = await selectPartnerDomainById(tx, p.domainId)
-      if (!domain || domain.partner_id !== p.partnerId) return { send: false, reason: 'no_recipient' }
+      if (!domain) return { send: false, reason: 'no_recipient' }
+      if (domain.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerDomainLive
       return fromDripfunnel(await owner(tx, p.partnerId), { subject: w.subject(domain.host), heading: w.heading, paragraphs: [w.body(domain.host, w.kinds[p.kind])] })
     }
@@ -178,7 +181,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     case 'plan-change-at-renewal':
     case 'plan-retired-move': {
       const p = parse(t)
-      const m = await merchant(tx, p.storeId)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
       const plan = m && (await selectCataloguePlan(tx, m.store.partner_id, p.planId))
       if (!m || !plan || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = t === 'plan-change-at-renewal' ? en.planChangeAtRenewal : en.planRetiredMove
@@ -187,7 +191,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'store-plan-changed': {
       const p = parse(t)
-      const m = await merchant(tx, p.storeId)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
       const plan = m && (await selectCataloguePlan(tx, m.store.partner_id, p.planId))
       if (!m || !plan || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storePlanChanged
@@ -195,7 +200,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'store-suspended': {
       const p = parse(t)
-      const m = await merchant(tx, p.storeId)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storeSuspended
       // The partner's support, never DripFunnel's (SAAS §4.2): without one, no contact line.
@@ -205,7 +211,8 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
     }
     case 'store-restored': {
       const p = parse(t)
-      const m = await merchant(tx, p.storeId)
+      const m = await merchant(tx, p.storeId, row.partnerId)
+      if (m === 'mismatch') return { send: false, reason: 'tenant_mismatch' }
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storeRestored
       return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name)] } }

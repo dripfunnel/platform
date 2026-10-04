@@ -279,7 +279,7 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   lands on the sign-in screen's unavailable state, and no refusal is recorded);
   `request_failed` is an error nothing caught, answered as a plain 500; `db_ping_failed` and
   `db_health_check_failed` are the health check's probe and its connection. Email (#274):
-  `email_sent`, `email_skipped` (`link_closed`, `no_recipient`, `suppressed`, `held`),
+  `email_sent`, `email_skipped` (`link_closed`, `no_recipient`, `suppressed`, `held`, and `tenant_mismatch` when the payload's store or partner isn't the outbox row's),
   `email_refused` with SES's error type, and `ses_event` for the bounce hook. Never an address.
 
 ---

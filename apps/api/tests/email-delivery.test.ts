@@ -237,6 +237,30 @@ describe('email delivery', () => {
     const [held] = await db.sql<{ attempts: number }[]>`select attempts from outbox where kind = 'email' and payload->>'template' = 'store-owner-invitation'`
     expect(held?.attempts).toBe(0)
   })
+
+  it('names at most 50 Owners on a store notice, the live ones first in line', async () => {
+    await db.sql`delete from email_suppression`
+    for (let n = 0; n < 60; n += 1) {
+      const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${store.partnerId}, ${`owner${n}@many.example`}, 'Owner', 'active') returning id`
+      await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${store.id}, 'owner', 'active')`
+    }
+    await queue('store-restored', { storeId: store.id, contact: 'partner-support' }, { partnerId: store.partnerId, storeId: store.id })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect(ses.sent[0]?.to).toHaveLength(50)
+    expect(ses.sent[0]?.to).toContain(store.ownerEmail)
+  })
+
+  it("sends nothing when the store or domain isn't the outbox row's partner's", async () => {
+    const [other] = await db.sql<{ id: string }[]>`select id from partner where id <> ${store.partnerId} limit 1`
+    const [domain] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${northstar.id} limit 1`
+    if (!other || !domain) throw new Error('seed: need two partners and a domain')
+    await queue('store-restored', { storeId: store.id, contact: 'partner-support' }, { partnerId: other.id, storeId: store.id })
+    await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain.id, kind: 'portal' }, { partnerId: other.id === northstar.id ? store.partnerId : other.id, storeId: null })
+    const ses = fakeSes()
+    expect(await relay(ses.api)).toMatchObject({ delivered: 2, retry: 0 })
+    expect(ses.sent).toEqual([])
+  })
 })
 
 describe('SES hook', () => {
