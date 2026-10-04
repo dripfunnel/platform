@@ -24,6 +24,7 @@ import { Route as AppStatesRouteImport } from './routes/_app/states'
 import { Route as AppStoresRouteImport } from './routes/_app/stores'
 import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
+import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 import { Route as AppDomainsNewRouteImport } from './routes/_app/domains_.new'
@@ -104,6 +105,11 @@ const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
   path: '/accept-invite',
   getParentRoute: () => AuthRoute,
 } as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/stores': typeof AppStoresRoute
   '/support': typeof AppSupportRoute
   '/accept-invite': typeof AuthAcceptInviteRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/domains/new': typeof AppDomainsNewRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/stores': typeof AppStoresRoute
   '/support': typeof AppSupportRoute
   '/accept-invite': typeof AuthAcceptInviteRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/domains/new': typeof AppDomainsNewRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/_app/stores': typeof AppStoresRoute
   '/_app/support': typeof AppSupportRoute
   '/_auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/stores'
     | '/support'
     | '/accept-invite'
+    | '/reset-password'
     | '/sign-in'
     | '/impersonate/enter'
     | '/domains/new'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/stores'
     | '/support'
     | '/accept-invite'
+    | '/reset-password'
     | '/sign-in'
     | '/impersonate/enter'
     | '/domains/new'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '/_app/stores'
     | '/_app/support'
     | '/_auth/accept-invite'
+    | '/_auth/reset-password'
     | '/_auth/sign-in'
     | '/impersonate/enter'
     | '/_app/'
@@ -382,6 +394,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAcceptInviteRouteImport
       parentRoute: typeof AuthRoute
     }
+    '/_auth/reset-password': {
+      id: '/_auth/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
@@ -469,11 +488,13 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
   AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthAcceptInviteRoute: AuthAcceptInviteRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
 }
 

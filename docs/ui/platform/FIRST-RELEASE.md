@@ -139,6 +139,12 @@ wrong codes** ("…signing in is paused for 15 minutes. We've emailed you about 
 expired (§2.3). **Forgot password** → "If there's an account for {email}, we've sent a link to
 reset the password. It works for 30 minutes." — identical whether or not the email exists.
 
+**Reset password** (`/reset-password?token=`, the link in that email; added on #274): "Choose a
+new password", one field of at least 10 characters, **Save password**, then "Password changed —
+Sign in with your new password." with "Go to sign in". A used, expired or missing link: "This
+link doesn't work" with "Go to sign in". **The prototype has no screen for it**: it is the
+invitation page's password step, decided on #274, until the prototype designs one.
+
 The `next` redirect after sign-in is same-origin only (ACCESS §4). After accepting, an Owner
 lands on the checklist with the welcome card (§4); a team member on the Dashboard.
 
