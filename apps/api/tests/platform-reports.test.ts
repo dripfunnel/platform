@@ -41,7 +41,7 @@ const q = {
   plans: `query($f: ReportFilterInput) { reportPlans(filter: $f) { fresh summary rows { plan stores } changes { from to stores } } }`,
   performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store storeId } decliningTruncated } }`,
   usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
-  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed rows { kind storeId store } } }`,
+  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed domainsStuck rows { kind storeId store } } }`,
 }
 
 type Rev = { reportRevenue: { fresh: boolean; summary: string; currency: string; currencyNote: string | null; rows: { collected: { amount: number }; fee: { amount: number } }[]; bars: { amount: { amount: number; currency: string } }[]; mrr: { amount: { amount: number } }[] } }
@@ -89,8 +89,10 @@ describe('the figures', () => {
     const usage = (await run<{ reportUsage: { summary: string; rows: unknown[]; truncated: boolean; meters: { aiPrompts: number } } }>(q.usage, reader)).data?.reportUsage
     expect(usage?.summary).toMatch(/^\d+ stores? (is|are) at 80% or more of a limit\. AI prompts used this month: [\d,]+; 'Publish now' presses: [\d,]+\.$/)
     expect(usage?.truncated).toBe(Number(/^\d+/.exec(usage?.summary ?? '')?.[0]) > (usage?.rows.length ?? 0))
-    const setup = (await run<{ reportSetupHealth: { summary: string } }>(q.setup, reader)).data?.reportSetupHealth
+    const setup = (await run<{ reportSetupHealth: { summary: string; domainsStuck: number } }>(q.setup, reader)).data?.reportSetupHealth
     expect(setup?.summary).toMatch(/(A new store is ready in \d+ min \d+ s on average\.|No store finished setting up in the last 30 days\.) \d+ setups? (is|are) stuck and \d+ custom domains? (is|are) waiting for DNS\.$/)
+    // The figure beside the sentence says the same count.
+    expect(setup?.summary).toContain(`${setup?.domainsStuck ?? -1} custom domain`)
   })
 
   it('narrows by plan and country, and refuses a filter it cannot read', async () => {

@@ -218,6 +218,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
         currency: null,
         medianSeconds: median,
         failed: health.failed,
+        domainsStuck: domains,
         rows: problems.slice(0, listMax).map((p) => ({ kind: p.kind, storeId: p.store_id, store: p.store_name, detail: p.detail, since: p.since })),
         truncated: problems.length > listMax,
       }

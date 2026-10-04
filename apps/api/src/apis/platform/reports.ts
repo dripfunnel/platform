@@ -145,6 +145,8 @@ const SetupType = builder.objectRef<Setup>('SetupHealthReport').implement({
     summary: t.exposeString('summary'),
     medianSeconds: t.exposeInt('medianSeconds', { nullable: true }),
     failed: t.exposeInt('failed'),
+    // Custom domains waiting for DNS over a day, the third of §10's figures.
+    domainsStuck: t.exposeInt('domainsStuck'),
     rows: t.field({ type: [SetupRow], resolve: (r) => r.rows }),
     truncated: t.exposeBoolean('truncated'),
   }),

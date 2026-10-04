@@ -495,6 +495,13 @@ above every chart. A new partner sees "Reports fill in as your first merchants s
 Every number, trend and conversion is **the API's**; the screen draws bars and words it is
 given.
 
+**Built on #194, straight onto #200's API.** Each tab asks its own report query.
+- The bars are drawn against the largest value shown; that sizing never appears as a figure.
+- Percentages arrive as basis points and are formatted, never worked out.
+- Months are the API's (its first day, UTC), shown as month and year.
+- The Plan and Country filters offer the partner's plans and the countries it sells in.
+- Export CSV runs as a job for every role, sharing the console's one export slot.
+
 ---
 
 ## 11. Billing

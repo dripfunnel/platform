@@ -822,6 +822,7 @@ type RevenueRow {
 }
 
 type SetupHealthReport {
+  domainsStuck: Int
   failed: Int
   medianSeconds: Int
   rows: [SetupProblemRow!]

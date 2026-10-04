@@ -2106,5 +2106,153 @@
       "ticket": "Ticket",
       "expires_at": "Ends"
     }
+  },
+  "reports": {
+    "loading": "Loading the report",
+    "error": {
+      "title": "We couldn’t load this report",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "fresh": "Reports fill in as your first merchants sign up.",
+    "tabsLabel": "Reports",
+    "tabs": {
+      "growth": "Growth",
+      "revenue": "Revenue",
+      "plans": "Plans",
+      "stores": "Store performance",
+      "usage": "Usage",
+      "setup": "Setup health"
+    },
+    "filters": {
+      "label": "Report filters",
+      "range": "Range",
+      "ranges": {
+        "6m": "Last 6 months",
+        "3m": "Last 3 months"
+      },
+      "plan": "Plan",
+      "anyPlan": "All plans",
+      "country": "Country",
+      "anyCountry": "All countries"
+    },
+    "chartLabel": "{title}, as bars",
+    "noPlan": "No plan",
+    "growth": {
+      "chart": "Signups per month",
+      "month": "Month",
+      "signups": "Signups",
+      "newStores": "New stores",
+      "trialToPaid": "Trial to paid",
+      "churned": "Churned",
+      "netStores": "Net stores",
+      "none": "—"
+    },
+    "revenue": {
+      "chart": "Collected per month",
+      "month": "Month",
+      "collected": "Collected for you",
+      "fee": "DripFunnel’s fee",
+      "payout": "Your payout",
+      "mrr": "MRR by plan",
+      "approximate": "Approximate: other currencies converted, trials excluded.",
+      "payments": "Failed payments and recoveries",
+      "failed": {
+        "one": "{count} payment failed",
+        "other": "{count} payments failed"
+      },
+      "recovered": {
+        "one": "{count} was recovered",
+        "other": "{count} were recovered"
+      },
+      "seeBilling": "See merchant payments"
+    },
+    "plans": {
+      "chart": "Stores per plan",
+      "changes": "Plan changes this month",
+      "change": "{from} → {to}",
+      "stores": {
+        "one": "{count} store",
+        "other": "{count} stores"
+      },
+      "noChanges": "No plan changes this month.",
+      "plan": "Plan",
+      "stores_col": "Stores"
+    },
+    "stores": {
+      "top": "Top stores",
+      "declining": "Declining",
+      "store": "Store",
+      "plan": "Plan",
+      "sales": "Sales last month",
+      "orders": "Orders",
+      "change": "vs month before",
+      "new": "New",
+      "truncated": "The first 50 are listed.",
+      "noDeclining": "No store sold more than 3% less than the month before.",
+      "noPrior": "No sales before"
+    },
+    "usage": {
+      "label": "Stores near a limit",
+      "of": "{used} of {cap}",
+      "noCap": "{used}, no limit",
+      "near": "Near limit",
+      "at": "At limit",
+      "none": "No store is near a limit.",
+      "truncated": "The first 50 are listed.",
+      "limits": {
+        "products": "Products",
+        "staff": "Staff seats",
+        "suppliers": "Suppliers",
+        "languages": "Languages",
+        "currencies": "Currencies",
+        "ai_prompts": "AI design prompts",
+        "publish_now": "“Publish now” presses"
+      }
+    },
+    "setup": {
+      "median": "Time to a ready store",
+      "medianNote": "median, last 30 days",
+      "failed": "Failed setups",
+      "failedNote": "last 30 days",
+      "none": "Nothing is stuck.",
+      "notYet": "Not enough setups yet",
+      "truncated": "The first 50 are listed.",
+      "kinds": {
+        "stuck": "Setup stuck at {step} since {date}",
+        "failed": "Setup failed at {step}",
+        "domain": "{host} waiting for DNS since {date}"
+      },
+      "steps": {
+        "accountAndStore": "creating the account",
+        "defaults": "applying the defaults",
+        "hostnames": "setting up its addresses",
+        "repo": "creating its code repository",
+        "storeConfig": "configuring the store",
+        "hostingTarget": "preparing hosting",
+        "firstBuild": "building the storefront",
+        "done": "finishing"
+      },
+      "domains": "Domains stuck",
+      "domainsNote": "over 24 h"
+    },
+    "export": {
+      "button": "Export CSV",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "Your export of {count} row is ready.",
+        "other": "Your export of {count} rows is ready."
+      },
+      "truncated": {
+        "one": "Your export is ready with only the first {count} row.",
+        "other": "Your export is ready with only the first {count} rows."
+      },
+      "download": "Download CSV",
+      "file": "report-{tab}-{date}.csv",
+      "expires": "The link expires at {time}.",
+      "expired": "The download link expired. Export again to get a new one.",
+      "failed": "The export didn’t finish. Try again.",
+      "toast": "Your report export is ready. Download it from Reports."
+    }
   }
 }
