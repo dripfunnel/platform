@@ -7,11 +7,11 @@ own guide says what that app is for, who uses it and what it may do.
 **Status: skeleton.** Each app has a sign-in route and a home route; `shared/` has a button,
 design tokens, the GraphQL client and money formatting.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 | App | Guide | Host | Users | API | Look |
 |---|---|---|---|---|---|
-| `apps/ui/store` | [store/](store/README.md) | each partner's portal host, e.g. `store.<partnerdomain>` | Merchants (Owner, Manager, Staff) and vendors | Store API | **The partner's** (white label) |
+| `apps/ui/store` | [store/](store/README.md), [FIRST-RELEASE](store/FIRST-RELEASE.md) | each partner's portal host, e.g. `store.<partnerdomain>` | Merchants (Owner, Manager, Staff) and vendors | Store API | **The partner's** (white label) |
 | `apps/ui/platform` | [platform/](platform/README.md) | `platform.dripfunnel.com` | Partner users | Platform API | DripFunnel |
 | `apps/ui/admin` | [admin/](admin/README.md) | `admin.dripfunnel.com` | DripFunnel staff | Admin API | DripFunnel |
 | `apps/ui/shared` | [shared/](shared/README.md) | (library) | every SPA | none of its own | tokens every app themes |

@@ -208,7 +208,7 @@ This account handles **platform** billing. Shoppers' payments are §3.1.
 | **Publishable key**, per mode | Stripe Elements or Checkout in the Billing screen, so the card never touches our servers (the prototype's Billing screen draws it as a hosted Stripe card field since 2026-10-02) | `pk_…` (public) | SPA build variable | 11 |
 | **Webhook signing secret** for `hooks.dripfunnel.com/stripe` | Verifying billing events; idempotent through `billing_event` | `whsec_…` per endpoint and mode | Worker secret | 11 |
 | **Stripe Connect** (platform) | "DripFunnel bills merchants on the partner's behalf" **ships first** (SAAS §7.1): partners are connected accounts, receive monthly payouts, and are verified by a test deposit (Platform prototype) | Connect enabled; Connect webhook secret; one connected account ID per partner | Worker secret; IDs in Postgres | 11. **Lead time**: Connect platform review |
-| **Stripe Tax** *(ask: only if chosen)* | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2) and/or US sales tax for merchants (§2.8) | Enabled on the account; same key | — | 11 |
+| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2), on this account. Also US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up), **through which Stripe account still to decide** *(decide)*: the merchant's own connected account (as with its payment keys, §3.1) or this one, and what a store taking US payments only through PayPal uses (FIRST-RELEASE §21) | Enabled on the account; for DripFunnel's invoices the same key, for merchants' checkouts per that decision | — | 11 |
 | **Customer portal** configuration *(optional)* | Stripe-hosted "manage card / invoices" | Config | Stripe | 11 |
 
 **Registered so far: nothing** (#201, 2026-10-04). The Worker reads `STRIPE_SECRET_KEY` (the
@@ -229,7 +229,6 @@ Each row is an open question in the specs. Each needs an account and key once ch
 | **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1, *which provider? (ask)*) | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
 | **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
 | **Exchange rates** | Automatic currency conversion, "rates updated 2 hours ago" (CATALOG-DESIGN §3 fact 26, *(release: decide)*) | ECB reference rates (free, no key, EUR base, daily), Open Exchange Rates, Fixer, currencyapi | API key (none for ECB) | — |
-| **US sales tax** | CATALOG-DESIGN §3 fact 37; PLATFORM-PROMPT §10 *(ask)* | Stripe Tax, Avalara AvaTax, TaxJar | Account ID + licence key / API token, per merchant nexus set-up | Contract (Avalara) |
 | **Duties and import taxes at checkout** | Business plan feature (Pricing, SetMarkets, designed 2026-10-02: from each product's classification code or a flat percentage of the basket, with a de-minimis threshold); the provider behind it is still to choose | Zonos, Avalara Cross-Border, Stripe Tax (limited) | API key | Contract |
 | **Search engine** (only if Postgres full-text isn't enough) | PLATFORM-PROMPT §5.4 "Typesense later" | Typesense Cloud | Admin key (server) + search-only scoped keys | later |
 | **Logpush destination** | ARCHITECTURE §8 *(confirm)* | R2 (nothing extra), Axiom, Better Stack, Datadog | Ingest token | 12 |
@@ -277,28 +276,25 @@ appear.
 
 ### 3.1 Payment providers (Settings › Payment setup)
 
-Decided: the merchant's **own** accounts and keys, Stripe and Razorpay first
-([../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §3.2, §5.4). `apps/api/src/integrations/payments`
-plans `stripe/`, `razorpay/` and `cashfree/`.
-
-The Store prototype also shows:
-
-- PayPal for US and DE,
-- Klarna and bank transfer for DE,
-- PhonePe, COD and bank transfer for IN.
+Decided: the merchant's **own** accounts and keys
+([../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §3.2, §5.4). **At launch (decided
+2026-10-04 on #184, PLATFORM-PROMPT §8):** India and the US, with **Stripe** and **PayPal** (US),
+**Razorpay**, **Cashfree**, **PhonePe** and **cash on delivery** (India), and **bank transfer**
+(both). `apps/api/src/integrations/payments` plans one adapter each. Klarna and the DE region stay
+in the Store prototype as a demo control only.
 
 The Platform prototype's provider list also has Adyen.
 
 | Provider | Region (prototype) | What the merchant gives | Webhook | Notes |
 |---|---|---|---|---|
-| **Stripe** | US, DE | Secret or restricted key, publishable key | Signing secret per store endpoint (`hooks.dripfunnel.com/stripe/<store>`), or one Connect endpoint | *(decide)* **Stripe Connect Standard (OAuth)** instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
+| **Stripe** | US (DE: prototype only) | Secret or restricted key, publishable key | Signing secret per store endpoint (`hooks.dripfunnel.com/stripe/<store>`), or one Connect endpoint | *(decide)* **Stripe Connect Standard (OAuth)** instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
 | **Razorpay** | IN | Key ID, key secret | Webhook secret the merchant sets in Razorpay | Razorpay **Route** if vendors are paid out (PLATFORM-PROMPT §10 *(ask)*) |
 | **Cashfree** | IN | App ID (client ID), secret key | Signed with the secret key | In the old plugins and the api layout |
-| **PayPal** | US, DE | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
-| **Klarna** | DE | API username (UID) + password, region (EU/NA/OC) | Push/notification URLs | Usually through Stripe or Adyen instead *(decide)* |
+| **PayPal** | US (DE: prototype only) | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
+| **Klarna** | DE | API username (UID) + password, region (EU/NA/OC) | Push/notification URLs | **Not at launch**: a Store-prototype demo control only (above); usually through Stripe or Adyen when the EU comes *(decide then)* |
 | **PhonePe** | IN | Merchant ID, salt key + salt index (legacy), or client ID + secret (current PG API) | Callback checksum | — |
 | **Adyen** | Platform prototype list | API key, merchant account, client key (public), HMAC key | HMAC | Usually for larger merchants |
-| **Cash on delivery, bank transfer** | IN, DE | No credential; bank details as text for the shopper | — | Orders stay "Payment pending" until marked paid |
+| **Cash on delivery, bank transfer** | Cash on delivery IN; bank transfer IN and US (DE: prototype only) | No credential; bank details as text for the shopper | — | Orders stay "Payment pending" until marked paid (`orders.mark_paid`, ACCESS §5.1) |
 
 **Vendor payouts** (Stripe Connect or Razorpay Route) would add connected accounts per
 vendor. **Decided 2026-10-02: not in the platform for now.** A per-store supplier ledger
@@ -323,8 +319,8 @@ first (PLATFORM-PROMPT §5.4).
 | **Hermes / Evri** | DE | API client ID + secret, customer number | — |
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
-The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (EasyPost or Shippo,
-decided on #184), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
+The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (one aggregator decided
+on #184; EasyPost or Shippo, chosen on the shipping card, SAPI 23), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
 2026-10-04 on #272, §4), stored encrypted per partner, never a DripFunnel key; a merchant's own
 carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.
@@ -430,7 +426,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS provider** (phone code, 2FA); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
 | 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy token; cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
-| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters (Stripe, Razorpay, Cashfree) in test mode; the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** if shopper codes use it; tax service if chosen |
+| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** if shopper codes use it; **Stripe Tax** in test mode for US checkouts (through whose account still to decide, §2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox (Actions or Containers) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |
@@ -453,7 +449,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
    §5.6), and how they read the package. (§2.1, §2.3)
 7. ~~**Couriers**: a direct integration per courier, or one aggregator?~~ An aggregator for the US and
    Shiprocket for India, both the partner's accounts (#184, #272). Which DHL API, when the EU comes? (§3.2)
-8. **Exchange rates, US sales tax and duties providers.** (§2.8)
+8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), through whose account still to decide (§2.7). (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
 

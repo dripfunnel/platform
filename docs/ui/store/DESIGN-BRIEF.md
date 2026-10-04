@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -332,8 +332,9 @@ Developers (flow 76) and Settings › Support access (flow 78).
     shipping zones *(ask)*. Whatever the rule, the interface has to make it visible rather
     than surprising.
 55. **Shipping charges**: Owner. Free, charged, or free above a threshold.
-56. **Payment methods**: Owner. The merchant's own provider credentials (Stripe and
-    Razorpay first), offered according to the store's region.
+56. **Payment methods**: Owner. The merchant's own provider credentials (the first release's
+    seven: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer;
+    PLATFORM-PROMPT §8), offered according to the store's region.
 57. **Taxes and tax registrations**: Owner. Home country and selling markets, tax
     registrations per country (VAT number, EU OSS, US sales-tax permits, GSTIN…), tax
     classes and their rates by zone, and tax-inclusive or tax-exclusive pricing
@@ -418,7 +419,8 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     write access (USERS-AND-DOMAINS §4.1). Easy to miss: the setting covers the partner's
     support only; the screen must say that DripFunnel staff can still sign in as a user
     for support, and show the banner the store sees when they do (USERS-AND-DOMAINS §4.2).
-80. **Catalogue "Publish now" and publishing status**: Owner (and Manager *(ask)*), for a
+80. **Catalogue "Publish now" and publishing status**: Owner (decided on #184: a Manager sees the
+    Storefront read-only), for a
     store with an AI storefront. What is waiting ("12 products changed since 10:40"),
     publishes left this month, when the next automatic publish is due, and a real status
     (queued, building, deploying, live, failed); a failed build keeps the old live site and
@@ -453,7 +455,7 @@ will probably settle them; flag them when you hit one rather than assuming:
 - ~~Whether refunds spanning vendors are the merchant's problem alone (flows 41, 71).~~
   **Settled 2026-10-02:** each supplier refunds its own lines, the store can override into a
   supplier ledger settled outside the platform (ACCESS.md §7.3). Whether returns are in the
-  first release is FIRST-RELEASE.md's (to be written on #184).
+  first release is FIRST-RELEASE.md's (written on #184: all of it ships, §1).
 - ~~Whether the portal remembers the last store or asks every time (flow 3).~~ **Settled by
   the first platform's build:** the portal remembers the last store and offers it as one button with
   the full list underneath, an offer rather than a choice made for the person; one membership

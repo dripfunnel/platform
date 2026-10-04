@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -349,7 +349,7 @@ promotions tests before relying on it.
 |---|---|
 | **Owner** (`owner`) | Everything: create, edit, pause, end, duplicate, delete, see results. Sees plan prompts (part U). |
 | **Manager** (`manager`) | Same as Owner, without plan or billing prompts ("Ask your store owner to add this"). |
-| **Staff** (`staff`) | No Offers row *(ask: read-only list so they can answer "why didn't my code work?")*. |
+| **Staff** (`staff`) | A read-only Offers list, so they can answer "why didn't my code work?" (decided 2026-10-04 on #184). |
 | **Vendor**, every tier: **Stock only** (`vendor-stock`), **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), read-only orders (`vendor-orders-read`) | **Nothing** (decided). No nav row, no URL, no mention. Opening an offers URL looks like "not found". |
 | Partner **support session** (read-only, [USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md) §4.1; DripFunnel staff impersonate instead, §4.2) | Sees offers as the store sees them, read-only, while the merchant allows support access. Can't change anything without the merchant's per-session approval. |
 

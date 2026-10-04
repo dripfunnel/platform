@@ -693,8 +693,8 @@ The merchant-side model, designed on #187 (2026-10-02, revised the same day afte
 PLATFORM-PROMPT §3.3 and §5.4–5.7, CATALOG-DESIGN §3, OFFERS-DESIGN §3, DESIGN-BRIEF §3, SAAS
 §4–9, ACCESS §5 and §7, and the Store prototype. **The structure is decided; names and columns
 are *(proposed)* until each module's migration**, as §3 was before #32. Which module ships
-first is ui/store/FIRST-RELEASE.md's (to be written on #184); anything the specs mark
-`(release: decide)` keeps the mark here. The model's own open points are in §6.
+first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the release, §1, built in
+§20's order); a `(release: decide)` mark here is now settled on the module's own card. The model's own open points are in §6.
 
 ### 7.1 Conventions every table below follows
 
@@ -828,8 +828,8 @@ tax_class           (id, store_id, key, name, is_default)      -- Standard, Redu
 tax_zone            (id, store_id, name, countries text[], regions text[])
 tax_rate            (id, store_id, tax_class_id, tax_zone_id, rate_bps, valid_from date)
                     UNIQUE (tax_class_id, tax_zone_id, valid_from)
-                    -- class × zone (fact 37); a tax service for US sales tax (decide) would
-                    -- add tax_code on product_version and bypass tax_rate for that zone
+                    -- class × zone (fact 37); US sales tax is Stripe Tax (decided on #184),
+                    -- which adds tax_code on product_version and bypasses tax_rate for US zones
 
 compliance_default  (store_id, region, field, value)           -- manufacturer, importer,
                     UNIQUE (store_id, region, field)            -- responsible person… (fact 34)

@@ -9,7 +9,7 @@ Decided 2026-09-28: log every action and sign-in by every kind of user, shoppers
 store it in Postgres; shopper activity is visible to the merchant and to staff only; keep
 13 months searchable, then archive for 7 years.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 ---
 
@@ -189,9 +189,9 @@ every other tenant read.
 | **DripFunnel staff** (every staff role) | Admin console › Activity log; Activity tabs on partner and store pages | Everything, including `security` entries, IPs and user agents. Can follow **one person across every store and partner** |
 | **Partner user** | Partner console › Settings › Activity log; Activity tab on each merchant | Its own users' actions; staff actions on its partner account and merchants' accounts; support sessions its users opened; account-level events on its merchants (plan, trial, suspension, provisioning). **Never** anything inside a store, or any shopper |
 | **Merchant Owner** | Merchant portal › Settings › Activity log | Everything in the store: people, vendors, API keys, apps, support sessions (and what they opened), shoppers' account events and orders |
-| **Merchant Manager** | Customer page › Activity; own activity | Shopper activity on the customer page; their own actions *(confirm whether Managers also see the whole store log)* |
+| **Merchant Manager** | Merchant portal › Store activity (user menu, since Settings is the Owner's); customer page › Activity; own activity | Everything the Owner sees, to read; the export stays the Owner's (below; decided on #184); their own actions |
 | **Merchant Staff** | Own activity | Their own actions |
-| **Vendor** | Own activity | Their own actions only *(proposed; ACCESS.md §10 left this open)* |
+| **Vendor** | Own activity | Their own actions only (decided on #184) |
 | **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §2.2) |
 
 - **"Own activity"** is a profile screen in every portal: the signed-in person's own
@@ -299,8 +299,10 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
 
 ## 11. Open questions
 
-- May Managers see the whole store log, or only customers' activity and their own?
-- Do vendors see their own actions (proposed), or nothing?
+- ~~May Managers see the whole store log, or only customers' activity and their own?~~ **Settled
+  2026-10-04** on #184 (§6): the whole store log.
+- ~~Do vendors see their own actions (proposed), or nothing?~~ **Settled 2026-10-04** on #184 (§6):
+  their own.
 - Do shoppers get a "Sign-in activity" screen in their storefront account, and in which
   release?
 - IP addresses: kept for 13 months for `auth` and `security` entries, staff-only (proposed),

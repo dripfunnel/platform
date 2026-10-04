@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 ---
 
@@ -354,19 +354,30 @@ In the vendor columns, every permission is limited to the vendor's own rows by `
 ### 5.1 Merchant roles: Owner `owner`, Manager `manager`, Staff `staff`
 
 From the first platform's AUTH-PLAN §5.3 and DESIGN-BRIEF §2.
+The first release's answers (Manager stock but not warehouses, no "Publish now" for Managers,
+Staff exports and a read-only offers and carts view, the whole store log for Managers) were
+decided on #184 (ui/store/FIRST-RELEASE.md §1).
 
 | Permission | Owner | Manager | Staff |
 |---|:--:|:--:|:--:|
 | `catalog.read`: products, versions, photos, collections, filters | ✓ | ✓ | ✓ |
 | `catalog.write` | ✓ | ✓ | |
 | `stock.read` | ✓ | ✓ | ✓ |
-| `stock.write`: quantities in the merchant's own warehouses | ✓ | ✓ *(confirm)* | |
-| `warehouses.write`: the merchant's own warehouses | ✓ | ✓ *(confirm)* | |
+| `stock.write`: quantities in the merchant's own warehouses | ✓ | ✓ | |
+| `warehouses.write`: the merchant's own warehouses (Settings › Warehouse) | ✓ | | |
 | `orders.read`, `customers.read` | ✓ | ✓ | ✓ |
 | `orders.write` (including fulfilment and cancellation), `customers.write` (add, edit, groups, tags, notes, recording that a customer asked to stop marketing) | ✓ | ✓ | ✓ |
 | `orders.refund`: refunds, returns (start, mark received), and **overriding a supplier's refund** (§7.3) | ✓ | ✓ | |
-| `customers.export` | ✓ | ✓ | |
-| `offers.read`, `offers.write` | ✓ | ✓ | |
+| `orders.mark_paid`: marking a cash-on-delivery or bank-transfer order paid, audited with the actor *(confirm)* | ✓ | ✓ | |
+| `customers.export`, `exports`: product and order exports. Staff's include orders with the customer's name and address, deliberately: Staff already reads and fulfils them (`orders.read`, `orders.write`) | ✓ | ✓ | ✓ |
+| `catalog.import` | ✓ | ✓ | |
+| `offers.read`, `carts.read`: the offers list and abandoned carts, view only | ✓ | ✓ | ✓ |
+| `offers.write`, `carts.write`: offers, reminder settings, remind now | ✓ | ✓ | |
+| `reports.read`, including `exportReport` of the panels it reads | ✓ | ✓ | |
+| `offers.export`: `exportOfferCodes`, a batch's codes as a file *(confirm: Staff reads offers but may not export their codes)* | ✓ | ✓ | |
+| `store.export`: `exportStoreData`, everything the store holds, for leaving or a data request | ✓ | | |
+| `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
+| `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 
 **Owner-only capabilities**, checked for the acting store; someone may be an Owner in one
@@ -377,7 +388,7 @@ store and a vendor in another:
 | `invite` | People: invite, resend, revoke, change role, remove (flows 8–12) |
 | `manage-vendors` | Create, invite, change tier, suspend, remove vendors (flows 14–17) |
 | `approve` | The approval setting and queue (flows 18–19) |
-| `publish` | Storefront: describe, preview, approve, publish, undo (flows 48–52). Whether a Manager may press catalogue **Publish now** is *(confirm)* |
+| `publish` | Storefront: describe, preview, approve, publish, undo (flows 48–52) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
 | `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access**, and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 
@@ -409,6 +420,11 @@ supplier who can look and not touch.
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
 | `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
 | `orders.refund`: their own lines only, up to their value; never a return's start or an override (§7.3) | | | ✓ | |
+| `sales.read`: Your sales (`mySales`), their own sold lines, no totals; never `reports.read` | | | ✓ | ✓ |
+| `exports.products`: their own products and stock | ✓ | ✓ | ✓ | ✓ |
+| `exports.orders`: their own order lines, masked as their screens are (no totals; customer fields by shipping mode, §7.3); only with `orders.read` | | | ✓ | ✓ |
+| `catalog.import`: their own products (decided on #184) | | ✓ | ✓ | ✓ |
+| Own activity (profile) | ✓ | ✓ | ✓ | ✓ |
 | Offers, customers (beyond what §7.3 lets a `to-shopper` supplier see), payments, shipping, tax, people, vendors, billing, settings | never | never | never | never |
 
 - **Stock only** is "they update quantities. Nothing else." Catalogue read is included because
@@ -1244,6 +1260,10 @@ The first platform's design was shaped by its commerce framework's limits (AUTH-
 Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this port raised.
 
 **Carried, still open**
+- **Who may mark an order paid?** `orders.mark_paid` is proposed for Owner and Manager only
+  (§5.1) *(confirm)*.
+- **May Staff export an offer's codes?** Staff reads offers (`offers.read`); `offers.export` is
+  proposed for Owner and Manager only (§5.1) *(confirm)*.
 - ~~**2-factor**: Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
   optional for everyone else (§2, §4). ~~And for partner users?~~ **Partner users settled
   2026-10-01**: optional, the Owner may require it (§2).
@@ -1253,7 +1273,7 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   nothing, or name and delivery address (§7.3).
 - ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02**: removed → hidden and kept; suspended → the Owner chooses (§7.5).
 - ~~**Refunds, returns and cancellations across vendors**: first release or later?~~ **Designed
-  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's (to be written on #184)
+  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's (written on #184: all of it ships, §1)
   (#184).
 - ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
   both in the same store (DATA-MODEL §1, §7.5).
@@ -1271,7 +1291,8 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
 - ~~**Partner roles**: confirm the proposed matrix (§5.3).~~ **Settled 2026-10-01** on #109
   (§5.3).
 - **Invitation expiry**: 7 days, carried from the first platform's default (§6.3).
-- **Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).
+- ~~**Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).~~
+  **Settled 2026-10-04** on #184 (§5.1): stock yes, warehouses and Publish now no.
 - **Stock only vendors**: how their products come to exist (§7.1).
 - **Support sessions**: default length; the email notice; who in the store may allow write
   elevation (§8). The investigation exception and the staff banner's wording are moot: staff

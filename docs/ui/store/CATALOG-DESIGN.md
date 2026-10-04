@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -34,7 +34,8 @@ It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §3 D (flows 20–29) and the cata
 > the first platform's portal's screens (sign-in, store settings, people, suppliers, warehouses) are
 > the visual baseline, and their look and words carry over unless the engine changes what they
 > can say. The left bar has **Products**, **Collections** (with three tabs: Collections,
-> Filters and Menus) and, when approval is on, **To approve**.
+> Filters and Menus) and, when approval is on, **To approve** (in the first release a "Waiting for
+> approval" chip in Products instead, ui/store/FIRST-RELEASE.md §3.1).
 >
 > **Who this is for.** Picture a first-time seller **anywhere in the world**: a boutique in
 > Ohio, a ceramicist in Lisbon, a spice shop in Manchester, a kurta brand in Jaipur, a skincare
@@ -446,8 +447,9 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
       (the One-Stop Shop scheme).
     - **US**: sales tax differs by state, county and city. Product taxability differs too
       (clothing is exempt in some states, groceries in many). It is normally calculated by a
-      tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. Whether the engine
-      uses one is open (PLATFORM-PROMPT §10) `(release: decide)`; if it does, the product form
+      tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. The engine uses
+      **Stripe Tax** (decided 2026-10-04 on #184, PLATFORM-PROMPT §5.4; through whose Stripe account is
+      still to decide, FIRST-RELEASE §21), so the product form
       picks a tax code from a searchable plain-language list ("Clothing", "Prepared food",
       "Digital book").
     - **Canada**: GST, HST or PST by province. **Australia**: GST 10%. **UK**: VAT 20% / 5% /
@@ -526,7 +528,7 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
       (Consumer Protection (E-Commerce) Rules, Legal Metrology).
     - **Canada**: bilingual (English/French) information for many consumer goods.
       **Australia**: country-of-origin labels for food. **Gulf states**: Arabic labelling for
-      many categories. *(Ask which regions are in scope at launch.)*
+      many categories. India and the US are in scope at launch (decided 2026-10-04 on #184).
 46. **Category drives the rest.** The product's category (§3 fact 31) switches on the relevant
     sections:
     - **apparel**: fibre, care, size chart;
@@ -564,9 +566,9 @@ per supplier.
 |---|---|---|---|
 | **Owner** (`owner`) | Everything, with supplier attribution. Create, edit, hide, delete. | Full | Full |
 | **Manager** (`manager`) | Same as Owner | Full | Full |
-| **Staff** (`staff`) | **Read-only**: a view page rather than a form with greyed-out fields, and no "Add product" button | Read-only | Export only? *(ask)* |
-| **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Not shown |
-| **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown *(ask whether they may pick a collection)* | Their own products only *(ask)* |
+| **Staff** (`staff`) | **Read-only**: a view page rather than a form with greyed-out fields, and no "Add product" button | Read-only | Export (decided on #184) |
+| **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Export their own only (decided on #184) |
+| **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown *(ask whether they may pick a collection)* | Their own products only (decided on #184) |
 
 The navigation differs per role (the first platform's `nav.ts` model carries over, PLATFORM-PROMPT §7).
 Vendors see "Your products".
@@ -859,7 +861,8 @@ with validation before any write, partial-failure reports, and translation and c
 - L1. Approval off: a vendor's product goes live immediately. The vendor is told so.
 - L2. Approval on: the vendor's save becomes "Submit for approval". The status reads "Waiting
   for approval", and there is no visibility control.
-- L3. Merchant review (the To approve screen): see the product as the shopper would, approve,
+- L3. Merchant review (the To approve screen; in the first release the review panel opened from
+  Products' "Waiting for approval" chip, FIRST-RELEASE §3.1): see the product as the shopper would, approve,
   or "Send back" with a required reason.
 - L4. The vendor sees "Sent back: [reason]", edits and resubmits.
 - L5. Merchant edits a pending vendor product before approving.
@@ -1268,8 +1271,9 @@ Design once, apply everywhere:
   2026-10-02** (E3, ACCESS.md §7.2).
 - ~~What happens to a removed or suspended supplier's products? (L7)~~ **Settled 2026-10-02**
   (L7, ACCESS.md §7.5).
-- Can vendors see or assign collections and filters? Can they import or export? (L9, K9)
-- Can Staff export? (§4)
+- Can vendors see or assign collections and filters? (L9) ~~Can they import or export? (K9)~~
+  **Settled 2026-10-04 on #184**: their own rows only (ACCESS.md §5.2).
+- ~~Can Staff export? (§4)~~ **Settled 2026-10-04 on #184**: yes (ACCESS.md §5.1).
 - Exact copy for publishing, and whether price and stock read live on the live static site.
   (§3 fact 17)
 - Can one product be listed in more than one of a merchant's stores, or does every product
@@ -1325,8 +1329,8 @@ Design once, apply everywhere:
   (PLATFORM-PROMPT §3.3).
 - Classification code: which markets make it required, and does the engine offer a
   plain-words code lookup? (§3 fact 7)
-- US sales tax: the engine's own zones and rates, or a tax service (Stripe Tax, Avalara,
-  TaxJar) with product tax codes? EU OSS support? (§3 fact 37, PLATFORM-PROMPT §10)
+- ~~US sales tax: the engine's own zones and rates, or a tax service?~~ **Stripe Tax** (decided
+  2026-10-04 on #184); through whose Stripe account is still open (FIRST-RELEASE §21). EU OSS support? (§3 fact 37; the EU is not a launch region)
 - EU Omnibus: price history for compare-at prices in the first release? (§3 fact 41)
 - Per-product "where you sell", age restrictions, hazardous goods: in scope? (§3 facts 42–43)
 - The prohibited-categories list. (§3 fact 46)
