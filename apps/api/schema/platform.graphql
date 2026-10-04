@@ -520,6 +520,7 @@ type PartnerStore {
   site: StoreSite
   support: StoreSupport
   trialExtensions: [StoreTrialExtension!]
+  trialOffers: [StoreTrialExtension!]
   usage: [StoreUsage!]
 }
 

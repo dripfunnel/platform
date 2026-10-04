@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { loadStores, type StorePage, type StoreRow } from '../../api/stores'
 import { messages } from '../../messages'
+import { searchMaxLength } from '@dripfunnel/shared/search'
 import { useScreenState } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
 import { StatusSub, StoreStatusPill } from './storeLook'
@@ -35,11 +36,21 @@ export const searchAfterTyping = (q: string, search: (q: string) => Promise<Stor
   }
 }
 
-// A link with ?q= (the Stores list's search) opens with it typed; Find a store has no filters.
-export const typedFrom = (search: { q?: unknown }): string => (typeof search.q === 'string' ? search.q : '')
+// A link with ?q= (the Stores list's search) opens with it typed, held to every search's length.
+export const typedFrom = (search: { q?: unknown }): string => (typeof search.q === 'string' ? search.q.trim().slice(0, searchMaxLength) : '')
 
-// Enter opens the first store found.
 export const firstFound = (result: FindResult): StoreRow | undefined => (result.kind === 'found' ? result.rows[0] : undefined)
+
+// Go (Enter) opens the first store found. Pressed while a search is on its way, it waits for that
+// answer; typing again cancels the wait. `open` is the store to go to now, if any.
+export type GoEvent = { kind: 'go'; result: FindResult } | { kind: 'typed' } | { kind: 'answered'; result: FindResult }
+
+export const nextGo = (waiting: boolean, event: GoEvent): { waiting: boolean; open: StoreRow | null } => {
+  if (event.kind === 'typed') return { waiting: false, open: null }
+  if (event.kind === 'go') return event.result.kind === 'searching' ? { waiting: true, open: null } : { waiting: false, open: firstFound(event.result) ?? null }
+  if (!waiting || event.result.kind === 'searching') return { waiting, open: null }
+  return { waiting: false, open: firstFound(event.result) ?? null }
+}
 
 export interface FindStoreViewProps {
   typed: string
@@ -71,6 +82,7 @@ export const FindStoreView = ({ typed, result, onType, onRetry, onSubmit }: Find
           type="search"
           enterKeyHint="go"
           autoComplete="off"
+          maxLength={searchMaxLength}
           placeholder={words.placeholder}
           aria-describedby={statusId}
           value={typed}
@@ -118,9 +130,8 @@ export const FindStore = () => {
   const [typed, setTyped] = useState(() => typedFrom(linked))
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<FindResult>({ kind: 'searching' })
-  // Go pressed before the search answered: open the first store once it does.
-  const [goWhenFound, setGoWhenFound] = useState(false)
-  const q = typed.trim()
+  const [waiting, setWaiting] = useState(false)
+  const q = typed.trim().slice(0, searchMaxLength)
 
   useEffect(() => {
     if (forced) return
@@ -129,24 +140,28 @@ export const FindStore = () => {
   }, [q, attempt, forced])
 
   const shown: FindResult = forced === 'nomatch' ? { kind: 'found', rows: [], more: false } : forced === 'searching' ? { kind: 'searching' } : forced === 'failed' ? { kind: 'failed' } : result
-  const first = firstFound(shown)
-  const open = useCallback((store: StoreRow) => void navigate({ to: '/stores/$storeId', params: { storeId: store.id } }), [navigate])
+  const go = useCallback(
+    (event: GoEvent) => {
+      const next = nextGo(waiting, event)
+      setWaiting(next.waiting)
+      if (next.open) void navigate({ to: '/stores/$storeId', params: { storeId: next.open.id } })
+    },
+    [waiting, navigate],
+  )
   useEffect(() => {
-    if (!goWhenFound || shown.kind === 'searching') return
-    setGoWhenFound(false)
-    if (first) open(first)
-  }, [goWhenFound, shown.kind, first, open])
+    if (waiting && shown.kind !== 'searching') go({ kind: 'answered', result: shown })
+  }, [waiting, shown, go])
 
   return (
     <FindStoreView
       typed={typed}
       result={shown}
       onType={(text) => {
-        setGoWhenFound(false)
+        go({ kind: 'typed' })
         setTyped(text)
       }}
       onRetry={() => setAttempt((count) => count + 1)}
-      onSubmit={() => (first ? open(first) : setGoWhenFound(shown.kind === 'searching'))}
+      onSubmit={() => go({ kind: 'go', result: shown })}
     />
   )
 }

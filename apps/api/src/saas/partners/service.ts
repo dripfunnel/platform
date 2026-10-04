@@ -49,6 +49,7 @@ import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
 import { assignManager, unassignManager } from './assignments'
 import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from './goLive'
 import { countryOf } from '#core/countries'
+import { handoffLink } from '#saas/staffSessions/index'
 
 // Partners on the Admin API (card #33; ui/admin/FIRST-RELEASE.md §4, §12). The resolvers in
 // apis/admin/partners.ts are thin; everything a screen is told comes from here, and every
@@ -572,7 +573,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       // Two starts at once: the partial unique index decides, and the loser gets the same code.
       if (!sessionId) return { ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' }
       await activity.record(tx, entry(partner, partnerAudit.startPartnerSetupSession, parsed.data, { access: { kind: 'setup_session', id: sessionId } }))
-      return { ok: true, sessionId, expiresAt, handoff: `https://${deps.platformHost}/impersonate/enter?token=${encodeURIComponent(token)}` }
+      return { ok: true, sessionId, expiresAt, handoff: handoffLink(deps.platformHost, token) }
     })
   }
 

@@ -9,7 +9,7 @@ import { SessionStrip } from '../impersonate/SessionStrip'
 import { navFor } from '../../nav'
 import { NeedsLaptop } from '../common/NeedsLaptop'
 import { phoneView } from '../common/phoneView'
-import { usePhone } from '../common/usePhone'
+import { usePhone, widened } from '../common/usePhone'
 import { FindStore } from '../stores/FindStore'
 import { AppHeader } from './AppHeader'
 import { BannerStack } from './BannerStack'
@@ -30,7 +30,7 @@ export const AppShell = () => {
   // Pages a phone skipped loading (the Dashboard, Stores) load once the screen widens.
   const wasPhone = useRef(phone)
   useEffect(() => {
-    if (wasPhone.current && !phone) void router.invalidate()
+    if (widened(wasPhone.current, phone)) void router.invalidate()
     wasPhone.current = phone
   }, [phone, router])
   // A session started or ended here moves the badge and the page under it at once.
