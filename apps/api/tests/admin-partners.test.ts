@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
@@ -346,6 +347,24 @@ describe('createPartner and the Owner invitation (§4.3)', () => {
 
     await db.sql`update partner set state = 'closed' where id = ${first?.id ?? ''}`
     expect((await run<Out>(create, as('staff-super-admin'), input('Twin Partner', 'three@twin.example'))).data?.['createPartner']).toMatchObject({ ok: true })
+  })
+
+  it('lets two creates of one name at once make one partner, the other refused at the index', async () => {
+    const input = (email: string) => ({ input: { name: 'Racing Partner', ownerEmail: email, country: 'DE', sendInvitation: false } })
+    const outcomes = await Promise.all([run<Out>(create, as('staff-super-admin'), input('a@race.example')), run<Out>(create, as('staff-super-admin'), input('b@race.example'))])
+    expect(outcomes.map((o) => o.data?.['createPartner']?.ok).sort()).toEqual([false, true])
+    expect(outcomes.find((o) => !o.data?.['createPartner']?.ok)?.data?.['createPartner']).toMatchObject({ code: 'NAME_TAKEN', id: null })
+    expect(await db.sql`select 1 from partner where lower(btrim(name)) = 'racing partner'`).toHaveLength(1)
+  })
+
+  it('stops migration 0031 on partners that already share a name, naming the clash', async () => {
+    const migration = readFileSync(new URL('../migrations/0031_partner_name_unique.sql', import.meta.url), 'utf8')
+    await db.sql`drop index partner_name_unique_idx`
+    const [clash] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Clash Partner'), (' clash partner') returning id`
+    await expect(db.sql.unsafe(migration)).rejects.toThrow(/Partners share a name: 'clash partner'/)
+    await db.sql`delete from partner where id = ${clash?.id ?? ''}`
+    await db.sql.unsafe(migration)
+    expect(await db.sql`select 1 from pg_indexes where indexname = 'partner_name_unique_idx'`).toHaveLength(1)
   })
 
   it('sends a held invitation once, resends a sent one with the old link revoked, and refuses an accepted one', async () => {

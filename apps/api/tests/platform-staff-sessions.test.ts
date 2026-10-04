@@ -237,11 +237,15 @@ describe('the blocked lists', () => {
     const imp = await impersonate(ids.maya)
     const owner = await signedIn((await enter(imp.token)).cookie)
     expect((await platformRun<{ changeTeamRole: unknown }>(role, owner, { id: ids.diego, role: 'partner-owner' })).data?.changeTeamRole).toEqual({ ok: false, reason: 'BLOCKED_WHILE_IMPERSONATING' })
+    const inviteOwner = `mutation { inviteTeamMember(name: "Next Owner", email: "owner.by.imp@northstar.example", role: "partner-owner") { ok reason } }`
+    expect((await platformRun<{ inviteTeamMember: unknown }>(inviteOwner, owner)).data?.inviteTeamMember).toEqual({ ok: false, reason: 'BLOCKED_WHILE_IMPERSONATING' })
     await endFromAdmin(imp.id)
     const setup = await setUp(ids.northstar)
     const staff = await signedIn((await enter(setup.token)).cookie)
     expect((await platformRun<{ changeTeamRole: unknown }>(role, staff, { id: ids.maya, role: 'partner-admin' })).data?.changeTeamRole).toEqual({ ok: false, reason: 'PARTNER_ENTERS_THIS_ITSELF' })
     expect((await platformRun<{ removeTeamMember: unknown }>(remove, staff, { id: ids.maya })).data?.removeTeamMember).toEqual({ ok: false, reason: 'PARTNER_ENTERS_THIS_ITSELF' })
+    const invite = `mutation($email: String!, $role: String!) { inviteTeamMember(name: "Next Owner", email: $email, role: $role) { ok reason } }`
+    expect((await platformRun<{ inviteTeamMember: unknown }>(invite, staff, { email: 'owner.by.setup@northstar.example', role: 'partner-owner' })).data?.inviteTeamMember).toEqual({ ok: false, reason: 'PARTNER_ENTERS_THIS_ITSELF' })
     // Roles that aren't Owner stay the setup session's to change.
     expect((await platformRun<{ changeTeamRole: unknown }>(role, staff, { id: ids.jess, role: 'partner-finance' })).data?.changeTeamRole).toEqual({ ok: true, reason: null })
     expect((await db.sql<{ role_key: string }[]>`select role_key from partner_user where id = ${ids.maya}`)[0]?.role_key).toBe('partner-owner')
@@ -326,6 +330,23 @@ describe('ending', () => {
   })
 })
 
+describe('the cookie', () => {
+  it('reads its own session only, never another open at the same time', async () => {
+    clock = start
+    const imp = await impersonate(ids.diego)
+    const setup = await setUp(ids.northstar)
+    const [one, two] = [await enter(imp.token), await enter(setup.token)]
+    expect(await current(one.cookie)).toMatchObject({ id: imp.id, kind: 'impersonation' })
+    expect(await current(two.cookie)).toMatchObject({ id: setup.id, kind: 'setup' })
+    expect(await current(`${staffPortalCookieName}=not-a-session`)).toBeNull()
+    // Ending one from its own cookie leaves the other open.
+    await post('end-staff-session', { id: setup.id }, one.cookie)
+    expect(await current(two.cookie)).toMatchObject({ state: 'open' })
+    await endFromAdmin(imp.id)
+    await endFromAdmin(setup.id)
+  })
+})
+
 describe('the notice', () => {
   it('tells the partner’s own users who is in their console, and not the staff member', async () => {
     clock = start
@@ -346,6 +367,10 @@ describe('the notice', () => {
     const inSetup = await signedIn((await enter(setup.token)).cookie)
     expect((await platformRun<{ partnerState: { setupSession: unknown } }>(`{ partnerState { setupSession { staffName } } }`, inSetup)).data?.partnerState.setupSession).toBeNull()
     expect((await platformRun<{ partnerState: { setupSession: unknown } }>(`{ partnerState { setupSession { staffName } } }`, user)).data?.partnerState.setupSession).not.toBeNull()
+    // Another partner's users hear of nothing on Northstar.
+    const [other] = await db.sql<{ id: string; partner_id: string }[]>`select id, partner_id from partner_user where partner_id <> ${ids.northstar} and status = 'active' limit 1`
+    const stranger: PartnerCaller = { role: 'partner-owner', user: { id: other?.id ?? '', name: 'Someone Else', email: 'else@example.com' }, staff: null, partner: { ...staff.partner, id: other?.partner_id ?? '' } }
+    expect((await platformRun<{ staffSessionNotice: unknown }>(notice, stranger)).data?.staffSessionNotice).toBeNull()
     await endFromAdmin(setup.id)
     await endFromAdmin(s.id)
     expect((await platformRun<{ staffSessionNotice: unknown }>(notice, user)).data?.staffSessionNotice).toBeNull()
