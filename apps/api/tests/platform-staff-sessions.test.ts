@@ -75,7 +75,7 @@ const setUp = async (partnerId: string): Promise<{ id: string; token: string }> 
 const endFromAdmin = (id: string) => adminRun(`mutation($id: ID!) { endStaffSession(id: $id) { ok code } }`, as('staff-super-admin'), { id })
 
 let allow = true
-const authDeps = (): PlatformAuthDeps => ({ sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => clock, allowAttempt: async () => allow })
+const authDeps = (): PlatformAuthDeps => ({ sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => clock, allowAttempt: async () => true, allowStaffRead: async () => allow })
 
 const post = (path: string, body: unknown, cookie?: string) =>
   handlePlatformAuth(

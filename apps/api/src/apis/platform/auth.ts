@@ -43,6 +43,8 @@ export interface PlatformAuthDeps {
   now: () => Date
   /** False when this key has made too many attempts (ARCHITECTURE.md §7). */
   allowAttempt: (key: string) => Promise<boolean>
+  /** The staff-session routes' own limit, sized for polling (ACCESS.md §8.3). */
+  allowStaffRead: (key: string) => Promise<boolean>
 }
 
 const paths = {

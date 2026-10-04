@@ -28,6 +28,7 @@ const deps = (): PlatformAuthDeps => ({
   platformHost: host,
   secrets,
   now: () => now,
+  allowStaffRead: async () => true,
   allowAttempt: async (k) => {
     attempts.push(k)
     return !spent.has(k)
