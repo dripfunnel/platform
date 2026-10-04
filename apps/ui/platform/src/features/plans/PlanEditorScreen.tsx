@@ -1,13 +1,21 @@
 import { ConfirmDialog, Toast, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
-import { makePlanLive, quotePlanPrices, retirePlan, savePlan, type ApplyTo, type PlanPrice } from '../../api/plans'
+import { makePlanLive, quotePlanPrices, retirePlan, savePlan, type ApplyTo, type MakeLiveResult, type PlanPrice } from '../../api/plans'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { planEditorStates } from './plansHarness'
 import { draftOf, inputOf, type PlanDraft } from './planDraft'
 import { retireDialog, retireInput, saveDialog, type PlanDialog } from './planDialogs'
 import { PlanEditor, PlanEditorError } from './PlanEditor'
+
+// UNPRICED_CURRENCY names the currency when the API knows which one; without it, a plan with no prices at all.
+export const makeLiveRefusal = (result: Exclude<MakeLiveResult, { ok: true }>): string =>
+  result.reason !== 'UNPRICED_CURRENCY'
+    ? messages.plans.refused[result.reason]
+    : result.currency
+      ? fill(messages.plans.refused.UNPRICED_CURRENCY, { currency: result.currency })
+      : messages.plans.refused.UNPRICED
 
 const planRoute = getRouteApi('/_app/plans_/$planId')
 const shellRoute = getRouteApi('/_app')
@@ -85,13 +93,7 @@ export const PlanEditorScreen = () => {
       .then(async (result) => {
         setBusy(false)
         if (!result.ok)
-          return refused(
-            result.reason !== 'UNPRICED_CURRENCY'
-              ? messages.plans.refused[result.reason]
-              : result.currency
-                ? fill(messages.plans.refused.UNPRICED_CURRENCY, { currency: result.currency })
-                : messages.plans.refused.UNPRICED,
-          )
+          return refused(makeLiveRefusal(result))
         setToast(fill(messages.plans.toasts.live, { plan: name }))
         await router.invalidate()
       })
