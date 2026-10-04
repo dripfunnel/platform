@@ -192,7 +192,7 @@ include AI, the **partner's** key pays (§4); on plans without it, the merchant 
 | Item | What it is for | Kind | Kept in | Slice |
 |---|---|---|---|---|
 | **The partner's AI provider key** (Anthropic, or another provider) | Every AI call on the partner's plans that include AI; metered per run in `ai_run` ([../api/SAAS.md](../api/SAAS.md) §9.2) | API key per partner | Partner credential in Postgres (§4, #275) | 9 (portal helpers can come earlier, in 5) |
-| — | Where the designer agent runs is **open** (ARCHITECTURE §8). Wherever it runs, the partner's (or merchant's) key is handed to that run only, never stored in a store repo or its workflows | — | *(decide)* | 9 |
+| — | The designer agent runs in **GitHub Actions** (decided 2026-10-05 on #284). The partner's (or merchant's) key is handed to that run only, never stored in a store repo or its workflows | — | — | 9 |
 | Cloudflare AI Gateway *(optional)* | Caching, rate limits and a cost log in front of the provider | Gateway ID; authenticated gateway token | Worker secret | 9 |
 | A second provider (e.g. OpenAI) *(optional)* | A partner may connect one too, for fallback or cheaper translation models | API key | Partner credential (§4) | later |
 | **`CLAUDE_CODE_OAUTH_TOKEN`** | Claude's review on every pull request ([WORKFLOW.md](WORKFLOW.md) §7, the `review` job in `.github/workflows/ci.yml`). **The check fails without it** (reversed 2026-09-30): the job stops in its first step with a message naming this secret, before installing or running anything. Minted from a Claude Pro or Max subscription with `claude setup-token`; it is **personal**, expires, and every review runs as whoever minted it | OAuth token | GitHub Actions secret on `dripfunnel/platform` | 1 |
@@ -287,7 +287,7 @@ The Platform prototype's provider list also has Adyen.
 
 | Provider | Region (prototype) | What the merchant gives | Webhook | Notes |
 |---|---|---|---|---|
-| **Stripe** | US (DE: prototype only) | Nothing pasted: the merchant connects through **Stripe Connect OAuth** | **One Connect endpoint** on DripFunnel's account, receiving every connected merchant account's events, each routed to its store by the connected account id (SAPI 10 names its path); no per-store endpoints or secrets | **Stripe Connect Standard (OAuth)**, decided 2026-10-05 on #284, instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
+| **Stripe** | US (DE: prototype only) | Nothing pasted: the merchant connects through **Stripe Connect OAuth** | **One Connect endpoint** on DripFunnel's account, receiving every connected merchant account's events, each routed to its store by the connected account id; no per-store endpoints or secrets. *(Proposed, SAPI 10 confirms)*: the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts | **Stripe Connect Standard (OAuth)**, decided 2026-10-05 on #284, instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
 | **Razorpay** | IN | Key ID, key secret | Webhook secret the merchant sets in Razorpay | Razorpay **Route** if vendors are paid out (PLATFORM-PROMPT §10 *(ask)*) |
 | **Cashfree** | IN | App ID (client ID), secret key | Signed with the secret key | In the old plugins and the api layout |
 | **PayPal** | US (DE: prototype only) | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
@@ -535,7 +535,7 @@ generation are in the section it cites.
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | Store repos through the provisioning App | Ids as Worker variables; key and webhook secret as Worker secrets | §2.3 | slice 6 |
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | `CF_STOREFRONT_DEPLOY_TOKEN`, `CF_CACHE_PURGE_TOKEN` | Publishing storefronts and purging their caches | Worker secrets | §2.1 | slice 6 |
-| `STRIPE_CONNECT_WEBHOOK_SECRET` | Only if Connect events get their own endpoint *(decide)* | Worker secret | §2.7 | slice 11 |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** *(proposed, SAPI 10 confirms)*: connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | Worker secret | §2.7, §3.1 | SAPI 10 |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
 | `AI_GATEWAY_TOKEN` | Cloudflare AI Gateway in front of every partner's AI calls *(optional)* | Worker secret | §2.6 | slice 9 |
 | `TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY` | Bot check on signup and codes *(proposed)* | Worker secret; site key as build var | §2.1 | slice 4 |

@@ -153,7 +153,7 @@ moment you save.
 | `CREDENTIALS_KEK` | Secret | a new key | `openssl rand -base64 32`. Store it in the password manager **before** saving it. Losing it makes every encrypted 2-factor secret and partner or merchant credential unreadable for good; it carries a version for rotation (THIRD-PARTY-ACCESS.md §5) |
 | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Secret | the staff registration | Entra admin center (THIRD-PARTY-ACCESS.md §2.5). Redirect URI `https://admin.dripfunnel.com/api/auth/callback`. The client secret expires (24 months at most): note the date |
 | `STRIPE_SECRET_KEY` | Secret | **live** restricted key `rk_live_…` | Stripe (live mode) › Developers › API keys › *Create restricted key*, with only the permissions in THIRD-PARTY-ACCESS.md §8 |
-| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (live mode) › Webhooks › *Add endpoint* `https://hooks.dripfunnel.com/stripe`, events as in §8, *Listen to events on Connected accounts* |
+| `STRIPE_WEBHOOK_SECRET` | Secret | `whsec_…` | Stripe (live mode) › Webhooks › *Add endpoint* `https://hooks.dripfunnel.com/stripe`, events as in §8, *Listen to events on Connected accounts* From SAPI 10, the same endpoint also receives connected merchant accounts' events (THIRD-PARTY-ACCESS §3.1, proposed) |
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user | THIRD-PARTY-ACCESS.md §2.4. Ask for SES **production access** early; approval takes days |
 | `SES_SENDER_DOMAIN` | Text | `dripfunnel-mail.com` | verified in SES with DKIM, SPF and DMARC; partners' fallbacks are its subdomains |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
