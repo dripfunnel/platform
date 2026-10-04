@@ -44,10 +44,10 @@ export const reports: { [T in Report['tab']]: Extract<Report, { tab: T }> } = {
   },
   usage: {
     tab: 'usage',
-    data: { summary: '2 stores are at 80% or more of a limit.', meters: { aiPrompts: 1234, publishNow: 312 }, rows: [{ storeId: 's1', store: 'Harbor Coffee', limit: 'products', used: 100, cap: 100, percentBps: 10000 }, { storeId: 's2', store: 'Lumen Candle Co.', limit: 'ai_prompts', used: 250, cap: 300, percentBps: 8333 }], truncated: false },
+    data: { summary: '2 stores are at 80% or more of a limit.', fresh: false, meters: { aiPrompts: 1234, publishNow: 312 }, rows: [{ storeId: 's1', store: 'Harbor Coffee', limit: 'products', used: 100, cap: 100, percentBps: 10000 }, { storeId: 's2', store: 'Lumen Candle Co.', limit: 'ai_prompts', used: 250, cap: 300, percentBps: 8333 }], truncated: false },
   },
   setup: {
     tab: 'setup',
-    data: { summary: 'A new store is ready in 1 min 42 s on average.', medianSeconds: 102, failed: 1, domainsStuck: 1, rows: [{ kind: 'stuck', storeId: 's3', store: 'Juniper & Co.', detail: 'firstBuild', since: '2026-10-03T10:00:00.000Z' }, { kind: 'domain', storeId: 's4', store: 'Cobalt Kitchen', detail: 'shop.cobalt.example', since: '2026-10-01T10:00:00.000Z' }], truncated: false },
+    data: { summary: 'A new store is ready in 1 min 42 s on average.', fresh: false, medianSeconds: 102, failed: 1, domainsStuck: 1, rows: [{ kind: 'stuck', storeId: 's3', store: 'Juniper & Co.', detail: 'firstBuild', since: '2026-10-03T10:00:00.000Z' }, { kind: 'domain', storeId: 's4', store: 'Cobalt Kitchen', detail: 'shop.cobalt.example', since: '2026-10-01T10:00:00.000Z' }], truncated: false },
   },
 }

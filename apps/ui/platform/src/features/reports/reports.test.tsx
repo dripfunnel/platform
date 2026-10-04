@@ -89,7 +89,10 @@ describe('Reports', () => {
   })
 
   it('tells a new partner reports fill in, and loads and fails in its own words', async () => {
-    expect(textOf(await view({ ...reports.growth, data: { ...reports.growth.data, fresh: true } }))).toContain(words.fresh)
+    for (const report of Object.values(reports)) {
+      const fresh = { ...report, data: { ...report.data, fresh: true } } as typeof report
+      expect(textOf(await view(fresh)), report.tab).toContain(words.fresh)
+    }
     expect(await view(reports.growth, { forced: 'loading' })).toContain('df-skeleton')
     expect(textOf(await view(reports.growth, { forced: 'error' }))).toContain(words.error.title)
   })

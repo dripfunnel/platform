@@ -125,6 +125,7 @@ const Meters = builder.objectRef<Usage['meters']>('UsageMeters').implement({
 const UsageType = builder.objectRef<Usage>('UsageReport').implement({
   fields: (t) => ({
     summary: t.exposeString('summary'),
+    fresh: t.exposeBoolean('fresh'),
     rows: t.field({ type: [UsageRow], resolve: (r) => r.rows }),
     meters: t.field({ type: Meters, resolve: (r) => r.meters }),
     truncated: t.exposeBoolean('truncated'),
@@ -143,6 +144,7 @@ const SetupRow = builder.objectRef<Setup['rows'][number]>('SetupProblemRow').imp
 const SetupType = builder.objectRef<Setup>('SetupHealthReport').implement({
   fields: (t) => ({
     summary: t.exposeString('summary'),
+    fresh: t.exposeBoolean('fresh'),
     medianSeconds: t.exposeInt('medianSeconds', { nullable: true }),
     failed: t.exposeInt('failed'),
     // Custom domains waiting for DNS over a day, the third of §10's figures.

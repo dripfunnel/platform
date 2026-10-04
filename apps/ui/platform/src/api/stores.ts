@@ -2,6 +2,7 @@ import type { Money } from '@dripfunnel/shared/format'
 import { ApiError, isApiError, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
+import { exportJobFields, exportJobSchema, readExportJob } from './exportJob'
 
 // The Stores operations on the Platform API (FIRST-RELEASE.md §6, §16): `stores(filter, after, before)`,
 // `search(query)`, `createStore` and the signup job's progress. What a caller may do is the API's answer (§1).
@@ -360,23 +361,6 @@ export const loadStores = async (filter: StoreFilter, page: PageRequest): Promis
 
 // The export's CSV comes inline until a storage bucket is bound (THIRD-PARTY-ACCESS §2.1): a link
 // made once per job and revoked when the job expires, so the merchants' list doesn't outlive it.
-const exportLinks = new Map<string, string>()
-const revokeExport = (id: string) => {
-  const url = exportLinks.get(id)
-  if (url) URL.revokeObjectURL(url)
-  exportLinks.delete(id)
-}
-const exportLink = (id: string, csv: string, expiresAt: string | null): string => {
-  const known = exportLinks.get(id)
-  if (known) return known
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
-  exportLinks.set(id, url)
-  if (expiresAt) setTimeout(() => revokeExport(id), Math.max(0, Date.parse(expiresAt) - Date.now()))
-  return url
-}
-
-const exportStates = { queued: 'preparing', done: 'ready', failed: 'failed', too_large: 'tooLarge', expired: 'expired' } as const
-
 // `exportStores(filter)` is a job (§16): everything the filter matches, never an order, customer or product.
 export const startStoresExport = async (filter: StoreFilter): Promise<ExportJob> => {
   const { exportStores: started } = await query(
@@ -388,19 +372,8 @@ export const startStoresExport = async (filter: StoreFilter): Promise<ExportJob>
   return { id: started.jobId, state: 'preparing', entries: null, url: null, expiresAt: null }
 }
 
-export const loadStoresExport = async (id: string): Promise<ExportJob | null> => {
-  const { storesExport: job } = await query(
-    `query StoresExport($id: ID!) { storesExport(id: $id) { id state rows truncated csv expiresAt } }`,
-    z.object({ storesExport: z.object({ id: z.string(), state: z.enum(['queued', 'done', 'failed', 'too_large', 'expired']), rows: z.number().int().nullable(), truncated: z.boolean(), csv: z.string().nullable(), expiresAt: z.string().nullable() }).nullable() }),
-    { id },
-  )
-  const state = job ? exportStates[job.state] : null
-  if (!job || state !== 'ready' || job.csv === null) {
-    revokeExport(id)
-    return job && { id: job.id, state: state ?? 'failed', entries: job.rows, url: null, expiresAt: job.expiresAt }
-  }
-  return { id: job.id, state, entries: job.rows, url: exportLink(job.id, job.csv, job.expiresAt), expiresAt: job.expiresAt, truncated: job.truncated }
-}
+export const loadStoresExport = async (id: string): Promise<ExportJob | null> =>
+  readExportJob((await query(`query StoresExport($id: ID!) { storesExport(id: $id) { ${exportJobFields} } }`, z.object({ storesExport: exportJobSchema.nullable() }), { id })).storesExport)
 
 export type BillingStatusResult = { ok: true } | { ok: false; reason: ActionRefusal }
 

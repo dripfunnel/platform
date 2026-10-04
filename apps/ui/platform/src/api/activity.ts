@@ -1,6 +1,7 @@
 import { ApiError, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
+import { exportJobFields, exportJobSchema, readExportJob } from './exportJob'
 
 // The Activity log on the Platform API (FIRST-RELEASE.md §13, §16): what the partner may read is
 // the log's own policy (LOGGING.md §6), never anything inside a store or a shopper; the console
@@ -125,28 +126,5 @@ export const startActivityExport = async (filter: ActivityFilter): Promise<Expor
   return { id: started.jobId, state: 'preparing', entries: null, url: null, expiresAt: null }
 }
 
-const exportLinks = new Map<string, string>()
-
-const exportStates = { queued: 'preparing', done: 'ready', failed: 'failed', too_large: 'tooLarge', expired: 'expired' } as const
-
-export const loadActivityExport = async (id: string): Promise<ExportJob | null> => {
-  const { activityExport: job } = await query(
-    `query Job($id: ID!) { activityExport(id: $id) { id state rows truncated csv expiresAt } }`,
-    z.object({
-      activityExport: z.object({ id: z.string(), state: z.enum(['queued', 'done', 'failed', 'too_large', 'expired']), rows: z.number().int().nullable(), truncated: z.boolean().nullable(), csv: z.string().nullable(), expiresAt: z.string().nullable() }).nullable(),
-    }),
-    { id },
-  )
-  if (!job) return null
-  const state = exportStates[job.state]
-  const known = exportLinks.get(job.id)
-  if (state !== 'ready' || job.csv === null) {
-    if (known) URL.revokeObjectURL(known)
-    exportLinks.delete(job.id)
-    return { id: job.id, state: state === 'ready' ? 'failed' : state, entries: job.rows, url: null, expiresAt: job.expiresAt, truncated: job.truncated ?? false }
-  }
-  const url = known ?? URL.createObjectURL(new Blob([job.csv], { type: 'text/csv' }))
-  if (!known && job.expiresAt) setTimeout(() => (URL.revokeObjectURL(url), exportLinks.delete(job.id)), Math.max(0, Date.parse(job.expiresAt) - Date.now()))
-  exportLinks.set(job.id, url)
-  return { id: job.id, state, entries: job.rows, url, expiresAt: job.expiresAt, truncated: job.truncated ?? false }
-}
+export const loadActivityExport = async (id: string): Promise<ExportJob | null> =>
+  readExportJob((await query(`query Job($id: ID!) { activityExport(id: $id) { ${exportJobFields} } }`, z.object({ activityExport: exportJobSchema.nullable() }), { id })).activityExport)
