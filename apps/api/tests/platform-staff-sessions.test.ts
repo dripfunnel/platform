@@ -74,7 +74,8 @@ const setUp = async (partnerId: string): Promise<{ id: string; token: string }> 
 
 const endFromAdmin = (id: string) => adminRun(`mutation($id: ID!) { endStaffSession(id: $id) { ok code } }`, as('staff-super-admin'), { id })
 
-const authDeps = (): PlatformAuthDeps => ({ sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => clock, allowAttempt: async () => true })
+let allow = true
+const authDeps = (): PlatformAuthDeps => ({ sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => clock, allowAttempt: async () => allow })
 
 const post = (path: string, body: unknown, cookie?: string) =>
   handlePlatformAuth(
@@ -339,11 +340,30 @@ describe('the cookie', () => {
     expect(await current(one.cookie)).toMatchObject({ id: imp.id, kind: 'impersonation' })
     expect(await current(two.cookie)).toMatchObject({ id: setup.id, kind: 'setup' })
     expect(await current(`${staffPortalCookieName}=not-a-session`)).toBeNull()
-    // Ending one from its own cookie leaves the other open.
-    await post('end-staff-session', { id: setup.id }, one.cookie)
+    // Ending another session's id through one cookie ends nothing, and says so.
+    const mismatched = await post('end-staff-session', { id: setup.id }, one.cookie)
+    expect([mismatched.status, await mismatched.json()]).toEqual([400, { ok: false, code: 'SESSION_NOT_ENDED' }])
     expect(await current(two.cookie)).toMatchObject({ state: 'open' })
     await endFromAdmin(imp.id)
     await endFromAdmin(setup.id)
+  })
+})
+
+describe('the polled routes', () => {
+  it('cost a partner user nothing, and hold a staff cookie to a bucket of its own', async () => {
+    clock = start
+    const s = await impersonate(ids.diego)
+    const { cookie } = await enter(s.token)
+    allow = false
+    try {
+      expect((await post('staff-session', {})).status).toBe(200)
+      expect((await post('staff-session', {}, cookie)).status).toBe(429)
+      expect((await post('end-staff-session', { id: s.id }, cookie)).status).toBe(429)
+    } finally {
+      allow = true
+    }
+    expect(await current(cookie)).toMatchObject({ state: 'open' })
+    await endFromAdmin(s.id)
   })
 })
 

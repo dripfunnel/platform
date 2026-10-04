@@ -7,7 +7,6 @@ import { stuckAfterMinutes } from '#saas/provisioning/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
 import { exportPayload, exportScope } from './exportPayload'
 
-
 /** `export.stores`: the Stores list's rows as CSV, read page by page in the partner's own scope. */
 export const storesExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {

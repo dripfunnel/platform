@@ -980,9 +980,10 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
   - **The routes.** `POST /api/auth/staff-session` answers the cookie's session, open or how it
     ended. `POST /api/auth/end-staff-session` ends it from the console, logs `.ended` with the
     staff member as actor. The cookie stays, acting as nobody, so the console can say how the
-    session ended. Signing out of the console ends it the same way. Both routes sit outside the
-    sign-in rate limit, since
-    they are polled.
+    session ended. Signing out of the console ends it the same way, and an end that ends nothing
+    answers `SESSION_NOT_ENDED`. Both routes sit outside the sign-in bucket, since every tab polls
+    them. A request without a staff cookie reads nothing; one with it counts against
+    `staff:ip:{address}`.
   - **The two callers.** An impersonation resolves to the user acted as, with `staff` beside it,
     and runs with their role, `app.user_id` and `app.impersonation_id`. A setup session has no
     user and runs with the Owner's role. It is no team member, so it never transfers ownership.
