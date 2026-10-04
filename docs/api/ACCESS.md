@@ -374,6 +374,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `offers.write`, `carts.write`: offers, reminder settings, remind now | ✓ | ✓ | |
 | `reports.read` | ✓ | ✓ | |
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
+| `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
 
 **Owner-only capabilities**, checked for the acting store; someone may be an Owner in one

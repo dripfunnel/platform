@@ -189,7 +189,7 @@ every other tenant read.
 | **DripFunnel staff** (every staff role) | Admin console › Activity log; Activity tabs on partner and store pages | Everything, including `security` entries, IPs and user agents. Can follow **one person across every store and partner** |
 | **Partner user** | Partner console › Settings › Activity log; Activity tab on each merchant | Its own users' actions; staff actions on its partner account and merchants' accounts; support sessions its users opened; account-level events on its merchants (plan, trial, suspension, provisioning). **Never** anything inside a store, or any shopper |
 | **Merchant Owner** | Merchant portal › Settings › Activity log | Everything in the store: people, vendors, API keys, apps, support sessions (and what they opened), shoppers' account events and orders |
-| **Merchant Manager** | Merchant portal › Store activity (user menu, since Settings is the Owner's); customer page › Activity; own activity | Everything the Owner sees (decided on #184); their own actions |
+| **Merchant Manager** | Merchant portal › Store activity (user menu, since Settings is the Owner's); customer page › Activity; own activity | Everything the Owner sees, to read; the export stays the Owner's (below; decided on #184); their own actions |
 | **Merchant Staff** | Own activity | Their own actions |
 | **Vendor** | Own activity | Their own actions only (decided on #184) |
 | **Shopper** | Storefront account › Sign-in activity and order history | Their own sign-ins *(release: decide)*, and the events of their own orders (placed, paid, shipped, return, refund), which is how the storefront's order history is read (DATA-MODEL.md §2.2) |

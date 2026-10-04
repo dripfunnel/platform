@@ -265,8 +265,8 @@ filtered) are jobs with a download. Owner and Manager import; **Staff export**; 
 (catalogue tiers) and export **their own** (§1). **A supplier's export is its screen, as a file**:
 seller-scoped through the same serializer, so it holds only its own rows, never an order total,
 and customer fields by shipping mode — none for `to-store`, name and delivery address for
-`to-shopper` (ACCESS §7.3). Every card that builds an export (SAPI 11, 13, 16) carries the
-isolation-matrix test for it (ACCESS §11.1); customers are never exported to a supplier.
+`to-shopper` (ACCESS §7.3). Every card that builds an export carries the isolation-matrix test for it (caller kind × store ×
+seller, ACCESS §11.1): SAPI 11, 13, 14, 16, 18, 19 and 21, as each §20 row says; customers are never exported to a supplier.
 
 ## 14. Storefront (`PortalStorefront`, DESIGN-BRIEF H, SAAS §9)
 
@@ -296,7 +296,7 @@ skips the AI designer. Owner; Manager view only.
 | **Developers** | Public store key, allowed origins, API keys (scopes, supplier binding, expiry, rotate, revoke, last used), webhooks (endpoints, events, delivery log, replay, auto-disable) — **SUI 1 draws it** |
 | **Apps** | Install with scope consent, configure, uninstall saying what stops — **SUI 1 draws it** |
 | **Support access** | "Allow {partner} support to view my store: On / Off" (on by default), the support access log, and that DripFunnel staff can still sign in as a user (USERS-AND-DOMAINS §4.1–4.2) — **SUI 1 draws it** |
-| **Activity log** | The whole store's log, shoppers included, filter by person, every name a link, export (LOGGING §6–7). A Manager, who has no Settings, opens the same log as **Store activity** in the user menu — **SUI 1 draws it** |
+| **Activity log** | The whole store's log, shoppers included, filter by person, every name a link, export for the **Owner only** (LOGGING §6–7, ACCESS §5.1 `activity.export`). A Manager, who has no Settings, reads the same log as **Store activity** in the user menu, without the export — **SUI 1 draws it** |
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
@@ -370,7 +370,7 @@ query. **Refusals are stable codes** with their facts, worded by the portal; eve
 | Collections | `collections`, `facets`, `menu`, `sizeCharts` | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart` |
 | Import | `importJob(id)` | `startImport(file or shopify)`, `confirmImport`, `pauseImport`, `connectShopify` |
 | Storefront | `storefront` (live version, history, usage, publishing status) | `describeChange(prompt)` (AI run), `approvePreview`, `publish`, `revertTo(version)`, `publishCatalogueNow`, `chooseStorefront(ai or own)` |
-| Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log), `activityLog(filter)`, `domain` | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `connectDomain`, `recheckDomain`, `removeDomain`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)`, `exportActivity` (job) |
+| Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log), `activityLog(filter)`, `domain` | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `connectDomain`, `recheckDomain`, `removeDomain`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)`, `exportActivity` (job, Owner only) |
 | Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `downloadInvoice`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
 | Supplier | the same queries, seller-scoped; `mySupplierTeam`, `mySales` (no totals) | `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` |
 
@@ -422,14 +422,14 @@ what must merge first.
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping: methods and charges, Shiprocket and the US aggregator, labels, pickups, tracking sync | SAPI 11 |
 | SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) | SAPI 11 |
-| SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting | SAPI 9 |
+| SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test | SAPI 9 |
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13) | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
-| SAPI 18 | Reports and the custom report builder | SAPI 11 |
-| SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and export | SAPI 2, #201 |
+| SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (a supplier's figures only its own) | SAPI 11 |
+| SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, #201 |
 | SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants | SAPI 11 |
-| SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log | SAPI 2, #202 |
+| SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test | SAPI 2, #202 |
 | SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services | SAPI 11, SUI 1 |
 
 **Store UI (apps/ui/store)**
