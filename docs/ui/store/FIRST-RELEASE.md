@@ -407,7 +407,9 @@ queries are edge-cached per store, language and currency and purged by events (�
 ## 20. The strands that build this release
 
 Created on the board once this merges, in the shape PAPI 1–9 and PC 2–12 took. **Needs** is
-what must merge first.
+what must merge first. **Every SAPI card that reads or writes store data carries isolation tests
+for each query and mutation it adds** (ACCESS §11: caller kind × store × seller, counts, exports
+and bearer tokens included); the rows name the cases easiest to miss.
 
 **Store prototype (designs/)**
 
@@ -429,18 +431,18 @@ what must merge first.
 | SAPI 8 | Shop API catalogue and search, edge caching and purge; its isolation test: the tenant comes from the host or public key only, and the cache key carries store, language and currency, so store X's catalogue is never served on store Y's host | SAPI 3, SAPI 6 |
 | SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23; the isolation matrix (caller kind × store × shopper, the guest order token included): a shopper reads only their own `order`, `orderHistory`, `account` and `addresses`, and a token opens one order of one store | SAPI 7, SAPI 8, SAPI 23 |
 | SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment; cash on delivery, bank transfer, the unpaid-transfer release and "Mark as paid" **pending §21** (proposed in PLATFORM-PROMPT §5.4) | SAPI 9, SAPI 4 |
-| SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
+| SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says; isolation: store A can't read, ship, refund or mark paid store B's order, and a supplier reads, ships and refunds only its own lines | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
-| SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) | SAPI 11 |
+| SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password); isolation: `customers`, `customer`, `customerGroups` and `exportCustomers` are store-scoped (no cross-store rows or counts) and refused to every supplier | SAPI 11 |
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test | SAPI 9 |
-| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe | SAPI 13, SAPI 14 |
+| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only, and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13) | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
 | SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17) | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, #201 |
-| SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants | SAPI 11 |
+| SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants; isolation: a key minted for store A never authenticates on, nor is listed or revoked from, store B; webhooks, deliveries and `replayDelivery` stay in their store; a key's secret is shown once and never returned again | SAPI 11 |
 | SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test | SAPI 2, #202 |
-| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services | SAPI 11, SUI 1 |
+| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services; isolation: a gift card code redeems or shows a balance in its own store only, and a download link serves one paid order's file | SAPI 11, SUI 1 |
 | SAPI 23 | Shipping methods and charges, before checkout: flat rate, free over a threshold, collect in person, delivery areas, and the live-rate quote through the couriers (Shiprocket, and the US aggregator: EasyPost or Shippo, chosen here) | SAPI 3, SAPI 6 |
 
 **Store UI (apps/ui/store)**

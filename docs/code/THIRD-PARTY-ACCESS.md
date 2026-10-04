@@ -426,7 +426,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS provider** (phone code, 2FA); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
 | 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy token; cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
-| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** if shopper codes use it; tax service if chosen |
+| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** if shopper codes use it; **Stripe Tax** in test mode for US checkouts (through whose account still to decide, §2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox (Actions or Containers) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |
