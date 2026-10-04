@@ -8,6 +8,7 @@ import { NotLive } from '../shell/NotLive'
 import { Stores, StoresError, StoresLoading } from './Stores'
 import { storesStates } from './storeHarness'
 import { filterOf, withoutFilter } from './storeSearch'
+import { exportKindOf, startedExport } from '../../api/exports'
 
 const storesRoute = getRouteApi('/_app/stores')
 const shellRoute = getRouteApi('/_app')
@@ -26,7 +27,7 @@ export const StoresScreen = () => {
   if (!page) return <NotLive what={messages.screens.stores.title} me={me} />
   const filter = filterOf(search)
   // The export job lives in the shell's store, so it keeps going and is announced after leaving this screen.
-  const onExport = () => void startExport(startStoresExport(filter))
+  const onExport = () => void startExport(startedExport('stores', startStoresExport(filter)))
   const onBillingStatus = (store: StoreRow, status: BillingStatus) =>
     setStoreBillingStatus(store.id, status)
       .then(async (result) => {
@@ -45,7 +46,7 @@ export const StoresScreen = () => {
         onFilterChange={onFilterChange}
         onReload={() => void router.invalidate()}
         loadMore={(after) => loadStores(filter, { after })}
-        exportJob={job}
+        exportJob={exportKindOf(job) === 'activity' ? null : job}
         onExport={onExport}
         onBillingStatus={onBillingStatus}
       />

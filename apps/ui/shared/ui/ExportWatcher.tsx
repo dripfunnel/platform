@@ -8,8 +8,8 @@ const pollMs = 1000
 export interface ExportWatcherProps {
   // The app's status query for an export, by id.
   load: (id: string) => Promise<ExportJob | null>
-  // Said when the export becomes ready, wherever the person is.
-  toast: string
+  // Said when the export becomes ready, wherever the person is; by job, in an app with more than one kind.
+  toast: string | ((id: string) => string)
 }
 
 // Mounted in a shell: follows a running export on any screen, says when it's ready, and notices when its link expires.
@@ -35,7 +35,7 @@ export const ExportWatcher = ({ load, toast: ready }: ExportWatcherProps) => {
       if (!live || exportJob.get()?.id !== current.id) return
       const outcome = exportCheck(current, answer)
       if (outcome.kind === 'again') return void (timer = setTimeout(check, pollMs))
-      if (outcome.announce) setToast(readyRef.current)
+      if (outcome.announce) setToast(typeof readyRef.current === 'string' ? readyRef.current : readyRef.current(current.id))
       exportJob.set(outcome.job)
     }
     const check = () => void loadRef.current(current.id).then(settle, () => settle('unreachable'))

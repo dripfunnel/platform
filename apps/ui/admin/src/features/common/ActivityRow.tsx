@@ -1,19 +1,13 @@
-import { Icon, type StatusIconName, StatusPill, type StatusTone } from '@dripfunnel/shared/ui'
+import { ActivityFact as Fact, activityResultLook as resultLook, Icon, StatusPill } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { Fragment, useId, type ReactNode } from 'react'
-import type { ActivityEntry, ActivityResult, PersonKind } from '../../api/activity'
+import type { ActivityEntry, PersonKind } from '../../api/activity'
 import { fill, formatTime, messages } from '../../messages'
 import { changeText, entryParts, whoOf } from './activityText'
 import './activity.css'
 
 const words = messages.activity
 const personKinds: readonly string[] = ['staff', 'partner_user', 'person', 'customer'] satisfies PersonKind[]
-
-const resultLook: Record<ActivityResult, { tone: StatusTone; icon: StatusIconName }> = {
-  success: { tone: 'success', icon: 'ok' },
-  denied: { tone: 'warning', icon: 'ban' },
-  failed: { tone: 'danger', icon: 'alert' },
-}
 
 const PersonLink = ({ id, children }: { id: string; children: ReactNode }) => (
   <Link to="/activity" search={{ person: id }} className="df-row-link">
@@ -33,13 +27,6 @@ const TargetLink = ({ target }: { target: NonNullable<ActivityEntry['target']> }
       return <>{target.label}</>
   }
 }
-
-const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="df-activity-fact">
-    <dt>{label}</dt>
-    <dd>{children}</dd>
-  </div>
-)
 
 const sessionLabel = { impersonation: words.facts.impersonation, setupSession: words.facts.setupSession, supportSession: words.facts.supportSession }
 
