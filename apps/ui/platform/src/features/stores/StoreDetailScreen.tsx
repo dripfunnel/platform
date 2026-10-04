@@ -1,11 +1,14 @@
-import { ConfirmDialog, Toast, useScreenState } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, Toast, useCurrentStaffSession, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { loadChangePlanOptions, recheckStoreDomain, runStoreAction, storeActions, type ChangePlanOptions, type Store, type StoreAction } from '../../api/stores'
+import { staffSession } from '../../api/staffSession'
 import { fill, messages } from '../../messages'
 import { harnessEnabled } from '../../harness'
 import { actionInput, storeDialog, storeToast } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
+import { useStartSupport } from '../support/useStartSupport'
+import { supportStartOffered } from '../support/supportText'
 import { storeStates } from './storeHarness'
 
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
@@ -24,6 +27,10 @@ export const StoreDetailScreen = () => {
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = () => setToast(messages.store.toasts.failed)
+  const support = useStartSupport(me)
+  // Support sessions are a partner user's own: a staff session can't start one (ACCESS.md §8.2).
+  const staff = useCurrentStaffSession(staffSession)
+  const onStartSupport = store && supportStartOffered(me.role, staff?.state === 'open') ? (person: { id: string; email: string }) => void support.openFor(person, store.id) : undefined
 
   // Change plan asks the API for the plans offered and the proration before the dialog opens.
   const open = (action: StoreAction) => {
@@ -67,7 +74,7 @@ export const StoreDetailScreen = () => {
 
   return (
     <>
-      <StoreDetail me={me} store={store} tab={tab} forced={forced} onAction={open} onRecheck={onRecheck} onReload={() => void router.invalidate()} />
+      <StoreDetail me={me} store={store} tab={tab} forced={forced} onAction={open} onRecheck={onRecheck} onStartSupport={onStartSupport} onReload={() => void router.invalidate()} />
       {store && (
         <ConfirmDialog
           open={dialog !== null}
@@ -86,6 +93,7 @@ export const StoreDetailScreen = () => {
           onCancel={() => setPending(null)}
         />
       )}
+      {support.element}
       <Toast message={toast} onDone={clearToast} />
     </>
   )

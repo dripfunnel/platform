@@ -85,13 +85,6 @@ export const DomainNote = ({ domain }: { domain: StoreDomain }) =>
 // "DripFunnel for Northstar" or the partner itself: who charges the merchant (§1, §11.4).
 export const chargedByOf = (mode: BillingMode, partner: string): string => (mode === 'own' ? partner : fill(words.chargedByDripFunnel, { partner }))
 
-// A store role by its key ("supplier-admin"), with the supplier's name when it has one.
-export const roleOf = (role: string, supplier: string | null = null): string => {
-  const words = messages.store.roles
-  const name = Object.hasOwn(words, role) ? words[role as keyof typeof words] : role
-  return supplier ? `${name} · ${supplier}` : name
-}
-
 export const planNameOf = (plan: { name: string } | null): string => plan?.name ?? words.noPlan
 
 // The header's notice for a suspended or past-due store, worded here from the API's state (§6.3).

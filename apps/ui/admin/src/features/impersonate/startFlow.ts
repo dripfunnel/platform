@@ -34,17 +34,6 @@ export const firstStep = (subject: StartSubject, mine: readonly StaffSession[]):
 
 export const afterBusy = (subject: StartSubject): StartStep => (membershipOf(subject) === null ? 'where' : 'why')
 
-// A link that a support agent pastes: https only, so it can't be a script or a local file.
-export const ticketError = (ticket: string): boolean => {
-  const value = ticket.trim()
-  if (value === '') return false
-  try {
-    return new URL(value).protocol !== 'https:'
-  } catch {
-    return true
-  }
-}
-
 export type StartOutcome = { kind: 'done'; result: StartResult } | { kind: 'signIn'; outcome: 'failed' | 'cancelled' | 'blocked' }
 
 // ACCESS.md §8.1: ask to start; only on REAUTH_REQUIRED sign in again (in the reserved tab) and

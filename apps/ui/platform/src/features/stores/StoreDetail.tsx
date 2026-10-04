@@ -5,7 +5,7 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/detail.css'
 import { Link } from '@tanstack/react-router'
 import type { Me } from '../../api/me'
-import { storeTabs, type Store, type StoreAction, type StoreTab } from '../../api/stores'
+import { storeTabs, type Store, type StoreAction, type StorePerson, type StoreTab } from '../../api/stores'
 import { messages } from '../../messages'
 import { ActivityTab } from './tabs/ActivityTab'
 import { BillingTab } from './tabs/BillingTab'
@@ -28,6 +28,7 @@ export interface StoreDetailProps {
   tab: StoreTab
   forced: StoreScreenState | null
   onAction: (action: StoreAction) => void
+  onStartSupport?: ((person: StorePerson) => void) | undefined
   onRecheck: () => Promise<void>
   onReload: () => void
 }
@@ -44,7 +45,7 @@ export const StoreError = ({ onRetry }: { onRetry: () => void }) => (
   </div>
 )
 
-const TabContent = ({ me, store, tab, onAction, onRecheck }: Pick<StoreDetailProps, 'me' | 'tab' | 'onAction' | 'onRecheck'> & { store: Store }) => {
+const TabContent = ({ me, store, tab, onAction, onRecheck, onStartSupport }: Pick<StoreDetailProps, 'me' | 'tab' | 'onAction' | 'onRecheck' | 'onStartSupport'> & { store: Store }) => {
   switch (tab) {
     case 'overview':
       return <OverviewTab store={store} />
@@ -59,13 +60,13 @@ const TabContent = ({ me, store, tab, onAction, onRecheck }: Pick<StoreDetailPro
     case 'setup':
       return <SetupTab store={store} onAction={onAction} />
     case 'support':
-      return <SupportTab store={store} partner={me.partner.name} />
+      return <SupportTab store={store} partner={me.partner.name} onStart={onStartSupport} />
     case 'activity':
       return <ActivityTab store={store} />
   }
 }
 
-export const StoreDetail = ({ me, store, tab, forced, onAction, onRecheck, onReload }: StoreDetailProps) => {
+export const StoreDetail = ({ me, store, tab, forced, onAction, onRecheck, onStartSupport, onReload }: StoreDetailProps) => {
   if (forced === 'loading') return <StoreLoading />
   if (forced === 'error') return <StoreError onRetry={onReload} />
   if (!store) {
@@ -100,7 +101,7 @@ export const StoreDetail = ({ me, store, tab, forced, onAction, onRecheck, onRel
           {notice.text}
         </p>
       )}
-      <TabContent me={me} store={store} tab={tab} onAction={onAction} onRecheck={onRecheck} />
+      <TabContent me={me} store={store} tab={tab} onAction={onAction} onRecheck={onRecheck} onStartSupport={onStartSupport} />
     </div>
   )
 }

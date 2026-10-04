@@ -79,3 +79,4 @@ export { handoffPath, handoffSearch, HandoffScreen, PortalSessionRoot, SessionCo
 export { adminConsoleUrlFor, productionAdminUrl, type AdminUrlEnv } from './adminConsoleUrl'
 export { ActivityFact, activityResultLook, type ActivityResult } from './ActivityFact'
 export { PersonFinder, type PersonFinderProps, type PersonFinderWords, type PersonOption } from './PersonFinder'
+export { reserveTab, type ReservedTab } from './reserveTab'

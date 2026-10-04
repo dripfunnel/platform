@@ -1198,6 +1198,7 @@
       "lastSignIn": "Last signed in {time}",
       "neverSignedIn": "Hasn’t signed in yet",
       "readOnly": "Read-only here: support sessions start from Support.",
+      "startFor": "Open support session as {name}",
       "sessions": "Past sessions",
       "noSessions": "None yet.",
       "how": {
@@ -2365,5 +2366,174 @@
       "accountEnding": "Account ending {last4}"
     },
     "staleTitle": "Payment status may be behind"
+  },
+  "support": {
+    "loading": "Loading support",
+    "error": {
+      "title": "We couldn’t load Support",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": "Your role ({role}) has no Support. Owners, Admins and Support can sign in as a merchant’s user.",
+    "staffBlocked": "Support sessions are {partner}’s own team’s, proved with their own 2-factor code. They can’t be seen or started from a DripFunnel session.",
+    "tabsLabel": "Support",
+    "tabs": {
+      "users": "Users",
+      "sessions": "Sessions · {count} open now"
+    },
+    "rulesLabel": "How support sessions work",
+    "rules": [
+      {
+        "title": "30 minutes",
+        "body": "No extension. Start a new session if you need more time."
+      },
+      {
+        "title": "Merchant consent",
+        "body": "Only for stores that have partner support turned on."
+      },
+      {
+        "title": "Read-only until allowed",
+        "body": "You see what the store’s Owner sees. Changes need the merchant to allow them, for that one session."
+      },
+      {
+        "title": "Everyone sees it",
+        "body": "A banner in the store: “{partner} support ({me}) is signed in as Jenna. Ends in 28 min.”"
+      },
+      {
+        "title": "Logged as you",
+        "body": "Every action shows as “{me} as Jenna” in your log and the merchant’s."
+      },
+      {
+        "title": "Some things stay theirs",
+        "body": "Passwords, 2-factor, payment details and ownership can’t be changed."
+      }
+    ],
+    "find": "Find a user",
+    "findHint": "Name, email or store",
+    "noUsers": "No merchant users yet. They appear here once your merchants invite their team.",
+    "noMatch": "No user matches.",
+    "searching": "Searching…",
+    "searchFailed": "The search didn’t work. Nothing was changed. Try again.",
+    "usersLabel": "Your merchants’ users",
+    "columns": {
+      "user": "Name and email",
+      "type": "Type",
+      "store": "Store and role",
+      "lastSignIn": "Last sign-in",
+      "status": "Status",
+      "action": "Action"
+    },
+    "types": {
+      "store": "Store user",
+      "supplier": "Supplier user"
+    },
+    "statuses": {
+      "active": "Active",
+      "invited": "Invited",
+      "suspended": "Suspended"
+    },
+    "never": "Never",
+    "supplierRole": "{role} for {supplier}",
+    "open": "Open support session",
+    "returnTo": "Return to session",
+    "showMore": "Show more",
+    "moreFailed": "More couldn’t be loaded. Try again.",
+    "refusals": {
+      "STORE_CANCELLED": "{store} is cancelled.",
+      "SUPPORT_OFF": "{owner} has turned off partner support for {store}. Ask them to turn it on in Settings › Support access.",
+      "SUPPORT_OFF_NO_OWNER": "Partner support is turned off for {store}. Its Owner can turn it on in Settings › Support access.",
+      "NOT_ACCEPTED": "{user} hasn’t accepted the invitation yet.",
+      "SUSPENDED": "{user}’s account is suspended in {store}.",
+      "COLLEAGUE_IN_SESSION": "{colleague} is signed in as {user} now. Ends in {minutes} min.",
+      "COLLEAGUE_IN_SESSION_NO_NAME": "A colleague is signed in as {user} now.",
+      "NOT_FOUND": "That user or session isn’t there any more. The list has been refreshed.",
+      "INVALID_INPUT": "Something in the form isn’t right. Check the reason and the ticket link.",
+      "REASON_REQUIRED": "Add a reason to continue.",
+      "REAUTH_REQUIRED": "Your 2-factor check ran out. Enter a new code.",
+      "SUPPORT_SESSION_ALREADY_OPEN": "You already have an open session. You can have one session at a time.",
+      "PORTAL_NOT_LIVE": "Your merchant portal’s address isn’t live yet, so there is nowhere to open the session. Check Domains.",
+      "NOT_SESSION_OWNER": "Only the person who started this session can return to it. Owners and Admins can end it.",
+      "SESSION_ENDED": "That session has already ended.",
+      "SESSION_EXPIRED": "That session ran out."
+    },
+    "start": {
+      "label": "Support · {name}",
+      "step": "Step {step} of 2 · {name}",
+      "stepNames": {
+        "why": "Why",
+        "confirm": "Confirm"
+      },
+      "titles": {
+        "blocked": "Can’t sign in as {first}",
+        "busy": "You already have an open session",
+        "return": "You’re already signed in as {first}",
+        "why": "Why are you signing in as {first}?",
+        "confirm": "Sign in as {name}?",
+        "msg": "The session didn’t start"
+      },
+      "busy": "You’re signed in as {other} ({minutes} min left). You can have one session at a time.",
+      "busyUnknown": "You already have an open session. You can have one session at a time.",
+      "returnBody": "Your session as {first} is still open. It opens again in a new tab.",
+      "reason": "Reason (required)",
+      "reasonHint": "What you’re helping them with",
+      "reasonMissing": "Add a reason to continue.",
+      "ticket": "Ticket link (optional)",
+      "ticketHint": "https://…",
+      "ticketBad": "A ticket link starts with https://.",
+      "confirm": "You’ll act as {name} ({role}, {store}) for 30 minutes, read-only until {store}’s Owner allows changes. You can’t change {first}’s password, 2-factor, payment details or the store’s ownership. Everyone signed in to {store} sees “{partner} support ({me}) is signed in as {first}.” Everything you do is logged as {me} as {first}, in your log and {store}’s.",
+      "reasonLabel": "Reason:",
+      "ticketLabel": "Ticket:",
+      "noTicket": "No ticket link",
+      "code": "Your 2-factor code",
+      "codeHint": "6 digits",
+      "codeMissing": "Enter the 6-digit code from your authenticator app.",
+      "reauth": {
+        "WRONG_CODE": "That code didn’t work. {tries} more tries before a short lock.",
+        "WRONG_CODE_LAST": "That code didn’t work.",
+        "LOCKED": "Too many wrong codes. Try again in {minutes} min.",
+        "LOCKED_NO_TIME": "Too many wrong codes. Try again in a few minutes.",
+        "NOT_CONNECTED": "2-factor checks aren’t available right now. Try again later.",
+        "NO_SECOND_FACTOR": "Set up 2-factor sign-in first: support sessions need it.",
+        "CODE_EXPIRED": "That code has expired. Enter the current one."
+      },
+      "cancel": "Cancel",
+      "close": "Close",
+      "back": "Back",
+      "next": "Next",
+      "endAndContinue": "End it and continue",
+      "returnTo": "Return to session",
+      "submit": "Start session",
+      "starting": "Starting…",
+      "tryAgain": "Try again"
+    },
+    "openNow": "Open now",
+    "noOpen": "No one is signed in as a merchant’s user right now.",
+    "history": "History",
+    "noHistory": "No past sessions.",
+    "openLabel": "Open sessions",
+    "historyLabel": "Past sessions",
+    "you": "You",
+    "minutesLeft": "{minutes} min left",
+    "started": "Started {time}",
+    "ended": "Ended {time}",
+    "endedBy": {
+      "agent": "Ended by {name}",
+      "colleague": "Ended by {name}",
+      "expired": "Expired"
+    },
+    "returnToTab": "Return to tab",
+    "end": "End",
+    "endConfirm": {
+      "title": "End {user}’s session?",
+      "body": "The banner goes away for everyone signed in to {store}. {agent} goes back to the partner console.",
+      "confirm": "End session",
+      "cancel": "Cancel"
+    },
+    "toasts": {
+      "started": "Signed in as {name} in a new tab.",
+      "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this site, then use Return to session.",
+      "ended": "{name}’s session ended.",
+      "failed": "That didn’t work. Nothing was changed. Try again."
+    }
   }
 }
