@@ -472,7 +472,7 @@ partner_setup_session
                  -- member, enforced by a partial unique index on (staff_user_id)
                  -- where ended_at is null. The handoff (ACCESS.md §8.3) is hashed here,
                  -- spent on exchange and cleared when the session ends. Built on #33.
-                 -- end_reason (#243): staff | portal | partner_closed, as on impersonation;
+                 -- end_reason (#243): staff | expired | portal | partner_closed, as on impersonation;
                  -- null on rows ended before it, read as staff or expired by ended_by_staff_id.
                  -- portal_session_hash as on impersonation
 
