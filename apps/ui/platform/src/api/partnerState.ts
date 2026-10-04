@@ -15,10 +15,12 @@ const factsSchema = z.object({
     brokenHosts: z.array(z.string()),
     // A DripFunnel staff member setting the console up, as the partner's team sees it.
     setupSession: z.object({ staffName: z.string(), endsAt: z.string() }).nullable(),
+    // Who bills the partner's merchants, which decides what Billing shows (§11.4).
+    billingMode: z.enum(['dripfunnel', 'own']),
   }),
 })
 
 export type PartnerFacts = z.infer<typeof factsSchema>['partnerState']
 
 export const loadPartnerFacts = async (): Promise<PartnerFacts> =>
-  (await query(`{ partnerState { state sentBackReason pausedAt pauseReason storeCount brokenHosts setupSession { staffName endsAt } } }`, factsSchema)).partnerState
+  (await query(`{ partnerState { state sentBackReason pausedAt pauseReason storeCount brokenHosts billingMode setupSession { staffName endsAt } } }`, factsSchema)).partnerState

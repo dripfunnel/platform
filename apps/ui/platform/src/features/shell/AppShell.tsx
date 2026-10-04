@@ -40,7 +40,7 @@ export const AppShell = () => {
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={words.navLabel} closeLabel={words.closeMenu}>
         <SideNav rows={rows} variant="drawer" label={words.navLabel} footer={footer} onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>
-      <ExportWatcher load={loadExport} toast={(id) => (exportKindById(id) === 'activity' ? messages.activity.export.toast : messages.stores.export.toast)} />
+      <ExportWatcher load={loadExport} toast={(id) => ({ stores: messages.stores.export.toast, activity: messages.activity.export.toast, report: messages.reports.export.toast })[exportKindById(id) ?? 'stores']} />
     </div>
   )
 }

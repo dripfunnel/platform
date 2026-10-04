@@ -5,23 +5,7 @@ import { actingName, type PartnerCaller, partnerContextOf, actingId } from '#aut
 import { insertExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectContractTerms, selectCurrentVersions } from '#db/scoped/partnerPlans'
-import {
-  countDecliningStores,
-  countSetupProblems,
-  selectDecliningStores,
-  selectGrowth,
-  selectMrr,
-  selectPaymentOutcomes,
-  selectPlanChanges,
-  selectRevenue,
-  selectSetupHealth,
-  selectSetupProblems,
-  selectStoreSales,
-  selectStoresPerPlan,
-  sumMeters,
-  type ReportScope,
-  type StoreSalesRow,
-} from '#db/scoped/reports'
+import { countDecliningStores, countSetupProblems, hasAnyStore, type ReportScope, selectDecliningStores, selectGrowth, selectMrr, selectPaymentOutcomes, selectPlanChanges, selectReportFilterOptions, selectRevenue, selectSetupHealth, selectSetupProblems, selectStoreSales, selectStoresPerPlan, type StoreSalesRow, sumMeters } from '#db/scoped/reports'
 import { selectNearestLimits } from '#db/scoped/stores'
 import { partnerEntry } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -196,7 +180,7 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
       const total = near[0]?.total ?? 0
       return {
         tab,
-        fresh: false,
+        fresh: !(await hasAnyStore(tx, scope)),
         summary: `${plural(total, 'store is', 'stores are')} at 80% or more of a limit. AI prompts used this month: ${meters.ai_prompts.toLocaleString('en')}; 'Publish now' presses: ${meters.publish_now.toLocaleString('en')}.`,
         currency: null,
         rows: near.map((n) => ({ storeId: n.store_id, store: n.store_name, limit: n.key, used: n.used, cap: n.cap, percentBps: n.percent * 100 })),
@@ -213,11 +197,12 @@ export const computeReport = async (tx: ScopedSql, tab: ReportTab, scope: Report
       const ready = median === null ? 'No store finished setting up in the last 30 days.' : `A new store is ready in ${Math.floor(median / 60)} min ${median % 60} s on average.`
       return {
         tab,
-        fresh: false,
+        fresh: !(await hasAnyStore(tx, scope)),
         summary: `${ready} ${plural(stuck, 'setup is', 'setups are')} stuck and ${plural(domains, 'custom domain is', 'custom domains are')} waiting for DNS.`,
         currency: null,
         medianSeconds: median,
         failed: health.failed,
+        domainsStuck: domains,
         rows: problems.slice(0, listMax).map((p) => ({ kind: p.kind, storeId: p.store_id, store: p.store_name, detail: p.detail, since: p.since })),
         truncated: problems.length > listMax,
       }
@@ -275,7 +260,10 @@ export const createPartnerReportsService = ({ sql, caller, facts, activity, now 
     })
   }
 
-  return { report, exportReport, reportExport }
+  /** What the Plan and Country filters offer: only what the partner's own stores have. */
+  const reportFilters = () => withScope(sql, context, (tx) => selectReportFilterOptions(tx, partnerId))
+
+  return { report, reportFilters, exportReport, reportExport }
 }
 
 export type PartnerReportsService = ReturnType<typeof createPartnerReportsService>

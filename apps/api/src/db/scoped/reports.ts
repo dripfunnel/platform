@@ -177,6 +177,9 @@ export interface SetupProblem {
   since: Date
 }
 
+/** Whether the partner has any store yet in this scope: none means the reports have nothing to fill in (§10). */
+export const hasAnyStore = async (tx: ScopedSql, s: ReportScope): Promise<boolean> => (await tx`select 1 from store s where ${storeWhere(tx, s)} limit 1`).length > 0
+
 /** The stores concerned: setups stuck or failed now, and custom domains waiting for DNS over a day. */
 export const selectSetupProblems = (tx: ScopedSql, s: ReportScope, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date, limit: number): Promise<SetupProblem[]> =>
   tx<SetupProblem[]>`
@@ -227,3 +230,9 @@ export const selectDecliningStores = (tx: ScopedSql, s: ReportScope, month: Date
     order by coalesce(m.amount, 0)::numeric / b.amount, s.name
     limit ${limit}
   `
+
+/** The filters' choices (§10): the plans the partner's stores are on and the countries they're in. */
+export const selectReportFilterOptions = async (tx: ScopedSql, partnerId: string): Promise<{ plans: { id: string; name: string }[]; countries: string[] }> => ({
+  plans: await tx<{ id: string; name: string }[]>`select distinct p.id, p.name from store s join plan p on p.id = s.plan_id where s.partner_id = ${partnerId} order by p.name`,
+  countries: (await tx<{ country: string }[]>`select distinct s.country from store s where s.partner_id = ${partnerId} and s.country is not null order by s.country`).map((r) => r.country),
+})
