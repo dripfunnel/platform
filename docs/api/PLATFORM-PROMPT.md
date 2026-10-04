@@ -401,12 +401,11 @@ Design each module's responsibilities, tables, public API, events and invariants
 - **Cart and checkout**: pricing is computed server-side, always. Carts expire; prices and
   offers are re-evaluated on change; **stock is reserved when the order is paid** ("reserved" is
   sold and not yet shipped, Inventory above) and checkout re-checks availability at payment
-  (decided 2026-10-04 on #184). **Orders paid later** (cash on delivery, bank transfer)
-  *(proposed)*: the order is accepted when placed, so it reserves then, after the same re-check;
-  cancelling it releases the stock, and so does a bank transfer left unpaid past a time limit
-  *(decide: how long)*, a system cancellation logged with the system as actor (LOGGING §3);
-  "Mark as paid" (Owner and Manager, ACCESS §5.1 *(confirm)*) doesn't re-check stock the order
-  already holds.
+  (decided 2026-10-04 on #184). **Orders paid later** (cash on delivery, bank transfer; decided
+  2026-10-05 on #284): the order is accepted when placed, so it reserves then, after the same
+  re-check; cancelling it releases the stock, and so does a bank transfer left unpaid for **3
+  days**, a system cancellation logged with the system as actor (LOGGING §3); "Mark as paid"
+  (Owner and Manager, ACCESS §5.1) doesn't re-check stock the order already holds.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
@@ -686,7 +685,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
   and checkout; orders with supplier parts, returns and refunds; customers with groups and
   consent; abandoned carts; import and export (CSV and Shopify); reports with a custom
   builder; the AI storefront and the merchant's own; API keys, webhooks and apps.
-- **Stock reservation**: at payment; cash on delivery and bank transfer at placement *(proposed)*
+- **Stock reservation**: at payment; cash on delivery and bank transfer at placement (a transfer
+  unpaid after 3 days is cancelled; decided 2026-10-05)
   (§5.4 Cart and checkout).
 - **Regions**: **India and the US**.
 - **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
@@ -717,8 +717,9 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 ## 10. Open questions: ask, don't assume
 
 **The change itself**
-- Is there **live data on the first platform** (the existing DripFunnel store, any tenant
-  stores) that must be migrated, and is there a cut-over date?
+- ~~Is there **live data on the first platform** (the existing DripFunnel store, any tenant
+  stores) that must be migrated, and is there a cut-over date?~~ **No: a fresh start** (decided
+  2026-10-05 on #284).
 - Existing tenant storefront repos: rewrite their `core/` against the new API, or recreate
   them?
 - ~~Does anything else still depend on the first platform's backend?~~ **Settled
@@ -729,9 +730,11 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~Is the Platform API GraphQL too, or internal only?~~ Decided 2026-10-03 on #155: GraphQL, like the Admin API.
 - ~~Postgres RLS as defence in depth?~~ Decided: yes, the backstop (DATA-MODEL.md §5).
 - One database for all brands and stores, or a shard or database per brand later?
-- Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?
+- ~~Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?~~
+  **A Pages project per store** (decided 2026-10-05 on #284; limits checked on INF 0).
 - Cloudflare Images or our own image variants?
-- Where does the AI agent execute, and where do builds run?
+- ~~Where does the AI agent execute, and where do builds run?~~ **Both in GitHub Actions**
+  (decided 2026-10-05 on #284).
 
 **Headless**
 - ~~Which of **API keys, webhooks and apps** ship in the first release?~~ **All three**, with the

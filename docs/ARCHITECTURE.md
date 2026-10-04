@@ -245,4 +245,5 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
 - The Shop API hostname pattern for storefronts.
 - Password hashing choice under Workers CPU limits.
 - Logpush destination, and whether to keep a copy of logs outside Cloudflare.
-- Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).
+- ~~Where the AI designer's sandbox runs (GitHub Actions, Cloudflare Containers, or elsewhere).~~
+  GitHub Actions (decided 2026-10-05 on #284).

@@ -173,8 +173,8 @@ the theme, so a page is written once.
 - **Why**: builds contain no catalogue, so they take seconds and never go stale. A merchant
   sees AI edits and catalogue changes as soon as they happen.
 - Every AI change deploys a preview. Previews are `noindex`, carry a visible "Preview" banner,
-  and are gated to the merchant *(ask: a signed link from the portal, or open)*. Checkout in
-  preview uses the payment providers' test mode *(ask: or is checkout disabled in preview)*.
+  and open only through a **signed link from the portal** (decided 2026-10-05 on #284). Checkout
+  in preview uses the payment providers' **test mode** (decided the same day).
 - Preview is also where the AI's gates run (§6) and where screenshots and visual diffs for the
   merchant's approval come from.
 
@@ -367,9 +367,10 @@ for providers the store doesn't use.
 
 ## 12. Open questions
 
-- The preview hostname pattern per brand, and whether previews are gated (signed link) or
-  open but `noindex`.
-- Can shoppers check out on the preview (test mode), or is checkout disabled there?
+- The preview hostname pattern per brand. ~~Whether previews are gated (signed link) or open but
+  `noindex`.~~ Gated by a signed link (decided 2026-10-05 on #284).
+- ~~Can shoppers check out on the preview (test mode), or is checkout disabled there?~~ Test-mode
+  checkout (decided 2026-10-05 on #284).
 - Before a custom domain is connected, where is the live site?
 - Hosted checkout (engine-served) vs in-theme checkout for AI storefronts: both, or one?
 - Image resizing: Cloudflare image resizing, or engine-generated variants?

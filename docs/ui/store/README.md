@@ -85,7 +85,7 @@ authoritative; this table must match it).
 | Home | ✓ | ✓ | ✓ | | | |
 | Orders | all | all | all | | | own lines; the shopper's name and address only when the supplier **ships to the shopper**, nothing when it **ships to your warehouse** (ACCESS.md §7.3) |
 | Refunds and returns | ✓ | ✓ | | | | own lines, up to their value; the store can override |
-| Mark an order paid (cash on delivery, bank transfer) *(confirm)* | ✓ | ✓ | | | | |
+| Mark an order paid (cash on delivery, bank transfer) | ✓ | ✓ | | | | |
 | Customers | all, add and edit | all, add and edit | all, add and edit | | | |
 | Customers export | ✓ | ✓ | ✓ | | | |
 | Reports and their export | ✓ | ✓ | | | | |
@@ -95,7 +95,7 @@ authoritative; this table must match it).
 | Import / export | ✓ | ✓ | export | own export | own | own |
 | Approve products (the "Waiting for approval" chip in Products, when approval is on; FIRST-RELEASE §3.1) | ✓ | | | | | |
 | Offers | ✓ | ✓ (no plan prompts) | read-only list | **never** | **never** | **never** |
-| Offer codes export *(confirm)* | ✓ | ✓ | | | | |
+| Offer codes export | ✓ | ✓ | | | | |
 | Storefront (AI designer, publish) | ✓ | read-only | | | | |
 | Suppliers | ✓ | | | | | |
 | Settings (all tabs) | ✓ | | | | | |

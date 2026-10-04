@@ -208,7 +208,7 @@ This account handles **platform** billing. Shoppers' payments are §3.1.
 | **Publishable key**, per mode | Stripe Elements or Checkout in the Billing screen, so the card never touches our servers (the prototype's Billing screen draws it as a hosted Stripe card field since 2026-10-02) | `pk_…` (public) | SPA build variable | 11 |
 | **Webhook signing secret** for `hooks.dripfunnel.com/stripe` | Verifying billing events; idempotent through `billing_event` | `whsec_…` per endpoint and mode | Worker secret | 11 |
 | **Stripe Connect** (platform) | "DripFunnel bills merchants on the partner's behalf" **ships first** (SAAS §7.1): partners are connected accounts, receive monthly payouts, and are verified by a test deposit (Platform prototype) | Connect enabled; Connect webhook secret; one connected account ID per partner | Worker secret; IDs in Postgres | 11. **Lead time**: Connect platform review |
-| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2), on this account. Also US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up), **through which Stripe account still to decide** *(decide)*: the merchant's own connected account (as with its payment keys, §3.1) or this one, and what a store taking US payments only through PayPal uses (FIRST-RELEASE §21) | Enabled on the account; for DripFunnel's invoices the same key, for merchants' checkouts per that decision | — | 11 |
+| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2), on this account. Also US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up), **on the merchant's own Stripe account through Connect** (decided 2026-10-05 on #284), so DripFunnel is never the tax vendor for merchants; what a store taking US payments only through PayPal uses is still open (SAPI 7) | Enabled on DripFunnel's account for its invoices; on each merchant's connected account for its checkouts | — | 11 |
 | **Customer portal** configuration *(optional)* | Stripe-hosted "manage card / invoices" | Config | Stripe | 11 |
 
 **Registered so far: nothing** (#201, 2026-10-04). The Worker reads `STRIPE_SECRET_KEY` (the
@@ -226,7 +226,7 @@ Each row is an open question in the specs. Each needs an account and key once ch
 
 | Need | Where it's specified | Candidates | Credentials | Lead time |
 |---|---|---|---|---|
-| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1, *which provider? (ask)*) | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
+| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1); **MSG91 (India) and Twilio (US)**, decided 2026-10-05 on #284 | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
 | **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
 | **Exchange rates** | Automatic currency conversion, "rates updated 2 hours ago" (CATALOG-DESIGN §3 fact 26, *(release: decide)*) | ECB reference rates (free, no key, EUR base, daily), Open Exchange Rates, Fixer, currencyapi | API key (none for ECB) | — |
 | **Duties and import taxes at checkout** | Business plan feature (Pricing, SetMarkets, designed 2026-10-02: from each product's classification code or a flat percentage of the basket, with a de-minimis threshold); the provider behind it is still to choose | Zonos, Avalara Cross-Border, Stripe Tax (limited) | API key | Contract |
@@ -439,17 +439,20 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 
 1. **Staff identity provider**: Microsoft Entra ID (docs) or Microsoft Entra ID (Admin
    prototype)? (§2.5)
-2. **SMS and WhatsApp provider** to recommend to partners. ~~Whether each partner needs its own
+2. ~~**SMS and WhatsApp provider** to recommend to partners.~~ **MSG91 (India) and Twilio (US)**,
+   adapters built in the first release (decided 2026-10-05 on #284). ~~Whether each partner needs its own
    sender~~: yes, the partner's own account (#272, §4). (§2.8)
 3. ~~**Google sign-in on white-label hosts**: a central callback, or a client per partner?~~
    A client per partner (#272). (§2.9)
-4. **Merchant Stripe**: pasted keys (decided so far) or Stripe Connect OAuth? (§3.1)
-5. **Where the AI designer runs**; the key is the partner's or merchant's, handed to the run (§2.6)
+4. ~~**Merchant Stripe**: pasted keys (decided so far) or Stripe Connect OAuth?~~ **Connect OAuth**
+   (decided 2026-10-05 on #284). (§3.1)
+5. ~~**Where the AI designer runs**~~ **GitHub Actions** (decided 2026-10-05 on #284); the key is
+   the partner's or merchant's, handed to the run (§2.6)
 6. **How store repos deploy to Cloudflare** without holding a platform token (PLATFORM-PROMPT
    §5.6), and how they read the package. (§2.1, §2.3)
 7. ~~**Couriers**: a direct integration per courier, or one aggregator?~~ An aggregator for the US and
    Shiprocket for India, both the partner's accounts (#184, #272). Which DHL API, when the EU comes? (§3.2)
-8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), through whose account still to decide (§2.7). (§2.8)
+8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), on the merchant's own account through Connect (#284). (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
 

@@ -10,7 +10,7 @@ screens (`designs/design.md` §1 maps them).
 `apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
 §20; build order is not scope.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -51,11 +51,27 @@ packs) is taken from the prototype as drawn.
 | Supplier import and export (README §3) | **Own only**: export for every tier, import for the catalogue tiers |
 | Manager and the whole store log (README §3, LOGGING §6) | **Yes**, as the Owner sees it |
 
+**Decided 2026-10-05 with Gaurav (#284), planning the build:**
+
+| Question | Answer |
+|---|---|
+| The shopper storefront's pages (the prototype draws none) | **Designed in the prototype first** (card D1), then built as the baseline theme the AI restyles |
+| Hosting (PLATFORM-PROMPT §5.6, §10) | **A Cloudflare Pages project per store**; the project limit per account is checked and raised (INF 0) |
+| Where the AI designer runs | **GitHub Actions**, like the storefront builds |
+| Merchant Stripe (THIRD-PARTY-ACCESS §3.1) | **Stripe Connect OAuth**, no pasted keys; **Stripe Tax runs on the merchant's own account** |
+| SMS | **In the first release**: MSG91 (India) and Twilio (US), each the partner's own account; 2-factor by app or SMS; shoppers sign in by email or mobile code |
+| The preview storefront | **Opens by a signed link** from the portal, never indexed; checkout in each provider's **test mode** |
+| Data from the first platform | **None**: a fresh start |
+| Cash on delivery and bank transfer | **Reserve stock when placed**; a bank transfer unpaid after **3 days** is cancelled by the system |
+| `orders.mark_paid`, `offers.export` | **Owner and Manager** |
+| Past due | **The storefront keeps selling**, the portal is read-only; **suspended after 14 days** unpaid |
+| Build order | **Straight through**, area by area, as §20's build order lists |
+
 Decided on the way, from the prototype and the docs it follows (each recorded where it lives):
 the Store API is **GraphQL**, like the Platform and Admin APIs (§19); **stock is reserved when an
 order is paid** — "reserved" is sold and not yet shipped (PLATFORM-PROMPT §5.4) — and checkout
 re-checks availability at payment; cash-on-delivery and bank-transfer orders reserve when placed,
-released on cancellation or an unpaid transfer's time limit *(proposed, §21)*; a Manager may change stock but not warehouses, and never
+released on cancellation or after 3 days unpaid for a transfer (decided 2026-10-05); a Manager may change stock but not warehouses, and never
 presses "Publish now" (the prototype gives Managers neither Settings nor a working Storefront).
 
 ---
@@ -191,7 +207,7 @@ check. Every figure is the API's (`home`, §19).
   "Returned by a shopper".
 - **Cancel** an unshipped order, with a reason; **mark as paid** for cash on delivery and bank
   transfer (the order waits in Payment pending until then): Owner and Manager only
-  (`orders.mark_paid`, ACCESS §5.1 *(confirm)*), audited with the actor. A transfer released
+  (`orders.mark_paid`, ACCESS §5.1), audited with the actor. A transfer released
   for staying unpaid is cancelled by the system and logged as such (LOGGING §3).
 
 ## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
@@ -426,7 +442,21 @@ queries are edge-cached per store, language and currency and purged by events (�
 
 ## 20. The strands that build this release
 
-Created on the board once this merges, in the shape PAPI 1–9 and PC 2–12 took. **Needs** is
+**Build order (decided 2026-10-05, #284): 51 cards, created on the board as #285–#335, built
+straight through.** The table below describes the cards #184 drafted; the cards added on #284
+(D1, INF 0–2, SMS 1, SC 0–1, ST 1a–c replacing ST 1, L1–2) are described in their issues.
+
+- **0. Design and accounts:** #285 D1, #286 SUI 1, #287 INF 0
+- **1. Merchant identity:** #288 SAPI 1, #289 SMS 1, #290 SAPI 2, #291 SUI 2, #292 SUI 3
+- **2. Catalogue:** #293 SAPI 3, #294 SAPI 4, #295 SAPI 5, #296 SAPI 6, #297 SAPI 7, #298 SUI 4, #299 SUI 5, #300 SUI 6, #301 SAPI 16, #302 SUI 10
+- **3. Storefront base:** #303 SC 0, #304 SC 1, #305 SAPI 23, #306 SAPI 8, #307 ST 1a
+- **4. Checkout and orders:** #308 SAPI 9, #309 SAPI 10, #310 SAPI 11, #311 SAPI 12, #312 SAPI 13, #313 ST 1b, #314 SUI 7, #315 SUI 8
+- **5. Publishing:** #316 INF 1, #317 INF 2, #318 SAPI 17, #319 SUI 11
+- **6. Growth:** #320 SAPI 14, #321 SAPI 15, #322 SAPI 18, #323 SAPI 22, #324 ST 1c, #325 SUI 9, #326 SUI 12, #327 SUI 15, #328 SUI 16
+- **7. Business and admin:** #329 SAPI 19, #330 SAPI 20, #331 SAPI 21, #332 SUI 13, #333 SUI 14
+- **8. Launch:** #334 L1, #335 L2
+
+The draft, as #184 left it, in the shape PAPI 1–9 and PC 2–12 took. **Needs** is
 what must merge first. **Who builds each §19 operation**: Brand, sign-in, Shell (`me`, `myStores`,
 `navBadges`, `storeState`, `switchStore`) and Profile, SAPI 2; Home (`home`) with Reports, SAPI 18;
 Orders, SAPI 11 (labels and tracking SAPI 12, `markPaid` SAPI 10); Customers, SAPI 13; Offers,
@@ -501,20 +531,20 @@ and bearer tokens included); the rows name the cases easiest to miss.
 ## 21. Open questions
 
 - **WhatsApp reminders** in India: which provider, and whether they ship with email (§18).
-- **Orders paid later reserve stock when placed** *(proposed, PLATFORM-PROMPT §5.4)*: a cash-on-delivery
+- ~~**Orders paid later reserve stock when placed**~~ **Decided 2026-10-05**: yes; a transfer unpaid after 3 days is cancelled. ~~*(proposed, PLATFORM-PROMPT §5.4)*: a cash-on-delivery
   or bank-transfer order reserves at placement after the usual re-check, and releases on
   cancellation or when a transfer stays unpaid past a limit *(decide: how long)*. Confirm, or say
-  they reserve only when marked paid (and what then happens to an order whose stock has gone).
-- **Who may mark an order paid?** `orders.mark_paid` is proposed for Owner and Manager only, like
-  refunds, since it records money received (ACCESS §5.1) *(confirm)*.
-- **May Staff export an offer's codes?** `offers.export` is proposed for Owner and Manager only
-  (ACCESS §5.1, §13) *(confirm)*.
-- **Stripe Tax for merchants' US checkouts** *(decide)*: through the merchant's own connected Stripe
+  they reserve only when marked paid (and what then happens to an order whose stock has gone).~~
+- ~~**Who may mark an order paid?**~~ **Owner and Manager** (decided 2026-10-05). ~~`orders.mark_paid` is proposed for Owner and Manager only, like
+  refunds, since it records money received (ACCESS §5.1) *(confirm)*.~~
+- ~~**May Staff export an offer's codes?**~~ **No: Owner and Manager** (decided 2026-10-05). ~~`offers.export` is proposed for Owner and Manager only
+  (ACCESS §5.1, §13) *(confirm)*.~~
+- ~~**Stripe Tax for merchants' US checkouts**~~ **On the merchant's own account through Stripe Connect** (decided 2026-10-05); still open: what a US store taking payments only through PayPal uses (SAPI 7 asks). ~~*(decide)*: through the merchant's own connected Stripe
   account or DripFunnel's (whose account is then the tax-calculation vendor, with its cost and
-  nexus), and what a US store taking payments only through PayPal uses (THIRD-PARTY-ACCESS §2.7).
-- What the storefront shows while the store is **past due** (SAAS §4.2 *(ask)*), and what past
+  nexus), and what a US store taking payments only through PayPal uses (THIRD-PARTY-ACCESS §2.7).~~
+- ~~What the storefront shows while the store is **past due** (SAAS §4.2 *(ask)*)~~ **It keeps selling** (decided 2026-10-05); still open: what past
   due means for its suppliers (SAAS §14).
-- **Dunning**: when past due becomes suspended (SAAS §7.3).
+- ~~**Dunning**: when past due becomes suspended (SAAS §7.3).~~ **After 14 days unpaid** (decided 2026-10-05).
 - **Gift cards**: expiry and liability rules per region, decided on SUI 1 with the design.
 - **Services**: booking with times, or a service sold like a product with no shipping — SUI 1.
 - Whether "under two minutes" includes the first live build (SAAS §5).
