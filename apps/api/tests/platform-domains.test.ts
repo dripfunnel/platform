@@ -37,12 +37,12 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
 }
 
 const overview = `{ partnerDomains { fallbackSender add { allowed }
-  addresses { kind added host status since checkedAt records { purpose type name value found matches } } } }`
+  addresses { kind added host zone status since checkedAt records { purpose type name value found matches } } } }`
 type Overview = {
   partnerDomains: {
     fallbackSender: string | null
     add: { allowed: boolean }
-    addresses: { kind: string; added: boolean; host: string | null; status: string | null; records: { purpose: string; type: string; name: string; value: string; matches: boolean }[] }[]
+    addresses: { kind: string; added: boolean; host: string | null; zone: string | null; status: string | null; records: { purpose: string; type: string; name: string; value: string; matches: boolean }[] }[]
   }
 }
 const add = `mutation($kind: String!, $host: String!) { addPartnerDomain(kind: $kind, host: $host) { ok reason id apex } }`
@@ -75,6 +75,7 @@ describe('the four addresses', () => {
       ['shops', true, 'live'],
       ['email', true, 'live'],
     ])
+    expect(ns?.addresses.find((a) => a.kind === 'shops')?.zone).toBe('northstar.example')
     expect(ns?.addresses.find((a) => a.kind === 'email')?.records.map((r) => [r.purpose, r.type, r.matches])).toEqual([
       ['spf', 'TXT', true],
       ['dkim', 'CNAME', true],

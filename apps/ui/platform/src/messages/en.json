@@ -1490,5 +1490,187 @@
         "UNAUTHENTICATED": "your session ended. Sign in again."
       }
     }
+  },
+  "domains": {
+    "loading": "Loading domains",
+    "error": {
+      "title": "We couldn’t load your domains",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "empty": {
+      "title": "No domains yet",
+      "body": "Add your portal address first. That’s where your merchants sign in. Then add preview and shop addresses and an email sender. We’ll give you the DNS records to add at your provider.",
+      "action": "Add portal address"
+    },
+    "add": "Add an address",
+    "addRefused": "Your role can’t add addresses. Ask an Owner or Admin.",
+    "kinds": {
+      "portal": {
+        "label": "Merchant portal",
+        "what": "Where your merchants sign in and build their shops.",
+        "pick": "Where your merchants sign in and build their shops. Add this first."
+      },
+      "preview": {
+        "label": "Preview address, all stores",
+        "what": "Each store’s private preview before it publishes.",
+        "pick": "Each store’s private preview before it publishes."
+      },
+      "shops": {
+        "label": "Shop address, all stores",
+        "what": "Every store’s shop address until it connects its own domain.",
+        "pick": "Every store’s shop address until it connects its own domain."
+      },
+      "email": {
+        "label": "Email sender",
+        "what": "Emails to your merchants and their suppliers come from here.",
+        "pick": "Emails to your merchants and their suppliers come from here."
+      }
+    },
+    "notAdded": "Not added yet.",
+    "status": {
+      "waiting": "Waiting for DNS",
+      "verifying": "Verifying",
+      "issuing": "Issuing certificate",
+      "live": "Live",
+      "failed": "Failed",
+      "expiring": "Certificate renewing",
+      "broken": "Stopped working"
+    },
+    "waitingSince": "Waiting since {date}",
+    "checkedNow": "Checked just now",
+    "checked": "Checked {wait} ago",
+    "notChecked": "Not checked yet",
+    "recheck": "Re-check now",
+    "checking": "Checking…",
+    "recheckAsked": "We’re checking {host} again. This page shows the answer once it’s in.",
+    "tooSoon": "{host} was checked less than a minute ago. Try again in a moment.",
+    "recheckFailed": "That didn’t start a check. Try again.",
+    "fallback": "Until it’s live, emails come from {sender} with your product name.",
+    "records": {
+      "label": "DNS records for {host}",
+      "type": "Type",
+      "name": "Name",
+      "value": "Value to add",
+      "valueShort": "Value",
+      "found": "What we see",
+      "nothing": "Nothing found yet",
+      "mismatch": "Doesn’t match yet",
+      "copyValue": "Copy value",
+      "copyName": "Copy name",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "copyFailed": "Couldn’t copy. Select the value and copy it yourself."
+    },
+    "purposes": {
+      "pointer": {
+        "portal": "Points your portal address at DripFunnel.",
+        "apex": "Root domains can’t use a CNAME, so this points it at DripFunnel directly.",
+        "preview": "Sends every preview address to DripFunnel.",
+        "shops": "Sends every shop address to DripFunnel.",
+        "email": "Points this address at DripFunnel."
+      },
+      "ownership": "Proves the address is yours.",
+      "spf": "SPF: lets DripFunnel send email for this address.",
+      "dkim": "DKIM: signs every email so inboxes trust it.",
+      "dmarc": "DMARC: tells inboxes what to do with fakes."
+    },
+    "merchants": {
+      "title": "Merchants’ own domains",
+      "lede": "Merchants connect these themselves. You can see their status and help.",
+      "none": "No merchant has connected its own domain yet.",
+      "since": "Since {date}",
+      "label": "Merchants’ own domains",
+      "store": "Store",
+      "host": "Domain",
+      "status": "Status",
+      "when": "Since",
+      "newer": "Newer",
+      "older": "Older",
+      "showMore": "Show more domains"
+    },
+    "new": {
+      "title": "Add an address",
+      "lede": "Point an address you own at DripFunnel. You add the records at your DNS provider; we check them and issue the certificate.",
+      "breadcrumb": "Breadcrumb",
+      "allSet": {
+        "title": "All four addresses are set up",
+        "body": "Your portal, preview, shop and email addresses are all added. To change one, open it on Domains.",
+        "back": "Back to Domains"
+      },
+      "steps": {
+        "address": "Address",
+        "records": "DNS records",
+        "check": "Check"
+      },
+      "stepsLabel": "Steps",
+      "kindQuestion": "What is this address for?",
+      "added": "Added",
+      "field": "Address",
+      "wildcardField": "Base address",
+      "help": {
+        "portal": "A subdomain like {example} is easiest. Your merchants will see it in their browser.",
+        "wildcard": "Every store gets an address under this, like harbor-coffee.{example}.",
+        "email": "Use a subdomain you don’t send other email from. Replies still go to your support address."
+      },
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "adding": "Adding…",
+      "refused": {
+        "NOT_A_HOSTNAME": "That doesn’t look like an address. Use something like {example}.",
+        "DRIPFUNNEL_DOMAIN": "Use a domain your company owns, not a DripFunnel one.",
+        "ALREADY_YOURS": "That’s already one of your addresses. Pick a different address.",
+        "HOST_TAKEN": "That address is already in use on DripFunnel. Pick a different one.",
+        "BARE_DOMAIN_FOR_WILDCARD": "Use a subdomain, like {example}, so it doesn’t clash with your website.",
+        "KIND_TAKEN": "This address is already added. Open it on Domains to change it.",
+        "APEX_NOT_AVAILABLE": "A root domain can’t be your portal address yet. Use a subdomain, like {example}.",
+        "INVALID_INPUT": "Enter an address."
+      },
+      "failed": "That didn’t save. Nothing was changed. Try again.",
+      "recordsTitle": {
+        "one": "Add this record at your DNS provider",
+        "other": "Add these {count} records at your DNS provider"
+      },
+      "recordsLede": "Sign in where you manage DNS for {apex} (for example Cloudflare, GoDaddy or Route 53) and add exactly this. Keep this page open.",
+      "apexWarning": "You entered a root domain. If {host} is also your website, the website will stop working. Use a subdomain instead unless you’re sure.",
+      "providerNote": "Some providers add your domain to the name for you. If yours does, enter only the part shown before it. Changes usually show up within an hour, and can take up to 48.",
+      "checkNow": {
+        "one": "I’ve added it. Check now",
+        "other": "I’ve added them. Check now"
+      },
+      "waiting": {
+        "one": "Saved. We haven’t found the record yet, which is normal right after adding it. We check every 10 minutes and email you when it’s live. Nothing else waits on this.",
+        "other": "Saved. We haven’t found the records yet, which is normal right after adding them. We check every 10 minutes and email you when it’s live. Nothing else waits on this."
+      },
+      "live": {
+        "portal": {
+          "one": "We found the record and issued the certificate. Merchants can sign in here now.",
+          "other": "We found the records and issued the certificate. Merchants can sign in here now."
+        },
+        "preview": {
+          "one": "We found the record and issued the certificate. Stores use it right away.",
+          "other": "We found the records and issued the certificate. Stores use it right away."
+        },
+        "shops": {
+          "one": "We found the record and issued the certificate. Stores use it right away.",
+          "other": "We found the records and issued the certificate. Stores use it right away."
+        },
+        "email": {
+          "one": "We found the records. Emails now come from this address.",
+          "other": "We found the records. Emails now come from this address."
+        }
+      },
+      "checkAgain": "Check again",
+      "goToDomains": "Go to Domains",
+      "addNext": "Add the next address",
+      "found": {
+        "one": "We found the record. We’re issuing the certificate now; this usually takes a few minutes.",
+        "other": "We found the records. We’re issuing the certificate now; this usually takes a few minutes."
+      },
+      "mismatch": {
+        "one": "We found a record, but it doesn’t match yet. Check it against the value on Domains.",
+        "other": "We found the records, but they don’t all match yet. Check them against the values on Domains."
+      }
+    }
   }
 }

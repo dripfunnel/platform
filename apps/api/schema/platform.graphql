@@ -424,6 +424,7 @@ type PartnerAddress {
   records: [PartnerDomainRecord!]
   since: String
   status: String
+  zone: String
 }
 
 type PartnerCompany {

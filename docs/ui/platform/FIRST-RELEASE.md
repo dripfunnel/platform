@@ -463,6 +463,12 @@ Three steps:
 Changing a live portal host keeps the old one redirecting for a period still *(ask)* (SAAS
 §3.5).
 
+**Built on #191, straight onto #197's API.** **Continue** adds the address, since the API makes its
+records (the pointer, and an ownership TXT the prototype doesn't draw). Step 2 shows those records,
+and there is no Back: the address exists by then. "Check now" queues a re-check, and step 3 shows the
+address as the API reads it afterwards. A re-check within a minute of the last one answers "checked
+less than a minute ago". The first check, queued when the address is added, still runs.
+
 ### 9.3 Merchants' own domains
 
 "Merchants connect these themselves. You can see their status and help." Store, host, status,
