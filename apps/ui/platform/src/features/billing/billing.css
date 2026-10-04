@@ -76,25 +76,31 @@
   gap: var(--df-space-2);
   margin: 0;
   padding: 0;
-  list-style: none;
+  border: 0;
+  min-width: 0;
 }
 
+/* The prototype's choice: the radio beside its label and sentence. */
 .df-billing-mode {
-  display: grid;
-  gap: var(--df-space-1);
+  display: flex;
+  gap: var(--df-space-2);
+  align-items: flex-start;
   padding: var(--df-space-3);
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius);
+  cursor: pointer;
+}
+
+.df-billing-mode input {
+  margin-top: 3px;
+  accent-color: var(--df-color-brand);
+}
+
+.df-billing-modes:disabled .df-billing-mode {
+  cursor: not-allowed;
 }
 
 .df-billing-mode--current {
   border-color: var(--df-color-brand);
   background: var(--df-color-hover);
-}
-
-.df-billing-current {
-  margin-left: var(--df-space-2);
-  color: var(--df-color-muted);
-  font-size: 12px;
-  font-weight: 600;
 }

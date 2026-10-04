@@ -12,10 +12,11 @@ pnpm --filter ./apps/ui/platform dev   # http://localhost:5174, /api proxied to 
 **Wired to the Platform API**: sign-in, 2-factor, accepting an invitation, sign-out, `me` and the
 session guard, the partner-state banners, the nav badges, the header search and the setup
 checklist with Submit (#164); Plans and Branding, with brand-file uploads (#165); the Dashboard,
-Stores, Store detail with its actions, Create store and the export (#166). **No screen reads a
-fixture any more.** The one sample left is the staff-session handoff (`src/api/staffSession.ts`),
-whose exchange arrives with #243. Domains, Reports, Billing, Support,
-Activity log and Settings are placeholders. Against the local seed, `pnpm seed` prints an
+Stores, Store detail with its actions, Create store and the export (#166); Domains, Activity log
+and Settings (#203); Reports (#194), Support (#196) and Billing (#204, on #201's API). **No screen
+reads a fixture any more.** Settings › Payout and payment still says the provider isn't switched
+on: showing what is on file and adding a bank account or card need Stripe's publishable key and
+its hosted fields (THIRD-PARTY-ACCESS §2.7). Against the local seed, `pnpm seed` prints an
 invitation link to accept (set a password there, then sign in), and
 `pnpm --filter ./apps/api session --partner <email>` prints a session cookie for any active
 partner user.

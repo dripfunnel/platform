@@ -1,11 +1,12 @@
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import type { BillingMoney } from '../../api/billing'
 import { messages } from '../../messages'
 import { Billing, type BillingProps } from './Billing'
-import { billingSample } from './billingSample'
-import { billingAccess, sampleFor } from './BillingScreen'
+import { billingMoney, paged } from './billingTestData'
+import { billingAccess, loadBillingFor } from './loadBilling'
 
 const words = messages.billing
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ')
@@ -14,10 +15,30 @@ const render = async (element: ReactNode) => {
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
-const view = (props: Partial<BillingProps> = {}) =>
-  render(<Billing mode="dripfunnel" live money={null} partner="Northstar Commerce" product="Northstar Shops" mayChange denied={false} onRefresh={() => undefined} {...props} />)
+const view = (props: Partial<BillingProps> & { money?: BillingMoney | null } = {}) => {
+  const money = props.money === undefined ? billingMoney : props.money
+  return render(
+    <Billing
+      mode="dripfunnel"
+      live
+      money={money}
+      payments={paged(money?.payments.items ?? [])}
+      payouts={paged(money?.payouts.items ?? [])}
+      invoices={paged(money?.invoices.items ?? [])}
+      partner="Northstar Commerce"
+      product="Northstar Shops"
+      mayChange
+      changing={false}
+      denied={false}
+      onRefresh={() => undefined}
+      onChangeMode={() => undefined}
+      onPdf={() => undefined}
+      {...props}
+    />,
+  )
+}
 
-describe('Billing’s access and its sample', () => {
+describe('Billing’s access', () => {
   it('refuses Support, and lets only Owners and Finance change who bills', () => {
     expect(billingAccess('partner-support')).toEqual({ denied: true, mayChange: false })
     expect(billingAccess('partner-read-only')).toEqual({ denied: false, mayChange: false })
@@ -26,34 +47,18 @@ describe('Billing’s access and its sample', () => {
     expect(billingAccess('partner-owner')).toEqual({ denied: false, mayChange: true })
   })
 
-  it('never gives a real partner the sample: without a ?state= there is no money to draw', () => {
-    expect(sampleFor(null)).toBeNull()
-    expect(sampleFor('loading')).toBeNull()
-    expect(sampleFor('sample')).toBe(billingSample)
+  it('asks Support’s loader nothing, and answers with the API’s money for everyone else', async () => {
+    const fetched = vi.fn()
+    vi.stubGlobal('fetch', fetched)
+    expect(await loadBillingFor('partner-support')).toEqual({ refused: true })
+    expect(fetched).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })
 
 describe('Billing', () => {
-  it('says the money connects with the payment provider, and shows who bills', async () => {
-    const html = await view()
-    const text = textOf(html)
-    expect(text).toContain(words.notConnected.dripfunnel)
-    expect(textOf(await view({ mode: 'own' }))).toContain(words.notConnected.own)
-    expect(text).toContain(words.settings.dripfunnel.label)
-    expect(text).toContain(words.settings.current)
-    expect(text).toContain(words.settings.changeLater)
-    expect(html).not.toMatch(/<button[^>]*disabled/)
-    expect(html).not.toContain('id="billing-payments"')
-  })
-
-  it('tells a partner before Live, refuses Support, and holds the change to Owners and Finance', async () => {
-    expect(textOf(await view({ live: false }))).toContain('Merchant payments and payouts appear once Northstar Shops is live.')
-    expect(textOf(await view({ denied: true }))).toContain(words.denied)
-    expect(textOf(await view({ mayChange: false }))).toContain(words.settings.ownersAndFinance)
-  })
-
-  it('draws the four parts from the sample, every amount as given and no card beyond its last four', async () => {
-    const text = textOf(await view({ money: billingSample }))
+  it('draws the four parts as the API gives them, every amount as given and no card beyond its last four', async () => {
+    const text = textOf(await view())
     expect(text).toContain(words.payments.failedTitle)
     expect(text).toContain('Card declined · card ending 1881')
     expect(text).toContain('attempt 4 of 4')
@@ -65,20 +70,42 @@ describe('Billing', () => {
     expect(text).toContain('INV-2026-0042')
     expect(text).toContain(words.invoices.pdf)
     expect(text).toContain('Account ending 1180')
-    expect(text).toContain(words.payments.all)
     expect(text).not.toMatch(/\d{5,}/)
   })
 
+  it('says a failure without Stripe’s words plainly, and no retry line when none is due', async () => {
+    const text = textOf(await view({ money: { ...billingMoney, failed: [{ storeId: 's1', storeName: 'Lumen Candle Co.', amount: { amount: 4900, currency: 'USD' }, why: null, cardLast4: null, retryAt: null, attempt: 4, attempts: 4 }] } }))
+    expect(text).toContain(words.payments.failedNoWhy)
+    expect(text).not.toContain('attempt 4 of 4')
+  })
+
   it('says why the next payout is held, and when the first one comes', async () => {
-    expect(textOf(await view({ money: { ...billingSample, nextPayout: { state: 'heldVerification' } } }))).toContain(words.payouts.next.heldVerification)
-    expect(textOf(await view({ money: { ...billingSample, nextPayout: { state: 'first' } } }))).toContain(words.payouts.next.first)
+    expect(textOf(await view({ money: { ...billingMoney, nextPayout: { state: 'heldVerification' } } }))).toContain(words.payouts.next.heldVerification)
+    expect(textOf(await view({ money: { ...billingMoney, nextPayout: { state: 'first' } } }))).toContain(words.payouts.next.first)
+    expect(textOf(await view({ money: { ...billingMoney, nextPayout: { state: 'heldNoAccount' } } }))).toContain(words.payouts.next.heldNoAccount)
+    expect(textOf(await view({ money: { ...billingMoney, nextPayout: { state: 'heldVerifying' } } }))).toContain(words.payouts.next.heldVerifying)
+  })
+
+  it('offers Show more on a list the API says goes on', async () => {
+    const html = await view({ payments: paged(billingMoney.payments.items, true) })
+    expect(textOf(html)).toContain(words.showMore)
+  })
+
+  it('tells a partner before Live, refuses Support, and holds the change to Owners and Finance', async () => {
+    expect(textOf(await view({ live: false }))).toContain('Merchant payments and payouts appear once Northstar Shops is live.')
+    expect(textOf(await view({ denied: true }))).toContain(words.denied)
+    expect(textOf(await view({ mayChange: false }))).toContain(words.settings.ownersAndFinance)
+    const html = await view()
+    expect(html).toContain('checked="" value="dripfunnel"')
+    expect(await view({ mayChange: false })).toMatch(/<fieldset[^>]*disabled/)
   })
 
   it('shows only the invoices and who bills when the partner bills itself, and a stale strip with Refresh now', async () => {
-    const own = await view({ mode: 'own', money: billingSample })
+    const own = await view({ mode: 'own' })
     expect(own).not.toContain('id="billing-payments"')
     expect(own).not.toContain('id="billing-payouts"')
     expect(own).toContain('id="billing-invoices"')
-    expect(textOf(await view({ money: { ...billingSample, staleSince: '2026-09-29T17:42:00.000Z' } }))).toContain(words.refresh)
+    expect(own).toContain('checked="" value="own"')
+    expect(textOf(await view({ money: { ...billingMoney, staleSince: '2026-09-29T17:42:00.000Z' } }))).toContain(words.refresh)
   })
 })

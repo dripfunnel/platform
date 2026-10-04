@@ -2267,10 +2267,6 @@
     },
     "denied": "Support doesn’t see billing. Ask an Owner, Admin or Finance.",
     "preLive": "Merchant payments and payouts appear once {product} is live.",
-    "notConnected": {
-      "dripfunnel": "Payments, payouts and invoices connect with DripFunnel’s payment provider, which isn’t switched on yet. They appear here once it is.",
-      "own": "DripFunnel’s invoices connect with its payment provider, which isn’t switched on yet. They appear here once it is."
-    },
     "stale": "Payment status from {time}; the payment provider is slow to respond.",
     "refresh": "Refresh now",
     "payments": {
@@ -2300,7 +2296,8 @@
       },
       "cardEnding": "ending {last4}",
       "noCard": "—",
-      "all": "Every payment"
+      "all": "Every payment",
+      "failedNoWhy": "Payment failed"
     },
     "payouts": {
       "title": "Your payouts",
@@ -2308,8 +2305,10 @@
       "next": {
         "scheduled": "Next payout {date}: about {amount} so far, to account ending {last4}.",
         "heldVerification": "Next payout held: your payout account failed verification.",
-        "heldContract": "Next payout held: your contract lapsed.",
-        "first": "Your first payout comes the month after your first merchant pays."
+        "first": "Your first payout comes the month after your first merchant pays.",
+        "scheduledNoAccount": "Next payout {date}: about {amount} so far.",
+        "heldNoAccount": "Next payout held: add a payout account in Settings, and payouts start once it’s verified.",
+        "heldVerifying": "Next payout waits for your payout account to be verified (1–2 business days)."
       },
       "month": "Month",
       "collected": "Collected",
@@ -2322,7 +2321,8 @@
       "statuses": {
         "paid": "Paid",
         "scheduled": "Scheduled",
-        "failed": "Failed"
+        "failed": "Failed",
+        "held": "Held"
       },
       "none": "No payouts yet.",
       "noAdjustment": "—",
@@ -2346,7 +2346,8 @@
       },
       "none": "No invoices yet. Your contract has no separate fees so far.",
       "tableLabel": "Invoices",
-      "noPdf": "—"
+      "noNumber": "—",
+      "pdfFor": "Tax invoice (PDF) for {invoice}"
     },
     "settings": {
       "title": "Who bills your merchants",
@@ -2358,14 +2359,21 @@
         "label": "You, with your own billing",
         "body": "You charge merchants yourself and set each store’s billing status. DripFunnel invoices you for its fees."
       },
-      "current": "Current",
-      "changeLater": "Changing who bills your merchants becomes possible once payments are connected.",
       "ownersAndFinance": "Only Owners and Finance change this.",
       "payoutAccount": "Payout account",
       "payoutLink": "Payout and payment settings",
-      "accountEnding": "Account ending {last4}"
+      "accountEnding": "Account ending {last4}",
+      "noAccount": "No payout account yet"
     },
-    "staleTitle": "Payment status may be behind"
+    "staleTitle": "Payment status may be behind",
+    "showMore": "Show more",
+    "moreFailed": "More couldn’t be loaded. Try again.",
+    "toasts": {
+      "modeChanged": "Who bills your merchants is now: {mode}.",
+      "failed": "That didn’t go through. Nothing was changed. Try again.",
+      "noPdf": "This invoice has no PDF yet. Try again later.",
+      "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this site and try again."
+    }
   },
   "support": {
     "loading": "Loading support",
