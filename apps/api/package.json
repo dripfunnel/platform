@@ -14,7 +14,7 @@
     "#jobs/*": "./src/jobs/*.ts"
   },
   "scripts": {
-    "dev": "pnpm check:local && wrangler dev --env local",
+    "dev": "pnpm check:local && tsx scripts/local/dev.ts",
     "check:local": "tsx --env-file-if-exists=.env.local scripts/local/main.ts",
     "setup:local": "tsx --env-file-if-exists=.env.local scripts/local/main.ts --setup && pnpm migrate && pnpm seed",
     "build": "wrangler deploy --dry-run --outdir dist",
