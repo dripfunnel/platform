@@ -13,7 +13,7 @@ It collects what the specs already decide. Where a spec leaves the provider open
 provider is marked *(ask)* or *(decide)*. The list was built from `docs/` and from the
 Claude Design prototypes in `../../designs/`.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 ---
 
@@ -205,6 +205,15 @@ This account handles **platform** billing. Shoppers' payments are §3.1.
 | **Stripe Connect** (platform) | "DripFunnel bills merchants on the partner's behalf" **ships first** (SAAS §7.1): partners are connected accounts, receive monthly payouts, and are verified by a test deposit (Platform prototype) | Connect enabled; Connect webhook secret; one connected account ID per partner | Worker secret; IDs in Postgres | 11. **Lead time**: Connect platform review |
 | **Stripe Tax** *(ask: only if chosen)* | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2) and/or US sales tax for merchants (§2.8) | Enabled on the account; same key | — | 11 |
 | **Customer portal** configuration *(optional)* | Stripe-hosted "manage card / invoices" | Config | Stripe | 11 |
+
+**Registered so far: nothing** (#201, 2026-10-04). The Worker reads `STRIPE_SECRET_KEY` (the
+restricted key, `rk_…`) and `STRIPE_WEBHOOK_SECRET` (`whsec_…`) as Worker secrets; without them
+the billing writes answer `NOT_CONNECTED` and `hooks.dripfunnel.com/stripe` doesn't exist. The
+restricted key needs write on Accounts (Connect, Custom), Customers and Payment Methods, and read
+on Charges, Invoices and Payouts. The webhook endpoint listens for `invoice.*`, `charge.*`,
+`payout.*` (Connect) and `account.*` (Connect). Billing's retry schedule is set to four attempts
+until SAAS §7.3's dunning policy is decided. The publishable key and Stripe.js reach the console
+with the Billing wiring (#204).
 
 ### 2.8 Services still to choose
 

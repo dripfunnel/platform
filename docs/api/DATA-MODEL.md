@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 ---
 
@@ -1382,8 +1382,9 @@ but `store_billing_details`, which stays store-only). The money model is SAAS §
 Billing on DripFunnel's account, the partner's or DripFunnel's own plans. Distinct from the
 store's own `payment_provider_account` rows (flow 61). `store.plan_id` and `trial_ends_at`
 (built on #32) are mirrors of this table, written by the same transaction. **`store_subscription`
-is built on #212** (§2.4); `store_billing_details`, `invoice`, `invoice_line` and
-`billing_event` are #201's.
+is built on #212** (§2.4); `billing_event` is built on #201, and `store_billing_details`,
+`invoice` and `invoice_line`, which only the merchant's Billing screen reads and writes, move to
+the Store strand's billing card (ui/store/FIRST-RELEASE.md §20, SAPI 19).
 
 **Built on #163** (migration `0019`), what the partner Dashboard, Billing and Reports read, filled
 by Stripe Connect's sync later (THIRD-PARTY-ACCESS §2.7) and by the seed until then. Each is
@@ -1438,6 +1439,25 @@ invoice_line        (id, invoice_id, store_id, label, amount, currency, period_s
                     -- a plan change is one invoice with a charge and a credit line (SAAS §7.2)
 billing_event       (id PK = Stripe event id, store_id NULL, partner_id NULL, type, received_at,
                      handled_at)                                   -- SAAS §7.2 idempotency
+```
+
+**Built on #201** (migration `0033`), the partner's side, partner-scoped like #163's tables:
+
+```
+partner_billing_account (partner_id PK, stripe_account_id NULL (Connect), stripe_customer_id NULL,
+                     payout_bank NULL, payout_last4 NULL, payout_status ('missing'|'verifying'
+                     |'verified'|'failed'), payout_failure NULL, card_brand NULL, card_last4 NULL,
+                     card_expires NULL, card_status ('missing'|'on_file'|'declined'), updated_at)
+                    -- Stripe's last 4 only, never a number; the partner writes it from a token's
+                    -- answer, the webhook moves the statuses on
+partner_invoice     (id, partner_id, stripe_invoice_id unique, number NULL, what, amount, currency,
+                     status ('open'|'paid'|'void'), issued_at, due_at NULL, paid_at NULL)
+                    -- DripFunnel's invoices to the partner (FIRST-RELEASE §11.3)
+merchant_charge     + stripe_ref unique ('in_…' a subscription invoice, 're_…' a refund),
+                     retry_at NULL, attempt NULL     -- Billing's retry state on a failed one
+partner_payout      + stripe_payout_id unique, to_last4, failure_reason; status gains 'failed';
+                     one per partner and period only for rows without a Stripe id: a retry or a
+                     manual payout is a second Stripe payout in the month
 ```
 
 **Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,
