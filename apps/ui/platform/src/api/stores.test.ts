@@ -49,6 +49,7 @@ const storeDetail = {
     records: [],
     setup: { state: 'stuck', error: null },
     trialExtensions: [],
+    trialOffers: [{ days: 3, endsAt: '2026-10-13T00:00:00.000Z' }],
     support: { allowed: true, people: [{ id: 'u1', name: 'Ana', email: 'ana@x.example', role: 'supplier-admin', supplier: 'Loomcraft', status: 'active', lastSignInAt: null }] },
     activity: [{ id: 'a1', at: '2026-03-01T12:00:00.000Z', who: 'Diego', action: 'store.plan_changed', result: 'success' }],
     actions: { changePlan: permission(true), extendTrial: permission(false, 'FINANCE_TRIAL_ONLY'), addOverride: null, resendInvite: null, restore: null, suspend: permission(true), retryStep: permission(true) },
@@ -112,11 +113,19 @@ describe('creating a store', () => {
 })
 
 describe('Extend trial’s choices', () => {
-  it('counts 3, 7 and 14 days from the trial’s end, or from now once that has passed', async () => {
-    vi.useFakeTimers({ now: Date.parse('2026-10-04T00:00:00Z') })
-    const lapsed = { row: { ...row, state: state('trial', { trialEndsAt: '2026-10-01T00:00:00.000Z', daysLeft: 0 }) } }
-    answer.mockImplementation(({ query }) => (query.includes('provisioning(') ? { data: { provisioning: null } } : { data: { store: { ...storeDetail, ...lapsed } } }))
-    expect((await loadStore('s1'))?.trialExtensions).toEqual([3, 7, 14].map((days) => ({ days, endsAt: new Date(Date.parse('2026-10-04T00:00:00Z') + days * 86_400_000).toISOString() })))
+  it('are the API’s, dated as it will grant them, never worked out on this clock', async () => {
+    const offers = [3, 7, 14].map((days) => ({ days, endsAt: `2026-10-${10 + days}T00:00:00.000Z` }))
+    answer.mockImplementation(({ query }) => (query.includes('provisioning(') ? { data: { provisioning: null } } : { data: { store: { ...storeDetail, trialOffers: offers } } }))
+    expect((await loadStore('s1'))?.trialExtensions).toEqual(offers)
+  })
+})
+
+describe('the store page’s signup steps', () => {
+  it('are empty without a signup job, and any other failure is the page’s to show', async () => {
+    answer.mockImplementation(({ query }) => (query.includes('provisioning(') ? { data: { provisioning: null } } : { data: { store: storeDetail } }))
+    expect(await loadStore('s1')).not.toBeNull()
+    answer.mockImplementation(({ query }) => (query.includes('provisioning(') ? { errors: [{ message: 'no', extensions: { code: 'FORBIDDEN' } }] } : { data: { store: storeDetail } }))
+    await expect(loadStore('s1')).rejects.toMatchObject({ code: 'FORBIDDEN' })
   })
 })
 

@@ -1,5 +1,5 @@
 import type { Money } from '@dripfunnel/shared/format'
-import { ApiError, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
+import { ApiError, isApiError, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
 
@@ -460,6 +460,8 @@ const detailSchema = z.object({
       site: z.object({ previewHost: z.string().nullable(), liveHost: z.string().nullable(), lastPublishAt: z.string().nullable() }),
       records: z.array(z.object({ host: z.string(), status: z.enum(['live', 'waiting', 'failed']), type: z.literal('CNAME'), value: z.string(), found: z.string().nullable(), since: z.string() })),
       setup: z.object({ state: z.enum(['done', 'running', 'stuck', 'failed', 'cleaning']), error: z.string().nullable() }),
+      // Extend trial's offers, dated by the API as it will grant them (FIRST-RELEASE §6.4).
+      trialOffers: z.array(z.object({ days: z.number().int(), endsAt: z.string() })),
       support: z.object({
         allowed: z.boolean(),
         people: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.string(), supplier: z.string().nullable(), status: z.enum(['active', 'invited', 'suspended']), lastSignInAt: z.string().nullable() })),
@@ -473,16 +475,6 @@ const detailSchema = z.object({
 const permissionsOf = (actions: Partial<Record<StoreAction, StorePermissions[StoreAction] | null>>): StorePermissions =>
   Object.fromEntries(Object.entries(actions).filter(([, permission]) => permission !== null)) as StorePermissions
 
-// Extend trial's choices (FIRST-RELEASE §6.4), which the API checks; each counted, as the API
-// counts it, from the trial's end or from now when that has passed.
-const trialChoices = [3, 7, 14] as const
-const dayMs = 24 * 60 * 60 * 1000
-const extensionsFrom = (state: StoreState): Store['trialExtensions'] => {
-  if (state.kind !== 'trial') return []
-  const from = Math.max(state.trialEndsAt ? Date.parse(state.trialEndsAt) : 0, Date.now())
-  return trialChoices.map((days) => ({ days, endsAt: new Date(from + days * dayMs).toISOString() }))
-}
-
 // The store page (§6.3). The signup's five steps come from `provisioning`, as on Create store;
 // what the API doesn't send yet stays empty here (`Store`).
 export const loadStore = async (id: string): Promise<Store | null> => {
@@ -492,7 +484,7 @@ export const loadStore = async (id: string): Promise<Store | null> => {
         row { ${rowFields} } country price { amount currency } people { count suppliers } contacts { name email role }
         usage { limit used cap percent monthly } overrides { id limit amount duration reason by at }
         billing { interval nextChargeAt cardLast4 mode partnerName } site { previewHost liveHost lastPublishAt }
-        records { host status type value found since } setup { state error }
+        records { host status type value found since } setup { state error } trialOffers { days endsAt }
         support { allowed people { id name email role supplier status lastSignInAt } }
         activity { id at who action result }
         actions { ${storeActions.map((action) => `${action} { allowed reason }`).join(' ')} }
@@ -502,7 +494,8 @@ export const loadStore = async (id: string): Promise<Store | null> => {
     { id },
   )
   if (!s) return null
-  const progress = await loadProvisioning(id).catch(() => null)
+  // No signup job is an empty Setup tab; any other failure is the page's to show.
+  const progress = await loadProvisioning(id).catch((error: unknown) => (isApiError(error) && error.code === 'NOT_FOUND' ? null : Promise.reject(error)))
   const row = rowOf(s.row)
   const stuck = s.setup.state === 'stuck'
   return {
@@ -535,7 +528,7 @@ export const loadStore = async (id: string): Promise<Store | null> => {
       error: s.setup.error,
     },
     // The API sends past extensions; the offers are §6.4's three, from the trial's end (#166's findings).
-    trialExtensions: extensionsFrom(row.state),
+    trialExtensions: s.trialOffers,
     support: {
       allowed: s.support.allowed,
       people: s.support.people,

@@ -36,6 +36,9 @@ export const handoffMs = 5 * 60 * 1000
 export const targetPageSize = 25
 export const sessionPageSize = 25
 
+/** The link that opens a session on its host; the page there takes the token and drops it from the address bar (ACCESS.md §8.3). */
+export const handoffLink = (host: string, token: string): string => `https://${host}/impersonate/enter?token=${encodeURIComponent(token)}`
+
 export const sessionAudit = {
   startImpersonation: 'impersonation.started',
   extendImpersonation: 'impersonation.extended',
@@ -100,9 +103,6 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
   const mayEndAny = roleHas(staff.role, 'staffSessions.endAny')
   // ACCESS.md §8.3: a Partner manager sees setup sessions of their partners, never an impersonation.
   const assignedTo = partnerScopedRoles.includes(staff.role) ? staff.id : undefined
-
-  // The portal's own page takes the token and drops it from the address bar (ACCESS.md §8.1, #243).
-  const linkFor = (host: string, token: string) => `https://${host}/impersonate/enter?token=${encodeURIComponent(token)}`
 
   /** Why the caller can't act as this person in this place now; null when they can. */
   const refusalFor = (t: { active: boolean; partnerState: string; supplier: boolean }): SessionRefusal | null => {
@@ -283,7 +283,7 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
       )
       const s = await selectStaffSession(tx, sessionId)
       if (!s) throw new Error('impersonation: inserted row not found')
-      return { ok: true, session: sessionOf(s, at, new Map([[t.partner_id, host]])), handoff: linkFor(host, token) }
+      return { ok: true, session: sessionOf(s, at, new Map([[t.partner_id, host]])), handoff: handoffLink(host, token) }
     })
   }
 
@@ -331,7 +331,7 @@ export const createStaffSessionsService = ({ sql, staff, facts, activity, reauth
       const token = newSessionId()
       if (!(await reissueHandoff(tx, s.kind, s.id, await hashSessionId(token), new Date(at.getTime() + handoffMs), at))) return { ok: false, reason: 'SESSION_ENDED' }
       await activity.record(tx, s.kind === 'impersonation' ? impersonationEntry(sessionAudit.returnToSession, s) : entry({ category: 'support', action: sessionAudit.returnToSession, reason: null, partnerId: s.partner_id, access: { kind: 'setup_session', id: s.id }, target: { type: 'partner', id: s.partner_id, label: s.partner_name }, visibility: 'partner' }))
-      return { ok: true, session: dto, handoff: linkFor(dto.host, token) }
+      return { ok: true, session: dto, handoff: handoffLink(dto.host, token) }
     })
 
   /** Ends an impersonation; null when the id isn't one, so the setup-session path (#33) can answer. */

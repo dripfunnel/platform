@@ -165,6 +165,7 @@ const StoreDetailType = builder.objectRef<Detail>('PartnerStore').implement({
     records: t.field({ type: [Record], resolve: (s) => s.records }),
     setup: t.field({ type: Setup, resolve: (s) => s.setup }),
     trialExtensions: t.field({ type: [Extension], resolve: (s) => s.trialExtensions }),
+    trialOffers: t.field({ type: [Extension], resolve: (s) => s.trialOffers }),
     support: t.field({ type: Support, resolve: (s) => s.support }),
     activity: t.field({ type: [Entry], resolve: (s) => s.activity }),
     more: t.field({ type: More, resolve: (s) => s.more }),
