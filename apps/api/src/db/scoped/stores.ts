@@ -35,14 +35,14 @@ export const insertSeller = async (tx: ScopedSql, s: { storeId: string; name: st
   )
 
 /** The partner a store belongs to, or null when the caller's scope doesn't see it. */
-/** The names of these stores, by id: one query for a page of entries, never one per entry. */
-export const selectStoreNames = async (tx: ScopedSql, ids: readonly string[]): Promise<Map<string, string>> =>
-  new Map((ids.length ? await tx<{ id: string; name: string }[]>`select id, name from store where id = any(${pgArray(ids)}::uuid[])` : []).map((r) => [r.id, r.name]))
-
 export const partnerOfStore = async (tx: ScopedSql, storeId: string): Promise<string | null> => {
   const rows = await tx<{ partner_id: string }[]>`select partner_id from store where id = ${storeId}`
   return rows[0]?.partner_id ?? null
 }
+
+/** The names of these stores, by id: one query for a page of entries, never one per entry. */
+export const selectStoreNames = async (tx: ScopedSql, ids: readonly string[]): Promise<Map<string, string>> =>
+  new Map((ids.length ? await tx<{ id: string; name: string }[]>`select id, name from store where id = any(${pgArray(ids)}::uuid[])` : []).map((r) => [r.id, r.name]))
 
 export interface NewStore {
   partnerId: string
