@@ -52,8 +52,8 @@ export const exchangeHandoff = async (request: Request, deps: PlatformAuthDeps):
 }
 
 /** Polled every 15 seconds and on focus (ACCESS.md §8.3); answers how the session ended once it has. */
-// A staff cookie's reads, per address: a session polls about four times a minute (ACCESS.md §8.3).
-const staffBucketAllows = (deps: PlatformAuthDeps, facts: RequestFacts) => facts.ip !== null && deps.allowAttempt(`staff:ip:${facts.ip}`)
+// A staff cookie's reads, per address, in a limit of their own sized for every tab's polling (ACCESS.md §8.3).
+const staffBucketAllows = (deps: PlatformAuthDeps, facts: RequestFacts) => facts.ip !== null && deps.allowStaffRead(`ip:${facts.ip}`)
 
 export const currentStaffSession = async (request: Request, deps: PlatformAuthDeps, facts: RequestFacts): Promise<Response> => {
   const cookie = readCookie(request.headers.get('cookie'), staffPortalCookieName)

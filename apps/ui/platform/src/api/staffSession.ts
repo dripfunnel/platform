@@ -49,14 +49,18 @@ const noticeSchema = z.object({
   staffSessionNotice: z.object({ kind: z.enum(['impersonation', 'setup']), staffName: z.string(), actingAs: z.string().nullable(), endsAt: z.string() }).nullable(),
 })
 
+let lastCurrent: PortalStaffSession | null = null
+
 const api: PortalSessionApi = {
   exchange: async (token) => {
     const parsed = answer.safeParse(await post('handoff', { token }))
     return parsed.success && parsed.data.session ? toSession(parsed.data.session) : null
   },
+  // Over the polling limit the last answer stands, rather than the bar erroring mid-session.
   current: async () => {
-    const { session } = answer.parse(await post('staff-session', {}))
-    return session && toSession(session)
+    const parsed = answer.safeParse(await post('staff-session', {}))
+    if (parsed.success) lastCurrent = parsed.data.session && toSession(parsed.data.session)
+    return lastCurrent
   },
   // A setup session's notice is the shell's own banner (PartnerBanners); this one is an impersonation's.
   notice: async () => {

@@ -91,7 +91,7 @@ describe('sign-out', () => {
   const signOut = (cookie: string, init: RequestInit = {}) =>
     handlePlatformAuth(
       new Request(`https://${host}/api/auth/sign-out`, { method: 'POST', ...init, headers: { cookie: `${partnerCookieName}=${cookie}`, origin: `https://${host}`, ...init.headers } }),
-      { sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => now, allowAttempt: async () => true },
+      { sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => now, allowAttempt: async () => true, allowStaffRead: async () => true },
     )
 
   it('ends the session, clears the cookie and logs it against the partner', async () => {
