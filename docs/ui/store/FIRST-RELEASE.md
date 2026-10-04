@@ -42,8 +42,8 @@ packs) is taken from the prototype as drawn.
 | A+ content (CATALOG-DESIGN Q) | **In** |
 | Product kinds (PLATFORM-PROMPT §10) | **Physical, digital, services and gift cards** — the last three need a prototype design pass first (§20, card SUI 1) |
 | Regions and payment providers (PLATFORM-PROMPT §10) | **India and the US.** Stripe (US) and Razorpay (India), plus **PayPal** (US), **Cashfree and PhonePe** (India), **cash on delivery** (India) and **bank transfer** (both) |
-| US sales tax (PLATFORM-PROMPT §5.4, §10) | **Stripe Tax**; India's GST from the store's own rates (CATALOG-DESIGN T) |
-| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (EasyPost or Shippo, chosen on the shipping card, SAPI 12) |
+| US sales tax (PLATFORM-PROMPT §5.4, §10) | **Stripe Tax**, through whose Stripe account to decide (§21); India's GST from the store's own rates (CATALOG-DESIGN T) |
+| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (EasyPost or Shippo, chosen on the shipping card, SAPI 23) |
 | API keys, webhooks, apps, own storefront (PLATFORM-PROMPT §5.5, §10; DESIGN-BRIEF 75–77) | **All in**; none is drawn, so each needs the design pass first |
 | Settings › Support access, the store activity log, Settings › Customer accounts | **In, after a design pass** (they are designed in ACCESS §8, LOGGING §6 and ACCESS §2.1 but not drawn) |
 | Staff export (README §3) | **Yes**: products, orders and customers |
@@ -422,12 +422,12 @@ what must merge first.
 | SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment | SAPI 3 |
 | SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix | SAPI 4 |
 | SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
-| SAPI 7 | Tax: classes, rates (India), Stripe Tax (US), invoices settings | SAPI 3 |
+| SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; whose account decided first, §21), invoices settings | SAPI 3 |
 | SAPI 8 | Shop API catalogue and search, edge caching and purge | SAPI 3, SAPI 6 |
-| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting) | SAPI 7, SAPI 8 |
+| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23 | SAPI 7, SAPI 8, SAPI 23 |
 | SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment | SAPI 9, SAPI 4 |
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
-| SAPI 12 | Shipping: methods and charges, Shiprocket and the US aggregator, labels, pickups, tracking sync | SAPI 11 |
+| SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
 | SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) | SAPI 11 |
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test | SAPI 9 |
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe | SAPI 13, SAPI 14 |
@@ -438,6 +438,7 @@ what must merge first.
 | SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants | SAPI 11 |
 | SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test | SAPI 2, #202 |
 | SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services | SAPI 11, SUI 1 |
+| SAPI 23 | Shipping methods and charges, before checkout: flat rate, free over a threshold, collect in person, delivery areas, and the live-rate quote through the couriers (Shiprocket, and the US aggregator: EasyPost or Shippo, chosen here) | SAPI 3, SAPI 6 |
 
 **Store UI (apps/ui/store)**
 
@@ -449,7 +450,7 @@ what must merge first.
 | SUI 5 | Collections, filters, menus, size charts | SUI 4 |
 | SUI 6 | Settings: Store info, People, Supplier, Warehouse, Markets, Catalogue, Tax | SUI 4, SAPI 6, SAPI 7 |
 | SUI 7 | Orders, returns, refunds, Customers | SUI 2, SAPI 11, SAPI 13 |
-| SUI 8 | Settings: Payment setup, Shipping, Customer accounts | SUI 6, SAPI 10, SAPI 12 |
+| SUI 8 | Settings: Payment setup, Shipping, Customer accounts | SUI 6, SAPI 10, SAPI 23 |
 | SUI 9 | Offers and Abandoned carts | SUI 7, SAPI 14, SAPI 15 |
 | SUI 10 | Import and export | SUI 4, SAPI 16 |
 | SUI 11 | Storefront | SUI 2, SAPI 17 |
@@ -465,6 +466,8 @@ what must merge first.
 ## 21. Open questions
 
 - **WhatsApp reminders** in India: which provider, and whether they ship with email (§18).
+- **May Staff export an offer's codes?** `offers.export` is proposed for Owner and Manager only
+  (ACCESS §5.1, §13) *(confirm)*.
 - **Stripe Tax for merchants' US checkouts** *(decide)*: through the merchant's own connected Stripe
   account or DripFunnel's (whose account is then the tax-calculation vendor, with its cost and
   nexus), and what a US store taking payments only through PayPal uses (THIRD-PARTY-ACCESS §2.7).

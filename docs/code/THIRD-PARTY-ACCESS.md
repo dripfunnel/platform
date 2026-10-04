@@ -208,7 +208,7 @@ This account handles **platform** billing. Shoppers' payments are §3.1.
 | **Publishable key**, per mode | Stripe Elements or Checkout in the Billing screen, so the card never touches our servers (the prototype's Billing screen draws it as a hosted Stripe card field since 2026-10-02) | `pk_…` (public) | SPA build variable | 11 |
 | **Webhook signing secret** for `hooks.dripfunnel.com/stripe` | Verifying billing events; idempotent through `billing_event` | `whsec_…` per endpoint and mode | Worker secret | 11 |
 | **Stripe Connect** (platform) | "DripFunnel bills merchants on the partner's behalf" **ships first** (SAAS §7.1): partners are connected accounts, receive monthly payouts, and are verified by a test deposit (Platform prototype) | Connect enabled; Connect webhook secret; one connected account ID per partner | Worker secret; IDs in Postgres | 11. **Lead time**: Connect platform review |
-| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2) and US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up). **Through which Stripe account** *(decide)*: the merchant's own connected account or DripFunnel's, and what a store taking US payments only through PayPal uses (FIRST-RELEASE §21) | Enabled on the account; same key | — | 11 |
+| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2), on this account. Also US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up), **through which Stripe account still to decide** *(decide)*: the merchant's own connected account (as with its payment keys, §3.1) or this one, and what a store taking US payments only through PayPal uses (FIRST-RELEASE §21) | Enabled on the account; for DripFunnel's invoices the same key, for merchants' checkouts per that decision | — | 11 |
 | **Customer portal** configuration *(optional)* | Stripe-hosted "manage card / invoices" | Config | Stripe | 11 |
 
 **Registered so far: nothing** (#201, 2026-10-04). The Worker reads `STRIPE_SECRET_KEY` (the
@@ -320,7 +320,7 @@ first (PLATFORM-PROMPT §5.4).
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
 The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (one aggregator decided
-on #184; EasyPost or Shippo, chosen on the shipping card, SAPI 12), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
+on #184; EasyPost or Shippo, chosen on the shipping card, SAPI 23), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
 2026-10-04 on #272, §4), stored encrypted per partner, never a DripFunnel key; a merchant's own
 carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.

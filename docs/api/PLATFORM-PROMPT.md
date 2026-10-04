@@ -252,7 +252,7 @@ The old framework provided these, and the new engine must replace each one. The 
 | **Promotions** | Automatic and code offers, conditions, actions, dates, limits | OFFERS prompt |
 | **Cart and checkout** | Guest and signed-in carts, addresses, shipping selection, tax and discounts, payment, order placement | new |
 | **Orders** | Order lifecycle, payments, fulfilment, cancellations, per-vendor views | DESIGN-BRIEF §F |
-| **Payments** | Stripe and Razorpay per merchant (merchant's own keys), webhooks, refunds | §5.4 Payments |
+| **Payments** | Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery and bank transfer per merchant (merchant's own keys), webhooks, refunds | §5.4 Payments |
 | **Shipping** | Methods, zones, charge strategy (free, fixed, pass-through, free over a threshold), Shiprocket and other couriers | §5.4 Shipping |
 | **Customers** | Shopper accounts, addresses, customer groups | OFFERS §3 fact 12 |
 | **Search** | Storefront search and filters, portal search | SAAS-PLAN §12 |
@@ -392,7 +392,8 @@ Design each module's responsibilities, tables, public API, events and invariants
   imports and suppliers write movements too; the portal shows the history per product and per
   version. **Reserved** is "sold, not shipped yet": units in paid orders not yet fulfilled.
 - **Tax**: tax classes; zones; rates per store, class and zone; inclusive or exclusive pricing;
-  exemptions. **US sales tax uses Stripe Tax** (decided 2026-10-04 on #184); India's GST uses the
+  exemptions. **US sales tax uses Stripe Tax** (decided 2026-10-04 on #184; through whose Stripe account is
+  still to decide, ui/store/FIRST-RELEASE.md §21); India's GST uses the
   store's own rates.
 - **Promotions**: the OFFERS prompt's full model. Conditions with AND/OR, actions on products,
   collections, order and shipping, combination rules, deterministic application order,
@@ -407,7 +408,8 @@ Design each module's responsibilities, tables, public API, events and invariants
   2026-10-02**: per-line returns and refunds, each supplier refunding its own lines, the store
   able to override into a supplier ledger, fulfilment by the shipping mode stored on the
   order part. ACCESS.md §7.3 owns the rules; DATA-MODEL.md owns the tables.
-- **Payments**: provider adapters (Stripe, Razorpay first) using each merchant's own
+- **Payments**: provider adapters (the first release's seven: Stripe, PayPal, Razorpay, Cashfree,
+  PhonePe, cash on delivery, bank transfer, §8) using each merchant's own
   credentials, encrypted at rest; webhooks idempotent; refunds. **Vendor payouts, decided
   2026-10-02**: not in the platform for now; a per-store supplier ledger, settled outside
   (ACCESS.md §7.3 owns the rule, DATA-MODEL.md §2.2 names the table); a marketplace model is later.
@@ -682,9 +684,10 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - **Stock reservation**: at payment (§5.4 Cart and checkout).
 - **Regions**: **India and the US**.
 - **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
-  (India); bank transfer (both). **US sales tax**: Stripe Tax.
+  (India); bank transfer (both). **US sales tax**: Stripe Tax, through whose account to decide
+  (ui/store/FIRST-RELEASE.md §21).
 - **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator (EasyPost or
-  Shippo, chosen on the shipping card, SAPI 12).
+  Shippo, chosen on the shipping card, SAPI 23).
 - **Email**: Amazon SES for shopper and portal email, abandoned-cart reminders included.
 - **Deferred**: WhatsApp reminders (provider open), other regions (the prototype's DE pack
   stays a demo control), in-platform supplier payouts (§5.4 Payments), Typesense (§5.4 Search).
