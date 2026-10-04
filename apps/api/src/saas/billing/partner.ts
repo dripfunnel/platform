@@ -9,7 +9,6 @@ import {
   saveBillingAccount,
   selectBillingAccount,
   selectBillingFeed,
-  selectContractCurrency,
   selectInvoice,
   selectInvoices,
   selectPayments,
@@ -179,8 +178,9 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
       if (account.payout_status === 'failed') return { state: 'heldVerification' }
       const at = now()
       const share = await selectShareSince(tx, partnerId, monthStart(at), nextMonthStart(at))
-      const currency = share?.currency ?? (await selectContractCurrency(tx, partnerId)) ?? 'USD'
-      return { state: 'scheduled', date: nextMonthStart(at).toISOString().slice(0, 10), soFar: money(share?.amount ?? 0, currency), toLast4: account.payout_last4 }
+      // Collected money always has the contract's currency (migration 0019), so a missing one is no payout yet.
+      if (!share) return { state: 'first' }
+      return { state: 'scheduled', date: nextMonthStart(at).toISOString().slice(0, 10), soFar: money(share.amount, share.currency), toLast4: account.payout_last4 }
     })
 
   const partnerInvoices = (page: PageRequest) => {

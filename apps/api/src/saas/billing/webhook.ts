@@ -27,14 +27,16 @@ import { payoutStatusOf } from './partner'
 // Stripe has it now, so a replay changes nothing and an old event arriving late can't undo a
 // newer one; the event id goes into billing_event in the same transaction as what it changed.
 
-// Stripe delivers again only after a non-2xx answer, so an event this can't apply yet is answered
-// 503 and not kept: `unplaced` (no partner holds its account, customer or store yet) and `mismatch`
-// (money in a currency the partner's contract doesn't pay out in, which also marks the feed stale).
-// Stripe retries for three days; `ignored` is a kind of event nothing here reads, kept and answered 200.
+// Stripe delivers again only after a non-2xx answer. `mismatch` (money in a currency the partner's
+// contract doesn't pay out in) is answered 503 and not kept, so it comes again once the contract is
+// fixed, and marks the feed stale. `unplaced` (no partner holds its account, customer or store) is
+// never ours: the partner's Stripe ids are committed before the calls that make Stripe send events
+// about them (saas/billing/partner.ts), so retrying it would only risk Stripe disabling the endpoint.
+// It and `ignored` (a kind of event nothing here reads) are answered 200.
 export type EventOutcome = 'handled' | 'duplicate' | 'ignored' | 'unplaced' | 'mismatch'
 
 /** What the hook answers 503 to, so Stripe delivers it again. */
-export const retriedOutcomes: readonly EventOutcome[] = ['unplaced', 'mismatch']
+export const retriedOutcomes: readonly EventOutcome[] = ['mismatch']
 
 /** The partner an event was placed with, or why its money couldn't be. */
 type Placed = { partnerId: string; mismatch: boolean } | null

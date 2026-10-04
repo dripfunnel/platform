@@ -263,14 +263,23 @@ describe('the Stripe webhook', () => {
     expect(await deliver({ id: 'evt_eur', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_eur', object: 'payout' } })).toBe(503)
   })
 
-  it("answers 503 to an event it can't place yet, so Stripe's next delivery is handled", async () => {
+  it("answers 200 to an event no partner holds, keeps nothing, and handles a later delivery once one does", async () => {
     now.accounts.set('acct_later', { id: 'acct_later', external_accounts: { data: [{ id: 'ba_9', bank_name: 'Chase', last4: '7777', status: 'verified' }] } })
-    expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(503)
+    expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(200)
     expect(await db.sql`select 1 from billing_event where id = 'evt_early'`).toHaveLength(0)
     await db.sql`insert into partner_billing_account (partner_id, stripe_account_id) values (${ids.bz}, 'acct_later')`
     expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(200)
     expect((await db.sql<{ payout_status: string }[]>`select payout_status from partner_billing_account where partner_id = ${ids.bz}`)[0]?.payout_status).toBe('verified')
     await db.sql`delete from partner_billing_account where partner_id = ${ids.bz}`
+  })
+
+  it("answers 200 to a charge with no invoice and an invoice for a customer that isn't ours, so they never hold the endpoint up", async () => {
+    now.charges.set('ch_oneoff', { id: 'ch_oneoff', amount: 500, currency: 'usd', failure_message: null, payment_method_details: null, transfer: null, amount_refunded: 0, invoice: null })
+    expect(await deliver({ id: 'evt_oneoff', type: 'charge.succeeded', object: { id: 'ch_oneoff', object: 'charge' } })).toBe(200)
+    now.invoices.set('in_stranger', { ...merchantInvoice({ id: 'in_stranger' }), customer: 'cus_stranger', subscription_details: null })
+    expect(await deliver({ id: 'evt_stranger', type: 'invoice.paid', object: { id: 'in_stranger', object: 'invoice', customer: 'cus_stranger' } })).toBe(200)
+    expect(await db.sql`select 1 from billing_event where id in ('evt_oneoff', 'evt_stranger')`).toHaveLength(0)
+    expect(await db.sql`select 1 from merchant_charge where stripe_ref = 'in_stranger'`).toHaveLength(0)
   })
 
   it('keeps and answers 200 an event of a kind it does not read', async () => {

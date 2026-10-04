@@ -140,14 +140,20 @@ export const selectPayouts = async (tx: ScopedSql, partnerId: string, page: Keys
 }
 
 /** What the partner's share comes to so far in a period, net of refunds, in its payout currency. */
+/**
+ * The partner's share so far in a period, net of refunds, in its contract's one payout currency
+ * (migration 0019 keys every charge's payout currency to it). Null without a contract.
+ */
 export const selectShareSince = async (tx: ScopedSql, partnerId: string, from: Date, to: Date): Promise<{ currency: string; amount: number } | null> => {
   const row = (
     await tx<{ currency: string; amount: string }[]>`
-      select payout_currency as currency,
-        (coalesce(sum(partner_amount) filter (where status in ('paid', 'recovered') and kind <> 'refund'), 0)
-          - coalesce(sum(partner_amount) filter (where kind = 'refund'), 0))::text as amount
-      from merchant_charge where partner_id = ${partnerId} and charged_at >= ${from} and charged_at < ${to}
-      group by payout_currency
+      select c.fee_currency as currency,
+        (coalesce(sum(m.partner_amount) filter (where m.status in ('paid', 'recovered') and m.kind <> 'refund'), 0)
+          - coalesce(sum(m.partner_amount) filter (where m.kind = 'refund'), 0))::text as amount
+      from partner_contract c
+      left join merchant_charge m on m.partner_id = c.partner_id and m.payout_currency = c.fee_currency and m.charged_at >= ${from} and m.charged_at < ${to}
+      where c.partner_id = ${partnerId}
+      group by c.fee_currency
     `
   )[0]
   return row ? { currency: row.currency, amount: minorUnits(row.amount) } : null

@@ -359,8 +359,8 @@ partner's billing, or both) is open (§14).
   503 so Stripe keeps delivering it; never shown as handled. A read that
   commits after a newer one never takes a paid charge, Billing's attempt count, a failed payout or
   a decided test deposit back. Stripe ids are committed before the calls that make Stripe
-  send events about them, and an event no partner can be found for yet isn't kept and is answered
-  503, so Stripe delivers it again (for up to three days). Stripe slow answers 503 so Stripe delivers again, and marks the partner's
+  send events about them, and an event no partner holds the ids of is therefore not ours: it isn't
+  kept and is answered 200, so it never holds the endpoint up. Stripe slow answers 503 so Stripe delivers again, and marks the partner's
   feed stale, found by the event's Connect account or customer. Store-side writes (`store_subscription`, the merchant's invoices) are the Store
   strand's (ui/store/FIRST-RELEASE.md §20, SAPI 19).
 - The webhook updates `store_subscription` (or the partner's account), invalidates the cached
