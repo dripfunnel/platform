@@ -908,9 +908,9 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   handoff (five minutes, a return mints a fresh one and the old stops working), and the
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
   in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
-  (`SUPPLIER_NOT_SUPPORTED`). The portal's exchange, the `impersonation` caller and the blocked
-  list's structural test are #243 (§8.3) for the partner console; the store portal's wait for
-  the Store API.
+  (`SUPPLIER_NOT_SUPPORTED`). In the partner console, the exchange, the `impersonation` caller
+  and the blocked list's structural test are built on #243 (§8.3). The store portal's half waits
+  for the Store API.
 
 ### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
 
@@ -998,8 +998,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     support area: `supportTargets`, `supportSessions`, `mySupportSession`, `reauthenticate`,
     `startSupportSession`, `returnToSupportSession` and `endSupportSession`. Support access is a
     partner user's own, proved with their own second factor; staff impersonate the store user
-    instead (decided on #243). In the team service, changing a role to or from Owner, or
-    removing an Owner, refuses both kinds with their codes.
+    instead (decided on #243). In the team service, inviting an Owner, changing a role to or from
+    Owner, or removing an Owner refuses both kinds with their codes.
   - **Not yet.** The password, second factor and sign-in methods are `/api/auth/*` routes that
     read only a partner user's cookie, so no staff session reaches them. Payment method and
     payout details declare `blockedFor` when billing arrives (#201).

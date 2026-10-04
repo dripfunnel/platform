@@ -181,6 +181,8 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
       await lockTeam(tx, partnerId)
       const me = await freshCaller(tx)
       if (!me) return { ok: false, reason: 'NOT_ACTIVE' }
+      const blocked = ownerBlocked(role === owner)
+      if (blocked) return blocked
       if (!mayTouch(me.role_key, role)) return { ok: false, reason: 'OWNERS_ONLY' }
       const at = now()
       const existing = await selectTeamMemberByEmail(tx, partnerId, email)
