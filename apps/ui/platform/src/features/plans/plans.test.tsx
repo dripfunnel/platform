@@ -6,6 +6,7 @@ import type { Me } from '../../api/me'
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { PlanEditor } from './PlanEditor'
+import { makeLiveRefusal } from './PlanEditorScreen'
 import { draftOf, inputOf, isDirty, minorOf, rowsAboveCeiling } from './planDraft'
 import { retireDialog, retireInput, saveDialog } from './planDialogs'
 import { Plans } from './Plans'
@@ -82,6 +83,32 @@ describe('the plan editor', () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Save changes<\/button>/)
     expect(textOf(html)).toContain(words.editor.fixRows)
     expect(inputOf(draft)?.entitlements.products).toBe(25000)
+  })
+
+  it('lets a row with no DripFunnel maximum take any number, and saves it', async () => {
+    const open = { ...editor, ceilings: { ...editor.ceilings, suppliers: null } }
+    const draft = { ...original, numbers: { ...original.numbers, suppliers: '999999' } }
+    expect(rowsAboveCeiling(draft, open.ceilings)).toEqual([])
+    const html = await view({ editor: open, draft })
+    expect(textOf(html)).toContain(words.editor.noCeiling)
+    expect(textOf(html)).not.toContain('above DripFunnel’s maximum')
+    expect(html).toMatch(/<button(?![^>]*disabled)[^>]*>Save changes<\/button>/)
+  })
+
+  it('shows no fee and no margin where DripFunnel has no fee for a currency yet', async () => {
+    const quoted = (editor.plan?.prices ?? []).map((price) => ({ ...price, fee: null, margin: { kind: 'noFee' as const } }))
+    const text = textOf(await view({ quoted }))
+    expect(text).toContain(words.editor.noFee)
+    expect(text).not.toContain('DripFunnel’s fee')
+    const page = plansPages['partner-owner']
+    const unfeed = { ...page, items: page.items.map((plan) => ({ ...plan, prices: plan.prices.map((price) => ({ ...price, fee: null })) })) }
+    expect(textOf(await render(<Plans me={owner} page={unfeed} forced={null} onReload={noop} />))).not.toContain('DripFunnel’s fee')
+  })
+
+  it('words a refused Make live by the currency missing a price, or the plan having none', () => {
+    expect(makeLiveRefusal({ ok: false, reason: 'UNPRICED_CURRENCY', currency: 'CAD' })).toContain('CAD')
+    expect(makeLiveRefusal({ ok: false, reason: 'UNPRICED_CURRENCY', currency: null })).toBe(words.refused.UNPRICED)
+    expect(makeLiveRefusal({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })).toBe(words.refused.OWNERS_AND_ADMINS_ONLY)
   })
 
   it('lets Finance change prices only, with the reason on the rest', async () => {
