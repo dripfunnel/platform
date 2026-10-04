@@ -42,6 +42,7 @@ const Payment = builder.objectRef<Payments['items'][number]>('MerchantPayment').
 
 const Retrying = builder.objectRef<Payments['failed'][number]>('RetryingPayment').implement({
   fields: (t) => ({
+    id: t.exposeID('id'),
     storeId: t.exposeID('storeId'),
     storeName: t.exposeString('storeName'),
     amount: t.field({ type: MoneyType, resolve: (p) => p.amount }),
@@ -56,6 +57,7 @@ const Retrying = builder.objectRef<Payments['failed'][number]>('RetryingPayment'
 const PaymentsPage = builder.objectRef<Payments>('MerchantPaymentsPage').implement({
   fields: (t) => ({
     failed: t.field({ type: [Retrying], resolve: (p) => p.failed }),
+    failedMore: t.exposeBoolean('failedMore'),
     items: t.field({ type: [Payment], resolve: (p) => p.items }),
     pageInfo: t.field({ type: PageInfoType, resolve: (p) => p.pageInfo }),
   }),

@@ -71,7 +71,7 @@ const deliver = async (event: { id: string; type: string; account?: string; obje
 }
 
 const q = {
-  payments: `{ merchantPayments { failed { storeId storeName amount { amount currency } why cardLast4 retryAt attempt attempts } items { id storeId status kind amount { amount currency } note } pageInfo { hasNextPage } } }`,
+  payments: `{ merchantPayments { failedMore failed { id storeId storeName amount { amount currency } why cardLast4 retryAt attempt attempts } items { id storeId status kind amount { amount currency } note } pageInfo { hasNextPage } } }`,
   badges: `{ navBadges { billingFailedPayments } }`,
   payouts: `{ payouts { items { month collected { amount } fee { amount } adjustment { amount { amount } } payout { amount currency } status toLast4 } } }`,
   next: `{ nextPayout { state date soFar { amount currency } toLast4 } }`,
