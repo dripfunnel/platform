@@ -76,7 +76,7 @@ const Payments = ({ money, payments, mode, partner }: { money: BillingMoney; pay
           {money.failed.map((failed) => {
             const why = failed.why ?? w.failedNoWhy
             return (
-              <li key={`${failed.storeId}-${failed.retryAt}`}>
+              <li key={failed.id}>
                 <Link to="/stores/$storeId" params={{ storeId: failed.storeId }} search={{ tab: 'billing' }} className="df-row-link">
                   {failed.storeName}
                 </Link>
@@ -88,6 +88,7 @@ const Payments = ({ money, payments, mode, partner }: { money: BillingMoney; pay
           })}
         </ul>
       )}
+      {money.failedMore && <p className="df-muted">{w.failedMore}</p>}
       <h3>{w.all}</h3>
       {payments.items.length === 0 ? (
         <p className="df-muted">{w.none}</p>
@@ -163,7 +164,7 @@ const Payouts = ({ money, payouts }: { money: BillingMoney; payouts: Paged<Payou
               <td>
                 <StatusPill {...look(payoutLook, payout.status, w.statuses[payout.status])} />
               </td>
-              <td>{payout.toLast4 ? fill(w.toAccount, { last4: payout.toLast4 }) : w.noAdjustment}</td>
+              <td>{payout.toLast4 ? fill(w.toAccount, { last4: payout.toLast4 }) : w.noAccount}</td>
             </tr>
           ))}
         </Table>
@@ -215,7 +216,8 @@ const WhoBills = ({ mode, mayChange, changing, accountLast4, onChange }: { mode:
   return (
     <section className="df-panel df-panel--wide" aria-labelledby="billing-settings">
       <h2 id="billing-settings">{w.title}</h2>
-      <fieldset className="df-billing-modes" disabled={!mayChange || changing} aria-describedby={mayChange ? undefined : 'billing-mode-why'}>
+      {/* Not disabled while saving, so the chosen radio keeps keyboard focus; the screen ignores a second choice until the first is answered. */}
+      <fieldset className="df-billing-modes" disabled={!mayChange} aria-busy={changing} aria-describedby={mayChange ? undefined : 'billing-mode-why'}>
         <legend className="df-visually-hidden">{w.title}</legend>
         {(['dripfunnel', 'own'] as const).map((option) => (
           <label key={option} className={option === mode ? 'df-billing-mode df-billing-mode--current' : 'df-billing-mode'}>

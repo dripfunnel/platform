@@ -7,6 +7,7 @@ import { messages } from '../../messages'
 import { Billing, type BillingProps } from './Billing'
 import { billingMoney, paged } from './billingTestData'
 import { billingAccess, loadBillingFor } from './loadBilling'
+import { modeToast, pdfToast } from './billingOutcome'
 
 const words = messages.billing
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ')
@@ -74,7 +75,7 @@ describe('Billing', () => {
   })
 
   it('says a failure without Stripe’s words plainly, and no retry line when none is due', async () => {
-    const text = textOf(await view({ money: { ...billingMoney, failed: [{ storeId: 's1', storeName: 'Lumen Candle Co.', amount: { amount: 4900, currency: 'USD' }, why: null, cardLast4: null, retryAt: null, attempt: 4, attempts: 4 }] } }))
+    const text = textOf(await view({ money: { ...billingMoney, failed: [{ id: 'c1', storeId: 's1', storeName: 'Lumen Candle Co.', amount: { amount: 4900, currency: 'USD' }, why: null, cardLast4: null, retryAt: null, attempt: 4, attempts: 4 }] } }))
     expect(text).toContain(words.payments.failedNoWhy)
     expect(text).not.toContain('attempt 4 of 4')
   })
@@ -107,5 +108,27 @@ describe('Billing', () => {
     expect(own).toContain('id="billing-invoices"')
     expect(own).toContain('checked="" value="own"')
     expect(textOf(await view({ money: { ...billingMoney, staleSince: '2026-09-29T17:42:00.000Z' } }))).toContain(words.refresh)
+  })
+})
+
+describe('what Billing says after an answer', () => {
+  it('words a refused change by its code, never a bare "try again"', () => {
+    expect(modeToast({ ok: true }, 'You, with your own billing')).toBe('Who bills your merchants is now: You, with your own billing.')
+    expect(modeToast({ ok: false, reason: 'NOT_CONNECTED' }, 'x')).toBe(words.refusals.NOT_CONNECTED)
+    expect(modeToast({ ok: false, reason: 'PROVIDER_UNAVAILABLE' }, 'x')).toBe(words.refusals.PROVIDER_UNAVAILABLE)
+  })
+
+  it('says why a PDF didn\u2019t open, telling a slow provider from a missing PDF and a blocked tab', () => {
+    expect(pdfToast({ ok: true }, false)).toBeNull()
+    expect(pdfToast({ ok: true }, true)).toBe(words.toasts.popupBlocked)
+    expect(pdfToast({ ok: false, reason: 'NO_PDF' }, false)).toBe(words.refusals.NO_PDF)
+    expect(pdfToast({ ok: false, reason: 'PROVIDER_UNAVAILABLE' }, false)).toBe(words.refusals.PROVIDER_UNAVAILABLE)
+  })
+
+  it('keeps the radios focusable while a change is saving, and says when more are being retried', async () => {
+    const html = await view({ changing: true, money: { ...billingMoney, failedMore: true } })
+    expect(html).not.toMatch(/<fieldset[^>]*disabled/)
+    expect(html).toContain('aria-busy="true"')
+    expect(textOf(html)).toContain(words.payments.failedMore)
   })
 })

@@ -5,10 +5,11 @@ import { invoicePdf, loadMoreInvoices, loadMorePayments, loadMorePayouts, setBil
 import { isPreLive } from '../../api/me'
 import type { BillingMode } from '../../api/stores'
 import { harnessEnabled } from '../../harness'
-import { fill, messages } from '../../messages'
+import { messages } from '../../messages'
 import { usePaged } from '../common/paged'
 import { Billing, BillingError, BillingLoading } from './Billing'
 import { billingStates } from './billingHarness'
+import { modeToast, pdfToast } from './billingOutcome'
 import { billingAccess } from './loadBilling'
 
 const billingRoute = getRouteApi('/_app/billing')
@@ -39,9 +40,8 @@ export const BillingScreen = () => {
     setBusy(true)
     setBillingMode(next)
       .then(async (result) => {
-        if (!result.ok) return setToast(words.toasts.failed)
-        setToast(fill(words.toasts.modeChanged, { mode: words.settings[next].label }))
-        await router.invalidate()
+        setToast(modeToast(result, words.settings[next].label))
+        if (result.ok) await router.invalidate()
       })
       .catch(() => setToast(words.toasts.failed))
       .finally(() => setBusy(false))
@@ -52,12 +52,10 @@ export const BillingScreen = () => {
     const tab = reserveTab()
     invoicePdf(invoice.id)
       .then((result) => {
-        if (!result.ok) {
-          tab.close()
-          return setToast(words.toasts.noPdf)
-        }
-        tab.go(result.url)
-        if (tab.blocked) setToast(words.toasts.popupBlocked)
+        if (result.ok) tab.go(result.url)
+        else tab.close()
+        const said = pdfToast(result, tab.blocked)
+        if (said) setToast(said)
       })
       .catch(() => {
         tab.close()

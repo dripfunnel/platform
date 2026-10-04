@@ -6,7 +6,7 @@ const usd = (amount: number) => ({ amount, currency: 'USD' })
 const pageInfo = { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false }
 
 export const billingMoney: BillingMoney = {
-  failed: [{ storeId: 's1', storeName: 'Lumen Candle Co.', amount: usd(4900), why: 'Card declined', cardLast4: '1881', retryAt: '2026-09-30T13:00:00.000Z', attempt: 4, attempts: 4 }],
+  failed: [{ id: 'c1', storeId: 's1', storeName: 'Lumen Candle Co.', amount: usd(4900), why: 'Card declined', cardLast4: '1881', retryAt: '2026-09-30T13:00:00.000Z', attempt: 4, attempts: 4 }],
   payments: {
     items: [
       { id: 'pay1', at: '2026-09-28T10:00:00.000Z', storeId: 's2', storeName: 'Harbor Coffee', kind: 'subscription', amount: usd(9900), status: 'paid', note: null, cardLast4: '4242' },
@@ -15,6 +15,7 @@ export const billingMoney: BillingMoney = {
     ],
     pageInfo,
   },
+  failedMore: false,
   nextPayout: { state: 'scheduled', date: '2026-10-01', soFar: usd(252240), toLast4: '1180' },
   payouts: {
     items: [

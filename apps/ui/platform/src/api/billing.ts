@@ -26,6 +26,7 @@ export type MerchantPayment = z.infer<typeof paymentSchema>
 export type PaymentStatus = MerchantPayment['status']
 
 const failedSchema = z.object({
+  id: z.string(),
   storeId: z.string(),
   storeName: z.string(),
   amount: money,
@@ -65,6 +66,8 @@ export type PaymentMethod = z.infer<typeof paymentMethodSchema>
 
 export interface BillingMoney {
   failed: readonly FailedPayment[]
+  // More payments are being retried than the block shows; they are in the paged list too.
+  failedMore: boolean
   payments: Page<MerchantPayment>
   nextPayout: NextPayout
   payouts: Page<Payout>
@@ -89,23 +92,24 @@ const nextOf = (n: z.infer<typeof nextSchema>): NextPayout => {
 export const loadBilling = async (): Promise<BillingMoney> => {
   const answer = await query(
     `{
-      merchantPayments { failed { storeId storeName amount { amount currency } why cardLast4 retryAt attempt attempts } ${paymentFields} }
+      merchantPayments { failedMore failed { id storeId storeName amount { amount currency } why cardLast4 retryAt attempt attempts } ${paymentFields} }
       nextPayout { state date soFar { amount currency } toLast4 }
       payouts { ${payoutFields} }
       partnerInvoices { ${invoiceFields} }
       billingSettings { staleSince payoutAccount { bank last4 status failure } }
     }`,
     z.object({
-      merchantPayments: page(paymentSchema).extend({ failed: z.array(failedSchema) }),
+      merchantPayments: page(paymentSchema).extend({ failed: z.array(failedSchema), failedMore: z.boolean() }),
       nextPayout: nextSchema,
       payouts: page(payoutSchema),
       partnerInvoices: page(invoiceSchema),
       billingSettings: z.object({ staleSince: z.string().nullable(), payoutAccount: payoutAccountSchema }),
     }),
   )
-  const { failed, ...payments } = answer.merchantPayments
+  const { failed, failedMore, ...payments } = answer.merchantPayments
   return {
     failed,
+    failedMore,
     payments,
     nextPayout: nextOf(answer.nextPayout),
     payouts: answer.payouts,

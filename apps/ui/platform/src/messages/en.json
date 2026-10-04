@@ -2297,7 +2297,8 @@
       "cardEnding": "ending {last4}",
       "noCard": "—",
       "all": "Every payment",
-      "failedNoWhy": "Payment failed"
+      "failedNoWhy": "Payment failed",
+      "failedMore": "More payments are being retried than shown here; every one is in the list below."
     },
     "payouts": {
       "title": "Your payouts",
@@ -2328,7 +2329,8 @@
       "noAdjustment": "—",
       "tableLabel": "Payouts by month",
       "notPaid": "Not paid yet",
-      "toAccount": "account ending {last4}"
+      "toAccount": "account ending {last4}",
+      "noAccount": "—"
     },
     "invoices": {
       "title": "DripFunnel’s invoices",
@@ -2371,8 +2373,16 @@
     "toasts": {
       "modeChanged": "Who bills your merchants is now: {mode}.",
       "failed": "That didn’t go through. Nothing was changed. Try again.",
-      "noPdf": "This invoice has no PDF yet. Try again later.",
       "popupBlocked": "Your browser blocked the new tab. Allow pop-ups for this site and try again."
+    },
+    "refusals": {
+      "INVALID_INPUT": "That choice wasn’t accepted. Reload the page and try again.",
+      "NOT_FOUND": "That invoice isn’t there any more. Reload the page.",
+      "NOT_CONNECTED": "DripFunnel’s payment provider isn’t switched on yet, so this can’t be done.",
+      "PROVIDER_UNAVAILABLE": "The payment provider didn’t answer. Nothing was changed. Try again in a moment.",
+      "TOKEN_REFUSED": "The payment provider refused the details. Check them and try again.",
+      "NO_COUNTRY": "DripFunnel needs your company’s country first. Ask your partner manager to add it.",
+      "NO_PDF": "This invoice has no PDF yet. Try again later."
     }
   },
   "support": {

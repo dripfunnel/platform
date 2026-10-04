@@ -12,7 +12,7 @@ afterEach(() => void vi.unstubAllGlobals())
 const pageInfo = { startCursor: null, endCursor: 'c1', hasPreviousPage: false, hasNextPage: true }
 const usd = (amount: number) => ({ amount, currency: 'USD' })
 const billing = {
-  merchantPayments: { failed: [], items: [{ id: 'p1', at: '2026-10-01T00:00:00Z', storeId: 's1', storeName: 'Juniper', kind: 'subscription', amount: usd(4900), status: 'paid', note: null, cardLast4: '4242' }], pageInfo },
+  merchantPayments: { failedMore: false, failed: [], items: [{ id: 'p1', at: '2026-10-01T00:00:00Z', storeId: 's1', storeName: 'Juniper', kind: 'subscription', amount: usd(4900), status: 'paid', note: null, cardLast4: '4242' }], pageInfo },
   nextPayout: { state: 'scheduled', date: '2026-11-01', soFar: usd(4410), toLast4: '1180' },
   payouts: { items: [], pageInfo },
   partnerInvoices: { items: [], pageInfo },
