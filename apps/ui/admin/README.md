@@ -34,8 +34,8 @@ its load error (`ShellError`). The samples (`*Sample.ts`) remain only as the scr
 fixtures. A `?state=` that asked the sample for another role (`denied`, a refusal on a row) no
 longer can: sign in as that role with a local session (below) to see it.
 
-**A local session.** Sign-in needs the Entra registration, so against the local database
-create a session for a seeded staff member and set the cookie it prints on
+**A local session.** Real sign-in needs the Entra registration and `pnpm dev:https`
+(docs/api/README.md §7). Without them, create a session for a seeded staff member and set the cookie it prints on
 `http://localhost:5175` (Chrome accepts a `Secure` cookie on localhost):
 
 ```bash

@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 ---
 
@@ -37,7 +37,9 @@ All four APIs live in one Worker, `apps/api`: [api/](api/README.md).
 
 The folders mirror the code: `docs/api` ↔ `apps/api`, `docs/ui/<app>` ↔ `apps/ui/<app>`,
 `docs/storefront` ↔ `templates/storefront` and `packages/storefront-core`. `docs/code` holds
-what applies across the whole repo.
+what applies across the whole repo. `docs/setup` is the one folder that follows environments
+instead of code: a step-by-step runbook per environment, linking to the documents that hold the
+facts (decided 2026-10-04).
 
 ```
 docs/
@@ -74,6 +76,10 @@ docs/
     HOW-TO-WORK-A-CARD.md   the loop a developer repeats for every card: read it, branch, work with Claude, gates, pull request, review
     WORKFLOW.md             how work is planned, named (#<issue>/<kind>/<name>, #<issue> commits), enforced, reviewed, merged
     ROLLBACK.md             rolling back a bad prod deploy: API Worker, SPAs, a bad migration
+  setup/
+    local.md                runbook: your machine: tools, local Postgres, .env.local, setup:local, dev, dev:https, signing in
+    dev.md                  runbook: the dev environment on dripfunnel.ai: one-time setup, the Worker's values, deploying, checklist
+    prod.md                 runbook: production on dripfunnel.com: what is missing, one-time setup, values, releasing, checklist
   storefront/
     ARCHITECTURE.md         the storefront template, storefront-core, render modes, AI loop, fleet upgrades
     DESIGN.md               what the AI may design and the rules every design keeps
@@ -115,8 +121,8 @@ prototype. If the prototype and a doc disagree about *behaviour*, ask — don't 
 **New to the repo (person or AI agent)**: this page, `ARCHITECTURE.md`,
 `USERS-AND-DOMAINS.md`, then `../AGENTS.md` (the rules for working here),
 `code/WORKFLOW.md` (branches, pull requests, review) and
-`code/HOW-TO-WORK-A-CARD.md` (the loop for one card), then the guide for the part you'll
-touch.
+`code/HOW-TO-WORK-A-CARD.md` (the loop for one card), then [setup/local.md](setup/local.md) to
+run it, then the guide for the part you'll touch.
 
 | Task touches | Read |
 |---|---|
@@ -131,6 +137,7 @@ touch.
 | Partner console screens | [ui/platform/](ui/platform/README.md), [FIRST-RELEASE](ui/platform/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
 | Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md), and `designs/DF Admin Prototype.dc.html` |
 | Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md), and `designs/DripFunnel Style Guide.dc.html` for the tokens themselves |
+| Running locally, setting up or deploying dev or production | [setup/local.md](setup/local.md), [setup/dev.md](setup/dev.md), [setup/prod.md](setup/prod.md) |
 | Storefront template, `storefront-core`, AI design | [storefront/ARCHITECTURE.md](storefront/ARCHITECTURE.md), [storefront/DESIGN.md](storefront/DESIGN.md), [code/ARCHITECTURE.md](code/ARCHITECTURE.md) §5 |
 
 ---

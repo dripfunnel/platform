@@ -20,6 +20,10 @@ map of the specification: every portal, its users and roles, and what to read fo
 
 Working rules for people and agents: [AGENTS.md](AGENTS.md).
 
+**Setting up an environment**, step by step: [local](docs/setup/local.md) (your own machine),
+[dev](docs/setup/dev.md) (`dripfunnel.ai`, deployed from `dev`) and
+[prod](docs/setup/prod.md) (`dripfunnel.com`, deployed from `main`).
+
 Claude Code connects to GitHub (issues, pull requests, the DripFunnel project) through
 [`.mcp.json`](.mcp.json) with your own token: set it up once with
 [docs/code/GITHUB-MCP.md](docs/code/GITHUB-MCP.md).

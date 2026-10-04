@@ -268,41 +268,9 @@ test branch (`REQUIRED_POSTGRES_MAJOR` — confirmed 2026-09-30, [FEATURE-ENVIRO
 deploy. If Neon's major ever changes, bump `REQUIRED_POSTGRES_MAJOR` and update both docs
 together. Install it natively — no Docker required.
 
-**macOS (Homebrew):**
-
-```
-brew install postgresql@18
-brew services start postgresql@18
-createuser -s dripfunnel_dev
-createdb -O dripfunnel_dev dripfunnel
-psql -d dripfunnel -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
-```
-
-**Debian/Ubuntu:**
-
-```
-sudo apt install postgresql-18
-sudo -u postgres createuser -s dripfunnel_dev
-sudo -u postgres createdb -O dripfunnel_dev dripfunnel
-sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_dev'"
-```
-
-**Windows:** install Postgres 18 with the postgresql.org installer, then run the equivalent
-`createuser`/`createdb` commands from a shell (or pgAdmin) with the same names.
-
-If port 5432 is already in use by another local Postgres, run the 18 instance on a different
-port (e.g. `5434`) and change the port in the URLs below to match.
-
-Copy `apps/api/.env.example` to `apps/api/.env.local` (gitignored); the default `DATABASE_URL`
-matches the role, password, port and database name above. **Nothing needs exporting** (#272):
-`wrangler dev` reads `.env.local` for the Worker's values, and the scripts (`migrate`, `seed`,
-`session`, `schema`) and both test suites load it themselves. A value already in your shell or
-CI wins over the file.
-
-```
-cd apps/api
-pnpm migrate && pnpm seed && pnpm dev
-```
+**Installing it, creating the database, `apps/api/.env.local`, `pnpm setup:local`, `pnpm dev`
+and what its local check stops on are in [setup/local.md](../setup/local.md).** This section
+keeps how the Worker and the scripts use that database.
 
 `.env.local` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (the same
 connection string as `DATABASE_URL`, **with a password in the URL**, even a dummy one a trust-auth
@@ -346,7 +314,7 @@ nor parses an array column: pass lists through `pgArray` with an explicit cast
 (`src/db/scoped/index.ts`) and read `text[]` columns through `to_jsonb`. The test client runs
 with the same option, so a query the Worker cannot run fails the integration tests too.
 
-Sign-in needs the Entra registration (THIRD-PARTY-ACCESS.md §2.5). Against the local database,
+Sign-in needs the Entra registration (THIRD-PARTY-ACCESS.md §2.5) and `pnpm dev:https` ([setup/local.md](../setup/local.md) §7.2). Without them,
 `pnpm --filter ./apps/api session <staff email>` creates a staff session for a seeded member
 and prints the cookie to set in the console; it refuses any host but loopback.
 
