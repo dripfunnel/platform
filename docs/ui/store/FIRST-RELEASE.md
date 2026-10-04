@@ -390,7 +390,8 @@ it touches:
   (`169.254.169.254`), checked again on every redirect and every retry or replay.
 - **Rate limits** on sign-in, codes and every public Shop API call, per host and per IP, and
   code lookups (`applyCode`, gift card balance and redemption, mobile sign-in codes, reminder
-  and unsubscribe links) answer **the same refusal whether or not the code exists**.
+  and unsubscribe links, download links, reset and invitation tokens) answer **the same refusal
+  whether the code or token is unknown, expired or already used**.
 - Side effects through the outbox; webhooks, jobs and payments idempotent; money in minor units
   with a currency; every write audited with its actor; secrets never returned after creation.
 
@@ -435,7 +436,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | # | Card | Needs |
 |---|---|---|
 | SAPI 1 | Store API GraphQL skeleton on the portal host: schema file, `TenantContext` from session and acting store, resolver scope declarations, `READ_ONLY` and `PLAN_LIMIT`, cursor paging, the structural test | #184 |
-| SAPI 2 | Brand by hostname, sign-up and provisioning (SAAS §5 workflow, steps 1–3), sign-in, 2-factor and enrolment, reset, invitations, My profile, sessions; `signIn`, `verifySecondFactor`, `useBackupCode`, `verifySignupEmail` and `verifySignupPhone` rate-limited per host, IP and account; a wrong and a missing reset or invitation token refused alike; `signIn`, `requestPasswordReset` and sign-up never reveal whether an account exists (same answer and timing, ACCESS §2) | SAPI 1 |
+| SAPI 2 | Brand by hostname, sign-up and provisioning (SAAS §5 workflow, steps 1–3), sign-in, 2-factor and enrolment, reset, invitations, My profile, sessions; `signIn`, `verifySecondFactor`, `useBackupCode`, `verifySignupEmail`, `verifySignupPhone`, `requestPasswordReset`, `resetPassword` and `acceptInvitation` rate-limited per host, IP and account or address (no flooding an address with reset emails, ACCESS §2); one refusal for a reset or invitation token that is unknown, expired or already used; `signIn`, `requestPasswordReset` and sign-up never reveal whether an account exists (same answer and timing, ACCESS §2) | SAPI 1 |
 | SAPI 3 | Money, catalogue, versions, assets (R2 signed uploads), collections, facets, menus, size charts, sections, legal, badges, readiness per market | SAPI 1 |
 | SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment; cash on delivery and bank transfer **pending §21** (proposed: at placement, PLATFORM-PROMPT §5.4) | SAPI 3 |
 | SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix, including a supplier's masked `me` and `storeState` and seller-scoped `orderCounts` (§19) | SAPI 4 |
@@ -448,14 +449,14 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
 | SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password); isolation: `customers`, `customer`, `customerGroups` and `exportCustomers` are store-scoped (no cross-store rows or counts) and refused to every supplier | SAPI 11 |
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test; `checkCode` rate-limited per caller and store, with one answer for a wrong and a missing code | SAPI 9 |
-| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only, and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
+| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only; link lookups rate-limited per host and IP, with one refusal for a token that is unknown, expired or used; and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13); the Shopify connection and image fetches keep §19's outbound rules (SSRF-checked URLs, timeout, bounded retries), tested with a private and a metadata address; isolation: exports are store A's only, supplier A's never supplier B's, and a `to-store` supplier's export carries no customer field | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
 | SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17) | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, #201 |
 | SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants; isolation: a key minted for store A never authenticates on, nor is listed or revoked from, store B; webhooks, deliveries and `replayDelivery` stay in their store; a key's secret is shown once and never returned again; a webhook URL is SSRF-checked when saved and on every delivery and `replayDelivery` (private, loopback, link-local and metadata hosts refused, tested), with a timeout and bounded backoff | SAPI 11 |
 | SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test | SAPI 2, #202 |
-| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services; isolation: a gift card code redeems or shows a balance in its own store only, and a download link serves one paid order's file; balance and redemption rate-limited per host and IP, with one refusal for a wrong and a missing code | SAPI 11, SUI 1 |
+| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services; isolation: a gift card code redeems or shows a balance in its own store only, and a download link serves one paid order's file, rate-limited, with one refusal for a link that is unknown, expired or used up; balance and redemption rate-limited per host and IP, with one refusal for a wrong and a missing code | SAPI 11, SUI 1 |
 | SAPI 23 | Shipping methods and charges, before checkout: flat rate, free over a threshold, collect in person, delivery areas, and the live-rate quote through the couriers (Shiprocket, and the US aggregator: EasyPost or Shippo, chosen here) | SAPI 3, SAPI 6 |
 
 **Store UI (apps/ui/store)**
