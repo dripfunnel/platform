@@ -1,59 +1,88 @@
-import { useScreenState } from '@dripfunnel/shared/ui'
+import { reserveTab, Toast, useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
-import type { BillingMoney } from '../../api/billing'
+import { useState } from 'react'
+import { invoicePdf, loadMoreInvoices, loadMorePayments, loadMorePayouts, setBillingMode, type Invoice } from '../../api/billing'
 import { isPreLive } from '../../api/me'
-import type { PartnerRole } from '../shell/partnerRoles'
+import type { BillingMode } from '../../api/stores'
 import { harnessEnabled } from '../../harness'
+import { messages } from '../../messages'
+import { usePaged } from '../common/paged'
 import { Billing, BillingError, BillingLoading } from './Billing'
-import { billingStates, type BillingState } from './billingHarness'
-import { billingSample } from './billingSample'
+import { billingStates } from './billingHarness'
+import { modeToast, pdfToast } from './billingOutcome'
+import { billingAccess } from './loadBilling'
 
+const billingRoute = getRouteApi('/_app/billing')
 const shellRoute = getRouteApi('/_app')
-
-// Owner and Finance change who bills (§11); Support has no Billing at all (§2.1). The console's
-// half only: when #201 gives Billing an API, the server refuses the same.
-export const billingAccess = (role: PartnerRole): { denied: boolean; mayChange: boolean } => ({
-  denied: role === 'partner-support',
-  mayChange: role === 'partner-owner' || role === 'partner-finance',
-})
-
-// The sample for each harness state; null for the screen's own states.
-export const sampleFor = (forced: BillingState | null): BillingMoney | null => {
-  switch (forced) {
-    case 'sample':
-    case 'own':
-      return billingSample
-    case 'failedPayments':
-      return { ...billingSample, payments: billingSample.payments.filter((payment) => payment.status === 'failed') }
-    case 'payoutHeld':
-      return { ...billingSample, nextPayout: { state: 'heldVerification' } }
-    case 'firstPayout':
-      return { ...billingSample, nextPayout: { state: 'first' }, payouts: [], payments: [], failed: [] }
-    case 'stale':
-      return { ...billingSample, staleSince: '2026-09-29T17:42:00.000Z' }
-    default:
-      return null
-  }
-}
+const words = messages.billing
 
 export const BillingScreen = () => {
+  const data = billingRoute.useLoaderData()
   // Who bills and whether the partner is Live are the shell's facts, read once for every screen.
   const { me, facts } = shellRoute.useLoaderData()
   const forced = useScreenState(billingStates, harnessEnabled)
   const router = useRouter()
+  const [toast, setToast] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const money = data.refused ? null : data.money
+  const payments = usePaged(money?.payments ?? null, (after) => loadMorePayments({ after }))
+  const payouts = usePaged(money?.payouts ?? null, (after) => loadMorePayouts({ after }))
+  const invoices = usePaged(money?.invoices ?? null, (after) => loadMoreInvoices({ after }))
+
   if (forced === 'loading') return <BillingLoading />
   if (forced === 'error') return <BillingError onRetry={() => void router.invalidate()} />
+
+  const mode: BillingMode = forced === 'own' ? 'own' : facts.billingMode
+
+  // §11.4: the API refuses the same roles; an answer it gives is worded, anything else is "try again".
+  const changeMode = (next: BillingMode) => {
+    if (busy) return
+    setBusy(true)
+    setBillingMode(next)
+      .then(async (result) => {
+        setToast(modeToast(result, words.settings[next].label))
+        if (result.ok) await router.invalidate()
+      })
+      .catch(() => setToast(words.toasts.failed))
+      .finally(() => setBusy(false))
+  }
+
+  // The tab opens on the click, before Stripe's fresh link comes back, or the browser blocks it.
+  const openPdf = (invoice: Invoice) => {
+    const tab = reserveTab()
+    invoicePdf(invoice.id)
+      .then((result) => {
+        if (result.ok) tab.go(result.url)
+        else tab.close()
+        const said = pdfToast(result, tab.blocked)
+        if (said) setToast(said)
+      })
+      .catch(() => {
+        tab.close()
+        setToast(words.toasts.failed)
+      })
+  }
+
   return (
-    <Billing
-      mode={forced === 'own' ? 'own' : facts.billingMode}
-      live={forced === 'prelive' ? false : sampleFor(forced) ? true : !isPreLive(facts.state)}
-      money={sampleFor(forced)}
-      partner={me.partner.name}
-      product={me.partner.product}
-      mayChange={billingAccess(me.role).mayChange}
-      denied={forced === 'denied' || billingAccess(me.role).denied}
-      onRefresh={() => void router.invalidate()}
-    />
+    <>
+      <Billing
+        mode={mode}
+        live={forced === 'prelive' ? false : !isPreLive(facts.state)}
+        money={money}
+        payments={payments}
+        payouts={payouts}
+        invoices={invoices}
+        partner={me.partner.name}
+        product={me.partner.product}
+        mayChange={billingAccess(me.role).mayChange}
+        changing={busy}
+        denied={forced === 'denied' || data.refused}
+        onRefresh={() => void router.invalidate()}
+        onChangeMode={changeMode}
+        onPdf={openPdf}
+      />
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+    </>
   )
 }
 

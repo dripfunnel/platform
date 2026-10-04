@@ -1,4 +1,5 @@
-import { loadMySupportSession, loadSupportSessions, loadSupportTargets, type Page, type SupportSession, type SupportTarget } from '../../api/support'
+import type { Page } from '../../api/page'
+import { loadMySupportSession, loadSupportSessions, loadSupportTargets, type SupportSession, type SupportTarget } from '../../api/support'
 import type { PartnerRole } from '../shell/partnerRoles'
 import type { SupportTab } from './supportHarness'
 import { supportAllowed } from './supportText'

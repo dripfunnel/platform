@@ -1,6 +1,7 @@
-import { ApiError, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
+import { ApiError, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
+import { pageInfoFields, pageInfoSchema, type Page } from './page'
 
 // Support on the Platform API (FIRST-RELEASE.md §12, §16; #202). Whether a session may start, be
 // returned to or ended is the API's verdict on each row; the console words its codes.
@@ -72,14 +73,6 @@ const sessionSchema = z.object({
 })
 export type SupportSession = z.infer<typeof sessionSchema>
 
-const pageInfoSchema = z.object({ startCursor: z.string().nullable(), endCursor: z.string().nullable(), hasPreviousPage: z.boolean(), hasNextPage: z.boolean() })
-
-export interface Page<T> {
-  items: readonly T[]
-  pageInfo: PageInfo
-}
-
-const pageInfoFields = 'pageInfo { startCursor endCursor hasPreviousPage hasNextPage }'
 const verdictFields = '{ allowed reason }'
 const targetFields = `items { membershipId userId name email type store { id name } role supplier lastSignInAt status start ${verdictFields} storeOwner colleague { name minutesLeft } mySessionId } ${pageInfoFields}`
 const oneSession = `id user { name role supplier } store { id name } agent { id name } you reason ticket startedAt expiresAt endedAt endedBy endedByName end ${verdictFields} return ${verdictFields}`

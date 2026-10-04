@@ -1,3 +1,3 @@
-// The harness's states: the screen's own, and the sample's (#201 gives these an API).
-export const billingStates = ['loading', 'error', 'denied', 'sample', 'failedPayments', 'payoutHeld', 'firstPayout', 'stale', 'prelive', 'own'] as const
+// The harness's states: the screen's own. The money is the API's (#201).
+export const billingStates = ['loading', 'error', 'denied', 'prelive', 'own'] as const
 export type BillingState = (typeof billingStates)[number]
