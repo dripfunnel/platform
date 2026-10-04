@@ -57,7 +57,7 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Feature environments token** (dev account only) | The `feature-env` workflow: Workers, Pages, Hyperdrive, DNS and routes for `<slug>-*.dripfunnel.ai` | API token: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit; *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit | GitHub environment `feature` secret `CLOUDFLARE_API_TOKEN` | 1 |
 | **Cloudflare Access on the dev account** | `*.dripfunnel.ai` for `@softobotics.com`, with a Bypass on `*-hooks.dripfunnel.ai` | Zero Trust org, one-time PIN login | Cloudflare | 1 |
 | **Custom hostnames token** (runtime) | Creating, checking and deleting Cloudflare for SaaS custom hostnames for partner portal hosts and merchant domains ([../api/SAAS.md](../api/SAAS.md) §8) | API token, scoped to *SSL and Certificates: Edit* and *Custom Hostnames: Edit* on the SaaS zone only | Worker secret | 4 (partner hosts), 6 (merchant domains) |
-| **Storefront deploy token** (runtime) | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token, scoped to *Pages: Edit* | Worker secret. **Never in a store repo** (PLATFORM-PROMPT §5.6) *(decide how builds in store repos deploy without it, §7)* | 6 |
+| **Storefront deploy token** (runtime) | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token, scoped to *Pages: Edit* | Worker secret. **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
 | **Cache purge token** (runtime) | Purging storefront caches after publish, the degraded-store edge rule, removing hidden products | API token, scoped to *Cache Purge* (plus *Zone Rulesets: Edit* if degraded pages are edge rules) | Worker secret | 6 |
 | **Cloudflare for SaaS** on the zone | Custom hostnames with automatic certificates for every partner and merchant host | Plan add-on | — | 4 |
 | — | Wildcard custom hostnames (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) may need **Enterprise**; per-hostname price at thousands of stores | **Verify** ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §5) | — | **Lead time**: contract |
@@ -287,7 +287,7 @@ The Platform prototype's provider list also has Adyen.
 
 | Provider | Region (prototype) | What the merchant gives | Webhook | Notes |
 |---|---|---|---|---|
-| **Stripe** | US (DE: prototype only) | Nothing pasted: the merchant connects through **Stripe Connect OAuth** | Signing secret per store endpoint (`hooks.dripfunnel.com/stripe/<store>`), or one Connect endpoint | **Stripe Connect Standard (OAuth)**, decided 2026-10-05 on #284, instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
+| **Stripe** | US (DE: prototype only) | Nothing pasted: the merchant connects through **Stripe Connect OAuth** | **One Connect endpoint** on DripFunnel's account, receiving every connected merchant account's events, each routed to its store by the connected account id (SAPI 10 names its path); no per-store endpoints or secrets | **Stripe Connect Standard (OAuth)**, decided 2026-10-05 on #284, instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
 | **Razorpay** | IN | Key ID, key secret | Webhook secret the merchant sets in Razorpay | Razorpay **Route** if vendors are paid out (PLATFORM-PROMPT §10 *(ask)*) |
 | **Cashfree** | IN | App ID (client ID), secret key | Signed with the secret key | In the old plugins and the api layout |
 | **PayPal** | US (DE: prototype only) | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
@@ -448,8 +448,9 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
    (decided 2026-10-05 on #284). (§3.1)
 5. ~~**Where the AI designer runs**~~ **GitHub Actions** (decided 2026-10-05 on #284); the key is
    the partner's or merchant's, handed to the run (§2.6)
-6. **How store repos deploy to Cloudflare** without holding a platform token (PLATFORM-PROMPT
-   §5.6), and how they read the package. (§2.1, §2.3)
+6. **How store repos deploy to Cloudflare** without holding a platform token: *(proposed, INF 2
+   confirms)* the build uploads an artifact and the platform deploys it (PLATFORM-PROMPT §5.6).
+   How they read the package: SC 0 decides. (§2.1, §2.3)
 7. ~~**Couriers**: a direct integration per courier, or one aggregator?~~ An aggregator for the US and
    Shiprocket for India, both the partner's accounts (#184, #272). Which DHL API, when the EU comes? (§3.2)
 8. **Exchange rates and duties providers.** ~~US sales tax~~: Stripe Tax (#184), on the merchant's own account through Connect (#284). (§2.8)

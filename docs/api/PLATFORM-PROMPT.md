@@ -509,15 +509,18 @@ or admin console (ACCESS.md §8), integrations and apps:
   Compare account limits at 1,000+ stores, deploy API, preview URLs, rollback, cost, and how
   run-time catalogue fetches and caching work. **Verify every limit against Cloudflare's
   current documentation**; don't rely on memory. **Decided 2026-10-05 on #284: a Cloudflare Pages
-  project per store**, built in GitHub Actions and deployed with the platform's token; INF 0
-  checks and raises the per-account project limit. The comparison above stays as the reasoning.
+  project per store**, built in the store repo's GitHub Actions; INF 0 checks and raises the
+  per-account project limit. The comparison above stays as the reasoning.
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
   the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
   storefront wildcards (`*.shops.partner.com`).
 - **Builds** still run in GitHub Actions through the GitHub App, and deploy with the
-  Cloudflare API using a scoped token held by the platform, never in a tenant repo *(or
-  recommend a build service)*.
+  Cloudflare API using a scoped token held by the platform, never in a tenant repo. **The
+  hand-off** *(proposed, INF 2 confirms)*: the store repo's build uploads its static output as a
+  workflow artifact; the platform's publish Workflow fetches it through the GitHub App and
+  deploys it to the store's Pages project (Pages direct upload) with its own token, so no deploy
+  token ever reaches the repo.
 - **Cache purge** on catalogue change by tag or URL (check what the plan allows).
 - **Assets** on R2 with image resizing *(ask: Cloudflare Images vs our own variants)*.
 - Degraded storefront for past-due or suspended stores, served at the edge.
