@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -392,8 +392,8 @@ Design each module's responsibilities, tables, public API, events and invariants
   imports and suppliers write movements too; the portal shows the history per product and per
   version. **Reserved** is "sold, not shipped yet": units in paid orders not yet fulfilled.
 - **Tax**: tax classes; zones; rates per store, class and zone; inclusive or exclusive pricing;
-  exemptions. **US sales tax uses Stripe Tax** (decided 2026-10-04 on #184; through whose Stripe account is
-  still to decide, ui/store/FIRST-RELEASE.md §21); India's GST uses the
+  exemptions. **US sales tax uses Stripe Tax** (decided 2026-10-04 on #184), on the merchant's own Stripe
+  account through Connect (decided 2026-10-05 on #284); India's GST uses the
   store's own rates.
 - **Promotions**: the OFFERS prompt's full model. Conditions with AND/OR, actions on products,
   collections, order and shipping, combination rules, deterministic application order,
@@ -508,7 +508,9 @@ or admin console (ACCESS.md §8), integrations and apps:
 
   Compare account limits at 1,000+ stores, deploy API, preview URLs, rollback, cost, and how
   run-time catalogue fetches and caching work. **Verify every limit against Cloudflare's
-  current documentation**; don't rely on memory.
+  current documentation**; don't rely on memory. **Decided 2026-10-05 on #284: a Cloudflare Pages
+  project per store**, built in GitHub Actions and deployed with the platform's token; INF 0
+  checks and raises the per-account project limit. The comparison above stays as the reasoning.
 - **Custom domains** through **Cloudflare for SaaS** (custom hostnames with automatic
   certificates), replacing the first platform's AWS ACM + CloudFront work (`provision-domain`). Keep
   the portal's step-by-step domain experience (DESIGN-BRIEF flow 58), and cover brand
@@ -536,8 +538,8 @@ or admin console (ACCESS.md §8), integrations and apps:
   record DF Admin reads (`../ARCHITECTURE.md` §5).
 - Provisioning becomes: store and membership rows, defaults, repo from template, secrets and
   variables, Cloudflare project or worker, first build, domain. Each step has a compensation.
-- AI runs: where the agent executes (sandbox), budgets per plan, `ai_run` metering (archived
-  ARCHITECTURE §14 left this open; answer it).
+- AI runs: the agent executes in GitHub Actions (decided 2026-10-05 on #284), budgets per plan,
+  `ai_run` metering.
 - Billing: Stripe Billing for subscriptions, webhooks with idempotency, `past_due` gating
   cached on the session with invalidation. Plus the two-level white-label money model from
   CONSOLE-DESIGN §3 fact 20 *(ask which comes first)*.
@@ -690,8 +692,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
   (§5.4 Cart and checkout).
 - **Regions**: **India and the US**.
 - **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
-  (India); bank transfer (both). **US sales tax**: Stripe Tax, through whose account to decide
-  (ui/store/FIRST-RELEASE.md §21).
+  (India); bank transfer (both). **US sales tax**: Stripe Tax, on the merchant's own Stripe account
+  through Connect (decided 2026-10-05 on #284).
 - **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator (EasyPost or
   Shippo, chosen on the shipping card, SAPI 23).
 - **Email**: Amazon SES for shopper and portal email, abandoned-cart reminders included.

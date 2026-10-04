@@ -7,7 +7,7 @@ decisions in §1 and are being brought in line.
 
 **Status: skeleton.** The layout below exists and passes every gate; no features yet.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-05.
 
 ---
 
@@ -148,8 +148,8 @@ current documentation before relying on it.**
 - **Configuration** is validated from `env` once per isolate, failing the request loudly on a
   bad value.
 - **Long-running and external work** (storefront builds, the AI designer's sandbox) doesn't
-  run in Workers. Builds run in the store repo's GitHub Actions; where the AI agent runs is
-  still open (`api/PLATFORM-PROMPT.md` §10).
+  run in Workers. Builds run in the store repo's GitHub Actions, and so does the AI designer
+  (decided 2026-10-05 on #284).
 
 ---
 

@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 ---
 
@@ -261,7 +261,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | 3 | **Hostnames**: reserve `{shop}` and register `{shop}.preview.<partnerdomain>` and `{shop}.shops.<partnerdomain>` under the partner's wildcards | Release the reservation and routes |
 | 4 | **Repo**: the GitHub App creates an empty repo in the `dripfunnel` org and copies `templates/storefront/` into it through the GitHub API | Delete the repo |
 | 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version; set the repo's variables. **No platform secret goes into the repo**: the Cloudflare deploy token stays with the platform (PLATFORM-PROMPT §5.6) | Revert the commit (removed with the repo) |
-| 6 | **Hosting target**: the store's Cloudflare project or worker (the hosting model is open, PLATFORM-PROMPT §10) | Delete it |
+| 6 | **Hosting target**: the store's Cloudflare Pages project (one per store, decided 2026-10-05 on #284, PLATFORM-PROMPT §5.6) | Delete it |
 | 7 | **First build**: preview deploy (seconds, no catalogue), then the first live build, dispatched explicitly and **confirmed complete** from the deploy result, not assumed from a push (the first platform's gap at this step) | Nothing to undo; a failed first build leaves the store usable and shows "storefront build failed, retrying" |
 | 8 | **Done**: write `storefront.core_version` and the repo name, emit `store.provisioned`, send the welcome email through the outbox, delete the `signup` row | n/a |
 
@@ -532,9 +532,9 @@ in and out, cost (minor units and currency), build minutes, gate results, result
 preview URL, outcome (approved, discarded, failed). It is the source for the AI budget meter,
 usage billing and the metrics in §12.
 
-**Open**: where the agent executes (GitHub Actions, Cloudflare Containers, or elsewhere;
-[../ARCHITECTURE.md](../ARCHITECTURE.md) §8); whether the AI reads the store's catalogue
-(real product imagery) and what that costs per prompt.
+~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284). **Open**:
+whether the AI reads the store's catalogue (real product imagery) and what that costs per prompt
+(SAPI 17 asks).
 
 ---
 

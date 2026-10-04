@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -448,8 +448,8 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
     - **US**: sales tax differs by state, county and city. Product taxability differs too
       (clothing is exempt in some states, groceries in many). It is normally calculated by a
       tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. The engine uses
-      **Stripe Tax** (decided 2026-10-04 on #184, PLATFORM-PROMPT §5.4; through whose Stripe account is
-      still to decide, FIRST-RELEASE §21), so the product form
+      **Stripe Tax** (decided 2026-10-04 on #184, PLATFORM-PROMPT §5.4; on the merchant's own Stripe
+      account through Connect, decided 2026-10-05), so the product form
       picks a tax code from a searchable plain-language list ("Clothing", "Prepared food",
       "Digital book").
     - **Canada**: GST, HST or PST by province. **Australia**: GST 10%. **UK**: VAT 20% / 5% /
@@ -1330,7 +1330,7 @@ Design once, apply everywhere:
 - Classification code: which markets make it required, and does the engine offer a
   plain-words code lookup? (§3 fact 7)
 - ~~US sales tax: the engine's own zones and rates, or a tax service?~~ **Stripe Tax** (decided
-  2026-10-04 on #184); through whose Stripe account is still open (FIRST-RELEASE §21). EU OSS support? (§3 fact 37; the EU is not a launch region)
+  2026-10-04 on #184), on the merchant's own Stripe account through Connect (decided 2026-10-05). EU OSS support? (§3 fact 37; the EU is not a launch region)
 - EU Omnibus: price history for compare-at prices in the first release? (§3 fact 41)
 - Per-product "where you sell", age restrictions, hazardous goods: in scope? (§3 facts 42–43)
 - The prohibited-categories list. (§3 fact 46)
