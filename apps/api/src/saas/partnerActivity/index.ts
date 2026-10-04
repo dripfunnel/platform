@@ -11,6 +11,7 @@ import { insertExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { withScope } from '#db/scoped/index'
 import { listActivity, partnerEntry, type ActivityPageRequest, type PageInfo } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { selectStoreNames } from '#db/scoped/stores'
 
 // The partner Activity log on the Platform API (ui/platform/FIRST-RELEASE.md §13; card #198).
 // What a partner may read is the log's own policy (migrations/0006, LOGGING §6): entries with
@@ -50,7 +51,7 @@ export const logFilterOf = (f: PartnerActivityFilter, now: Date): Record<string,
   ...(f.date ? { from: day(f.date === 'today' ? now : new Date(now.getTime() - (f.date === '7d' ? 6 : 29) * 24 * 60 * 60 * 1000)) } : {}),
 })
 
-export const entryDto = (row: ActivityRow) => ({
+export const entryDto = (row: ActivityRow, storeNames: ReadonlyMap<string, string> = new Map()) => ({
   id: row.id,
   at: row.occurred_at,
   category: row.category,
@@ -61,6 +62,8 @@ export const entryDto = (row: ActivityRow) => ({
   // "DripFunnel setup" and support-session rows are tagged (FIRST-RELEASE §13).
   through: row.access_kind,
   storeId: row.store_id,
+  // The store's name now, so a row about any of the partner's stores names it (§13).
+  storeName: row.store_id ? (storeNames.get(row.store_id) ?? null) : null,
   target: row.target_type ? { type: row.target_type, id: row.target_id, label: row.target_label } : null,
   changes: row.changes,
   reason: row.reason,
@@ -82,7 +85,10 @@ export const createPartnerActivityService = ({ sql, caller, facts, activity, now
 
   const read = async (logFilter: Record<string, unknown>, page: ActivityPageRequest): Promise<PartnerActivityPage | null> => {
     const result = await listActivity(sql, context, logFilter, page)
-    return result.ok ? { items: result.page.items.map(entryDto), pageInfo: result.page.pageInfo } : null
+    if (!result.ok) return null
+    const ids = [...new Set(result.page.items.flatMap((row) => (row.store_id ? [row.store_id] : [])))]
+    const names = await withScope(sql, context, (tx) => selectStoreNames(tx, ids))
+    return { items: result.page.items.map((row) => entryDto(row, names)), pageInfo: result.page.pageInfo }
   }
 
   /** Null for a filter or cursor it cannot read. The store tab and My activity are this with a filter. */

@@ -77,3 +77,5 @@ export { createPortalSession, useHandoff, type HandoffResult, type PortalSession
 export { staffSessionCopy, type StaffSessionFormat, type StaffSessionWords } from './staffSessionCopy'
 export { handoffPath, handoffSearch, HandoffScreen, PortalSessionRoot, SessionControls, useCurrentStaffSession, type HandoffScreenProps, type HandoffWords, type PortalSessionRootProps, type SessionControlsProps } from './PortalSessionRoot'
 export { adminConsoleUrlFor, productionAdminUrl, type AdminUrlEnv } from './adminConsoleUrl'
+export { ActivityFact, activityResultLook, type ActivityResult } from './ActivityFact'
+export { PersonFinder, type PersonFinderProps, type PersonFinderWords, type PersonOption } from './PersonFinder'

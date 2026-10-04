@@ -1,6 +1,7 @@
 import type { StaffAction, StaffMember, StaffRefusal } from '../../api/staff'
 import { fill, messages } from '../../messages'
 import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 import { staffRoles, type StaffRole } from '../shell/staffRoles'
 
 const words = messages.staff
@@ -19,9 +20,6 @@ export const isStaffRole = (value: string): value is StaffRole => staffRoles.som
 
 const roleName = (value: string) => (isStaffRole(value) ? roleNames[value] : '')
 
-// Loose on purpose: any domain for now (decided on #45); the invitation itself proves the address.
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 // Each confirmation names the person and says what happens, in the prototype's words (FIRST-RELEASE.md §10).
 export const staffDialog = (kind: StaffDialogKind, member: StaffMember | null, meId: string): StaffDialog | null => {
   if (kind === 'invite') {
@@ -31,7 +29,7 @@ export const staffDialog = (kind: StaffDialogKind, member: StaffMember | null, m
       target: spec.target,
       consequence: (email, { role = '' }) => fill(spec.consequence, { email: email.trim() || spec.someone, role: roleName(role) }),
       confirmLabel: spec.confirm,
-      input: { label: spec.email, type: 'email', initial: '', placeholder: spec.emailPlaceholder, error: (email) => (emailPattern.test(email.trim()) ? null : spec.emailError) },
+      input: { label: spec.email, type: 'email', initial: '', placeholder: spec.emailPlaceholder, error: (email) => (looksLikeEmail(email) ? null : spec.emailError) },
       choices: [{ key: 'role', label: words.dialogs.role, options: roleOptions, initial: 'staff-support', error: () => null }],
     }
   }

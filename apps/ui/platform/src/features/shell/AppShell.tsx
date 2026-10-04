@@ -2,7 +2,7 @@ import { ExportWatcher, NavDrawer, navView, SideNav } from '@dripfunnel/shared/u
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet } from '@tanstack/react-router'
 import { useState } from 'react'
-import { loadStoresExport } from '../../api/stores'
+import { exportKindById, loadExport } from '../../api/exports'
 import { messages } from '../../messages'
 import { navFor } from '../../nav'
 import { AppHeader } from './AppHeader'
@@ -40,7 +40,7 @@ export const AppShell = () => {
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={words.navLabel} closeLabel={words.closeMenu}>
         <SideNav rows={rows} variant="drawer" label={words.navLabel} footer={footer} onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>
-      <ExportWatcher load={loadStoresExport} toast={messages.stores.export.toast} />
+      <ExportWatcher load={loadExport} toast={(id) => (exportKindById(id) === 'activity' ? messages.activity.export.toast : messages.stores.export.toast)} />
     </div>
   )
 }

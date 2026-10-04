@@ -475,6 +475,13 @@ const detailSchema = z.object({
 const permissionsOf = (actions: Partial<Record<StoreAction, StorePermissions[StoreAction] | null>>): StorePermissions =>
   Object.fromEntries(Object.entries(actions).filter(([, permission]) => permission !== null)) as StorePermissions
 
+// A store's name alone, for a filter that names a store the page hasn't listed; nothing when it can't be read.
+export const loadStoreName = (id: string): Promise<{ id: string; name: string } | null> =>
+  query(`query StoreName($id: ID!) { store(id: $id) { row { id name } } }`, z.object({ store: z.object({ row: z.object({ id: z.string(), name: z.string() }) }).nullable() }), { id }).then(
+    ({ store }) => store?.row ?? null,
+    () => null,
+  )
+
 // The store page (§6.3). The signup's five steps come from `provisioning`, as on Create store;
 // what the API doesn't send yet stays empty here (`Store`).
 export const loadStore = async (id: string): Promise<Store | null> => {

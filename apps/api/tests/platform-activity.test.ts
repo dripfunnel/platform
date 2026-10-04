@@ -34,9 +34,9 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
 }
 
 const logQuery = `query($filter: PartnerActivityFilterInput, $after: String, $first: Int) { activityLog(filter: $filter, after: $after, first: $first) {
-  items { id at action result through storeId actor { kind id label } target { type id label } changes { field before after } reason }
+  items { id at action result through storeId storeName actor { kind id label } target { type id label } changes { field before after } reason }
   pageInfo { hasNextPage endCursor } } }`
-type Entry = { id: string; action: string; result: string; through: string | null; storeId: string | null; actor: { kind: string; id: string | null; label: string } }
+type Entry = { id: string; action: string; result: string; through: string | null; storeId: string | null; storeName: string | null; actor: { kind: string; id: string | null; label: string } }
 type Log = { activityLog: { items: Entry[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } }
 
 // Every entry the caller can reach for a filter, paging as the screen would.
@@ -96,6 +96,18 @@ describe('the log', () => {
     const tab = await all(owner, { storeId: ids.nsStore })
     expect(tab.length).toBeGreaterThan(0)
     expect(tab.every((e) => e.storeId === ids.nsStore && e.action !== 'product.updated' && e.action !== 'order.refunded')).toBe(true)
+    // Each entry names its store, from the partner's own stores.
+    const [store] = await db.sql<{ name: string }[]>`select name from store where id = ${ids.nsStore}`
+    expect(tab.every((e) => e.storeName === store?.name)).toBe(true)
+    // A row naming another partner's store (it can't happen by design; here it is forced) never
+    // gets that store's name, because the names are read in this partner's own scope.
+    const [theirs] = await db.sql<{ id: string; name: string }[]>`select id, name from store where partner_id = ${ids.bz} limit 1`
+    await entry({ partnerId: ids.ns, storeId: theirs?.id ?? null, action: 'store.trial_extended', actorKind: 'partner_user', actorId: ids.maya, label: 'Maya Chen', visibility: 'partner' })
+    const after = await all(owner)
+    const forced = after.find((e) => e.storeId === theirs?.id)
+    expect(forced?.storeName).toBeNull()
+    expect(JSON.stringify(after)).not.toContain(theirs?.name ?? '~')
+    await db.sql`delete from activity_log where store_id = ${theirs?.id ?? ''} and partner_id = ${ids.ns}`
     const [inside] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${ids.nsStore} and visibility <> 'partner'`
     expect(inside?.n).toBe(6)
   })

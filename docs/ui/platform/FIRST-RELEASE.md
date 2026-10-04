@@ -620,6 +620,16 @@ checks, stuck setups). **Never** anything inside a store, and never a shopper.
   Store · Before · After · Reason. **Show more**; **Export CSV**. Read-only.
 - The same entries appear on each store's Activity tab (§6.3) and as **My activity** (§2.2).
 
+**Built on #192, straight onto #198's API.** The person finder and facts come from the shared kit
+(ui/shared/README.md). The chosen person's name rides in history state, never the URL; after a
+reload the card says "This person's timeline".
+- **Store names:** each entry carries `storeName` from the API. The Store filter offers the newest
+  stores, the store a link names, and every store the entries shown name.
+- **My activity** isn't offered in a staff setup session, since the staff member has no timeline
+  here.
+- **The store's Activity tab** links to this log filtered to it.
+- **Exports:** activity and store exports share one job slot, and each screen shows only its own.
+
 ---
 
 ## 14. Settings
@@ -668,6 +678,18 @@ enters these itself." (ACCESS §8.2).
 One switch, **Owner only**: "Require 2-factor for everyone on the team" (decided 2026-10-01,
 §3). "2-factor is off for: Alex Kim. If you require it, they'll set it up at their next
 sign-in." Turning it off never removes anyone's 2-factor.
+
+**Built on #193, straight onto #199's API.**
+- **Invite** is a form on the Team tab, because it needs a name, an email and a role, and the
+  confirmation dialog takes one field. Every other change goes through the dialog, with its
+  consequence stated.
+- **The Owner role** is offered only to Owners. The last Owner's row and the caller's own row are
+  disabled with the reason.
+- **Payout and payment** says nothing can be added until the payment provider is connected (#201).
+  No account or card is drawn as on file, and the card form is a slot for the provider's hosted
+  field, with no input of ours.
+- **The 2-factor-off list** names the team members loaded so far.
+- **"Your account"** (what a staff session can't change, #46) sits under Security.
 
 ---
 

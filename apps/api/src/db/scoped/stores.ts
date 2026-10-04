@@ -40,6 +40,10 @@ export const partnerOfStore = async (tx: ScopedSql, storeId: string): Promise<st
   return rows[0]?.partner_id ?? null
 }
 
+/** The names of these stores, by id: one query for a page of entries, never one per entry. */
+export const selectStoreNames = async (tx: ScopedSql, ids: readonly string[]): Promise<Map<string, string>> =>
+  new Map((ids.length ? await tx<{ id: string; name: string }[]>`select id, name from store where id = any(${pgArray(ids)}::uuid[])` : []).map((r) => [r.id, r.name]))
+
 export interface NewStore {
   partnerId: string
   name: string
