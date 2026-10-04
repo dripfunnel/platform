@@ -132,7 +132,7 @@ const nextMonthStart = (at: Date) => new Date(Date.UTC(at.getUTCFullYear(), at.g
 
 export type NextPayout =
   | { state: 'scheduled'; date: string; soFar: { amount: number; currency: string }; toLast4: string | null }
-  | { state: 'heldVerification' }
+  | { state: 'heldVerification' | 'heldVerifying' | 'heldNoAccount' }
   | { state: 'first' }
 
 export const createPartnerBillingService = ({ sql, caller, facts, activity, stripe, now }: PartnerBillingDeps) => {
@@ -163,13 +163,16 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
     })
   }
 
-  // §11.2's four states. A lapsed contract has no model yet (FIRST-RELEASE §18), so "held: your
-  // contract lapsed" is never answered rather than guessed.
+  // §11.2's states, with why a payout waits on the account: none yet, being verified, or failed
+  // (§14.3: "Payouts pause until it's verified"). A lapsed contract has no model yet (§18), so
+  // "held: your contract lapsed" is never answered rather than guessed.
   const nextPayout = (): Promise<NextPayout> =>
     read(async (tx) => {
       if (!(await anyCollected(tx, partnerId))) return { state: 'first' }
       const account = await selectBillingAccount(tx, partnerId)
-      if (account?.payout_status !== 'verified') return { state: 'heldVerification' }
+      if (!account || account.payout_status === 'missing') return { state: 'heldNoAccount' }
+      if (account.payout_status === 'verifying') return { state: 'heldVerifying' }
+      if (account.payout_status === 'failed') return { state: 'heldVerification' }
       const at = now()
       const share = await selectShareSince(tx, partnerId, monthStart(at), nextMonthStart(at))
       const currency = share?.currency ?? (await selectContractCurrency(tx, partnerId)) ?? 'USD'

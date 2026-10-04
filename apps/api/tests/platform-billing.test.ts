@@ -212,6 +212,10 @@ describe('the Stripe webhook', () => {
 })
 
 describe('payout account and card', () => {
+  it('hold the next payout until there is an account to pay', async () => {
+    expect((await run<{ nextPayout: { state: string } }>(q.next, callerOf(ids.ns, 'partner-owner'))).data?.nextPayout.state).toBe('heldNoAccount')
+  })
+
   it('refuse Admin, Support and Read-only, and never a staff session', async () => {
     for (const role of ['partner-admin', 'partner-support', 'partner-read-only'] as const) {
       expect((await run(q.payout, callerOf(ids.ns, role), { t: 'btok_good123' })).code).toBe('FORBIDDEN')
@@ -242,11 +246,12 @@ describe('payout account and card', () => {
     expect((await run<{ setPayoutAccount: { ok: boolean } }>(q.payout, finance, { t: 'btok_good123' })).data?.setPayoutAccount.ok).toBe(true)
     expect((await run<{ payoutAccount: unknown }>(q.account, finance)).data?.payoutAccount).toEqual({ bank: 'Chase', last4: '1180', status: 'verifying', failure: null })
     expect(await db.sql`select 1 from activity_log where action = 'partner.payout_account_set' and partner_id = ${ids.ns}`).toHaveLength(1)
-    expect((await run<{ nextPayout: { state: string } }>(q.next, finance)).data?.nextPayout.state).toBe('heldVerification')
+    expect((await run<{ nextPayout: { state: string } }>(q.next, finance)).data?.nextPayout.state).toBe('heldVerifying')
 
     now.accounts.set('acct_northstar', { id: 'acct_northstar', external_accounts: { data: [{ id: 'ba_1', bank_name: 'Chase', last4: '1180', status: 'verification_failed' }] } })
     expect(await deliver({ id: 'evt_acct1', type: 'account.external_account.updated', account: 'acct_northstar', object: { id: 'ba_1', object: 'bank_account' } })).toBe(200)
     expect((await run<{ payoutAccount: { status: string } }>(q.account, finance)).data?.payoutAccount.status).toBe('failed')
+    expect((await run<{ nextPayout: { state: string } }>(q.next, finance)).data?.nextPayout.state).toBe('heldVerification')
     expect(await db.sql`select 1 from outbox where partner_id = ${ids.ns} and payload->>'template' = 'partner-payout-account-failed'`).toHaveLength(1)
 
     now.accounts.set('acct_northstar', { id: 'acct_northstar', external_accounts: { data: [{ id: 'ba_1', bank_name: 'Chase', last4: '1180', status: 'verified' }] } })

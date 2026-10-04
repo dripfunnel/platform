@@ -1068,7 +1068,8 @@ secrets and the same code runs.
   with `failed` (the retrying block: why, the card's last 4, the next retry, attempt N of 4) on
   the first page; `payouts(after, before)` (status `paid`, `scheduled`, `held` or `failed`, the
   adjustment with its note, the account's last 4); `nextPayout` (`scheduled` with the date and
-  the partner's share so far, `heldVerification`, or `first`; `heldContract` waits on the
+  the partner's share so far; `heldNoAccount`, `heldVerifying` or `heldVerification` while the
+  payout account is missing, being verified or failed, §14.3; or `first`; `heldContract` waits on the
   contract model, §18, and is never answered); `partnerInvoices(after, before)` (`overdue` is an
   open invoice past its due date); `billingSettings` (who bills, the payout account, and the
   stale strip's `asOf` and `staleSince` from the last Stripe event and since when Stripe has been
