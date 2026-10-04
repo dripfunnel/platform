@@ -38,4 +38,18 @@ describe('Stripe client', () => {
     }) as typeof fetch
     await expect(stripeClient({ secretKey: 'rk_test_a', fetchImpl: failing }).charge('ch_1')).rejects.toBeInstanceOf(StripeUnavailable)
   })
+
+  it('reads every refund of a charge page by page, and refuses a list longer than it reads', async () => {
+    const refund = (n: number) => ({ id: `re_${n}`, amount: 100, status: 'succeeded', created: 1 })
+    const pages = [{ data: [refund(1), refund(2)], has_more: true }, { data: [refund(3)], has_more: false }]
+    const seen: Request[] = []
+    const paged = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      seen.push(new Request(input, init))
+      return Response.json(pages[seen.length - 1])
+    }) as typeof fetch
+    expect((await stripeClient({ secretKey: 'rk_test_a', fetchImpl: paged }).refunds('ch_1')).map((r) => r.id)).toEqual(['re_1', 're_2', 're_3'])
+    expect(new URL(seen[1]?.url ?? '').searchParams.get('starting_after')).toBe('re_2')
+    const endless = answering(200, { data: [refund(9)], has_more: true })
+    await expect(stripeClient({ secretKey: 'rk_test_a', fetchImpl: endless }).refunds('ch_1')).rejects.toBeInstanceOf(StripeUnavailable)
+  })
 })

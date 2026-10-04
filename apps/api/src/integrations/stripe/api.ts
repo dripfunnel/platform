@@ -41,10 +41,16 @@ const chargeSchema = z.object({
   failure_message: z.string().nullish(),
   payment_method_details: z.object({ card: z.object({ last4: z.string() }).nullish() }).nullish(),
   transfer: transferSchema.or(z.string()).nullish(),
-  refunds: z.object({ data: z.array(z.object({ id: id('re'), amount: z.number().int().nonnegative(), status: z.string(), created: z.number().int() })) }).nullish(),
+  amount_refunded: z.number().int().nonnegative().nullish(),
   invoice: z.string().nullish(),
 })
 export type StripeCharge = z.infer<typeof chargeSchema>
+
+const refundSchema = z.object({ id: id('re'), amount: z.number().int().nonnegative(), status: z.string(), created: z.number().int() })
+export type StripeRefund = z.infer<typeof refundSchema>
+const refundPage = z.object({ data: z.array(refundSchema.loose()), has_more: z.boolean() })
+// 100 a page; a charge with more refunds than this is not one we would pay out on.
+export const refundPagesMax = 10
 
 export const invoiceSchema = z.object({
   id: id('in'),
@@ -114,6 +120,8 @@ export interface StripeApi {
   createCustomer: (input: { partnerId: string; name: string }) => Promise<{ id: string }>
   attachCard: (customerId: string, paymentMethodId: string) => Promise<StripeCard>
   charge: (chargeId: string) => Promise<StripeCharge>
+  /** Every refund of a charge, through Stripe's paged list (an expanded list stops at 10). */
+  refunds: (chargeId: string) => Promise<StripeRefund[]>
   invoice: (invoiceId: string) => Promise<StripeInvoice>
   payout: (accountId: string, payoutId: string) => Promise<StripePayout>
   account: (accountId: string) => Promise<StripeAccount>
@@ -164,7 +172,20 @@ export const stripeClient = ({ secretKey, fetchImpl = fetch }: { secretKey: stri
       await call(z.object({ id: id('cus') }).loose(), 'POST', `/customers/${encodeURIComponent(customerId)}`, { body: form({ 'invoice_settings[default_payment_method]': paymentMethodId }) })
       return card
     },
-    charge: (chargeId) => call(chargeSchema.loose(), 'GET', `/charges/${encodeURIComponent(chargeId)}?expand[]=transfer&expand[]=refunds`),
+    charge: (chargeId) => call(chargeSchema.loose(), 'GET', `/charges/${encodeURIComponent(chargeId)}?expand[]=transfer`),
+    refunds: async (chargeId) => {
+      const all: StripeRefund[] = []
+      let after: string | undefined
+      for (let page = 0; page < refundPagesMax; page++) {
+        const query = new URLSearchParams({ charge: chargeId, limit: '100', ...(after ? { starting_after: after } : {}) })
+        const { data, has_more } = await call(refundPage, 'GET', `/refunds?${query}`)
+        all.push(...data)
+        if (!has_more) return all
+        after = data.at(-1)?.id
+        if (!after) return all
+      }
+      throw new StripeUnavailable('more refunds than we read')
+    },
     invoice: (invoiceId) => call(invoiceSchema.loose(), 'GET', `/invoices/${encodeURIComponent(invoiceId)}?expand[]=charge&expand[]=charge.transfer`),
     payout: (accountId, payoutId) => call(payoutSchema.loose(), 'GET', `/payouts/${encodeURIComponent(payoutId)}?expand[]=destination`, { account: accountId }),
     account: (accountId) => call(accountSchema.loose(), 'GET', `/accounts/${encodeURIComponent(accountId)}`),

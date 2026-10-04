@@ -252,16 +252,9 @@ export const upsertCharge = async (tx: ScopedSql, c: ChargeUpsert): Promise<void
       partner_amount = excluded.partner_amount, card_last4 = excluded.card_last4, failure_reason = excluded.failure_reason,
       retry_at = excluded.retry_at, attempt = excluded.attempt, charged_at = excluded.charged_at
     where not (merchant_charge.status in ('paid', 'recovered', 'refunded') and excluded.status = 'failed')
+      -- Billing's attempt count only grows: an older failure's read never takes a newer one back.
+      and not (merchant_charge.status = 'failed' and excluded.status = 'failed' and coalesce(excluded.attempt, 0) < coalesce(merchant_charge.attempt, 0))
   `
-}
-
-export const selectChargeByRef = async (tx: ScopedSql, stripeRef: string): Promise<{ amount: number; payout_gross: number; fee_amount: number; payout_currency: string; partner_id: string; store_id: string } | null> => {
-  const row = (
-    await tx<{ amount: string; payout_gross: string; fee_amount: string; payout_currency: string; partner_id: string; store_id: string }[]>`
-      select amount::text, payout_gross::text, fee_amount::text, payout_currency, partner_id, store_id from merchant_charge where stripe_ref = ${stripeRef}
-    `
-  )[0]
-  return row ? { ...row, amount: minorUnits(row.amount), payout_gross: minorUnits(row.payout_gross), fee_amount: minorUnits(row.fee_amount) } : null
 }
 
 export interface PayoutUpsert {
@@ -292,7 +285,21 @@ export const upsertPayout = async (tx: ScopedSql, p: PayoutUpsert): Promise<void
       status = excluded.status, scheduled_for = excluded.scheduled_for, paid_at = excluded.paid_at,
       to_last4 = excluded.to_last4, failure_reason = excluded.failure_reason, held_reason = null
     where not (partner_payout.status in ('paid', 'failed') and excluded.status = 'scheduled')
+      -- A failed payout is final at Stripe; paid to failed is real (the bank returned it) and kept.
+      and not (partner_payout.status = 'failed' and excluded.status <> 'failed')
   `
+}
+
+/** What the period's other Stripe payouts already carry, so one month's totals are counted once. */
+export const selectPeriodCarried = async (tx: ScopedSql, partnerId: string, periodStart: Date, exceptPayoutId: string): Promise<{ gross: number; fee: number; stores: number }> => {
+  const row = (
+    await tx<{ gross: string; fee: string; stores: string }[]>`
+      select coalesce(sum(gross), 0)::text as gross, coalesce(sum(fee), 0)::text as fee, coalesce(sum(stores), 0)::text as stores
+      from partner_payout
+      where partner_id = ${partnerId} and period_start = ${periodStart}::date and stripe_payout_id is not null and stripe_payout_id <> ${exceptPayoutId} and status <> 'failed'
+    `
+  )[0]
+  return { gross: minorUnits(row?.gross ?? '0'), fee: minorUnits(row?.fee ?? '0'), stores: Number(row?.stores ?? 0) }
 }
 
 /** A period's charges as the payout counts them, net of refunds, and how many stores paid. */

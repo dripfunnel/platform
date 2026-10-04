@@ -352,8 +352,12 @@ partner's billing, or both) is open (§14).
   minutes, the object is read back from Stripe before anything is written, and the event id and
   its effects are one transaction, so a replay or a late event changes nothing twice. A merchant's
   subscription invoice is one `merchant_charge` row whichever retry paid it, a refund its own row;
-  each Connect payout is its own row for the month before it arrives, whatever the month's charges
-  don't explain being its adjustment. Stripe ids are committed before the calls that make Stripe
+  each Connect payout is its own row for the month before it arrives, carrying what the month's
+  other live payouts don't (a failed one carries none), so a month is counted once; whatever its
+  charges don't explain is the adjustment. Money in a currency the contract doesn't pay out in is
+  logged as `currency_mismatch` with the partner and not kept, never shown as handled. A read that
+  commits after a newer one never takes a paid charge, Billing's attempt count, a failed payout or
+  a decided test deposit back. Stripe ids are committed before the calls that make Stripe
   send events about them, and an event no partner can be found for yet isn't kept, so a later
   delivery is handled. Stripe slow answers 503 so Stripe delivers again, and marks the partner's
   feed stale, found by the event's Connect account or customer. Store-side writes (`store_subscription`, the merchant's invoices) are the Store
