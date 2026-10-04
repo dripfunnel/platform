@@ -40,8 +40,8 @@ const q = {
   revenue: `query($f: ReportFilterInput) { reportRevenue(filter: $f) { fresh summary currency currencyNote rows { month collected { amount currency } fee { amount } payout { amount } } bars { label amount { amount currency } } mrr { plan amount { amount currency } approximate } payments { failed recovered } } }`,
   plans: `query($f: ReportFilterInput) { reportPlans(filter: $f) { fresh summary rows { plan stores } changes { from to stores } } }`,
   performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store storeId } decliningTruncated } }`,
-  usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
-  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed rows { kind storeId store } } }`,
+  usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { fresh summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
+  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { fresh summary medianSeconds failed domainsStuck rows { kind storeId store } } }`,
 }
 
 type Rev = { reportRevenue: { fresh: boolean; summary: string; currency: string; currencyNote: string | null; rows: { collected: { amount: number }; fee: { amount: number } }[]; bars: { amount: { amount: number; currency: string } }[]; mrr: { amount: { amount: number } }[] } }
@@ -89,8 +89,10 @@ describe('the figures', () => {
     const usage = (await run<{ reportUsage: { summary: string; rows: unknown[]; truncated: boolean; meters: { aiPrompts: number } } }>(q.usage, reader)).data?.reportUsage
     expect(usage?.summary).toMatch(/^\d+ stores? (is|are) at 80% or more of a limit\. AI prompts used this month: [\d,]+; 'Publish now' presses: [\d,]+\.$/)
     expect(usage?.truncated).toBe(Number(/^\d+/.exec(usage?.summary ?? '')?.[0]) > (usage?.rows.length ?? 0))
-    const setup = (await run<{ reportSetupHealth: { summary: string } }>(q.setup, reader)).data?.reportSetupHealth
+    const setup = (await run<{ reportSetupHealth: { summary: string; domainsStuck: number } }>(q.setup, reader)).data?.reportSetupHealth
     expect(setup?.summary).toMatch(/(A new store is ready in \d+ min \d+ s on average\.|No store finished setting up in the last 30 days\.) \d+ setups? (is|are) stuck and \d+ custom domains? (is|are) waiting for DNS\.$/)
+    // The figure beside the sentence says the same count.
+    expect(setup?.summary).toContain(`${setup?.domainsStuck ?? -1} custom domain`)
   })
 
   it('narrows by plan and country, and refuses a filter it cannot read', async () => {
@@ -157,6 +159,22 @@ describe('scope', () => {
       const r = (await run<Record<string, { fresh: boolean; summary: string }>>(query, fresh)).data?.[key]
       expect(r, key).toMatchObject({ fresh: true, summary: 'Reports fill in as your first merchants sign up.' })
     }
+    // Usage and Setup health keep their own sentence, and say they have nothing to fill in yet.
+    for (const [query, key] of [[q.usage, 'reportUsage'], [q.setup, 'reportSetupHealth']] as const) {
+      expect((await run<Record<string, { fresh: boolean }>>(query, fresh)).data?.[key]?.fresh, key).toBe(true)
+      expect((await run<Record<string, { fresh: boolean }>>(query, callerOf(ids.ns))).data?.[key]?.fresh, key).toBe(false)
+    }
+  })
+
+  it('offers as filters only the plans and countries the partner’s own stores have', async () => {
+    const options = (await run<{ reportFilters: { plans: { id: string; name: string }[]; countries: string[] } }>(`{ reportFilters { plans { id name } countries } }`, callerOf(ids.ns))).data?.reportFilters
+    const plans = await db.sql<{ id: string }[]>`select distinct plan_id as id from store where partner_id = ${ids.ns} and plan_id is not null`
+    const countries = await db.sql<{ country: string }[]>`select distinct country from store where partner_id = ${ids.ns} and country is not null order by country`
+    expect(options?.plans.map((p) => p.id).sort()).toEqual(plans.map((p) => p.id).sort())
+    expect(options?.countries).toEqual(countries.map((c) => c.country))
+    const theirs = await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.bz}`
+    expect(options?.plans.some((p) => theirs.some((t) => t.id === p.id))).toBe(false)
+    expect((await run<{ reportFilters: { plans: unknown[]; countries: unknown[] } }>(`{ reportFilters { plans { id } countries } }`, callerOf(ids.fresh))).data?.reportFilters).toEqual({ plans: [], countries: [] })
   })
 
   it('never counts another partner’s stores', async () => {
@@ -188,8 +206,9 @@ describe('scope', () => {
 
   it('answers no session with UNAUTHENTICATED on every report field', async () => {
     const fields = Object.keys((platformSchema as GraphQLSchema).getQueryType()?.getFields() ?? {}).filter((f) => f.startsWith('report'))
-    expect(fields).toHaveLength(7)
-    for (const source of [...Object.values(q), `query { reportExport(id: "${crypto.randomUUID()}") { id } }`]) {
+    // The six reports, their export's read-back, and the filters' options.
+    expect(fields).toHaveLength(8)
+    for (const source of [...Object.values(q), `query { reportExport(id: "${crypto.randomUUID()}") { id } }`, '{ reportFilters { countries } }']) {
       const contextValue = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, team: null, activity: null, reports: null }
       const result = await graphql({ schema: platformSchema as GraphQLSchema, source, contextValue })
       expect(result.errors?.[0]?.extensions['code'], source).toBe('UNAUTHENTICATED')
@@ -199,7 +218,7 @@ describe('scope', () => {
   it('declares only the partner scope on every report field, and reads no table inside a store', () => {
     const query = (platformSchema as GraphQLSchema).getQueryType()?.getFields() ?? {}
     const reportFields = Object.entries(query).filter(([name]) => name.startsWith('report'))
-    expect(reportFields.length).toBe(7)
+    expect(reportFields.length).toBe(8)
     for (const [name, field] of reportFields) expect((field.extensions as { access?: { scope?: string } }).access?.scope, name).toBe('partner')
     // The code only: comments say "from" and "join" in prose.
     const sqlText = readFileSync(new URL('../src/db/scoped/reports.ts', import.meta.url), 'utf8')

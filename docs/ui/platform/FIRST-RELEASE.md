@@ -495,6 +495,14 @@ above every chart. A new partner sees "Reports fill in as your first merchants s
 Every number, trend and conversion is **the API's**; the screen draws bars and words it is
 given.
 
+**Built on #194, straight onto #200's API.** Each tab asks its own report query.
+- The bars are drawn against the largest value shown; that sizing never appears as a figure.
+- Percentages arrive as basis points and are formatted, never worked out.
+- Months are the API's (its first day, UTC), shown as month and year.
+- The Plan and Country filters offer what the partner's own stores have (`reportFilters`: their plans and countries); a failure to load them fails the page rather than dropping a filter.
+- Export CSV runs as a job for every role, sharing the console's one export slot.
+- `fresh` comes with every tab; on Usage and Setup health it means the partner has no store yet.
+
 ---
 
 ## 11. Billing
@@ -539,6 +547,15 @@ and each store's Billing tab a Billing status select (§6.1, §6.3); "charged by
 Northstar" reads "billed by Northstar" everywhere. SAAS §7.1 says this mode follows the first;
 its API card comes after (§16). How the platform learns a store's status in this mode is open
 (SAAS §14).
+
+**Built on #195.** Who bills is the API's (`partnerState.billingMode`, read with the shell's facts). Merchants' payments,
+payouts and DripFunnel's invoices have no API until #201 connects the payment provider.
+- Until then, a Live partner sees "Payments, payouts and invoices connect with DripFunnel's payment
+  provider…", or for one that bills itself just the invoices. Both choices of who bills are shown,
+  with changing it waiting on the same.
+- The four parts are drawn from a sample in the `?state=` harness only (`sample`,
+  `failedPayments`, `payoutHeld`, `firstPayout`, `stale`, `prelive`, `own`).
+- Support is refused even by address. Only the last four digits of a card or account ever appear.
 
 ---
 

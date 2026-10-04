@@ -49,11 +49,25 @@ afterAll(async () => {
 describe('partnerState', () => {
   it('gives the facts the banners need, its own partner’s only', async () => {
     await db.sql`update partner_domain set status = 'broken' where partner_id = ${ids.ns} and kind = 'portal'`
-    const { data } = await run<{ partnerState: { storeCount: number; brokenHosts: string[]; setupSession: unknown } }>('{ partnerState { storeCount brokenHosts setupSession { staffName } } }', callerOf(ids.ns, 'partner-read-only'))
+    const { data } = await run<{ partnerState: { storeCount: number; brokenHosts: string[]; setupSession: unknown; billingMode: string } }>('{ partnerState { storeCount brokenHosts billingMode setupSession { staffName } } }', callerOf(ids.ns, 'partner-read-only'))
     const [expected] = await db.sql<{ n: number }[]>`select count(*)::int as n from store where partner_id = ${ids.ns} and status <> 'closed'`
     expect(data?.partnerState.storeCount).toBe(expected?.n)
     expect(data?.partnerState.brokenHosts).toEqual(['store.northstar.example'])
     expect(data?.partnerState.setupSession).toBeNull()
+    const [mode] = await db.sql<{ billing_mode: string }[]>`select billing_mode from partner where id = ${ids.ns}`
+    expect(data?.partnerState.billingMode).toBe(mode?.billing_mode)
+  })
+
+  it('says who bills each partner’s merchants, that partner’s own and never another’s', async () => {
+    const modeOf = async (partnerId: string) =>
+      (await run<{ partnerState: { billingMode: string } }>('{ partnerState { billingMode } }', callerOf(partnerId, 'partner-read-only'))).data?.partnerState.billingMode
+    await db.sql`update partner set billing_mode = 'own' where id = ${ids.kl}`
+    try {
+      expect(await modeOf(ids.kl)).toBe('own')
+      expect(await modeOf(ids.ns)).toBe('dripfunnel')
+    } finally {
+      await db.sql`update partner set billing_mode = 'dripfunnel' where id = ${ids.kl}`
+    }
   })
 
   it('reports an open staff setup session by first name and end', async () => {
