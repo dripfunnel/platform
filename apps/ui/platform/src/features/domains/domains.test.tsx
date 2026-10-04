@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import type { DomainsPage } from '../../api/domains'
 import { messages } from '../../messages'
 import { AddressStep, CheckStep, RecordsStep } from './AddDomain'
-import { exampleFor, firstKind, hostFrom, refusalText } from './addDomainRules'
+import { afterRecheck, exampleFor, firstKind, hostFrom, refusalText } from './addDomainRules'
 import { Domains } from './Domains'
 import { addresses, domainsPages, testNow } from './domainsTestData'
 
@@ -45,9 +45,17 @@ describe('the four addresses', () => {
     expect(hrefs(html)).not.toContain('/domains/new')
   })
 
+  it('say when DNS was last read for an address past setting up, and since when for one still being set up', async () => {
+    const renewing = { ...domainsPages.allLive, partner: { ...domainsPages.allLive.partner, addresses: domainsPages.allLive.partner.addresses.map((a) => (a.kind === 'portal' && a.added ? { ...a, status: 'expiring' as const } : a)) } }
+    expect(textOf(await domains(renewing))).not.toContain('Waiting since')
+    const issuing = { ...domainsPages.mixed, partner: { ...domainsPages.mixed.partner, addresses: domainsPages.mixed.partner.addresses.filter((a) => a.kind === 'email') } }
+    expect(textOf(await domains(issuing))).toContain('Waiting since Sep 28, 2026')
+  })
+
   it('show the DNS failing scenario as stopped working, with what DNS returns instead', async () => {
     const text = textOf(await domains(domainsPages.failing))
     expect(text.match(new RegExp(words.status.broken, 'g'))).toHaveLength(2)
+    expect(text).not.toContain('Waiting since')
     expect(text).toContain('192.0.2.10')
   })
 })
@@ -135,6 +143,13 @@ describe('the address rules', () => {
     expect(hostFrom('*.preview.northstar.com')).toBe('preview.northstar.com')
     expect(exampleFor('email', 'northstar.co.uk')).toBe('mail.northstar.co.uk')
     expect(exampleFor('portal', null)).toBe('store.yourcompany.com')
+  })
+
+  it('move on after Check now, with a note when the last check was under a minute ago, and stop on any other refusal', () => {
+    expect(afterRecheck({ ok: true }, 'mail.northstar.com')).toEqual({ failed: false, note: null })
+    expect(afterRecheck({ ok: false, reason: 'TOO_SOON' }, 'mail.northstar.com')).toEqual({ failed: false, note: 'mail.northstar.com was checked less than a minute ago. Try again in a moment.' })
+    expect(afterRecheck({ ok: false, reason: 'NOT_FOUND' }, 'mail.northstar.com')).toEqual({ failed: true })
+    expect(afterRecheck({ ok: false, reason: 'INVALID_INPUT' }, 'mail.northstar.com')).toEqual({ failed: true })
   })
 
   it('word every refusal by its code', () => {

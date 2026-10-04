@@ -1670,7 +1670,15 @@
       "mismatch": {
         "one": "We found a record, but it doesn’t match yet. Check it against the value on Domains.",
         "other": "We found the records, but they don’t all match yet. Check them against the values on Domains."
-      }
+      },
+      "examples": {
+        "portal": "store.{zone}",
+        "preview": "preview.{zone}",
+        "shops": "shops.{zone}",
+        "email": "mail.{zone}",
+        "zone": "yourcompany.com"
+      },
+      "stepDone": "Done"
     }
   }
 }

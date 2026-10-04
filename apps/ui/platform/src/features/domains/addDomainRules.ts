@@ -1,4 +1,4 @@
-import type { AddRefusal, Address, DomainKind } from '../../api/domains'
+import type { AddRefusal, Address, DomainKind, RecheckResult } from '../../api/domains'
 import { fill, messages } from '../../messages'
 
 const words = messages.domains.new
@@ -14,10 +14,8 @@ export const hostFrom = (typed: string): string =>
     .replace(/^\*\./, '')
     .replace(/[/?#].*$/, '')
 
-const prefixes: Record<DomainKind, string> = { portal: 'store', preview: 'preview', shops: 'shops', email: 'mail' }
-
 // The example each hint names, under the zone of an address already added, if any.
-export const exampleFor = (kind: DomainKind, zone: string | null): string => `${prefixes[kind]}.${zone ?? 'yourcompany.com'}`
+export const exampleFor = (kind: DomainKind, zone: string | null): string => fill(words.examples[kind], { zone: zone ?? words.examples.zone })
 
 export const zoneIn = (addresses: readonly Address[]): string | null => addresses.find((a): a is Extract<Address, { added: true }> => a.added)?.zone ?? null
 
@@ -31,3 +29,8 @@ export const firstKind = (addresses: readonly Address[], asked: DomainKind | und
   const free = addresses.filter((a) => !a.added).map((a) => a.kind)
   return asked && free.includes(asked) ? asked : (free[0] ?? 'portal')
 }
+
+// What "Check now" leads to: step 3, with a note when the last check was under a minute ago (the
+// queued one still runs), or an error for any other refusal.
+export const afterRecheck = (result: RecheckResult, host: string): { failed: true } | { failed: false; note: string | null } =>
+  result.ok ? { failed: false, note: null } : result.reason === 'TOO_SOON' ? { failed: false, note: fill(messages.domains.tooSoon, { host }) } : { failed: true }

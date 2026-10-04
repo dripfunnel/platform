@@ -1,4 +1,4 @@
-import { ErrorState, ListHeader, LoadingState, PermissionDenied, StatusPill } from '@dripfunnel/shared/ui'
+import { ErrorState, Icon, ListHeader, LoadingState, PermissionDenied, StatusPill } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import { Link } from '@tanstack/react-router'
 import { useId, type FormEvent } from 'react'
@@ -64,7 +64,14 @@ const Steps = ({ step }: { step: Step }) => (
       const n = index + 1
       return (
         <li key={label} aria-current={n === step ? 'step' : undefined} className={n < step ? 'df-add-step--done' : undefined}>
-          <span className="df-add-step-n">{n < step ? '✓' : n}</span>
+          <span className="df-add-step-n">{n < step ? (
+              <>
+                <Icon name="ok" size={12} strokeWidth={2.6} />
+                <span className="df-visually-hidden">{words.stepDone}</span>
+              </>
+            ) : (
+              n
+            )}</span>
           {label}
         </li>
       )
