@@ -82,22 +82,26 @@ authoritative; this table must match it).
 
 | Area | Owner | Manager | Staff | Vendor · Stock only | Vendor · Products and stock | Vendor · + their orders |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
-| Home | ✓ | ✓ | ✓ | own | own | own |
+| Home | ✓ | ✓ | ✓ | | | |
 | Orders | all | all | all | | | own lines; the shopper's name and address only when the supplier **ships to the shopper**, nothing when it **ships to your warehouse** (ACCESS.md §7.3) |
 | Refunds and returns | ✓ | ✓ | | | | own lines, up to their value; the store can override |
+| Mark an order paid (cash on delivery, bank transfer) *(confirm)* | ✓ | ✓ | | | | |
 | Customers | all, add and edit | all, add and edit | all, add and edit | | | |
 | Customers export | ✓ | ✓ | ✓ | | | |
-| Reports | ✓ | ✓ | | | | |
+| Reports and their export | ✓ | ✓ | | | | |
 | Abandoned carts | ✓ | ✓ | read-only | | | |
 | Products | all, edit | all, edit | all, **read-only** | own, **quantity only** | own, create and edit | own, create and edit |
 | Collections, filters, menus | edit | edit | read-only | | | |
 | Import / export | ✓ | ✓ | export | own export | own | own |
 | To approve (when approval is on) | ✓ | | | | | |
 | Offers | ✓ | ✓ (no plan prompts) | read-only list | **never** | **never** | **never** |
+| Offer codes export *(confirm)* | ✓ | ✓ | | | | |
 | Storefront (AI designer, publish) | ✓ | read-only | | | | |
 | Suppliers | ✓ | | | | | |
 | Settings (all tabs) | ✓ | | | | | |
 | Billing, plan prompts | ✓ | | | | | |
+| Stock in the merchant's warehouses | edit | edit | read-only | | | |
+| The merchant's warehouses (Settings › Warehouse) | ✓ | | | | | |
 | Own warehouses and stock | | | | ✓ | ✓ | ✓ |
 | Own supplier team (Supplier admin only) | | | | ✓ | ✓ | ✓ |
 | Activity log: whole store, shoppers included (Settings; Store activity for a Manager) | ✓ | ✓ | | | | |
