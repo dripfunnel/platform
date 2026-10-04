@@ -1268,8 +1268,9 @@ Design once, apply everywhere:
   2026-10-02** (E3, ACCESS.md §7.2).
 - ~~What happens to a removed or suspended supplier's products? (L7)~~ **Settled 2026-10-02**
   (L7, ACCESS.md §7.5).
-- Can vendors see or assign collections and filters? Can they import or export? (L9, K9)
-- Can Staff export? (§4)
+- Can vendors see or assign collections and filters? (L9) ~~Can they import or export? (K9)~~
+  **Settled 2026-10-04 on #184**: their own rows only (ACCESS.md §5.2).
+- ~~Can Staff export? (§4)~~ **Settled 2026-10-04 on #184**: yes (ACCESS.md §5.1).
 - Exact copy for publishing, and whether price and stock read live on the live static site.
   (§3 fact 17)
 - Can one product be listed in more than one of a merchant's stores, or does every product

@@ -378,8 +378,15 @@ Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused wh
 (`READ_ONLY`), metered through `saas/entitlements` where a plan limits it (`PLAN_LIMIT` with the
 plan that unlocks it), and audited.
 
+**Every Shop API call** builds its `TenantContext` (ACCESS §3) from the storefront's host or the
+public store key, never a secret; a store id in an argument is never authority. `products`,
+`search` and `orderHistory` are **cursor-paged** like the Store API, at most 50 a page. A
+shopper's `order(id)`, `orderHistory`, `account` and `addresses` read only that shopper's own
+`customer_id`; a guest reads one order only through its order token (DATA-MODEL §5.1
+`app.order_token_hash`). Each is held by SAPI 9's isolation tests.
+
 **The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
-what the portal publishes, identified by the public store key or hostname, never a secret:
+what the portal publishes:
 `store` (info, policies, legal, markets, currencies, languages), `menu`, `collections`,
 `collection`, `products(filter, facets, search)`, `product` (with A+, size chart, sections,
 badges, readiness per market), `search`; cart (`cart`, `addToCart`, `updateLine`,
@@ -450,8 +457,8 @@ what must merge first.
 | SUI 13 | Billing | SUI 2, SAPI 19 |
 | SUI 14 | Developers, Apps, Support access, Activity log | SUI 6, SAPI 20, SAPI 21, SUI 1 |
 | SUI 15 | Supplier views: Your products, To ship, Your sales, Your team | SUI 4, SUI 7, SUI 1 |
-| SUI 16 | Product kinds in the editor and the storefront template | SUI 4, SAPI 22 |
-| ST 1 | Storefront template on the Shop API: catalogue, cart, checkout, accounts, offers, every payment method, gift cards, downloads | SAPI 9, SAPI 10, SAPI 14 |
+| SUI 16 | Product kinds in the editor (the storefront's side is ST 1's) | SUI 4, SAPI 22 |
+| ST 1 | Storefront template on the Shop API: catalogue, cart, checkout, accounts, offers, every payment method, and the product kinds on the storefront (gift cards, downloads) | SAPI 9, SAPI 10, SAPI 14, SAPI 22 |
 
 ---
 
