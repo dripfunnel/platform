@@ -9,7 +9,7 @@ disagrees.
 layer rules and a local Postgres with a migration runner and a `/health` DB check exist and
 pass every gate. There is no engine or feature code yet.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 | Document | Covers |
 |---|---|
@@ -242,14 +242,15 @@ the consoles can show progress; schedules go in `jobs/cron.ts`. Every handler is
 **A webhook**: one file per provider in `hooks/`: verify the signature, record the event id
 for idempotency, write outbox rows or engine calls, return fast.
 
-**A config value or binding**: add it to `core/config.ts` (zod) and `wrangler.jsonc`;
-secrets through `wrangler secret`, never in the repo. Pass it into `createEngine`, never
+**A config value**: add it to `core/config.ts` (zod) and to `apps/api/.env.example` with a dummy
+value; set the real one in each Worker's dashboard (Settings › Variables and Secrets) and in your
+`.env.local`, never in `wrangler.jsonc` or the repo (#272; THIRD-PARTY-ACCESS §8). **A binding**
+(Hyperdrive, R2, a queue, a rate limiter) goes in `wrangler.jsonc`, which holds bindings only. Pass it into `createEngine`, never
 read it from a global.
 
 **A migration**: add a numbered file to `migrations/` (`0002_...sql`, next number after the
 last one committed), reviewed SQL only, backward-compatible with the running release. Run
-`pnpm --filter ./apps/api migrate` (needs `DATABASE_URL` in the environment, e.g. `set -a;
-source .dev.vars; set +a`) to apply every pending file in order against your local database;
+`pnpm --filter ./apps/api migrate` (it reads `DATABASE_URL` from `apps/api/.env.local`) to apply every pending file in order against your local database;
 it refuses to run against anything but `localhost`/`127.0.0.1`/`::1` (AGENTS.md "Working
 with the user" rule 3). Each file runs inside its own transaction, so statements that
 cannot run in one (`create index concurrently`, `alter type ... add value`) must be their
@@ -292,23 +293,21 @@ sudo -u postgres psql -c "alter user dripfunnel_dev with password 'dripfunnel_de
 If port 5432 is already in use by another local Postgres, run the 18 instance on a different
 port (e.g. `5434`) and change the port in the URLs below to match.
 
-Copy `apps/api/.dev.vars.example` to `apps/api/.dev.vars`; the default `DATABASE_URL` matches
-the role, password, port and database name above. `wrangler dev` reads `.dev.vars` for worker
-bindings; Node scripts and tests don't, so export it first:
+Copy `apps/api/.env.example` to `apps/api/.env.local` (gitignored); the default `DATABASE_URL`
+matches the role, password, port and database name above. **Nothing needs exporting** (#272):
+`wrangler dev` reads `.env.local` for the Worker's values, and the scripts (`migrate`, `seed`,
+`session`, `schema`) and both test suites load it themselves. A value already in your shell or
+CI wins over the file.
 
 ```
 cd apps/api
-set -a; source .dev.vars; set +a
-pnpm migrate
+pnpm migrate && pnpm seed && pnpm dev
 ```
 
-`.dev.vars` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (same
-connection string as `DATABASE_URL`) — `wrangler dev --env local` uses it to make the `HYPERDRIVE`
-binding proxy to local Postgres instead of a real Hyperdrive resource. Wrangler reads that
-specific variable from the shell environment, not from `.dev.vars` directly, so `pnpm dev`
-sources `.dev.vars` into the shell before starting wrangler; if you run `wrangler dev` by hand
-instead of `pnpm dev`, export `.dev.vars` the same way first or it'll error asking for the
-variable.
+`.env.local` also needs `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` (the same
+connection string as `DATABASE_URL`, **with a password in the URL**, even a dummy one a trust-auth
+Postgres ignores): `wrangler dev --env local` uses it to make the `HYPERDRIVE` binding proxy to
+local Postgres instead of a real Hyperdrive resource, and refuses a passwordless URL.
 
 The runner applies migrations as the owner of the schema's tables (DATA-MODEL.md §5.3): when
 the connecting role is another member of that owner it runs each migration under
@@ -366,7 +365,7 @@ required extension is installed on the server before applying anything
 install it (`postgresql-contrib` / `postgresql-contrib-18`) rather than partially applying.
 
 This is local only (AGENTS.md "Working with the user" rule 3): nothing in
-`.dev.vars.example` or `wrangler.jsonc` ever points at
+`.env.example` or `wrangler.jsonc` ever points at
 `dbpg01.softobotics.org`. The exceptions are the deploy workflows, each of
 which sets `ALLOW_REMOTE_MIGRATIONS=1` to apply migrations to its own Neon
 branch: `dev.yml` (the persistent `dev` branch), `prod.yml` (production) and
@@ -397,7 +396,7 @@ A **local** host is always allowed, whether or not the override is set, so a
 CI step can turn the override on for a whole test run without the local
 database being refused by the host match.
 
-`pnpm test` needs this same database up and `.dev.vars` exported (see above):
+`pnpm test` needs this same database up, and reads `DATABASE_URL` from `.env.local` (see above):
 `scripts/health-check.test.ts`, `scripts/migrate/extensions.test.ts` and
 `scripts/migrate/runner.test.ts` run against it via `DATABASE_URL` (falling back to the
 default above when unset), the way CI's `postgres:18` service does

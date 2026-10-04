@@ -20,11 +20,11 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "schema": "tsx scripts/print-schema.ts",
-    "migrate": "tsx scripts/migrate/main.ts",
-    "seed": "tsx scripts/seed/main.ts",
-    "dev-env:attach": "tsx scripts/dev-env/main.ts",
-    "session": "tsx scripts/session/main.ts"
+    "schema": "tsx --env-file-if-exists=.env.local scripts/print-schema.ts",
+    "migrate": "tsx --env-file-if-exists=.env.local scripts/migrate/main.ts",
+    "seed": "tsx --env-file-if-exists=.env.local scripts/seed/main.ts",
+    "dev-env:attach": "tsx --env-file-if-exists=.env.local scripts/dev-env/main.ts",
+    "session": "tsx --env-file-if-exists=.env.local scripts/session/main.ts"
   },
   "dependencies": {
     "@pothos/core": "^4.15.1",
