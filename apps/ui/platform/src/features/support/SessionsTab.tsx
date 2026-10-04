@@ -10,6 +10,8 @@ export interface SessionsTabProps {
   open: readonly SupportSession[]
   history: readonly SupportSession[]
   now: number
+  // A Return to tab on its way: the buttons wait for its link.
+  returning: boolean
   more: { show: boolean; busy: boolean; failed: boolean }
   onReturn: (session: SupportSession) => void
   onEnd: (session: SupportSession) => void
@@ -46,7 +48,7 @@ const endedText = (session: SupportSession): string => {
 }
 
 // §12.3: who is signed in as whom now, with Return to tab (yours) and End; then the history.
-export const SessionsTab = ({ open, history, now, more, onReturn, onEnd, onMore }: SessionsTabProps) => (
+export const SessionsTab = ({ open, history, now, returning, more, onReturn, onEnd, onMore }: SessionsTabProps) => (
   <div className="df-panels">
     <section className="df-panel df-panel--wide" aria-labelledby="support-open">
       <h2 id="support-open">{words.openNow}</h2>
@@ -63,7 +65,7 @@ export const SessionsTab = ({ open, history, now, more, onReturn, onEnd, onMore 
                 <strong className="df-support-session-when">{fill(words.minutesLeft, { minutes: String(minutesLeft(session.expiresAt, now)) })}</strong>
                 <div className="df-support-session-actions">
                   {session.return.allowed && (
-                    <button type="button" className="df-button df-button--small" onClick={() => onReturn(session)}>
+                    <button type="button" className="df-button df-button--small" disabled={returning} onClick={() => onReturn(session)}>
                       {words.returnToTab}
                     </button>
                   )}

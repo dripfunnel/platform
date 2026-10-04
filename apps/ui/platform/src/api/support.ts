@@ -82,7 +82,8 @@ export interface Page<T> {
 const pageInfoFields = 'pageInfo { startCursor endCursor hasPreviousPage hasNextPage }'
 const verdictFields = '{ allowed reason }'
 const targetFields = `items { membershipId userId name email type store { id name } role supplier lastSignInAt status start ${verdictFields} storeOwner colleague { name minutesLeft } mySessionId } ${pageInfoFields}`
-const sessionFields = `items { id user { name role supplier } store { id name } agent { id name } you reason ticket startedAt expiresAt endedAt endedBy endedByName end ${verdictFields} return ${verdictFields} } ${pageInfoFields}`
+const oneSession = `id user { name role supplier } store { id name } agent { id name } you reason ticket startedAt expiresAt endedAt endedBy endedByName end ${verdictFields} return ${verdictFields}`
+const sessionFields = `items { ${oneSession} } ${pageInfoFields}`
 
 // Found by name, email or store (§12.1); never the partner's own team, staff or shoppers.
 export const loadSupportTargets = async (search: string | undefined, page: PageRequest): Promise<Page<SupportTarget>> =>
@@ -158,4 +159,24 @@ export const endSupportSession = async (id: string): Promise<Ended> => {
     { id },
   )
   return r.ok ? { ok: true } : { ok: false, reason: refusalOf(r.reason) }
+}
+
+// The caller's own open session, whichever page of the open list it would fall on.
+export const loadMySupportSession = async (): Promise<SupportSession | null> =>
+  (await query(`{ mySupportSession { ${oneSession} } }`, z.object({ mySupportSession: sessionSchema.nullable() }))).mySupportSession
+
+// Enough pages for any one person's memberships; past that the row is reported missing, never guessed.
+export const findPagesMax = 8
+
+// One user's row in one store: the search is their email, paged until that pair turns up.
+export const findSupportTarget = async (person: { id: string; email: string }, storeId: string): Promise<SupportTarget | null> => {
+  let after: string | undefined
+  for (let page = 0; page < findPagesMax; page += 1) {
+    const found = await loadSupportTargets(person.email, after ? { after } : {})
+    const target = found.items.find((t) => t.userId === person.id && t.store.id === storeId)
+    if (target) return target
+    if (!found.pageInfo.hasNextPage || !found.pageInfo.endCursor) return null
+    after = found.pageInfo.endCursor
+  }
+  return null
 }

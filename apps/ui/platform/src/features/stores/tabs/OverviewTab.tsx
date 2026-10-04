@@ -1,7 +1,8 @@
 import { InfoNote } from '@dripfunnel/shared/ui'
 import type { Store } from '../../../api/stores'
 import { fill, formatAmount, formatCount, formatCountry, formatDate, messages } from '../../../messages'
-import { chargedByOf, planNameOf, roleOf } from '../storeLook'
+import { roleOf } from '../../common/storeRoles'
+import { chargedByOf, planNameOf } from '../storeLook'
 
 const words = messages.store.overview
 

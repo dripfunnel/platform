@@ -7,6 +7,7 @@ import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { SessionsTab } from './SessionsTab'
 import { Support, SupportError, SupportLoading, SupportRefused } from './Support'
+import { openIn } from './startFlow'
 import { supportStates } from './supportHarness'
 import { refusalText } from './supportText'
 import { useStartSupport } from './useStartSupport'
@@ -57,6 +58,7 @@ export const SupportScreen = () => {
   const [found, setFound] = useState<Page<SupportTarget> | null>(null)
   const [searchFailed, setSearchFailed] = useState(false)
   const [ending, setEnding] = useState<SupportSession | null>(null)
+  const [returning, setReturning] = useState(false)
   const start = useStartSupport(me)
   const setToast = start.say
 
@@ -84,24 +86,23 @@ export const SupportScreen = () => {
   if (forced === 'error') return <SupportError onRetry={reload} />
   if (forced === 'denied' || !loaded) return <SupportRefused reason={fill(words.denied, { role: messages.shell.roles[forced === 'denied' ? 'partner-finance' : me.role] })} />
 
-  const mine = loaded.open.items.find((session) => session.you) ?? null
+  const { mine } = loaded
 
+  // One link at a time: a second click would mint a second single-use link (ACCESS.md §8.3).
   const returnTo = (session: SupportSession) => {
+    if (returning) return
     const tab = reserveTab()
-    returnToSupportSession(session.id)
-      .then((result) => {
-        if (!result.ok) {
-          tab.close()
+    setReturning(true)
+    openIn(tab, () => returnToSupportSession(session.id))
+      .then((outcome) => {
+        if (outcome.kind !== 'opened') {
           reload()
-          return setToast(refusalText(result.reason))
+          return setToast(outcome.kind === 'refused' ? refusalText(outcome.reason) : words.refusals.SUPPORT_SESSION_ALREADY_OPEN)
         }
-        tab.go(result.link)
         if (tab.blocked) setToast(words.toasts.popupBlocked)
       })
-      .catch(() => {
-        tab.close()
-        setToast(words.toasts.failed)
-      })
+      .catch(() => setToast(words.toasts.failed))
+      .finally(() => setReturning(false))
   }
 
   const end = (session: SupportSession) => {
@@ -127,7 +128,7 @@ export const SupportScreen = () => {
             onOpen={(target) => start.open(target, mine)}
           />
         )}
-        {tab === 'sessions' && <SessionsTab open={loaded.open.items} history={history.items} now={now} more={history.more} onReturn={returnTo} onEnd={setEnding} onMore={history.onMore} />}
+        {tab === 'sessions' && <SessionsTab open={loaded.open.items} history={history.items} now={now} more={history.more} returning={returning} onReturn={returnTo} onEnd={setEnding} onMore={history.onMore} />}
       </Support>
       {start.element}
       {ending && (

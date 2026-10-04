@@ -8,7 +8,7 @@ import { harnessEnabled } from '../../harness'
 import { actionInput, storeDialog, storeToast } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
 import { useStartSupport } from '../support/useStartSupport'
-import { supportAllowed } from '../support/supportText'
+import { supportStartOffered } from '../support/supportText'
 import { storeStates } from './storeHarness'
 
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
@@ -30,7 +30,7 @@ export const StoreDetailScreen = () => {
   const support = useStartSupport(me)
   // Support sessions are a partner user's own: a staff session can't start one (ACCESS.md §8.2).
   const staff = useCurrentStaffSession(staffSession)
-  const onStartSupport = store && supportAllowed(me.role) && !(staff && staff.state === 'open') ? (person: { id: string; email: string }) => void support.openFor(person, store.id) : undefined
+  const onStartSupport = store && supportStartOffered(me.role, staff?.state === 'open') ? (person: { id: string; email: string }) => void support.openFor(person, store.id) : undefined
 
   // Change plan asks the API for the plans offered and the proration before the dialog opens.
   const open = (action: StoreAction) => {

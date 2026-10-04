@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { endSupportSession, loadSupportTargets, reauthenticate, startSupportSession } from './support'
+import { endSupportSession, findPagesMax, findSupportTarget, loadSupportTargets, reauthenticate, startSupportSession } from './support'
 
 // The support rules are the Platform API's (apps/api tests/platform-support); these check the client.
 const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
@@ -56,5 +56,22 @@ describe('support', () => {
   it('ends a session, or says why not', async () => {
     answer.mockReturnValueOnce({ data: { endSupportSession: { ok: false, reason: 'NOT_SESSION_OWNER' } } })
     expect(await endSupportSession('ss1')).toEqual({ ok: false, reason: 'NOT_SESSION_OWNER' })
+  })
+
+  it('finds one user’s row in one store past the first page, and stops at the page limit', async () => {
+    const other = { ...row, membershipId: 'm0', store: { id: 's0', name: 'Elsewhere' }, start: { allowed: true, reason: null } }
+    const wanted = { ...row, start: { allowed: true, reason: null } }
+    answer
+      .mockReturnValueOnce({ data: { supportTargets: { items: [other], pageInfo: { ...pageInfo, hasNextPage: true, endCursor: 'c1' } } } })
+      .mockReturnValueOnce({ data: { supportTargets: { items: [wanted], pageInfo } } })
+    expect((await findSupportTarget({ id: 'u1', email: 'jenna@juniper.example' }, 's1'))?.membershipId).toBe('m1')
+    expect(answer.mock.calls.map((call) => call[0].variables)).toEqual([
+      { search: 'jenna@juniper.example' },
+      { search: 'jenna@juniper.example', after: 'c1' },
+    ])
+    answer.mockReset()
+    answer.mockReturnValue({ data: { supportTargets: { items: [other], pageInfo: { ...pageInfo, hasNextPage: true, endCursor: 'c' } } } })
+    expect(await findSupportTarget({ id: 'u1', email: 'jenna@juniper.example' }, 's1')).toBeNull()
+    expect(answer).toHaveBeenCalledTimes(findPagesMax)
   })
 })

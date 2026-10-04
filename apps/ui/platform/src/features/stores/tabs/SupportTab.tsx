@@ -1,7 +1,7 @@
 import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
 import type { Store, StorePerson, StoreSession } from '../../../api/stores'
 import { fill, formatTime, messages } from '../../../messages'
-import { roleOf } from '../storeLook'
+import { roleOf } from '../../common/storeRoles'
 
 const words = messages.store.support
 

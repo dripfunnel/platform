@@ -1,12 +1,15 @@
 import type { SupportRefusal, SupportSession, SupportTarget } from '../../api/support'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { fill, messages } from '../../messages'
-import { roleOf } from '../stores/storeLook'
+import { roleOf } from '../common/storeRoles'
 
 const words = messages.support
 
 // Owners, Admins and Support have Support (§12); the API's `support.session` refuses the rest too.
 export const supportAllowed = (role: PartnerRole): boolean => role === 'partner-owner' || role === 'partner-admin' || role === 'partner-support'
+
+// Whether a store's Support tab offers a start: a partner user's own session, never a staff one (ACCESS.md §8.2).
+export const supportStartOffered = (role: PartnerRole, staffSessionOpen: boolean): boolean => supportAllowed(role) && !staffSessionOpen
 
 export const firstOf = (name: string): string => name.split(' ')[0] ?? name
 

@@ -1,9 +1,9 @@
 import { ticketError } from '@dripfunnel/shared/format'
-import { reserveTab, type ReservedTab } from '@dripfunnel/shared/ui'
+import { reserveTab } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
-import { endSupportSession, reauthenticate, returnToSupportSession, startSupportSession, type Opened, type Reauth, type SupportSession, type SupportTarget } from '../../api/support'
+import { endSupportSession, reauthenticate, returnToSupportSession, startSupportSession, type Reauth, type SupportSession, type SupportTarget } from '../../api/support'
 import { fill, messages } from '../../messages'
-import { codeComplete, firstStep, type StartStep } from './startFlow'
+import { blockingSession, codeComplete, firstStep, openIn, startWith, type Outcome, type StartStep } from './startFlow'
 import { firstOf, minutesLeft, refusalText, roleText } from './supportText'
 
 const words = messages.support.start
@@ -44,6 +44,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [returning, setReturning] = useState(false)
   // The open session in the way: from the page, or only its id when the API was first to know.
   const [other, setOther] = useState<{ id: string; session: SupportSession | null } | null>(null)
 
@@ -60,6 +61,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
     setCode('')
     setCodeError(null)
     setMessage(null)
+    setReturning(false)
     setOther(mine && { id: mine.id, session: mine })
     setStep(firstStep(target, mine))
     if (!dialog.open) dialog.showModal()
@@ -76,58 +78,54 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
   const reasonMissing = reason.trim() === ''
   const badTicket = ticketError(ticket)
 
-  const fail = (text: string, tab?: ReservedTab) => {
-    tab?.close()
+  const fail = (text: string) => {
     setMessage(text)
     setStep('msg')
   }
 
-  const opened = (result: Opened, tab: ReservedTab) => {
-    if (result.ok) {
-      tab.go(result.link)
-      onChanged()
-      onStarted(target.name, tab.blocked)
-      return onClose()
-    }
-    tab.close()
+  const settle = (outcome: Outcome, tabBlocked: boolean) => {
     onChanged()
-    if (result.reason === 'SUPPORT_SESSION_ALREADY_OPEN') {
-      // The API's answer names the session in the way; the page's copy may be one already ended.
-      const id = result.sessionId ?? mine?.id ?? null
-      setOther(id ? { id, session: mine?.id === id ? mine : null } : null)
-      return setStep('busy')
+    switch (outcome.kind) {
+      case 'opened':
+        onStarted(target.name, tabBlocked)
+        return onClose()
+      case 'badCode':
+        setCode('')
+        setCodeError(reauthText(outcome.refusal))
+        return setStep('confirm')
+      case 'busy':
+        setOther(blockingSession(outcome.sessionId, mine))
+        return setStep('busy')
+      case 'refused':
+        if (outcome.reason !== 'REAUTH_REQUIRED') return fail(refusalText(outcome.reason, target))
+        setCode('')
+        setCodeError(refusalText(outcome.reason))
+        return setStep('confirm')
     }
-    if (result.reason === 'REAUTH_REQUIRED') {
-      setCode('')
-      setCodeError(refusalText(result.reason))
-      return setStep('confirm')
-    }
-    fail(refusalText(result.reason, target))
   }
 
   const start = () => {
     if (!codeComplete(code)) return setCodeError(words.codeMissing)
     const tab = reserveTab()
     setStep('starting')
-    reauthenticate(code)
-      .then((proof) => {
-        if (!proof.ok) {
-          tab.close()
-          setCode('')
-          setCodeError(reauthText(proof))
-          return setStep('confirm')
-        }
-        return startSupportSession({ membershipId: target.membershipId, reason: reason.trim(), ticket: ticket.trim() === '' ? null : ticket.trim(), proof: proof.proof }).then((result) => opened(result, tab))
-      })
-      .catch(() => fail(messages.support.toasts.failed, tab))
+    startWith(tab, code, {
+      reauthenticate,
+      start: (proof) => startSupportSession({ membershipId: target.membershipId, reason: reason.trim(), ticket: ticket.trim() === '' ? null : ticket.trim(), proof }),
+    })
+      .then((outcome) => settle(outcome, tab.blocked))
+      .catch(() => fail(messages.support.toasts.failed))
   }
 
+  // In flight like a start: a second click would mint a second single-use link (ACCESS.md §8.3).
   const returnTo = () => {
-    if (!target.mySessionId) return
+    const id = target.mySessionId
+    if (!id || returning) return
     const tab = reserveTab()
-    returnToSupportSession(target.mySessionId)
-      .then((result) => opened(result, tab))
-      .catch(() => fail(messages.support.toasts.failed, tab))
+    setReturning(true)
+    openIn(tab, () => returnToSupportSession(id))
+      .then((outcome) => settle(outcome, tab.blocked))
+      .catch(() => fail(messages.support.toasts.failed))
+      .finally(() => setReturning(false))
   }
 
   const endOther = () => {
@@ -163,7 +161,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault()
-        if (step !== 'starting') onClose()
+        if (step !== 'starting' && !returning) onClose()
       }}
     >
       <p className="df-eyebrow">{fill(words.label, { name: target.name })}</p>
@@ -196,7 +194,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
             <p>{fill(words.returnBody, values)}</p>
             {actions(
               cancel,
-              <button key="return" type="button" className="df-button df-button--primary" onClick={returnTo}>
+              <button key="return" type="button" className="df-button df-button--primary" disabled={returning} onClick={returnTo}>
                 {words.returnTo}
               </button>,
             )}

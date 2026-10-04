@@ -1,17 +1,17 @@
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { partnerRoles } from '../shell/partnerRoles'
 import { fill, messages } from '../../messages'
 import { storeAs } from '../stores/storesTestData'
 import { SupportTab } from '../stores/tabs/SupportTab'
 import { SessionsTab } from './SessionsTab'
-import { codeComplete, firstStep } from './startFlow'
+import { blockingSession, codeComplete, firstStep, openIn, startWith, type OpeningTab } from './startFlow'
 import { reauthText } from './StartSupportDialog'
 import { SupportRefused } from './Support'
 import { session, target } from './supportTestData'
-import { refusalText, supportAllowed } from './supportText'
+import { refusalText, supportAllowed, supportStartOffered } from './supportText'
 import { UsersTab } from './UsersTab'
 
 const words = messages.support
@@ -29,6 +29,11 @@ const usersTab = (users: Parameters<typeof UsersTab>[0]['users'], search?: strin
 describe('Support access', () => {
   it('is for Owners, Admins and Support only', () => {
     expect(partnerRoles.filter(supportAllowed)).toEqual(['partner-owner', 'partner-admin', 'partner-support'])
+  })
+
+  it('offers a store tab’s start to those roles only, and never in a staff session', () => {
+    expect(partnerRoles.filter((role) => supportStartOffered(role, false))).toEqual(['partner-owner', 'partner-admin', 'partner-support'])
+    expect(partnerRoles.filter((role) => supportStartOffered(role, true))).toEqual([])
   })
 
   it('says why a role or a staff session has no Support', async () => {
@@ -90,12 +95,63 @@ describe('Starting a session', () => {
   })
 })
 
+describe('The start and the return', () => {
+  const tab = () => {
+    const opened: string[] = []
+    const t: OpeningTab & { opened: string[]; closed: number } = { opened, closed: 0, go: (url) => void opened.push(url), close: () => void (t.closed += 1) }
+    return t
+  }
+  const link = 'https://shop.northstar.example/support/enter?token=t'
+
+  it('sends only a proof to the start, and opens the link in the reserved tab', async () => {
+    const t = tab()
+    const start = vi.fn((proof: string) => Promise.resolve({ ok: true as const, link: `${link}&p=${proof}` }))
+    expect(await startWith(t, '123456', { reauthenticate: () => Promise.resolve({ ok: true, proof: 'pr' }), start })).toEqual({ kind: 'opened' })
+    expect(start).toHaveBeenCalledWith('pr')
+    expect(t.opened).toEqual([`${link}&p=pr`])
+    expect(t.closed).toBe(0)
+  })
+
+  it('never starts when the code is refused, and closes the tab', async () => {
+    const t = tab()
+    const start = vi.fn()
+    const refusal = { ok: false as const, reason: 'WRONG_CODE' as const, triesLeft: 2, lockedMinutes: null }
+    expect(await startWith(t, '000000', { reauthenticate: () => Promise.resolve(refusal), start })).toEqual({ kind: 'badCode', refusal })
+    expect(start).not.toHaveBeenCalled()
+    expect(t.closed).toBe(1)
+  })
+
+  it('closes the tab on every refusal and every failure', async () => {
+    for (const reason of ['REAUTH_REQUIRED', 'PORTAL_NOT_LIVE', 'SUPPORT_OFF'] as const) {
+      const t = tab()
+      expect(await openIn(t, () => Promise.resolve({ ok: false, reason, sessionId: null }))).toEqual({ kind: 'refused', reason })
+      expect(t.closed).toBe(1)
+      expect(t.opened).toEqual([])
+    }
+    const t = tab()
+    await expect(openIn(t, () => Promise.reject(new Error('down')))).rejects.toThrow('down')
+    expect(t.closed).toBe(1)
+  })
+
+  it('ends the session the API names, not the page’s stale copy', async () => {
+    const t = tab()
+    const outcome = await openIn(t, () => Promise.resolve({ ok: false, reason: 'SUPPORT_SESSION_ALREADY_OPEN', sessionId: 'ss9' }))
+    expect(outcome).toEqual({ kind: 'busy', sessionId: 'ss9' })
+    expect(t.closed).toBe(1)
+    const stale = session({ id: 'ss1' })
+    expect(blockingSession('ss9', stale)).toEqual({ id: 'ss9', session: null })
+    expect(blockingSession('ss1', stale)).toEqual({ id: 'ss1', session: stale })
+    expect(blockingSession(null, stale)).toEqual({ id: 'ss1', session: stale })
+    expect(blockingSession(null, null)).toBeNull()
+  })
+})
+
 describe('Sessions', () => {
   const now = Date.parse('2026-10-04T10:18:00.000Z')
 
   it('shows the open ones with minutes left, Return to tab on yours and End when allowed', async () => {
     const theirs = session({ id: 'ss2', you: false, agent: { id: 'p2', name: 'Sam Lee' }, return: { allowed: false, reason: 'NOT_SESSION_OWNER' }, end: { allowed: false, reason: 'NOT_SESSION_OWNER' } })
-    const html = await render(<SessionsTab open={[session(), theirs]} history={[]} now={now} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const html = await render(<SessionsTab open={[session(), theirs]} history={[]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain('12 min left')
     expect(text.match(new RegExp(words.returnToTab, 'g'))).toHaveLength(1)
@@ -108,7 +164,7 @@ describe('Sessions', () => {
   it('shows the history: ended by whom, or expired, and never links a ticket that isn’t https', async () => {
     const ended = session({ id: 'h1', endedAt: '2026-10-04T10:20:00.000Z', endedBy: 'colleague', endedByName: 'Maya Chen', ticket: 'javascript:alert(1)' })
     const expired = session({ id: 'h2', endedAt: '2026-10-04T10:30:00.000Z', endedBy: 'expired' })
-    const html = await render(<SessionsTab open={[]} history={[ended, expired]} now={now} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const html = await render(<SessionsTab open={[]} history={[ended, expired]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain(words.noOpen)
     expect(text).toContain('Ended by Maya Chen')
