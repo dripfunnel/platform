@@ -428,3 +428,75 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 8. **Exchange rates, US sales tax and duties providers.** (§2.8)
 9. **Logpush destination, error tracking, support chat and status page.** (§2.8)
 10. **SES region**, and whether EU partners need EU sending and storage.
+
+---
+
+## 8. Every variable, key and secret, by name
+
+The one list of every value the code reads, with what it is for, how to make it, where it is
+kept and what reads it. The root [`.env.example`](../../.env.example) holds the same names with
+dummy values, grouped the same way; `apps/api/.dev.vars.example` is the part you copy for local
+development. **A new variable is added to both, and to this table, in the change that first
+reads it** (#272).
+
+Where it is kept:
+
+- **Worker secret**: `wrangler secret put <NAME> --env dev` (and `--env prod`) from `apps/api`.
+  Locally, `apps/api/.dev.vars`. Never in `wrangler.jsonc`.
+- **Wrangler var**: `apps/api/wrangler.jsonc` under that environment's `vars`. Not secret.
+- **GitHub secret / var**: repository → Settings → Environments → `dev`, `prod` or `feature` →
+  *Environment secrets* or *Environment variables*. A secret is masked in logs; a var is not.
+- **Build var**: set in the shell or CI step that runs `vite build`. It is compiled into the
+  public bundle, so it is **never** a secret.
+- **Local**: `apps/api/.dev.vars`, or your shell for personal tokens.
+
+### 8.1 Read by the code today
+
+| Name | Role, and the least scope it needs | How to make it | Kept in (local · dev · prod) | Read by |
+|---|---|---|---|---|
+| `ADMIN_HOST`, `PLATFORM_HOST`, `HOOKS_HOST` | Which hostname is which API; the router answers 404 elsewhere (ARCHITECTURE §2) | Fixed per environment: `*.localhost`, `dev-*.dripfunnel.ai`, `*.dripfunnel.com` | Wrangler var, each environment | `core/config.ts` |
+| `HYPERDRIVE_REQUIRED` | `"1"` where a Hyperdrive binding exists, so losing it turns `/health` red (#30) | — | Wrangler var (local, dev; prod once its binding exists) | `core/config.ts` |
+| `HYPERDRIVE` *(binding)* | Postgres through Hyperdrive. Holds the Neon **pooled** string of the app role, without `BYPASSRLS` (§2.2) | `wrangler hyperdrive create <name> --connection-string=<pooled url>`, then its id in `wrangler.jsonc` | Cloudflare; `wrangler.jsonc` names it | `index.ts`, `db/client.ts` |
+| `ASSETS` *(binding)* | R2 bucket for uploads, exports and invoices (§2.1) | `wrangler r2 bucket create dripfunnel-assets-dev` (and `dripfunnel-assets`) | `wrangler.jsonc` | `index.ts` (brand uploads) |
+| `HEALTH_RATE_LIMITER`, `SIGN_IN_RATE_LIMITER`, `STAFF_SESSION_RATE_LIMITER` *(bindings)* | Rate limits on `/health`, sign-in and codes, and the staff-session routes (ARCHITECTURE §7) | Declared in `wrangler.jsonc` `ratelimits` | `wrangler.jsonc` | `index.ts` |
+| `CF_VERSION_METADATA` *(binding)* | The running Worker version, for `/health` and logs | Declared in `wrangler.jsonc` | `wrangler.jsonc` | `index.ts` |
+| `CREDENTIALS_KEK` | Encrypts 2-factor secrets and every merchant credential at rest (§5). One per environment; never reused across them | `openssl rand -base64 32` | `.dev.vars` · Worker secret · Worker secret | `core/config.ts`, `auth/secretBox.ts` |
+| `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | Staff sign-in to the admin console (§2.5). Single-tenant registration, `openid profile email`, the `amr` optional claim | Entra admin center → App registrations → New (single tenant) → redirect URIs from §2.5 → *Certificates & secrets* → New client secret (copy it once; 24 months at most) | `.dev.vars` (optional) · Worker secret · Worker secret | `core/config.ts`, `integrations/entra` |
+| `STRIPE_SECRET_KEY` | DripFunnel's Stripe account: Connect accounts, customers, payment methods; reads charges, invoices, payouts (§2.7). A **restricted** key (`rk_`), test mode outside prod | Stripe Dashboard → Developers → API keys → *Create restricted key*, with write on Accounts, Customers, Payment methods and read on Charges, Invoices, Payouts, Refunds | `.dev.vars` (optional, test) · Worker secret (test) · Worker secret (live) | `core/config.ts`, `integrations/stripe` (since #201) |
+| `STRIPE_WEBHOOK_SECRET` | Verifies events at `hooks.<host>/stripe` (SAAS §7.2) | Stripe → Developers → Webhooks → *Add endpoint* `https://hooks.dripfunnel.com/stripe` (dev: `https://dev-hooks.dripfunnel.ai/stripe`) with `invoice.*`, `charge.*`, `payout.*`, `account.*` and *Listen to events on Connected accounts* → *Reveal signing secret*. Locally `stripe listen --forward-to localhost:8787/stripe` prints one | `.dev.vars` (optional) · Worker secret · Worker secret | `core/config.ts`, `hooks/stripe.ts` (since #201) |
+| `DATABASE_URL` | The local Postgres the migrate, seed and session scripts and the integration tests use. **Never** Neon or `dbpg01` locally (AGENTS.md rule 3) | Your local Postgres 18 (api/README §7) | `.dev.vars` · — · — | `scripts/*`, `tests/support/database.ts` |
+| `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` | What `wrangler dev --env local` uses in place of the Hyperdrive binding. Needs a password in the URL, even a dummy one | Same local Postgres as above | `.dev.vars` | wrangler |
+| `GITHUB_PAT` | Each developer's own GitHub token for Claude Code's GitHub MCP server: issues, pull requests and projects on `dripfunnel/platform` only (§2.11) | GitHub → Settings → Developer settings → Fine-grained tokens, 90 days at most ([GITHUB-MCP.md](GITHUB-MCP.md)) | Your shell profile, never a file in the repo | `.mcp.json` |
+| `ALLOWED_MIGRATION_HOST` | The one remote host migrations may touch; anything else fails closed (§2.2) | The hostname of `DEV_DATABASE_URL` or `PROD_DATABASE_URL` | — · GitHub var `dev` · GitHub var `prod` | `scripts/migrate/host-guard.ts` |
+| `ALLOWED_TEST_HOST` | The disposable test branch's host; the gates step passes it to the runner as `ALLOWED_MIGRATION_HOST` (§2.2) | The hostname of `TEST_DATABASE_URL` | — · GitHub var `dev` · GitHub var `prod` | `dev.yml`, `prod.yml` |
+| `ALLOW_REMOTE_MIGRATIONS`, `CI` | `"1"` with `CI=true` lets migrations reach the allowed remote host; locally both stay off | Set by the workflow step | — · workflow · workflow | `scripts/migrate/host-guard.ts` |
+| `CLOUDFLARE_API_TOKEN` | Deploys. One per GitHub environment, each on its own Cloudflare account and scoped as §2.1 lists (prod: Workers Scripts, Pages, Routes, Queues/Workflows/Hyperdrive; dev and feature: the `dripfunnel.ai` zone) | Cloudflare → My Profile → API Tokens → *Create token* → custom, with §2.1's permissions on the named account and zone only | — · GitHub secret `dev` and `feature` · GitHub secret `prod` | `dev.yml`, `feature-env.yml`, `prod.yml`, `promote.yml` |
+| `CLOUDFLARE_ACCOUNT_ID` | Which account a deploy targets | Cloudflare dashboard → the account's overview → *Account ID* | — · GitHub var · GitHub var | the same workflows |
+| `DEV_DATABASE_URL`, `PROD_DATABASE_URL` | Migrations before each deploy, as the migration role over Neon's **direct** connection (§2.2) | Neon → the project → the branch → *Connection details* → role `migrator`, direct (not pooled) | — · GitHub secret `dev` · GitHub secret `prod` | `dev.yml`, `prod.yml` |
+| `TEST_DATABASE_URL` | The disposable branch the CI gates run against (§2.2) | Neon → a branch made for tests → *Connection details* | — · GitHub secret `dev` · GitHub secret `prod` | `dev.yml`, `prod.yml` |
+| `NEON_API_KEY`, `NEON_PROJECT_ID` | Creating and deleting each feature environment's branch, in the dev project only (§2.2) | Neon → the dev project → Settings → *API keys* → project-scoped key; the project id from its settings | — · GitHub secret / var `feature` · — | `feature-env.yml`, `scripts/feature-env` |
+| `FEATURE_DOMAIN`, `FEATURE_ZONE_ID` | The `dripfunnel.ai` zone feature environments live in ([FEATURE-ENVIRONMENTS.md](FEATURE-ENVIRONMENTS.md)) | Cloudflare dev account → the zone → overview → *Zone ID* | — · GitHub var `feature` · — | `feature-env.yml`, `scripts/feature-env` |
+| `FEATURE_DATABASE_URL` | The feature branch's connection string, handed between the workflow's own steps | Output of the Neon branch step; nothing to set | — · workflow · — | `scripts/feature-env` |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude's review on every pull request (§2.6). Personal and expiring; reviews run as whoever minted it | `claude setup-token` on a Pro or Max subscription | — · GitHub repository secret · — | `ci.yml` |
+| `GITHUB_TOKEN` | Per-run token GitHub makes for each workflow | Nothing to make or set | — | `ci.yml`, `naming.yml` |
+| `VITE_STATE_HARNESS` | `"1"` builds the `?state=` harness into a console; dev and feature builds only, never production | — | Build var (feature and dev builds) | `apps/ui/*/src/harness.ts`, `shared/ui/screenState.ts` |
+| `VITE_ADMIN_URL` | Where the portals' staff-session links lead outside `vite dev`; https only, defaults to production | The admin console's address for that build | Build var | `shared/ui/adminConsoleUrl.ts` |
+
+### 8.2 Planned: not read yet
+
+Named now so each card uses the same name; commented in `.env.example` until code reads it. Each
+row's role, scope and generation are in the section it cites.
+
+| Name | Role | Kept in | Section | First needed |
+|---|---|---|---|---|
+| `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Sending email (IAM user limited to `ses:SendEmail`/`SendRawEmail`, plus the identity calls) | Worker secrets | §2.4 | slice 4 |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | Store repos through the provisioning App | Ids as Wrangler vars; key and webhook secret as Worker secrets | §2.3 | slice 6 |
+| `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Wrangler var | §2.1 | slice 4 |
+| `CF_STOREFRONT_DEPLOY_TOKEN`, `CF_CACHE_PURGE_TOKEN` | Publishing storefronts and purging their caches | Worker secrets | §2.1 | slice 6 |
+| `STRIPE_CONNECT_WEBHOOK_SECRET` | Only if Connect events get their own endpoint *(decide)* | Worker secret | §2.7 | slice 11 |
+| `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
+| `ANTHROPIC_API_KEY`, `AI_GATEWAY_TOKEN` | Platform-paid AI calls | Worker secrets | §2.6 | slice 9 |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google" on the portal | Worker secrets | §2.9 | slice 4 |
+| `TURNSTILE_SECRET_KEY`, `VITE_TURNSTILE_SITE_KEY` | Bot check on signup and codes *(proposed)* | Worker secret; site key as build var | §2.1 | slice 4 |
+| `SHIPPING_AGGREGATOR_API_KEY` | The US courier aggregator (EasyPost or Shippo) | Worker secret | §3.2 | slice 7 |
+| `HANDOFF_SIGNING_KEY` | Signing one-time handoff tokens across hosts | Worker secret | §5 | slice 4 / 11 |

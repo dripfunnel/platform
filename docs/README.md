@@ -68,7 +68,7 @@ docs/
   code/
     ARCHITECTURE.md         repo-wide: workspace decisions, storefront-core package and releases, tooling
     DESIGN.md               repo-wide: how modules, config, errors, tenancy data and UI components are written
-    THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times
+    THIRD-PARTY-ACCESS.md   every third-party account, token and key: owner, scope, where kept, when needed, lead times; §8 lists every variable by name, as the root .env.example does
     FEATURE-ENVIRONMENTS.md a complete, separate environment per `feature` branch: design, lifecycle, one-time setup, limits
     GITHUB-MCP.md           connect Claude Code to GitHub (issues, project cards, pull requests) with a personal token
     HOW-TO-WORK-A-CARD.md   the loop a developer repeats for every card: read it, branch, work with Claude, gates, pull request, review
