@@ -296,35 +296,17 @@ export const startImpersonation = async (targetId: string, membershipId: string,
     ).startImpersonation,
   )
 
-// A setup session answers with its id and end, not the session record: the dialog's own facts fill the rest.
-export const startSetupSession = async (partner: Ref, reason: string, ticket: string | null, staffName: string): Promise<StartResult> => {
+// A setup session answers with its id; the record is read back so its facts are the API's.
+export const startSetupSession = async (partner: Ref, reason: string, ticket: string | null): Promise<StartResult> => {
   const { startPartnerSetupSession: result } = await query(
     `mutation Setup($id: ID!, $reason: String!, $ticket: String) { startPartnerSetupSession(id: $id, reason: $reason, ticket: $ticket) { ok code handoff sessionId expiresAt } }`,
     z.object({ startPartnerSetupSession: z.object({ ok: z.boolean(), code: z.string().nullable(), handoff: z.string().nullable(), sessionId: z.string().nullable(), expiresAt: isoString.nullable() }) }),
     { id: partner.id, reason, ticket },
   )
-  if (!result.ok || !result.handoff || !result.sessionId || !result.expiresAt) return { ok: false, reason: refusalOf(result.code) }
-  const session: StaffSession = {
-    id: result.sessionId,
-    kind: 'setup',
-    // The caller's own session; its id is the API's to keep, and nothing here needs it.
-    staff: { id: '', name: staffName },
-    target: null,
-    membership: null,
-    partner,
-    store: null,
-    host: new URL(result.handoff).host,
-    reason,
-    ticket,
-    startedAt: new Date().toISOString(),
-    expiresAt: result.expiresAt,
-    endedAt: null,
-    extendedAt: null,
-    outcome: 'open',
-    mine: true,
-    actions: { end: { allowed: true } },
-  }
-  return { ok: true, session, handoff: result.handoff }
+  if (!result.ok || !result.handoff || !result.sessionId) return { ok: false, reason: refusalOf(result.code) }
+  const lookup = await loadSession(result.sessionId)
+  if (lookup.kind !== 'found') throw new ApiError('NOT_FOUND', 'The setup session the API started could not be read back.')
+  return { ok: true, session: lookup.session, handoff: result.handoff }
 }
 
 export const returnToSession = async (id: string): Promise<StartResult> =>

@@ -110,7 +110,7 @@ export const StartSessionDialog = ({ subject, caller, meName, simulate, onClose,
       subject.kind === 'impersonation' && membershipId
         ? startImpersonation(subject.target.id, membershipId, reason, cleanTicket)
         : subject.kind === 'setup'
-          ? startSetupSession(subject.partner, reason, cleanTicket, meName)
+          ? startSetupSession(subject.partner, reason, cleanTicket)
           : Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
     // The harness's sign-in answer stands in for the API asking for one (?state=reauthFailed).
     const asked = simulate ? (): Promise<StartResult> => Promise.resolve({ ok: false, reason: 'REAUTH_REQUIRED' }) : start
