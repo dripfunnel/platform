@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-04.
 
 ---
 
@@ -40,7 +40,7 @@ Every child receives a single `app` prop (see §3).
 
 | Screen | File | Notes |
 | --- | --- | --- |
-| Sign in, sign up, invite | `PortalAuth` | Signup builds a store; views `login` / `su1…` / `invite` / `inviteBad` |
+| Sign in, sign up, invite | `PortalAuth` | Signup builds a store; views `login` / `tfa` / `enrol` (an Owner without 2FA) / `su1…` / `invite` / `inviteBad` |
 | Home | `PortalHome` | Landing screen; what is waiting, then today's numbers; locale picker for new stores |
 | Orders + customers | `PortalOrders` | Filters, detail, ship with courier/tracking, refund, customer email |
 | Offers list | `Offers` | Live / scheduled / ended tabs, results, single-use codes |
@@ -132,6 +132,9 @@ Key members of `app`:
 - **Feedback:** `toast(msg, action?, fn?)`, `modal(spec)`, `closeModal()`, `upgrade(feature, plan)`, `upgradeTo`
 - **AI:** `needAI()` checks the plan's AI mode and quota before a run; `aiLeft()` returns the label
 - **Auth:** `signIn(role?)`, `signOut()`, `finishSignup(info)`
+- **Profile:** `me` (the signed-in role's profile: name, email, phone, `tfa` of `off` / `sms` / `app`, backup codes) and `setMe(patch)`; `theme` and `setTheme`
+- **Output:** `download(name, header, rows)` writes a real CSV (the shell's `dl`); `doc(spec)` opens a printable document (invoice, packing slip, label); `preview(spec)` opens the storefront preview
+- **Work:** `startJob(job)`, `job` and `clearJob()` run a background job with its banner; `request(what)` sends a team request to the owner's Home; `removeSupplier(id)`; `logStock(entry)` adds to the stock history
 
 ### Regions
 `REG(key)` returns a region pack; switching region rebuilds the whole store.
@@ -439,11 +442,7 @@ have, orange fills on navigation.
 
 ## 13. Known gaps
 
-- `DF Store Pricing.dc.html` links *Sign in* / *Start free* to `DF Catalogue Prototype.dc.html`, which no longer exists — should point at `DF Store Prototype.dc.html`.
-- Store screens hard-code hex values and have no dark mode; Platform and Admin are tokenised with dark mode. Moving the Store to the same `[data-…]` variable set would make theming one change.
-- Open decisions from the brief still stand: what a supplier may see of a customer, refund ownership across suppliers, and whether editing an approved product sends it back for approval.
 - Support sessions are read-only only in wording: the Store prototype doesn't block saves yet.
-- `github.md`'s screen map still names the retired `DripFunnel Portal A1 Signup` spec file.
 - The Admin prototype's **Environment** control offers only Production and Staging. The product
   has four environments, named by hostname (Production, Dev, Feature, Local; decided on #65), and
   the console builds those; the prototype is behind it.
