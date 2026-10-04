@@ -241,7 +241,7 @@ they change this portal:
   only name, price or photo changes, hidden until approved (ACCESS.md §7.2).
 - ~~What happens to a removed or suspended vendor's products.~~ **Settled 2026-10-02**: removed → hidden and kept; suspended → the Owner chooses (ACCESS.md §7.5).
 - ~~Refunds and returns across vendors.~~ **Designed 2026-10-02** (ACCESS.md §7.3); the release
-  is FIRST-RELEASE.md's (to be written on #184).
+  is FIRST-RELEASE.md's (written on #184: all of it ships, §1).
 - ~~Staff: export, and a read-only offers list?~~ **Decided 2026-10-04 on #184**: both yes.
 - Vendors: ~~import/export~~ (own only, #184), translations, other-currency prices, collections?
 - ~~2-factor for Owners only, or everyone.~~ **Settled 2026-10-02**: Owners required, others

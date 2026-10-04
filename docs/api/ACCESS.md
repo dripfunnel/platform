@@ -1259,7 +1259,7 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   nothing, or name and delivery address (§7.3).
 - ~~**What happens to a removed or suspended vendor's products?**~~ **Settled 2026-10-02**: removed → hidden and kept; suspended → the Owner chooses (§7.5).
 - ~~**Refunds, returns and cancellations across vendors**: first release or later?~~ **Designed
-  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's (to be written on #184)
+  2026-10-02** (§7.3); whether they are in the first release is ui/store/FIRST-RELEASE.md's (written on #184: all of it ships, §1)
   (#184).
 - ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
   both in the same store (DATA-MODEL §1, §7.5).

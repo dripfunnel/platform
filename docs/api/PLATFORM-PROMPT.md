@@ -741,7 +741,7 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
   Route), or is it outside the platform?~~ **Settled 2026-10-02**: outside, from a per-store
   supplier ledger (§5.4 Payments); in-platform payouts later.
 - ~~Refunds, returns and cancellations across vendors: first release or later?~~ **Designed
-  2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's (to be written on #184).
+  2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's (written on #184: all of it ships, §1).
 - ~~Digital products, services, gift cards: first release or later?~~ ~~Which "needs backend" items
   from the catalogue and offers prompts are first release?~~ **All of them** (decided 2026-10-04
   on #184, §8; ui/store/FIRST-RELEASE.md §1).

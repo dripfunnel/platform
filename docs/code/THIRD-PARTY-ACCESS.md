@@ -203,7 +203,7 @@ This account handles **platform** billing. Shoppers' payments are §3.1.
 | **Publishable key**, per mode | Stripe Elements or Checkout in the Billing screen, so the card never touches our servers (the prototype's Billing screen draws it as a hosted Stripe card field since 2026-10-02) | `pk_…` (public) | SPA build variable | 11 |
 | **Webhook signing secret** for `hooks.dripfunnel.com/stripe` | Verifying billing events; idempotent through `billing_event` | `whsec_…` per endpoint and mode | Worker secret | 11 |
 | **Stripe Connect** (platform) | "DripFunnel bills merchants on the partner's behalf" **ships first** (SAAS §7.1): partners are connected accounts, receive monthly payouts, and are verified by a test deposit (Platform prototype) | Connect enabled; Connect webhook secret; one connected account ID per partner | Worker secret; IDs in Postgres | 11. **Lead time**: Connect platform review |
-| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2) and/or US sales tax for merchants (§2.8) | Enabled on the account; same key | — | 11 |
+| **Stripe Tax** (chosen for US sales tax on #184) | Tax on DripFunnel's own invoices (VAT, GST per payer country, SAAS §7.2) and US sales tax at merchants' checkouts (decided on #184; each merchant's nexus set up) | Enabled on the account; same key | — | 11 |
 | **Customer portal** configuration *(optional)* | Stripe-hosted "manage card / invoices" | Config | Stripe | 11 |
 
 ### 2.8 Services still to choose
@@ -215,7 +215,6 @@ Each row is an open question in the specs. Each needs an account and key once ch
 | **SMS and WhatsApp one-time codes** | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1, *which provider? (ask)*) | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
 | **WhatsApp messages** | Abandoned-cart reminders in India (Carts prototype); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. *(ask whether each partner or merchant needs its own number, because white label)* |
 | **Exchange rates** | Automatic currency conversion, "rates updated 2 hours ago" (CATALOG-DESIGN §3 fact 26, *(release: decide)*) | ECB reference rates (free, no key, EUR base, daily), Open Exchange Rates, Fixer, currencyapi | API key (none for ECB) | — |
-| **US sales tax** | CATALOG-DESIGN §3 fact 37; PLATFORM-PROMPT §5.4 (decided on #184: **Stripe Tax**) | Stripe Tax | Account ID + licence key / API token, per merchant nexus set-up | Contract (Avalara) |
 | **Duties and import taxes at checkout** | Business plan feature (Pricing, SetMarkets, designed 2026-10-02: from each product's classification code or a flat percentage of the basket, with a de-minimis threshold); the provider behind it is still to choose | Zonos, Avalara Cross-Border, Stripe Tax (limited) | API key | Contract |
 | **Search engine** (only if Postgres full-text isn't enough) | PLATFORM-PROMPT §5.4 "Typesense later" | Typesense Cloud | Admin key (server) + search-only scoped keys | later |
 | **Logpush destination** | ARCHITECTURE §8 *(confirm)* | R2 (nothing extra), Axiom, Better Stack, Datadog | Ingest token | 12 |
@@ -263,15 +262,12 @@ appear.
 
 ### 3.1 Payment providers (Settings › Payment setup)
 
-Decided: the merchant's **own** accounts and keys, Stripe and Razorpay first
-([../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §3.2, §5.4). `apps/api/src/integrations/payments`
-plans `stripe/`, `razorpay/` and `cashfree/`.
-
-The Store prototype also shows:
-
-- PayPal for US and DE,
-- Klarna and bank transfer for DE,
-- PhonePe, COD and bank transfer for IN.
+Decided: the merchant's **own** accounts and keys
+([../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §3.2, §5.4). **At launch (decided
+2026-10-04 on #184, PLATFORM-PROMPT §8):** India and the US, with **Stripe** and **PayPal** (US),
+**Razorpay**, **Cashfree**, **PhonePe** and **cash on delivery** (India), and **bank transfer**
+(both). `apps/api/src/integrations/payments` plans one adapter each. Klarna and the DE region stay
+in the Store prototype as a demo control only.
 
 The Platform prototype's provider list also has Adyen.
 
@@ -309,9 +305,10 @@ first (PLATFORM-PROMPT §5.4).
 | **Hermes / Evri** | DE | API client ID + secret, customer number | — |
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
-A courier aggregator (EasyPost, Shippo, ShipEngine) *(decide)* would replace most of the US and
-EU rows with **one DripFunnel API key** plus each merchant's carrier accounts connected
-inside it.
+**Decided 2026-10-04 on #184:** the US carriers (USPS, UPS, FedEx) come **through one courier
+aggregator** (EasyPost or Shippo, chosen on its card), which replaces the US rows with **one
+DripFunnel API key** plus each merchant's carrier accounts connected inside it; India uses
+**Shiprocket**. The EU rows wait with the EU region.
 
 ### 3.3 The merchant's own AI key
 

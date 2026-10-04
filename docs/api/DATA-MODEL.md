@@ -693,8 +693,8 @@ The merchant-side model, designed on #187 (2026-10-02, revised the same day afte
 PLATFORM-PROMPT §3.3 and §5.4–5.7, CATALOG-DESIGN §3, OFFERS-DESIGN §3, DESIGN-BRIEF §3, SAAS
 §4–9, ACCESS §5 and §7, and the Store prototype. **The structure is decided; names and columns
 are *(proposed)* until each module's migration**, as §3 was before #32. Which module ships
-first is ui/store/FIRST-RELEASE.md's (to be written on #184); anything the specs mark
-`(release: decide)` keeps the mark here. The model's own open points are in §6.
+first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the release, §1, built in
+§20's order); a `(release: decide)` mark here is now settled on the module's own card. The model's own open points are in §6.
 
 ### 7.1 Conventions every table below follows
 
