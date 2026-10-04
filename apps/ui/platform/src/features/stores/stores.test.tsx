@@ -158,6 +158,8 @@ describe('the partner Stores list', () => {
     const ready = await list({}, 'partner-owner', { exportJob: { id: 'sx1', state: 'ready', entries: 86, url: 'blob:stores', expiresAt: '2026-09-29T18:42:00Z' } })
     expect(textOf(ready)).toContain('Your export of 86 store accounts is ready.')
     expect(ready).toContain('href="blob:stores"')
+    const capped = await list({}, 'partner-owner', { exportJob: { id: 'sx1', state: 'ready', entries: 5000, truncated: true, url: 'blob:stores', expiresAt: null } })
+    expect(textOf(capped)).toContain('Your export is ready with only the first 5,000 store accounts. Narrow the filter to export the rest.')
   })
 
   it('adds the Billing status column only in own-billing mode, set by Owners, Admins and Finance and refused for the rest', async () => {

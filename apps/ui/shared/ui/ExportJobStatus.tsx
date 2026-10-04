@@ -3,7 +3,7 @@ import type { ExportJob } from '../graphql/exportJob'
 export interface ExportJobWords {
   preparing: string
   // The count of entries the export holds, worded by the app (its plural rules).
-  ready: (count: number) => string
+  ready: (count: number, truncated: boolean) => string
   download: string
   // The file the browser saves, named by the app for today's date.
   file: (date: string) => string
@@ -21,7 +21,7 @@ export const ExportJobStatus = ({ job, words }: { job: ExportJob; words: ExportJ
     case 'ready':
       return (
         <>
-          {words.ready(job.entries ?? 0)}{' '}
+          {words.ready(job.entries ?? 0, job.truncated ?? false)}{' '}
           {job.url && (
             <a href={job.url} download={words.file(new Date().toISOString().slice(0, 10))} className="df-row-link">
               {words.download}
