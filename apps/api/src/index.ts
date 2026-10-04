@@ -75,13 +75,13 @@ interface Env extends Record<string, unknown> {
 // Built once per isolate from configuration, like Stripe's client below.
 let sesBuilt: { key: string; api: SesApi } | undefined
 
-// THIRD-PARTY-ACCESS.md §2.4: all four values or no email; without them it waits in the outbox.
-const sesFor = (config: Config): { api: SesApi; senderDomain: string } | null => {
-  const { SES_REGION: region, SES_ACCESS_KEY_ID: accessKeyId, SES_SECRET_ACCESS_KEY: secretAccessKey, SES_SENDER_DOMAIN: senderDomain } = config
-  if (!region || !accessKeyId || !secretAccessKey || !senderDomain) return null
+// THIRD-PARTY-ACCESS.md §2.4: all five values or no email; without them it waits in the outbox.
+const sesFor = (config: Config): { api: SesApi; senderDomain: string; suppressionKey: string } | null => {
+  const { SES_REGION: region, SES_ACCESS_KEY_ID: accessKeyId, SES_SECRET_ACCESS_KEY: secretAccessKey, SES_SENDER_DOMAIN: senderDomain, EMAIL_SUPPRESSION_KEY: suppressionKey } = config
+  if (!region || !accessKeyId || !secretAccessKey || !senderDomain || !suppressionKey) return null
   const key = `${region}:${accessKeyId}:${secretAccessKey}`
   if (sesBuilt?.key !== key) sesBuilt = { key, api: sesClient({ region, accessKeyId, secretAccessKey }) }
-  return { api: sesBuilt.api, senderDomain }
+  return { api: sesBuilt.api, senderDomain, suppressionKey }
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES is configured (outbox-relay.ts).
@@ -89,7 +89,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
   const lookup = dohLookup()
   const ses = sesFor(config)
   return {
-    ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain }) } : {}),
+    ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
@@ -277,11 +277,12 @@ let snsBuilt: SnsVerifier | undefined
 const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
   if (url.pathname === sesHookPath) {
     const topicArn = config.SES_EVENTS_TOPIC_ARN
-    if (!topicArn) return notFound()
+    const suppressionKey = config.EMAIL_SUPPRESSION_KEY
+    if (!topicArn || !suppressionKey) return notFound()
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
     snsBuilt ??= snsVerifier()
     const verifier = snsBuilt
-    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleSesHook(request, { sql, verifier, topicArn, now: () => new Date() }))
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleSesHook(request, { sql, verifier, topicArn, suppressionKey, now: () => new Date() }))
   }
   const stripe = stripeFor(config)
   const signingSecret = config.STRIPE_WEBHOOK_SECRET

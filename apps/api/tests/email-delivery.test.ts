@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { factsOf } from '#auth/activity'
 import { hashSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
-import { suppress } from '#db/scoped/emailSuppression'
+import { addressHash, suppress } from '#db/scoped/emailSuppression'
 import { withSystemScope } from '#db/scoped/index'
 import { insertPasswordResets, selectResetByToken } from '#db/scoped/partnerInvitations'
 import { selectStaffInvitationByToken } from '#db/scoped/staffMembers'
@@ -22,6 +22,7 @@ let db: TestDatabase
 const now = new Date('2026-10-05T10:00:00Z')
 const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
 const senderDomain = 'mail.dripfunnel.test'
+const suppressionKey = btoa('k'.repeat(32))
 
 /** SES stand-in: keeps what it was sent, and fails the next `failures` sends. */
 const fakeSes = () => {
@@ -41,7 +42,7 @@ const fakeSes = () => {
 }
 
 const relay = (ses: SesApi, at = new Date(Date.now() + 1000)) =>
-  relayDue(db.sql, { email: emailDeliverer(db.sql, ses, { hosts, senderDomain, now: () => now }) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+  relayDue(db.sql, { email: emailDeliverer(db.sql, ses, { hosts, senderDomain, suppressionKey, now: () => now }) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
 
 const queue = (template: string, payload: Record<string, unknown>, ids: { partnerId: string | null; storeId: string | null }, key = crypto.randomUUID()) =>
   withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'email', idempotencyKey: `${template}:${key}`, payload: { template, ...payload }, ...ids }))
@@ -161,13 +162,39 @@ describe('email delivery', () => {
     expect(ses.sent).toEqual([])
   })
 
-  it('skips a suppressed address and keeps no address on the list', async () => {
-    await withSystemScope(db.sql, (tx) => suppress(tx, 'Gone@Example.com', 'bounce', now))
-    await queue('partner-user-locked', { partnerUserId: crypto.randomUUID(), to: 'gone@example.com', minutes: 15 }, { partnerId: northstar.id, storeId: null })
+  it("skips a suppressed address for a merchant notice, and keeps only a keyed hash of it", async () => {
+    await withSystemScope(db.sql, (tx) => suppress(tx, suppressionKey, store.ownerEmail.toUpperCase(), 'complaint', now))
+    await queue('store-restored', { storeId: store.id, contact: 'partner-support' }, { partnerId: store.partnerId, storeId: store.id })
     const ses = fakeSes()
     expect(await relay(ses.api)).toMatchObject({ delivered: 1 })
     expect(ses.sent).toEqual([])
-    expect(JSON.stringify(await db.sql`select * from email_suppression`)).not.toMatch(/gone@/i)
+    const rows = await db.sql<{ address_hash: string }[]>`select address_hash from email_suppression`
+    expect(JSON.stringify(rows)).not.toContain(store.ownerEmail)
+    const plain = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(store.ownerEmail.toLowerCase()))
+    const plainHex = [...new Uint8Array(plain)].map((b) => b.toString(16).padStart(2, '0')).join('')
+    expect(rows.map((r) => r.address_hash)).not.toContain(plainHex)
+  })
+
+  it('still sends an invitation, reset or lock notice to a suppressed address', async () => {
+    await withSystemScope(db.sql, (tx) => suppress(tx, suppressionKey, 'locked.out@example.com', 'complaint', now))
+    await queue('partner-user-locked', { partnerUserId: crypto.randomUUID(), to: 'locked.out@example.com', minutes: 15 }, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect(ses.sent.map((m) => m.to)).toEqual([['locked.out@example.com']])
+  })
+
+  it('finds Owner and Finance however many users the partner has', async () => {
+    await db.sql`
+      insert into partner_user (partner_id, email, name, role_key, status, created_at)
+      select ${northstar.id}, 'filler' || n || '@northstar.example', 'Filler ' || n, 'partner-support', 'active', now() - interval '10 years' + n * interval '1 minute'
+      from generate_series(1, 120) n
+    `
+    await db.sql`insert into partner_user (partner_id, email, name, role_key, status) values (${northstar.id}, 'late.finance@northstar.example', 'Late Finance', 'partner-finance', 'active')`
+    await queue('partner-payout-account-failed', {}, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect(ses.sent[0]?.to).toEqual(expect.arrayContaining([northstar.ownerEmail, northstar.financeEmail, 'late.finance@northstar.example']))
+    expect(ses.sent[0]?.to.some((a) => a.startsWith('filler'))).toBe(false)
   })
 })
 
@@ -179,9 +206,9 @@ describe('SES hook', () => {
     SignatureVersion: '2', Signature: 'c2ln', SigningCertURL: 'https://sns.eu-west-1.amazonaws.com/cert.pem',
   })
   const post = (body: unknown, verifier = accept, fetchImpl?: typeof fetch) =>
-    handleSesHook(new Request('https://hooks.dripfunnel.test/ses', { method: 'POST', body: JSON.stringify(body) }), { sql: db.sql, verifier, topicArn, now: () => now, ...(fetchImpl ? { fetchImpl } : {}) })
+    handleSesHook(new Request('https://hooks.dripfunnel.test/ses', { method: 'POST', body: JSON.stringify(body) }), { sql: db.sql, verifier, topicArn, suppressionKey, now: () => now, ...(fetchImpl ? { fetchImpl } : {}) })
   const suppressed = async (address: string) =>
-    withSystemScope(db.sql, async (tx) => (await tx`select 1 from email_suppression where address_hash = encode(sha256(convert_to(lower(${address}), 'UTF8')), 'hex')`).length > 0)
+    withSystemScope(db.sql, async (tx) => (await tx`select 1 from email_suppression where address_hash = ${await addressHash(suppressionKey, address)}`).length > 0)
 
   it('suppresses a permanent bounce and a complaint, not a transient bounce', async () => {
     const bounce = (type: string, address: string) => ({ eventType: 'Bounce', bounce: { bounceType: type, bouncedRecipients: [{ emailAddress: address }] } })

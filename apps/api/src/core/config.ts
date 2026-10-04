@@ -28,6 +28,11 @@ const configSchema = z.object({
   SES_ACCESS_KEY_ID: z.string().min(1).optional(),
   SES_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   SES_SENDER_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'SES_SENDER_DOMAIN must be a domain such as dripfunnel-mail.com').optional(),
+  // Keys the suppression list's address hashes (db/scoped/emailSuppression.ts): 32 bytes in base64.
+  EMAIL_SUPPRESSION_KEY: z
+    .string()
+    .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value), 'EMAIL_SUPPRESSION_KEY must be 32 bytes in base64')
+    .optional(),
   // The SNS topic SES publishes bounces and complaints to; only its messages are read (hooks/ses.ts).
   SES_EVENTS_TOPIC_ARN: z.string().regex(/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/, 'SES_EVENTS_TOPIC_ARN must be an SNS topic ARN').optional(),
 })

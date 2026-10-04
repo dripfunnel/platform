@@ -10,6 +10,8 @@ export interface EmailDelivererOptions {
   hosts: EmailHosts
   /** The verified SES domain DripFunnel and the partners' fallback senders send from (SAAS §3.6). */
   senderDomain: string
+  /** EMAIL_SUPPRESSION_KEY, which keys the suppression list's hashes. */
+  suppressionKey: string
   now?: () => Date
 }
 
@@ -19,15 +21,16 @@ export interface EmailDelivererOptions {
  * retry mints it again. SES has no idempotency key: a crash after SES accepts and before the row
  * is marked delivered can send it twice, the outbox's at-least-once.
  */
-export const emailDeliverer = (sql: postgres.Sql, ses: SesApi, { hosts, senderDomain, now = () => new Date() }: EmailDelivererOptions): Deliverer => ({
+export const emailDeliverer = (sql: postgres.Sql, ses: SesApi, { hosts, senderDomain, suppressionKey, now = () => new Date() }: EmailDelivererOptions): Deliverer => ({
   heldTemplates,
   deliver: async (effect, signal) => {
     await withSystemScope(sql, async (tx) => {
       const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
       const prepared = await prepareEmail(tx, { payload: effect.payload, partnerId: effect.partnerId }, hosts, now())
       if (!prepared.send) return log('email_skipped', prepared.reason)
+      // Account security goes out regardless: an invitation or reset that never arrives locks someone out.
       const to: string[] = []
-      for (const address of prepared.to) if (!(await isSuppressed(tx, address))) to.push(address)
+      for (const address of prepared.to) if (prepared.accountSecurity || !(await isSuppressed(tx, suppressionKey, address))) to.push(address)
       if (to.length === 0) return log('email_skipped', 'suppressed')
       const rendered = renderEmail(prepared.brand, prepared.content, en.footer)
       try {

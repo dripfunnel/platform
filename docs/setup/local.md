@@ -90,7 +90,7 @@ can use your own role and database names, as long as you put them in `.env.local
    | `CREDENTIALS_KEK` | Your own key: `openssl rand -base64 32`. Never one from dev or production. |
    | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | **Delete these three lines** unless you have the real registration's values (§7.2). With them deleted, Microsoft sign-in is off and you sign in with a local session (§7.1). |
    | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | **Delete** unless you have Stripe **test-mode** values (§8). Without them, billing answers "not connected". |
-   | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_SENDER_DOMAIN` | **Delete** unless you have them; emails then wait in the outbox. To send for real, see §8.1. |
+   | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_SENDER_DOMAIN`, `EMAIL_SUPPRESSION_KEY` | **Delete** unless you have the SES values; emails then wait in the outbox. To send for real, see §8.1; the key is your own, `openssl rand -base64 32`. |
 | `SES_EVENTS_TOPIC_ARN` | **Delete.** Bounces arrive through SNS, which can't reach your machine. |
 
    Keep a whole group or delete the whole group: two of the three Entra values switch nothing
@@ -232,7 +232,8 @@ another `pnpm dev:https`), or the certificate isn't trusted yet.
 ### 8.1 Optional: real email through SES
 
 1. Ask for the SES sandbox credentials (region, access key id and secret) and put them in
-   `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`.
+   `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, and your own `EMAIL_SUPPRESSION_KEY`
+   (`openssl rand -base64 32`).
 2. `SES_SENDER_DOMAIN`: a domain verified in that SES account (SES › Identities). Emails come from
    `no-reply@<it>` and, for a partner's merchants, `no-reply@<partner label>.<it>`.
 3. In the sandbox, SES delivers only to **verified recipients**: add your own address under SES ›

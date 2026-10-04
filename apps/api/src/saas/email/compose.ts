@@ -5,7 +5,7 @@ import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
-import { selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectPartnerOwner, selectPartnerUsers } from '#db/scoped/partners'
+import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectPartnerOwner } from '#db/scoped/partners'
 import { selectStore, selectStorePeople } from '#db/scoped/stores'
 import { senderLabel } from '#saas/domains/index'
 import { en } from './messages'
@@ -21,7 +21,8 @@ export interface EmailHosts {
 export type Voice = { kind: 'dripfunnel' } | { kind: 'partner'; label: string | null }
 
 export type Prepared =
-  | { send: true; to: string[]; voice: Voice; brand: Brand; content: EmailContent }
+  /** `accountSecurity`: an invitation, reset or lock notice, which is sent even to a suppressed address. */
+  | { send: true; to: string[]; voice: Voice; brand: Brand; content: EmailContent; accountSecurity: boolean }
   /** Nothing to send: the link is no longer open, or nobody is left to tell. A code, never a name. */
   | { send: false; reason: 'link_closed' | 'no_recipient' | 'held' }
 
@@ -59,9 +60,11 @@ const owner = async (tx: ScopedSql, partnerId: string) => {
   return row && row.status !== 'suspended' ? [row.email] : []
 }
 
+// SES takes 50 recipients a message (integrations/ses).
+const maxRecipients = 50
+
 // Billing is the Owner's and Finance's to fix (billing.write).
-const billingPeople = async (tx: ScopedSql, partnerId: string) =>
-  (await selectPartnerUsers(tx, partnerId)).filter((u) => u.status === 'active' && (u.role_key === 'partner-owner' || u.role_key === 'partner-finance')).map((u) => u.email)
+const billingPeople = (tx: ScopedSql, partnerId: string) => selectActivePartnerEmails(tx, partnerId, ['partner-owner', 'partner-finance'], maxRecipients)
 
 const partnerBrand = async (tx: ScopedSql, partnerId: string): Promise<{ brand: Brand; voice: Voice } | null> => {
   const partner = await selectPartner(tx, partnerId)
@@ -90,8 +93,8 @@ const merchant = async (tx: ScopedSql, storeId: string) => {
   return { store, to: await storeOwners(tx, storeId), ...look }
 }
 
-const fromDripfunnel = (to: string[], content: EmailContent): Prepared =>
-  to.length === 0 ? { send: false, reason: 'no_recipient' } : { send: true, to, voice: { kind: 'dripfunnel' }, brand: dripfunnel, content }
+const fromDripfunnel = (to: string[], content: EmailContent, accountSecurity = false): Prepared =>
+  to.length === 0 ? { send: false, reason: 'no_recipient' } : { send: true, to, voice: { kind: 'dripfunnel' }, brand: dripfunnel, content, accountSecurity }
 
 /** Billing's two notices name the card or account on file, read now rather than carried in the row. */
 const billingEmail = async (tx: ScopedSql, template: 'partner-card-declined' | 'partner-payout-account-failed', partnerId: string): Promise<Prepared> => {
@@ -125,7 +128,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const token = await mintStaffInvitationToken(tx, p.staffInvitationId, now)
       if (!token) return { send: false, reason: 'link_closed' }
       const w = en.staffInvitation
-      return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: link(hosts.adminHost, '/api/auth/accept-invitation', token) }, note: en.linkOnce })
+      return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: link(hosts.adminHost, '/api/auth/accept-invitation', token) }, note: en.linkOnce }, true)
     }
     case 'partner-owner-invitation':
     case 'partner-team-invitation': {
@@ -135,7 +138,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const url = link(hosts.platformHost, '/accept-invite', token)
       if (t === 'partner-owner-invitation') {
         const w = en.partnerOwnerInvitation
-        return fromDripfunnel([p.to], { subject: w.subject(p.partnerName), heading: w.heading(p.partnerName), paragraphs: [w.body(p.partnerName)], action: { label: w.action, url }, note: en.linkOnce })
+        return fromDripfunnel([p.to], { subject: w.subject(p.partnerName), heading: w.heading(p.partnerName), paragraphs: [w.body(p.partnerName)], action: { label: w.action, url }, note: en.linkOnce }, true)
       }
       const role = await selectInvitedPartnerRole(tx, p.partnerInvitationId)
       const w = en.partnerTeamInvitation
@@ -145,19 +148,19 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
         paragraphs: [w.body(p.partnerName, role ? en.roles[role] : en.roles['partner-read-only'])],
         action: { label: w.action, url },
         note: en.linkOnce,
-      })
+      }, true)
     }
     case 'partner-password-reset': {
       const p = parse(t)
       const token = await mintResetToken(tx, p.partnerPasswordResetId, now)
       if (!token) return { send: false, reason: 'link_closed' }
       const w = en.partnerPasswordReset
-      return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: link(hosts.platformHost, '/reset-password', token) }, note: w.note })
+      return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: link(hosts.platformHost, '/reset-password', token) }, note: w.note }, true)
     }
     case 'partner-user-locked': {
       const p = parse(t)
       const w = en.partnerUserLocked
-      return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] })
+      return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] }, true)
     }
     case 'partner-domain-live': {
       const p = parse(t)
@@ -179,7 +182,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if (!m || !plan || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = t === 'plan-change-at-renewal' ? en.planChangeAtRenewal : en.planRetiredMove
       const date = en.date(new Date(p.changeAt))
-      return { send: true, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name, plan.name, date)] } }
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name, plan.name, date)] } }
     }
     case 'store-plan-changed': {
       const p = parse(t)
@@ -187,7 +190,7 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const plan = m && (await selectCataloguePlan(tx, m.store.partner_id, p.planId))
       if (!m || !plan || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storePlanChanged
-      return { send: true, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w[p.when](m.store.name, plan.name)] } }
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w[p.when](m.store.name, plan.name)] } }
     }
     case 'store-suspended': {
       const p = parse(t)
@@ -197,14 +200,14 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       // The partner's support, never DripFunnel's (SAAS §4.2): without one, no contact line.
       const contact = m.brand.supportEmail ?? m.brand.supportUrl
       const paragraphs = [w.body(m.store.name), w.reason(p.reason), ...(contact ? [w.contact(contact)] : [])]
-      return { send: true, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs } }
     }
     case 'store-restored': {
       const p = parse(t)
       const m = await merchant(tx, p.storeId)
       if (!m || m.to.length === 0) return { send: false, reason: 'no_recipient' }
       const w = en.storeRestored
-      return { send: true, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name)] } }
+      return { send: true, accountSecurity: false, to: m.to, voice: m.voice, brand: m.brand, content: { subject: w.subject(m.store.name), heading: w.heading, paragraphs: [w.body(m.store.name)] } }
     }
   }
 }

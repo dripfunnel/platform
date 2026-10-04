@@ -28,11 +28,12 @@ export interface SesHookDeps {
   sql: postgres.Sql
   verifier: SnsVerifier
   topicArn: string
+  suppressionKey: string
   fetchImpl?: typeof fetch
   now: () => Date
 }
 
-export const handleSesHook = async (request: Request, { sql, verifier, topicArn, fetchImpl = fetch, now }: SesHookDeps): Promise<Response> => {
+export const handleSesHook = async (request: Request, { sql, verifier, topicArn, suppressionKey, fetchImpl = fetch, now }: SesHookDeps): Promise<Response> => {
   if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
   if (Number(request.headers.get('content-length') ?? 0) > maxBodyBytes) return new Response(null, { status: 413 })
   const body = await request.text()
@@ -83,7 +84,7 @@ export const handleSesHook = async (request: Request, { sql, verifier, topicArn,
   if (addresses && addresses.list.length > 0) {
     const at = now()
     await withSystemScope(sql, async (tx) => {
-      for (const r of addresses.list) await suppress(tx, r.emailAddress, addresses.reason, at)
+      for (const r of addresses.list) await suppress(tx, suppressionKey, r.emailAddress, addresses.reason, at)
     })
   }
   logEvent({ event: 'ses_event', api: 'hooks', code: addresses ? addresses.reason : (type ?? 'unknown').toLowerCase(), count: addresses?.list.length ?? 0 })

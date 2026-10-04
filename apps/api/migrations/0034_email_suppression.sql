@@ -1,6 +1,6 @@
 -- Email through Amazon SES (THIRD-PARTY-ACCESS §2.4, #274): the addresses SES reported as a
--- permanent bounce or a complaint, never sent to again. Kept as a SHA-256 of the lower-cased
--- address, so the list holds no personal data and survives an erasure request unchanged.
+-- permanent bounce or a complaint, not sent merchant notices again. Kept as an HMAC of the
+-- lower-cased address under EMAIL_SUPPRESSION_KEY: pseudonymous, unreadable without the key.
 
 create table email_suppression (
   address_hash text primary key check (address_hash ~ '^[0-9a-f]{64}$'),

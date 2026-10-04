@@ -323,6 +323,16 @@ export const updatePartnerDomainCheck = async (tx: ScopedSql, id: string, check:
 export const selectPartnerHosts = (tx: ScopedSql, partnerId: string): Promise<{ kind: DomainKind; host: string }[]> =>
   tx<{ kind: DomainKind; host: string }[]>`select kind, host from partner_domain where partner_id = ${partnerId}`
 
+/** A partner's active users with any of these roles, oldest first: who an account notice goes to. */
+export const selectActivePartnerEmails = async (tx: ScopedSql, partnerId: string, roles: readonly PartnerUserRow['role_key'][], limit: number): Promise<string[]> =>
+  (
+    await tx<{ email: string }[]>`
+      select email from partner_user
+      where partner_id = ${partnerId} and status = 'active' and role_key = any(${pgArray(roles)}::text[])
+      order by created_at limit ${limit}
+    `
+  ).map((r) => r.email)
+
 /** The role an open partner invitation offers, for its email. */
 export const selectInvitedPartnerRole = async (tx: ScopedSql, invitationId: string): Promise<PartnerUserRow['role_key'] | null> =>
   (

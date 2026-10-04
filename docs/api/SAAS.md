@@ -179,8 +179,11 @@ receives uses the partner of the store (or portal host) it concerns, never anoth
 - **Links** are minted when the email is sent, in the transaction that sends it.
 - **Held:** the store owner invitation waits in the outbox until merchant sign-in can accept it
   (the Store card that follows #274).
-- **Suppression.** An address SES reports as a permanent bounce or a complaint is never sent to
-  again; the list holds only a hash of it (migrations/0034).
+- **Suppression.** An address SES reports as a permanent bounce or a complaint gets no merchant
+  notice again. Account email (staff and partner invitations, password reset, lock notice) is
+  still sent: it is asked for, and one that never arrives locks someone out; SES's own
+  account-level suppression still stops dead addresses. The list holds an HMAC of the address
+  under `EMAIL_SUPPRESSION_KEY` (migrations/0034): pseudonymous, and unreadable without the key.
 - **Language:** English only until partners or stores have one.
 
 ---
