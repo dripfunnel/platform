@@ -7,7 +7,9 @@ import {
   selectChargeByRef,
   selectContractCurrency,
   selectPartnerByAccount,
+  deleteBillingEvent,
   selectPartnerByCustomer,
+  selectPartnerByStoreCustomer,
   selectPeriodTotals,
   selectStoreByCustomer,
   setEventPartner,
@@ -223,8 +225,12 @@ const apply = async (tx: ScopedSql, subject: Subject, type: string, at: Date): P
 }
 
 /** Which partner an event is about, from the ids it names, for the stale strip when Stripe is slow. */
-const partnerNamed = async (tx: ScopedSql, event: StripeEvent): Promise<string | null> =>
-  event.account ? selectPartnerByAccount(tx, event.account) : null
+const partnerNamed = async (tx: ScopedSql, event: StripeEvent): Promise<string | null> => {
+  if (event.account) return selectPartnerByAccount(tx, event.account)
+  const customer = event.data.object.customer
+  if (!customer) return null
+  return (await selectPartnerByCustomer(tx, customer)) ?? (await selectPartnerByStoreCustomer(tx, customer))
+}
 
 /**
  * Handles one verified event. Throws StripeUnavailable when Stripe can't be read back, so the hook
@@ -247,7 +253,10 @@ export const handleStripeEvent = async ({ sql, stripe, event, now }: { sql: post
     const at = now()
     if (!(await insertBillingEvent(tx, { id: event.id, type: event.type, partnerId: null, storeId: null, at }))) return 'duplicate'
     const partnerId = await apply(tx, subject, event.type, at)
-    if (!partnerId) return 'ignored'
+    if (!partnerId) {
+      await deleteBillingEvent(tx, event.id)
+      return 'ignored'
+    }
     await setEventPartner(tx, event.id, partnerId)
     await touchBillingFeed(tx, partnerId, at, false)
     return 'handled'

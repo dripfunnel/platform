@@ -63,7 +63,7 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
   return { data: (result.data ?? null) as T | null, code: error?.extensions['code'] as string | undefined }
 }
 
-const deliver = async (event: { id: string; type: string; account?: string; object: { id: string; object: string } }, secret = signingSecret) => {
+const deliver = async (event: { id: string; type: string; account?: string; object: { id: string; object: string; customer?: string } }, secret = signingSecret) => {
   const body = JSON.stringify({ id: event.id, type: event.type, account: event.account ?? null, data: { object: event.object } })
   const t = unix(clock)
   const request = new Request('https://hooks.test/stripe', { method: 'POST', body, headers: { 'stripe-signature': `t=${t},v1=${await signPayload(secret, t, body)}` } })
@@ -204,10 +204,42 @@ describe('the Stripe webhook', () => {
     expect(await deliver({ id: 'evt_po1', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_1', object: 'payout' } })).toBe(200)
     expect((await run<{ billingSettings: { staleSince: string | null; asOf: string | null } }>(q.settings, owner)).data?.billingSettings).toMatchObject({ staleSince: null, asOf: clock.toISOString() })
     const payouts = (await run<{ payouts: { items: { month: string; status: string; payout: { amount: number }; toLast4: string | null; collected: { amount: number }; fee: { amount: number }; adjustment: { amount: { amount: number } } | null }[] } }>(q.payouts, owner)).data?.payouts.items ?? []
-    const september = payouts.find((p) => p.month === '2026-09')
+    const september = payouts.find((p) => p.month === '2026-09' && p.payout.amount === 250_000)
     expect(september).toMatchObject({ status: 'paid', payout: { amount: 250_000 }, toLast4: '1180' })
     // Whatever the month's charges don't explain is the adjustment, so the row always adds up.
     expect((september?.collected.amount ?? 0) - (september?.fee.amount ?? 0) + (september?.adjustment?.amount.amount ?? 0)).toBe(250_000)
+  })
+  it('marks the feed stale for a merchant invoice too, found by its customer', async () => {
+    const owner = callerOf(ids.ns, 'partner-owner')
+    down = true
+    clock = new Date(start.getTime() + 150_000)
+    expect(await deliver({ id: 'evt_slowinv', type: 'invoice.payment_failed', object: { id: 'in_fail1', object: 'invoice', customer: 'cus_store1' } })).toBe(503)
+    expect((await run<{ billingSettings: { staleSince: string | null } }>(q.settings, owner)).data?.billingSettings.staleSince).toBe(clock.toISOString())
+    down = false
+    expect(await deliver({ id: 'evt_slowinv', type: 'invoice.payment_failed', object: { id: 'in_fail1', object: 'invoice', customer: 'cus_store1' } })).toBe(200)
+    expect((await run<{ billingSettings: { staleSince: string | null } }>(q.settings, owner)).data?.billingSettings.staleSince).toBeNull()
+  })
+
+  it('keeps two payouts in one month apart, each as Stripe made it', async () => {
+    const arrival = unix(new Date('2026-10-02T00:00:00Z'))
+    now.payouts.set('po_2', { id: 'po_2', amount: 1_000, currency: 'usd', arrival_date: arrival, status: 'failed', failure_message: 'Account closed', destination: { last4: '1180' } })
+    now.payouts.set('po_3', { id: 'po_3', amount: 1_000, currency: 'usd', arrival_date: arrival, status: 'paid', failure_message: null, destination: { last4: '1180' } })
+    expect(await deliver({ id: 'evt_po2', type: 'payout.failed', account: 'acct_northstar', object: { id: 'po_2', object: 'payout' } })).toBe(200)
+    expect(await deliver({ id: 'evt_po3', type: 'payout.paid', account: 'acct_northstar', object: { id: 'po_3', object: 'payout' } })).toBe(200)
+    expect(await db.sql`select stripe_payout_id, status, amount::text from partner_payout where stripe_payout_id in ('po_2', 'po_3') order by stripe_payout_id`).toEqual([
+      { stripe_payout_id: 'po_2', status: 'failed', amount: '1000' },
+      { stripe_payout_id: 'po_3', status: 'paid', amount: '1000' },
+    ])
+  })
+
+  it("doesn't keep an event it can't place yet, so a later delivery is handled", async () => {
+    now.accounts.set('acct_later', { id: 'acct_later', external_accounts: { data: [{ id: 'ba_9', bank_name: 'Chase', last4: '7777', status: 'verified' }] } })
+    expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(200)
+    expect(await db.sql`select 1 from billing_event where id = 'evt_early'`).toHaveLength(0)
+    await db.sql`insert into partner_billing_account (partner_id, stripe_account_id) values (${ids.bz}, 'acct_later')`
+    expect(await deliver({ id: 'evt_early', type: 'account.updated', account: 'acct_later', object: { id: 'acct_later', object: 'account' } })).toBe(200)
+    expect((await db.sql<{ payout_status: string }[]>`select payout_status from partner_billing_account where partner_id = ${ids.bz}`)[0]?.payout_status).toBe('verified')
+    await db.sql`delete from partner_billing_account where partner_id = ${ids.bz}`
   })
 })
 

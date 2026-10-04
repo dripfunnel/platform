@@ -63,12 +63,17 @@ alter table merchant_charge
 
 create index merchant_charge_retrying_idx on merchant_charge (partner_id, retry_at) where status = 'failed' and retry_at is not null;
 
+-- A payout is Stripe's, keyed by its id: a retry after a failure, or a manual payout, is a second
+-- one in the same month. Only #163's rows without a Stripe id stay one per month.
 alter table partner_payout
+  drop constraint partner_payout_partner_id_period_start_key,
   add column stripe_payout_id text unique check (stripe_payout_id ~ '^po_[A-Za-z0-9]+$'),
   add column to_last4 text check (to_last4 ~ '^[0-9]{4}$'),
   add column failure_reason text check (char_length(failure_reason) <= 300),
   drop constraint partner_payout_status_check,
   add constraint partner_payout_status_check check (status in ('scheduled', 'paid', 'held', 'failed'));
+
+create unique index partner_payout_period_key on partner_payout (partner_id, period_start) where stripe_payout_id is null;
 
 grant select on partner_billing_account, partner_invoice to app_partner, app_platform;
 -- A partner's own request records what Stripe answered about the token it sent; the webhook
@@ -77,6 +82,7 @@ grant insert (partner_id, stripe_account_id, stripe_customer_id, payout_bank, pa
   update (stripe_account_id, stripe_customer_id, payout_bank, payout_last4, payout_status, payout_failure, card_brand, card_last4, card_expires, card_status, updated_at)
   on partner_billing_account to app_partner;
 grant select, insert, update on partner_billing_account, partner_invoice, billing_event to app_system;
+grant delete on billing_event to app_system;
 grant select on billing_event to app_platform;
 
 do $$

@@ -17,6 +17,7 @@ import {
   selectRetrying,
   selectShareSince,
   setBillingMode as writeBillingMode,
+  type BillingAccountPatch,
   type BillingAccountRow,
   type InvoiceRow,
   type PaymentRow,
@@ -218,71 +219,92 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
   }
 
   /** Stripe's answer as a refusal the console words; anything else is a real error. */
-  const providerRefusal = (error: unknown): BillingResult => {
+  const providerRefusal = (error: unknown): { ok: false; reason: BillingRefusal } => {
     if (error instanceof StripeUnavailable) return { ok: false, reason: 'PROVIDER_UNAVAILABLE' }
     if (error instanceof StripeRefused) return { ok: false, reason: 'TOKEN_REFUSED' }
     throw error
   }
 
+  // Stripe is called outside any transaction, so a slow answer holds no lock or connection, and each
+  // Stripe id is committed before the call that makes Stripe send events about it, so the webhook
+  // can place them (SAAS §7.2).
+  const keepId = (patch: Pick<BillingAccountPatch, 'stripe_account_id' | 'stripe_customer_id'>) =>
+    read(async (tx) => {
+      await lockBillingAccount(tx, partnerId)
+      await saveBillingAccount(tx, partnerId, patch, now())
+    })
+
+  const providerCall = async <T>(work: () => Promise<T>): Promise<{ ok: true; value: T } | { ok: false; reason: BillingRefusal }> => {
+    try {
+      return { ok: true, value: await work() }
+    } catch (error) {
+      return providerRefusal(error)
+    }
+  }
+
   // §14.3: the bank account goes to the partner's Connect account; Stripe's test deposit verifies
   // it and the webhook moves it to Verified or Verification failed.
-  const setPayoutAccount = (raw: unknown): Promise<BillingResult> => {
+  const setPayoutAccount = async (raw: unknown): Promise<BillingResult> => {
     const token = bankToken.safeParse(raw)
-    if (!token.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
-    if (!stripe) return Promise.resolve({ ok: false, reason: 'NOT_CONNECTED' })
+    if (!token.success) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!stripe) return { ok: false, reason: 'NOT_CONNECTED' }
+    const before = await read(async (tx) => ({ account: await selectBillingAccount(tx, partnerId), country: (await selectCompany(tx, partnerId))?.country ?? null }))
+    let accountId = before.account?.stripe_account_id ?? null
+    if (!accountId) {
+      const country = before.country
+      if (!country || !/^[A-Z]{2}$/.test(country)) return { ok: false, reason: 'NO_COUNTRY' }
+      // Its idempotency key makes a second try, or a second tab, get the same account back.
+      const created = await providerCall(() => stripe.createAccount({ partnerId, country, email: null }))
+      if (!created.ok) return created
+      accountId = created.value.id
+      await keepId({ stripe_account_id: accountId })
+    }
+    const connectedId = accountId
+    const added = await providerCall(() => stripe.addBankAccount(connectedId, token.data))
+    if (!added.ok) return added
+    const bank = added.value
     return read(async (tx): Promise<BillingResult> => {
       await lockBillingAccount(tx, partnerId)
-      const account = await selectBillingAccount(tx, partnerId)
-      let accountId = account?.stripe_account_id ?? null
-      try {
-        if (!accountId) {
-          const country = (await selectCompany(tx, partnerId))?.country ?? null
-          if (!country || !/^[A-Z]{2}$/.test(country)) return { ok: false, reason: 'NO_COUNTRY' }
-          accountId = (await stripe.createAccount({ partnerId, country, email: null })).id
-        }
-        const bank = await stripe.addBankAccount(accountId, token.data)
-        const at = now()
-        await saveBillingAccount(tx, partnerId, { stripe_account_id: accountId, payout_bank: bank.bank_name ?? null, payout_last4: bank.last4, payout_status: payoutStatusOf(bank.status), payout_failure: null }, at)
-        await activity.record(
-          tx,
-          entry({ action: billingAudit.setPayoutAccount, target: { type: 'partner', id: partnerId, label: caller.partner.name }, reason: null, changes: [{ field: 'payout_account_last4', before: account?.payout_last4 ?? null, after: bank.last4 }] }),
-        )
-        return { ok: true }
-      } catch (error) {
-        // The Connect account Stripe made is kept: its idempotency key makes the retry find it.
-        if (accountId && accountId !== account?.stripe_account_id) await saveBillingAccount(tx, partnerId, { stripe_account_id: accountId }, now())
-        return providerRefusal(error)
-      }
+      const current = await selectBillingAccount(tx, partnerId)
+      await saveBillingAccount(tx, partnerId, { payout_bank: bank.bank_name ?? null, payout_last4: bank.last4, payout_status: payoutStatusOf(bank.status), payout_failure: null }, now())
+      await activity.record(
+        tx,
+        entry({ action: billingAudit.setPayoutAccount, target: { type: 'partner', id: partnerId, label: caller.partner.name }, reason: null, changes: [{ field: 'payout_account_last4', before: current?.payout_last4 ?? null, after: bank.last4 }] }),
+      )
+      return { ok: true }
     })
   }
 
   // §14.3: the card Stripe's hosted field turned into a payment method, for DripFunnel's invoices.
-  const setPaymentMethod = (raw: unknown): Promise<BillingResult> => {
+  const setPaymentMethod = async (raw: unknown): Promise<BillingResult> => {
     const token = cardToken.safeParse(raw)
-    if (!token.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
-    if (!stripe) return Promise.resolve({ ok: false, reason: 'NOT_CONNECTED' })
+    if (!token.success) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!stripe) return { ok: false, reason: 'NOT_CONNECTED' }
+    let customerId = (await read((tx) => selectBillingAccount(tx, partnerId)))?.stripe_customer_id ?? null
+    if (!customerId) {
+      const created = await providerCall(() => stripe.createCustomer({ partnerId, name: caller.partner.name }))
+      if (!created.ok) return created
+      customerId = created.value.id
+      await keepId({ stripe_customer_id: customerId })
+    }
+    const customer = customerId
+    const attached = await providerCall(() => stripe.attachCard(customer, token.data))
+    if (!attached.ok) return attached
+    const { card } = attached.value
     return read(async (tx): Promise<BillingResult> => {
       await lockBillingAccount(tx, partnerId)
-      const account = await selectBillingAccount(tx, partnerId)
-      let customerId = account?.stripe_customer_id ?? null
-      try {
-        if (!customerId) customerId = (await stripe.createCustomer({ partnerId, name: caller.partner.name })).id
-        const { card } = await stripe.attachCard(customerId, token.data)
-        await saveBillingAccount(
-          tx,
-          partnerId,
-          { stripe_customer_id: customerId, card_brand: card.brand, card_last4: card.last4, card_expires: new Date(Date.UTC(card.exp_year, card.exp_month - 1, 1)), card_status: 'on_file' },
-          now(),
-        )
-        await activity.record(
-          tx,
-          entry({ action: billingAudit.setPaymentMethod, target: { type: 'partner', id: partnerId, label: caller.partner.name }, reason: null, changes: [{ field: 'card_last4', before: account?.card_last4 ?? null, after: card.last4 }] }),
-        )
-        return { ok: true }
-      } catch (error) {
-        if (customerId && customerId !== account?.stripe_customer_id) await saveBillingAccount(tx, partnerId, { stripe_customer_id: customerId }, now())
-        return providerRefusal(error)
-      }
+      const current = await selectBillingAccount(tx, partnerId)
+      await saveBillingAccount(
+        tx,
+        partnerId,
+        { card_brand: card.brand, card_last4: card.last4, card_expires: new Date(Date.UTC(card.exp_year, card.exp_month - 1, 1)), card_status: 'on_file' },
+        now(),
+      )
+      await activity.record(
+        tx,
+        entry({ action: billingAudit.setPaymentMethod, target: { type: 'partner', id: partnerId, label: caller.partner.name }, reason: null, changes: [{ field: 'card_last4', before: current?.card_last4 ?? null, after: card.last4 }] }),
+      )
+      return { ok: true }
     })
   }
 
@@ -297,8 +319,9 @@ export const createPartnerBillingService = ({ sql, caller, facts, activity, stri
       if (!url || !/^https:\/\/([a-z0-9-]+\.)*stripe\.com\//.test(url)) return { ok: false, reason: 'NO_PDF' }
       return { ok: true, url }
     } catch (error) {
-      const refused = providerRefusal(error)
-      return refused.ok ? { ok: false, reason: 'NO_PDF' } : refused
+      // Stripe no longer has the invoice's PDF: nothing to open, which the console says.
+      if (error instanceof StripeRefused) return { ok: false, reason: 'NO_PDF' }
+      return providerRefusal(error)
     }
   }
 

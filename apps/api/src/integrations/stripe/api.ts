@@ -27,7 +27,8 @@ export const eventSchema = z.object({
   id: id('evt'),
   type: z.string().max(100),
   account: id('acct').nullish(),
-  data: z.object({ object: z.object({ id: z.string().max(255), object: z.string() }).loose() }),
+  // `customer` only to say whose feed is stale when Stripe can't be read back; never to write.
+  data: z.object({ object: z.object({ id: z.string().max(255), object: z.string(), customer: z.string().max(255).nullish() }).loose() }),
 })
 export type StripeEvent = z.infer<typeof eventSchema>
 

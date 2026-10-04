@@ -204,6 +204,15 @@ export const setEventPartner = async (tx: ScopedSql, eventId: string, partnerId:
 export const selectPartnerByAccount = async (tx: ScopedSql, accountId: string): Promise<string | null> =>
   (await tx<{ partner_id: string }[]>`select partner_id from partner_billing_account where stripe_account_id = ${accountId}`)[0]?.partner_id ?? null
 
+/** The partner of the store whose Stripe customer this is (a merchant's subscription). */
+export const selectPartnerByStoreCustomer = async (tx: ScopedSql, customerId: string): Promise<string | null> =>
+  (await tx<{ partner_id: string }[]>`select partner_id from store_subscription where stripe_customer_id = ${customerId} limit 1`)[0]?.partner_id ?? null
+
+/** An event nothing here could place is forgotten, so a later delivery is handled once its ids exist. */
+export const deleteBillingEvent = async (tx: ScopedSql, eventId: string): Promise<void> => {
+  await tx`delete from billing_event where id = ${eventId}`
+}
+
 export const selectPartnerByCustomer = async (tx: ScopedSql, customerId: string): Promise<string | null> =>
   (await tx<{ partner_id: string }[]>`select partner_id from partner_billing_account where stripe_customer_id = ${customerId}`)[0]?.partner_id ?? null
 
@@ -278,9 +287,9 @@ export const upsertPayout = async (tx: ScopedSql, p: PayoutUpsert): Promise<void
   await tx`
     insert into partner_payout (partner_id, period_start, period_end, currency, gross, fee, adjustments, amount, stores, status, scheduled_for, paid_at, stripe_payout_id, to_last4, failure_reason)
     values (${p.partnerId}, ${p.periodStart}, ${p.periodEnd}, ${p.currency}, ${p.gross}, ${p.fee}, ${adjustments}, ${p.amount}, ${p.stores}, ${p.status}, ${p.scheduledFor}, ${p.paidAt}, ${p.stripePayoutId}, ${p.toLast4}, ${p.failureReason})
-    on conflict (partner_id, period_start) do update set
+    on conflict (stripe_payout_id) do update set
       gross = excluded.gross, fee = excluded.fee, adjustments = excluded.adjustments, amount = excluded.amount, stores = excluded.stores,
-      status = excluded.status, scheduled_for = excluded.scheduled_for, paid_at = excluded.paid_at, stripe_payout_id = excluded.stripe_payout_id,
+      status = excluded.status, scheduled_for = excluded.scheduled_for, paid_at = excluded.paid_at,
       to_last4 = excluded.to_last4, failure_reason = excluded.failure_reason, held_reason = null
     where not (partner_payout.status in ('paid', 'failed') and excluded.status = 'scheduled')
   `
