@@ -497,6 +497,7 @@ type PartnerPlanFee {
 }
 
 type PartnerState {
+  billingMode: String
   brokenHosts: [String!]
   pauseReason: String
   pausedAt: String

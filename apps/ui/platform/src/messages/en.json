@@ -2254,5 +2254,112 @@
       "failed": "The export didn’t finish. Try again.",
       "toast": "Your report export is ready. Download it from Reports."
     }
+  },
+  "billing": {
+    "loading": "Loading billing",
+    "error": {
+      "title": "We couldn’t load billing",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "denied": "Support doesn’t see billing. Ask an Owner, Admin or Finance.",
+    "preLive": "Merchant payments and payouts appear once {product} is live.",
+    "notConnected": {
+      "dripfunnel": "Payments, payouts and invoices connect with DripFunnel’s payment provider, which isn’t switched on yet. They appear here once it is.",
+      "own": "DripFunnel’s invoices connect with its payment provider, which isn’t switched on yet. They appear here once it is."
+    },
+    "stale": "Payment status from {time}; the payment provider is slow to respond.",
+    "refresh": "Refresh now",
+    "payments": {
+      "title": "Your merchants’ payments",
+      "lede": {
+        "dripfunnel": "Collected by DripFunnel for {partner}. Money from your merchants.",
+        "own": "Billed by {partner}."
+      },
+      "failedTitle": "Failed, being retried",
+      "failedWhy": "{why} · card ending {last4}",
+      "retry": "Retry {time} · attempt {attempt} of {attempts}",
+      "noFailed": "No failed payments.",
+      "none": "No payments yet.",
+      "date": "Date",
+      "store": "Store",
+      "amount": "Amount",
+      "chargedBy": "Charged by",
+      "status": "Status",
+      "card": "Card",
+      "byDripFunnel": "DripFunnel for {partner}",
+      "byPartner": "{partner}",
+      "statuses": {
+        "paid": "Paid",
+        "failed": "Failed",
+        "recovered": "Recovered",
+        "refunded": "Refunded"
+      },
+      "cardEnding": "ending {last4}",
+      "noCard": "—",
+      "all": "Every payment"
+    },
+    "payouts": {
+      "title": "Your payouts",
+      "lede": "What DripFunnel pays you: merchant payments minus DripFunnel’s fees.",
+      "next": {
+        "scheduled": "Next payout {date}: about {amount} so far, to account ending {last4}.",
+        "heldVerification": "Next payout held: your payout account failed verification.",
+        "heldContract": "Next payout held: your contract lapsed.",
+        "first": "Your first payout comes the month after your first merchant pays."
+      },
+      "month": "Month",
+      "collected": "Collected",
+      "fee": "DripFunnel’s fee",
+      "adjustments": "Adjustments",
+      "payout": "Payout",
+      "paidOn": "Paid on",
+      "status": "Status",
+      "to": "To",
+      "statuses": {
+        "paid": "Paid",
+        "scheduled": "Scheduled",
+        "failed": "Failed"
+      },
+      "none": "No payouts yet.",
+      "noAdjustment": "—",
+      "tableLabel": "Payouts by month"
+    },
+    "invoices": {
+      "title": "DripFunnel’s invoices",
+      "lede": "What you owe DripFunnel for separate fees in your contract. Not merchant payments.",
+      "id": "Invoice",
+      "date": "Date",
+      "what": "For",
+      "amount": "Amount",
+      "status": "Status",
+      "pdf": "Tax invoice (PDF)",
+      "statuses": {
+        "paid": "Paid",
+        "open": "Open",
+        "overdue": "Overdue"
+      },
+      "none": "No invoices yet. Your contract has no separate fees so far.",
+      "tableLabel": "Invoices",
+      "noPdf": "—"
+    },
+    "settings": {
+      "title": "Who bills your merchants",
+      "dripfunnel": {
+        "label": "DripFunnel, on your behalf",
+        "body": "We charge your merchants, retry failed payments and pay you monthly, minus our fee."
+      },
+      "own": {
+        "label": "You, with your own billing",
+        "body": "You charge merchants yourself and set each store’s billing status. DripFunnel invoices you for its fees."
+      },
+      "current": "Current",
+      "changeLater": "Changing who bills your merchants becomes possible once payments are connected.",
+      "ownersAndFinance": "Only Owners and Finance change this.",
+      "payoutAccount": "Payout account",
+      "payoutLink": "Payout and payment settings",
+      "accountEnding": "Account ending {last4}"
+    },
+    "staleTitle": "Payment status may be behind"
   }
 }

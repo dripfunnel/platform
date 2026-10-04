@@ -30,6 +30,7 @@ const PartnerStateType = builder.objectRef<PartnerStateFacts>('PartnerState').im
     storeCount: t.exposeInt('storeCount'),
     brokenHosts: t.exposeStringList('brokenHosts'),
     setupSession: t.field({ type: SetupSession, nullable: true, resolve: (s) => s.setupSession }),
+    billingMode: t.exposeString('billingMode'),
   }),
 })
 
