@@ -7,7 +7,7 @@ import { setStaffPortalCookie, staffPortalCookieName } from '#auth/staffPortal'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { endPortalSession, spendPortalHandoff, type PortalSessionRow } from '#db/scoped/staffPortal'
 import type { PlatformAuthDeps } from './auth'
-import { json, readBody } from './authHttp'
+import { json, readBody, refuse } from './authHttp'
 
 // The partner console's half of staff sessions (ACCESS.md §8.3, #243): the handoff exchange, the
 // session the staff cookie belongs to, and ending it from the console.
@@ -52,10 +52,15 @@ export const exchangeHandoff = async (request: Request, deps: PlatformAuthDeps):
 }
 
 /** Polled every 15 seconds and on focus (ACCESS.md §8.3); answers how the session ended once it has. */
-export const currentStaffSession = async (request: Request, deps: PlatformAuthDeps): Promise<Response> => {
+// A staff cookie's reads, per address: a session polls about four times a minute (ACCESS.md §8.3).
+const staffBucketAllows = (deps: PlatformAuthDeps, facts: RequestFacts) => facts.ip !== null && deps.allowAttempt(`staff:ip:${facts.ip}`)
+
+export const currentStaffSession = async (request: Request, deps: PlatformAuthDeps, facts: RequestFacts): Promise<Response> => {
   const cookie = readCookie(request.headers.get('cookie'), staffPortalCookieName)
+  if (!cookie) return json(200, { ok: true, session: null })
+  if (!(await staffBucketAllows(deps, facts))) return refuse({ code: 'RATE_LIMITED' })
   const now = deps.now()
-  const session = cookie ? await withSystemScope(deps.sql, (tx) => readPortalSession(tx, cookie, { now, activity: deps.activity, facts: factsOf(request) })) : null
+  const session = await withSystemScope(deps.sql, (tx) => readPortalSession(tx, cookie, { now, activity: deps.activity, facts }))
   return json(200, { ok: true, session: session && portalSessionDto(session, deps.platformHost, now) })
 }
 
@@ -71,7 +76,9 @@ export const endOwnPortalSession = async (tx: ScopedSql, cookie: string, id: str
 export const endStaffSessionFromPortal = async (request: Request, deps: PlatformAuthDeps, facts: RequestFacts): Promise<Response> => {
   const input = await readBody(request, endInput)
   const cookie = readCookie(request.headers.get('cookie'), staffPortalCookieName)
-  if (cookie && input) await withSystemScope(deps.sql, (tx) => endOwnPortalSession(tx, cookie, input.id, deps, facts))
+  if (!cookie || !input) return json(400, { ok: false, code: 'SESSION_NOT_ENDED' })
+  if (!(await staffBucketAllows(deps, facts))) return refuse({ code: 'RATE_LIMITED' })
+  const ended = await withSystemScope(deps.sql, (tx) => endOwnPortalSession(tx, cookie, input.id, deps, facts))
   // The cookie stays: it no longer acts, and it lets the console say how the session ended.
-  return json(200, { ok: true })
+  return ended ? json(200, { ok: true }) : json(400, { ok: false, code: 'SESSION_NOT_ENDED' })
 }
