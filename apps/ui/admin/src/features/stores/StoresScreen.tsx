@@ -5,7 +5,7 @@ import { useScreenState, Toast } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
 import { RouteError } from '../common/RouteError'
 import { storesStates } from './storeHarness'
-import { Stores, StoresError } from './Stores'
+import { Stores, StoresError, StoresLoading } from './Stores'
 
 const storesRoute = getRouteApi('/_app/stores')
 const shellRoute = getRouteApi('/_app')
@@ -37,6 +37,8 @@ export const StoresScreen = () => {
     ...(created ? { created } : {}),
     ...(q ? { q } : {}),
   }
+  // Loaded on a phone, until the shell reloads it for a wider screen.
+  if (!page) return <StoresLoading />
   return (
     <>
       <Stores

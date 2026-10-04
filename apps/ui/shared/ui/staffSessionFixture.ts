@@ -15,6 +15,8 @@ const toBase64Url = (text: string) =>
 const fromBase64Url = (text: string) =>
   new TextDecoder().decode(Uint8Array.from(atob(text.replace(/-/g, '+').replace(/_/g, '/')), (char) => char.charCodeAt(0)))
 
+export const isFixtureHandoff = (token: string): boolean => token.startsWith(prefix)
+
 export const encodeFixtureHandoff = (session: FixtureHandoff, nonce: string): string => `${prefix}${toBase64Url(JSON.stringify({ session, nonce }))}`
 
 const decode = (token: string): FixtureHandoff | null => {

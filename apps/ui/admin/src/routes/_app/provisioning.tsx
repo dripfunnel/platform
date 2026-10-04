@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { jobStates, loadProvisioningJobs } from '../../api/provisioning'
-import { paces } from '../../api/provisioningSample'
 import { provisioningSteps } from '../../api/provisioningSteps'
 import { callerFor } from '../../features/common/harnessCaller'
 import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
@@ -16,12 +15,10 @@ const provisioningSearch = z.object({
   q: searchParam,
   after: idParam,
   before: idParam,
-  pace: optionalParam(z.enum(paces)),
 })
 
 export const Route = createFileRoute('/_app/provisioning')({
   validateSearch: provisioningSearch,
-  // The sample's pace only times the next run, so changing it doesn't reload the page.
   loaderDeps: ({ search: { partner, status, step, q, after, before } }) => ({ partner, status, step, q, after, before }),
   loader: ({ deps: { after, before, ...filter }, location, context }) => loadProvisioningJobs(filter, { after, before }, callerFor(context.me.role, location.searchStr)),
   pendingComponent: ProvisioningLoading,

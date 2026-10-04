@@ -1,10 +1,10 @@
 // The Customers operations on the Admin API (FIRST-RELEASE.md §5.4, §12): the only place this
 // app talks to the API about shoppers' accounts. Email and phone arrive already masked for a
 // role that may not see them; the screens display what they are given and never unmask.
-import type { StaffRole } from '../features/shell/staffRoles'
-import { customersServer } from './customersSample'
 import type { PageInfo, PageRequest } from '@dripfunnel/shared/graphql'
-import { harnessEnabled } from '../harness'
+import { z } from 'zod'
+import { query } from './client'
+import { filterOf, isoString, pageInfoSchema, refSchema } from './decode'
 
 export const customerStatuses = ['active', 'unverified', 'deleted'] as const
 export type CustomerStatus = (typeof customerStatuses)[number]
@@ -73,16 +73,67 @@ export interface Customer extends CustomerRow {
 // The API's cap on a page; it answers with fewer when there are fewer.
 export const customerPageSize = 25
 
-const notConnected = () => Promise.reject(new Error('The Admin API has no customers queries yet (#36).'))
+const account = {
+  id: z.string(),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  phoneRegion: z.string().nullable(),
+  store: refSchema,
+  partner: refSchema,
+  signsInWith: z.enum(signInMethods).nullable(),
+  status: z.enum(customerStatuses),
+  orders: z.number().int().nonnegative(),
+  createdAt: isoString,
+  lastSignInAt: isoString.nullable(),
+}
+const accountFields = 'id name email phone phoneRegion store { id name } partner { id name } signsInWith status orders createdAt lastSignInAt'
 
-// Seam: replace the sample with the Admin API's `customers(filter, after, before)` and
-// `customer(id)` queries through createApiClient from @dripfunnel/shared/graphql once #36 lands
-// (https://github.com/dripfunnel/platform/issues/36). The search term goes in the POST body,
-// never a URL. `customer(id)` writes the `customer.viewed` entry on the server (LOGGING.md §3).
-// `caller` stands in for the session the API reads the staff role from, and goes with the
-// sample. The sample is invented, so it appears only where the ?state= harness does.
-export const loadCustomers = (filter: CustomerFilter, page: PageRequest, search: string | null): Promise<CustomerPage> =>
-  harnessEnabled ? Promise.resolve(customersServer.list(filter, page, search, customerPageSize)) : notConnected()
+const pageSchema = z.object({
+  customers: z.object({
+    items: z.array(z.object(account)),
+    pageInfo: pageInfoSchema,
+    match: z.object({ kind: z.enum(['email', 'phone']), accounts: z.number().int().nonnegative(), regions: z.array(z.string()) }).nullable(),
+    partners: z.array(refSchema),
+    stores: z.array(refSchema),
+  }),
+})
 
-export const loadCustomer = (id: string, caller: StaffRole): Promise<Customer | null> =>
-  harnessEnabled ? Promise.resolve(customersServer.get(id, caller)) : notConnected()
+const customerSchema = z.object({
+  customer: z
+    .object({
+      ...account,
+      emailVerified: z.boolean(),
+      phoneVerified: z.boolean(),
+      contactsMasked: z.boolean(),
+      deletedAt: isoString.nullable(),
+      storeSuspension: z.object({ reason: z.string() }).nullable(),
+    })
+    .nullable(),
+})
+
+// The search term travels as a variable in the POST body, never in a URL (decided on #42).
+export const loadCustomers = async (filter: CustomerFilter, page: PageRequest, search: string | null): Promise<CustomerPage> =>
+  (
+    await query(
+      `query Customers($filter: CustomerFilter, $search: String, $after: String, $before: String) {
+        customers(filter: $filter, search: $search, after: $after, before: $before) {
+          items { ${accountFields} } pageInfo { startCursor endCursor hasPreviousPage hasNextPage }
+          match { kind accounts regions } partners { id name } stores { id name }
+        }
+      }`,
+      pageSchema,
+      { filter: filterOf(filter, ['partner', 'store', 'status', 'via', 'created', 'lastSignIn']), search, after: page.after, before: page.before },
+    )
+  ).customers
+
+// Opening a customer writes the `customer.viewed` entry on the server (LOGGING.md §3); the
+// contacts arrive unmasked only for a role with `customers.contact.read`.
+export const loadCustomer = async (id: string): Promise<Customer | null> =>
+  (
+    await query(
+      `query Customer($id: ID!) { customer(id: $id) { ${accountFields} emailVerified phoneVerified contactsMasked deletedAt storeSuspension { reason } } }`,
+      customerSchema,
+      { id },
+    )
+  ).customer

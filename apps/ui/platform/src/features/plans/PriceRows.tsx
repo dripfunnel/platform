@@ -13,6 +13,7 @@ export interface PriceRowsProps {
 
 const Margin = ({ price }: { price: PlanPrice | undefined }) => {
   if (!price || price.margin.kind === 'unpriced') return <span className="df-muted">{words.addPrice}</span>
+  if (price.margin.kind === 'noFee') return <span className="df-muted">{words.noFee}</span>
   if (price.margin.kind === 'loss') return <strong className="df-margin df-margin--loss">{fill(words.loss, { amount: formatAmount(price.margin.amount) })}</strong>
   return <strong className="df-margin df-margin--keep">{fill(words.keep, { amount: formatAmount(price.margin.amount), of: formatAmount(price.margin.of) })}</strong>
 }
@@ -39,7 +40,7 @@ export const PriceRows = ({ draft, quoted, disabled, onChange }: PriceRowsProps)
             <input id={`price-${currency}-yearly`} inputMode="decimal" value={price.yearly} placeholder={messages.plans.unpriced} disabled={disabled} aria-invalid={minorOf(price.yearly, currency) === 'invalid'} onChange={(event) => onChange(currency, 'yearly', event.target.value)} />
           </div>
           <div className="df-stack df-price-notes">
-            {quote && <span className="df-muted">{fill(quote.converted ? words.feeConverted : words.fee, { fee: formatAmount(quote.fee) })}</span>}
+            {quote?.fee && <span className="df-muted">{fill(quote.converted ? words.feeConverted : words.fee, { fee: formatAmount(quote.fee) })}</span>}
             {invalid ? <strong className="df-margin df-margin--loss">{words.priceInvalid}</strong> : <Margin price={quote} />}
           </div>
         </div>

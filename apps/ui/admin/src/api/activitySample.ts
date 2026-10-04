@@ -80,7 +80,7 @@ const random = (seed: number) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296
 }
 
-type Draft = Omit<ActivityEntry, 'id' | 'occurredAt' | 'level' | 'requestId' | 'ip' | 'userAgent'>
+type Draft = Omit<ActivityEntry, 'id' | 'occurredAt' | 'level' | 'requestId' | 'ip' | 'userAgent' | 'action'> & { action: ActionCode }
 
 const agents = ['Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) Chrome/129.0', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Firefox/131.0', 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Safari/604.1']
 

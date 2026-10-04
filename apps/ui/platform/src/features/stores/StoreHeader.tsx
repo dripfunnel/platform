@@ -2,7 +2,7 @@ import { Tile } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { fill, messages } from '../../messages'
 import { StoreActions, type StoreActionsProps } from './StoreActions'
-import { DomainLink, StatusSub, StoreStatusPill } from './storeLook'
+import { DomainCell, StatusSub, StoreStatusPill } from './storeLook'
 
 const words = messages.store
 
@@ -24,7 +24,7 @@ export const StoreHeader = ({ store, product, onAction }: StoreActionsProps & { 
         </div>
         <div className="df-store-meta">
           <code className="df-muted">{store.code}</code>
-          <DomainLink host={store.domain.host} />
+          <DomainCell domain={store.domain} code={store.code} />
           <StatusSub state={store.state} />
         </div>
       </div>

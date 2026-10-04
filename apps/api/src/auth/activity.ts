@@ -42,6 +42,26 @@ export interface ActivityLog {
   record: (tx: ScopedSql, entry: ActivityEntry) => Promise<void>
 }
 
+/** A staff session ended in the partner console: by the staff member, or by its user or partner going (ACCESS.md §8.1, §8.2). */
+export const staffSessionEnded = (
+  s: { kind: 'impersonation' | 'setup'; id: string; staff_id: string; staff_name: string; staff_email: string; partner_id: string; partner_name: string; target_id: string | null; target_name: string | null },
+  facts: RequestFacts,
+  why: 'portal' | 'target_gone' | 'partner_closed',
+): ActivityEntry => ({
+  category: 'support',
+  action: s.kind === 'impersonation' ? 'impersonation.ended' : 'setup_session.ended',
+  result: 'success',
+  ...(why === 'portal' ? { actorKind: 'staff' as const, actorId: s.staff_id, actorLabel: `${s.staff_name} <${s.staff_email}>` } : { actorKind: 'job' as const, actorId: null, actorLabel: null }),
+  access: { kind: s.kind === 'impersonation' ? 'impersonation' : 'setup_session', id: s.id },
+  partnerId: s.partner_id,
+  target: s.target_id && s.target_name ? { type: 'partner_user', id: s.target_id, label: s.target_name } : { type: 'partner', id: s.partner_id, label: s.partner_name },
+  // A code, never free text (LOGGING.md §4).
+  reason: why === 'portal' ? null : why,
+  api: 'platform',
+  visibility: 'partner',
+  ...facts,
+})
+
 export const signedIn = (staff: { id: string; email: string; name: string }, request: RequestFacts): ActivityEntry => ({
   category: 'auth',
   action: 'staff.signed_in',

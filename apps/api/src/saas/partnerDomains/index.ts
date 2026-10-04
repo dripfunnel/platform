@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { parseHostname } from '#core/hostname'
 import { domainKinds, type DomainKind, type HostStatus } from '#db/schema/saas'
@@ -9,7 +9,7 @@ import { withScope } from '#db/scoped/index'
 import { hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
-import { isBareDomain, ownershipRecord, recordMatches, recordsFor, registrableLabels } from '#saas/domains/index'
+import { isBareDomain, ownershipRecord, recordMatches, recordsFor, registrableLabels, zoneOf } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
@@ -60,7 +60,7 @@ const recordDto = (r: PartnerDomainRecordRow) => ({
 
 export const createPartnerDomainsService = ({ sql, caller, facts, activity, now }: PartnerDomainsDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
   const minute = (at: Date) => Math.floor(at.getTime() / 60_000)
 
@@ -75,11 +75,11 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
           const row = rows.find((r) => r.domain.kind === kind)
           if (!row) return { kind, added: false as const }
           const d = row.domain
-          return { kind, added: true as const, host: d.host, status: d.status as HostStatus, since: d.created_at, checkedAt: d.checked_at, records: row.records.map(recordDto) }
+          return { kind, added: true as const, host: d.host, zone: zoneOf(d.host), status: d.status as HostStatus, since: d.created_at, checkedAt: d.checked_at, records: row.records.map(recordDto) }
         }),
         // SAAS §3.6: until the sender is live, mail goes from DripFunnel's domain in the partner's name.
         fallbackSender: email?.status === 'live' || label === null ? null : `no-reply@${label}.dripfunnel-mail.com`,
-        add: partnerRoleHas(caller.user.role, 'domains.write') ? { allowed: rows.length < domainKinds.length } : { allowed: false },
+        add: partnerRoleHas(caller.role, 'domains.write') ? { allowed: rows.length < domainKinds.length } : { allowed: false },
       }
     })
 

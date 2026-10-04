@@ -2,7 +2,8 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { dashboardRanges, loadDashboard, type DashboardData } from '../../api/dashboard'
+import { asVariant, dashboardRanges, type DashboardData } from '../../api/dashboard'
+import { dashboardAs } from './dashboardTestData'
 import type { Me } from '../../api/me'
 import { messages } from '../../messages'
 import { Dashboard } from './Dashboard'
@@ -21,7 +22,7 @@ const words = messages.dashboard
 
 describe('the partner Dashboard', () => {
   it('draws the six cards of FIRST-RELEASE §5 with every number linking to the filtered Stores list', async () => {
-    const html = await dashboard(await loadDashboard('month', 'partner-owner'))
+    const html = await dashboard(dashboardAs('month'))
     const text = textOf(html)
     for (const title of [words.stores.title, words.revenue.title, words.attention.title, words.signups.title, words.usage.title, words.top.title]) expect(text).toContain(title)
     for (const href of ['/stores?status=active', '/stores?status=trial', '/stores?status=pastdue', '/stores?status=suspended', '/stores?created=month', '/stores?near=yes', '/billing', '/billing?tab=payouts', '/reports?tab=stores', '/stores/st-juniper?tab=plan']) {
@@ -33,7 +34,7 @@ describe('the partner Dashboard', () => {
   })
 
   it.each(dashboardRanges)('shows the %s range’s comparisons exactly as the API words them', async (range) => {
-    const data = await loadDashboard(range, 'partner-owner')
+    const data = dashboardAs(range)
     const text = textOf(await dashboard(data))
     expect(text).toContain(data.revenue.comparison)
     expect(text).toContain(data.signups.comparison)
@@ -43,18 +44,18 @@ describe('the partner Dashboard', () => {
   })
 
   it('disables an attention action the role cannot take, with the reason and who can', async () => {
-    const owner = textOf(await dashboard(await loadDashboard('month', 'partner-owner')))
+    const owner = textOf(await dashboard(dashboardAs('month')))
     expect(owner).not.toContain(words.attention.refused.OWNERS_AND_ADMINS_ONLY)
-    const support = await dashboard(await loadDashboard('month', 'partner-support'))
+    const support = await dashboard(dashboardAs('month', 'partner-support'))
     expect(textOf(support)).toContain(words.attention.refused.OWNERS_AND_ADMINS_ONLY)
     expect(textOf(support)).toContain(words.attention.refused.FINANCE_TRIAL_ONLY)
     expect(support).toMatch(/<button[^>]*disabled=""[^>]*>Retry setup<\/button>/)
-    const finance = textOf(await dashboard(await loadDashboard('month', 'partner-finance')))
+    const finance = textOf(await dashboard(dashboardAs('month', 'partner-finance')))
     expect(finance).not.toContain(words.attention.refused.FINANCE_TRIAL_ONLY)
   })
 
   it('shows a brand-new Live partner zeros and the words that say so', async () => {
-    const text = textOf(await dashboard(await loadDashboard('month', 'partner-owner', 'fresh')))
+    const text = textOf(await dashboard(asVariant(dashboardAs('month'), 'fresh')))
     expect(text).toContain('Create your first store, or share your sign-up link: store.northstar.com/signup')
     expect(text).toContain(words.revenue.fresh)
     expect(text).toContain(words.signups.fresh)
@@ -64,7 +65,7 @@ describe('the partner Dashboard', () => {
   })
 
   it.each(dashboardStates)('renders the %s state through ?state=', async (state) => {
-    const html = await dashboard(await loadDashboard('month', 'partner-owner'), state)
+    const html = await dashboard(dashboardAs('month'), state)
     expect(html).not.toBe('')
     const text = textOf(html)
     if (state === 'loading') expect(html).toContain('df-skeleton')
@@ -75,7 +76,7 @@ describe('the partner Dashboard', () => {
   })
 
   it('shows the stale notice when the API says so', async () => {
-    const text = textOf(await dashboard(await loadDashboard('month', 'partner-owner', 'stale')))
+    const text = textOf(await dashboard(asVariant(dashboardAs('month'), 'stale')))
     expect(text).toContain('Some numbers are from')
     expect(text).toContain(words.refresh)
   })

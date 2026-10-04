@@ -2,7 +2,6 @@ import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
 import {
   endSession,
   loadMySessions,
-  reauthenticate,
   returnToSession,
   startImpersonation,
   startSetupSession,
@@ -15,7 +14,7 @@ import type { StaffRole } from '../shell/staffRoles'
 import { reservePortalTab, type PortalTab } from './openPortal'
 import { sessionsChanged } from './sessionEvents'
 import { firstOf, membershipLine, placeText, refusalText, roleText, timeLeftText, whereText } from './sessionText'
-import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, ticketError, type StartStep, type StartSubject } from './startFlow'
+import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, startWithReauth, ticketError, type StartStep, type StartSubject } from './startFlow'
 import '@dripfunnel/shared/ui/states.css'
 import './impersonate.css'
 
@@ -65,7 +64,7 @@ export const StartSessionDialog = ({ subject, caller, meName, simulate, onClose,
     setStep(null)
     if (!dialog.open) dialog.showModal()
     let current = true
-    loadMySessions(caller)
+    loadMySessions()
       .then((sessions) => {
         if (!current) return
         setMine(sessions)
@@ -106,32 +105,34 @@ export const StartSessionDialog = ({ subject, caller, meName, simulate, onClose,
 
   const confirm = () => {
     const tab = reservePortalTab()
-    setStep('reauth')
     const cleanTicket = ticket.trim() === '' ? null : ticket.trim()
-    reauthenticate(simulate)
-      .then((proof) => {
-        if (!proof.ok) return fail(proof.outcome === 'failed' ? words.reauthFailed : words.reauthCancelled, true, tab)
-        const start =
-          subject.kind === 'impersonation' && membershipId
-            ? startImpersonation(subject.target.id, membershipId, reason, cleanTicket, proof.proof, caller)
-            : subject.kind === 'setup'
-              ? startSetupSession(subject.partner.id, reason, cleanTicket, proof.proof, caller)
-              : null
-        return start?.then((result) => finish(result, tab))
+    const start = (): Promise<StartResult> =>
+      subject.kind === 'impersonation' && membershipId
+        ? startImpersonation(subject.target.id, membershipId, reason, cleanTicket)
+        : subject.kind === 'setup'
+          ? startSetupSession(subject.partner, reason, cleanTicket)
+          : Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
+    // The harness's sign-in answer stands in for the API asking for one (?state=reauthFailed).
+    const asked = simulate ? (): Promise<StartResult> => Promise.resolve({ ok: false, reason: 'REAUTH_REQUIRED' }) : start
+    setStep('reauth')
+    startWithReauth(asked, () => (simulate ? Promise.resolve(simulate) : tab.reauthenticate()), tab.blocked && !simulate)
+      .then((outcome) => {
+        if (outcome.kind === 'done') return finish(outcome.result, tab)
+        fail(outcome.outcome === 'blocked' ? words.reauthBlocked : outcome.outcome === 'failed' ? words.reauthFailed : words.reauthCancelled, true, tab)
       })
       .catch(() => fail(messages.impersonate.toasts.failed, true, tab))
   }
 
   const returnTo = (id: string) => {
     const tab = reservePortalTab()
-    returnToSession(id, caller)
+    returnToSession(id)
       .then((result) => finish(result, tab))
       .catch(() => fail(messages.impersonate.toasts.failed, false, tab))
   }
 
   const endOther = () => {
     if (!other) return
-    endSession(other.id, caller)
+    endSession(other.id)
       .then((result) => {
         if (!result.ok) return fail(refusalText(result.reason), false)
         sessionsChanged()

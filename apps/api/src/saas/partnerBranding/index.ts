@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingName, agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { mirrorPartnerLook, publishBrandingDraft, saveBrandingDraft, selectBranding, type BrandingFields, type BrandingRow } from '#db/scoped/branding'
 import { partnerEntry } from '#saas/activity/index'
@@ -10,6 +10,7 @@ import { insertOutbox } from '#db/scoped/outbox'
 import { selectShellFacts } from '#db/scoped/partnerConsole'
 import { selectContractTerms } from '#db/scoped/partnerPlans'
 import { selectPartner, upsertSetupItem } from '#db/scoped/partners'
+import type { PartnerRow } from '#db/schema/saas'
 import { contrastReport, type ContrastReport } from './contrast'
 
 // Branding on the Platform API (ui/platform/FIRST-RELEASE.md §8; card #162): the look and the
@@ -140,10 +141,15 @@ export interface PartnerBrandingDeps {
   activity: ActivityLog
 }
 
+// A partner created without colours starts from DripFunnel's own (the style guide's brand tokens),
+// a pair that passes the contrast check until the partner picks theirs.
+const defaultPrimary = '#4A1B0C'
+const defaultAccent = '#EC844F'
+
 export const createPartnerBrandingService = ({ sql, caller, facts, activity }: PartnerBrandingDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
-  const permission = (): BrandingDto['permission'] => (partnerRoleHas(caller.user.role, 'branding.write') ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+  const context = partnerContextOf(caller)
+  const permission = (): BrandingDto['permission'] => (partnerRoleHas(caller.role, 'branding.write') ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
 
   const rules = async (tx: ScopedSql) => {
     const terms = await selectContractTerms(tx, partnerId)
@@ -154,15 +160,29 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
     }
   }
 
+  // A partner that has never saved a look starts from what its creation recorded (name and
+  // colours) and the form's defaults, unpublished, with the same rules and permission.
+  const firstDraft = (partner: PartnerRow | null): BrandingInput => ({
+    look: {
+      productName: partner?.product_name ?? partner?.name ?? '',
+      primary: partner?.primary_color ?? defaultPrimary,
+      accent: partner?.accent_color ?? defaultAccent,
+      font: brandFonts[0],
+      corner: 'rounded',
+      background: 'sand',
+      files: { logoLight: '', logoDark: '', mark: '', favicon: '' },
+    },
+    words: { supportEmail: '', supportUrl: '', helpUrl: '', termsUrl: '', privacyUrl: '', dpaUrl: '', impressum: '', poweredBy: true },
+  })
+
   const branding = (): Promise<BrandingDto | null> =>
     withScope(sql, context, async (tx) => {
       const { live, draft } = await selectBranding(tx, partnerId)
       const shown = live ?? draft
-      if (!shown) return null
-      const input = toInput(shown)
+      const input = shown ? toInput(shown) : firstDraft(await selectPartner(tx, partnerId))
       return {
         ...input,
-        published: shown === live,
+        published: shown !== null && shown === live,
         affects: (await selectShellFacts(tx, partnerId)).store_count,
         contrast: contrastReport(input.look.primary, input.look.accent),
         ...(await rules(tx)),
@@ -192,12 +212,12 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
       if (poweredByRule === 'fixedOn' && !input.words.poweredBy) return { ok: false, reason: 'POWERED_BY_FIXED_BY_CONTRACT' }
       if (impressumRequired && input.words.impressum === '') return { ok: false, reason: 'IMPRESSUM_REQUIRED' }
       const fields = toFields(input)
-      const by = { kind: 'partner_user' as const, label: caller.user.name }
-      const publishedAt = await publishBrandingDraft(tx, await saveBrandingDraft(tx, partnerId, fields, by), caller.user.name)
+      const by = agentOf(caller)
+      const publishedAt = await publishBrandingDraft(tx, await saveBrandingDraft(tx, partnerId, fields, by), actingName(caller))
       await mirrorPartnerLook(tx, partnerId, fields)
       // The checklist (FIRST-RELEASE §4): Branding is done by a publish; Legal pages once terms,
       // privacy and the DPA are there, and the Impressum where the law needs one.
-      const done = { status: 'done' as const, doneAt: publishedAt, doneByKind: 'partner_user' as const, doneByLabel: caller.user.name }
+      const done = { status: 'done' as const, doneAt: publishedAt, doneByKind: agentOf(caller).kind, doneByLabel: actingName(caller) }
       await upsertSetupItem(tx, { partnerId, item: 'branding', detail: 'Logo, colours and font saved', ...done })
       // Set either way, so a later publish without a page puts the item back to missing.
       const missing = legalMissing(input, impressumRequired)

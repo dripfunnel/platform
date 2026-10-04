@@ -8,7 +8,7 @@ import { BrandingPending, BrandingRouteError, BrandingScreen } from '../../featu
 // Branding is the signed-in partner's own, in every partner state (the checklist asks for it before Live).
 export const Route = createFileRoute('/_app/branding')({
   validateSearch: z.looseObject({ tab: optionalParam(z.enum(brandingTabs)) }),
-  loader: ({ context }) => loadBranding(context.me.partner.id, context.me.role),
+  loader: () => loadBranding(),
   pendingComponent: BrandingPending,
   errorComponent: BrandingRouteError,
   component: BrandingScreen,

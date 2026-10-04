@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { reauthenticatePartner, type ReauthResult } from '#auth/partnerCode'
 import type { SecretBox } from '#auth/secretBox'
 import { hashSessionId, newSessionId } from '#auth/session'
@@ -60,6 +60,9 @@ const startInput = z.strictObject({
 export interface PartnerSupportDeps {
   sql: postgres.Sql
   caller: PartnerCaller
+  // Support sessions are a partner user's own, proved with their own second factor: no staff
+  // session reaches this service (ACCESS.md §8.1, §8.2; blocked in apis/platform/support.ts).
+  user: NonNullable<PartnerCaller['user']>
   facts: RequestFacts
   activity: ActivityLog
   secrets: SecretBox | null
@@ -80,14 +83,14 @@ const startRefusal = (t: SupportTargetRow, callerId: string): StartRefusal | nul
   return null
 }
 
-export const createPartnerSupportService = ({ sql, caller, facts, activity, secrets, now }: PartnerSupportDeps) => {
+export const createPartnerSupportService = ({ sql, caller, user, facts, activity, secrets, now }: PartnerSupportDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
-  const mayEndOthers = caller.user.role === 'partner-owner' || caller.user.role === 'partner-admin'
+  const mayEndOthers = caller.role === 'partner-owner' || caller.role === 'partner-admin'
 
   const targetDto = (t: SupportTargetRow, at: Date) => {
-    const reason = startRefusal(t, caller.user.id)
+    const reason = startRefusal(t, user.id)
     return {
       membershipId: t.membership_id,
       userId: t.user_id,
@@ -103,13 +106,13 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
       // The facts §12.1's sentences name: who turned support off, who is in a session and for how long.
       storeOwner: reason === 'SUPPORT_OFF' ? t.store_owner : null,
       colleague: reason === 'COLLEAGUE_IN_SESSION' && t.open_agent_name && t.open_expires_at ? { name: t.open_agent_name, minutesLeft: minutesLeft(t.open_expires_at, at) } : null,
-      mySessionId: t.open_session_id && t.open_agent_id === caller.user.id ? t.open_session_id : null,
+      mySessionId: t.open_session_id && t.open_agent_id === user.id ? t.open_session_id : null,
     }
   }
   type TargetDto = ReturnType<typeof targetDto>
 
   const sessionDto = (s: SupportSessionRow, at: Date) => {
-    const mine = s.partner_user_id === caller.user.id
+    const mine = s.partner_user_id === user.id
     const open = s.ended_at === null && s.expires_at > at
     // A session nobody ended ran out, even once a later start has closed its row (expireStale).
     const expired = s.ended_by_partner_user_id === null
@@ -150,7 +153,7 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
     })
   }
 
-  const reauthenticate = (code: string): Promise<ReauthResult> => reauthenticatePartner({ sql, activity, secrets, now }, facts, caller.user.id, code)
+  const reauthenticate = (code: string): Promise<ReauthResult> => reauthenticatePartner({ sql, activity, secrets, now }, facts, user.id, code)
 
   type Started = { ok: true; sessionId: string; expiresAt: Date; link: string } | { ok: false; reason: StartRefusal | SessionRefusal | 'INVALID_INPUT'; sessionId?: string }
 
@@ -162,13 +165,13 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
     if (!proof) return Promise.resolve({ ok: false, reason: 'REAUTH_REQUIRED' })
     return withScope(sql, context, async (tx): Promise<Started> => {
       const at = now()
-      await expireStaleSupportSessions(tx, { partnerUserId: caller.user.id, membershipId }, at)
+      await expireStaleSupportSessions(tx, { partnerUserId: user.id, membershipId }, at)
       const target = await selectSupportTarget(tx, partnerId, membershipId, at)
       if (!target) return { ok: false, reason: 'NOT_FOUND' }
-      const mine = await selectOpenSupportSessionOf(tx, partnerId, caller.user.id, at)
+      const mine = await selectOpenSupportSessionOf(tx, partnerId, user.id, at)
       // §12.2: one at a time; the console offers "End it and continue" with this id.
       if (mine) return { ok: false, reason: 'SUPPORT_SESSION_ALREADY_OPEN', sessionId: mine.id }
-      const refusal = startRefusal(target, caller.user.id)
+      const refusal = startRefusal(target, user.id)
       if (refusal) return { ok: false, reason: refusal }
       const host = await selectLivePortalHost(tx, partnerId)
       if (!host) return { ok: false, reason: 'PORTAL_NOT_LIVE' }
@@ -178,7 +181,7 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
         partnerId,
         storeId: target.store_id,
         membershipId,
-        partnerUserId: caller.user.id,
+        partnerUserId: user.id,
         reason,
         ticket: ticket || null,
         startedAt: at,
@@ -227,7 +230,7 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
       // What a start would refuse now refuses a fresh link too (ACCESS.md §8: switching support off ends it).
       const target = await selectSupportTarget(tx, partnerId, s.membership_id, at)
       if (!target) return { ok: false, reason: 'NOT_FOUND' }
-      const refusal = startRefusal(target, caller.user.id)
+      const refusal = startRefusal(target, user.id)
       if (refusal === 'SUPPORT_OFF' || refusal === 'STORE_CANCELLED' || refusal === 'SUSPENDED') return { ok: false, reason: refusal }
       const host = await selectLivePortalHost(tx, partnerId)
       if (!host) return { ok: false, reason: 'PORTAL_NOT_LIVE' }
@@ -240,7 +243,7 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
   const endSession = (sessionId: string) =>
     onSession(sessionId, async (tx, s, dto, at): Promise<{ ok: true } | { ok: false; reason: SessionRefusal }> => {
       if (!dto.end.allowed) return { ok: false, reason: dto.end.reason as SessionRefusal }
-      await endSupportSession(tx, s.id, caller.user.id, at)
+      await endSupportSession(tx, s.id, user.id, at)
       await activity.record(tx, sessionEntry(supportAudit.endSupportSession, s))
       return { ok: true }
     })
@@ -260,7 +263,7 @@ export const createPartnerSupportService = ({ sql, caller, facts, activity, secr
   const mySupportSession = (): Promise<SessionDto | null> =>
     withScope(sql, context, async (tx) => {
       const at = now()
-      const s = await selectOpenSupportSessionOf(tx, partnerId, caller.user.id, at)
+      const s = await selectOpenSupportSessionOf(tx, partnerId, user.id, at)
       return s ? sessionDto(s, at) : null
     })
 

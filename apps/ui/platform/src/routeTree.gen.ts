@@ -26,6 +26,7 @@ import { Route as AppSupportRouteImport } from './routes/_app/support'
 import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppDomainsNewRouteImport } from './routes/_app/domains_.new'
 import { Route as AppPlansPlanIdRouteImport } from './routes/_app/plans_.$planId'
 import { Route as AppStoresStoreIdRouteImport } from './routes/_app/stores_.$storeId'
 import { Route as AppStoresNewRouteImport } from './routes/_app/stores_.new'
@@ -113,6 +114,11 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppDomainsNewRoute = AppDomainsNewRouteImport.update({
+  id: '/domains_/new',
+  path: '/domains/new',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppPlansPlanIdRoute = AppPlansPlanIdRouteImport.update({
   id: '/plans_/$planId',
   path: '/plans/$planId',
@@ -145,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/domains/new': typeof AppDomainsNewRoute
   '/plans/$planId': typeof AppPlansPlanIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
   '/stores/new': typeof AppStoresNewRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByTo {
   '/accept-invite': typeof AuthAcceptInviteRoute
   '/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/domains/new': typeof AppDomainsNewRoute
   '/plans/$planId': typeof AppPlansPlanIdRoute
   '/stores/$storeId': typeof AppStoresStoreIdRoute
   '/stores/new': typeof AppStoresNewRoute
@@ -188,6 +196,7 @@ export interface FileRoutesById {
   '/_auth/sign-in': typeof AuthSignInRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/domains_/new': typeof AppDomainsNewRoute
   '/_app/plans_/$planId': typeof AppPlansPlanIdRoute
   '/_app/stores_/$storeId': typeof AppStoresStoreIdRoute
   '/_app/stores_/new': typeof AppStoresNewRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
+    | '/domains/new'
     | '/plans/$planId'
     | '/stores/$storeId'
     | '/stores/new'
@@ -230,6 +240,7 @@ export interface FileRouteTypes {
     | '/accept-invite'
     | '/sign-in'
     | '/impersonate/enter'
+    | '/domains/new'
     | '/plans/$planId'
     | '/stores/$storeId'
     | '/stores/new'
@@ -252,6 +263,7 @@ export interface FileRouteTypes {
     | '/_auth/sign-in'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/domains_/new'
     | '/_app/plans_/$planId'
     | '/_app/stores_/$storeId'
     | '/_app/stores_/new'
@@ -384,6 +396,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/domains_/new': {
+      id: '/_app/domains_/new'
+      path: '/domains/new'
+      fullPath: '/domains/new'
+      preLoaderRoute: typeof AppDomainsNewRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/plans_/$planId': {
       id: '/_app/plans_/$planId'
       path: '/plans/$planId'
@@ -421,6 +440,7 @@ interface AppRouteChildren {
   AppStoresRoute: typeof AppStoresRoute
   AppSupportRoute: typeof AppSupportRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppDomainsNewRoute: typeof AppDomainsNewRoute
   AppPlansPlanIdRoute: typeof AppPlansPlanIdRoute
   AppStoresStoreIdRoute: typeof AppStoresStoreIdRoute
   AppStoresNewRoute: typeof AppStoresNewRoute
@@ -439,6 +459,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppStoresRoute: AppStoresRoute,
   AppSupportRoute: AppSupportRoute,
   AppIndexRoute: AppIndexRoute,
+  AppDomainsNewRoute: AppDomainsNewRoute,
   AppPlansPlanIdRoute: AppPlansPlanIdRoute,
   AppStoresStoreIdRoute: AppStoresStoreIdRoute,
   AppStoresNewRoute: AppStoresNewRoute,

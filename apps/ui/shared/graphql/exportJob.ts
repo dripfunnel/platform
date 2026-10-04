@@ -7,4 +7,6 @@ export interface ExportJob {
   entries: number | null
   url: string | null
   expiresAt: string | null
+  // Only the first `entries` rows: the export hit the API's cap (platform FIRST-RELEASE §16).
+  truncated?: boolean
 }

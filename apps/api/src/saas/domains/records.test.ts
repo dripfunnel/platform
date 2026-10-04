@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { checkRecords } from './check'
-import { emailRecords, isBareDomain, recordMatches } from './records'
+import { emailRecords, isBareDomain, recordMatches, zoneOf } from './records'
 
 describe('recordMatches', () => {
   it.each([
@@ -19,6 +19,15 @@ describe('recordMatches', () => {
     const want = purpose === 'spf' ? emailRecords.spf : purpose === 'dmarc' ? emailRecords.dmarc : emailRecords.dkim
     expect(recordMatches(purpose, want, found)).toBe(expected)
   })
+})
+
+describe('zoneOf', () => {
+  it.each([
+    ['store.northstar.com', 'northstar.com'],
+    ['*.shops.northstar.co.uk', 'northstar.co.uk'],
+    ['mail.northstar.com.au', 'northstar.com.au'],
+    ['northstar.com', 'northstar.com'],
+  ])('%s → %s', (host, zone) => expect(zoneOf(host)).toBe(zone))
 })
 
 describe('isBareDomain', () => {

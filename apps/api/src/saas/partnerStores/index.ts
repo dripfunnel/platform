@@ -2,7 +2,7 @@ import { redactSecretsInText } from '#core/secretText'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
@@ -17,6 +17,7 @@ import { createPartnerCreateStore, createPermissionFor, type CreatePermission } 
 import { createPartnerStoresExport } from './export'
 import { storeFilter, toStoreFilter } from './filter'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
+import { trialChoices, trialEndAfter } from './trial'
 
 export { storeFilter, toStoreFilter, type StoreFilterInput } from './filter'
 export { createAudit, type CreatePermission } from './create'
@@ -86,8 +87,8 @@ export interface PartnerStoresDeps {
 
 export const createPartnerStoresService = ({ sql, caller, facts, activity, now }: PartnerStoresDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
-  const role = caller.user.role
+  const context = partnerContextOf(caller)
+  const role = caller.role
   const billers = partnerRoleHas(role, 'stores.billingStatus')
   const creatingPermission = (state: string | null) => createPermissionFor(role, state)
 
@@ -193,6 +194,8 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           error: redactSecretsInText(row.job_last_error),
         },
         trialExtensions: extensions.slice(0, detailListSize).map((e) => ({ days: e.days, endsAt: e.ends_at })),
+        // What Extend trial would grant now, on the server's clock (§6.4).
+        trialOffers: row.status === 'trial' ? trialChoices.map((days) => ({ days, endsAt: trialEndAfter(row.trial_ends_at, days, at) })) : [],
         support: {
           allowed: row.support_access_allowed,
           people: people.map((p) => ({ id: p.user_id, name: p.name, email: p.email, role: p.role_key, supplier: p.seller_name, status: p.user_status, lastSignInAt: p.last_sign_in_at })),

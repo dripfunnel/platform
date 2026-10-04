@@ -9,12 +9,24 @@ to build first: [FIRST-RELEASE.md](../../../docs/ui/platform/FIRST-RELEASE.md).
 pnpm --filter ./apps/ui/platform dev   # http://localhost:5174, /api proxied to the local Worker
 ```
 
+**Wired to the Platform API**: sign-in, 2-factor, accepting an invitation, sign-out, `me` and the
+session guard, the partner-state banners, the nav badges, the header search and the setup
+checklist with Submit (#164); Plans and Branding, with brand-file uploads (#165); the Dashboard,
+Stores, Store detail with its actions, Create store and the export (#166). **No screen reads a
+fixture any more.** The one sample left is the staff-session handoff (`src/api/staffSession.ts`),
+whose exchange arrives with #243. Domains, Reports, Billing, Support,
+Activity log and Settings are placeholders. Against the local seed, `pnpm seed` prints an
+invitation link to accept (set a password there, then sign in), and
+`pnpm --filter ./apps/api session --partner <email>` prints a session cookie for any active
+partner user.
+
 ## The shell
 
 `src/routes/_app.tsx` is the shell every signed-in screen sits in (`src/features/shell/`, built
-on #111): the header, the strips under it, the side bar, and the phone drawer. Its loader reads
-the signed-in partner user and the nav badge counts from `src/api/me.ts` and
-`src/api/navBadges.ts`, which are fixtures until the Platform API's `me` arrives.
+on #111): the header, the strips under it, the side bar, and the phone drawer. It reads `me`
+first: nobody signed in goes to `/sign-in?next=` and comes back after. Its loader then reads
+`partnerState` and `navBadges` (`src/api/partnerState.ts`, `navBadges.ts`). When the API
+doesn't answer, the shell shows the load error with Try again (`ShellError`).
 
 - **Navigation is data** in `src/nav.ts`: the ten rows of FIRST-RELEASE.md §2.1, with the roles
   that see each. A row a role can't use is absent, not disabled: Billing for Support, Support
@@ -29,8 +41,10 @@ the signed-in partner user and the nav badge counts from `src/api/me.ts` and
   alone draws.
 - **Strips under the header**: the environment strip on every host but production (Dev,
   Feature, Local by hostname from the shared `environmentFor`; decided 2026-10-01 on #109),
-  and the partner-state strip while the partner is Draft, Awaiting approval or Sent back
-  (FIRST-RELEASE §2.3).
+  then `PartnerBanners`, worded here from `partnerState`'s facts (FIRST-RELEASE §2.3): the
+  Draft, Awaiting approval and Sent back strip, Paused with DripFunnel's reason, Offboarding,
+  the hosts that stopped pointing at DripFunnel, and a staff setup session. The contract,
+  store-limit, payout and card banners wait for facts the API doesn't send yet.
 - **Widths**: at 1024px and below the side bar is a 64px icon rail; below 640px it becomes a
   drawer opened from the menu button.
 
@@ -60,10 +74,10 @@ Once the partner is Live, `/dashboard` (`src/features/dashboard/`, #114; FIRST-R
 draws six cards: Stores, Revenue, Needs attention, Signups, Usage and Top stores by sales. Every
 number is a link to the Stores list with the filter in the URL (`?status=`, `?created=`,
 `?near=yes`), to a store's page and its tab (`/stores/<id>?tab=`), to Billing or to Reports. The date range lives in `?range=` (`month`,
-`last`, `q`) and applies to every card. The fixture in `src/api/dashboard.ts` supplies every
-comparison and conversion as words; the screen formats and links and computes nothing. States:
-`?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` is a brand-new Live partner
-and `?view=stale` numbers the API marks as old.
+`last`, `q`) and applies to every card. `dashboard(range)` supplies every comparison and
+conversion as words; the screen formats and links and computes nothing. States:
+`?state=loading`, `empty`, `error`, `stale`, `offline`; `?view=fresh` (a brand-new Live partner's
+zeros) and `?view=stale` (the answer marked old) transform the real answer.
 
 ## Stores
 
@@ -79,15 +93,17 @@ carries no cursor, no page number and no total. Rows open the store's page. A pa
 checklist. States: `?state=loading`, `empty`, `error`, `readonly`, `denied`.
 
 `/stores/new` (FIRST-RELEASE.md §6.2) creates a merchant: store name, owner's name and email,
-country, plan (Live plans priced in the country's currency, from the fixture until #117's plans)
-and trial, with the price line and "The owner gets an invitation to set their own password."
+country, plan (Live plans priced in the country's currency, from `createStoreForm`) and trial
+(starting from the plan's own), with the price line and "The owner gets an invitation to set their own password."
 Submitting shows **Setting up {store}** with the signup job's steps (SAAS.md §5) polled every
 half second, then "Ready in …" with Open the store and Create another. Whether the caller may
 create is the API's answer: Owner and Admin may; Finance, Support and Read-only see the button
 disabled with the reason, and so does a partner that is not Live. The list primitives
 (`ListHeader`, `SearchField`, `FilterSelect`, `ClickableRow`, `list.css`), the URL-search
 helpers and cursor paging come from `@dripfunnel/shared`. `src/api/stores.ts` is the only
-place this app talks to the API about stores, on the fixture in `storesSample.ts`.
+place this app talks to the API about stores. It reads the API's keys (`ai_prompts`, `past_due`,
+`month`) as the console's, and leaves empty what the API doesn't send yet: last month's sales
+and orders, invoices, the status history and support sessions.
 
 **Export accounts (CSV)** (#134) is a job (§16): the header button starts `exportStores(filter)`
 for everything the current filter matches, the shared `ExportWatcher` in the shell follows it on
@@ -95,11 +111,10 @@ any screen and says when it is ready, and the status line under the button offer
 until the link expires. The file carries the account columns only; "Orders, customers and
 products are never included." Every role may export (ACCESS.md §5.3 `exports`).
 
-**Billing status** (#134; §6.1, §11.4) appears as a column only when the partner bills its
-merchants itself (`?billing=own` asks the fixture for that mode until the Billing card carries
-the setting): Active · Past due · Suspended, set inline by Owner, Admin and Finance; the other
-roles see it disabled with the reason once above the table. The fixture records the status as
-the store's account state, and a cancelled store has none.
+**Billing status** (#134; §6.1, §11.4) appears as a column only when the API says the partner
+bills its merchants itself (`billingMode: own`): Active · Past due · Suspended, set inline by
+Owner, Admin and Finance; the other roles see it disabled with the reason once above the table.
+A cancelled store has none.
 
 ## Store detail
 
@@ -111,14 +126,15 @@ and limits (a bar per limit from the API's percent, overrides with their reason)
 subscription as the API states it, who charges, invoices; a card is its last four digits only),
 Storefront (read-only), Domains (status, the CNAME record with Copy, Re-check now), Setup (the
 five signup steps), Support (the merchant's consent, its people and past sessions, read-only:
-sessions start from Support) and Activity (this account's entries from the fixture until the
-Activity log card). A suspended or past-due store carries the API's notice under the tabs.
+sessions start from Support) and Activity (the API's action codes, worded here; an unknown one
+shows as its code). A suspended or past-due store carries a notice under the tabs, worded here
+from the API's state.
 
 **Actions** go through the shared `ConfirmDialog`, each stating its consequence first: Change
 plan (the plan and when, from the API's plans and proration), Extend trial, Add a limit
 override, Suspend (reason shown to the owner, the store name typed), Restore (reason), Resend
 owner invitation, and Retry this step on the Setup tab. Which actions a store's state offers,
-and who may take them, is the fixture's answer (`store(id).actions`, codes from §6.4): Owner and
+and who may take them, is the API's answer (`store(id).actions`, codes from §6.4): Owner and
 Admin take them all, Finance only Extend trial, Support and Read-only none; a refused action
 stays in place, disabled with the reason and who can. States: `?state=loading`, `error`,
 `readonly`, `denied`, `confirm` (opens the first dialog the caller may use).
@@ -132,20 +148,22 @@ under them, trial, stores (a link to the filtered list), status (Draft · Live �
 out as design.md §7 says: cards on the left (name, description and trial; prices; what's
 included), a sticky summary on the right (status, stores on it, Make live, Retire plan), and a
 save bar that appears only when the draft differs from the saved plan. Beside each price the
-fee and margin arrive from the fixture as `Money` ("You keep $31.00 of $49.00", or in red
+fee and margin arrive from the API's `quotePlanPrices` as `Money` ("You keep $31.00 of $49.00", or in red
 "Below DripFunnel's fee: you'd lose $3.00 per store"), re-quoted as prices are typed. The
 entitlement matrix has the three kinds of SAAS.md §6.1 and shows DripFunnel's ceiling on every
 row; a value above it is marked "Can't be more than 20,000." and Save is disabled with "Fix the
-highlighted rows first." The fixture refuses it too (`ABOVE_CEILING`, naming the row); nothing
-is clamped. Saving a plan stores are on asks who gets the change (new signups only, or everyone
+highlighted rows first." The API refuses it too (`ABOVE_CEILING`, naming the row); nothing is
+clamped, and a row DripFunnel sets no ceiling for says so. Saving a plan stores are on asks who gets the change (new signups only, or everyone
 at renewal); retiring hides the plan from signup and asks whether its stores keep it or move to
 another plan on a date; retiring the last Live plan is refused (`LAST_LIVE_PLAN`). Owner and
 Admin edit everything, Finance prices only (the other fields are disabled with the reason),
-Support and Read-only view. States: `?state=loading`, `empty`, `error`, `readonly`, `denied` on
-the list; `loading`, `error`, `readonly`, `denied`, `confirm` on the editor.
+Support and Read-only view, each from the API's `create`, `edit` and `price` blocks. States:
+`?state=loading`, `empty`, `error`, `readonly`, `denied` on the list; `loading`, `error`,
+`readonly`, `denied`, `confirm` on the editor. `denied` can't make the API refuse: to see a role's
+refusals, sign in as that role (`pnpm --filter ./apps/api session --partner <email>`).
 
 Not here: **Compare plans** and **Defaults for new stores** (§7.4, §7.5, the next batch) and
-promotions (SAAS §14). The Create store form's plan picker reads this fixture's Live plans.
+promotions (SAAS §14).
 
 ## Branding
 
@@ -161,13 +179,15 @@ that says "In your brand. The console itself doesn't change." The preview's colo
 `--pv-*` variables on the frame; the console's `--df-*` tokens are never touched (README §4). Any
 change shows "Unpublished changes. Merchants still see the published version. This affects 84
 stores." with Discard and **Publish…**, which states the consequence first through
-`ConfirmDialog`. Contrast is the server's check: the fixture refuses a failing pair
+`ConfirmDialog`. Replace uploads the file at once (`POST /api/uploads/brand-file?kind=`, #219)
+and puts the key it gets back in the draft; it shows only once published. Contrast is the
+server's check: publishing refuses a failing pair
 (`CONTRAST_FAILS`, with the fix), a "Powered by" choice the contract keeps on
 (`POWERED_BY_FIXED_BY_CONTRACT`) and a missing Impressum where required (`IMPRESSUM_REQUIRED`);
 the screen marks the same (the contrast panel, the Impressum field) and never clamps or fixes a colour. Owner and Admin edit; others view
 with the controls disabled and the reason. States: `?state=loading`, `error`, `readonly`,
-`denied`, `confirm`; `?partner=draft` shows Kaufladen's branding, whose contract keeps "Powered
-by" on and which needs an Impressum.
+`denied`, `confirm`. Kaufladen's fixed "Powered by" and required Impressum come from the API:
+sign in as its Owner (`jonas@kaufladen.example`) rather than switching `?partner=`.
 
 Not here: email templates (§8.3), history, rollback and scheduling (§8.4), the Sign up, Products
 and Settings sample screens of §8.1 (the card asks for the sign-in card and the header), and the
@@ -177,20 +197,22 @@ fonts the picker offers are loaded for the preview alone (designs/design.md §6)
 ## Onboarding
 
 `/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;
-FIRST-RELEASE.md §4): the ten items of SAAS §3.2 with done · in progress · to do, who completed
-each, a link to its screen (Settings and Domains are placeholders until their cards land), the
-test signup button, and Submit for approval as the eleventh step, disabled with the reason until
-the required items are done. Payment method and payout details are the partner's own: locked
+FIRST-RELEASE.md §4): the Platform API's `onboarding`, ten items with done · in progress · to do,
+the API's detail (or the item's own hint), who completed each and the screen it links to; Run
+test signup, disabled with its reason until its API exists; and Submit for approval as the
+eleventh step, disabled with the API's verdict (`canSubmit`) or with the go-live checks it says
+still fail. Payment method and payout details are the partner's own: locked
 with "{partner} enters this itself" in a staff setup session, "Your turn" to the Owner. Awaiting
 approval shows what happens next; Sent back shows DripFunnel's reason with the fix linked and
 Submit again; Live shows a one-time card, then the Dashboard (#114).
 
-The fixture in `src/api/onboarding.ts` refuses a submit while a go-live check fails
-(`GO_LIVE_CHECK_FAILED`, naming the check) and refuses Support, Finance and Read-only
-(`OWNERS_AND_ADMINS_ONLY`). Harness: `?partner=draft|awaiting|sentback|live` (the shell's),
-`?setup=dripfunnel` for a partner set up by staff (items "Done by DripFunnel", the Owner's
-welcome card), `?state=setup` for the staff member's own view (the setup-session bar), and
-`?moment=live` for the Live card.
+`submitForApproval` answers `GO_LIVE_CHECK_FAILED` (naming the check), `ALREADY_SUBMITTED`,
+`ALREADY_APPROVED` or, from the access layer, `FORBIDDEN`, which reads as the Owners-and-Admins
+refusal. Harness: `?partner=draft|awaiting|sentback|live|paused|offboarding` (the shell's),
+`?setup=dripfunnel` for the Owner's welcome card, `?state=setup` for the staff member's own
+view (the setup-session bar), and `?moment=live` for the Live card. The welcome card and the
+Live card stay harness-only: the API says neither whether this is the Owner's first sign-in
+after staff set up nor whether Live is new.
 
 ## Signed-out screens
 
@@ -199,23 +221,25 @@ and password, then the 2-factor code, then `next` (same-origin only, `safeNext` 
 `src/api/auth.ts`); forgot password is a step of the same card and answers the same way whether
 or not the email exists. There is no sign-up and no Google button anywhere.
 
-The fixture in `src/api/auth.ts` stands in for the Platform API's auth routes and refuses what
-they will refuse, with the same message and the same timing for an unknown email and a wrong
-password: `INVALID_CREDENTIALS`, `WRONG_CODE` (with the tries left), `CODE_EXPIRED`, `LOCKED`
-(15 minutes after five wrong codes), `NOT_CONNECTED` when the harness is off. Under `vite dev`
-sign in as `maya@northstar.com` / `northstar-partners` (2-factor: code `123456`; `000000` is an
-expired code) or `alex@northstar.com` with the same password (no 2-factor). States:
-`?state=wrong`, `code`, `wrongCode`, `expiredCode`, `locked`, `forgot`, `sent`, `expired`,
-`notConnected`; `?outcome=expired` is the Worker's real result and is read in every build.
+`src/api/auth.ts` calls the Platform API's `/api/auth/*` routes; each refusal is a stable code:
+`INVALID_CREDENTIALS` (one message for an unknown email and a wrong password), `WRONG_CODE`
+(with the tries left), `CODE_EXPIRED`, `LOCKED` (with its minutes), `RATE_LIMITED`, and
+`NOT_CONNECTED` for anything the API never promised or no answer at all. A user whose partner
+requires 2-factor and who has none enrols before reaching the console (the API's `enrol` step).
+Sign out posts a form to `/api/auth/sign-out`, which ends the session and redirects. States:
+`?state=wrong`, `code`, `wrongCode`, `expiredCode`, `locked`, `enrol`, `forgot`, `sent`,
+`expired`, `notConnected`, `rateLimited`; `?outcome=expired` is the Worker's real result and is
+read in every build.
 
 `/accept-invite?token=` (#128) is the invitation side: the partner, role and invited email, a
 name and a 10-character password, then 2-factor as step 2 of 2, required when the partner's
-Owner requires it and otherwise skippable. The route loader fetches the invitation, so a bad
-link is known before anything renders. Fixture tokens, also reachable as `?state=`: `expired`,
-`used`, `replaced`, `invalid`, `member` (invited by the Owner), `required` (2-factor required),
-anything else the Owner's own invitation; `twoFactor` jumps to step 2. Codes:
-`INVITATION_EXPIRED`, `INVITATION_USED`, `INVITATION_REPLACED`, `INVITATION_INVALID`,
-`WEAK_PASSWORD`, `SECOND_FACTOR_REQUIRED`.
+Owner requires it and otherwise skippable. The route loader looks the token up, so a bad link
+is known before anything renders; the 2-factor step asks the API for a secret and shows it as a
+text key (the QR code is still a placeholder). `?state=` substitutes the answer instead:
+`expired`, `used`, `replaced`, `invalid`, `member` (invited by the Owner), `required` (2-factor
+required), and `twoFactor` for step 2. Codes: `INVITATION_EXPIRED`, `INVITATION_USED`,
+`INVITATION_REPLACED`, `INVITATION_INVALID`, `NAME_REQUIRED`, `WEAK_PASSWORD`,
+`SECOND_FACTOR_REQUIRED`.
 
 ## Staff sessions
 

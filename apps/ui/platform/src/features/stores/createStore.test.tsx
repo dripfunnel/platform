@@ -4,11 +4,11 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Me } from '../../api/me'
 import type { ProvisioningProgress } from '../../api/stores'
-import { createStoresServer, sampleStores } from '../../api/storesSample'
 import { formatWait, messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { CreateStore } from './CreateStore'
 import { ProvisioningPanel } from './ProvisioningPanel'
+import { formFor } from './storesTestData'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 const render = async (element: ReactNode) => {
@@ -17,17 +17,25 @@ const render = async (element: ReactNode) => {
   return renderToString(<RouterProvider router={router} />)
 }
 const owner: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', role: 'partner-owner', partner: { id: 'p-1', name: 'Northstar Commerce', product: 'Northstar Shops', host: 'store.northstar.com', state: 'live' } }
-const server = createStoresServer(sampleStores)
 const words = messages.stores.new
 const form = (role: PartnerRole, state: Me['partner']['state'] = 'live') =>
-  render(<CreateStore me={{ ...owner, role }} form={server.form(role, state)} forced={null} onCreate={() => Promise.reject(new Error('not in this test'))} progressOf={() => Promise.reject(new Error('not in this test'))} />)
+  render(<CreateStore me={{ ...owner, role }} form={formFor(state === 'live' ? role : 'draft')} forced={null} onCreate={() => Promise.reject(new Error('not in this test'))} progressOf={() => Promise.reject(new Error('not in this test'))} />)
 
 describe('Create store', () => {
+  it('starts from the plan’s own trial only when the form offers that length', async () => {
+    const base = formFor('partner-owner')
+    const render21 = (trialDays: number) =>
+      render(<CreateStore me={owner} form={{ ...base, plans: base.plans.map((plan, i) => (i === 0 ? { ...plan, trialDays } : plan)) }} forced={null} onCreate={() => Promise.reject(new Error('not in this test'))} progressOf={() => Promise.reject(new Error('not in this test'))} />)
+    expect(await render21(7)).toMatch(/<option value="7" selected="">/)
+    expect(await render21(21)).toMatch(new RegExp(`<option value="${base.trials[0] ?? 0}" selected="">`))
+  })
+
+
   it('asks for the prototype’s fields, prices the plan in the country’s currency and says the owner gets an invitation', async () => {
     const html = await form('partner-owner')
     const text = textOf(html)
     for (const label of Object.values(words.fields)) if (label !== words.fields.namePlaceholder) expect(text).toContain(label)
-    expect(text).toContain('$29.00 / month, charged by DripFunnel for Northstar, after a 14-day trial.')
+    expect(text).toContain('$29.00 / month, charged by DripFunnel for Northstar Commerce, after a 14-day trial.')
     expect(text).toContain('Starter · $29.00 / month')
     expect(text).toContain(words.invitation)
     expect(text).toContain('Merchants can also sign up at store.northstar.com/signup.')

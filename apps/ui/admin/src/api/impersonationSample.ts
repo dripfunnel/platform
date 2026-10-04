@@ -28,6 +28,8 @@ import { samplePartners } from './partnersSample'
 import { impersonatePermission, impersonators, setupStarters } from './sessionRules'
 import { sampleStores } from './storesSample'
 
+type SampleReauth = { ok: true; proof: string } | Extract<Reauth, { ok: false }>
+
 const minuteMs = 60_000
 const impersonationMs = 30 * minuteMs
 const setupMs = 120 * minuteMs
@@ -299,10 +301,11 @@ export const createImpersonationServer = (options: ImpersonationServerOptions = 
     return sessions.filter((candidate) => candidate.outcome === 'open' && candidate.staff.id === staffOf(caller).id).map((candidate) => toSession(candidate, caller))
   }
 
-  const reauthenticate = (simulate: Reauth | null): Promise<Reauth> =>
+  // The sample proves a sign-in with a one-time proof; the API stamps the session instead.
+  const reauthenticate = (simulate: Reauth | null): Promise<SampleReauth> =>
     new Promise((resolve) =>
       setTimeout(() => {
-        if (simulate) return resolve(simulate)
+        if (simulate && !simulate.ok) return resolve(simulate)
         const proof = `reauth-${++serial}`
         proofs.add(proof)
         resolve({ ok: true, proof })

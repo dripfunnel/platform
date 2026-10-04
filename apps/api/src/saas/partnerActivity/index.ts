@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingName, type PartnerCaller, partnerContextOf, actingId } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { ActivityRow } from '#db/schema/activity'
 import { activityResults } from '#db/schema/activity'
@@ -78,7 +78,7 @@ export interface PartnerActivityDeps {
 
 export const createPartnerActivityService = ({ sql, caller, facts, activity, now }: PartnerActivityDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
 
   const read = async (logFilter: Record<string, unknown>, page: ActivityPageRequest): Promise<PartnerActivityPage | null> => {
     const result = await listActivity(sql, context, logFilter, page)
@@ -111,13 +111,13 @@ export const createPartnerActivityService = ({ sql, caller, facts, activity, now
 
   // LOGGING §6: Owner and Admin export, and only they read an export back; every export is logged.
   const exportActivity = (raw: unknown): Promise<ExportResult> => {
-    if (!partnerRoleHas(caller.user.role, 'activity.export')) return Promise.resolve({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+    if (!partnerRoleHas(caller.role, 'activity.export')) return Promise.resolve({ ok: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
     const parsed = partnerActivityFilter.safeParse(raw ?? {})
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const filter = logFilterOf(parsed.data, now())
     return withScope(sql, context, async (tx): Promise<ExportResult> => {
-      const jobId = await insertExportJob(tx, { partnerId, kind: 'activity', filter, byId: caller.user.id, byLabel: caller.user.name })
-      await queueSideEffect(tx, { kind: 'export.activity', idempotencyKey: jobId, payload: { jobId, partnerId, partnerUserId: caller.user.id }, partnerId, storeId: null })
+      const jobId = await insertExportJob(tx, { partnerId, kind: 'activity', filter, byId: actingId(caller), byLabel: actingName(caller) })
+      await queueSideEffect(tx, { kind: 'export.activity', idempotencyKey: jobId, payload: { jobId, partnerId, requester: context.caller }, partnerId, storeId: null })
       await activity.record(tx, partnerEntry(caller, facts)({ action: activityAudit.exportActivity, target: { type: 'export', id: jobId, label: 'Activity log' }, reason: null, changes: [{ field: 'filter', before: null, after: JSON.stringify(filter) }] }))
       return { ok: true, jobId }
     })
@@ -125,7 +125,7 @@ export const createPartnerActivityService = ({ sql, caller, facts, activity, now
 
   /** The job's state; its CSV until it expires. Null for an id that isn't the partner's, or for a role that may not export. */
   const exportJob = (id: string) => {
-    if (!partnerRoleHas(caller.user.role, 'activity.export') || !z.guid().safeParse(id).success) return Promise.resolve(null)
+    if (!partnerRoleHas(caller.role, 'activity.export') || !z.guid().safeParse(id).success) return Promise.resolve(null)
     return withScope(sql, context, async (tx) => {
       const job = await selectExportJob(tx, id)
       if (job?.kind !== 'activity') return null

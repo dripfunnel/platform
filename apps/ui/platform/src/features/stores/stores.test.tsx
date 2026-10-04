@@ -4,11 +4,11 @@ import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { Me } from '../../api/me'
 import type { StoreFilter, StorePage } from '../../api/stores'
-import { createStoresServer, sampleStores } from '../../api/storesSample'
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { NotLive } from '../shell/NotLive'
 import { Stores, type StoresProps } from './Stores'
+import { storePage } from './storesTestData'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 const hrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map((match) => (match[1] ?? '').replace(/&amp;/g, '&'))
@@ -19,7 +19,26 @@ const render = async (element: ReactNode, path = '/stores') => {
 }
 const owner: Me = { id: 'pu-1', name: 'Maya Ortiz', email: 'maya@northstar.com', role: 'partner-owner', partner: { id: 'p-1', name: 'Northstar Commerce', product: 'Northstar Shops', host: 'store.northstar.com', state: 'live' } }
 const as = (role: PartnerRole): Me => ({ ...owner, role })
-const server = createStoresServer(sampleStores)
+// Which recorded page a filter and role read (storesTestData.ts).
+const named: Record<string, string> = {
+  '{}': 'all',
+  '{"status":"trial"}': 'trial',
+  '{"status":"pastdue"}': 'pastdue',
+  '{"status":"suspended"}': 'suspended',
+  '{"status":"cancelled"}': 'cancelled',
+  '{"status":"active"}': 'active',
+  '{"storefront":"own"}': 'own',
+  '{"near":"yes"}': 'near',
+  '{"q":"maple"}': 'maple',
+  '{"q":"juniper"}': 'juniper',
+  '{"q":"fieldnote"}': 'fieldnote',
+  '{"status":"trial","created":"month"}': 'trialMonth',
+  '{"q":"zzzz"}': 'nomatch',
+}
+const pageOf = (filter: StoreFilter, role: PartnerRole) => {
+  const key = named[JSON.stringify(filter)] ?? 'all'
+  return storePage(key === 'all' ? `all:${role}` : key)
+}
 const noop = () => undefined
 const words = messages.stores
 
@@ -33,12 +52,12 @@ const list = (filter: StoreFilter = {}, role: PartnerRole = 'partner-owner', pro
   render(
     <Stores
       me={as(role)}
-      page={server.list(filter, {}, role)}
+      page={pageOf(filter, role)}
       filter={filter}
       forced={null}
       onFilterChange={noop}
       onReload={noop}
-      loadMore={(after) => Promise.resolve(server.list(filter, { after }, role))}
+      loadMore={() => Promise.resolve(pageOf(filter, role))}
       exportJob={null}
       onExport={noop}
       onBillingStatus={noop}
@@ -139,11 +158,13 @@ describe('the partner Stores list', () => {
     const ready = await list({}, 'partner-owner', { exportJob: { id: 'sx1', state: 'ready', entries: 86, url: 'blob:stores', expiresAt: '2026-09-29T18:42:00Z' } })
     expect(textOf(ready)).toContain('Your export of 86 store accounts is ready.')
     expect(ready).toContain('href="blob:stores"')
+    const capped = await list({}, 'partner-owner', { exportJob: { id: 'sx1', state: 'ready', entries: 5000, truncated: true, url: 'blob:stores', expiresAt: null } })
+    expect(textOf(capped)).toContain('Your export is ready with only the first 5,000 store accounts. Narrow the filter to export the rest.')
   })
 
   it('adds the Billing status column only in own-billing mode, set by Owners, Admins and Finance and refused for the rest', async () => {
     expect(textOf(await list())).not.toContain(words.billingStatus.column)
-    const own = (role: PartnerRole) => list({}, role, { page: server.list({}, {}, role, 'own') })
+    const own = (role: PartnerRole) => list({}, role, { page: storePage(`ownBilling:${role}`) })
     const owner = await own('partner-owner')
     expect(textOf(owner)).toContain(words.billingStatus.column)
     expect(textOf(owner)).toContain(words.billingStatus.note)
@@ -152,7 +173,7 @@ describe('the partner Stores list', () => {
     const support = await own('partner-support')
     expect(textOf(support)).toContain('Your role can’t set billing status. Owners, Admins and Finance can.')
     expect(support).toMatch(/<select class="df-billing-select"[^>]*disabled=""/)
-    expect(server.list({}, {}, 'partner-support', 'own').actions.billingStatus).toEqual({ allowed: false, reason: 'FINANCE_TRIAL_ONLY' })
+    expect(storePage('ownBilling:partner-support').actions.billingStatus).toEqual({ allowed: false, reason: 'BILLING_ROLES_ONLY' })
   })
 
   it('points a partner that is not live at the checklist instead of a list', async () => {

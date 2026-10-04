@@ -27,9 +27,12 @@ export interface TenantContext {
   subscription: Subscription
 }
 
-/** A partner user or a staff setup session on the Platform API: no store, no seller scope. */
+/** A partner user, a staff member impersonating one, or a staff setup session on the Platform API: no store, no seller scope. */
 export interface PartnerContext {
-  caller: { kind: 'partner-user'; partnerUserId: string } | { kind: 'staff-setup'; staffId: string; setupSessionId: string }
+  caller:
+    | { kind: 'partner-user'; partnerUserId: string }
+    | { kind: 'impersonation'; partnerUserId: string; staffId: string; impersonationId: string }
+    | { kind: 'staff-setup'; staffId: string; setupSessionId: string }
   partnerId: string
 }
 

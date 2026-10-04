@@ -47,7 +47,10 @@ export const numberOf = (text: string) => Number(text.replace(/\D/g, '') || '0')
 
 // Rows the API would refuse: above a ceiling, or "Powered by" removed when the contract forbids it.
 export const rowsAboveCeiling = (draft: PlanDraft, ceilings: PlanCeilings): EntitlementKey[] => [
-  ...[...limitKeys, ...allowanceKeys].filter((key) => numberOf(draft.numbers[key]) > ceilings[key]),
+  ...[...limitKeys, ...allowanceKeys].filter((key) => {
+    const max = ceilings[key]
+    return max !== null && numberOf(draft.numbers[key]) > max
+  }),
   ...(draft.toggles.powered && !ceilings.powered.allowed ? (['powered'] as const) : []),
 ]
 

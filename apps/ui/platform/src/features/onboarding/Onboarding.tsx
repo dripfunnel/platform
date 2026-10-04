@@ -1,13 +1,13 @@
 // States: draft (the checklist), awaiting (what happens next), sentback (DripFunnel's reason).
-// Harness: ?partner= picks the state (api/me.ts), ?setup=dripfunnel shows a partner set up by staff.
+// Harness: ?partner= picks the state (api/me.ts), ?setup=dripfunnel shows the welcome card.
 import { ConfirmDialog } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import '@dripfunnel/shared/ui/states.css'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { Me } from '../../api/me'
-import { checksLeft, failingCheck, partnerOnlyItems, runTestSignup, submitForApproval, type Onboarding as OnboardingData, type OnboardingRefusal } from '../../api/onboarding'
-import { fill, formatDate, formatWait, messages } from '../../messages'
+import { failingChecks, partnerOnlyItems, submitForApproval, type Onboarding as OnboardingData, type SubmitOutcome } from '../../api/onboarding'
+import { fill, formatDate, messages } from '../../messages'
 import { Checklist } from './Checklist'
 import './onboarding.css'
 
@@ -15,55 +15,46 @@ const words = messages.onboarding
 
 export interface OnboardingProps {
   me: Me
+  // Home's three states before Live; the others show the Dashboard (HomeScreen).
+  state: 'draft' | 'awaiting' | 'sentback'
   onboarding: OnboardingData
   staffSetup: boolean
   // The Owner's first sign-in after staff set things up (FIRST-RELEASE §4 "Who completed it").
   welcome: boolean
 }
 
-const refusalWords = (refusal: OnboardingRefusal): string =>
+const refusalWords = (refusal: Exclude<SubmitOutcome, { ok: true }>): string =>
   refusal.code === 'GO_LIVE_CHECK_FAILED' && refusal.check
     ? fill(words.refused.GO_LIVE_CHECK_FAILED, { check: words.checks[refusal.check] })
     : words.refused[refusal.code]
 
 const firstName = (name: string) => name.split(' ')[0] ?? name
 
-export const Onboarding = ({ me, onboarding: initial, staffSetup, welcome }: OnboardingProps) => {
-  const [onboarding, setOnboarding] = useState(initial)
+export const Onboarding = ({ me, state, onboarding, staffSetup, welcome }: OnboardingProps) => {
+  const router = useRouter()
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [refusal, setRefusal] = useState<string | null>(null)
-  const [testOutcome, setTestOutcome] = useState<{ error: string | null; done: string | null }>({ error: null, done: null })
   const [welcomeShown, setWelcomeShown] = useState(welcome)
-  const state = onboarding.state
-  const canSubmit = me.role === 'partner-owner' || me.role === 'partner-admin'
-  const left = checksLeft(onboarding)
+  const left = failingChecks(onboarding).length
   // Submit is the eleventh step and counts once the partner has submitted.
-  const done = onboarding.items.filter((x) => x.status === 'done').length + (state === 'awaiting' || state === 'live' ? 1 : 0)
+  const done = onboarding.items.filter((x) => x.status === 'done').length + (state === 'awaiting' ? 1 : 0)
   const total = onboarding.items.length + 1
   const yours = onboarding.items.filter((x) => partnerOnlyItems.includes(x.key) && x.status !== 'done')
 
   const submit = async () => {
     setBusy(true)
-    const result = await submitForApproval(me.role, onboarding)
+    const result = await submitForApproval()
     setBusy(false)
     setConfirming(false)
     if (!result.ok) return setRefusal(refusalWords(result))
     setRefusal(null)
-    setOnboarding({ ...onboarding, state: 'awaiting', submittedAt: result.submittedAt, submittedBy: staffSetup ? 'DripFunnel' : 'partner', sentBackReason: null, fixes: [] })
+    // The partner is Awaiting approval now: the shell's strip and Home both read it afresh.
+    void router.invalidate()
   }
 
-  const runTest = async () => {
-    setBusy(true)
-    const result = await runTestSignup(me.role)
-    setBusy(false)
-    if (!result.ok) return setTestOutcome({ error: refusalWords(result), done: null })
-    setTestOutcome({ error: null, done: fill(words.testDone, { seconds: formatWait(result.seconds) }) })
-    setOnboarding({ ...onboarding, items: onboarding.items.map((x) => (x.key === 'testSignup' ? { ...x, status: 'done', detail: words.items.testSignup.doneDetail, doneBy: staffSetup ? 'DripFunnel' : firstName(me.name) } : x)) })
-  }
-
-  const submitWhy = !canSubmit
-    ? words.refused.OWNERS_AND_ADMINS_ONLY
+  const submitWhy = !onboarding.canSubmit.allowed
+    ? words.refused[onboarding.canSubmit.reason ?? 'OWNERS_AND_ADMINS_ONLY']
     : left > 0
       ? fill(words.finishFirst, { count: String(left), items: left === 1 ? words.itemOne : words.itemMany })
       : null
@@ -102,8 +93,8 @@ export const Onboarding = ({ me, onboarding: initial, staffSetup, welcome }: Onb
           <p>{onboarding.sentBackReason}</p>
           <ul className="df-onb-fixes">
             {onboarding.fixes.map((fix) => (
-              <li key={fix.label}>
-                <Link to={fix.to}>{fix.label}</Link>
+              <li key={fix.item}>
+                <Link to={fix.to}>{fill(words.fix, { item: words.items[fix.item].label })}</Link>
               </li>
             ))}
           </ul>
@@ -143,7 +134,7 @@ export const Onboarding = ({ me, onboarding: initial, staffSetup, welcome }: Onb
           role={me.role}
           partner={me.partner.name}
           staffSetup={staffSetup}
-          testSignup={{ run: () => void runTest(), busy, cannot: canSubmit ? null : words.refused.OWNERS_AND_ADMINS_ONLY, error: testOutcome.error, done: testOutcome.done }}
+          testSignupWhy={words.testUnavailable}
         />
         {state !== 'awaiting' && (
           <div className="df-checklist-row df-checklist-row--submit">
@@ -173,7 +164,7 @@ export const Onboarding = ({ me, onboarding: initial, staffSetup, welcome }: Onb
         title={words.confirm.title}
         target={me.partner.product}
         consequence={words.confirm.consequence}
-        notes={failingCheck(onboarding) ? [] : [words.confirm.note]}
+        notes={left > 0 ? [] : [words.confirm.note]}
         confirmLabel={words.submit}
         cancelLabel={words.confirm.cancel}
         onConfirm={() => void submit()}

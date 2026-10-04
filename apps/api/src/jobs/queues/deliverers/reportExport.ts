@@ -4,17 +4,17 @@ import { completeExportJob, failExportJob, selectExportJob } from '#db/scoped/ex
 import { withScope } from '#db/scoped/index'
 import { computeReport, reportCsv, reportExportLifetimeMs, reportFilter, reportTabs } from '#saas/partnerReports/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
+import { exportPayload, exportScope } from './exportPayload'
 
-const payload = z.object({ jobId: z.guid(), partnerId: z.guid(), partnerUserId: z.guid() }).strict()
 const stored = reportFilter.extend({ tab: z.enum(reportTabs) })
 
 /** `export.report`: a Reports tab's table as CSV, computed in the partner's own scope as the screen's. */
 export const reportExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
-    const parsed = payload.safeParse(effect.payload)
+    const parsed = exportPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('export.report: bad payload')
-    const { jobId, partnerId, partnerUserId } = parsed.data
-    const scope = { caller: { kind: 'partner-user' as const, partnerUserId }, partnerId }
+    const { jobId, partnerId } = parsed.data
+    const scope = exportScope(parsed.data)
     try {
       await withScope(sql, scope, async (tx) => {
         const job = await selectExportJob(tx, jobId)

@@ -15,17 +15,21 @@ const domainLook: Record<StoreDomain['status'], { tone: StatusTone; icon: Status
 export const DomainsTab = ({ store, product, onRecheck }: { store: Store; product: string; onRecheck: () => Promise<void> }) => {
   const [checking, setChecking] = useState(false)
   const [copied, setCopied] = useState(false)
+  const { domain } = store
+  // Since when the custom domain has waited for its record, from the API's record.
+  const waitingSince = store.records.find((record) => record.status !== 'live')?.since ?? null
+  if (!domain) return <p className="df-muted">{fill(words.shopAddress, { product })}</p>
   return (
     <div className="df-panels">
       <section className="df-panel df-panel--wide" aria-labelledby="store-domain">
         <div className="df-panel-head">
           <div className="df-stack">
-            <h2 id="store-domain">{store.domain.host}</h2>
-            {store.waitingSince && <span className="df-muted">{fill(words.waitingSince, { date: formatDate(store.waitingSince) })}</span>}
+            <h2 id="store-domain">{domain.host}</h2>
+            {waitingSince && <span className="df-muted">{fill(words.waitingSince, { date: formatDate(waitingSince) })}</span>}
           </div>
           <div className="df-domain-actions">
-            <StatusPill {...domainLook[store.domain.status]} label={words.status[store.domain.status]} />
-            {store.domain.status !== 'live' && (
+            <StatusPill {...domainLook[domain.status]} label={words.status[domain.status]} />
+            {domain.status !== 'live' && (
               <button
                 type="button"
                 className="df-button"
@@ -40,7 +44,7 @@ export const DomainsTab = ({ store, product, onRecheck }: { store: Store; produc
             )}
           </div>
         </div>
-        {store.domain.custom ? <p>{words.explain}</p> : <p className="df-muted">{fill(words.shopAddress, { product })}</p>}
+        {domain.custom ? <p>{words.explain}</p> : <p className="df-muted">{fill(words.shopAddress, { product })}</p>}
         {store.records.map((record) => (
           <dl key={record.name} className="df-record">
             <div>

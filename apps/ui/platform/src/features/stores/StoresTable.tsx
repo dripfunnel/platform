@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { BillingStatus, StoreRow } from '../../api/stores'
 import { fill, formatAmount, formatCount, formatDate, messages } from '../../messages'
 import { BillingStatusSelect } from './BillingStatusSelect'
-import { DomainLink, DomainNote, StatusSub, StoreStatusPill, StorefrontPill } from './storeLook'
+import { DomainCell, DomainNote, planNameOf, StatusSub, StoreStatusPill, StorefrontPill } from './storeLook'
 
 const words = messages.stores
 
@@ -44,7 +44,7 @@ const Row = ({ store, billing }: { store: StoreRow; billing: BillingColumn | nul
     </td>
     <td>
       <div className="df-stack">
-        <span>{store.plan.name}</span>
+        <span>{planNameOf(store.plan)}</span>
         <NearNote near={store.near} />
       </div>
     </td>
@@ -62,8 +62,8 @@ const Row = ({ store, billing }: { store: StoreRow; billing: BillingColumn | nul
     </td>
     <td>
       <div className="df-stack">
-        <DomainLink host={store.domain.host} />
-        <DomainNote domain={store.domain} />
+        <DomainCell domain={store.domain} code={store.code} />
+        {store.domain && <DomainNote domain={store.domain} />}
       </div>
     </td>
     <td className="df-muted df-nowrap">{formatDate(store.createdAt)}</td>

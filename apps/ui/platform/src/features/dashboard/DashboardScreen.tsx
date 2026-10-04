@@ -7,7 +7,7 @@ const dashboardRoute = getRouteApi('/_app/dashboard')
 const shellRoute = getRouteApi('/_app')
 
 export const DashboardScreen = () => {
-  const data = dashboardRoute.useLoaderData()
+  const data = dashboardRoute.useLoaderData().dashboard
   const { me } = shellRoute.useLoaderData()
   const forced = useScreenState(dashboardStates, harnessEnabled)
   const navigate = dashboardRoute.useNavigate()

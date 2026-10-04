@@ -424,6 +424,7 @@ type PartnerAddress {
   records: [PartnerDomainRecord!]
   since: String
   status: String
+  zone: String
 }
 
 type PartnerCompany {
@@ -520,6 +521,7 @@ type PartnerStore {
   site: StoreSite
   support: StoreSupport
   trialExtensions: [StoreTrialExtension!]
+  trialOffers: [StoreTrialExtension!]
   usage: [StoreUsage!]
 }
 
@@ -740,6 +742,7 @@ type Query {
   reportStorePerformance(filter: ReportFilterInput): StorePerformanceReport
   reportUsage(filter: ReportFilterInput): UsageReport
   search(query: String!): [StoreSearchMatch!]
+  staffSessionNotice: StaffSessionNotice
   store(id: ID!): PartnerStore
   stores(after: String, before: String, filter: StoreFilterInput, first: Int): StorePage
   storesExport(id: ID!): StoresExportJob
@@ -835,6 +838,13 @@ type SetupProblemRow {
 
 type SetupSessionNotice {
   endsAt: String
+  staffName: String
+}
+
+type StaffSessionNotice {
+  actingAs: String
+  endsAt: String
+  kind: String
   staffName: String
 }
 

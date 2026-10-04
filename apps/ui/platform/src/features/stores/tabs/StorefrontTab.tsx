@@ -1,6 +1,6 @@
 import type { Store } from '../../../api/stores'
 import { fill, formatTime, messages } from '../../../messages'
-import { DomainLink, StorefrontPill } from '../storeLook'
+import { DomainCell, DomainLink, StorefrontPill } from '../storeLook'
 
 const words = messages.store.storefront
 
@@ -16,11 +16,11 @@ export const StorefrontTab = ({ store }: { store: Store }) => (
       <dl className="df-facts">
         <dt>{words.live}</dt>
         <dd>
-          <DomainLink host={store.domain.host} />
+          <DomainCell domain={store.domain} code={store.code} />
         </dd>
         <dt>{words.preview}</dt>
         <dd>
-          <DomainLink host={store.site.previewHost} />
+          {store.site.previewHost ? <DomainLink host={store.site.previewHost} /> : <span className="df-muted">{words.noPreview}</span>}
         </dd>
         <dt>{words.lastPublish}</dt>
         <dd>{store.site.lastPublishAt ? formatTime(store.site.lastPublishAt) : words.notPublished}</dd>

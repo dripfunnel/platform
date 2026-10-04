@@ -127,11 +127,11 @@ export const selectActiveWithRole = async (tx: ScopedSql, partnerId: string, rol
  * Invitation emails sent lately, from the log (ACCESS §6.2, §13 item 13): by this inviter in the
  * partner, and to this account, so neither a person nor an address can be flooded.
  */
-export const countRecentInvitations = async (tx: ScopedSql, partnerId: string, since: Date, by: { actorId: string } | { targetId: string }): Promise<number> =>
+export const countRecentInvitations = async (tx: ScopedSql, partnerId: string, since: Date, by: { actorKind: 'partner_user' | 'staff'; actorId: string } | { targetId: string }): Promise<number> =>
   (
     await tx<{ n: number }[]>`
       select count(*)::int as n from activity_log
       where partner_id = ${partnerId} and occurred_at >= ${since} and action in ('partner_user.invited', 'partner_user.invitation_resent')
-        ${'actorId' in by ? tx`and actor_kind = 'partner_user' and actor_id = ${by.actorId}` : tx`and target_type = 'partner_user' and target_id = ${by.targetId}`}
+        ${'actorId' in by ? tx`and actor_kind = ${by.actorKind} and actor_id = ${by.actorId}` : tx`and target_type = 'partner_user' and target_id = ${by.targetId}`}
     `
   )[0]?.n ?? 0

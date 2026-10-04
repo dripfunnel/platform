@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import type { StoreRow, StoreStatus } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
@@ -32,6 +32,7 @@ import { reasonText } from '#saas/staff/index'
 import { extendTrial as extendStoreTrial, reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
 import { actionsFor, type ActionRefusal, type StoreAction } from './verdicts'
 import { prorate, signed, type Proration } from './proration'
+import { trialChoices, trialEndAfter } from './trial'
 
 // The store actions of FIRST-RELEASE §6.4 (card #160). Each one asks `actionsFor` on the locked
 // row, so a mutation refuses exactly what `store(id)`'s block shows.
@@ -72,7 +73,7 @@ const absentReason = (action: StoreAction, status: StoreStatus): StateRefusal =>
 const merchantText = reasonText.refine((text) => !/[\p{Cc}<>]/u.test(text))
 const id = z.guid()
 const planChange = z.strictObject({ planId: z.guid(), when: z.enum(['next', 'now']), reason: reasonText })
-const trialChange = z.strictObject({ days: z.union([z.literal(3), z.literal(7), z.literal(14)]), reason: reasonText })
+const trialChange = z.strictObject({ days: z.literal(trialChoices), reason: reasonText })
 const overrideInput = z.strictObject({
   limit: z.enum(amountKeys),
   amount: z.number().int().min(1).max(1_000_000),
@@ -105,8 +106,8 @@ export interface PartnerStoreActionsDeps {
 
 export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }: PartnerStoreActionsDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
-  const by = { kind: 'partner_user' as const, label: caller.user.name }
+  const context = partnerContextOf(caller)
+  const by = agentOf(caller)
 
   const entry = (store: StoreRow, action: string, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry =>
     partnerEntry(caller, facts)({ action, reason, storeId: store.id, target: { type: 'store', id: store.id, label: store.name ?? '' }, changes: [], ...extra })
@@ -123,7 +124,7 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
       const store = await selectStoreForUpdate(tx, storeId)
       const row = store ? await selectStoreListRow(tx, storeId, at) : null
       if (!store || !row || store.partner_id !== partnerId) return { ok: false, reason: 'NOT_FOUND' }
-      const verdict = actionsFor(row, caller.user.role, at)[action]
+      const verdict = actionsFor(row, caller.role, at)[action]
       if (!verdict) return { ok: false, reason: absentReason(action, store.status) }
       if (!verdict.allowed) return { ok: false, reason: verdict.reason }
       return work(tx, store, row, at)
@@ -196,8 +197,7 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const { days, reason } = parsed.data
     return act<{ trialEndsAt: Date }>(storeId, 'extendTrial', async (tx, store, _row, at) => {
-      const from = store.trial_ends_at && store.trial_ends_at > at ? store.trial_ends_at : at
-      const trialEndsAt = new Date(from.getTime() + days * 24 * 60 * 60 * 1000)
+      const trialEndsAt = trialEndAfter(store.trial_ends_at, days, at)
       // The admin console's own transition, so a guard added there holds here too.
       if (!(await extendStoreTrial(tx, store, trialEndsAt)).ok) return { ok: false, reason: 'NOT_ON_TRIAL' }
       await extendSubscriptionTrial(tx, store.id, trialEndsAt)

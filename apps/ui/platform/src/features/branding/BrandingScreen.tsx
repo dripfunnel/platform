@@ -1,7 +1,7 @@
 import { ConfirmDialog, Toast, useScreenState } from '@dripfunnel/shared/ui'
-import { getRouteApi, useRouter } from '@tanstack/react-router'
+import { getRouteApi, useNavigate, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
-import { checkContrast, hexColour, publishBranding, type ContrastReport } from '../../api/branding'
+import { checkContrast, hexColour, publishBranding, uploadBrandFile, type BrandFile, type ContrastReport } from '../../api/branding'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { draftOf, isDirty, publishConsequence, refusalText, type BrandDraft } from './brandDraft'
@@ -21,6 +21,7 @@ export const BrandingScreen = () => {
   const { me } = shellRoute.useLoaderData()
   const forced = useScreenState(brandingStates, harnessEnabled)
   const router = useRouter()
+  const navigate = useNavigate()
   const original = draftOf(branding)
   const [draft, setDraft] = useState<BrandDraft>(original)
   const [contrast, setContrast] = useState<ContrastReport>(branding.contrast)
@@ -60,7 +61,7 @@ export const BrandingScreen = () => {
   const publish = () => {
     setConfirming(false)
     setBusy(true)
-    publishBranding(me.partner.id, draft, me.role)
+    publishBranding(draft)
       .then(async (result) => {
         setBusy(false)
         if (!result.ok) {
@@ -74,6 +75,18 @@ export const BrandingScreen = () => {
         setBusy(false)
         setToast(messages.branding.toasts.failed)
       })
+  }
+
+  // The file is stored at once under the partner's prefix; it shows only once the draft is published.
+  const upload = (file: BrandFile, picked: File) => {
+    setBusy(true)
+    void uploadBrandFile(file, picked).then((result) => {
+      setBusy(false)
+      if (!result.ok && result.code === 'UNAUTHENTICATED') return void navigate({ to: '/sign-in', search: { next: '/branding', outcome: 'expired' } })
+      if (!result.ok) return setToast(fill(messages.branding.upload.refused, { reason: messages.branding.upload.codes[result.code] }))
+      setDraft((current) => ({ ...current, look: { ...current.look, files: { ...current.look.files, [file]: result.key } } }))
+      setToast(fill(messages.branding.upload.done, { file: messages.branding.look.files[file] }))
+    })
   }
 
   return (
@@ -91,6 +104,7 @@ export const BrandingScreen = () => {
         onDraft={setDraft}
         onDiscard={() => setDraft(original)}
         onPublish={() => setConfirming(true)}
+        onUpload={upload}
         onReload={() => void router.invalidate()}
       />
       <ConfirmDialog

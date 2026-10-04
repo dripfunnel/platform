@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import type { ProvisioningStep } from '#db/schema/saas'
 import { withScope } from '#db/scoped/index'
 import { countPartnerStores, selectAttention, selectBillingFeed, selectTopStores, sumRevenue, sumSignups, type AttentionRow, type Window } from '#db/scoped/partnerDashboard'
@@ -94,7 +94,7 @@ export const attentionDetail = (row: AttentionRow, now: Date): string => {
 
 // Open billing and Re-check need only what every partner role has; Retry and Extend are the
 // store actions of §6.4, so they answer as `store(id)`'s block does.
-const attentionAction = (kind: AttentionRow['kind'], role: PartnerCaller['user']['role']): ActionPermission =>
+const attentionAction = (kind: AttentionRow['kind'], role: PartnerCaller['role']): ActionPermission =>
   kind === 'setupStuck' ? permissionFor('retryStep', role) : kind === 'trialEnding' ? permissionFor('extendTrial', role) : { allowed: true }
 
 const limitKeys = { products: 'products', staff: 'staff', suppliers: 'suppliers', ai_prompts: 'ai', publish_now: 'publish' } as const
@@ -109,7 +109,7 @@ export interface PartnerDashboardDeps {
 
 export const createPartnerDashboardService = ({ sql, caller, now }: PartnerDashboardDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
 
   /** Null for a range it cannot read. */
   const dashboard = (rawRange: unknown) => {
@@ -152,7 +152,7 @@ export const createPartnerDashboardService = ({ sql, caller, now }: PartnerDashb
           kind: row.kind,
           detail: attentionDetail(row, at),
           tab: tabs[row.kind],
-          action: attentionAction(row.kind, caller.user.role),
+          action: attentionAction(row.kind, caller.role),
         })),
         signups: {
           started: signups.started,

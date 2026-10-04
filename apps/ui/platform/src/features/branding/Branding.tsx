@@ -4,7 +4,7 @@ import { ActionControl, DetailTabs, ErrorState, LoadingState, ReadOnlyNotice } f
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/detail.css'
 import { Link } from '@tanstack/react-router'
-import type { Branding as BrandingData, ContrastReport } from '../../api/branding'
+import type { BrandFile, Branding as BrandingData, ContrastReport } from '../../api/branding'
 import type { Me } from '../../api/me'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { impressumMissing, invalidFields, isDirty, type BrandDraft } from './brandDraft'
@@ -33,6 +33,8 @@ export interface BrandingProps {
   onDraft: (draft: BrandDraft) => void
   onDiscard: () => void
   onPublish: () => void
+  // Uploads a picked file for one of the four slots; the screen puts the key it gets back in the draft.
+  onUpload: (file: BrandFile, picked: File) => void
   onReload: () => void
 }
 
@@ -61,7 +63,7 @@ export const BrandingError = ({ product, onRetry }: { product: string; onRetry: 
 
 const affectsText = (count: number) => (count === 0 ? words.affectsNone : fill(plural(words.affects, count), { count: formatCount(count) }))
 
-export const Branding = ({ me, branding, draft, original, contrast, tab, forced, busy, preview, onDraft, onDiscard, onPublish, onReload }: BrandingProps) => {
+export const Branding = ({ me, branding, draft, original, contrast, tab, forced, busy, preview, onDraft, onDiscard, onPublish, onUpload, onReload }: BrandingProps) => {
   const product = me.partner.product
   if (forced === 'loading') return <BrandingLoading product={product} />
   if (forced === 'error') return <BrandingError product={product} onRetry={onReload} />
@@ -94,7 +96,7 @@ export const Branding = ({ me, branding, draft, original, contrast, tab, forced,
       )}
       <div className="df-brand-layout">
         {tab === 'look' ? (
-          <LookTab draft={draft} contrast={contrast} invalid={invalid} disabled={!canEdit} onChange={(look) => onDraft({ ...draft, look })} />
+          <LookTab draft={draft} contrast={contrast} invalid={invalid} disabled={!canEdit || busy} onChange={(look) => onDraft({ ...draft, look })} onUpload={onUpload} />
         ) : (
           <WordsTab draft={draft} branding={branding} invalid={invalid} disabled={!canEdit} onChange={(next) => onDraft({ ...draft, words: next })} />
         )}

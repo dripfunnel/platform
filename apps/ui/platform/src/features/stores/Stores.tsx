@@ -82,7 +82,7 @@ export const Stores = ({ me, page, filter, forced, onFilterChange, onReload, loa
         <Header product={product} />
         <EmptyState
           title={words.empty.title}
-          body={fill(words.empty.body, { host: me.partner.host })}
+          body={fill(words.empty.body, { host: me.partner.host ?? '' })}
           action={<CreateStoreButton permission={page.actions.create} product={product} label={words.empty.action} />}
         />
       </div>

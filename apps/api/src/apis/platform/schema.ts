@@ -1,4 +1,4 @@
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingId, actingName, type PartnerCaller } from '#auth/partnerCaller'
 import { secureSchema } from '../graphql/scope'
 import { platformPolicy } from './access'
 import { builder } from './builder'
@@ -29,10 +29,11 @@ const Partner = builder.objectRef<PartnerCaller['partner']>('Partner').implement
 
 const Me = builder.objectRef<PartnerCaller>('Me').implement({
   fields: (t) => ({
-    id: t.id({ resolve: (c) => c.user.id }),
-    name: t.string({ resolve: (c) => c.user.name }),
-    email: t.string({ resolve: (c) => c.user.email }),
-    role: t.string({ resolve: (c) => c.user.role }),
+    // In a setup session, the staff member with the Owner's role (ACCESS.md §8.2).
+    id: t.id({ resolve: actingId }),
+    name: t.string({ resolve: actingName }),
+    email: t.string({ resolve: (c) => c.user?.email ?? c.staff?.email ?? '' }),
+    role: t.string({ resolve: (c) => c.role }),
     partner: t.field({ type: Partner, resolve: (c) => c.partner }),
   }),
 })

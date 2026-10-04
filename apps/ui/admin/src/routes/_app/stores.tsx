@@ -4,6 +4,7 @@ import { createdWindows, loadStores, setupStates, storefrontStates, storeStatuse
 import { idParam, optionalParam, searchParam } from '@dripfunnel/shared/search'
 import { StoresLoading } from '../../features/stores/Stores'
 import { StoresRouteError, StoresScreen } from '../../features/stores/StoresScreen'
+import { unlessPhone } from '../../features/common/usePhone'
 
 // `status`, not `state`: ?state= is the designed-states harness (docs/ui/README.md §6). The
 // Dashboard links here with `created`, `setup` and `status` (decided on #20).
@@ -21,7 +22,8 @@ const storesSearch = z.object({
 export const Route = createFileRoute('/_app/stores')({
   validateSearch: storesSearch,
   loaderDeps: ({ search }) => search,
-  loader: ({ deps: { after, before, ...filter } }) => loadStores(filter, { after, before }),
+  // A phone shows Find a store instead (phoneView), which runs its own search.
+  loader: ({ deps: { after, before, ...filter } }) => unlessPhone(() => loadStores(filter, { after, before })),
   pendingComponent: StoresLoading,
   errorComponent: StoresRouteError,
   component: StoresScreen,

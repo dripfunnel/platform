@@ -3,10 +3,13 @@
     "logoAlt": "DripFunnel",
     "productLabel": "Partners",
     "footer": "New to the console? Use the link in your invitation email.",
-    "notConnected": "Sign-in isn’t connected yet. It arrives with the Platform API.",
+    "notConnected": "We couldn’t reach the partner service. Nothing was changed. Try again in a moment.",
     "codeLabel": "6-digit code",
     "codePlaceholder": "000000",
-    "goToSignIn": "Go to sign in"
+    "goToSignIn": "Go to sign in",
+    "rateLimited": "Too many attempts in a short time. Wait a few minutes, then try again.",
+    "enrolStale": "This step timed out. Sign in again to set up 2-factor.",
+    "retry": "Try again"
   },
   "signIn": {
     "credentials": {
@@ -123,9 +126,9 @@
       "hint": "Search your stores by name, domain or an owner’s email.",
       "searching": "Searching…",
       "none": "No store matches “{query}”. Search by store name, domain or owner email.",
-      "result": "{email} · {host}",
       "all": "Show every match in Stores",
-      "failed": "Search didn’t answer. Try again in a moment."
+      "failed": "Search didn’t answer. Try again in a moment.",
+      "separator": " · "
     },
     "userMenu": {
       "label": "Account: {name}, {role}",
@@ -160,11 +163,24 @@
       }
     },
     "badges": {
-      "storesAttention": "{count} need attention",
-      "brandingSetupLeft": "{count} setup item left",
-      "domainsWaiting": "{count} waiting for DNS",
-      "billingFailedPayments": "{count} failed payments",
-      "supportOpenSessions": "{count} open now"
+      "storesAttention": {
+        "one": "{count} needs attention",
+        "other": "{count} need attention"
+      },
+      "brandingSetupLeft": {
+        "one": "{count} setup item left",
+        "other": "{count} setup items left"
+      },
+      "domainsWaiting": {
+        "other": "{count} waiting for DNS"
+      },
+      "billingFailedPayments": {
+        "one": "{count} failed payment",
+        "other": "{count} failed payments"
+      },
+      "supportOpenSessions": {
+        "other": "{count} open now"
+      }
     },
     "partnerState": {
       "draft": {
@@ -187,6 +203,37 @@
       "awaiting": "DripFunnel is reviewing your setup. This fills in when merchants start signing up.",
       "draft": "Finish your setup checklist and submit it for approval. Merchants can’t sign up until DripFunnel approves you.",
       "link": "Open the setup checklist"
+    },
+    "loadError": {
+      "title": "We couldn’t load the partner console",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "banners": {
+      "storesOne": "Your {count} store keeps running.",
+      "storesMany": "Your {count} stores keep running.",
+      "partnerManager": "Contact your partner manager",
+      "partnerManagerHref": "mailto:partners@dripfunnel.com",
+      "paused": {
+        "title": "DripFunnel paused {product}.",
+        "body": "New merchants can’t sign up at {host} and you can’t create stores. {stores}",
+        "bodyNoHost": "New merchants can’t sign up and you can’t create stores. {stores}",
+        "reason": "Reason: {reason}"
+      },
+      "offboarding": {
+        "title": "{partner} is offboarding.",
+        "body": "No new stores or signups. Move or close your stores before your contract ends; they keep running until then.",
+        "link": "What happens next",
+        "href": "https://help.dripfunnel.com/partners/offboarding"
+      },
+      "domains": {
+        "title": "{hosts} stopped pointing at DripFunnel.",
+        "body": "Merchants can’t reach your portal and emails aren’t sending.",
+        "link": "Open Domains"
+      },
+      "setup": {
+        "link": "See their changes"
+      }
     }
   },
   "nav": {
@@ -403,39 +450,47 @@
     "ownerAdds": "Owner adds this",
     "items": {
       "company": {
-        "label": "Company details"
+        "label": "Company details",
+        "hint": "Legal name, address, tax id and region"
       },
       "branding": {
-        "label": "Branding"
+        "label": "Branding",
+        "hint": "Logo, colours and font"
       },
       "portalHost": {
-        "label": "Portal address"
+        "label": "Portal address",
+        "hint": "The address your merchants sign up at, live"
       },
       "wildcards": {
-        "label": "Preview and shop addresses"
+        "label": "Preview and shop addresses",
+        "hint": "The preview and shop addresses, live"
       },
       "emailSender": {
-        "label": "Email sender"
+        "label": "Email sender",
+        "hint": "DKIM, SPF and DMARC verified. Until then, emails use a fallback sender."
       },
       "plan": {
-        "label": "At least one priced plan"
+        "label": "At least one priced plan",
+        "hint": "A Live plan with a price in every currency"
       },
       "legal": {
-        "label": "Legal pages"
+        "label": "Legal pages",
+        "hint": "Terms, privacy and data-processing agreement"
       },
       "paymentMethod": {
-        "label": "Payment method"
+        "label": "Payment method",
+        "hint": "The card DripFunnel charges for its invoices"
       },
       "payoutDetails": {
-        "label": "Payout details"
+        "label": "Payout details",
+        "hint": "The bank account DripFunnel pays you into, verified"
       },
       "testSignup": {
         "label": "A test merchant signup",
-        "doneDetail": "Test store created and removed"
+        "hint": "Sign up as a merchant at your portal to check the whole flow"
       }
     },
     "runTest": "Run test signup",
-    "testDone": "Test signup worked: account, store and portal were ready in {seconds}.",
     "submit": "Submit for approval",
     "submitAgain": "Submit again",
     "submitDetail": "DripFunnel reviews your contract and KYC.",
@@ -453,14 +508,17 @@
       "OWNERS_AND_ADMINS_ONLY": "Your role can’t submit for approval. Owners and Admins can.",
       "GO_LIVE_CHECK_FAILED": "Not yet: DripFunnel checks that {check}. Fix it above and try again.",
       "ALREADY_SUBMITTED": "Already submitted. DripFunnel is reviewing it.",
-      "NOT_CONNECTED": "Submitting isn’t connected yet. It arrives with the Platform API."
+      "NOT_CONNECTED": "We couldn’t reach the partner service. Nothing was changed. Try again in a moment.",
+      "ALREADY_APPROVED": "Already approved. There’s nothing to submit."
     },
     "confirm": {
       "title": "Submit for approval?",
       "consequence": "DripFunnel reviews your contract, KYC and setup. That usually takes 2 business days. You can keep editing, but merchants can’t sign up until you’re approved.",
       "note": "Payment method and payout details can come later.",
       "cancel": "Cancel"
-    }
+    },
+    "fix": "Fix: {item}",
+    "testUnavailable": "Test signups aren’t available yet. They arrive with merchant sign-up."
   },
   "dashboard": {
     "title": "Dashboard",
@@ -580,7 +638,8 @@
       "active": "Active",
       "pastdue": "Past due",
       "suspended": "Suspended",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "closed": "Closed"
     },
     "statusSub": {
       "trialDays": {
@@ -668,7 +727,10 @@
       "PARTNER_NOT_LIVE": "Stores can be created once {product} is live.",
       "PARTNER_PAUSED": "Paused by DripFunnel: no new stores for now.",
       "STORE_LIMIT_REACHED": "You’ve reached the store limit in your contract.",
-      "READ_ONLY": "The console is read-only, so no store can be created."
+      "READ_ONLY": "The console is read-only, so no store can be created.",
+      "PLAN_NOT_LIVE": "That plan isn’t live any more. Pick another.",
+      "UNPRICED_CURRENCY": "That plan has no price in the country’s currency yet. Pick another plan or country.",
+      "INVALID_INPUT": "Something in the form isn’t valid. Check the highlighted fields."
     },
     "new": {
       "title": "Create a store",
@@ -730,6 +792,10 @@
         "one": "Your export of {count} store account is ready.",
         "other": "Your export of {count} store accounts is ready."
       },
+      "truncated": {
+        "one": "Your export is ready with only the first {count} store account. Narrow the filter to export the rest.",
+        "other": "Your export is ready with only the first {count} store accounts. Narrow the filter to export the rest."
+      },
       "download": "Download CSV",
       "expires": "The link expires at {time}.",
       "expired": "The download link expired. Export again to get a new one.",
@@ -761,7 +827,9 @@
       "note": "You bill these merchants yourself; the status you set is what each store’s team sees.",
       "set": "{name}: billing status set to {status}.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment."
-    }
+    },
+    "noPlan": "No plan",
+    "chargedByDripFunnel": "DripFunnel for {partner}"
   },
   "store": {
     "level": "Store · {product}",
@@ -796,7 +864,17 @@
       "NOT_SUSPENDED": "{name} is not suspended.",
       "NOT_ON_TRIAL": "{name} is not on a trial.",
       "NO_PENDING_INVITATION": "The owner has already set a password.",
-      "READ_ONLY": "The console is read-only, so nothing here can change."
+      "READ_ONLY": "The console is read-only, so nothing here can change.",
+      "BILLING_ROLES_ONLY": "Your role can’t {verb}. Owners, Admins and Finance can.",
+      "NOT_STUCK": "Nothing is stuck: the setup is running or finished.",
+      "NO_BILLING_DATE": "{name} has no billing date yet, so the change can’t wait for one. Move it now instead.",
+      "SAME_PLAN": "{name} is already on that plan.",
+      "PLAN_NOT_LIVE": "That plan isn’t live, so no store can move to it.",
+      "UNPRICED_CURRENCY": "That plan has no price in {name}’s currency yet.",
+      "NOT_SELF_BILLING": "DripFunnel bills your merchants, so it sets their billing status.",
+      "CANCELLED": "{name} is cancelled, so nothing here can change.",
+      "NOT_FOUND": "{name} is no longer one of your stores. Reload the list.",
+      "INVALID_INPUT": "Something in the form isn’t valid. Check it and try again."
     },
     "verbs": {
       "changePlan": "change a store’s plan",
@@ -857,7 +935,9 @@
         "suppliers": "Suppliers",
         "ai": "AI design prompts",
         "publish": "“Publish now” presses"
-      }
+      },
+      "overrideMonth": "+{amount} {limit} this month",
+      "overrideAlways": "+{amount} {limit} for good"
     },
     "billing": {
       "subscription": "Subscription",
@@ -890,7 +970,8 @@
       "invoiceStatus": {
         "paid": "Paid",
         "failed": "Failed"
-      }
+      },
+      "noSubscription": "No subscription on record yet"
     },
     "storefront": {
       "title": "Storefront",
@@ -899,7 +980,8 @@
       "preview": "Preview",
       "lastPublish": "Last publish",
       "notPublished": "Not published yet",
-      "readOnly": "Read-only. The merchant designs and publishes their shop."
+      "readOnly": "Read-only. The merchant designs and publishes their shop.",
+      "noPreview": "No preview address yet"
     },
     "domains": {
       "waitingSince": "Waiting since {date}",
@@ -924,7 +1006,8 @@
         "live": "Live",
         "waiting": "Waiting for DNS",
         "failed": "Failed"
-      }
+      },
+      "recheckAsked": "We’re checking {host} again. This page shows the answer once it’s in."
     },
     "setup": {
       "title": "Signup steps",
@@ -970,7 +1053,31 @@
         "denied": "Denied",
         "failed": "Failed"
       },
-      "details": "Details of {text}"
+      "details": "Details of {text}",
+      "who": "Who",
+      "actions": {
+        "store.created": "Store created",
+        "store.suspended": "Store suspended",
+        "store.restored": "Store restored",
+        "store.trial_extended": "Trial extended",
+        "store.plan_changed": "Plan changed",
+        "store.limit_override_added": "Limit raised",
+        "store.limit_override_removed": "Raised limit removed",
+        "store.invitation_resent": "Owner invitation resent",
+        "store.setup_step_retried": "Setup step retried",
+        "store.billing_status_set": "Billing status set",
+        "store.note_added": "Note added",
+        "store.domain_recheck_requested": "Domain check asked for",
+        "store.domain_status_changed": "Domain status changed",
+        "store.trial_started": "Trial started",
+        "store.activated": "Became active",
+        "store.past_due": "Went past due",
+        "store.cancelled": "Cancelled",
+        "support_session.started": "Support session started",
+        "support_session.ended": "Support session ended",
+        "impersonation.started": "DripFunnel support signed in",
+        "impersonation.ended": "DripFunnel support signed out"
+      }
     },
     "dialogs": {
       "changePlan": {
@@ -1047,6 +1154,18 @@
       "retryStep": "Retried. {name}’s storefront is live.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
       "refused": "The partner service refused it: {reason}"
+    },
+    "notice": {
+      "suspended": "Suspended: {reason}",
+      "suspendedNoReason": "Suspended. Its storefront shows a notice and its team can’t sign in.",
+      "pastdue": "Past due for {days} days. {owner}’s team can’t make changes, but the shop is still selling."
+    },
+    "roles": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "staff": "Staff",
+      "supplier-admin": "Supplier admin",
+      "supplier-member": "Supplier member"
     }
   },
   "plans": {
@@ -1079,7 +1198,13 @@
       "ABOVE_CEILING": "{row} is above DripFunnel’s maximum.",
       "LAST_LIVE_PLAN": "This is your last Live plan. Make another plan Live first.",
       "UNPRICED_CURRENCY": "Price {currency} before making this plan live.",
-      "NEEDS_APPLY_TO": "Say who gets the change first."
+      "NEEDS_APPLY_TO": "Say who gets the change first.",
+      "UNPRICED": "Add a monthly price first. A plan needs one before it can go live.",
+      "NOT_FOUND": "This plan was removed. Go back to Plans.",
+      "INVALID_STATE": "This plan changed while you were editing it, so nothing was saved. Reload to see it as it is now.",
+      "INVALID_TARGET": "The plan you picked for its stores isn’t live any more. Pick another.",
+      "INVALID_CURRENCY": "A price is in a currency your contract doesn’t cover. Remove it, or ask your partner manager.",
+      "INVALID_INPUT": "Something in the plan isn’t valid. Check the highlighted fields."
     },
     "empty": {
       "title": "No plans yet",
@@ -1175,7 +1300,9 @@
         "missing": "Enter a value for {rows}.",
         "loss": "A price is below DripFunnel’s fee.",
         "invalid": "A price isn’t a number."
-      }
+      },
+      "noCeiling": "No DripFunnel maximum",
+      "noFee": "DripFunnel hasn’t set its fee for this currency yet, so there’s no margin to show."
     },
     "dialogs": {
       "save": {
@@ -1280,7 +1407,8 @@
         "favicon": "Favicon"
       },
       "replace": "Replace",
-      "replaceLabel": "Replace {file}"
+      "replaceLabel": "Replace {file}",
+      "noFile": "None yet"
     },
     "words": {
       "supportEmail": "Support email",
@@ -1349,6 +1477,208 @@
       "published": "Published. Merchants see the new look at their next page load.",
       "failed": "That didn’t go through. Nothing was changed. Try again in a moment.",
       "refused": "The partner service refused it: {reason}"
+    },
+    "upload": {
+      "done": "{file} uploaded. Publish to use it.",
+      "refused": "That file wasn’t uploaded: {reason}",
+      "codes": {
+        "TOO_LARGE": "it’s larger than 512 KB.",
+        "UNSUPPORTED_TYPE": "use a PNG, WebP or SVG file.",
+        "UNSAFE_SVG": "the SVG contains scripts or links, which aren’t allowed.",
+        "FORBIDDEN": "your role can’t change branding. Owners and Admins can.",
+        "NOT_CONNECTED": "file storage isn’t available right now. Nothing was changed.",
+        "UNAUTHENTICATED": "your session ended. Sign in again."
+      }
+    }
+  },
+  "domains": {
+    "loading": "Loading domains",
+    "error": {
+      "title": "We couldn’t load your domains",
+      "body": "The partner service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "empty": {
+      "title": "No domains yet",
+      "body": "Add your portal address first. That’s where your merchants sign in. Then add preview and shop addresses and an email sender. We’ll give you the DNS records to add at your provider.",
+      "action": "Add portal address"
+    },
+    "add": "Add an address",
+    "addRefused": "Your role can’t add addresses. Ask an Owner or Admin.",
+    "kinds": {
+      "portal": {
+        "label": "Merchant portal",
+        "what": "Where your merchants sign in and build their shops.",
+        "pick": "Where your merchants sign in and build their shops. Add this first."
+      },
+      "preview": {
+        "label": "Preview address, all stores",
+        "what": "Each store’s private preview before it publishes.",
+        "pick": "Each store’s private preview before it publishes."
+      },
+      "shops": {
+        "label": "Shop address, all stores",
+        "what": "Every store’s shop address until it connects its own domain.",
+        "pick": "Every store’s shop address until it connects its own domain."
+      },
+      "email": {
+        "label": "Email sender",
+        "what": "Emails to your merchants and their suppliers come from here.",
+        "pick": "Emails to your merchants and their suppliers come from here."
+      }
+    },
+    "notAdded": "Not added yet.",
+    "status": {
+      "waiting": "Waiting for DNS",
+      "verifying": "Verifying",
+      "issuing": "Issuing certificate",
+      "live": "Live",
+      "failed": "Failed",
+      "expiring": "Certificate renewing",
+      "broken": "Stopped working"
+    },
+    "waitingSince": "Waiting since {date}",
+    "checkedNow": "Checked just now",
+    "checked": "Checked {wait} ago",
+    "notChecked": "Not checked yet",
+    "recheck": "Re-check now",
+    "checking": "Checking…",
+    "recheckAsked": "We’re checking {host} again. This page shows the answer once it’s in.",
+    "tooSoon": "{host} was checked less than a minute ago. Try again in a moment.",
+    "recheckFailed": "That didn’t start a check. Try again.",
+    "fallback": "Until it’s live, emails come from {sender} with your product name.",
+    "records": {
+      "label": "DNS records for {host}",
+      "type": "Type",
+      "name": "Name",
+      "value": "Value to add",
+      "valueShort": "Value",
+      "found": "What we see",
+      "nothing": "Nothing found yet",
+      "mismatch": "Doesn’t match yet",
+      "copyValue": "Copy the value of the {type} record {name}",
+      "copyName": "Copy the name of the {type} record {name}",
+      "copy": "Copy",
+      "copied": "Copied.",
+      "copyFailed": "Couldn’t copy. Select the value and copy it yourself."
+    },
+    "purposes": {
+      "pointer": {
+        "portal": "Points your portal address at DripFunnel.",
+        "apex": "Root domains can’t use a CNAME, so this points it at DripFunnel directly.",
+        "preview": "Sends every preview address to DripFunnel.",
+        "shops": "Sends every shop address to DripFunnel.",
+        "email": "Points this address at DripFunnel."
+      },
+      "ownership": "Proves the address is yours.",
+      "spf": "SPF: lets DripFunnel send email for this address.",
+      "dkim": "DKIM: signs every email so inboxes trust it.",
+      "dmarc": "DMARC: tells inboxes what to do with fakes."
+    },
+    "merchants": {
+      "title": "Merchants’ own domains",
+      "lede": "Merchants connect these themselves. You can see their status and help.",
+      "none": "No merchant has connected its own domain yet.",
+      "since": "Since {date}",
+      "label": "Merchants’ own domains",
+      "store": "Store",
+      "host": "Domain",
+      "status": "Status",
+      "when": "Since",
+      "newer": "Newer",
+      "older": "Older",
+      "showMore": "Show more domains"
+    },
+    "new": {
+      "title": "Add an address",
+      "lede": "Point an address you own at DripFunnel. You add the records at your DNS provider; we check them and issue the certificate.",
+      "breadcrumb": "Breadcrumb",
+      "allSet": {
+        "title": "All four addresses are set up",
+        "body": "Your portal, preview, shop and email addresses are all added. To change one, open it on Domains.",
+        "back": "Back to Domains"
+      },
+      "steps": {
+        "address": "Address",
+        "records": "DNS records",
+        "check": "Check"
+      },
+      "stepsLabel": "Steps",
+      "kindQuestion": "What is this address for?",
+      "added": "Added",
+      "field": "Address",
+      "wildcardField": "Base address",
+      "help": {
+        "portal": "A subdomain like {example} is easiest. Your merchants will see it in their browser.",
+        "wildcard": "Every store gets an address under this, like harbor-coffee.{example}.",
+        "email": "Use a subdomain you don’t send other email from. Replies still go to your support address."
+      },
+      "cancel": "Cancel",
+      "continue": "Continue",
+      "adding": "Adding…",
+      "refused": {
+        "NOT_A_HOSTNAME": "That doesn’t look like an address. Use something like {example}.",
+        "DRIPFUNNEL_DOMAIN": "Use a domain your company owns, not a DripFunnel one.",
+        "ALREADY_YOURS": "That’s already one of your addresses. Pick a different address.",
+        "HOST_TAKEN": "That address is already in use on DripFunnel. Pick a different one.",
+        "BARE_DOMAIN_FOR_WILDCARD": "Use a subdomain, like {example}, so it doesn’t clash with your website.",
+        "KIND_TAKEN": "This address is already added. Open it on Domains to change it.",
+        "APEX_NOT_AVAILABLE": "A root domain can’t be your portal address yet. Use a subdomain, like {example}.",
+        "INVALID_INPUT": "Enter an address."
+      },
+      "failed": "That didn’t save. Nothing was changed. Try again.",
+      "recordsTitle": {
+        "one": "Add this record at your DNS provider",
+        "other": "Add these {count} records at your DNS provider"
+      },
+      "recordsLede": "Sign in where you manage DNS for {apex} (for example Cloudflare, GoDaddy or Route 53) and add exactly this. Keep this page open.",
+      "apexWarning": "You entered a root domain. If {host} is also your website, the website will stop working. Use a subdomain instead unless you’re sure.",
+      "providerNote": "Some providers add your domain to the name for you. If yours does, enter only the part shown before it. Changes usually show up within an hour, and can take up to 48.",
+      "checkNow": {
+        "one": "I’ve added it. Check now",
+        "other": "I’ve added them. Check now"
+      },
+      "waiting": {
+        "one": "Saved. We haven’t found the record yet, which is normal right after adding it. We check every 10 minutes and email you when it’s live. Nothing else waits on this.",
+        "other": "Saved. We haven’t found the records yet, which is normal right after adding them. We check every 10 minutes and email you when it’s live. Nothing else waits on this."
+      },
+      "live": {
+        "portal": {
+          "one": "We found the record and issued the certificate. Merchants can sign in here now.",
+          "other": "We found the records and issued the certificate. Merchants can sign in here now."
+        },
+        "preview": {
+          "one": "We found the record and issued the certificate. Stores use it right away.",
+          "other": "We found the records and issued the certificate. Stores use it right away."
+        },
+        "shops": {
+          "one": "We found the record and issued the certificate. Stores use it right away.",
+          "other": "We found the records and issued the certificate. Stores use it right away."
+        },
+        "email": {
+          "one": "We found the records. Emails now come from this address.",
+          "other": "We found the records. Emails now come from this address."
+        }
+      },
+      "checkAgain": "Check again",
+      "goToDomains": "Go to Domains",
+      "addNext": "Add the next address",
+      "found": {
+        "one": "We found the record. We’re issuing the certificate now; this usually takes a few minutes.",
+        "other": "We found the records. We’re issuing the certificate now; this usually takes a few minutes."
+      },
+      "mismatch": {
+        "one": "We found a record, but it doesn’t match yet. Check it against the value on Domains.",
+        "other": "We found the records, but they don’t all match yet. Check them against the values on Domains."
+      },
+      "examples": {
+        "portal": "store.{zone}",
+        "preview": "preview.{zone}",
+        "shops": "shops.{zone}",
+        "email": "mail.{zone}",
+        "zone": "yourcompany.com"
+      },
+      "stepDone": "Done"
     }
   }
 }

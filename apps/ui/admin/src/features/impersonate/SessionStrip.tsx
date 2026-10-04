@@ -19,7 +19,7 @@ const stripText = (session: StaffSession) =>
 // On every page while the caller has a session open of either kind (FIRST-RELEASE.md §8), so
 // a session left in another tab is never forgotten.
 export const SessionStrip = ({ caller, meName }: { caller: StaffRole; meName: string }) => {
-  const load = useCallback(() => loadMySessions(caller), [caller])
+  const load = useCallback(() => loadMySessions(), [])
   const { value, refresh } = usePolling(load, sessionPollMs)
   const version = useSessionsVersion()
   const now = useNow()

@@ -3,8 +3,8 @@ import type { NavRowView } from './SideNav'
 
 export interface NavViewWords<Key extends string, Badge extends string> {
   label: (key: Key) => string
-  // The spoken badge label for a formatted count ("3 need attention").
-  badge: (source: Badge, count: string) => string
+  // The spoken badge label for a formatted count ("3 need attention"); `n` picks the plural form.
+  badge: (source: Badge, count: string, n: number) => string
   count: (count: number) => string
 }
 
@@ -19,6 +19,6 @@ export const navView = <Key extends string, Badge extends string>(
     const count = badge === undefined ? 0 : badges[badge]
     const label = words.label(key)
     return badge !== undefined && count > 0
-      ? { key, to, icon, label, badge: { count: words.count(count), label: words.badge(badge, words.count(count)) } }
+      ? { key, to, icon, label, badge: { count: words.count(count), label: words.badge(badge, words.count(count), count) } }
       : { key, to, icon, label }
   })

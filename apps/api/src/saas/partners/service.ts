@@ -14,7 +14,7 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   endSetupSession,
   expireStaleSetupSessions,
-  insertPartner,
+  insertNamedPartner,
   insertPartnerApproval,
   insertPartnerInvitation,
   insertPartnerUser,
@@ -48,6 +48,8 @@ import { approvalRuleFor, approvalVerdict, type ApprovalRule } from './approval'
 import { selectManagersFor, type PartnerManager } from '#db/scoped/assignments'
 import { assignManager, unassignManager } from './assignments'
 import { failingChecks, goLiveChecksFor, type GoLiveCheck, type GoLiveChecks } from './goLive'
+import { countryOf } from '#core/countries'
+import { handoffLink } from '#saas/staffSessions/index'
 
 // Partners on the Admin API (card #33; ui/admin/FIRST-RELEASE.md §4, §12). The resolvers in
 // apis/admin/partners.ts are thin; everything a screen is told comes from here, and every
@@ -91,6 +93,7 @@ export type RefusalCode =
   | 'INVALID_STATE'
   | 'REASON_REQUIRED'
   | 'INVALID_INPUT'
+  | 'NAME_TAKEN'
   | 'INVALID_HOSTNAME'
   | 'NOT_FOUND'
   | 'NOT_A_PARTNER_MANAGER'
@@ -179,7 +182,8 @@ export const createPartnerInput = z
     name: z.string().trim().min(1).max(120),
     ownerEmail: z.email().max(254),
     ownerName: z.string().trim().min(1).max(120).optional(),
-    country: z.string().regex(/^[A-Z]{2}$/),
+    // One of the countries DripFunnel sells in (core/countries); the console's list is a courtesy.
+    country: z.string().refine((code) => countryOf(code) !== null),
     kind: z.string().trim().min(1).max(60).optional(),
     region: z.string().trim().min(1).max(120).optional(),
     sendInvitation: z.boolean(),
@@ -199,6 +203,8 @@ export interface PartnersServiceDeps {
   facts: RequestFacts
   activity: ActivityLog
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
+  /** The partner console's host, where a setup session's handoff link opens (ACCESS.md §8.2). */
+  platformHost: string
   now: () => Date
 }
 
@@ -484,7 +490,8 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
     const data = parsed.data
     return withScope(sql, context, async (tx): Promise<Result<{ id: string }>> => {
       const at = now()
-      const id = await insertPartner(tx, { name: data.name, country: data.country, kind: data.kind ?? null, region: data.region ?? null, createdAt: at })
+      const id = await insertNamedPartner(tx, { name: data.name, country: data.country, kind: data.kind ?? null, region: data.region ?? null, createdAt: at })
+      if (!id) return { ok: false, code: 'NAME_TAKEN' }
       const ownerId = await insertPartnerUser(tx, { partnerId: id, email: data.ownerEmail, name: data.ownerName ?? data.ownerEmail, role: 'partner-owner', status: 'invited' })
       const invitationId = await insertPartnerInvitation(tx, {
         partnerId: id,
@@ -566,7 +573,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       // Two starts at once: the partial unique index decides, and the loser gets the same code.
       if (!sessionId) return { ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' }
       await activity.record(tx, entry(partner, partnerAudit.startPartnerSetupSession, parsed.data, { access: { kind: 'setup_session', id: sessionId } }))
-      return { ok: true, sessionId, expiresAt, handoff: token }
+      return { ok: true, sessionId, expiresAt, handoff: handoffLink(deps.platformHost, token) }
     })
   }
 

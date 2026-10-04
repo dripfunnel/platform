@@ -16,7 +16,8 @@ export interface Country {
 }
 
 export const countryOf = (code: string): Country | null => {
-  const currency = currencyByCountry[code]
+  // Own keys only: `constructor` and the like would reach Intl.DisplayNames and throw.
+  const currency = Object.hasOwn(currencyByCountry, code) ? currencyByCountry[code] : undefined
   return currency ? { code, name: names.of(code) ?? code, currency } : null
 }
 

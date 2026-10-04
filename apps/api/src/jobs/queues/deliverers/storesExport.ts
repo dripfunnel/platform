@@ -1,21 +1,19 @@
 import type postgres from 'postgres'
-import { z } from 'zod'
 import { completeExportJob, failExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { maxPageSize, withScope } from '#db/scoped/index'
 import { selectStores, type StoreListRow } from '#db/scoped/stores'
 import { storeFilter, storesCsv, storesExportLifetimeMs, storesExportMax, toStoreFilter } from '#saas/partnerStores/index'
 import { stuckAfterMinutes } from '#saas/provisioning/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
-
-const payload = z.object({ jobId: z.guid(), partnerId: z.guid(), partnerUserId: z.guid() }).strict()
+import { exportPayload, exportScope } from './exportPayload'
 
 /** `export.stores`: the Stores list's rows as CSV, read page by page in the partner's own scope. */
 export const storesExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
-    const parsed = payload.safeParse(effect.payload)
+    const parsed = exportPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('export.stores: bad payload')
-    const { jobId, partnerId, partnerUserId } = parsed.data
-    const scope = { caller: { kind: 'partner-user' as const, partnerUserId }, partnerId }
+    const { jobId, partnerId } = parsed.data
+    const scope = exportScope(parsed.data)
     try {
       await withScope(sql, scope, async (tx) => {
         const job = await selectExportJob(tx, jobId)

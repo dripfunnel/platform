@@ -16,6 +16,12 @@ const twoLevelSuffixes = ['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz
 
 export const registrableLabels = (host: string): number => (twoLevelSuffixes.includes(host.split('.').slice(-2).join('.')) ? 3 : 2)
 
+/** Where a host's DNS is managed: "store.northstar.co.uk" and "*.shops.northstar.co.uk" → "northstar.co.uk". */
+export const zoneOf = (host: string): string => {
+  const bare = host.replace(/^\*\./, '')
+  return bare.split('.').slice(-registrableLabels(bare)).join('.')
+}
+
 /** A registrable domain itself, with no subdomain: "northstar.com", "northstar.co.uk". */
 export const isBareDomain = (host: string): boolean => host.split('.').length <= registrableLabels(host)
 

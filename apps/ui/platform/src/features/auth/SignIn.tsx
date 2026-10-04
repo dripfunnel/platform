@@ -1,15 +1,16 @@
-// States (?state=): wrong, code, wrongCode, expiredCode, locked, forgot, sent, expired,
-// notConnected. ?outcome=expired is the Worker's real result (ACCESS §4) and is read everywhere.
+// States (?state=): wrong, code, wrongCode, expiredCode, locked, enrol, forgot, sent, expired,
+// notConnected, rateLimited. ?outcome=expired is the Worker's real result (ACCESS §4), read everywhere.
 import { parseScreenState, useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useId, useReducer, useState } from 'react'
-import { lockMinutes, requestPasswordReset, safeNext, signIn, verifySecondFactor, type AuthCode } from '../../api/auth'
+import { requestPasswordReset, safeNext, signIn, verifySecondFactor, type AuthCode } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import './auth.css'
 import { AuthFrame } from './AuthFrame'
-import { credentialsView, signInOutcomes, signInReducer, signInStates, type SignInState, type SignInView } from './authStates'
+import { credentialsView, sampleLockMinutes, signInOutcomes, signInReducer, signInStates, type SignInState, type SignInView } from './authStates'
 import { CodeField } from './CodeField'
+import { EnrolSecondFactor } from './EnrolSecondFactor'
 
 const words = messages.signIn
 
@@ -27,6 +28,10 @@ const forcedView = (state: SignInState): SignInView => {
       return { ...credentialsView, error: words.credentials.refused }
     case 'notConnected':
       return { ...credentialsView, error: messages.auth.notConnected }
+    case 'rateLimited':
+      return { ...credentialsView, error: messages.auth.rateLimited }
+    case 'enrol':
+      return { ...credentialsView, step: 'enrol' }
     case 'code':
       return { ...credentialsView, step: 'code' }
     case 'wrongCode':
@@ -34,7 +39,7 @@ const forcedView = (state: SignInState): SignInView => {
     case 'expiredCode':
       return { ...credentialsView, step: 'code', error: words.code.expired }
     case 'locked':
-      return { ...credentialsView, step: 'code', error: fill(words.code.locked, { minutes: String(lockMinutes) }), locked: true }
+      return { ...credentialsView, step: 'code', error: fill(words.code.locked, { minutes: String(sampleLockMinutes) }), locked: true }
     case 'forgot':
       return { ...credentialsView, step: 'forgot' }
     case 'sent':
@@ -47,7 +52,7 @@ const forcedView = (state: SignInState): SignInView => {
 const startView = (forced: SignInState | null, outcome: string | null): SignInView =>
   forced ? forcedView(forced) : { ...credentialsView, expired: outcome === 'expired' }
 
-const refusalWords = (code: AuthCode, triesLeft?: number, minutes?: number): string => {
+export const refusalWords = (code: AuthCode, triesLeft?: number, minutes?: number): string => {
   switch (code) {
     case 'INVALID_CREDENTIALS':
       return words.credentials.refused
@@ -56,7 +61,9 @@ const refusalWords = (code: AuthCode, triesLeft?: number, minutes?: number): str
     case 'CODE_EXPIRED':
       return words.code.expired
     case 'LOCKED':
-      return fill(words.code.locked, { minutes: String(minutes ?? lockMinutes) })
+      return fill(words.code.locked, { minutes: String(minutes ?? sampleLockMinutes) })
+    case 'RATE_LIMITED':
+      return messages.auth.rateLimited
     default:
       return messages.auth.notConnected
   }
@@ -82,15 +89,15 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
   }, [forced, outcome])
 
   const finish = () => void navigate({ href: safeNext(search.next, window.location.origin) })
+  const onStep = { done: finish, 'second-factor': () => dispatch({ type: 'code' }), enrol: () => dispatch({ type: 'enrol' }) }
 
   const submitCredentials = async () => {
     if (!emailLooksValid(email) || password === '') return setError(words.credentials.missing)
     setBusy(true)
-    const result = await signIn(email, password)
+    const result = await signIn(email, password, safeNext(search.next, window.location.origin))
     setBusy(false)
-    if (!result.ok) return setError(refusalWords(result.code))
-    if (result.secondFactor) return dispatch({ type: 'code' })
-    finish()
+    if (!result.ok) return setError(refusalWords(result.code, result.triesLeft, result.minutes))
+    onStep[result.step]()
   }
 
   const submitCode = async () => {
@@ -109,8 +116,9 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
   const submitForgot = async () => {
     if (!emailLooksValid(email)) return setError(words.forgot.invalid)
     setBusy(true)
-    await requestPasswordReset()
+    const result = await requestPasswordReset(email)
     setBusy(false)
+    if (!result.ok) return setError(refusalWords(result.code))
     dispatch({ type: 'sent' })
   }
 
@@ -119,6 +127,8 @@ export const SignIn = ({ search }: { search: SignInSearch }) => {
     setCode('')
     setPassword('')
   }
+
+  if (step === 'enrol') return <EnrolSecondFactor required step={undefined} finishLabel={words.code.verify} sample={forced === 'enrol'} onDone={finish} />
 
   const stepWords = step === 'credentials' && expired ? words.expired : words[step]
   const title = stepWords.title

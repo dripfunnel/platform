@@ -16,6 +16,8 @@ export const sessionRefusals = [
   'SESSION_ENDED',
   'SESSION_EXPIRED',
   'NOT_FOUND',
+  'SUPPLIER_NOT_SUPPORTED',
+  'INVALID_INPUT',
 ] as const
 export type SessionRefusal = (typeof sessionRefusals)[number]
 

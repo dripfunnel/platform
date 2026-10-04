@@ -113,7 +113,7 @@ builder.mutationFields((t) => ({
   transferOwnership: t.field({
     type: Result,
     args: { toUserId: t.arg.id({ required: true }) },
-    extensions: { access: { api: 'platform', scope: 'partner', permission: 'team.transfer', target: 'none', audit: teamAudit.transferOwnership } },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'team.transfer', target: 'none', audit: teamAudit.transferOwnership, blockedFor: ['impersonation', 'setup'] } },
     resolve: (_, { toUserId }, ctx) => signedIn(ctx.team).transferOwnership(String(toUserId)),
   }),
   setSecondFactorPolicy: t.field({

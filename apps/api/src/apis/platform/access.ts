@@ -11,7 +11,7 @@ import type { PartnerPlansService } from '#saas/partnerPlans/index'
 import type { PartnerStoresService } from '#saas/partnerStores/index'
 import type { PartnerStoreActions } from '#saas/partnerStores/index'
 import { isPartnerPermission, partnerPermissions, partnerRoleHas } from '#auth/partnerPermissions'
-import { forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
+import { blockedIn, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface PlatformContext extends Record<string, unknown> {
   /** Null when signed out. Its partner is the scope of every field (FIRST-RELEASE §16). */
@@ -37,7 +37,9 @@ export const platformPolicy: AccessPolicy<PlatformContext> = {
   permissions: partnerPermissions,
   authorize: async (access, { caller }) => {
     if (!caller) throw unauthenticated()
+    const session = caller.staff?.session.kind
+    if (session && access.blockedFor?.includes(session)) throw blockedIn(session)
     if (access.permission === null) return
-    if (!isPartnerPermission(access.permission) || !partnerRoleHas(caller.user.role, access.permission)) throw forbidden()
+    if (!isPartnerPermission(access.permission) || !partnerRoleHas(caller.role, access.permission)) throw forbidden()
   },
 }

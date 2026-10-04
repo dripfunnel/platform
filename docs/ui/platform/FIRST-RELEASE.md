@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -248,8 +248,8 @@ limit (80%+). Search: name, code, domain, owner email. All in the URL as removab
 "Clear all"; "No stores match" with Clear filters. Newest first, **"Show 25 more"** (§16 for the
 contract: cursor pages carry no total, so the prototype's "12 of 86 stores" is not drawn;
 decided 2026-10-02 on #115). On a phone, cards: name and status, plan · domain. Header
-buttons: **Export accounts (CSV)** ("Orders, customers and products are never included.") and
-**Create store** (Owner, Admin).
+buttons: **Export accounts (CSV)** ("Orders, customers and products are never included."; an
+export the API cut short says it holds only the first N accounts) and **Create store** (Owner, Admin).
 
 ### 6.2 Create store
 
@@ -462,6 +462,12 @@ Three steps:
 
 Changing a live portal host keeps the old one redirecting for a period still *(ask)* (SAAS
 §3.5).
+
+**Built on #191, straight onto #197's API.** **Continue** adds the address, since the API makes its
+records (the pointer, and an ownership TXT the prototype doesn't draw). Step 2 shows those records,
+and there is no Back: the address exists by then. "Check now" queues a re-check, and step 3 shows the
+address as the API reads it afterwards. A re-check within a minute of the last one answers "checked
+less than a minute ago". The first check, queued when the address is added, still runs.
 
 ### 9.3 Merchants' own domains
 
@@ -756,7 +762,9 @@ api/README.md §2.1); a partner id in a request is not authority.
 
 **Built on #162** (Branding, `apis/platform/branding.ts`, `saas/partnerBranding`):
 - `branding` returns the live look and words, or the draft while nothing is live
-  (`published` says which). It also carries `affects` (stores not closed), the contrast
+  (`published` says which); a partner that never saved one gets a first draft from its own
+  product name and colours (DripFunnel's brand pair where it has none) and the form's defaults
+  (#165). It also carries `affects` (stores not closed), the contrast
   report, `poweredByRule` (`choice` | `fixedOn`, from the contract), `impressumRequired`
   (the partner's country is DE, AT or CH), `dpaRequired` and the publish permission.
 - `checkContrast(primary, accent)` and the publish use one function (`contrast.ts`, WCAG 2.2,
@@ -845,6 +853,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   `NO_BILLING_DATE` for "next" on a store billing has not subscribed yet. The
   merchant's email goes through the outbox.
 - `extendTrial(id, days, reason)`: 3, 7 or 14 days from the later of the trial's end and now.
+  `store(id).trialOffers` sends those three with the end each would give, on the server's clock, so
+  the dialog shows what the API will grant (decided on #166's review).
   A plan change scheduled for the trial's end moves with it.
 - `addLimitOverride` and `removeLimitOverride(id, overrideId, reason)`: `stores.plan`, since
   ACCESS §5.3 has no permission of its own for overrides. A month override is for the

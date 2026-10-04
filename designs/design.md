@@ -376,7 +376,10 @@ running. *End session* closes the record and goes back. When the session ends it
   the session on the server.
 - **Create partner** asks when to send the owner invitation: *now*, *when
   setup is submitted* (`inv:'queued'`, sent automatically when the partner
-  is submitted for approval) or *I'll send it myself* (`inv:'held'`).
+  is submitted for approval) or *I'll send it myself* (`inv:'held'`). The product offers
+  two: *now* or *hold* (decided 2026-09-30; "when submitted" was not adopted). It is a page
+  at `/partners/new`, not a dialog, and lands on the new partner's page, where *Open setup
+  session* starts step 2 with its own re-authentication (#61).
 - The admin console has **no Setup tab** (decided on #19, 2026-09-30): the setup checklist
   is on the partner's Overview, and the session starts from the header. Saves in a setup
   session are logged as the staff member, tagged "Setup session".

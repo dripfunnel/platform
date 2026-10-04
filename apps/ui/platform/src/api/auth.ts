@@ -1,15 +1,19 @@
-import type { PartnerRole } from '../features/shell/partnerRoles'
-import { harnessEnabled } from '../harness'
+import { z } from 'zod'
+import { partnerRoles } from '../features/shell/partnerRoles'
 
-// The refusals the Platform API returns (FIRST-RELEASE.md §3, ACCESS.md §2, §4); this fixture
-// stands in for it until the auth routes exist (#112's "Not in this item").
+// The Platform API's /api/auth/* routes (FIRST-RELEASE.md §3, ACCESS.md §2, §4, apps/api
+// src/apis/platform/auth.ts): JSON in, `{ ok, … }` or `{ ok: false, code }` out, and the session
+// is the cookie they set. Every refusal is a stable code; anything else reads as NOT_CONNECTED.
 export const authCodes = [
   'INVALID_CREDENTIALS',
   'WRONG_CODE',
   'CODE_EXPIRED',
   'LOCKED',
+  'RATE_LIMITED',
+  'NAME_REQUIRED',
   'WEAK_PASSWORD',
   'SECOND_FACTOR_REQUIRED',
+  'RESET_INVALID',
   'INVITATION_EXPIRED',
   'INVITATION_USED',
   'INVITATION_REPLACED',
@@ -19,123 +23,97 @@ export const authCodes = [
 
 export type AuthCode = (typeof authCodes)[number]
 
-export interface Invitation {
-  partner: string
-  role: PartnerRole
-  email: string
-  // Who sent it: DripFunnel for the Owner's invitation, the Owner or an Admin by name otherwise.
-  invitedBy: string
-  secondFactorRequired: boolean
-  // The authenticator secret shown as text beside the QR code; the API issues a real one.
-  secretKey: string
-}
-
 export interface AuthRefusal {
   ok: false
   code: AuthCode
-  triesLeft?: number
-  minutes?: number
+  triesLeft?: number | undefined
+  minutes?: number | undefined
 }
 
-// Every answer takes the same time, so a refused email and a refused password are
-// indistinguishable by timing as well as by message (ACCESS §2, §6.2).
-export const settleMs = 400
-const settle = () => new Promise<void>((resolve) => setTimeout(resolve, settleMs))
+const invitationSchema = z.object({
+  partner: z.string(),
+  role: z.enum(partnerRoles),
+  email: z.string(),
+  // DripFunnel for the Owner's invitation, the inviter by name otherwise.
+  invitedBy: z.string(),
+  secondFactorRequired: z.boolean(),
+})
 
-const refuse = (code: AuthCode, extra: Partial<AuthRefusal> = {}): AuthRefusal => ({ ok: false, code, ...extra })
-const notConnected = async (): Promise<AuthRefusal> => {
-  await settle()
-  return refuse('NOT_CONNECTED')
+export type Invitation = z.infer<typeof invitationSchema>
+
+const refusalSchema = z.object({ ok: z.literal(false), code: z.string(), triesLeft: z.number().int().optional(), minutes: z.number().int().optional() })
+
+// A code the API has never promised is not worded as if it had been.
+const refusalOf = (answer: z.infer<typeof refusalSchema>): AuthRefusal => {
+  const code = z.enum(authCodes).safeParse(answer.code)
+  return code.success ? { ok: false, code: code.data, triesLeft: answer.triesLeft, minutes: answer.minutes } : { ok: false, code: 'NOT_CONNECTED' }
 }
 
-// The sample accounts and codes exist only in a harness build: the condition is a build-time
-// constant Vite folds, so a production bundle carries none of these literals (grep the dist).
-const sample =
-  import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
-    ? {
-        accounts: {
-          'maya@northstar.com': { password: 'northstar-partners', secondFactor: true },
-          'alex@northstar.com': { password: 'northstar-partners', secondFactor: false },
-        } as Record<string, { password: string; secondFactor: boolean }>,
-        validCode: '123456',
-        expiredCode: '000000',
-      }
-    : null
-export const maxCodeTries = 5
-export const lockMinutes = 15
-let wrongCodes = 0
+const notConnected: AuthRefusal = { ok: false, code: 'NOT_CONNECTED' }
+const timeoutMs = 15_000
 
-export const signIn = async (email: string, password: string): Promise<{ ok: true; secondFactor: boolean } | AuthRefusal> => {
-  if (!harnessEnabled || !sample) return notConnected()
-  await settle()
-  const account = sample.accounts[email.trim().toLowerCase()]
-  if (!account || account.password !== password) return refuse('INVALID_CREDENTIALS')
-  return { ok: true, secondFactor: account.secondFactor }
-}
-
-export const verifySecondFactor = async (code: string): Promise<{ ok: true } | AuthRefusal> => {
-  if (!harnessEnabled || !sample) return notConnected()
-  await settle()
-  if (wrongCodes >= maxCodeTries) return refuse('LOCKED', { minutes: lockMinutes })
-  if (code === sample.expiredCode) return refuse('CODE_EXPIRED')
-  if (code !== sample.validCode) {
-    wrongCodes += 1
-    return wrongCodes >= maxCodeTries ? refuse('LOCKED', { minutes: lockMinutes }) : refuse('WRONG_CODE', { triesLeft: maxCodeTries - wrongCodes })
+const post = async <Schema extends z.ZodType>(route: string, body: Record<string, unknown>, done: Schema): Promise<z.infer<Schema> | AuthRefusal> => {
+  try {
+    const response = await fetch(`/api/auth/${route}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    const answer: unknown = await response.json()
+    const refused = refusalSchema.safeParse(answer)
+    if (refused.success) return refusalOf(refused.data)
+    const parsed = done.safeParse(answer)
+    return parsed.success ? (parsed.data as z.infer<Schema>) : notConnected
+  } catch {
+    return notConnected
   }
-  wrongCodes = 0
-  return { ok: true }
 }
 
-// Identical whether or not the email has an account (FIRST-RELEASE §3).
-export const requestPasswordReset = async (): Promise<{ ok: true }> => {
-  await settle()
-  return { ok: true }
+const ok = z.object({ ok: z.literal(true) })
+// What follows a password: the console, a code, or enrolling one the partner requires.
+const signInSteps = z.enum(['done', 'second-factor', 'enrol'])
+
+export type SignInStep = z.infer<typeof signInSteps>
+
+export const signIn = (email: string, password: string, next: string): Promise<{ ok: true; step: SignInStep } | AuthRefusal> =>
+  post('sign-in', { email, password, next }, z.object({ ok: z.literal(true), step: signInSteps }))
+
+export const verifySecondFactor = (code: string): Promise<{ ok: true } | AuthRefusal> => post('second-factor', { code }, ok)
+
+// Identical whether or not the email has an account (FIRST-RELEASE §3); only RATE_LIMITED differs.
+export const requestPasswordReset = (email: string): Promise<{ ok: true } | AuthRefusal> => post('request-password-reset', { email }, ok)
+
+export const invitation = (token: string | undefined): Promise<{ ok: true; invitation: Invitation } | AuthRefusal> =>
+  token ? post('invitation', { token }, z.object({ ok: z.literal(true), invitation: invitationSchema })) : Promise.resolve({ ok: false, code: 'INVITATION_INVALID' })
+
+export const acceptInvitation = (token: string | undefined, name: string, password: string): Promise<{ ok: true; secondFactorRequired: boolean } | AuthRefusal> =>
+  token
+    ? post('accept-invitation', { token, name, password }, z.object({ ok: z.literal(true), secondFactorRequired: z.boolean() }))
+    : Promise.resolve({ ok: false, code: 'INVITATION_INVALID' })
+
+// The first call issues the secret, shown once as text and as the URI a QR code encodes.
+export const startEnrolment = (): Promise<{ ok: true; secret: string; uri: string } | AuthRefusal> =>
+  post('enrol-second-factor', {}, z.object({ ok: z.literal(true), secret: z.string().min(1), uri: z.string().min(1) }))
+
+export const enrolSecondFactor = (code: string): Promise<{ ok: true } | AuthRefusal> => post('enrol-second-factor', { code }, ok)
+
+// The partner's requirement is the session's, never a flag the caller sends (FIRST-RELEASE §14.4).
+export const skipSecondFactor = (): Promise<{ ok: true } | AuthRefusal> => post('skip-second-factor', {}, ok)
+
+// The route ends the session and redirects to `/`, which a signed-out visitor leaves for
+// sign-in: a plain form post, so the browser follows it rather than a script waiting on it.
+export const signOut = (): void => {
+  const form = document.createElement('form')
+  form.method = 'post'
+  form.action = '/api/auth/sign-out'
+  document.body.append(form)
+  form.submit()
 }
 
-// Fixture invitations by token, so ?state= and a real link share one path (features/auth). Only in
-// a harness build, like the accounts above.
-const sampleInvitations: Record<string, Invitation | AuthCode> | null =
-  import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
-    ? {
-        invalid: 'INVITATION_INVALID',
-        expired: 'INVITATION_EXPIRED',
-        used: 'INVITATION_USED',
-        replaced: 'INVITATION_REPLACED',
-        member: { partner: 'Kaufladen Digital', role: 'partner-admin', email: 'petra@kaufladen.de', invitedBy: 'Jonas Weber, the Owner', secondFactorRequired: false, secretKey: 'JBSW Y3DP EHPK 3PXP' },
-        required: { partner: 'Kaufladen Digital', role: 'partner-admin', email: 'petra@kaufladen.de', invitedBy: 'Jonas Weber, the Owner', secondFactorRequired: true, secretKey: 'JBSW Y3DP EHPK 3PXP' },
-        owner: { partner: 'Kaufladen Digital', role: 'partner-owner', email: 'jonas@kaufladen.de', invitedBy: 'DripFunnel', secondFactorRequired: false, secretKey: 'JBSW Y3DP EHPK 3PXP' },
-      }
-    : null
-
-export const invitation = async (token: string | undefined): Promise<{ ok: true; invitation: Invitation } | AuthRefusal> => {
-  if (!harnessEnabled || !sampleInvitations) return notConnected()
-  await settle()
-  if (!token) return refuse('INVITATION_INVALID')
-  const found = sampleInvitations[token] ?? sampleInvitations.owner
-  if (found === undefined) return refuse('INVITATION_INVALID')
-  return typeof found === 'string' ? refuse(found) : { ok: true, invitation: found }
-}
-
-export const acceptInvitation = async (token: string | undefined, name: string, password: string): Promise<{ ok: true; secondFactorRequired: boolean } | AuthRefusal> => {
-  const found = await invitation(token)
-  if (!found.ok) return found
-  if (name.trim() === '' || password.length < 10) return refuse('WEAK_PASSWORD')
-  return { ok: true, secondFactorRequired: found.invitation.secondFactorRequired }
-}
-
-export const enrolSecondFactor = async (code: string): Promise<{ ok: true } | AuthRefusal> => {
-  if (!harnessEnabled) return notConnected()
-  await settle()
-  return /^\d{6}$/.test(code) ? { ok: true } : refuse('WRONG_CODE')
-}
-
-// Skipping is refused when the partner's Owner requires 2-factor (FIRST-RELEASE §14.4). The
-// requirement is the invitation's, looked up from the token, never a flag the caller supplies.
-export const skipSecondFactor = async (token: string | undefined): Promise<{ ok: true } | AuthRefusal> => {
-  const found = await invitation(token)
-  if (!found.ok) return found
-  return found.invitation.secondFactorRequired ? refuse('SECOND_FACTOR_REQUIRED') : { ok: true }
-}
+// The text key in groups of four, as authenticator apps print it.
+export const groupedKey = (secret: string): string => secret.replace(/(.{4})(?=.)/g, '$1 ')
 
 // The redirect after sign-in is same-origin only (ACCESS §4): a path on this host, never a
 // protocol-relative or absolute address, which the URL parser would send elsewhere.

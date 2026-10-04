@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingName, type PartnerCaller, partnerContextOf, actingId } from '#auth/partnerCaller'
 import { insertExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectContractTerms, selectCurrentVersions } from '#db/scoped/partnerPlans'
@@ -240,7 +240,7 @@ export const reportExportLifetimeMs = 60 * 60 * 1000
 
 export const createPartnerReportsService = ({ sql, caller, facts, activity, now }: PartnerReportsDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
 
   /** Null for a filter it cannot read. */
   const report = (tab: ReportTab, raw: unknown): Promise<ReportDto | null> => {
@@ -257,8 +257,8 @@ export const createPartnerReportsService = ({ sql, caller, facts, activity, now 
     if (!tab.success || !parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const filter = { tab: tab.data, ...parsed.data }
     return withScope(sql, context, async (tx) => {
-      const jobId = await insertExportJob(tx, { partnerId, kind: 'report', filter, byId: caller.user.id, byLabel: caller.user.name })
-      await queueSideEffect(tx, { kind: 'export.report', idempotencyKey: jobId, payload: { jobId, partnerId, partnerUserId: caller.user.id }, partnerId, storeId: null })
+      const jobId = await insertExportJob(tx, { partnerId, kind: 'report', filter, byId: actingId(caller), byLabel: actingName(caller) })
+      await queueSideEffect(tx, { kind: 'export.report', idempotencyKey: jobId, payload: { jobId, partnerId, requester: context.caller }, partnerId, storeId: null })
       await activity.record(tx, partnerEntry(caller, facts)({ action: reportAudit.exportReport, target: { type: 'export', id: jobId, label: `Report: ${tab.data}` }, reason: null, changes: [{ field: 'filter', before: null, after: JSON.stringify(filter) }] }))
       return { ok: true as const, jobId }
     })

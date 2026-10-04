@@ -11,7 +11,9 @@ import { storeSchema } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
+import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
+import { staffPortalCookieName } from '#auth/staffPortal'
 import { passwordResetRequestKind } from '#auth/partnerTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
@@ -38,16 +40,7 @@ import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
 import { createPartnersService } from '#saas/partners/index'
-import { createPartnerConsoleService } from '#saas/partnerConsole/index'
-import { createPartnerBrandingService } from '#saas/partnerBranding/index'
-import { createPartnerPlansService } from '#saas/partnerPlans/index'
-import { createPartnerDashboardService } from '#saas/partnerDashboard/index'
-import { createPartnerActivityService, exportLifetimeMs } from '#saas/partnerActivity/index'
-import { createPartnerDomainsService } from '#saas/partnerDomains/index'
-import { createPartnerTeamService } from '#saas/partnerTeam/index'
-import { createPartnerReportsService } from '#saas/partnerReports/index'
-import { createPartnerSupportService } from '#saas/support/index'
-import { createPartnerStoreActions, createPartnerStoresService } from '#saas/partnerStores/index'
+import { exportLifetimeMs } from '#saas/partnerActivity/index'
 import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
@@ -68,6 +61,8 @@ interface Env extends Record<string, unknown> {
   // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
   // typing it as present would make the check below look like dead code.
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
+  // The partner console's staff-session routes, polled by every tab (ACCESS.md §8.3).
+  STAFF_SESSION_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
 }
@@ -181,7 +176,7 @@ const handleAdmin = async (
       isAssigned: assigned,
       staffActivity: caller ? createStaffActivityService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       partners: caller
-        ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() })
+        ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, now: () => new Date() })
         : null,
       stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
       provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, now: () => new Date() }) : null,
@@ -219,6 +214,8 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
     if (!hyperdrive) return new Response(null, { status: 503 })
     const limiter = env.SIGN_IN_RATE_LIMITER
     if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+    const staffLimiter = env.STAFF_SESSION_RATE_LIMITER
+    if (!staffLimiter) return misconfigured('STAFF_SESSION_RATE_LIMITER')
     const secrets = await secretsFor(config)
     return withConnection(hyperdrive, ctx, (sql) =>
       handlePlatformAuth(request, {
@@ -228,31 +225,19 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
         secrets,
         now: () => new Date(),
         allowAttempt: async (key) => (await limiter.limit({ key })).success,
+        allowStaffRead: async (key) => (await staffLimiter.limit({ key })).success,
       }),
     )
   }
 
-  if (!hyperdrive || readCookie(request.headers.get('cookie'), partnerCookieName) === null) {
-    return servers.platform.fetch(request, { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null })
+  const cookies = request.headers.get('cookie')
+  if (!hyperdrive || (readCookie(cookies, partnerCookieName) === null && readCookie(cookies, staffPortalCookieName) === null)) {
+    return servers.platform.fetch(request, signedOutContext)
   }
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
-    const caller = await resolvePartner(sql, request, new Date())
-    const deps = caller ? { sql, caller, facts: factsOf(request), activity: activityLog, now: () => new Date() } : null
-    return servers.platform.fetch(request, {
-      caller,
-      console: deps ? createPartnerConsoleService(deps) : null,
-      plans: deps ? createPartnerPlansService(deps) : null,
-      branding: deps ? createPartnerBrandingService(deps) : null,
-      stores: deps ? createPartnerStoresService(deps) : null,
-      storeActions: deps ? createPartnerStoreActions(deps) : null,
-      dashboard: deps ? createPartnerDashboardService(deps) : null,
-      domains: deps ? createPartnerDomainsService(deps) : null,
-      activity: deps ? createPartnerActivityService(deps) : null,
-      team: deps ? createPartnerTeamService(deps) : null,
-      reports: deps ? createPartnerReportsService(deps) : null,
-      support: deps ? createPartnerSupportService({ ...deps, secrets }) : null,
-    })
+    const caller = await resolvePartner(sql, request, new Date(), activityLog)
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, now: () => new Date() }))
   })
 }
 

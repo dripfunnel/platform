@@ -17,6 +17,7 @@ import { StorefrontTab } from './tabs/StorefrontTab'
 import { SupportTab } from './tabs/SupportTab'
 import type { StoreScreenState } from './storeHarness'
 import { StoreHeader } from './StoreHeader'
+import { noticeOf } from './storeLook'
 import './storeDetail.css'
 
 const words = messages.store
@@ -82,6 +83,7 @@ export const StoreDetail = ({ me, store, tab, forced, onAction, onRecheck, onRel
       </div>
     )
   }
+  const notice = noticeOf(store)
   return (
     <div className="df-page df-list">
       {(me.role === 'partner-read-only' || forced === 'readonly') && <ReadOnlyNotice title={messages.states.readonly.title} body={messages.states.readonly.body} />}
@@ -93,9 +95,9 @@ export const StoreDetail = ({ me, store, tab, forced, onAction, onRecheck, onRel
         current={tab}
         link={(next, props) => <Link to="/stores/$storeId" params={{ storeId: store.id }} search={(prev) => ({ ...prev, tab: next === 'overview' ? undefined : next })} activeOptions={{ explicitUndefined: true }} {...props} />}
       />
-      {store.notice && (
-        <p role="status" className={`df-store-notice df-store-notice--${store.notice.tone}`}>
-          {store.notice.text}
+      {notice && (
+        <p role="status" className={`df-store-notice df-store-notice--${notice.tone}`}>
+          {notice.text}
         </p>
       )}
       <TabContent me={me} store={store} tab={tab} onAction={onAction} onRecheck={onRecheck} />

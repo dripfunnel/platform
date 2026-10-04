@@ -22,3 +22,19 @@ export const deniedStore = (store: Store): Store => ({
   job: store.job && { ...store.job, actions: { ...(store.job.actions.retry ? { retry: { allowed: false, reason: 'RETRIERS_ONLY' as const } } : {}), ...(store.job.actions.undo ? { undo: { allowed: false, reason: 'CLEANERS_ONLY' as const } } : {}) } },
   impersonate: Object.fromEntries(Object.keys(store.impersonate).map((id) => [id, { allowed: false, reason: 'STAFF_ROLE_NOT_ALLOWED' as const }])),
 })
+
+// ?state= on a phone shows the store's short view in each status that changes its one action.
+export const phoneStoreStates = ['active', 'suspended', 'cancelled'] as const
+export type PhoneStoreState = (typeof phoneStoreStates)[number]
+
+export const phoneStore = (store: Store, state: PhoneStoreState): Store => {
+  const since = store.createdAt
+  switch (state) {
+    case 'active':
+      return { ...store, state: { kind: 'active' }, actions: { suspend: store.actions.suspend ?? { allowed: true } } }
+    case 'suspended':
+      return { ...store, state: { kind: 'suspended', reason: 'Chargeback', by: 'Arjun Menon', since, previous: 'active' }, actions: { restore: store.actions.restore ?? { allowed: true } } }
+    case 'cancelled':
+      return { ...store, state: { kind: 'cancelled', since }, actions: {} }
+  }
+}

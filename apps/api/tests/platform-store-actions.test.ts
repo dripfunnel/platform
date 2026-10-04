@@ -18,7 +18,9 @@ const ids = { ns: '', bz: '' }
 const facts = { requestId: 'r', ip: '203.0.113.9', userAgent: 'test' }
 
 const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
-  user: { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example', role },
+  role,
+  user: { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example' },
+  staff: null,
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 const owner = () => callerOf(ids.ns, 'partner-owner')
@@ -126,8 +128,12 @@ describe('trial and overrides', () => {
     // A plan change "from the next billing date" chosen during the trial moves with its end.
     await db.sql`update store_subscription set trial_ends_at = ${before?.trial_ends_at ?? now}, next_plan_id = plan_id, next_plan_version = plan_version, change_at = ${before?.trial_ends_at ?? now} where store_id = ${store}`
     const logged = await entries(store, 'store.trial_extended')
-    const extended = await act('extendTrial', callerOf(ids.ns, 'partner-finance'), { id: store, days: 7, reason: 'Waiting on their catalogue' })
     const expected = new Date((before?.trial_ends_at.getTime() ?? 0) + 7 * 24 * 60 * 60 * 1000)
+    // The store page offers exactly what the action then grants, dated by the server.
+    const offers = (await run<{ store: { trialOffers: { days: number; endsAt: string }[] } }>(`query($id: ID!) { store(id: $id) { trialOffers { days endsAt } } }`, owner(), { id: store })).data?.store.trialOffers
+    expect(offers?.map((o) => o.days)).toEqual([3, 7, 14])
+    expect(offers?.find((o) => o.days === 7)?.endsAt).toBe(expected.toISOString())
+    const extended = await act('extendTrial', callerOf(ids.ns, 'partner-finance'), { id: store, days: 7, reason: 'Waiting on their catalogue' })
     expect(extended).toMatchObject({ ok: true, trialEndsAt: expected.toISOString() })
     expect(await db.sql`select trial_ends_at from store where id = ${store}`).toEqual([{ trial_ends_at: expected }])
     expect(await db.sql`select trial_ends_at, change_at from store_subscription where store_id = ${store}`).toEqual([{ trial_ends_at: expected, change_at: expected }])

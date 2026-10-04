@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { adminSchema, type AdminContext } from '#apis/admin/schema'
@@ -28,7 +29,7 @@ const contextFor = (staff: StaffMember | null, reauthFresh = true): AdminContext
     staff,
     isAssigned: assigned,
     staffActivity: null,
-    partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => now }) : null,
+    partners: staff ? createPartnersService({ sql: db.sql, staff, reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: 'platform.dripfunnel.test', now: () => now }) : null,
     stores: null,
     provisioning: null,
     staffSessions: null,
@@ -324,6 +325,46 @@ describe('createPartner and the Owner invitation (§4.3)', () => {
 
     expect((await run<Out>(create, as('staff-super-admin'), { input: { name: '', ownerEmail: 'not-an-email', country: 'France', sendInvitation: true } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
     expect((await run(create, as('staff-support'), { input: { name: 'X', ownerEmail: 'x@x.example', country: 'FR', sendInvitation: false } })).code).toBe('FORBIDDEN')
+    // A well-formed code DripFunnel doesn't sell in is refused by the server, not only by the console's list.
+    expect((await run<Out>(create, as('staff-super-admin'), { input: { name: 'Nowhere Partner', ownerEmail: 'x@nowhere.example', country: 'ZZ', sendInvitation: false } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+    expect((await run<Out>(create, as('staff-super-admin'), { input: { name: 'Proto Partner', ownerEmail: 'x@proto.example', country: 'constructor', sendInvitation: false } })).data?.['createPartner']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+  })
+
+  it('refuses a name another partner that is not closed has, ignoring case and spaces, and writes nothing', async () => {
+    const input = (name: string, email: string) => ({ input: { name, ownerEmail: email, country: 'DE', sendInvitation: true } })
+    const first = (await run<Out>(create, as('staff-super-admin'), input('Twin Partner', 'one@twin.example'))).data?.['createPartner']
+    expect(first).toMatchObject({ ok: true })
+    const count = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from partner_user`)[0]?.n
+    const users = await count()
+    expect((await run<Out>(create, as('staff-super-admin'), input('  twin PARTNER ', 'two@twin.example'))).data?.['createPartner']).toMatchObject({ ok: false, code: 'NAME_TAKEN', id: null })
+    expect(await count()).toBe(users)
+    expect(await db.sql`select 1 from outbox where payload->>'to' = 'two@twin.example'`).toHaveLength(0)
+
+    // Names are unique across DripFunnel, so refusing a duplicate tells any creator, a Partner
+    // manager not assigned the other partner included, that the name is taken: a partner's name,
+    // to DripFunnel staff only (decided on #61).
+    expect((await run<Out>(create, as('staff-partner-manager'), input('Twin Partner', 'pm@twin.example'))).data?.['createPartner']).toMatchObject({ ok: false, code: 'NAME_TAKEN', id: null })
+
+    await db.sql`update partner set state = 'closed' where id = ${first?.id ?? ''}`
+    expect((await run<Out>(create, as('staff-super-admin'), input('Twin Partner', 'three@twin.example'))).data?.['createPartner']).toMatchObject({ ok: true })
+  })
+
+  it('lets two creates of one name at once make one partner, the other refused at the index', async () => {
+    const input = (email: string) => ({ input: { name: 'Racing Partner', ownerEmail: email, country: 'DE', sendInvitation: false } })
+    const outcomes = await Promise.all([run<Out>(create, as('staff-super-admin'), input('a@race.example')), run<Out>(create, as('staff-super-admin'), input('b@race.example'))])
+    expect(outcomes.map((o) => o.data?.['createPartner']?.ok).sort()).toEqual([false, true])
+    expect(outcomes.find((o) => !o.data?.['createPartner']?.ok)?.data?.['createPartner']).toMatchObject({ code: 'NAME_TAKEN', id: null })
+    expect(await db.sql`select 1 from partner where lower(btrim(name)) = 'racing partner'`).toHaveLength(1)
+  })
+
+  it('stops migration 0031 on partners that already share a name, naming the clash', async () => {
+    const migration = readFileSync(new URL('../migrations/0031_partner_name_unique.sql', import.meta.url), 'utf8')
+    await db.sql`drop index partner_name_unique_idx`
+    const [clash] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Clash Partner'), (' clash partner') returning id`
+    await expect(db.sql.unsafe(migration)).rejects.toThrow(/Partners share a name: 'clash partner'/)
+    await db.sql`delete from partner where id = ${clash?.id ?? ''}`
+    await db.sql.unsafe(migration)
+    expect(await db.sql`select 1 from pg_indexes where indexname = 'partner_name_unique_idx'`).toHaveLength(1)
   })
 
   it('sends a held invitation once, resends a sent one with the old link revoked, and refuses an accepted one', async () => {
@@ -362,17 +403,20 @@ describe('setup sessions (ACCESS.md §8.2, §8.3)', () => {
 
     const started = (await run<Started>(start, as('staff-super-admin'), { id: tallis, reason: 'Finish the checklist' })).data?.startPartnerSetupSession
     expect(started).toMatchObject({ ok: true, code: null })
-    expect(started?.handoff).toMatch(/^[0-9a-f]{64}$/)
+    // The link the new tab opens, on the partner console, as for an impersonation (ACCESS.md §8.1, §8.2).
+    expect(started?.handoff).toMatch(/^https:\/\/platform\.dripfunnel\.test\/impersonate\/enter\?token=[0-9a-f]{64}$/)
+    const token = new URL(started?.handoff ?? 'https://x').searchParams.get('token') ?? ''
+    expect(token).toMatch(/^[0-9a-f]{64}$/)
     expect(started?.expiresAt).toBe(new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString())
     // The token is nowhere but the answer: the row holds a hash, which no request may even read.
     const [row] = await db.sql<{ handoff_hash: string }[]>`select handoff_hash from partner_setup_session where id = ${started?.sessionId ?? ''}`
-    expect(row?.handoff_hash).not.toBe(started?.handoff)
+    expect(row?.handoff_hash).not.toBe(token)
     await expect(db.sql.begin(async (tx) => {
       await tx`set local role app_platform`
       await tx`select set_config('app.scope', 'platform', true)`
       return tx`select handoff_hash from partner_setup_session`
     })).rejects.toThrow(/permission denied/i)
-    expect(JSON.stringify(await db.sql`select * from activity_log where action = ${partnerAudit.startPartnerSetupSession}`)).not.toContain(started?.handoff ?? 'nothing')
+    expect(JSON.stringify(await db.sql`select * from activity_log where action = ${partnerAudit.startPartnerSetupSession}`)).not.toContain(token)
 
     expect((await run<Started>(start, as('staff-super-admin'), { id: tallis, reason: 'again' })).data?.startPartnerSetupSession).toMatchObject({ ok: false, code: 'SETUP_SESSION_ALREADY_OPEN' })
 
@@ -491,6 +535,7 @@ describe('the service enforces the assignment itself (ACCESS.md §5.4)', () => {
       facts: factsOf(request),
       activity: activityLog,
       isAssigned: (staffId, target) => isAssigned(db.sql, staffId, target),
+      platformHost: 'platform.dripfunnel.test',
       now: () => now,
     })
     expect(await service.get(northstar)).toBeNull()

@@ -20,7 +20,9 @@ const facts = { requestId: 'r', ip: '203.0.113.9', userAgent: 'test' }
 const ids = { ns: '', bz: '', nsPlan: '', bzPlan: '' }
 
 const callerOf = (partnerId: string, role: PartnerRole = 'partner-owner'): PartnerCaller => ({
-  user: { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example', role },
+  role,
+  user: { id: crypto.randomUUID(), name: 'Maya Chen', email: 'maya@northstar.example' },
+  staff: null,
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 

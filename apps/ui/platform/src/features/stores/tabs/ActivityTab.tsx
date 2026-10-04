@@ -5,6 +5,9 @@ import { fill, formatTime, messages } from '../../../messages'
 
 const words = messages.store.activity
 
+// An action the console has no words for yet shows as its code, never as nothing.
+const actionWords = (action: string): string => (Object.hasOwn(words.actions, action) ? words.actions[action as keyof typeof words.actions] : action)
+
 const resultLook: Record<StoreActivityEntry['result'], { tone: StatusTone; icon: StatusIconName }> = {
   success: { tone: 'success', icon: 'ok' },
   denied: { tone: 'danger', icon: 'ban' },
@@ -22,17 +25,15 @@ const Entry = ({ entry }: { entry: StoreActivityEntry }) => {
         <time dateTime={entry.at} className="df-muted">
           {formatTime(entry.at)}
         </time>
-        <span>{entry.text}</span>
+        <span>{actionWords(entry.action)}</span>
         <StatusPill {...resultLook[entry.result]} label={words.results[entry.result]} />
       </button>
       {open && (
-        <dl className="df-record df-activity-facts" aria-label={fill(words.details, { text: entry.text })}>
-          {entry.facts.map((fact) => (
-            <div key={fact.label}>
-              <dt>{fact.label}</dt>
-              <dd>{fact.value}</dd>
-            </div>
-          ))}
+        <dl className="df-record df-activity-facts" aria-label={fill(words.details, { text: actionWords(entry.action) })}>
+          <div>
+            <dt>{words.who}</dt>
+            <dd>{entry.who}</dd>
+          </div>
         </dl>
       )}
     </li>

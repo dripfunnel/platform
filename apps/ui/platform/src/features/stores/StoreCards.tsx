@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import type { StoreRow } from '../../api/stores'
 import { messages } from '../../messages'
-import { StatusSub, StoreStatusPill } from './storeLook'
+import { planNameOf, StatusSub, StoreStatusPill } from './storeLook'
 
 // On a phone the prototype draws cards: name and status, plan · domain, the status line (§6.1).
 export const StoreCards = ({ stores }: { stores: readonly StoreRow[] }) => (
@@ -14,7 +14,7 @@ export const StoreCards = ({ stores }: { stores: readonly StoreRow[] }) => (
             <StoreStatusPill state={store.state} />
           </span>
           <span className="df-muted">
-            {store.plan.name} · {store.domain.host}
+            {planNameOf(store.plan)} · {store.domain?.host ?? store.code}
           </span>
           <StatusSub state={store.state} />
         </Link>

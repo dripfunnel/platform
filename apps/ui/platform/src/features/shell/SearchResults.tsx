@@ -1,8 +1,8 @@
 import { initials } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
-import type { StoreMatch } from '../../api/stores'
+import { searchMinLength, type StoreMatch } from '../../api/search'
 import { fill, messages } from '../../messages'
-import { StoreStatusPill } from '../stores/storeLook'
+import { SearchStatusPill } from '../stores/storeLook'
 
 const words = messages.shell.search
 
@@ -12,9 +12,9 @@ export interface SearchResultsProps {
   onPick: () => void
 }
 
-// The prototype's palette rows: initials, name, owner email · domain, status (FIRST-RELEASE.md §2.2).
+// The prototype's palette rows: initials, name, owner email · domain (or the code without one), status (FIRST-RELEASE.md §2.2).
 export const SearchResults = ({ query, matches, onPick }: SearchResultsProps) => {
-  if (query.trim() === '') return <p className="df-search-hint">{words.hint}</p>
+  if (query.trim().length < searchMinLength) return <p className="df-search-hint">{words.hint}</p>
   if (matches === null) return <p className="df-search-hint">{words.searching}</p>
   if (matches === 'failed') return <p className="df-search-hint" role="alert">{words.failed}</p>
   if (matches.length === 0) return <p className="df-search-hint">{fill(words.none, { query })}</p>
@@ -28,9 +28,9 @@ export const SearchResults = ({ query, matches, onPick }: SearchResultsProps) =>
             </span>
             <span className="df-search-text">
               <strong>{match.name}</strong>
-              <span className="df-muted">{fill(words.result, { email: match.email, host: match.host })}</span>
+              <span className="df-muted">{[match.ownerEmail, match.domain ?? match.code].filter(Boolean).join(words.separator)}</span>
             </span>
-            <StoreStatusPill state={match.state} />
+            <SearchStatusPill status={match.status} />
           </Link>
         </li>
       ))}

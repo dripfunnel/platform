@@ -7,7 +7,7 @@ const words = messages.stores.export
 
 const jobWords: ExportJobWords = {
   preparing: words.preparing,
-  ready: (count) => fill(plural(words.ready, count), { count: formatCount(count) }),
+  ready: (count, truncated) => fill(plural(truncated ? words.truncated : words.ready, count), { count: formatCount(count) }),
   download: words.download,
   file: (date) => fill(words.file, { date }),
   expires: (time) => fill(words.expires, { time: formatTime(time) }),

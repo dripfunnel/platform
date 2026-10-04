@@ -27,6 +27,8 @@ const AddressType = builder.objectRef<Address>('PartnerAddress').implement({
     kind: t.exposeString('kind'),
     added: t.exposeBoolean('added'),
     host: t.string({ nullable: true, resolve: (a) => (a.added ? a.host : null) }),
+    // Where the address's DNS is managed, for "Sign in where you manage DNS for …" (§9.2).
+    zone: t.string({ nullable: true, resolve: (a) => (a.added ? a.zone : null) }),
     status: t.string({ nullable: true, resolve: (a) => (a.added ? a.status : null) }),
     since: t.string({ nullable: true, resolve: (a) => (a.added ? a.since.toISOString() : null) }),
     checkedAt: t.string({ nullable: true, resolve: (a) => (a.added ? (a.checkedAt?.toISOString() ?? null) : null) }),

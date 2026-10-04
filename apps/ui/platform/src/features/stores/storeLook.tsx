@@ -1,5 +1,6 @@
 import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
-import type { StoreDomain, StoreState, StorefrontState } from '../../api/stores'
+import type { SearchStatus } from '../../api/search'
+import type { BillingMode, StoreDomain, StoreState, StorefrontState } from '../../api/stores'
 import { fill, formatCount, formatDate, messages, plural } from '../../messages'
 
 const words = messages.stores
@@ -33,6 +34,7 @@ const domainLook: Record<Exclude<StoreDomain['status'], 'live'>, Look> = {
 export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'warning' | 'danger' } | null => {
   switch (state.kind) {
     case 'trial':
+      if (state.daysLeft === null) return null
       return {
         text:
           state.daysLeft === 0
@@ -47,13 +49,25 @@ export const statusSub = (state: StoreState): { text: string; tone: 'muted' | 'w
     case 'suspended':
       return { text: state.reason, tone: 'danger' }
     case 'cancelled':
-      return { text: fill(words.statusSub.cancelled, { date: formatDate(state.since) }), tone: 'muted' }
+      return state.since ? { text: fill(words.statusSub.cancelled, { date: formatDate(state.since) }), tone: 'muted' } : null
     case 'active':
       return null
   }
 }
 
 export const StoreStatusPill = ({ state }: { state: StoreState }) => <StatusPill {...statusLook[state.kind]} label={words.statuses[state.kind]} />
+
+// A search result carries the API's status as stored, closed included (FIRST-RELEASE §2.2).
+const searchLook: Record<SearchStatus, Look & { label: string }> = {
+  trial: { ...statusLook.trial, label: words.statuses.trial },
+  active: { ...statusLook.active, label: words.statuses.active },
+  past_due: { ...statusLook.pastdue, label: words.statuses.pastdue },
+  suspended: { ...statusLook.suspended, label: words.statuses.suspended },
+  cancelled: { ...statusLook.cancelled, label: words.statuses.cancelled },
+  closed: { tone: 'neutral', icon: 'cross', label: words.statuses.closed },
+}
+
+export const SearchStatusPill = ({ status }: { status: SearchStatus }) => <StatusPill {...searchLook[status]} />
 
 export const StatusSub = ({ state }: { state: StoreState }) => {
   const sub = statusSub(state)
@@ -67,6 +81,30 @@ export const StorefrontPill = ({ storefront }: { storefront: StorefrontState }) 
 // Under the domain only when there is something to say: a custom domain not yet live (§6.1).
 export const DomainNote = ({ domain }: { domain: StoreDomain }) =>
   domain.status === 'live' ? null : <StatusPill {...domainLook[domain.status]} label={words.domainStatus[domain.status]} />
+
+// "DripFunnel for Northstar" or the partner itself: who charges the merchant (§1, §11.4).
+export const chargedByOf = (mode: BillingMode, partner: string): string => (mode === 'own' ? partner : fill(words.chargedByDripFunnel, { partner }))
+
+// A store role by its key ("supplier-admin"), with the supplier's name when it has one.
+export const roleOf = (role: string, supplier: string | null = null): string => {
+  const words = messages.store.roles
+  const name = Object.hasOwn(words, role) ? words[role as keyof typeof words] : role
+  return supplier ? `${name} · ${supplier}` : name
+}
+
+export const planNameOf = (plan: { name: string } | null): string => plan?.name ?? words.noPlan
+
+// The header's notice for a suspended or past-due store, worded here from the API's state (§6.3).
+// The API sends neither when the store was suspended nor when the card is retried (#166's findings).
+export const noticeOf = ({ state, owner }: { state: StoreState; owner: { name: string } }): { tone: 'danger' | 'warning'; text: string } | null =>
+  state.kind === 'suspended'
+    ? { tone: 'danger', text: fill(state.reason ? messages.store.notice.suspended : messages.store.notice.suspendedNoReason, { reason: state.reason }) }
+    : state.kind === 'pastdue'
+      ? { tone: 'warning', text: fill(messages.store.notice.pastdue, { days: formatCount(state.daysPastDue), owner: owner.name.split(' ')[0] ?? owner.name }) }
+      : null
+
+// A store without its own domain shows its code: the API gives the list no shop address (#166's findings).
+export const DomainCell = ({ domain, code }: { domain: StoreDomain | null; code: string }) => (domain ? <DomainLink host={domain.host} /> : <code className="df-muted">{code}</code>)
 
 export const DomainLink = ({ host }: { host: string }) => (
   <a href={`https://${host}`} target="_blank" rel="noopener noreferrer" className="df-host" aria-label={fill(words.opensInNewTab, { host })}>

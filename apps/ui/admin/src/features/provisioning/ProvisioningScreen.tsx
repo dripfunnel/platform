@@ -7,7 +7,7 @@ import { harnessEnabled } from '../../harness'
 import { jobDialog, type JobTarget } from './jobDialog'
 import { Provisioning, ProvisioningError } from './Provisioning'
 import { provisioningStates } from './provisioningHarness'
-import { useJobRuns } from './useJobRuns'
+import { jobFailureWords, useJobRuns } from './useJobRuns'
 
 const provisioningRoute = getRouteApi('/_app/provisioning')
 
@@ -29,7 +29,7 @@ const targetOf = (job: ProvisioningJob): JobTarget => ({ name: job.store.name, c
 
 export const ProvisioningScreen = () => {
   const page = provisioningRoute.useLoaderData()
-  const { partner, status, step, q, pace } = provisioningRoute.useSearch()
+  const { partner, status, step, q } = provisioningRoute.useSearch()
   const forced = useScreenState(provisioningStates, harnessEnabled)
   const navigate = provisioningRoute.useNavigate()
   const router = useRouter()
@@ -41,8 +41,8 @@ export const ProvisioningScreen = () => {
   const onOutcome = useCallback((_outcome: unknown, message: string) => setToast(message), [])
   const { run } = useJobRuns(jobs, onOutcome)
 
-  // A new filter starts from the first page; the sample's pace stays with the URL.
-  const onFilterChange = useCallback((next: JobFilter) => void navigate({ search: { ...next, pace }, replace: true }), [navigate, pace])
+  // A new filter starts from the first page.
+  const onFilterChange = useCallback((next: JobFilter) => void navigate({ search: next, replace: true }), [navigate])
   const filter: JobFilter = {
     ...(partner ? { partner } : {}),
     ...(status ? { status } : {}),
@@ -54,7 +54,7 @@ export const ProvisioningScreen = () => {
     setPending(null)
     run(next.action, next.job.id, targetOf(next.job), reason)
       .then(setToast)
-      .catch(() => setToast(messages.provisioning.toasts.failed))
+      .catch((error: unknown) => setToast(jobFailureWords(error)))
   }
 
   const dialog = pending ? jobDialog(pending.action, targetOf(pending.job)) : null

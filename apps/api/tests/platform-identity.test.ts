@@ -54,7 +54,7 @@ afterAll(async () => {
 
 describe('the partner caller', () => {
   it('is the session’s user and partner, and `me` says so', async () => {
-    const caller = await resolvePartner(db.sql, request(await sessionFor(users.ownerA)), now)
+    const caller = await resolvePartner(db.sql, request(await sessionFor(users.ownerA)), now, activityLog)
     expect(await me(caller)).toEqual({
       id: users.ownerA,
       email: 'maya@northstar.example',
@@ -64,7 +64,7 @@ describe('the partner caller', () => {
   })
 
   it('reads another partner’s session as that partner only: a sent-back draft says so', async () => {
-    const caller = await resolvePartner(db.sql, request(await sessionFor(users.ownerB)), now)
+    const caller = await resolvePartner(db.sql, request(await sessionFor(users.ownerB)), now, activityLog)
     expect(caller?.partner.id).toBe(t.partnerB)
     expect(caller?.partner.state).toBe('sentback')
     expect(JSON.stringify(await me(caller))).not.toContain(t.partnerA)
@@ -72,15 +72,15 @@ describe('the partner caller', () => {
 
   it('is nobody without a cookie, with an unknown one, after the idle bound, when suspended or closed', async () => {
     expect(await me(null)).toBeNull()
-    expect(await resolvePartner(db.sql, request(null), now)).toBeNull()
-    expect(await resolvePartner(db.sql, request('not-a-session'), now)).toBeNull()
+    expect(await resolvePartner(db.sql, request(null), now, activityLog)).toBeNull()
+    expect(await resolvePartner(db.sql, request('not-a-session'), now, activityLog)).toBeNull()
     const stale = await sessionFor(users.ownerA, new Date(now.getTime() - idleMs - 1000))
-    expect(await resolvePartner(db.sql, request(stale), now)).toBeNull()
-    expect(await resolvePartner(db.sql, request(await sessionFor(users.suspendedA)), now)).toBeNull()
+    expect(await resolvePartner(db.sql, request(stale), now, activityLog)).toBeNull()
+    expect(await resolvePartner(db.sql, request(await sessionFor(users.suspendedA)), now, activityLog)).toBeNull()
     const closing = await sessionFor(users.ownerB)
     await db.sql`update partner set state = 'closed' where id = ${t.partnerB}`
     try {
-      expect(await resolvePartner(db.sql, request(closing), now)).toBeNull()
+      expect(await resolvePartner(db.sql, request(closing), now, activityLog)).toBeNull()
     } finally {
       await db.sql`update partner set state = 'draft' where id = ${t.partnerB}`
     }
@@ -91,7 +91,7 @@ describe('sign-out', () => {
   const signOut = (cookie: string, init: RequestInit = {}) =>
     handlePlatformAuth(
       new Request(`https://${host}/api/auth/sign-out`, { method: 'POST', ...init, headers: { cookie: `${partnerCookieName}=${cookie}`, origin: `https://${host}`, ...init.headers } }),
-      { sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => now, allowAttempt: async () => true },
+      { sql: db.sql, activity: activityLog, platformHost: host, secrets: null, now: () => now, allowAttempt: async () => true, allowStaffRead: async () => true },
     )
 
   it('ends the session, clears the cookie and logs it against the partner', async () => {
@@ -99,7 +99,7 @@ describe('sign-out', () => {
     const response = await signOut(id)
     expect(response.status).toBe(302)
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0')
-    expect(await resolvePartner(db.sql, request(id), now)).toBeNull()
+    expect(await resolvePartner(db.sql, request(id), now, activityLog)).toBeNull()
     const [entry] = await db.sql<{ actor_kind: string; actor_id: string; partner_id: string; visibility: string; api: string }[]>`
       select actor_kind, actor_id, partner_id, visibility, api from activity_log where action = 'partner_user.signed_out'
     `
@@ -110,7 +110,7 @@ describe('sign-out', () => {
     const id = await sessionFor(users.ownerA)
     expect((await signOut(id, { headers: { origin: 'https://evil.example' } })).status).toBe(403)
     expect((await signOut(id, { method: 'GET' })).status).toBe(405)
-    expect(await resolvePartner(db.sql, request(id), now)).not.toBeNull()
+    expect(await resolvePartner(db.sql, request(id), now, activityLog)).not.toBeNull()
   })
 })
 

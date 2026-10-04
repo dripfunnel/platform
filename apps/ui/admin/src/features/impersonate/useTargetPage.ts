@@ -18,7 +18,7 @@ export const useTargetPage = (filter: TargetFilter, page: PageRequest, search: s
   useEffect(() => {
     let current = true
     setResult({ kind: 'loading' })
-    loadTargets({ type, partner, store, role, status }, { after, before }, search, caller)
+    loadTargets({ type, partner, store, role, status }, { after, before }, search)
       .then((loaded) => current && setResult(loaded ? { kind: 'ready', page: loaded } : { kind: 'denied' }))
       .catch(() => current && setResult({ kind: 'error' }))
     return () => {

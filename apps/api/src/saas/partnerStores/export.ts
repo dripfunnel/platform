@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingName, type PartnerCaller, partnerContextOf, actingId } from '#auth/partnerCaller'
 import { csvLine } from '#core/csv'
 import { insertExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { withScope } from '#db/scoped/index'
@@ -52,15 +52,15 @@ export interface PartnerStoresExportDeps {
 
 export const createPartnerStoresExport = ({ sql, caller, facts, activity, now }: PartnerStoresExportDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
 
   /** Every role may export (ACCESS §5.3 `exports`); a filter it cannot read is refused, never read as none. */
   const exportStores = (raw: unknown): Promise<{ ok: true; jobId: string } | { ok: false; reason: 'INVALID_INPUT' }> => {
     const parsed = storeFilter.safeParse(raw ?? {})
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     return withScope(sql, context, async (tx) => {
-      const jobId = await insertExportJob(tx, { partnerId, kind: 'stores', filter: parsed.data, byId: caller.user.id, byLabel: caller.user.name })
-      await queueSideEffect(tx, { kind: 'export.stores', idempotencyKey: jobId, payload: { jobId, partnerId, partnerUserId: caller.user.id }, partnerId, storeId: null })
+      const jobId = await insertExportJob(tx, { partnerId, kind: 'stores', filter: parsed.data, byId: actingId(caller), byLabel: actingName(caller) })
+      await queueSideEffect(tx, { kind: 'export.stores', idempotencyKey: jobId, payload: { jobId, partnerId, requester: context.caller }, partnerId, storeId: null })
       await activity.record(tx, partnerEntry(caller, facts)({ action: storesExportAudit, target: { type: 'export', id: jobId, label: 'Stores' }, reason: null, changes: [{ field: 'filter', before: null, after: JSON.stringify(loggedFilter(parsed.data)) }] }))
       return { ok: true as const, jobId }
     })

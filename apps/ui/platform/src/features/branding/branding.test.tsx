@@ -2,12 +2,12 @@ import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } fr
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { brandingServer } from '../../api/brandingSample'
 import type { Me } from '../../api/me'
 import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { Branding, type BrandingProps } from './Branding'
 import { draftOf, invalidFields, isDirty, publishConsequence, refusalText } from './brandDraft'
+import { kaufladenBranding, lowContrastReport, northstarBranding } from './brandingTestData'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 const render = async (element: ReactNode) => {
@@ -20,7 +20,7 @@ const noop = () => undefined
 const words = messages.branding
 
 const view = (props: Partial<BrandingProps> = {}, role: PartnerRole = 'partner-owner', partnerId = 'p-northstar') => {
-  const branding = brandingServer.get(partnerId, role)
+  const branding = partnerId === 'p-kaufladen' ? kaufladenBranding : northstarBranding[role]
   const original = draftOf(branding)
   return render(
     <Branding
@@ -36,6 +36,7 @@ const view = (props: Partial<BrandingProps> = {}, role: PartnerRole = 'partner-o
       onDraft={noop}
       onDiscard={noop}
       onPublish={noop}
+      onUpload={noop}
       onReload={noop}
       {...props}
     />,
@@ -74,11 +75,11 @@ describe('Branding', () => {
   })
 
   it('shows unpublished changes with how many stores they affect, and blocks Publish while the contrast fails', async () => {
-    const branding = brandingServer.get('p-northstar', 'partner-owner')
+    const branding = northstarBranding['partner-owner']
     const original = draftOf(branding)
     const draft = { ...original, look: { ...original.look, primary: '#9ACDD6' } }
     expect(isDirty(draft, original)).toBe(true)
-    const html = await view({ draft, contrast: brandingServer.contrast('#9ACDD6', original.look.accent) })
+    const html = await view({ draft, contrast: lowContrastReport })
     const text = textOf(html)
     expect(text).toContain('Unpublished changes. Merchants still see the published version. This affects 84 stores.')
     expect(text).toContain(words.look.fails)
@@ -97,7 +98,7 @@ describe('Branding', () => {
   })
 
   it('marks a colour or address the API would refuse, and never fixes it', () => {
-    const original = draftOf(brandingServer.get('p-northstar', 'partner-owner'))
+    const original = draftOf(northstarBranding['partner-owner'])
     expect(invalidFields({ ...original, look: { ...original.look, primary: '#12' } })).toEqual(['primary'])
     expect(invalidFields({ ...original, words: { ...original.words, supportEmail: 'help', termsUrl: 'northstar' } }).sort()).toEqual(['supportEmail', 'termsUrl'])
     expect(invalidFields(original)).toEqual([])

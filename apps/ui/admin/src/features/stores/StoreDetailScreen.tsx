@@ -12,10 +12,12 @@ import { callerFor } from '../common/harnessCaller'
 import { RouteError } from '../common/RouteError'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
 import { jobDialog, type JobTarget } from '../provisioning/jobDialog'
-import { useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
+import { jobFailureWords, useJobRuns, type JobOutcome } from '../provisioning/useJobRuns'
 import { storeDialog, storeToast, type DialogAction } from './storeDialog'
 import { StoreDetail, StoreError } from './StoreDetail'
-import { deniedStore, storeStates } from './storeHarness'
+import { usePhone } from '../common/usePhone'
+import { phoneAction, PhoneStore } from './PhoneStore'
+import { deniedStore, phoneStore, phoneStoreStates, storeStates } from './storeHarness'
 
 const storeRoute = getRouteApi('/_app/stores_/$storeId')
 const shellRoute = getRouteApi('/_app')
@@ -25,8 +27,12 @@ type Pending = { kind: 'store'; action: DialogAction } | { kind: 'job'; action: 
 const dialogActions: readonly DialogAction[] = ['suspend', 'restore', 'extendTrial', 'resendInvite']
 
 // ?state=confirm opens the first action this store offers, its signup job's first, so its
-// dialog can be checked.
-const firstAllowed = (store: Store | null): Pending | null => {
+// dialog can be checked; on a phone, the one action the short view offers.
+export const confirmOpening = (store: Store | null, phone: boolean): Pending | null => {
+  if (phone) {
+    const action = store && phoneAction(store)
+    return action && store.actions[action]?.allowed ? { kind: 'store', action } : null
+  }
   const job = jobActions.find((action) => store?.job?.actions[action]?.allowed)
   if (job) return { kind: 'job', action: job }
   const action = dialogActions.find((candidate) => store?.actions[candidate]?.allowed)
@@ -46,10 +52,14 @@ export const StoreDetailScreen = () => {
   const { me } = shellRoute.useLoaderData()
   const searchStr = useRouterState({ select: (state) => state.location.searchStr })
   const forced = useScreenState(storeStates, harnessEnabled)
-  const store = loaded && forced === 'denied' ? deniedStore(loaded) : loaded
+  const phoneForced = useScreenState(phoneStoreStates, harnessEnabled)
+  // The harness's loading and error states are the laptop's; a phone has no others of its own.
+  const phone = usePhone() && forced !== 'loading' && forced !== 'error'
+  const denied = loaded && forced === 'denied' ? deniedStore(loaded) : loaded
+  const store = denied && phone && phoneForced ? phoneStore(denied, phoneForced) : denied
   const router = useRouter()
   const navigate = useNavigate()
-  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? firstAllowed(store) : null))
+  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? confirmOpening(store, phone) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = (error: unknown) => setToast(failureText(error, messages.store.toasts.failed))
@@ -72,7 +82,7 @@ export const StoreDetailScreen = () => {
     setPending(null)
     if (next.kind === 'job') {
       if (!target.job) return
-      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch(failed)
+      run(next.action, target.job.id, targetOf(target), reason).then(setToast).catch((error: unknown) => setToast(jobFailureWords(error)))
       return
     }
     runStoreAction(target.id, next.action, reason, value)
@@ -109,6 +119,9 @@ export const StoreDetailScreen = () => {
 
   return (
     <>
+      {phone && store ? (
+        <PhoneStore store={store} onAction={(action) => setPending({ kind: 'store', action })} />
+      ) : (
       <StoreDetail
         store={store}
         tab={tab}
@@ -118,7 +131,7 @@ export const StoreDetailScreen = () => {
         onJob={(action) => setPending({ kind: 'job', action })}
         onAddNote={onAddNote}
         onRecheck={onRecheck}
-        onImpersonate={sessions.impersonate}
+        onImpersonate={(id) => store && sessions.impersonate(id, { email: store.users.find((user) => user.id === id)?.email ?? '', store: store.id })}
         customers={{
           filter: customerFilter,
           page: { after, before },
@@ -143,6 +156,7 @@ export const StoreDetailScreen = () => {
           )
         }
       />
+      )}
       {store && (
         <ConfirmDialog
           open={dialog !== null}

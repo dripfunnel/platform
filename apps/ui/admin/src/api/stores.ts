@@ -216,7 +216,8 @@ const rowFields = {
 
 const rowSchema = z.object(rowFields)
 
-const storeRoles: Record<string, StoreUser['role']> = {
+// The API's role keys for a store user (ACCESS.md §7), shared with the staff-session decoders.
+export const storeRoleOfKey: Record<string, StoreUser['role']> = {
   owner: 'owner',
   manager: 'manager',
   staff: 'staff',
@@ -236,7 +237,7 @@ const user = z
     impersonate: impersonatePermission,
   })
   .transform((u, ctx) => {
-    const role = storeRoles[u.role]
+    const role = storeRoleOfKey[u.role]
     if (!role) {
       ctx.addIssue({ code: 'custom', message: `unknown store role ${u.role}` })
       return z.NEVER

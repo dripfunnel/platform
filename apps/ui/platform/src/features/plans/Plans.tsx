@@ -65,7 +65,7 @@ const Row = ({ plan }: { plan: PlanRow }) => (
                 : `${price.currency} · ${words.unpriced}`}
           </span>
         ))}
-        {plan.prices[0] && <span className="df-muted">{fill(words.feeLine, { fee: formatAmount(plan.prices[0].fee) })}</span>}
+        {plan.prices[0]?.fee && <span className="df-muted">{fill(words.feeLine, { fee: formatAmount(plan.prices[0].fee) })}</span>}
       </div>
     </td>
     <td>{plan.trialDays === 0 ? words.noTrial : fill(words.trialDays, { count: formatCount(plan.trialDays) })}</td>
