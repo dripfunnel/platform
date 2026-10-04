@@ -12,8 +12,10 @@ fail() {
 
 command -v caddy >/dev/null 2>&1 || fail "dev:https needs Caddy, which isn't installed." "brew install caddy, then run pnpm dev:https again."
 
-if ! out=$(caddy start --config "$config" --adapter caddyfile 2>&1); then
-  printf '%s\n' "$out" | tail -n 3 >&2
+# To a file, not $(…): the `caddy run` that `caddy start` leaves behind keeps a pipe open forever.
+log=$(mktemp)
+if ! caddy start --config "$config" --adapter caddyfile >"$log" 2>&1; then
+  tail -n 3 "$log" >&2
   fail "Caddy didn't start; port 443 or its admin port 2019 is probably taken, perhaps by another pnpm dev:https." \
     "stop that one, or run caddy stop; lsof -nP -iTCP:443 -sTCP:LISTEN shows what holds 443."
 fi
