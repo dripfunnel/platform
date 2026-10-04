@@ -262,7 +262,11 @@ Choose → Check → Import → Done: a CSV or Excel file, a Shopify export, or 
 nothing changes until confirmed; an error file for rejected rows; the run continues after
 leaving the page, with the shell's banner. Template download. Exports (all, hidden only,
 filtered) are jobs with a download. Owner and Manager import; **Staff export**; suppliers import
-(catalogue tiers) and export **their own** (§1).
+(catalogue tiers) and export **their own** (§1). **A supplier's export is its screen, as a file**:
+seller-scoped through the same serializer, so it holds only its own rows, never an order total,
+and customer fields by shipping mode — none for `to-store`, name and delivery address for
+`to-shopper` (ACCESS §7.3). Every card that builds an export (SAPI 11, 13, 16) carries the
+isolation-matrix test for it (ACCESS §11.1); customers are never exported to a supplier.
 
 ## 14. Storefront (`PortalStorefront`, DESIGN-BRIEF H, SAAS §9)
 
@@ -414,13 +418,13 @@ what must merge first.
 | SAPI 7 | Tax: classes, rates (India), Stripe Tax (US), invoices settings | SAPI 3 |
 | SAPI 8 | Shop API catalogue and search, edge caching and purge | SAPI 3, SAPI 6 |
 | SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting) | SAPI 7, SAPI 8 |
-| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent | SAPI 9 |
-| SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations | SAPI 10, SAPI 5 |
+| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment | SAPI 9, SAPI 4 |
+| SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping: methods and charges, Shiprocket and the US aggregator, labels, pickups, tracking sync | SAPI 11 |
-| SAPI 13 | Customers: groups, tags, notes, consent, export; shopper emails through SES (order, shipping, password) | SAPI 11 |
+| SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) | SAPI 11 |
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting | SAPI 9 |
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe | SAPI 13, SAPI 14 |
-| SAPI 16 | Import and export: CSV, Shopify, export jobs | SAPI 5 |
+| SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13) | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
 | SAPI 18 | Reports and the custom report builder | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and export | SAPI 2, #201 |
@@ -432,7 +436,7 @@ what must merge first.
 
 | # | Card | Needs |
 |---|---|---|
-| SUI 2 | Shell: brand from hostname, menu per role, store switcher, banners and states, `?state=` harness | SAPI 1 |
+| SUI 2 | Shell: brand from hostname, menu per role, store switcher, banners and states, `?state=` harness | SAPI 2 |
 | SUI 3 | Getting in and My profile | SUI 2, SAPI 2 |
 | SUI 4 | Products, editor, stock and history, approval | SUI 2, SAPI 5 |
 | SUI 5 | Collections, filters, menus, size charts | SUI 4 |
