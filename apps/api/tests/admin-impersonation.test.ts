@@ -212,6 +212,8 @@ describe('setup sessions beside them', () => {
     const mine = (await run<{ staffSessions: { open: { id: string; kind: string; mine: boolean }[] } }>(sessions, pm)).data?.staffSessions.open ?? []
     expect(mine.every((s) => s.kind === 'setup')).toBe(true)
     expect(mine.find((s) => s.id === id)?.mine).toBe(true)
+    // The console reads the session it started back by id (admin api/impersonation.ts `startSetupSession`).
+    expect((await run<{ staffSession: { kind: string; session: { kind: string } } }>(`query($id: ID!) { staffSession(id: $id) { kind session { kind } } }`, pm, { id })).data?.staffSession).toEqual({ kind: 'found', session: { kind: 'setup' } })
     expect((await run(extend, pm, { id })).code).toBe('FORBIDDEN')
     expect((await run<{ extendImpersonation: { reason: string } }>(extend, as('staff-super-admin'), { id })).data?.extendImpersonation.reason).toBe('SETUP_SESSION_NOT_EXTENDABLE')
     const again = (await run<{ returnToSession: { ok: boolean; handoff: string } }>(back, pm, { id })).data?.returnToSession
