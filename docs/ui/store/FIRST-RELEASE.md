@@ -54,7 +54,8 @@ packs) is taken from the prototype as drawn.
 Decided on the way, from the prototype and the docs it follows (each recorded where it lives):
 the Store API is **GraphQL**, like the Platform and Admin APIs (§19); **stock is reserved when an
 order is paid** — "reserved" is sold and not yet shipped (PLATFORM-PROMPT §5.4) — and checkout
-re-checks availability at payment; a Manager may change stock but not warehouses, and never
+re-checks availability at payment; cash-on-delivery and bank-transfer orders reserve when placed,
+released on cancellation or an unpaid transfer's time limit *(proposed, §21)*; a Manager may change stock but not warehouses, and never
 presses "Publish now" (the prototype gives Managers neither Settings nor a working Storefront).
 
 ---
@@ -419,13 +420,13 @@ what must merge first.
 | SAPI 1 | Store API GraphQL skeleton on the portal host: schema file, `TenantContext` from session and acting store, resolver scope declarations, `READ_ONLY` and `PLAN_LIMIT`, cursor paging, the structural test | #184 |
 | SAPI 2 | Brand by hostname, sign-up and provisioning (SAAS §5 workflow, steps 1–3), sign-in, 2-factor and enrolment, reset, invitations, My profile, sessions | SAPI 1 |
 | SAPI 3 | Money, catalogue, versions, assets (R2 signed uploads), collections, facets, menus, size charts, sections, legal, badges, readiness per market | SAPI 1 |
-| SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment | SAPI 3 |
+| SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment (cash on delivery and bank transfer at placement, PLATFORM-PROMPT §5.4) | SAPI 3 |
 | SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix | SAPI 4 |
 | SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
 | SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; whose account decided first, §21), invoices settings | SAPI 3 |
 | SAPI 8 | Shop API catalogue and search, edge caching and purge | SAPI 3, SAPI 6 |
 | SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23 | SAPI 7, SAPI 8, SAPI 23 |
-| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment | SAPI 9, SAPI 4 |
+| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment, or at placement for cash on delivery and bank transfer, with "Mark as paid" never re-checking held stock | SAPI 9, SAPI 4 |
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
 | SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) | SAPI 11 |
@@ -433,7 +434,7 @@ what must merge first.
 | SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13) | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
-| SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (a supplier's figures only its own) | SAPI 11 |
+| SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17) | SAPI 11 |
 | SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and `exportStoreData` (Owner) with its isolation test | SAPI 2, #201 |
 | SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants | SAPI 11 |
 | SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test | SAPI 2, #202 |
@@ -466,6 +467,10 @@ what must merge first.
 ## 21. Open questions
 
 - **WhatsApp reminders** in India: which provider, and whether they ship with email (§18).
+- **Orders paid later reserve stock when placed** *(proposed, PLATFORM-PROMPT §5.4)*: a cash-on-delivery
+  or bank-transfer order reserves at placement after the usual re-check, and releases on
+  cancellation or when a transfer stays unpaid past a limit *(decide: how long)*. Confirm, or say
+  they reserve only when marked paid (and what then happens to an order whose stock has gone).
 - **May Staff export an offer's codes?** `offers.export` is proposed for Owner and Manager only
   (ACCESS §5.1, §13) *(confirm)*.
 - **Stripe Tax for merchants' US checkouts** *(decide)*: through the merchant's own connected Stripe

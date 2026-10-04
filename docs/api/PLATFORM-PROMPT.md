@@ -401,7 +401,10 @@ Design each module's responsibilities, tables, public API, events and invariants
 - **Cart and checkout**: pricing is computed server-side, always. Carts expire; prices and
   offers are re-evaluated on change; **stock is reserved when the order is paid** ("reserved" is
   sold and not yet shipped, Inventory above) and checkout re-checks availability at payment
-  (decided 2026-10-04 on #184).
+  (decided 2026-10-04 on #184). **Orders paid later** (cash on delivery, bank transfer)
+  *(proposed)*: the order is accepted when placed, so it reserves then, after the same re-check;
+  cancelling it releases the stock, and so does a bank transfer left unpaid past a time limit
+  *(decide: how long)*; "Mark as paid" doesn't re-check stock the order already holds.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
@@ -681,7 +684,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
   and checkout; orders with supplier parts, returns and refunds; customers with groups and
   consent; abandoned carts; import and export (CSV and Shopify); reports with a custom
   builder; the AI storefront and the merchant's own; API keys, webhooks and apps.
-- **Stock reservation**: at payment (§5.4 Cart and checkout).
+- **Stock reservation**: at payment; cash on delivery and bank transfer at placement *(proposed)*
+  (§5.4 Cart and checkout).
 - **Regions**: **India and the US**.
 - **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
   (India); bank transfer (both). **US sales tax**: Stripe Tax, through whose account to decide
