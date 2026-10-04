@@ -2,6 +2,7 @@ import { useScreenState } from '@dripfunnel/shared/ui'
 import { getRouteApi, useRouter } from '@tanstack/react-router'
 import type { BillingMoney } from '../../api/billing'
 import { isPreLive } from '../../api/me'
+import type { PartnerRole } from '../shell/partnerRoles'
 import { harnessEnabled } from '../../harness'
 import { Billing, BillingError, BillingLoading } from './Billing'
 import { billingStates, type BillingState } from './billingHarness'
@@ -9,11 +10,15 @@ import { billingSample } from './billingSample'
 
 const shellRoute = getRouteApi('/_app')
 
-// Owner and Finance change who bills (§11); Support has no Billing at all (§2.1).
-const changers: readonly string[] = ['partner-owner', 'partner-finance']
+// Owner and Finance change who bills (§11); Support has no Billing at all (§2.1). The console's
+// half only: when #201 gives Billing an API, the server refuses the same.
+export const billingAccess = (role: PartnerRole): { denied: boolean; mayChange: boolean } => ({
+  denied: role === 'partner-support',
+  mayChange: role === 'partner-owner' || role === 'partner-finance',
+})
 
 // The sample for each harness state; null for the screen's own states.
-const sampleFor = (forced: BillingState | null): BillingMoney | null => {
+export const sampleFor = (forced: BillingState | null): BillingMoney | null => {
   switch (forced) {
     case 'sample':
     case 'own':
@@ -45,8 +50,8 @@ export const BillingScreen = () => {
       money={sampleFor(forced)}
       partner={me.partner.name}
       product={me.partner.product}
-      mayChange={changers.includes(me.role)}
-      denied={forced === 'denied' || me.role === 'partner-support'}
+      mayChange={billingAccess(me.role).mayChange}
+      denied={forced === 'denied' || billingAccess(me.role).denied}
       onRefresh={() => void router.invalidate()}
     />
   )

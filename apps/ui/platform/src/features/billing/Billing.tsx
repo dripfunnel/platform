@@ -144,11 +144,11 @@ const Payouts = ({ money }: { money: BillingMoney }) => {
               <td>
                 <strong>{formatAmount(payout.payout)}</strong>
               </td>
-              <td>{payout.paidOn ? formatDate(payout.paidOn) : w.noAdjustment}</td>
+              <td>{payout.paidOn ? formatDate(payout.paidOn) : w.notPaid}</td>
               <td>
                 <StatusPill {...look(payoutLook, payout.status, w.statuses[payout.status])} />
               </td>
-              <td>{fill(words.payments.cardEnding, { last4: payout.toLast4 })}</td>
+              <td>{fill(w.toAccount, { last4: payout.toLast4 })}</td>
             </tr>
           ))}
         </Table>
@@ -212,7 +212,7 @@ const WhoBills = ({ mode, mayChange, accountLast4 }: { mode: BillingMode; mayCha
           </li>
         ))}
       </ul>
-      <PermissionDenied actionLabel={w.title} reason={mayChange ? w.changeLater : w.ownersAndFinance} />
+      {mayChange ? <p className="df-muted">{w.changeLater}</p> : <PermissionDenied actionLabel={w.title} reason={w.ownersAndFinance} />}
       <p>
         <strong>{w.payoutAccount}</strong> {accountLast4 && <span>{fill(w.accountEnding, { last4: accountLast4 })} · </span>}
         <Link to="/settings" search={{ tab: 'payout' }} className="df-row-link">

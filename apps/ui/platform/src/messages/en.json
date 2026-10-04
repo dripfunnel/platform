@@ -2325,7 +2325,9 @@
       },
       "none": "No payouts yet.",
       "noAdjustment": "—",
-      "tableLabel": "Payouts by month"
+      "tableLabel": "Payouts by month",
+      "notPaid": "Not paid yet",
+      "toAccount": "account ending {last4}"
     },
     "invoices": {
       "title": "DripFunnel’s invoices",

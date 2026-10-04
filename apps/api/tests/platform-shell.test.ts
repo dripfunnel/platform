@@ -58,6 +58,18 @@ describe('partnerState', () => {
     expect(data?.partnerState.billingMode).toBe(mode?.billing_mode)
   })
 
+  it('says who bills each partner’s merchants, that partner’s own and never another’s', async () => {
+    const modeOf = async (partnerId: string) =>
+      (await run<{ partnerState: { billingMode: string } }>('{ partnerState { billingMode } }', callerOf(partnerId, 'partner-read-only'))).data?.partnerState.billingMode
+    await db.sql`update partner set billing_mode = 'own' where id = ${ids.kl}`
+    try {
+      expect(await modeOf(ids.kl)).toBe('own')
+      expect(await modeOf(ids.ns)).toBe('dripfunnel')
+    } finally {
+      await db.sql`update partner set billing_mode = 'dripfunnel' where id = ${ids.kl}`
+    }
+  })
+
   it('reports an open staff setup session by first name and end', async () => {
     const [staff] = await db.sql<{ id: string }[]>`select id from staff_user where name = 'Priya Shah'`
     await db.sql`insert into partner_setup_session (staff_user_id, partner_id, reason, expires_at) values (${staff?.id ?? ''}, ${ids.kl}, 'setup', ${new Date(now.getTime() + 3600_000)})`

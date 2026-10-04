@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
 import { Billing, type BillingProps } from './Billing'
 import { billingSample } from './billingSample'
+import { billingAccess, sampleFor } from './BillingScreen'
 
 const words = messages.billing
 const textOf = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, '’').replace(/&amp;/g, '&').replace(/\s+/g, ' ')
@@ -16,6 +17,22 @@ const render = async (element: ReactNode) => {
 const view = (props: Partial<BillingProps> = {}) =>
   render(<Billing mode="dripfunnel" live money={null} partner="Northstar Commerce" product="Northstar Shops" mayChange denied={false} onRefresh={() => undefined} {...props} />)
 
+describe('Billing’s access and its sample', () => {
+  it('refuses Support, and lets only Owners and Finance change who bills', () => {
+    expect(billingAccess('partner-support')).toEqual({ denied: true, mayChange: false })
+    expect(billingAccess('partner-read-only')).toEqual({ denied: false, mayChange: false })
+    expect(billingAccess('partner-admin')).toEqual({ denied: false, mayChange: false })
+    expect(billingAccess('partner-finance')).toEqual({ denied: false, mayChange: true })
+    expect(billingAccess('partner-owner')).toEqual({ denied: false, mayChange: true })
+  })
+
+  it('never gives a real partner the sample: without a ?state= there is no money to draw', () => {
+    expect(sampleFor(null)).toBeNull()
+    expect(sampleFor('loading')).toBeNull()
+    expect(sampleFor('sample')).toBe(billingSample)
+  })
+})
+
 describe('Billing', () => {
   it('says the money connects with the payment provider, and shows who bills', async () => {
     const html = await view()
@@ -25,6 +42,7 @@ describe('Billing', () => {
     expect(text).toContain(words.settings.dripfunnel.label)
     expect(text).toContain(words.settings.current)
     expect(text).toContain(words.settings.changeLater)
+    expect(html).not.toMatch(/<button[^>]*disabled/)
     expect(html).not.toContain('id="billing-payments"')
   })
 
