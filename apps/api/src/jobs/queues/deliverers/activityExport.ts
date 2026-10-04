@@ -8,8 +8,6 @@ import { activityCsvHeader, activityCsvLine, exportLifetimeMs, exportMaxRows } f
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
 import { exportPayload, exportScope } from './exportPayload'
 
-
-
 /** The partner's filtered log as CSV, read in its own scope so the log's policy decides what goes in. */
 const build = (sql: postgres.Sql, scope: PartnerContext, jobId: string, now: () => Date) =>
   withScope(sql, scope, async (tx) => {

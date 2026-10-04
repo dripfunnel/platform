@@ -4,9 +4,9 @@ import { useCallback, useState } from 'react'
 import { addPartnerDomain, loadPartnerDomains, recheckPartnerDomain, type Address, type DomainKind } from '../../api/domains'
 import { isApiError } from '../../api/client'
 import { harnessEnabled } from '../../harness'
-import { fill, messages } from '../../messages'
+import { messages } from '../../messages'
 import { AddDomain, AddDomainDenied, AddDomainError, AddDomainLoading, AddressStep, AllAddressesSet, CheckStep, RecordsStep, type Step } from './AddDomain'
-import { exampleFor, firstKind, hostFrom, refusalText, zoneIn } from './addDomainRules'
+import { afterRecheck, exampleFor, firstKind, hostFrom, refusalText, zoneIn } from './addDomainRules'
 import { addDomainStates } from './domainsHarness'
 import { useCopy } from './DomainsScreen'
 
@@ -81,7 +81,9 @@ export const AddDomainScreen = () => {
     setBusy(true)
     recheckPartnerDomain(kind)
       .then(async (result) => {
-        setNote(!result.ok && result.reason === 'TOO_SOON' && step === 3 ? fill(messages.domains.tooSoon, { host: added.address.host }) : null)
+        const outcome = afterRecheck(result, added.address.host)
+        if (outcome.failed) return setToast(messages.domains.recheckFailed)
+        setNote(outcome.note)
         const address = await reread()
         if (address) setAdded({ ...added, address })
         setStep(3)

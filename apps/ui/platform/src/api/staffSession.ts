@@ -64,8 +64,9 @@ const api: PortalSessionApi = {
     if (!n || n.kind !== 'impersonation') return null
     return { id: 'notice', kind: n.kind, state: 'open', endedBy: null, staffName: n.staffName, actingAs: n.actingAs ? { name: n.actingAs, role: '', where: '' } : null, partnerName: '', host: '', expiresAt: n.endsAt }
   },
+  // A refused end throws, so the bar says it didn't end (StaffSessionLayer's endFailed).
   end: async (id) => {
-    await post('end-staff-session', { id })
+    if (!z.object({ ok: z.literal(true) }).safeParse(await post('end-staff-session', { id })).success) throw new Error('The session did not end.')
   },
 }
 

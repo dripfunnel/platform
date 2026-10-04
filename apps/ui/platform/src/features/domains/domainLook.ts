@@ -16,9 +16,11 @@ export const statusLook: Record<HostStatus, { tone: StatusTone; icon: StatusIcon
 
 export const statusPill = (status: HostStatus) => ({ ...statusLook[status], label: words.status[status] })
 
-// "Waiting since {date}" until live, then when DNS was last read (§9.1).
+// Still being set up: waiting since it was added. Anything else, live or past it: when DNS was last read (§9.1).
+const settingUp: readonly HostStatus[] = ['waiting', 'verifying', 'issuing']
+
 export const whenText = (address: Extract<Address, { added: true }>, now: number): string => {
-  if (address.status !== 'live') return fill(words.waitingSince, { date: formatDate(address.since) })
+  if (settingUp.includes(address.status)) return fill(words.waitingSince, { date: formatDate(address.since) })
   if (!address.checkedAt) return words.notChecked
   const seconds = Math.max(0, Math.round((now - Date.parse(address.checkedAt)) / 1000))
   return seconds < 60 ? words.checkedNow : fill(words.checked, { wait: formatWait(seconds) })

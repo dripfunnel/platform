@@ -75,11 +75,11 @@ export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDep
     const staffCookie = readCookie(request.headers.get('cookie'), staffPortalCookieName)
     if (staffCookie || cookie) {
       await withSystemScope(deps.sql, async (tx) => {
-      // A staff member signing out of a session ends it (ACCESS.md §8.3), as End session does.
-      if (staffCookie) await endOwnPortalSession(tx, staffCookie, null, deps, facts)
-      const userId = cookie ? await endPartnerSession(tx, cookie) : null
-      const partnerId = userId ? await partnerOfUser(tx, userId) : null
-      if (userId && partnerId) await deps.activity.record(tx, partnerSignedOut({ id: userId, partnerId }, facts))
+        // A staff member signing out of a session ends it (ACCESS.md §8.3), as End session does.
+        if (staffCookie) await endOwnPortalSession(tx, staffCookie, null, deps, facts)
+        const userId = cookie ? await endPartnerSession(tx, cookie) : null
+        const partnerId = userId ? await partnerOfUser(tx, userId) : null
+        if (userId && partnerId) await deps.activity.record(tx, partnerSignedOut({ id: userId, partnerId }, facts))
       })
     }
     const headers = new Headers({ location: '/' })
@@ -88,8 +88,8 @@ export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDep
     return new Response(null, { status: 302, headers })
   }
 
-  // Polled by an open staff session, so outside the sign-in attempts' bucket.
-  if (url.pathname === staffSessionPaths.current) return currentStaffSession(request, deps)
+  // Polled by every console tab, so outside the sign-in attempts' bucket; only a staff cookie costs a read, in a bucket of its own.
+  if (url.pathname === staffSessionPaths.current) return currentStaffSession(request, deps, facts)
   if (url.pathname === staffSessionPaths.end) return endStaffSessionFromPortal(request, deps, facts)
 
   // Cloudflare sets the address on all real traffic; a request without one shares no bucket.
