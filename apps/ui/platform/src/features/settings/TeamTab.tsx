@@ -1,9 +1,10 @@
 import { ActionControl, ConfirmDialog, PermissionDenied, StatusPill, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 import { useId, useState, type FormEvent } from 'react'
 import type { TeamMember } from '../../api/settings'
 import { fill, formatTime, messages } from '../../messages'
 import { partnerRoles, type PartnerRole } from '../shell/partnerRoles'
-import { mayManage, ownerBlock, removeRefusal, roleRefusal, rolesFor, transferCandidates, type StaffSessionKind } from './teamRules'
+import { inviteFrom, mayManage, ownerBlock, removeRefusal, roleRefusal, rolesFor, transferCandidates, type StaffSessionKind } from './teamRules'
 
 const words = messages.settings.team
 const roleNames: Record<PartnerRole, string> = messages.shell.roles
@@ -16,9 +17,14 @@ export type TeamAction =
   | { kind: 'revoke'; member: TeamMember }
   | { kind: 'transfer'; member: TeamMember }
 
-type Pending = Exclude<TeamAction, { kind: 'invite' }> | { kind: 'transferPick' }
+export type Pending = Exclude<TeamAction, { kind: 'invite' }> | { kind: 'transferPick' }
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// What confirming a dialog runs: the action itself, or for Transfer ownership the member picked.
+export const actionOnConfirm = (pending: Pending, team: readonly TeamMember[], choices: Readonly<Record<string, string>>): TeamAction | null => {
+  if (pending.kind !== 'transferPick') return pending
+  const member = transferCandidates(team).find((m) => m.id === choices['to'])
+  return member ? { kind: 'transfer', member } : null
+}
 
 const lastSeen = (member: TeamMember): string => {
   if (member.status === 'invited') return member.invitation?.expired ? words.expired : words.invited
@@ -34,9 +40,10 @@ const InviteForm = ({ role, session, busy, onSend, onCancel }: { role: PartnerRo
   const [invalid, setInvalid] = useState(false)
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    if (!name.trim() || !emailPattern.test(email.trim())) return setInvalid(true)
+    const input = inviteFrom(name, email, chosen)
+    if (!input) return setInvalid(true)
     setInvalid(false)
-    onSend({ name: name.trim(), email: email.trim(), role: chosen })
+    onSend(input)
   }
   return (
     <form className="df-panel df-settings-invite" aria-labelledby="invite-title" onSubmit={submit} noValidate>
@@ -53,7 +60,7 @@ const InviteForm = ({ role, session, busy, onSend, onCancel }: { role: PartnerRo
         </div>
         <div className="df-field">
           <label htmlFor={ids.email}>{words.inviteForm.email}</label>
-          <input id={ids.email} type="email" autoComplete="off" maxLength={254} value={email} aria-invalid={invalid && !emailPattern.test(email.trim())} aria-describedby={invalid ? ids.error : undefined} onChange={(event) => (setEmail(event.target.value), setInvalid(false))} />
+          <input id={ids.email} type="email" autoComplete="off" maxLength={254} value={email} aria-invalid={invalid && !looksLikeEmail(email)} aria-describedby={invalid ? ids.error : undefined} onChange={(event) => (setEmail(event.target.value), setInvalid(false))} />
         </div>
         <div className="df-field">
           <label htmlFor={ids.role}>{words.inviteForm.role}</label>
@@ -79,7 +86,7 @@ const InviteForm = ({ role, session, busy, onSend, onCancel }: { role: PartnerRo
   )
 }
 
-const dialogFor = (pending: Pending, team: readonly TeamMember[]): Omit<ConfirmDialogProps, 'open' | 'onConfirm' | 'onCancel' | 'cancelLabel'> => {
+export const dialogFor = (pending: Pending, team: readonly TeamMember[]): Omit<ConfirmDialogProps, 'open' | 'onConfirm' | 'onCancel' | 'cancelLabel'> => {
   const d = words.dialogs
   switch (pending.kind) {
     case 'role':
@@ -126,11 +133,8 @@ export const TeamTab = ({ team, role, session, readOnly, busy, more, onRun, onMo
   const manage = mayManage(role) && !readOnly
   const run = (action: TeamAction) => void onRun(action).then((done) => done && action.kind === 'invite' && setInviting(false))
   const confirm = (choices: Readonly<Record<string, string>>) => {
-    if (!pending) return
-    const target = pending.kind === 'transferPick' ? team.find((m) => m.id === choices['to']) : null
-    if (pending.kind === 'transferPick') {
-      if (target) run({ kind: 'transfer', member: target })
-    } else run(pending)
+    const action = pending && actionOnConfirm(pending, team, choices)
+    if (action) run(action)
     setPending(null)
   }
   return (

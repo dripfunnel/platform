@@ -7,8 +7,8 @@ import { CompanyTab } from './CompanyTab'
 import { PayoutTab } from './PayoutTab'
 import { SecurityTab } from './SecurityTab'
 import { company, team } from './settingsTestData'
-import { TeamTab } from './TeamTab'
-import { isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
+import { actionOnConfirm, dialogFor, TeamTab } from './TeamTab'
+import { inviteFrom, isLastOwner, removeRefusal, roleRefusal, rolesFor, transferCandidates } from './teamRules'
 import { partnerRoles } from '../shell/partnerRoles'
 
 const words = messages.settings
@@ -95,6 +95,28 @@ describe('Team', () => {
   })
 })
 
+describe('the team’s confirmations', () => {
+  it('run what was confirmed, and for a transfer the member picked, never a stale or ineligible one', () => {
+    const diego = byId('u2')
+    expect(actionOnConfirm({ kind: 'remove', member: diego }, team, {})).toEqual({ kind: 'remove', member: diego })
+    expect(actionOnConfirm({ kind: 'transferPick' }, team, { to: 'u2' })).toEqual({ kind: 'transfer', member: diego })
+    expect(actionOnConfirm({ kind: 'transferPick' }, team, { to: 'u1' })).toBeNull()
+    expect(actionOnConfirm({ kind: 'transferPick' }, team, { to: 'u4' })).toBeNull()
+  })
+
+  it('state each consequence, and ask for TRANSFER typed', () => {
+    expect(dialogFor({ kind: 'remove', member: byId('u2') }, team)).toMatchObject({ consequence: 'Diego Alvarez is signed out now and can’t sign in again. What they did stays in the activity log.', danger: true })
+    expect(dialogFor({ kind: 'role', member: byId('u3'), role: 'partner-finance' }, team).consequence).toContain('Jess Moreno becomes Finance')
+    expect(dialogFor({ kind: 'transferPick' }, team).typeToConfirm?.expected).toBe('TRANSFER')
+  })
+
+  it('take an invitation only with a name and an email-shaped address', () => {
+    expect(inviteFrom(' Sam ', ' sam@northstar.example ', 'partner-support')).toEqual({ name: 'Sam', email: 'sam@northstar.example', role: 'partner-support' })
+    expect(inviteFrom('', 'sam@northstar.example', 'partner-support')).toBeNull()
+    expect(inviteFrom('Sam', 'not-an-email', 'partner-support')).toBeNull()
+  })
+})
+
 describe('Payout and payment', () => {
   it('says nothing is connected yet, and never offers a card number field', async () => {
     const html = await render(<PayoutTab setupSession={false} partner="Northstar Commerce" />)
@@ -110,12 +132,25 @@ describe('Payout and payment', () => {
 
 describe('Security', () => {
   it('is the Owner’s switch, naming who has 2-factor off', async () => {
-    const owner = await render(<SecurityTab required={false} team={team} isOwner busy={false} session={null} onChange={noop} />)
+    const owner = await render(<SecurityTab required={false} team={team} complete blocked={null} isOwner busy={false} session={null} onChange={noop} />)
     expect(owner).toMatch(/<input[^>]*type="checkbox"(?![^>]*disabled)/)
     expect(textOf(owner)).toContain('2-factor is off for: Jess Moreno.')
-    const admin = await render(<SecurityTab required team={team} isOwner={false} busy={false} session={null} onChange={noop} />)
+    const admin = await render(<SecurityTab required team={team} complete blocked={null} isOwner={false} busy={false} session={null} onChange={noop} />)
     expect(admin).toMatch(/<input[^>]*disabled=""/)
     expect(textOf(admin)).toContain(words.security.ownerOnly)
     expect(textOf(admin)).toContain(words.security.turningOff)
+  })
+
+  it('never claims everyone has 2-factor while more of the team is still to load, and counts only active members', async () => {
+    const partial = textOf(await render(<SecurityTab required={false} team={team.filter((m) => m.secondFactor)} complete={false} blocked={null} isOwner busy={false} session={null} onChange={noop} />))
+    expect(partial).toContain(words.security.allOnPartial)
+    const invitedOff = textOf(await render(<SecurityTab required={false} team={team} complete blocked={null} isOwner busy={false} session={null} onChange={noop} />))
+    expect(invitedOff).not.toContain('Sam Lee')
+  })
+
+  it('holds the switch during an impersonation, with the reason', async () => {
+    const html = await render(<SecurityTab required={false} team={team} complete blocked={words.team.refusals.BLOCKED_WHILE_IMPERSONATING} isOwner busy={false} session={null} onChange={noop} />)
+    expect(html).toMatch(/<input[^>]*disabled=""/)
+    expect(textOf(html)).toContain(words.team.refusals.BLOCKED_WHILE_IMPERSONATING)
   })
 })

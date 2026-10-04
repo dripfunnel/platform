@@ -223,8 +223,8 @@ describe('the blocked lists', () => {
   }
   const support = ['endSupportSession', 'mySupportSession', 'reauthenticate', 'returnToSupportSession', 'startSupportSession', 'supportSessions', 'supportTargets']
 
-  it('refuses an impersonation ownership and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, 'transferOwnership'].sort())
+  it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
+    expect(blockedFields('impersonation')).toEqual([...support, 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {

@@ -119,7 +119,7 @@ builder.mutationFields((t) => ({
   setSecondFactorPolicy: t.field({
     type: Result,
     args: { required: t.arg.boolean({ required: true }) },
-    extensions: { access: { api: 'platform', scope: 'partner', permission: 'security.manage', target: 'none', audit: teamAudit.setSecondFactorPolicy } },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'security.manage', target: 'none', audit: teamAudit.setSecondFactorPolicy, blockedFor: ['impersonation'] } },
     resolve: (_, { required }, ctx) => signedIn(ctx.team).setSecondFactorPolicy(required),
   }),
 }))
