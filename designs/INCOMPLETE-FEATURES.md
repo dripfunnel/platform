@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-10-02. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-10-04. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -33,7 +33,7 @@ the missing backend.
 | 9 | ~~**Pricing page disagrees with the app.** It lists "Discount codes" and "Abandoned-cart emails" as *Planned*, but both are fully designed. It says the Growth Pro card includes suppliers (they are Business only). The FAQ puts AI on the wrong plan. There are no rows for the Offers limits the app enforces.~~ | `DF Store Pricing.dc.html:100/120/124/138/141` |
 | 10 | ~~**Pricing's "Sign in" and "Start free" links** point at `DF Catalogue Prototype.dc.html`, which doesn't exist.~~ | Pricing:26; design.md §13 |
 | 11 | ~~**Links that go nowhere.** "Edit branding" (white-label banner) and the `brand`, `plans` and `partner` routes land on the "isn't part of the Catalogue prototype" placeholder.~~ | shell:148/391/560 |
-| 12 | **Four unmounted files.** Decide whether to keep or delete `PortalBrand`, `PortalPartner`, `PortalPayouts` and `PortalPlans`. | design.md §1 |
+| 12 | ~~**Four unmounted files.** Decide whether to keep or delete `PortalBrand`, `PortalPartner`, `PortalPayouts` and `PortalPlans`.~~ Deleted on #183: the shell links to the Platform prototype for brand, plans and partner. | design.md §1 |
 | 13 | ~~**Open decisions still unresolved:** what a supplier may see of a customer, who owns refunds across suppliers, whether editing an approved product sends it back for approval, what happens to a removed supplier's products, and whether 2FA applies to Owners only or to everyone.~~ | uploads/DESIGN-BRIEF.md §4 |
 
 ---
@@ -222,7 +222,7 @@ All five were done on 2026-10-02 — see §4.
 
 ## 4. Designed on 2026-10-02
 
-Decisions taken (#13): suppliers see nothing of the customer — the store delivers, suppliers send items to the store's default warehouse · each supplier refunds its own items; the store can override (amount comes off the supplier's next payout) · editing an approved product sends it back only for price, title or photo changes · 2FA is required for Owners, optional for everyone else · a removed supplier's products are hidden and kept as drafts. Trial is 10 days. DripFunnel's own prices show in the store's currency.
+Decisions taken (#13): suppliers see nothing of the customer — the store delivers, suppliers send items to the store's default warehouse · each supplier refunds its own items; the store can override (amount comes off the supplier's next payout) · editing an approved product sends it back only for price, title or photo changes · 2FA is required for Owners, optional for everyone else · a removed supplier's products are hidden, still marked as theirs (Products has no draft status). Trial is 10 days. DripFunnel's own prices show in the store's currency.
 
 Now designed in the Store prototype:
 - **Cross-cutting:** upgrade prompt keeps the plan key and guesses from the label otherwise; plan names corrected everywhere (Growth / Growth Pro / Partner); 10-day trial; prices in USD / EUR / INR; Pricing links, rows and FAQ fixed, plus a currency picker; read-only enforced in Import, A+ and Catalogue settings; Store dark mode (Dark mode toggle in the controls, or My profile › Appearance).
@@ -235,3 +235,13 @@ Now designed in the Store prototype:
 - **Other toast-only actions replaced:** sign-in backup code and support, invite role, offer uses/codes/QR downloads, “Load their version”, edit-conflict review, cart test send / export / order and customer links, Reports exports and a custom report builder, billing card in a hosted field, billing details on DripFunnel invoices, invoice PDF and export, proration, “Download my data first”, Choose-what-to-keep applies the courier.
 
 Still open: everything in §2 not listed above (e.g. menus beyond one level, A+ module editing and image crop, services, digital file upload, per-version prices, translation beyond French, traffic data, activity log).
+
+## 5. Loose ends fixed on 2026-10-04 (#183)
+
+- **Sign-in:** the second-factor step follows the profile. It is skipped when 2FA is off, and an Owner without it is made to turn it on first (an empty store's Owner starts without it). Passwords need at least 10 characters everywhere, as ACCESS.md §4 says.
+- **Removed supplier:** "hidden", never "drafts"; each of their products says "From {supplier}, removed" in Products.
+- **Billing:** seed invoices carry a plan label and a numeric amount, so PDF and Export all work. The proration date, a pending downgrade and the store-closing date all come from the billing period. "Download my data first" adds `store-export-customers.csv`.
+- **Wording:** the custom report builder picks rows and columns. A domain is usually checked within an hour and can take up to 48 hours. The store's own domain is on Growth and a market's own domain is on Business. The Partner contact no longer offers an API.
+- **Stock reasons:** one list, used by the adjust modal, the seed and restocks from returns: Received new stock, Returned by a shopper, Damaged or lost, Counted again, and Order {number}.
+- **Returns:** "Cancel return" while a return is on its way back.
+- **Demo:** a supplier sign-in that moves the plan to Business says so. Unused `domainState` and `stockIn` are gone.
