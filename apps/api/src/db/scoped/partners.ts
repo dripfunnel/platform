@@ -319,6 +319,18 @@ export const updatePartnerDomainCheck = async (tx: ScopedSql, id: string, check:
   await tx`update partner_domain set status = ${check.status}, found = ${check.found}, checked_at = ${check.checkedAt} where id = ${id}`
 }
 
+/** Each address the partner has added, by kind: the email sender's fallback is named after one (SAAS §3.6). */
+export const selectPartnerHosts = (tx: ScopedSql, partnerId: string): Promise<{ kind: DomainKind; host: string }[]> =>
+  tx<{ kind: DomainKind; host: string }[]>`select kind, host from partner_domain where partner_id = ${partnerId}`
+
+/** The role an open partner invitation offers, for its email. */
+export const selectInvitedPartnerRole = async (tx: ScopedSql, invitationId: string): Promise<PartnerUserRow['role_key'] | null> =>
+  (
+    await tx<{ role_key: PartnerUserRow['role_key'] }[]>`
+      select u.role_key from partner_invitation i join partner_user u on u.id = i.partner_user_id where i.id = ${invitationId}
+    `
+  )[0]?.role_key ?? null
+
 /** The partner's Owner: the first user with that role. */
 export const selectPartnerOwner = async (tx: ScopedSql, partnerId: string): Promise<PartnerUserRow | null> =>
   (

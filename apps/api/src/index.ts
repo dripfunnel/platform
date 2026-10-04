@@ -27,6 +27,9 @@ import { dohLookup } from '#integrations/dns/doh'
 import { entraProvider } from '#integrations/entra/provider'
 import { stripeClient, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
+import { handleSesHook, sesHookPath } from '#hooks/ses'
+import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
+import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
@@ -69,11 +72,24 @@ interface Env extends Record<string, unknown> {
   ASSETS?: R2Bucket | undefined
 }
 
-// The side effects the relay can deliver. `email` has no deliverer until SES is wired
-// (THIRD-PARTY-ACCESS.md §2.4), so a queued invitation waits, unclaimed (outbox-relay.ts).
-const deliverersFor = (sql: postgres.Sql): Deliverers => {
+// Built once per isolate from configuration, like Stripe's client below.
+let sesBuilt: { key: string; api: SesApi } | undefined
+
+// THIRD-PARTY-ACCESS.md §2.4: all four values or no email; without them it waits in the outbox.
+const sesFor = (config: Config): { api: SesApi; senderDomain: string } | null => {
+  const { SES_REGION: region, SES_ACCESS_KEY_ID: accessKeyId, SES_SECRET_ACCESS_KEY: secretAccessKey, SES_SENDER_DOMAIN: senderDomain } = config
+  if (!region || !accessKeyId || !secretAccessKey || !senderDomain) return null
+  const key = `${region}:${accessKeyId}:${secretAccessKey}`
+  if (sesBuilt?.key !== key) sesBuilt = { key, api: sesClient({ region, accessKeyId, secretAccessKey }) }
+  return { api: sesBuilt.api, senderDomain }
+}
+
+// The side effects the relay can deliver. `email` waits, unclaimed, until SES is configured (outbox-relay.ts).
+const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
   const lookup = dohLookup()
+  const ses = sesFor(config)
   return {
+    ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
@@ -253,8 +269,20 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   })
 }
 
-// hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2). A route whose secrets aren't set doesn't exist.
+// SNS signs with few certificates; one verifier per isolate fetches each once.
+let snsBuilt: SnsVerifier | undefined
+
+// hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
+// (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
 const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+  if (url.pathname === sesHookPath) {
+    const topicArn = config.SES_EVENTS_TOPIC_ARN
+    if (!topicArn) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    snsBuilt ??= snsVerifier()
+    const verifier = snsBuilt
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleSesHook(request, { sql, verifier, topicArn, now: () => new Date() }))
+  }
   const stripe = stripeFor(config)
   const signingSecret = config.STRIPE_WEBHOOK_SECRET
   if (url.pathname !== stripeHookPath || !stripe || !signingSecret) return notFound()
@@ -285,7 +313,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
 }
 
 // The relay needs a database and a configuration; without either there is nothing to deliver.
-const relayWith = async (env: Env, work: (sql: postgres.Sql) => Promise<void>): Promise<void> => {
+const relayWith = async (env: Env, work: (sql: postgres.Sql, config: Config) => Promise<void>): Promise<void> => {
   let config
   try {
     config = parseConfig(env)
@@ -299,7 +327,7 @@ const relayWith = async (env: Env, work: (sql: postgres.Sql) => Promise<void>): 
   }
   const sql = getClient(config.HYPERDRIVE)
   try {
-    await work(sql)
+    await work(sql, config)
   } finally {
     await sql.end({ timeout: 5 })
   }
@@ -334,7 +362,7 @@ export default {
   // Every minute from wrangler.jsonc's cron trigger: due domain checks (SAAS §8), then the outbox
   // sweep (api/README.md §5) that delivers them.
   async scheduled(_controller, env) {
-    await relayWith(env, async (sql) => {
+    await relayWith(env, async (sql, config) => {
       // A scheduling failure is logged and never holds up the outbox sweep below.
       const due = await queueDueDomainChecks(sql, new Date()).catch((error: unknown) => {
         logEvent({ event: 'domain_checks_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -350,7 +378,7 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
-      const counts = await relayDue(sql, deliverersFor(sql))
+      const counts = await relayDue(sql, deliverersFor(sql, config))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
       }

@@ -16,6 +16,8 @@ export interface Effect {
 
 export interface Deliverer {
   deliver: (effect: Effect, signal: AbortSignal) => Promise<void>
+  /** Payload templates this kind leaves unclaimed for now: they wait, untouched, for a later release. */
+  heldTemplates?: readonly string[]
 }
 
 export type Deliverers = Readonly<Record<string, Deliverer>>
@@ -108,7 +110,8 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
-  const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs))
+  const held = Object.values(deliverers).flatMap((d) => d.heldTemplates ?? [])
+  const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, held))
   for (const row of rows) {
     const deliverer = deliverers[row.kind]
     if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1

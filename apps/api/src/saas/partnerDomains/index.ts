@@ -9,7 +9,7 @@ import { withScope } from '#db/scoped/index'
 import { hostClaimedElsewhere, insertPartnerAddress, selectMerchantDomains, selectPartnerDomainsWithRecords, type PartnerDomainRecordRow } from '#db/scoped/partnerDomains'
 import { selectCustomDomains } from '#db/scoped/stores'
 import { partnerEntry, type PageInfo } from '#saas/activity/index'
-import { isBareDomain, ownershipRecord, recordMatches, recordsFor, registrableLabels, zoneOf } from '#saas/domains/index'
+import { isBareDomain, ownershipRecord, recordMatches, recordsFor, senderLabel, zoneOf } from '#saas/domains/index'
 import { queueSideEffect } from '#saas/outbox/index'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
 
@@ -68,8 +68,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
     withScope(sql, context, async (tx) => {
       const rows = await selectPartnerDomainsWithRecords(tx, partnerId)
       const email = rows.find((r) => r.domain.kind === 'email')?.domain ?? null
-      const anyHost = rows.map((r) => r.domain.host.replace(/^\*\./, ''))[0] ?? null
-      const label = anyHost ? (anyHost.split('.').at(-registrableLabels(anyHost)) ?? null) : null
+      const label = senderLabel(rows.map((r) => r.domain))
       return {
         addresses: domainKinds.map((kind) => {
           const row = rows.find((r) => r.domain.kind === kind)

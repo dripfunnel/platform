@@ -16,6 +16,19 @@ const twoLevelSuffixes = ['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz
 
 export const registrableLabels = (host: string): number => (twoLevelSuffixes.includes(host.split('.').slice(-2).join('.')) ? 3 : 2)
 
+const senderKindOrder = ['portal', 'shops', 'preview', 'email']
+
+/**
+ * The label of the partner's fallback sender, `no-reply@<label>.<sender domain>` (SAAS §3.6):
+ * "northstar" for the host "store.northstar.co.uk", its portal host first. Null with no host.
+ */
+export const senderLabel = (domains: readonly { kind: string; host: string }[]): string | null => {
+  const first = [...domains].sort((a, b) => senderKindOrder.indexOf(a.kind) - senderKindOrder.indexOf(b.kind))[0]
+  if (!first) return null
+  const bare = first.host.replace(/^\*\./, '')
+  return bare.split('.').at(-registrableLabels(bare)) ?? null
+}
+
 /** Where a host's DNS is managed: "store.northstar.co.uk" and "*.shops.northstar.co.uk" → "northstar.co.uk". */
 export const zoneOf = (host: string): string => {
   const bare = host.replace(/^\*\./, '')

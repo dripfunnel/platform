@@ -278,7 +278,9 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
   never its message. `sign_in_unavailable` is an outage during the staff sign-in (the browser
   lands on the sign-in screen's unavailable state, and no refusal is recorded);
   `request_failed` is an error nothing caught, answered as a plain 500; `db_ping_failed` and
-  `db_health_check_failed` are the health check's probe and its connection.
+  `db_health_check_failed` are the health check's probe and its connection. Email (#274):
+  `email_sent`, `email_skipped` (`link_closed`, `no_recipient`, `suppressed`, `held`),
+  `email_refused` with SES's error type, and `ses_event` for the bounce hook. Never an address.
 
 ---
 

@@ -1,0 +1,218 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { factsOf } from '#auth/activity'
+import { hashSessionId } from '#auth/session'
+import type { StaffMember } from '#auth/staff'
+import { suppress } from '#db/scoped/emailSuppression'
+import { withSystemScope } from '#db/scoped/index'
+import { insertPasswordResets, selectResetByToken } from '#db/scoped/partnerInvitations'
+import { selectStaffInvitationByToken } from '#db/scoped/staffMembers'
+import { handleSesHook } from '#hooks/ses'
+import { SesUnavailable, type OutgoingEmail, type SesApi, type SnsMessage, type SnsVerifier } from '#integrations/ses/index'
+import { emailDeliverer } from '#jobs/queues/deliverers/email'
+import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
+import { activityLog } from '#saas/activity/index'
+import { queueSideEffect } from '#saas/outbox/index'
+import { createStaffMembersService } from '#saas/staffMembers/index'
+import { seed } from '../scripts/seed/seed'
+import { createTestDatabase, type TestDatabase } from './support/database'
+
+// Card #274: the outbox's email through SES, the held template, suppression and the SNS hook.
+
+let db: TestDatabase
+const now = new Date('2026-10-05T10:00:00Z')
+const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
+const senderDomain = 'mail.dripfunnel.test'
+
+/** SES stand-in: keeps what it was sent, and fails the next `failures` sends. */
+const fakeSes = () => {
+  const sent: OutgoingEmail[] = []
+  let failures = 0
+  const api: SesApi = {
+    send: async (email) => {
+      if (failures > 0) {
+        failures -= 1
+        throw new SesUnavailable('answered 503')
+      }
+      sent.push(email)
+      return { messageId: `m-${sent.length}` }
+    },
+  }
+  return { api, sent, failNext: (n: number) => (failures = n) }
+}
+
+const relay = (ses: SesApi, at = new Date(Date.now() + 1000)) =>
+  relayDue(db.sql, { email: emailDeliverer(db.sql, ses, { hosts, senderDomain, now: () => now }) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+
+const queue = (template: string, payload: Record<string, unknown>, ids: { partnerId: string | null; storeId: string | null }, key = crypto.randomUUID()) =>
+  withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'email', idempotencyKey: `${template}:${key}`, payload: { template, ...payload }, ...ids }))
+
+const tokenIn = (email: OutgoingEmail | undefined) => decodeURIComponent(/token=([^\s"&<]+)/.exec(email?.text ?? '')?.[1] ?? '')
+
+let northstar: { id: string; ownerEmail: string; financeEmail: string }
+let store: { id: string; partnerId: string; name: string; ownerEmail: string }
+
+beforeAll(async () => {
+  db = await createTestDatabase()
+  await seed(db.url, now)
+  const [p] = await db.sql<{ id: string; owner: string; finance: string }[]>`
+    select p.id,
+      (select email from partner_user where partner_id = p.id and role_key = 'partner-owner' order by created_at limit 1) as owner,
+      (select email from partner_user where partner_id = p.id and role_key = 'partner-finance' and status = 'active' order by created_at limit 1) as finance
+    from partner p where p.name like 'Northstar%'
+  `
+  if (!p) throw new Error('seed: no Northstar')
+  northstar = { id: p.id, ownerEmail: p.owner, financeEmail: p.finance }
+  const [s] = await db.sql<{ id: string; partner_id: string; name: string; email: string }[]>`
+    select s.id, s.partner_id, s.name, u.email from store s
+    join membership m on m.store_id = s.id and m.role_key = 'owner' and m.seller_id is null
+    join "user" u on u.id = m.user_id
+    order by s.created_at limit 1
+  `
+  if (!s) throw new Error('seed: no store with an owner')
+  store = { id: s.id, partnerId: s.partner_id, name: s.name, ownerEmail: s.email }
+}, 120_000)
+
+afterAll(async () => {
+  await db?.drop()
+})
+
+describe('email delivery', () => {
+  it('sends a staff invitation from DripFunnel with a link that opens the invitation, minting it again after a failed send', async () => {
+    const [admin] = await db.sql<StaffMember[]>`select id, email, name, role_key as role from staff_user where role_key = 'staff-super-admin' and status = 'active' limit 1`
+    if (!admin) throw new Error('seed: no super admin')
+    const staff = createStaffMembersService({ sql: db.sql, staff: admin, facts: factsOf(new Request('https://admin.dripfunnel.test/api')), activity: activityLog, now: () => now })
+    expect(await staff.inviteStaff('new.hire@dripfunnel.example', 'staff-support')).toMatchObject({ ok: true })
+
+    const ses = fakeSes()
+    ses.failNext(1)
+    expect(await relay(ses.api)).toMatchObject({ retry: 1, delivered: 0 })
+    expect(await relay(ses.api, new Date(Date.now() + 60_000))).toMatchObject({ delivered: 1 })
+    expect(ses.sent).toHaveLength(1)
+    const [mail] = ses.sent
+    expect(mail).toMatchObject({ from: `"DripFunnel" <no-reply@${senderDomain}>`, to: ['new.hire@dripfunnel.example'] })
+    expect(mail?.text).toContain(`https://${hosts.adminHost}/api/auth/accept-invitation?token=`)
+    const invitation = await withSystemScope(db.sql, async (tx) => selectStaffInvitationByToken(tx, await hashSessionId(tokenIn(mail))))
+    expect(invitation?.email).toBe('new.hire@dripfunnel.example')
+    expect(await relay(ses.api, new Date(Date.now() + 120_000))).toMatchObject({ delivered: 0 })
+    expect(ses.sent).toHaveLength(1)
+  })
+
+  it('links a partner reset to the reset page with a token that opens it', async () => {
+    const [reset] = await withSystemScope(db.sql, (tx) => insertPasswordResets(tx, crypto.randomUUID(), northstar.ownerEmail))
+    if (!reset) throw new Error('no reset')
+    await queue('partner-password-reset', { partnerPasswordResetId: reset.id, to: reset.email }, { partnerId: reset.partner_id, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect(ses.sent[0]?.text).toContain(`https://${hosts.platformHost}/reset-password?token=`)
+    const open = await withSystemScope(db.sql, async (tx) => selectResetByToken(tx, await hashSessionId(tokenIn(ses.sent[0])), new Date()))
+    expect(open?.id).toBe(reset.id)
+  })
+
+  it("writes to a store's Owners in its partner's look, from the partner's fallback sender, escaping what people typed", async () => {
+    await queue('store-suspended', { storeId: store.id, reason: 'Unpaid <b>invoice</b> & more', contact: 'partner-support' }, { partnerId: store.partnerId, storeId: store.id })
+    const ses = fakeSes()
+    await relay(ses.api)
+    const [mail] = ses.sent
+    expect(mail?.to).toEqual([store.ownerEmail])
+    expect(mail?.from).toMatch(new RegExp(`<no-reply@([a-z0-9-]+\\.)?${senderDomain.replace(/\./g, '\\.')}>$`))
+    expect(mail?.from).not.toMatch(/^"DripFunnel"/)
+    expect(mail?.subject).toBe(`${store.name} is suspended`)
+    expect(mail?.html).toContain('Unpaid &lt;b&gt;invoice&lt;/b&gt; &amp; more')
+    expect(mail?.html).not.toContain('<b>invoice</b>')
+    expect(mail?.text).not.toMatch(/dripfunnel\.com/i)
+  })
+
+  it('tells Owner and Finance about a declined card', async () => {
+    await queue('partner-card-declined', { invoiceId: 'in_test1' }, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect([...(ses.sent[0]?.to ?? [])].sort()).toEqual([northstar.ownerEmail, northstar.financeEmail].sort())
+  })
+
+  it('renders and delivers every template it takes, once each', async () => {
+    const [plan] = await db.sql<{ id: string }[]>`select id from plan where partner_id = ${store.partnerId} limit 1`
+    const [domain] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${northstar.id} limit 1`
+    const [locked] = await db.sql<{ id: string; email: string }[]>`select id, email from partner_user where partner_id = ${northstar.id} and status = 'active' limit 1`
+    if (!plan || !domain || !locked) throw new Error('seed: missing plan, domain or user')
+    const changeAt = new Date('2026-11-05T00:00:00Z').toISOString()
+    const storeIds = { partnerId: store.partnerId, storeId: store.id }
+    await queue('partner-user-locked', { partnerUserId: locked.id, to: locked.email, minutes: 15 }, { partnerId: northstar.id, storeId: null })
+    await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain.id, kind: 'portal' }, { partnerId: northstar.id, storeId: null })
+    await queue('partner-payout-account-failed', {}, { partnerId: northstar.id, storeId: null })
+    await queue('plan-change-at-renewal', { storeId: store.id, planId: plan.id, version: 1, changeAt }, storeIds)
+    await queue('plan-retired-move', { storeId: store.id, planId: plan.id, version: 1, changeAt }, storeIds)
+    await queue('store-plan-changed', { storeId: store.id, planId: plan.id, when: 'next', contact: 'partner-support' }, storeIds)
+    await queue('store-restored', { storeId: store.id, contact: 'partner-support' }, storeIds)
+    const ses = fakeSes()
+    expect(await relay(ses.api)).toMatchObject({ delivered: 7, retry: 0, dead: 0 })
+    expect(ses.sent.map((m) => m.subject)).toEqual(
+      expect.arrayContaining(['Your DripFunnel account is locked for now', 'Your payout account couldn’t be verified', `${store.name} is back`, `${store.name}’s plan has changed`]),
+    )
+    expect(ses.sent.find((m) => m.subject === `${store.name} is changing plan`)?.text).toContain('5 November 2026 (UTC)')
+    expect(await relay(ses.api, new Date(Date.now() + 60_000))).toMatchObject({ delivered: 0 })
+  })
+
+  it('leaves store owner invitations in the outbox, unclaimed', async () => {
+    await queue('store-owner-invitation', { invitationId: crypto.randomUUID(), to: 'owner@shop.example', storeId: store.id }, { partnerId: store.partnerId, storeId: store.id })
+    const ses = fakeSes()
+    await relay(ses.api)
+    const [row] = await db.sql<{ attempts: number; delivered_at: Date | null }[]>`select attempts, delivered_at from outbox where payload->>'template' = 'store-owner-invitation'`
+    expect(row).toEqual({ attempts: 0, delivered_at: null })
+    expect(ses.sent).toEqual([])
+  })
+
+  it('skips a suppressed address and keeps no address on the list', async () => {
+    await withSystemScope(db.sql, (tx) => suppress(tx, 'Gone@Example.com', 'bounce', now))
+    await queue('partner-user-locked', { partnerUserId: crypto.randomUUID(), to: 'gone@example.com', minutes: 15 }, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    expect(await relay(ses.api)).toMatchObject({ delivered: 1 })
+    expect(ses.sent).toEqual([])
+    expect(JSON.stringify(await db.sql`select * from email_suppression`)).not.toMatch(/gone@/i)
+  })
+})
+
+describe('SES hook', () => {
+  const topicArn = 'arn:aws:sns:eu-west-1:123456789012:ses-events'
+  const accept: SnsVerifier = { verify: async () => true }
+  const notification = (message: unknown, topic = topicArn): Partial<SnsMessage> => ({
+    Type: 'Notification', MessageId: crypto.randomUUID(), TopicArn: topic, Message: JSON.stringify(message), Timestamp: now.toISOString(),
+    SignatureVersion: '2', Signature: 'c2ln', SigningCertURL: 'https://sns.eu-west-1.amazonaws.com/cert.pem',
+  })
+  const post = (body: unknown, verifier = accept, fetchImpl?: typeof fetch) =>
+    handleSesHook(new Request('https://hooks.dripfunnel.test/ses', { method: 'POST', body: JSON.stringify(body) }), { sql: db.sql, verifier, topicArn, now: () => now, ...(fetchImpl ? { fetchImpl } : {}) })
+  const suppressed = async (address: string) =>
+    withSystemScope(db.sql, async (tx) => (await tx`select 1 from email_suppression where address_hash = encode(sha256(convert_to(lower(${address}), 'UTF8')), 'hex')`).length > 0)
+
+  it('suppresses a permanent bounce and a complaint, not a transient bounce', async () => {
+    const bounce = (type: string, address: string) => ({ eventType: 'Bounce', bounce: { bounceType: type, bouncedRecipients: [{ emailAddress: address }] } })
+    expect((await post(notification(bounce('Permanent', 'hard@example.com')))).status).toBe(200)
+    expect((await post(notification(bounce('Transient', 'soft@example.com')))).status).toBe(200)
+    expect((await post(notification({ notificationType: 'Complaint', complaint: { complainedRecipients: [{ emailAddress: 'angry@example.com' }] } }))).status).toBe(200)
+    expect(await suppressed('hard@example.com')).toBe(true)
+    expect(await suppressed('soft@example.com')).toBe(false)
+    expect(await suppressed('angry@example.com')).toBe(true)
+  })
+
+  it("refuses another topic before checking a signature, and a bad signature", async () => {
+    let checked = 0
+    const counting: SnsVerifier = { verify: async () => (checked += 1) > 99 }
+    expect((await post(notification({ eventType: 'Complaint' }, 'arn:aws:sns:eu-west-1:999999999999:theirs'), counting)).status).toBe(400)
+    expect(checked).toBe(0)
+    expect((await post(notification({ eventType: 'Complaint', complaint: { complainedRecipients: [{ emailAddress: 'x@example.com' }] } }), counting)).status).toBe(400)
+    expect(await suppressed('x@example.com')).toBe(false)
+  })
+
+  it('confirms its subscription only at an SNS address, and answers 503 when the certificate is out of reach', async () => {
+    const fetched: string[] = []
+    const fetchImpl = (async (input: RequestInfo | URL) => {
+      fetched.push(String(input))
+      return new Response('ok')
+    }) as typeof fetch
+    const confirmation = { ...notification({}), Type: 'SubscriptionConfirmation', Token: 't', SubscribeURL: 'https://sns.eu-west-1.amazonaws.com/?Action=ConfirmSubscription&Token=t' }
+    expect((await post(confirmation, accept, fetchImpl)).status).toBe(200)
+    expect((await post({ ...confirmation, SubscribeURL: 'https://evil.example/' }, accept, fetchImpl)).status).toBe(400)
+    expect(fetched).toEqual([confirmation.SubscribeURL])
+    const unreachable: SnsVerifier = { verify: async () => Promise.reject(new Error('certificate answered 500')) }
+    expect((await post(notification({ eventType: 'Bounce' }), unreachable)).status).toBe(503)
+  })
+})

@@ -22,6 +22,14 @@ const configSchema = z.object({
   // writes answer NOT_CONNECTED and the webhook route doesn't exist.
   STRIPE_SECRET_KEY: z.string().regex(/^(rk|sk)_(test|live)_[A-Za-z0-9]+$/, 'STRIPE_SECRET_KEY must be a Stripe secret or restricted key').optional(),
   STRIPE_WEBHOOK_SECRET: z.string().regex(/^whsec_[A-Za-z0-9]+$/, 'STRIPE_WEBHOOK_SECRET must be a webhook signing secret').optional(),
+  // DripFunnel's Amazon SES (THIRD-PARTY-ACCESS.md §2.4), Worker secrets. Without all four, email
+  // waits in the outbox. The sender domain is verified in SES; partners' fallbacks are its subdomains.
+  SES_REGION: z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/, 'SES_REGION must be an AWS region such as eu-west-1').optional(),
+  SES_ACCESS_KEY_ID: z.string().min(1).optional(),
+  SES_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  SES_SENDER_DOMAIN: z.string().regex(/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'SES_SENDER_DOMAIN must be a domain such as dripfunnel-mail.com').optional(),
+  // The SNS topic SES publishes bounces and complaints to; only its messages are read (hooks/ses.ts).
+  SES_EVENTS_TOPIC_ARN: z.string().regex(/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/, 'SES_EVENTS_TOPIC_ARN must be an SNS topic ARN').optional(),
 })
 
 export type Config = z.infer<typeof configSchema>
