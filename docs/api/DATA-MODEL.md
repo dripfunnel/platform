@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 ---
 
@@ -828,8 +828,8 @@ tax_class           (id, store_id, key, name, is_default)      -- Standard, Redu
 tax_zone            (id, store_id, name, countries text[], regions text[])
 tax_rate            (id, store_id, tax_class_id, tax_zone_id, rate_bps, valid_from date)
                     UNIQUE (tax_class_id, tax_zone_id, valid_from)
-                    -- class × zone (fact 37); a tax service for US sales tax (decide) would
-                    -- add tax_code on product_version and bypass tax_rate for that zone
+                    -- class × zone (fact 37); US sales tax is Stripe Tax (decided on #184),
+                    -- which adds tax_code on product_version and bypasses tax_rate for US zones
 
 compliance_default  (store_id, region, field, value)           -- manufacturer, importer,
                     UNIQUE (store_id, region, field)            -- responsible person… (fact 34)

@@ -745,7 +745,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~Digital products, services, gift cards: first release or later?~~ ~~Which "needs backend" items
   from the catalogue and offers prompts are first release?~~ **All of them** (decided 2026-10-04
   on #184, §8; ui/store/FIRST-RELEASE.md §1).
-- When is stock reserved: added to cart, checkout started, or payment?
+- ~~When is stock reserved: added to cart, checkout started, or payment?~~ **At payment** (decided
+  2026-10-04 on #184, §5.4 and §8).
 
 **Brand and billing**
 - White label's money model (partner billed, merchants billed on the partner's behalf, or

@@ -297,8 +297,10 @@ a supplier only those under its `seller_id`; a shopper only their own `customer_
 
 ## 11. Open questions
 
-- May Managers see the whole store log, or only customers' activity and their own?
-- Do vendors see their own actions (proposed), or nothing?
+- ~~May Managers see the whole store log, or only customers' activity and their own?~~ **Settled
+  2026-10-04** on #184 (§6): the whole store log.
+- ~~Do vendors see their own actions (proposed), or nothing?~~ **Settled 2026-10-04** on #184 (§6):
+  their own.
 - Do shoppers get a "Sign-in activity" screen in their storefront account, and in which
   release?
 - IP addresses: kept for 13 months for `auth` and `security` entries, staff-only (proposed),

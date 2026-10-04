@@ -1277,7 +1277,8 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
 - ~~**Partner roles**: confirm the proposed matrix (§5.3).~~ **Settled 2026-10-01** on #109
   (§5.3).
 - **Invitation expiry**: 7 days, carried from the first platform's default (§6.3).
-- **Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).
+- ~~**Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).~~
+  **Settled 2026-10-04** on #184 (§5.1): stock yes, warehouses and Publish now no.
 - **Stock only vendors**: how their products come to exist (§7.1).
 - **Support sessions**: default length; the email notice; who in the store may allow write
   elevation (§8). The investigation exception and the staff banner's wording are moot: staff

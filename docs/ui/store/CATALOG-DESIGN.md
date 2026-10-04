@@ -13,7 +13,7 @@ numbers are unchanged, so older citations ("CATALOG §3 fact 16", "part L") stil
 Where this document disagrees with [../../ARCHITECTURE.md](../../ARCHITECTURE.md) or
 [../../USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 It is written for stores anywhere in the world (US, Canada, UK, EU, India, the Gulf,
 Asia-Pacific), with region-driven tax, units, formats and compliance (PLATFORM-PROMPT §2
@@ -446,8 +446,8 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
       (the One-Stop Shop scheme).
     - **US**: sales tax differs by state, county and city. Product taxability differs too
       (clothing is exempt in some states, groceries in many). It is normally calculated by a
-      tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. Whether the engine
-      uses one is open (PLATFORM-PROMPT §10) `(release: decide)`; if it does, the product form
+      tax service (Stripe Tax, Avalara, TaxJar) using **product tax codes**. The engine uses
+      **Stripe Tax** (decided 2026-10-04 on #184, PLATFORM-PROMPT §5.4), so the product form
       picks a tax code from a searchable plain-language list ("Clothing", "Prepared food",
       "Digital book").
     - **Canada**: GST, HST or PST by province. **Australia**: GST 10%. **UK**: VAT 20% / 5% /
@@ -526,7 +526,7 @@ advice**: each must be confirmed by whoever owns compliance before the copy is f
       (Consumer Protection (E-Commerce) Rules, Legal Metrology).
     - **Canada**: bilingual (English/French) information for many consumer goods.
       **Australia**: country-of-origin labels for food. **Gulf states**: Arabic labelling for
-      many categories. *(Ask which regions are in scope at launch.)*
+      many categories. India and the US are in scope at launch (decided 2026-10-04 on #184).
 46. **Category drives the rest.** The product's category (§3 fact 31) switches on the relevant
     sections:
     - **apparel**: fibre, care, size chart;
@@ -564,9 +564,9 @@ per supplier.
 |---|---|---|---|
 | **Owner** (`owner`) | Everything, with supplier attribution. Create, edit, hide, delete. | Full | Full |
 | **Manager** (`manager`) | Same as Owner | Full | Full |
-| **Staff** (`staff`) | **Read-only**: a view page rather than a form with greyed-out fields, and no "Add product" button | Read-only | Export only? *(ask)* |
-| **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Not shown |
-| **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown *(ask whether they may pick a collection)* | Their own products only *(ask)* |
+| **Staff** (`staff`) | **Read-only**: a view page rather than a form with greyed-out fields, and no "Add product" button | Read-only | Export (decided on #184) |
+| **Stock only** (`vendor-stock`) | Only their own. **Only the quantity is editable**, and the screen says why ("Your store owner manages everything else"). | Not shown | Export their own only (decided on #184) |
+| **Products and stock** (`vendor-catalogue`), **Products, stock and their orders** (`vendor-orders-fulfil`), and the defined-but-not-offered read-only orders tier (`vendor-orders-read`) | Only their own. Create and edit, with no visibility control when approval is on. | Not shown *(ask whether they may pick a collection)* | Their own products only (decided on #184) |
 
 The navigation differs per role (the first platform's `nav.ts` model carries over, PLATFORM-PROMPT §7).
 Vendors see "Your products".
@@ -1325,8 +1325,8 @@ Design once, apply everywhere:
   (PLATFORM-PROMPT §3.3).
 - Classification code: which markets make it required, and does the engine offer a
   plain-words code lookup? (§3 fact 7)
-- US sales tax: the engine's own zones and rates, or a tax service (Stripe Tax, Avalara,
-  TaxJar) with product tax codes? EU OSS support? (§3 fact 37, PLATFORM-PROMPT §10)
+- ~~US sales tax: the engine's own zones and rates, or a tax service?~~ **Stripe Tax** (decided
+  2026-10-04 on #184). EU OSS support? (§3 fact 37; the EU is not a launch region)
 - EU Omnibus: price history for compare-at prices in the first release? (§3 fact 41)
 - Per-product "where you sell", age restrictions, hazardous goods: in scope? (§3 facts 42–43)
 - The prohibited-categories list. (§3 fact 46)
