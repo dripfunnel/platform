@@ -60,14 +60,16 @@ describe('an entry in plain words', () => {
   })
 
   it('opens to When, Who with its kind, Store, Before, After and Reason', async () => {
-    const closed = textOf(await render(<ActivityRow entry={entry('e1')} storeName="Lumen Candle Co." open={false} onToggle={noop} />))
+    const closed = textOf(await render(<ActivityRow entry={entry('e1')} open={false} onToggle={noop} />))
     expect(closed).not.toContain(words.facts.reason)
-    const open = textOf(await render(<ActivityRow entry={entry('e1')} storeName="Lumen Candle Co." open onToggle={noop} />))
+    const open = textOf(await render(<ActivityRow entry={entry('e1')} open onToggle={noop} />))
     for (const label of [words.facts.when, words.facts.who, words.facts.store, words.facts.reason]) expect(open.toUpperCase()).toContain(label.toUpperCase())
     expect(open).toContain('Maya Chen (Your team)')
     expect(open).toContain('2026-10-01')
+    expect(open).toContain('Trial end')
+    expect(open).toContain('Lumen Candle Co.')
     expect(open).toContain('2026-10-08')
-    const setup = await render(<ActivityRow entry={entry('e2')} storeName={null} open={false} onToggle={noop} />)
+    const setup = await render(<ActivityRow entry={entry('e2')} open={false} onToggle={noop} />)
     expect(textOf(setup)).toContain(words.tags.setup_session)
   })
 })
@@ -78,6 +80,16 @@ describe('the Activity log', () => {
     const more = textOf(await log({ more: true }))
     expect(more).toContain('5+ entries · newest first')
     expect(more).toContain(words.showMore)
+  })
+
+  it('gives each row its own sentence as its name, not just a time', async () => {
+    const html = await render(<ActivityRow entry={entry('e1')} open={false} onToggle={noop} />)
+    expect(html).not.toMatch(/<button[^>]*aria-label=/)
+  })
+
+  it('offers in the Store filter every store the entries shown name', async () => {
+    const html = await log({ stores: [] })
+    expect(html).toMatch(/<option value="s1">Lumen Candle Co\.<\/option>/)
   })
 
   it('shows each applied filter as a removable chip, with Clear all', async () => {

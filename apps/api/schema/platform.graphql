@@ -392,6 +392,7 @@ type PartnerActivityEntry {
   reason: String
   result: String
   storeId: String
+  storeName: String
   target: ActivityTarget
   through: String
 }

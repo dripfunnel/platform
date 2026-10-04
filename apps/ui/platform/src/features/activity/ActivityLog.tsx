@@ -55,6 +55,7 @@ const finderWords = {
   placeholder: words.person.placeholder,
   hint: words.person.hint,
   none: words.person.none,
+  failed: words.person.failed,
   results: (count: number) => fill(plural(words.person.results, count), { count: formatCount(count) }),
 }
 
@@ -107,10 +108,13 @@ export const ActivityLog = ({ entries, more, moreState, filter, person, stores, 
       if (!next.delete(id)) next.add(id)
       return next
     })
-  const storeName = (id: string | null) => (id ? (stores.find((store) => store.id === id)?.name ?? null) : null)
+  // The Store filter: the newest stores, the one a link names, and every store the entries shown name.
+  const storeOptions = [...stores, ...shown.flatMap((entry) => (entry.storeId && entry.storeName && !stores.some((store) => store.id === entry.storeId) ? [{ id: entry.storeId, name: entry.storeName }] : []))].filter(
+    (store, index, all) => all.findIndex((other) => other.id === store.id) === index,
+  )
   const set = <K extends FilterKey>(key: K, value: ActivityFilter[K]) => onFilter({ ...filter, [key]: value })
   const chips = filterKeys.flatMap((key) => {
-    const label = chipLabel(filter, key, stores)
+    const label = chipLabel(filter, key, storeOptions)
     return label === null ? [] : [{ key, label }]
   })
 
@@ -140,7 +144,7 @@ export const ActivityLog = ({ entries, more, moreState, filter, person, stores, 
         <FilterSelect label={filters.who} anyLabel={filters.anyone} options={activityWhos.map((who) => ({ value: who, label: filters.whos[who] }))} value={filter.who} onChange={(value) => set('who', value)} />
         <FilterSelect label={filters.action} anyLabel={filters.anyAction} options={actionCodes.map((code) => ({ value: code, label: actionNames[code] ?? code }))} value={filter.action} onChange={(value) => set('action', value)} />
         <FilterSelect label={filters.result} anyLabel={filters.anyResult} options={activityResults.map((result) => ({ value: result, label: filters.results[result] }))} value={filter.result} onChange={(value) => set('result', value)} />
-        {stores.length > 0 && <FilterSelect label={filters.store} anyLabel={filters.anyStore} options={stores.map((store) => ({ value: store.id, label: store.name }))} value={filter.storeId} onChange={(value) => set('storeId', value)} />}
+        {storeOptions.length > 0 && <FilterSelect label={filters.store} anyLabel={filters.anyStore} options={storeOptions.map((store) => ({ value: store.id, label: store.name }))} value={filter.storeId} onChange={(value) => set('storeId', value)} />}
         <FilterSelect label={filters.date} anyLabel={filters.anyDate} options={datePresets.map((date) => ({ value: date, label: filters.dates[date] }))} value={filter.date} onChange={(value) => set('date', value)} />
       </div>
       {chips.length > 0 && (
@@ -167,7 +171,7 @@ export const ActivityLog = ({ entries, more, moreState, filter, person, stores, 
           <span className="df-muted">{more ? fill(words.countMore, { count: formatCount(shown.length) }) : fill(plural(words.count, shown.length), { count: formatCount(shown.length) })}</span>
           <ul className="df-log-list" aria-label={words.listLabel}>
             {shown.map((entry) => (
-              <ActivityRow key={entry.id} entry={entry} storeName={storeName(entry.storeId)} open={open.has(entry.id)} onToggle={() => toggle(entry.id)} />
+              <ActivityRow key={entry.id} entry={entry} open={open.has(entry.id)} onToggle={() => toggle(entry.id)} />
             ))}
           </ul>
           {moreState === 'failed' && <p role="alert">{words.moreFailed}</p>}

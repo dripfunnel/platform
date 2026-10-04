@@ -34,9 +34,9 @@ const run = async <T>(source: string, caller: PartnerCaller, variables: Record<s
 }
 
 const logQuery = `query($filter: PartnerActivityFilterInput, $after: String, $first: Int) { activityLog(filter: $filter, after: $after, first: $first) {
-  items { id at action result through storeId actor { kind id label } target { type id label } changes { field before after } reason }
+  items { id at action result through storeId storeName actor { kind id label } target { type id label } changes { field before after } reason }
   pageInfo { hasNextPage endCursor } } }`
-type Entry = { id: string; action: string; result: string; through: string | null; storeId: string | null; actor: { kind: string; id: string | null; label: string } }
+type Entry = { id: string; action: string; result: string; through: string | null; storeId: string | null; storeName: string | null; actor: { kind: string; id: string | null; label: string } }
 type Log = { activityLog: { items: Entry[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } }
 
 // Every entry the caller can reach for a filter, paging as the screen would.
@@ -96,6 +96,9 @@ describe('the log', () => {
     const tab = await all(owner, { storeId: ids.nsStore })
     expect(tab.length).toBeGreaterThan(0)
     expect(tab.every((e) => e.storeId === ids.nsStore && e.action !== 'product.updated' && e.action !== 'order.refunded')).toBe(true)
+    // Each entry names its store, from the partner's own stores.
+    const [store] = await db.sql<{ name: string }[]>`select name from store where id = ${ids.nsStore}`
+    expect(tab.every((e) => e.storeName === store?.name)).toBe(true)
     const [inside] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where store_id = ${ids.nsStore} and visibility <> 'partner'`
     expect(inside?.n).toBe(6)
   })

@@ -1415,7 +1415,8 @@
         "other": "Also in {count} more accounts with this email. This timeline covers this account only."
       },
       "notFound": "That person is no longer on the platform.",
-      "optionLine": "{email} · {where}"
+      "optionLine": "{email} · {where}",
+      "failed": "The search didn’t work. Try again in a moment."
     },
     "personKinds": {
       "staff": "DripFunnel staff",
