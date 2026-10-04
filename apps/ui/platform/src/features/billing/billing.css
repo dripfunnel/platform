@@ -1,0 +1,100 @@
+/* Billing (designs/DF Platform Prototype.dc.html → Billing and payouts). */
+
+.df-billing {
+  gap: var(--df-space-4);
+}
+
+.df-billing h2,
+.df-billing h3 {
+  margin: 0;
+}
+
+.df-billing h3 {
+  font-size: 14px;
+}
+
+.df-billing-table-wrap {
+  overflow-x: auto;
+}
+
+.df-billing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.df-billing-table th {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.df-billing-table td {
+  padding: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+  vertical-align: top;
+}
+
+.df-billing-status {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.df-billing-failed {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-billing-failed li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--df-space-1) var(--df-space-3);
+  padding: var(--df-space-2) var(--df-space-3);
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+}
+
+.df-billing-held {
+  color: var(--df-color-danger);
+  font-weight: 600;
+}
+
+.df-billing-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-billing-mode {
+  display: grid;
+  gap: var(--df-space-1);
+  padding: var(--df-space-3);
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-billing-mode--current {
+  border-color: var(--df-color-brand);
+  background: var(--df-color-hover);
+}
+
+.df-billing-current {
+  margin-left: var(--df-space-2);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 600;
+}

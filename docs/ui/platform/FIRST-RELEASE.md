@@ -548,6 +548,15 @@ Northstar" reads "billed by Northstar" everywhere. SAAS §7.1 says this mode fol
 its API card comes after (§16). How the platform learns a store's status in this mode is open
 (SAAS §14).
 
+**Built on #195.** Who bills is the API's (`partnerState.billingMode`, read with the shell's facts). Merchants' payments,
+payouts and DripFunnel's invoices have no API until #201 connects the payment provider.
+- Until then, a Live partner sees "Payments, payouts and invoices connect with DripFunnel's payment
+  provider…", or for one that bills itself just the invoices. Both choices of who bills are shown,
+  with changing it waiting on the same.
+- The four parts are drawn from a sample in the `?state=` harness only (`sample`,
+  `failedPayments`, `payoutHeld`, `firstPayout`, `stale`, `prelive`, `own`).
+- Support is refused even by address. Only the last four digits of a card or account ever appear.
+
 ---
 
 ## 12. Support

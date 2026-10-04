@@ -73,7 +73,7 @@ describe('the menu’s badges', () => {
 })
 
 describe('the shell’s banners', () => {
-  const live: PartnerFacts = { state: 'live', sentBackReason: null, pausedAt: null, pauseReason: null, storeCount: 86, brokenHosts: [], setupSession: null }
+  const live: PartnerFacts = { state: 'live', sentBackReason: null, pausedAt: null, pauseReason: null, storeCount: 86, brokenHosts: [], setupSession: null, billingMode: 'dripfunnel' }
   const banners = (facts: Partial<PartnerFacts>) => render(<PartnerBanners me={me} facts={{ ...live, ...facts }} />)
   const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
 

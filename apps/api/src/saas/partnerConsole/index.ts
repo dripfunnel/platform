@@ -4,7 +4,7 @@ import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { PartnerSetupItemRow } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { searchPartnerStores, selectNavCounts, selectOpenSetupSessionOn, selectShellFacts, type StoreSearchRow } from '#db/scoped/partnerConsole'
+import { searchPartnerStores, selectBillingMode, selectNavCounts, selectOpenSetupSessionOn, selectShellFacts, type StoreSearchRow } from '#db/scoped/partnerConsole'
 import { selectOpenPortalSessionOn } from '#db/scoped/staffPortal'
 import { selectPartner, selectPartnerDomainsFor, selectPartnerForUpdate, selectPlansFor, selectSetupItemsFor } from '#db/scoped/partners'
 import type postgres from 'postgres'
@@ -50,6 +50,8 @@ export interface PartnerStateFacts {
   /** Portal or email sender hosts whose records stopped pointing at DripFunnel (§2.3). */
   brokenHosts: string[]
   setupSession: { staffName: string; endsAt: Date } | null
+  /** Who bills the partner's merchants (SAAS §7.1), which decides what Billing shows (§11.4). */
+  billingMode: 'dripfunnel' | 'own'
 }
 
 export interface NavBadges {
@@ -103,7 +105,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
   const context = partnerContextOf(caller)
 
   const partnerState = async (): Promise<PartnerStateFacts> => {
-    const shell = await withScope(sql, context, async (tx) => ({ facts: await selectShellFacts(tx, partnerId), partner: await selectPartner(tx, partnerId) }))
+    const shell = await withScope(sql, context, async (tx) => ({ facts: await selectShellFacts(tx, partnerId), partner: await selectPartner(tx, partnerId), billingMode: await selectBillingMode(tx, partnerId) }))
     // Setup sessions are staff rows the partner role is not granted; this one fact is read for it.
     // The staff member in a session sees their own bar instead (ACCESS.md §8.3).
     const session = caller.staff ? null : await withSystemScope(sql, (tx) => selectOpenSetupSessionOn(tx, partnerId, now()))
@@ -115,6 +117,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
       storeCount: shell.facts.store_count,
       brokenHosts: shell.facts.broken_hosts,
       setupSession: session ? { staffName: firstName(session.staff_name) ?? session.staff_name, endsAt: session.expires_at } : null,
+      billingMode: shell.billingMode,
     }
   }
 
