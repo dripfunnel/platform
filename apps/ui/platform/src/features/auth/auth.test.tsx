@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { messages } from '../../messages'
 import { AcceptInvite } from './AcceptInvite'
 import { acceptInviteStates, credentialsView, sampleInvitation, signInReducer, signInStates, type AcceptInviteState } from './authStates'
+import { ResetPassword } from './ResetPassword'
 import { refusalWords, SignIn } from './SignIn'
 
 const textOf = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&#x27;/g, '’').replace(/&amp;/g, '&')
@@ -122,6 +123,34 @@ describe('accepting an invitation', () => {
 
   it('covers every harness state', async () => {
     for (const state of acceptInviteStates) expect(await inviteAt(state)).not.toBe('')
+  })
+})
+
+describe('resetting a password from the emailed link', () => {
+  const reset = messages.resetPassword
+  const resetAt = (search: string, token?: string) => render(<ResetPassword search={token ? { token } : {}} />, search)
+
+  it('asks for one new password with the invitation page’s rule', async () => {
+    const html = await resetAt('', 'tok')
+    const text = textOf(html)
+    expect(text).toContain(reset.title)
+    expect(text).toContain(reset.passwordHint)
+    expect(html).toMatch(/autocomplete="new-password"/i)
+    expect(html.match(/type="password"/g)).toHaveLength(1)
+  })
+
+  it('says a link without a token, or one the API refused, does not work, and leads to sign-in', async () => {
+    for (const html of [await resetAt(''), await resetAt('?state=invalid', 'tok')]) {
+      expect(textOf(html)).toContain(reset.invalid.title)
+      expect(textOf(html)).toContain(messages.auth.goToSignIn)
+      expect(html).not.toContain('type="password"')
+    }
+  })
+
+  it('confirms the change and sends the person to sign in', async () => {
+    const text = textOf(await resetAt('?state=done', 'tok'))
+    expect(text).toContain(reset.done.title)
+    expect(text).toContain(messages.auth.goToSignIn)
   })
 })
 

@@ -91,6 +91,10 @@ export const verifySecondFactor = (code: string): Promise<{ ok: true } | AuthRef
 // Identical whether or not the email has an account (FIRST-RELEASE §3); only RATE_LIMITED differs.
 export const requestPasswordReset = (email: string): Promise<{ ok: true } | AuthRefusal> => post('request-password-reset', { email }, ok)
 
+// The emailed link's token and a new password; the API signs no one in, so sign-in follows.
+export const resetPassword = (token: string | undefined, password: string): Promise<{ ok: true } | AuthRefusal> =>
+  token ? post('reset-password', { token, password }, ok) : Promise.resolve({ ok: false, code: 'RESET_INVALID' })
+
 export const invitation = (token: string | undefined): Promise<{ ok: true; invitation: Invitation } | AuthRefusal> =>
   token ? post('invitation', { token }, z.object({ ok: z.literal(true), invitation: invitationSchema })) : Promise.resolve({ ok: false, code: 'INVITATION_INVALID' })
 

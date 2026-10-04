@@ -163,6 +163,29 @@ domain with the partner's name as display name (fact 6). The partner console sho
 record's status and offers a test send (F5). Every email a merchant, vendor or customer
 receives uses the partner of the store (or portal host) it concerns, never another partner's.
 
+**Built on #274** (`saas/email`, `jobs/queues/deliverers/email.ts`):
+
+- **Who speaks.** Email to partner users and staff (invitations, resets, lock, domain and
+  billing notices) comes from DripFunnel, in DripFunnel's look, since both consoles are
+  DripFunnel-branded. Email to merchants (plan changes, suspension, restore) comes from the
+  store's partner, in its live branding: product name, primary and accent colours, its support
+  contact (never DripFunnel's), and "Powered by" unless the partner's setting is off (§3.4). No logo
+  until brand files have a public address.
+- **From.** Until partners' own domains get SES identities (slice 11), the fallback
+  `no-reply@<label>.<SES_SENDER_DOMAIN>` (THIRD-PARTY-ACCESS §2.4); the label is that of the
+  partner's portal host, else its shops, preview or email host.
+- **Recipients.** Domain live: the Owner. Card declined and payout account failed: the Owner
+  and every active Finance user. Store notices: the store's Owners.
+- **Links** are minted when the email is sent, in the transaction that sends it.
+- **Held:** the store owner invitation waits in the outbox until merchant sign-in can accept it
+  (the Store card that follows #274).
+- **Suppression.** An address SES reports as a permanent bounce or a complaint gets no merchant
+  notice again. Account email (staff and partner invitations, password reset, lock notice) is
+  still sent: it is asked for, and one that never arrives locks someone out; SES's own
+  account-level suppression still stops dead addresses. The list holds an HMAC of the address
+  under `EMAIL_SUPPRESSION_KEY` (migrations/0034): pseudonymous, and unreadable without the key.
+- **Language:** English only until partners or stores have one.
+
 ---
 
 ## 4. Merchant accounts

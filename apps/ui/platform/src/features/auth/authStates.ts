@@ -17,6 +17,11 @@ export const acceptInviteStates = ['expired', 'used', 'replaced', 'invalid', 'me
 
 export type AcceptInviteState = (typeof acceptInviteStates)[number]
 
+// The reset link's page, built from the invitation page's password step (FIRST-RELEASE.md §3).
+export const resetPasswordStates = ['invalid', 'done'] as const
+
+export type ResetPasswordState = (typeof resetPasswordStates)[number]
+
 // The lock the harness shows; a real one carries its own minutes.
 export const sampleLockMinutes = 15
 

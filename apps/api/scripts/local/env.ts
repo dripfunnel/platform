@@ -11,7 +11,8 @@ const REQUIRED = ['DATABASE_URL', 'CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING
 const GROUPS = [
   { feature: 'Microsoft sign-in', keys: ['ENTRA_TENANT_ID', 'ENTRA_CLIENT_ID', 'ENTRA_CLIENT_SECRET'] },
   { feature: 'Stripe billing', keys: ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'] },
-  { feature: 'email', keys: ['SES_REGION', 'SES_ACCESS_KEY_ID', 'SES_SECRET_ACCESS_KEY'] },
+  { feature: 'email', keys: ['SES_REGION', 'SES_ACCESS_KEY_ID', 'SES_SECRET_ACCESS_KEY', 'SES_SENDER_DOMAIN', 'EMAIL_SUPPRESSION_KEY'] },
+  { feature: 'bounce handling', keys: ['SES_EVENTS_TOPIC_ARN'] },
 ] as const
 
 const isPlaceholder = (value: string) => /dummy/i.test(value) || /^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(value)

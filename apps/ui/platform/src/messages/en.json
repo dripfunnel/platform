@@ -101,6 +101,22 @@
       }
     }
   },
+  "resetPassword": {
+    "title": "Choose a new password",
+    "body": "Enter a new password for your partner console account. You’ll sign in with it next.",
+    "password": "New password",
+    "passwordHint": "At least 10 characters.",
+    "save": "Save password",
+    "weak": "Enter a password of at least 10 characters.",
+    "done": {
+      "title": "Password changed",
+      "body": "Sign in with your new password."
+    },
+    "invalid": {
+      "title": "This link doesn’t work",
+      "body": "Reset links work once, for 30 minutes. Ask for a new one from the sign-in page with “Forgot password?”."
+    }
+  },
   "shell": {
     "skipToContent": "Skip to content",
     "homeLink": "Partner console home",

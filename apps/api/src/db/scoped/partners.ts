@@ -319,6 +319,39 @@ export const updatePartnerDomainCheck = async (tx: ScopedSql, id: string, check:
   await tx`update partner_domain set status = ${check.status}, found = ${check.found}, checked_at = ${check.checkedAt} where id = ${id}`
 }
 
+/** Each address the partner has added, by kind: the email sender's fallback is named after one (SAAS §3.6). */
+export const selectPartnerHosts = (tx: ScopedSql, partnerId: string): Promise<{ kind: DomainKind; host: string }[]> =>
+  tx<{ kind: DomainKind; host: string }[]>`select kind, host from partner_domain where partner_id = ${partnerId}`
+
+/** A partner's active users with any of these roles, oldest first: who an account notice goes to. */
+export const selectActivePartnerEmails = async (tx: ScopedSql, partnerId: string, roles: readonly PartnerUserRow['role_key'][], limit: number): Promise<string[]> =>
+  (
+    await tx<{ email: string }[]>`
+      select email from partner_user
+      where partner_id = ${partnerId} and status = 'active' and role_key = any(${pgArray(roles)}::text[])
+      order by created_at limit ${limit}
+    `
+  ).map((r) => r.email)
+
+/** The partner a record an account email names belongs to, or null when there is no such record. */
+export const selectRecordPartner = async (tx: ScopedSql, record: 'invitation' | 'reset' | 'user', id: string): Promise<string | null> => {
+  const rows =
+    record === 'invitation'
+      ? await tx<{ partner_id: string }[]>`select partner_id from partner_invitation where id = ${id}`
+      : record === 'reset'
+        ? await tx<{ partner_id: string }[]>`select partner_id from partner_password_reset where id = ${id}`
+        : await tx<{ partner_id: string }[]>`select partner_id from partner_user where id = ${id}`
+  return rows[0]?.partner_id ?? null
+}
+
+/** The role an open partner invitation offers, for its email. */
+export const selectInvitedPartnerRole = async (tx: ScopedSql, invitationId: string): Promise<PartnerUserRow['role_key'] | null> =>
+  (
+    await tx<{ role_key: PartnerUserRow['role_key'] }[]>`
+      select u.role_key from partner_invitation i join partner_user u on u.id = i.partner_user_id where i.id = ${invitationId}
+    `
+  )[0]?.role_key ?? null
+
 /** The partner's Owner: the first user with that role. */
 export const selectPartnerOwner = async (tx: ScopedSql, partnerId: string): Promise<PartnerUserRow | null> =>
   (

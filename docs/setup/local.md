@@ -90,7 +90,8 @@ can use your own role and database names, as long as you put them in `.env.local
    | `CREDENTIALS_KEK` | Your own key: `openssl rand -base64 32`. Never one from dev or production. |
    | `ENTRA_TENANT_ID`, `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET` | **Delete these three lines** unless you have the real registration's values (§7.2). With them deleted, Microsoft sign-in is off and you sign in with a local session (§7.1). |
    | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | **Delete** unless you have Stripe **test-mode** values (§8). Without them, billing answers "not connected". |
-   | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | **Delete** unless you have them. Nothing sends email yet (#274); emails wait in the outbox. |
+   | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_SENDER_DOMAIN`, `EMAIL_SUPPRESSION_KEY` | **Delete** unless you have the SES values; emails then wait in the outbox. To send for real, see §8.1; the key is your own, `openssl rand -base64 32`. |
+| `SES_EVENTS_TOPIC_ARN` | **Delete.** Bounces arrive through SNS, which can't reach your machine. |
 
    Keep a whole group or delete the whole group: two of the three Entra values switch nothing
    on. The example's placeholder values (`dummy…`, all-zero ids) make that feature fail, and
@@ -143,6 +144,10 @@ Before the Worker starts, `pnpm dev` runs `pnpm --filter ./apps/api check:local`
 - a migration isn't applied;
 - port 8787 is already taken, usually by another `pnpm dev`. Wrangler would quietly move to
   8788 while the consoles kept calling the old Worker on 8787.
+
+Locally nothing fires the Worker's every-minute cron (`wrangler dev` never does), so `pnpm dev`
+starts it with `--test-scheduled` and calls `/__scheduled` once a minute itself
+(`apps/api/scripts/local/dev.ts`): the outbox (email, exports, domain checks) runs as on dev.
 
 It warns and carries on when there is no sample data, or when a feature's values are partial or
 still the example's placeholders. The consoles start with `--strictPort`, so a taken console
@@ -223,6 +228,22 @@ another `pnpm dev:https`), or the certificate isn't trusted yet.
 4. Copy the `whsec_…` it prints into `STRIPE_WEBHOOK_SECRET` and restart `pnpm dev`.
 
 ---
+
+### 8.1 Optional: real email through SES
+
+1. Ask for the SES sandbox credentials (region, access key id and secret) and put them in
+   `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, and your own `EMAIL_SUPPRESSION_KEY`
+   (`openssl rand -base64 32`).
+2. `SES_SENDER_DOMAIN`: a domain verified in that SES account (SES › Identities). Emails come from
+   `no-reply@<it>` and, for a partner's merchants, `no-reply@<partner label>.<it>`.
+3. In the sandbox, SES delivers only to **verified recipients**: add your own address under SES ›
+   Identities › *Create identity* › Email address and click the link it sends.
+4. Restart `pnpm dev`. The outbox job runs every minute: invite yourself from the admin
+   console's Staff page and the email arrives within a minute. A refusal is logged in the
+   terminal as `email_refused` with SES's reason, e.g. `MessageRejected` for an unverified
+   recipient.
+
+Store owner invitations stay in the outbox until merchant sign-in exists.
 
 ## 9. Before you say a change works
 
