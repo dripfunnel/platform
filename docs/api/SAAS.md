@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 ---
 
@@ -206,8 +206,8 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 |---|---|---|---|
 | **Trial** | Signup; ends at `trial_ends_at` | Full use within the plan | Live |
 | **Active** | A paid subscription | Full use | Live |
-| **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner) | Keeps selling, degraded *(ask what "degraded" shows)* |
-| **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning at the end of its policy *(ask)* | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
+| **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner) | **Keeps selling** as normal (decided 2026-10-05 on #284) |
+| **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning, **after 14 days past due** (decided 2026-10-05 on #284) | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Kept until period end *(ask)* |
 | **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept for the retention window, then deleted *(ask the window, §14)* |
 
@@ -261,7 +261,7 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | 3 | **Hostnames**: reserve `{shop}` and register `{shop}.preview.<partnerdomain>` and `{shop}.shops.<partnerdomain>` under the partner's wildcards | Release the reservation and routes |
 | 4 | **Repo**: the GitHub App creates an empty repo in the `dripfunnel` org and copies `templates/storefront/` into it through the GitHub API | Delete the repo |
 | 5 | **Store config**: generate `store.config.ts` (public store key, Shop API URL, hostnames, locales, currencies) and the route shims; pin the current `@dripfunnel/storefront-core` version; set the repo's variables. **No platform secret goes into the repo**: the Cloudflare deploy token stays with the platform (PLATFORM-PROMPT §5.6) | Revert the commit (removed with the repo) |
-| 6 | **Hosting target**: the store's Cloudflare project or worker (the hosting model is open, PLATFORM-PROMPT §10) | Delete it |
+| 6 | **Hosting target**: the store's Cloudflare Pages project (one per store, decided 2026-10-05 on #284, PLATFORM-PROMPT §5.6) | Delete it |
 | 7 | **First build**: preview deploy (seconds, no catalogue), then the first live build, dispatched explicitly and **confirmed complete** from the deploy result, not assumed from a push (the first platform's gap at this step) | Nothing to undo; a failed first build leaves the store usable and shows "storefront build failed, retrying" |
 | 8 | **Done**: write `storefront.core_version` and the repo name, emit `store.provisioned`, send the welcome email through the outbox, delete the `signup` row | n/a |
 
@@ -416,7 +416,7 @@ partner's billing, or both) is open (§14).
 ### 7.3 Dunning
 
 Past due stores by age (1–7, 8–14, 15+ days), the retry schedule, emails sent, and the moment
-past due becomes suspended (H4). **The policy is open *(ask)*.** Payouts to partners, when
+past due becomes suspended (H4): **after 14 days unpaid** (decided 2026-10-05 on #284). Payouts to partners, when
 DripFunnel bills on their behalf, show period, gross, fees, payout and status (H5).
 
 ---
@@ -532,9 +532,9 @@ in and out, cost (minor units and currency), build minutes, gate results, result
 preview URL, outcome (approved, discarded, failed). It is the source for the AI budget meter,
 usage billing and the metrics in §12.
 
-**Open**: where the agent executes (GitHub Actions, Cloudflare Containers, or elsewhere;
-[../ARCHITECTURE.md](../ARCHITECTURE.md) §8); whether the AI reads the store's catalogue
-(real product imagery) and what that costs per prompt.
+~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284). **Open**:
+whether the AI reads the store's catalogue (real product imagery) and what that costs per prompt
+(SAPI 17 asks).
 
 ---
 
@@ -651,17 +651,20 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
 - The merchant billing model: by the partner, by DripFunnel on its behalf, or both, and
   **which comes first**. Wholesale pricing: per store, per plan, revenue share, minimums?
 - When the partner bills its merchants, how does the platform learn a store's status?
-- Dunning policy: when does past due become suspended, and what does a suspended or past-due
-  storefront show?
+- ~~Dunning policy: when does past due become suspended, and what does a suspended or past-due
+  storefront show?~~ After 14 days; past due keeps selling, suspended shows the unavailable page
+  (decided 2026-10-05 on #284).
 - What does past due mean for the store's vendors?
 - Promotions on plans for merchant signups.
 - May partners set their own automatic publish interval, within a platform minimum?
 
 **Provisioning, storefronts and fleet**
 - Does "under two minutes" include the first live build?
-- Cloudflare hosting model per store (Pages, Workers, Workers for Platforms).
+- ~~Cloudflare hosting model per store (Pages, Workers, Workers for Platforms).~~ A Pages project
+  per store (decided 2026-10-05 on #284).
 - Wildcard custom hostnames, apex domains, and per-hostname limits and price (§8).
-- Where the AI agent runs; does the AI read the catalogue, and at what cost?
+- ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284); does the AI read the
+  catalogue, and at what cost? (SAPI 17 asks)
 - Staging storefronts per store, or preview builds only?
 - One template, or several theme families?
 - Do merchants ever get direct repo access?

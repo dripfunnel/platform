@@ -20,7 +20,7 @@ row-level security backstop landed with #12; staff identity and sessions with #1
 `apps/api/src/db/scoped` (the scoped query layer), `apps/api/src/apis/graphql/scope.ts` (the
 per-resolver scope declaration) and `apps/api/src/saas` (support access, audit log).
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 ---
 
@@ -368,13 +368,13 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `orders.read`, `customers.read` | ✓ | ✓ | ✓ |
 | `orders.write` (including fulfilment and cancellation), `customers.write` (add, edit, groups, tags, notes, recording that a customer asked to stop marketing) | ✓ | ✓ | ✓ |
 | `orders.refund`: refunds, returns (start, mark received), and **overriding a supplier's refund** (§7.3) | ✓ | ✓ | |
-| `orders.mark_paid`: marking a cash-on-delivery or bank-transfer order paid, audited with the actor *(confirm)* | ✓ | ✓ | |
+| `orders.mark_paid`: marking a cash-on-delivery or bank-transfer order paid, audited with the actor (decided 2026-10-05) | ✓ | ✓ | |
 | `customers.export`, `exports`: product and order exports. Staff's include orders with the customer's name and address, deliberately: Staff already reads and fulfils them (`orders.read`, `orders.write`) | ✓ | ✓ | ✓ |
 | `catalog.import` | ✓ | ✓ | |
 | `offers.read`, `carts.read`: the offers list and abandoned carts, view only | ✓ | ✓ | ✓ |
 | `offers.write`, `carts.write`: offers, reminder settings, remind now | ✓ | ✓ | |
 | `reports.read`, including `exportReport` of the panels it reads | ✓ | ✓ | |
-| `offers.export`: `exportOfferCodes`, a batch's codes as a file *(confirm: Staff reads offers but may not export their codes)* | ✓ | ✓ | |
+| `offers.export`: `exportOfferCodes`, a batch's codes as a file; Staff reads offers but may not export their codes (decided 2026-10-05) | ✓ | ✓ | |
 | `store.export`: `exportStoreData`, everything the store holds, for leaving or a data request | ✓ | | |
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
@@ -1260,10 +1260,8 @@ The first platform's design was shaped by its commerce framework's limits (AUTH-
 Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus those this port raised.
 
 **Carried, still open**
-- **Who may mark an order paid?** `orders.mark_paid` is proposed for Owner and Manager only
-  (§5.1) *(confirm)*.
-- **May Staff export an offer's codes?** Staff reads offers (`offers.read`); `offers.export` is
-  proposed for Owner and Manager only (§5.1) *(confirm)*.
+- ~~**Who may mark an order paid?**~~ **Owner and Manager** (decided 2026-10-05, §5.1).
+- ~~**May Staff export an offer's codes?**~~ **No: Owner and Manager** (decided 2026-10-05, §5.1).
 - ~~**2-factor**: Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
   optional for everyone else (§2, §4). ~~And for partner users?~~ **Partner users settled
   2026-10-01**: optional, the Owner may require it (§2).
