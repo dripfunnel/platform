@@ -404,7 +404,9 @@ Design each module's responsibilities, tables, public API, events and invariants
   (decided 2026-10-04 on #184). **Orders paid later** (cash on delivery, bank transfer)
   *(proposed)*: the order is accepted when placed, so it reserves then, after the same re-check;
   cancelling it releases the stock, and so does a bank transfer left unpaid past a time limit
-  *(decide: how long)*; "Mark as paid" doesn't re-check stock the order already holds.
+  *(decide: how long)*, a system cancellation logged with the system as actor (LOGGING §3);
+  "Mark as paid" (Owner and Manager, ACCESS §5.1 *(confirm)*) doesn't re-check stock the order
+  already holds.
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided

@@ -190,7 +190,9 @@ check. Every figure is the API's (`home`, §19).
   DripFunnel (ACCESS §7.3, PLATFORM-PROMPT §5.4); restock really restocks with the reason
   "Returned by a shopper".
 - **Cancel** an unshipped order, with a reason; **mark as paid** for cash on delivery and bank
-  transfer (the order waits in Payment pending until then).
+  transfer (the order waits in Payment pending until then): Owner and Manager only
+  (`orders.mark_paid`, ACCESS §5.1 *(confirm)*), audited with the actor. A transfer released
+  for staying unpaid is cancelled by the system and logged as such (LOGGING §3).
 
 ## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
 
@@ -373,7 +375,7 @@ query. **Refusals are stable codes** with their facts, worded by the portal; eve
 | Storefront | `storefront` (live version, history, usage, publishing status) | `describeChange(prompt)` (AI run), `approvePreview`, `publish`, `revertTo(version)`, `publishCatalogueNow`, `chooseStorefront(ai or own)` |
 | Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log), `activityLog(filter)`, `domain` | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `connectDomain`, `recheckDomain`, `removeDomain`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)`, `exportActivity` (job, Owner only) |
 | Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `downloadInvoice`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
-| Supplier | the same queries, seller-scoped; `mySupplierTeam`, `mySales` (no totals) | `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` |
+| Supplier | Only these, seller-scoped, by ACCESS §5.2's tier: `me`, `myStores`, `navBadges`, `storeState`, the Profile queries; `products`, `productCounts`, `product`, `stockHistory`, `readiness` (`catalog.read`, `stock.read`); `orders`, `order` for their own lines (`orders.read`); `mySales` (`sales.read`, no totals); `mySupplierTeam` (Supplier admin). **Every other query is refused**: `home`, `customers`, `offers`, `abandonedCarts`, `report`, Collections, Settings, Billing | Only these, by tier: `saveProduct` (`catalog.write`), `adjustStock`, `saveWarehouse` (`stock.write`, `warehouses.write`), `shipItems`, `refund` on their own lines (`orders.fulfil`, `orders.refund`), `exportProducts`, `exportOrders` (`exports`), `startImport` (`catalog.import`), the Profile mutations; `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` (Supplier admin). Every other mutation is refused |
 
 Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused while past due
 (`READ_ONLY`), metered through `saas/entitlements` where a plan limits it (`PLAN_LIMIT` with the
@@ -420,13 +422,13 @@ what must merge first.
 | SAPI 1 | Store API GraphQL skeleton on the portal host: schema file, `TenantContext` from session and acting store, resolver scope declarations, `READ_ONLY` and `PLAN_LIMIT`, cursor paging, the structural test | #184 |
 | SAPI 2 | Brand by hostname, sign-up and provisioning (SAAS §5 workflow, steps 1–3), sign-in, 2-factor and enrolment, reset, invitations, My profile, sessions | SAPI 1 |
 | SAPI 3 | Money, catalogue, versions, assets (R2 signed uploads), collections, facets, menus, size charts, sections, legal, badges, readiness per market | SAPI 1 |
-| SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment (cash on delivery and bank transfer at placement, PLATFORM-PROMPT §5.4) | SAPI 3 |
+| SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment; cash on delivery and bank transfer **pending §21** (proposed: at placement, PLATFORM-PROMPT §5.4) | SAPI 3 |
 | SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix | SAPI 4 |
 | SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
 | SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; whose account decided first, §21), invoices settings | SAPI 3 |
 | SAPI 8 | Shop API catalogue and search, edge caching and purge | SAPI 3, SAPI 6 |
 | SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23 | SAPI 7, SAPI 8, SAPI 23 |
-| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment, or at placement for cash on delivery and bank transfer, with "Mark as paid" never re-checking held stock | SAPI 9, SAPI 4 |
+| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment; cash on delivery, bank transfer, the unpaid-transfer release and "Mark as paid" **pending §21** (proposed in PLATFORM-PROMPT §5.4) | SAPI 9, SAPI 4 |
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
 | SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) | SAPI 11 |
@@ -471,6 +473,8 @@ what must merge first.
   or bank-transfer order reserves at placement after the usual re-check, and releases on
   cancellation or when a transfer stays unpaid past a limit *(decide: how long)*. Confirm, or say
   they reserve only when marked paid (and what then happens to an order whose stock has gone).
+- **Who may mark an order paid?** `orders.mark_paid` is proposed for Owner and Manager only, like
+  refunds, since it records money received (ACCESS §5.1) *(confirm)*.
 - **May Staff export an offer's codes?** `offers.export` is proposed for Owner and Manager only
   (ACCESS §5.1, §13) *(confirm)*.
 - **Stripe Tax for merchants' US checkouts** *(decide)*: through the merchant's own connected Stripe
