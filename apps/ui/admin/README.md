@@ -34,8 +34,8 @@ its load error (`ShellError`). The samples (`*Sample.ts`) remain only as the scr
 fixtures. A `?state=` that asked the sample for another role (`denied`, a refusal on a row) no
 longer can: sign in as that role with a local session (below) to see it.
 
-**A local session.** Sign-in needs the Entra registration, so against the local database
-create a session for a seeded staff member and set the cookie it prints on
+**A local session.** Real sign-in needs the Entra registration and `pnpm dev:https`
+(docs/api/README.md §7). Without them, create a session for a seeded staff member and set the cookie it prints on
 `http://localhost:5175` (Chrome accepts a `Secure` cookie on localhost):
 
 ```bash
@@ -103,14 +103,14 @@ Sessions takes `loading`, `empty`, `error` and `denied`.
 ## Sign-in
 
 `/sign-in` (`src/features/sign-in/`) is the staff sign-in with Microsoft Entra ID, following
-the prototype. It isn't wired to an API yet, so it steps through the prototype's flow
-locally: the Microsoft button shows "Signing you in…", then the Authenticator request;
-"use a code" and Verify lead to the dashboard; "Use another Microsoft account" goes back to
-the start. Nothing checks who you are, so this walk-through runs only where the harness is
-on (below); a production build's buttons do nothing until #13 adds the real redirect.
-Force one state with `?state=` (`signing`, `approve`, `code`, `cancelled`, `denied`,
-`unavailable`, `blocked`, `refused`, `expired`); without it the screen starts at the
-Microsoft button. The environment banner shows here too.
+the prototype. The Microsoft button goes to the Worker's `/api/auth/sign-in`, which sends you
+to Microsoft (#89); locally that needs `pnpm dev:https` ([setup/local.md](../../../docs/setup/local.md) §7.2).
+With `?state=` in the address and the harness on (below), the button instead steps through
+the prototype's flow without an API: "Signing you in…", then the Authenticator request; "use
+a code" and Verify lead to the dashboard; "Use another Microsoft account" goes back to the
+start. `?state=start` opens that walkthrough at the first step; the other values are
+`signing`, `approve`, `code`, `cancelled`, `denied`, `unavailable`, `blocked`, `refused`,
+`expired`. The environment banner shows here too.
 
 The SPA needs no sign-in variables. The tenant ID, client ID and client secret belong to the
 API Worker ([THIRD-PARTY-ACCESS.md §2.5](../../../docs/code/THIRD-PARTY-ACCESS.md)); never put

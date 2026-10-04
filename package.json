@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "turbo run dev --filter='./apps/**'",
     "dev:all": "turbo run dev",
+    "dev:https": "sh scripts/local/dev-https.sh",
+    "setup:local": "pnpm install && pnpm --filter ./apps/api setup:local",
     "dev:api": "turbo run dev --filter=@dripfunnel/api",
     "dev:store": "turbo run dev --filter=@dripfunnel/store",
     "dev:platform": "turbo run dev --filter=@dripfunnel/platform",

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
+    "dev": "vite --port 5173 --strictPort",
     "build": "vite build",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint .",

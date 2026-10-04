@@ -1,4 +1,8 @@
+import { existsSync } from 'node:fs'
 import { defineConfig } from 'vitest/config'
+
+// Local values from apps/api/.env.local (#272); what the shell or CI already set wins.
+if (existsSync('.env.local')) process.loadEnvFile('.env.local')
 
 // Integration tests run against a real local Postgres (docs/api/README.md §7), each run in a
 // database of its own. They are a separate project from the unit tests so `pnpm test` stays
