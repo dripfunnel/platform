@@ -34,7 +34,7 @@ export const RecordTable = ({ host, kind, records, showFound, onCopy }: RecordTa
             <span className="df-dns-copy">
               <code>{record.name}</code>
               {!showFound && (
-                <button type="button" className="df-button df-button--small" aria-label={words.copyName} onClick={() => onCopy(record.name)}>
+                <button type="button" className="df-button df-button--small" aria-label={fill(words.copyName, { type: record.type, name: record.name })} onClick={() => onCopy(record.name)}>
                   {words.copy}
                 </button>
               )}
@@ -43,7 +43,7 @@ export const RecordTable = ({ host, kind, records, showFound, onCopy }: RecordTa
           <td data-label={showFound ? words.value : words.valueShort}>
             <span className="df-dns-copy">
               <code>{record.value}</code>
-              <button type="button" className="df-button df-button--small" aria-label={words.copyValue} onClick={() => onCopy(record.value)}>
+              <button type="button" className="df-button df-button--small" aria-label={fill(words.copyValue, { type: record.type, name: record.name })} onClick={() => onCopy(record.value)}>
                 {words.copy}
               </button>
             </span>

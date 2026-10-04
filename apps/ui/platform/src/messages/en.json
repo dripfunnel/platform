@@ -1557,8 +1557,8 @@
       "found": "What we see",
       "nothing": "Nothing found yet",
       "mismatch": "Doesn’t match yet",
-      "copyValue": "Copy value",
-      "copyName": "Copy name",
+      "copyValue": "Copy the value of the {type} record {name}",
+      "copyName": "Copy the name of the {type} record {name}",
       "copy": "Copy",
       "copied": "Copied.",
       "copyFailed": "Couldn’t copy. Select the value and copy it yourself."
