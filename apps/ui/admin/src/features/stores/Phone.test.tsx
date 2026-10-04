@@ -1,16 +1,17 @@
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { renderToString } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
-import type { Store } from '../../api/stores'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Store, StorePage, StoreRow } from '../../api/stores'
 import { createStoresServer, sampleStores } from '../../api/storesSample'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { NeedsLaptop } from '../common/NeedsLaptop'
 import { phoneView } from '../common/phoneView'
 import type { StaffRole } from '../shell/staffRoles'
-import { FindStoreView, type FindResult } from './FindStore'
+import { FindStore, FindStoreView, firstFound, searchAfterTyping, typedFrom, type FindResult } from './FindStore'
 import { phoneAction, PhoneStore } from './PhoneStore'
+import { confirmOpening } from './StoreDetailScreen'
 import { storeDialog } from './storeDialog'
 import { phoneStore } from './storeHarness'
 
@@ -24,9 +25,9 @@ const storeOf = (id: string, role: StaffRole = 'staff-super-admin'): Store => {
   return store
 }
 
-const render = async (node: ReactNode) => {
+const render = async (node: ReactNode, at = '/') => {
   const rootRoute = createRootRoute({ component: () => node })
-  const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: ['/'] }) })
+  const router = createRouter({ routeTree: rootRoute, history: createMemoryHistory({ initialEntries: [at] }) })
   await router.load()
   return renderToString(<RouterProvider router={router} />)
 }
@@ -46,7 +47,7 @@ describe('phoneView', () => {
 describe('Find a store', () => {
   it('is a heading and a labelled search box, then the stores found as links to each', async () => {
     const rows = sample.list({}, {}, 25).items
-    const html = await find({ kind: 'found', rows })
+    const html = await find({ kind: 'found', rows, more: false })
     expect(textOf(html)).toContain(words.find.title)
     expect(html).toContain('role="search"')
     expect(html).toMatch(new RegExp(`<label for="[^"]+"[^>]*>${words.find.label}</label>`))
@@ -55,11 +56,67 @@ describe('Find a store', () => {
   })
 
   it('says when nothing matches, while searching, and when the search failed (?state=nomatch, searching, failed)', async () => {
-    expect(textOf(await find({ kind: 'found', rows: [] }, 'zz'))).toContain(words.find.none)
+    expect(textOf(await find({ kind: 'found', rows: [], more: false }, 'zz'))).toContain(words.find.none)
     expect(textOf(await find({ kind: 'searching' }, 'me'))).toContain(words.find.searching)
     const failed = await find({ kind: 'failed' }, 'me')
     expect(textOf(failed)).toContain(words.find.failed)
     expect(buttons(failed)).toEqual([words.find.retry])
+  })
+})
+
+describe('Find a store’s search', () => {
+  afterEach(() => void vi.useRealTimers())
+  const pageOf = (rows: readonly StoreRow[], more = false): StorePage => ({ items: [...rows], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: more }, partners: [] })
+  const rows = () => sample.list({}, {}, 25).items
+
+  it('waits 250 ms after typing stops, then searches once and says whether more match', async () => {
+    vi.useFakeTimers()
+    const search = vi.fn(async () => pageOf(rows(), true))
+    const results: FindResult[] = []
+    searchAfterTyping('mer', search, (result) => results.push(result))
+    await vi.advanceTimersByTimeAsync(249)
+    expect(search).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(search).toHaveBeenCalledWith('mer')
+    expect(results).toEqual([{ kind: 'found', rows: rows(), more: true }])
+  })
+
+  it('drops a search typed over before it was sent, and an answer that arrives after newer typing', async () => {
+    vi.useFakeTimers()
+    const search = vi.fn(async () => pageOf(rows()))
+    const results: FindResult[] = []
+    searchAfterTyping('m', search, (result) => results.push(result))()
+    await vi.advanceTimersByTimeAsync(300)
+    expect(search).not.toHaveBeenCalled()
+    let answer: (page: StorePage) => void = () => undefined
+    const cancel = searchAfterTyping('me', () => new Promise((resolve) => (answer = resolve)), (result) => results.push(result))
+    await vi.advanceTimersByTimeAsync(250)
+    cancel()
+    answer(pageOf(rows()))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(results).toEqual([])
+  })
+
+  it('says the search failed when the API does', async () => {
+    vi.useFakeTimers()
+    const results: FindResult[] = []
+    searchAfterTyping('me', () => Promise.reject(new Error('down')), (result) => results.push(result))
+    await vi.advanceTimersByTimeAsync(250)
+    expect(results).toEqual([{ kind: 'failed' }])
+  })
+
+  it('opens with ?q= typed, and Enter opens the first store found', async () => {
+    expect(typedFrom({ q: 'meridian' })).toBe('meridian')
+    expect(typedFrom({ q: 3 })).toBe('')
+    expect(await render(<FindStore />, '/?q=meridian')).toContain('value="meridian"')
+    expect(firstFound({ kind: 'found', rows: rows(), more: false })?.id).toBe(rows()[0]?.id)
+    expect(firstFound({ kind: 'found', rows: [], more: false })).toBeUndefined()
+    expect(firstFound({ kind: 'searching' })).toBeUndefined()
+  })
+
+  it('tells the person to type more when the API has more stores than one page', async () => {
+    expect(textOf(await find({ kind: 'found', rows: rows(), more: true }, 'a'))).toContain(words.find.more)
+    expect(textOf(await find({ kind: 'found', rows: rows(), more: false }, 'a'))).not.toContain(words.find.more)
   })
 })
 
@@ -91,6 +148,16 @@ describe('the short store view', () => {
     const html = await render(<PhoneStore store={storeOf('s1', 'staff-support')} onAction={noop} />)
     expect(html).toMatch(/<button[^>]*disabled=""/)
     expect(textOf(html)).toContain(messages.stores.verbs.suspend)
+  })
+
+  it('opens ?state=confirm on the phone’s one action, and on the first allowed one on a laptop', () => {
+    const store = storeOf('s1')
+    expect(confirmOpening(phoneStore(store, 'active'), true)).toEqual({ kind: 'store', action: 'suspend' })
+    expect(confirmOpening(phoneStore(store, 'suspended'), true)).toEqual({ kind: 'store', action: 'restore' })
+    expect(confirmOpening(phoneStore(store, 'cancelled'), true)).toBeNull()
+    expect(confirmOpening(store, false)).not.toBeNull()
+    // A refused action opens no dialog on a phone either; the short view shows it disabled.
+    expect(confirmOpening(phoneStore(storeOf('s1', 'staff-support'), 'active'), true)).toBeNull()
   })
 
   it('confirms through the same dialog as a laptop: a reason, and the on-call note for an Engineer on call', () => {

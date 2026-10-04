@@ -1,6 +1,6 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
-import { useEffect, useId, useState, type FormEvent } from 'react'
-import { loadStores, type StoreRow } from '../../api/stores'
+import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
+import { loadStores, type StorePage, type StoreRow } from '../../api/stores'
 import { messages } from '../../messages'
 import { useScreenState } from '@dripfunnel/shared/ui'
 import { harnessEnabled } from '../../harness'
@@ -16,7 +16,30 @@ const typingDelayMs = 250
 export const findStates = ['nomatch', 'searching', 'failed'] as const
 export type FindState = (typeof findStates)[number]
 
-export type FindResult = { kind: 'searching' } | { kind: 'failed' } | { kind: 'found'; rows: readonly StoreRow[] }
+// `more`: the API's page (its own maximum) has a next one, so typing more narrows the search.
+export type FindResult = { kind: 'searching' } | { kind: 'failed' } | { kind: 'found'; rows: readonly StoreRow[]; more: boolean }
+
+// Waits for typing to stop, then searches; the canceller drops a search not yet sent and any
+// answer still on its way, so an older search never replaces a newer one.
+export const searchAfterTyping = (q: string, search: (q: string) => Promise<StorePage>, onResult: (result: FindResult) => void): (() => void) => {
+  let current = true
+  const timer = setTimeout(() => {
+    search(q).then(
+      (page) => current && onResult({ kind: 'found', rows: page.items, more: page.pageInfo.hasNextPage }),
+      () => current && onResult({ kind: 'failed' }),
+    )
+  }, typingDelayMs)
+  return () => {
+    current = false
+    clearTimeout(timer)
+  }
+}
+
+// A link with ?q= (the Stores list's search) opens with it typed; Find a store has no filters.
+export const typedFrom = (search: { q?: unknown }): string => (typeof search.q === 'string' ? search.q : '')
+
+// Enter opens the first store found.
+export const firstFound = (result: FindResult): StoreRow | undefined => (result.kind === 'found' ? result.rows[0] : undefined)
 
 export interface FindStoreViewProps {
   typed: string
@@ -81,6 +104,7 @@ export const FindStoreView = ({ typed, result, onType, onRetry, onSubmit }: Find
           ))}
         </ul>
       )}
+      {result.kind === 'found' && result.more && <p className="df-phone-status">{words.more}</p>}
     </div>
   )
 }
@@ -90,38 +114,39 @@ export const FindStoreView = ({ typed, result, onType, onRetry, onSubmit }: Find
 export const FindStore = () => {
   const forced = useScreenState(findStates, harnessEnabled)
   const navigate = useNavigate()
-  // A link with ?q= (the Stores list's search) opens with it typed; Find a store has no filters.
   const linked = useRouterState({ select: (state) => state.location.search }) as { q?: unknown }
-  const [typed, setTyped] = useState(() => (typeof linked.q === 'string' ? linked.q : ''))
+  const [typed, setTyped] = useState(() => typedFrom(linked))
   const [attempt, setAttempt] = useState(0)
   const [result, setResult] = useState<FindResult>({ kind: 'searching' })
+  // Go pressed before the search answered: open the first store once it does.
+  const [goWhenFound, setGoWhenFound] = useState(false)
   const q = typed.trim()
 
   useEffect(() => {
     if (forced) return
-    let current = true
     setResult({ kind: 'searching' })
-    const timer = setTimeout(() => {
-      loadStores(q === '' ? {} : { q }, {})
-        .then((page) => current && setResult({ kind: 'found', rows: page.items }))
-        .catch(() => current && setResult({ kind: 'failed' }))
-    }, typingDelayMs)
-    return () => {
-      current = false
-      clearTimeout(timer)
-    }
+    return searchAfterTyping(q, (text) => loadStores(text === '' ? {} : { q: text }, {}), setResult)
   }, [q, attempt, forced])
 
-  const shown: FindResult = forced === 'nomatch' ? { kind: 'found', rows: [] } : forced === 'searching' ? { kind: 'searching' } : forced === 'failed' ? { kind: 'failed' } : result
-  const first = shown.kind === 'found' ? shown.rows[0] : undefined
+  const shown: FindResult = forced === 'nomatch' ? { kind: 'found', rows: [], more: false } : forced === 'searching' ? { kind: 'searching' } : forced === 'failed' ? { kind: 'failed' } : result
+  const first = firstFound(shown)
+  const open = useCallback((store: StoreRow) => void navigate({ to: '/stores/$storeId', params: { storeId: store.id } }), [navigate])
+  useEffect(() => {
+    if (!goWhenFound || shown.kind === 'searching') return
+    setGoWhenFound(false)
+    if (first) open(first)
+  }, [goWhenFound, shown.kind, first, open])
 
   return (
     <FindStoreView
       typed={typed}
       result={shown}
-      onType={setTyped}
+      onType={(text) => {
+        setGoWhenFound(false)
+        setTyped(text)
+      }}
       onRetry={() => setAttempt((count) => count + 1)}
-      onSubmit={() => first && void navigate({ to: '/stores/$storeId', params: { storeId: first.id } })}
+      onSubmit={() => (first ? open(first) : setGoWhenFound(shown.kind === 'searching'))}
     />
   )
 }

@@ -2193,7 +2193,8 @@
       "searching": "Searching…",
       "failed": "Stores couldn’t be loaded. Nothing was changed.",
       "retry": "Try again",
-      "resultsLabel": "Stores"
+      "resultsLabel": "Stores",
+      "more": "More stores match. Type more of the name, domain, code or email to narrow it."
     },
     "store": {
       "back": "Find a store",

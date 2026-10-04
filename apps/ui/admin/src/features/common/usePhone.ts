@@ -10,9 +10,6 @@ const subscribe = (onChange: () => void) => {
   return () => query.removeEventListener('change', onChange)
 }
 
-export const usePhone = (): boolean =>
-  useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(phoneQuery).matches,
-    () => false,
-  )
+export const isPhone = (): boolean => window.matchMedia(phoneQuery).matches
+
+export const usePhone = (): boolean => useSyncExternalStore(subscribe, isPhone, () => false)

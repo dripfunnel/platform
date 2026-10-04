@@ -1,7 +1,7 @@
 import { EnvironmentBanner, environmentFor, ExportWatcher, NavDrawer, navView, SideNav } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet, useRouter, useRouterState } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { loadActivityExport } from '../../api/activity'
 import { messages } from '../../messages'
 import { useSessionsVersion } from '../impersonate/sessionEvents'
@@ -25,7 +25,14 @@ export const AppShell = () => {
   const router = useRouter()
   const sessionsVersion = useSessionsVersion()
   const routeId = useRouterState({ select: (state) => state.matches.at(-1)?.routeId })
-  const view = usePhone() ? phoneView(routeId) : null
+  const phone = usePhone()
+  const view = phone ? phoneView(routeId) : null
+  // Pages a phone skipped loading (the Dashboard, Stores) load once the screen widens.
+  const wasPhone = useRef(phone)
+  useEffect(() => {
+    if (wasPhone.current && !phone) void router.invalidate()
+    wasPhone.current = phone
+  }, [phone, router])
   // A session started or ended here moves the badge and the page under it at once.
   useEffect(() => {
     if (sessionsVersion > 0) void router.invalidate()

@@ -27,8 +27,12 @@ type Pending = { kind: 'store'; action: DialogAction } | { kind: 'job'; action: 
 const dialogActions: readonly DialogAction[] = ['suspend', 'restore', 'extendTrial', 'resendInvite']
 
 // ?state=confirm opens the first action this store offers, its signup job's first, so its
-// dialog can be checked.
-const firstAllowed = (store: Store | null): Pending | null => {
+// dialog can be checked; on a phone, the one action the short view offers.
+export const confirmOpening = (store: Store | null, phone: boolean): Pending | null => {
+  if (phone) {
+    const action = store && phoneAction(store)
+    return action && store.actions[action]?.allowed ? { kind: 'store', action } : null
+  }
   const job = jobActions.find((action) => store?.job?.actions[action]?.allowed)
   if (job) return { kind: 'job', action: job }
   const action = dialogActions.find((candidate) => store?.actions[candidate]?.allowed)
@@ -55,11 +59,7 @@ export const StoreDetailScreen = () => {
   const store = denied && phone && phoneForced ? phoneStore(denied, phoneForced) : denied
   const router = useRouter()
   const navigate = useNavigate()
-  const [pending, setPending] = useState<Pending | null>(() => {
-    if (forced !== 'confirm') return null
-    const action = phone && store ? phoneAction(store) : null
-    return phone ? action && { kind: 'store', action } : firstAllowed(store)
-  })
+  const [pending, setPending] = useState<Pending | null>(() => (forced === 'confirm' ? confirmOpening(store, phone) : null))
   const [toast, setToast] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
   const failed = (error: unknown) => setToast(failureText(error, messages.store.toasts.failed))
