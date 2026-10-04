@@ -1,5 +1,8 @@
+import { identityChanged } from '@dripfunnel/shared/ui'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { acceptInvitation, groupedKey, invitation, requestPasswordReset, safeNext, signIn, signOut, skipSecondFactor, startEnrolment, verifySecondFactor } from './auth'
+import { acceptInvitation, enrolSecondFactor, groupedKey, invitation, requestPasswordReset, safeNext, signIn, signOut, skipSecondFactor, startEnrolment, verifySecondFactor } from './auth'
+
+vi.mock('@dripfunnel/shared/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('@dripfunnel/shared/ui')>()), identityChanged: vi.fn() }))
 
 // The network is the edge being tested: each call's request, and how every answer is read.
 const answer = vi.fn<(route: string, init: RequestInit) => Promise<Response>>()
@@ -7,6 +10,7 @@ const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.
 
 beforeEach(() => {
   answer.mockReset()
+  vi.mocked(identityChanged).mockClear()
   vi.stubGlobal('fetch', (route: string, init: RequestInit) => answer(route, init))
 })
 afterEach(() => vi.unstubAllGlobals())
@@ -120,4 +124,44 @@ describe('safeNext', () => {
       expect(safeNext(next, origin)).toBe('/dashboard')
     },
   )
+})
+
+// The cache every tab shares (shared/ui sharedSessionReads.ts) is cleared whenever the person changes.
+describe('a change of who is signed in', () => {
+  const signedIn = [
+    ['sign-in', () => signIn('a@b.co', 'pw', '/dashboard'), { ok: true, step: 'done' }],
+    ['second-factor', () => verifySecondFactor('123456'), { ok: true }],
+    ['accept-invitation', () => acceptInvitation('tok', 'Maya', 'a-long-password'), { ok: true, secondFactorRequired: false }],
+    ['enrol-second-factor', () => enrolSecondFactor('123456'), { ok: true }],
+    ['skip-second-factor', () => skipSecondFactor(), { ok: true }],
+  ] as const
+
+  it.each(signedIn)('clears every tab after a successful %s', async (_route, call, body) => {
+    answer.mockReturnValue(json(body))
+    await call()
+    expect(identityChanged).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(signedIn)('leaves them alone when %s is refused or unreadable', async (_route, call) => {
+    answer.mockReturnValueOnce(json({ ok: false, code: 'INVALID_CREDENTIALS' }, 401))
+    await call()
+    answer.mockReturnValueOnce(json({ surprise: true }))
+    await call()
+    expect(identityChanged).not.toHaveBeenCalled()
+  })
+
+  it('does not clear them for a request that signs no one in', async () => {
+    answer.mockReturnValue(json({ ok: true }))
+    await requestPasswordReset('a@b.co')
+    expect(identityChanged).not.toHaveBeenCalled()
+  })
+
+  it('clears them on sign-out, before the form leaves', () => {
+    const order: string[] = []
+    vi.mocked(identityChanged).mockImplementation(() => void order.push('cleared'))
+    const form = { method: '', action: '', submit: () => void order.push('submitted') }
+    vi.stubGlobal('document', { createElement: () => form, body: { append: () => undefined } })
+    signOut()
+    expect(order).toEqual(['cleared', 'submitted'])
+  })
 })
