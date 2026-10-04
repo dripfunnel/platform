@@ -238,7 +238,7 @@
   transform: rotate(90deg);
 }
 
-.df-activity-facts {
+.df-store-activity-facts {
   margin: 0 0 var(--df-space-3) calc(1rem + var(--df-space-3));
 }
 
