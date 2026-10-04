@@ -32,6 +32,7 @@ import { reasonText } from '#saas/staff/index'
 import { extendTrial as extendStoreTrial, reissueOwnerInvitation, transitionStore } from '#saas/stores/index'
 import { actionsFor, type ActionRefusal, type StoreAction } from './verdicts'
 import { prorate, signed, type Proration } from './proration'
+import { trialChoices, trialEndAfter } from './trial'
 
 // The store actions of FIRST-RELEASE §6.4 (card #160). Each one asks `actionsFor` on the locked
 // row, so a mutation refuses exactly what `store(id)`'s block shows.
@@ -72,7 +73,7 @@ const absentReason = (action: StoreAction, status: StoreStatus): StateRefusal =>
 const merchantText = reasonText.refine((text) => !/[\p{Cc}<>]/u.test(text))
 const id = z.guid()
 const planChange = z.strictObject({ planId: z.guid(), when: z.enum(['next', 'now']), reason: reasonText })
-const trialChange = z.strictObject({ days: z.union([z.literal(3), z.literal(7), z.literal(14)]), reason: reasonText })
+const trialChange = z.strictObject({ days: z.literal(trialChoices), reason: reasonText })
 const overrideInput = z.strictObject({
   limit: z.enum(amountKeys),
   amount: z.number().int().min(1).max(1_000_000),
@@ -196,8 +197,7 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
     if (!parsed.success) return Promise.resolve({ ok: false, reason: 'INVALID_INPUT' })
     const { days, reason } = parsed.data
     return act<{ trialEndsAt: Date }>(storeId, 'extendTrial', async (tx, store, _row, at) => {
-      const from = store.trial_ends_at && store.trial_ends_at > at ? store.trial_ends_at : at
-      const trialEndsAt = new Date(from.getTime() + days * 24 * 60 * 60 * 1000)
+      const trialEndsAt = trialEndAfter(store.trial_ends_at, days, at)
       // The admin console's own transition, so a guard added there holds here too.
       if (!(await extendStoreTrial(tx, store, trialEndsAt)).ok) return { ok: false, reason: 'NOT_ON_TRIAL' }
       await extendSubscriptionTrial(tx, store.id, trialEndsAt)

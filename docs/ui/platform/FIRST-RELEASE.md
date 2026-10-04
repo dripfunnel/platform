@@ -847,6 +847,8 @@ api/README.md §2.1); a partner id in a request is not authority.
   `NO_BILLING_DATE` for "next" on a store billing has not subscribed yet. The
   merchant's email goes through the outbox.
 - `extendTrial(id, days, reason)`: 3, 7 or 14 days from the later of the trial's end and now.
+  `store(id).trialOffers` sends those three with the end each would give, on the server's clock, so
+  the dialog shows what the API will grant (decided on #166's review).
   A plan change scheduled for the trial's end moves with it.
 - `addLimitOverride` and `removeLimitOverride(id, overrideId, reason)`: `stores.plan`, since
   ACCESS §5.3 has no permission of its own for overrides. A month override is for the

@@ -17,6 +17,7 @@ import { createPartnerCreateStore, createPermissionFor, type CreatePermission } 
 import { createPartnerStoresExport } from './export'
 import { storeFilter, toStoreFilter } from './filter'
 import { decodePage, pageOf, type PageRequest } from '#saas/staff/index'
+import { trialChoices, trialEndAfter } from './trial'
 
 export { storeFilter, toStoreFilter, type StoreFilterInput } from './filter'
 export { createAudit, type CreatePermission } from './create'
@@ -193,6 +194,8 @@ export const createPartnerStoresService = ({ sql, caller, facts, activity, now }
           error: redactSecretsInText(row.job_last_error),
         },
         trialExtensions: extensions.slice(0, detailListSize).map((e) => ({ days: e.days, endsAt: e.ends_at })),
+        // What Extend trial would grant now, on the server's clock (§6.4).
+        trialOffers: row.status === 'trial' ? trialChoices.map((days) => ({ days, endsAt: trialEndAfter(row.trial_ends_at, days, at) })) : [],
         support: {
           allowed: row.support_access_allowed,
           people: people.map((p) => ({ id: p.user_id, name: p.name, email: p.email, role: p.role_key, supplier: p.seller_name, status: p.user_status, lastSignInAt: p.last_sign_in_at })),
