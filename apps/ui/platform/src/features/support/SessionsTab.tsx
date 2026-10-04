@@ -2,11 +2,10 @@ import { StatusPill } from '@dripfunnel/shared/ui'
 import { ticketError } from '@dripfunnel/shared/format'
 import type { SupportSession } from '../../api/support'
 import { fill, formatTime, messages } from '../../messages'
+import { ShowMore, type More } from '../common/paged'
 import { minutesLeft, refusalText, whereText } from './supportText'
 
 const words = messages.support
-
-type More = { show: boolean; busy: boolean; failed: boolean }
 
 export interface SessionsTabProps {
   open: readonly SupportSession[]
@@ -21,19 +20,6 @@ export interface SessionsTabProps {
   onMore: () => void
   onOpenMore: () => void
 }
-
-const ShowMore = ({ more, onMore }: { more: More; onMore: () => void }) => (
-  <>
-    {more.failed && <p role="alert">{words.moreFailed}</p>}
-    {more.show && (
-      <div className="df-show-more">
-        <button type="button" className="df-button" disabled={more.busy} onClick={onMore}>
-          {words.showMore}
-        </button>
-      </div>
-    )}
-  </>
-)
 
 const Who = ({ session }: { session: SupportSession }) => (
   <div className="df-support-session-who">
@@ -106,7 +92,7 @@ export const SessionsTab = ({ open, openMore, history, now, returning, more, onR
           })}
         </ul>
       )}
-      <ShowMore more={openMore} onMore={onOpenMore} />
+      <ShowMore more={openMore} onMore={onOpenMore} label={words.showMore} failed={words.moreFailed} />
     </section>
     <section className="df-panel df-panel--wide" aria-labelledby="support-history">
       <h2 id="support-history">{words.history}</h2>
@@ -127,7 +113,7 @@ export const SessionsTab = ({ open, openMore, history, now, returning, more, onR
           ))}
         </ul>
       )}
-      <ShowMore more={more} onMore={onMore} />
+      <ShowMore more={more} onMore={onMore} label={words.showMore} failed={words.moreFailed} />
     </section>
   </div>
 )
