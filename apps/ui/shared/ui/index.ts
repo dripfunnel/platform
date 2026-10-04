@@ -72,7 +72,8 @@ export {
   type PortalHarnessState,
   type PortalSessionFixture,
 } from './staffSessionFixture'
-export { sessionPollMs, useNow, usePolling } from './usePolling'
+export { pollWhileVisible, sessionPollMs, useNow, usePolling } from './usePolling'
+export { identityChanged } from './sharedSessionReads'
 export { createPortalSession, useHandoff, type HandoffResult, type PortalSession, type PortalSessionApi, type PortalSessionOptions } from './portalSession'
 export { staffSessionCopy, type StaffSessionFormat, type StaffSessionWords } from './staffSessionCopy'
 export { handoffPath, handoffSearch, HandoffScreen, PortalSessionRoot, SessionControls, useCurrentStaffSession, type HandoffScreenProps, type HandoffWords, type PortalSessionRootProps, type SessionControlsProps } from './PortalSessionRoot'

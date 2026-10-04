@@ -11,9 +11,9 @@ const answers = (...bodies: unknown[]) => {
 const session = { id: 's1', kind: 'setup', state: 'open', endedBy: null, staffName: 'Arjun Menon', actingAs: null, partnerName: 'Northstar', host: 'platform.localhost', expiresAt: '2026-10-04T14:00:00.000Z' }
 
 describe('the staff session poll', () => {
-  it('keeps the last answer when the poll is over its limit, so the bar never errors mid-session', async () => {
-    answers({ ok: true, session }, { ok: false, code: 'RATE_LIMITED' })
-    expect(await staffSession.current()).toMatchObject({ id: 's1', kind: 'setup' })
+  it('rejects a refused poll rather than answering "no session", then reads the next answer', async () => {
+    answers({ ok: false, code: 'RATE_LIMITED' }, { ok: true, session })
+    await expect(staffSession.current()).rejects.toThrow()
     expect(await staffSession.current()).toMatchObject({ id: 's1', kind: 'setup' })
   })
 

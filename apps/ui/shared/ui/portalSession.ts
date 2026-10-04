@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { createSharedSessionReads } from './sharedSessionReads'
 import type { PortalStaffSession } from './staffSession'
 import { createPortalSessionFixture, isFixtureHandoff, type PortalHarnessState, type PortalSessionFixtureOptions } from './staffSessionFixture'
 
@@ -32,18 +33,24 @@ export const createPortalSession = ({ harnessEnabled, api, ...fixtureOptions }: 
     listeners.add(listener)
     return () => void listeners.delete(listener)
   }
+  const reads = api ? createSharedSessionReads() : null
+  // Another tab entered or ended a session: this one shows it without waiting for a poll.
+  reads?.onChanged(changed)
 
   return {
     exchange: async (token: string): Promise<PortalStaffSession | null> => {
       const session = harnessEnabled && isFixtureHandoff(token) ? fixture.enter(token) : api ? await api.exchange(token) : await notConnected()
+      reads?.changed()
       changed()
       return session
     },
-    current: async (): Promise<PortalStaffSession | null> => (harnessEnabled ? fixture.current() : null) ?? (api ? api.current() : null),
-    notice: async (): Promise<PortalStaffSession | null> => (harnessEnabled ? fixture.notice() : null) ?? (api ? api.notice() : null),
+    current: async (): Promise<PortalStaffSession | null> => (harnessEnabled ? fixture.current() : null) ?? (api && reads ? reads.read('current', api.current) : null),
+    notice: async (): Promise<PortalStaffSession | null> => (harnessEnabled ? fixture.notice() : null) ?? (api && reads ? reads.read('notice', api.notice) : null),
     end: async (id: string): Promise<void> => {
       if (harnessEnabled && fixture.current()?.id === id) return fixture.end(id)
-      return api ? api.end(id) : notConnected()
+      if (!api) return notConnected()
+      await api.end(id)
+      reads?.changed()
     },
     harness: (state: PortalHarnessState) => {
       if (!harnessEnabled) return
