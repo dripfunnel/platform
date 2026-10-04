@@ -3,6 +3,7 @@ import { agentOf, type PartnerCaller, type PartnerConsoleState, partnerContextOf
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { PartnerSetupItemRow } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
+import { countRetrying } from '#db/scoped/partnerBilling'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { searchPartnerStores, selectBillingMode, selectNavCounts, selectOpenSetupSessionOn, selectShellFacts, type StoreSearchRow } from '#db/scoped/partnerConsole'
 import { selectOpenPortalSessionOn } from '#db/scoped/staffPortal'
@@ -122,8 +123,12 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
   }
 
   const navBadges = async (): Promise<NavBadges> => {
-    const counts = await withScope(sql, context, (tx) => selectNavCounts(tx, partnerId, stuckAfterMinutes, now()))
-    return { storesAttention: counts.stores_attention, brandingSetupLeft: counts.branding_left, domainsWaiting: counts.domains_waiting, billingFailedPayments: 0, supportOpenSessions: counts.support_open }
+    const { counts, failed } = await withScope(sql, context, async (tx) => ({
+      counts: await selectNavCounts(tx, partnerId, stuckAfterMinutes, now()),
+      // §2.1: merchants' failed payments, only when DripFunnel bills them.
+      failed: (await selectBillingMode(tx, partnerId)) === 'dripfunnel' ? await countRetrying(tx, partnerId) : 0,
+    }))
+    return { storesAttention: counts.stores_attention, brandingSetupLeft: counts.branding_left, domainsWaiting: counts.domains_waiting, billingFailedPayments: failed, supportOpenSessions: counts.support_open }
   }
 
   const search = async (query: string): Promise<StoreSearchRow[]> => {

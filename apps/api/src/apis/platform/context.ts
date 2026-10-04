@@ -2,6 +2,8 @@ import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { SecretBox } from '#auth/secretBox'
+import type { StripeApi } from '#integrations/stripe/index'
+import { createPartnerBillingService } from '#saas/billing/index'
 import { createPartnerActivityService } from '#saas/partnerActivity/index'
 import { createPartnerBrandingService } from '#saas/partnerBranding/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -19,13 +21,15 @@ export interface PlatformContextDeps {
   facts: RequestFacts
   activity: ActivityLog
   secrets: SecretBox | null
+  // DripFunnel's Stripe account; null until its keys are Worker secrets (THIRD-PARTY-ACCESS §2.7).
+  stripe: StripeApi | null
   now: () => Date
 }
 
-export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null }
+export const signedOutContext: PlatformContext = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, activity: null, team: null, reports: null, support: null, billing: null }
 
 /** Every Platform API service for the caller, whichever kind it is (#243). */
-export const platformContextFor = (caller: PartnerCaller | null, { secrets, ...base }: PlatformContextDeps): PlatformContext => {
+export const platformContextFor = (caller: PartnerCaller | null, { secrets, stripe, ...base }: PlatformContextDeps): PlatformContext => {
   if (!caller) return signedOutContext
   const deps = { ...base, caller }
   return {
@@ -42,5 +46,6 @@ export const platformContextFor = (caller: PartnerCaller | null, { secrets, ...b
     reports: createPartnerReportsService(deps),
     // A partner user's own; no staff session reaches it (apis/platform/support.ts).
     support: caller.user && !caller.staff ? createPartnerSupportService({ ...deps, user: caller.user, secrets }) : null,
+    billing: createPartnerBillingService({ ...deps, stripe }),
   }
 }

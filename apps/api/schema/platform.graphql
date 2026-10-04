@@ -43,6 +43,25 @@ type ActivityTarget {
   type: String
 }
 
+type BillingPageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type BillingResult {
+  ok: Boolean
+  reason: String
+}
+
+type BillingSettings {
+  asOf: String
+  mode: String
+  payoutAccount: PayoutAccount
+  staleSince: String
+}
+
 type BrandFiles {
   favicon: String
   logoDark: String
@@ -259,6 +278,12 @@ type GrowthRow {
   trialToPaidBps: Int
 }
 
+type InvoiceLink {
+  ok: Boolean
+  reason: String
+  url: String
+}
+
 type Me {
   email: String
   id: ID
@@ -285,6 +310,24 @@ type MerchantDomainPageInfo {
   hasNextPage: Boolean
   hasPreviousPage: Boolean
   startCursor: String
+}
+
+type MerchantPayment {
+  amount: Money
+  at: String
+  cardLast4: String
+  id: ID
+  kind: String
+  note: String
+  status: String
+  storeId: ID
+  storeName: String
+}
+
+type MerchantPaymentsPage {
+  failed: [RetryingPayment!]
+  items: [MerchantPayment!]
+  pageInfo: BillingPageInfo
 }
 
 scalar MinorUnits
@@ -332,6 +375,9 @@ type Mutation {
   retryProvisioningStep(id: ID!): StoreActionResult
   returnToSupportSession(id: ID!): SupportSessionLink
   revokeTeamInvite(id: ID!): TeamResult
+  setBillingMode(mode: String!): BillingResult
+  setPaymentMethod(token: String!): BillingResult
+  setPayoutAccount(token: String!): BillingResult
   setSecondFactorPolicy(required: Boolean!): TeamResult
   setStoreBillingStatus(id: ID!, status: String!): StoreBillingStatusResult
   startSupportSession(membershipId: ID!, proof: String!, reason: String!, ticket: String): SupportSessionLink
@@ -347,6 +393,13 @@ type NavBadges {
   domainsWaiting: Int
   storesAttention: Int
   supportOpenSessions: Int
+}
+
+type NextPayout {
+  date: String
+  soFar: Money
+  state: String
+  toLast4: String
 }
 
 type Onboarding {
@@ -491,6 +544,37 @@ type PartnerDomains {
   fallbackSender: String
 }
 
+type PartnerInvoice {
+  amount: Money
+  at: String
+  id: ID
+  number: String
+  status: String
+  what: String
+}
+
+type PartnerInvoicesPage {
+  items: [PartnerInvoice!]
+  pageInfo: BillingPageInfo
+}
+
+type PartnerPayout {
+  adjustment: PayoutAdjustment
+  collected: Money
+  fee: Money
+  id: ID
+  month: String
+  paidOn: String
+  payout: Money
+  status: String
+  toLast4: String
+}
+
+type PartnerPayoutsPage {
+  items: [PartnerPayout!]
+  pageInfo: BillingPageInfo
+}
+
 type PartnerPlanFee {
   fee: Money
   plan: String
@@ -541,9 +625,28 @@ type PartnerStoreRow {
   storefront: String
 }
 
+type PaymentMethod {
+  brand: String
+  expires: String
+  last4: String
+  status: String
+}
+
 type PaymentOutcomes {
   failed: Int
   recovered: Int
+}
+
+type PayoutAccount {
+  bank: String
+  failure: String
+  last4: String
+  status: String
+}
+
+type PayoutAdjustment {
+  amount: Money
+  note: String
 }
 
 type Plan {
@@ -717,20 +820,28 @@ type Query {
   activityExport(id: ID!): ActivityExportJob
   activityLog(after: String, before: String, filter: PartnerActivityFilterInput, first: Int): PartnerActivityPage
   activityPeople(query: String!): [ActivityPerson!]
+  billingSettings: BillingSettings
   branding: Branding
   changePlanOptions(storeId: ID!): ChangePlanOptions
   checkContrast(accent: String!, primary: String!): ContrastReport
   createStoreForm: CreateStoreForm
   dashboard(range: String!): PartnerDashboard
+  downloadInvoice(id: ID!): InvoiceLink
   health: String
   me: Me
   merchantDomains(after: String, before: String, first: Int): MerchantDomainPage
+  merchantPayments(after: String, before: String, first: Int): MerchantPaymentsPage
   mySupportSession: SupportSession
   navBadges: NavBadges
+  nextPayout: NextPayout
   onboarding: Onboarding
   partnerCompany: PartnerCompany
   partnerDomains: PartnerDomains
+  partnerInvoices(after: String, before: String, first: Int): PartnerInvoicesPage
   partnerState: PartnerState
+  paymentMethod: PaymentMethod
+  payoutAccount: PayoutAccount
+  payouts(after: String, before: String, first: Int): PartnerPayoutsPage
   personTimeline(after: String, before: String, filter: PartnerActivityFilterInput, first: Int, person: String!): PartnerActivityPage
   planEditor(id: ID): PlanEditor
   plans(after: String, first: Int): PlansPage
@@ -813,6 +924,17 @@ input RetirePlanInput {
 type RetireTarget {
   id: ID
   name: String
+}
+
+type RetryingPayment {
+  amount: Money
+  attempt: Int
+  attempts: Int
+  cardLast4: String
+  retryAt: String
+  storeId: ID
+  storeName: String
+  why: String
 }
 
 type RevenueReport {

@@ -102,7 +102,7 @@ const current = async (cookie: string) => ((await (await post('staff-session', {
 const callerFor = (cookie: string) => resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie } }), clock, activityLog)
 
 const platformRun = async <T>(source: string, caller: PartnerCaller | null, variables: Record<string, unknown> = {}) => {
-  const contextValue = platformContextFor(caller, { sql: db.sql, facts: factsOf(new Request(`https://${host}/api`)), activity: activityLog, secrets: null, now: () => clock })
+  const contextValue = platformContextFor(caller, { sql: db.sql, facts: factsOf(new Request(`https://${host}/api`)), activity: activityLog, secrets: null, stripe: null, now: () => clock })
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   return { data: result.data as T | null, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }
@@ -222,13 +222,15 @@ describe('the blocked lists', () => {
       .sort()
   }
   const support = ['endSupportSession', 'mySupportSession', 'reauthenticate', 'returnToSupportSession', 'startSupportSession', 'supportSessions', 'supportTargets']
+  // Payment and payout details stay with the partner (ACCESS §8.1, §8.2; #201).
+  const moneyDetails = ['setPaymentMethod', 'setPayoutAccount']
 
   it('refuses an impersonation ownership, the team’s sign-in rule, and the user’s own second factor and support access', () => {
-    expect(blockedFields('impersonation')).toEqual([...support, 'setSecondFactorPolicy', 'transferOwnership'].sort())
+    expect(blockedFields('impersonation')).toEqual([...support, ...moneyDetails, 'setSecondFactorPolicy', 'transferOwnership'].sort())
   })
 
   it('refuses a setup session ownership and support access, which need a partner user', () => {
-    expect(blockedFields('setup')).toEqual([...support, 'transferOwnership'].sort())
+    expect(blockedFields('setup')).toEqual([...support, ...moneyDetails, 'transferOwnership'].sort())
   })
 
   it('keeps who is Owner the partner’s own decision: no staff session makes, demotes or removes one', async () => {

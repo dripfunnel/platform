@@ -13,7 +13,7 @@ those two win.
 **Status: specification only.** `apps/api/src/saas/` is an empty folder. Nothing below is
 built; which release each part ships in is **(release: decide)** unless it says otherwise.
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 ---
 
@@ -348,6 +348,14 @@ partner's billing, or both) is open (§14).
   inserted first, and a duplicate is acknowledged and ignored. Webhooks arrive more than once
   and out of order; the handler reads the current object from Stripe rather than trusting the
   event's order.
+- **Built on #201** (`hooks/stripe.ts`, `saas/billing`): the signature is checked within five
+  minutes, the object is read back from Stripe before anything is written, and the event id and
+  its effects are one transaction, so a replay or a late event changes nothing twice. A merchant's
+  subscription invoice is one `merchant_charge` row whichever retry paid it, a refund its own row;
+  a Connect payout fills the month before it arrives, whatever the month's charges don't explain
+  being its adjustment. Stripe slow answers 503 so Stripe delivers again, and marks the partner's
+  feed stale. Store-side writes (`store_subscription`, the merchant's invoices) are the Store
+  strand's (ui/store/FIRST-RELEASE.md §20, SAPI 19).
 - The webhook updates `store_subscription` (or the partner's account), invalidates the cached
   status on sessions, and writes outbox events for emails and storefront rules, in one
   transaction.
