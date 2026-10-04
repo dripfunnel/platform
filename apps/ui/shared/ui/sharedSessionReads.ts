@@ -36,13 +36,20 @@ export const createSharedSessionReads = ({ now = Date.now, channel: makeChannel 
   const inFlight = new Map<SessionRead, Promise<Answer>>()
   const listeners = new Set<() => void>()
   let noStaffSession = false
+  // A session started or ended since a read began makes its answer stale: it is dropped, never kept.
+  let generation = 0
+  let changedAt = Number.NEGATIVE_INFINITY
 
   const remember = (read: SessionRead, value: Answer, at: number) => {
+    if (at < changedAt) return
     cache.set(read, { value, at })
     if (read === 'current') noStaffSession = value === null
   }
   const forget = () => {
+    generation += 1
+    changedAt = now()
     cache.clear()
+    inFlight.clear()
     noStaffSession = false
   }
   const channel = makeChannel()
@@ -58,18 +65,21 @@ export const createSharedSessionReads = ({ now = Date.now, channel: makeChannel 
       if (read === 'current' && noStaffSession) return Promise.resolve(null)
       const hit = cache.get(read)
       if (hit && now() - hit.at < sessionFreshMs) return Promise.resolve(hit.value)
-      let pending = inFlight.get(read)
-      if (!pending) {
-        pending = load()
-          .then((value) => {
-            const at = now()
-            remember(read, value, at)
-            channel?.postMessage({ type: 'answer', read, value, at })
-            return value
-          })
-          .finally(() => inFlight.delete(read))
-        inFlight.set(read, pending)
-      }
+      const existing = inFlight.get(read)
+      if (existing) return existing
+      const asked = generation
+      const pending: Promise<Answer> = load()
+        .then((value) => {
+          if (asked !== generation) return value
+          const at = now()
+          remember(read, value, at)
+          channel?.postMessage({ type: 'answer', read, value, at })
+          return value
+        })
+        .finally(() => {
+          if (inFlight.get(read) === pending) inFlight.delete(read)
+        })
+      inFlight.set(read, pending)
       return pending
     },
     /** This tab entered or ended a session: every tab asks again. */
@@ -83,4 +93,14 @@ export const createSharedSessionReads = ({ now = Date.now, channel: makeChannel 
       return () => void listeners.delete(listener)
     },
   }
+}
+
+/**
+ * Someone signed in or out: every tab of this portal drops what it heard, so a different user in
+ * the same browser never sees the last one's answers. A new channel reaches this tab's reads too.
+ */
+export const identityChanged = (): void => {
+  const channel = openChannel()
+  channel?.postMessage({ type: 'changed' })
+  ;(channel as BroadcastChannel | null)?.close()
 }

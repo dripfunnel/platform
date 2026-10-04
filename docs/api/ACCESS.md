@@ -984,7 +984,8 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
     answers `SESSION_NOT_ENDED`. Both routes sit outside the sign-in bucket, since the console
     polls them. One poll every 15 s serves all of a browser's tabs (shared over a
     BroadcastChannel, `shared/ui/sharedSessionReads.ts`); a hidden tab doesn't poll; and once the
-    answer is "no session" the console stops asking until a tab enters or ends one. A request
+    answer is "no session" the console stops asking until a tab enters or ends one. A read in flight
+    when a session starts or ends is dropped, and signing in or out clears every tab's answers. A request
     without a staff cookie reads nothing. One with it counts against
     `STAFF_SESSION_RATE_LIMITER` (120 a minute per address, enough for many tabs). The console
     keeps its last answer when it's refused.

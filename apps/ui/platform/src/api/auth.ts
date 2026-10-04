@@ -1,3 +1,4 @@
+import { identityChanged } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { partnerRoles } from '../features/shell/partnerRoles'
 
@@ -52,6 +53,9 @@ const refusalOf = (answer: z.infer<typeof refusalSchema>): AuthRefusal => {
 const notConnected: AuthRefusal = { ok: false, code: 'NOT_CONNECTED' }
 const timeoutMs = 15_000
 
+// The routes that change who this browser is signed in as (sharedSessionReads.ts `identityChanged`).
+const signInRoutes = new Set(['sign-in', 'second-factor', 'accept-invitation', 'enrol-second-factor', 'skip-second-factor'])
+
 const post = async <Schema extends z.ZodType>(route: string, body: Record<string, unknown>, done: Schema): Promise<z.infer<Schema> | AuthRefusal> => {
   try {
     const response = await fetch(`/api/auth/${route}`, {
@@ -65,7 +69,9 @@ const post = async <Schema extends z.ZodType>(route: string, body: Record<string
     const refused = refusalSchema.safeParse(answer)
     if (refused.success) return refusalOf(refused.data)
     const parsed = done.safeParse(answer)
-    return parsed.success ? (parsed.data as z.infer<Schema>) : notConnected
+    if (!parsed.success) return notConnected
+    if (signInRoutes.has(route)) identityChanged()
+    return parsed.data as z.infer<Schema>
   } catch {
     return notConnected
   }
@@ -108,6 +114,7 @@ export const signOut = (): void => {
   const form = document.createElement('form')
   form.method = 'post'
   form.action = '/api/auth/sign-out'
+  identityChanged()
   document.body.append(form)
   form.submit()
 }

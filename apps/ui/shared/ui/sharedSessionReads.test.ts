@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createSharedSessionReads, sessionFreshMs, type SessionChannel } from './sharedSessionReads'
+import { createSharedSessionReads, identityChanged, sessionFreshMs, type SessionChannel } from './sharedSessionReads'
 import type { PortalStaffSession } from './staffSession'
 
 /** Tabs of one browser: what one posts, every other receives (BroadcastChannel never echoes). */
@@ -76,5 +76,43 @@ describe('shared staff-session reads', () => {
     deliver?.({ data: 'changed' } as MessageEvent)
     expect(await reads.read('notice', notice.load)).toBeNull()
     expect(notice.calls.n).toBe(1)
+  })
+
+  it('drops an answer that was on its way when a session started, so "mine" is asked again', async () => {
+    const reads = createSharedSessionReads({ channel: () => null })
+    let answer: (value: PortalStaffSession | null) => void = () => undefined
+    const stale = reads.read('current', () => new Promise((resolve) => (answer = resolve)))
+    reads.changed()
+    answer(null)
+    expect(await stale).toBeNull()
+    const entered = counting(session)
+    expect(await reads.read('current', entered.load)).toEqual(session)
+    expect(entered.calls.n).toBe(1)
+  })
+
+  it("ignores another tab's answer from before this tab's change", async () => {
+    let clock = 100
+    let deliver: ((event: MessageEvent) => void) | undefined
+    const reads = createSharedSessionReads({ now: () => clock, channel: () => ({ postMessage: () => undefined, addEventListener: (_t, l) => (deliver = l) }) })
+    reads.changed()
+    clock = 101
+    deliver?.({ data: { type: 'answer', read: 'notice', value: session, at: 99 } } as MessageEvent)
+    const notice = counting(null)
+    expect(await reads.read('notice', notice.load)).toBeNull()
+    expect(notice.calls.n).toBe(1)
+  })
+
+  it('forgets everything when someone signs in or out, in every tab', async () => {
+    const reads = createSharedSessionReads()
+    const first = counting(session)
+    await reads.read('notice', first.load)
+    let told = 0
+    reads.onChanged(() => (told += 1))
+    identityChanged()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(told).toBe(1)
+    const next = counting(null)
+    expect(await reads.read('notice', next.load)).toBeNull()
+    expect(next.calls.n).toBe(1)
   })
 })

@@ -3,6 +3,28 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // The session contract on #46: read every 15 s and whenever the tab comes back into view.
 export const sessionPollMs = 15_000
 
+interface PageEvents {
+  addEventListener: (type: string, listener: () => void) => void
+  removeEventListener: (type: string, listener: () => void) => void
+}
+
+/**
+ * Calls `refresh` now and every `intervalMs` while the page is visible, and again when it comes
+ * back into view; a background tab doesn't ask. Returns the cleanup.
+ */
+export const pollWhileVisible = (refresh: () => void, intervalMs: number, { doc, win }: { doc: PageEvents & { visibilityState: string }; win: PageEvents }) => {
+  refresh()
+  const timer = setInterval(() => doc.visibilityState !== 'hidden' && refresh(), intervalMs)
+  const onShown = () => doc.visibilityState === 'visible' && refresh()
+  win.addEventListener('focus', onShown)
+  doc.addEventListener('visibilitychange', onShown)
+  return () => {
+    clearInterval(timer)
+    win.removeEventListener('focus', onShown)
+    doc.removeEventListener('visibilitychange', onShown)
+  }
+}
+
 // Polls `load` while it is set, drops answers that arrive after a newer one, and refreshes on focus.
 export const usePolling = <Value,>(load: (() => Promise<Value>) | null, intervalMs: number = sessionPollMs) => {
   const [value, setValue] = useState<Value | null>(null)
@@ -21,20 +43,7 @@ export const usePolling = <Value,>(load: (() => Promise<Value>) | null, interval
   }, [])
 
   const active = load !== null
-  useEffect(() => {
-    if (!active) return
-    refresh()
-    // A tab in the background doesn't ask; it catches up when it is shown again (below).
-    const timer = setInterval(() => document.visibilityState !== 'hidden' && refresh(), intervalMs)
-    const onFocus = () => document.visibilityState === 'visible' && refresh()
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onFocus)
-    return () => {
-      clearInterval(timer)
-      window.removeEventListener('focus', onFocus)
-      document.removeEventListener('visibilitychange', onFocus)
-    }
-  }, [active, intervalMs, refresh])
+  useEffect(() => (active ? pollWhileVisible(refresh, intervalMs, { doc: document, win: window }) : undefined), [active, intervalMs, refresh])
 
   return { value, refresh }
 }
