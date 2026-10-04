@@ -65,7 +65,8 @@ const isUniqueViolation = (error: unknown): boolean =>
  * left untouched. The attempt is counted here, so a relay that dies mid-delivery still moves
  * the row towards its limit. `skip locked` lets two sweeps run at once without sharing a row.
  */
-export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Date, limit: number, leaseMs: number, heldTemplates: readonly string[] = []): Promise<OutboxRow[]> => {
+/** `held`: `kind:template` pairs left unclaimed (outbox-relay.ts `heldTemplates`). */
+export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Date, limit: number, leaseMs: number, held: readonly string[] = []): Promise<OutboxRow[]> => {
   const leaseExpired = new Date(now.getTime() - leaseMs)
   return tx<OutboxRow[]>`
     update outbox set attempts = attempts + 1, claimed_at = ${now}
@@ -73,7 +74,7 @@ export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Dat
       select id from outbox
       where delivered_at is null and failed_at is null
         and kind = any(${pgArray(kinds)}::text[])
-        and coalesce(payload->>'template', '') <> all(${pgArray(heldTemplates)}::text[])
+        and kind || ':' || coalesce(payload->>'template', '') <> all(${pgArray(held)}::text[])
         and next_attempt_at <= ${now}
         and (claimed_at is null or claimed_at < ${leaseExpired})
       order by next_attempt_at

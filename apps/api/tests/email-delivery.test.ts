@@ -196,6 +196,47 @@ describe('email delivery', () => {
     expect(ses.sent[0]?.to).toEqual(expect.arrayContaining([northstar.ownerEmail, northstar.financeEmail, 'late.finance@northstar.example']))
     expect(ses.sent[0]?.to.some((a) => a.startsWith('filler'))).toBe(false)
   })
+
+  it("tells only a store's live Owners: never a suspended, deleted or never-joined one", async () => {
+    await db.sql`delete from email_suppression`
+    const owner = async (email: string, user: string, membership: string) => {
+      const [u] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${store.partnerId}, ${email}, 'Co-owner', ${user}) returning id`
+      await db.sql`insert into membership (user_id, store_id, role_key, status) values (${u?.id ?? ''}, ${store.id}, 'owner', ${membership})`
+    }
+    await owner('suspended.owner@shop.example', 'active', 'suspended')
+    await owner('deleted.owner@shop.example', 'deleted', 'active')
+    await owner('invited.owner@shop.example', 'invited', 'invited')
+    await queue('store-plan-changed', { storeId: store.id, planId: (await db.sql<{ id: string }[]>`select id from plan where partner_id = ${store.partnerId} limit 1`)[0]?.id, when: 'now', contact: 'partner-support' }, { partnerId: store.partnerId, storeId: store.id })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect(ses.sent.map((m) => m.to)).toEqual([[store.ownerEmail]])
+  })
+
+  it('tells a live Owner about a live domain even when an earlier Owner was removed', async () => {
+    const [domain] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${northstar.id} limit 1`
+    await db.sql`update partner_user set status = 'removed' where partner_id = ${northstar.id} and lower(email) = lower(${northstar.ownerEmail})`
+    await db.sql`insert into partner_user (partner_id, email, name, role_key, status) values (${northstar.id}, 'second.owner@northstar.example', 'Second Owner', 'partner-owner', 'active')`
+    await queue('partner-domain-live', { partnerId: northstar.id, domainId: domain?.id, kind: 'portal' }, { partnerId: northstar.id, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api)
+    expect(ses.sent.map((m) => m.to)).toEqual([['second.owner@northstar.example']])
+  })
+
+  it("holds a template only for the kind that declared it", async () => {
+    await withSystemScope(db.sql, (tx) =>
+      queueSideEffect(tx, { kind: 'test.other', idempotencyKey: 'held-elsewhere', payload: { template: 'store-owner-invitation' }, partnerId: null, storeId: null }),
+    )
+    const seen: string[] = []
+    const ses = fakeSes()
+    await relayDue(
+      db.sql,
+      { email: emailDeliverer(db.sql, ses.api, { hosts, senderDomain, suppressionKey, now: () => now }), 'test.other': { deliver: async (effect) => void seen.push(effect.kind) } },
+      { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) },
+    )
+    expect(seen).toEqual(['test.other'])
+    const [held] = await db.sql<{ attempts: number }[]>`select attempts from outbox where kind = 'email' and payload->>'template' = 'store-owner-invitation'`
+    expect(held?.attempts).toBe(0)
+  })
 })
 
 describe('SES hook', () => {

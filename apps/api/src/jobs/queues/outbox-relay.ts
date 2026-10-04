@@ -110,7 +110,8 @@ export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: 
   const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
-  const held = Object.values(deliverers).flatMap((d) => d.heldTemplates ?? [])
+  // A hold is the declaring kind's only: `kind:template`, never a template name across kinds.
+  const held = Object.entries(deliverers).flatMap(([kind, d]) => (d.heldTemplates ?? []).map((template) => `${kind}:${template}`))
   const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, held))
   for (const row of rows) {
     const deliverer = deliverers[row.kind]

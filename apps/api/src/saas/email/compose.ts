@@ -5,7 +5,7 @@ import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
-import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectPartnerOwner } from '#db/scoped/partners'
+import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts } from '#db/scoped/partners'
 import { selectStore, selectStorePeople } from '#db/scoped/stores'
 import { senderLabel } from '#saas/domains/index'
 import { en } from './messages'
@@ -55,13 +55,11 @@ const templateOf = z.object({ template: z.string() }).loose()
 
 const link = (host: string, path: string, token: string) => `https://${host}${path}?token=${encodeURIComponent(token)}`
 
-const owner = async (tx: ScopedSql, partnerId: string) => {
-  const row = await selectPartnerOwner(tx, partnerId)
-  return row && row.status !== 'suspended' ? [row.email] : []
-}
-
 // SES takes 50 recipients a message (integrations/ses).
 const maxRecipients = 50
+
+// Every active Owner: a removed or invited first Owner never hides a live one.
+const owner = (tx: ScopedSql, partnerId: string) => selectActivePartnerEmails(tx, partnerId, ['partner-owner'], maxRecipients)
 
 // Billing is the Owner's and Finance's to fix (billing.write).
 const billingPeople = (tx: ScopedSql, partnerId: string) => selectActivePartnerEmails(tx, partnerId, ['partner-owner', 'partner-finance'], maxRecipients)
@@ -81,8 +79,11 @@ const partnerBrand = async (tx: ScopedSql, partnerId: string): Promise<{ brand: 
   return { brand, voice: { kind: 'partner', label: senderLabel(await selectPartnerHosts(tx, partnerId)) } }
 }
 
+// Owners whose membership and account are both live: never a suspended, deleted or never-joined one.
 const storeOwners = async (tx: ScopedSql, storeId: string) =>
-  (await selectStorePeople(tx, storeId)).filter((p) => p.role_key === 'owner' && p.seller_id === null).map((p) => p.email)
+  (await selectStorePeople(tx, storeId))
+    .filter((p) => p.role_key === 'owner' && p.seller_id === null && p.status === 'active' && p.user_status === 'active')
+    .map((p) => p.email)
 
 /** The store, its Owners and its partner's look, for every email about a store. */
 const merchant = async (tx: ScopedSql, storeId: string) => {
