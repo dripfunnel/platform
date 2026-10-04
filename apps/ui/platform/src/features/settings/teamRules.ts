@@ -1,3 +1,4 @@
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 import type { TeamMember } from '../../api/settings'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { messages } from '../../messages'
@@ -43,3 +44,7 @@ export const rolesFor = (role: PartnerRole, all: readonly PartnerRole[], session
 
 // Who can take over: an active member who isn't the Owner already.
 export const transferCandidates = (team: readonly TeamMember[]) => team.filter((member) => member.status === 'active' && member.role !== 'partner-owner')
+
+// The invite form's fields as the API takes them, or null while one won't do.
+export const inviteFrom = (name: string, email: string, role: PartnerRole): { name: string; email: string; role: PartnerRole } | null =>
+  name.trim() && looksLikeEmail(email) ? { name: name.trim(), email: email.trim(), role } : null

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { changeTeamRole, inviteTeamMember, loadSettings, transferOwnership } from './settings'
+import { changeTeamRole, inviteTeamMember, loadMoreTeam, loadSettings, transferOwnership } from './settings'
 
 // The team rules are the Platform API's (apps/api tests/platform-settings); these check the client.
 const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
@@ -20,6 +20,12 @@ describe('settings', () => {
     const settings = await loadSettings()
     expect(settings.company.secondFactorRequired).toBe(true)
     expect(settings.team.items[0]).toMatchObject({ you: true, role: 'partner-owner' })
+  })
+
+  it('asks the next page of the team by its cursor', async () => {
+    answer.mockReturnValueOnce({ data: { team: { items: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: true, hasNextPage: false } } } })
+    await loadMoreTeam('c1')
+    expect(answer.mock.calls[0]?.[0].variables).toEqual({ after: 'c1' })
   })
 
   it('reads each change’s refusal by code, and errors on a code it doesn’t know', async () => {
