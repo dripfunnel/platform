@@ -40,8 +40,8 @@ const q = {
   revenue: `query($f: ReportFilterInput) { reportRevenue(filter: $f) { fresh summary currency currencyNote rows { month collected { amount currency } fee { amount } payout { amount } } bars { label amount { amount currency } } mrr { plan amount { amount currency } approximate } payments { failed recovered } } }`,
   plans: `query($f: ReportFilterInput) { reportPlans(filter: $f) { fresh summary rows { plan stores } changes { from to stores } } }`,
   performance: `query($f: ReportFilterInput) { reportStorePerformance(filter: $f) { fresh summary note rows { storeId store sales { amount currency } orders changeBps declining } declining { store storeId } decliningTruncated } }`,
-  usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
-  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { summary medianSeconds failed domainsStuck rows { kind storeId store } } }`,
+  usage: `query($f: ReportFilterInput) { reportUsage(filter: $f) { fresh summary truncated rows { storeId percentBps } meters { aiPrompts publishNow } } }`,
+  setup: `query($f: ReportFilterInput) { reportSetupHealth(filter: $f) { fresh summary medianSeconds failed domainsStuck rows { kind storeId store } } }`,
 }
 
 type Rev = { reportRevenue: { fresh: boolean; summary: string; currency: string; currencyNote: string | null; rows: { collected: { amount: number }; fee: { amount: number } }[]; bars: { amount: { amount: number; currency: string } }[]; mrr: { amount: { amount: number } }[] } }
@@ -158,6 +158,11 @@ describe('scope', () => {
     for (const [query, key] of [[q.growth, 'reportGrowth'], [q.revenue, 'reportRevenue'], [q.plans, 'reportPlans'], [q.performance, 'reportStorePerformance']] as const) {
       const r = (await run<Record<string, { fresh: boolean; summary: string }>>(query, fresh)).data?.[key]
       expect(r, key).toMatchObject({ fresh: true, summary: 'Reports fill in as your first merchants sign up.' })
+    }
+    // Usage and Setup health keep their own sentence, and say they have nothing to fill in yet.
+    for (const [query, key] of [[q.usage, 'reportUsage'], [q.setup, 'reportSetupHealth']] as const) {
+      expect((await run<Record<string, { fresh: boolean }>>(query, fresh)).data?.[key]?.fresh, key).toBe(true)
+      expect((await run<Record<string, { fresh: boolean }>>(query, callerOf(ids.ns))).data?.[key]?.fresh, key).toBe(false)
     }
   })
 

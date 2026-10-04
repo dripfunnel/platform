@@ -824,6 +824,7 @@ type RevenueRow {
 type SetupHealthReport {
   domainsStuck: Int
   failed: Int
+  fresh: Boolean
   medianSeconds: Int
   rows: [SetupProblemRow!]
   summary: String
@@ -1228,6 +1229,7 @@ type UsageMeters {
 }
 
 type UsageReport {
+  fresh: Boolean
   meters: UsageMeters
   rows: [UsageReportRow!]
   summary: String

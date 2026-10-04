@@ -177,6 +177,9 @@ export interface SetupProblem {
   since: Date
 }
 
+/** Whether the partner has any store yet in this scope: none means the reports have nothing to fill in (§10). */
+export const hasAnyStore = async (tx: ScopedSql, s: ReportScope): Promise<boolean> => (await tx`select 1 from store s where ${storeWhere(tx, s)} limit 1`).length > 0
+
 /** The stores concerned: setups stuck or failed now, and custom domains waiting for DNS over a day. */
 export const selectSetupProblems = (tx: ScopedSql, s: ReportScope, stuckAfterMinutes: Readonly<Record<ProvisioningStep, number>>, now: Date, limit: number): Promise<SetupProblem[]> =>
   tx<SetupProblem[]>`

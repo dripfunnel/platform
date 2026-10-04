@@ -2,6 +2,7 @@ import type { Money } from '@dripfunnel/shared/format'
 import { ApiError, type ExportJob } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
+import { exportJobFields, exportJobSchema, readExportJob } from './exportJob'
 
 // Reports on the Platform API (FIRST-RELEASE.md §10, §16). Every figure, bar and summary sentence
 // is the API's; the console draws them and computes nothing. Percentages arrive as basis points.
@@ -53,6 +54,7 @@ const stores = z.object({ summary: z.string(), fresh: z.boolean(), note: z.strin
 
 const usage = z.object({
   summary: z.string(),
+  fresh: z.boolean(),
   meters: z.object({ aiPrompts: z.number().int(), publishNow: z.number().int() }),
   rows: z.array(z.object({ storeId: z.string(), store: z.string(), limit: z.string(), used: z.number().int(), cap: z.number().int().nullable(), percentBps: z.number().int() })),
   truncated: z.boolean(),
@@ -60,6 +62,7 @@ const usage = z.object({
 
 const setup = z.object({
   summary: z.string(),
+  fresh: z.boolean(),
   medianSeconds: z.number().int().nullable(),
   failed: z.number().int(),
   domainsStuck: z.number().int(),
@@ -74,8 +77,8 @@ const fields = {
   plans: 'reportPlans(filter: $filter) { summary fresh bars { label count } rows { plan stores } changes { from to stores } }',
   stores:
     'reportStorePerformance(filter: $filter) { summary fresh note truncated decliningTruncated rows { storeId store plan sales { amount currency } orders changeBps declining } declining { storeId store plan sales { amount currency } orders changeBps declining } }',
-  usage: 'reportUsage(filter: $filter) { summary truncated meters { aiPrompts publishNow } rows { storeId store limit used cap percentBps } }',
-  setup: 'reportSetupHealth(filter: $filter) { summary medianSeconds failed domainsStuck truncated rows { kind storeId store detail since } }',
+  usage: 'reportUsage(filter: $filter) { summary fresh truncated meters { aiPrompts publishNow } rows { storeId store limit used cap percentBps } }',
+  setup: 'reportSetupHealth(filter: $filter) { summary fresh medianSeconds failed domainsStuck truncated rows { kind storeId store detail since } }',
 } as const
 
 const schemas = { growth, revenue, plans, stores, usage, setup } as const
@@ -114,27 +117,5 @@ export const startReportExport = async (tab: ReportTab, filter: ReportFilter): P
   return { id: started.jobId, state: 'preparing', entries: null, url: null, expiresAt: null }
 }
 
-const exportLinks = new Map<string, string>()
-const exportStates = { queued: 'preparing', done: 'ready', failed: 'failed', too_large: 'tooLarge', expired: 'expired' } as const
-
-export const loadReportExport = async (id: string): Promise<ExportJob | null> => {
-  const { reportExport: job } = await query(
-    `query Job($id: ID!) { reportExport(id: $id) { id state rows truncated csv expiresAt } }`,
-    z.object({
-      reportExport: z.object({ id: z.string(), state: z.enum(['queued', 'done', 'failed', 'too_large', 'expired']), rows: z.number().int().nullable(), truncated: z.boolean().nullable(), csv: z.string().nullable(), expiresAt: z.string().nullable() }).nullable(),
-    }),
-    { id },
-  )
-  if (!job) return null
-  const state = exportStates[job.state]
-  const known = exportLinks.get(job.id)
-  if (state !== 'ready' || job.csv === null) {
-    if (known) URL.revokeObjectURL(known)
-    exportLinks.delete(job.id)
-    return { id: job.id, state: state === 'ready' ? 'failed' : state, entries: job.rows, url: null, expiresAt: job.expiresAt, truncated: job.truncated ?? false }
-  }
-  const url = known ?? URL.createObjectURL(new Blob([job.csv], { type: 'text/csv' }))
-  if (!known && job.expiresAt) setTimeout(() => (URL.revokeObjectURL(url), exportLinks.delete(job.id)), Math.max(0, Date.parse(job.expiresAt) - Date.now()))
-  exportLinks.set(job.id, url)
-  return { id: job.id, state, entries: job.rows, url, expiresAt: job.expiresAt, truncated: job.truncated ?? false }
-}
+export const loadReportExport = async (id: string): Promise<ExportJob | null> =>
+  readExportJob((await query(`query Job($id: ID!) { reportExport(id: $id) { ${exportJobFields} } }`, z.object({ reportExport: exportJobSchema.nullable() }), { id })).reportExport)
