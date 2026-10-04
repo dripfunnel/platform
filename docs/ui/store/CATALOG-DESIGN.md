@@ -34,7 +34,8 @@ It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §3 D (flows 20–29) and the cata
 > the first platform's portal's screens (sign-in, store settings, people, suppliers, warehouses) are
 > the visual baseline, and their look and words carry over unless the engine changes what they
 > can say. The left bar has **Products**, **Collections** (with three tabs: Collections,
-> Filters and Menus) and, when approval is on, **To approve**.
+> Filters and Menus) and, when approval is on, **To approve** (in the first release a "Waiting for
+> approval" chip in Products instead, ui/store/FIRST-RELEASE.md §3.1).
 >
 > **Who this is for.** Picture a first-time seller **anywhere in the world**: a boutique in
 > Ohio, a ceramicist in Lisbon, a spice shop in Manchester, a kurta brand in Jaipur, a skincare
@@ -860,7 +861,8 @@ with validation before any write, partial-failure reports, and translation and c
 - L1. Approval off: a vendor's product goes live immediately. The vendor is told so.
 - L2. Approval on: the vendor's save becomes "Submit for approval". The status reads "Waiting
   for approval", and there is no visibility control.
-- L3. Merchant review (the To approve screen): see the product as the shopper would, approve,
+- L3. Merchant review (the To approve screen; in the first release the review panel opened from
+  Products' "Waiting for approval" chip, FIRST-RELEASE §3.1): see the product as the shopper would, approve,
   or "Send back" with a required reason.
 - L4. The vendor sees "Sent back: [reason]", edits and resubmits.
 - L5. Merchant edits a pending vendor product before approving.

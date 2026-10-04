@@ -291,7 +291,7 @@ The Platform prototype's provider list also has Adyen.
 | **Razorpay** | IN | Key ID, key secret | Webhook secret the merchant sets in Razorpay | Razorpay **Route** if vendors are paid out (PLATFORM-PROMPT §10 *(ask)*) |
 | **Cashfree** | IN | App ID (client ID), secret key | Signed with the secret key | In the old plugins and the api layout |
 | **PayPal** | US, DE | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
-| **Klarna** | DE | API username (UID) + password, region (EU/NA/OC) | Push/notification URLs | Usually through Stripe or Adyen instead *(decide)* |
+| **Klarna** | DE | API username (UID) + password, region (EU/NA/OC) | Push/notification URLs | **Not at launch**: a Store-prototype demo control only (above); usually through Stripe or Adyen when the EU comes *(decide then)* |
 | **PhonePe** | IN | Merchant ID, salt key + salt index (legacy), or client ID + secret (current PG API) | Callback checksum | — |
 | **Adyen** | Platform prototype list | API key, merchant account, client key (public), HMAC key | HMAC | Usually for larger merchants |
 | **Cash on delivery, bank transfer** | IN, DE | No credential; bank details as text for the shopper | — | Orders stay "Payment pending" until marked paid |

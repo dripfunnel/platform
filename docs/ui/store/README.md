@@ -93,7 +93,7 @@ authoritative; this table must match it).
 | Products | all, edit | all, edit | all, **read-only** | own, **quantity only** | own, create and edit | own, create and edit |
 | Collections, filters, menus | edit | edit | read-only | | | |
 | Import / export | ✓ | ✓ | export | own export | own | own |
-| To approve (when approval is on) | ✓ | | | | | |
+| Approve products (the "Waiting for approval" chip in Products, when approval is on; FIRST-RELEASE §3.1) | ✓ | | | | | |
 | Offers | ✓ | ✓ (no plan prompts) | read-only list | **never** | **never** | **never** |
 | Offer codes export *(confirm)* | ✓ | ✓ | | | | |
 | Storefront (AI designer, publish) | ✓ | read-only | | | | |

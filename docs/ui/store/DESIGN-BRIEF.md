@@ -332,8 +332,9 @@ Developers (flow 76) and Settings › Support access (flow 78).
     shipping zones *(ask)*. Whatever the rule, the interface has to make it visible rather
     than surprising.
 55. **Shipping charges**: Owner. Free, charged, or free above a threshold.
-56. **Payment methods**: Owner. The merchant's own provider credentials (Stripe and
-    Razorpay first), offered according to the store's region.
+56. **Payment methods**: Owner. The merchant's own provider credentials (the first release's
+    seven: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer;
+    PLATFORM-PROMPT §8), offered according to the store's region.
 57. **Taxes and tax registrations**: Owner. Home country and selling markets, tax
     registrations per country (VAT number, EU OSS, US sales-tax permits, GSTIN…), tax
     classes and their rates by zone, and tax-inclusive or tax-exclusive pricing
