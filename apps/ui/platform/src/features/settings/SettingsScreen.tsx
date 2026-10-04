@@ -126,7 +126,7 @@ export const SettingsScreen = () => {
           <TeamTab team={members.items} role={me.role} session={session && session.state === 'open' ? session.kind : null} readOnly={readOnly} busy={busy} more={{ show: members.more, busy: moreState === 'busy', failed: moreState === 'failed' }} onRun={onRun} onMore={onMore} />
         )}
         {tab === 'payout' && <PayoutTab setupSession={session?.kind === 'setup'} partner={me.partner.name} />}
-        {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
+        {tab === 'security' && <SecurityTab required={data.company.secondFactorRequired} team={members.items} complete={!members.more} blocked={session && session.state === 'open' && session.kind === 'impersonation' ? messages.settings.team.refusals.BLOCKED_WHILE_IMPERSONATING : null} isOwner={me.role === 'partner-owner' && !readOnly} busy={busy} session={session} onChange={onPolicy} />}
       </Settings>
       <Toast message={toast} onDone={clearToast} />
     </>

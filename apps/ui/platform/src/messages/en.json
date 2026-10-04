@@ -507,7 +507,9 @@
       "saved": {
         "on": "2-factor is now required for everyone.",
         "off": "2-factor is now each person’s choice."
-      }
+      },
+      "offForPartial": "Among those loaded so far, 2-factor is off for: {names}. Show more of the team on the Team tab to see everyone.",
+      "allOnPartial": "Everyone loaded so far has 2-factor on. Show more of the team on the Team tab to see everyone."
     }
   },
   "controls": {
