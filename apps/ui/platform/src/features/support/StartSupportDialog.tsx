@@ -1,9 +1,9 @@
 import { ticketError } from '@dripfunnel/shared/format'
 import { reserveTab } from '@dripfunnel/shared/ui'
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react'
-import { endSupportSession, reauthenticate, returnToSupportSession, startSupportSession, type Reauth, type SupportSession, type SupportTarget } from '../../api/support'
+import { endSupportSession, reauthenticate, returnToSupportSession, startSupportSession, type SupportSession, type SupportTarget } from '../../api/support'
 import { fill, messages } from '../../messages'
-import { blockingSession, codeComplete, firstStep, openIn, startWith, type Outcome, type StartStep } from './startFlow'
+import { afterOutcome, codeComplete, firstStep, openIn, startWith, type Outcome, type StartStep } from './startFlow'
 import { firstOf, minutesLeft, refusalText, roleText } from './supportText'
 
 const words = messages.support.start
@@ -18,12 +18,6 @@ export interface StartSupportDialogProps {
   // Something changed on the server (started, ended, refused as stale): the page reads again.
   onChanged: () => void
   onStarted: (name: string, tabBlocked: boolean) => void
-}
-
-export const reauthText = (r: Extract<Reauth, { ok: false }>): string => {
-  if (r.reason === 'WRONG_CODE') return r.triesLeft ? fill(words.reauth.WRONG_CODE, { tries: String(r.triesLeft) }) : words.reauth.WRONG_CODE_LAST
-  if (r.reason === 'LOCKED') return r.lockedMinutes ? fill(words.reauth.LOCKED, { minutes: String(r.lockedMinutes) }) : words.reauth.LOCKED_NO_TIME
-  return words.reauth[r.reason]
 }
 
 // §12.2: Step 1 · Why, Step 2 · Confirm with the caller's own 2-factor code (ACCESS.md §8), then
@@ -83,24 +77,22 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
     setStep('msg')
   }
 
-  const settle = (outcome: Outcome, tabBlocked: boolean) => {
+  const settle = (outcome: Outcome, from: 'start' | 'return', tabBlocked: boolean) => {
     onChanged()
-    switch (outcome.kind) {
-      case 'opened':
+    const next = afterOutcome(outcome, from, target, mine)
+    switch (next.to) {
+      case 'done':
         onStarted(target.name, tabBlocked)
         return onClose()
-      case 'badCode':
+      case 'confirm':
         setCode('')
-        setCodeError(reauthText(outcome.refusal))
+        setCodeError(next.error)
         return setStep('confirm')
       case 'busy':
-        setOther(blockingSession(outcome.sessionId, mine))
+        setOther(next.other)
         return setStep('busy')
-      case 'refused':
-        if (outcome.reason !== 'REAUTH_REQUIRED') return fail(refusalText(outcome.reason, target))
-        setCode('')
-        setCodeError(refusalText(outcome.reason))
-        return setStep('confirm')
+      case 'msg':
+        return fail(next.text)
     }
   }
 
@@ -112,7 +104,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
       reauthenticate,
       start: (proof) => startSupportSession({ membershipId: target.membershipId, reason: reason.trim(), ticket: ticket.trim() === '' ? null : ticket.trim(), proof }),
     })
-      .then((outcome) => settle(outcome, tab.blocked))
+      .then((outcome) => settle(outcome, 'start', tab.blocked))
       .catch(() => fail(messages.support.toasts.failed))
   }
 
@@ -123,7 +115,7 @@ export const StartSupportDialog = ({ target, mine, partner, me, onClose, onChang
     const tab = reserveTab()
     setReturning(true)
     openIn(tab, () => returnToSupportSession(id))
-      .then((outcome) => settle(outcome, tab.blocked))
+      .then((outcome) => settle(outcome, 'return', tab.blocked))
       .catch(() => fail(messages.support.toasts.failed))
       .finally(() => setReturning(false))
   }

@@ -1,4 +1,5 @@
 import type { Opened, Reauth, SupportRefusal, SupportSession, SupportTarget } from '../../api/support'
+import { reauthText, refusalText } from './supportText'
 
 export type StartStep = 'blocked' | 'busy' | 'return' | 'why' | 'confirm' | 'starting' | 'msg'
 
@@ -56,3 +57,24 @@ export const startWith = (tab: OpeningTab, code: string, api: { reauthenticate: 
     const proof = await api.reauthenticate(code)
     return proof.ok ? api.start(proof.proof) : { kind: 'badCode', refusal: proof }
   })
+
+export type After =
+  | { to: 'done' }
+  | { to: 'confirm'; error: string }
+  | { to: 'busy'; other: ReturnType<typeof blockingSession> }
+  | { to: 'msg'; text: string }
+
+// Where the dialog goes next. Only a start goes back to its code; a refused Return has no form
+// to go back to, so it says why and stops.
+export const afterOutcome = (outcome: Outcome, from: 'start' | 'return', target: SupportTarget, mine: SupportSession | null): After => {
+  switch (outcome.kind) {
+    case 'opened':
+      return { to: 'done' }
+    case 'badCode':
+      return { to: 'confirm', error: reauthText(outcome.refusal) }
+    case 'busy':
+      return from === 'start' ? { to: 'busy', other: blockingSession(outcome.sessionId, mine) } : { to: 'msg', text: refusalText('SUPPORT_SESSION_ALREADY_OPEN') }
+    case 'refused':
+      return from === 'start' && outcome.reason === 'REAUTH_REQUIRED' ? { to: 'confirm', error: refusalText(outcome.reason) } : { to: 'msg', text: refusalText(outcome.reason, target) }
+  }
+}

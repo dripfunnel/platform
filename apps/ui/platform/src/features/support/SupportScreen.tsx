@@ -8,7 +8,7 @@ import { fill, messages } from '../../messages'
 import { SessionsTab } from './SessionsTab'
 import { Support, SupportError, SupportLoading, SupportRefused } from './Support'
 import { openIn } from './startFlow'
-import { supportStates } from './supportHarness'
+import { searchState, supportStates } from './supportHarness'
 import { refusalText } from './supportText'
 import { useStartSupport } from './useStartSupport'
 import { UsersTab } from './UsersTab'
@@ -65,10 +65,11 @@ export const SupportScreen = () => {
   const loaded = data.refused ? null : data
   const reload = useCallback(() => void router.invalidate(), [router])
 
-  // A search reads its own first page; clearing it goes back to the loader's.
+  // A search reads its own first page; until it lands, nothing of the last one stays on screen.
   useEffect(() => {
+    setFound(null)
     setSearchFailed(false)
-    if (!search) return setFound(null)
+    if (!search) return
     let live = true
     loadSupportTargets(search, {}).then(
       (page) => live && setFound(page),
@@ -80,6 +81,8 @@ export const SupportScreen = () => {
   }, [search, loaded])
 
   const users = usePaged(search ? found : (loaded?.users ?? null), (after) => loadSupportTargets(search, { after }))
+  const usersState = searchState(search, found, searchFailed)
+  const openNow = usePaged(loaded?.open ?? null, (after) => loadSupportSessions(true, { after }))
   const history = usePaged(loaded?.history ?? null, (after) => loadSupportSessions(false, { after }))
 
   if (forced === 'loading') return <SupportLoading />
@@ -118,17 +121,18 @@ export const SupportScreen = () => {
       <Support tab={tab} openCount={badges.supportOpenSessions}>
         {tab === 'users' && (
           <UsersTab
-            users={users.items}
+            users={usersState === 'ready' ? users.items : []}
+            state={usersState}
             search={search}
             partner={me.partner.name}
             me={me.name}
-            more={{ ...users.more, failed: users.more.failed || searchFailed }}
+            more={usersState === 'ready' ? users.more : { show: false, busy: false, failed: false }}
             onSearch={setSearch}
             onMore={users.onMore}
             onOpen={(target) => start.open(target, mine)}
           />
         )}
-        {tab === 'sessions' && <SessionsTab open={loaded.open.items} history={history.items} now={now} more={history.more} returning={returning} onReturn={returnTo} onEnd={setEnding} onMore={history.onMore} />}
+        {tab === 'sessions' && <SessionsTab open={openNow.items} openMore={openNow.more} onOpenMore={openNow.onMore} history={history.items} now={now} more={history.more} returning={returning} onReturn={returnTo} onEnd={setEnding} onMore={history.onMore} />}
       </Support>
       {start.element}
       {ending && (

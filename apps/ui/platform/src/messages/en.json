@@ -2412,6 +2412,8 @@
     "findHint": "Name, email or store",
     "noUsers": "No merchant users yet. They appear here once your merchants invite their team.",
     "noMatch": "No user matches.",
+    "searching": "Searching…",
+    "searchFailed": "The search didn’t work. Nothing was changed. Try again.",
     "usersLabel": "Your merchants’ users",
     "columns": {
       "user": "Name and email",

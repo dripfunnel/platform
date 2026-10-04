@@ -7,11 +7,11 @@ import { fill, messages } from '../../messages'
 import { storeAs } from '../stores/storesTestData'
 import { SupportTab } from '../stores/tabs/SupportTab'
 import { SessionsTab } from './SessionsTab'
-import { blockingSession, codeComplete, firstStep, openIn, startWith, type OpeningTab } from './startFlow'
-import { reauthText } from './StartSupportDialog'
+import { afterOutcome, blockingSession, codeComplete, firstStep, openIn, startWith, type OpeningTab } from './startFlow'
+import { searchState } from './supportHarness'
 import { SupportRefused } from './Support'
 import { session, target } from './supportTestData'
-import { refusalText, supportAllowed, supportStartOffered } from './supportText'
+import { reauthText, refusalText, supportAllowed, supportStartOffered } from './supportText'
 import { UsersTab } from './UsersTab'
 
 const words = messages.support
@@ -23,8 +23,8 @@ const render = async (element: ReactNode) => {
   return renderToString(<RouterProvider router={router} />)
 }
 const more = { show: false, busy: false, failed: false }
-const usersTab = (users: Parameters<typeof UsersTab>[0]['users'], search?: string) =>
-  render(<UsersTab users={users} search={search} partner="Northstar Commerce" me="Priya Shah" more={more} onSearch={noop} onMore={noop} onOpen={noop} />)
+const usersTab = (users: Parameters<typeof UsersTab>[0]['users'], search?: string, state: Parameters<typeof UsersTab>[0]['state'] = 'ready') =>
+  render(<UsersTab users={users} state={state} search={search} partner="Northstar Commerce" me="Priya Shah" more={more} onSearch={noop} onMore={noop} onOpen={noop} />)
 
 describe('Support access', () => {
   it('is for Owners, Admins and Support only', () => {
@@ -70,6 +70,17 @@ describe('Users', () => {
     expect(textOf(await usersTab([target({ mySessionId: 'ss1' })]))).toContain(words.returnTo)
     expect(textOf(await usersTab([], 'zed'))).toContain(words.noMatch)
     expect(textOf(await usersTab([]))).toContain(words.noUsers)
+  })
+
+  it('shows a search’s rows only once its own answer is in, never the last one’s', async () => {
+    expect(searchState(undefined, null, false)).toBe('ready')
+    expect(searchState('chloe', null, false)).toBe('searching')
+    expect(searchState('chloe', {}, false)).toBe('ready')
+    expect(searchState('chloe', null, true)).toBe('failed')
+    const searching = textOf(await usersTab([], 'chloe', 'searching'))
+    expect(searching).toContain(words.searching)
+    expect(searching).not.toContain(words.noMatch)
+    expect(textOf(await usersTab([], 'chloe', 'failed'))).toContain(words.searchFailed)
   })
 })
 
@@ -146,12 +157,31 @@ describe('The start and the return', () => {
   })
 })
 
+describe('After each answer', () => {
+  const t = target()
+  const stale = session({ id: 'ss1' })
+
+  it('goes back to the code only from a start', () => {
+    expect(afterOutcome({ kind: 'opened' }, 'start', t, null)).toEqual({ to: 'done' })
+    expect(afterOutcome({ kind: 'badCode', refusal: { ok: false, reason: 'CODE_EXPIRED', triesLeft: null, lockedMinutes: null } }, 'start', t, null)).toEqual({ to: 'confirm', error: words.start.reauth.CODE_EXPIRED })
+    expect(afterOutcome({ kind: 'refused', reason: 'REAUTH_REQUIRED' }, 'start', t, null)).toEqual({ to: 'confirm', error: words.refusals.REAUTH_REQUIRED })
+    expect(afterOutcome({ kind: 'busy', sessionId: 'ss9' }, 'start', t, stale)).toEqual({ to: 'busy', other: { id: 'ss9', session: null } })
+    expect(afterOutcome({ kind: 'refused', reason: 'PORTAL_NOT_LIVE' }, 'start', t, null)).toEqual({ to: 'msg', text: words.refusals.PORTAL_NOT_LIVE })
+  })
+
+  it('says why a Return was refused and stops there, with no form to fill', () => {
+    expect(afterOutcome({ kind: 'refused', reason: 'REAUTH_REQUIRED' }, 'return', t, stale)).toEqual({ to: 'msg', text: words.refusals.REAUTH_REQUIRED })
+    expect(afterOutcome({ kind: 'refused', reason: 'SESSION_EXPIRED' }, 'return', t, stale)).toEqual({ to: 'msg', text: words.refusals.SESSION_EXPIRED })
+    expect(afterOutcome({ kind: 'busy', sessionId: null }, 'return', t, stale).to).toBe('msg')
+  })
+})
+
 describe('Sessions', () => {
   const now = Date.parse('2026-10-04T10:18:00.000Z')
 
   it('shows the open ones with minutes left, Return to tab on yours and End when allowed', async () => {
     const theirs = session({ id: 'ss2', you: false, agent: { id: 'p2', name: 'Sam Lee' }, return: { allowed: false, reason: 'NOT_SESSION_OWNER' }, end: { allowed: false, reason: 'NOT_SESSION_OWNER' } })
-    const html = await render(<SessionsTab open={[session(), theirs]} history={[]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const html = await render(<SessionsTab open={[session(), theirs]} history={[]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain('12 min left')
     expect(text.match(new RegExp(words.returnToTab, 'g'))).toHaveLength(1)
@@ -159,12 +189,14 @@ describe('Sessions', () => {
     expect(text).toContain(words.refusals.NOT_SESSION_OWNER)
     expect(html).toContain('href="https://help.northstar.example/t/48213"')
     expect(text).toContain(words.noHistory)
+    const cut = await render(<SessionsTab open={[session()]} openMore={{ show: true, busy: false, failed: false }} onOpenMore={noop} history={[]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    expect(textOf(cut)).toContain(words.showMore)
   })
 
   it('shows the history: ended by whom, or expired, and never links a ticket that isn’t https', async () => {
     const ended = session({ id: 'h1', endedAt: '2026-10-04T10:20:00.000Z', endedBy: 'colleague', endedByName: 'Maya Chen', ticket: 'javascript:alert(1)' })
     const expired = session({ id: 'h2', endedAt: '2026-10-04T10:30:00.000Z', endedBy: 'expired' })
-    const html = await render(<SessionsTab open={[]} history={[ended, expired]} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
+    const html = await render(<SessionsTab open={[]} history={[ended, expired]} openMore={more} onOpenMore={noop} now={now} returning={false} more={more} onReturn={noop} onEnd={noop} onMore={noop} />)
     const text = textOf(html)
     expect(text).toContain(words.noOpen)
     expect(text).toContain('Ended by Maya Chen')

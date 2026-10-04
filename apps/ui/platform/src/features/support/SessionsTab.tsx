@@ -6,17 +6,34 @@ import { minutesLeft, refusalText, whereText } from './supportText'
 
 const words = messages.support
 
+type More = { show: boolean; busy: boolean; failed: boolean }
+
 export interface SessionsTabProps {
   open: readonly SupportSession[]
+  openMore: More
   history: readonly SupportSession[]
   now: number
   // A Return to tab on its way: the buttons wait for its link.
   returning: boolean
-  more: { show: boolean; busy: boolean; failed: boolean }
+  more: More
   onReturn: (session: SupportSession) => void
   onEnd: (session: SupportSession) => void
   onMore: () => void
+  onOpenMore: () => void
 }
+
+const ShowMore = ({ more, onMore }: { more: More; onMore: () => void }) => (
+  <>
+    {more.failed && <p role="alert">{words.moreFailed}</p>}
+    {more.show && (
+      <div className="df-show-more">
+        <button type="button" className="df-button" disabled={more.busy} onClick={onMore}>
+          {words.showMore}
+        </button>
+      </div>
+    )}
+  </>
+)
 
 const Who = ({ session }: { session: SupportSession }) => (
   <div className="df-support-session-who">
@@ -48,7 +65,7 @@ const endedText = (session: SupportSession): string => {
 }
 
 // §12.3: who is signed in as whom now, with Return to tab (yours) and End; then the history.
-export const SessionsTab = ({ open, history, now, returning, more, onReturn, onEnd, onMore }: SessionsTabProps) => (
+export const SessionsTab = ({ open, openMore, history, now, returning, more, onReturn, onEnd, onMore, onOpenMore }: SessionsTabProps) => (
   <div className="df-panels">
     <section className="df-panel df-panel--wide" aria-labelledby="support-open">
       <h2 id="support-open">{words.openNow}</h2>
@@ -89,6 +106,7 @@ export const SessionsTab = ({ open, history, now, returning, more, onReturn, onE
           })}
         </ul>
       )}
+      <ShowMore more={openMore} onMore={onOpenMore} />
     </section>
     <section className="df-panel df-panel--wide" aria-labelledby="support-history">
       <h2 id="support-history">{words.history}</h2>
@@ -109,14 +127,7 @@ export const SessionsTab = ({ open, history, now, returning, more, onReturn, onE
           ))}
         </ul>
       )}
-      {more.failed && <p role="alert">{words.moreFailed}</p>}
-      {more.show && (
-        <div className="df-show-more">
-          <button type="button" className="df-button" disabled={more.busy} onClick={onMore}>
-            {words.showMore}
-          </button>
-        </div>
-      )}
+      <ShowMore more={more} onMore={onMore} />
     </section>
   </div>
 )

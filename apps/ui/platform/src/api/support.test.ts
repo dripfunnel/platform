@@ -74,4 +74,10 @@ describe('support', () => {
     expect(await findSupportTarget({ id: 'u1', email: 'jenna@juniper.example' }, 's1')).toBeNull()
     expect(answer).toHaveBeenCalledTimes(findPagesMax)
   })
+
+  it('reports a person missing when the last page has no such row', async () => {
+    answer.mockReturnValueOnce({ data: { supportTargets: { items: [{ ...row, store: { id: 's0', name: 'Elsewhere' }, start: { allowed: true, reason: null } }], pageInfo } } })
+    expect(await findSupportTarget({ id: 'u1', email: 'jenna@juniper.example' }, 's1')).toBeNull()
+    expect(answer).toHaveBeenCalledTimes(1)
+  })
 })

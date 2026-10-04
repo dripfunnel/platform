@@ -1,4 +1,4 @@
-import type { SupportRefusal, SupportSession, SupportTarget } from '../../api/support'
+import type { Reauth, SupportRefusal, SupportSession, SupportTarget } from '../../api/support'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { fill, messages } from '../../messages'
 import { roleOf } from '../common/storeRoles'
@@ -31,3 +31,10 @@ export const refusalText = (reason: SupportRefusal, target?: SupportTarget): str
 export const minutesLeft = (expiresAt: string, now: number): number => Math.max(0, Math.ceil((Date.parse(expiresAt) - now) / 60_000))
 
 export const whereText = (session: SupportSession): string => `${session.store.name} · ${roleText(session.user)}`
+
+export const reauthText = (r: Extract<Reauth, { ok: false }>): string => {
+  const reauth = words.start.reauth
+  if (r.reason === 'WRONG_CODE') return r.triesLeft ? fill(reauth.WRONG_CODE, { tries: String(r.triesLeft) }) : reauth.WRONG_CODE_LAST
+  if (r.reason === 'LOCKED') return r.lockedMinutes ? fill(reauth.LOCKED, { minutes: String(r.lockedMinutes) }) : reauth.LOCKED_NO_TIME
+  return reauth[r.reason]
+}

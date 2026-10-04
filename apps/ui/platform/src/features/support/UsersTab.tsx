@@ -2,6 +2,7 @@ import { SearchField, StatusPill, type StatusIconName, type StatusTone } from '@
 import { Link } from '@tanstack/react-router'
 import type { SupportTarget } from '../../api/support'
 import { fill, formatTime, messages } from '../../messages'
+import type { SearchState } from './supportHarness'
 import { firstOf, refusalText, roleText } from './supportText'
 
 const words = messages.support
@@ -14,6 +15,7 @@ const statusLook: Record<SupportTarget['status'], { tone: StatusTone; icon: Stat
 
 export interface UsersTabProps {
   users: readonly SupportTarget[]
+  state: SearchState
   search: string | undefined
   partner: string
   me: string
@@ -24,7 +26,7 @@ export interface UsersTabProps {
 }
 
 // §12.1: the rules first, then every merchant user the partner may sign in as, each with why not.
-export const UsersTab = ({ users, search, partner, me, more, onSearch, onOpen, onMore }: UsersTabProps) => (
+export const UsersTab = ({ users, state, search, partner, me, more, onSearch, onOpen, onMore }: UsersTabProps) => (
   <div className="df-panels">
     <section className="df-panel df-panel--wide" aria-label={words.rulesLabel}>
       <ul className="df-support-rules">
@@ -38,7 +40,13 @@ export const UsersTab = ({ users, search, partner, me, more, onSearch, onOpen, o
     </section>
     <section className="df-panel df-panel--wide" aria-label={words.usersLabel}>
       <SearchField label={words.find} placeholder={words.findHint} value={search} onChange={onSearch} labelVisible />
-      {users.length === 0 ? (
+      {state === 'searching' ? (
+        <p className="df-muted" role="status">
+          {words.searching}
+        </p>
+      ) : state === 'failed' ? (
+        <p role="alert">{words.searchFailed}</p>
+      ) : users.length === 0 ? (
         <p className="df-muted">{search ? words.noMatch : words.noUsers}</p>
       ) : (
         <table className="df-support-users">
