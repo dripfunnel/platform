@@ -287,14 +287,14 @@ The Platform prototype's provider list also has Adyen.
 
 | Provider | Region (prototype) | What the merchant gives | Webhook | Notes |
 |---|---|---|---|---|
-| **Stripe** | US, DE | Secret or restricted key, publishable key | Signing secret per store endpoint (`hooks.dripfunnel.com/stripe/<store>`), or one Connect endpoint | *(decide)* **Stripe Connect Standard (OAuth)** instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
+| **Stripe** | US (DE: prototype only) | Secret or restricted key, publishable key | Signing secret per store endpoint (`hooks.dripfunnel.com/stripe/<store>`), or one Connect endpoint | *(decide)* **Stripe Connect Standard (OAuth)** instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
 | **Razorpay** | IN | Key ID, key secret | Webhook secret the merchant sets in Razorpay | Razorpay **Route** if vendors are paid out (PLATFORM-PROMPT §10 *(ask)*) |
 | **Cashfree** | IN | App ID (client ID), secret key | Signed with the secret key | In the old plugins and the api layout |
-| **PayPal** | US, DE | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
+| **PayPal** | US (DE: prototype only) | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
 | **Klarna** | DE | API username (UID) + password, region (EU/NA/OC) | Push/notification URLs | **Not at launch**: a Store-prototype demo control only (above); usually through Stripe or Adyen when the EU comes *(decide then)* |
 | **PhonePe** | IN | Merchant ID, salt key + salt index (legacy), or client ID + secret (current PG API) | Callback checksum | — |
 | **Adyen** | Platform prototype list | API key, merchant account, client key (public), HMAC key | HMAC | Usually for larger merchants |
-| **Cash on delivery, bank transfer** | IN, DE | No credential; bank details as text for the shopper | — | Orders stay "Payment pending" until marked paid |
+| **Cash on delivery, bank transfer** | Cash on delivery IN; bank transfer IN and US (DE: prototype only) | No credential; bank details as text for the shopper | — | Orders stay "Payment pending" until marked paid (`orders.mark_paid`, ACCESS §5.1) |
 
 **Vendor payouts** (Stripe Connect or Razorpay Route) would add connected accounts per
 vendor. **Decided 2026-10-02: not in the platform for now.** A per-store supplier ledger
