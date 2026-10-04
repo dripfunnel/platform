@@ -898,7 +898,7 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   console offers to return to the open one, or to end it first.
 - **Ending and extending** (decided 2026-10-01, #46): the staff member who started it or any
   Super admin may end it; only the staff member who started it may extend it.
-- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner). These resolvers
+- **Blocked even while impersonating** (decided 2026-09-28): changing the user's password, 2-factor or sign-in methods, payment or payout details, or ownership (transferring the store or partner, or changing the Owner); in the partner console, also the user's support access to a merchant (decided on #243, §8.3). These resolvers
   refuse any `impersonation` caller with a clear message ("Only Priya can change this"),
   and a structural test lists them.
 - The banner says **"Support"**, never "DripFunnel" (white label). Partners' and
@@ -909,7 +909,8 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
   in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
   (`SUPPLIER_NOT_SUPPORTED`). The portal's exchange, the `impersonation` caller and the blocked
-  list's structural test are #243.
+  list's structural test are #243 (§8.3) for the partner console; the store portal's wait for
+  the Store API.
 
 ### 8.2 Staff setup session (decided 2026-09-29, USERS-AND-DOMAINS §3)
 
@@ -930,9 +931,10 @@ up by DripFunnel may have none yet because the Owner's invitation is held or not
 - **Access**: everything the partner's Owner can do in the console (the checklist, look,
   words, domains, email sender, plans and prices, legal pages, test merchant signup, and
   **Submit for approval**), in any state except Closed. **Blocked**: the partner's payment
-  method and payout details, and changing the Owner or ownership. These resolvers refuse a
-  `staff_setup` caller with "The partner enters this itself", and a structural test lists
-  them. Staff may invite partner users (the Owner and others).
+  method and payout details, changing the Owner or ownership, and a partner user's support
+  access to a merchant (decided on #243, §8.3). These resolvers refuse a `staff_setup` caller
+  with "The partner enters this itself", and a structural test lists them. Staff may invite
+  partner users (the Owner and others).
 - **Visible**: a bar for the staff member with the partner's name and the time left; a
   banner to any partner user signed in at the same time ("DripFunnel is setting up your
   console: Priya, until 16:30"). The partner is DripFunnel's own customer, so the banner
@@ -969,6 +971,38 @@ Between the admin console, the Admin API and the two portals, for both kinds of 
   on either side shows on the other at its next read.
 - **Who sees which**: Super admin and Support see both kinds. A Partner manager sees setup
   sessions only, by their page, with no Impersonate menu, Users list or Sessions list.
+- **Built on #243** (the partner console's half, for a partner user's impersonation and a setup
+  session):
+  - **The exchange.** The console's `/impersonate/enter` page posts the token, in the body, to
+    `POST /api/auth/handoff`. That spends it once and sets `__Host-df_platform_staff`, a cookie
+    of its own beside any partner user's. Only the cookie's hash is kept, on the session's row.
+    A return's fresh link replaces it.
+  - **The routes.** `POST /api/auth/staff-session` answers the cookie's session, open or how it
+    ended. `POST /api/auth/end-staff-session` ends it from the console, logs `.ended` with the
+    staff member as actor. The cookie stays, acting as nobody, so the console can say how the
+    session ended. Signing out of the console ends it the same way. Both routes sit outside the
+    sign-in rate limit, since
+    they are polled.
+  - **The two callers.** An impersonation resolves to the user acted as, with `staff` beside it,
+    and runs with their role, `app.user_id` and `app.impersonation_id`. A setup session has no
+    user and runs with the Owner's role. It is no team member, so it never transfers ownership.
+  - **The member notice.** `staffSessionNotice` tells the partner's own users who is in their
+    console. It names an impersonation of one of them before any setup session. A staff member
+    sees their own bar instead, and no setup banner.
+  - **Ends.** Every read ends a session whose partner has closed (`partner_closed`), or whose
+    user is no longer active (`target_gone`). It logs `.ended` with `job` as the actor and the
+    code as the reason. An export a staff session starts is built in that
+    session's own scope.
+  - **The blocked lists** are declared on each field (`blockedFor`), and the policy refuses them
+    before it looks at the role. Both kinds are refused `transferOwnership` and the merchant
+    support area: `supportTargets`, `supportSessions`, `mySupportSession`, `reauthenticate`,
+    `startSupportSession`, `returnToSupportSession` and `endSupportSession`. Support access is a
+    partner user's own, proved with their own second factor; staff impersonate the store user
+    instead (decided on #243). In the team service, changing a role to or from Owner, or
+    removing an Owner, refuses both kinds with their codes.
+  - **Not yet.** The password, second factor and sign-in methods are `/api/auth/*` routes that
+    read only a partner user's cookie, so no staff session reaches them. Payment method and
+    payout details declare `blockedFor` when billing arrives (#201).
 
 ---
 

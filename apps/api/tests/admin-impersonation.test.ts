@@ -6,7 +6,7 @@ import { isAssigned } from '#auth/assignment'
 import { hashSessionId } from '#auth/session'
 import type { StaffMember, StaffRole } from '#auth/staff'
 import { withSystemScope } from '#db/scoped/index'
-import { spendImpersonationHandoff } from '#db/scoped/staffSessions'
+import { spendPortalHandoff } from '#db/scoped/staffPortal'
 import { activityLog } from '#saas/activity/index'
 import { createPartnersService } from '#saas/partners/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
@@ -64,7 +64,7 @@ const end = `mutation($id: ID!) { endStaffSession(id: $id) { ok code } }`
 const sessions = `query { staffSessions(first: 25) { open { id kind outcome mine } history { items { id kind outcome } } } }`
 
 const tokenOf = (link: string | null | undefined) => new URL(link ?? 'https://x/').searchParams.get('token') ?? ''
-const spend = async (token: string, at = now) => withSystemScope(db.sql, async (tx) => spendImpersonationHandoff(tx, await hashSessionId(token), at))
+const spend = async (token: string, at = now) => withSystemScope(db.sql, async (tx) => spendPortalHandoff(tx, await hashSessionId(token), await hashSessionId(crypto.randomUUID()), at))
 
 beforeAll(async () => {
   db = await createTestDatabase()
@@ -130,7 +130,7 @@ describe('impersonation', () => {
     expect(new URL(started?.handoff ?? '').pathname).toBe('/impersonate/enter')
     const token = tokenOf(started?.handoff)
     expect(await spend(token, new Date(now.getTime() + 6 * 60_000))).toBeNull()
-    expect((await spend(token))?.target_id).toBe(ids.partnerUser)
+    expect((await spend(token))?.id).toBe(started?.session?.id)
     expect(await spend(token)).toBeNull()
     // One at a time, whoever the second target is.
     const second = (await run<Started>(start, su, { t: ids.storeUser, m: ids.storeMembership, r: 'Another' })).data?.startImpersonation

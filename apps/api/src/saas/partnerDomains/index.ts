@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { parseHostname } from '#core/hostname'
 import { domainKinds, type DomainKind, type HostStatus } from '#db/schema/saas'
@@ -60,7 +60,7 @@ const recordDto = (r: PartnerDomainRecordRow) => ({
 
 export const createPartnerDomainsService = ({ sql, caller, facts, activity, now }: PartnerDomainsDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
   const minute = (at: Date) => Math.floor(at.getTime() / 60_000)
 
@@ -79,7 +79,7 @@ export const createPartnerDomainsService = ({ sql, caller, facts, activity, now 
         }),
         // SAAS §3.6: until the sender is live, mail goes from DripFunnel's domain in the partner's name.
         fallbackSender: email?.status === 'live' || label === null ? null : `no-reply@${label}.dripfunnel-mail.com`,
-        add: partnerRoleHas(caller.user.role, 'domains.write') ? { allowed: rows.length < domainKinds.length } : { allowed: false },
+        add: partnerRoleHas(caller.role, 'domains.write') ? { allowed: rows.length < domainKinds.length } : { allowed: false },
       }
     })
 

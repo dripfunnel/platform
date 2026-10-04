@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import type { StoreRow, StoreStatus } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
@@ -105,8 +105,8 @@ export interface PartnerStoreActionsDeps {
 
 export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }: PartnerStoreActionsDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
-  const by = { kind: 'partner_user' as const, label: caller.user.name }
+  const context = partnerContextOf(caller)
+  const by = agentOf(caller)
 
   const entry = (store: StoreRow, action: string, reason: string | null, extra: Partial<ActivityEntry> = {}): ActivityEntry =>
     partnerEntry(caller, facts)({ action, reason, storeId: store.id, target: { type: 'store', id: store.id, label: store.name ?? '' }, changes: [], ...extra })
@@ -123,7 +123,7 @@ export const createPartnerStoreActions = ({ sql, caller, facts, activity, now }:
       const store = await selectStoreForUpdate(tx, storeId)
       const row = store ? await selectStoreListRow(tx, storeId, at) : null
       if (!store || !row || store.partner_id !== partnerId) return { ok: false, reason: 'NOT_FOUND' }
-      const verdict = actionsFor(row, caller.user.role, at)[action]
+      const verdict = actionsFor(row, caller.role, at)[action]
       if (!verdict) return { ok: false, reason: absentReason(action, store.status) }
       if (!verdict.allowed) return { ok: false, reason: verdict.reason }
       return work(tx, store, row, at)

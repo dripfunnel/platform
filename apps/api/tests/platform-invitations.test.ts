@@ -48,7 +48,7 @@ const relayResets = () =>
   relayDue(db.sql, { [passwordResetRequestKind]: partnerPasswordResetDeliverer(db.sql) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
 
 const cookieOf = (response: Response) => response.headers.get('set-cookie')?.match(new RegExp(`${partnerCookieName}=([^;]+)`))?.[1] ?? ''
-const signedInAs = async (cookie: string) => (await resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie: `${partnerCookieName}=${cookie}` } }), now))?.user.id
+const signedInAs = async (cookie: string) => (await resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie: `${partnerCookieName}=${cookie}` } }), now, activityLog))?.user?.id
 
 /** An invited user with a sent invitation, and the token its email would carry. */
 const invite = async (partnerId: string, email: string, by: { kind: 'staff' | 'partner_user'; label: string } = { kind: 'partner_user', label: 'Jonas Weber' }) => {

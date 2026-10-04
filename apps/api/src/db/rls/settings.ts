@@ -64,7 +64,9 @@ export const settingsFor = (context: CallerContext): RlsSettings => {
       ...empty,
       'app.scope': 'partner',
       'app.partner_id': context.partnerId,
-      'app.user_id': caller.kind === 'partner-user' ? caller.partnerUserId : '',
+      // An impersonation runs as the user it acts as (DATA-MODEL.md §5.3); the id attributes, never grants.
+      'app.user_id': caller.kind === 'staff-setup' ? '' : caller.partnerUserId,
+      'app.impersonation_id': caller.kind === 'impersonation' ? caller.impersonationId : '',
     }
   }
   return { ...empty, 'app.scope': 'platform', 'app.staff_id': context.caller.staffId }

@@ -448,7 +448,7 @@ export const selectCurrentApproversFor = (tx: ScopedSql, ids: readonly string[])
 
 export const endSetupSession = async (tx: ScopedSql, id: string, endedBy: string, now: Date): Promise<boolean> => {
   const rows = await tx<{ id: string }[]>`
-    update partner_setup_session set ended_at = ${now}, ended_by_staff_id = ${endedBy}, handoff_hash = null
+    update partner_setup_session set ended_at = ${now}, ended_by_staff_id = ${endedBy}, end_reason = 'staff', handoff_hash = null
     where id = ${id} and ended_at is null returning id
   `
   return rows.length > 0

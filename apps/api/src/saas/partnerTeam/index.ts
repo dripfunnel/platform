@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingId, actingName, agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoles } from '#auth/partnerPermissions'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertPartnerUser, revokeInvitation } from '#db/scoped/partners'
@@ -52,7 +52,18 @@ const owner: PartnerRoleKey = 'partner-owner'
 // ACCESS §13 item 13: an invitation can't be an email-bombing tool, per inviter or per address.
 export const invitationLimits = { perInviterPerHour: 20, perAddressPerDay: 3 } as const
 
-export type TeamRefusal = 'RATE_LIMITED' | 'LAST_OWNER' | 'OWNERS_ONLY' | 'CANNOT_REMOVE_SELF' | 'ALREADY_ON_TEAM' | 'NOT_FOUND' | 'INVALID_INPUT' | 'NO_PENDING_INVITATION' | 'NOT_ACTIVE'
+export type TeamRefusal =
+  | 'RATE_LIMITED'
+  | 'LAST_OWNER'
+  | 'OWNERS_ONLY'
+  | 'CANNOT_REMOVE_SELF'
+  | 'ALREADY_ON_TEAM'
+  | 'NOT_FOUND'
+  | 'INVALID_INPUT'
+  | 'NO_PENDING_INVITATION'
+  | 'NOT_ACTIVE'
+  | 'BLOCKED_WHILE_IMPERSONATING'
+  | 'PARTNER_ENTERS_THIS_ITSELF'
 export type TeamResult = { ok: true } | { ok: false; reason: TeamRefusal }
 
 const inviteInput = z.strictObject({ name: z.string().trim().min(1).max(120), email: z.email().max(254), role: z.enum(partnerRoles) })
@@ -66,7 +77,7 @@ export interface PartnerTeamDeps {
   now: () => Date
 }
 
-const memberDto = (m: TeamMemberRow, callerId: string, at: Date) => ({
+const memberDto = (m: TeamMemberRow, callerId: string | null, at: Date) => ({
   id: m.id,
   name: m.name,
   email: m.email,
@@ -81,18 +92,24 @@ export type TeamMemberDto = ReturnType<typeof memberDto>
 
 export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: PartnerTeamDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
   const entry = partnerEntry(caller, facts)
   // §14.2: Admins never touch an Owner, nor make one. Judged on the caller's role as read under
   // the team lock, so a change made meanwhile (a demotion, a transfer) is what counts.
   const mayTouch = (callerRole: PartnerRoleKey, role: PartnerRoleKey) => callerRole === owner || role !== owner
-  const freshCaller = async (tx: ScopedSql): Promise<TeamMemberRow | null> => {
+  // A setup session holds the Owner's powers without being a member (ACCESS.md §8.2), so its id is null.
+  const freshCaller = async (tx: ScopedSql): Promise<{ id: string | null; role_key: PartnerRoleKey } | null> => {
+    if (!caller.user) return { id: null, role_key: owner }
     const me = await selectTeamMember(tx, partnerId, caller.user.id)
-    return me && me.status === 'active' ? me : null
+    return me && me.status === 'active' ? { id: me.id, role_key: me.role_key } : null
   }
 
+  // ACCESS.md §8.1, §8.2: who is Owner stays the partner's own decision, never a staff session's.
+  const ownerBlocked = (touchesOwner: boolean): TeamResult | null =>
+    caller.staff && touchesOwner ? { ok: false, reason: caller.staff.session.kind === 'impersonation' ? 'BLOCKED_WHILE_IMPERSONATING' : 'PARTNER_ENTERS_THIS_ITSELF' } : null
+
   const throttled = async (tx: ScopedSql, targetId: string | null, at: Date): Promise<boolean> =>
-    (await countRecentInvitations(tx, partnerId, new Date(at.getTime() - 3_600_000), { actorId: caller.user.id })) >= invitationLimits.perInviterPerHour ||
+    (await countRecentInvitations(tx, partnerId, new Date(at.getTime() - 3_600_000), { actorKind: agentOf(caller).kind, actorId: actingId(caller) })) >= invitationLimits.perInviterPerHour ||
     (targetId !== null && (await countRecentInvitations(tx, partnerId, new Date(at.getTime() - 86_400_000), { targetId })) >= invitationLimits.perAddressPerDay)
 
   const queueInvitation = (tx: ScopedSql, invitationId: string, to: string) =>
@@ -105,7 +122,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
     })
 
   /** One change at a time to the partner's team, on the member read under that lock. */
-  const change = (memberId: string, work: (tx: ScopedSql, member: TeamMemberRow, me: TeamMemberRow, at: Date) => Promise<TeamResult>): Promise<TeamResult> => {
+  const change = (memberId: string, work: (tx: ScopedSql, member: TeamMemberRow, me: { id: string | null; role_key: PartnerRoleKey }, at: Date) => Promise<TeamResult>): Promise<TeamResult> => {
     if (!id.safeParse(memberId).success) return Promise.resolve({ ok: false, reason: 'NOT_FOUND' })
     return withScope(sql, context, async (tx) => {
       await lockTeam(tx, partnerId)
@@ -150,7 +167,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
       const rows = await selectTeam(tx, partnerId, decoded, decoded.limit)
       const { rows: pageRows, pageInfo } = pageOf(rows, decoded, (r) => ({ occurredAt: r.created_at, id: r.id }))
       const at = now()
-      return { items: pageRows.map((m) => memberDto(m, caller.user.id, at)), pageInfo }
+      return { items: pageRows.map((m) => memberDto(m, caller.user?.id ?? null, at)), pageInfo }
     })
   }
 
@@ -183,7 +200,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
         if (created === null) return { ok: true }
         userId = created
       }
-      const invitationId = await insertTeamInvitation(tx, { partnerId, userId, sentAt: at, expiresAt: new Date(at.getTime() + invitationDays * 86_400_000), byLabel: caller.user.name })
+      const invitationId = await insertTeamInvitation(tx, { partnerId, userId, sentAt: at, expiresAt: new Date(at.getTime() + invitationDays * 86_400_000), byLabel: actingName(caller) })
       await queueInvitation(tx, invitationId, email)
       await activity.record(tx, entry({ action: teamAudit.inviteTeamMember, target: { type: 'partner_user', id: userId, label: email }, reason: null, changes: [{ field: 'role', before: null, after: role }] }))
       return { ok: true }
@@ -196,7 +213,7 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
       if (member.status !== 'invited' || !member.invitation_id) return { ok: false, reason: 'NO_PENDING_INVITATION' }
       if (await throttled(tx, member.id, at)) return { ok: false, reason: 'RATE_LIMITED' }
       await revokeInvitation(tx, member.invitation_id, at)
-      const invitationId = await insertTeamInvitation(tx, { partnerId, userId: member.id, sentAt: at, expiresAt: new Date(at.getTime() + invitationDays * 86_400_000), byLabel: caller.user.name })
+      const invitationId = await insertTeamInvitation(tx, { partnerId, userId: member.id, sentAt: at, expiresAt: new Date(at.getTime() + invitationDays * 86_400_000), byLabel: actingName(caller) })
       await queueInvitation(tx, invitationId, member.email)
       await activity.record(tx, entry({ action: teamAudit.resendTeamInvite, target: { type: 'partner_user', id: member.id, label: member.email }, reason: null }))
       return { ok: true }
@@ -215,6 +232,8 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
     const role = z.enum(partnerRoles).safeParse(rawRole)
     if (!role.success) return Promise.resolve<TeamResult>({ ok: false, reason: 'INVALID_INPUT' })
     return change(memberId, async (tx, member, me) => {
+      const blocked = ownerBlocked(member.role_key === owner || role.data === owner)
+      if (blocked) return blocked
       if (!mayTouch(me.role_key, role.data)) return { ok: false, reason: 'OWNERS_ONLY' }
       if (member.role_key === role.data) return { ok: true }
       // §14.2: "There must be at least one Owner. Transfer ownership first."
@@ -229,6 +248,8 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
     change(memberId, async (tx, member, me, at) => {
       // The row's own id, not the typed one: a uuid matches in any case.
       if (member.id === me.id) return { ok: false, reason: 'CANNOT_REMOVE_SELF' }
+      const blocked = ownerBlocked(member.role_key === owner)
+      if (blocked) return blocked
       if (member.role_key === owner && member.status === 'active' && (await countActiveOwners(tx, partnerId)) <= 1) return { ok: false, reason: 'LAST_OWNER' }
       if (member.invitation_id) await revokeInvitation(tx, member.invitation_id, at)
       await markMemberRemoved(tx, member.id)
@@ -241,7 +262,8 @@ export const createPartnerTeamService = ({ sql, caller, facts, activity, now }: 
   // §14.2: to an active non-Owner; the Owner becomes an Admin.
   const transferOwnership = (toUserId: string) =>
     change(toUserId, async (tx, member, me) => {
-      if (me.role_key !== owner) return { ok: false, reason: 'OWNERS_ONLY' }
+      // Only a member Owner hands it on; no staff session reaches here (blockedFor, apis/platform/settings.ts).
+      if (me.role_key !== owner || me.id === null) return { ok: false, reason: 'OWNERS_ONLY' }
       if (member.id === me.id) return { ok: false, reason: 'INVALID_INPUT' }
       if (member.status !== 'active') return { ok: false, reason: 'NOT_ACTIVE' }
       if (member.role_key === owner) return { ok: false, reason: 'INVALID_INPUT' }

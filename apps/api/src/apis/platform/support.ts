@@ -108,7 +108,11 @@ const Ended = builder.objectRef<{ ok: boolean; reason?: string }>('SupportSessio
   fields: (t) => ({ ok: t.exposeBoolean('ok'), reason: t.string({ nullable: true, resolve: (r) => r.reason ?? null }) }),
 })
 
-const support = (audit?: string) => ({ access: { api: 'platform' as const, scope: 'partner' as const, permission: 'support.session' as const, target: 'none' as const, ...(audit ? { audit } : {}) } })
+// A partner user's own access to a merchant, proved with their own second factor: no staff
+// session uses it (ACCESS.md §8.1, §8.2; staff impersonate the store user instead).
+const support = (audit?: string) => ({
+  access: { api: 'platform' as const, scope: 'partner' as const, permission: 'support.session' as const, target: 'none' as const, blockedFor: ['impersonation', 'setup'] as const, ...(audit ? { audit } : {}) },
+})
 const badPage = () => new GraphQLError('That page link does not work.', { extensions: { code: 'INVALID_INPUT' } })
 const service = (ctx: { support: PartnerSupportService | null }) => signedIn(ctx.support)
 

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import { factsOf, partnerSecondFactorEnrolled, partnerSecondFactorRefused, partnerSignedIn, partnerSignedOut, partnerSignInRefused } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
+import { clearStaffPortalCookie, staffPortalCookieName } from '#auth/staffPortal'
 import { safeNext } from '#auth/next'
 import { verifyPassword } from '#auth/password'
 import {
@@ -20,6 +21,7 @@ import type { SecretBox } from '#auth/secretBox'
 import { minutesUntil, wrongPartnerCode } from '#auth/partnerCode'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { json, readBody, refuse, type Refusal } from './authHttp'
+import { currentStaffSession, endOwnPortalSession, endStaffSessionFromPortal, exchangeHandoff, staffSessionPaths } from './staffSession'
 import { acceptPartnerInvitation, lookUpInvitation, requestPasswordReset, resetPartnerPassword, skipSecondFactor } from './invitations'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
@@ -55,7 +57,7 @@ const paths = {
   resetPassword: '/api/auth/reset-password',
 }
 
-export const isPlatformAuthPath = (pathname: string): boolean => Object.values(paths).includes(pathname)
+export const isPlatformAuthPath = (pathname: string): boolean => Object.values(paths).includes(pathname) || Object.values<string>(staffSessionPaths).includes(pathname)
 
 const signInInput = z.strictObject({ email: z.string().max(320), password: z.string().max(1024), next: z.string().max(2048).optional() })
 const codeInput = z.strictObject({ code: z.string().max(16) })
@@ -70,19 +72,30 @@ export const handlePlatformAuth = async (request: Request, deps: PlatformAuthDep
   const cookie = readCookie(request.headers.get('cookie'), partnerCookieName)
 
   if (url.pathname === paths.signOut) {
-    if (cookie) {
+    const staffCookie = readCookie(request.headers.get('cookie'), staffPortalCookieName)
+    if (staffCookie || cookie) {
       await withSystemScope(deps.sql, async (tx) => {
-        const userId = await endPartnerSession(tx, cookie)
-        const partnerId = userId ? await partnerOfUser(tx, userId) : null
-        if (userId && partnerId) await deps.activity.record(tx, partnerSignedOut({ id: userId, partnerId }, facts))
+      // A staff member signing out of a session ends it (ACCESS.md §8.3), as End session does.
+      if (staffCookie) await endOwnPortalSession(tx, staffCookie, null, deps, facts)
+      const userId = cookie ? await endPartnerSession(tx, cookie) : null
+      const partnerId = userId ? await partnerOfUser(tx, userId) : null
+      if (userId && partnerId) await deps.activity.record(tx, partnerSignedOut({ id: userId, partnerId }, facts))
       })
     }
-    return new Response(null, { status: 302, headers: { location: '/', 'set-cookie': clearPartnerCookie() } })
+    const headers = new Headers({ location: '/' })
+    headers.append('set-cookie', clearPartnerCookie())
+    headers.append('set-cookie', clearStaffPortalCookie())
+    return new Response(null, { status: 302, headers })
   }
+
+  // Polled by an open staff session, so outside the sign-in attempts' bucket.
+  if (url.pathname === staffSessionPaths.current) return currentStaffSession(request, deps)
+  if (url.pathname === staffSessionPaths.end) return endStaffSessionFromPortal(request, deps, facts)
 
   // Cloudflare sets the address on all real traffic; a request without one shares no bucket.
   if (facts.ip === null || !(await deps.allowAttempt(`ip:${facts.ip}`))) return refuse({ code: 'RATE_LIMITED' })
 
+  if (url.pathname === staffSessionPaths.handoff) return exchangeHandoff(request, deps)
   if (url.pathname === paths.signIn) return signIn(request, deps, facts)
   if (url.pathname === paths.secondFactor) return secondFactor(request, deps, facts, cookie)
   if (url.pathname === paths.invitation) return lookUpInvitation(request, deps)

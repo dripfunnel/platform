@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingName, agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { mirrorPartnerLook, publishBrandingDraft, saveBrandingDraft, selectBranding, type BrandingFields, type BrandingRow } from '#db/scoped/branding'
 import { partnerEntry } from '#saas/activity/index'
@@ -148,8 +148,8 @@ const defaultAccent = '#EC844F'
 
 export const createPartnerBrandingService = ({ sql, caller, facts, activity }: PartnerBrandingDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
-  const permission = (): BrandingDto['permission'] => (partnerRoleHas(caller.user.role, 'branding.write') ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
+  const context = partnerContextOf(caller)
+  const permission = (): BrandingDto['permission'] => (partnerRoleHas(caller.role, 'branding.write') ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' })
 
   const rules = async (tx: ScopedSql) => {
     const terms = await selectContractTerms(tx, partnerId)
@@ -212,12 +212,12 @@ export const createPartnerBrandingService = ({ sql, caller, facts, activity }: P
       if (poweredByRule === 'fixedOn' && !input.words.poweredBy) return { ok: false, reason: 'POWERED_BY_FIXED_BY_CONTRACT' }
       if (impressumRequired && input.words.impressum === '') return { ok: false, reason: 'IMPRESSUM_REQUIRED' }
       const fields = toFields(input)
-      const by = { kind: 'partner_user' as const, label: caller.user.name }
-      const publishedAt = await publishBrandingDraft(tx, await saveBrandingDraft(tx, partnerId, fields, by), caller.user.name)
+      const by = agentOf(caller)
+      const publishedAt = await publishBrandingDraft(tx, await saveBrandingDraft(tx, partnerId, fields, by), actingName(caller))
       await mirrorPartnerLook(tx, partnerId, fields)
       // The checklist (FIRST-RELEASE §4): Branding is done by a publish; Legal pages once terms,
       // privacy and the DPA are there, and the Impressum where the law needs one.
-      const done = { status: 'done' as const, doneAt: publishedAt, doneByKind: 'partner_user' as const, doneByLabel: caller.user.name }
+      const done = { status: 'done' as const, doneAt: publishedAt, doneByKind: agentOf(caller).kind, doneByLabel: actingName(caller) }
       await upsertSetupItem(tx, { partnerId, item: 'branding', detail: 'Logo, colours and font saved', ...done })
       // Set either way, so a later publish without a page puts the item back to missing.
       const missing = legalMissing(input, impressumRequired)

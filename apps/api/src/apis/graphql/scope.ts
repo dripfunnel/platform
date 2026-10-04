@@ -24,7 +24,11 @@ export interface Access<Args = Record<string, unknown>> {
   target?: 'none' | ((args: Args) => AccessTarget)
   /** The activity-log action the mutation writes (LOGGING.md §5). Required on every mutation. */
   audit?: string
+  /** The staff sessions refused this field whatever their role (ACCESS.md §8.1, §8.2, §8.3). */
+  blockedFor?: readonly StaffSessionKind[]
 }
+
+export type StaffSessionKind = 'impersonation' | 'setup'
 
 declare module 'graphql' {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- a merge must repeat graphql's own parameter list
@@ -34,12 +38,21 @@ declare module 'graphql' {
 }
 
 /** The codes clients map to sign-in and to the permission-denied state (ui/README.md §6). */
-export const accessErrorCode = { unauthenticated: 'UNAUTHENTICATED', forbidden: 'FORBIDDEN' } as const
+export const accessErrorCode = {
+  unauthenticated: 'UNAUTHENTICATED',
+  forbidden: 'FORBIDDEN',
+  blockedWhileImpersonating: 'BLOCKED_WHILE_IMPERSONATING',
+  partnerEntersThisItself: 'PARTNER_ENTERS_THIS_ITSELF',
+} as const
 
 // One message per code, whatever the target: the refusal must not say whether it exists.
 export const unauthenticated = () =>
   new GraphQLError('Not signed in.', { extensions: { code: accessErrorCode.unauthenticated } })
 export const forbidden = () => new GraphQLError('Not allowed.', { extensions: { code: accessErrorCode.forbidden } })
+export const blockedIn = (kind: StaffSessionKind) =>
+  kind === 'impersonation'
+    ? new GraphQLError('Only the user can change this.', { extensions: { code: accessErrorCode.blockedWhileImpersonating } })
+    : new GraphQLError('The partner enters this itself.', { extensions: { code: accessErrorCode.partnerEntersThisItself } })
 
 const isRefusal = (error: unknown) =>
   error instanceof GraphQLError &&

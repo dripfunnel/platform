@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { PlanStatus } from '#db/schema/saas'
@@ -160,9 +160,9 @@ const convert = (amount: number, rate: string): number => {
 
 export const createPartnerPlansService = ({ sql, caller, facts, activity, now }: PartnerPlansDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
   const may = (permission: 'plans.write' | 'plans.price'): Permission =>
-    partnerRoleHas(caller.user.role, permission) ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }
+    partnerRoleHas(caller.role, permission) ? { allowed: true } : { allowed: false, reason: 'OWNERS_AND_ADMINS_ONLY' }
 
   // The fee in a price's currency: the contract's own, or converted at its rate exactly (a
   // decimal string, scaled to integers; never a float). Unknown where the contract has no rate.
@@ -275,7 +275,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   const entry = (action: string, plan: { id: string; name: string }, reason: string | null): ActivityEntry =>
     partnerEntry(caller, facts)({ action, target: { type: 'plan', id: plan.id, label: plan.name }, reason })
 
-  const by = { kind: 'partner_user' as const, label: caller.user.name }
+  const by = agentOf(caller)
   // Each amount is in its row's currency, and every row in a currency the contract states a fee in.
   const badCurrency = (input: PlanInput, terms: ContractTerms): string | null =>
     input.prices.find((p) => (p.monthly && p.monthly.currency !== p.currency) || (p.yearly && p.yearly.currency !== p.currency))?.currency ??

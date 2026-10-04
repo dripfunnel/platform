@@ -212,7 +212,7 @@ const sessions = (tx: ScopedSql) => tx`
     union all
     select 'setup', ss.id, ss.staff_user_id, st.name, null, null, null, null, null, null, ss.partner_id, p.name, null, null, ss.reason, ss.ticket,
       date_trunc('milliseconds', ss.started_at), date_trunc('milliseconds', ss.expires_at), null, ss.ended_at, ss.ended_by_staff_id,
-      case when ss.ended_at is null then null when ss.ended_by_staff_id is null then 'expired' else 'staff' end
+      coalesce(ss.end_reason, case when ss.ended_at is null then null when ss.ended_by_staff_id is null then 'expired' else 'staff' end)
     from partner_setup_session ss join staff_user st on st.id = ss.staff_user_id join partner p on p.id = ss.partner_id
   ) x
 `
@@ -255,28 +255,6 @@ export const selectSessionHistory = async (tx: ScopedSql, f: SessionFilter, page
 
 export const selectStaffSession = async (tx: ScopedSql, id: string): Promise<StaffSessionRow | null> =>
   (await tx<StaffSessionRow[]>`${sessions(tx)} where x.id = ${id}`)[0] ?? null
-
-export interface SpentImpersonation {
-  id: string
-  staff_user_id: string
-  target_kind: 'partner_user' | 'person'
-  target_id: string
-  membership_id: string | null
-  partner_id: string
-  store_id: string | null
-  expires_at: Date
-}
-
-/**
- * The portal's exchange (#243), in system scope: a handoff opens its impersonation once,
- * before its link expires and while the impersonation is open.
- */
-export const spendImpersonationHandoff = async (tx: ScopedSql, handoffHash: string, now: Date): Promise<SpentImpersonation | null> =>
-  (await tx<SpentImpersonation[]>`
-    update impersonation set handoff_used_at = ${now}, handoff_hash = null
-    where handoff_hash = ${handoffHash} and handoff_used_at is null and handoff_expires_at > ${now} and ended_at is null and expires_at > ${now}
-    returning id, staff_user_id, target_kind, target_id, membership_id, partner_id, store_id, expires_at
-  `)[0] ?? null
 
 /** The partners' live portal hosts, where a store user is acted as (USERS-AND-DOMAINS §2). */
 export const selectLivePortalHosts = async (tx: ScopedSql, partnerIds: readonly string[]): Promise<Map<string, string>> =>

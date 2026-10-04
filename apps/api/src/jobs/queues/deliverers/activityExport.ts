@@ -1,18 +1,17 @@
 import type postgres from 'postgres'
-import { z } from 'zod'
+import type { PartnerContext } from '#core/tenancy'
 import { selectActivity } from '#db/scoped/activity'
 import { completeExportJob, failExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { maxPageSize as batch, withScope } from '#db/scoped/index'
 import { activityFilter } from '#saas/activity/index'
 import { activityCsvHeader, activityCsvLine, exportLifetimeMs, exportMaxRows } from '#saas/partnerActivity/index'
 import { defaultRelayOptions, type Deliverer } from '../outbox-relay'
+import { exportPayload, exportScope } from './exportPayload'
 
-const payload = z.object({ jobId: z.guid(), partnerId: z.guid(), partnerUserId: z.guid() }).strict()
 
-type PartnerScope = { caller: { kind: 'partner-user'; partnerUserId: string }; partnerId: string }
 
 /** The partner's filtered log as CSV, read in its own scope so the log's policy decides what goes in. */
-const build = (sql: postgres.Sql, scope: PartnerScope, jobId: string, now: () => Date) =>
+const build = (sql: postgres.Sql, scope: PartnerContext, jobId: string, now: () => Date) =>
   withScope(sql, scope, async (tx) => {
     const job = await selectExportJob(tx, jobId)
     if (!job || job.state !== 'queued') return
@@ -36,10 +35,10 @@ const build = (sql: postgres.Sql, scope: PartnerScope, jobId: string, now: () =>
 /** `export.activity` (LOGGING §6): at most `exportMaxRows` entries; failed, not queued for ever, after the last attempt. */
 export const activityExportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
-    const parsed = payload.safeParse(effect.payload)
+    const parsed = exportPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('export.activity: bad payload')
-    const { jobId, partnerId, partnerUserId } = parsed.data
-    const scope: PartnerScope = { caller: { kind: 'partner-user', partnerUserId }, partnerId }
+    const { jobId } = parsed.data
+    const scope = exportScope(parsed.data)
     try {
       await build(sql, scope, jobId, now)
     } catch (error) {

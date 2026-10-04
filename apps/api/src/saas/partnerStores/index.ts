@@ -2,7 +2,7 @@ import { redactSecretsInText } from '#core/secretText'
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { maxPageSize, withScope, type ScopedSql } from '#db/scoped/index'
 import { selectBillingMode, selectPlanChoices } from '#db/scoped/partnerConsole'
@@ -86,8 +86,8 @@ export interface PartnerStoresDeps {
 
 export const createPartnerStoresService = ({ sql, caller, facts, activity, now }: PartnerStoresDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
-  const role = caller.user.role
+  const context = partnerContextOf(caller)
+  const role = caller.role
   const billers = partnerRoleHas(role, 'stores.billingStatus')
   const creatingPermission = (state: string | null) => createPermissionFor(role, state)
 

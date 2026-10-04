@@ -1,17 +1,26 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { PortalStaffSession } from './staffSession'
-import { createPortalSessionFixture, type PortalHarnessState, type PortalSessionFixtureOptions } from './staffSessionFixture'
+import { createPortalSessionFixture, isFixtureHandoff, type PortalHarnessState, type PortalSessionFixtureOptions } from './staffSessionFixture'
+
+// The portal's own API for its staff sessions (ACCESS.md §8.3): the partner console's is #243;
+// the store portal has none until the Store API.
+export interface PortalSessionApi {
+  exchange: (token: string) => Promise<PortalStaffSession | null>
+  current: () => Promise<PortalStaffSession | null>
+  notice: () => Promise<PortalStaffSession | null>
+  end: (id: string) => Promise<void>
+}
 
 export interface PortalSessionOptions extends PortalSessionFixtureOptions {
   // The ?state= harness: only then does the fixture answer.
   harnessEnabled: boolean
+  api?: PortalSessionApi
 }
 
-const notConnected = () => Promise.reject(new Error('The portal APIs have no staff-session operations yet (#40).'))
+const notConnected = () => Promise.reject(new Error('This portal has no staff-session API yet.'))
 
-// Seam: the portal's half of #40 (the handoff exchange, the current session and the member
-// notice) answers from a fixture until #68 wires it (https://github.com/dripfunnel/platform/issues/40).
-export const createPortalSession = ({ harnessEnabled, ...fixtureOptions }: PortalSessionOptions) => {
+// The harness's fixture answers a ?state= render and its own sample links; the API everything else.
+export const createPortalSession = ({ harnessEnabled, api, ...fixtureOptions }: PortalSessionOptions) => {
   const fixture = createPortalSessionFixture(fixtureOptions)
   const listeners = new Set<() => void>()
   let version = 0
@@ -25,18 +34,16 @@ export const createPortalSession = ({ harnessEnabled, ...fixtureOptions }: Porta
   }
 
   return {
-    exchange: (token: string): Promise<PortalStaffSession | null> => {
-      if (!harnessEnabled) return notConnected()
-      const session = fixture.enter(token)
+    exchange: async (token: string): Promise<PortalStaffSession | null> => {
+      const session = harnessEnabled && isFixtureHandoff(token) ? fixture.enter(token) : api ? await api.exchange(token) : await notConnected()
       changed()
-      return Promise.resolve(session)
+      return session
     },
-    current: (): Promise<PortalStaffSession | null> => Promise.resolve(harnessEnabled ? fixture.current() : null),
-    notice: (): Promise<PortalStaffSession | null> => Promise.resolve(harnessEnabled ? fixture.notice() : null),
-    end: (id: string): Promise<void> => {
-      if (!harnessEnabled) return notConnected()
-      fixture.end(id)
-      return Promise.resolve()
+    current: async (): Promise<PortalStaffSession | null> => (harnessEnabled ? fixture.current() : null) ?? (api ? api.current() : null),
+    notice: async (): Promise<PortalStaffSession | null> => (harnessEnabled ? fixture.notice() : null) ?? (api ? api.notice() : null),
+    end: async (id: string): Promise<void> => {
+      if (harnessEnabled && fixture.current()?.id === id) return fixture.end(id)
+      return api ? api.end(id) : notConnected()
     },
     harness: (state: PortalHarnessState) => {
       if (!harnessEnabled) return

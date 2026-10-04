@@ -47,7 +47,7 @@ const post = (path: string, body: unknown, cookie?: string) =>
 
 const bodyOf = async (response: Response) => (await response.json()) as { step?: string; next?: string }
 const cookieOf = (response: Response) => response.headers.get('set-cookie')?.match(new RegExp(`${partnerCookieName}=([^;]+)`))?.[1] ?? ''
-const signedInAs = async (cookie: string) => (await resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie: `${partnerCookieName}=${cookie}` } }), now))?.user.id
+const signedInAs = async (cookie: string) => (await resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie: `${partnerCookieName}=${cookie}` } }), now, activityLog))?.user?.id
 
 const userIn = async (partnerId: string, email: string, secretEnc: string | null) => {
   const [row] = await db.sql<{ id: string }[]>`

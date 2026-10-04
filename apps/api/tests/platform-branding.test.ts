@@ -17,7 +17,9 @@ const ids = { ns: '', kl: '' }
 const facts = { requestId: 'r', ip: '203.0.113.9', userAgent: 'test' }
 
 const callerOf = (partnerId: string, role: PartnerRole, name = 'Maya Chen'): PartnerCaller => ({
-  user: { id: crypto.randomUUID(), name, email: 'maya@northstar.example', role },
+  role,
+  user: { id: crypto.randomUUID(), name, email: 'maya@northstar.example' },
+  staff: null,
   partner: { id: partnerId, name: 'Partner', product: 'Shops', host: null, state: 'live' },
 })
 const serviceFor = (caller: PartnerCaller) => createPartnerBrandingService({ sql: db.sql, caller, facts, activity: activityLog })

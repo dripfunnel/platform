@@ -27,6 +27,18 @@ export const selectPartnerCaller = async (tx: ScopedSql, partnerUserId: string):
   return rows[0] ?? null
 }
 
+export type PartnerConsoleRow = Omit<PartnerCallerRow, 'id' | 'name' | 'email' | 'role_key'>
+
+/** The partner a setup session acts on, with what `me` shows of it (ACCESS.md §8.2). */
+export const selectPartnerConsole = async (tx: ScopedSql, partnerId: string): Promise<PartnerConsoleRow | null> => {
+  const rows = await tx<PartnerConsoleRow[]>`
+    select p.id as partner_id, p.name as partner_name, p.product_name, p.state, p.sent_back_reason, d.host as portal_host
+    from partner p left join partner_domain d on d.partner_id = p.id and d.kind = 'portal'
+    where p.id = ${partnerId}
+  `
+  return rows[0] ?? null
+}
+
 export const partnerOfUser = async (tx: ScopedSql, partnerUserId: string): Promise<string | null> => {
   const rows = await tx<{ partner_id: string }[]>`select partner_id from partner_user where id = ${partnerUserId}`
   return rows[0]?.partner_id ?? null

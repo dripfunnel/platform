@@ -48,9 +48,9 @@ const refuse = (status: number, code: string) => json(status, { ok: false, code 
 
 export const handleBrandUpload = async (request: Request, deps: BrandUploadRouteDeps): Promise<Response> => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
-  const caller = await resolvePartner(deps.sql, request, deps.now())
+  const caller = await resolvePartner(deps.sql, request, deps.now(), deps.activity)
   if (!caller) return refuse(401, 'UNAUTHENTICATED')
-  if (!partnerRoleHas(caller.user.role, 'branding.write')) return refuse(403, 'FORBIDDEN')
+  if (!partnerRoleHas(caller.role, 'branding.write')) return refuse(403, 'FORBIDDEN')
   const kind = new URL(request.url).searchParams.get('kind')
   if (!(brandFileKinds as readonly string[]).includes(kind ?? '')) return refuse(400, 'INVALID_KIND')
   if (!deps.store) return refuse(503, 'NOT_CONNECTED')

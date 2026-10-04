@@ -451,24 +451,30 @@ partner_user.reauth_proof_hash, reauth_proof_expires_at
 impersonation   (id, staff_user_id, target_kind, target_id, membership_id NULL, partner_id,
                  store_id NULL, reason, ticket NULL, started_at, expires_at, extended_at NULL,
                  ended_at NULL, ended_by NULL, end_reason NULL, handoff_hash NULL UNIQUE,
-                 handoff_expires_at NULL, handoff_used_at NULL)
+                 handoff_expires_at NULL, handoff_used_at NULL, portal_session_hash NULL UNIQUE)
                  -- built on #40: one open per staff member (partial unique index on
                  -- staff_user_id where ended_at is null); a staff member inserts only their
                  -- own (`app.staff_id`); end_reason: staff | portal | target_gone | partner_closed
                  -- staff signed in as a partner user or store user (ACCESS.md §8.1);
                  -- extended_at records the single permitted 30-minute extension, so
                  -- "once" is enforced by the row, not by counting log entries;
-                 -- platform scope: written and listed by the Admin API only
+                 -- platform scope: written and listed by the Admin API only;
+                 -- portal_session_hash (#243): the partner console's staff cookie, set when
+                 -- the handoff is spent and replaced by a return's; app_system reads it alone
 
 partner_setup_session
                 (id, staff_user_id, partner_id, reason, ticket NULL, started_at, expires_at,
-                 ended_at NULL, ended_by_staff_id NULL,
-                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL)
+                 ended_at NULL, ended_by_staff_id NULL, end_reason NULL,
+                 handoff_hash NULL UNIQUE, handoff_expires_at NULL, handoff_used_at NULL,
+                 portal_session_hash NULL UNIQUE)
                  -- staff doing a partner's onboarding as themselves (ACCESS.md §8.2),
                  -- 2 hours and not extendable, so no extended_at; one open per staff
                  -- member, enforced by a partial unique index on (staff_user_id)
                  -- where ended_at is null. The handoff (ACCESS.md §8.3) is hashed here,
                  -- spent on exchange and cleared when the session ends. Built on #33.
+                 -- end_reason (#243): staff | portal | partner_closed, as on impersonation;
+                 -- null on rows ended before it, read as staff or expired by ended_by_staff_id.
+                 -- portal_session_hash as on impersonation
 
 partner_approval (partner_id, staff_user_id, submitted_at, note, approved_at)
                  -- PK all of the first three: one approval per staff member per submission

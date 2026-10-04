@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { withScope } from '#db/scoped/index'
 import { partnerEntry } from '#saas/activity/index'
@@ -25,11 +25,11 @@ export const brandUploadAudit = 'branding.file_uploaded'
 
 /** Stores a checked file under the caller's own prefix and answers its key, which publishBranding takes. */
 export const uploadBrandFile = async ({ sql, caller, facts, activity, store }: BrandUploadDeps, kind: BrandFileKind, bytes: Uint8Array): Promise<BrandUploadResult> => {
-  if (!partnerRoleHas(caller.user.role, 'branding.write')) return { ok: false, code: 'FORBIDDEN' }
+  if (!partnerRoleHas(caller.role, 'branding.write')) return { ok: false, code: 'FORBIDDEN' }
   const checked = checkBrandFile(bytes)
   if (!checked.ok) return checked
   const key = `partners/${caller.partner.id}/brand/${crypto.randomUUID()}.${checked.type.ext}`
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId: caller.partner.id }
+  const context = partnerContextOf(caller)
   // The file is written inside the entry's transaction: a failed write rolls the entry back, but a
   // commit failing after it leaves an unlogged object that no branding names (FIRST-RELEASE §8).
   await withScope(sql, context, async (tx) => {

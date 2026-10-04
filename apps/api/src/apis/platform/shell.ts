@@ -1,4 +1,4 @@
-import { submitAudit, type NavBadges, type Onboarding, type OnboardingItem, type PartnerStateFacts, type StoreSearchRow, type SubmitResult } from '#saas/partnerConsole/index'
+import { submitAudit, type NavBadges, type Onboarding, type OnboardingItem, type PartnerStateFacts, type StaffSessionNotice, type StoreSearchRow, type SubmitResult } from '#saas/partnerConsole/index'
 import { builder } from './builder'
 import { signedIn } from './fields'
 
@@ -10,6 +10,15 @@ const partnerRead = { api: 'platform', scope: 'partner', permission: 'partner.re
 
 const SetupSession = builder.objectRef<NonNullable<PartnerStateFacts['setupSession']>>('SetupSessionNotice').implement({
   fields: (t) => ({ staffName: t.exposeString('staffName'), endsAt: t.string({ resolve: (s) => s.endsAt.toISOString() }) }),
+})
+
+const StaffSessionNoticeType = builder.objectRef<StaffSessionNotice>('StaffSessionNotice').implement({
+  fields: (t) => ({
+    kind: t.exposeString('kind'),
+    staffName: t.exposeString('staffName'),
+    actingAs: t.exposeString('actingAs', { nullable: true }),
+    endsAt: t.string({ resolve: (s) => s.endsAt.toISOString() }),
+  }),
 })
 
 const PartnerStateType = builder.objectRef<PartnerStateFacts>('PartnerState').implement({
@@ -97,6 +106,13 @@ const SubmitResultType = builder.objectRef<SubmitResult>('SubmitForApprovalResul
 
 builder.queryFields((t) => ({
   partnerState: t.field({ type: PartnerStateType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.console).partnerState() }),
+  // Every signed-in user of the partner sees it, read every 15 seconds and on focus (ACCESS.md §8.3).
+  staffSessionNotice: t.field({
+    type: StaffSessionNoticeType,
+    nullable: true,
+    extensions: { access: { api: 'platform', scope: 'session', permission: null } },
+    resolve: (_, __, ctx) => signedIn(ctx.console).staffSessionNotice(),
+  }),
   navBadges: t.field({ type: NavBadgesType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.console).navBadges() }),
   search: t.field({
     type: [StoreMatch],

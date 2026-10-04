@@ -33,14 +33,18 @@ const agent = async (partnerId: string, email: string, role: PartnerRole) =>
     `
   )[0]?.id ?? ''
 
-const callerOf = (partnerId: string, userId: string, role: PartnerRole): PartnerCaller => ({
-  user: { id: userId, name: userId === ids.priya ? 'Priya' : userId === ids.sam ? 'Sam' : 'Ana', email: 'agent@northstar.example', role },
+type UserCaller = PartnerCaller & { user: NonNullable<PartnerCaller['user']> }
+
+const callerOf = (partnerId: string, userId: string, role: PartnerRole): UserCaller => ({
+  role,
+  user: { id: userId, name: userId === ids.priya ? 'Priya' : userId === ids.sam ? 'Sam' : 'Ana', email: 'agent@northstar.example' },
+  staff: null,
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 
-const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
+const run = async <T>(source: string, caller: UserCaller, variables: Record<string, unknown> = {}) => {
   const deps = { sql: db.sql, caller, facts, activity: activityLog, now: () => clock }
-  const contextValue = { caller, console: createPartnerConsoleService(deps), support: createPartnerSupportService({ ...deps, secrets }) }
+  const contextValue = { caller, console: createPartnerConsoleService(deps), support: createPartnerSupportService({ ...deps, user: caller.user, secrets }) }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]
   if (error && error.extensions['code'] === undefined) throw error
@@ -59,17 +63,17 @@ const q = {
 type Target = { membershipId: string; name: string; email: string; type: string; store: { id: string; name: string }; status: string; start: { allowed: boolean; reason: string | null }; storeOwner: string | null; colleague: { name: string; minutesLeft: number } | null; mySessionId: string | null }
 type Started = { startSupportSession: { ok: boolean; reason: string | null; sessionId: string | null; expiresAt: string | null; link: string | null } }
 
-const targets = async (caller: PartnerCaller, search?: string) => (await run<{ supportTargets: { items: Target[] } }>(q.targets, caller, { s: search ?? null })).data?.supportTargets.items ?? []
+const targets = async (caller: UserCaller, search?: string) => (await run<{ supportTargets: { items: Target[] } }>(q.targets, caller, { s: search ?? null })).data?.supportTargets.items ?? []
 
 /** A fresh 2-factor code on a fresh time step, so no code is a replay of the last. */
-const proofOf = async (caller: PartnerCaller): Promise<string> => {
+const proofOf = async (caller: UserCaller): Promise<string> => {
   clock = new Date(clock.getTime() + 31_000)
   const r = (await run<{ reauthenticate: { ok: boolean; proof: string } }>(q.reauth, caller, { c: await codeAt(totp, stepAt(clock)) })).data?.reauthenticate
   if (!r?.ok) throw new Error('reauthentication failed')
   return r.proof
 }
 
-const openOn = async (caller: PartnerCaller, membershipId: string, reason = 'Order stuck at payment') =>
+const openOn = async (caller: UserCaller, membershipId: string, reason = 'Order stuck at payment') =>
   (await run<Started>(q.start, caller, { m: membershipId, r: reason, t: 'ZD-4411', p: await proofOf(caller) })).data?.startSupportSession
 
 const membershipOf = async (email: string) => (await db.sql<{ id: string }[]>`select m.id from membership m join "user" u on u.id = m.user_id where u.email = ${email}`)[0]?.id ?? ''
@@ -184,7 +188,7 @@ describe('re-authentication', () => {
     const otto = callerOf(ids.ns, await agent(ids.ns, 'otto.one@northstar.example', 'partner-support'), 'partner-support')
     const tara = callerOf(ids.ns, await agent(ids.ns, 'tara.two@northstar.example', 'partner-support'), 'partner-support')
     const target = await membershipOf('tom@harborcoffee.example')
-    const startAs = async (caller: PartnerCaller, proof: string, reason = 'Help') => (await run<Started>(q.start, caller, { m: target, r: reason, p: proof })).data?.startSupportSession
+    const startAs = async (caller: UserCaller, proof: string, reason = 'Help') => (await run<Started>(q.start, caller, { m: target, r: reason, p: proof })).data?.startSupportSession
 
     const stale = await proofOf(otto)
     clock = new Date(clock.getTime() + 5 * 60_000 + 1_000)

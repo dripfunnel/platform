@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller } from '#auth/partnerCaller'
+import { actingName, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas, type PartnerRole } from '#auth/partnerPermissions'
 import { countriesIn, countryOf } from '#core/countries'
 import { withScope } from '#db/scoped/index'
@@ -113,9 +113,9 @@ export interface PartnerCreateStoreDeps {
 
 export const createPartnerCreateStore = ({ sql, caller, facts, activity, now }: PartnerCreateStoreDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
 
-  const permissionFor = (state: string | null) => createPermissionFor(caller.user.role, state)
+  const permissionFor = (state: string | null) => createPermissionFor(caller.role, state)
 
   const createStoreForm = () =>
     withScope(sql, context, async (tx) => {
@@ -175,7 +175,7 @@ export const createPartnerCreateStore = ({ sql, caller, facts, activity, now }: 
       // Account, store and portal: what each does today is these rows (SAAS §5); the storefront
       // steps wait for their runner, so they are not this job's.
       await insertFinishedJob(tx, storeId, stepsFor('own'), at)
-      const invitationId = await insertStoreInvitation(tx, { storeId, email: input.ownerEmail, role: 'owner', expiresAt: new Date(at.getTime() + invitationDays * day), invitedByLabel: caller.user.name })
+      const invitationId = await insertStoreInvitation(tx, { storeId, email: input.ownerEmail, role: 'owner', expiresAt: new Date(at.getTime() + invitationDays * day), invitedByLabel: actingName(caller) })
       await queueSideEffect(tx, {
         kind: 'email',
         idempotencyKey: `store-owner-invitation:${invitationId}`,

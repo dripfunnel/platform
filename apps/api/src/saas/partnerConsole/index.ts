@@ -1,10 +1,11 @@
 import type { ActivityLog, RequestFacts } from '#auth/activity'
-import type { PartnerCaller, PartnerConsoleState } from '#auth/partnerCaller'
+import { agentOf, type PartnerCaller, type PartnerConsoleState, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import type { PartnerSetupItemRow } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { searchPartnerStores, selectNavCounts, selectOpenSetupSessionOn, selectShellFacts, type StoreSearchRow } from '#db/scoped/partnerConsole'
+import { selectOpenPortalSessionOn } from '#db/scoped/staffPortal'
 import { selectPartner, selectPartnerDomainsFor, selectPartnerForUpdate, selectPlansFor, selectSetupItemsFor } from '#db/scoped/partners'
 import type postgres from 'postgres'
 import { failingChecks, goLiveChecksFor, transitionPartner, type GoLiveCheck, type GoLiveChecks } from '#saas/partners/index'
@@ -99,12 +100,13 @@ const firstName = (label: string | null): string | null => label?.trim().split(/
 
 export const createPartnerConsoleService = ({ sql, caller, facts, activity, now }: PartnerConsoleDeps) => {
   const partnerId = caller.partner.id
-  const context = { caller: { kind: 'partner-user' as const, partnerUserId: caller.user.id }, partnerId }
+  const context = partnerContextOf(caller)
 
   const partnerState = async (): Promise<PartnerStateFacts> => {
     const shell = await withScope(sql, context, async (tx) => ({ facts: await selectShellFacts(tx, partnerId), partner: await selectPartner(tx, partnerId) }))
     // Setup sessions are staff rows the partner role is not granted; this one fact is read for it.
-    const session = await withSystemScope(sql, (tx) => selectOpenSetupSessionOn(tx, partnerId, now()))
+    // The staff member in a session sees their own bar instead (ACCESS.md §8.3).
+    const session = caller.staff ? null : await withSystemScope(sql, (tx) => selectOpenSetupSessionOn(tx, partnerId, now()))
     return {
       state: caller.partner.state,
       sentBackReason: shell.partner?.sent_back_reason ?? null,
@@ -140,7 +142,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
       return { key, status, detail: staffDidPartnerItem ? null : (row?.detail ?? null), doneBy, to: linkFor[key] }
     })
     const submitted = partner.state !== 'draft'
-    const may = partnerRoleHas(caller.user.role, 'onboarding.submit')
+    const may = partnerRoleHas(caller.role, 'onboarding.submit')
     const checks = goLiveChecksFor(domains, items.map((i) => ({ item: i.key, status: i.status })), plans, partner.fallback_sender_accepted)
     return {
       items,
@@ -166,13 +168,28 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
       const failing = failingChecks(current.checks)[0]
       if (failing) return { ok: false, code: 'GO_LIVE_CHECK_FAILED', check: failing }
       const at = now()
-      const moved = await transitionPartner(tx, partner, { to: 'awaiting', by: { kind: 'partner_user', label: caller.user.name } }, at)
+      const moved = await transitionPartner(tx, partner, { to: 'awaiting', by: agentOf(caller) }, at)
       if (!moved.ok) return { ok: false, code: submittedCode(partner.state) }
       await activity.record(tx, partnerEntry(caller, facts)({ action: submitAudit, target: { type: 'partner', id: partnerId, label: partner.name }, reason: null }))
       return { ok: true, submittedAt: at }
     })
 
-  return { partnerState, navBadges, search, onboarding, submitForApproval }
+  /** The staff session open on this partner, for its own users' notice (ACCESS.md §8.1, §8.2); a staff member sees their own bar instead. */
+  const staffSessionNotice = async (): Promise<StaffSessionNotice | null> => {
+    if (caller.staff) return null
+    const s = await withSystemScope(sql, (tx) => selectOpenPortalSessionOn(tx, partnerId, now()))
+    return s && { kind: s.kind, staffName: firstName(s.staff_name) ?? s.staff_name, actingAs: s.kind === 'impersonation' ? s.target_name : null, endsAt: s.expires_at }
+  }
+
+  return { partnerState, navBadges, search, onboarding, submitForApproval, staffSessionNotice }
+}
+
+export interface StaffSessionNotice {
+  kind: 'impersonation' | 'setup'
+  staffName: string
+  /** The partner user acted as: impersonation only. */
+  actingAs: string | null
+  endsAt: Date
 }
 
 export type PartnerConsoleService = ReturnType<typeof createPartnerConsoleService>
