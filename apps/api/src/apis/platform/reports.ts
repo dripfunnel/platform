@@ -176,7 +176,14 @@ const reportOf = async <T extends ReportTab>(reports: PartnerReportsService | nu
   return report as Of<T>
 }
 
+const PlanOption = builder.objectRef<{ id: string; name: string }>('ReportPlanOption').implement({ fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }) })
+
+const FiltersType = builder.objectRef<{ plans: { id: string; name: string }[]; countries: string[] }>('ReportFilters').implement({
+  fields: (t) => ({ plans: t.field({ type: [PlanOption], resolve: (f) => f.plans }), countries: t.exposeStringList('countries') }),
+})
+
 builder.queryFields((t) => ({
+  reportFilters: t.field({ type: FiltersType, extensions: { access: partnerRead }, resolve: (_, __, ctx) => signedIn(ctx.reports).reportFilters() }),
   reportGrowth: t.field({ type: GrowthType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'growth', filter) }),
   reportRevenue: t.field({ type: RevenueType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'revenue', filter) }),
   reportPlans: t.field({ type: PlansType, args: { filter: t.arg({ type: FilterInput }) }, extensions: { access: partnerRead }, resolve: (_, { filter }, ctx) => reportOf(ctx.reports, 'plans', filter) }),

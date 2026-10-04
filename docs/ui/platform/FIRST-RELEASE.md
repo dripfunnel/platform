@@ -499,7 +499,7 @@ given.
 - The bars are drawn against the largest value shown; that sizing never appears as a figure.
 - Percentages arrive as basis points and are formatted, never worked out.
 - Months are the API's (its first day, UTC), shown as month and year.
-- The Plan and Country filters offer the partner's plans and the countries it sells in.
+- The Plan and Country filters offer what the partner's own stores have (`reportFilters`: their plans and countries); a failure to load them fails the page rather than dropping a filter.
 - Export CSV runs as a job for every role, sharing the console's one export slot.
 - `fresh` comes with every tab; on Usage and Setup health it means the partner has no store yet.
 

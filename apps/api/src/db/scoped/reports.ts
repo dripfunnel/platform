@@ -230,3 +230,9 @@ export const selectDecliningStores = (tx: ScopedSql, s: ReportScope, month: Date
     order by coalesce(m.amount, 0)::numeric / b.amount, s.name
     limit ${limit}
   `
+
+/** The filters' choices (§10): the plans the partner's stores are on and the countries they're in. */
+export const selectReportFilterOptions = async (tx: ScopedSql, partnerId: string): Promise<{ plans: { id: string; name: string }[]; countries: string[] }> => ({
+  plans: await tx<{ id: string; name: string }[]>`select distinct p.id, p.name from store s join plan p on p.id = s.plan_id where s.partner_id = ${partnerId} order by p.name`,
+  countries: (await tx<{ country: string }[]>`select distinct s.country from store s where s.partner_id = ${partnerId} and s.country is not null order by s.country`).map((r) => r.country),
+})

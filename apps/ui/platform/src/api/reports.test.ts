@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadReport, startReportExport } from './reports'
+import { loadReport, loadReportFilters, startReportExport } from './reports'
 
 // The figures are the Platform API's (apps/api tests/platform-reports); these check the client.
 const answer = vi.fn<(body: { query: string; variables?: Record<string, unknown> }) => unknown>()
@@ -21,5 +21,11 @@ describe('reports', () => {
     answer.mockReturnValue({ data: { exportReport: { ok: true, jobId: 'x1', reason: null } } })
     await startReportExport('stores', {})
     expect(answer.mock.calls[0]?.[0].variables).toMatchObject({ tab: 'storePerformance' })
+  })
+  it('reads the filters’ choices, and lets a failure reach the page', async () => {
+    answer.mockReturnValueOnce({ data: { reportFilters: { plans: [{ id: 'p1', name: 'Growth' }], countries: ['US'] } } })
+    expect(await loadReportFilters()).toEqual({ plans: [{ id: 'p1', name: 'Growth' }], countries: ['US'] })
+    answer.mockReturnValueOnce({ errors: [{ message: 'no', extensions: { code: 'FORBIDDEN' } }] })
+    await expect(loadReportFilters()).rejects.toMatchObject({ code: 'FORBIDDEN' })
   })
 })

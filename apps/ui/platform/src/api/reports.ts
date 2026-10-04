@@ -106,6 +106,15 @@ export const loadReport = async (tab: ReportTab, filter: ReportFilter): Promise<
   return { tab, data } as Report
 }
 
+// The Plan and Country filters' choices: only what the partner's own stores have (§10).
+export const loadReportFilters = async (): Promise<{ plans: readonly { id: string; name: string }[]; countries: readonly string[] }> =>
+  (
+    await query(
+      `{ reportFilters { plans { id name } countries } }`,
+      z.object({ reportFilters: z.object({ plans: z.array(z.object({ id: z.string(), name: z.string() })), countries: z.array(z.string()) }) }),
+    )
+  ).reportFilters
+
 // `exportReport(tab, filter)` is a job for every role (§16).
 export const startReportExport = async (tab: ReportTab, filter: ReportFilter): Promise<ExportJob> => {
   const { exportReport: started } = await query(

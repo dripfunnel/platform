@@ -166,6 +166,17 @@ describe('scope', () => {
     }
   })
 
+  it('offers as filters only the plans and countries the partner’s own stores have', async () => {
+    const options = (await run<{ reportFilters: { plans: { id: string; name: string }[]; countries: string[] } }>(`{ reportFilters { plans { id name } countries } }`, callerOf(ids.ns))).data?.reportFilters
+    const plans = await db.sql<{ id: string }[]>`select distinct plan_id as id from store where partner_id = ${ids.ns} and plan_id is not null`
+    const countries = await db.sql<{ country: string }[]>`select distinct country from store where partner_id = ${ids.ns} and country is not null order by country`
+    expect(options?.plans.map((p) => p.id).sort()).toEqual(plans.map((p) => p.id).sort())
+    expect(options?.countries).toEqual(countries.map((c) => c.country))
+    const theirs = await db.sql<{ id: string }[]>`select id from plan where partner_id = ${ids.bz}`
+    expect(options?.plans.some((p) => theirs.some((t) => t.id === p.id))).toBe(false)
+    expect((await run<{ reportFilters: { plans: unknown[]; countries: unknown[] } }>(`{ reportFilters { plans { id } countries } }`, callerOf(ids.fresh))).data?.reportFilters).toEqual({ plans: [], countries: [] })
+  })
+
   it('never counts another partner’s stores', async () => {
     const theirs = (await run<{ reportStorePerformance: { rows: { storeId: string }[] } }>(q.performance, callerOf(ids.bz))).data?.reportStorePerformance.rows ?? []
     const ns = new Set((await db.sql<{ id: string }[]>`select id from store where partner_id = ${ids.ns}`).map((s) => s.id))
@@ -195,8 +206,9 @@ describe('scope', () => {
 
   it('answers no session with UNAUTHENTICATED on every report field', async () => {
     const fields = Object.keys((platformSchema as GraphQLSchema).getQueryType()?.getFields() ?? {}).filter((f) => f.startsWith('report'))
-    expect(fields).toHaveLength(7)
-    for (const source of [...Object.values(q), `query { reportExport(id: "${crypto.randomUUID()}") { id } }`]) {
+    // The six reports, their export's read-back, and the filters' options.
+    expect(fields).toHaveLength(8)
+    for (const source of [...Object.values(q), `query { reportExport(id: "${crypto.randomUUID()}") { id } }`, '{ reportFilters { countries } }']) {
       const contextValue = { caller: null, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains: null, team: null, activity: null, reports: null }
       const result = await graphql({ schema: platformSchema as GraphQLSchema, source, contextValue })
       expect(result.errors?.[0]?.extensions['code'], source).toBe('UNAUTHENTICATED')
@@ -206,7 +218,7 @@ describe('scope', () => {
   it('declares only the partner scope on every report field, and reads no table inside a store', () => {
     const query = (platformSchema as GraphQLSchema).getQueryType()?.getFields() ?? {}
     const reportFields = Object.entries(query).filter(([name]) => name.startsWith('report'))
-    expect(reportFields.length).toBe(7)
+    expect(reportFields.length).toBe(8)
     for (const [name, field] of reportFields) expect((field.extensions as { access?: { scope?: string } }).access?.scope, name).toBe('partner')
     // The code only: comments say "from" and "join" in prose.
     const sqlText = readFileSync(new URL('../src/db/scoped/reports.ts', import.meta.url), 'utf8')

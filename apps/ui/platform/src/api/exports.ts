@@ -8,11 +8,11 @@ export type ExportKind = 'stores' | 'activity' | 'report'
 
 const kinds = new Map<string, ExportKind>()
 
-// The job a start gives, tagged with its kind; a start that fails is the shared store's 'failed'
-// job (shared/ui exportJob), tagged too, so its own screen shows the failure.
 // What the job is of, within its kind: a report's tab, so each tab shows only its own export.
 const subjects = new Map<string, string>()
 
+// The job a start gives, tagged with its kind; a start that fails is the shared store's 'failed'
+// job (shared/ui exportJob), tagged too, so its own screen shows the failure.
 export const startedExport = (kind: ExportKind, started: Promise<ExportJob>, subject?: string): Promise<ExportJob> =>
   started.then(
     (job) => {
@@ -28,6 +28,9 @@ export const startedExport = (kind: ExportKind, started: Promise<ExportJob>, sub
   )
 
 export const exportSubjectOf = (job: ExportJob | null): string | null => (job ? (subjects.get(job.id) ?? null) : null)
+
+// The export a report tab shows: one of Reports' own, started from that tab, or none.
+export const reportExportFor = (job: ExportJob | null, tab: string): ExportJob | null => (exportKindOf(job) === 'report' && exportSubjectOf(job) === tab ? job : null)
 
 export const exportKindById = (id: string): ExportKind | null => kinds.get(id) ?? null
 

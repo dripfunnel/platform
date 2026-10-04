@@ -737,6 +737,7 @@ type Query {
   provisioning(storeId: ID!): ProvisioningProgress
   quotePlanPrices(id: ID, prices: [PlanPriceInput!]!): [PlanPrice!]
   reportExport(id: ID!): ReportExportJob
+  reportFilters: ReportFilters
   reportGrowth(filter: ReportFilterInput): GrowthReport
   reportPlans(filter: ReportFilterInput): PlansReport
   reportRevenue(filter: ReportFilterInput): RevenueReport
@@ -788,9 +789,19 @@ input ReportFilterInput {
   range: String
 }
 
+type ReportFilters {
+  countries: [String!]
+  plans: [ReportPlanOption!]
+}
+
 type ReportMoneyBar {
   amount: Money
   label: String
+}
+
+type ReportPlanOption {
+  id: ID
+  name: String
 }
 
 input RetirePlanInput {

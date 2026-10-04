@@ -83,7 +83,7 @@ describe('Reports', () => {
     for (const label of [words.setup.median, words.setup.failed, words.setup.domains]) expect(text).toContain(label)
   })
 
-  it('shows a report export only on the tab it was started from', async () => {
+  it('shows the report export it is given, with its wording', async () => {
     const job = { id: 'x1', state: 'ready' as const, entries: 6, url: 'blob:x', expiresAt: null, truncated: false }
     expect(textOf(await view(reports.growth, { exportJob: job }))).toContain('Your export of 6 rows is ready.')
   })

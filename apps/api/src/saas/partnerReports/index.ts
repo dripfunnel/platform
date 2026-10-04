@@ -5,7 +5,7 @@ import { actingName, type PartnerCaller, partnerContextOf, actingId } from '#aut
 import { insertExportJob, selectExportJob } from '#db/scoped/exportJobs'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectContractTerms, selectCurrentVersions } from '#db/scoped/partnerPlans'
-import { countDecliningStores, countSetupProblems, hasAnyStore, type ReportScope, selectDecliningStores, selectGrowth, selectMrr, selectPaymentOutcomes, selectPlanChanges, selectRevenue, selectSetupHealth, selectSetupProblems, selectStoreSales, selectStoresPerPlan, type StoreSalesRow, sumMeters } from '#db/scoped/reports'
+import { countDecliningStores, countSetupProblems, hasAnyStore, type ReportScope, selectDecliningStores, selectGrowth, selectMrr, selectPaymentOutcomes, selectPlanChanges, selectReportFilterOptions, selectRevenue, selectSetupHealth, selectSetupProblems, selectStoreSales, selectStoresPerPlan, type StoreSalesRow, sumMeters } from '#db/scoped/reports'
 import { selectNearestLimits } from '#db/scoped/stores'
 import { partnerEntry } from '#saas/activity/index'
 import { queueSideEffect } from '#saas/outbox/index'
@@ -260,7 +260,10 @@ export const createPartnerReportsService = ({ sql, caller, facts, activity, now 
     })
   }
 
-  return { report, exportReport, reportExport }
+  /** What the Plan and Country filters offer: only what the partner's own stores have. */
+  const reportFilters = () => withScope(sql, context, (tx) => selectReportFilterOptions(tx, partnerId))
+
+  return { report, reportFilters, exportReport, reportExport }
 }
 
 export type PartnerReportsService = ReturnType<typeof createPartnerReportsService>
