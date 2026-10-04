@@ -615,6 +615,18 @@ countdown and "No extension. Start a new session if you need more time."; expiry
 where, who, reason, started, ended, Ended by staff · Expired. The merchant sees every session
 in its own Support access log (ACCESS §8).
 
+**Built on #196, straight onto #202's API.** Each row's verdict, the colleague and the Owner a
+refusal names, and what the caller may do to each session are the API's; the console words the codes.
+- **Find a user** keeps the typed text out of the URL, as §13 does: it is a name or an email.
+- **The rules block** adds "Read-only until allowed" (§17), and the confirm step restates it.
+- **Re-authentication** is the caller's own 2-factor code, checked by `reauthenticate` just before
+  `startSupportSession`; the portal tab is opened on the click and closed on any refusal.
+- **A store's Support tab** starts the same flow for each of its people (§6.3), for Owners, Admins
+  and Support, outside a staff session.
+- **Not here:** the bar, its five-minute countdown and expiry are the merchant portal's, with the
+  merchant's Allow/Deny (the Store strand, after #184). A DripFunnel staff session gets a refusal,
+  never the screen (ACCESS §8.2).
+
 ---
 
 ## 13. Activity log

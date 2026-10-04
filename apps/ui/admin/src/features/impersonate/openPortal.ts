@@ -1,26 +1,15 @@
-// The portal opens in a new tab (FIRST-RELEASE.md §8). The tab is opened on the click itself,
-// before the sign-in and the API answer, because a browser blocks a tab opened later.
+// The portal opens in a new tab (FIRST-RELEASE.md §8), reserved on the click (shared reserveTab).
+import { reserveTab, type ReservedTab } from '@dripfunnel/shared/ui'
 import type { Reauth } from '../../api/impersonation'
 
-export interface PortalTab {
-  go: (url: string) => void
-  close: () => void
-  blocked: boolean
+export interface PortalTab extends Omit<ReservedTab, 'tab'> {
   // The fresh SSO sign-in a session start asks for, run in this same tab.
   reauthenticate: () => Promise<Reauth>
 }
 
 export const reservePortalTab = (): PortalTab => {
-  const tab = window.open('about:blank', '_blank')
-  if (tab) tab.opener = null
-  return {
-    go: (url) => {
-      if (tab) tab.location.replace(url)
-    },
-    close: () => tab?.close(),
-    blocked: tab === null,
-    reauthenticate: () => (tab ? reauthenticateIn(tab) : Promise.resolve({ ok: false, outcome: 'failed' })),
-  }
+  const { tab, ...reserved } = reserveTab()
+  return { ...reserved, reauthenticate: () => (tab ? reauthenticateIn(tab) : Promise.resolve({ ok: false, outcome: 'failed' })) }
 }
 
 const reauthPath = '/api/auth/reauth'

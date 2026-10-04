@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ImpersonationTarget, StaffSession, StartResult } from '../../api/impersonation'
 import { createImpersonationServer } from '../../api/impersonationSample'
-import { countedSteps, firstStep, startWithReauth, ticketError, type StartSubject } from './startFlow'
+import { countedSteps, firstStep, startWithReauth, type StartSubject } from './startFlow'
 
 const server = createImpersonationServer({ reauthDelayMs: 0 })
 const targetOf = (membershipId: string): ImpersonationTarget => {
@@ -52,16 +52,6 @@ describe('where the start flow opens', () => {
     expect(firstStep(subject, [openSession('setup', 'ts')])).toBe('return')
     expect(firstStep(subject, [openSession('setup', 'kl')])).toBe('busy')
     expect(firstStep(subject, [openSession('impersonation')])).toBe('why')
-  })
-})
-
-describe('the ticket link', () => {
-  it('is optional, and https only', () => {
-    expect(ticketError('')).toBe(false)
-    expect(ticketError('https://support.dripfunnel.com/t/1')).toBe(false)
-    expect(ticketError('http://support.dripfunnel.com/t/1')).toBe(true)
-    expect(ticketError('javascript:alert(1)')).toBe(true)
-    expect(ticketError('ticket 48213')).toBe(true)
   })
 })
 

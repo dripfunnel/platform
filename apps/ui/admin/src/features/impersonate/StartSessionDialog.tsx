@@ -9,12 +9,13 @@ import {
   type StaffSession,
   type StartResult,
 } from '../../api/impersonation'
+import { ticketError } from '@dripfunnel/shared/format'
 import { fill, messages } from '../../messages'
 import type { StaffRole } from '../shell/staffRoles'
 import { reservePortalTab, type PortalTab } from './openPortal'
 import { sessionsChanged } from './sessionEvents'
 import { firstOf, membershipLine, placeText, refusalText, roleText, timeLeftText, whereText } from './sessionText'
-import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, startWithReauth, ticketError, type StartStep, type StartSubject } from './startFlow'
+import { afterBusy, countedSteps, firstStep, membershipOf, openOfKind, startWithReauth, type StartStep, type StartSubject } from './startFlow'
 import '@dripfunnel/shared/ui/states.css'
 import './impersonate.css'
 
