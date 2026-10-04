@@ -1,0 +1,464 @@
+# FIRST-RELEASE.md: the merchant portal
+
+The first version of the merchant portal (`apps/ui/store`, each partner's portal host) and of
+the storefront's Shop API behind it: **everything the Store prototype draws, plus the parts the
+docs design and the prototype doesn't draw yet** (decided with Gaurav on 2026-10-04, on #184;
+§1 records each answer). The prototype is `designs/DF Store Prototype.dc.html` with its child
+screens (`designs/design.md` §1 maps them).
+
+**Status: specification, not built.** The Store API and the Shop API answer `health` only, and
+`apps/ui/store` is a sign-in title and a Home link. The strands that build this release are
+§20; build order is not scope.
+
+Last updated: 2026-10-04.
+
+Rules that still apply in full: [README.md](README.md) (what the portal is, roles, never-do
+list), [../README.md](../README.md) (how every SPA is built),
+[../../api/ACCESS.md](../../api/ACCESS.md) (people, sessions, roles, vendors, support access),
+[../../api/SAAS.md](../../api/SAAS.md) (sign-up, provisioning, store states, plans, billing,
+domains, publishing), [../../api/LOGGING.md](../../api/LOGGING.md) §6 (what each role sees of
+the activity log). The design depth stays in [DESIGN-BRIEF.md](DESIGN-BRIEF.md) (flows 1–82),
+[CATALOG-DESIGN.md](CATALOG-DESIGN.md) and [OFFERS-DESIGN.md](OFFERS-DESIGN.md); this document
+says which of it ships and cites them rather than restating them.
+
+**The prototype decides behaviour; this document decides scope and rules** (docs/README.md §3).
+§18 lists where they differ. Everything not listed there (wording, step order, each dialog's
+consequence sentence, statuses and their colours, region wording from the prototype's `REG()`
+packs) is taken from the prototype as drawn.
+
+---
+
+## 1. Scope decisions (2026-10-04, #184)
+
+| Question (where it was open) | Answer |
+|---|---|
+| Baseline | **"Sell one thing"**: sign-up and provisioning in the partner's look, sign-in with 2-factor and My profile, Home, Products and the editor (options, versions, photos, stock with history), Collections, Orders with shipping, returns and refunds, Customers, Storefront (describe, preview, publish, own domain), Settings, Billing |
+| Offers (OFFERS-DESIGN) | **In**, the whole model; the storefront and checkout honour them through the Shop API |
+| Suppliers and approval (CATALOG-DESIGN L, ACCESS §7) | **In**: Business plan, the four tiers, shipping modes, supplier teams, approval |
+| Import and export (CATALOG-DESIGN K) | **In**: CSV and Shopify import, exports as jobs |
+| Reports | **In**, with the custom report builder |
+| Markets, currencies and languages (CATALOG-DESIGN N, O, Settings › Markets) | **In** |
+| Abandoned carts | **In**; reminder email through **Amazon SES** |
+| A+ content (CATALOG-DESIGN Q) | **In** |
+| Product kinds (PLATFORM-PROMPT §10) | **Physical, digital, services and gift cards** — the last three need a prototype design pass first (§20, card SUI 1) |
+| Regions and payment providers (PLATFORM-PROMPT §10) | **India and the US.** Stripe (US) and Razorpay (India), plus **PayPal** (US), **Cashfree and PhonePe** (India), **cash on delivery** (India) and **bank transfer** (both) |
+| US sales tax (PLATFORM-PROMPT §5.4, §10) | **Stripe Tax**; India's GST from the store's own rates (CATALOG-DESIGN T) |
+| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (EasyPost or Shippo, chosen on its card) |
+| API keys, webhooks, apps, own storefront (PLATFORM-PROMPT §5.5, §10; DESIGN-BRIEF 75–77) | **All in**; none is drawn, so each needs the design pass first |
+| Settings › Support access, the store activity log, Settings › Customer accounts | **In, after a design pass** (they are designed in ACCESS §8, LOGGING §6 and ACCESS §2.1 but not drawn) |
+| Staff export (README §3) | **Yes**: products, orders and customers |
+| A read-only Offers list for Staff (README §3) | **Yes** (the prototype draws it) |
+| Supplier import and export (README §3) | **Own only**: export for every tier, import for the catalogue tiers |
+| Manager and the whole store log (README §3, LOGGING §6) | **Yes**, as the Owner sees it |
+
+Decided on the way, from the prototype and the docs it follows (each recorded where it lives):
+the Store API is **GraphQL**, like the Platform and Admin APIs (§19); **stock is reserved when an
+order is paid** — "reserved" is sold and not yet shipped (PLATFORM-PROMPT §5.4) — and checkout
+re-checks availability at payment; a Manager may change stock but not warehouses, and never
+presses "Publish now" (the prototype gives Managers neither Settings nor a working Storefront).
+
+---
+
+## 2. Principles
+
+- **One store at a time, in the partner's look.** Every screen is scoped to the acting store,
+  which is always visible; the look, words and sender come from the hostname before anything
+  renders (README §6). No DripFunnel name appears unless the partner's "Powered by" rule shows
+  it (§18 lists the prototype's exceptions).
+- **The API decides, the screen displays.** Prices, tax, discounts, totals, stock, plan limits,
+  permissions and every "ready to sell" check come from the Store API. A component computes
+  nothing a shopper or a supplier could be charged or shown.
+- **Never leak across owners.** A supplier sees only its own rows: counts, search, filters,
+  empty states, exports and errors included (README §7). A supplier opening a URL that isn't
+  theirs sees "not found".
+- **Every action states its consequence first**, as the prototype words it, and every write is
+  audited with the actor, store, target and reason (LOGGING.md).
+- **Locked is never hidden for the Owner.** A plan gate names the plan that unlocks it and opens
+  the upgrade prompt; a Manager sees "Ask your store owner"; a supplier never sees plans
+  (SAAS §6.2).
+- **Designed states on every screen**: empty (a new store is empty everywhere), loading, error,
+  permission denied, read-only (past due), offline, and the banners in §3.3.
+- **Phone first**: every screen works at 360 px.
+
+---
+
+## 3. Shell: menu, header, banners
+
+### 3.1 Menu per role
+
+From the prototype's shell (`design.md` §3), which this release keeps:
+
+| Role | Rows |
+|---|---|
+| **Owner** | Home · Orders · Customers · Offers · Abandoned carts · Reports · *Catalogue:* Products, Collections · *Your shop:* Storefront · *Admin:* Settings, Billing |
+| **Manager** | Home · Orders · Customers · Offers · Abandoned carts · Reports · *Catalogue:* Products, Collections · *Your shop:* Storefront (view only) |
+| **Staff** | Home · Orders · Customers · Offers (view only) · Abandoned carts (view only) · *Catalogue:* Products (view only), Collections (view only) |
+| **Supplier, Stock only** | Your products (stock only) |
+| **Supplier, Products and stock** | Your products |
+| **Supplier, Products, stock and their orders** | Your products · To ship · Your sales |
+| **Supplier admin** (any tier) | + Your team |
+
+- **Badges** (work waiting): Orders = orders to ship; Products = supplier products waiting for
+  approval (only when approval is on). Nothing else carries a badge.
+- **Approval lives in Products** (the "Waiting for approval" chip and the review panel), and
+  **Suppliers, People and Warehouses are Settings tabs**; README §4's separate "To approve" and
+  "Suppliers" rows are superseded (§18).
+- Rows a role can't use are **absent**; a control a role can't use inside a screen is shown
+  **disabled with the reason** ("Only the store owner can …"), never hidden (../README.md §5).
+- "Your sales" and "Your team" are not drawn (§18; SUI 1).
+
+### 3.2 Header
+
+The partner's logo; the **store switcher** (current store's name and initial; "Switch store"
+lists the person's stores under this partner, never another partner's); Help; the person's name
+and role with a menu holding **My profile**, **Switch store** and **Sign out** ("Signs you out of
+every store on this device"). On a phone the menu is a drawer behind a button.
+
+### 3.3 Banners and states the shell owns
+
+| What | When | Behaviour |
+|---|---|---|
+| **Trial** | Store in Trial | "Free trial · N days left. You have everything in {plan}. No card needed." → Choose a plan (Owner) |
+| **Trial ends tomorrow / ended** | Day 9 · after `trial_ends_at` | Ended drops to the free plan and pauses what is over its limits → **Choose what to keep** (`PortalKeep`, SAAS §6.2) |
+| **Past due** | Billing webhook | **Read-only everywhere**: every save disabled with the reason, sign-in and reads keep working, the Owner gets "Pay the overdue invoice" (SAAS §4.2) |
+| **Suspended / cancelled** | SAAS §4.2 | Suspended: sign-in shows why and **the partner's** support contact. Cancelled: read-only until the period ends, then export only |
+| **Provisioning** | Steps 4–8 of SAAS §5 still running | "Setting up your storefront…" with the real step; Storefront and Settings open when done |
+| **Import running** | An import job | A banner with progress on every screen; leaving the page never stops it |
+| **Partner support session** | ACCESS §8 | Everyone signed in sees "{Partner} support ({name}) is viewing your store. Read-only. Ends in 28 min." and, when support asks to change something, **Allow / Deny** (Owner) — SUI 1 draws it |
+| **Staff impersonation** | ACCESS §8.1 | "Support ({name}) is signed in as {person}. Ends in 28 min." — always "Support", never DripFunnel (`ImpBanner`) |
+| **Offline** | No network | Reading continues; saves refuse and keep what was typed |
+| **Session expired** | ACCESS §4 | Sign in again and come back to the same page |
+| **Load error · not found · denied** | The API failed · a bad link · a role without access | The shell's generic states, each with its own sentence; a supplier's foreign URL is "not found" |
+| **Edit conflict** | Someone else saved first | "Review their changes" or "Load their version"; nothing is overwritten silently |
+| **Environment marker** | Non-production hosts | The shared Dev, Feature or Local strip (`environmentFor`, #65); nothing in production |
+
+---
+
+## 4. Getting in (DESIGN-BRIEF A, flows 1–7, 13)
+
+- **Sign-up** (`PortalAuth` `su1`–`su4`, SAAS §4.1, §5): name, email, password (10 characters or
+  more, ACCESS §4) → email code → store name, web address, region, currency, language → phone
+  code → a real progress screen driven by the provisioning job. Open only while the partner is
+  Live. Responds identically whether or not the email has an account.
+- **Store created by the partner**: the Owner gets an invitation, never a password.
+- **Sign-in**: email and password, then the second factor **when the person has it on**. An
+  Owner without it is sent to turn it on before the store opens (the `enrol` view, #183); every
+  other role may skip it. Five wrong passwords pause sign-in for 15 minutes and email the Owner.
+  Backup codes work once each. Google sign-in authenticates an existing account only (ACCESS §2).
+- **Choose a store / switch store**: the portal never picks; a person who belongs to no store is
+  refused, not shown an empty portal. "Create another store" starts sign-up step 3.
+- **Reset password**: a link valid for 30 minutes; signs out everywhere else.
+- **Invitations**: a new person sets a name and password; an existing account joins without one;
+  an expired link (7 days) says so and asks the inviter for a new one.
+- **My profile** (`PortalProfile`): name, email (changed through a link to the new address),
+  mobile, password (signs out other devices), two-step sign-in (authenticator app or SMS; ten
+  backup codes shown once; an Owner can switch method but never turn it off), appearance (light
+  or dark), where you're signed in with "Sign out everywhere else", and **My activity** (own
+  entries, LOGGING §6).
+
+---
+
+## 5. Home (`PortalHome`)
+
+"Needs you" first — orders to pack and ship, supplier products waiting for approval, products low
+on stock, team requests for the Owner — each linking to its filtered list; then "How the shop is
+doing" (sales yesterday, orders today, average order over 7 days, returning customers) and the
+latest orders. Staff see no money. A new store sees the getting-started checklist and the locale
+check. Every figure is the API's (`home`, §19).
+
+---
+
+## 6. Orders (`PortalOrders`, DESIGN-BRIEF F, flows 36–41, 70–71)
+
+- **List**: chips All · To ship · Partly shipped · Shipped · Cancelled & refunded · Payment
+  pending, each with its count; rows show number, time in the store's zone, customer and city,
+  items, status, total and payment state. Export (a job). A supplier sees only orders holding its
+  lines, with **no order total**.
+- **Detail**: the lines grouped by who packs them ("You pack these", "{Supplier} packs these"),
+  the history with team notes, payment (items, delivery, tax, total, how it was paid), the
+  customer and delivery address, the market. A supplier sees only its part and, by its shipping
+  mode, nothing of the customer (`to-store`) or name and delivery address only (`to-shopper`,
+  ACCESS §7.3).
+- **Ship items**: per line and quantity, from a named warehouse; **book a label** through the
+  connected courier or **enter tracking by hand**; partial shipping is normal. Packing slip,
+  invoice and label print as documents.
+- **Returns**: start (lines, quantities, reason, a return label) → On its way back → Received →
+  Refunded; **Cancel return** while on its way back (#183).
+- **Refunds**: per line, grouped by who refunds them; each supplier refunds its own lines, the
+  store may override and the amount is recorded on the supplier ledger, settled outside
+  DripFunnel (ACCESS §7.3, PLATFORM-PROMPT §5.4); restock really restocks with the reason
+  "Returned by a shopper".
+- **Cancel** an unshipped order, with a reason; **mark as paid** for cash on delivery and bank
+  transfer (the order waits in Payment pending until then).
+
+## 7. Customers (`PortalOrders` › Customers, flows 40, 72)
+
+List (name, city and tags, spent, orders) with search, **groups** as chips; detail with contact,
+addresses, groups, tags, a team-only note, **marketing consent** (only the shopper opts in; the
+team may record that they asked to stop) and their orders. Add a customer (order emails only),
+edit, manage groups (showing where a group is used before it changes), **export** (Owner,
+Manager and Staff, §1). "Suppliers never see this list."
+
+## 8. Offers (`Offers`, `OfferEditor`, OFFERS-DESIGN A–V)
+
+All of OFFERS-DESIGN ships: Live · Scheduled · Off · Ended tabs, type and code filters, uses and
+discount given, the stacking warning, "Check a code a customer gives you"; the guided editor
+(type → reward → trigger → requirement → audience → schedule → stacking) and its recipes; codes,
+bulk single-use codes and QR downloads; pause, end, duplicate, delete. Staff see the list
+read-only. Plan gates as OFFERS-DESIGN U and the Pricing page draw them.
+
+## 9. Abandoned carts (`Carts`)
+
+Carts tab: checkouts left, reminders sent, recovered and recovered sales for the last 14 days, and
+each cart's shopper, items, value, where they left, and its reminder state. Reminders tab: up to
+three reminders, each with its delay, an optional single-use discount, subject and message;
+minimum cart value, skip when everything is out of stock, quiet hours in the shopper's time, once
+a week per shopper, stop on any purchase (always on), an unsubscribe link in every email. Sent by
+**email through Amazon SES** from the partner's sender domain (SAAS §3.6). Staff view only.
+
+## 10. Reports (`PortalReports`)
+
+7, 30 or 90 days against the period before: takings (sales, refunds, net), what sold, where it
+came from (by market), tax collected (by state in the US, by rate in India), suppliers (units,
+never a supplier's own totals shown to another), and the **custom report builder** (rows and
+columns). Every panel exports. Locked below Growth. Owner and Manager.
+
+---
+
+## 11. Products (`CatList`, `CatEditor`, CATALOG-DESIGN A–G, L, N–T)
+
+- **List**: chips All · Visible · Hidden · Waiting for approval · Sent back · Low stock ·
+  Missing info; supplier filter and sort; columns product (versions), status, price, stock,
+  supplier, ready to sell; quick edit of price and stock; bulk select (hide, show, add to
+  collection, export, delete). "{N} supplier products are waiting for your approval" with
+  **Review** (approve, or send back with a reason the supplier sees). A removed supplier's
+  products say "From {supplier}, removed" (#183).
+- **Editor**: what is sold (**a physical item · a download · a service · a gift card**, §1),
+  photos (alt text, main photo per version), name and description (AI writing within the plan's
+  allowance), **choices and versions** (up to three kinds, versions not made, price and stock for
+  all), **stock per warehouse with reserved** ("sold, not shipped yet") and **stock history**
+  (every change a movement with its reason, who, where and the result; reasons as #183 fixed
+  them), shipping weight and box, collections and filters, tax category, size chart,
+  specifications and highlights, **A+ content**, legal and safety (never a paid feature), search
+  listing, more options (product code, barcode, web address, tracking, age check, where it
+  ships), visibility, badges, **ready to sell per market** and the shopper preview. Languages
+  and currencies appear only when Settings has more than one (CATALOG-DESIGN N, O).
+- **Shared records say so**: "This is {Supplier}'s product. They will see your changes." /
+  "Your store owner can also edit this product."
+- **Approval**: price, title or photo changes to an approved product wait again; other edits go
+  live (ACCESS §7.2).
+
+## 12. Collections, Filters, Menus, Size charts (`CatCollections`, `CatSizeCharts`)
+
+Collections (automatic by rules, or hand-picked with a manual order; visible or hidden for
+offers; seasonal suggestions per market), Filters (shopper-facing values with counts, merge
+look-alikes, internal tags only the team sees), Menus (one main menu, nesting one level, desktop
+and phone previews), Size charts (sizes × measurements, units, other size systems, fit note).
+Staff view only.
+
+## 13. Import and export (`CatImport`, CATALOG-DESIGN K)
+
+Choose → Check → Import → Done: a CSV or Excel file, a Shopify export, or **Connect Shopify**;
+nothing changes until confirmed; an error file for rejected rows; the run continues after
+leaving the page, with the shell's banner. Template download. Exports (all, hidden only,
+filtered) are jobs with a download. Owner and Manager import; **Staff export**; suppliers import
+(catalogue tiers) and export **their own** (§1).
+
+## 14. Storefront (`PortalStorefront`, DESIGN-BRIEF H, SAAS §9)
+
+Describe a change → the AI makes it on a preview → approve → publish, never straight to live;
+the live version, this month's AI tokens and build minutes, **history with "Go back to this"**
+(which never uses build minutes), "View live site". Catalogue **Publish now** and the publishing
+status (storefront ARCHITECTURE §4.2). **Choose the storefront: AI or own** (flow 75; SUI 1
+draws it): a store on its own storefront gets its public store key and allowed origins and
+skips the AI designer. Owner; Manager view only.
+
+---
+
+## 15. Settings (Owner only)
+
+| Tab | What ships |
+|---|---|
+| **Store info** (`SetStore`) | Name, legal name, description, contact, address, tax id, **time zone**, **units**, **order-number format**, logo; **currencies** (auto-converted or typed) and **languages**; the web address and **Connect your own domain** (record → we check → certificate → live, with failure; SAAS §8) |
+| **People** (`SetTeam`) | Everyone, staff and supplier users, with invitations waiting; invite, resend, revoke, change role, remove from this store (never the account); the last Owner can't be demoted |
+| **Supplier** (`SetTeam`) | Suppliers with users, products, access level and status; invite (first user's email), change access level and shipping mode, suspend (hide or keep selling), remove (hidden, kept, marked); the approval switch |
+| **Payment setup** (`SetOps`) | Gateways by region: **Stripe, PayPal** (US); **Razorpay, Cashfree, PhonePe, cash on delivery** (India); **bank transfer** (both); connect with the merchant's own credentials (encrypted, never shown again), disconnect, which are live |
+| **Shipping** (`SetOps`) | What the shopper pays (courier's live rate, flat rate, collect in person with hours), when delivery is free, delivery partners (**Shiprocket**; USPS, UPS, FedEx through the aggregator) with pricing, standby, test and manage, where you deliver (everywhere, or uploaded postcodes) |
+| **Warehouse** (`SetOps`) | Locations with units, the default for new products, add, edit, delete; suppliers' locations in their own labelled group, read-only |
+| **Tax setup** (`SetOps`) | Prices include or exclude tax; tax categories and their rates (India) or **Stripe Tax** by state (US); invoice settings |
+| **Markets** (`SetMarkets`) | Markets with countries, currency, language, price adjustment, fixed prices per product (Business), web address (main, path, or a market's own domain on Business), delivery charge, duties (Business), "everywhere else" |
+| **Catalogue** (`CatSettings`) | What you sell, product page sections by plan, badges (define; assign per product), legal details used on every product, what you're using against the plan |
+| **Customer accounts** | How shoppers sign in: email, mobile or both (ACCESS §2.1) — **SUI 1 draws it** |
+| **Developers** | Public store key, allowed origins, API keys (scopes, supplier binding, expiry, rotate, revoke, last used), webhooks (endpoints, events, delivery log, replay, auto-disable) — **SUI 1 draws it** |
+| **Apps** | Install with scope consent, configure, uninstall saying what stops — **SUI 1 draws it** |
+| **Support access** | "Allow {partner} support to view my store: On / Off" (on by default), the support access log, and that DripFunnel staff can still sign in as a user (USERS-AND-DOMAINS §4.1–4.2) — **SUI 1 draws it** |
+| **Activity log** | The whole store's log, shoppers included, filter by person, every name a link, export (LOGGING §6–7). A Manager, who has no Settings, opens the same log as **Store activity** in the user menu — **SUI 1 draws it** |
+
+## 16. Billing (`PortalBilling`, Owner only)
+
+The partner's plans with monthly or yearly prices and what each includes (from the Platform
+API's plan catalogue, never hard-coded), switch now with **proration** or at period end, the
+dates from the billing period; this month's usage (bandwidth, products, staff, AI tokens); buy
+extra bandwidth; storefront setup by the partner's team where the plan offers it; the **card
+that pays for the plan in a hosted field**, never the shoppers' payments; details on invoices;
+invoices with PDF and export; **Close my store** with "Download my data first" (products, orders,
+customers) and "Move to Free instead". Who charges is the partner or DripFunnel on its behalf
+(SAAS §7.1) and the screen says which.
+
+## 17. Supplier views
+
+**Your products** (only theirs, with counts and empty states; stock only for the Stock-only tier;
+add and edit for the catalogue tiers, waiting for approval when it's on; export; import for the
+catalogue tiers), **To ship** (their lines by shipping mode), **Your sales** (own lines, no
+totals) and **Your team** (Supplier admin: invite, change admin or member, resend, remove, never
+the last admin; DATA-MODEL §4.2). Their own warehouses and stock. Never offers, customers beyond
+§6, plans, other suppliers or the store's totals.
+
+---
+
+## 18. Prototype differences
+
+Where the prototype and the docs disagree. **Rule** differences: the doc wins, because a rule
+decided in a document outranks a prototype (docs/README.md §3). **Behaviour** differences: listed
+for SUI 1 to resolve in the prototype, or asked; none is picked silently.
+
+| The prototype | This release | Kind |
+|---|---|---|
+| Billing says "What you pay DripFunnel", lists DripFunnel's plans and offers a "Partner · Talk to us" tier; Payment setup says "The card that pays for DripFunnel" | The **partner's** plans and name, white label (README §6, SAAS §7.1); no partnership offer inside a merchant portal | rule |
+| Billing's card form | A hosted payment field; a card number never touches DripFunnel | rule |
+| The refund override says "comes off their next payout" | Recorded on the supplier ledger and settled outside (DESIGN-BRIEF 71; #183 left the wording to this card) | rule |
+| Sign-up says "There's already an account for this email" | Identical response whether or not the email has an account (ACCESS §2, README §7) | rule |
+| README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
+| Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
+| No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload | All in; SUI 1 draws them first | not drawn |
+| Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | Email only until WhatsApp's provider is chosen (§21) | open |
+| Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
+| The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
+
+---
+
+## 19. What the Store API and the Shop API need
+
+Both are **GraphQL** (decided here, as for the Platform API on #155), served by the one Worker:
+the Store API at `/api` on the portal host, the Shop API at `/shop-api` on every storefront host
+(ARCHITECTURE §2). Names are *(proposed)*.
+
+**Every Store API call** carries the session cookie and the acting store; the server builds the
+`TenantContext` (ACCESS §3) from them, checks the membership, and scopes every read and write
+through `db/scoped`, supplier rows through `SellerScope`. A store or seller id in an argument is
+never authority. **Lists are cursor-paged** with `after` and `before`, a maximum page size of
+50, **no totals** (as ui/admin/FIRST-RELEASE §12 decided); counts on chips come from their own
+query. **Refusals are stable codes** with their facts, worded by the portal; every screen renders
+`?state=loading|error|denied|readOnly|offline` from the harness (../README.md §6).
+
+| Area | Queries | Mutations |
+|---|---|---|
+| Brand and sign-in (`/api/auth/*`) | `brand` (public: look, words, sender, by hostname) | `signUpStart`, `verifySignupEmail`, `signUpStore`, `verifySignupPhone`, `signIn`, `verifySecondFactor`, `useBackupCode`, `enrolSecondFactor`, `requestPasswordReset`, `resetPassword`, `acceptInvitation`, `signOut` |
+| Shell | `me` (person, role, tier, store, plan facts, permissions), `myStores`, `navBadges`, `storeState` (trial, past due, suspended, provisioning, import job, support session) | `switchStore` |
+| Profile | `profile`, `mySessions`, `myActivity` | `updateProfile`, `changeEmail`, `changePassword`, `setSecondFactor`, `regenerateBackupCodes`, `signOutOtherSessions` |
+| Home | `home` | |
+| Orders | `orders(filter)`, `order(id)`, `orderCounts` | `shipItems`, `bookLabel`, `addTracking`, `startReturn`, `receiveReturn`, `cancelReturn`, `refund` (with `override`), `cancelOrder`, `markPaid`, `addOrderNote`, `exportOrders` (job) |
+| Customers | `customers(filter)`, `customer(id)`, `customerGroups` | `addCustomer`, `updateCustomer`, `setCustomerTags`, `setCustomerNote`, `recordMarketingStop`, `createGroup`, `updateGroup`, `deleteGroup`, `exportCustomers` (job) |
+| Offers | `offers(filter)`, `offer(id)`, `checkCode(code)`, `offerResults(id)` | `saveOffer`, `pauseOffer`, `endOffer`, `duplicateOffer`, `deleteOffer`, `generateCodes`, `exportOfferCodes` (job) |
+| Abandoned carts | `abandonedCarts(filter)`, `cartSummary(range)`, `reminderSettings` | `saveReminderSettings`, `remindNow(cartId, discount)`, `sendTestReminder` |
+| Reports | `report(panel, range)`, `customReport(rows, columns, range)` | `exportReport(panel, range)` (job) |
+| Products | `products(filter, sort)`, `productCounts`, `product(id)`, `stockHistory(productId, versionId)`, `readiness(productId)` | `saveProduct`, `updateProducts(ids, patch)`, `deleteProducts`, `adjustStock(versionId, warehouseId, delta, reason)`, `approveProduct`, `sendBackProduct(reason)`, `uploadAsset` (signed upload), `writeDescription` (AI, metered), `exportProducts` (job) |
+| Collections | `collections`, `facets`, `menu`, `sizeCharts` | `saveCollection`, `deleteCollection`, `saveFacet`, `mergeFacetValues`, `saveMenu`, `saveSizeChart`, `deleteSizeChart` |
+| Import | `importJob(id)` | `startImport(file or shopify)`, `confirmImport`, `pauseImport`, `connectShopify` |
+| Storefront | `storefront` (live version, history, usage, publishing status) | `describeChange(prompt)` (AI run), `approvePreview`, `publish`, `revertTo(version)`, `publishCatalogueNow`, `chooseStorefront(ai or own)` |
+| Settings | `storeInfo`, `people`, `suppliers`, `gateways`, `shipping`, `warehouses`, `tax`, `markets`, `catalogueSettings`, `customerAccounts`, `apiKeys`, `webhooks(…deliveries)`, `apps`, `supportAccess` (+ log), `activityLog(filter)`, `domain` | `saveStoreInfo`, `saveCurrencies`, `saveLanguages`, `connectDomain`, `recheckDomain`, `removeDomain`, `inviteMember`, `changeRole`, `removeMember`, `inviteSupplier`, `setSupplierAccess`, `setSupplierShippingMode`, `suspendSupplier(hide)`, `removeSupplier`, `setApproval`, `connectGateway`, `disconnectGateway`, `saveShipping`, `connectCourier`, `testCouriers`, `saveWarehouse`, `setDefaultWarehouse`, `saveTax`, `saveInvoiceSettings`, `saveMarket`, `saveCatalogueSettings`, `saveBadge`, `saveLegalDefaults`, `setCustomerSignIn`, `createApiKey` (secret shown once), `rotateApiKey`, `revokeApiKey`, `saveWebhook`, `replayDelivery`, `installApp`, `uninstallApp`, `setSupportAccess`, `answerSupportElevation(allow)`, `exportActivity` (job) |
+| Billing | `subscription`, `planCatalogue` (the partner's), `usage`, `invoices`, `billingDetails` | `changePlan(plan, period, when)`, `setPaymentMethod(token)`, `saveBillingDetails`, `buyBandwidth`, `buySetup`, `downloadInvoice`, `keepProducts(ids)` (Choose what to keep), `cancelStore`, `exportStoreData` (job) |
+| Supplier | the same queries, seller-scoped; `mySupplierTeam`, `mySales` (no totals) | `inviteSupplierUser`, `changeSupplierRole`, `removeSupplierUser` |
+
+Every mutation is authorised by ACCESS §5.1–5.2 per role and tier, refused while past due
+(`READ_ONLY`), metered through `saas/entitlements` where a plan limits it (`PLAN_LIMIT` with the
+plan that unlocks it), and audited.
+
+**The Shop API** (`/shop-api`, PLATFORM-PROMPT §5.5) — what the storefront template needs to sell
+what the portal publishes, identified by the public store key or hostname, never a secret:
+`store` (info, policies, legal, markets, currencies, languages), `menu`, `collections`,
+`collection`, `products(filter, facets, search)`, `product` (with A+, size chart, sections,
+badges, readiness per market), `search`; cart (`cart`, `addToCart`, `updateLine`,
+`applyCode`, `setAddress`, `shippingOptions`, `setShipping`, `paymentOptions` per region:
+Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer), `checkout`
+(prices, Stripe Tax or the store's rates, offers and totals computed by the engine, stock
+checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by email or mobile
+code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
+downloads after payment; **service booking** once SUI 1 designs it; marketing consent at
+checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
+queries are edge-cached per store, language and currency and purged by events (§5.5 there).
+
+---
+
+## 20. The strands that build this release
+
+Created on the board once this merges, in the shape PAPI 1–9 and PC 2–12 took. **Needs** is
+what must merge first.
+
+**Store prototype (designs/)**
+
+| # | Card | Needs |
+|---|---|---|
+| SUI 1 | Draw the undrawn parts in the Store prototype: Support access with the banner's Allow/Deny, the store Activity log, Customer accounts, Developers (keys, webhooks), Apps, AI-or-own storefront, Your sales, Your team, services, gift cards, digital file upload; resolve §18's behaviour rows | #184 |
+
+**Store API (apps/api)**
+
+| # | Card | Needs |
+|---|---|---|
+| SAPI 1 | Store API GraphQL skeleton on the portal host: schema file, `TenantContext` from session and acting store, resolver scope declarations, `READ_ONLY` and `PLAN_LIMIT`, cursor paging, the structural test | #184 |
+| SAPI 2 | Brand by hostname, sign-up and provisioning (SAAS §5 workflow, steps 1–3), sign-in, 2-factor and enrolment, reset, invitations, My profile, sessions | SAPI 1 |
+| SAPI 3 | Money, catalogue, versions, assets (R2 signed uploads), collections, facets, menus, size charts, sections, legal, badges, readiness per market | SAPI 1 |
+| SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment | SAPI 3 |
+| SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix | SAPI 4 |
+| SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
+| SAPI 7 | Tax: classes, rates (India), Stripe Tax (US), invoices settings | SAPI 3 |
+| SAPI 8 | Shop API catalogue and search, edge caching and purge | SAPI 3, SAPI 6 |
+| SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting) | SAPI 7, SAPI 8 |
+| SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent | SAPI 9 |
+| SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations | SAPI 10, SAPI 5 |
+| SAPI 12 | Shipping: methods and charges, Shiprocket and the US aggregator, labels, pickups, tracking sync | SAPI 11 |
+| SAPI 13 | Customers: groups, tags, notes, consent, export; shopper emails through SES (order, shipping, password) | SAPI 11 |
+| SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting | SAPI 9 |
+| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe | SAPI 13, SAPI 14 |
+| SAPI 16 | Import and export: CSV, Shopify, export jobs | SAPI 5 |
+| SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
+| SAPI 18 | Reports and the custom report builder | SAPI 11 |
+| SAPI 19 | Billing for the store: the partner's plans, proration, usage meters, Choose what to keep, close store and export | SAPI 2, #201 |
+| SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants | SAPI 11 |
+| SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log | SAPI 2, #202 |
+| SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services | SAPI 11, SUI 1 |
+
+**Store UI (apps/ui/store)**
+
+| # | Card | Needs |
+|---|---|---|
+| SUI 2 | Shell: brand from hostname, menu per role, store switcher, banners and states, `?state=` harness | SAPI 1 |
+| SUI 3 | Getting in and My profile | SUI 2, SAPI 2 |
+| SUI 4 | Products, editor, stock and history, approval | SUI 2, SAPI 5 |
+| SUI 5 | Collections, filters, menus, size charts | SUI 4 |
+| SUI 6 | Settings: Store info, People, Supplier, Warehouse, Markets, Catalogue, Tax | SUI 4, SAPI 6, SAPI 7 |
+| SUI 7 | Orders, returns, refunds, Customers | SUI 2, SAPI 11, SAPI 13 |
+| SUI 8 | Settings: Payment setup, Shipping, Customer accounts | SUI 6, SAPI 10, SAPI 12 |
+| SUI 9 | Offers and Abandoned carts | SUI 7, SAPI 14, SAPI 15 |
+| SUI 10 | Import and export | SUI 4, SAPI 16 |
+| SUI 11 | Storefront | SUI 2, SAPI 17 |
+| SUI 12 | Home and Reports | SUI 7, SAPI 18 |
+| SUI 13 | Billing | SUI 2, SAPI 19 |
+| SUI 14 | Developers, Apps, Support access, Activity log | SUI 6, SAPI 20, SAPI 21, SUI 1 |
+| SUI 15 | Supplier views: Your products, To ship, Your sales, Your team | SUI 4, SUI 7, SUI 1 |
+| SUI 16 | Product kinds in the editor and the storefront template | SUI 4, SAPI 22 |
+| ST 1 | Storefront template on the Shop API: catalogue, cart, checkout, accounts, offers, every payment method, gift cards, downloads | SAPI 9, SAPI 10, SAPI 14 |
+
+---
+
+## 21. Open questions
+
+- **WhatsApp reminders** in India: which provider, and whether they ship with email (§18).
+- What the storefront shows while the store is **past due** (SAAS §4.2 *(ask)*), and what past
+  due means for its suppliers (SAAS §14).
+- **Dunning**: when past due becomes suspended (SAAS §7.3).
+- **Gift cards**: expiry and liability rules per region, decided on SUI 1 with the design.
+- **Services**: booking with times, or a service sold like a product with no shipping — SUI 1.
+- Whether "under two minutes" includes the first live build (SAAS §5).
+- Apps: embedded pages or links only, and a public marketplace or private apps first
+  (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.

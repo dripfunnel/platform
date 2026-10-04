@@ -5,7 +5,7 @@ model, build order and product design. It replaces the first platform's plan, wh
 built on a third-party commerce framework (removed from the workspace 2026-09-28; what still
 held is ported into this repo).
 
-Last updated: 2026-10-03.
+Last updated: 2026-10-04.
 
 **The change, in one line:** DripFunnel no longer runs on a third-party commerce framework.
 **We build our own headless commerce engine, architected like established headless engines**
@@ -392,12 +392,15 @@ Design each module's responsibilities, tables, public API, events and invariants
   imports and suppliers write movements too; the portal shows the history per product and per
   version. **Reserved** is "sold, not shipped yet": units in paid orders not yet fulfilled.
 - **Tax**: tax classes; zones; rates per store, class and zone; inclusive or exclusive pricing;
-  exemptions. Decide whether US sales tax uses a tax service *(ask)*.
+  exemptions. **US sales tax uses Stripe Tax** (decided 2026-10-04 on #184); India's GST uses the
+  store's own rates.
 - **Promotions**: the OFFERS prompt's full model. Conditions with AND/OR, actions on products,
   collections, order and shipping, combination rules, deterministic application order,
   per-currency amounts, bulk codes, usage counting that survives concurrency.
 - **Cart and checkout**: pricing is computed server-side, always. Carts expire; prices and
-  offers are re-evaluated on change; stock is reserved at a defined point *(decide)*.
+  offers are re-evaluated on change; **stock is reserved when the order is paid** ("reserved" is
+  sold and not yet shipped, Inventory above) and checkout re-checks availability at payment
+  (decided 2026-10-04 on #184).
 - **Orders**: a state machine (placed, paid, partly fulfilled, fulfilled, cancelled, refunded),
   immutable price snapshots on lines, **vendor sub-orders**, partial fulfilment from a named
   warehouse, cancellations and refunds. **Returns and refunds across vendors were decided
@@ -666,6 +669,26 @@ app actually running and exercised, and nothing regressed. A suggested skeleton 
 
 State what the smallest sellable first release is, and what is explicitly deferred.
 
+**The first release (decided 2026-10-04 on #184; ui/store/FIRST-RELEASE.md is the screen-by-screen
+scope and §20 there the card list).** Gaurav took the larger answer to every scope question: the
+release is everything the Store prototype draws plus the designed-but-undrawn parts.
+- **Commerce modules**: catalogue with versions, photos, collections, filters, menus, size
+  charts, A+ content and the listing sections; inventory with the movement ledger; money;
+  tax; **all four product kinds** (physical, digital, services, gift cards; the last three
+  designed first); markets, currencies and languages; suppliers and approval; offers; cart
+  and checkout; orders with supplier parts, returns and refunds; customers with groups and
+  consent; abandoned carts; import and export (CSV and Shopify); reports with a custom
+  builder; the AI storefront and the merchant's own; API keys, webhooks and apps.
+- **Stock reservation**: at payment (§5.4 Cart and checkout).
+- **Regions**: **India and the US**.
+- **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
+  (India); bank transfer (both). **US sales tax**: Stripe Tax.
+- **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator (EasyPost or
+  Shippo, chosen on its card).
+- **Email**: Amazon SES for shopper and portal email, abandoned-cart reminders included.
+- **Deferred**: WhatsApp reminders (provider open), other regions (the prototype's DE pack
+  stays a demo control), in-platform supplier payouts (§5.4 Payments), Typesense (§5.4 Search).
+
 ---
 
 ## 9. Ground rules (carry over)
@@ -702,9 +725,8 @@ State what the smallest sellable first release is, and what is explicitly deferr
 - Where does the AI agent execute, and where do builds run?
 
 **Headless**
-- Which of **API keys, webhooks and apps** ship in the first release? (The answer given so
-  far was "all three, and nothing yet": design all three, and confirm which are exposed
-  first.)
+- ~~Which of **API keys, webhooks and apps** ship in the first release?~~ **All three**, with the
+  merchant's own storefront (decided 2026-10-04 on #184, §8).
 - Own storefronts: our hosted checkout, their own checkout on the Shop API, or both?
 - Can a store switch between an AI storefront and its own, and do plans differ?
 - ~~Can vendors have their own API keys?~~ Later (ACCESS.md §5.6).
@@ -713,15 +735,16 @@ State what the smallest sellable first release is, and what is explicitly deferr
 - API rate limits and quotas per plan?
 
 **Commerce scope for the first release**
-- Which regions at launch (India, US, EU, UK, Gulf…)? Which payment providers and couriers?
-- US sales tax: own rates or a tax service (Stripe Tax, Avalara, TaxJar)?
+- ~~Which regions at launch? Which payment providers and couriers?~~ ~~US sales tax?~~ **Decided
+  2026-10-04 on #184** (§8): India and the US, the providers and couriers listed there, Stripe Tax.
 - ~~Vendor payouts: does DripFunnel or the merchant pay vendors (Stripe Connect, Razorpay
   Route), or is it outside the platform?~~ **Settled 2026-10-02**: outside, from a per-store
   supplier ledger (§5.4 Payments); in-platform payouts later.
 - ~~Refunds, returns and cancellations across vendors: first release or later?~~ **Designed
   2026-10-02** (§5.4 Orders, ACCESS.md §7.3); the release is ui/store/FIRST-RELEASE.md's (to be written on #184).
-- Digital products, services, gift cards: first release or later?
-- Which "needs backend" items from the catalogue and offers prompts are first release?
+- ~~Digital products, services, gift cards: first release or later?~~ ~~Which "needs backend" items
+  from the catalogue and offers prompts are first release?~~ **All of them** (decided 2026-10-04
+  on #184, §8; ui/store/FIRST-RELEASE.md §1).
 - When is stock reserved: added to cart, checkout started, or payment?
 
 **Brand and billing**

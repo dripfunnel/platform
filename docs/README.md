@@ -4,7 +4,7 @@ Everything in this folder is the specification of the `platform` repo. Code foll
 docs; when they disagree, fix one of them in the same change and say which. This page is
 the map: what each document is for, what to read for a task, and how to write docs here.
 
-Last updated: 2026-10-02.
+Last updated: 2026-10-04.
 
 ---
 
@@ -58,9 +58,11 @@ docs/
     admin/CONSOLE-DESIGN.md design prompt: every admin console part, with its partner-console counterpart
     admin/CLAUDE-DESIGN-PROMPT.md   design prompt for a Claude Design session: the first release's screens
                             (with -CUSTOMERS.md and -IMPERSONATION.md for those two features)
-    platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules    platform/FIRST-RELEASE.md  what the partner console's first release contains: every screen the prototype draws, and what the Platform API needs for them
+    platform/README.md      guide: the partner console: purpose, partner roles, navigation, code, rules
+    platform/FIRST-RELEASE.md  what the partner console's first release contains: every screen the prototype draws, and what the Platform API needs for them
     platform/CLAUDE-DESIGN-PROMPT.md  design prompt for a Claude Design session: the partner console
     store/README.md         guide: the merchant portal: purpose, roles and permissions, navigation, code, rules
+    store/FIRST-RELEASE.md  what the merchant portal's first release contains, what the Store and Shop APIs need, and the cards that build it
     store/DESIGN-BRIEF.md   design prompt: the portal's facts, users and every flow
     store/CATALOG-DESIGN.md design prompt: the catalogue in depth
     store/OFFERS-DESIGN.md  design prompt: offers in depth
@@ -127,7 +129,7 @@ touch.
 | Partners, plans, billing, provisioning, domains, publishing, fleet | [api/SAAS.md](api/SAAS.md), and `designs/DF Store Pricing.dc.html` for what each plan includes |
 | Activity log, who did what, technical logs | [api/LOGGING.md](api/LOGGING.md) |
 | Any SPA code | [ui/README.md](ui/README.md), then the app's guide, then the screen in its prototype ([../designs/design.md](../designs/design.md)) |
-| Merchant portal screens | [ui/store/](ui/store/README.md), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
+| Merchant portal screens | [ui/store/](ui/store/README.md), [FIRST-RELEASE](ui/store/FIRST-RELEASE.md) (build this first), [DESIGN-BRIEF](ui/store/DESIGN-BRIEF.md), [CATALOG-DESIGN](ui/store/CATALOG-DESIGN.md), [OFFERS-DESIGN](ui/store/OFFERS-DESIGN.md), and `designs/DF Store Prototype.dc.html` |
 | Partner console screens | [ui/platform/](ui/platform/README.md), [FIRST-RELEASE](ui/platform/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md) "Partner console" lines, and `designs/DF Platform Prototype.dc.html` |
 | Admin console screens | [ui/admin/](ui/admin/README.md), [FIRST-RELEASE](ui/admin/FIRST-RELEASE.md) (build this first), [CONSOLE-DESIGN](ui/admin/CONSOLE-DESIGN.md), and `designs/DF Admin Prototype.dc.html` |
 | Shared UI, tokens, formatting | [ui/shared/](ui/shared/README.md), and `designs/DripFunnel Style Guide.dc.html` for the tokens themselves |
