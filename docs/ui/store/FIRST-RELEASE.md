@@ -43,7 +43,7 @@ packs) is taken from the prototype as drawn.
 | Product kinds (PLATFORM-PROMPT §10) | **Physical, digital, services and gift cards** — the last three need a prototype design pass first (§20, card SUI 1) |
 | Regions and payment providers (PLATFORM-PROMPT §10) | **India and the US.** Stripe (US) and Razorpay (India), plus **PayPal** (US), **Cashfree and PhonePe** (India), **cash on delivery** (India) and **bank transfer** (both) |
 | US sales tax (PLATFORM-PROMPT §5.4, §10) | **Stripe Tax**; India's GST from the store's own rates (CATALOG-DESIGN T) |
-| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (EasyPost or Shippo, chosen on its card) |
+| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (EasyPost or Shippo, chosen on the shipping card, SAPI 12) |
 | API keys, webhooks, apps, own storefront (PLATFORM-PROMPT §5.5, §10; DESIGN-BRIEF 75–77) | **All in**; none is drawn, so each needs the design pass first |
 | Settings › Support access, the store activity log, Settings › Customer accounts | **In, after a design pass** (they are designed in ACCESS §8, LOGGING §6 and ACCESS §2.1 but not drawn) |
 | Staff export (README §3) | **Yes**: products, orders and customers |
@@ -289,7 +289,7 @@ skips the AI designer. Owner; Manager view only.
 | **Payment setup** (`SetOps`) | Gateways by region: **Stripe, PayPal** (US); **Razorpay, Cashfree, PhonePe, cash on delivery** (India); **bank transfer** (both); connect with the merchant's own credentials (encrypted, never shown again), disconnect, which are live |
 | **Shipping** (`SetOps`) | What the shopper pays (courier's live rate, flat rate, collect in person with hours), when delivery is free, delivery partners (**Shiprocket**; USPS, UPS, FedEx through the aggregator) with pricing, standby, test and manage, where you deliver (everywhere, or uploaded postcodes) |
 | **Warehouse** (`SetOps`) | Locations with units, the default for new products, add, edit, delete; suppliers' locations in their own labelled group, read-only |
-| **Tax setup** (`SetOps`) | Prices include or exclude tax; tax categories and their rates (India) or **Stripe Tax** by state (US); invoice settings |
+| **Tax setup** (`SetOps`) | Prices include or exclude tax; tax categories and their rates (India) or **Stripe Tax** by state (US; through whose Stripe account, §21); invoice settings |
 | **Markets** (`SetMarkets`) | Markets with countries, currency, language, price adjustment, fixed prices per product (Business), web address (main, path, or a market's own domain on Business), delivery charge, duties (Business), "everywhere else" |
 | **Catalogue** (`CatSettings`) | What you sell, product page sections by plan, badges (define; assign per product), legal details used on every product, what you're using against the plan |
 | **Customer accounts** | How shoppers sign in: email, mobile or both (ACCESS §2.1) — **SUI 1 draws it** |
@@ -465,6 +465,9 @@ what must merge first.
 ## 21. Open questions
 
 - **WhatsApp reminders** in India: which provider, and whether they ship with email (§18).
+- **Stripe Tax for merchants' US checkouts** *(decide)*: through the merchant's own connected Stripe
+  account or DripFunnel's (whose account is then the tax-calculation vendor, with its cost and
+  nexus), and what a US store taking payments only through PayPal uses (THIRD-PARTY-ACCESS §2.7).
 - What the storefront shows while the store is **past due** (SAAS §4.2 *(ask)*), and what past
   due means for its suppliers (SAAS §14).
 - **Dunning**: when past due becomes suspended (SAAS §7.3).

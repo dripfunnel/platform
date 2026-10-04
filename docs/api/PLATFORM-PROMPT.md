@@ -684,7 +684,7 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
   (India); bank transfer (both). **US sales tax**: Stripe Tax.
 - **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator (EasyPost or
-  Shippo, chosen on its card).
+  Shippo, chosen on the shipping card, SAPI 12).
 - **Email**: Amazon SES for shopper and portal email, abandoned-cart reminders included.
 - **Deferred**: WhatsApp reminders (provider open), other regions (the prototype's DE pack
   stays a demo control), in-platform supplier payouts (§5.4 Payments), Typesense (§5.4 Search).
