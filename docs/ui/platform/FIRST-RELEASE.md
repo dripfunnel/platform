@@ -620,13 +620,15 @@ checks, stuck setups). **Never** anything inside a store, and never a shopper.
   Store · Before · After · Reason. **Show more**; **Export CSV**. Read-only.
 - The same entries appear on each store's Activity tab (§6.3) and as **My activity** (§2.2).
 
-**Built on #192, straight onto #198's API.** The person finder, pager and facts come from the shared
-kit (ui/shared/README.md). The chosen person's name rides in history state, never the URL; after a
-reload the card says "This person's timeline". The Store chip offers the newest page of stores, plus
-the store a filter names when it is older. An entry about any other older store opens without the
-store's name. The store's Activity tab links to this log
-filtered to it. Activity exports and store exports share one job slot, and each screen shows only
-its own.
+**Built on #192, straight onto #198's API.** The person finder and facts come from the shared kit
+(ui/shared/README.md). The chosen person's name rides in history state, never the URL; after a
+reload the card says "This person's timeline".
+- **Store names:** each entry carries `storeName` from the API. The Store filter offers the newest
+  stores, the store a link names, and every store the entries shown name.
+- **My activity** isn't offered in a staff setup session, since the staff member has no timeline
+  here.
+- **The store's Activity tab** links to this log filtered to it.
+- **Exports:** activity and store exports share one job slot, and each screen shows only its own.
 
 ---
 

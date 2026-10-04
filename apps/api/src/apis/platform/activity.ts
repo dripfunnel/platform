@@ -40,6 +40,7 @@ const Entry = builder.objectRef<PartnerActivityEntry>('PartnerActivityEntry').im
     onBehalfOf: t.exposeString('onBehalfOf', { nullable: true }),
     through: t.exposeString('through', { nullable: true }),
     storeId: t.exposeString('storeId', { nullable: true }),
+    storeName: t.exposeString('storeName', { nullable: true }),
     target: t.field({ type: TargetType, nullable: true, resolve: (e) => e.target }),
     changes: t.field({ type: [ChangeType], resolve: (e) => e.changes }),
     reason: t.exposeString('reason', { nullable: true }),

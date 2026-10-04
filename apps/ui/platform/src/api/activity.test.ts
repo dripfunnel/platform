@@ -10,7 +10,7 @@ beforeEach(() => {
 afterEach(() => void vi.unstubAllGlobals())
 
 const pageInfo = { startCursor: null, endCursor: 'c1', hasPreviousPage: false, hasNextPage: true }
-const raw = { id: 'e1', at: '2026-10-04T09:00:00.000Z', category: 'write', action: 'plan.updated', result: 'success', actor: { kind: 'staff', id: 'st1', label: 'Priya <p@x>' }, onBehalfOf: null, through: 'setup_session', storeId: null, target: { type: 'plan', id: null, label: null }, changes: null, reason: null }
+const raw = { id: 'e1', at: '2026-10-04T09:00:00.000Z', category: 'write', action: 'plan.updated', result: 'success', actor: { kind: 'staff', id: 'st1', label: 'Priya <p@x>' }, onBehalfOf: null, through: 'setup_session', storeId: null, storeName: null, target: { type: 'plan', id: null, label: null }, changes: null, reason: null }
 
 describe('the activity log', () => {
   it('sends only the declared chips, and reads an entry with no target label or changes', async () => {

@@ -16,6 +16,8 @@ export interface PersonFinderWords {
   // Under the field while fewer than the minimum characters are typed.
   hint: string
   none: string
+  // The search itself failed: never worded as nobody found.
+  failed: string
   results: (count: number) => string
 }
 
@@ -36,9 +38,11 @@ export const PersonFinder = ({ find, minChars, words, onChoose }: PersonFinderPr
   const [typed, setTyped] = useState('')
   const [matches, setMatches] = useState<readonly PersonOption[] | null>(null)
   const [active, setActive] = useState(-1)
+  const [failed, setFailed] = useState(false)
   const query = typed.trim()
 
   useEffect(() => {
+    setFailed(false)
     if (query.length < minChars) {
       setMatches(null)
       return
@@ -51,7 +55,11 @@ export const PersonFinder = ({ find, minChars, words, onChoose }: PersonFinderPr
           setMatches(found)
           setActive(-1)
         })
-        .catch(() => current && setMatches([]))
+        .catch(() => {
+          if (!current) return
+          setMatches(null)
+          setFailed(true)
+        })
     }, typingDelayMs)
     return () => {
       current = false
@@ -87,7 +95,7 @@ export const PersonFinder = ({ find, minChars, words, onChoose }: PersonFinderPr
     }
   }
 
-  const status = !open ? (query.length > 0 ? words.hint : '') : matches.length === 0 ? words.none : words.results(matches.length)
+  const status = failed ? words.failed : !open ? (query.length > 0 ? words.hint : '') : matches.length === 0 ? words.none : words.results(matches.length)
 
   return (
     <div className="df-person-finder">

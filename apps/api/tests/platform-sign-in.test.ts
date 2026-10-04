@@ -29,6 +29,7 @@ const deps = (): PlatformAuthDeps => ({
   platformHost: host,
   secrets,
   now: () => now,
+  allowStaffRead: async () => true,
   allowAttempt: async () => {
     attempts += 1
     return true

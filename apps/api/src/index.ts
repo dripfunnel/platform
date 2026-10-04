@@ -61,6 +61,8 @@ interface Env extends Record<string, unknown> {
   // Optional because an environment whose wrangler.jsonc lacks the entry really has none;
   // typing it as present would make the check below look like dead code.
   SIGN_IN_RATE_LIMITER?: RateLimit | undefined
+  // The partner console's staff-session routes, polled by every tab (ACCESS.md §8.3).
+  STAFF_SESSION_RATE_LIMITER?: RateLimit | undefined
   // Bound only where the bucket exists (THIRD-PARTY-ACCESS.md §2.1); uploads answer NOT_CONNECTED otherwise.
   ASSETS?: R2Bucket | undefined
 }
@@ -212,6 +214,8 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
     if (!hyperdrive) return new Response(null, { status: 503 })
     const limiter = env.SIGN_IN_RATE_LIMITER
     if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+    const staffLimiter = env.STAFF_SESSION_RATE_LIMITER
+    if (!staffLimiter) return misconfigured('STAFF_SESSION_RATE_LIMITER')
     const secrets = await secretsFor(config)
     return withConnection(hyperdrive, ctx, (sql) =>
       handlePlatformAuth(request, {
@@ -221,6 +225,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
         secrets,
         now: () => new Date(),
         allowAttempt: async (key) => (await limiter.limit({ key })).success,
+        allowStaffRead: async (key) => (await staffLimiter.limit({ key })).success,
       }),
     )
   }

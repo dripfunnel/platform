@@ -9,6 +9,7 @@ const env = {
   HEALTH_RATE_LIMITER: { limit: async () => ({ success: true }) },
   CF_VERSION_METADATA: { id: 'test-version', tag: '' },
   SIGN_IN_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  STAFF_SESSION_RATE_LIMITER: { limit: async () => ({ success: true }) },
 }
 const ctx = { waitUntil: (promise: Promise<unknown>) => promise } as unknown as ExecutionContext
 const call = (href: string, init?: RequestInit) =>
