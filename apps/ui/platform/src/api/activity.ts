@@ -36,6 +36,8 @@ export interface ActivityEntry {
   onBehalfOf: string | null
   through: Through | null
   storeId: string | null
+  // The store's name as the API has it now; null for an entry about no store.
+  storeName: string | null
   target: { type: string; id: string | null; label: string } | null
   changes: readonly { field: string; before: string | null; after: string | null }[]
   reason: string | null
@@ -56,6 +58,7 @@ const entrySchema = z.object({
   onBehalfOf: z.string().nullable(),
   through: z.enum(['impersonation', 'setup_session', 'support_session']).nullable(),
   storeId: z.string().nullable(),
+  storeName: z.string().nullable(),
   target: z.object({ type: z.string(), id: z.string().nullable(), label: z.string().nullable() }).nullable().transform((t) => (t && t.label ? { type: t.type, id: t.id, label: t.label } : null)),
   changes: z.array(z.object({ field: z.string(), before: z.string().nullable(), after: z.string().nullable() })).nullable().transform((c) => c ?? []),
   reason: z.string().nullable(),
@@ -66,7 +69,7 @@ const pageSchema = z.object({
   pageInfo: z.object({ startCursor: z.string().nullable(), endCursor: z.string().nullable(), hasPreviousPage: z.boolean(), hasNextPage: z.boolean() }),
 })
 
-const entryFields = `items { id at category action result actor { kind id label } onBehalfOf through storeId target { type id label } changes { field before after } reason }
+const entryFields = `items { id at category action result actor { kind id label } onBehalfOf through storeId storeName target { type id label } changes { field before after } reason }
   pageInfo { startCursor endCursor hasPreviousPage hasNextPage }`
 
 // Only the chips the API declares: the ?state= harness and anything else in the address stay out.

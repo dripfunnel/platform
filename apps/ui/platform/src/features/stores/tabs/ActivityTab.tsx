@@ -1,4 +1,4 @@
-import { StatusPill, type StatusIconName, type StatusTone } from '@dripfunnel/shared/ui'
+import { activityResultLook as resultLook, StatusPill } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import type { Store, StoreActivityEntry } from '../../../api/stores'
@@ -8,12 +8,6 @@ const words = messages.store.activity
 
 // An action the console has no words for yet shows as its code, never as nothing.
 const actionWords = (action: string): string => (Object.hasOwn(words.actions, action) ? words.actions[action as keyof typeof words.actions] : action)
-
-const resultLook: Record<StoreActivityEntry['result'], { tone: StatusTone; icon: StatusIconName }> = {
-  success: { tone: 'success', icon: 'ok' },
-  denied: { tone: 'danger', icon: 'ban' },
-  failed: { tone: 'warning', icon: 'alert' },
-}
 
 const Entry = ({ entry }: { entry: StoreActivityEntry }) => {
   const [open, setOpen] = useState(false)

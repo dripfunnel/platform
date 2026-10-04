@@ -1874,7 +1874,8 @@
       "owner": "Owner of {store}",
       "timeline": "{name}’s timeline",
       "someone": "This person’s timeline",
-      "everyone": "Show everyone"
+      "everyone": "Show everyone",
+      "failed": "The search didn’t work. Try again in a moment."
     },
     "filters": {
       "who": "Who",
@@ -1927,7 +1928,6 @@
     "system": "DripFunnel",
     "asUser": "{agent} as {user}",
     "row": {
-      "toggle": "Details for {time}",
       "refused": "{text} (refused)",
       "failed": "{text} (failed)",
       "withReason": "{text}: {reason}",
@@ -2081,6 +2081,30 @@
       "impersonation.extended": "Support session extended",
       "impersonation.ended": "Support session ended (staff)",
       "staff_session.link_reissued": "Staff session resumed"
+    },
+    "fields": {
+      "trial_ends_at": "Trial end",
+      "role": "Role",
+      "status": "Status",
+      "plan": "Plan",
+      "plan_id": "Plan",
+      "filter": "Filter",
+      "owner": "Owner",
+      "previous_owner_role": "Previous Owner’s role",
+      "second_factor_required": "2-factor required",
+      "host": "Address",
+      "billing_status": "Billing status",
+      "amount": "Amount",
+      "limit": "Limit",
+      "name": "Name",
+      "email": "Email",
+      "prices": "Prices",
+      "entitlements": "What’s included",
+      "trial_days": "Trial length",
+      "state": "State",
+      "reason": "Reason",
+      "ticket": "Ticket",
+      "expires_at": "Ends"
     }
   }
 }

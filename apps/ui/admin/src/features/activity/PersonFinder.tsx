@@ -6,7 +6,7 @@ import { fill, formatCount, messages, plural } from '../../messages'
 const words = messages.activity.person
 const kinds = messages.activity.personKinds
 
-const finderWords = { label: words.label, placeholder: words.placeholder, hint: words.hint, none: words.none, results: (count: number) => fill(plural(words.results, count), { count: formatCount(count) }) }
+const finderWords = { label: words.label, placeholder: words.placeholder, hint: words.hint, none: words.none, failed: words.failed, results: (count: number) => fill(plural(words.results, count), { count: formatCount(count) }) }
 
 export interface PersonFinderProps {
   onChoose: (personId: string) => void

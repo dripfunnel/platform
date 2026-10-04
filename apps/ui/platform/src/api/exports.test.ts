@@ -8,6 +8,9 @@ describe('an export’s kind', () => {
     expect(exportKindOf(job)).toBe('activity')
     await expect(startedExport('stores', Promise.reject(new Error('refused')))).rejects.toThrow('refused')
     expect(exportKindById('failed')).toBe('stores')
+    // One job at a time: the failed job in the store is the latest start's, and so is its tag.
+    await expect(startedExport('activity', Promise.reject(new Error('refused')))).rejects.toThrow('refused')
+    expect(exportKindById('failed')).toBe('activity')
     expect(exportKindOf(null)).toBeNull()
   })
 })

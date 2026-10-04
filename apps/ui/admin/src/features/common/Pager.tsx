@@ -1,7 +1,31 @@
-import { Pager as SharedPager, type PagerProps as SharedPagerProps } from '@dripfunnel/shared/ui'
+import type { ReactNode } from 'react'
+import type { PageInfo } from '@dripfunnel/shared/graphql'
 import { messages } from '../../messages'
+import '@dripfunnel/shared/ui/list.css'
 
-export type PagerProps = Omit<SharedPagerProps, 'words'>
+const words = messages.common.pager
 
-// The shared pager in this console's words (decided on #19).
-export const Pager = (props: PagerProps) => <SharedPager {...props} words={messages.common.pager} />
+export interface PagerProps {
+  label: string
+  pageInfo: PageInfo
+  // The list's own link to the page on either side, so the cursors land in its URL.
+  link: (cursor: { before: string } | { after: string }, label: string) => ReactNode
+}
+
+const Disabled = ({ label }: { label: string }) => (
+  <button type="button" className="df-button" disabled>
+    {label}
+  </button>
+)
+
+// Cursor paging, Previous and Next only, across the console (decided on #19): no page
+// numbers and no total, because the API pages by cursor.
+export const Pager = ({ label, pageInfo, link }: PagerProps) => {
+  if (!pageInfo.hasPreviousPage && !pageInfo.hasNextPage) return null
+  return (
+    <nav className="df-pager" aria-label={label}>
+      {pageInfo.hasPreviousPage && pageInfo.startCursor ? link({ before: pageInfo.startCursor }, words.previous) : <Disabled label={words.previous} />}
+      {pageInfo.hasNextPage && pageInfo.endCursor ? link({ after: pageInfo.endCursor }, words.next) : <Disabled label={words.next} />}
+    </nav>
+  )
+}
