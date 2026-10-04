@@ -1455,7 +1455,9 @@ partner_invoice     (id, partner_id, stripe_invoice_id unique, number NULL, what
                     -- DripFunnel's invoices to the partner (FIRST-RELEASE §11.3)
 merchant_charge     + stripe_ref unique ('in_…' a subscription invoice, 're_…' a refund),
                      retry_at NULL, attempt NULL     -- Billing's retry state on a failed one
-partner_payout      + stripe_payout_id unique, to_last4, failure_reason; status gains 'failed'
+partner_payout      + stripe_payout_id unique, to_last4, failure_reason; status gains 'failed';
+                     one per partner and period only for rows without a Stripe id: a retry or a
+                     manual payout is a second Stripe payout in the month
 ```
 
 **Reconciled on #157**: `plan.trial_days` is `0..90` (migration `0013`; it was `(0, 7, 14,

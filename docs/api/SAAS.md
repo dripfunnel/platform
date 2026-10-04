@@ -352,9 +352,11 @@ partner's billing, or both) is open (§14).
   minutes, the object is read back from Stripe before anything is written, and the event id and
   its effects are one transaction, so a replay or a late event changes nothing twice. A merchant's
   subscription invoice is one `merchant_charge` row whichever retry paid it, a refund its own row;
-  a Connect payout fills the month before it arrives, whatever the month's charges don't explain
-  being its adjustment. Stripe slow answers 503 so Stripe delivers again, and marks the partner's
-  feed stale. Store-side writes (`store_subscription`, the merchant's invoices) are the Store
+  each Connect payout is its own row for the month before it arrives, whatever the month's charges
+  don't explain being its adjustment. Stripe ids are committed before the calls that make Stripe
+  send events about them, and an event no partner can be found for yet isn't kept, so a later
+  delivery is handled. Stripe slow answers 503 so Stripe delivers again, and marks the partner's
+  feed stale, found by the event's Connect account or customer. Store-side writes (`store_subscription`, the merchant's invoices) are the Store
   strand's (ui/store/FIRST-RELEASE.md §20, SAPI 19).
 - The webhook updates `store_subscription` (or the partner's account), invalidates the cached
   status on sessions, and writes outbox events for emails and storefront rules, in one
