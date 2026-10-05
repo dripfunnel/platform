@@ -14,7 +14,7 @@ import { ChoicesCard, type Ask } from './ChoicesCard'
 import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type Units } from './draft'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
-import { StockCard, type StockHistoryView } from './StockCard'
+import { signed, StockCard, type StockHistoryView } from './StockCard'
 import { editorSample, editorStates } from './editorStates'
 import './editor.css'
 
@@ -38,6 +38,9 @@ const problemWords = (units: Units): Record<DraftProblem, string> => ({
 })
 
 const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
+
+// A new product's counts that didn't save, carried to its own page (which loads it fresh) to be saved again there.
+const unsavedCounts = new Map<string, Draft['stock']>()
 
 const refusalOf = (error: unknown): string => {
   if (!isApiError(error)) return words.refused.other
@@ -72,8 +75,11 @@ export const ProductEditor = () => {
 
   const show = useCallback((loaded: Loaded) => {
     const next = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels }) : blankDraft(loaded.units)
-    setDraft(next)
+    const carried = loaded.product ? unsavedCounts.get(loaded.product.id) : undefined
+    if (loaded.product) unsavedCounts.delete(loaded.product.id)
+    setDraft(carried ? { ...next, stock: { ...next.stock, ...carried } } : next)
     setSaved(next)
+    setFailure(carried ? { text: words.stock.newFailed, stale: false } : null)
     setHistory(closedHistory)
     setView({ kind: 'ready', ...loaded })
   }, [])
@@ -166,8 +172,13 @@ export const ProductEditor = () => {
   const save = async () => {
     // Stock only (a Stock-only supplier's product it can't otherwise edit): only the counts need to be right.
     const blocking = access.canEdit ? problems : problems.filter((p) => p === 'stock')
-    if (blocking.length > 0 || pending.some((p) => p.state === 'uploading')) {
+    if (blocking.length > 0) {
       setShowProblems(true)
+      return
+    }
+    // A photo still on its way isn't in the product yet; saving now would leave it out.
+    if (pending.some((p) => p.state === 'uploading')) {
+      setToast(words.photos.waitUpload)
       return
     }
     setSaving(true)
@@ -192,7 +203,8 @@ export const ProductEditor = () => {
       stored = await loadProduct(done.id).catch(() => null)
       if (isNew) {
         // The new product's own page loads it fresh; its first counts go first, by the ids just read.
-        if (stored) await saveStock(stored, saved).catch(() => setToast(words.stock.failed))
+        const counted = Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
+        if (counted) await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).catch(() => unsavedCounts.set(done.id, draft.stock))
         leaving.current = true
         void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
         setSaving(false)
@@ -241,7 +253,7 @@ export const ProductEditor = () => {
       consequence: words.stock.adjustBody,
       confirmLabel: words.apply,
       choices: places.length > 1 ? [reasonChoice, whereChoice] : [reasonChoice],
-      input: { label: words.stock.adjustCount, type: 'text', initial: '', placeholder: '+20', error: (value) => (/^[+\-−]?\d{1,6}$/.test(value.trim()) && Number(value.trim().replace('−', '-')) !== 0 ? null : words.stock.adjustCountError) },
+      input: { label: words.stock.adjustCount, type: 'text', initial: '', placeholder: words.stock.adjustPlaceholder, error: (value) => (/^[+\-−]?\d{1,6}$/.test(value.trim()) && Number(value.trim().replace('−', '-')) !== 0 ? null : words.stock.adjustCountError) },
       onConfirm: (_, value, picks) => {
         const delta = Number((value ?? '').trim().replace('−', '-'))
         const reason = adjustReasons.find((r) => r === picks['reason']) ?? 'counted'
@@ -250,14 +262,15 @@ export const ProductEditor = () => {
           .then(async () => {
             const fresh = await loadProductStock(product.id)
             const key = versionKey(product.versions.find((v) => v.id === versionId)?.choices ?? [])
-            const counts = Object.fromEntries((fresh.get(versionId) ?? []).map((l) => [l.warehouseId, String(l.onHand)]))
+            // Only the location it changed: a count typed elsewhere and not yet saved stays as typed.
+            const counts = Object.fromEntries((fresh.get(versionId) ?? []).filter((l) => l.warehouseId === where).map((l) => [l.warehouseId, String(l.onHand)]))
             // The count is stored now: the form and its baseline both take it, so it isn't an unsaved change.
             setDraft((d) => ({ ...d, stock: { ...d.stock, [key]: { ...d.stock[key], ...counts } } }))
             setSaved((d) => ({ ...d, stock: { ...d.stock, [key]: { ...d.stock[key], ...counts } } }))
             setView((v) => (v.kind === 'ready' ? { ...v, levels: fresh } : v))
             setHistory((h) => ({ ...h, rows: null }))
             if (history.open) void loadStockHistory(product.id).then(({ rows, more }) => setHistory((h) => ({ ...h, rows, more })), () => setHistory((h) => ({ ...h, failed: true })))
-            setToast(fill(words.stock.adjusted, { delta: delta > 0 ? `+${delta}` : `−${-delta}`, reason: words.stock.reasons[reason] }))
+            setToast(fill(words.stock.adjusted, { delta: signed(delta), reason: words.stock.reasons[reason] }))
           })
           .catch((error: unknown) => setToast(refusalOf(error)))
       },

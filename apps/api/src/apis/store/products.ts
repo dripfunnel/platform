@@ -76,6 +76,7 @@ interface SummaryView {
   maxPrice: Money | null
   photoUrl: string | null
   stock: number
+  lowStock: boolean
   createdAt: string
   updatedAt: string
   /** Per market, what it still lacks to sell there; null for a supplier, which reads no market. */
@@ -101,6 +102,7 @@ const summaryOf = (r: ProductListRow, currency: string | null, readiness: Market
   maxPrice: currency && r.max_amount !== null ? { amount: r.max_amount, currency } : null,
   photoUrl: r.photo_asset_id ? assetUrl(r.photo_asset_id) : null,
   stock: r.stock,
+  lowStock: r.low_stock,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
   readiness,
@@ -145,6 +147,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       photoUrl: t.exposeString('photoUrl', { nullable: true }),
       // On hand in the caller's locations: a supplier never sees another owner's count (ACCESS §7.4).
       stock: t.exposeInt('stock'),
+      // The Low stock chip's own test, by each location's threshold: the list never decides it again.
+      lowStock: t.exposeBoolean('lowStock'),
       createdAt: t.exposeString('createdAt'),
       updatedAt: t.exposeString('updatedAt'),
       readiness: t.field({ type: [Readiness], nullable: true, extensions: { access: merchantRead }, resolve: (p) => p.readiness }),

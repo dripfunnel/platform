@@ -13,7 +13,8 @@ export interface StockHistoryView {
   failed: boolean
 }
 
-const sign = (n: number) => (n > 0 ? `+${formatCount(n)}` : n < 0 ? `−${formatCount(-n)}` : '0')
+/** A movement as shoppers' stock moved: +20, −2. */
+export const signed = (n: number) => (n > 0 ? fill(words.deltaUp, { count: formatCount(n) }) : n < 0 ? fill(words.deltaDown, { count: formatCount(-n) }) : formatCount(0))
 
 /** The latest movements: what changed, why, who and where, and the quantity it left (G5). */
 export const StockHistory = ({ history, onToggle, names }: { history: StockHistoryView; onToggle: () => void; names: ReadonlyMap<string, string> }) => (
@@ -33,7 +34,7 @@ export const StockHistory = ({ history, onToggle, names }: { history: StockHisto
           <ul>
             {history.rows.map((m) => (
               <li key={m.id}>
-                <span className={m.delta > 0 ? 'df-editor-delta df-editor-delta--up' : m.delta < 0 ? 'df-editor-delta df-editor-delta--down' : 'df-editor-delta'}>{sign(m.delta)}</span>
+                <span className={m.delta > 0 ? 'df-editor-delta df-editor-delta--up' : m.delta < 0 ? 'df-editor-delta df-editor-delta--down' : 'df-editor-delta'}>{signed(m.delta)}</span>
                 <span>
                   <strong>{(words.reasons as Record<string, string>)[m.reason] ?? m.reason}</strong>
                   <span>{[names.get(m.versionId), m.warehouseName, m.actorKind === 'system' ? words.bySystem : m.actorName ? fill(words.by, { name: m.actorName }) : null, fill(words.now, { count: formatCount(m.resultingQuantity) })].filter(Boolean).join(' · ')}</span>
@@ -108,7 +109,7 @@ export const StockCard = ({
                   −
                 </button>
               )}
-              <input id={`${id}-${w.id}`} inputMode="numeric" value={typed[w.id] ?? ''} placeholder="0" readOnly={!canStock} aria-invalid={invalid} onChange={(event) => set(w.id, event.target.value)} />
+              <input id={`${id}-${w.id}`} inputMode="numeric" value={typed[w.id] ?? ''} placeholder={words.countPlaceholder} readOnly={!canStock} aria-invalid={invalid} onChange={(event) => set(w.id, event.target.value)} />
               {!split && canStock && (
                 <button type="button" aria-label={words.more} onClick={() => step(1)}>
                   +
