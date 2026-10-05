@@ -1852,6 +1852,7 @@
       "removeRule": "Remove rule {n}",
       "addRule": "+ Add a rule",
       "priceNote": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency ({currency}).",
+      "priceNoteNoCurrency": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency.",
       "kept": {
         "one": "1 more rule this screen doesn’t change is kept as it is.",
         "other": "{count} more rules this screen doesn’t change are kept as they are."
