@@ -66,6 +66,11 @@ export const registerStructure = (builder: StoreBuilder) => {
     }),
   })
 
+  type FacetView = { id: string; name: string; position: number; shopper_visible: boolean; values: { id: string; name: string; products: number }[] }
+  const FacetPage = builder.objectRef<{ nodes: FacetView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('FacetPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [Facet], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
+  })
+
   type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; products: number; computed_at: Date | null; created_at: Date }
   const CollectionSummaryType = builder.objectRef<CollectionSummary>('CollectionSummary').implement({
     fields: (t) => ({
@@ -177,9 +182,15 @@ export const registerStructure = (builder: StoreBuilder) => {
 
   builder.queryFields((t) => ({
     facets: t.field({
-      type: [Facet],
+      type: FacetPage,
+      args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access: { ...read, scope: 'store-seller' } },
-      resolve: (_, __, ctx) => service(ctx).facets(),
+      resolve: async (_, args, ctx) => {
+        const window = storePage(args)
+        const rows = await service(ctx).facets(window)
+        // The cursor's time is the negated position (catalogStructure.ts selectFacets).
+        return pageOf(rows, window, (r) => ({ occurredAt: new Date(-r.position), id: r.id }))
+      },
     }),
     collections: t.field({
       type: CollectionPage,

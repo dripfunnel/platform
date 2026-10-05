@@ -23,18 +23,34 @@ export const maxFacets = 200
 
 export const countFacets = async (tx: ScopedSql, storeId: string): Promise<number> => (await tx<{ n: number }[]>`select count(*)::int as n from filter where store_id = ${storeId}`)[0]?.n ?? 0
 
-export const selectFacets = (tx: ScopedSql, storeId: string): Promise<FacetRow[]> =>
-  tx<FacetRow[]>`
-    select f.id, f.name, f.position, f.shopper_visible,
-      coalesce((
-        select json_agg(json_build_object('id', v.id, 'name', v.name, 'position', v.position,
-          'products', (select count(distinct pfv.product_id) from product_filter_value pfv join product p on p.id = pfv.product_id
-                       where pfv.filter_value_id = v.id and p.deleted_at is null)) order by v.position)
-        from filter_value v where v.filter_id = f.id), '[]'::json) as values
-    from filter f where f.store_id = ${storeId}
-    order by f.position, f.name
-    limit ${maxFacets}
+/**
+ * A page of the store's filters in their order, each with its values and their product counts from one
+ * grouped count over the page. The cursor's time is the negated position, as for collectionProducts.
+ */
+export const selectFacets = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<FacetRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<FacetRow[]>`
+    with page as (
+      select f.id, f.name, f.position, f.shopper_visible from filter f
+      where f.store_id = ${storeId}
+        and ${window.after ? tx`(-f.position, f.id) < (${window.after.occurredAt.getTime()}, ${window.after.id})` : tx`true`}
+        and ${window.before ? tx`(-f.position, f.id) > (${window.before.occurredAt.getTime()}, ${window.before.id})` : tx`true`}
+      order by f.position ${backwards ? tx`desc` : tx`asc`}, f.id ${backwards ? tx`asc` : tx`desc`}
+      limit ${window.limit + 1}
+    ), counts as (
+      select pfv.filter_value_id, count(distinct pfv.product_id)::int as n
+      from product_filter_value pfv join product p on p.id = pfv.product_id and p.deleted_at is null
+      join filter_value v on v.id = pfv.filter_value_id
+      where v.filter_id in (select id from page)
+      group by pfv.filter_value_id
+    )
+    select page.id, page.name, page.position, page.shopper_visible,
+      coalesce((select json_agg(json_build_object('id', v.id, 'name', v.name, 'position', v.position, 'products', coalesce(c.n, 0)) order by v.position)
+        from filter_value v left join counts c on c.filter_value_id = v.id where v.filter_id = page.id), '[]'::json) as values
+    from page
+    order by page.position ${backwards ? tx`desc` : tx`asc`}, page.id ${backwards ? tx`asc` : tx`desc`}
   `
+}
 
 export interface FacetWrite {
   id: string

@@ -131,6 +131,11 @@ input FacetInput {
   values: [FacetValueInput!]!
 }
 
+type FacetPage {
+  nodes: [Facet!]
+  pageInfo: PageInfo
+}
+
 type FacetValue {
   id: ID
   name: String
@@ -448,7 +453,7 @@ type Query {
   collection(id: ID!): Collection
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
-  facets: [Facet!]
+  facets(after: String, before: String, first: Int): FacetPage
   health: String
   me: Me
   menu: Menu

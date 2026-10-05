@@ -286,7 +286,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
     }
   }
 
-  const facets = () => inScope((tx) => selectFacets(tx, storeId))
+  const facets = (window: PageWindow) => inScope((tx) => selectFacets(tx, storeId, window))
 
   const saveFacet = (input: FacetInput) =>
     run(async (tx) => {
@@ -305,7 +305,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         if (v.id && !kept) throw new Refused('INVALID_INPUT')
         return { id: kept && v.id ? v.id : crypto.randomUUID(), name: valueName, position, kept }
       })
-      // Created only while the list can show it: `facets` answers at most maxFacets (catalogStructure.ts).
+      // A store's filters stop at maxFacets, so a supplier's tagging list stays one a person can read.
       if (existing === null && (await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
       const facetId = id ?? crypto.randomUUID()
       await writeFacet(tx, storeId, { id: facetId, name: facetName, position: input.position ?? 0, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())

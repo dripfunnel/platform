@@ -61,7 +61,7 @@ const gql = async (source: string, who: Who, variables: Record<string, unknown> 
 }
 
 type Facet = { id: string; name: string; shopperVisible: boolean; values: { id: string; name: string; products: number }[] }
-const facets = async (who: Who) => ((await gql('{ facets { id name shopperVisible values { id name products } } }', who)).data?.['facets'] ?? []) as Facet[]
+const facets = async (who: Who) => (((await gql('{ facets(first: 50) { nodes { id name shopperVisible values { id name products } } } }', who)).data?.['facets'] as { nodes: Facet[] } | undefined)?.nodes ?? [])
 const saveFacet = async (who: Who, input: Record<string, unknown>) => {
   const result = await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', who, { input })
   return { id: result.data?.['saveFacet'] as string | undefined, code: result.code }
@@ -105,7 +105,18 @@ describe('filters', () => {
   it('stops at 200 filters, so every one the store has can be listed', async () => {
     await db.sql`insert into filter (store_id, name, position) select ${t.storeB1}, 'Bulk ' || n, n from generate_series(1, 200) as n`
     expect((await saveFacet('bOwner', { name: 'One too many', values: [] })).code).toBe('TOO_MANY_FILTERS')
-    expect((await facets('bOwner')).length).toBe(200)
+    // A page at a time, in their order: 200 filters are four pages of 50, every one reached.
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 5; page += 1) {
+      const answer = (await gql('query F($after: String) { facets(first: 50, after: $after) { nodes { name } pageInfo { hasNextPage endCursor } } }', 'bOwner', { after })).data?.['facets'] as { nodes: { name: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
+      seen.push(...answer.nodes.map((n) => n.name))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor
+    }
+    expect(seen).toHaveLength(200)
+    expect(new Set(seen).size).toBe(200)
+    expect(seen.slice(0, 2)).toEqual(['Bulk 1', 'Bulk 2'])
     await db.sql`delete from filter where store_id = ${t.storeB1} and name like 'Bulk %'`
   })
 
