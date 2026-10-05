@@ -99,6 +99,7 @@ describe('filters', () => {
     expect((await saveFacet('supplier', { name: 'Theirs', values: [] })).code).toBe('FORBIDDEN')
     expect((await saveFacet('staff', { name: 'Staff', values: [] })).code).toBe('FORBIDDEN')
     expect((await saveFacet('owner', { name: 'fabric', values: [] })).code).toBe('DUPLICATE_NAME')
+    for (const position of [-1, 10_001]) expect((await saveFacet('owner', { name: `At ${position}`, position, values: [] })).code).toBe('INVALID_INPUT')
     expect(await facets('bOwner')).toEqual([])
   })
 
@@ -204,6 +205,22 @@ describe('collections', () => {
     const { saved } = await save({ name: 'Summer edit', kind: 'manual' })
     expect((await save({ name: 'Summer edit 2026', kind: 'manual' }, saved?.id, 1)).saved?.slug).toBe('summer-edit')
     expect((await save({ name: 'Summer edit 2026', kind: 'manual', slug: 'summer-2026' }, saved?.id, 2)).saved?.slug).toBe('summer-2026')
+  })
+
+  it('keeps the newest 1,000 when the rules match more, and says how many matched', async () => {
+    await db.sql`
+      insert into product (store_id, name, slug, created_at)
+      select ${t.storeB1}, 'Many ' || n, 'many-' || n, ${now}::timestamptz - make_interval(secs => n) from generate_series(1, 1001) as n
+    `
+    const made = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'bOwner', { input: { name: 'Many', kind: 'automatic', rules: [{ kind: 'name_contains', text: 'many ' }] } })).data?.['saveCollection'] as { id: string }
+    await drainRecompute()
+    const shown = (await gql('query C($id: ID!) { collection(id: $id) { ruleMatches truncated } }', 'bOwner', { id: made.id })).data?.['collection']
+    expect(shown).toEqual({ ruleMatches: 1001, truncated: true })
+    const [oldest] = await db.sql<{ n: number }[]>`select count(*)::int as n from collection_product cp join product p on p.id = cp.product_id where cp.collection_id = ${made.id} and p.slug = 'many-1001'`
+    expect(oldest?.n).toBe(0)
+    const [held] = await db.sql<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${made.id}`
+    expect(held?.n).toBe(1000)
+    await gql('mutation D($id: ID!) { deleteCollection(id: $id) }', 'bOwner', { id: made.id })
   })
 
   it('refuses a parent that is itself or inside it, a stale save, and a rule naming another store’s product', async () => {

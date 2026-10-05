@@ -2,7 +2,7 @@ import { GraphQLError } from 'graphql'
 import type { StoreCaller } from '#auth/storeCaller'
 import { pageOf } from '#core/paging'
 import type { ScopedSql } from '#db/scoped/index'
-import { createStructureService, structureAudit, type StructureRefusal, type StructureResult } from '#engine/modules/catalog/index'
+import { createStructureService, maxCollectionProducts, structureAudit, type StructureRefusal, type StructureResult } from '#engine/modules/catalog/index'
 import { collectionsRecomputeKind } from '#jobs/queues/deliverers/collectionsRecompute'
 import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
@@ -120,6 +120,9 @@ export const registerStructure = (builder: StoreBuilder) => {
       seoTitle: t.exposeString('seo_title', { nullable: true }),
       seoDescription: t.exposeString('seo_description', { nullable: true }),
       computedAt: t.string({ nullable: true, resolve: (c) => c.computed_at?.toISOString() ?? null }),
+      // How many products the rules matched; more than it holds means the newest 1,000 are kept.
+      ruleMatches: t.exposeInt('rule_matches', { nullable: true }),
+      truncated: t.boolean({ resolve: (c) => (c.rule_matches ?? 0) > maxCollectionProducts }),
       revision: t.exposeInt('revision'),
       rules: t.field({ type: [Rule], resolve: (c) => c.rules }),
     }),

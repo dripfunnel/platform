@@ -41,11 +41,13 @@ type Collection {
   name: String
   parentId: ID
   revision: Int
+  ruleMatches: Int
   rules: [CollectionRule!]
   seoDescription: String
   seoTitle: String
   slug: String
   sort: String
+  truncated: Boolean
   visible: Boolean
 }
 

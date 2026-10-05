@@ -1076,7 +1076,8 @@ A link names only a file the caller can read, because a foreign key alone would 
 `collection_product`, `menu` and `menu_item`, in §7.11's classes. An automatic collection's
 `collection_product` rows are written by the `collections.recompute` outbox deliverer as `app_system`,
 parents first, after every change that can move them (a product saved or deleted, a collection, a filter, a
-merge). `collection.computed_at` is when that last landed. A menu nests one level, and a collection
+merge). `collection.computed_at` is when that last landed, and `rule_matches` how many matched: an
+automatic collection holds the newest 1,000, and the portal says when it holds fewer than matched. A menu nests one level, and a collection
 can't be its own ancestor, both enforced by triggers. The H6 "only products also in the parent" switch
 is `inherit_parent`.
 

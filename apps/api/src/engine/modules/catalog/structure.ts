@@ -45,6 +45,7 @@ export const structureAudit = {
 export const maxRules = 20
 export const maxMenuItems = 100
 export const maxFacetValues = 200
+export const maxFacetPosition = 10_000
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -291,6 +292,8 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
   const saveFacet = (input: FacetInput) =>
     run(async (tx) => {
       const facetName = name(input.name, 60)
+      const position = input.position ?? 0
+      if (!Number.isInteger(position) || position < 0 || position > maxFacetPosition) throw new Refused('INVALID_INPUT')
       if (input.values.length > maxFacetValues) throw new Refused('INVALID_INPUT')
       const id = input.id ?? null
       if (id !== null && !uuid.test(id)) throw new Refused('NOT_FOUND')
@@ -308,7 +311,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       // A store's filters stop at maxFacets, so a supplier's tagging list stays one a person can read.
       if (existing === null && (await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
       const facetId = id ?? crypto.randomUUID()
-      await writeFacet(tx, storeId, { id: facetId, name: facetName, position: input.position ?? 0, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())
+      await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())
       await activity.record(tx, entry(structureAudit.facetSaved, { type: 'filter', id: facetId, label: facetName }))
       // A value removed is a rule's target gone: the collections that used it shrink.
       await recompute(tx)

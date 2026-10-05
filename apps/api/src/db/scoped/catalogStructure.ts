@@ -170,6 +170,7 @@ export interface CollectionRow {
   seo_title: string | null
   seo_description: string | null
   computed_at: Date | null
+  rule_matches: number | null
   revision: number
   rules: RuleRow[]
 }
@@ -204,7 +205,7 @@ export const selectCollection = async (tx: ScopedSql, storeId: string, id: strin
   (
     await tx<CollectionRow[]>`
       select c.id, c.name, c.slug, c.description, c.kind, c.match, c.parent_id, c.inherit_parent, c.visibility, c.image_asset_id, c.sort,
-        c.seo_title, c.seo_description, c.computed_at, c.revision,
+        c.seo_title, c.seo_description, c.computed_at, c.rule_matches, c.revision,
         coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
       from collection c where c.id = ${id} and c.store_id = ${storeId} and c.deleted_at is null
     `
@@ -343,10 +344,15 @@ export const recomputeCollections = async (tx: ScopedSql, storeId: string, now: 
     const parts = c.rules.map((r) => ruleSql(tx, r))
     const joined = parts.reduce((acc, part, i) => (i === 0 ? part : c.match === 'all' ? tx`${acc} and ${part}` : tx`${acc} or ${part}`), tx`false`)
     const inParent = c.inherit_parent && c.parent_id ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${c.parent_id} and pp.product_id = p.id)` : tx``
+    // Newest first, so which products a cut keeps is the same at every recompute.
+    const [found] = await tx<{ n: number }[]>`
+      select count(*)::int as n from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
+    `
     await tx`
       with matched as (
         select p.id, row_number() over (order by p.created_at desc, p.id desc) - 1 as position
         from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
+        order by p.created_at desc, p.id desc
         limit ${maxCollectionProducts}
       ), dropped as (
         delete from collection_product cp where cp.collection_id = ${c.id} and not exists (select 1 from matched m where m.id = cp.product_id)
@@ -355,7 +361,7 @@ export const recomputeCollections = async (tx: ScopedSql, storeId: string, now: 
       select ${c.id}, m.id, ${storeId}, m.position, 'rule', ${now} from matched m
       on conflict (collection_id, product_id) do update set position = excluded.position, source = 'rule', computed_at = excluded.computed_at
     `
-    await tx`update collection set computed_at = ${now} where id = ${c.id}`
+    await tx`update collection set computed_at = ${now}, rule_matches = ${found?.n ?? 0} where id = ${c.id}`
   }
   return collections.length
 }

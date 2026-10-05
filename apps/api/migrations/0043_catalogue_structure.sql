@@ -59,8 +59,10 @@ create table collection (
   sort text not null default 'manual' check (sort in ('manual', 'newest', 'price_asc', 'price_desc', 'best_selling')),
   seo_title text check (char_length(seo_title) <= 120),
   seo_description text check (char_length(seo_description) <= 320),
-  -- When the rules' result last landed (fact 11: "Updating…" until then).
+  -- When the rules' result last landed (fact 11: "Updating…" until then), and how many products matched,
+  -- which can pass the products it holds (maxCollectionProducts), so a cut is shown, never silent.
   computed_at timestamptz,
+  rule_matches integer check (rule_matches >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   revision integer not null default 1,
