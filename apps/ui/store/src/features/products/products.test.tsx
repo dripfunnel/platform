@@ -292,9 +292,9 @@ describe('the Products list', () => {
 
   it('saves a count alone in quick edit, even beside a version with no price yet', async () => {
     const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
-    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric' })
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [] })
     editorApi.loadProduct.mockResolvedValue({
-      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', photos: [], options: [], readiness: [],
+      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null,  photos: [], options: [], readiness: [],
       versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true }],
     })
     stockApi.loadWarehouses.mockResolvedValue([{ id: 'w1', name: 'Jaipur studio', isDefault: true }])

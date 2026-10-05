@@ -309,13 +309,17 @@ export const addCollectionProducts = async (tx: ScopedSql, storeId: string, coll
   return (await tx<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${collectionId}`)[0]?.n ?? 0
 }
 
-/** The collections a product is in, hand-picked and automatic, for the editor's "Collections & filters". */
+/**
+ * The collections a product is in, hand-picked and automatic, for the editor's "Collections & filters": one list,
+ * bounded by the store's own cap on collections.
+ */
 export const selectProductCollections = (tx: ScopedSql, storeId: string, productId: string): Promise<{ id: string; name: string; kind: string }[]> =>
   tx<{ id: string; name: string; kind: string }[]>`
     select c.id, c.name, c.kind from collection_product cp
     join collection c on c.id = cp.collection_id and c.store_id = cp.store_id and c.deleted_at is null
     where cp.product_id = ${productId} and cp.store_id = ${storeId}
     order by c.kind desc, lower(c.name), c.id
+    limit ${maxCollections}
   `
 
 /** A product the caller reads, by its name, or null. */
