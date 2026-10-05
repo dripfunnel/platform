@@ -174,8 +174,9 @@ export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
     if (resume?.step !== 'second-factor' || resume.method !== 'sms' || texted.current) return
     texted.current = true
     void sendCode().then((sent) => {
+      if (isRefusal(sent)) return setError(refusalText(sent))
       startWait()
-      if (!isRefusal(sent)) setView({ kind: 'code', method: 'sms', hint: sent.hint })
+      setView({ kind: 'code', method: 'sms', hint: sent.hint })
     })
   }, [resume, startWait])
 
@@ -273,7 +274,7 @@ export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
     case 'sent':
       return (
         <AuthFrame panel="reset" title={words.forgot.sentTitle} sub={fill(words.forgot.sentSub, { email: view.email })} back={{ label: words.forgot.back, onBack: () => go({ kind: 'login' }) }} icon={{ name: 'mail', tone: 'info' }} notice={notice}>
-          <Secondary onClick={() => void run(async () => setInfo(isRefusal(await requestPasswordReset(view.email)) ? words.rateLimited : words.secondFactor.sent))}>{words.forgot.again}</Secondary>
+          <Secondary onClick={() => void run(async () => setInfo(isRefusal(await requestPasswordReset(view.email)) ? words.rateLimited : words.forgot.resent))}>{words.forgot.again}</Secondary>
         </AuthFrame>
       )
   }

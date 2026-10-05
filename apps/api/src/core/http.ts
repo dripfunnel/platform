@@ -16,10 +16,30 @@ export const readBody = async <T>(request: Request, schema: z.ZodType<T>): Promi
   }
 }
 
-/** At most `limit + 1` bytes, so a large body is refused without being held whole. */
-export const readCapped = async (request: Request, limit: number): Promise<Uint8Array> => {
+/**
+ * At most `limit + 1` bytes, so a large body is refused without being held whole; with a declared
+ * length the bytes go straight into one buffer, held once rather than as chunks and a copy.
+ */
+export const readCapped = async (request: Request, limit: number): Promise<Uint8Array<ArrayBuffer>> => {
   const reader = request.body?.getReader()
   if (!reader) return new Uint8Array()
+  const declared = Number(request.headers.get('content-length') ?? NaN)
+  if (Number.isInteger(declared) && declared >= 0 && declared <= limit) {
+    const bytes = new Uint8Array(declared)
+    let at = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      // A body longer than it declared is cut at the cap, as an undeclared one is.
+      if (at + value.byteLength > declared) {
+        await reader.cancel()
+        return new Uint8Array(limit + 1)
+      }
+      bytes.set(value, at)
+      at += value.byteLength
+    }
+    return at === declared ? bytes : bytes.slice(0, at)
+  }
   const chunks: Uint8Array[] = []
   let size = 0
   for (;;) {
@@ -34,7 +54,7 @@ export const readCapped = async (request: Request, limit: number): Promise<Uint8
   }
   const bytes = new Uint8Array(size)
   let at = 0
-  for (const chunk of chunks) {
+  for (const chunk of chunks.splice(0)) {
     bytes.set(chunk, at)
     at += chunk.byteLength
   }

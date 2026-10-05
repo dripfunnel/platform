@@ -77,6 +77,10 @@ begin
   if not exists (select 1 from asset a where a.id = new.asset_id and a.store_id = new.store_id) then
     raise exception 'catalogue: no such file in this store' using errcode = '23503';
   end if;
+  -- A photo is an image and a video a video, whatever id the request names.
+  if not exists (select 1 from asset a where a.id = new.asset_id and a.kind = case tg_table_name when 'product_photo' then 'image' else 'video' end) then
+    raise exception 'catalogue: that file is the wrong kind for a %', tg_table_name using errcode = '23514';
+  end if;
   -- A file already in use by another owner's product stays theirs: moving it would hide their photo.
   if exists (select 1 from asset a where a.id = new.asset_id and a.seller_id is distinct from new.seller_id)
      and (exists (select 1 from product_photo p where p.asset_id = new.asset_id and p.product_id <> new.product_id)

@@ -486,7 +486,7 @@ export const setProductVideo = async (tx: ScopedSql, storeId: string, productId:
 
 /** A photo or video naming a file the caller can't use (migration 0042's triggers). */
 export const fileRefused = (error: unknown): boolean =>
-  typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && /catalogue: (no such file|that file is another owner)/.test(error.message)
+  typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && /catalogue: (no such file|that file is another owner|that file is the wrong kind)/.test(error.message)
 
 /** Two options or two values of one, renamed onto each other in one save (the name indexes aren't deferrable). */
 export const nameClash = (error: unknown): 'DUPLICATE_OPTION' | 'DUPLICATE_VALUE' | null =>

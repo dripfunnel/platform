@@ -12,6 +12,23 @@ export const maxFilterValues = 100
 /** Refused outright (decided on #337); alcohol is allowed and carries an age check. */
 export const refusedCategories = ['weapons', 'prescription_medicine', 'illegal_drugs', 'tobacco_vapes', 'adult', 'counterfeit'] as const
 
+// Any of these words in a category refuses it, however it is cased or joined, so "Tobacco" or "Fire-arms" can't pass.
+const refusedWords = new Set(['weapon', 'weapons', 'firearm', 'firearms', 'gun', 'guns', 'ammunition', 'prescription', 'narcotics', 'illegal', 'tobacco', 'vape', 'vapes', 'vaping', 'cigarette', 'cigarettes', 'adult', 'counterfeit', 'counterfeits', 'replica', 'replicas'])
+
+/** A category in words, folded: lower case, accents gone, anything else a separator. */
+const categoryWords = (category: string): string[] =>
+  category
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+
+export const isRefusedCategory = (category: string): boolean => {
+  const words = categoryWords(category)
+  return refusedCategories.includes(words.join('_') as (typeof refusedCategories)[number]) || words.some((w) => refusedWords.has(w)) || words.join('').includes('firearm')
+}
+
 export const productTypes = ['physical', 'digital', 'service', 'gift_card'] as const
 export type ProductType = (typeof productTypes)[number]
 
@@ -314,7 +331,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
   if (!productType) return 'INVALID_INPUT'
   const category = text(input.category, 120)
   if (category === false) return 'INVALID_INPUT'
-  if (category !== null && (refusedCategories as readonly string[]).includes(category)) return 'CATEGORY_REFUSED'
+  if (category !== null && isRefusedCategory(category)) return 'CATEGORY_REFUSED'
   const extras = [text(input.warrantyText, 5000), text(input.returnsText, 5000), text(input.seoTitle, 120), text(input.seoDescription, 320)]
   if (extras.includes(false)) return 'INVALID_INPUT'
   const slug = slugFrom(input.slug?.trim() || name) || 'product'

@@ -219,8 +219,9 @@ begin
     return new;
   end if;
   if tg_op = 'INSERT' then
-    if new.seller_id is distinct from app_setting_uuid('app.seller_id') or new.approval_status is not null or new.hidden_by is not null then
-      raise exception 'catalogue: a supplier creates only its own products, with no approval or hide' using errcode = '42501';
+    if new.seller_id is distinct from app_setting_uuid('app.seller_id') or new.approval_status is not null or new.sent_back_reason is not null
+       or new.hidden_by is not null or new.status_before_hide is not null or new.is_sample then
+      raise exception 'catalogue: a supplier creates only its own products, with no approval, hide or sample' using errcode = '42501';
     end if;
     return new;
   end if;

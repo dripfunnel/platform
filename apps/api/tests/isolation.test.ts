@@ -433,6 +433,11 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_version (product_id, store_id, position) values (${second}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'x', 'iso-x')`)).rejects.toThrow()
     await expect(inStore(t.storeA1, supplier, (tx) => tx`update product set visibility = 'visible' where id = ${first}`)).rejects.toThrow(/supplier changes no visibility/)
+    // Nor create one as a sample, sent back or hidden, which would sit outside the plan's count and the lists.
+    for (const column of ['is_sample', 'sent_back_reason', 'status_before_hide']) {
+      const value = column === 'is_sample' ? true : column === 'sent_back_reason' ? 'x' : 'visible'
+      await expect(inStore(t.storeA1, supplier, (tx) => tx.unsafe(`insert into product (store_id, seller_id, name, slug, ${column}) values ($1, $2, 'x', 'iso-${column.replaceAll('_', '-')}', $3)`, [t.storeA1, t.sellerA1First, value]))).rejects.toThrow(/no approval, hide or sample/)
+    }
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update product set name = 'taken' where id = ${second}`).count)).toBe(0)
     // Nobody points a child into another store, or writes price history by hand.
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_version (product_id, store_id, position) values (${other}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
@@ -453,6 +458,11 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from asset`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, null, ${`stores/${t.storeA1}/assets/00000000-0000-4000-8000-000000000009.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)})`)).rejects.toThrow(/uploads as itself/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${first}, ${t.storeA1}, ${ownFile}, 0)`)).rejects.toThrow(/no such file/)
+    // A photo or video never points across stores, whoever asks.
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${other}, ${t.storeB1}, ${ownFile}, 0)`)).rejects.toThrow(/no such file/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${other}, ${t.storeA1}, ${ownFile}, 0)`)).rejects.toThrow(/no such product/)
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`insert into product_video (product_id, store_id, asset_id) values (${other}, ${t.storeB1}, ${ownFile})`)).rejects.toThrow(/no such file/)
+    expect(await seen(t.storeB1, { kind: 'all' }, 'product_photo')).toBe(0)
     // Structure: a supplier reads filters but writes none, never sees a collection or menu, and tags only its own products.
     const [filterRow] = await db.sql<{ id: string }[]>`insert into filter (store_id, name, position) values (${t.storeA1}, 'Iso filter', 0) returning id`
     const [valueRow] = await db.sql<{ id: string }[]>`insert into filter_value (filter_id, store_id, name, position) values (${filterRow?.id ?? ''}, ${t.storeA1}, 'Iso value', 0) returning id`
