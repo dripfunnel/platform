@@ -1,3 +1,4 @@
+import { hashWithOwnerSalt } from './password'
 import { hashSessionId } from './session'
 
 // The codes merchant sign-in hands out (ACCESS.md §4): ten backup codes per enrolment, and 6-digit
@@ -19,7 +20,8 @@ export const newBackupCodes = (): string[] => Array.from({ length: backupCodeCou
 
 export const normaliseBackupCode = (typed: string): string => typed.trim().toLowerCase().replaceAll(/\s/g, '')
 
-export const hashBackupCode = (code: string): Promise<string> => hashSessionId(`backup:${normaliseBackupCode(code)}`)
+// 40 bits is guessable offline from a bare hash: the password's PBKDF2 cost, salted by the person (#350).
+export const hashBackupCode = (userId: string, code: string): Promise<string> => hashWithOwnerSalt(normaliseBackupCode(code), `backup:${userId}`)
 
 export const newSmsCode = (): string => {
   const value = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0

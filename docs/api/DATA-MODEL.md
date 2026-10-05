@@ -365,6 +365,7 @@ user        (id, partner_id, email, email_verified_at, password_hash NULL, name,
             -- locale and time_zone: the portal UI follows the person (CATALOG fact 40)
 user_backup_code (id, user_id, partner_id, code_hash, used_at NULL)
             -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4).
+            -- code_hash: PBKDF2 at the password's cost, salted by user_id (auth/storeCodes.ts).
             -- Policy: own rows only, in store scope, on user_id = app.user_id, plus system;
             -- NO partner branch (a partner user never reads a merchant's 2-factor state);
             -- code_hash readable by app_system alone (§2.1)

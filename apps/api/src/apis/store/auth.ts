@@ -262,7 +262,7 @@ const backupCode = async (request: Request, deps: StoreAuthDeps, facts: RequestF
     if (!cookie || !found || !input) return { code: 'INVALID_CREDENTIALS' }
     const { pending, state } = found
     if (state.locked_until && state.locked_until > now) return { code: 'LOCKED', minutes: minutesUntil(state.locked_until, now) }
-    const left = await spendBackupCode(tx, state.id, await hashBackupCode(input.code), now)
+    const left = await spendBackupCode(tx, state.id, await hashBackupCode(state.id, input.code), now)
     const user = { id: state.id, partnerId: state.partner_id }
     if (left === null) {
       await deps.activity.record(tx, personCodeRefused(user, facts, 'WRONG_BACKUP_CODE'))
@@ -296,7 +296,7 @@ const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts,
     const finish = async (method: 'app' | 'sms', secretEnc: string | null, phone: string | null, step: number | null) => {
       await setUserSecondFactor(tx, state.id, method, secretEnc, phone, step, now)
       const codes = newBackupCodes()
-      await replaceBackupCodes(tx, user, await Promise.all(codes.map(hashBackupCode)))
+      await replaceBackupCodes(tx, user, await Promise.all(codes.map((code) => hashBackupCode(user.id, code))))
       await completeUserSession(tx, cookie, pending.remember, now)
       admitted = { cookie, remember: pending.remember }
       await deps.activity.record(tx, personSecondFactorEnrolled(user, facts, method))
