@@ -42,6 +42,12 @@ const configSchema = z.object({
   SES_EVENTS_TOPIC_ARN: z.string().regex(/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/, 'SES_EVENTS_TOPIC_ARN must be an SNS topic ARN').optional(),
 })
 
+// The local Shopify stand-in skips Shopify's signature, so a Worker anywhere but on *.localhost refuses to start with it.
+const checkedConfig = configSchema.refine((c) => c.SHOPIFY_LOCAL === undefined || /(^|\.)localhost$/.test(c.HOOKS_HOST), {
+  message: 'SHOPIFY_LOCAL is for local development only (HOOKS_HOST on localhost)',
+  path: ['SHOPIFY_LOCAL'],
+})
+
 export type Config = z.infer<typeof configSchema>
 
-export const parseConfig = (env: Record<string, unknown>): Config => configSchema.parse(env)
+export const parseConfig = (env: Record<string, unknown>): Config => checkedConfig.parse(env)

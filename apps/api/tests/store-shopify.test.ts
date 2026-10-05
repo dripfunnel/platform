@@ -22,9 +22,9 @@ let t: Tenants
 let secrets: SecretBox
 const now = new Date('2026-10-06T09:00:00Z')
 const key = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)))
-type Who = 'owner' | 'staff' | 'supplier' | 'bOwner'
-const people: Record<Who, string> = { owner: '', staff: '', supplier: '', bOwner: '' }
-const cookies: Record<Who, string> = { owner: '', staff: '', supplier: '', bOwner: '' }
+type Who = 'owner' | 'manager' | 'staff' | 'supplier' | 'bOwner'
+const people: Record<Who, string> = { owner: '', manager: '', staff: '', supplier: '', bOwner: '' }
+const cookies: Record<Who, string> = { owner: '', manager: '', staff: '', supplier: '', bOwner: '' }
 
 const product = (n: number): ShopProduct => ({
   id: `gid://shopify/Product/${n}`,
@@ -92,8 +92,11 @@ const connect = async (who: Who, shopName: string, back: Record<string, string> 
   const asked = await gql('mutation C($s: String!) { connectShopify(shop: $s) }', who, { s: shopName })
   const url = new URL((asked.data?.['connectShopify'] as string | undefined) ?? 'https://x.example')
   const query = new URLSearchParams({ code: 'c1', shop: url.hostname, state: url.searchParams.get('state') ?? '', hmac: 'signed', timestamp: '0', ...back })
-  const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, activity: activityLog, now: () => now })
-  return { asked, url, response }
+  const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, now: () => now })
+  // Back on the portal, the person who started it finishes with the callback's one-time key.
+  const key = new URL(response.headers.get('location') ?? 'https://x.example').searchParams.get('key')
+  const finished = key ? await gql('mutation F($k: String!) { finishShopifyConnect(key: $k) }', who, { k: key }) : null
+  return { asked, url, response, key, finished }
 }
 
 beforeAll(async () => {
@@ -103,9 +106,10 @@ beforeAll(async () => {
   await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1First}`
   people.owner = await user(t.partnerA, 'owner@a.example', 'Olivia')
   people.staff = await user(t.partnerA, 'staff@a.example', 'Sam')
+  people.manager = await user(t.partnerA, 'manager@a.example', 'Mo')
   people.supplier = await user(t.partnerA, 'anand@a.example', 'Anand')
   people.bOwner = await user(t.partnerB, 'owner@b.example', 'Bea')
-  await db.sql`insert into membership (user_id, store_id, role_key, status) values (${people.owner}, ${t.storeA1}, 'owner', 'active'), (${people.staff}, ${t.storeA1}, 'staff', 'active'), (${people.bOwner}, ${t.storeB1}, 'owner', 'active')`
+  await db.sql`insert into membership (user_id, store_id, role_key, status) values (${people.owner}, ${t.storeA1}, 'owner', 'active'), (${people.staff}, ${t.storeA1}, 'staff', 'active'), (${people.manager}, ${t.storeA1}, 'manager', 'active'), (${people.bOwner}, ${t.storeB1}, 'owner', 'active')`
   await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${people.supplier}, ${t.storeA1}, ${t.sellerA1First}, 'supplier-admin', 'active')`
   await subscribe(t.storeA1, t.partnerA)
   await subscribe(t.storeB1, t.partnerB)
@@ -127,17 +131,18 @@ describe('Connect Shopify', () => {
   })
 
   it('sends the owner to approve on their shop, comes back through the hooks host, and keeps the token sealed', async () => {
-    const { asked, url, response } = await connect('owner', 'Kesari')
+    const { asked, url, response, finished } = await connect('owner', 'Kesari')
     expect(url.hostname).toBe('kesari.myshopify.com')
     expect(asked.errors).toBeUndefined()
     expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe('https://kesari.portal.example/products/import?shopify=connected')
+    expect(response.headers.get('location')).toMatch(/^https:\/\/kesari\.portal\.example\/products\/import\?shopify=finish&key=[0-9a-f]{64}$/)
+    expect(finished?.data?.['finishShopifyConnect']).toBe('kesari.myshopify.com')
     expect(await connection('owner')).toEqual({ available: true, status: 'connected', shop: 'kesari.myshopify.com' })
     const [row] = await db.sql<{ token_sealed: string; state_hash: string | null }[]>`select token_sealed, state_hash from external_connection where store_id = ${t.storeA1} and seller_id is null`
     expect(row?.token_sealed).not.toContain('shpat_good')
     expect(row?.state_hash).toBeNull()
     // The state is used once: the same link again finds nothing to finish.
-    const again = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?state=${url.searchParams.get('state') ?? ''}&hmac=signed`), { sql: db.sql, api: shopify, secrets, activity: activityLog, now: () => now })
+    const again = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?state=${url.searchParams.get('state') ?? ''}&hmac=signed`), { sql: db.sql, api: shopify, secrets, now: () => now })
     expect(again.status).toBe(400)
     const logged = await db.sql<{ action: string }[]>`select action from activity_log where action like 'shopify.%' and store_id = ${t.storeA1} order by occurred_at`
     expect(logged.map((l) => l.action)).toEqual(['shopify.connect_started', 'shopify.connected'])
@@ -181,6 +186,25 @@ describe('Connect Shopify', () => {
     expect((await connection('owner')).status).toBe('expired')
     expect((await gql('mutation { startShopifyImport(all: true) }', 'owner')).code).toBe('EXPIRED')
     tokenToIssue = 'shpat_good'
+  })
+
+  it('connects only for the person who started it, so a link can’t attach someone else’s shop (login CSRF)', async () => {
+    await gql('mutation { disconnectShopify }', 'owner')
+    const asked = await gql('mutation C($s: String!) { connectShopify(shop: $s) }', 'owner', { s: 'kesari' })
+    const url = new URL(asked.data?.['connectShopify'] as string)
+    const query = new URLSearchParams({ code: 'c1', shop: url.hostname, state: url.searchParams.get('state') ?? '', hmac: 'signed', timestamp: '0' })
+    const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, now: () => now })
+    const key = new URL(response.headers.get('location') ?? '').searchParams.get('key') ?? ''
+    // Approved on Shopify but not yet connected: nothing reads the shop until the starter finishes.
+    expect((await connection('owner')).status).toBe('pending')
+    expect((await gql('{ shopifyProducts { next } }', 'owner')).code).toBe('NOT_CONNECTED')
+    for (const who of ['manager', 'supplier', 'bOwner'] as const) {
+      expect((await gql('mutation F($k: String!) { finishShopifyConnect(key: $k) }', who, { k: key })).code, who).toBe('NOT_CONNECTED')
+    }
+    expect((await gql('mutation F($k: String!) { finishShopifyConnect(key: $k) }', 'owner', { k: 'f'.repeat(64) })).code).toBe('NOT_CONNECTED')
+    expect((await gql('mutation F($k: String!) { finishShopifyConnect(key: $k) }', 'owner', { k: key })).data?.['finishShopifyConnect']).toBe('kesari.myshopify.com')
+    expect((await gql('mutation F($k: String!) { finishShopifyConnect(key: $k) }', 'owner', { k: key })).code).toBe('NOT_CONNECTED')
+    expect((await connection('owner')).status).toBe('connected')
   })
 
   it('refuses a callback whose signature or shop doesn’t match, and forgets the attempt', async () => {

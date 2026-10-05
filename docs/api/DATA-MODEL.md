@@ -1610,11 +1610,13 @@ webhook_delivery    (id, endpoint_id, store_id, outbox_id, event, attempt, statu
                     -- PLATFORM-PROMPT §5.5: delivered from the outbox, replayable, endpoint
                     -- disabled after repeated failure
 external_connection (id, store_id, seller_id NULL, provider ('shopify'), shop_domain, status
-                     ('pending'|'connected'|'expired'), token_sealed NULL, state_hash NULL,
+                     ('pending'|'approved'|'connected'|'expired'), token_sealed NULL, state_hash NULL,
+                     finish_hash NULL,
                      return_host NULL, connected_by, created_at, connected_at, expires_at)
                     -- CATALOG K7, built on #301 (migration 0060): one an owner (the store, or a
                     -- supplier its own); pending for ten minutes under the hash of the OAuth state,
-                    -- completed by hooks/shopify; the token sealed with the credential key and
+                    -- approved by hooks/shopify with a one-time finish key, connected only when the
+                    -- person who started it finishes in their own session; the token sealed with the credential key and
                     -- deleted once an import has read the shop, or after a day unused
 catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), state ('checking'
                      |'ready'|'running'|'done'|'failed'), file text NULL, plan jsonb NULL,

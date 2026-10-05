@@ -1,6 +1,7 @@
 -- SAPI 16 (#301): Connect Shopify (CATALOG K7; DATA-MODEL §7.10 external_connection). One connection an owner
 -- (the store, or a supplier its own); its token sealed with the credential key, never shown. A pending row holds
--- the hash of the state Shopify sends back, for ten minutes; the callback on the hooks host completes it.
+-- the hash of the state Shopify sends back; the callback on the hooks host makes it `approved` with the hash of a
+-- one-time key, and only the person who started it, back in their own session, makes it `connected`.
 
 create table external_connection (
   id uuid primary key default gen_random_uuid(),
@@ -8,22 +9,23 @@ create table external_connection (
   seller_id uuid references seller (id),
   provider text not null check (provider in ('shopify')),
   shop_domain text not null check (shop_domain ~ '^[a-z0-9][a-z0-9-]{0,60}\.myshopify\.com$'),
-  status text not null check (status in ('pending', 'connected', 'expired')),
+  status text not null check (status in ('pending', 'approved', 'connected', 'expired')),
   token_sealed text,
   state_hash text check (state_hash ~ '^[0-9a-f]{64}$'),
+  finish_hash text check (finish_hash ~ '^[0-9a-f]{64}$'),
   return_host text,
   connected_by uuid not null,
   created_at timestamptz(3) not null default now(),
   connected_at timestamptz(3),
   expires_at timestamptz(3),
-  constraint external_connection_token check ((status = 'connected') = (token_sealed is not null))
+  constraint external_connection_token check ((status in ('approved', 'connected')) = (token_sealed is not null))
 );
 
 create unique index external_connection_owner_key on external_connection (store_id, seller_id, provider) nulls not distinct;
 create unique index external_connection_state_key on external_connection (state_hash) where state_hash is not null;
 
 grant select, insert, delete on external_connection to app_request, app_supplier;
-grant update (shop_domain, status, token_sealed, state_hash, return_host, connected_by, connected_at, expires_at) on external_connection to app_request, app_supplier;
+grant update (shop_domain, status, token_sealed, state_hash, finish_hash, return_host, connected_by, connected_at, expires_at) on external_connection to app_request, app_supplier;
 grant select, update, delete on external_connection to app_system;
 
 alter table external_connection enable row level security;

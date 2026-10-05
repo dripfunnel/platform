@@ -82,6 +82,12 @@ export const registerShopify = (builder: StoreBuilder) => {
       extensions: { access: { ...access, audit: shopifyAudit.connectStarted } },
       resolve: async (_, { shop }, ctx) => answered(await service(ctx).connect(shop)),
     }),
+    // The callback's one-time key; answers the shop connected, for the person who started it only.
+    finishShopifyConnect: t.string({
+      args: { key: t.arg.string({ required: true }) },
+      extensions: { access: { ...access, audit: shopifyAudit.connected } },
+      resolve: async (_, { key }, ctx) => answered(await service(ctx).finish(key)),
+    }),
     disconnectShopify: t.boolean({ extensions: { access: { ...access, audit: shopifyAudit.disconnected } }, resolve: async (_, __, ctx) => answered(await service(ctx).disconnect()) }),
     startShopifyImport: t.id({
       args: { productIds: t.arg.idList(), all: t.arg.boolean() },

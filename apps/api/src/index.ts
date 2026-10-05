@@ -347,7 +347,7 @@ const handleHooks = async (request: Request, url: URL, config: Config, ctx: Exec
     const secrets = await secretsFor(config)
     if (!shopify || !secrets) return notFound()
     if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
-    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleShopifyCallback(request, { sql, api: shopify.api, secrets, activity: activityLog, now: () => new Date() }))
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleShopifyCallback(request, { sql, api: shopify.api, secrets, now: () => new Date() }))
   }
   if (url.pathname === sesHookPath) {
     const topicArn = config.SES_EVENTS_TOPIC_ARN

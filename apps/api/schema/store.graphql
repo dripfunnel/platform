@@ -425,6 +425,7 @@ type Mutation {
   deleteWarehouse(id: ID!): Boolean
   disconnectShopify: Boolean
   duplicateProduct(id: ID!): SavedProduct
+  finishShopifyConnect(key: String!): String
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID

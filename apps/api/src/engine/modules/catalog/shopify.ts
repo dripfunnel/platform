@@ -4,7 +4,7 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import type { TenantContext } from '#core/tenancy'
 import { appendImportFile, failImport, insertShopifyImport, saveImportCheck, selectCatalogImport } from '#db/scoped/catalogImports'
-import { deleteConnection, markConnectionExpired, savePendingConnection, selectConnection, type ConnectionRow } from '#db/scoped/externalConnections'
+import { deleteConnection, finishConnection, markConnectionExpired, savePendingConnection, selectConnection, type ConnectionRow } from '#db/scoped/externalConnections'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { catalogImportAudit, catalogImportKind, catalogImportLifetimeMs, type CatalogImportDeps } from './imports'
 import { jobPayloadOf } from './jobScope'
@@ -89,8 +89,9 @@ export const createShopifyService = (d: ShopifyDeps) => {
   const connection = (): Promise<ShopifyConnectionDto> =>
     inScope(async (tx) => {
       const row = await selectConnection(tx, storeId, sellerId)
-      const pending = row?.status === 'pending' && (row.expires_at === null || row.expires_at > now())
-      return { available: shop !== null && secrets !== null, status: !row || (row.status === 'pending' && !pending) ? 'none' : row.status, shop: row?.shop_domain ?? null }
+      const waiting = (row?.status === 'pending' || row?.status === 'approved') && (row.expires_at === null || row.expires_at > now())
+      const status = !row || ((row.status === 'pending' || row.status === 'approved') && !waiting) ? 'none' : row.status === 'approved' ? 'pending' : row.status
+      return { available: shop !== null && secrets !== null, status, shop: row?.shop_domain ?? null }
     })
 
   /** Where to send the person to approve the app; the state comes back to the hooks host, hashed here. */
@@ -105,6 +106,18 @@ export const createShopifyService = (d: ShopifyDeps) => {
       await activity.record(tx, entry(shopifyAudit.connectStarted, { type: 'connection', id: domain, label: domain }))
     })
     return { ok: true, value: shop.gateway.authorizeUrl(domain, state, shop.redirectUri) }
+  }
+
+  /** Back from Shopify with the key the callback gave: only the person who started it finishes it (login CSRF). */
+  const finish = async (key: string): Promise<ShopifyResult<string>> => {
+    if (!/^[0-9a-f]{64}$/.test(key)) return { ok: false, reason: 'NOT_CONNECTED' }
+    const finishHash = await hashState(key)
+    return inScope(async (tx) => {
+      const done = await finishConnection(tx, { storeId, sellerId, finishHash, by: actor.id, at: now() })
+      if (!done) return { ok: false, reason: 'NOT_CONNECTED' }
+      await activity.record(tx, entry(shopifyAudit.connected, { type: 'connection', id: done.id, label: done.shop_domain }))
+      return { ok: true, value: done.shop_domain }
+    })
   }
 
   const disconnect = (): Promise<ShopifyResult<true>> =>
@@ -155,7 +168,7 @@ export const createShopifyService = (d: ShopifyDeps) => {
     return { ok: true, value: id }
   }
 
-  return { connection, connect, disconnect, products, startImport }
+  return { connection, connect, finish, disconnect, products, startImport }
 }
 
 export type ShopifyService = ReturnType<typeof createShopifyService>
