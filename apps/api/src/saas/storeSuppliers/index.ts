@@ -185,9 +185,11 @@ export const createStoreSuppliersService = ({ sql, caller, activity, facts, now 
   const setShipping = (id: string, shippingMode: string, labelAccount: string | null | undefined) =>
     run(async (tx) => {
       const mode = modeOf(shippingMode)
-      const labels = labelsOf(labelAccount)
-      if (!mode || !labels) throw new Refused({ reason: 'INVALID_INPUT' })
+      const given = labelAccount === null || labelAccount === undefined ? null : labelsOf(labelAccount)
+      if (!mode || (labelAccount !== null && labelAccount !== undefined && !given)) throw new Refused({ reason: 'INVALID_INPUT' })
       const supplier = await locked(tx, id)
+      // None sent keeps the stored choice: who books labels is asked only for to-shopper.
+      const labels = given ?? supplier.label_account
       if (supplier.shipping_mode !== mode || supplier.label_account !== labels) {
         await setSupplierShipping(tx, id, mode, labels)
         await activity.record(tx, entry(suppliersAudit.shippingModeChanged, { id, label: supplier.name }, `${mode}, labels: ${labels}`))
