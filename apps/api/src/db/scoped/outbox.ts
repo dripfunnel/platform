@@ -148,3 +148,16 @@ export const expireUnsent = async (tx: ScopedSql, e: UnsentExpiry, now: Date): P
       for update skip locked
     )
   `).count
+
+/**
+ * Whether a newer row of `kind` for the store is due by `now`, so this one can leave the work to it.
+ * One still backing off isn't, so a failed newer run never holds up the older ones.
+ */
+export const newerDueEffect = async (tx: ScopedSql, effect: { id: string; kind: string; storeId: string }, now: Date): Promise<boolean> =>
+  (
+    await tx`
+      select 1 from outbox o where o.kind = ${effect.kind} and o.store_id = ${effect.storeId} and o.id <> ${effect.id}
+        and o.delivered_at is null and o.failed_at is null and o.next_attempt_at <= ${now}
+        and o.created_at > (select created_at from outbox where id = ${effect.id}) limit 1
+    `
+  ).length > 0

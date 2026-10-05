@@ -42,3 +42,7 @@ export const pgArray = (values: readonly string[]): string => `{${values.map((v)
 export const serialise = async (tx: ScopedSql, key: string): Promise<void> => {
   await tx`select pg_advisory_xact_lock(hashtext(${key}))`
 }
+
+/** A unique constraint's refusal, by name, so a caller can answer it as the clash it is. */
+export const uniqueViolation = (error: unknown, constraint: string): boolean =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint

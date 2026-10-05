@@ -1,14 +1,11 @@
 import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
-import { pgArray, type ScopedSql } from './index'
+import { pgArray, uniqueViolation, type ScopedSql } from './index'
 
 // Collections, filters and menus (DATA-MODEL §7.3, migration 0043): the merchant side writes them; a
 // supplier reads filters and tags its own products. Rows go as one jsonb parameter, as in catalog.ts.
 
 const rowsOf = (tx: ScopedSql, rows: readonly object[]) => tx.json(rows as unknown as postgres.JSONValue)
-
-const uniqueViolation = (error: unknown, constraint: string): boolean =>
-  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint
 
 export interface FacetRow {
   id: string
@@ -255,14 +252,6 @@ export const countCollections = async (tx: ScopedSql, storeId: string): Promise<
   (await tx<{ n: number }[]>`select count(*)::int as n from collection where store_id = ${storeId} and deleted_at is null`)[0]?.n ?? 0
 
 /** Whether a later recompute for the store is still queued: that one will do this one's work (outbox, system scope). */
-export const newerRecomputeQueued = async (tx: ScopedSql, storeId: string, outboxId: string, kind: string): Promise<boolean> =>
-  (
-    await tx`
-      select 1 from outbox o where o.kind = ${kind} and o.store_id = ${storeId} and o.delivered_at is null and o.failed_at is null and o.id <> ${outboxId}
-        and o.created_at > (select created_at from outbox where id = ${outboxId}) limit 1
-    `
-  ).length > 0
-
 export const insertCollection = async (tx: ScopedSql, storeId: string, id: string, f: CollectionFields): Promise<string> =>
   (
     await slugFree(tx, f.slug, (slug, sp) => sp`

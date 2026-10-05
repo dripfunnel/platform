@@ -330,7 +330,8 @@ describe('collections', () => {
     for (const name of ['Burst one', 'Burst two', 'Burst three']) await product('owner', name)
     const queued = await db.sql<{ id: string; payload: unknown }[]>`select id, payload from outbox where kind = ${collectionsRecomputeKind} and delivered_at is null order by created_at`
     expect(queued.length).toBeGreaterThanOrEqual(3)
-    const deliverer = collectionsRecomputeDeliverer(db.sql, () => now)
+    // The relay's clock: a newer row counts only once it is due, which the database stamped with its own now().
+    const deliverer = collectionsRecomputeDeliverer(db.sql, () => new Date(Date.now() + 1000))
     await db.sql`update collection set computed_at = null where store_id = ${t.storeA1} and kind = 'automatic'`
     const first = queued[0]
     await deliverer.deliver({ id: first?.id, kind: collectionsRecomputeKind, payload: first?.payload } as never, new AbortController().signal)
@@ -340,6 +341,22 @@ describe('collections', () => {
     await deliverer.deliver({ id: last?.id, kind: collectionsRecomputeKind, payload: last?.payload } as never, new AbortController().signal)
     const [done] = await db.sql<{ n: number }[]>`select count(*)::int as n from collection where store_id = ${t.storeA1} and kind = 'automatic' and computed_at is null and deleted_at is null`
     expect(done?.n).toBe(0)
+    await db.sql`update outbox set delivered_at = now() where kind = ${collectionsRecomputeKind} and delivered_at is null`
+  })
+
+  it('does the work itself when the newer run is backing off after a failure', async () => {
+    const rule = await save({ name: 'Backoff things', kind: 'automatic', rules: [{ kind: 'name_contains', text: 'backoff' }] })
+    expect(rule.saved?.id).toBeTruthy()
+    await drainRecompute()
+    for (const name of ['Backoff one', 'Backoff two']) await product('owner', name)
+    const queued = await db.sql<{ id: string; payload: unknown }[]>`select id, payload from outbox where kind = ${collectionsRecomputeKind} and delivered_at is null order by created_at`
+    const [older, newer] = [queued[0], queued[queued.length - 1]]
+    await db.sql`update outbox set attempts = 1, next_attempt_at = now() + interval '10 minutes' where id = ${newer?.id ?? ''}`
+    await db.sql`update collection set computed_at = null where store_id = ${t.storeA1} and kind = 'automatic'`
+    const deliverer = collectionsRecomputeDeliverer(db.sql, () => new Date(Date.now() + 1000))
+    await deliverer.deliver({ id: older?.id, kind: collectionsRecomputeKind, payload: older?.payload } as never, new AbortController().signal)
+    expect((await db.sql<{ computed_at: Date | null }[]>`select computed_at from collection where id = ${rule.saved?.id ?? ''}`)[0]?.computed_at).not.toBeNull()
+    expect((await members(rule.saved?.id ?? '')).length).toBe(2)
     await db.sql`update outbox set delivered_at = now() where kind = ${collectionsRecomputeKind} and delivered_at is null`
   })
 

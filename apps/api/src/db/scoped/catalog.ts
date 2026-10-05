@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
-import { pgArray, type ScopedSql } from './index'
+import { pgArray, uniqueViolation, type ScopedSql } from './index'
 
 // The catalogue's core (DATA-MODEL §7.3, migration 0041): every read and write runs in the caller's
 // scope, so a supplier reaches its own products only and RLS is the backstop of every query here.
@@ -234,9 +234,6 @@ export interface ProductFields {
   seoTitle: string | null
   seoDescription: string | null
 }
-
-const uniqueViolation = (error: unknown, constraint: string): boolean =>
-  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint
 
 // A web address unique in the store, suffixed on a clash (CATALOG fact 15); in a savepoint so the transaction lives.
 const withFreeSlug = async <T>(tx: ScopedSql, base: string, write: (slug: string, sp: ScopedSql) => Promise<T>): Promise<{ value: T; slug: string }> => {
