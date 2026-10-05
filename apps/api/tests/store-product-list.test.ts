@@ -143,6 +143,17 @@ describe('the Products list’s sorts', () => {
     expect((await page('owner', `sort: "stock", after: "${encodeValueCursor({ sort: 'stock', value: '3', id })}"`)).code).toBeUndefined()
   })
 
+  it('counts the summary line store-wide: products from suppliers, and physical ones out of stock', async () => {
+    const counts = async () => (await gql('{ productCounts { all fromSuppliers outOfStock } }', 'owner')).data?.['productCounts'] as { all: number; fromSuppliers: number; outOfStock: number }
+    const before = await counts()
+    await create('supplier', { name: 'Counted lamp', options: [], versions: [{ choices: [], prices: [price('5000')] }] })
+    const mine = (await create('owner', { name: 'Counted pot', options: [], versions: [{ choices: [], prices: [price('5000')] }] })).saved?.id ?? ''
+    expect(await counts()).toEqual({ all: before.all + 2, fromSuppliers: before.fromSuppliers + 1, outOfStock: before.outOfStock + 2 })
+    const [shelf] = await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${t.storeA1}, 'Counted shelf') returning id`
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select v.id, ${shelf?.id ?? ''}, ${t.storeA1}, 4 from product_version v where v.product_id = ${mine}`
+    expect((await counts()).outOfStock).toBe(before.outOfStock + 1)
+  })
+
   it('pages through ties one by one, by id, with nothing skipped or repeated, and a name lowercased as the database does', async () => {
     for (const name of ['Tie one', 'Tie two', 'Tie three', 'İstanbul tie']) await create('owner', { name, options: [], versions: [{ choices: [], prices: [price('55500')] }] })
     for (const sort of ['price_low', 'stock', 'name']) {
