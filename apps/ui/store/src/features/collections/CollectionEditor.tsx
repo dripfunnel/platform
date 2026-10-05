@@ -207,6 +207,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
         visible: draft.visible,
         rules: draft.kind === 'automatic' ? rules : [],
         productIds: draft.kind === 'manual' ? draft.productIds : [],
+        ...draft.kept,
       })
       onDone(fill(draft.kind === 'automatic' ? words.savedAuto : words.saved, { name: draft.name.trim() }))
     } catch (error) {

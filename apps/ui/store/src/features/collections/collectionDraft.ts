@@ -26,6 +26,8 @@ export interface CollectionDraft {
   /** Rules this screen doesn't draw (a product, a version, a price range): kept as they are on save. */
   others: CollectionRule[]
   productIds: string[]
+  /** What this screen doesn't draw (its image, sort, SEO): sent back as loaded, so a save never clears it. Null when new. */
+  kept: Pick<Collection, 'imageAssetId' | 'sort' | 'seoTitle' | 'seoDescription'> | null
 }
 
 let rowKey = 0
@@ -47,6 +49,7 @@ export const blankDraft = (facets: readonly Facet[]): CollectionDraft => ({
   rows: [newRow(facets.find((f) => f.shopperVisible)?.id ?? nameField)],
   others: [],
   productIds: [],
+  kept: null,
 })
 
 const facetOfValue = (facets: readonly Facet[]) => new Map(facets.flatMap((f) => f.values.map((v) => [v.id, f.id] as const)))
@@ -83,6 +86,7 @@ export const draftOf = (c: Collection, facets: readonly Facet[], productIds: rea
     rows: rows.length > 0 || others.length > 0 ? rows : [newRow(facets.find((f) => f.shopperVisible)?.id ?? nameField)],
     others,
     productIds: [...productIds],
+    kept: { imageAssetId: c.imageAssetId, sort: c.sort, seoTitle: c.seoTitle, seoDescription: c.seoDescription },
   }
 }
 
