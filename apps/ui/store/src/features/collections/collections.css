@@ -323,43 +323,6 @@
   font-size: 13px;
 }
 
-.df-coll-kinds {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.df-coll-kind {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px;
-  border: 1px solid var(--df-color-field-border);
-  border-radius: var(--df-radius);
-  background: var(--df-color-surface);
-  color: var(--df-color-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.df-coll-kind[aria-checked='true'] {
-  padding: 11px;
-  border: 2px solid var(--df-color-focus);
-  background: var(--df-color-info-surface);
-}
-
-.df-coll-kind strong {
-  color: var(--df-color-heading);
-  font-family: var(--df-font-heading);
-  font-size: 14px;
-}
-
-.df-coll-kind span {
-  color: var(--df-color-muted);
-  font-size: 12px;
-}
-
 .df-coll-rules {
   display: flex;
   flex-direction: column;
