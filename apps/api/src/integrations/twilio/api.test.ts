@@ -24,7 +24,11 @@ describe('the Twilio sender', () => {
 
   it('keeps only Twilio’s numeric code from a refusal, never its message', async () => {
     await expect(twilioSender({ ...credentials, fetchImpl: answering(400, { code: 21211, message: "The 'To' number +1614… is not valid" }) }).send(sms)).rejects.toEqual(new SmsRefused('twilio_21211'))
-    await expect(twilioSender({ ...credentials, fetchImpl: answering(401, {}) }).send(sms)).rejects.toEqual(new SmsRefused('twilio_401'))
+  })
+
+  it('retries a refused credential rather than dropping the text: it is the partner’s to fix', async () => {
+    await expect(twilioSender({ ...credentials, fetchImpl: answering(401, {}) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
+    await expect(twilioSender({ ...credentials, fetchImpl: answering(403, {}) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
   })
 
   it('takes any 2xx as sent, even with an unreadable body, so a text is never sent twice', async () => {

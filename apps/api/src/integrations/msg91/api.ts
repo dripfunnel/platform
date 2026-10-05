@@ -33,7 +33,8 @@ export const msg91Sender = ({ authKey, fetchImpl = fetch }: Msg91Credentials & {
       throw new SmsUnavailable('no answer')
     }
     const json: unknown = await response.json().catch(() => null)
-    if (response.status >= 500 || response.status === 429) throw new SmsUnavailable(`answered ${response.status}`)
+    // A refused credential is the partner's to fix, not the number's fault: retried, never dropped.
+    if (response.status >= 500 || response.status === 429 || response.status === 401 || response.status === 403) throw new SmsUnavailable(`answered ${response.status}`)
     const ok = okSchema.safeParse(json)
     if (response.ok && ok.success) return { providerId: ok.data.message }
     // MSG91 answers some refusals with 200 and `type: error`; its code, never its message, is logged.

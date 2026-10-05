@@ -21,6 +21,8 @@ describe('the SMS catalogue', () => {
     expect(smsPayloadSchema.safeParse({ ...code(), vars: { code: '482913', extra: 'hi' } }).success).toBe(false)
     expect(smsPayloadSchema.safeParse({ ...code(), message: 'marketing.blast' }).success).toBe(false)
     expect(smsPayloadSchema.safeParse({ ...code(), text: 'free text' }).success).toBe(false)
+    expect(smsPayloadSchema.safeParse({ ...code(), expiresAt: null }).success).toBe(false)
+    expect(smsPayloadSchema.safeParse({ ...code('code.verify_phone'), expiresAt: null }).success).toBe(false)
   })
 
   it('sends Indian numbers through MSG91 and the rest through Twilio', () => {

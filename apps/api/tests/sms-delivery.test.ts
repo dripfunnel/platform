@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SmsRefused, SmsUnavailable, type OutgoingSms, type SmsSender } from '#core/sms'
 import { withSystemScope } from '#db/scoped/index'
+import { expireUnsentSms } from '#db/scoped/outbox'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { queueSms, type PartnerSmsAccount, type PartnerSmsAccounts, type SmsPayload } from '#saas/sms/index'
@@ -75,9 +76,9 @@ describe('texts through the outbox', () => {
     const expiredId = await queue(t.partnerA, code('+919845022113', { expiresAt: new Date(now.getTime() - 1000).toISOString() }))
     await relay(accountsOf({ [t.partnerA]: [twilio] }), senders)
     const rows = await db.sql<{ payload: Record<string, unknown> }[]>`select payload from outbox where id in ${db.sql([sentId ?? '', expiredId ?? ''])}`
-    expect(rows.map((r) => r.payload).sort((a, b) => String(a.outcome).localeCompare(String(b.outcome)))).toEqual([
-      { message: 'code.second_factor', redacted: true, outcome: 'expired' },
-      { message: 'code.second_factor', redacted: true, outcome: 'twilio' },
+    expect(rows.map((r) => r.payload)).toEqual([
+      { message: 'code.second_factor', redacted: true },
+      { message: 'code.second_factor', redacted: true },
     ])
   })
 
@@ -115,6 +116,25 @@ describe('texts through the outbox', () => {
     failNext(new SmsRefused('twilio_21211'))
     expect((await relay(accountsOf({ [t.partnerA]: [twilio] }), senders)).delivered).toBe(1)
     expect(sent).toHaveLength(1)
+  })
+
+  it('keeps no number or code once a text is given up after its last attempt', async () => {
+    const { senders, failNext } = fakeSenders()
+    const id = await queue(t.partnerA, code('+16145550133'))
+    failNext(new SmsUnavailable('answered 503'))
+    const counts = await relayDue(db.sql, { sms: smsDeliverer(db.sql, accountsOf({ [t.partnerA]: [twilio] }), senders, () => now) }, { ...defaultRelayOptions, now: () => new Date(now.getTime() + 1000), maxAttempts: 1 })
+    expect(counts.dead).toBe(1)
+    const [row] = await db.sql<{ payload: unknown; failed_at: Date | null }[]>`select payload, failed_at from outbox where id = ${id ?? ''}`
+    expect(row?.failed_at).not.toBeNull()
+    expect(row?.payload).toEqual({ message: 'code.second_factor', redacted: true })
+  })
+
+  it('gives up and redacts a code past its expiry that no deliverer took', async () => {
+    const id = await queue(t.partnerB, code('+16145550144', { expiresAt: new Date(now.getTime() + 60_000).toISOString() }))
+    expect(await withSystemScope(db.sql, (tx) => expireUnsentSms(tx, now))).toBe(0)
+    expect(await withSystemScope(db.sql, (tx) => expireUnsentSms(tx, new Date(now.getTime() + 61_000)))).toBeGreaterThanOrEqual(1)
+    const [row] = await db.sql<{ payload: unknown; last_error: string }[]>`select payload, last_error from outbox where id = ${id ?? ''}`
+    expect(row).toEqual({ payload: { message: 'code.second_factor', redacted: true }, last_error: 'expired' })
   })
 
   it('refuses to queue a text that isn’t one of its messages', async () => {

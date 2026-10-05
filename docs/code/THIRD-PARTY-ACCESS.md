@@ -403,8 +403,12 @@ change there needs every Indian partner to register it again.
 {1} is the sender's name (the partner's product, or the store's), and a code is 6 digits. The
 `sms` outbox deliverer (`jobs/queues/deliverers/sms.ts`) picks MSG91 for `+91` numbers and Twilio
 for the rest; it drops a code past its expiry, a refusal, and a partner with no account or
-template, logging only a code, and retries an outage. Until #275 reads the accounts, the Worker
-registers no `sms` deliverer and texts wait in the outbox, as email waits without SES.
+template, logging only a code, and retries an outage or a refused credential (401, 403). Until #275
+reads the accounts, the Worker registers no `sms` deliverer and texts wait in the outbox, as email
+waits without SES. A code needs an expiry; once a text is sent, dropped, given up or past that
+expiry unsent (the cron's sweep), its row keeps only the message kind, never the number or the code.
+Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
+can text twice.
 
 ---|---|---|
 | Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email | DNS records only; no credential |

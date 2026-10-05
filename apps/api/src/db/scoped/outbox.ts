@@ -110,10 +110,17 @@ export const markAttemptFailed = async (
   `
 }
 
-/**
- * Replaces a delivered or dropped row's payload with what's safe to keep: a text's code and number
- * stay only until it is sent or given up (AGENTS.md "Data", #289).
- */
+/** Replaces a finished row's payload with what its deliverer keeps (outbox-relay.ts `redact`). */
 export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Record<string, unknown>): Promise<void> => {
   await tx`update outbox set payload = ${JSON.stringify(kept)}::text::jsonb where id = ${id}`
 }
+
+/**
+ * Gives up texts past their expiry that nobody sent, delivered or not registered (#275 pending),
+ * keeping only the message kind: a code and a number never outlive the code (#289).
+ */
+export const expireUnsentSms = async (tx: ScopedSql, now: Date): Promise<number> =>
+  (await tx`
+    update outbox set payload = jsonb_build_object('message', payload->'message', 'redacted', true), failed_at = ${now}, last_error = 'expired', claimed_at = null
+    where kind = 'sms' and delivered_at is null and failed_at is null and (payload->>'expiresAt')::timestamptz <= ${now}
+  `).count
