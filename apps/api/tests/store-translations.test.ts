@@ -208,6 +208,19 @@ describe('suppliers and other stores', () => {
     }
   })
 
+  it('keeps a supplier to its own products’ translations: the merchant side’s are refused, and its counts and list are its own', async () => {
+    const [collection] = await db.sql<{ id: string }[]>`select id from collection where store_id = ${t.storeA1} limit 1`
+    expect((await gql(`query C($id: ID!) { catalogueTranslation(entity: "collection", id: $id, language: "hi-IN") { ${rowFields} } }`, 'supplier', { id: collection?.id })).code).toBe('FORBIDDEN')
+    expect((await gql('mutation C($id: ID!) { saveCatalogueTranslation(entity: "collection", id: $id, language: "hi-IN", input: { name: "x" }) { entity } }', 'supplier', { id: collection?.id })).code).toBe('FORBIDDEN')
+    expect((await gql('mutation S { saveSharedNames(language: "hi-IN", names: [{ kind: "choice_name", source: "Red", text: "x" }]) }', 'supplier')).code).toBe('FORBIDDEN')
+    const own = Number((await db.sql<{ n: number }[]>`select count(*)::int as n from product where store_id = ${t.storeA1} and seller_id = ${t.sellerA1First} and deleted_at is null and not is_sample`)[0]?.n)
+    const progress = (await gql('{ translationProgress(language: "hi-IN") { products untranslated } }', 'supplier')).data?.['translationProgress'] as { products: number; untranslated: number }
+    expect(progress.products).toBe(own)
+    const listed = ((await gql('{ products(untranslatedIn: "hi-IN", first: 50) { nodes { id } } }', 'supplier')).data?.['products'] as { nodes: { id: string }[] }).nodes
+    const owners = await db.sql<{ seller_id: string | null }[]>`select distinct seller_id from product where id = any(${`{${listed.map((n) => n.id).join(',')}}`}::uuid[])`
+    expect(owners).toEqual(listed.length > 0 ? [{ seller_id: t.sellerA1First }] : [])
+  })
+
   it('never tells a supplier another supplier’s web address: its own get their random suffix', async () => {
     const [theirs] = await db.sql<{ id: string }[]>`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'Bhatia shawl', 'bhatia-shawl-x2y3z4') returning id`
     await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'product', ${theirs?.id ?? ''}, 'slug', 'en-IN', 'shared-shawl', md5('bhatia-shawl-x2y3z4'))`

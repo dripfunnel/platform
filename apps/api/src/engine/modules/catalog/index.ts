@@ -122,10 +122,6 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   position,
 })
 
-// A supplier's address carries its own random ending, so a clash with a product it can't see shows nothing
-// (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
-
-
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
 type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
 
