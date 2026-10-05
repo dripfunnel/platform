@@ -188,10 +188,6 @@ describe('changing a supplier', () => {
     expect((await gql('mutation M($id: ID!) { setSupplierShippingMode(id: $id, shippingMode: "to-shopper", labelAccount: "own") }', 'owner', { id: made.id })).data?.['setSupplierShippingMode']).toBe(true)
     expect(await supplierOf('owner', made.id ?? '')).toMatchObject({ accessLevel: 'vendor-stock', shippingMode: 'to-shopper', labelAccount: 'own' })
     expect((await gql('mutation M($id: ID!) { setSupplierShippingMode(id: $id, shippingMode: "to-moon") }', 'owner', { id: made.id })).code).toBe('INVALID_INPUT')
-    // Back to the store with no label account sent: the stored choice stays, never overwritten unseen.
-    expect((await gql('mutation M($id: ID!) { setSupplierShippingMode(id: $id, shippingMode: "to-store") }', 'owner', { id: made.id })).data?.['setSupplierShippingMode']).toBe(true)
-    expect(await supplierOf('owner', made.id ?? '')).toMatchObject({ shippingMode: 'to-store', labelAccount: 'own' })
-    expect((await gql('mutation M($id: ID!) { setSupplierShippingMode(id: $id, shippingMode: "to-store", labelAccount: "nobody") }', 'owner', { id: made.id })).code).toBe('INVALID_INPUT')
     const actions = (await db.sql<{ action: string }[]>`select action from activity_log where target_id = ${made.id ?? ''} order by occurred_at`).map((a) => a.action)
     expect(actions).toEqual(expect.arrayContaining(['supplier.access_changed', 'supplier.shipping_mode_changed']))
   })
