@@ -2614,7 +2614,7 @@
       "name": "Market name",
       "namePlaceholder": "e.g. United Kingdom",
       "create": "Create",
-      "created": "Market started — pick its countries, then save",
+      "created": "{name} added — shoppers there see it within a minute",
       "selling": "Selling here",
       "notSelling": "Not selling here",
       "pickCountry": "Pick at least one country.",
@@ -2698,7 +2698,14 @@
         "FORBIDDEN": "Only the store owner can change markets.",
         "other": "That didn’t save. Try again."
       },
-      "subMarket": "Sub-market"
+      "subMarket": "Sub-market",
+      "placeholders": {
+        "adjust": "0",
+        "path": "uk",
+        "dutyRate": "12",
+        "dutyThreshold": "0"
+      },
+      "percent": "%"
     }
   }
 }
