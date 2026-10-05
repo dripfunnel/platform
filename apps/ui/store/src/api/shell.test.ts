@@ -34,6 +34,14 @@ describe('loadMyStores and signOut', () => {
     vi.unstubAllGlobals()
   })
 
+  it('fails rather than returning part of the list when a page promises more without a new cursor', async () => {
+    const { vi } = await import('vitest')
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: { myStores: { nodes: [choice('a')], pageInfo: { hasNextPage: true, endCursor: 'same' } } } })))
+    const { loadMyStores } = await import('./shell')
+    await expect(loadMyStores()).rejects.toThrow()
+    vi.unstubAllGlobals()
+  })
+
   it('forgets the acting store, then posts a form the browser follows to the server’s answer', async () => {
     const { vi } = await import('vitest')
     const items = new Map<string, string>([['df-store-acting', '{"storeId":"s1","supplierId":null}']])
@@ -46,5 +54,4 @@ describe('loadMyStores and signOut', () => {
     expect(form.submit).toHaveBeenCalledOnce()
     vi.unstubAllGlobals()
   })
-
 })

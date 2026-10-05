@@ -94,8 +94,8 @@
 }
 
 .df-switcher-caret {
+  display: inline-flex;
   color: var(--df-color-side-text);
-  font-size: 11px;
 }
 
 .df-switcher-menu {

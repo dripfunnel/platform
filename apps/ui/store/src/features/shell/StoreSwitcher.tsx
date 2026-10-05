@@ -1,4 +1,4 @@
-import { initials } from '@dripfunnel/shared/ui'
+import { Icon, initials } from '@dripfunnel/shared/ui'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { rememberActing } from '../../acting'
@@ -79,7 +79,7 @@ export const StoreSwitcher = ({ current, stores }: { current: StoreChoice; store
         </span>
         <span className="df-switcher-name">{current.store.name}</span>
         <span className="df-switcher-caret" aria-hidden="true">
-          ▾
+          <Icon name="caret" size={14} />
         </span>
       </button>
       {open && (

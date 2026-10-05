@@ -42,14 +42,12 @@ const choicesSchema = z.object({ myStores: z.object({ nodes: z.array(choiceSchem
 
 export type StoreChoice = z.infer<typeof choiceSchema>
 
-// Fifty a page (the API's most); twenty pages is a thousand stores, more than any person holds.
-const maxPages = 20
-
-/** Every store the person holds under this partner: the switcher and the chooser need the whole list. */
+/** Every store the person holds under this partner, fifty a page: the switcher and the chooser need the whole list. */
 export const loadMyStores = async (): Promise<StoreChoice[]> => {
   const all: StoreChoice[] = []
   let after: string | null = null
-  for (let page = 0; page < maxPages; page += 1) {
+  const cursors = new Set<string>()
+  for (;;) {
     const answer: z.infer<typeof choicesSchema> = await query(
       `query Mine($after: String) { myStores(first: 50, after: $after) { nodes { membershipId store { id name } role tier seller { id name } } pageInfo { hasNextPage endCursor } } }`,
       choicesSchema,
@@ -57,8 +55,12 @@ export const loadMyStores = async (): Promise<StoreChoice[]> => {
     )
     const { myStores } = answer
     all.push(...myStores.nodes)
-    if (!myStores.pageInfo.hasNextPage || !myStores.pageInfo.endCursor) break
-    after = myStores.pageInfo.endCursor
+    const { hasNextPage, endCursor } = myStores.pageInfo
+    if (!hasNextPage) break
+    // A page that promises more but gives no new cursor would loop for ever; it fails rather than truncates.
+    if (!endCursor || cursors.has(endCursor)) throw new Error('myStores paging made no progress')
+    cursors.add(endCursor)
+    after = endCursor
   }
   return all
 }

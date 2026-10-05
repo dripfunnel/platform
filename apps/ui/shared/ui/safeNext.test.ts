@@ -8,9 +8,11 @@ describe('safeNext', () => {
     expect(safeNext('/orders?status=open#top', origin, '/home')).toBe('/orders?status=open#top')
   })
 
-  it.each(['//evil.example/home', '/\\evil.example', '/%5Cevil.example', 'https://evil.example', 'javascript:alert(1)', '', 42, undefined])('refuses %s and falls back', (next) => {
-    const answer = safeNext(next, origin, '/home')
-    expect(answer === '/home' || answer.startsWith('/%5C')).toBe(true)
-    expect(new URL(answer, origin).origin).toBe(origin)
+  it.each(['//evil.example/home', '/\\evil.example', 'https://evil.example', 'javascript:alert(1)', '', 42, undefined])('refuses %s with exactly the fallback', (next) => {
+    expect(safeNext(next, origin, '/home')).toBe('/home')
+  })
+
+  it('keeps an encoded backslash as a path on this host, which the browser never reads as a host', () => {
+    expect(safeNext('/%5Cevil.example', origin, '/home')).toBe('/%5Cevil.example')
   })
 })
