@@ -100,6 +100,10 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   position,
 })
 
+// A supplier's address carries its own random ending, so a clash with a product it can't see shows nothing
+// (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
+const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
+
 class Refused extends Error {
   constructor(readonly refusal: SaveRefusal) {
     super(refusal.reason)
@@ -210,7 +214,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (wanted > allowance) throw new Refused({ reason: 'PLAN_LIMIT', wanted })
       // A supplier's product is created visible while the store doesn't require approval (ACCESS §7.2 "Off").
       const visibility = sellerId !== null || product.visible !== false ? 'visible' : 'hidden'
-      const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: fieldsOf(product, visibility) })
+      const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: { ...fieldsOf(product, visibility), slug: sellerId !== null ? supplierSlug(product.slug) : product.slug } })
       await writeChildren(tx, made.id, product, null)
       await activity.record(tx, entry(catalogAudit.created, { id: made.id, label: product.name }))
       return { ok: true, id: made.id, slug: made.slug, revision: 1 }
@@ -224,7 +228,9 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (existing.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       const product = await clean(tx, input)
       const visibility = product.visible === null ? existing.visibility : product.visible ? 'visible' : 'hidden'
-      const done = await updateProduct(tx, { storeId, id, revision, fields: fieldsOf(product, visibility), visibilityChange: sellerId === null && visibility !== existing.visibility }, now())
+      // A live address changes only when asked for: a rename alone would break every link to it.
+      const slug = !product.slugGiven || product.slug === existing.slug ? existing.slug : sellerId !== null ? supplierSlug(product.slug) : product.slug
+      const done = await updateProduct(tx, { storeId, id, revision, fields: { ...fieldsOf(product, visibility), slug }, visibilityChange: sellerId === null && visibility !== existing.visibility }, now())
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))
@@ -243,7 +249,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const copy: CleanProduct = {
         name: source.name,
         description: source.description,
-        slug: source.slug,
+        slug: sellerId !== null ? supplierSlug(source.slug.replace(/-[a-z2-9]{6}$/, '')) : source.slug,
+        slugGiven: true,
         productType: source.product_type,
         category: source.category,
         visible: false,

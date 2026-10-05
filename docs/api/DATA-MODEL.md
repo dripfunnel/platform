@@ -1063,6 +1063,9 @@ approval or a hide, and `version_price_history` (an `app_definer` trigger) write
 `app_definer` functions give a supplier only a number or a code it needs: `store_product_count()` for
 the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax), `size_chart_id`
 (with size charts), and the `shop` branches, which come with the Shop API.
+Web addresses stay unique per store, as the storefront needs, but a supplier's always ends in six random
+characters, so a clash with a product it can't see looks like no clash (ACCESS §7.1). An update keeps the
+stored address unless a new one is asked for, so a rename never breaks a live link (CATALOG fact 15).
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
 product with no visible version is reported as "not buyable" (fact 8); a version with no price
