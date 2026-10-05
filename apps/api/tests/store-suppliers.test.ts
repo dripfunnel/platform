@@ -7,12 +7,13 @@ import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { mintStoreInvitationToken } from '#auth/storeTokens'
-import { withSystemScope } from '#db/scoped/index'
+import type { CallerContext } from '#core/tenancy'
+import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
-// Card #295 (SAPI 5, part 2): Settings › Supplier, the Owner's. Inviting creates the company and its first
+// Card #295 (SAPI 5, parts 2 and 3): Settings › Supplier, the Owner's, and Your team, a Supplier admin's. Inviting creates the company and its first
 // Supplier admin; suspending hides or keeps selling; removing ends access and hides, keeping the mark.
 
 let db: TestDatabase
@@ -267,5 +268,111 @@ describe('changing a supplier', () => {
     const next = (await gql('query P($after: String) { suppliers(first: 1, after: $after) { nodes { id } } }', 'owner', { after: first.pageInfo.endCursor })).data?.['suppliers'] as { nodes: { id: string }[] }
     expect(next.nodes[0]?.id).not.toBe(first.nodes[0]?.id)
     expect((await gql('{ suppliers(filter: "everything") { nodes { id } } }', 'owner')).code).toBe('INVALID_INPUT')
+  })
+})
+
+describe('a supplier’s own team', () => {
+  type Member = { id: string; kind: string; email: string; role: string; you: boolean; lastAdmin: boolean }
+  const team = async (who: { cookie: string; seller: string }) =>
+    ((await gql('{ mySupplierTeam(first: 50) { nodes { id kind email role you lastAdmin } } }', who)).data?.['mySupplierTeam'] as { nodes: Member[] } | undefined)?.nodes ?? []
+  const join = async (email: string, seller: string) => ({ cookie: (await accept(email)).cookie, seller })
+  const inviteUser = (who: { cookie: string; seller: string }, email: string, role: string) => gql('mutation I($email: String!, $role: String!) { inviteSupplierUser(email: $email, role: $role) }', who, { email, role })
+  const memberId = async (who: { cookie: string; seller: string }, email: string) => (await team(who)).find((m) => m.email === email && m.kind === 'member')?.id ?? ''
+  let admin: { cookie: string; seller: string }
+  let other: { cookie: string; seller: string }
+
+  beforeAll(async () => {
+    // The Owner's earlier invitations fall outside its hourly limit.
+    await db.sql`update invitation set created_at = created_at - interval '2 hours'`
+  })
+
+  it('lists its people, invites a member who then works in it, and refuses what it can’t do', async () => {
+    const made = await invite('owner', { name: 'Crew Co', email: 'lead@crew.example', accessLevel: 'vendor-catalogue' })
+    admin = await join('lead@crew.example', made.id ?? '')
+    expect(await team(admin)).toEqual([expect.objectContaining({ kind: 'member', email: 'lead@crew.example', role: 'supplier-admin', you: true, lastAdmin: true })])
+    const sent = await inviteUser(admin, 'hand@crew.example', 'supplier-member')
+    expect(sent.code).toBeUndefined()
+    expect(await db.sql`select 1 from outbox where kind = 'email' and payload->>'to' = 'hand@crew.example'`).toHaveLength(1)
+    const [entry] = await db.sql<{ seller_id: string; reason: string }[]>`select seller_id, reason from activity_log where action = 'supplier_team.invited' and target_label = 'hand@crew.example'`
+    expect(entry).toEqual({ seller_id: made.id, reason: 'supplier-member' })
+    const hand = await join('hand@crew.example', made.id ?? '')
+    expect((await team(admin)).map((m) => [m.email, m.role])).toEqual(expect.arrayContaining([['hand@crew.example', 'supplier-member'], ['lead@crew.example', 'supplier-admin']]))
+    // A member works on products and stock; the team is the admin's.
+    expect((await gql('{ mySupplierTeam { nodes { id } } }', hand)).code).toBe('FORBIDDEN')
+    expect((await gql('{ mySupplierTeam { nodes { id } } }', 'owner')).code).toBe('FORBIDDEN')
+    expect((await inviteUser(admin, 'boss@crew.example', 'owner')).code).toBe('INVALID_INPUT')
+    expect((await inviteUser(admin, 'not an email', 'supplier-member')).code).toBe('INVALID_EMAIL')
+    expect((await inviteUser(admin, 'HAND@crew.example', 'supplier-member')).code).toBe('ALREADY_MEMBER')
+    // Never both the merchant's staff and a supplier in one store (DATA-MODEL §3.3), and nothing written.
+    expect((await inviteUser(admin, 'manager@a.example', 'supplier-member')).code).toBe('ALREADY_MEMBER')
+    expect(await db.sql`select 1 from invitation where lower(email) = 'manager@a.example'`).toHaveLength(0)
+  })
+
+  it('always keeps one admin', async () => {
+    const lead = await memberId(admin, 'lead@crew.example')
+    const hand = await memberId(admin, 'hand@crew.example')
+    const role = (id: string, r: string) => gql('mutation C($id: ID!, $r: String!) { changeSupplierRole(membershipId: $id, role: $r) }', admin, { id, r })
+    const remove = (id: string) => gql('mutation R($id: ID!) { removeSupplierUser(membershipId: $id) }', admin, { id })
+    expect((await role(lead, 'supplier-member')).code).toBe('LAST_ADMIN')
+    expect((await remove(lead)).code).toBe('LAST_ADMIN')
+    expect((await role(hand, 'supplier-admin')).data?.['changeSupplierRole']).toBe(true)
+    expect((await team(admin)).every((m) => !m.lastAdmin)).toBe(true)
+    expect((await role(hand, 'supplier-member')).data?.['changeSupplierRole']).toBe(true)
+    expect((await role(hand, 'supplier-owner')).code).toBe('INVALID_INPUT')
+    expect((await remove(hand)).data?.['removeSupplierUser']).toBe(true)
+    expect((await team(admin)).map((m) => m.email)).toEqual(['lead@crew.example'])
+    expect(await db.sql`select 1 from activity_log where action = 'supplier_team.role_changed' and target_id = ${hand}`).toHaveLength(2)
+  })
+
+  it('resends with a new link that replaces the old, and cancels', async () => {
+    const first = (await inviteUser(admin, 'late@crew.example', 'supplier-admin')).data?.['inviteSupplierUser'] as string
+    const again = (await gql('mutation R($id: ID!) { resendSupplierInvitation(invitationId: $id) }', admin, { id: first })).data?.['resendSupplierInvitation'] as string
+    expect(again).not.toBe(first)
+    expect((await db.sql<{ revoked: boolean }[]>`select revoked_at is not null as revoked from invitation where id = ${first}`)[0]?.revoked).toBe(true)
+    expect((await gql('mutation R($id: ID!) { revokeSupplierInvitation(invitationId: $id) }', admin, { id: again })).data?.['revokeSupplierInvitation']).toBe(true)
+    expect((await team(admin)).some((m) => m.email === 'late@crew.example')).toBe(false)
+  })
+
+  it('reaches only its own supplier: another supplier’s people and the merchant’s invitations are not found', async () => {
+    const made = await invite('owner', { name: 'Rival Co', email: 'lead@rival.example', accessLevel: 'vendor-catalogue' })
+    other = await join('lead@rival.example', made.id ?? '')
+    const rivalLead = await memberId(other, 'lead@rival.example')
+    expect((await gql('mutation C($id: ID!) { changeSupplierRole(membershipId: $id, role: "supplier-member") }', admin, { id: rivalLead })).code).toBe('NOT_FOUND')
+    expect((await gql('mutation R($id: ID!) { removeSupplierUser(membershipId: $id) }', admin, { id: rivalLead })).code).toBe('NOT_FOUND')
+    const [merchantInvite] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${t.storeA1}, 'clerk@a.example', 'staff', ${new Date(now.getTime() + 86_400_000)}, 'Olivia') returning id`
+    expect((await gql('mutation R($id: ID!) { revokeSupplierInvitation(invitationId: $id) }', admin, { id: merchantInvite?.id })).code).toBe('NOT_FOUND')
+    expect((await team(admin)).some((m) => m.email === 'lead@rival.example' || m.email === 'clerk@a.example')).toBe(false)
+  })
+
+  it('is held in the database too: only supplier roles, only its own supplier, and joining is the invitation’s', async () => {
+    const as: CallerContext = { caller: { kind: 'person', userId: people.owner, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller', sellerId: admin.seller }, subscription: 'active' }
+    const expires = new Date(now.getTime() + 86_400_000)
+    const sneak = await user(t.partnerA, 'sneak@crew.example', 'Sneak')
+    await expect(withScope(db.sql, as, (tx) => tx`insert into invitation (store_id, seller_id, email, role_key, expires_at, invited_by_label) values (${t.storeA1}, ${admin.seller}, 'x@crew.example', 'owner', ${expires}, 'x')`)).rejects.toThrow(/row-level security/)
+    await expect(withScope(db.sql, as, (tx) => tx`insert into invitation (store_id, seller_id, email, role_key, expires_at, invited_by_label) values (${t.storeA1}, ${other.seller}, 'x@crew.example', 'supplier-admin', ${expires}, 'x')`)).rejects.toThrow(/row-level security/)
+    await expect(withScope(db.sql, as, (tx) => tx`insert into membership (user_id, store_id, seller_id, role_key, status) values (${sneak}, ${t.storeA1}, ${admin.seller}, 'supplier-admin', 'active')`)).rejects.toThrow(/row-level security/)
+    await inviteUser(admin, 'waiting@crew.example', 'supplier-member')
+    const [held] = await db.sql<{ id: string }[]>`select m.id from membership m join "user" u on u.id = m.user_id where u.email = 'waiting@crew.example'`
+    await expect(withScope(db.sql, as, (tx) => tx`update membership set status = 'active' where id = ${held?.id ?? ''}`)).rejects.toThrow(/only invites and removes/)
+    expect(await withScope(db.sql, as, async (tx) => (await tx`update membership set role_key = 'supplier-member' where seller_id = ${other.seller}`).count)).toBe(0)
+  })
+})
+
+describe('the Owner adding a person to a supplier', () => {
+  it('adds a member, or an admin when the supplier needs one, and refuses a suspended supplier or the merchant’s own people', async () => {
+    const made = await invite('owner', { name: 'Lone Co', email: 'lead@lone.example', accessLevel: 'vendor-stock' })
+    const id = made.id ?? ''
+    const add = (email: string, role?: string) => gql('mutation A($id: ID!, $email: String!, $role: String) { addSupplierPerson(id: $id, email: $email, role: $role) }', 'owner', { id, email, role })
+    expect((await add('two@lone.example')).code).toBeUndefined()
+    expect((await db.sql<{ role_key: string }[]>`select role_key from invitation where email = 'two@lone.example'`)[0]?.role_key).toBe('supplier-member')
+    expect((await add('three@lone.example', 'supplier-admin')).code).toBeUndefined()
+    expect((await db.sql<{ role_key: string }[]>`select role_key from invitation where email = 'three@lone.example'`)[0]?.role_key).toBe('supplier-admin')
+    expect((await add('Manager@a.example')).code).toBe('ALREADY_MEMBER')
+    expect((await add('four@lone.example', 'owner')).code).toBe('INVALID_INPUT')
+    expect((await gql('mutation A($id: ID!) { addSupplierPerson(id: $id, email: "x@lone.example") }', 'manager', { id })).code).toBe('FORBIDDEN')
+    expect((await gql('mutation A($id: ID!) { addSupplierPerson(id: $id, email: "x@lone.example") }', 'bOwner', { id })).code).toBe('NOT_FOUND')
+    await gql('mutation S($id: ID!) { suspendSupplier(id: $id, hideProducts: false) }', 'owner', { id })
+    expect((await add('five@lone.example')).code).toBe('SUSPENDED')
+    expect(await db.sql`select 1 from activity_log where action = 'supplier.person_added' and target_id = ${id}`).toHaveLength(2)
   })
 })

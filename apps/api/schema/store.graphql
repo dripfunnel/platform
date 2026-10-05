@@ -236,10 +236,12 @@ input MoneyInput {
 }
 
 type Mutation {
+  addSupplierPerson(email: String!, id: ID!, role: String): ID
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
+  changeSupplierRole(membershipId: ID!, role: String!): Boolean
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -251,14 +253,18 @@ type Mutation {
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
+  inviteSupplierUser(email: String!, role: String!): ID
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
+  removeSupplierUser(membershipId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
+  resendSupplierInvitation(invitationId: ID!): ID
   resumeSupplier(id: ID!): Int
   revokeInvitation(invitationId: ID!): Boolean
+  revokeSupplierInvitation(invitationId: ID!): Boolean
   saveBadge(id: ID, input: BadgeInput!): ID
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
@@ -615,6 +621,7 @@ type Query {
   myActivity(after: String, before: String, first: Int): MyActivity
   mySessions: [SignedInSession!]
   myStores(after: String, before: String, first: Int): StoreChoices
+  mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
@@ -939,6 +946,24 @@ type SupplierCounts {
 type SupplierPage {
   nodes: [Supplier!]
   pageInfo: PageInfo
+}
+
+type SupplierTeam {
+  nodes: [SupplierTeamPerson!]
+  pageInfo: PageInfo
+}
+
+type SupplierTeamPerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  lastAdmin: Boolean
+  name: String
+  role: String
+  since: String
+  you: Boolean
 }
 
 type SupportBanner {

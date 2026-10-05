@@ -4,16 +4,14 @@ import type { StoreCaller } from '#auth/storeCaller'
 import { supplierTiers, type SupplierTier } from '#auth/storePermissions'
 import type { PageWindow } from '#core/paging'
 import { withScope, type ScopedSql } from '#db/scoped/index'
-import { countInvitationsSince, invitee, lockStorePeople } from '#db/scoped/people'
+import { lockStorePeople } from '#db/scoped/people'
 import {
   countLiveSuppliers,
   countSuppliers,
   endSupplierAccess,
   hideSupplierProducts,
-  holdInvitedSupplierSeat,
   holdsSeatHere,
   insertSupplier,
-  insertSupplierInvitation,
   lockSupplier,
   markSupplierRemoved,
   markSupplierResumed,
@@ -29,8 +27,9 @@ import {
   type SupplierFilter,
 } from '#db/scoped/suppliers'
 import { allowanceFor, planLimitFor, type PlanLimit } from '#saas/entitlements/index'
-import { queueSideEffect } from '#saas/outbox/index'
-import { normalisedEmail, perAddressPerDay, perInviterPerHour } from '#saas/storePeople/index'
+import { openSupplierInvitationTo, type SupplierRole } from '#db/scoped/supplierTeam'
+import { normalisedEmail } from '#saas/storePeople/index'
+import { sendSupplierInvitation } from './invitations'
 import { isUuid } from '#core/ids'
 
 // Settings › Supplier (ACCESS §5.2, §7.5; SetTeam): the merchant's suppliers, every write under the store's
@@ -43,19 +42,18 @@ export const suppliersAudit = {
   suspended: 'supplier.suspended',
   resumed: 'supplier.resumed',
   removed: 'supplier.removed',
+  personAdded: 'supplier.person_added',
 } as const
 
 export type SuppliersRefusal =
-  | { reason: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_EMAIL' | 'DUPLICATE_SUPPLIER' | 'ALREADY_MEMBER' | 'NOT_SUSPENDED' | 'ALREADY_SUSPENDED' }
+  | { reason: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_EMAIL' | 'DUPLICATE_SUPPLIER' | 'ALREADY_MEMBER' | 'NOT_SUSPENDED' | 'ALREADY_SUSPENDED' | 'SUSPENDED' }
   | { reason: 'RATE_LIMITED'; per: 'inviter' | 'address' }
   | { reason: 'PLAN_LIMIT'; limit: PlanLimit }
 export type SuppliersResult<T> = { ok: true; value: T } | ({ ok: false } & SuppliersRefusal)
 
-const invitationDays = 7
-const day = 24 * 60 * 60 * 1000
-
 const tierOf = (value: string): SupplierTier | null => supplierTiers.find((t) => t === value) ?? null
 const modeOf = (value: string): ShippingMode | null => (value === 'to-store' || value === 'to-shopper' ? value : null)
+export const supplierRoleOf = (value: string): SupplierRole | null => (value === 'supplier-admin' || value === 'supplier-member' ? value : null)
 const labelsOf = (value: string | null | undefined): LabelAccount | null => (value === undefined || value === null || value === 'store' ? 'store' : value === 'own' ? 'own' : null)
 
 class Refused extends Error {
@@ -134,15 +132,10 @@ export const createStoreSuppliersService = ({ sql, caller, activity, facts, now 
       if (await holdsSeatHere(tx, storeId, null, email)) throw new Refused({ reason: 'ALREADY_MEMBER' })
       const wanted = (await countLiveSuppliers(tx, storeId)) + 1
       if (wanted > allowance) return { over: wanted }
-      const at = now()
-      if ((await countInvitationsSince(tx, storeId, new Date(at.getTime() - 60 * 60 * 1000), { inviterId: caller.person.id })) >= perInviterPerHour) throw new Refused({ reason: 'RATE_LIMITED', per: 'inviter' })
-      if ((await countInvitationsSince(tx, storeId, new Date(at.getTime() - day), { email })) >= perAddressPerDay) throw new Refused({ reason: 'RATE_LIMITED', per: 'address' })
       const id = crypto.randomUUID()
-      await insertSupplier(tx, { id, storeId, name, tier, mode, labels, now: at })
-      const userId = await invitee(tx, email, email.split('@')[0] ?? email)
-      if (userId) await holdInvitedSupplierSeat(tx, storeId, id, userId, 'supplier-admin', caller.person.id)
-      const invitationId = await insertSupplierInvitation(tx, { storeId, sellerId: id, email, role: 'supplier-admin', expiresAt: new Date(at.getTime() + invitationDays * day), invitedBy: { id: caller.person.id, label: caller.person.name }, now: at })
-      if (userId) await queueSideEffect(tx, { kind: 'email', idempotencyKey: `store-invitation:${invitationId}`, payload: { template: 'store-owner-invitation', invitationId, to: email, storeId }, partnerId: caller.person.partnerId, storeId })
+      await insertSupplier(tx, { id, storeId, name, tier, mode, labels, now: now() })
+      const sent = await sendSupplierInvitation(tx, caller, { sellerId: id, email, role: 'supplier-admin', replacing: null, now: now() })
+      if (typeof sent !== 'string') throw new Refused(sent)
       await activity.record(tx, entry(suppliersAudit.invited, { id, label: name }, tier))
       return { id }
     })
@@ -152,6 +145,26 @@ export const createStoreSuppliersService = ({ sql, caller, activity, facts, now 
     const limit = await planLimitFor(sql, caller.context, { key: 'suppliers', total: result.value.over }, now())
     return { ok: false, reason: 'PLAN_LIMIT', limit: limit ?? { key: 'suppliers', limit: allowance, unlockedBy: null } }
   }
+
+  /**
+   * SetTeam's "Add a person": another login for the supplier, a member unless the Owner appoints an admin,
+   * which is how a supplier whose last admin left gets one (ACCESS §7.5).
+   */
+  const addPerson = (id: string, rawEmail: string, rawRole: string | null | undefined) =>
+    run(async (tx) => {
+      const email = normalisedEmail(rawEmail)
+      const role = supplierRoleOf(rawRole ?? 'supplier-member')
+      if (!role) throw new Refused({ reason: 'INVALID_INPUT' })
+      if (!email) throw new Refused({ reason: 'INVALID_EMAIL' })
+      await lockStorePeople(tx, storeId)
+      const supplier = await locked(tx, id)
+      if (supplier.status === 'suspended') throw new Refused({ reason: 'SUSPENDED' })
+      if (await holdsSeatHere(tx, storeId, id, email)) throw new Refused({ reason: 'ALREADY_MEMBER' })
+      const sent = await sendSupplierInvitation(tx, caller, { sellerId: id, email, role, replacing: await openSupplierInvitationTo(tx, storeId, id, email), now: now() })
+      if (typeof sent !== 'string') throw new Refused(sent)
+      await activity.record(tx, entry(suppliersAudit.personAdded, { id, label: supplier.name }, role))
+      return sent
+    })
 
   /** It applies to every user of the supplier on their next request (ACCESS §7.5). */
   const setAccess = (id: string, accessLevel: string) =>
@@ -213,5 +226,5 @@ export const createStoreSuppliersService = ({ sql, caller, activity, facts, now 
       return hidden
     })
 
-  return { list, counts, one, invite, setAccess, setShipping, suspend, resume, remove }
+  return { list, counts, one, invite, addPerson, setAccess, setShipping, suspend, resume, remove }
 }

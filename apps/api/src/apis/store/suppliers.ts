@@ -18,6 +18,7 @@ const words: Record<Exclude<SuppliersResult<unknown>, { ok: true }>['reason'], s
   ALREADY_MEMBER: 'They already work in this store, so they can’t be a supplier here too.',
   NOT_SUSPENDED: 'That supplier isn’t suspended.',
   ALREADY_SUSPENDED: 'That supplier is already suspended.',
+  SUSPENDED: 'Resume this supplier first.',
   RATE_LIMITED: 'Too many invitations for now. Try again later.',
   PLAN_LIMIT: 'Your plan doesn’t include more suppliers.',
 }
@@ -89,6 +90,12 @@ export const registerSuppliers = (builder: StoreBuilder) => {
       args: { input: t.arg({ type: InviteInput, required: true }) },
       extensions: { access: { ...vendors, audit: suppliersAudit.invited } },
       resolve: async (_, args, ctx) => answered(await service(ctx).invite(args.input)),
+    }),
+    // Another login for the supplier (SetTeam "Add a person"); answers the invitation's id.
+    addSupplierPerson: t.id({
+      args: { id: t.arg.id({ required: true }), email: t.arg.string({ required: true }), role: t.arg.string() },
+      extensions: { access: { ...vendors, audit: suppliersAudit.personAdded } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).addPerson(String(args.id), args.email, args.role)),
     }),
     setSupplierAccess: t.boolean({
       args: { id: t.arg.id({ required: true }), accessLevel: t.arg.string({ required: true }) },

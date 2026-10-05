@@ -10,6 +10,7 @@ import { registerStructure } from './structure'
 import { registerStory } from './story'
 import { registerInventory } from './inventory'
 import { registerSuppliers } from './suppliers'
+import { registerSupplierTeam } from './supplierTeam'
 
 export type { StoreContext } from './access'
 
@@ -27,6 +28,7 @@ registerStructure(builder)
 registerStory(builder)
 registerInventory(builder)
 registerSuppliers(builder)
+registerSupplierTeam(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

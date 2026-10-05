@@ -818,7 +818,9 @@ another vendor holds (DESIGN-BRIEF fact 10).
   transaction (§6.2). That first user becomes its **Supplier admin**.
 - **Team** (Supplier admin): invite colleagues into its own supplier, change their team
   role, remove them. The invitation's `seller_id` comes from the inviter's membership. A
-  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one.
+  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one, by
+  adding a person to the supplier as its Supplier admin (SetTeam "Add a person", which otherwise adds a
+  member; decided on #295). A person already on the merchant side gets "already in this store".
 - **Change access level**: write `seller.access_level`. It applies to all of the supplier's
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
