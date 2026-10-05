@@ -147,6 +147,33 @@ describe('inviting', () => {
     expect(await as('mutation { inviteMember(email: "seat2@a.example", role: "staff") }')).toBeUndefined()
     expect(await as('mutation { inviteMember(email: "seat3@a.example", role: "staff") }')).toBe('PLAN_LIMIT')
     expect(await as('mutation { inviteMember(email: "another.owner@a.example", role: "owner") }')).toBeUndefined()
+    // Demoting an Owner takes a seat too: with both seats filled it is refused.
+    const [secondOwner] = await db.sql<{ id: string }[]>`select m.id from membership m join "user" u on u.id = m.user_id where m.store_id = ${t.storeA2} and u.email = 'owner2@a.example'`
+    const extraOwner = await user(t.partnerA, 'owner3@a.example', 'Owner Three')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${extraOwner}, ${t.storeA2}, 'owner', 'active')`
+    expect(await as(`mutation { changeRole(membershipId: "${secondOwner?.id}", role: "staff") }`)).toBe('PLAN_LIMIT')
+  })
+})
+
+describe('limits on invitations', () => {
+  it('caps an address at three invitations a day, resends included, and lets an expired one be resent', async () => {
+    await gql('mutation { inviteMember(email: "often@a.example", role: "staff") }', 'owner')
+    const first = (await list('waiting')).find((n) => n.email === 'often@a.example')
+    await db.sql`update invitation set expires_at = ${new Date(now.getTime() - 1000)} where id = ${first?.id ?? ''}`
+    expect((await gql(`mutation { resendInvitation(invitationId: "${first?.id}") }`, 'owner')).data?.['resendInvitation']).toBe(true)
+    const second = (await list('waiting')).find((n) => n.email === 'often@a.example')
+    expect((await gql(`mutation { resendInvitation(invitationId: "${second?.id}") }`, 'owner')).data?.['resendInvitation']).toBe(true)
+    const third = (await list('waiting')).find((n) => n.email === 'often@a.example')
+    expect((await gql(`mutation { resendInvitation(invitationId: "${third?.id}") }`, 'owner')).code).toBe('RATE_LIMITED')
+  })
+
+  it('caps an inviter at twenty invitations an hour', async () => {
+    await db.sql`
+      insert into invitation (store_id, email, role_key, expires_at, invited_by_user_id, invited_by_label, created_at, revoked_at)
+      select ${t.storeA1}, 'bulk' || n || '@a.example', 'staff', ${new Date(now.getTime() + 86_400_000)}, ${people.owner}, 'Olivia', ${now}, ${now} from generate_series(1, 20) n
+    `
+    expect((await gql('mutation { inviteMember(email: "twenty.first@a.example", role: "staff") }', 'owner')).code).toBe('RATE_LIMITED')
+    await db.sql`delete from invitation where email like 'bulk%@a.example'`
   })
 })
 
@@ -169,6 +196,8 @@ describe('roles and removal', () => {
     expect((await gql('{ storeState { status } }', 'staff')).code).toBe('FORBIDDEN')
     expect((await gql('{ me { name } }', 'staff', t.storeA2)).data?.['me']).toEqual({ name: 'Sam Staff' })
     expect((await list('staff')).some((n) => n.email === 'staff@a.example')).toBe(false)
+    const [removed] = await db.sql<{ target_id: string; visibility: string }[]>`select target_id, visibility from activity_log where action = 'member.removed' order by occurred_at desc limit 1`
+    expect(removed).toEqual({ target_id: staff?.id, visibility: 'store' })
   })
 
   it('never changes or removes another store’s member', async () => {

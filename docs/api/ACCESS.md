@@ -684,9 +684,8 @@ Accept: token + password (new) or token + signed-in session (existing)
 ### 6.3 Lifecycle
 
 - **Resend** mints a fresh token; the previous one stops working.
-- **Revoke** sets the invitation `revoked`. An `invited` account with no other pending
-  invitation and no membership is deleted. **A partner team (built on #199)** keeps the row
-  instead and marks it `removed`, since the activity log names it; inviting the address again
+- **Revoke** sets the invitation `revoked`; the `invited` account is kept, never deleted
+  (a store's, built on #290, stays `invited`; **a partner team's, built on #199**, is marked `removed`), since the activity log names it; inviting the address again
   invites that account anew. Partner invitations and resends are throttled: 20 an hour per
   inviter and 3 a day per address (`RATE_LIMITED`).
 - **Staff invitations** (admin console) work the same way, except that accepting binds the
@@ -702,9 +701,10 @@ Accept: token + password (new) or token + signed-in session (existing)
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.
 - **Change role** writes the membership's `role_key`; it applies on the next request.
-- **Removing someone** (flow 12) removes the membership for this store only. The account
-  survives if they belong elsewhere and is deleted only when the last membership goes. Their
-  open requests in this store fail on the next request.
+- **Removing someone** (flow 12) removes the membership for this store only: it stays as a
+  `removed` row the activity log names (built on #290), and the account is never deleted by a
+  removal, whether or not they belong elsewhere (erasing a person is an erasure request's, LOGGING.md §8).
+  Their open requests in this store fail on the next request.
 - **Owner invariant**: refuse to remove or demote the last active Owner of a store.
 - **Merchant People, built on #290** (`apis/store/people.ts`, Settings › People, Owner only through
   `invite`, every statement in the acting store's scope): `people` (active merchant members and open

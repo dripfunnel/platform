@@ -212,8 +212,17 @@ export const registerPeople = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => {
         const caller = actingCaller(ctx)
         const role = roleOf(args.role)
-        await withScope(sqlOf(ctx), caller.context, async (tx) => {
-          const member = /^[0-9a-f-]{36}$/i.test(String(args.membershipId)) ? await selectMember(tx, String(args.membershipId)) : null
+        const sql = sqlOf(ctx)
+        const id = String(args.membershipId)
+        // An Owner becoming a Manager or Staff takes a seat, checked as an invitation is.
+        const current = /^[0-9a-f-]{36}$/i.test(id) ? await withScope(sql, caller.context, (tx) => selectMember(tx, id)) : null
+        if (current?.role_key === 'owner' && role !== 'owner') {
+          const seats = await withScope(sql, caller.context, (tx) => countStaffSeats(tx, caller.store.id))
+          const limit = await planLimitFor(sql, caller.context, { key: 'staff', total: seats + 1 }, ctx.now())
+          if (limit) throw refused('PLAN_LIMIT', 'Your plan has no more staff seats.', { key: limit.key, limit: limit.limit, unlockedBy: limit.unlockedBy })
+        }
+        await withScope(sql, caller.context, async (tx) => {
+          const member = /^[0-9a-f-]{36}$/i.test(id) ? await selectMember(tx, id) : null
           if (!member) throw refused('NOT_FOUND', 'They’re no longer in this store.')
           if (member.role_key === role) return
           if (member.role_key === 'owner' && (await countOtherOwners(tx, caller.store.id, member.id)) === 0) throw refused('LAST_OWNER', 'The last Owner can’t be demoted. Make someone else an Owner first.')
