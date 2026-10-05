@@ -233,15 +233,15 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const look = await partnerBrand(tx, signup.partner_id)
       if (!look) return { send: false, reason: 'no_recipient' }
       const brand = look.brand.name
-      // ACCESS.md §2: the page answered the same; only the mailbox's owner learns there is an account.
+      // A code is made either way, so the next step answers alike; only the mailbox learns of the account (ACCESS.md §2).
+      const code = await mintSignupEmailCode(tx, p.signupId, now)
+      if (!code) return { send: false, reason: 'link_closed' }
       if (signup.has_account) {
         const host = await selectLivePortalHost(tx, signup.partner_id)
         if (!host) throw new NoPortalHost()
         const w = en.signupHasAccount
         return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(brand)], action: { label: w.action, url: `https://${host}/sign-in` }, note: w.note } }
       }
-      const code = await mintSignupEmailCode(tx, p.signupId, now)
-      if (!code) return { send: false, reason: 'link_closed' }
       const w = en.signupCode
       return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(code)], note: w.note } }
     }

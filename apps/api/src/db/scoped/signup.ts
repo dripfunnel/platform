@@ -55,6 +55,10 @@ export const countSignupTextsSince = async (tx: ScopedSql, partnerId: string, si
     `
   )[0]?.n ?? 0
 
+/** Sign-ups started under the partner since `since`: a cap on starts, beside the per-address and per-client ones. */
+export const countSignupsSince = async (tx: ScopedSql, partnerId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from signup where partner_id = ${partnerId} and created_at > ${since}`)[0]?.n ?? 0
+
 /** For the code email's deliverer: a fresh code's hash and expiry; false once the sign-up has moved on. */
 export const setSignupEmailCode = async (tx: ScopedSql, signupId: string, codeHash: string, expiresAt: Date): Promise<boolean> =>
   (await tx`update signup set email_code_hash = ${codeHash}, email_code_expires_at = ${expiresAt}, email_code_attempts = 0 where id = ${signupId} and stage = 'email'`).count > 0

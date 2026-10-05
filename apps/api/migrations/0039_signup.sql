@@ -26,6 +26,7 @@ create table signup (
 
 create index signup_partner_email_idx on signup (partner_id, lower(email));
 create index signup_expires_idx on signup (expires_at);
+create index signup_partner_created_idx on signup (partner_id, created_at desc);
 
 -- Every sign-up text, kept a day after its sign-up is gone: the limits per sign-up, per number and per
 -- partner read it, so no one can pump texts to numbers they don't own (#290's review).

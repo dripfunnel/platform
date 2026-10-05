@@ -87,6 +87,17 @@ describe('signing up', () => {
     expect(toKnown?.send && toKnown.content.subject).toContain('already have')
     expect(toKnown?.send && JSON.stringify(toKnown.content)).not.toMatch(/\d{6}/)
     expect(toFresh?.send && toFresh.content.paragraphs[0]).toMatch(/Your code is \d{6}/)
+    // Once both emails are out, the next step answers the two alike.
+    const knownTry = await post('/api/auth/sign-up/verify-email', { code: '000000' }, known.cookies['__Host-portal_signup'])
+    const freshTry = await post('/api/auth/sign-up/verify-email', { code: '000000' }, fresh.cookies['__Host-portal_signup'])
+    expect(knownTry.body).toEqual({ ok: false, code: 'WRONG_CODE', triesLeft: 4 })
+    expect(freshTry.body).toEqual(knownTry.body)
+  })
+
+  it('caps how many sign-ups a partner takes in an hour', async () => {
+    await db.sql`insert into signup (partner_id, token_hash, stage, name, email, password_hash, expires_at, created_at) select ${t.partnerA}, 'flood-' || n, 'email', 'F', 'f' || n || '@a.example', 'h', ${new Date(now.getTime() + 86_400_000)}, ${now} from generate_series(1, 500) n`
+    expect((await post('/api/auth/sign-up', { name: 'One more', email: 'one.more@a.example', password })).body).toEqual({ ok: false, code: 'RATE_LIMITED' })
+    await db.sql`delete from signup where token_hash like 'flood-%'`
   })
 
   it('refuses a short password, a bad address, and any sign-up while the partner isn’t Live', async () => {
