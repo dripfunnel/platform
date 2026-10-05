@@ -269,7 +269,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   (with `remember`), `send-code`, `second-factor`, `backup-code`, `enrol-second-factor` (`app` or
   `sms`), `sign-out`. As the partner console's: one password derivation, a decoy when there's no
   account, `INVALID_CREDENTIALS` alike for both, rate-limited per host and address and per typed
-  email; five wrong codes lock for 15 minutes. A texted code is 6 digits, hashed with its row, 10
+  email; five wrong passwords or codes, one count, lock for 15 minutes and queue the `user-locked` email to the person, while every wrong password still answers `INVALID_CREDENTIALS`; `switchStore` naming a store not held is logged as a crossing. A texted code is 6 digits, hashed with its row, 10
   minutes, five tries, at most three texts per person in 10 minutes; the authenticator's issuer is
   the partner's brand name. An Owner without 2-factor gets a session good only for enrolling,
   which ends with the ten backup codes shown once. `myStores` and `switchStore` read memberships in `system` scope, as the caller's own resolution does: they come before any acting store, so there is no `TenantContext` yet, and each read is pinned to the session's user and the host's partner. The support banner in `storeState` is read in the acting store's own scope (`open_support_banner`, migrations/0036).

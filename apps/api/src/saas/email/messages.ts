@@ -45,6 +45,12 @@ export const en = {
     body: (minutes: number) => `Your partner console account is locked for ${minutes} minutes after too many wrong 2-factor codes. You can sign in again after that.`,
     notYou: 'If that wasn’t you, reset your password from the sign-in page once the lock ends.',
   },
+  userLocked: {
+    subject: (brand: string) => `Sign-in to ${brand} is paused`,
+    heading: 'Sign-in is paused',
+    body: (minutes: number) => `There were five wrong passwords or codes in a row, so sign-in to your account is paused for ${minutes} minutes to keep your stores safe.`,
+    notYou: 'If that wasn’t you, reset your password from the sign-in page; it works straight away.',
+  },
   partnerDomainLive: {
     subject: (host: string) => `${host} is live`,
     heading: 'Your address is live',

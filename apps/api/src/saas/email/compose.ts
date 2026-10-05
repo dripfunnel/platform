@@ -7,6 +7,7 @@ import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
 import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
 import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
+import { selectUserPartner } from '#db/scoped/userSignIn'
 import { senderLabel } from '#saas/domains/index'
 import { en } from './messages'
 import type { Brand, EmailContent } from './render'
@@ -40,6 +41,7 @@ const payloads = {
   'partner-team-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
   'partner-password-reset': z.object({ partnerPasswordResetId: id, to: email }),
   'partner-user-locked': z.object({ partnerUserId: id, to: email, minutes: z.number().int().positive() }),
+  'user-locked': z.object({ userId: id, to: email, minutes: z.number().int().positive() }),
   'partner-domain-live': z.object({ partnerId: id, domainId: id, kind: z.enum(['portal', 'preview', 'shops', 'email']) }),
   'partner-card-declined': z.object({ invoiceId: z.string().max(255) }),
   'partner-payout-account-failed': z.object({}),
@@ -168,6 +170,16 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if ((await selectRecordPartner(tx, 'user', p.partnerUserId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerUserLocked
       return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] }, true)
+    }
+    case 'user-locked': {
+      const p = parse(t)
+      const partnerId = await selectUserPartner(tx, p.userId)
+      if (!partnerId) return { send: false, reason: 'no_recipient' }
+      if (partnerId !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, partnerId)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const w = en.userLocked
+      return { send: true, accountSecurity: true, to: [p.to], voice: look.voice, brand: look.brand, content: { subject: w.subject(look.brand.name), heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] } }
     }
     case 'partner-domain-live': {
       const p = parse(t)

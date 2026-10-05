@@ -81,7 +81,7 @@ const crossingsPerMinute = 5
 
 // ACCESS.md §4: naming a store the session doesn't hold is an attempted tenant crossing, logged
 // with the store asked for, the stores held and the person.
-const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts, now: Date) => {
+export const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts, now: Date) => {
   if ((await crossingsLoggedSince(tx, person.id, new Date(now.getTime() - 60_000), crossingsPerMinute)) >= crossingsPerMinute) return
   const target = asked.slice(0, 64)
   const held = await selectHeldStoreIds(tx, person.id, person.partnerId, heldInLabel + 1)
