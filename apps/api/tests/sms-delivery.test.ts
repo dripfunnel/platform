@@ -12,10 +12,12 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const now = new Date('2026-10-05T09:00:00Z')
+// The database's clock when the tests start, not a fixed date: the rows they read are stamped with its now().
+let now: Date
 
 beforeAll(async () => {
   db = await createTestDatabase()
+  now = (await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()
   t = await seedTenants(db.sql)
 }, 60_000)
 

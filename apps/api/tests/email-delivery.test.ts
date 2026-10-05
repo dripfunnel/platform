@@ -19,7 +19,8 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 // Card #274: the outbox's email through SES, suppression and the SNS hook; #290: store invitations.
 
 let db: TestDatabase
-const now = new Date('2026-10-05T10:00:00Z')
+// The database's clock when the tests start, not a fixed date: the rows they read are stamped with its now().
+let now: Date
 const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
 const senderDomain = 'mail.dripfunnel.test'
 const suppressionKey = btoa('k'.repeat(32))
@@ -54,6 +55,7 @@ let store: { id: string; partnerId: string; name: string; ownerEmail: string }
 
 beforeAll(async () => {
   db = await createTestDatabase()
+  now = (await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()
   await seed(db.url, now)
   const [p] = await db.sql<{ id: string; owner: string; finance: string }[]>`
     select p.id,
