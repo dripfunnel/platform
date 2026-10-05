@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import {
   changeStock,
   countWarehouses,
@@ -20,6 +20,7 @@ import {
   type ChangeReason,
   type WarehouseAddress,
 } from '#db/scoped/inventory'
+import { isUuid } from '#core/ids'
 
 // Inventory (PLATFORM-PROMPT §5.4, CATALOG-DESIGN G, SetOps): each owner counts its own locations, and
 // every change to a quantity is a movement with its reason, by the database (migration 0046).
@@ -51,7 +52,6 @@ export type AdjustReason = (typeof adjustReasons)[number]
 export const maxStockEntries = 100
 const maxQuantity = 1_000_000
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 class Refused extends Error {
   constructor(readonly reason: InventoryRefusal) {
@@ -129,7 +129,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
 
   /** The caller's own location: the merchant side changes only the merchant's, a supplier only its own. */
   const ownWarehouse = async (tx: ScopedSql, id: string) => {
-    const w = uuid.test(id) ? await selectWarehouse(tx, storeId, id) : null
+    const w = isUuid(id) ? await selectWarehouse(tx, storeId, id) : null
     if (!w || w.seller_id !== sellerId) throw new Refused('NOT_FOUND')
     return w
   }
@@ -141,6 +141,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       const clean = cleanWarehouse(input)
       let warehouseId: string
       if (id === null) {
+        await serialise(tx, `warehouse:${storeId}:${sellerId ?? ''}`)
         if ((await countWarehouses(tx, storeId, sellerId)) >= maxWarehouses) throw new Refused('TOO_MANY_WAREHOUSES')
         warehouseId = crypto.randomUUID()
         await insertWarehouse(tx, storeId, sellerId, warehouseId, clean)
@@ -173,7 +174,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       return true
     })
 
-  const productStock = (productId: string, window: PageWindow) => inScope((tx) => (uuid.test(productId) ? selectProductStock(tx, storeId, productId, window) : Promise.resolve([])))
+  const productStock = (productId: string, window: PageWindow) => inScope((tx) => (isUuid(productId) ? selectProductStock(tx, storeId, productId, window) : Promise.resolve([])))
 
   const moved = (versionId: string, warehouseId: string, reason: ChangeReason, delta: number, quantity: number) =>
     entry(inventoryAudit.adjusted, { type: 'product_version', id: versionId, label: `${reason} ${delta > 0 ? '+' : ''}${delta} → ${quantity} at ${warehouseId}` })
@@ -182,7 +183,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
   const adjust = (versionId: string, warehouseId: string, delta: number, reason: string) =>
     run(async (tx) => {
       if (!(adjustReasons as readonly string[]).includes(reason) || delta === 0 || !Number.isInteger(delta) || Math.abs(delta) > maxQuantity) throw new Refused('INVALID_INPUT')
-      if (!uuid.test(versionId) || !uuid.test(warehouseId)) throw new Refused('NOT_FOUND')
+      if (!isUuid(versionId) || !isUuid(warehouseId)) throw new Refused('NOT_FOUND')
       const { quantity } = await changeStock(tx, versionId, warehouseId, { delta }, reason as AdjustReason)
       await activity.record(tx, moved(versionId, warehouseId, reason as AdjustReason, delta, quantity))
       return quantity
@@ -197,7 +198,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       const logged: ActivityEntry[] = []
       const results: { versionId: string; warehouseId: string; quantity: number }[] = []
       for (const e of entries) {
-        if (!uuid.test(e.versionId) || !uuid.test(e.warehouseId)) throw new Refused('NOT_FOUND')
+        if (!isUuid(e.versionId) || !isUuid(e.warehouseId)) throw new Refused('NOT_FOUND')
         const { quantity, change } = await changeStock(tx, e.versionId, e.warehouseId, { target: whole(e.quantity, 0) }, 'typed')
         if (change !== 0) logged.push(moved(e.versionId, e.warehouseId, 'typed', change, quantity))
         results.push({ versionId: e.versionId, warehouseId: e.warehouseId, quantity })
@@ -208,7 +209,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
 
   const setThreshold = (versionId: string, warehouseId: string, threshold: number | null) =>
     run(async (tx) => {
-      if (!uuid.test(versionId)) throw new Refused('NOT_FOUND')
+      if (!isUuid(versionId)) throw new Refused('NOT_FOUND')
       // The merchant side reads a supplier's thresholds but never sets them: they drive the supplier's chip.
       await ownWarehouse(tx, warehouseId)
       const clean = threshold === null ? null : whole(threshold, 0)
@@ -218,7 +219,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
     })
 
   const history = (productId: string, versionId: string | null, window: PageWindow) =>
-    inScope((tx) => (uuid.test(productId) && (versionId === null || uuid.test(versionId)) ? selectStockHistory(tx, storeId, productId, versionId, window) : Promise.resolve([])))
+    inScope((tx) => (isUuid(productId) && (versionId === null || isUuid(versionId)) ? selectStockHistory(tx, storeId, productId, versionId, window) : Promise.resolve([])))
 
   return { warehouses, saveWarehouse, setDefault, deleteWarehouse, productStock, adjust, setQuantities, setThreshold, history }
 }

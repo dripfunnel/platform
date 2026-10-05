@@ -526,7 +526,9 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set on_hand = 99 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set reserved = 1 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into stock_movement (store_id, version_id, warehouse_id, delta, resulting_quantity, reason, actor_kind) values (${t.storeA1}, ${version?.id ?? ''}, ${location?.id ?? ''}, 5, 5, 'received', 'system')`)).rejects.toThrow(/permission denied/)
-    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'order')`)).rejects.toThrow(/known reason/)
+    for (const reason of ['order', 'import', 'starting', 'transfer']) {
+      await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, ${reason})`)).rejects.toThrow(/known reason/)
+    }
     await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
     await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
     expect(await seen(t.storeA1, supplier, 'stock_movement')).toBe(0)

@@ -141,10 +141,12 @@ begin
   if app_setting_text('app.scope') <> 'store' or app_setting_text('app.support') = 'read' then
     raise exception 'stock: not in this scope' using errcode = '42501';
   end if;
-  if p_reason not in ('received', 'returned', 'damaged', 'counted', 'typed', 'import') or (p_delta is null) = (p_target is null) then
+  -- A person's reasons only: orders, returns and imports write theirs through their own system paths.
+  if p_reason not in ('received', 'returned', 'damaged', 'counted', 'typed') or (p_delta is null) = (p_target is null) then
     raise exception 'stock: a change needs one amount and a known reason' using errcode = '22023';
   end if;
-  select store_id, seller_id into v_warehouse from warehouse where id = p_location and store_id = v_store and deleted_at is null;
+  -- Shared, so a delete of the location waits for this count, or this count finds it gone.
+  select store_id, seller_id into v_warehouse from warehouse where id = p_location and store_id = v_store and deleted_at is null for share;
   select store_id, seller_id into v_version from product_version where id = p_version and store_id = v_store and deleted_at is null;
   -- The merchant side counts its own locations (ACCESS §5.1); a supplier its own, of its own versions.
   if v_warehouse.store_id is null or v_version.store_id is null
@@ -171,7 +173,7 @@ begin
   update stock_level set on_hand = v_after, updated_at = now() where version_id = p_version and warehouse_id = p_location;
   -- The clock, not the transaction's start, so the changes of one save keep their order in the history.
   insert into stock_movement (store_id, version_id, warehouse_id, delta, resulting_quantity, reason, source_kind, actor_kind, actor_id, occurred_at)
-  values (v_store, p_version, p_location, v_change, v_after, v_reason, case when v_reason = 'import' then 'import' end,
+  values (v_store, p_version, p_location, v_change, v_after, v_reason, null,
     case when app_setting_text('app.impersonation_id') <> '' then 'impersonation' when app_setting_text('app.user_id') <> '' then 'person' else 'system' end,
     case when app_setting_text('app.impersonation_id') <> '' then app_setting_uuid('app.impersonation_id') when app_setting_text('app.user_id') <> '' then app_setting_uuid('app.user_id') end,
     clock_timestamp());
@@ -179,6 +181,8 @@ end
 $$;
 
 grant select (id, store_id, seller_id, deleted_at) on warehouse to app_definer;
+-- A row lock needs an update grant; the definer changes nothing on the location.
+grant update (updated_at) on warehouse to app_definer;
 grant select (id, store_id, seller_id, product_id, deleted_at) on product_version to app_definer;
 grant select, insert, update (on_hand, updated_at) on stock_level to app_definer;
 grant select (version_id, warehouse_id), insert on stock_movement to app_definer;

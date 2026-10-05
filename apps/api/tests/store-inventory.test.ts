@@ -172,6 +172,50 @@ describe('Stock locations', () => {
     expect((await saveWarehouse('otherSupplier', { name: 'Taken' }, theirs.id, 1)).code).toBe('NOT_FOUND')
   })
 
+  it('never leaves stock in a location deleted at the same moment', async () => {
+    const spare = (await saveWarehouse('owner', { name: 'Spare room' })).id ?? ''
+    const { versions } = await product('owner', 'Racing mug')
+    // A delete holds the location and has soft-deleted it, not yet committed.
+    let commit = () => {}
+    const held = new Promise<void>((resolve) => (commit = resolve))
+    const deleting = db.sql.begin(async (tx) => {
+      await tx`select 1 from warehouse where id = ${spare} for update`
+      await tx`update warehouse set deleted_at = now() where id = ${spare}`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const counting = adjust('owner', versions[0] ?? '', spare, 3, 'received')
+    // Commit only once the count is waiting on a lock, so the test doesn't depend on timing.
+    for (let i = 0; i < 100; i++) {
+      const [waiting] = await db.sql<{ n: number }[]>`select count(*)::int as n from pg_stat_activity where wait_event_type = 'Lock' and datname = current_database()`
+      if ((waiting?.n ?? 0) > 0) break
+      await new Promise((r) => setTimeout(r, 20))
+    }
+    commit()
+    await deleting
+    expect((await counting).code).toBe('NOT_FOUND')
+    expect(await db.sql`select 1 from stock_level where warehouse_id = ${spare}`).toHaveLength(0)
+  })
+
+  it('holds the limit when two locations are made at the same moment', async () => {
+    const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from warehouse where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and deleted_at is null`
+    await db.sql`insert into warehouse (store_id, seller_id, name) select ${t.storeA1}, ${t.sellerA1Second}, 'Racer ' || g from generate_series(1, ${19 - n}) g`
+    let commit = () => {}
+    const held = new Promise<void>((resolve) => (commit = resolve))
+    const other = db.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext(${`warehouse:${t.storeA1}:${t.sellerA1Second}`}))`
+      await tx`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1Second}, 'Racer 20')`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const mine = saveWarehouse('otherSupplier', { name: 'Racer 21' })
+    await new Promise((r) => setTimeout(r, 200))
+    commit()
+    await other
+    expect((await mine).code).toBe('TOO_MANY_WAREHOUSES')
+    await db.sql`delete from warehouse where name like 'Racer %'`
+  })
+
   it('stops at 20 an owner, counted per owner', async () => {
     const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from warehouse where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and deleted_at is null`
     await db.sql`insert into warehouse (store_id, seller_id, name) select ${t.storeA1}, ${t.sellerA1Second}, 'Filler ' || g from generate_series(1, ${20 - n}) g`
