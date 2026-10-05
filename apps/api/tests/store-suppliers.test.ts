@@ -227,6 +227,35 @@ describe('changing a supplier', () => {
     expect((await invite('owner', { name: 'Gone Co', email: 'back@co.example', accessLevel: 'vendor-stock' })).code).toBeUndefined()
   })
 
+  it('lets the merchant show a suspended or removed supplier’s product from its form, which a resume then leaves as the merchant set it', async () => {
+    const made = await invite('owner', { name: 'Shown Co', email: 'shown@co.example', accessLevel: 'vendor-catalogue' })
+    const id = made.id ?? ''
+    const supplier = { cookie: (await accept('shown@co.example')).cookie, seller: id }
+    const bowl = await product(supplier, 'Shown bowl')
+    const plate = await product(supplier, 'Shown plate')
+    const showFromForm = async (productId: string, name: string) => {
+      const p = (await gql('query P($id: ID!) { product(id: $id) { revision versions { id } } }', 'owner', { id: productId })).data?.['product'] as { revision: number; versions: { id: string }[] }
+      return gql('mutation S($id: ID, $revision: Int, $input: ProductInput!) { saveProduct(id: $id, revision: $revision, input: $input) { id } }', 'owner', {
+        id: productId,
+        revision: p.revision,
+        input: { name, visible: true, options: [], versions: [{ id: p.versions[0]?.id, choices: [], prices: [{ currency: 'INR', amount: '100' }] }] },
+      })
+    }
+    await gql('mutation S($id: ID!) { suspendSupplier(id: $id, hideProducts: true) }', 'owner', { id })
+    expect(await visibility(bowl)).toMatchObject({ visibility: 'hidden', hidden_by: 'seller_suspended' })
+    expect((await showFromForm(bowl, 'Shown bowl')).code).toBeUndefined()
+    expect(await visibility(bowl)).toMatchObject({ visibility: 'visible', hidden_by: null })
+    // The merchant hides it again; resuming brings back only what the suspension still holds.
+    await gql('mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }', 'owner', { ids: [bowl] })
+    expect((await gql('mutation R($id: ID!) { resumeSupplier(id: $id) }', 'owner', { id })).data?.['resumeSupplier']).toBe(1)
+    expect(await visibility(bowl)).toMatchObject({ visibility: 'hidden', hidden_by: null })
+    expect(await visibility(plate)).toMatchObject({ visibility: 'visible', hidden_by: null })
+    await gql('mutation R($id: ID!) { removeSupplier(id: $id) }', 'owner', { id })
+    expect(await visibility(plate)).toMatchObject({ visibility: 'hidden', hidden_by: 'seller_removed' })
+    expect((await showFromForm(plate, 'Shown plate')).code).toBeUndefined()
+    expect(await visibility(plate)).toEqual({ visibility: 'visible', hidden_by: null, seller_id: id })
+  })
+
   it('refuses every change from another store’s Owner and from the supplier’s own admin, leaving the row and its products as they were', async () => {
     const made = await invite('owner', { name: 'Guard Co', email: 'guard@co.example', accessLevel: 'vendor-catalogue' })
     const id = made.id ?? ''

@@ -214,7 +214,7 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 |---|---|---|---|
 | **Trial** | Signup; ends at `trial_ends_at` | Full use within the plan | Live |
 | **Active** | A paid subscription | Full use | Live |
-| **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner) | **Keeps selling** as normal (decided 2026-10-05 on #284) |
+| **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner); the store's suppliers keep their stock and shipping going and aren't told (below) | **Keeps selling** as normal (decided 2026-10-05 on #284) |
 | **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning, **after 14 days past due** (decided 2026-10-05 on #284) | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
 | **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Live until the paid period ends, then offline; kept 90 days (decided 2026-10-05 on #337) |
 | **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept **90 days**, then deleted (decided 2026-10-05 on #337) |
@@ -226,8 +226,9 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
   once, in the Store API's resolver scope, from the subscription status cached on the
   session and invalidated by the billing webhook. The store's **suppliers keep working** while it
   is past due (stock, shipping) and aren't told about its billing (decided 2026-10-05 on #337,
-  Store FIRST-RELEASE §1); built on #295 as `readOnlyFor` in the Store API's access policy. A
-  cancelled store is read-only for everyone.
+  Store FIRST-RELEASE §1). Built on #295 in the Store API's access policy: a supplier's
+  `storeState` isn't read-only, and its stock, warehouse and fulfilment writes go on; its other
+  writes (its products, its team) wait as the merchant's do. A cancelled store is read-only for everyone.
 - **Past due, suspended, cancelled and closed are never confused** on any screen
   (CONSOLE-DESIGN §8). Suspended is a person's decision; past due is a billing fact.
 - Every state change writes an audit entry and an outbox event (email to the Owner, cache

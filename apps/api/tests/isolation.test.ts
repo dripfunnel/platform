@@ -614,6 +614,17 @@ describe('the backstop itself', () => {
     expect(roles.filter((r) => r.rolcanlogin)).toEqual([])
   })
 
+  it('shows a supplier only its own activity entries and none of the outbox (#295)', async () => {
+    const entry = (sellerId: string | null, action: string) =>
+      db.sql`insert into activity_log (category, action, result, actor_kind, visibility, store_id, partner_id, seller_id) values ('write', ${action}, 'success', 'person', 'store', ${t.storeA1}, ${t.partnerA}, ${sellerId})`
+    await entry(t.sellerA1First, 'own.entry')
+    await entry(t.sellerA1Second, 'other.supplier.entry')
+    await entry(null, 'merchant.entry')
+    const seen = await withScope(db.sql, storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx<{ action: string }[]>`select action from activity_log where action like '%entry'`)
+    expect(seen.map((r) => r.action)).toEqual(['own.entry'])
+    await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx`select id from outbox`)).rejects.toThrow(/permission denied/i)
+  })
+
   it('keeps app_supplier to the tables a supplier reaches (DATA-MODEL §5.3, #295)', async () => {
     const tables = async (sql: string) => (await db.sql.unsafe<{ t: string }[]>(sql)).map((r) => r.t)
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
