@@ -100,9 +100,12 @@ describe('warehouse', () => {
 })
 
 describe('tax setup', () => {
-  it('shows what a typed price means at the default rate, and switches after saying the numbers stay', async () => {
+  it('says in words what a typed price means, never working out a tax, and switches after saying the numbers stay', async () => {
     await show('tax')
-    expect(screen.getByText('You type ₹1,000.00 → shopper pays ₹1,000.00, of which ₹107.14 is GST')).toBeTruthy()
+    expect(screen.getByText('The price you type is the price shoppers pay; GST is part of it.')).toBeTruthy()
+    expect(screen.queryByText(/₹/)).toBeNull()
+    const radios = within(screen.getByRole('radiogroup', { name: t.pricesTitle })).getAllByRole('radio') as HTMLInputElement[]
+    expect(radios.map((x) => [x.type, x.checked])).toEqual([['radio', true], ['radio', false]])
     fireEvent.click(screen.getByRole('radio', { name: /Prices don’t include GST/ }))
     fireEvent.click(region(t.pricesTitle).getByRole('button', { name: t.save }))
     expect(dialog().getByText(/The numbers you typed on your products stay as they are/)).toBeTruthy()
@@ -148,6 +151,34 @@ describe('tax setup', () => {
     expect(tax.loadTax.mock.calls.length).toBeGreaterThan(3)
   })
 
+  it('takes the new category away again when its rate can’t be saved, and reads the setup again', async () => {
+    tax.saveTaxZone.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
+    await show('tax')
+    const reads = tax.loadTax.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
+    fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7' } })
+    confirm(t.add)
+    await settle()
+    await settle()
+    expect(tax.saveTaxClass).toHaveBeenCalledWith(null, { name: 'Books', taxCode: null, isDefault: false })
+    expect(tax.deleteTaxClass).toHaveBeenCalledWith('c-new')
+    expect(screen.getByText(t.refused.ZONE_OVERLAP)).toBeTruthy()
+    // One read for the zone before writing it, one for the tab after.
+    expect(tax.loadTax.mock.calls.length).toBe(reads + 2)
+  })
+
+  it('writes a changed rate over the zone as it is now, not as the tab first read it', async () => {
+    await show('tax')
+    // Someone else added a rate since the tab was read.
+    tax.loadTax.mockResolvedValue({ ...setup, zones: [{ ...setup.zones[0], rates: [...(setup.zones[0]?.rates ?? []), { taxClassId: 'c0', rateBps: 0 }] }, setup.zones[1]] })
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
+    confirm(t.continue)
+    fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
+    confirm(t.save)
+    await settle()
+    expect(tax.saveTaxZone).toHaveBeenLastCalledWith('z-in', expect.objectContaining({ rates: [{ taxClassId: 'c18', rateBps: 1800 }, { taxClassId: 'c0', rateBps: 0 }, { taxClassId: 'c12', rateBps: 500 }] }))
+  })
+
   it('says why a category change was refused', async () => {
     tax.saveTaxClass.mockRejectedValue(new ApiError('DUPLICATE_NAME', 'dup'))
     await show('tax')
@@ -155,7 +186,7 @@ describe('tax setup', () => {
     fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Clothing 12' } })
     confirm(t.add)
     await settle()
-    expect(region('Your tax rates').getByRole('alert').textContent).toBe(t.refused.DUPLICATE_NAME)
+    expect(screen.getByText(t.refused.DUPLICATE_NAME)).toBeTruthy()
   })
 
   it('leaves a US store’s rates to the shopper’s state, with nothing to add', async () => {

@@ -610,47 +610,13 @@
 
 /* Tax setup (designs/CatSettings.dc.html tax tab, SetOps.dc.html "tax") */
 
-.df-tax-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.df-tax-option {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px;
-  border: 1px solid var(--df-color-field-border);
-  border-radius: var(--df-radius-card);
-  background: var(--df-color-surface);
-  color: var(--df-color-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.df-tax-option[aria-checked='true'] {
-  padding: 13px 15px;
-  border: 2px solid var(--df-color-focus);
-  background: var(--df-color-info-surface);
-}
-
-.df-tax-option strong {
-  font-family: var(--df-font-heading);
-  font-size: 14px;
-}
-
-.df-tax-option > span {
-  font-size: 13px;
-}
-
 .df-tax-example {
+  margin-top: 4px;
   padding: 6px 8px;
   border-radius: 6px;
-  background: var(--df-color-info-surface);
-  color: var(--df-color-info);
-  font-size: 12px !important;
+  background: var(--df-color-surface);
+  color: var(--df-color-info) !important;
+  font-size: 12px;
 }
 
 .df-tax-classes {
@@ -718,10 +684,6 @@
 }
 
 @media (max-width: 720px) {
-  .df-tax-options {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .df-tax-check {
     min-height: 44px;
   }
