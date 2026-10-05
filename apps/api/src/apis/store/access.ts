@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
-import type { RequestFacts } from '#auth/activity'
+import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
 import { isStorePermission, storePermissions, storeRoleHas } from '#auth/storePermissions'
 import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
@@ -8,13 +8,16 @@ import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '
 export interface StoreContext extends Record<string, unknown> {
   /** Where the request stands on this portal host (auth/storeCaller.ts). */
   standing: StoreStanding
+  /** The host's partner; null only when the Worker has no database to tell. */
+  partnerId: string | null
+  activity: ActivityLog
   /** Null when the Worker has no database: every guarded field then answers UNAUTHENTICATED. */
   sql: postgres.Sql | null
   facts: RequestFacts
   now: () => Date
 }
 
-export const signedOutStoreContext = (facts: RequestFacts): StoreContext => ({ standing: { kind: 'signed-out' }, sql: null, facts, now: () => new Date() })
+export const signedOutStoreContext = (facts: RequestFacts, activity: ActivityLog): StoreContext => ({ standing: { kind: 'signed-out' }, partnerId: null, sql: null, activity, facts, now: () => new Date() })
 
 // One message per code, whatever the store: a refusal must not say whether a store exists.
 const refusal = (message: string, code: string) => new GraphQLError(message, { extensions: { code } })

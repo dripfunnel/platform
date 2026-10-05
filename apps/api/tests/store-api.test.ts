@@ -94,7 +94,7 @@ builder.queryFields((f) => ({
 const schema = secureSchema(builder.toSchema(), storePolicy)
 
 const query = async (source: string, standing: StoreStanding) => {
-  const contextValue: StoreContext = { standing, sql: db.sql, facts, now: () => now }
+  const contextValue: StoreContext = { standing, partnerId: 'p', activity: { record: async () => undefined }, sql: db.sql, facts, now: () => now }
   const result = await graphql({ schema: schema as GraphQLSchema, source, contextValue })
   return { data: result.data as { members?: { nodes: { id: string; role: string; sellerId: string | null }[]; pageInfo: { endCursor: string | null; hasNextPage: boolean } } } | null | undefined, code: result.errors?.[0]?.extensions['code'] }
 }

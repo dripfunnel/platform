@@ -194,3 +194,42 @@ export const factsOf = (request: Request): RequestFacts => ({
   ip: request.headers.get('cf-connecting-ip'),
   userAgent: request.headers.get('user-agent'),
 })
+
+// A merchant or supplier person on a portal host (#290). Visibility `self`: a person spans the
+// partner's stores, so their sign-ins are theirs to see, and staff's (LOGGING.md §6).
+const personEntry = (action: string, category: 'auth' | 'security', user: { id: string; partnerId: string }, request: RequestFacts, reason: string | null = null): ActivityEntry => ({
+  category,
+  action,
+  result: 'success',
+  actorKind: 'person',
+  actorId: user.id,
+  actorLabel: null,
+  partnerId: user.partnerId,
+  reason,
+  api: 'store',
+  visibility: 'self',
+  ...request,
+})
+
+export const personSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.signed_in', 'auth', user, request)
+export const personSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.signed_out', 'auth', user, request)
+export const personSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts, method: 'app' | 'sms') =>
+  personEntry('person.second_factor_enrolled', 'security', user, request, method)
+export const personBackupCodeUsed = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.backup_code_used', 'security', user, request)
+export const personLocked = (user: { id: string; partnerId: string }, request: RequestFacts) => ({ ...personEntry('person.locked', 'security', user, request), result: 'denied' as const })
+export const personCodeRefused = (user: { id: string; partnerId: string }, request: RequestFacts, code: string) => ({ ...personEntry('person.second_factor_refused', 'security', user, request, code), result: 'denied' as const })
+
+/** No account is named: the same entry whether the email exists or not (ACCESS.md §2). */
+export const personSignInRefused = (partnerId: string, request: RequestFacts, reason: 'invalid_credentials' | 'locked'): ActivityEntry => ({
+  category: 'auth',
+  action: 'person.sign_in_refused',
+  result: 'denied',
+  actorKind: 'anonymous',
+  actorId: null,
+  actorLabel: null,
+  partnerId,
+  reason,
+  api: 'store',
+  visibility: 'staff',
+  ...request,
+})

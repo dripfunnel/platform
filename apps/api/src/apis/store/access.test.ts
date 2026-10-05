@@ -54,7 +54,7 @@ builder.mutationFields((t) => ({
 const schema = secureSchema(builder.toSchema(), storePolicy)
 
 const run = async (source: string, standing: StoreStanding) => {
-  const contextValue: StoreContext = { standing, sql: null, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date() }
+  const contextValue: StoreContext = { standing, partnerId: 'p', activity: { record: async () => undefined }, sql: null, facts: { requestId: 'r', ip: null, userAgent: null }, now: () => new Date() }
   const result = await graphql({ schema: schema as GraphQLSchema, source, contextValue })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] }
 }

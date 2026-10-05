@@ -265,6 +265,14 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   write), so a role change, a vendor tier change or a removal applies on the next request.
   **Built on #288**: memberships are read on every request, in `system` scope; a suspended or
   removed supplier, an inactive membership and a closed store all count as not held.
+- **Merchant sign-in, built on #290** (`apis/store/auth.ts`, on the portal host): `POST /api/auth/sign-in`
+  (with `remember`), `send-code`, `second-factor`, `backup-code`, `enrol-second-factor` (`app` or
+  `sms`), `sign-out`. As the partner console's: one password derivation, a decoy when there's no
+  account, `INVALID_CREDENTIALS` alike for both, rate-limited per host and address and per typed
+  email; five wrong codes lock for 15 minutes. A texted code is 6 digits, hashed with its row, 10
+  minutes, five tries, at most three texts per person in 10 minutes; the authenticator's issuer is
+  the partner's brand name. An Owner without 2-factor gets a session good only for enrolling,
+  which ends with the ten backup codes shown once.
 - **A request naming a store the session doesn't hold** is not a 404: it is an attempted
   tenant crossing. Answer 403, and log it with both store ids and the user, because it is a
   client bug or someone probing.

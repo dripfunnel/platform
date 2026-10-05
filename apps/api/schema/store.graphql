@@ -1,3 +1,95 @@
+type ActingStore {
+  permissions: [String!]
+  plan: Named
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type Brand {
+  accentColor: String
+  background: String
+  corner: String
+  files: BrandFiles
+  font: String
+  helpUrl: String
+  poweredBy: Boolean
+  primaryColor: String
+  privacyUrl: String
+  productName: String
+  supportEmail: String
+  supportUrl: String
+  termsUrl: String
+}
+
+type BrandFiles {
+  favicon: String
+  logoDark: String
+  logoLight: String
+  mark: String
+}
+
+type Me {
+  acting: ActingStore
+  email: String
+  id: ID
+  name: String
+}
+
+type Mutation {
+  switchStore(storeId: ID!, supplierId: ID): StoreChoice
+}
+
+type Named {
+  id: ID
+  name: String
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type Provisioning {
+  state: String
+  step: String
+}
+
 type Query {
+  brand: Brand
   health: String
+  me: Me
+  myStores(after: String, before: String, first: Int): StoreChoices
+  storeState: StoreState
+}
+
+type StoreChoice {
+  membershipId: ID
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type StoreChoices {
+  nodes: [StoreChoice!]
+  pageInfo: PageInfo
+}
+
+type StoreState {
+  pastDueSince: String
+  provisioning: Provisioning
+  readOnly: Boolean
+  status: String
+  support: SupportBanner
+  trialEndsAt: String
+}
+
+type SupportBanner {
+  agentFirstName: String
+  endsAt: String
+  partnerName: String
 }

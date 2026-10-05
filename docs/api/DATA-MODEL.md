@@ -375,7 +375,11 @@ user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
             -- are what "Where you're signed in" lists. Policy as user_backup_code: own
             -- rows on user_id = app.user_id in store scope, plus system; no partner branch.
             -- Built on #288 (0035): the hash readable by app_system alone, and a session
-            -- read only on its own partner's portal host
+            -- read only on its own partner's portal host. #290 (0036) adds stage,
+            -- pending_secret_enc and pending_phone for the step between password and code;
+            -- "user" gains two_factor_method, two_factor_enrolled_at, last_code_step,
+            -- failed_code_count and locked_until; user_backup_code and verification_code
+            -- (purposes sign_in, enrol_phone) are built, app_system alone reading a hash
 
 seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)

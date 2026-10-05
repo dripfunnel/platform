@@ -8,6 +8,8 @@ import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { signedOutStoreContext } from '#apis/store/access'
+import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
@@ -273,16 +275,24 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
 
 // A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
 // caller is the session's person acting in the store the request names (ACCESS.md §4).
-const handleStore = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
   if (!originAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
   const hyperdrive = config.HYPERDRIVE
-  if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request)))
+  if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
+  const secrets = isStoreAuthPath(url.pathname) ? await secretsFor(config) : null
   return withConnection(hyperdrive, ctx, async (sql) => {
     const partnerId = await resolvePortalPartner(sql, url.hostname)
     if (!partnerId) return notFound()
+    const brandFile = brandFileOf(url.pathname)
+    if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, partnerId, brandFile, new Date()) : notFound()
+    if (isStoreAuthPath(url.pathname)) {
+      const limiter = env.SIGN_IN_RATE_LIMITER
+      if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success })
+    }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    return servers.store.fetch(request, { standing, sql, facts, now: () => new Date() })
+    return servers.store.fetch(request, { standing, partnerId, sql, activity: activityLog, facts, now: () => new Date() })
   })
 }
 
@@ -327,7 +337,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
-  if (area === 'store') return { response: await handleStore(request, url, config, ctx), area }
+  if (area === 'store') return { response: await handleStore(request, url, config, env, ctx), area }
   return { response: await servers[area].fetch(request), area }
 }
 
