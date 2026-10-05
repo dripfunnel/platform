@@ -63,7 +63,7 @@ create table collection (
   -- which can pass the products it holds (maxCollectionProducts), so a cut is shown, never silent.
   computed_at timestamptz,
   rule_matches integer check (rule_matches >= 0),
-  created_at timestamptz not null default now(),
+  created_at timestamptz not null default date_trunc('milliseconds', now()), -- as a list cursor carries it (core/cursor.ts)
   updated_at timestamptz not null default now(),
   revision integer not null default 1,
   deleted_at timestamptz,

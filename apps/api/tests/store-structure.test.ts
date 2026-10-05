@@ -291,6 +291,20 @@ describe('collections', () => {
     await db.sql`update collection set deleted_at = now() where store_id = ${t.storeB1} and slug like 'cap-%'`
   })
 
+  it('pages collections made in the same instant one at a time, every one once', async () => {
+    const made = (await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) select ${t.storeB1}, 'Instant ' || g, 'instant-' || g, 'manual' from generate_series(1, 3) g returning id`).map((r) => r.id)
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 10; page += 1) {
+      const answer = (await gql('query L($after: String) { collections(first: 1, after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }', 'bOwner', { after })).data?.['collections'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+      seen.push(...answer.nodes.map((n) => n.id))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor ?? undefined
+    }
+    expect(made.every((id) => seen.filter((s) => s === id).length === 1)).toBe(true)
+    await db.sql`update collection set deleted_at = now() where store_id = ${t.storeB1} and slug like 'instant-%'`
+  })
+
   it('holds the collection limit when two are made at the same moment', async () => {
     await db.sql`insert into collection (store_id, name, slug, kind) select ${t.storeB1}, 'Race ' || n, 'race-' || n, 'manual' from generate_series(1, 499) as n`
     const second = await racedBy(
