@@ -40,7 +40,12 @@ type Me {
 type Mutation {
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
+  changeRole(membershipId: ID!, role: String!): Boolean
+  inviteMember(email: String!, role: String!): Boolean
   regenerateBackupCodes: [String!]
+  removeMember(membershipId: ID!): Boolean
+  resendInvitation(invitationId: ID!): Boolean
+  revokeInvitation(invitationId: ID!): Boolean
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
@@ -100,6 +105,8 @@ type Query {
   myActivity(after: String, before: String, first: Int): MyActivity
   mySessions: [SignedInSession!]
   myStores(after: String, before: String, first: Int): StoreChoices
+  people(after: String, before: String, filter: String, first: Int): StorePeople
+  peopleCounts: StorePeopleCounts
   profile: Profile
   storeState: StoreState
 }
@@ -130,6 +137,28 @@ type StoreChoice {
 type StoreChoices {
   nodes: [StoreChoice!]
   pageInfo: PageInfo
+}
+
+type StorePeople {
+  nodes: [StorePerson!]
+  pageInfo: PageInfo
+}
+
+type StorePeopleCounts {
+  staff: Int
+  waiting: Int
+}
+
+type StorePerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  name: String
+  role: String
+  since: String
+  you: Boolean
 }
 
 type StoreState {

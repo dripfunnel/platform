@@ -1,6 +1,7 @@
 import { secureSchema } from '../graphql/scope'
 import { storePolicy } from './access'
 import { createStoreBuilder } from './builder'
+import { registerPeople } from './people'
 import { registerProfile } from './profile'
 import { registerShell } from './shell'
 
@@ -14,5 +15,6 @@ builder.queryFields((t) => ({
 }))
 registerShell(builder)
 registerProfile(builder)
+registerPeople(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)
