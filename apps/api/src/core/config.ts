@@ -34,12 +34,12 @@ const configSchema = z.object({
     .refine((value) => /^[A-Za-z0-9+/]{43}=$/.test(value), 'EMAIL_SUPPRESSION_KEY must be 32 bytes in base64')
     .optional(),
   // The SNS topic SES publishes bounces and complaints to; only its messages are read (hooks/ses.ts).
+  SES_EVENTS_TOPIC_ARN: z.string().regex(/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/, 'SES_EVENTS_TOPIC_ARN must be an SNS topic ARN').optional(),
   // DripFunnel's Shopify app (CATALOG K7), Worker secrets. Absent, Connect Shopify says it isn't set up and the
   // callback route doesn't exist; SHOPIFY_LOCAL=1 (local only) answers with an empty shop instead (docs/setup/local.md).
   SHOPIFY_CLIENT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'SHOPIFY_CLIENT_ID must be the app’s 32-character client id').optional(),
   SHOPIFY_CLIENT_SECRET: z.string().min(1).optional(),
   SHOPIFY_LOCAL: z.literal('1').optional(),
-  SES_EVENTS_TOPIC_ARN: z.string().regex(/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/, 'SES_EVENTS_TOPIC_ARN must be an SNS topic ARN').optional(),
 })
 
 // The local Shopify stand-in skips Shopify's signature, so a Worker anywhere but on *.localhost refuses to start with it.
