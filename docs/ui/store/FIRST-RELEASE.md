@@ -40,12 +40,12 @@ packs) is taken from the prototype as drawn.
 | Markets, currencies and languages (CATALOG-DESIGN N, O, Settings › Markets) | **In** |
 | Abandoned carts | **In**; reminder email through **Amazon SES** |
 | A+ content (CATALOG-DESIGN Q) | **In** |
-| Product kinds (PLATFORM-PROMPT §10) | **Physical, digital, services and gift cards** — the last three need a prototype design pass first (§20, card SUI 1) |
+| Product kinds (PLATFORM-PROMPT §10) | **Physical, digital, services and gift cards**, drawn in `CatEditor` (SUI 1, #286) |
 | Regions and payment providers (PLATFORM-PROMPT §10) | **India and the US.** Stripe (US) and Razorpay (India), plus **PayPal** (US), **Cashfree and PhonePe** (India), **cash on delivery** (India) and **bank transfer** (both) |
 | US sales tax (PLATFORM-PROMPT §5.4, §10) | **Stripe Tax**, on the merchant's own Stripe account through Connect (decided 2026-10-05); India's GST from the store's own rates (CATALOG-DESIGN T) |
 | Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (**EasyPost**, decided 2026-10-05 on #337) |
-| API keys, webhooks, apps, own storefront (PLATFORM-PROMPT §5.5, §10; DESIGN-BRIEF 75–77) | **All in**; none is drawn, so each needs the design pass first |
-| Settings › Support access, the store activity log, Settings › Customer accounts | **In, after a design pass** (they are designed in ACCESS §8, LOGGING §6 and ACCESS §2.1 but not drawn) |
+| API keys, webhooks, apps, own storefront (PLATFORM-PROMPT §5.5, §10; DESIGN-BRIEF 75–77) | **All in**: API keys, webhooks and apps drawn in `SetDev`, own storefront in Storefront › Design (SUI 1, #286) |
+| Settings › Support access, the store activity log, Settings › Customer accounts | **In**: drawn in `SetAccess` and `StoreActivity` (SUI 1, #286), to ACCESS §8, LOGGING §6 and ACCESS §2.1 |
 | Staff export (README §3) | **Yes**: products, orders and customers |
 | A read-only Offers list for Staff (README §3) | **Yes** (the prototype draws it) |
 | Supplier import and export (README §3) | **Own only**: export for every tier, import for the catalogue tiers |
@@ -380,7 +380,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Sign-up says "There's already an account for this email" | Identical response whether or not the email has an account (ACCESS §2, README §7) | rule |
 | README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
 | Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
-| No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload | All in; SUI 1 draws them first | not drawn |
+| ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |
 | Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
@@ -459,7 +459,7 @@ Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer), `
 (prices, Stripe Tax or the store's rates, offers and totals computed by the engine, stock
 checked at payment), `order` and `orderHistory`; shopper `signUp`, `signIn` by email or mobile
 code (ACCESS §2.1), `account`, `addresses`; **gift card balance and redemption**; digital
-downloads after payment; **service booking** once SUI 1 designs it; marketing consent at
+downloads after payment; services sold with no booking (§1); marketing consent at
 checkout; the abandoned-cart return link (`cart/r/{token}`) and single-use codes. Catalogue
 queries are edge-cached per store, language and currency and purged by events (§5.5 there).
 
