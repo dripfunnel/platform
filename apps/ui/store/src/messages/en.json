@@ -1713,6 +1713,8 @@
     "makeDefault": "Make default",
     "makeDefaultTitle": "Make {name} the default?",
     "makeDefaultBody": "New products start here. Existing stock doesn’t move.",
+    "editNext": "Change its name or address next.",
+    "deleteNext": "You’ll confirm before it’s deleted.",
     "madeDefault": "{name} is now the default — existing stock doesn’t move",
     "edit": "Rename or change address",
     "delete": "Delete",

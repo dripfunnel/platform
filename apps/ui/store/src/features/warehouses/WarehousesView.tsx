@@ -34,6 +34,8 @@ const refusalOf = (error: unknown) => (isApiError(error) ? ((words.refused as Re
 
 const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f: Form) => void; busy: boolean; onSave: () => void; onCancel: () => void }) => {
   const id = useId()
+  // Opened from a button or a dialog: the form takes focus so its arrival is announced (WCAG 2.4.3).
+  useEffect(() => document.getElementById(`${id}-name`)?.focus(), [id])
   const nameMissing = form.name.trim() === ''
   const countryBad = form.country.trim() !== '' && !/^[A-Za-z]{2}$/.test(form.country.trim())
   const field = (key: keyof Omit<Form, 'id' | 'revision'>, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
@@ -117,7 +119,7 @@ export const WarehousesView = ({ canEdit }: { canEdit: boolean }) => {
     setAsk({
       title: p.name,
       target: addressLine(p) || p.name,
-      consequence: words.makeDefaultBody,
+      consequence: (_, picks) => (picks['what'] === 'default' ? words.makeDefaultBody : picks['what'] === 'delete' ? words.deleteNext : words.editNext),
       confirmLabel: messages.editor.apply,
       choices: [
         {
@@ -161,7 +163,7 @@ export const WarehousesView = ({ canEdit }: { canEdit: boolean }) => {
         )}
       </div>
       {!canEdit && <p className="df-places-hint">{words.viewOnly}</p>}
-      {form && <PlaceForm form={form} set={setForm} busy={busy} onSave={() => save(form)} onCancel={() => setForm(null)} />}
+      {form && <PlaceForm key={form.id ?? 'new'} form={form} set={setForm} busy={busy} onSave={() => save(form)} onCancel={() => setForm(null)} />}
       {places.length === 0 ? (
         <p className="df-places-empty">{words.empty}</p>
       ) : (

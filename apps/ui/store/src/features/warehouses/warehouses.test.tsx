@@ -137,6 +137,31 @@ describe('a supplier’s locations', () => {
     expect(document.getElementById(country.getAttribute('aria-describedby') ?? '')?.textContent).toBe(words.form.countryInvalid)
   })
 
+  it('words the manage dialog for the choice picked', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: fill('Back room') }))
+    expect(dialog().getByText(words.makeDefaultBody)).toBeTruthy()
+    fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'edit' } })
+    expect(dialog().getByText(words.editNext)).toBeTruthy()
+    expect(dialog().queryByText(words.makeDefaultBody)).toBeNull()
+    fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'delete' } })
+    expect(dialog().getByText(words.deleteNext)).toBeTruthy()
+  })
+
+  it('moves focus to the form when it opens, and needs a name before Save', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: words.add }))
+    expect(document.activeElement).toBe(screen.getByLabelText(words.form.name))
+    expect((screen.getByRole('button', { name: words.form.saveAdd }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText(words.form.name), { target: { value: '  ' } })
+    expect((screen.getByRole('button', { name: words.form.saveAdd }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: words.form.cancel }))
+    fireEvent.click(screen.getByRole('button', { name: fill('Workshop') }))
+    fireEvent.click(dialog().getByRole('button', { name: messages.editor.apply }))
+    expect(document.activeElement).toBe(screen.getByLabelText(words.form.name))
+    expect((document.activeElement as HTMLInputElement).value).toBe('Workshop')
+  })
+
   it('offers no delete for the default location', async () => {
     await show()
     fireEvent.click(screen.getByRole('button', { name: fill('Workshop') }))
