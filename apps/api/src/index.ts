@@ -41,7 +41,6 @@ import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
-import { expireUnsentSms } from '#db/scoped/outbox'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -53,7 +52,7 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
-import { orderTextMs } from '#saas/sms/index'
+import { expireUnsentSms } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { resolveArea, type Area } from './router'
 
@@ -399,7 +398,7 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
-      const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs, orderTextMs)).catch((error: unknown) => {
+      const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
         logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
         return 0
       })

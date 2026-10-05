@@ -115,14 +115,30 @@ export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Recor
   await tx`update outbox set payload = ${JSON.stringify(kept)}::text::jsonb where id = ${id}`
 }
 
-/**
- * Gives up unsent texts nobody will send in time, delivered or not registered (#275 pending): a code
- * past its expiry, an order update older than `orderTextMs`. A row the relay holds is left to it.
- */
-export const expireUnsentSms = async (tx: ScopedSql, now: Date, leaseMs: number, orderTextMs: number): Promise<number> =>
+export interface UnsentExpiry {
+  kind: string
+  /** The payload's ISO timestamp after which the row is useless; rows without one use `fallbackMs` from creation. */
+  expiresAtKey: string
+  fallbackMs: number
+  /** The payload keys that survive, beside `redacted: true`. */
+  keep: readonly string[]
+  leaseMs: number
+  limit: number
+}
+
+/** Gives up at most `limit` unsent rows of a kind past their expiry, redacted; a row the relay holds is left to it. */
+export const expireUnsent = async (tx: ScopedSql, e: UnsentExpiry, now: Date): Promise<number> =>
   (await tx`
-    update outbox set payload = jsonb_build_object('message', payload->'message', 'redacted', true), failed_at = ${now}, last_error = 'expired', claimed_at = null
-    where kind = 'sms' and delivered_at is null and failed_at is null
-      and (claimed_at is null or claimed_at < ${new Date(now.getTime() - leaseMs)})
-      and coalesce((payload->>'expiresAt')::timestamptz, created_at + ${`${orderTextMs} milliseconds`}::interval) <= ${now}
+    update outbox set
+      payload = (select coalesce(jsonb_object_agg(k, payload->k), '{}'::jsonb) from unnest(${pgArray(e.keep)}::text[]) k) || '{"redacted": true}'::jsonb,
+      failed_at = ${now}, last_error = 'expired', claimed_at = null
+    where id in (
+      select id from outbox
+      where kind = ${e.kind} and delivered_at is null and failed_at is null
+        and (claimed_at is null or claimed_at < ${new Date(now.getTime() - e.leaseMs)})
+        and coalesce((payload->>${e.expiresAtKey})::timestamptz, created_at + ${`${e.fallbackMs} milliseconds`}::interval) <= ${now}
+      order by created_at
+      limit ${e.limit}
+      for update skip locked
+    )
   `).count

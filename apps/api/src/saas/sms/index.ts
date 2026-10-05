@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { isE164, type OutgoingSms } from '#core/sms'
 import type { ScopedSql } from '#db/scoped/index'
+import { expireUnsent } from '#db/scoped/outbox'
 import { queueSideEffect } from '#saas/outbox/index'
 
 // What the platform texts (THIRD-PARTY-ACCESS §2.8, decided on #337): one-time codes, and
@@ -89,3 +90,7 @@ export const queueSms = (tx: ScopedSql, effect: { partnerId: string; storeId: st
   const payload = smsPayloadSchema.parse(effect.payload)
   return queueSideEffect(tx, { kind: smsKind, idempotencyKey: effect.idempotencyKey, payload, partnerId: effect.partnerId, storeId: effect.storeId })
 }
+
+/** The cron's sweep for texts nobody sent in time, delivered or not registered yet (THIRD-PARTY-ACCESS §4). */
+export const expireUnsentSms = (tx: ScopedSql, now: Date, leaseMs: number): Promise<number> =>
+  expireUnsent(tx, { kind: smsKind, expiresAtKey: 'expiresAt', fallbackMs: orderTextMs, keep: ['message'], leaseMs, limit: 500 }, now)

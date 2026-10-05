@@ -412,13 +412,6 @@ the message kind, never the number or the code.
 Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
 can text twice.
 
----|---|---|
-| Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email | DNS records only; no credential |
-| **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Collected by **Stripe Connect onboarding**, never typed into our forms |
-| Card for DripFunnel's charges to the partner | Partner billing | Stripe Elements (§2.7) |
-| Partner's own billing system *(later, "partner bills its own merchants")* | How the platform learns a store's status (SAAS §14 *(ask)*) | A Platform API key we issue, or their webhook secret |
-| Partner brand fonts, logos | Branding | None |
-
 ---
 
 ## 5. Secrets the platform generates itself
