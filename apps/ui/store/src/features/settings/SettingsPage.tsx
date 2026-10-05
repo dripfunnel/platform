@@ -73,7 +73,7 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   },
   catalogue: async () => {
     const basics = await reads.catalogue()
-    return (done, canEdit) => <CatalogueTab basics={basics} planName={seat.planName} owner={seat.owner} canEdit={canEdit} onSaved={done.toast} onChanged={done.reload} />
+    return (done, canEdit) => <CatalogueTab basics={basics} planName={seat.planName} owner={seat.owner} canEdit={canEdit} onSaved={done.toast} />
   },
 })
 
