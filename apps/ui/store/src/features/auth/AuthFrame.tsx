@@ -1,5 +1,5 @@
 import { Icon, initials, type IconName } from '@dripfunnel/shared/ui'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import logoInverse from '../../assets/dripfunnel-logo-inverse.svg'
 import logo from '../../assets/dripfunnel-logo.svg'
 import { currentBrand } from '../../brand/current'
@@ -42,6 +42,14 @@ export interface AuthFrameProps {
 // on its host (its mark and name, never DripFunnel's; store README §2), the form on the right; on a phone, the form alone.
 export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, children }: AuthFrameProps) => {
   const brand = currentBrand()
+  const heading = useRef<HTMLHeadingElement>(null)
+  const shownTitle = useRef(title)
+  // A new view inside one route unmounts the button that led to it; its heading takes focus instead (WCAG 2.4.3).
+  useEffect(() => {
+    if (shownTitle.current === title) return
+    shownTitle.current = title
+    heading.current?.focus()
+  }, [title])
   const copy = words.panels[panel]
   return (
     <div className="df-portal-auth">
@@ -118,7 +126,9 @@ export const AuthFrame = ({ panel, title, sub, back, step, icon, notice, childre
               </span>
             )}
             <div className="df-portal-auth-heading">
-              <h1 tabIndex={-1}>{title}</h1>
+              <h1 ref={heading} tabIndex={-1}>
+                {title}
+              </h1>
               {sub && <p>{sub}</p>}
             </div>
             {notice && (

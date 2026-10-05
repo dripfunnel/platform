@@ -88,6 +88,12 @@ describe('the screens', () => {
     expect(await render(<SignIn next={undefined} note="expired" />)).toContain(words.signIn.expired)
   })
 
+  it('opens on Forgot password when a dead reset link asks for a new one', async () => {
+    const html = await render(<SignIn next={undefined} start="forgot" />)
+    expect(html).toContain(words.forgot.title)
+    expect(html).not.toContain(words.signIn.title)
+  })
+
   it('resumes at the set-up step for a new Owner', async () => {
     const html = await render(<SignIn next="/home" resume={{ step: 'enrol' }} />)
     expect(html).toContain(words.enrol.title)

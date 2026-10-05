@@ -44,7 +44,7 @@ export const ResetPassword = ({ token }: { token: string | undefined }) => {
   return (
     <AuthFrame panel="reset" title={words.reset.title} sub={words.reset.sub} notice={error ? { text: error, tone: 'error' } : null}>
       {dead ? (
-        <Secondary onClick={() => void navigate({ to: '/sign-in' })}>{words.reset.askAgain}</Secondary>
+        <Secondary onClick={() => void navigate({ to: '/sign-in', search: { view: 'forgot' } })}>{words.reset.askAgain}</Secondary>
       ) : (
         <form className="df-portal-auth-form" onSubmit={submit} noValidate>
           <NewPasswordField label={words.fields.newPassword} value={password} onValue={setPassword} />
