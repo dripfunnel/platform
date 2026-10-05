@@ -251,7 +251,6 @@ export const maxCollections = 500
 export const countCollections = async (tx: ScopedSql, storeId: string): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from collection where store_id = ${storeId} and deleted_at is null`)[0]?.n ?? 0
 
-/** Whether a later recompute for the store is still queued: that one will do this one's work (outbox, system scope). */
 export const insertCollection = async (tx: ScopedSql, storeId: string, id: string, f: CollectionFields): Promise<string> =>
   (
     await slugFree(tx, f.slug, (slug, sp) => sp`
@@ -311,15 +310,16 @@ export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: s
 }
 
 /** The collections the store has and the products, of the given ids, that are its own: a rule or link names only these. */
-export const knownCatalogueIds = async (tx: ScopedSql, storeId: string, ids: { collections: readonly string[]; products: readonly string[]; versions: readonly string[]; values: readonly string[] }) => {
-  const [row] = await tx<{ collections: string[] | null; products: string[] | null; versions: string[] | null; values: string[] | null }[]>`
+export const knownCatalogueIds = async (tx: ScopedSql, storeId: string, ids: { collections: readonly string[]; products: readonly string[]; versions: readonly string[]; values: readonly string[]; images: readonly string[] }) => {
+  const [row] = await tx<{ collections: string[] | null; products: string[] | null; versions: string[] | null; values: string[] | null; images: string[] | null }[]>`
     select
       (select json_agg(id) from collection where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids.collections)}::uuid[])) as collections,
       (select json_agg(id) from product where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids.products)}::uuid[])) as products,
       (select json_agg(id) from product_version where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids.versions)}::uuid[])) as versions,
-      (select json_agg(id) from filter_value where store_id = ${storeId} and id = any(${pgArray(ids.values)}::uuid[])) as values
+      (select json_agg(id) from filter_value where store_id = ${storeId} and id = any(${pgArray(ids.values)}::uuid[])) as values,
+      (select json_agg(id) from asset where store_id = ${storeId} and kind = 'image' and id = any(${pgArray(ids.images)}::uuid[])) as images
   `
-  return { collections: new Set(row?.collections ?? []), products: new Set(row?.products ?? []), versions: new Set(row?.versions ?? []), values: new Set(row?.values ?? []) }
+  return { collections: new Set(row?.collections ?? []), products: new Set(row?.products ?? []), versions: new Set(row?.versions ?? []), values: new Set(row?.values ?? []), images: new Set(row?.images ?? []) }
 }
 
 const ruleSql = (tx: ScopedSql, rule: RuleRow) => {
