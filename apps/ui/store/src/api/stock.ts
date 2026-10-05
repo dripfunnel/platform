@@ -27,9 +27,12 @@ export const loadProductStock = async (productId: string): Promise<Map<string, S
 const warehouseSchema = z.object({ id: z.string(), name: z.string(), isDefault: z.boolean() })
 export type Warehouse = z.infer<typeof warehouseSchema>
 
+/** Every page of the caller's locations, with the fields a screen asks for: the one read of `warehouses`. */
+const loadWarehouseNodes = <T>(fields: string, node: z.ZodType<T>): Promise<T[]> =>
+  allPages(async (after) => (await query(`query W($after: String) { warehouses(first: 50, after: $after) { nodes { ${fields} } pageInfo { hasNextPage endCursor } } }`, z.object({ warehouses: z.object({ nodes: z.array(node), pageInfo: pageInfoSchema }) }), { after })).warehouses)
+
 /** The caller's locations: the store's for the merchant, a supplier's own for a supplier. */
-export const loadWarehouses = (): Promise<Warehouse[]> =>
-  allPages(async (after) => (await query('query W($after: String) { warehouses(first: 50, after: $after) { nodes { id name isDefault } pageInfo { hasNextPage endCursor } } }', z.object({ warehouses: z.object({ nodes: z.array(warehouseSchema), pageInfo: pageInfoSchema }) }), { after })).warehouses)
+export const loadWarehouses = (): Promise<Warehouse[]> => loadWarehouseNodes('id name isDefault', warehouseSchema)
 
 const movementSchema = z.object({
   id: z.string(),
@@ -74,8 +77,7 @@ const placeSchema = z.object({ id: z.string(), name: z.string(), isDefault: z.bo
 export type Place = z.infer<typeof placeSchema>
 
 /** The caller's locations in full, for the Warehouses list: the merchant's own, or a supplier's own (#337). */
-export const loadPlaces = (): Promise<Place[]> =>
-  allPages(async (after) => (await query('query W($after: String) { warehouses(first: 50, after: $after) { nodes { id name isDefault units revision address { line1 line2 city region postalCode country } } pageInfo { hasNextPage endCursor } } }', z.object({ warehouses: z.object({ nodes: z.array(placeSchema), pageInfo: pageInfoSchema }) }), { after })).warehouses)
+export const loadPlaces = (): Promise<Place[]> => loadWarehouseNodes('id name isDefault units revision address { line1 line2 city region postalCode country }', placeSchema)
 
 export interface PlaceInput {
   name: string

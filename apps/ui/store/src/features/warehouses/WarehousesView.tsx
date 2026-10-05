@@ -39,8 +39,8 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
   const field = (key: keyof Omit<Form, 'id' | 'revision'>, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
     <div className="df-places-field">
       <label htmlFor={`${id}-${key}`}>{label}</label>
-      <input id={`${id}-${key}`} value={form[key]} placeholder={extra.placeholder} maxLength={key === 'country' ? 2 : 120} aria-invalid={Boolean(extra.problem)} onChange={(e) => set({ ...form, [key]: e.target.value })} />
-      {extra.problem && <span className="df-places-problem">{extra.problem}</span>}
+      <input id={`${id}-${key}`} value={form[key]} placeholder={extra.placeholder} maxLength={key === 'country' ? 2 : 120} aria-invalid={Boolean(extra.problem)} aria-describedby={extra.problem ? `${id}-${key}-problem` : undefined} onChange={(e) => set({ ...form, [key]: e.target.value })} />
+      {extra.problem && <span id={`${id}-${key}-problem`} className="df-places-problem">{extra.problem}</span>}
     </div>
   )
   return (
