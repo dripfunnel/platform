@@ -50,8 +50,11 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const toggle = (key: string) => () => setOpen((o) => ({ ...o, [key]: !o[key] }))
   const single = draft.options.length === 0
-  const grams = gramsOf(draft.weight)
-  const shipSummary = typeof grams === 'number' ? [`${draft.weight} ${words.sections.weightUnit}`, draft.box && `${draft.box} ${words.sections.boxUnit}`, draft.hsCode].filter(Boolean).join(' · ') : words.sections.shipEmpty
+  const units = words.sections.units[draft.units]
+  const grams = gramsOf(draft.weight, draft.units)
+  const shipSummary = typeof grams === 'number' ? [`${draft.weight} ${units.weight}`, draft.box && `${draft.box} ${units.box}`, draft.hsCode].filter(Boolean).join(' · ') : words.sections.shipEmpty
+  const varies = (field: 'weight' | 'box' | 'hsCode') => (!draft.shippingChanged[field] && draft[field] === '' && draft.versions.length > 1 ? words.sections.varies : undefined)
+  const setShipping = (field: 'weight' | 'box' | 'hsCode', text: string) => update((x) => ({ ...x, [field]: text, shippingChanged: { ...x.shippingChanged, [field]: true } }))
   const usual = taxClasses?.find((c) => c.isDefault)
   const chosen = taxClasses?.find((c) => c.id === draft.taxClassId)
   const shipProblem = problems.includes('weight') || problems.includes('box')
@@ -60,13 +63,13 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
       {draft.kind === 'physical' && (
         <Section title={words.sections.ship} summary={shipSummary} open={!!open['ship'] || shipProblem} onToggle={toggle('ship')} problem={shipProblem}>
           <div className="df-editor-grid">
-            <Field label={words.sections.weight} hint={words.sections.weightUnit} problem={problems.includes('weight') ? words.sections.weightInvalid : null}>
-              {(id, d) => <input id={id} inputMode="decimal" placeholder="0.4" value={draft.weight} readOnly={disabled} aria-describedby={d} aria-invalid={d !== undefined} onChange={(e) => update((x) => ({ ...x, weight: e.target.value }))} />}
+            <Field label={words.sections.weight} hint={units.weight} problem={problems.includes('weight') ? fill(words.sections.weightInvalid, { example: units.weightPlaceholder }) : null}>
+              {(id, d) => <input id={id} inputMode="decimal" placeholder={varies('weight') ?? units.weightPlaceholder} value={draft.weight} readOnly={disabled} aria-describedby={d} aria-invalid={d !== undefined} onChange={(e) => setShipping('weight', e.target.value)} />}
             </Field>
-            <Field label={words.sections.box} hint={words.sections.boxUnit} problem={problems.includes('box') || boxOf(draft.box) === 'invalid' ? words.sections.boxInvalid : null}>
-              {(id, d) => <input id={id} placeholder="25 × 20 × 3" value={draft.box} readOnly={disabled} aria-describedby={d} aria-invalid={d !== undefined} onChange={(e) => update((x) => ({ ...x, box: e.target.value }))} />}
+            <Field label={words.sections.box} hint={units.box} problem={problems.includes('box') || boxOf(draft.box, draft.units) === 'invalid' ? fill(words.sections.boxInvalid, { example: units.boxPlaceholder }) : null}>
+              {(id, d) => <input id={id} placeholder={varies('box') ?? units.boxPlaceholder} value={draft.box} readOnly={disabled} aria-describedby={d} aria-invalid={d !== undefined} onChange={(e) => setShipping('box', e.target.value)} />}
             </Field>
-            <Field label={words.sections.code}>{(id) => <input id={id} maxLength={12} placeholder={words.sections.codePlaceholder} value={draft.hsCode} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, hsCode: e.target.value }))} />}</Field>
+            <Field label={words.sections.code}>{(id) => <input id={id} maxLength={12} placeholder={varies('hsCode') ?? words.sections.codePlaceholder} value={draft.hsCode} readOnly={disabled} onChange={(e) => setShipping('hsCode', e.target.value)} />}</Field>
           </div>
         </Section>
       )}

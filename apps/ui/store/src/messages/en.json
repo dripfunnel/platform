@@ -1176,13 +1176,11 @@
       "ship": "Shipping",
       "shipEmpty": "Couriers charge by weight and box size",
       "weight": "Weight when packed",
-      "weightUnit": "kg",
       "box": "Box size (L × W × H)",
-      "boxUnit": "cm",
       "code": "HS code",
       "codePlaceholder": "e.g. 6109",
-      "weightInvalid": "Type the weight in kilograms, like 0.4",
-      "boxInvalid": "Type three sides, like 25 × 20 × 3",
+      "weightInvalid": "Type the weight like {example}",
+      "boxInvalid": "Type three sides, like {example}",
       "tax": "Tax category",
       "taxDefault": "{name} — your store’s usual",
       "taxNote": "Every version takes it. The rate comes from your tax setup.",
@@ -1198,7 +1196,22 @@
       "skuHint": "Your own code to tell products apart.",
       "slug": "Web address",
       "slugHint": "/products/{slug}",
-      "slugWarn": "This product is live — anyone with the old link will see “not found”."
+      "slugWarn": "This product is live — anyone with the old link will see “not found”.",
+      "units": {
+        "metric": {
+          "weight": "kg",
+          "box": "cm",
+          "weightPlaceholder": "0.4",
+          "boxPlaceholder": "25 × 20 × 3"
+        },
+        "imperial": {
+          "weight": "lb",
+          "box": "in",
+          "weightPlaceholder": "0.9",
+          "boxPlaceholder": "10 × 8 × 1"
+        }
+      },
+      "varies": "Different for each version — type here to set them all"
     },
     "side": {
       "onStore": "On your store",

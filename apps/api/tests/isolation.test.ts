@@ -694,6 +694,7 @@ describe('the backstop itself', () => {
       'store_markets_follow_currency',
       'store_pricing_currency',
       'store_product_count',
+      'store_unit_system',
       'store_vendor_approval',
       'version_price_history',
     ])

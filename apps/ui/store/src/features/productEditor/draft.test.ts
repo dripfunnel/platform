@@ -90,9 +90,30 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(inputOf({ ...d, kind: 'digital' }, 'INR', 'merchant').versions[0]).toMatchObject({ weightGrams: null, lengthMm: null, hsCode: null })
   })
 
-  it('reads weight and box as typed', () => {
-    expect([gramsOf('0.4'), gramsOf(''), gramsOf('a')]).toEqual([400, null, 'invalid'])
+  it('reads weight and box as typed, in the store’s units, with a point or a comma', () => {
+    expect([gramsOf('0.4'), gramsOf('0,4'), gramsOf(''), gramsOf('a')]).toEqual([400, 400, null, 'invalid'])
     expect([boxOf('25 × 20 × 3'), boxOf('25x20x3.5'), boxOf(''), boxOf('25 × 20')]).toEqual([[250, 200, 30], [250, 200, 35], null, 'invalid'])
+    expect([gramsOf('2', 'imperial'), boxOf('10 × 8 × 1', 'imperial')]).toEqual([907, [254, 203, 25]])
+    const d = draftOf(product(), 'INR', { units: 'imperial' })
+    expect([d.weight, d.box]).toEqual(['0.882', '9.8 × 7.9 × 1.2'])
+  })
+
+  it('keeps each version’s own shipping unless the field is changed, then gives it to every version', () => {
+    const two = product({ versions: product().versions.map((v, i) => ({ ...v, weightGrams: i === 0 ? 400 : 650, hsCode: '6205' })) })
+    const d = draftOf(two, 'INR')
+    expect([d.weight, d.hsCode]).toEqual(['', '6205'])
+    expect(inputOf(d, 'INR', 'merchant').versions.map((v) => v.weightGrams)).toEqual([400, 650])
+    const set = { ...d, weight: '1', shippingChanged: { ...d.shippingChanged, weight: true } }
+    expect(inputOf(set, 'INR', 'merchant').versions.map((v) => v.weightGrams)).toEqual([1000, 1000])
+  })
+
+  it('sends back a cost kept in another currency unless a cost is typed', () => {
+    const p = product({ versions: product().versions.map((v) => ({ ...v, cost: { currency: 'USD', amount: '1100' } })) })
+    const d = draftOf(p, 'INR')
+    expect(d.versions[0]?.cost).toBe('')
+    expect(inputOf(d, 'INR', 'merchant').versions[0]?.cost).toEqual({ currency: 'USD', amount: '1100' })
+    const typed = { ...d, versions: d.versions.map((v) => ({ ...v, cost: '900' })) }
+    expect(inputOf(typed, 'INR', 'merchant').versions[0]?.cost).toEqual({ currency: 'INR', amount: '90000' })
   })
 
   it('knows when it has changed, and the range of its prices', () => {

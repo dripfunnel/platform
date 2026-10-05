@@ -1,4 +1,4 @@
-import { ConfirmDialog, EmptyState, ErrorState, FilterSelect, LoadingState, SearchField, Toast, useScreenState, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, EmptyState, ErrorState, FilterSelect, LoadingState, SearchField, Toast, usePhone, useScreenState, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
@@ -31,7 +31,6 @@ import { productListSample, productListStates, type ProductListState } from './p
 import { ProductCards, ProductTable } from './ProductRows'
 import { ProductsEmpty } from './ProductsEmpty'
 import { accessOf, summaryOf, type ProductAccess } from './productView'
-import { usePhone } from './usePhone'
 import './products.css'
 
 const words = messages.products

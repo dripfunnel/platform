@@ -4,7 +4,8 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import { withSystemScope } from '#db/scoped/index'
+import type { CallerContext } from '#core/tenancy'
+import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -108,9 +109,24 @@ describe('Settings › Catalogue', () => {
     const theirs = await settings('supplier')
     expect(theirs.features.every((f) => f.inPlan === null)).toBe(true)
     expect(theirs.features.find((f) => f.key === 'faqs')?.enabled).toBe(true)
-    // The currency it prices a new product in, which it reads nowhere else.
-    expect(((await gql('{ catalogueSettings { pricingCurrency } }', 'supplier')).data?.['catalogueSettings'] as { pricingCurrency: string }).pricingCurrency).toBe('INR')
     expect((await gql('mutation S($features: [CatalogueFeatureInput!]!) { saveCatalogueSettings(features: $features) { key } }', 'supplier', { features: [] })).code).toBe('FORBIDDEN')
+  })
+
+  it('tells every seat its own store’s currency and units for a new product, never another store’s', async () => {
+    const [before] = await db.sql<{ c: string; u: string }[]>`select pricing_currency::text as c, unit_system as u from store where id = ${t.storeB1}`
+    await db.sql`update store set pricing_currency = 'USD', unit_system = 'imperial' where id = ${t.storeB1}`
+    try {
+      const read = async (who: Who) => (await gql('{ catalogueSettings { pricingCurrency unitSystem } }', who)).data?.['catalogueSettings']
+      for (const who of ['owner', 'manager', 'supplier', 'otherSupplier'] as const) expect({ who, got: await read(who) }).toEqual({ who, got: { pricingCurrency: 'INR', unitSystem: 'metric' } })
+      expect(await read('bOwner')).toEqual({ pricingCurrency: 'USD', unitSystem: 'imperial' })
+      // A supplier of the other store reads that store's, through the same definers, and nothing in another scope.
+      const theirs: CallerContext = { caller: { kind: 'person', userId: people.bOwner, sessionId: 's' }, partnerId: t.partnerB, storeId: t.storeB1, sellerScope: { kind: 'seller', sellerId: t.sellerB1 }, subscription: 'active' }
+      expect(await withScope(db.sql, theirs, (tx) => tx`select store_pricing_currency() as c, store_unit_system() as u`)).toEqual([{ c: 'USD', u: 'imperial' }])
+      // The jobs' role reads neither: they never price a product.
+      await expect(withSystemScope(db.sql, (tx) => tx`select store_unit_system()`)).rejects.toThrow(/permission denied/)
+    } finally {
+      await db.sql`update store set pricing_currency = ${before?.c ?? null}, unit_system = ${before?.u ?? 'metric'} where id = ${t.storeB1}`
+    }
   })
 
   it('switches on a plan feature only when the plan has it, naming the plan that does', async () => {

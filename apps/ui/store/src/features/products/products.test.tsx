@@ -27,7 +27,7 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...api }))
 
-const editorApi = vi.hoisted(() => ({ loadProduct: vi.fn(), loadPricingCurrency: vi.fn(), saveProduct: vi.fn() }))
+const editorApi = vi.hoisted(() => ({ loadProduct: vi.fn(), loadProductBasics: vi.fn(), saveProduct: vi.fn() }))
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), setStock: vi.fn() }))
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...editorApi }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
@@ -249,7 +249,7 @@ describe('the Products list', () => {
 
   it('quick-edits a product’s price and stock in place, as the editor saves them', async () => {
     const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
-    editorApi.loadPricingCurrency.mockResolvedValue('INR')
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric' })
     editorApi.loadProduct.mockResolvedValue({
       id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', photos: [], options: [], readiness: [],
       versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true }],

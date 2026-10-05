@@ -14,7 +14,7 @@ const words = messages.editor
 
 const api = vi.hoisted(() => ({
   loadProduct: vi.fn(),
-  loadPricingCurrency: vi.fn(),
+  loadProductBasics: vi.fn(),
   loadTaxSetup: vi.fn(),
   loadApprovalRequired: vi.fn(),
   saveProduct: vi.fn(),
@@ -76,7 +76,7 @@ const field = (label: string) => screen.getByLabelText(label) as HTMLInputElemen
 
 beforeEach(() => {
   api.loadProduct.mockResolvedValue(cushion())
-  api.loadPricingCurrency.mockResolvedValue('INR')
+  api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric' })
   api.loadTaxSetup.mockResolvedValue({ pricesIncludeTax: true, classes: [{ id: 'tc-18', name: 'GST 18%', isDefault: true }] })
   api.loadApprovalRequired.mockResolvedValue(true)
   stockApi.loadWarehouses.mockResolvedValue([home])
@@ -120,6 +120,32 @@ describe('the product editor', () => {
     expect(api.saveProduct).toHaveBeenCalledWith(null, null, expect.objectContaining({ name: 'Kurta', productType: 'physical', visible: true, versions: [expect.objectContaining({ choices: [], prices: [{ currency: 'INR', amount: '129950' }], taxClassId: null })] }), false)
     await settle()
     expect(router.state.location.pathname).toBe('/products/p9')
+  })
+
+  it('never offers to save a new product twice when reading it back fails: it opens its page instead', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
+    api.loadProduct.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    const router = await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.change(field(words.price.price), { target: { value: '1299' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalledTimes(1)
+    expect(router.state.location.pathname).toBe('/products/p9')
+  })
+
+  it('keeps an existing product saved at its new revision when reading it back fails', async () => {
+    api.saveProduct.mockResolvedValueOnce({ id: 'p1', revision: 3, approval: null }).mockResolvedValueOnce({ id: 'p1', revision: 4, approval: null })
+    await show(owner)
+    api.loadProduct.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed again' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct.mock.calls.map((c) => [c[0], c[1]])).toEqual([['p1', 2], ['p1', 3]])
   })
 
   it('makes versions from the choices and saves each with its own price', async () => {

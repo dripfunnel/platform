@@ -1,7 +1,7 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { minorOf } from '@dripfunnel/shared/format'
 import { useEffect, useState } from 'react'
-import { loadPricingCurrency, loadProduct, saveProduct, type EditorProduct } from '../../api/productEditor'
+import { loadProduct, loadProductBasics, saveProduct, type EditorProduct } from '../../api/productEditor'
 import { loadProductStock, loadWarehouses, setStock, type Warehouse } from '../../api/stock'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { draftOf, inputOf, quantityOf, stockChangesOf, versionKey, type Draft } from '../productEditor/draft'
@@ -22,12 +22,12 @@ export const QuickEdit = ({ productId, side, canPrice, canStock, onDone, onCance
 
   useEffect(() => {
     let live = true
-    void Promise.all([loadProduct(productId), loadPricingCurrency(), loadProductStock(productId), loadWarehouses()]).then(
-      ([product, currency, levels, warehouses]) => {
-        const pricing = product?.pricingCurrency ?? currency
+    void Promise.all([loadProduct(productId), loadProductBasics(), loadProductStock(productId), loadWarehouses()]).then(
+      ([product, basics, levels, warehouses]) => {
+        const pricing = product?.pricingCurrency ?? basics.pricingCurrency
         if (!live) return
         if (!product || !pricing) return setLoaded('failed')
-        const start = draftOf(product, pricing, levels)
+        const start = draftOf(product, pricing, { units: basics.unitSystem, levels })
         setLoaded({ product, currency: pricing, draft: start, home: warehouses.find((w) => w.isDefault) ?? warehouses[0] ?? null })
         setDraft(start)
       },

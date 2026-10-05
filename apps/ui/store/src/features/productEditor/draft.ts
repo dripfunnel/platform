@@ -24,6 +24,8 @@ export interface DraftVersion {
   price: string
   compareAt: string
   cost: string
+  /** A cost kept in another currency, sent back as it came unless a cost is typed (#389). */
+  otherCost: { amount: string; currency: string } | null
   sku: string
   visible: boolean
   /** "We don't make this": left out of the save, and back with "Add back" (CatEditor). */
@@ -57,10 +59,15 @@ export interface Draft {
   options: DraftOption[]
   versions: DraftVersion[]
   photos: DraftPhoto[]
-  /** Shipping, as the prototype edits it once for the product: weight, box and the customs code. */
+  /**
+   * Shipping, as the prototype edits it once for the product: weight and box in the store's units, and the customs
+   * code. Shown when every version agrees; a field changed here goes to every version, an untouched one keeps theirs.
+   */
+  units: Units
   weight: string
   box: string
   hsCode: string
+  shippingChanged: { weight: boolean; box: boolean; hsCode: boolean }
   taxClassId: string | null
   /** Stock as typed, by version (versionKey) and then location id; saved with setStock after the product. */
   stock: Record<string, Record<string, string>>
@@ -77,6 +84,7 @@ const blankVersion = (choices: string[], from?: DraftVersion): DraftVersion => (
   price: from?.price ?? '',
   compareAt: from?.compareAt ?? '',
   cost: from?.cost ?? '',
+  otherCost: from?.otherCost ?? null,
   sku: '',
   visible: true,
   removed: false,
@@ -89,7 +97,11 @@ const blankVersion = (choices: string[], from?: DraftVersion): DraftVersion => (
   taxClassId: from?.taxClassId ?? null,
 })
 
-export const blankDraft = (): Draft => ({
+export type Units = 'metric' | 'imperial'
+
+const unchanged = { weight: false, box: false, hsCode: false }
+
+export const blankDraft = (units: Units = 'metric'): Draft => ({
   name: '',
   description: '',
   kind: 'physical',
@@ -100,39 +112,55 @@ export const blankDraft = (): Draft => ({
   options: [],
   versions: [blankVersion([])],
   photos: [],
+  units,
   weight: '',
   box: '',
   hsCode: '',
+  shippingChanged: unchanged,
   taxClassId: null,
   stock: {},
 })
 
 const isKind = (value: string): value is ProductKind => (productKinds as readonly string[]).includes(value)
 
-/** Grams as typed: kilograms with up to three decimals ("0.4"), or nothing. */
-export const gramsOf = (text: string): number | null | 'invalid' => {
-  const trimmed = text.trim()
-  if (trimmed === '') return null
-  if (!/^\d{1,4}(\.\d{1,3})?$/.test(trimmed)) return 'invalid'
-  return Math.round(Number(trimmed) * 1000)
+const gramsPer: Record<Units, number> = { metric: 1000, imperial: 453.59237 }
+const mmPer: Record<Units, number> = { metric: 10, imperial: 25.4 }
+
+// A decimal typed with a point or a comma, whatever the shopper's locale writes.
+const decimal = (text: string, places: number): number | null => {
+  const t = text.trim().replace(',', '.')
+  return new RegExp(`^\\d{1,4}(\\.\\d{1,${places}})?$`).test(t) ? Number(t) : null
 }
 
-/** "25 × 20 × 3" in centimetres to millimetres, each side; nothing for an empty box. */
-export const boxOf = (text: string): [number, number, number] | null | 'invalid' => {
-  const trimmed = text.trim()
-  if (trimmed === '') return null
-  const sides = trimmed.split(/\s*[x×*]\s*/i)
-  if (sides.length !== 3 || !sides.every((s) => /^\d{1,4}(\.\d)?$/.test(s))) return 'invalid'
-  const [l = 0, w = 0, h = 0] = sides.map((s) => Math.round(Number(s) * 10))
+/** Grams from the weight as typed: kilograms, or pounds for an imperial store; nothing for an empty field. */
+export const gramsOf = (text: string, units: Units = 'metric'): number | null | 'invalid' => {
+  if (text.trim() === '') return null
+  const n = decimal(text, 3)
+  return n === null ? 'invalid' : Math.round(n * gramsPer[units])
+}
+
+/** "25 × 20 × 3" in centimetres, or inches for an imperial store, to millimetres each side. */
+export const boxOf = (text: string, units: Units = 'metric'): [number, number, number] | null | 'invalid' => {
+  if (text.trim() === '') return null
+  const sides = text.trim().split(/\s*[x×*]\s*/i).map((side) => decimal(side, 1))
+  if (sides.length !== 3 || sides.some((n) => n === null)) return 'invalid'
+  const [l = 0, w = 0, h = 0] = sides.map((n) => Math.round((n ?? 0) * mmPer[units]))
   return [l, w, h]
 }
 
-const boxText = (v: { lengthMm: number | null; widthMm: number | null; heightMm: number | null } | undefined) =>
-  v && v.lengthMm !== null && v.widthMm !== null && v.heightMm !== null ? [v.lengthMm, v.widthMm, v.heightMm].map((mm) => String(mm / 10)).join(' × ') : ''
+const trimmed = (n: number, places: number) => String(Number(n.toFixed(places)))
+
+const weightText = (grams: number | null, units: Units) => (grams === null ? '' : trimmed(grams / gramsPer[units], 3))
+
+const boxText = (v: { lengthMm: number | null; widthMm: number | null; heightMm: number | null } | undefined, units: Units) =>
+  v && v.lengthMm !== null && v.widthMm !== null && v.heightMm !== null ? [v.lengthMm, v.widthMm, v.heightMm].map((mm) => trimmed(mm / mmPer[units], 1)).join(' × ') : ''
+
+/** The one value every version shares, or null when they differ. */
+const shared = <T,>(values: readonly T[]): T | null => (values.length > 0 && values.every((v) => JSON.stringify(v) === JSON.stringify(values[0])) ? (values[0] ?? null) : null)
 
 const textOf = (amount: string | null | undefined, currency: string) => (amount ? moneyText({ amount: Number(amount), currency }) : '')
 
-export const draftOf = (product: EditorProduct, currency: string, levels: ReadonlyMap<string, readonly StockLevel[]> = new Map()): Draft => {
+export const draftOf = (product: EditorProduct, currency: string, { units = 'metric', levels = new Map() }: { units?: Units; levels?: ReadonlyMap<string, readonly StockLevel[]> } = {}): Draft => {
   const versions = product.versions.map((v): DraftVersion => {
     const own = v.prices.find((p) => p.currency === currency)
     return {
@@ -141,6 +169,7 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
       price: textOf(own?.amount, currency),
       compareAt: textOf(own?.compareAtAmount, currency),
       cost: v.cost && v.cost.currency === currency ? textOf(v.cost.amount, currency) : '',
+      otherCost: v.cost && v.cost.currency !== currency ? v.cost : null,
       sku: v.sku ?? '',
       visible: v.visible,
       removed: false,
@@ -153,7 +182,9 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
       taxClassId: v.taxClassId,
     }
   })
-  const first = product.versions[0]
+  const weights = shared(product.versions.map((v) => v.weightGrams))
+  const boxes = shared(product.versions.map((v) => ({ lengthMm: v.lengthMm, widthMm: v.widthMm, heightMm: v.heightMm })))
+  const codes = shared(product.versions.map((v) => v.hsCode))
   return {
     name: product.name,
     description: product.description,
@@ -165,10 +196,12 @@ export const draftOf = (product: EditorProduct, currency: string, levels: Readon
     options: product.options.map((o) => ({ id: o.id, name: o.name, values: o.values.map((v) => ({ id: v.id, name: v.name })) })),
     versions: versions.length > 0 ? versions : [blankVersion([])],
     photos: product.photos.map((p) => ({ assetId: p.assetId, url: p.url, alt: p.alt ?? '', versionChoices: p.versionId ? (product.versions.find((v) => v.id === p.versionId)?.choices ?? null) : null })),
-    weight: first?.weightGrams ? String(first.weightGrams / 1000) : '',
-    box: boxText(first),
-    hsCode: first?.hsCode ?? '',
-    taxClassId: first?.taxClassId ?? null,
+    units,
+    weight: weightText(weights, units),
+    box: boxes ? boxText(boxes, units) : '',
+    hsCode: codes ?? '',
+    shippingChanged: unchanged,
+    taxClassId: product.versions[0]?.taxClassId ?? null,
     stock: Object.fromEntries(product.versions.map((v) => [keyOf(v.choices), Object.fromEntries((levels.get(v.id) ?? []).map((l) => [l.warehouseId, String(l.onHand)]))])),
   }
 }
@@ -233,8 +266,8 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   // Choices changed since the versions were made: "Update versions" first, as the prototype asks.
   if (live.length > 0 && (live.some((v) => v.choices.length !== draft.options.length) || newVersionCount(draft) > 0)) problems.push('versions')
   if (combinationsOf(draft.options).length > maxVersions) problems.push('tooMany')
-  if (gramsOf(draft.weight) === 'invalid') problems.push('weight')
-  if (boxOf(draft.box) === 'invalid') problems.push('box')
+  if (gramsOf(draft.weight, draft.units) === 'invalid') problems.push('weight')
+  if (boxOf(draft.box, draft.units) === 'invalid') problems.push('box')
   if (live.some((v) => Object.values(draft.stock[keyOf(v.choices)] ?? {}).some((t) => quantityOf(t) === 'invalid'))) problems.push('stock')
   return problems
 }
@@ -250,8 +283,9 @@ const amount = (text: string, currency: string): string | null => {
  */
 export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier'): ProductInput => {
   const live = draft.versions.filter((v) => !v.removed)
-  const grams = gramsOf(draft.weight)
-  const box = boxOf(draft.box)
+  const grams = gramsOf(draft.weight, draft.units)
+  const box = boxOf(draft.box, draft.units)
+  const changed = draft.shippingChanged
   const physical = draft.kind === 'physical'
   const versions = live.map((v) => {
     const price = amount(v.price, currency) ?? '0'
@@ -263,12 +297,13 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
       sku: v.sku.trim() || null,
       visible: v.visible,
       prices: [{ currency, amount: price, ...(compareAt ? { compareAtAmount: compareAt } : {}) }, ...v.otherPrices.map((p) => ({ currency: p.currency, amount: p.amount, ...(p.compareAtAmount ? { compareAtAmount: p.compareAtAmount } : {}) }))],
-      ...(cost ? { cost: { currency, amount: cost } } : {}),
-      weightGrams: physical && typeof grams === 'number' ? grams : null,
-      lengthMm: physical && Array.isArray(box) ? box[0] : null,
-      widthMm: physical && Array.isArray(box) ? box[1] : null,
-      heightMm: physical && Array.isArray(box) ? box[2] : null,
-      hsCode: physical ? draft.hsCode.trim() || null : null,
+      ...(cost ? { cost: { currency, amount: cost } } : v.cost.trim() === '' && v.otherCost ? { cost: v.otherCost } : {}),
+      // A field changed here goes to every version; an untouched one keeps each version's own.
+      weightGrams: !physical ? null : changed.weight ? (typeof grams === 'number' ? grams : null) : v.weightGrams,
+      lengthMm: !physical ? null : changed.box ? (Array.isArray(box) ? box[0] : null) : v.lengthMm,
+      widthMm: !physical ? null : changed.box ? (Array.isArray(box) ? box[1] : null) : v.widthMm,
+      heightMm: !physical ? null : changed.box ? (Array.isArray(box) ? box[2] : null) : v.heightMm,
+      hsCode: !physical ? null : changed.hsCode ? draft.hsCode.trim() || null : v.hsCode,
       ...(side === 'merchant' ? { taxClassId: draft.taxClassId } : {}),
     }
   })

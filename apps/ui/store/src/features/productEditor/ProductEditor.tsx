@@ -4,14 +4,14 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useBlocker, useNavigate, useParams } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadApprovalRequired, loadPricingCurrency, loadProduct, loadTaxSetup, saveProduct, uploadPhoto, type EditorProduct, type TaxSetup } from '../../api/productEditor'
+import { loadApprovalRequired, loadProduct, loadProductBasics, loadTaxSetup, saveProduct, uploadPhoto, type EditorProduct, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts } from '../../api/products'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
 import { fill, messages, plural } from '../../messages'
 import { editorAccessOf } from './access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
-import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem } from './draft'
+import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type Units } from './draft'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
 import { StockCard, type StockHistoryView } from './StockCard'
@@ -21,10 +21,10 @@ import './editor.css'
 const words = messages.editor
 const shellRoute = getRouteApi('/_app')
 
-type Loaded = { product: EditorProduct | null; currency: string; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]> }
+type Loaded = { product: EditorProduct | null; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]> }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'notFound' } | ({ kind: 'ready' } & Loaded)
 
-const problemWords: Record<DraftProblem, string> = {
+const problemWords = (units: Units): Record<DraftProblem, string> => ({
   name: words.name.missing,
   price: words.price.missing,
   compare: words.price.compareLow,
@@ -32,10 +32,10 @@ const problemWords: Record<DraftProblem, string> = {
   options: words.refused.OPTION_VALUES_REQUIRED,
   versions: words.refused.VERSION_CHOICES,
   tooMany: words.refused.TOO_MANY_VERSIONS,
-  weight: words.sections.weightInvalid,
-  box: words.sections.boxInvalid,
+  weight: fill(words.sections.weightInvalid, { example: words.sections.units[units].weightPlaceholder }),
+  box: fill(words.sections.boxInvalid, { example: words.sections.units[units].boxPlaceholder }),
   stock: words.stock.invalid,
-}
+})
 
 const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
 
@@ -71,7 +71,7 @@ export const ProductEditor = () => {
   const leaving = useRef(false)
 
   const show = useCallback((loaded: Loaded) => {
-    const next = loaded.product ? draftOf(loaded.product, loaded.currency, loaded.levels) : blankDraft()
+    const next = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels }) : blankDraft(loaded.units)
     setDraft(next)
     setSaved(next)
     setHistory(closedHistory)
@@ -81,21 +81,21 @@ export const ProductEditor = () => {
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: forced === 'new' ? new Map() : sample.levels })
+    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: forced === 'new' ? new Map() : sample.levels })
     const supplierSide = shell.acting.seller !== null
     void Promise.all([
       isNew ? Promise.resolve(null) : loadProduct(productId),
-      loadPricingCurrency(),
+      loadProductBasics(),
       supplierSide ? Promise.resolve(null) : loadTaxSetup().catch(() => null),
       supplierSide ? loadApprovalRequired().catch(() => true) : Promise.resolve(false),
       loadWarehouses(),
       isNew ? Promise.resolve(new Map<string, StockLevel[]>()) : loadProductStock(productId),
     ]).then(
-      ([product, currency, tax, approvalRequired, warehouses, levels]) => {
+      ([product, basics, tax, approvalRequired, warehouses, levels]) => {
         if (!isNew && !product) return setView({ kind: 'notFound' })
-        const pricing = product?.pricingCurrency ?? currency
+        const pricing = product?.pricingCurrency ?? basics.pricingCurrency
         if (!pricing) return setView({ kind: 'error' })
-        show({ product, currency: pricing, tax, approvalRequired, warehouses, levels })
+        show({ product, currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels })
       },
       () => setView({ kind: 'error' }),
     )
@@ -173,33 +173,47 @@ export const ProductEditor = () => {
     setSaving(true)
     setFailure(null)
     let stored: EditorProduct | null = product
-    try {
-      if (access.canEdit) {
-        const done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side), access.proposes)
-        setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
-        // Read back what was stored: new versions' ids, the readiness the save changed.
-        stored = await loadProduct(done.id)
-        if (isNew) {
-          leaving.current = true
-          void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
-        }
-      } else setToast(words.saved)
-      setShowProblems(false)
-      if (!stored) return
+    if (access.canEdit) {
+      let done: Awaited<ReturnType<typeof saveProduct>>
       try {
-        show({ product: stored, currency, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved) })
+        done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side), access.proposes)
       } catch (error) {
-        // The product is saved; its counts are still typed on the page, to save again.
-        const kept = draft
-        show({ product: stored, currency, tax, approvalRequired: view.approvalRequired, warehouses, levels })
-        setDraft((d) => ({ ...d, stock: kept.stock }))
-        setFailure({ text: isApiError(error) && error.code !== 'NOT_CONNECTED' ? refusalOf(error) : words.stock.failed, stale: false })
+        setFailure({ text: refusalOf(error), stale: isApiError(error, 'STALE_REVISION') })
+        setSaving(false)
+        return
       }
-    } catch (error) {
-      setFailure({ text: refusalOf(error), stale: isApiError(error, 'STALE_REVISION') })
-    } finally {
+      // Saved. From here nothing may offer to save it again as new: the form is the product at its new revision,
+      // its counts still to save.
+      setShowProblems(false)
+      setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
+      setSaved((before) => ({ ...draft, stock: before.stock }))
+      if (product) setView((v) => (v.kind === 'ready' && v.product ? { ...v, product: { ...v.product, revision: done.revision } } : v))
+      // Read back what was stored: new versions' ids for the counts, the readiness the save changed.
+      stored = await loadProduct(done.id).catch(() => null)
+      if (isNew) {
+        // The new product's own page loads it fresh; its first counts go first, by the ids just read.
+        if (stored) await saveStock(stored, saved).catch(() => setToast(words.stock.failed))
+        leaving.current = true
+        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
+        setSaving(false)
+        return
+      }
+    } else setShowProblems(false)
+    if (!stored) {
       setSaving(false)
+      return
     }
+    try {
+      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved) })
+      if (!access.canEdit) setToast(words.saved)
+    } catch (error) {
+      // The product is saved; its counts are still typed on the page, to save again.
+      const kept = draft
+      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels })
+      setDraft((d) => ({ ...d, stock: kept.stock }))
+      setFailure({ text: isApiError(error) && error.code !== 'NOT_CONNECTED' ? refusalOf(error) : words.stock.failed, stale: false })
+    }
+    setSaving(false)
   }
 
   const names = new Map((product?.versions ?? []).map((v) => [v.id, v.choices.join(' / ')]))
@@ -270,7 +284,7 @@ export const ProductEditor = () => {
 
   const banners: { tone: 'info' | 'warn'; title: string; body: string; action?: { label: string; run: () => void } }[] = []
   if (failure?.stale) banners.push({ tone: 'warn', title: words.banner.stale, body: words.banner.staleBody, action: { label: words.banner.reload, run: load } })
-  if (showProblems && problems.length > 1) banners.push({ tone: 'warn', title: fill(plural(words.banner.fix, problems.length), { count: String(problems.length) }), body: problems.map((p) => problemWords[p]).join(' · ') })
+  if (showProblems && problems.length > 1) banners.push({ tone: 'warn', title: fill(plural(words.banner.fix, problems.length), { count: String(problems.length) }), body: problems.map((p) => problemWords(draft.units)[p]).join(' · ') })
   if (access.readOnlyStore) banners.push({ tone: 'warn', title: words.banner.readOnly, body: words.banner.readOnlyBody })
   if (access.side === 'supplier' && product?.approval === 'sent_back' && product.sentBackReason) banners.push({ tone: 'warn', title: words.banner.sentBack, body: fill(words.banner.sentBackBody, { reason: product.sentBackReason }) })
   if (access.side === 'merchant' && product?.supplier) banners.push({ tone: 'info', title: fill(words.banner.theirs, { supplier: product.supplier.name }), body: words.banner.theirsBody })
