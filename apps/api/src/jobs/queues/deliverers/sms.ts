@@ -12,13 +12,7 @@ export interface SmsSenders {
   twilio: (credentials: TwilioCredentials) => SmsSender
 }
 
-/**
- * `sms`: one outbox row, one text through the partner's own account for the number's country
- * (THIRD-PARTY-ACCESS §2.8). A provider's outage is retried with the outbox's backoff; a refusal,
- * a missing account or template, and an expired code are dropped and logged, since sending later
- * can't help. Neither the number nor the code is ever logged. Neither provider takes an idempotency
- * key: a crash after it accepts and before the row is marked can text twice, as email.ts says of SES.
- */
+/** `sms` (THIRD-PARTY-ACCESS §2.8, §4). Neither provider takes an idempotency key, so a crash after it accepts can text twice. */
 export const smsDeliverer = (sql: postgres.Sql, accounts: PartnerSmsAccounts, senders: SmsSenders, now: () => Date = () => new Date()): Deliverer => ({
   // Sent, dropped or dead: the code and the number leave the row, the message kind stays.
   redact: (payload) => {
