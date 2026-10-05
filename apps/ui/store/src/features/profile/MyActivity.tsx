@@ -7,12 +7,25 @@ import { activityLine } from './profileWords'
 
 const words = messages.profile.activity
 
-type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; entries: MyActivityEntry[]; next: string | null; more: 'idle' | 'loading' | 'error' }
+export type ActivityView = { kind: 'loading' } | { kind: 'error' } | Ready
+type Ready = { kind: 'ready'; entries: MyActivityEntry[]; next: string | null; more: 'idle' | 'loading' | 'error' }
+
+/** The next page's request, or null while one is loading or none is left: a double click asks once. */
+export const startOlder = (view: Ready): Ready | null => (view.more === 'loading' || view.next === null ? null : { ...view, more: 'loading' })
+
+/** A page arrived: its rows follow those shown, never twice, and the cursor moves on. */
+export const olderLoaded = (view: Ready, page: { entries: MyActivityEntry[]; next: string | null }): Ready => {
+  const shown = new Set(view.entries.map((e) => e.id))
+  return { kind: 'ready', entries: [...view.entries, ...page.entries.filter((e) => !shown.has(e.id))], next: page.next, more: 'idle' }
+}
+
+/** A page failed: what is shown stays, with the error and the same cursor to try again. */
+export const olderFailed = (view: Ready): Ready => ({ ...view, more: 'error' })
 
 // "Your activity" (LOGGING §6 "own activity", FIRST-RELEASE §4): what was done under the person's name in
 // this partner's stores, a page at a time. Not drawn in PortalProfile; it takes StoreActivity's rows.
 export const MyActivity = ({ storeNames, sample }: { storeNames: ReadonlyMap<string, string>; sample?: readonly MyActivityEntry[] | undefined }) => {
-  const [view, setView] = useState<View>(sample ? { kind: 'ready', entries: [...sample], next: null, more: 'idle' } : { kind: 'loading' })
+  const [view, setView] = useState<ActivityView>(sample ? { kind: 'ready', entries: [...sample], next: null, more: 'idle' } : { kind: 'loading' })
 
   const first = useCallback(() => {
     setView({ kind: 'loading' })
@@ -26,13 +39,13 @@ export const MyActivity = ({ storeNames, sample }: { storeNames: ReadonlyMap<str
     if (!sample) first()
   }, [sample, first])
 
-  const older = (ready: Extract<View, { kind: 'ready' }>) => {
-    // One page at a time: the button is gone while it loads, so a double click can't fetch it twice.
-    if (ready.more === 'loading') return
-    setView({ ...ready, more: 'loading' })
+  const older = (ready: Ready) => {
+    const loading = startOlder(ready)
+    if (!loading) return
+    setView(loading)
     loadMyActivity(ready.next).then(
-      (page) => setView({ kind: 'ready', entries: [...ready.entries, ...page.entries], next: page.next, more: 'idle' }),
-      () => setView({ ...ready, more: 'error' }),
+      (page) => setView(olderLoaded(loading, page)),
+      () => setView(olderFailed(loading)),
     )
   }
 

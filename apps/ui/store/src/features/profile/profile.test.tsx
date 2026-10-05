@@ -5,7 +5,8 @@ import type { Profile } from '../../api/profile'
 import { messages } from '../../messages'
 import { storeStates } from '../staff-session/StaffSessionRoot'
 import { Details, saveDetails } from './Details'
-import { passwordHint } from './PasswordCard'
+import { MyActivity, olderFailed, olderLoaded, startOlder, type ActivityView } from './MyActivity'
+import { passwordHint, passwordProblem, submitPassword } from './PasswordCard'
 import { profileSample, profileStates } from './profileStates'
 import { activityLine, lastFour, profileRefusal } from './profileWords'
 import { Sessions } from './Sessions'
@@ -156,6 +157,55 @@ describe('saving your details', () => {
     await saveDetails({ details: null, email: { to: 'only@example.com', password: 'pw' } }, null, api)
     await saveDetails({ details: { name: 'Only name', phone: null }, email: null }, null, api)
     expect(calls).toEqual(['email:only@example.com', 'details:Only name'])
+  })
+})
+
+describe('your activity, a page at a time', () => {
+  const entry = (id: string) => ({ id, occurredAt: '2026-10-05T00:00:00.000Z', action: 'person.signed_in', result: 'success' as const, storeId: null, target: null })
+  const ready = (extra: Partial<Extract<ActivityView, { kind: 'ready' }>> = {}): Extract<ActivityView, { kind: 'ready' }> => ({ kind: 'ready', entries: [entry('a'), entry('b')], next: 'c1', more: 'idle', ...extra })
+
+  it('asks for the next page once, however often it is clicked, and not past the end', () => {
+    const loading = startOlder(ready())
+    expect(loading?.more).toBe('loading')
+    expect(loading && startOlder(loading)).toBeNull()
+    expect(startOlder(ready({ next: null }))).toBeNull()
+  })
+
+  it('adds a page after the rows shown, never a row twice', () => {
+    const after = olderLoaded(ready({ more: 'loading' }), { entries: [entry('b'), entry('c')], next: null })
+    expect(after.entries.map((e) => e.id)).toEqual(['a', 'b', 'c'])
+    expect(after).toMatchObject({ next: null, more: 'idle' })
+  })
+
+  it('keeps the rows and the cursor when a page fails', () => {
+    expect(olderFailed(ready({ more: 'loading' }))).toMatchObject({ entries: [{ id: 'a' }, { id: 'b' }], next: 'c1', more: 'error' })
+  })
+
+  it('says when there is nothing yet', () => {
+    expect(renderToString(<MyActivity storeNames={new Map()} sample={[]} />)).toContain(words.activity.empty)
+    expect(renderToString(<MyActivity storeNames={new Map([['s1', 'Kesari Threads']])} sample={[{ ...entry('a'), storeId: 's1' }]} />)).toContain('Kesari Threads')
+  })
+})
+
+describe('changing your password', () => {
+  it('stops before sending, in the order the person would fix it', () => {
+    expect(passwordProblem('', 'short', 'short')).toBe(words.password.currentMissing)
+    expect(passwordProblem('old', 'short', 'short')).toBe(words.password.weak)
+    expect(passwordProblem('old', 'long enough 1', 'long enough 2')).toBe(words.password.mismatch)
+    expect(passwordProblem('old', 'long enough 1', 'long enough 1')).toBeNull()
+  })
+
+  it('sends nothing the form refuses, and words what the server refuses', async () => {
+    const sent: string[] = []
+    const send = async (current: string) => void sent.push(current)
+    expect(await submitPassword({ current: 'old', next: 'short', again: 'short' }, send)).toEqual({ ok: false, error: words.password.weak })
+    expect(await submitPassword({ current: 'old', next: 'long enough 1', again: 'long enough 2' }, send)).toEqual({ ok: false, error: words.password.mismatch })
+    expect(sent).toEqual([])
+    const refusing = (code: string) => async () => Promise.reject(new ApiError(code, 'no'))
+    expect(await submitPassword({ current: 'wrong', next: 'long enough 1', again: 'long enough 1' }, refusing('INVALID_CREDENTIALS'))).toEqual({ ok: false, error: words.twoStep.wrongPassword })
+    expect(await submitPassword({ current: 'old', next: 'long enough 1', again: 'long enough 1' }, refusing('WEAK_PASSWORD'))).toEqual({ ok: false, error: words.password.weak })
+    expect(await submitPassword({ current: 'old', next: 'long enough 1', again: 'long enough 1' }, send)).toEqual({ ok: true })
+    expect(sent).toEqual(['old'])
   })
 })
 
