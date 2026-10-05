@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
-import { currentBrand } from '../../brand/current'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { fill, messages } from '../../messages'
+import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
 const words = messages.auth
 
@@ -8,49 +8,9 @@ const words = messages.auth
 export const strength = (password: string): number =>
   [password.length >= 10, /[A-Z]/.test(password) && /[a-z]/.test(password), /\d/.test(password), /[^A-Za-z0-9]/.test(password) || password.length >= 12].filter(Boolean).length
 
-interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
-  label: string
-  value: string
-  onValue: (value: string) => void
-  aside?: { label: string; onClick: () => void } | undefined
-  help?: ReactNode
-  helpWeak?: boolean | undefined
-  invalid?: boolean | undefined
-  prefix?: string | undefined
-  suffix?: string | undefined
-  variant?: 'code' | 'backup' | undefined
-  trailing?: ReactNode
-  below?: ReactNode
-}
+type FieldProps = Omit<CommonFieldProps, 'look'>
 
-export const Field = ({ label, value, onValue, aside, help, helpWeak, invalid, prefix, suffix, variant, trailing, below, ...input }: FieldProps) => {
-  const id = useId()
-  const helpId = useId()
-  return (
-    <div className="df-auth-field">
-      <span className="df-auth-label">
-        <label htmlFor={id}>{label}</label>
-        {aside && (
-          <button type="button" className="df-auth-aside" onClick={aside.onClick}>
-            {aside.label}
-          </button>
-        )}
-      </span>
-      <span className={`df-auth-control${variant ? ` df-auth-control--${variant}` : ''}`} data-invalid={invalid ? 'true' : undefined}>
-        {prefix && <span className="df-auth-affix">{prefix}</span>}
-        <input id={id} value={value} onChange={(event) => onValue(event.target.value)} aria-invalid={invalid || undefined} aria-describedby={help ? helpId : undefined} {...input} />
-        {suffix && <span className="df-auth-affix">{suffix}</span>}
-        {trailing}
-      </span>
-      {below}
-      {help && (
-        <span id={helpId} className={`df-auth-help${helpWeak ? ' df-auth-help--weak' : ''}`}>
-          {help}
-        </span>
-      )}
-    </div>
-  )
-}
+export const Field = (props: FieldProps) => <CommonField look="auth" {...props} />
 
 export const PasswordField = (props: Omit<FieldProps, 'type' | 'trailing'>) => {
   const [shown, setShown] = useState(false)
@@ -85,7 +45,7 @@ export const NewPasswordField = (props: Omit<FieldProps, 'type' | 'trailing' | '
         ) : undefined
       }
       help={words.strength[props.value ? level : 0]}
-      helpWeak={props.value !== '' && level < 2}
+      helpTone={props.value !== '' && level < 2 ? 'weak' : undefined}
     />
   )
 }
@@ -119,15 +79,15 @@ export const CodeField = ({ value, onValue, onResend, wait, invalid }: { value: 
 )
 
 export const Primary = ({ children, busy }: { children: ReactNode; busy?: boolean }) => (
-  <button type="submit" className="df-auth-primary" disabled={busy} aria-busy={busy || undefined}>
+  <CommonPrimary look="auth" type="submit" busy={busy}>
     {children}
-  </button>
+  </CommonPrimary>
 )
 
 export const Secondary = ({ children, onClick }: { children: ReactNode; onClick: () => void }) => (
-  <button type="button" className="df-auth-secondary" onClick={onClick}>
+  <CommonSecondary look="auth" onClick={onClick}>
     {children}
-  </button>
+  </CommonSecondary>
 )
 
 export const Foot = ({ text, link, onClick }: { text: string; link: string; onClick: () => void }) => (
@@ -138,9 +98,6 @@ export const Foot = ({ text, link, onClick }: { text: string; link: string; onCl
     </button>
   </p>
 )
-
-/** The product the person signs in to: the partner's name for it, else DripFunnel's. */
-export const productName = (): string => currentBrand()?.productName ?? words.productName
 
 const NewTab = () => <span className="df-visually-hidden"> {words.opensInNewTab}</span>
 

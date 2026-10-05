@@ -262,6 +262,7 @@ type Mutation {
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setTheme(theme: String!): Profile
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
