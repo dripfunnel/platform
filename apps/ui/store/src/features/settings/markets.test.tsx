@@ -35,6 +35,7 @@ const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 
   webMode: 'main',
   pathPrefix: null,
   products: 'all',
+  excludedProductIds: [],
   excludedProducts: [],
   duties: { mode: 'none', rateBps: null, thresholdAmount: null },
   revision: 1,
@@ -62,9 +63,9 @@ const loc: StoreLocale = {
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 
-const show = async () => {
+const show = async (readOnly = false) => {
   const root = createRootRoute({ component: Outlet })
-  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting: owner, state: { readOnly: false } }), component: Outlet })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting: owner, state: { readOnly } }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/settings', validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier', 'warehouse', 'tax', 'markets'])) }), component: SettingsPage })
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: ['/settings?tab=markets'] }) })
   await act(async () => {
@@ -92,6 +93,52 @@ afterEach(() => {
 })
 
 describe('markets', () => {
+  it('say when they didn’t load, and read them again on retry', async () => {
+    api.loadAllMarkets.mockRejectedValueOnce(new Error('offline'))
+    await show()
+    expect(screen.getByText(messages.settings.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: messages.settings.error.retry }))
+    await settle()
+    expect(list().getByText('India · INR')).toBeTruthy()
+  })
+
+  it('let a read-only store look without changing anything', async () => {
+    await show(true)
+    expect(screen.queryByRole('button', { name: w.add })).toBeNull()
+    expect(screen.queryByRole('button', { name: w.save })).toBeNull()
+    expect(screen.queryByRole('button', { name: w.delete })).toBeNull()
+    expect((screen.getByLabelText(w.elseTitle) as HTMLSelectElement).disabled).toBe(true)
+    expect(within(screen.getByRole('group', { name: w.countries })).getAllByRole('button').every((b) => (b as HTMLButtonElement).disabled)).toBe(true)
+  })
+
+  it('read the markets again after a save from an old read, so the next save is at what’s stored', async () => {
+    await show()
+    api.saveMarket.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    api.loadAllMarkets.mockResolvedValueOnce([india, { ...us, name: 'USA', revision: 4 }, gulf])
+    open('United States')
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'America' } })
+    save()
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(fill(w.reread, { refusal: w.refused.STALE_REVISION }))
+    // Their change is what the form shows now; saving again goes at their revision.
+    expect((screen.getByLabelText(w.name) as HTMLInputElement).value).toBe('USA')
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'USA and territories' } })
+    save()
+    await settle()
+    expect(api.saveMarket).toHaveBeenLastCalledWith('us', 4, expect.objectContaining({ name: 'USA and territories' }))
+  })
+
+  it('keep a left-out product deleted since, saying so, so a save never drops it unseen', async () => {
+    api.loadAllMarkets.mockResolvedValue([india, { ...us, products: 'some', excludedProductIds: ['p1', 'p9'], excludedProducts: [{ id: 'p1', name: 'Silk scarf' }] }, gulf])
+    await show()
+    open('United States')
+    expect(screen.getByRole('button', { name: fill(w.sellAgain, { name: w.deletedProduct }) })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'United States and Canada' } })
+    save()
+    await settle()
+    expect(api.saveMarket).toHaveBeenLastCalledWith('us', 3, expect.objectContaining({ excludedProductIds: ['p1', 'p9'] }))
+  })
+
   it('list each with its countries, currency and state, open the primary, and say what a shopper there sees', async () => {
     await show()
     expect(list().getByText('India · INR')).toBeTruthy()
@@ -173,16 +220,25 @@ describe('markets', () => {
     expect(api.saveMarket).toHaveBeenCalledWith('us', 3, expect.objectContaining({ dutiesMode: 'flat', dutiesRateBps: 1250, dutiesThresholdAmount: '80000', products: 'some', excludedProductIds: ['p1'] }))
   })
 
-  it('copy a parent’s currency and language, ask before leaving unsaved changes, and say why a save was refused', async () => {
-    api.saveMarket.mockRejectedValueOnce(new ApiError('NOT_PARENTS_COUNTRIES', 'parent'))
+  it('copy a parent’s currency and language, offer only its countries, ask before leaving unsaved changes, and say why a save was refused', async () => {
+    api.saveMarket.mockRejectedValueOnce(new ApiError('DUPLICATE_NAME', 'name'))
     await show()
     open('UAE')
     fireEvent.change(screen.getByLabelText(w.parent), { target: { value: 'us' } })
     expect((screen.getByLabelText(w.currency) as HTMLSelectElement).value).toBe('USD')
     expect((screen.getByLabelText(w.language) as HTMLSelectElement).value).toBe('en-US')
+    // UAE isn't one of the United States' countries: marked, and said before anything is sent.
+    const countries = () => within(screen.getByRole('group', { name: w.countries }))
+    expect(countries().getByRole('button', { name: /United Arab Emirates/ }).getAttribute('aria-invalid')).toBe('true')
+    expect(within(screen.getByRole('combobox', { name: w.anotherCountry })).queryByRole('option', { name: 'India' })).toBeNull()
+    save()
+    expect(api.saveMarket).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert').textContent).toBe(w.problems.parentCountries)
+    fireEvent.click(countries().getByRole('button', { name: /United Arab Emirates/ }))
+    fireEvent.click(countries().getByRole('button', { name: /United States/ }))
     save()
     await settle()
-    expect(screen.getByRole('alert').textContent).toBe(w.refused.NOT_PARENTS_COUNTRIES)
+    expect(screen.getByRole('alert').textContent).toBe(w.refused.DUPLICATE_NAME)
     open('India')
     expect(dialog().getByText(w.leaveBody)).toBeTruthy()
     fireEvent.click(dialog().getByRole('button', { name: w.discard }))

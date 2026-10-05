@@ -2,7 +2,7 @@ import { minorOf, moneyText } from '@dripfunnel/shared/format'
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
-import { deleteMarket, saveMarket, setEverywhereElse, type Market } from '../../api/markets'
+import { deleteMarket, loadAllMarkets, saveMarket, setEverywhereElse, type Market } from '../../api/markets'
 import type { StoreLocale } from '../../api/settings'
 import { fill, formatList, locale, messages } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
@@ -55,16 +55,18 @@ export const draftOfMarket = (m: Market): MarketDraft => ({
   webMode: m.webMode,
   pathPrefix: m.pathPrefix ?? '',
   products: m.products,
-  excluded: [...m.excludedProducts],
+  // Ids the API no longer names were products deleted since: kept, and shown as such, so a save drops none unseen.
+  excluded: m.excludedProductIds.map((pid) => ({ id: pid, name: m.excludedProducts.find((p) => p.id === pid)?.name ?? words.deletedProduct })),
   duties: m.duties.mode,
   dutyRate: m.duties.rateBps === null ? '' : String(m.duties.rateBps / 100),
   dutyThreshold: m.duties.thresholdAmount ? moneyText({ amount: Number(m.duties.thresholdAmount), currency: m.currency }) : '',
 })
 
-/** What can't be saved yet, said before the API would refuse it. */
-export const marketProblem = (d: MarketDraft): keyof typeof words.problems | null => {
+/** What can't be saved yet, said before the API would refuse it; a sub-market sells in its parent's countries only. */
+export const marketProblem = (d: MarketDraft, parentCountries: readonly string[] | null = null): keyof typeof words.problems | null => {
   if (d.name.trim() === '') return 'name'
   if (d.countries.length === 0) return 'countries'
+  if (parentCountries && d.countries.some((c) => !parentCountries.includes(c))) return 'parentCountries'
   if (d.adjust.trim() !== '' && !/^-?\d+(\.\d{1,2})?$/.test(d.adjust.trim())) return 'adjust'
   if (d.webMode === 'path' && !/^[a-z0-9][a-z0-9-]{0,19}$/.test(d.pathPrefix.trim())) return 'path'
   if (d.duties === 'flat' && !/^\d+(\.\d{1,2})?$/.test(d.dutyRate.trim())) return 'dutyRate'
@@ -151,7 +153,19 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
     try {
       onSaved(await work())
     } catch (error) {
-      setFailure(refusalOf(error))
+      // Someone else changed or deleted it: read the markets again, so the next try starts from what's saved.
+      if (isApiError(error) && (error.code === 'STALE_REVISION' || error.code === 'NOT_FOUND')) {
+        const opened = draft?.id ?? null
+        try {
+          const fresh = await loadAllMarkets()
+          setMarkets(fresh)
+          const again = fresh.find((m) => m.id === opened)
+          setDraft(again ? draftOfMarket(again) : null)
+          setFailure(fill(words.reread, { refusal: refusalOf(error) }))
+        } catch {
+          setFailure(refusalOf(error))
+        }
+      } else setFailure(refusalOf(error))
     } finally {
       setBusy(false)
     }
@@ -215,11 +229,13 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
     )
 
   const set = (patch: Partial<MarketDraft>) => setDraft({ ...draft, ...patch })
-  const problem = marketProblem(draft)
   const parent = markets.find((m) => m.id === draft.parentId) ?? null
+  const problem = marketProblem(draft, parent?.countries ?? null)
+  const outsideParent = (c: string) => parent !== null && !parent.countries.includes(c)
   const related = (m: Market) => m.id === draft.id || m.parentId === draft.id || m.id === draft.parentId
   const taken = new Map(markets.filter((m) => !related(m)).flatMap((m) => m.countries.map((c) => [c, m.name] as const)))
-  const offered = [...new Set([...featured, ...draft.countries])]
+  // A sub-market picks from its parent's countries; the rest are offered only where it already has them, marked.
+  const offered = [...new Set([...(parent ? parent.countries : featured), ...draft.countries])]
   const preview =
     draft.countries.length === 0
       ? words.pickCountry
@@ -289,18 +305,19 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
             {offered.map((c) => {
               const on = draft.countries.includes(c)
               const elsewhere = !on ? taken.get(c) : undefined
+              const note = elsewhere ? fill(words.inAnother, { name: elsewhere }) : outsideParent(c) && parent ? fill(words.notParents, { name: parent.name }) : null
               return (
                 <button
                   key={c}
                   type="button"
                   aria-pressed={on}
-                  disabled={ro || elsewhere !== undefined}
+                  disabled={ro || elsewhere !== undefined || (!on && outsideParent(c))}
+                  aria-invalid={on && outsideParent(c) ? true : undefined}
                   className="df-mkt-chip"
-                  title={elsewhere ? fill(words.inAnother, { name: elsewhere }) : undefined}
+                  title={note ?? undefined}
                   onClick={() => set({ countries: on ? draft.countries.filter((x) => x !== c) : [...draft.countries, c] })}
                 >
-                  {countryName(c)}
-                  {elsewhere ? ` · ${fill(words.inAnother, { name: elsewhere })}` : ''}
+                  {note ? fill(words.chipNote, { country: countryName(c), note }) : countryName(c)}
                 </button>
               )
             })}
@@ -308,7 +325,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
               <select aria-label={words.anotherCountry} value="" disabled={ro} onChange={(e) => e.target.value && set({ countries: [...draft.countries, e.target.value] })}>
                 <option value="">{words.anotherCountry}</option>
                 {everyCountry
-                  .filter((c) => !offered.includes(c) && !taken.has(c))
+                  .filter((c) => !offered.includes(c) && !taken.has(c) && !outsideParent(c))
                   .map((c) => ({ c, n: countryName(c) }))
                   .sort((a, b) => a.n.localeCompare(b.n))
                   .map(({ c, n }) => (

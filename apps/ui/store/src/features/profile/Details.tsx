@@ -3,10 +3,10 @@ import { changeEmail, updateProfile, type Profile } from '../../api/profile'
 import { fill, messages } from '../../messages'
 import { Alert, Card, Field, Primary } from './parts'
 import { profileRefusal } from './profileWords'
+import { looksLikeEmail } from '../common/email'
 
 const words = messages.profile.details
 
-const emailLooksValid = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
 
 export interface DetailsChange {
   /** Null when neither changed. */
@@ -55,7 +55,7 @@ export const Details = ({ profile, onSaved, onChanged, onToast }: { profile: Pro
     event.preventDefault()
     if (!dirty || busy) return
     if (!name.trim()) return setError(words.nameMissing)
-    if (emailChanged && !emailLooksValid(email.trim())) return setError(words.emailBad)
+    if (emailChanged && !looksLikeEmail(email.trim())) return setError(words.emailBad)
     if (emailChanged && !password) return setError(words.passwordMissing)
     setBusy(true)
     void saveDetails(

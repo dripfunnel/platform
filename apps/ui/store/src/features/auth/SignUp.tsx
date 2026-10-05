@@ -8,6 +8,7 @@ import { sampleCountries, sampleEmail, sampleHint, sampleSuggestions, signUpStat
 import { AuthFrame } from './AuthFrame'
 import { CodeField, Field, Foot, NewPasswordField, Primary, Terms, useResendWait } from './fields'
 import { signupText } from './refusals'
+import { looksLikeEmail } from '../common/email'
 
 const words = messages.auth
 const su = words.signup
@@ -87,7 +88,7 @@ export const SignUp = () => {
       try {
         if (view.kind === 'account') {
           if (!name.trim()) return setError(su.su1.nameMissing)
-          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setError(su.su1.emailBad)
+          if (!looksLikeEmail(email)) return setError(su.su1.emailBad)
           if (password.length < 10) return setError(su.su1.weak)
           const answer = await startSignup(name.trim(), email.trim(), password)
           return isRefusal(answer) ? refused(answer) : go({ kind: 'email' })

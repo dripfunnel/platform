@@ -81,7 +81,11 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
  * Where stock sits (SetOps "Warehouse"): the caller's own locations, the default one first-class. A supplier keeps its
  * own here, inside "Your products" (#337); the store's Settings › Warehouse shows the same list for the merchant.
  */
-export const WarehousesView = ({ canEdit, supplierNames = null }: { canEdit: boolean; supplierNames?: ReadonlyMap<string, string> | null }) => {
+/**
+ * `side` says whose locations are editable: the merchant side's are its own (no supplier), its suppliers' listed apart
+ * and read-only, named from `supplierNames` where given; a supplier's are all it reads.
+ */
+export const WarehousesView = ({ canEdit, side, supplierNames = null }: { canEdit: boolean; side: 'merchant' | 'supplier'; supplierNames?: ReadonlyMap<string, string> | null }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [form, setForm] = useState<Form | null>(null)
   const [busy, setBusy] = useState(false)
@@ -158,10 +162,9 @@ export const WarehousesView = ({ canEdit, supplierNames = null }: { canEdit: boo
     })
 
   // The merchant side also reads its suppliers' locations: listed apart and never changed here (SetOps, FIRST-RELEASE §15).
-  // With supplierNames (Settings, the merchant side) its suppliers' are listed apart; otherwise everything the caller
-  // reads is its own, a supplier's tab holding its own locations.
-  const places = view.places.filter((p) => !supplierNames || p.supplierId === null).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
-  const theirs = supplierNames ? view.places.filter((p) => p.supplierId !== null) : []
+  const own = (p: Place) => side === 'supplier' || p.supplierId === null
+  const places = view.places.filter(own).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+  const theirs = view.places.filter((p) => !own(p))
   return (
     <div className="df-places">
       <div className="df-places-head">

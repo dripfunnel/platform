@@ -181,6 +181,19 @@ describe('catalogue settings', () => {
     expect(sent.find((f) => f.key === 'video')?.enabled).toBe(false)
   })
 
+  it('keep switches not yet saved when a badge is added', async () => {
+    await show()
+    fireEvent.click(toggle(w.sections.faqs))
+    fireEvent.click(screen.getByRole('button', { name: w.addBadge }))
+    fireEvent.change(dialog().getByLabelText(w.badgeText), { target: { value: 'Organic' } })
+    editor.loadProductBasics.mockResolvedValue({ ...basics(['sizeCharts', 'specs', 'badges'], ['video']), badges: [...basics([]).badges, { id: 'b9', label: 'Organic', rule: 'manual', tone: 'neutral', position: 5 }] })
+    fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
+    await settle()
+    expect(screen.getByText('Organic')).toBeTruthy()
+    expect(toggle(w.sections.faqs).getAttribute('aria-checked')).toBe('true')
+    expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('tell a seat that isn’t the owner to ask the owner, never offering plans', async () => {
     editor.loadProductBasics.mockResolvedValue(basics([], ['video', 'aplus']))
     await show({ ...owner, role: 'manager', permissions: ['catalog.read', 'settings'] })
