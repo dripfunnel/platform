@@ -190,6 +190,30 @@ alter function stock_change(uuid, uuid, integer, integer, text, out integer, out
 revoke execute on function stock_change(uuid, uuid, integer, integer, text, out integer, out integer) from public;
 grant execute on function stock_change(uuid, uuid, integer, integer, text, out integer, out integer) to app_request;
 
+-- One save's typed numbers in one call, applied in (version, location) order so two saves of the same
+-- rows lock them alike and can't deadlock.
+create function stock_change_many(p_entries jsonb, p_reason text)
+returns table (version_id uuid, warehouse_id uuid, quantity integer, change integer)
+language plpgsql
+as $$
+declare
+  e record;
+  c record;
+begin
+  for e in select x.version_id, x.warehouse_id, x.target from jsonb_to_recordset(p_entries) as x(version_id uuid, warehouse_id uuid, target integer) order by 1, 2 loop
+    select * into c from stock_change(e.version_id, e.warehouse_id, null, e.target, p_reason);
+    version_id := e.version_id;
+    warehouse_id := e.warehouse_id;
+    quantity := c.quantity;
+    change := c.change;
+    return next;
+  end loop;
+end
+$$;
+
+revoke execute on function stock_change_many(jsonb, text) from public;
+grant execute on function stock_change_many(jsonb, text) to app_request;
+
 -- Every store has the merchant's default location from the start, whichever path made the store (SetOps).
 create function store_default_warehouse() returns trigger
 language plpgsql

@@ -266,12 +266,16 @@ describe('Stock and its history', () => {
     expect((await adjust('owner', small, where, -20, 'damaged')).code).toBe('BELOW_ZERO')
 
     const all = await history('owner', id)
-    expect(all?.nodes.map((m) => [m.reason, m.delta, m.resultingQuantity])).toEqual([
+    const rows = all?.nodes.map((m) => [m.reason, m.delta, m.resultingQuantity]) ?? []
+    expect(rows.slice(0, 3)).toEqual([
       ['damaged', -2, 15],
       ['received', 5, 17],
       ['typed', 2, 12],
-      ['starting', 3, 3],
+    ])
+    // One save's counts are applied in (version, location) order, so the two starting rows may come either way.
+    expect(rows.slice(3).sort()).toEqual([
       ['starting', 10, 10],
+      ['starting', 3, 3],
     ])
     expect(all?.nodes[0]).toMatchObject({ actorKind: 'person', actorName: 'Olivia', warehouseName: 'Main location' })
     expect((await history('owner', id, large))?.nodes.map((m) => m.reason)).toEqual(['starting'])
@@ -288,6 +292,20 @@ describe('Stock and its history', () => {
     ])
     const activity = await db.sql<{ action: string }[]>`select action from activity_log where store_id = ${t.storeA1} and action = 'stock.adjusted'`
     expect(activity.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('applies one save in one call, in an order two opposite saves share, answering in the order sent', async () => {
+    const where = await main()
+    const spare = (await saveWarehouse('owner', { name: 'Order room' })).id ?? ''
+    const { versions } = await product('owner', 'Ordered plates', 3)
+    const pairs = versions.flatMap((versionId) => [where, spare].map((warehouseId) => ({ versionId, warehouseId })))
+    const forward = pairs.map((p, i) => ({ ...p, quantity: i + 1 }))
+    const backward = [...pairs].reverse().map((p, i) => ({ ...p, quantity: i + 10 }))
+    const [a, b] = await Promise.all([setStock('owner', forward), setStock('owner', backward)])
+    expect([a.code, b.code]).toEqual([undefined, undefined])
+    expect(a.set?.map((x) => x.versionId)).toEqual(forward.map((x) => x.versionId))
+    expect(b.set?.map((x) => x.versionId)).toEqual(backward.map((x) => x.versionId))
+    await deleteWarehouse('owner', spare).catch(() => undefined)
   })
 
   it('refuses unknown reasons, a zero change, repeats in one save and a Staff change', async () => {
@@ -326,6 +344,19 @@ describe('Stock and its history', () => {
     expect((await history('supplier', theirs.id))?.nodes).toMatchObject([{ reason: 'starting', actorName: 'Anand' }])
     expect((await history('otherSupplier', theirs.id))?.nodes).toEqual([])
     expect((await history('bOwner', theirs.id))?.nodes).toEqual([])
+  })
+
+  it('counts as low only a physical product counted somewhere, never a download, a service or one never counted', async () => {
+    const where = await main()
+    const lowIds = async () => ((await gql('{ products(filter: "low_stock", first: 50) { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }).nodes.map((p) => p.id)
+    const counted = await product('owner', 'Counted candle')
+    await setStock('owner', [{ versionId: counted.versions[0] ?? '', warehouseId: where, quantity: 2 }])
+    const uncounted = await product('owner', 'Never counted candle')
+    const download = (await gql('mutation S($input: ProductInput!) { saveProduct(input: $input) { id } }', 'owner', { input: { name: 'Candle e-book', productType: 'digital', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }] } })).data?.['saveProduct'] as { id: string }
+    const shown = await lowIds()
+    expect(shown).toContain(counted.id)
+    expect(shown).not.toContain(uncounted.id)
+    expect(shown).not.toContain(download.id)
   })
 
   it('forgets a deleted location’s threshold and units in the chip and the list', async () => {

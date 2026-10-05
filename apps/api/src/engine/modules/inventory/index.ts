@@ -14,6 +14,7 @@ import {
   selectWarehouse,
   selectWarehouses,
   setLowStockThreshold,
+  setStockTargets,
   softDeleteWarehouse,
   stockRefused,
   updateWarehouse,
@@ -196,16 +197,13 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       if (entries.length === 0 || entries.length > maxStockEntries) throw new Refused('INVALID_INPUT')
       const keys = new Set(entries.map((e) => `${e.versionId.toLowerCase()}:${e.warehouseId.toLowerCase()}`))
       if (keys.size !== entries.length) throw new Refused('INVALID_INPUT')
-      const logged: ActivityEntry[] = []
-      const results: { versionId: string; warehouseId: string; quantity: number }[] = []
-      for (const e of entries) {
-        if (!isUuid(e.versionId) || !isUuid(e.warehouseId)) throw new Refused('NOT_FOUND')
-        const { quantity, change } = await changeStock(tx, e.versionId, e.warehouseId, { target: whole(e.quantity, 0) }, 'typed')
-        if (change !== 0) logged.push(moved(e.versionId, e.warehouseId, 'typed', change, quantity))
-        results.push({ versionId: e.versionId, warehouseId: e.warehouseId, quantity })
-      }
-      await activity.recordAll(tx, logged)
-      return results
+      if (!entries.every((e) => isUuid(e.versionId) && isUuid(e.warehouseId))) throw new Refused('NOT_FOUND')
+      const wanted = entries.map((e) => ({ versionId: e.versionId.toLowerCase(), warehouseId: e.warehouseId.toLowerCase(), target: whole(e.quantity, 0) }))
+      const done = await setStockTargets(tx, wanted)
+      await activity.recordAll(tx, done.filter((d) => d.change !== 0).map((d) => moved(d.version_id, d.warehouse_id, 'typed', d.change, d.quantity)))
+      const byKey = new Map(done.map((d) => [`${d.version_id}:${d.warehouse_id}`, d.quantity]))
+      // Answered in the order sent, whatever order the database applied them in.
+      return wanted.map((e) => ({ versionId: e.versionId, warehouseId: e.warehouseId, quantity: byKey.get(`${e.versionId}:${e.warehouseId}`) ?? 0 }))
     })
 
   const setThreshold = (versionId: string, warehouseId: string, threshold: number | null) =>

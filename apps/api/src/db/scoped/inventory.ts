@@ -146,6 +146,13 @@ export const changeStock = async (tx: ScopedSql, versionId: string, warehouseId:
   return row
 }
 
+/** Typed numbers for many (version, location) pairs in one call (migration 0046 `stock_change_many`). */
+export const setStockTargets = (tx: ScopedSql, entries: readonly { versionId: string; warehouseId: string; target: number }[]) =>
+  tx<{ version_id: string; warehouse_id: string; quantity: number; change: number }[]>`
+    select version_id, warehouse_id, quantity, change
+    from stock_change_many(${tx.json(entries.map((e) => ({ version_id: e.versionId, warehouse_id: e.warehouseId, target: e.target })) as unknown as postgres.JSONValue)}, 'typed')
+  `
+
 /** False when the caller doesn't hold that version's stock in a location of its own. */
 export const setLowStockThreshold = async (tx: ScopedSql, storeId: string, sellerId: string | null, versionId: string, warehouseId: string, threshold: number | null): Promise<boolean> =>
   (
