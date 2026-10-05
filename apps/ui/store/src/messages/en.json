@@ -2005,7 +2005,8 @@
         "NOT_FOUND": "That isn’t here any more. It may have been changed elsewhere.",
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "FORBIDDEN": "You can’t change filters.",
-        "other": "That didn’t save. Try again."
+        "other": "That didn’t save. Try again.",
+        "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again."
       },
       "usesNone": "No products use it yet.",
       "deleteNone": "Nothing uses it."

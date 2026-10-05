@@ -137,10 +137,11 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
   }
 
   const addable = collections.filter((c) => !rows.some((r) => r.collectionId === c.id))
-  const tops = rows.filter(shown).reduce<{ label: string; kids: string[] }[]>((acc, r) => {
+  // Keyed by the row, never the label: two items may share a name.
+  const tops = rows.filter(shown).reduce<{ key: string; label: string; kids: { key: string; label: string }[] }[]>((acc, r) => {
     const last = acc[acc.length - 1]
-    if (r.depth === 1 && last) last.kids.push(named(r))
-    else acc.push({ label: named(r), kids: [] })
+    if (r.depth === 1 && last) last.kids.push({ key: r.key, label: named(r) })
+    else acc.push({ key: r.key, label: named(r), kids: [] })
     return acc
   }, [])
 
@@ -211,12 +212,12 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
           <div className="df-menu-desktop">
             <strong>{storeName}</strong>
             {tops.map((t) => (
-              <span key={t.label}>
+              <span key={t.key}>
                 <span>
                   {t.label}
                   {t.kids.length > 0 && <Icon name="caret" size={12} />}
                 </span>
-                <span>{t.kids.join(' · ')}</span>
+                <span>{t.kids.map((k) => k.label).join(' · ')}</span>
               </span>
             ))}
           </div>
@@ -225,13 +226,13 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
           <h2>{words.phone}</h2>
           <ul>
             {tops.flatMap((t) => [
-              <li key={`t-${t.label}`}>
+              <li key={t.key}>
                 {t.label}
                 <Icon name="chevron" size={14} />
               </li>,
               ...t.kids.map((k) => (
-                <li key={`k-${t.label}-${k}`} className="df-menu-phone-kid">
-                  {k}
+                <li key={k.key} className="df-menu-phone-kid">
+                  {k.label}
                   <Icon name="chevron" size={14} />
                 </li>
               )),
