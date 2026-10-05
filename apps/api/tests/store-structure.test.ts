@@ -360,6 +360,20 @@ describe('collections', () => {
     await db.sql`update outbox set delivered_at = now() where kind = ${collectionsRecomputeKind} and delivered_at is null`
   })
 
+  it('takes as its picture only a photo of this store', async () => {
+    let n = 0
+    const file = async (storeId: string, kind: 'image' | 'video') => {
+      n += 1
+      const key = `stores/${storeId}/assets/00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}.${kind === 'image' ? 'png' : 'mp4'}`
+      return (await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${storeId}, ${key}, ${kind}, ${kind === 'image' ? 'image/png' : 'video/mp4'}, 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    }
+    const mine = await file(t.storeA1, 'image')
+    expect((await save({ name: 'Pictured', kind: 'manual', imageAssetId: mine })).code).toBeUndefined()
+    for (const imageAssetId of [await file(t.storeB1, 'image'), await file(t.storeA1, 'video'), '00000000-0000-4000-8000-0000000000ee']) {
+      expect((await save({ name: 'Wrong picture', kind: 'manual', imageAssetId })).code).toBe('INVALID_INPUT')
+    }
+  })
+
   it('refuses a parent that is itself or inside it, a stale save, and a rule naming another store’s product', async () => {
     const top = await save({ name: 'Top', kind: 'manual' })
     const inner = await save({ name: 'Inner', kind: 'manual', parentId: top.saved?.id })
