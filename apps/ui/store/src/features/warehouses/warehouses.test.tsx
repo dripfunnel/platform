@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../api/stock'
-import { messages } from '../../messages'
+import { fill as fillWords, messages } from '../../messages'
 
 // A supplier's Warehouses tab (#337): its own locations, added, made default, edited and deleted as SetOps draws them.
 
@@ -19,8 +19,8 @@ const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDe
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
-const show = async (canEdit = true) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
+const show = async (canEdit = true, side: 'merchant' | 'supplier' = 'supplier') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} side={side} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -42,6 +42,15 @@ afterEach(() => {
 describe('a supplier’s locations', () => {
   it('sends the name and only the address lines given, the country in capitals', () => {
     expect(placeInputOf({ id: null, revision: null, name: ' Shed ', line1: '', line2: '', city: 'Jaipur', region: '', postalCode: '', country: 'in' })).toEqual({ name: 'Shed', address: { city: 'Jaipur', country: 'IN' } })
+  })
+
+  it('on the merchant side, lists a supplier’s location apart with nothing to manage', async () => {
+    api.loadPlaces.mockResolvedValue([place({ id: 'w1', name: 'Store room', isDefault: true }), place({ id: 'w9', name: 'Northwind depot', supplierId: 'sup-1' })])
+    await show(true, 'merchant')
+    expect(screen.getByRole('button', { name: fillWords(words.manage, { name: 'Store room' }) })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: fillWords(words.manage, { name: 'Northwind depot' }) })).toBeNull()
+    expect(screen.getByRole('heading', { name: words.theirsTitle })).toBeTruthy()
+    expect(screen.getByText('Northwind depot')).toBeTruthy()
   })
 
   it('lists the default first, with each location’s units', async () => {

@@ -147,7 +147,7 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
           target: c.name,
           consequence: words.rateBody,
           confirmLabel: words.save,
-          input: { label: words.rateLabel, type: 'text', initial: now === null ? '' : String(now / 100), placeholder: '5', error: (v) => (/^\d+(\.\d{1,2})?$/.test(v.trim()) && Number(v) <= 100 ? null : words.rateInvalid) },
+          input: { label: words.rateLabel, type: 'text', initial: now === null ? '' : String(now / 100), placeholder: words.ratePlaceholder, error: (v) => (/^\d+(\.\d{1,2})?$/.test(v.trim()) && Number(v) <= 100 ? null : words.rateInvalid) },
           onConfirm: (_, value) => void write('classes', async () => (await setHomeRate(c.id, Math.round(Number(value) * 100)), fill(words.rateSaved, { name: c.name }))),
         })
       },

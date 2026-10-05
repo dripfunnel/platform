@@ -98,6 +98,7 @@ const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 
   webMode: 'main',
   pathPrefix: null,
   products: 'all',
+  excludedProductIds: [],
   excludedProducts: [],
   duties: { mode: 'none', rateBps: null, thresholdAmount: null },
   revision: 1,

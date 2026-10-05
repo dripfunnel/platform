@@ -2,7 +2,7 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useId, useState } from 'react'
-import type { ProductBasics } from '../../api/productEditor'
+import { loadProductBasics, type ProductBasics } from '../../api/productEditor'
 import { badgeRules, deleteBadge, saveBadge, saveSections, sectionKeys, type BadgeRule, type SectionKey } from '../../api/settings'
 import { fill, messages } from '../../messages'
 
@@ -38,12 +38,10 @@ export interface CatalogueTabProps {
   owner: boolean
   canEdit: boolean
   onSaved: (toast: string) => void
-  /** A badge changed: the tab reads the settings again. */
-  onChanged: (toast: string) => void
 }
 
 /** CatSettings' catalogue tab: the sections products show, by plan, and the store's badges. */
-export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChanged }: CatalogueTabProps) => {
+export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: CatalogueTabProps) => {
   const id = useId()
   const [saved, setSaved] = useState<Sections>(() => sectionsOf(basics))
   const [sections, setSections] = useState<Sections>(saved)
@@ -51,6 +49,13 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
   const [busy, setBusy] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const [ask, setAsk] = useState<Ask | null>(null)
+  // Badges read again on their own after a change, so switches not yet saved stay as they are.
+  const [badges, setBadges] = useState(basics.badges)
+  const reread = async (toast: string) => {
+    // The badge is saved either way; a list that didn't come back stays as it was rather than saying the save failed.
+    await loadProductBasics().then((b) => setBadges(b.badges), () => undefined)
+    return toast
+  }
   const inPlan = (k: SectionKey) => basics.features.find((f) => f.key === k)?.inPlan !== false
   const ro = !canEdit || busy
   const dirty = JSON.stringify(sections) !== JSON.stringify(saved)
@@ -102,7 +107,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
       onConfirm: (_, value, picks) => {
         const rule = badgeRules.find((r) => r === picks['rule']) ?? 'manual'
         const label = (value ?? '').trim()
-        void run(async () => (await saveBadge(b?.id ?? null, { label, rule, tone: toneOf(rule), position: b ? b.position : basics.badges.reduce((n, x) => Math.max(n, x.position + 1), 0) }), b ? words.badgeSaved : fill(rule === 'manual' ? words.badgeAddedManual : words.badgeAddedAuto, { name: label })), onChanged)
+        void run(async () => (await saveBadge(b?.id ?? null, { label, rule, tone: toneOf(rule), position: b ? b.position : badges.reduce((n, x) => Math.max(n, x.position + 1), 0) }), reread(b ? words.badgeSaved : fill(rule === 'manual' ? words.badgeAddedManual : words.badgeAddedAuto, { name: label }))), onSaved)
       },
     })
 
@@ -113,7 +118,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
       consequence: words.deleteBadgeBody,
       confirmLabel: words.delete,
       danger: true,
-      onConfirm: () => void run(async () => (await deleteBadge(b.id), words.badgeDeleted), onChanged),
+      onConfirm: () => void run(async () => (await deleteBadge(b.id), reread(words.badgeDeleted)), onSaved),
     })
 
   return (
@@ -186,11 +191,11 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
             )}
           </div>
           <p className="df-set-lede">{words.badgesSub}</p>
-          {basics.badges.length === 0 ? (
+          {badges.length === 0 ? (
             <p className="df-set-help">{words.noBadges}</p>
           ) : (
             <ul className="df-cat-list">
-              {basics.badges.map((b) => {
+              {badges.map((b) => {
                 const rule = badgeRules.find((r) => r === b.rule) ?? 'manual'
                 return (
                   <li key={b.id}>

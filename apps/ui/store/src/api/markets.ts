@@ -20,13 +20,15 @@ const marketSchema = z.object({
   webMode: z.enum(['main', 'path']),
   pathPrefix: z.string().nullable(),
   products: z.enum(['all', 'some']),
+  excludedProductIds: z.array(z.string()),
+  /** The excluded products still in the catalogue, by name; an id without one here was deleted since. */
   excludedProducts: z.array(z.object({ id: z.string(), name: z.string() })),
   duties: z.object({ mode: z.enum(['none', 'by_code', 'flat']), rateBps: z.number().int().nullable(), thresholdAmount: z.string().nullable() }),
   revision: z.number().int(),
 })
 export type Market = z.infer<typeof marketSchema>
 
-const fields = 'id name parentId primary everywhereElse active countries currency language priceAdjustmentBps webMode pathPrefix products excludedProducts { id name } duties { mode rateBps thresholdAmount } revision'
+const fields = 'id name parentId primary everywhereElse active countries currency language priceAdjustmentBps webMode pathPrefix products excludedProductIds excludedProducts { id name } duties { mode rateBps thresholdAmount } revision'
 
 /** Every market the store has, with all a market's settings: the one read of `markets`. */
 export const loadAllMarkets = (): Promise<Market[]> =>

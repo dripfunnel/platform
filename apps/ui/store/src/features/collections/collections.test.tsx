@@ -212,7 +212,7 @@ describe('a collection being made or changed', () => {
   })
 
   it('edits a hand-picked collection at the revision read, adding a product found by search', async () => {
-    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', revision: 3 }))
+    api.loadCollection.mockResolvedValue(full({ id: 'c2', name: 'Men', revision: 3, imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas' }))
     api.loadMembers.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt' }])
     api.searchPickable.mockResolvedValue([{ id: 'p1', name: 'Mara Linen Shirt', visible: true, approval: null }, { id: 'p2', name: 'Indigo Kurta', visible: false, approval: null }])
     api.saveCollection.mockResolvedValue({ id: 'c2', revision: 4 })
@@ -227,6 +227,8 @@ describe('a collection being made or changed', () => {
     fireEvent.click(screen.getByRole('button', { name: e.save }))
     await settle()
     expect(api.saveCollection).toHaveBeenCalledWith('c2', 3, expect.objectContaining({ kind: 'manual', productIds: ['p1', 'p2'], rules: [] }))
+    // What this screen doesn't draw goes back as it was read, so a save never clears its image, sort or SEO.
+    expect(api.saveCollection.mock.calls[0]?.[2]).toMatchObject({ imageAssetId: 'a7', sort: 'price_asc', seoTitle: 'Men’s edit', seoDescription: 'Shirts and kurtas' })
   })
 
   it('keeps the form and says why when the save is refused', async () => {
