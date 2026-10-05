@@ -49,7 +49,9 @@ platform            no row: DripFunnel itself; staff act here
 | **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `import_job`, `export_job`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone; `billing_event` is written by the SaaS layer alone | `activity_log`, `outbox`, `billing_event` (§7.9), `email_suppression` (system only, no tenant; an HMAC of the address under `EMAIL_SUPPRESSION_KEY`, pseudonymous personal data kept to honour the person's own bounce or complaint) |
 
-- **Unique constraints are per scope**: SKU, web address and coupon code per store; customer
+- **Unique constraints are per scope**: web address and coupon code per store; a SKU per owner
+  in the store (the merchant's and each supplier's, #293), so anything that finds a version by SKU
+  (imports, stock, orders) names the owner too; customer
   email and phone per store; user email per partner. Never global.
 - **"Inside the store" vs "account level"** is what keeps partners and staff out of a
   merchant's catalogue, orders and customers (USERS-AND-DOMAINS §4): the RLS policy on
