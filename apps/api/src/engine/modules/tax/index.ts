@@ -23,7 +23,7 @@ import {
   updateTaxZone,
   type TaxSetupRow,
 } from '#db/scoped/tax'
-import { computeTax, type LineTax, type ShipTo, type TaxSetting } from './compute'
+import { computeTax, zonesClash, type LineTax, type ShipTo, type TaxSetting } from './compute'
 
 export type { InvoiceSettingsRow, TaxSetupRow } from '#db/scoped/tax'
 export type { LineTax } from './compute'
@@ -40,7 +40,7 @@ export const taxAudit = {
   invoiceSettingsSaved: 'invoice_settings.saved',
 } as const
 
-export type TaxRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_NAME' | 'DEFAULT_CLASS' | 'CLASS_IN_USE' | 'PRICE_REQUIRED' | 'TOO_MANY' | 'TAX_UNAVAILABLE'
+export type TaxRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_NAME' | 'DEFAULT_CLASS' | 'CLASS_IN_USE' | 'PRICE_REQUIRED' | 'TOO_MANY' | 'TAX_UNAVAILABLE' | 'ZONE_OVERLAP'
 export type TaxResult<T> = { ok: true; value: T } | { ok: false; reason: TaxRefusal }
 
 class Refused extends Error {
@@ -176,8 +176,13 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
       if (!valid) throw new Refused('INVALID_INPUT')
       if (rates.length > 0 && (await classesOfStore(tx, storeId, rates.map((r) => r.taxClassId))) !== rates.length) throw new Refused('NOT_FOUND')
       const zone = { name, countries, regions, rates }
+      // One save at a time per store, so two that clash can't both pass the check.
+      await serialise(tx, `tax_zone:${storeId}`)
+      const zones = (await selectTaxSetup(tx, storeId))?.zones ?? []
+      const mine = { countries, regions, classIds: rates.map((r) => r.taxClassId) }
+      if (zones.some((z) => z.id !== id && zonesClash(mine, { countries: z.countries, regions: z.regions, classIds: z.rates.map((r) => r.tax_class_id) }))) throw new Refused('ZONE_OVERLAP')
       let saved: string
-      if (id === null && ((await selectTaxSetup(tx, storeId))?.zones.length ?? 0) >= maxTaxZones) throw new Refused('TOO_MANY')
+      if (id === null && zones.length >= maxTaxZones) throw new Refused('TOO_MANY')
       if (id === null) saved = await insertTaxZone(tx, storeId, zone)
       else {
         if (!isUuid(id) || !(await updateTaxZone(tx, storeId, id, zone))) throw new Refused('NOT_FOUND')
@@ -240,16 +245,19 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
       } catch {
         return { ok: false, reason: 'TAX_UNAVAILABLE' }
       }
+      // A line Stripe didn't answer is a tax not known, never a tax of nothing.
+      const answered = priced.flatMap((p) => {
+        const amount = result.lines.find((l) => l.reference === p.id)?.amount
+        return amount === undefined ? [] : [{ p, amount }]
+      })
+      if (answered.length !== priced.length) return { ok: false, reason: 'TAX_UNAVAILABLE' }
       return {
         ok: true,
         value: {
           currency: loaded.currency,
           inclusive: setting.tax_inclusive,
           source: 'stripe',
-          lines: priced.map((p) => {
-            const amount = result.lines.find((l) => l.reference === p.id)?.amount ?? 0n
-            return { id: p.id, rateBps: 0, amount, components: amount === 0n ? [] : [{ name: 'Tax' as const, rateBps: 0, amount }], quantity: p.quantity, lineAmount: p.lineAmount }
-          }),
+          lines: answered.map(({ p, amount }) => ({ id: p.id, rateBps: null, amount, components: amount === 0n ? [] : [{ name: 'Tax' as const, rateBps: null, amount }], quantity: p.quantity, lineAmount: p.lineAmount })),
           total: result.total,
         },
       }

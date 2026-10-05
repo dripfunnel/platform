@@ -15,6 +15,7 @@ const words: Record<Exclude<TaxResult<unknown>, { ok: true }>['reason'], string>
   CLASS_IN_USE: 'Products use this category. Move them to another first.',
   PRICE_REQUIRED: 'A product here has no price yet.',
   TOO_MANY: 'That’s as many as a store can have.',
+  ZONE_OVERLAP: 'Another zone already sets a rate for this category in the same place. Change that zone, or choose other regions.',
   TAX_UNAVAILABLE: 'We can’t work out the tax right now. Try again in a moment.',
 }
 
@@ -71,14 +72,14 @@ export const registerTax = (builder: StoreBuilder) => {
     }),
   })
   const Component = builder.objectRef<CartTax['lines'][number]['components'][number]>('TaxComponent').implement({
-    fields: (t) => ({ name: t.exposeString('name'), rateBps: t.exposeInt('rateBps'), amount: t.string({ resolve: (c) => c.amount.toString() }) }),
+    fields: (t) => ({ name: t.exposeString('name'), rateBps: t.exposeInt('rateBps', { nullable: true }), amount: t.string({ resolve: (c) => c.amount.toString() }) }),
   })
   const QuoteLine = builder.objectRef<CartTax['lines'][number]>('TaxQuoteLine').implement({
     fields: (t) => ({
       versionId: t.exposeID('id'),
       quantity: t.exposeInt('quantity'),
       lineAmount: t.string({ resolve: (l) => l.lineAmount.toString() }),
-      rateBps: t.exposeInt('rateBps'),
+      rateBps: t.exposeInt('rateBps', { nullable: true }),
       tax: t.string({ resolve: (l) => l.amount.toString() }),
       components: t.field({ type: [Component], resolve: (l) => l.components }),
     }),
@@ -103,7 +104,7 @@ export const registerTax = (builder: StoreBuilder) => {
   const ShipToInput = builder.inputType('TaxShipToInput', { fields: (t) => ({ country: t.string({ required: true }), region: t.string(), postal: t.string() }) })
 
   const read = { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } as const
-  const write = { api: 'store', scope: 'store', permission: 'settings', target: 'none' } as const
+  const write = { api: 'store', scope: 'store', permission: 'tax.configure', target: 'none' } as const
 
   builder.queryFields((t) => ({
     taxSetup: t.field({ type: Setup, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).setup() }),

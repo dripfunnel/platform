@@ -15,6 +15,8 @@ alter table store
   add column order_prefix text not null default '' check (order_prefix ~ '^[A-Z0-9-]{0,6}$'),
   add column next_order_number bigint not null default 1001 check (next_order_number between 1 and 999999999),
   add column tax_inclusive boolean not null default true;
+-- The logo is one of this store's own assets, held by the database as photos' are (0042).
+alter table store add constraint store_logo_asset_fkey foreign key (logo_asset_id, id) references asset (id, store_id);
 
 -- A store's first time zone, units and tax display follow its country, as the prototype's do: those that exist
 -- now, and each made from here on.

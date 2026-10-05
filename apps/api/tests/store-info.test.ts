@@ -118,7 +118,7 @@ describe('Settings › Store info', () => {
 
   it('refuses what isn’t valid: a tax id not in the country’s format, a made-up time zone, a bad email or prefix', async () => {
     expect((await save({ ...base, taxId: 'NOT-A-GSTIN' })).code).toBe('INVALID_TAX_ID')
-    expect((await save({ ...base, timeZone: 'Mars/Olympus' })).code).toBe('INVALID_TIME_ZONE')
+    for (const zone of ['Mars/Olympus', '+05:30', '-0800', '']) expect({ zone, code: (await save({ ...base, timeZone: zone })).code }).toEqual({ zone, code: 'INVALID_TIME_ZONE' })
     expect((await save({ ...base, contactEmail: 'nobody' })).code).toBe('INVALID_EMAIL')
     expect((await save({ ...base, orderPrefix: 'TOO-LONG' })).code).toBe('INVALID_INPUT')
     expect((await save({ ...base, name: ' ' })).code).toBe('INVALID_INPUT')
@@ -131,6 +131,16 @@ describe('Settings › Store info', () => {
     expect((await save({ ...base, logoAssetId: theirs?.id })).code).toBe('INVALID_LOGO')
     expect((await save({ ...base, logoAssetId: mine?.id })).code).toBeUndefined()
     expect((await info())?.logoAssetId).toBe(mine?.id)
+    // The database holds the rule too: a logo is never another store's asset, and one in use can't go.
+    await expect(db.sql`update store set logo_asset_id = ${theirs?.id ?? ''} where id = ${t.storeA1}`).rejects.toThrow(/store_logo_asset_fkey/)
+    await expect(db.sql`delete from asset where id = ${mine?.id ?? ''}`).rejects.toThrow(/store_logo_asset_fkey/)
+  })
+
+  it('stores a time zone by its canonical name, whatever its casing or old name', async () => {
+    for (const [typed, stored] of [['asia/kolkata', 'Asia/Kolkata'], ['Asia/Calcutta', 'Asia/Kolkata'], ['america/new_york', 'America/New_York'], ['utc', 'UTC']] as const) {
+      expect((await save({ ...base, timeZone: typed })).code).toBeUndefined()
+      expect({ typed, stored: (await info())?.timeZone }).toEqual({ typed, stored })
+    }
   })
 
   it('is the Owner’s to write, the merchant side’s to read, and no supplier’s or other store’s', async () => {
@@ -203,9 +213,10 @@ describe('Settings › Store info', () => {
       expect((await save({ ...base, nextOrderNumber: 3000, taxId: 'OH-PERMIT-88' })).code).toBeUndefined()
       expect((await info())?.taxId).toBe('OH-PERMIT-88')
       expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1} and country = 'US' order by kind`).toEqual([{ kind: 'ein', number: '12-3456789' }, { kind: 'sales_tax_permit', number: 'OH-PERMIT-88' }])
-      // Clearing the field removes the one shown, the permit; the EIN stays and shows next.
+      // Clearing the field leaves the store with no home tax id: the EIN goes with the permit.
       expect((await save({ ...base, nextOrderNumber: 3000, taxId: '' })).code).toBeUndefined()
-      expect((await info())?.taxId).toBe('12-3456789')
+      expect((await info())?.taxId).toBeNull()
+      expect(await db.sql`select 1 from tax_registration where store_id = ${t.storeA1} and country = 'US'`).toHaveLength(0)
     } finally {
       await db.sql`update store set country = 'IN' where id = ${t.storeA1}`
     }

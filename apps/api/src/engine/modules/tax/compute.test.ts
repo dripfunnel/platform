@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeTax, rateFor, taxIn, type TaxSetting } from './compute'
+import { computeTax, rateFor, taxIn, zonesClash, type TaxSetting } from './compute'
 
 const india: TaxSetting = {
   inclusive: true,
@@ -57,5 +57,21 @@ describe('tax on a cart’s lines (CATALOG facts 37–38)', () => {
     // 0.25% of ₹1,000.01 is ₹2.50 rounded half up: halves of 125 paise, at 12 and 13 basis points.
     const [line] = computeTax([{ id: 'a', amount: 100001n, taxClassId: null }], { country: 'IN', region: 'Rajasthan' }, quarter).lines
     expect(line?.components).toEqual([{ name: 'CGST', rateBps: 12, amount: 125n }, { name: 'SGST', rateBps: 13, amount: 125n }])
+  })
+})
+
+describe('zones that would both answer (saveZone)', () => {
+  const zone = (countries: string[], regions: string[] = [], classIds = ['standard']) => ({ countries, regions, classIds })
+
+  it('clashes on a shared country for a class rated in both, both country-wide or sharing a region', () => {
+    expect(zonesClash(zone(['IN']), zone(['IN', 'NP']))).toBe(true)
+    expect(zonesClash(zone(['US'], ['OH', 'PA']), zone(['US'], ['oh']))).toBe(true)
+  })
+
+  it('lets a region sit inside a country-wide zone, and keeps apart other countries, regions and classes', () => {
+    expect(zonesClash(zone(['US'], ['OH']), zone(['US'], []))).toBe(false)
+    expect(zonesClash(zone(['US'], ['OH']), zone(['US'], ['PA']))).toBe(false)
+    expect(zonesClash(zone(['IN']), zone(['US']))).toBe(false)
+    expect(zonesClash(zone(['IN']), zone(['IN'], [], ['clothing']))).toBe(false)
   })
 })

@@ -133,3 +133,10 @@ begin
   end loop;
 end
 $$;
+
+-- A supplier reads the store's tax categories to file its products under (ACCESS §7.11): their names, never
+-- Stripe's codes, and no zone or rate.
+grant select (id, store_id, name, is_default, position, deleted_at) on tax_class to app_supplier;
+create policy tax_class_supplier_read on tax_class for select to app_supplier
+using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id'));
+alter policy request_scope on tax_class to app_request, app_supplier;
