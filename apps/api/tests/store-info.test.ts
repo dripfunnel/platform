@@ -105,6 +105,13 @@ describe('Settings › Store info', () => {
     expect(await db.sql`select 1 from activity_log where action = 'store.info_saved' and store_id = ${t.storeA1}`).toHaveLength(2)
   })
 
+  it('starts a new store on its country’s time zone, units and tax display', async () => {
+    const made = async (country: string) => (await db.sql<{ time_zone: string; unit_system: string; tax_inclusive: boolean }[]>`insert into store (partner_id, name, code, country) values (${t.partnerA}, ${`New ${country}`}, ${`new-${country.toLowerCase()}`}, ${country}) returning time_zone, unit_system, tax_inclusive`)[0]
+    expect(await made('IN')).toEqual({ time_zone: 'Asia/Kolkata', unit_system: 'metric', tax_inclusive: true })
+    expect(await made('US')).toEqual({ time_zone: 'America/New_York', unit_system: 'imperial', tax_inclusive: false })
+    expect(await made('DE')).toEqual({ time_zone: 'UTC', unit_system: 'metric', tax_inclusive: true })
+  })
+
   it('refuses what isn’t valid: a tax id not in the country’s format, a made-up time zone, a bad email or prefix', async () => {
     expect((await save({ ...base, taxId: 'NOT-A-GSTIN' })).code).toBe('INVALID_TAX_ID')
     expect((await save({ ...base, timeZone: 'Mars/Olympus' })).code).toBe('INVALID_TIME_ZONE')

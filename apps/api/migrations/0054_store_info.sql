@@ -16,10 +16,27 @@ alter table store
   add column next_order_number bigint not null default 1001 check (next_order_number between 1 and 999999999),
   add column tax_inclusive boolean not null default true;
 
--- A store's first time zone and units follow its country, as the prototype's do.
+-- A store's first time zone, units and tax display follow its country, as the prototype's do: those that exist
+-- now, and each made from here on.
 update store set time_zone = case country when 'IN' then 'Asia/Kolkata' when 'US' then 'America/New_York' else 'UTC' end,
   unit_system = case when country = 'US' then 'imperial' else 'metric' end,
   tax_inclusive = country is distinct from 'US';
+
+create function store_info_defaults() returns trigger
+language plpgsql
+as $$
+begin
+  if new.time_zone = 'UTC' then
+    new.time_zone := case new.country when 'IN' then 'Asia/Kolkata' when 'US' then 'America/New_York' else 'UTC' end;
+  end if;
+  if new.country = 'US' then
+    new.unit_system := 'imperial';
+    new.tax_inclusive := false;
+  end if;
+  return new;
+end
+$$;
+create trigger store_info_defaults before insert on store for each row execute function store_info_defaults();
 
 create table invoice_settings (
   store_id uuid primary key references store (id),
