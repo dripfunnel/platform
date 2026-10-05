@@ -4,9 +4,9 @@ import '@dripfunnel/shared/ui/shell.css'
 import '@dripfunnel/shared/ui/states.css'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { actingStore, rememberActing } from '../../acting'
+import { actingStore } from '../../acting'
 import { shellSample } from '../../api/sample'
-import { loadMe, loadMyStores, signOut, switchStore, type Me, type StoreChoice } from '../../api/shell'
+import { loadMe, loadMyStores, openStore, signOut, type Me, type StoreChoice } from '../../api/shell'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { EnvironmentStrip } from '../shell/EnvironmentStrip'
 import { choiceLabel } from '../shell/StoreSwitcher'
@@ -23,7 +23,8 @@ export const chooserStep = (stores: readonly StoreChoice[]): { kind: 'none' } | 
   return stores.length === 1 ? { kind: 'open', choice: only } : { kind: 'pick' }
 }
 
-
+/** Where an opened store lands: the page that sent the person here, on this host only, else Home. */
+export const chooserDestination = (next: unknown, origin: string): string => safeNext(next, origin, '/home')
 
 // FIRST-RELEASE.md §4 "Choose a store": the portal never picks between several; one goes straight in,
 // none is refused rather than shown an empty portal. The last store is a convenience (ACCESS.md §4).
@@ -42,9 +43,8 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
         return
       }
       try {
-        const confirmed = await switchStore(choice.store.id, choice.seller?.id ?? null)
-        rememberActing({ storeId: confirmed.store.id, supplierId: confirmed.seller?.id ?? null })
-        await navigate({ href: safeNext(next, window.location.origin, '/home') })
+        await openStore(choice)
+        await navigate({ href: chooserDestination(next, window.location.origin) })
       } catch {
         setOpening(null)
         setView({ kind: 'error' })

@@ -1,8 +1,7 @@
 import { Icon, initials } from '@dripfunnel/shared/ui'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
-import { rememberActing } from '../../acting'
-import { switchStore, type StoreChoice } from '../../api/shell'
+import { openStore, type StoreChoice } from '../../api/shell'
 import { fill, messages } from '../../messages'
 import { merchantRoles } from '../../nav'
 
@@ -51,8 +50,7 @@ export const StoreSwitcher = ({ current, stores }: { current: StoreChoice; store
     setOpen(false)
     if (keyOf(choice) === keyOf(current)) return
     try {
-      const confirmed = await switchStore(choice.store.id, choice.seller?.id ?? null)
-      rememberActing({ storeId: confirmed.store.id, supplierId: confirmed.seller?.id ?? null })
+      await openStore(choice)
       setFailed(false)
       await navigate({ to: '/home' })
       await router.invalidate()
