@@ -249,6 +249,10 @@ export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: s
   const [gone] = await tx<{ name: string }[]>`update collection set deleted_at = ${now}, updated_at = ${now} where id = ${id} and store_id = ${storeId} and deleted_at is null returning name`
   if (!gone) return null
   await tx`update collection set parent_id = null, inherit_parent = false, updated_at = ${now} where parent_id = ${id} and store_id = ${storeId}`
+  // Its menu links go too; what sat under one moves to the top level rather than going with it.
+  await tx`update menu_item set parent_id = null where store_id = ${storeId} and parent_id in (select mi.id from menu_item mi where mi.store_id = ${storeId} and mi.collection_id = ${id})`
+  await tx`update menu set revision = revision + 1, updated_at = ${now} where store_id = ${storeId} and id in (select menu_id from menu_item where store_id = ${storeId} and collection_id = ${id})`
+  await tx`delete from menu_item where store_id = ${storeId} and collection_id = ${id}`
   return gone
 }
 

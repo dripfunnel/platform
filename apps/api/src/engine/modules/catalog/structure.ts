@@ -370,7 +370,8 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       await setCollectionRules(tx, storeId, collectionId, clean.rules)
       if (clean.fields.kind === 'manual') await setCollectionProducts(tx, storeId, collectionId, clean.productIds)
       await activity.record(tx, entry(structureAudit.collectionSaved, { type: 'collection', id: collectionId, label: clean.fields.name }))
-      if (clean.fields.kind === 'automatic') await recompute(tx)
+      // Any save, hand-picked too: a child limited to this collection reads its products (inherit_parent).
+      await recompute(tx)
       return { id: collectionId, slug, revision: nextRevision }
     })
 

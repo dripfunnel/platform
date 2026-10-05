@@ -182,6 +182,18 @@ describe('collections', () => {
     expect((await gql('query C($id: ID!) { collection(id: $id) { parentId } }', 'owner', { id: inner.saved?.id })).data?.['collection']).toEqual({ parentId: null })
   })
 
+  it('refreshes a child limited to a hand-picked parent when the parent’s products change', async () => {
+    const a = await product('owner', 'Parent pick A')
+    const b = await product('owner', 'Parent pick B')
+    const parent = await save({ name: 'Hand parent', kind: 'manual', productIds: [a.id, b.id] })
+    const child = await save({ name: 'Picks inside', kind: 'automatic', parentId: parent.saved?.id, inheritParent: true, rules: [{ kind: 'name_contains', text: 'parent pick' }] })
+    await drainRecompute()
+    expect((await members(child.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id].sort())
+    await save({ name: 'Hand parent', kind: 'manual', productIds: [a.id] }, parent.saved?.id, 1)
+    expect(await drainRecompute()).toBeGreaterThan(0)
+    expect((await members(child.saved?.id ?? '')).map((m) => m.id)).toEqual([a.id])
+  })
+
   it('are refused to a supplier and invisible to another store', async () => {
     const { saved } = await save({ name: 'Private', kind: 'manual' })
     expect((await gql('{ collections { nodes { id } } }', 'supplier')).code).toBe('FORBIDDEN')
@@ -203,6 +215,11 @@ describe('the main menu', () => {
     const bCollection = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'bOwner', { input: { name: 'B', kind: 'manual' } })).data?.['saveCollection'] as { id: string }
     expect((await gql('mutation M($items: [MenuItemInput!]!) { saveMenu(revision: 1, items: $items) }', 'owner', { items: [{ label: 'Theirs', kind: 'collection', collectionId: bCollection.id }] })).code).toBe('INVALID_LINK')
     expect((await gql('{ menu { revision } }', 'supplier')).code).toBe('FORBIDDEN')
+    // Deleting a linked collection takes its link out, keeps what sat under it, and moves the revision on.
+    expect((await gql('mutation D($id: ID!) { deleteCollection(id: $id) }', 'owner', { id: picks.id })).data?.['deleteCollection']).toBe(true)
+    const after = (await gql('{ menu { revision items { label kind parentId } } }', 'owner')).data?.['menu'] as { revision: number; items: { label: string; parentId: string | null }[] }
+    expect(after.items.map((i) => [i.label, i.parentId === null]).sort()).toEqual([['Blog', true], ['Returns', true]])
+    expect(after.revision).toBe(2)
     expect((await gql('{ menu { revision } }', 'bOwner')).data?.['menu']).toBeNull()
   })
 })

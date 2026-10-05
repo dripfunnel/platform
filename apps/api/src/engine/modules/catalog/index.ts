@@ -42,6 +42,7 @@ import { cleanProduct, type CatalogRefusal, type CleanProduct, type CleanVersion
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
+export { createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
