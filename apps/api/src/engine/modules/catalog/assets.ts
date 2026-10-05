@@ -35,12 +35,12 @@ export const createAssetService = ({ sql, context, actor, activity, facts, store
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
 
-  const upload = async (bytes: Uint8Array): Promise<UploadResult> => {
+  const upload = async (bytes: Uint8Array<ArrayBuffer>): Promise<UploadResult> => {
     const checked = checkMedia(bytes)
     if (!checked.ok) return checked
     const { type } = checked
     const key = `stores/${storeId}/assets/${crypto.randomUUID()}.${type.ext}`
-    const checksum = hex(await crypto.subtle.digest('SHA-256', bytes.slice()))
+    const checksum = hex(await crypto.subtle.digest('SHA-256', bytes))
     // Written inside the row's transaction, as brand files are: a failed write rolls the row back; a commit
     // failing after it leaves an object no row names (the sweep for those is open on #293).
     const id = await withScope(sql, context, async (tx) => {

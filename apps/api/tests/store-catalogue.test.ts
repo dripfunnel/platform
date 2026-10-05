@@ -364,6 +364,43 @@ describe('photos, video and files', () => {
     expect(await fetchAsset('otherSupplier', added.asset?.id ?? '')).toBe(404)
   })
 
+  it('links a photo only to an image and a video only to a video', async () => {
+    const image = await upload('owner')
+    const video = new Uint8Array(1024)
+    video.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d])
+    const film = await upload('owner', video)
+    expect(film).toMatchObject({ status: 200, asset: { width: null } })
+    expect((await create('owner', simple('Video as photo', { photos: [{ assetId: film.asset?.id }] }))).code).toBe('FILE_REFUSED')
+    expect((await create('owner', simple('Photo as video', { video: { assetId: image.asset?.id } }))).code).toBe('FILE_REFUSED')
+    expect((await create('owner', simple('Right kinds', { photos: [{ assetId: image.asset?.id }], video: { assetId: film.asset?.id } }))).code).toBeUndefined()
+  })
+
+  it('takes a video just under its cap', async () => {
+    const big = new Uint8Array(29 * 1024 * 1024)
+    big.set([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32])
+    const response = await handleAssets(new Request('https://store.example/api/assets', { method: 'POST', body: big, headers: { 'content-length': String(big.byteLength) } }), await contextFor('owner', t.storeA1), r2)
+    expect(response.status).toBe(200)
+  })
+
+  it('refuses an upload while the store is read-only but still shows its files', async () => {
+    const kept = await upload('owner')
+    const [before] = await db.sql<{ status: string }[]>`select status from store where id = ${t.storeA1}`
+    await db.sql`update store set status = 'past_due' where id = ${t.storeA1}`
+    try {
+      expect(await upload('owner')).toMatchObject({ status: 403, code: 'READ_ONLY' })
+      expect(await fetchAsset('owner', kept.asset?.id ?? '')).toBe(200)
+    } finally {
+      await db.sql`update store set status = ${before?.status ?? 'active'} where id = ${t.storeA1}`
+    }
+  })
+
+  it('stops a supplier reading its upload once the merchant’s own product takes it', async () => {
+    const loose = await upload('supplier')
+    expect(await fetchAsset('supplier', loose.asset?.id ?? '')).toBe(200)
+    expect((await create('owner', simple('Merchant takes it', { photos: [{ assetId: loose.asset?.id }] }))).code).toBeUndefined()
+    expect(await fetchAsset('supplier', loose.asset?.id ?? '')).toBe(404)
+  })
+
   it('refuses another store’s file by id as if it weren’t there', async () => {
     const theirs = await upload('bOwner')
     expect((await create('owner', simple('Cross-store photo', { photos: [{ assetId: theirs.asset?.id }] }))).code).toBe('FILE_REFUSED')

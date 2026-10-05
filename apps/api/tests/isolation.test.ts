@@ -457,6 +457,11 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from asset`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, null, ${`stores/${t.storeA1}/assets/00000000-0000-4000-8000-000000000009.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)})`)).rejects.toThrow(/uploads as itself/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${first}, ${t.storeA1}, ${ownFile}, 0)`)).rejects.toThrow(/no such file/)
+    // A photo or video never points across stores, whoever asks.
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${other}, ${t.storeB1}, ${ownFile}, 0)`)).rejects.toThrow(/no such file/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${other}, ${t.storeA1}, ${ownFile}, 0)`)).rejects.toThrow(/no such product/)
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`insert into product_video (product_id, store_id, asset_id) values (${other}, ${t.storeB1}, ${ownFile})`)).rejects.toThrow(/no such file/)
+    expect(await seen(t.storeB1, { kind: 'all' }, 'product_photo')).toBe(0)
     // The plan count is the whole store's, a number only, whoever asks.
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)
