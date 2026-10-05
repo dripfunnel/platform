@@ -142,13 +142,33 @@ export const joinStore = (token: string) => post('join', { token }, z.object({ o
 
 export const confirmEmailChange = (token: string) => post('confirm-email', { token }, ok)
 
-const confirming = new Map<string, ReturnType<typeof confirmEmailChange>>()
+/** A refusal about the request, not the link: nothing was spent, so it may be asked again. */
+export const isPassing = (answer: { ok: boolean; code?: string }): boolean => !answer.ok && (answer.code === 'NOT_CONNECTED' || answer.code === 'RATE_LIMITED')
 
-/** The link is single-use: every render that asks for one token shares the one answer (StrictMode runs effects twice). */
-export const confirmEmailChangeOnce = (token: string): ReturnType<typeof confirmEmailChange> => {
-  const asked = confirming.get(token) ?? confirmEmailChange(token)
-  confirming.set(token, asked)
+const spending = new Map<string, Promise<{ ok: boolean }>>()
+
+// A single-use token is asked for once at a time (StrictMode runs effects twice); a definite answer is
+// kept for the page's life, a failed request isn't, so "Try again" asks the server again.
+const spendOnce = <T extends { ok: boolean }>(key: string, ask: () => Promise<T>): Promise<T> => {
+  const held = spending.get(key)
+  if (held) return held as Promise<T>
+  const asked = ask().then((answer) => {
+    if (isPassing(answer)) spending.delete(key)
+    return answer
+  })
+  spending.set(key, asked)
   return asked
+}
+
+export const confirmEmailChangeOnce = (token: string) => spendOnce(`confirm:${token}`, () => confirmEmailChange(token))
+
+export const joinStoreOnce = (token: string) => spendOnce(`join:${token}`, () => joinStore(token))
+
+/** Where a join's answer leads: the store, setting up two-step sign-in, signing in first, a dead link, or trying again. */
+export const joinOutcome = (answer: Awaited<ReturnType<typeof joinStore>>): 'done' | 'enrol' | 'signIn' | 'bad' | 'retry' => {
+  if (!isRefusal(answer)) return answer.step
+  if (answer.code === 'INVALID_CREDENTIALS') return 'signIn'
+  return answer.code.startsWith('INVITATION_') ? 'bad' : 'retry'
 }
 
 const countrySchema = z.object({ code: z.string(), name: z.string(), currency: z.string() })

@@ -15,6 +15,29 @@ export const passwordHint = (next: string): { text: string; tone: 'muted' | 'goo
   return { text: fill(plural(words.more, missing), { count: formatCount(missing) }), tone: 'muted' }
 }
 
+/** What stops the change before it is sent, in the order the person would fix it; null when it can go. */
+export const passwordProblem = (current: string, next: string, again: string): string | null => {
+  if (!current) return words.currentMissing
+  if (next.length < minLength) return words.weak
+  if (next !== again) return words.mismatch
+  return null
+}
+
+/** The change, refused before sending or by the server, worded; `{ ok: true }` once every other device is signed out. */
+export const submitPassword = async (
+  form: { current: string; next: string; again: string },
+  send: (current: string, next: string) => Promise<void> = changePassword,
+): Promise<{ ok: true } | { ok: false; error: string }> => {
+  const problem = passwordProblem(form.current, form.next, form.again)
+  if (problem) return { ok: false, error: problem }
+  try {
+    await send(form.current, form.next)
+    return { ok: true }
+  } catch (failure) {
+    return { ok: false, error: profileRefusal(failure, messages.auth.notConnected) }
+  }
+}
+
 // "Password": the current one proves it is you; a change signs out every other device (ACCESS.md §4).
 export const PasswordCard = ({ changedAt, onChanged, onToast }: { changedAt: string | null; onChanged: () => void; onToast: (text: string) => void }) => {
   const [open, setOpen] = useState(false)
@@ -38,18 +61,14 @@ export const PasswordCard = ({ changedAt, onChanged, onToast }: { changedAt: str
 
   const save = (event: FormEvent) => {
     event.preventDefault()
-    if (!current) return setError(words.currentMissing)
-    if (next.length < minLength) return setError(words.weak)
-    if (next !== again) return setError(words.mismatch)
     setBusy(true)
-    void changePassword(current, next)
-      .then(() => {
-        close()
-        onToast(words.done)
-        onChanged()
-      })
-      .catch((failure: unknown) => setError(profileRefusal(failure, messages.auth.notConnected)))
-      .finally(() => setBusy(false))
+    void submitPassword({ current, next, again }).then((result) => {
+      setBusy(false)
+      if (!result.ok) return setError(result.error)
+      close()
+      onToast(words.done)
+      onChanged()
+    })
   }
 
   return (

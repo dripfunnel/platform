@@ -65,8 +65,8 @@ describe('the auth routes', () => {
   })
 })
 
-describe('confirmEmailChangeOnce', () => {
-  it('spends a link once however often it is asked, and keeps a refusal as the answer', async () => {
+describe('single-use links', () => {
+  it('spends a link once however often it is asked, and keeps a definite answer', async () => {
     const calls = answering({ ok: true })
     const { confirmEmailChangeOnce } = await import('./auth')
     const [a, b] = await Promise.all([confirmEmailChangeOnce('t1'), confirmEmailChangeOnce('t1')])
@@ -75,7 +75,30 @@ describe('confirmEmailChangeOnce', () => {
     expect(calls).toHaveLength(1)
     answering({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
     expect(await confirmEmailChangeOnce('t2')).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
-    expect(await confirmEmailChangeOnce('t1')).toEqual({ ok: true })
+    expect(await confirmEmailChangeOnce('t2')).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
+  })
+
+  it('asks again after a failed request, which spent nothing', async () => {
+    const { confirmEmailChangeOnce, joinStoreOnce } = await import('./auth')
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('offline')))
+    expect(await confirmEmailChangeOnce('t3')).toEqual({ ok: false, code: 'NOT_CONNECTED' })
+    const calls = answering({ ok: true })
+    expect(await confirmEmailChangeOnce('t3')).toEqual({ ok: true })
+    answering({ ok: false, code: 'RATE_LIMITED' })
+    expect(await joinStoreOnce('j1')).toEqual({ ok: false, code: 'RATE_LIMITED' })
+    answering({ ok: true, step: 'done' })
+    expect(await joinStoreOnce('j1')).toEqual({ ok: true, step: 'done' })
+    expect(calls).toHaveLength(1)
+  })
+
+  it('leads a join to the store, the set-up, sign-in, a dead link, or trying again', async () => {
+    const { joinOutcome } = await import('./auth')
+    expect(joinOutcome({ ok: true, step: 'done' })).toBe('done')
+    expect(joinOutcome({ ok: true, step: 'enrol' })).toBe('enrol')
+    expect(joinOutcome({ ok: false, code: 'INVALID_CREDENTIALS' })).toBe('signIn')
+    expect(joinOutcome({ ok: false, code: 'INVITATION_USED' })).toBe('bad')
+    expect(joinOutcome({ ok: false, code: 'NOT_CONNECTED' })).toBe('retry')
+    expect(joinOutcome({ ok: false, code: 'RATE_LIMITED' })).toBe('retry')
   })
 })
 
