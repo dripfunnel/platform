@@ -2,8 +2,20 @@ import type { ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { minorOf } from '@dripfunnel/shared/format'
 import { useId, useState } from 'react'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { combinationsOf, maxOptions, maxVersions, newVersionCount, syncVersions, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from './draft'
+import type { StockLevel, Warehouse } from '../../api/stock'
+import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from './draft'
 import { Card, type Update } from './EditorCards'
+import { reservedLine, StockHistory, type StockHistoryView } from './StockCard'
+
+/** The versions' stock at the default location, for a physical product (null otherwise). */
+export interface VersionStock {
+  warehouse: Warehouse | null
+  canStock: boolean
+  levels: ReadonlyMap<string, readonly StockLevel[]>
+  history: StockHistoryView
+  onHistory: () => void
+  names: ReadonlyMap<string, string>
+}
 
 const words = messages.editor
 
@@ -109,7 +121,10 @@ const OptionRow = ({ draft, index, update, disabled, ask, onToast }: { draft: Dr
 }
 
 /** The versions table: price, code and whether each shows; "We don't make this" leaves a combination out. */
-const VersionsTable = ({ draft, update, disabled, currency, problems, ask }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask }) => {
+const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; stock: VersionStock | null }) => {
+  const where = stock?.warehouse ?? null
+  const typedAt = (v: DraftVersion) => (where ? (draft.stock[versionKey(v.choices)]?.[where.id] ?? '') : '')
+  const setStockOf = (v: DraftVersion, text: string) => where && update((d) => ({ ...d, stock: { ...d.stock, [versionKey(v.choices)]: { ...d.stock[versionKey(v.choices)], [where.id]: text } } }))
   const [search, setSearch] = useState('')
   const live = draft.versions.filter((v) => !v.removed)
   const q = search.trim().toLowerCase()
@@ -149,6 +164,17 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask }: { d
           </button>
         )}
       </div>
+      {stock && where && (
+        <div className="df-editor-stock-summary">
+          <span>{fill(messages.editor.stock.versionsTotal, { count: formatCount(live.reduce((sum, v) => sum + (Number(typedAt(v)) || 0), 0)) })}</span>
+          {(() => {
+            const all = draft.versions.flatMap((v) => (v.id && !v.removed ? (stock.levels.get(v.id) ?? []) : []))
+            return reservedLine(all, all.reduce((sum, l) => sum + l.onHand, 0))
+          })()}
+          {draft.versions.some((v) => v.id) && <StockHistory history={stock.history} onToggle={stock.onHistory} names={stock.names} />}
+        </div>
+      )}
+      {stock && !where && <p className="df-editor-hint">{messages.editor.stock.noWarehouse}</p>}
       {draft.versions.length > 8 && <input className="df-editor-versions-search" type="search" aria-label={words.versions.search} placeholder={words.versions.search} value={search} onChange={(event) => setSearch(event.target.value)} />}
       <div className="df-table-scroll">
         <table className="df-table df-editor-versions-table">
@@ -156,6 +182,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask }: { d
             <tr>
               <th>{words.versions.version}</th>
               <th>{words.versions.price}</th>
+              {where && <th>{messages.editor.stock.title}</th>}
               <th>{words.versions.code}</th>
               <th>{words.versions.onStore}</th>
             </tr>
@@ -170,6 +197,11 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask }: { d
                   <td>
                     <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.priceOf, { name })} value={v.price} readOnly={disabled || v.removed} aria-invalid={bad} onChange={(event) => set(i, { price: event.target.value })} />
                   </td>
+                  {where && (
+                    <td>
+                      <input className="df-editor-cell df-editor-cell--narrow" inputMode="numeric" aria-label={fill(messages.editor.stock.stockOf, { name })} value={typedAt(v)} placeholder="0" readOnly={!stock?.canStock || v.removed} aria-invalid={problems.includes('stock') && quantityOf(typedAt(v)) === 'invalid'} onChange={(event) => setStockOf(v, event.target.value)} />
+                    </td>
+                  )}
                   <td>
                     <input className="df-editor-cell" aria-label={fill(words.versions.codeOf, { name })} value={v.sku} maxLength={64} readOnly={disabled || v.removed} onChange={(event) => set(i, { sku: event.target.value })} />
                   </td>
@@ -190,7 +222,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask }: { d
 }
 
 /** "Does it come in different sizes, colours or other choices?": up to three kinds, then their versions. */
-export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, onToast }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; onToast: (text: string) => void }) => {
+export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, onToast, stock }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; onToast: (text: string) => void; stock: VersionStock | null }) => {
   const addOption = (name: string) => update((d) => ({ ...d, options: [...d.options, { id: null, name: name.trim().slice(0, 60), values: [] }] }))
   if (draft.options.length === 0)
     return (
@@ -261,7 +293,7 @@ export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, 
           </div>
         )
       )}
-      {made && <VersionsTable draft={draft} update={update} disabled={disabled} currency={currency} problems={problems} ask={ask} />}
+      {made && <VersionsTable draft={draft} update={update} disabled={disabled} currency={currency} problems={problems} ask={ask} stock={stock} />}
     </Card>
   )
 }

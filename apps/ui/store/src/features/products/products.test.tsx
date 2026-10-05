@@ -27,6 +27,11 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...api }))
 
+const editorApi = vi.hoisted(() => ({ loadProduct: vi.fn(), loadPricingCurrency: vi.fn(), saveProduct: vi.fn() }))
+const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), setStock: vi.fn() }))
+vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...editorApi }))
+vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
+
 const { ProductList } = await import('./ProductList')
 
 const row = (r: Partial<ProductRow> & Pick<ProductRow, 'id' | 'name'>): ProductRow => ({
@@ -81,13 +86,13 @@ afterEach(() => {
 
 describe('who may do what on Products', () => {
   it('lets the owner edit, select, approve and filter by supplier; staff only look; a past-due store only looks', () => {
-    expect(accessOf(owner, false)).toEqual({ supplier: false, canEdit: true, canSelect: true, canApprove: true, seeSuppliers: true, viewOnly: false })
+    expect(accessOf(owner, false)).toEqual({ supplier: false, canEdit: true, canSelect: true, canApprove: true, seeSuppliers: true, viewOnly: false, quickPrice: true, quickStock: false })
     expect(accessOf(staff, false)).toMatchObject({ canEdit: false, canSelect: false, canApprove: false, viewOnly: true })
     expect(accessOf(owner, true)).toMatchObject({ canEdit: false, canSelect: false, canApprove: false, viewOnly: false })
   })
 
   it('lets a supplier propose its own products but never select, approve or see other suppliers', () => {
-    expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false })
+    expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false, quickPrice: false, quickStock: false })
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'stock.write'] }, false).canEdit).toBe(false)
     // A catalogue tier writes its products outright; a Stock-only one proposes them.
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'catalog.write'] }, false)).toMatchObject({ canEdit: true, canSelect: false })
@@ -240,5 +245,39 @@ describe('the Products list', () => {
     api.loadProducts.mockRejectedValue(new Error('offline'))
     await show(owner)
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
+  })
+
+  it('quick-edits a product’s price and stock in place, as the editor saves them', async () => {
+    const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
+    editorApi.loadPricingCurrency.mockResolvedValue('INR')
+    editorApi.loadProduct.mockResolvedValue({
+      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', photos: [], options: [], readiness: [],
+      versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true }],
+    })
+    editorApi.saveProduct.mockResolvedValue({ id: 'p1', revision: 6, approval: null })
+    stockApi.loadWarehouses.mockResolvedValue([{ id: 'w1', name: 'Jaipur studio', isDefault: true }])
+    stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 4, reserved: 0 }]]]))
+    stockApi.setStock.mockResolvedValue(undefined)
+    await show(editable)
+    fireEvent.click(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' }))
+    await settle()
+    const panel = within(screen.getByRole('region', { name: 'Quick edit · Mara Linen Shirt' }))
+    expect(panel.getByText('Price in INR · stock in Jaipur studio')).toBeTruthy()
+    fireEvent.change(panel.getByLabelText('Price of This product'), { target: { value: '1399' } })
+    fireEvent.change(panel.getByLabelText('Stock of This product'), { target: { value: '9' } })
+    fireEvent.click(panel.getByRole('button', { name: 'Save 2 changes' }))
+    await settle()
+    expect(editorApi.saveProduct).toHaveBeenCalledWith('p1', 5, expect.objectContaining({ versions: [expect.objectContaining({ id: 'ver-1', prices: [{ currency: 'INR', amount: '139900' }] })] }), false)
+    expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 9 }])
+    expect(screen.getByText('Saved 2 changes to Mara Linen Shirt')).toBeTruthy()
+  })
+
+  it('offers no quick edit to staff, and none on a product waiting for review', async () => {
+    await show(staff)
+    expect(screen.queryByRole('button', { name: /^Quick edit/ })).toBeNull()
+    cleanup()
+    await show(owner)
+    expect(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
   })
 })

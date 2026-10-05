@@ -6,6 +6,8 @@ export interface EditorAccess {
   /** Every field: catalog.write, or a Stock-only supplier's new product, which it proposes (#337). */
   canEdit: boolean
   proposes: boolean
+  /** Typed quantities and reasoned changes (stock.write): every tier, even Stock-only on a product it can't edit. */
+  canStock: boolean
   /** The store's own settings on a product: whether it shows, its tax category, deleting it. */
   storeFields: boolean
   viewOnly: boolean
@@ -22,6 +24,7 @@ export const editorAccessOf = (acting: { permissions: readonly string[]; seller:
     side: supplier ? 'supplier' : 'merchant',
     canEdit,
     proposes,
+    canStock: !readOnly && has('stock.write'),
     storeFields: canEdit && !supplier,
     viewOnly: !readOnly && !canEdit,
     readOnlyStore: readOnly,

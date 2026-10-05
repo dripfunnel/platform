@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { ProductRow } from '../../api/products'
 import { fill, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
+import { QuickEdit } from './QuickEdit'
 import { priceText, readyOf, reviewChecks, statusOf, stockOf, subOf, type ProductAccess, type RowStatus } from './productView'
 
 const words = messages.products
@@ -34,6 +35,8 @@ export interface ProductRowsProps {
   onReview: (id: string | null) => void
   onApprove: (row: ProductRow) => void
   onSendBack: (row: ProductRow) => void
+  /** The row whose quick edit is open, and the toggle; null when quick edit isn't offered. */
+  quick: { open: string | null; toggle: (id: string | null) => void; done: (text: string) => void } | null
   /** The pager, drawn inside the table's card as CatList does. */
   footer: ReactNode
 }
@@ -68,7 +71,7 @@ const Review = ({ row, busy, onApprove, onSendBack }: { row: ProductRow; busy: b
 )
 
 /** CatList's desktop table: select, product, status, price, stock, supplier, readiness and the review toggle. */
-export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle, onTogglePage, onReview, onApprove, onSendBack, footer }: ProductRowsProps) => {
+export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle, onTogglePage, onReview, onApprove, onSendBack, quick, footer }: ProductRowsProps) => {
   const pageSelected = rows.length > 0 && rows.every((r) => selected.has(r.id))
   const columns = 6 + (access.canSelect ? 1 : 0) + (access.seeSuppliers ? 1 : 0)
   return (
@@ -97,6 +100,7 @@ export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle
               const ready = readyOf(row)
               const review = canReview(access, row)
               const open = reviewing === row.id && review
+            const quicking = !review && quick?.open === row.id
               const line = (
                 <tr key={row.id} className={selected.has(row.id) ? 'df-products-row--selected' : undefined}>
                   {access.canSelect && (
@@ -126,9 +130,23 @@ export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle
                         {open ? words.row.close : words.row.review}
                       </button>
                     )}
+                    {!review && quick && (
+                      <button type="button" className="df-products-quick-toggle" aria-expanded={quicking} aria-label={`${quicking ? words.quick.close : words.quick.open} ${row.name}`} onClick={() => quick.toggle(quicking ? null : row.id)}>
+                        {quicking ? words.quick.close : words.quick.open}
+                      </button>
+                    )}
                   </td>
                 </tr>
               )
+              if (quicking && quick)
+                return [
+                  line,
+                  <tr key={`${row.id}-quick`} className="df-products-review-row">
+                    <td colSpan={columns}>
+                      <QuickEdit productId={row.id} side={access.supplier ? 'supplier' : 'merchant'} canPrice={access.quickPrice} canStock={access.quickStock} onDone={quick.done} onCancel={() => quick.toggle(null)} />
+                    </td>
+                  </tr>,
+                ]
               if (!open) return [line]
               return [
                 line,

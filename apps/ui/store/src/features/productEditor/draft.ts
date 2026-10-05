@@ -1,5 +1,6 @@
 import { minorOf, moneyText } from '@dripfunnel/shared/format'
 import type { EditorProduct, ProductInput } from '../../api/productEditor'
+import type { StockLevel } from '../../api/stock'
 
 // The editor's draft (CatEditor): text as typed, so a half-typed price is kept until it is saved, and the
 // product's versions as combinations of its choices. The API checks everything again on save.
@@ -61,9 +62,14 @@ export interface Draft {
   box: string
   hsCode: string
   taxClassId: string | null
+  /** Stock as typed, by version (versionKey) and then location id; saved with setStock after the product. */
+  stock: Record<string, Record<string, string>>
 }
 
 const keyOf = (choices: readonly string[]) => choices.map((c) => c.toLowerCase()).join('\u0000')
+
+/** A version's key in `stock`: its choices, whatever their case, so it holds across "Update versions". */
+export const versionKey = keyOf
 
 const blankVersion = (choices: string[], from?: DraftVersion): DraftVersion => ({
   id: null,
@@ -98,6 +104,7 @@ export const blankDraft = (): Draft => ({
   box: '',
   hsCode: '',
   taxClassId: null,
+  stock: {},
 })
 
 const isKind = (value: string): value is ProductKind => (productKinds as readonly string[]).includes(value)
@@ -125,7 +132,7 @@ const boxText = (v: { lengthMm: number | null; widthMm: number | null; heightMm:
 
 const textOf = (amount: string | null | undefined, currency: string) => (amount ? moneyText({ amount: Number(amount), currency }) : '')
 
-export const draftOf = (product: EditorProduct, currency: string): Draft => {
+export const draftOf = (product: EditorProduct, currency: string, levels: ReadonlyMap<string, readonly StockLevel[]> = new Map()): Draft => {
   const versions = product.versions.map((v): DraftVersion => {
     const own = v.prices.find((p) => p.currency === currency)
     return {
@@ -162,8 +169,30 @@ export const draftOf = (product: EditorProduct, currency: string): Draft => {
     box: boxText(first),
     hsCode: first?.hsCode ?? '',
     taxClassId: first?.taxClassId ?? null,
+    stock: Object.fromEntries(product.versions.map((v) => [keyOf(v.choices), Object.fromEntries((levels.get(v.id) ?? []).map((l) => [l.warehouseId, String(l.onHand)]))])),
   }
 }
+
+/** Whole units, 0 to a million, as typed; empty is "not counted here". */
+export const quantityOf = (text: string): number | null | 'invalid' => {
+  const trimmed = text.trim()
+  if (trimmed === '') return null
+  return /^\d{1,7}$/.test(trimmed) && Number(trimmed) <= 1_000_000 ? Number(trimmed) : 'invalid'
+}
+
+/** The typed quantities that changed since the last save, for versions that now have an id. */
+export const stockChangesOf = (draft: Draft, saved: Draft, idOf: (key: string) => string | undefined): { versionId: string; warehouseId: string; quantity: number }[] =>
+  draft.versions
+    .filter((v) => !v.removed)
+    .flatMap((v) => {
+      const key = keyOf(v.choices)
+      const versionId = idOf(key)
+      if (!versionId) return []
+      return Object.entries(draft.stock[key] ?? {}).flatMap(([warehouseId, text]) => {
+        const quantity = quantityOf(text)
+        return typeof quantity === 'number' && text !== saved.stock[key]?.[warehouseId] ? [{ versionId, warehouseId, quantity }] : []
+      })
+    })
 
 /** Every combination of the options' values, in their order: what "Create versions" makes. */
 export const combinationsOf = (options: readonly DraftOption[]): string[][] =>
@@ -187,7 +216,7 @@ export const newVersionCount = (draft: Draft): number => {
   return combinationsOf(draft.options).filter((c) => !existing.has(keyOf(c))).length
 }
 
-export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box'
+export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'stock'
 
 /** What stops a save, in the order the form shows it; the API checks it all again. */
 export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
@@ -206,6 +235,7 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (combinationsOf(draft.options).length > maxVersions) problems.push('tooMany')
   if (gramsOf(draft.weight) === 'invalid') problems.push('weight')
   if (boxOf(draft.box) === 'invalid') problems.push('box')
+  if (live.some((v) => Object.values(draft.stock[keyOf(v.choices)] ?? {}).some((t) => quantityOf(t) === 'invalid'))) problems.push('stock')
   return problems
 }
 

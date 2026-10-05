@@ -21,15 +21,17 @@ const api = vi.hoisted(() => ({
   uploadPhoto: vi.fn(),
 }))
 const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn() }))
+const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
 
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...listApi }))
+vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
 
 const { ProductEditor } = await import('./ProductEditor')
 
-const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['catalog.read', 'catalog.write', 'approve', 'tax.configure'] }
-const staff: Acting = { ...owner, role: 'staff', permissions: ['catalog.read'] }
-const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-catalogue', seller: { id: 'v1', name: 'Northwind Textiles' }, permissions: ['catalog.read', 'catalog.write'] }
+const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['catalog.read', 'catalog.write', 'stock.read', 'stock.write', 'approve', 'tax.configure'] }
+const staff: Acting = { ...owner, role: 'staff', permissions: ['catalog.read', 'stock.read'] }
+const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-catalogue', seller: { id: 'v1', name: 'Northwind Textiles' }, permissions: ['catalog.read', 'catalog.write', 'stock.write'] }
 const stockOnly: Acting = { ...supplier, tier: 'vendor-stock', permissions: ['catalog.read', 'stock.write', 'catalog.propose'] }
 
 const cushion = (p: Partial<EditorProduct> = {}): EditorProduct => ({
@@ -53,6 +55,8 @@ const cushion = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   ...p,
 })
 
+const home = { id: 'w1', name: 'Jaipur studio', isDefault: true }
+
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
 const show = async (acting: Acting, path = '/products/p1', readOnly = false) => {
@@ -75,6 +79,9 @@ beforeEach(() => {
   api.loadPricingCurrency.mockResolvedValue('INR')
   api.loadTaxSetup.mockResolvedValue({ pricesIncludeTax: true, classes: [{ id: 'tc-18', name: 'GST 18%', isDefault: true }] })
   api.loadApprovalRequired.mockResolvedValue(true)
+  stockApi.loadWarehouses.mockResolvedValue([home])
+  stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 12, reserved: 2 }]]]))
+  stockApi.setStock.mockResolvedValue(undefined)
   vi.stubGlobal('confirm', () => true)
 })
 
@@ -220,6 +227,7 @@ describe('the product editor', () => {
     expect(screen.getByText(words.banner.stockOnly)).toBeTruthy()
     expect(field(words.name.label).readOnly).toBe(true)
     expect(screen.queryByRole('button', { name: words.save })).toBeNull()
+    expect(screen.getByRole('button', { name: words.stock.saveStock })).toBeTruthy()
   })
 
   it('shows staff and a read-only store the product without a way to change it', async () => {
@@ -240,5 +248,65 @@ describe('the product editor', () => {
     api.loadProduct.mockRejectedValue(new Error('offline'))
     await show(owner)
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
+  })
+
+  it('saves typed stock after the product, by the version’s id, and says what is reserved', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    expect(screen.getByText('2 reserved for orders · sold, not shipped yet. You can sell 10 more.')).toBeTruthy()
+    const count = field('Stock at Jaipur studio')
+    expect(count.value).toBe('12')
+    fireEvent.click(screen.getByRole('button', { name: words.stock.more }))
+    expect(count.value).toBe('13')
+    fireEvent.change(count, { target: { value: 'many' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    expect(screen.getByText(words.stock.invalid)).toBeTruthy()
+    fireEvent.change(count, { target: { value: '30' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 30 }])
+  })
+
+  it('keeps the product saved and the counts typed when only the stock fails', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    stockApi.setStock.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '30' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.stock.failed)).toBeTruthy()
+    expect(field('Stock at Jaipur studio').value).toBe('30')
+  })
+
+  it('changes stock with a reason at once, and shows it in the history', async () => {
+    stockApi.adjustStock.mockResolvedValue(32)
+    stockApi.loadStockHistory.mockResolvedValue({ rows: [{ id: 'm1', versionId: 'ver-1', delta: 20, reason: 'received', resultingQuantity: 32, warehouseName: 'Jaipur studio', actorName: 'Farhan', actorKind: 'person', occurredAt: '2026-10-05T10:00:00Z' }], more: false })
+    await show(owner)
+    stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 32, reserved: 2 }]]]))
+    fireEvent.click(screen.getByRole('button', { name: words.stock.adjust }))
+    const dialog = within(document.querySelector('dialog') as HTMLElement)
+    fireEvent.change(dialog.getByLabelText(words.stock.adjustCount), { target: { value: '+20' } })
+    fireEvent.click(dialog.getByRole('button', { name: words.apply }))
+    await settle()
+    expect(stockApi.adjustStock).toHaveBeenCalledWith('ver-1', 'w1', 20, 'received')
+    expect(field('Stock at Jaipur studio').value).toBe('32')
+    // Stored already, so not an unsaved change.
+    expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.stock.history }))
+    await settle()
+    expect(screen.getByText(words.stock.reasons.received)).toBeTruthy()
+    expect(screen.getByText('Jaipur studio · by Farhan · now 32')).toBeTruthy()
+  })
+
+  it('lets a Stock-only supplier save the counts of a product it can’t otherwise change', async () => {
+    await show({ ...stockOnly, permissions: [...stockOnly.permissions] })
+    expect(field(words.name.label).readOnly).toBe(true)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '5' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.stock.saveStock })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 5 }])
   })
 })

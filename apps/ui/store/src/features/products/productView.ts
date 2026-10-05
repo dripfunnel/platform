@@ -87,6 +87,9 @@ export interface ProductAccess {
   canApprove: boolean
   seeSuppliers: boolean
   viewOnly: boolean
+  /** Quick edit's two halves: prices (catalog.write) and the default location's counts (stock.write). */
+  quickPrice: boolean
+  quickStock: boolean
 }
 
 /** What the acting seat may do here (ACCESS.md §5); a read-only store (past due) does nothing but look. */
@@ -101,5 +104,7 @@ export const accessOf = (acting: { permissions: readonly string[]; seller: unkno
     canApprove: !readOnly && !supplier && has('approve'),
     seeSuppliers: !supplier && has('manage-vendors'),
     viewOnly: !supplier && !has('catalog.write'),
+    quickPrice: !readOnly && has('catalog.write'),
+    quickStock: !readOnly && has('stock.write'),
   }
 }

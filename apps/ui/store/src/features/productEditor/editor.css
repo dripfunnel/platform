@@ -765,6 +765,121 @@
   color: var(--df-color-danger);
 }
 
+.df-editor-stock-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--df-space-2);
+  font-size: 14px;
+}
+
+.df-editor-stock-row label {
+  font-weight: 600;
+}
+
+.df-editor-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-editor-stepper input {
+  width: 96px;
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  font: inherit;
+  text-align: center;
+}
+
+.df-editor-stepper input[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-editor-stepper button {
+  width: var(--df-control-height);
+  height: var(--df-control-height);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.df-editor-stock-actions,
+.df-editor-stock-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3);
+  font-size: 13px;
+}
+
+.df-editor-stock-summary {
+  justify-content: space-between;
+  color: var(--df-color-muted);
+}
+
+.df-editor-cell--narrow {
+  max-width: 88px;
+}
+
+.df-editor-history {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+  padding: 10px 12px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+
+.df-editor-history ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-editor-history li {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: var(--df-space-3);
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 13px;
+}
+
+.df-editor-history li > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+}
+
+.df-editor-history li > span:nth-child(2) > span,
+.df-editor-history time {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-editor-delta {
+  font-family: var(--df-font-mono);
+  font-weight: 700;
+}
+
+.df-editor-delta--up {
+  color: var(--df-color-success);
+}
+
+.df-editor-delta--down {
+  color: var(--df-color-danger);
+}
+
 @media (max-width: 1024px) {
   .df-editor-layout {
     grid-template-columns: minmax(0, 1fr);

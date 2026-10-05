@@ -1,4 +1,5 @@
 import type { EditorProduct, TaxSetup } from '../../api/productEditor'
+import type { StockLevel, Warehouse } from '../../api/stock'
 
 // The editor's states under ?state= (ui/README.md §6): loading, error, notFound, new, product (with choices),
 // simple (no choices), theirs (a supplier's product, as the merchant sees it), supplier, stockOnly, sentBack,
@@ -14,6 +15,8 @@ export interface EditorSample {
   seat: { permissions: string[]; seller: { id: string; name: string } | null }
   readOnly: boolean
   approvalRequired: boolean
+  warehouses: Warehouse[]
+  levels: Map<string, StockLevel[]>
 }
 
 const inr = (amount: string, compareAtAmount: string | null = null) => ({ currency: 'INR', amount, compareAtAmount })
@@ -35,7 +38,7 @@ const version = (id: string, choices: string[], amount: string, visible = true) 
   trackStock: true,
 })
 
-const owner = { permissions: ['catalog.read', 'catalog.write', 'approve', 'manage-vendors', 'tax.configure'], seller: null }
+const owner = { permissions: ['catalog.read', 'catalog.write', 'stock.read', 'stock.write', 'approve', 'manage-vendors', 'tax.configure'], seller: null }
 const northwind = { id: 'seller-northwind', name: 'Northwind Textiles' }
 const tax: TaxSetup = {
   pricesIncludeTax: true,
@@ -83,9 +86,24 @@ const shirt: EditorProduct | null =
       }
     : null
 
+const warehouses: Warehouse[] = [
+  { id: 'w-jaipur', name: 'Jaipur studio', isDefault: true },
+  { id: 'w-delhi', name: 'Delhi godown', isDefault: false },
+]
+const level = (onHand: number, reserved = 0, w: Warehouse = warehouses[0] ?? { id: 'w', name: 'w', isDefault: true }): StockLevel => ({ warehouseId: w.id, warehouseName: w.name, isDefault: w.isDefault, onHand, reserved })
+const levels = new Map<string, StockLevel[]>([
+  ['ver-1', [level(12, 2)]],
+  ['ver-2', [level(4)]],
+  ['ver-3', [level(20)]],
+  ['ver-4', [level(0)]],
+  ['ver-5', [level(7)]],
+  ['ver-6', [level(3)]],
+  ['ver-c', [level(18, 3), level(6, 0, warehouses[1])]],
+])
+
 export const editorSample = (state: EditorState | null): EditorSample | null => {
   if (!shirt || !state || state === 'loading' || state === 'error') return null
-  const base: EditorSample = { product: shirt, currency: 'INR', tax, seat: owner, readOnly: false, approvalRequired: true }
+  const base: EditorSample = { product: shirt, currency: 'INR', tax, seat: owner, readOnly: false, approvalRequired: true, warehouses, levels }
   const simple: EditorProduct = { ...shirt, id: 'p-cushion', name: 'Block-print Cushion Cover', options: [], versions: [{ ...version('ver-c', [], '129900'), prices: [inr('129900', '159900')] }] }
   switch (state) {
     case 'notFound':
@@ -97,13 +115,13 @@ export const editorSample = (state: EditorState | null): EditorSample | null => 
     case 'theirs':
       return { ...base, product: { ...shirt, supplier: northwind } }
     case 'supplier':
-      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'catalog.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
+      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
     case 'stockOnly':
       return { ...base, tax: null, seat: { permissions: ['catalog.read', 'stock.write', 'catalog.propose'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
     case 'sentBack':
-      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'catalog.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null, approval: 'sent_back', visible: false, sentBackReason: 'The main photo is blurry — please upload a sharper one.' } }
+      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null, approval: 'sent_back', visible: false, sentBackReason: 'The main photo is blurry — please upload a sharper one.' } }
     case 'staff':
-      return { ...base, seat: { permissions: ['catalog.read'], seller: null } }
+      return { ...base, seat: { permissions: ['catalog.read', 'stock.read'], seller: null } }
     case 'readOnly':
       return { ...base, readOnly: true }
     default:

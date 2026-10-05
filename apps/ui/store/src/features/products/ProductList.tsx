@@ -83,6 +83,7 @@ export const ProductList = () => {
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [reviewing, setReviewing] = useState<string | null>(null)
+  const [quickId, setQuickId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog | null>(null)
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -342,9 +343,22 @@ export const ProductList = () => {
           ) : (
             <>
               {phone ? (
-                <ProductCards rows={rows} access={access} selected={selected} reviewing={reviewing} busy={busy} onToggle={toggle} onTogglePage={togglePage} onReview={setReviewing} onApprove={(row) => approve([row])} onSendBack={(row) => setDialog({ kind: 'sendBack', row })} footer={pager} />
+                <ProductCards rows={rows} access={access} selected={selected} reviewing={reviewing} busy={busy} onToggle={toggle} onTogglePage={togglePage} onReview={setReviewing} onApprove={(row) => approve([row])} onSendBack={(row) => setDialog({ kind: 'sendBack', row })} quick={null} footer={pager} />
               ) : (
-                <ProductTable rows={rows} access={access} selected={selected} reviewing={reviewing} busy={busy} onToggle={toggle} onTogglePage={togglePage} onReview={setReviewing} onApprove={(row) => approve([row])} onSendBack={(row) => setDialog({ kind: 'sendBack', row })} footer={pager} />
+                <ProductTable
+                  rows={rows}
+                  access={access}
+                  selected={selected}
+                  reviewing={reviewing}
+                  busy={busy}
+                  onToggle={toggle}
+                  onTogglePage={togglePage}
+                  onReview={setReviewing}
+                  onApprove={(row) => approve([row])}
+                  onSendBack={(row) => setDialog({ kind: 'sendBack', row })}
+                  quick={(access.quickPrice || access.quickStock) && !sample ? { open: quickId, toggle: setQuickId, done: (text) => { setQuickId(null); setToast(text); load() } } : null}
+                  footer={pager}
+                />
               )}
 
             </>

@@ -6,20 +6,22 @@ import { getRouteApi, Link, useBlocker, useNavigate, useParams } from '@tanstack
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadApprovalRequired, loadPricingCurrency, loadProduct, loadTaxSetup, saveProduct, uploadPhoto, type EditorProduct, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts } from '../../api/products'
+import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
 import { fill, messages, plural } from '../../messages'
 import { editorAccessOf } from './access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
-import { blankDraft, draftOf, inputOf, isDirty, problemsOf, type Draft, type DraftProblem } from './draft'
+import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem } from './draft'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
+import { StockCard, type StockHistoryView } from './StockCard'
 import { editorSample, editorStates } from './editorStates'
 import './editor.css'
 
 const words = messages.editor
 const shellRoute = getRouteApi('/_app')
 
-type Loaded = { product: EditorProduct | null; currency: string; tax: TaxSetup | null; approvalRequired: boolean }
+type Loaded = { product: EditorProduct | null; currency: string; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]> }
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'notFound' } | ({ kind: 'ready' } & Loaded)
 
 const problemWords: Record<DraftProblem, string> = {
@@ -32,7 +34,10 @@ const problemWords: Record<DraftProblem, string> = {
   tooMany: words.refused.TOO_MANY_VERSIONS,
   weight: words.sections.weightInvalid,
   box: words.sections.boxInvalid,
+  stock: words.stock.invalid,
 }
+
+const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
 
 const refusalOf = (error: unknown): string => {
   if (!isApiError(error)) return words.refused.other
@@ -61,32 +66,36 @@ export const ProductEditor = () => {
   const [pending, setPending] = useState<PendingPhoto[]>([])
   const [ask, setAsk] = useState<Parameters<Ask>[0] | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [history, setHistory] = useState<StockHistoryView>(closedHistory)
   const files = useRef(new Map<string, File>())
   const leaving = useRef(false)
 
   const show = useCallback((loaded: Loaded) => {
-    const next = loaded.product ? draftOf(loaded.product, loaded.currency) : blankDraft()
+    const next = loaded.product ? draftOf(loaded.product, loaded.currency, loaded.levels) : blankDraft()
     setDraft(next)
     setSaved(next)
+    setHistory(closedHistory)
     setView({ kind: 'ready', ...loaded })
   }, [])
 
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, tax: sample.tax, approvalRequired: sample.approvalRequired })
+    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: forced === 'new' ? new Map() : sample.levels })
     const supplierSide = shell.acting.seller !== null
     void Promise.all([
       isNew ? Promise.resolve(null) : loadProduct(productId),
       loadPricingCurrency(),
       supplierSide ? Promise.resolve(null) : loadTaxSetup().catch(() => null),
       supplierSide ? loadApprovalRequired().catch(() => true) : Promise.resolve(false),
+      loadWarehouses(),
+      isNew ? Promise.resolve(new Map<string, StockLevel[]>()) : loadProductStock(productId),
     ]).then(
-      ([product, currency, tax, approvalRequired]) => {
+      ([product, currency, tax, approvalRequired, warehouses, levels]) => {
         if (!isNew && !product) return setView({ kind: 'notFound' })
         const pricing = product?.pricingCurrency ?? currency
         if (!pricing) return setView({ kind: 'error' })
-        show({ product, currency: pricing, tax, approvalRequired })
+        show({ product, currency: pricing, tax, approvalRequired, warehouses, levels })
       },
       () => setView({ kind: 'error' }),
     )
@@ -124,7 +133,9 @@ export const ProductEditor = () => {
   const made = draft.options.length > 0 && draft.versions.some((v) => v.choices.length === draft.options.length)
   const status = isNew ? 'new' : product?.approval === 'pending' ? 'pending' : product?.approval === 'sent_back' ? 'sent_back' : draft.visible ? 'visible' : 'hidden'
   const waitsForApproval = access.side === 'supplier' && (access.proposes || view.approvalRequired)
-  const saveLabel = saving ? words.saving : waitsForApproval ? words.submit : isNew ? words.saveNew : words.save
+  const saveLabel = saving ? words.saving : !access.canEdit ? words.stock.saveStock : waitsForApproval ? words.submit : isNew ? words.saveNew : words.save
+  const physical = draft.kind === 'physical'
+  const home = view.warehouses.find((w) => w.isDefault) ?? view.warehouses[0] ?? null
 
   const upload = (id: string, file: File) => {
     setPending((list) => list.map((p) => (p.id === id ? { ...p, state: 'uploading', message: null } : p)))
@@ -142,29 +153,101 @@ export const ProductEditor = () => {
     for (const a of added) upload(a.id, a.file)
   }
 
+  const idsOf = (p: EditorProduct | null) => new Map((p?.versions ?? []).map((v) => [versionKey(v.choices), v.id]))
+  const { warehouses, levels } = view
+
+  /** Typed quantities after the product, once every version has its id; then what is stored, read back. */
+  const saveStock = async (stored: EditorProduct, before: Draft) => {
+    const ids = idsOf(stored)
+    await setStock(stockChangesOf(draft, before, (key) => ids.get(key)))
+    return stored.productType === 'physical' ? loadProductStock(stored.id) : new Map<string, StockLevel[]>()
+  }
+
   const save = async () => {
-    if (problems.length > 0 || pending.some((p) => p.state === 'uploading')) {
+    // Stock only (a Stock-only supplier's product it can't otherwise edit): only the counts need to be right.
+    const blocking = access.canEdit ? problems : problems.filter((p) => p === 'stock')
+    if (blocking.length > 0 || pending.some((p) => p.state === 'uploading')) {
       setShowProblems(true)
       return
     }
     setSaving(true)
     setFailure(null)
+    let stored: EditorProduct | null = product
     try {
-      const done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side), access.proposes)
+      if (access.canEdit) {
+        const done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side), access.proposes)
+        setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
+        // Read back what was stored: new versions' ids, the readiness the save changed.
+        stored = await loadProduct(done.id)
+        if (isNew) {
+          leaving.current = true
+          void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
+        }
+      } else setToast(words.saved)
       setShowProblems(false)
-      setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
-      // Read back what was stored: new versions' ids, the readiness the save changed.
-      const fresh = await loadProduct(done.id)
-      if (fresh) show({ product: fresh, currency, tax, approvalRequired: view.approvalRequired })
-      if (isNew) {
-        leaving.current = true
-        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
+      if (!stored) return
+      try {
+        show({ product: stored, currency, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved) })
+      } catch (error) {
+        // The product is saved; its counts are still typed on the page, to save again.
+        const kept = draft
+        show({ product: stored, currency, tax, approvalRequired: view.approvalRequired, warehouses, levels })
+        setDraft((d) => ({ ...d, stock: kept.stock }))
+        setFailure({ text: isApiError(error) && error.code !== 'NOT_CONNECTED' ? refusalOf(error) : words.stock.failed, stale: false })
       }
     } catch (error) {
       setFailure({ text: refusalOf(error), stale: isApiError(error, 'STALE_REVISION') })
     } finally {
       setSaving(false)
     }
+  }
+
+  const names = new Map((product?.versions ?? []).map((v) => [v.id, v.choices.join(' / ')]))
+
+  const toggleHistory = () => {
+    if (!product) return
+    if (history.open) return setHistory((h) => ({ ...h, open: false }))
+    setHistory((h) => ({ ...h, open: true, failed: false }))
+    if (history.rows === null)
+      void loadStockHistory(product.id).then(
+        ({ rows, more }) => setHistory((h) => ({ ...h, rows, more })),
+        () => setHistory((h) => ({ ...h, failed: true })),
+      )
+  }
+
+  /** "Change with a reason" (G4): its own write, applied and logged at once, then read back into the form. */
+  const adjust = (versionId: string, places: readonly Warehouse[]) => {
+    const home = places.find((w) => w.isDefault) ?? places[0]
+    if (!product || !home) return
+    const reasonChoice = { key: 'reason', label: words.stock.adjustReason, options: adjustReasons.map((r) => ({ value: r, label: words.stock.reasons[r] })), initial: 'received', error: () => null }
+    const whereChoice = { key: 'where', label: words.stock.adjustWhere, options: places.map((w) => ({ value: w.id, label: w.name })), initial: home.id, error: () => null }
+    setAsk({
+      title: words.stock.adjustTitle,
+      target: names.get(versionId) || draft.name,
+      consequence: words.stock.adjustBody,
+      confirmLabel: words.apply,
+      choices: places.length > 1 ? [reasonChoice, whereChoice] : [reasonChoice],
+      input: { label: words.stock.adjustCount, type: 'text', initial: '', placeholder: '+20', error: (value) => (/^[+\-−]?\d{1,6}$/.test(value.trim()) && Number(value.trim().replace('−', '-')) !== 0 ? null : words.stock.adjustCountError) },
+      onConfirm: (_, value, picks) => {
+        const delta = Number((value ?? '').trim().replace('−', '-'))
+        const reason = adjustReasons.find((r) => r === picks['reason']) ?? 'counted'
+        const where = picks['where'] ?? home.id
+        void adjustStock(versionId, where, delta, reason)
+          .then(async () => {
+            const fresh = await loadProductStock(product.id)
+            const key = versionKey(product.versions.find((v) => v.id === versionId)?.choices ?? [])
+            const counts = Object.fromEntries((fresh.get(versionId) ?? []).map((l) => [l.warehouseId, String(l.onHand)]))
+            // The count is stored now: the form and its baseline both take it, so it isn't an unsaved change.
+            setDraft((d) => ({ ...d, stock: { ...d.stock, [key]: { ...d.stock[key], ...counts } } }))
+            setSaved((d) => ({ ...d, stock: { ...d.stock, [key]: { ...d.stock[key], ...counts } } }))
+            setView((v) => (v.kind === 'ready' ? { ...v, levels: fresh } : v))
+            setHistory((h) => ({ ...h, rows: null }))
+            if (history.open) void loadStockHistory(product.id).then(({ rows, more }) => setHistory((h) => ({ ...h, rows, more })), () => setHistory((h) => ({ ...h, failed: true })))
+            setToast(fill(words.stock.adjusted, { delta: delta > 0 ? `+${delta}` : `−${-delta}`, reason: words.stock.reasons[reason] }))
+          })
+          .catch((error: unknown) => setToast(refusalOf(error)))
+      },
+    })
   }
 
   const remove = () =>
@@ -209,7 +292,7 @@ export const ProductEditor = () => {
             {words.delete}
           </button>
         )}
-        {access.canEdit && (
+        {(access.canEdit || access.canStock) && (
           <button type="button" className="df-button df-button--primary" disabled={saving} onClick={() => void save()}>
             {saveLabel}
           </button>
@@ -235,13 +318,14 @@ export const ProductEditor = () => {
           <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} onRetry={(id) => { const file = files.current.get(id); if (file) upload(id, file) }} onDismiss={(id) => { files.current.delete(id); setPending((list) => list.filter((p) => p.id !== id)) }} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
           {!made && <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} />}
-          <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} />
+          {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
+          <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />
           <EditorSections draft={draft} update={update} disabled={disabled} problems={shownProblems} taxClasses={access.side === 'merchant' && tax ? tax.classes : null} storeFields={access.storeFields} isLive={!isNew && saved.visible && saved.slug !== draft.slug} />
         </div>
         <SidePanel draft={draft} update={update} storeFields={access.storeFields} canShow={product?.approval !== 'pending'} readiness={isNew ? undefined : (product?.readiness ?? null)} currency={currency} inclusive={tax ? tax.pricesIncludeTax : null} approvalNote={access.side === 'supplier' && isNew && waitsForApproval} />
       </div>
 
-      {access.canEdit && (dirty || failure) && (
+      {(access.canEdit || access.canStock) && (dirty || failure) && (
         <div className={failure ? 'df-editor-bar df-editor-bar--failed' : 'df-editor-bar'} role="region" aria-label={failure ? words.bar.failed : words.bar.unsaved}>
           <span>{failure ? failure.text : words.bar.unsaved}</span>
           <button type="button" className="df-button" disabled={saving} onClick={() => { setDraft(saved); setFailure(null); setShowProblems(false) }}>

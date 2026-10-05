@@ -962,7 +962,38 @@
       "retry": "Try again"
     },
     "failed": "That didn’t save. Try again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "quick": {
+      "open": "Quick edit",
+      "close": "Close",
+      "title": "Quick edit · {what}",
+      "priceAndStock": "price and stock",
+      "versions": {
+        "one": "1 version",
+        "other": "{count} versions"
+      },
+      "where": "Price in {currency} · stock in {warehouse}",
+      "whereNoStock": "Price in {currency}",
+      "thisProduct": "This product",
+      "price": "Price of {name}",
+      "stock": "Stock of {name}",
+      "changed": "Changed",
+      "save": "Save",
+      "saveN": {
+        "one": "Save 1 change",
+        "other": "Save {count} changes"
+      },
+      "cancel": "Cancel",
+      "loading": "Loading its versions",
+      "saved": {
+        "one": "Saved 1 change to {name}",
+        "other": "Saved {count} changes to {name}"
+      },
+      "priceMissing": "Add a price above zero so shoppers can buy this",
+      "stockInvalid": "Type a whole number of items, 0 or more",
+      "failed": "That didn’t save. Your changes are still here; try again.",
+      "stale": "Someone else saved this product. Close and open it again to see their changes."
+    }
   },
   "editor": {
     "back": "← Products",
@@ -1237,7 +1268,59 @@
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "You can’t change this product.",
       "CURRENCY_REQUIRED": "Choose the store’s currency in Settings first.",
-      "other": "That didn’t save. Your changes are still here; try again."
+      "other": "That didn’t save. Your changes are still here; try again.",
+      "BELOW_ZERO": "That would take stock below zero."
+    },
+    "stock": {
+      "title": "Stock",
+      "where": "Goes to {warehouse}, your default location",
+      "whereSplit": "Split across {count} locations",
+      "noWarehouse": "Add a location in Settings › Warehouses before counting stock.",
+      "label": "Stock at {warehouse}",
+      "less": "One less",
+      "more": "One more",
+      "help": "How many you have ready to sell. We count down as orders come in.",
+      "split": "Split across locations",
+      "unsplit": "Keep it all in one location",
+      "total": "Total {count}",
+      "reserved": {
+        "one": "1 reserved for orders · sold, not shipped yet. You can sell {free} more.",
+        "other": "{count} reserved for orders · sold, not shipped yet. You can sell {free} more."
+      },
+      "adjust": "Change with a reason…",
+      "adjustTitle": "Change stock with a reason",
+      "adjustBody": "Shown in the stock history, so everyone knows why the number moved.",
+      "adjustReason": "Why",
+      "adjustCount": "How many? Use − to remove, e.g. −2",
+      "adjustCountError": "Type a number like +20 or −2",
+      "adjustWhere": "Where",
+      "reasons": {
+        "received": "Received new stock",
+        "returned": "Returned by a shopper",
+        "damaged": "Damaged or lost",
+        "counted": "Counted again",
+        "typed": "Typed in",
+        "order": "Order",
+        "import": "Import",
+        "starting": "First count",
+        "transfer": "Moved between locations"
+      },
+      "adjusted": "Stock {delta} · {reason}",
+      "belowZero": "That would take stock below zero.",
+      "history": "Stock history",
+      "hideHistory": "Hide history",
+      "historyNone": "No changes yet.",
+      "historyMore": "Older changes are in the activity log.",
+      "historyNote": "Every change is kept — by hand, by orders, by suppliers and by imports.",
+      "by": "by {name}",
+      "bySystem": "automatically",
+      "now": "now {count}",
+      "invalid": "Type a whole number of items, 0 or more",
+      "stockOf": "Stock of {name}",
+      "versionsTotal": "{count} in stock across all versions",
+      "untracked": "Not tracked for this kind of product.",
+      "saveStock": "Save stock",
+      "failed": "The product saved, but the stock didn’t. Try saving again."
     }
   }
 }
