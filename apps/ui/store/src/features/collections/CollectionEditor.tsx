@@ -1,5 +1,5 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { ConfirmDialog, ErrorState, LoadingState } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, ErrorState, Icon, LoadingState } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { deleteCollection, loadCollection, loadMembers, previewCollection, saveCollection, searchPickable, type Collection, type CollectionSummary, type Member, type Pickable, type Preview, type RuleInput } from '../../api/collections'
@@ -69,7 +69,7 @@ const RuleSentence = ({ row, n, join, fields, disabled, onChange, onRemove }: { 
       )}
       {onRemove && (
         <button type="button" className="df-coll-rule-remove" aria-label={fill(words.removeRule, { n: String(n) })} onClick={onRemove}>
-          <span aria-hidden="true">×</span>
+          <Icon name="close" size={14} />
         </button>
       )}
     </div>

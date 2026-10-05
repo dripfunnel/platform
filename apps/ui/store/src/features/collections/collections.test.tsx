@@ -26,9 +26,11 @@ const api = vi.hoisted(() => ({
   loadMarketCountries: vi.fn(),
 }))
 vi.mock('../../api/collections', () => api)
-const editorApi = vi.hoisted(() => ({ loadFacets: vi.fn(), loadProductBasics: vi.fn() }))
+const editorApi = vi.hoisted(() => ({ loadProductBasics: vi.fn() }))
+const filtersApi = vi.hoisted(() => ({ loadFilters: vi.fn(), saveFilter: vi.fn(), mergeValues: vi.fn() }))
+vi.mock('../../api/filters', () => filtersApi)
 vi.mock('../../api/productEditor', () => editorApi)
-const menuApi = vi.hoisted(() => ({ loadMenu: vi.fn() }))
+const menuApi = vi.hoisted(() => ({ loadMenu: vi.fn(), saveMenu: vi.fn() }))
 vi.mock('../../api/menu', () => menuApi)
 
 const { CollectionsPage } = await import('./CollectionsPage')
@@ -69,7 +71,7 @@ beforeEach(() => {
   api.previewCollection.mockResolvedValue({ count: 0, products: [] })
   api.searchPickable.mockResolvedValue([])
   api.loadMembers.mockResolvedValue([])
-  editorApi.loadFacets.mockResolvedValue(facets)
+  filtersApi.loadFilters.mockResolvedValue(facets.map((f, position) => ({ ...f, position, values: f.values.map((v) => ({ ...v, products: 0 })) })))
   editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR' })
   menuApi.loadMenu.mockResolvedValue(null)
 })
@@ -252,5 +254,183 @@ describe('a collection being made or changed', () => {
     fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
     await settle()
     expect((screen.getByLabelText(e.name) as HTMLInputElement).value).toBe('Men')
+  })
+})
+
+describe('filters', () => {
+  const f = filtersApi
+  const colour = { id: 'colour', name: 'Colour', position: 1, shopperVisible: true, values: [{ id: 'ow', name: 'Off-white', products: 6 }, { id: 'ow2', name: 'Off white', products: 2 }, { id: 'indigo', name: 'Indigo', products: 5 }] }
+  const fabric = { id: 'fabric', name: 'Fabric', position: 0, shopperVisible: true, values: [{ id: 'linen', name: 'Linen', products: 9 }, { id: 'cotton', name: 'Cotton', products: 0 }] }
+  const tag = { id: 'tag', name: 'Reorder soon', position: 4, shopperVisible: false, values: [] }
+  const dialog = () => within(document.querySelector('dialog') as HTMLElement)
+
+  beforeEach(() => {
+    f.loadFilters.mockResolvedValue([fabric, colour, tag])
+    f.saveFilter.mockResolvedValue('x')
+  })
+
+  it('shows each filter’s values with their counts, who sees it, the collections using it, and look-alikes', async () => {
+    await show(owner, '/collections?tab=filters')
+    const fab = within(screen.getByRole('region', { name: 'Fabric' }))
+    expect(fab.getByRole('button', { name: 'Linen 9' })).toBeTruthy()
+    expect(fab.getByText('Used by 2 collections')).toBeTruthy()
+    expect(within(screen.getByRole('region', { name: 'Reorder soon' })).getByRole('button', { name: 'Reorder soon: only you see these. Show it to shoppers' })).toBeTruthy()
+    expect(screen.getByText('“Off-white” and “Off white” look like the same thing.')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: words.filters.explainTitle })).toBeTruthy()
+  })
+
+  it('creates a filter after it, with a name, then reloads', async () => {
+    await show(owner, '/collections?tab=filters')
+    fireEvent.click(screen.getByRole('button', { name: words.filters.create }))
+    fireEvent.change(dialog().getByLabelText(words.filters.newName), { target: { value: 'Fit' } })
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.newConfirm }))
+    await settle()
+    expect(f.saveFilter).toHaveBeenCalledWith({ id: null, name: 'Fit', position: 5, shopperVisible: true, values: [] })
+    expect(screen.getByText('“Fit” created — add its values')).toBeTruthy()
+    expect(f.loadFilters).toHaveBeenCalledTimes(2)
+  })
+
+  it('adds, renames and deletes values, keeping every other value by its id', async () => {
+    await show(owner, '/collections?tab=filters')
+    const fab = () => within(screen.getByRole('region', { name: 'Fabric' }))
+    fireEvent.click(fab().getByRole('button', { name: 'Add a value to Fabric' }))
+    fireEvent.change(dialog().getByLabelText(words.filters.addValue), { target: { value: 'Bamboo' } })
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.addConfirm }))
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
+    fireEvent.click(fab().getByRole('button', { name: 'Linen 9' }))
+    expect(dialog().getByText('9 products use it. Renaming keeps them all; deleting takes it off them.')).toBeTruthy()
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.next }))
+    fireEvent.change(dialog().getByLabelText(words.filters.renameTo), { target: { value: 'Pure linen' } })
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.renameConfirm }))
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ values: [{ id: 'linen', name: 'Pure linen' }, { id: 'cotton', name: 'Cotton' }] }))
+    expect(screen.getByText('Renamed to “Pure linen” — 9 products updated')).toBeTruthy()
+    fireEvent.click(fab().getByRole('button', { name: 'Cotton 0' }))
+    fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'delete' } })
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.next }))
+    expect(dialog().getByText(words.filters.deleteNone)).toBeTruthy()
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.deleteConfirm }))
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ values: [{ id: 'linen', name: 'Linen' }] }))
+  })
+
+  it('makes a filter internal, merges look-alikes, and says why a change is refused', async () => {
+    f.mergeValues.mockResolvedValue(1)
+    await show(owner, '/collections?tab=filters')
+    fireEvent.click(screen.getByRole('button', { name: 'Colour: shoppers see this. Make it internal' }))
+    await settle()
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'colour', shopperVisible: false }))
+    expect(screen.getByText('Colour is now internal — only you see it')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.filters.merge }))
+    expect(dialog().getByText('2 products using “Off white” will use “Off-white”.')).toBeTruthy()
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.mergeConfirm }))
+    await settle()
+    expect(f.mergeValues).toHaveBeenCalledWith('ow', ['ow2'])
+    f.saveFilter.mockRejectedValueOnce(new ApiError('DUPLICATE_VALUE', 'dup'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add a value to Colour' }))
+    fireEvent.change(dialog().getByLabelText(words.filters.addValue), { target: { value: 'indigo' } })
+    fireEvent.click(dialog().getByRole('button', { name: words.filters.addConfirm }))
+    await settle()
+    expect(screen.getByText(words.filters.refused.DUPLICATE_VALUE)).toBeTruthy()
+  })
+
+  it('lets staff look without changing anything', async () => {
+    await show(staff, '/collections?tab=filters')
+    expect(screen.queryByRole('button', { name: words.filters.create })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add a value to Fabric' })).toBeNull()
+    expect((screen.getByRole('button', { name: 'Linen 9' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+describe('the main menu', () => {
+  const m = menuApi
+  const item = (id: string, collectionId: string, parentId: string | null = null) => ({ id, parentId, kind: 'collection', label: id, collectionId, url: null })
+  const saved = { name: 'Main menu', revision: 3, items: [item('m1', 'c1'), item('m2', 'c2'), item('m3', 'c3', 'm2'), item('m4', 'c4')] }
+
+  beforeEach(() => {
+    m.loadMenu.mockResolvedValue(saved)
+    m.saveMenu.mockResolvedValue(4)
+  })
+
+  it('shows the menu nested one level, the hidden collection greyed and left out of both previews', async () => {
+    await show(owner, '/collections?tab=menus')
+    const items = screen.getAllByRole('listitem').filter((li) => li.classList.contains('df-menu-row'))
+    expect(items.map((li) => li.querySelector('.df-menu-label')?.textContent)).toEqual(['Summer edit', 'Men', 'Shirts', 'Staff picks'])
+    expect(items[2]?.style.marginInlineStart).toBe('28px')
+    expect(within(items[3] as HTMLElement).getByText(words.menus.hiddenNote)).toBeTruthy()
+    const desktop = within(screen.getByRole('region', { name: words.menus.desktop }))
+    expect(desktop.getByText('Kesari')).toBeTruthy()
+    expect(desktop.getByText('Shirts')).toBeTruthy()
+    expect(desktop.queryByText('Staff picks')).toBeNull()
+    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Summer edit', 'Men', 'Shirts'])
+  })
+
+  it('saves each change at the revision read: add, move, nest, move out and remove', async () => {
+    await show(owner, '/collections?tab=menus')
+    fireEvent.click(screen.getByRole('button', { name: 'Move Summer edit down' }))
+    await settle()
+    expect(m.saveMenu).toHaveBeenLastCalledWith(
+      [
+        { kind: 'collection', label: 'Men', collectionId: 'c2', children: [{ kind: 'collection', label: 'Shirts', collectionId: 'c3' }] },
+        { kind: 'collection', label: 'Summer edit', collectionId: 'c1' },
+        { kind: 'collection', label: 'Staff picks', collectionId: 'c4' },
+      ],
+      'Main menu',
+      3,
+    )
+    // Men's block moved as one: Shirts stays under Men; an only child can't move among siblings.
+    expect((screen.getByRole('button', { name: 'Move Shirts up' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Move Shirts out' }))
+    await settle()
+    expect(m.saveMenu).toHaveBeenLastCalledWith(expect.arrayContaining([{ kind: 'collection', label: 'Shirts', collectionId: 'c3' }]), 'Main menu', 4)
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Staff picks' }))
+    await settle()
+    expect(screen.getByText(words.menus.removed)).toBeTruthy()
+    expect(m.saveMenu.mock.calls.at(-1)?.[0]).toHaveLength(3)
+    fireEvent.change(screen.getByRole('combobox', { name: words.menus.addLabel }), { target: { value: 'c4' } })
+    await settle()
+    expect((m.saveMenu.mock.calls.at(-1)?.[0] as unknown[]).at(-1)).toEqual({ kind: 'collection', label: 'Staff picks', collectionId: 'c4' })
+    expect(screen.getByText(words.menus.added)).toBeTruthy()
+  })
+
+  it('moves what was under a removed item up a level, never under the item above', async () => {
+    await show(owner, '/collections?tab=menus')
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Men' }))
+    await settle()
+    expect(m.saveMenu).toHaveBeenLastCalledWith(
+      [
+        { kind: 'collection', label: 'Summer edit', collectionId: 'c1' },
+        { kind: 'collection', label: 'Shirts', collectionId: 'c3' },
+        { kind: 'collection', label: 'Staff picks', collectionId: 'c4' },
+      ],
+      'Main menu',
+      3,
+    )
+  })
+
+  it('won’t nest the first item, and reloads the menu when someone else changed it first', async () => {
+    await show(owner, '/collections?tab=menus')
+    fireEvent.click(screen.getByRole('button', { name: 'Nest Summer edit under the item above' }))
+    expect(m.saveMenu).not.toHaveBeenCalled()
+    expect(screen.getByText(words.menus.firstNest)).toBeTruthy()
+    m.saveMenu.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    fireEvent.click(screen.getByRole('button', { name: 'Nest Men under the item above' }))
+    await settle()
+    expect(screen.getByText(words.menus.refused.STALE_REVISION)).toBeTruthy()
+    expect(m.loadMenu).toHaveBeenCalledTimes(2)
+  })
+
+  it('says the menu didn’t load, with a retry, and gives staff no tools', async () => {
+    m.loadMenu.mockRejectedValueOnce(new Error('offline'))
+    await show(owner, '/collections?tab=menus')
+    expect(screen.getByText(words.menus.loadFailed.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.error.retry }))
+    await settle()
+    expect(screen.getByRole('heading', { name: words.menus.title })).toBeTruthy()
+    cleanup()
+    await show(staff, '/collections?tab=menus')
+    expect(screen.queryByRole('button', { name: 'Move Men up' })).toBeNull()
+    expect(screen.queryByRole('combobox', { name: words.menus.addLabel })).toBeNull()
   })
 })

@@ -707,3 +707,349 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Filters */
+
+.df-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-filter--internal {
+  background: var(--df-color-page);
+}
+
+.df-filter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.df-filter-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.df-filter-head > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-filter-tag {
+  min-height: 32px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.df-filter-tag--internal {
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+}
+
+.df-filter-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-filter-value,
+.df-filter-add {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-filter-value span {
+  color: var(--df-color-muted);
+}
+
+.df-filter-value--alike {
+  border-color: var(--df-color-warning-border);
+}
+
+.df-filter-add {
+  border: 1px dashed var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-filter-alike {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 13px;
+}
+
+.df-filter-alike button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.df-filter-explain {
+  padding: 18px;
+}
+
+.df-filter-explain h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-filter-explain p {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  font-size: 13px;
+}
+
+.df-filter-choices {
+  color: var(--df-color-info);
+}
+
+.df-filter-filters {
+  color: var(--df-color-success);
+}
+
+/* Menus */
+
+.df-menu {
+  gap: 8px;
+}
+
+.df-menu-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.df-menu-head h1 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.df-menu-head select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-menu-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-menu-row--hidden {
+  background: var(--df-color-page);
+}
+
+.df-menu-label {
+  flex: 1;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-menu-row--hidden .df-menu-label {
+  color: var(--df-color-muted);
+}
+
+.df-menu-note {
+  color: var(--df-color-muted);
+  font-size: 11px;
+}
+
+.df-menu-tools {
+  display: flex;
+  gap: 4px;
+}
+
+.df-menu-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  cursor: pointer;
+}
+
+.df-menu-tools .df-menu-remove {
+  color: var(--df-color-link);
+}
+
+.df-menu-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.df-menu-preview {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-menu-preview h2 {
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.df-menu-desktop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 18px;
+  font-size: 14px;
+}
+
+.df-menu-desktop strong {
+  font-family: var(--df-font-heading);
+  font-weight: 800;
+}
+
+.df-menu-desktop > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.df-menu-desktop > span > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 600;
+}
+
+.df-menu-desktop > span > span:last-child {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-menu-phone {
+  width: 240px;
+  max-width: 100%;
+}
+
+.df-menu-phone ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-menu-phone li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-menu-phone .df-menu-phone-kid {
+  padding-left: 30px;
+}
+
+.df-menu-phone li .df-icon {
+  color: var(--df-color-muted);
+}
+
+/* Touch: every control at least 44 px on a phone (the prototype's desktop sizes stay above). */
+@media (max-width: 720px) {
+  .df-colls-seasonal button,
+  .df-coll-chip,
+  .df-coll-rule select,
+  .df-coll-rule input,
+  .df-coll-rule-remove,
+  .df-coll-match select,
+  .df-filter-tag,
+  .df-filter-value,
+  .df-filter-add,
+  .df-filter-alike button,
+  .df-menu-head select,
+  .df-coll-check {
+    min-height: 44px;
+  }
+
+  .df-coll-rule-remove {
+    min-width: 44px;
+  }
+
+  .df-menu-tools button {
+    width: 44px;
+    height: 44px;
+  }
+}

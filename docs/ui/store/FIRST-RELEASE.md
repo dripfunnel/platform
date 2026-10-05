@@ -327,7 +327,14 @@ and the API reads them as alternatives under "all" (CATALOG H4). Rules the scree
 product, a version, a price range) are kept as they are on save. The live preview is
 `collectionPreview`. Seasonal ideas come from a dated table of occasions in the app, matched to the
 countries the store's markets sell to (CATALOG H13); if markets don't load, the ideas are left out
-and nothing else changes. Filters, Menus and Size charts follow in the same card.
+and nothing else changes. Filters (`?tab=filters`): values are added, renamed and deleted through
+`saveFacet`, which takes every value the filter keeps. Values that differ only by case, spaces or
+punctuation are offered for merging (`mergeFacetValues`). A filter's shoppers-or-internal switch is the
+tag beside its name. Deleting a whole filter isn't drawn, so it isn't offered. Menus (`?tab=menus`): each
+change saves at once at the revision read, as the prototype's menu does. A top item moves with the
+items under it, an item under one moves among its siblings, and removing an item moves the ones under it
+up a level. Adding links to pages or addresses (J4) waits for a drawing; such items are kept and shown.
+Size charts follow in the same card.
 
 ## 13. Import and export (`CatImport`, CATALOG-DESIGN K)
 

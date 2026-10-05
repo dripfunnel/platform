@@ -1,5 +1,6 @@
 import type { CollectionSummary } from '../../api/collections'
-import type { Facet } from '../../api/productEditor'
+import type { Filter } from '../../api/filters'
+import type { Menu } from '../../api/menu'
 import type { EditorReads } from './CollectionEditor'
 
 // The Collections area's states under ?state= (ui/README.md §6): loading, error, empty, list, staff (looks only),
@@ -10,13 +11,29 @@ export type CollectionsState = (typeof collectionsStates)[number]
 
 const harness = import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
 
-export const sampleFacets: Facet[] = harness
+const values = (counts: Record<string, number>) => Object.entries(counts).map(([name, products]) => ({ id: `fv-${name}`, name, products }))
+
+export const sampleFilters: Filter[] = harness
   ? [
-      { id: 'f-fabric', name: 'Fabric', shopperVisible: true, values: ['Linen', 'Cotton', 'Silk'].map((name) => ({ id: `fv-${name}`, name })) },
-      { id: 'f-occasion', name: 'Occasion', shopperVisible: true, values: ['Everyday', 'Festive', 'Wedding'].map((name) => ({ id: `fv-${name}`, name })) },
-      { id: 'f-reorder', name: 'Reorder soon', shopperVisible: false, values: [{ id: 'fv-yes', name: 'Yes' }] },
+      { id: 'f-fabric', name: 'Fabric', position: 0, shopperVisible: true, values: values({ Linen: 9, Cotton: 14, Silk: 3 }) },
+      { id: 'f-colour', name: 'Colour', position: 1, shopperVisible: true, values: values({ 'Off-white': 6, 'Off white': 2, Indigo: 5 }) },
+      { id: 'f-occasion', name: 'Occasion', position: 2, shopperVisible: true, values: values({ Everyday: 11, Festive: 7, Wedding: 4 }) },
+      { id: 'f-reorder', name: 'Reorder soon', position: 3, shopperVisible: false, values: values({ Yes: 2 }) },
     ]
   : []
+
+export const sampleMenu: Menu | null = harness
+  ? {
+      name: 'Main menu',
+      revision: 3,
+      items: [
+        { id: 'm1', parentId: null, kind: 'collection', label: 'Summer edit', collectionId: 'c-summer', url: null },
+        { id: 'm2', parentId: null, kind: 'collection', label: 'Men', collectionId: 'c-men', url: null },
+        { id: 'm3', parentId: 'm2', kind: 'collection', label: 'Shirts', collectionId: 'c-shirts', url: null },
+        { id: 'm4', parentId: null, kind: 'collection', label: 'Staff picks', collectionId: 'c-offer', url: null },
+      ],
+    }
+  : null
 
 const rule = (valueId: string) => ({ kind: 'filter_value', valueId, text: null, productId: null, versionId: null, currency: null, min: null, max: null })
 const summary = (c: Partial<CollectionSummary> & Pick<CollectionSummary, 'id' | 'name'>): CollectionSummary => ({
@@ -60,7 +77,7 @@ export const sampleReads: EditorReads = {
   members: async () => sampleProducts.slice(0, 2).map(({ id, name }) => ({ id, name })),
   preview: async ({ rules, match }) => {
     const wanted = rules.flatMap((r) => (r.valueId ? [r.valueId] : []))
-    const groups = sampleFacets.map((f) => f.values.map((v) => v.id).filter((v) => wanted.includes(v))).filter((g) => g.length > 0)
+    const groups = sampleFilters.map((f) => f.values.map((v) => v.id).filter((v) => wanted.includes(v))).filter((g) => g.length > 0)
     const hit = sampleProducts.filter((p) => (match === 'any' ? wanted.some((v) => p.values.includes(v)) : groups.length > 0 && groups.every((g) => g.some((v) => p.values.includes(v)))))
     return { count: hit.length, products: hit.map(({ id, name }) => ({ id, name })) }
   },
