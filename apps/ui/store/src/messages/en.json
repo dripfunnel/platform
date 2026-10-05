@@ -2678,7 +2678,8 @@
         "adjust": "Type the adjustment as a percentage, e.g. 10 or -5",
         "path": "Use a short path: lower-case letters, numbers and -, e.g. uk",
         "dutyRate": "Type the duty percentage",
-        "dutyThreshold": "Type the amount below which no duty is charged"
+        "dutyThreshold": "Type the amount below which no duty is charged",
+        "parentCountries": "A sub-market sells in its parent’s countries only. Take out the ones marked."
       },
       "refused": {
         "INVALID_LANGUAGE": "Choose from your store’s languages.",
@@ -2709,7 +2710,11 @@
         "dutyThreshold": "0"
       },
       "percent": "%",
-      "rowSub": "{countries} · {currency}"
+      "rowSub": "{countries} · {currency}",
+      "deletedProduct": "A product deleted since",
+      "chipNote": "{country} · {note}",
+      "notParents": "not in {name}",
+      "reread": "{refusal} The list now shows what’s saved."
     }
   }
 }
