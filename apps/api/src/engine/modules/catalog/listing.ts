@@ -52,12 +52,12 @@ export interface CleanListing {
   marketRule?: { mode: 'only' | 'except'; countries: string[] } | null
 }
 
-export const maxSpecs = 50
-export const maxHighlights = 5
-export const maxFaqs = 20
-export const maxRelated = 20
-export const maxProductBadges = 10
-export const maxCompliance = 50
+const maxSpecs = 50
+const maxHighlights = 5
+const maxFaqs = 20
+const maxRelated = 20
+const maxProductBadges = 10
+const maxCompliance = 50
 
 const regions = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' })
 /** An ISO 3166-1 country the runtime can name; ZZ is CLDR's "Unknown Region", never a country. */
@@ -121,8 +121,8 @@ export interface SizeChartInput {
   modelInfo?: string | null | undefined
 }
 
-export const maxChartColumns = 12
-export const maxChartRows = 60
+const maxChartColumns = 12
+const maxChartRows = 60
 
 /** A chart: sizes as rows, measurements as columns, a value (or range, "38–40") in every cell (R3–R5). */
 export const cleanSizeChart = (input: SizeChartInput) => {
@@ -146,8 +146,8 @@ export const cleanSizeChart = (input: SizeChartInput) => {
   return { name, unit, systems, measurements, rows, howToMeasure, fitNotes: optionalWords(input.fitNotes, 500, 'fitNotes'), modelInfo: optionalWords(input.modelInfo, 200, 'modelInfo') }
 }
 
-export const badgeTones = ['ok', 'peach', 'neutral'] as const
-export const badgeRules = ['new_30_days', 'top_5_this_month', 'below_compare_price', 'few_left', 'manual'] as const
+const badgeTones = ['ok', 'peach', 'neutral'] as const
+const badgeRules = ['new_30_days', 'top_5_this_month', 'below_compare_price', 'few_left', 'manual'] as const
 
 /** S5: a label of up to 18 characters, a tone, and one rule. */
 export const cleanBadge = (input: { label: string; tone: string; rule: string; position?: number | null | undefined }) => {

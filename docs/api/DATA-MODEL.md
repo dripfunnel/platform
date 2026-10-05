@@ -868,11 +868,12 @@ store_policy        (store_id, kind ('refund'|'privacy'|'terms'|'shipping'|'impr
                     -- the policies the Shop API serves (PLATFORM-PROMPT §5.5; storefront
                     -- ARCHITECTURE §2.1, §3.2); body per language in translation
 
-store_feature       (store_id, key, enabled boolean)           -- Settings › Catalogue switches
+store_feature       (store_id, key, enabled boolean, updated_at) -- Settings › Catalogue switches
                     UNIQUE (store_id, key)                      -- (CATALOG P1): aplus, size_charts,
                                                                 -- specs, faqs, badges, related…
 badge               (id, store_id, label, tone ('ok'|'peach'|'neutral'),
-                     rule ('new_30_days'|'top_5_this_month'|'below_compare_price'|'few_left'|'manual'))
+                     rule ('new_30_days'|'top_5_this_month'|'below_compare_price'|'few_left'|'manual'),
+                     position, created_at)
                     -- CATALOG S5; label ≤ 18 chars; tone is the prototype's colour set
 
 shipping_zone       (id, store_id, name, countries text[], regions text[])
@@ -985,7 +986,7 @@ product_photo       (id, product_id, version_id NULL, store_id, seller_id NULL, 
                     -- alt per language in translation (fact 23, release: decide)
 product_video       (product_id, store_id, seller_id NULL, asset_id NULL, url NULL)
                     -- CATALOG F9 (supported, §6) and S7 (hosted or linked)
-product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries text[])
+product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries jsonb)
                     -- "Where you sell" per product (fact 42, release: decide)
 product_flag        (product_id, store_id, seller_id NULL, age_restricted boolean, hazardous boolean)  -- fact 43
 product_compliance  (product_id, store_id, seller_id NULL, region, field, value)
@@ -1034,7 +1035,7 @@ story_block         (id, store_id, kind ('brand_story'), content jsonb)
 
 size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems jsonb,
                      rows jsonb, measurements jsonb, how_to_measure jsonb, fit_notes, model_info,
-                     deleted_at)                                    -- CATALOG R
+                     created_at, updated_at, revision, deleted_at)  -- CATALOG R
 size_chart_rule     (id, size_chart_id, store_id, seller_id NULL, kind ('collection'|'filter_value'|'category'),
                      target_id NULL, value NULL)                    -- R6 (release: decide)
 
