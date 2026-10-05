@@ -100,7 +100,8 @@ export const setSupplierAccess = async (id: string, accessLevel: AccessLevel): P
   await query('mutation A($id: ID!, $a: String!) { setSupplierAccess(id: $id, accessLevel: $a) }', z.object({ setSupplierAccess: z.boolean() }), { id, a: accessLevel })
 }
 
-export const setShippingMode = async (id: string, shippingMode: 'to-store' | 'to-shopper', labelAccount: 'store' | 'own'): Promise<void> => {
+/** `labelAccount` only for to-shopper; null for to-store. */
+export const setShippingMode = async (id: string, shippingMode: 'to-store' | 'to-shopper', labelAccount: 'store' | 'own' | null): Promise<void> => {
   await query('mutation S($id: ID!, $m: String!, $l: String) { setSupplierShippingMode(id: $id, shippingMode: $m, labelAccount: $l) }', z.object({ setSupplierShippingMode: z.boolean() }), { id, m: shippingMode, l: labelAccount })
 }
 
