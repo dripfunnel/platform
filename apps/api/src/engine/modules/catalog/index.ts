@@ -58,7 +58,7 @@ export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalR
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
-export { sortValueOf } from '#db/scoped/catalog'
+export { sortValueFits, sortValueOf } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
 // so a supplier's save reaches only its own products and a merchant's reaches the whole store.

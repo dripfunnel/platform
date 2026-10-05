@@ -4,6 +4,7 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { encodeValueCursor } from '#core/cursor'
 import { withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -82,9 +83,10 @@ const create = async (who: Who, input: Record<string, unknown>, storeId?: string
 
 
 type Row = { id: string; name: string; stock: number; minPrice: { amount: string } | null; readiness: { marketName: string; ready: boolean; missing: string[] }[] | null }
+type PageInfo = { hasNextPage: boolean; hasPreviousPage: boolean; startCursor: string; endCursor: string }
 const page = async (who: Who, args: string) => {
-  const result = await gql(`{ products(${args}) { nodes { id name stock minPrice { amount } readiness { marketName ready missing } } pageInfo { hasNextPage endCursor } } }`, who)
-  return { rows: (result.data?.['products'] as { nodes: Row[] } | undefined)?.nodes ?? [], pageInfo: (result.data?.['products'] as { pageInfo: { hasNextPage: boolean; endCursor: string } } | undefined)?.pageInfo, code: result.code }
+  const result = await gql(`{ products(${args}) { nodes { id name stock minPrice { amount } readiness { marketName ready missing } } pageInfo { hasNextPage hasPreviousPage startCursor endCursor } } }`, who)
+  return { rows: (result.data?.['products'] as { nodes: Row[] } | undefined)?.nodes ?? [], pageInfo: (result.data?.['products'] as { pageInfo: PageInfo } | undefined)?.pageInfo, code: result.code }
 }
 
 describe('the Products list’s sorts', () => {
@@ -104,6 +106,41 @@ describe('the Products list’s sorts', () => {
     // A cursor made for one sort is no use to another.
     expect((await page('owner', `sort: "price_low", after: "${byName.pageInfo?.endCursor}"`)).code).toBe('INVALID_CURSOR')
     expect((await page('owner', 'sort: "loudest"')).code).toBe('INVALID_INPUT')
+  })
+
+  it('reads back a page with before on a value cursor, the same rows in the same order', async () => {
+    const first = await page('owner', 'search: "a", sort: "name", first: 2')
+    const second = await page('owner', `search: "a", sort: "name", first: 2, after: "${first.pageInfo?.endCursor}"`)
+    expect(second.pageInfo?.hasPreviousPage).toBe(true)
+    const back = await page('owner', `search: "a", sort: "name", first: 2, before: "${second.pageInfo?.startCursor}"`)
+    expect(back.rows.map((r) => r.name)).toEqual(['apple bowl', 'Banana mug'])
+    const backByPrice = await page('owner', `search: "a", sort: "price_high", first: 2, before: "${(await page('owner', 'search: "a", sort: "price_high", first: 3')).pageInfo?.endCursor}"`)
+    expect(backByPrice.rows.map((r) => r.minPrice?.amount)).toEqual(['40000', '30000'])
+  })
+
+  it('puts unpriced products last either way, and orders by stock lowest first', async () => {
+    const made: Record<string, string> = {}
+    for (const [name, amount] of [['Zinc cheap', '10000'], ['Zinc dear', '90000'], ['Zinc unpriced', '50000']] as const) {
+      made[name] = (await create('owner', { name, options: [], versions: [{ choices: [], prices: [price(amount)] }] })).saved?.id ?? ''
+    }
+    expect(Object.values(made)).not.toContain('')
+    // A save always prices the store's currency; a product loses that price when the store's currency moves.
+    await db.sql`delete from version_price where version_id in (select id from product_version where product_id = ${made['Zinc unpriced'] ?? ''})`
+    expect((await page('owner', 'search: "Zinc", sort: "price_low"')).rows.map((r) => r.name)).toEqual(['Zinc cheap', 'Zinc dear', 'Zinc unpriced'])
+    expect((await page('owner', 'search: "Zinc", sort: "price_high"')).rows.map((r) => r.name)).toEqual(['Zinc dear', 'Zinc cheap', 'Zinc unpriced'])
+    const [shelf] = await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) values (${t.storeA1}, 'Zinc shelf') returning id`
+    for (const [name, onHand] of [['Zinc cheap', 7], ['Zinc dear', 2], ['Zinc unpriced', 12]] as const) {
+      await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select v.id, ${shelf?.id ?? ''}, ${t.storeA1}, ${onHand} from product_version v where v.product_id = ${made[name] ?? ''}`
+    }
+    expect((await page('owner', 'search: "Zinc", sort: "stock"')).rows.map((r) => [r.name, r.stock])).toEqual([['Zinc dear', 2], ['Zinc cheap', 7], ['Zinc unpriced', 12]])
+  })
+
+  it('refuses a well-formed cursor whose value its sort can’t hold, as any bad cursor', async () => {
+    const id = '00000000-0000-4000-8000-000000000000'
+    for (const [sort, value] of [['stock', 'abc'], ['stock', '99999999999'], ['price_low', '9223372036854775808'], ['price_high', '1.5'], ['price_low', '']] as const) {
+      expect({ sort, value, code: (await page('owner', `sort: "${sort}", after: "${encodeValueCursor({ sort, value, id })}"`)).code }).toEqual({ sort, value, code: 'INVALID_CURSOR' })
+    }
+    expect((await page('owner', `sort: "stock", after: "${encodeValueCursor({ sort: 'stock', value: '3', id })}"`)).code).toBeUndefined()
   })
 
   it('pages through ties one by one, by id, with nothing skipped or repeated, and a name lowercased as the database does', async () => {

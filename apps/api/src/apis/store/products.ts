@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import type { CurrencyPrice, MarketReadiness } from '#engine/modules/markets/index'
-import { approvalAudit, catalogAudit, createCatalogService, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
+import { approvalAudit, catalogAudit, createCatalogService, sortValueFits, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
@@ -448,7 +448,7 @@ export const registerProducts = (builder: StoreBuilder) => {
         const sort = sorts.find((x) => x === (args.sort ?? 'created'))
         if (!sort) throw new GraphQLError('Choose how to sort.', { extensions: { code: 'INVALID_INPUT' } })
         const byTime = sort === 'created' || sort === 'updated'
-        const window = sortedPage(args, sort, byTime)
+        const window = sortedPage(args, sort, byTime, (value) => sortValueFits(sort, value))
         const untranslatedIn = args.untranslatedIn?.trim() || null
         // The same languages translationProgress counts, so the list and the count can't disagree.
         if (untranslatedIn) {

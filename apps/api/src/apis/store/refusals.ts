@@ -30,14 +30,19 @@ export const requirePlan = async (sql: postgres.Sql, context: TenantContext, che
  * A page of a list sorted by `sort`: by time through the usual keyset cursor, by anything else through a value
  * cursor made for that sort (core/cursor); a cursor from another sort is refused like any bad one.
  */
-export const sortedPage = (request: PageRequest, sort: string, byTime: boolean): { limit: number; after: { value: string; id: string } | null; before: { value: string; id: string } | null } => {
+export const sortedPage = (request: PageRequest, sort: string, byTime: boolean, fits: (value: string) => boolean = () => true): { limit: number; after: { value: string; id: string } | null; before: { value: string; id: string } | null } => {
   if (byTime) {
     const window = storePage(request)
     const keyOf = (k: Keyset | null) => (k ? { value: k.occurredAt.toISOString(), id: k.id } : null)
     return { limit: window.limit, after: keyOf(window.after), before: keyOf(window.before) }
   }
-  const after = request.after ? decodeValueCursor(request.after, sort) : null
-  const before = request.before ? decodeValueCursor(request.before, sort) : null
+  // A well-formed cursor can still carry a value its sort's type can't hold; it is refused like any bad one.
+  const read = (cursor: string) => {
+    const key = decodeValueCursor(cursor, sort)
+    return key && fits(key.value) ? key : null
+  }
+  const after = request.after ? read(request.after) : null
+  const before = request.before ? read(request.before) : null
   if ((request.after && !after) || (request.before && !before)) throw new GraphQLError('That page link has expired. Start again.', { extensions: { code: 'INVALID_CURSOR' } })
   const limit = Math.min(Math.max(Math.floor(request.first ?? storePageSize), 1), storePageSize)
   return { limit, after: after ? { value: after.value, id: after.id } : null, before: before ? { value: before.value, id: before.id } : null }
