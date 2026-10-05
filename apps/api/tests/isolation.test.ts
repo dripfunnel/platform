@@ -279,7 +279,7 @@ describe('the write path', () => {
 
   it('a supplier cannot raise its own access level', async () => {
     const supplier = storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First })
-    // app_supplier holds no write on seller (migration 0048).
+    // app_supplier holds no write on seller (0047).
     await expect(
       attempt(supplier, async (tx) => {
         await tx`update seller set access_level = 'vendor-orders-fulfil' where id = ${t.sellerA1First}`
@@ -482,8 +482,9 @@ describe('the backstop itself', () => {
     // The supplier role holds no grant on collections or menus at all (#295).
     for (const table of ['collection', 'menu']) await expect(seen(t.storeA1, supplier, table)).rejects.toThrow(/permission denied/i)
     for (const table of ['filter', 'collection', 'menu']) expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 0 })
-    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into filter (store_id, name, position) values (${t.storeA1}, 'Supplier filter', 1)`)).rejects.toThrow(/row-level security/)
-    expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update filter set name = 'taken' where id = ${filterRow?.id ?? ''}`).count)).toBe(0)
+    // Filters are the merchant's: the supplier reads them and holds no write (0047).
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into filter (store_id, name, position) values (${t.storeA1}, 'Supplier filter', 1)`)).rejects.toThrow(/permission denied/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`update filter set name = 'taken' where id = ${filterRow?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await inStore(t.storeA1, supplier, (tx) => tx`insert into product_filter_value (product_id, filter_value_id, store_id) values (${first}, ${valueRow?.id ?? ''}, ${t.storeA1})`)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_filter_value (product_id, filter_value_id, store_id) values (${second}, ${valueRow?.id ?? ''}, ${t.storeA1})`)).rejects.toThrow(/no such product/)
     expect(await seen(t.storeA1, { kind: 'all' }, 'product_filter_value')).toBe(1)
@@ -498,7 +499,7 @@ describe('the backstop itself', () => {
     expect(await seen(t.storeA1, supplier, 'size_chart')).toBe(1)
     expect(await seen(t.storeA1, { kind: 'all' }, 'size_chart')).toBe(3)
     for (const table of ['store_feature', 'badge', 'size_chart']) expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 0 })
-    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into badge (store_id, label, tone, rule) values (${t.storeA1}, 'Supplier badge', 'ok', 'manual')`)).rejects.toThrow(/row-level security/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into badge (store_id, label, tone, rule) values (${t.storeA1}, 'Supplier badge', 'ok', 'manual')`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into size_chart (store_id, seller_id, name, unit) values (${t.storeA1}, null, 'As merchant', 'cm')`)).rejects.toThrow(/makes its own size charts/)
     await inStore(t.storeA1, supplier, (tx) => tx`insert into product_highlight (product_id, store_id, text, position) values (${first}, ${t.storeA1}, 'Own', 0)`)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_highlight (product_id, store_id, text, position) values (${second}, ${t.storeA1}, 'Theirs', 0)`)).rejects.toThrow(/no such product/)
@@ -616,12 +617,22 @@ describe('the backstop itself', () => {
   it('keeps app_supplier to the tables a supplier reaches (DATA-MODEL §5.3, #295)', async () => {
     const tables = async (sql: string) => (await db.sql.unsafe<{ t: string }[]>(sql)).map((r) => r.t)
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
-    expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' order by 1`)).toEqual([
+    expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
+      union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
       'activity_log', 'asset', 'badge', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
       'store_feature', 'user', 'version_price', 'warehouse',
+    ])
+    // Writes only on its catalogue, stock and what every write records; price history and stock movements only through
+    // their definer functions; the settings, its seller and team it only reads.
+    expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
+      union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE') order by 1`)).toEqual([
+      'activity_log', 'asset', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
+      'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related',
+      'product_spec', 'product_story', 'product_version', 'product_version_option_value', 'product_video', 'size_chart', 'stock_level',
+      'version_price', 'warehouse',
     ])
     // By column only: the two a policy names (store) and a file check reads (story_block).
     expect(await tables(`select distinct table_name || '(' || column_name || ')' as t from information_schema.column_privileges where grantee = 'app_supplier' and table_name in ('store', 'story_block') order by 1`)).toEqual([

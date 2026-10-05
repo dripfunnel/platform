@@ -15,9 +15,6 @@ alter table seller
 -- One live supplier of a name per store, whatever its case; a removed one frees it.
 create unique index seller_name_key on seller (store_id, lower(name)) where status <> 'removed';
 
--- A supplier reads its own seller row and never writes one: its access, mode and status are the merchant's.
-revoke insert, update, delete on seller from app_supplier;
-
 -- Accepting a supplier's first invitation runs as the system and makes the supplier active (ACCESS §7.5).
 create policy seller_system_update on seller for update to app_system
 using (app_setting_text('app.scope') = 'system') with check (app_setting_text('app.scope') = 'system');
