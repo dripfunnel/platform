@@ -25,12 +25,12 @@ import {
   type LocaleRow,
 } from '#db/scoped/markets'
 import { selectRates, type RateRow } from '#db/scoped/rates'
-import { priceInMarket, pricesByCurrency, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
+import { conversionExamples, priceInMarket, pricesByCurrency, type ConversionExample, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
 import { missingFor, type ReadinessNeed } from './readiness'
 import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type MarketInput, type MarketsRefusal } from './rules'
 
 export { offeredLanguages, type CurrencyInput, type MarketInput } from './rules'
-export type { CurrencyPrice } from './pricing'
+export type { ConversionExample, CurrencyPrice } from './pricing'
 export type { ReadinessNeed } from './readiness'
 
 export interface MarketReadiness {
@@ -221,6 +221,16 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       return [...(await selectRates(tx, wanted)).values()]
     })
 
+  /** What 100 of the pricing currency comes to in the euro and each currency with a rate, under each rounding (O4). */
+  const examples = () =>
+    inScope(async (tx): Promise<ConversionExample[]> => {
+      const store = await selectLocale(tx, storeId)
+      if (!store?.pricing_currency) return []
+      const rows = [...(await selectRates(tx, [store.pricing_currency, ...store.currencies.map((c) => c.currency)])).values()]
+      const perEuro = new Map(rows.map((r) => [r.currency, r.per_euro]))
+      return conversionExamples({ pricingCurrency: store.pricing_currency, currencies: [], perEuro }, ['EUR', ...rows.map((r) => r.currency)])
+    })
+
   /**
    * Each version's price in every currency the store sells in, and in a market when one is named (CATALOG O2;
    * the card's "a product priced per market is read back per market"). Null when the market isn't the store's.
@@ -265,7 +275,7 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       return out
     })
 
-  return { locale, rates, pricing, readiness, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
+  return { locale, rates, examples, pricing, readiness, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
 }
 
 export type { MarketsRefusal }

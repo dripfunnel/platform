@@ -165,6 +165,19 @@ type CollectionSummary {
   visible: Boolean
 }
 
+type ConversionExample {
+  currency: String
+  ends99: ConvertedAmount
+  from: ConvertedAmount
+  nearest: ConvertedAmount
+  none: ConvertedAmount
+}
+
+type ConvertedAmount {
+  amount: String
+  currency: String
+}
+
 type CurrencyPrice {
   amount: String
   compareAtAmount: String
@@ -1054,6 +1067,7 @@ type StoreLanguage {
 
 type StoreLocale {
   currencies: [StoreCurrency!]
+  examples: [ConversionExample!]
   languages: [StoreLanguage!]
   mainLanguage: String
   offeredLanguages: [String!]
