@@ -100,7 +100,8 @@ export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle
               const ready = readyOf(row)
               const review = canReview(access, row)
               const open = reviewing === row.id && review
-            const quicking = !review && quick?.open === row.id
+              const quickable = row.approval !== 'pending'
+              const quicking = quickable && quick?.open === row.id
               const line = (
                 <tr key={row.id} className={selected.has(row.id) ? 'df-products-row--selected' : undefined}>
                   {access.canSelect && (
@@ -130,7 +131,7 @@ export const ProductTable = ({ rows, access, selected, reviewing, busy, onToggle
                         {open ? words.row.close : words.row.review}
                       </button>
                     )}
-                    {!review && quick && (
+                    {quickable && quick && (
                       <button type="button" className="df-products-quick-toggle" aria-expanded={quicking} aria-label={`${quicking ? words.quick.close : words.quick.open} ${row.name}`} onClick={() => quick.toggle(quicking ? null : row.id)}>
                         {quicking ? words.quick.close : words.quick.open}
                       </button>
