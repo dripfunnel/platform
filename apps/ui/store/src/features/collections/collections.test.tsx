@@ -8,7 +8,7 @@ import { z } from 'zod'
 import type { Collection, CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 
 // CatCollections driven as the merchant would: the list, a new collection by rules or by hand, an edit, a delete.
 
@@ -186,6 +186,15 @@ describe('a collection being made or changed', () => {
     expect(new Set(radios.map((r) => r.name)).size).toBe(1)
     fireEvent.click(radios[1] as HTMLInputElement)
     expect(screen.getByRole('searchbox', { name: e.search })).toBeTruthy()
+  })
+
+  it('names the pricing currency in the price note, and leaves it out rather than showing an empty one', async () => {
+    await show(owner, '/collections?edit=new')
+    expect(screen.getByText(fill(e.priceNote, { currency: 'INR' }))).toBeTruthy()
+    cleanup()
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: null })
+    await show(owner, '/collections?edit=new')
+    expect(screen.getByText(e.priceNoteNoCurrency)).toBeTruthy()
   })
 
   it('says when the preview didn’t load, keeping the rules', async () => {
