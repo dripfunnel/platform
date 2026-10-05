@@ -2037,6 +2037,7 @@
       "unnest": "Move {label} out",
       "remove": "Remove {label}",
       "firstNest": "The first item can’t be nested",
+      "nestHasKids": "An item with items under it can’t be nested — the menu goes one level deep. Move its items out first.",
       "note": "→ nests an item under the one above it. Hidden collections stay here but shoppers don’t see them.",
       "empty": "No items yet. Add a collection to start your menu.",
       "desktop": "How shoppers see it · desktop",
@@ -2297,6 +2298,7 @@
       "converted": "Converted from {code} automatically",
       "typed": "You type the price on each product",
       "convert": "Convert automatically",
+      "convertNamed": "Convert {code} automatically",
       "remove": "Remove {name}",
       "round": "Round prices",
       "roundNone": "Don’t round",
@@ -2577,6 +2579,7 @@
       "addInvalid": "Type a name and a percentage, e.g. “Books 7”",
       "add": "Add",
       "added": "{name} added",
+      "addedNoRate": "“{name}” was added without its rate. Set it with Manage.",
       "defaultNote": "Changing the default doesn’t touch products you’ve already priced.",
       "otherPlaces": "Rates in other places",
       "invoiceTitle": "On the invoice",
@@ -2711,7 +2714,7 @@
       },
       "percent": "%",
       "rowSub": "{countries} · {currency}",
-      "deletedProduct": "A product deleted since",
+      "deletedProduct": "A product deleted since — dropped when you save",
       "chipNote": "{country} · {note}",
       "notParents": "not in {name}",
       "reread": "{refusal} The list now shows what’s saved."
@@ -2799,7 +2802,9 @@
         "below_compare_price": "Has a lower price than its compare price — automatic",
         "few_left": "Only a few left — automatic",
         "manual": "You choose the products — pick it on each product"
-      }
+      },
+      "ruleOther": "Shown by a rule set elsewhere",
+      "ruleKept": "Keep its current rule"
     }
   }
 }

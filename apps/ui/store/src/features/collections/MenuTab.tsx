@@ -80,6 +80,26 @@ export const moved = (rows: readonly MenuRow[], key: string, by: -1 | 1): MenuRo
   return kids && rowsOfBlocks(blocks.map((x) => (x === owner ? { ...x, kids } : x)))
 }
 
+/**
+ * Nesting and moving out, by block: a top item goes under the top item above it (never one with items of its own, as the
+ * menu is one level deep); an item under one comes out to sit right after its parent, its siblings staying where they are.
+ */
+export const toggledDepth = (rows: readonly MenuRow[], key: string): MenuRow[] | 'FIRST' | 'HAS_KIDS' | null => {
+  const blocks = blocksOf(rows)
+  const b = blocks.findIndex((x) => x.top.key === key)
+  if (b === 0) return 'FIRST'
+  const block = blocks[b]
+  const above = blocks[b - 1]
+  if (block && above) {
+    if (block.kids.length > 0) return 'HAS_KIDS'
+    return rowsOfBlocks(blocks.flatMap((x, j) => (j === b ? [] : j === b - 1 ? [{ ...x, kids: [...x.kids, { ...block.top, depth: 1 as const }] }] : [x])))
+  }
+  const owner = blocks.find((x) => x.kids.some((k) => k.key === key))
+  const kid = owner?.kids.find((k) => k.key === key)
+  if (!owner || !kid) return null
+  return rowsOfBlocks(blocks.flatMap((x) => (x === owner ? [{ ...x, kids: x.kids.filter((k) => k.key !== key) }, { top: { ...kid, depth: 0 as const }, kids: [] }] : [x])))
+}
+
 /** An item out of the menu; the ones under it move up a level rather than under the item above (CATALOG J3). */
 export const removed = (rows: readonly MenuRow[], key: string): MenuRow[] =>
   rowsOfBlocks(blocksOf(rows).flatMap((b) => (b.top.key === key ? b.kids.map((k) => ({ top: { ...k, depth: 0 as const }, kids: [] })) : [{ ...b, kids: b.kids.filter((k) => k.key !== key) }])))
@@ -129,11 +149,10 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
   const nest = (i: number) => {
     const r = rows[i]
     if (!r) return
-    if (i === 0 && r.depth === 0) return onSaved(words.firstNest)
-    void apply(
-      rows.map((x, j) => (j === i ? { ...x, depth: x.depth ? 0 : 1 } : x)),
-      words.saved,
-    )
+    const next = toggledDepth(rows, r.key)
+    if (next === 'FIRST') return onSaved(words.firstNest)
+    if (next === 'HAS_KIDS') return onSaved(words.nestHasKids)
+    if (next) void apply(next, words.saved)
   }
 
   const addable = collections.filter((c) => !rows.some((r) => r.collectionId === c.id))

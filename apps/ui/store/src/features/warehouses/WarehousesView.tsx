@@ -7,6 +7,7 @@ import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { placesSample, placesStates } from './placesStates'
 import './warehouses.css'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.warehouses
 
@@ -30,7 +31,7 @@ export const placeInputOf = (f: Form): PlaceInput => {
 
 const addressLine = (p: Place) => [p.address?.line1, p.address?.city, p.address?.region, p.address?.country].filter(Boolean).join(', ')
 
-const refusalOf = (error: unknown) => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
+const refusalOf = refusalIn(words.refused)
 
 const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f: Form) => void; busy: boolean; onSave: () => void; onCancel: () => void }) => {
   const id = useId()
@@ -78,12 +79,8 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
 }
 
 /**
- * Where stock sits (SetOps "Warehouse"): the caller's own locations, the default one first-class. A supplier keeps its
- * own here, inside "Your products" (#337); the store's Settings › Warehouse shows the same list for the merchant.
- */
-/**
- * `side` says whose locations are editable: the merchant side's are its own (no supplier), its suppliers' listed apart
- * and read-only, named from `supplierNames` where given; a supplier's are all it reads.
+ * Where stock sits (SetOps "Warehouse"), the default first: a supplier's own inside "Your products" (#337), and the
+ * merchant side's own with its suppliers' listed apart and read-only (`side`; names from `supplierNames` where given).
  */
 export const WarehousesView = ({ canEdit, side, supplierNames = null }: { canEdit: boolean; side: 'merchant' | 'supplier'; supplierNames?: ReadonlyMap<string, string> | null }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })

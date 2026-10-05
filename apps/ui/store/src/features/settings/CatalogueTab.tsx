@@ -1,10 +1,10 @@
-import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useId, useState } from 'react'
 import { loadProductBasics, type ProductBasics } from '../../api/productEditor'
 import { badgeRules, deleteBadge, saveBadge, saveSections, sectionKeys, type BadgeRule, type SectionKey } from '../../api/settings'
 import { fill, messages } from '../../messages'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.settings.catalogue
 
@@ -23,9 +23,11 @@ export const presets: Record<keyof typeof words.presets, Partial<Sections>> = {
 /** A badge's colour follows what it says, as in the prototype; the API holds three. */
 const toneOf = (rule: BadgeRule): 'ok' | 'peach' | 'neutral' => (rule === 'new_30_days' ? 'ok' : rule === 'manual' ? 'neutral' : 'peach')
 
-const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
+const refusalOf = refusalIn(words.refused)
 
 /** A section the plan no longer has reads as off, as the server treats it: a save never sends it on (P5). */
+const isKnown = (rule: string): rule is BadgeRule => (badgeRules as readonly string[]).includes(rule)
+
 const sectionsOf = (basics: ProductBasics): Sections =>
   Object.fromEntries(sectionKeys.map((k) => {
     const f = basics.features.find((x) => x.key === k)
@@ -99,15 +101,17 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
         {
           key: 'rule',
           label: words.when,
-          options: badgeRules.map((r) => ({ value: r, label: words.ruleOptions[r] })),
-          initial: badgeRules.find((r) => r === b?.rule) ?? 'manual',
+          // A rule this screen doesn't know (one the API added since) is offered as itself, so editing the text keeps it.
+          options: [...(b && !isKnown(b.rule) ? [{ value: b.rule, label: words.ruleKept }] : []), ...badgeRules.map((r) => ({ value: r, label: words.ruleOptions[r] }))],
+          initial: b?.rule ?? 'manual',
           error: () => null,
         },
       ],
       onConfirm: (_, value, picks) => {
-        const rule = badgeRules.find((r) => r === picks['rule']) ?? 'manual'
+        const known = badgeRules.find((r) => r === picks['rule'])
+        const rule = known ?? (b && picks['rule'] === b.rule ? b.rule : 'manual')
         const label = (value ?? '').trim()
-        void run(async () => (await saveBadge(b?.id ?? null, { label, rule, tone: toneOf(rule), position: b ? b.position : badges.reduce((n, x) => Math.max(n, x.position + 1), 0) }), reread(b ? words.badgeSaved : fill(rule === 'manual' ? words.badgeAddedManual : words.badgeAddedAuto, { name: label }))), onSaved)
+        void run(async () => (await saveBadge(b?.id ?? null, { label, rule, tone: known ? toneOf(known) : (b?.tone ?? 'neutral'), position: b ? b.position : badges.reduce((n, x) => Math.max(n, x.position + 1), 0) }), reread(b ? words.badgeSaved : fill(known === 'manual' ? words.badgeAddedManual : words.badgeAddedAuto, { name: label }))), onSaved)
       },
     })
 
@@ -196,12 +200,12 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved }: Cata
           ) : (
             <ul className="df-cat-list">
               {badges.map((b) => {
-                const rule = badgeRules.find((r) => r === b.rule) ?? 'manual'
+                const rule = isKnown(b.rule) ? b.rule : null
                 return (
                   <li key={b.id}>
-                    <span className={`df-cat-badge df-cat-badge--${toneOf(rule)}`}>{b.label}</span>
+                    <span className={`df-cat-badge df-cat-badge--${rule ? toneOf(rule) : b.tone}`}>{b.label}</span>
                     <span className="df-cat-text">
-                      <span>{words.rules[rule]}</span>
+                      <span>{rule ? words.rules[rule] : words.ruleOther}</span>
                     </span>
                     {canEdit && (
                       <span className="df-cat-badge-tools">
