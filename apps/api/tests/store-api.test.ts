@@ -259,6 +259,13 @@ describe('PLAN_LIMIT', () => {
     await expect(requirePlan(db.sql, context, 'products', now, 15)).resolves.toBeUndefined()
   })
 
+  it('holds a supplier’s action to the store’s own plan, read in the store’s scope', async () => {
+    const standing = await standingOf(t.partnerA, cookies.sam, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerA1First })
+    if (standing.kind !== 'acting') throw new Error(`expected acting, got ${standing.kind}`)
+    await expect(requirePlan(db.sql, standing.caller.context, 'products', now, 20)).resolves.toBeUndefined()
+    await expect(requirePlan(db.sql, standing.caller.context, 'products', now, 21)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', limit: 20 } })
+  })
+
   it('refuses a key the plan doesn’t set, and never names another partner’s plan', async () => {
     const context = await contextOf(cookies.bob, t.storeB1, t.partnerB)
     await expect(requirePlan(db.sql, context, 'aplus', now)).resolves.toBeUndefined()

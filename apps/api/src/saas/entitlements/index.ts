@@ -1,7 +1,7 @@
 import type postgres from 'postgres'
 import type { TenantContext } from '#core/tenancy'
 import { amountKeys, selectStoreEntitlement, selectUnlockingPlan, type EntitlementKey, type UnlockingPlan } from '#db/scoped/entitlements'
-import { withSystemScope } from '#db/scoped/index'
+import { withScope, withSystemScope } from '#db/scoped/index'
 
 export type { EntitlementKey, UnlockingPlan } from '#db/scoped/entitlements'
 
@@ -21,14 +21,12 @@ const isAmountKey = (key: EntitlementKey): boolean => (amountKeys as readonly st
  * `total` is what the store would hold after the action, for a limit; ignored for a switch.
  * A switch or limit the plan doesn't set refuses: an entitlement is granted, never assumed.
  */
-export const planLimitFor = async (sql: postgres.Sql, context: TenantContext, key: EntitlementKey, now: Date, total = 0): Promise<PlanLimit | null> =>
-  withSystemScope(sql, async (tx) => {
-    const current = await selectStoreEntitlement(tx, context.storeId, key, now)
-    if (isAmountKey(key)) {
-      const limit = current.amount ?? 0
-      if (total <= limit) return null
-      return { key, limit, unlockedBy: await selectUnlockingPlan(tx, context.storeId, key, total) }
-    }
-    if (current.enabled === true) return null
-    return { key, limit: null, unlockedBy: await selectUnlockingPlan(tx, context.storeId, key, null) }
-  })
+export const planLimitFor = async (sql: postgres.Sql, context: TenantContext, key: EntitlementKey, now: Date, total = 0): Promise<PlanLimit | null> => {
+  // A supplier's action counts against the store's plan too, which only the merchant side reads
+  // (DATA-MODEL §5.2): the same store, so RLS still pins the read to app.store_id.
+  const current = await withScope(sql, { ...context, sellerScope: { kind: 'all' } }, (tx) => selectStoreEntitlement(tx, context.storeId, key, now))
+  const amount = isAmountKey(key)
+  if (amount ? total <= (current.amount ?? 0) : current.enabled === true) return null
+  const unlockedBy = await withSystemScope(sql, (tx) => selectUnlockingPlan(tx, context.storeId, key, amount ? total : null))
+  return { key, limit: amount ? (current.amount ?? 0) : null, unlockedBy }
+}

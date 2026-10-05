@@ -1,8 +1,8 @@
 import type { ScopedSql } from './index'
 
-// SAAS.md §6.1's three kinds of entitlement, read for one store. In `system` scope: finding the
-// plan that unlocks a feature reads the partner's other live plans, which a store may not
-// (0007's plan_store_read), and only that plan's id and name leave this file.
+// SAAS.md §6.1's three kinds of entitlement for one store: its own values in its scope, and the
+// plan that unlocks one in `system` scope, since that reads the partner's other live plans, which
+// a store may not (0007's plan_store_read); only that plan's id and name leave this file.
 
 export const switchKeys = ['custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'] as const
 export const amountKeys = ['products', 'staff', 'suppliers', 'languages', 'currencies', 'publish_now', 'ai_prompts'] as const

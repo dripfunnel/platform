@@ -9,7 +9,7 @@ import { readUserSession, storeCookieName } from './storeSession'
 import { isMerchantRole, isSupplierRole, isSupplierTier, type StoreRole } from './storePermissions'
 
 // The acting store and, for a person working for more than one supplier in it, the acting
-// supplier (ACCESS.md §4; the names are proposed there).
+// supplier (ACCESS.md §4).
 export const storeHeader = 'x-store'
 export const supplierHeader = 'x-supplier'
 
