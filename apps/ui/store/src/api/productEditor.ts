@@ -213,6 +213,20 @@ export const loadPricing = async (productId: string, marketId: string | null = n
     )
   ).product?.pricing ?? []
 
+/** The first version's price in each market, every market in one request (O14): market id → price, null when none. */
+export const loadMarketPrices = async (productId: string, marketIds: readonly string[]): Promise<Map<string, CurrencyPrice | null>> => {
+  if (marketIds.length === 0) return new Map()
+  const fields = marketIds.map((_, i) => `m${i}: pricing(marketId: $m${i}) { inMarket { currency amount compareAtAmount source } }`).join(' ')
+  const params = marketIds.map((_, i) => `$m${i}: ID!`).join(', ')
+  const pricing = z.array(z.object({ inMarket: currencyPriceSchema.nullable() })).nullable()
+  const { product } = await query(
+    `query P($id: ID!, ${params}) { product(id: $id) { ${fields} } }`,
+    z.object({ product: z.record(z.string(), pricing).nullable() }),
+    { id: productId, ...Object.fromEntries(marketIds.map((id, i) => [`m${i}`, id])) },
+  )
+  return new Map(marketIds.map((id, i) => [id, product?.[`m${i}`]?.[0]?.inMarket ?? null]))
+}
+
 const currencySchema = z.object({ code: z.string(), mode: z.string(), status: z.string() })
 
 /** The store's other currencies and how each is priced: converted for you (auto) or typed per product (manual). */

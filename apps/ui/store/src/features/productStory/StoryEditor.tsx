@@ -8,7 +8,7 @@ import { copyProductStory, gapsOf, loadProductStory, loadStoryBlocks, publishPro
 import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
-import { editorAccessOf } from '../productEditor/access'
+import { editorAccessOf } from '../common/access'
 import { StoryCanvas } from './StoryCanvas'
 import { StoryPanel } from './StoryPanel'
 import { blankModule, duplicateModule, maxModules, moduleInput, modulesOf, moved, sameModules, storyKinds, storyTemplates, type DraftModule, type StoryKind, type StoryTemplate } from './storyDraft'
