@@ -373,6 +373,7 @@ type Mutation {
   setEverywhereElse(marketId: ID): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setPricesIncludeTax(included: Boolean!): Boolean
+  setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
   setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
@@ -446,6 +447,12 @@ type Product {
   video: ProductVideo
   visible: Boolean
   warrantyText: String
+}
+
+type ProductCollection {
+  id: ID
+  kind: String
+  name: String
 }
 
 type ProductCompliance {
@@ -742,6 +749,7 @@ type Query {
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
+  productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts
   productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
   productStory(productId: ID!): ProductStory

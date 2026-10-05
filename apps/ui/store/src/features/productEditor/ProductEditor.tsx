@@ -4,16 +4,17 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useBlocker, useNavigate, useParams } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadApprovalRequired, loadProduct, loadProductBasics, loadTaxSetup, saveProduct, uploadPhoto, type EditorProduct, type TaxSetup } from '../../api/productEditor'
-import { deleteProducts } from '../../api/products'
+import { loadApprovalRequired, loadFacets, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
+import { deleteProducts, loadHandPicked } from '../../api/products'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
 import { fill, messages, plural } from '../../messages'
 import { editorAccessOf } from './access'
 import { ChoicesCard, type Ask } from './ChoicesCard'
-import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type Units } from './draft'
+import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type ListingSection, type Units } from './draft'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
+import { CollectionsPart, ListingSections, type EditorExtras as Extras } from './ListingSections'
 import { StockCard, type StockHistoryView } from './StockCard'
 import { editorSample, editorStates } from './editorStates'
 import './editor.css'
@@ -21,7 +22,27 @@ import './editor.css'
 const words = messages.editor
 const shellRoute = getRouteApi('/_app')
 
-type Loaded = { product: EditorProduct | null; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]> }
+type Loaded = { product: EditorProduct | null; currency: string; units: Units; tax: TaxSetup | null; approvalRequired: boolean; warehouses: Warehouse[]; levels: Map<string, StockLevel[]>; extras: Extras }
+
+
+const sectionKeys: readonly ListingSection[] = ['specs', 'highlights', 'faqs', 'related', 'badges', 'sizeCharts']
+
+const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: string | null): Promise<Extras> => {
+  const on = new Set(basics.features.filter((f) => f.enabled).map((f) => f.key))
+  const shown = new Set<ListingSection>([...sectionKeys.filter((k) => on.has(k)), 'filters', 'legal'])
+  // A section's choices failing to load leaves that section empty rather than the editor unusable.
+  const [facets, sizeCharts, handPicked, memberships] = await Promise.all([
+    loadFacets().catch(() => []),
+    shown.has('sizeCharts') ? loadSizeCharts().catch(() => []) : Promise.resolve([]),
+    merchant ? loadHandPicked().catch(() => []) : Promise.resolve([]),
+    merchant && productId ? loadProductCollections(productId).catch(() => []) : Promise.resolve([]),
+  ])
+  return {
+    choices: { shown, facets, sizeCharts, collections: merchant ? { handPicked, automatic: memberships.filter((m) => m.kind !== 'manual') } : null },
+    badges: merchant && shown.has('badges') ? basics.badges : null,
+    memberships,
+  }
+}
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'notFound' } | ({ kind: 'ready' } & Loaded)
 
 const problemWords = (units: Units): Record<DraftProblem, string> => ({
@@ -71,7 +92,8 @@ export const ProductEditor = () => {
   const leaving = useRef(false)
 
   const show = useCallback((loaded: Loaded) => {
-    const next = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels }) : blankDraft(loaded.units)
+    const made = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels }) : blankDraft(loaded.units)
+    const next = { ...made, collectionIds: loaded.extras.memberships.filter((m) => m.kind === 'manual').map((m) => m.id) }
     setDraft(next)
     setSaved(next)
     setHistory(closedHistory)
@@ -81,7 +103,7 @@ export const ProductEditor = () => {
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: forced === 'new' ? new Map() : sample.levels })
+    if (sample) return sample.product === null && forced === 'notFound' ? setView({ kind: 'notFound' }) : show({ product: forced === 'new' ? null : sample.product, currency: sample.currency, units: 'metric', tax: sample.tax, approvalRequired: sample.approvalRequired, warehouses: sample.warehouses, levels: forced === 'new' ? new Map() : sample.levels, extras: sample.extras })
     const supplierSide = shell.acting.seller !== null
     void Promise.all([
       isNew ? Promise.resolve(null) : loadProduct(productId),
@@ -91,11 +113,11 @@ export const ProductEditor = () => {
       loadWarehouses(),
       isNew ? Promise.resolve(new Map<string, StockLevel[]>()) : loadProductStock(productId),
     ]).then(
-      ([product, basics, tax, approvalRequired, warehouses, levels]) => {
+      async ([product, basics, tax, approvalRequired, warehouses, levels]) => {
         if (!isNew && !product) return setView({ kind: 'notFound' })
         const pricing = product?.pricingCurrency ?? basics.pricingCurrency
         if (!pricing) return setView({ kind: 'error' })
-        show({ product, currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels })
+        show({ product, currency: pricing, units: basics.unitSystem, tax, approvalRequired, warehouses, levels, extras: await loadExtras(basics, !supplierSide, isNew ? null : productId) })
       },
       () => setView({ kind: 'error' }),
     )
@@ -173,10 +195,18 @@ export const ProductEditor = () => {
     setSaving(true)
     setFailure(null)
     let stored: EditorProduct | null = product
+    const collectionsChanged = access.storeFields && [...draft.collectionIds].sort().join() !== [...saved.collectionIds].sort().join()
+    /** The hand-picked collections after the product, by its own call; answers the listing's choices with them. */
+    const saveCollections = async (id: string): Promise<Extras> => {
+      if (!collectionsChanged) return view.extras
+      const memberships = await setProductCollections(id, draft.collectionIds)
+      const collections = view.extras.choices.collections
+      return { ...view.extras, memberships, choices: { ...view.extras.choices, collections: collections && { ...collections, automatic: memberships.filter((m) => m.kind !== 'manual') } } }
+    }
     if (access.canEdit) {
       let done: Awaited<ReturnType<typeof saveProduct>>
       try {
-        done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side), access.proposes)
+        done = await saveProduct(isNew ? null : (product?.id ?? null), isNew ? null : (product?.revision ?? null), inputOf(draft, currency, access.side, view.extras.choices.shown), access.proposes)
       } catch (error) {
         setFailure({ text: refusalOf(error), stale: isApiError(error, 'STALE_REVISION') })
         setSaving(false)
@@ -186,13 +216,14 @@ export const ProductEditor = () => {
       // its counts still to save.
       setShowProblems(false)
       setToast(done.approval === 'pending' && access.side === 'supplier' ? words.submitted : isNew ? fill(words.savedNew, { name: draft.name.trim() }) : words.saved)
-      setSaved((before) => ({ ...draft, stock: before.stock }))
+      setSaved((before) => ({ ...draft, stock: before.stock, collectionIds: before.collectionIds }))
       if (product) setView((v) => (v.kind === 'ready' && v.product ? { ...v, product: { ...v.product, revision: done.revision } } : v))
       // Read back what was stored: new versions' ids for the counts, the readiness the save changed.
       stored = await loadProduct(done.id).catch(() => null)
       if (isNew) {
         // The new product's own page loads it fresh; its first counts go first, by the ids just read.
         if (stored) await saveStock(stored, saved).catch(() => setToast(words.stock.failed))
+        await saveCollections(done.id).catch(() => setToast(words.saveCollectionsFailed))
         leaving.current = true
         void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
         setSaving(false)
@@ -203,20 +234,32 @@ export const ProductEditor = () => {
       setSaving(false)
       return
     }
+    const kept = draft
+    let extras = view.extras
+    let collectionsFailed = false
     try {
-      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved) })
+      extras = await saveCollections(stored.id)
+    } catch {
+      collectionsFailed = true
+    }
+    try {
+      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels: await saveStock(stored, saved), extras })
       if (!access.canEdit) setToast(words.saved)
     } catch (error) {
       // The product is saved; its counts are still typed on the page, to save again.
-      const kept = draft
-      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels })
+      show({ product: stored, currency, units: draft.units, tax, approvalRequired: view.approvalRequired, warehouses, levels, extras })
       setDraft((d) => ({ ...d, stock: kept.stock }))
       setFailure({ text: isApiError(error) && error.code !== 'NOT_CONNECTED' ? refusalOf(error) : words.stock.failed, stale: false })
+    }
+    if (collectionsFailed) {
+      setDraft((d) => ({ ...d, collectionIds: kept.collectionIds }))
+      setFailure({ text: words.saveCollectionsFailed, stale: false })
     }
     setSaving(false)
   }
 
   const names = new Map((product?.versions ?? []).map((v) => [v.id, v.choices.join(' / ')]))
+  const listingProps = { draft, update, disabled, choices: view.extras.choices, productId: product?.id ?? null, readiness: isNew ? undefined : (product?.readiness ?? null) }
 
   const toggleHistory = () => {
     if (!product) return
@@ -334,9 +377,19 @@ export const ProductEditor = () => {
           {!made && <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} />}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
           <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />
-          <EditorSections draft={draft} update={update} disabled={disabled} problems={shownProblems} taxClasses={access.side === 'merchant' && tax ? tax.classes : null} storeFields={access.storeFields} isLive={!isNew && saved.visible && saved.slug !== draft.slug} />
+          <EditorSections
+            draft={draft}
+            update={update}
+            disabled={disabled}
+            problems={shownProblems}
+            taxClasses={access.side === 'merchant' && tax ? tax.classes : null}
+            storeFields={access.storeFields}
+            isLive={!isNew && saved.visible && saved.slug !== draft.slug}
+            afterShipping={<CollectionsPart {...listingProps} />}
+            afterTax={<ListingSections {...listingProps} />}
+          />
         </div>
-        <SidePanel draft={draft} update={update} storeFields={access.storeFields} canShow={product?.approval !== 'pending'} readiness={isNew ? undefined : (product?.readiness ?? null)} currency={currency} inclusive={tax ? tax.pricesIncludeTax : null} approvalNote={access.side === 'supplier' && isNew && waitsForApproval} />
+        <SidePanel draft={draft} update={update} storeFields={access.storeFields} canShow={product?.approval !== 'pending'} readiness={isNew ? undefined : (product?.readiness ?? null)} currency={currency} inclusive={tax ? tax.pricesIncludeTax : null} approvalNote={access.side === 'supplier' && isNew && waitsForApproval} badges={view.extras.badges} />
       </div>
 
       {(access.canEdit || access.canStock) && (dirty || failure) && (

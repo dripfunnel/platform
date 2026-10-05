@@ -1192,7 +1192,7 @@
       "seoTitle": "Title",
       "seoDescription": "Description",
       "more": "More options",
-      "moreSummary": "Product code and web address",
+      "moreSummary": "Product code, web address, stock tracking, age check",
       "sku": "Product code (SKU)",
       "skuHint": "Your own code to tell products apart.",
       "slug": "Web address",
@@ -1212,7 +1212,92 @@
           "boxPlaceholder": "10 × 8 × 1"
         }
       },
-      "varies": "Different for each version — type here to set them all"
+      "varies": "Different for each version — set it here for all",
+      "coll": "Collections & filters",
+      "collEmpty": "Group it with similar products so shoppers find it",
+      "collIn": "In {names}",
+      "collAlso": "Also in {names}",
+      "handPicked": "Hand-picked collections",
+      "handPickedNone": "No hand-picked collections yet — make one in Collections.",
+      "automaticAlso": "Also in: {names} (they fill from their rules)",
+      "filters": "Filters shoppers can use",
+      "filtersNone": "No filters yet — make them in Collections › Filters.",
+      "internal": "only your team sees this",
+      "filtersHelp": "Choices are what shoppers pick when buying. Filters help them find the product. Internal tags are only for you.",
+      "toggleIn": "{name}, in",
+      "toggleOut": "{name}, not in",
+      "chart": "Size chart",
+      "chartNone": "No size chart",
+      "chartEmpty": "Shoppers return fewer orders when there’s a size chart.",
+      "chartManage": "Manage size charts →",
+      "specs": "Specifications & highlights",
+      "specsOnly": "Specifications",
+      "highlightsOnly": "Highlights",
+      "specsSummary": "{specs} specs · {highlights} highlights",
+      "specsEmpty": "e.g. Material: Cotton · Care: Machine wash cold",
+      "specName": "Specification",
+      "specValue": "Value",
+      "specNamePlaceholder": "e.g. Material",
+      "specValuePlaceholder": "e.g. Cotton",
+      "specRemove": "Remove {name}",
+      "specAdd": "+ Add a specification",
+      "highlightsTitle": "Highlights · {count} of 5 · shown next to the price",
+      "highlightPlaceholder": "A short point, e.g. Pre-washed, no shrinking",
+      "highlightLabel": "Highlight {n}",
+      "highlightAdd": "+ Add a highlight",
+      "highlightRemove": "Remove highlight {n}",
+      "faqs": "FAQs",
+      "faqsSummary": {
+        "one": "1 question",
+        "other": "{count} questions"
+      },
+      "faqsEmpty": "Answer what shoppers ask before they buy",
+      "faqQuestion": "Question",
+      "faqAnswer": "Answer",
+      "faqRemove": "Remove this question",
+      "faqAdd": "+ Add a question",
+      "faqSuggest": [
+        "Does it shrink?",
+        "How does it fit?",
+        "How long does delivery take?",
+        "Can I return it?"
+      ],
+      "related": "Related products",
+      "relatedAuto": "Automatic — show products from the same collection",
+      "relatedSummaryAuto": "Automatic — from the same collection",
+      "relatedPicked": {
+        "one": "1 picked",
+        "other": "{count} picked"
+      },
+      "relatedSearch": "Find a product to show under this one",
+      "relatedHelp": "Pick up to 4. Shown as “You may also like”.",
+      "relatedMax": "Pick up to 4",
+      "relatedRemove": "Remove {name}",
+      "legal": "Legal & safety",
+      "legalTag": "never a paid feature",
+      "legalSummaryOk": "Nothing missing",
+      "legalSummaryMissing": "{markets} need more",
+      "legalHelp": "Only what the countries you sell in ask for. Missing details stop sales in that country only. Not legal advice.",
+      "legalFields": {
+        "fibre": "Fibre content",
+        "origin": "Country of origin",
+        "care": "Care instructions"
+      },
+      "legalPlaceholders": {
+        "fibre": "e.g. 100% cotton",
+        "origin": "e.g. India",
+        "care": "e.g. Machine wash cold"
+      },
+      "legalNeeded": "Needed for {markets}",
+      "legalOptional": "Some countries ask for this",
+      "track": "Track stock",
+      "trackSub": "Count down as orders come in",
+      "oversell": "Keep selling when out of stock",
+      "oversellSub": "Take orders and ship when you restock",
+      "age": "Ask shoppers to confirm their age",
+      "ageSub": "For alcohol, knives and other age-restricted items",
+      "hazard": "Hazardous to ship",
+      "hazardSub": "Couriers need to know before they pick it up"
     },
     "side": {
       "onStore": "On your store",
@@ -1230,7 +1315,10 @@
       "previewName": "Product name",
       "inclTax": "incl. tax",
       "plusTax": "+ tax at checkout",
-      "previewNote": "Tap a choice to see it as shoppers do."
+      "previewNote": "Tap a choice to see it as shoppers do.",
+      "badges": "Badges",
+      "badgesNote": "Automatic badges show by themselves. Make and edit badges in Settings › Catalogue.",
+      "badgeAuto": "{name} · auto"
     },
     "bar": {
       "unsaved": "Unsaved changes",
@@ -1335,6 +1423,7 @@
       "untracked": "Not tracked for this kind of product.",
       "saveStock": "Save stock",
       "failed": "The product saved, but the stock didn’t. Try saving again."
-    }
+    },
+    "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again."
   }
 }

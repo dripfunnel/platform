@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { actingHeaders } from '../acting'
+import { allPages } from './allPages'
 import { query } from './client'
 
 // The product editor's reads and writes (FIRST-RELEASE §11, CatEditor; apps/api/schema/store.graphql,
@@ -24,6 +25,7 @@ const versionSchema = z.object({
   hsCode: z.string().nullable(),
   taxClassId: z.string().nullable(),
   trackStock: z.boolean().nullable(),
+  continueSelling: z.boolean().nullable(),
 })
 
 const productSchema = z.object({
@@ -43,6 +45,18 @@ const productSchema = z.object({
   photos: z.array(z.object({ id: z.string(), assetId: z.string(), url: z.string(), alt: z.string().nullable(), versionId: z.string().nullable() })),
   options: z.array(z.object({ id: z.string(), name: z.string(), values: z.array(z.object({ id: z.string(), name: z.string() })) })),
   versions: z.array(versionSchema),
+  listing: z.object({
+    specs: z.array(z.object({ name: z.string(), value: z.string(), versionId: z.string().nullable(), filterValueId: z.string().nullable() })),
+    highlights: z.array(z.string()),
+    faqs: z.array(z.object({ question: z.string(), answer: z.string() })),
+    relatedIds: z.array(z.string()),
+    badgeIds: z.array(z.string()),
+    compliance: z.array(z.object({ region: z.string(), field: z.string(), value: z.string() })),
+    ageRestricted: z.boolean().nullable(),
+    hazardous: z.boolean().nullable(),
+  }),
+  filterValues: z.array(z.object({ valueId: z.string(), versionId: z.string().nullable() })),
+  sizeChartId: z.string().nullable(),
   // Null for a supplier, which reads no market.
   readiness: z.array(z.object({ marketId: z.string(), marketName: z.string(), ready: z.boolean(), missing: z.array(z.string()) })).nullable(),
 })
@@ -53,16 +67,50 @@ export type EditorVersion = z.infer<typeof versionSchema>
 const productFields = `id revision name description productType visible approval sentBackReason supplier { id name } slug seoTitle seoDescription pricingCurrency
   photos { id assetId url alt versionId }
   options { id name values { id name } }
-  versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId trackStock }
+  versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId trackStock continueSelling }
+  listing { specs { name value versionId filterValueId } highlights faqs { question answer } relatedIds badgeIds compliance { region field value } ageRestricted hazardous }
+  filterValues { valueId versionId } sizeChartId
   readiness { marketId marketName ready missing }`
 
 /** The product, or null for one that isn't here (or isn't the caller's, which looks the same). */
 export const loadProduct = async (id: string): Promise<EditorProduct | null> =>
   (await query(`query P($id: ID!) { product(id: $id) { ${productFields} } }`, z.object({ product: productSchema.nullable() }), { id })).product
 
-/** What a product is typed in: the store's pricing currency and its units, which every seat may read. */
-export const loadProductBasics = async (): Promise<{ pricingCurrency: string | null; unitSystem: 'metric' | 'imperial' }> =>
-  (await query('{ catalogueSettings { pricingCurrency unitSystem } }', z.object({ catalogueSettings: z.object({ pricingCurrency: z.string().nullable(), unitSystem: z.enum(['metric', 'imperial']).catch('metric') }) }))).catalogueSettings
+const basicsSchema = z.object({
+  pricingCurrency: z.string().nullable(),
+  unitSystem: z.enum(['metric', 'imperial']).catch('metric'),
+  features: z.array(z.object({ key: z.string(), enabled: z.boolean() })),
+  badges: z.array(z.object({ id: z.string(), label: z.string(), rule: z.string() })),
+})
+export type ProductBasics = z.infer<typeof basicsSchema>
+
+/** What a product is typed in and which sections it has: the store's currency, units, catalogue switches and badges. */
+export const loadProductBasics = async (): Promise<ProductBasics> =>
+  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled } badges { id label rule } } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
+
+const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
+
+const facetSchema = z.object({ id: z.string(), name: z.string(), shopperVisible: z.boolean(), values: z.array(z.object({ id: z.string(), name: z.string() })) })
+export type Facet = z.infer<typeof facetSchema>
+
+/** The store's filters and their values, which a product is filed under. */
+export const loadFacets = (): Promise<Facet[]> =>
+  allPages(async (after) => (await query('query F($after: String) { facets(first: 50, after: $after) { nodes { id name shopperVisible values { id name } } pageInfo { hasNextPage endCursor } } }', z.object({ facets: z.object({ nodes: z.array(facetSchema), pageInfo: pageInfoSchema }) }), { after })).facets)
+
+/** The size charts the caller may pick: the store's, and a supplier's own. */
+export const loadSizeCharts = (): Promise<{ id: string; name: string }[]> =>
+  allPages(async (after) => (await query('query C($after: String) { sizeCharts(first: 50, after: $after) { nodes { id name } pageInfo { hasNextPage endCursor } } }', z.object({ sizeCharts: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string() })), pageInfo: pageInfoSchema }) }), { after })).sizeCharts)
+
+const memberSchema = z.array(z.object({ id: z.string(), name: z.string(), kind: z.string() }))
+export type ProductCollection = z.infer<typeof memberSchema>[number]
+
+/** The collections a product is in, hand-picked and automatic (the merchant side's). */
+export const loadProductCollections = async (productId: string): Promise<ProductCollection[]> =>
+  (await query('query C($p: ID!) { productCollections(productId: $p) { id name kind } }', z.object({ productCollections: memberSchema }), { p: productId })).productCollections
+
+/** Puts the product in exactly these hand-picked collections; answers all it is now in. */
+export const setProductCollections = async (productId: string, collectionIds: string[]): Promise<ProductCollection[]> =>
+  (await query('mutation S($p: ID!, $c: [ID!]!) { setProductCollections(productId: $p, collectionIds: $c) { id name kind } }', z.object({ setProductCollections: memberSchema }), { p: productId, c: collectionIds })).setProductCollections
 
 export interface ProductInput {
   name: string
@@ -86,8 +134,23 @@ export interface ProductInput {
     heightMm: number | null
     hsCode: string | null
     taxClassId?: string | null
+    trackStock: boolean | null
+    continueSelling: boolean | null
   }[]
   photos: { assetId: string; alt?: string; version?: number }[]
+  /** Each section named replaces the product's; one left out stays as it is (CATALOG S9). */
+  listing?: {
+    specs?: { name: string; value: string; version?: number; filterValueId?: string }[]
+    highlights?: string[]
+    faqs?: { question: string; answer: string }[]
+    relatedIds?: string[]
+    badgeIds?: string[]
+    compliance?: { region: string; field: string; value: string }[]
+    ageRestricted?: boolean
+    hazardous?: boolean
+  }
+  filterValues?: { valueId: string; version?: number }[]
+  sizeChartId?: string | null
 }
 
 const savedSchema = z.object({ id: z.string(), revision: z.number().int(), approval: z.string().nullable() })

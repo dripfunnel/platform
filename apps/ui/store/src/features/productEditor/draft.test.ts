@@ -15,12 +15,12 @@ const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   slug: 'mara-linen-shirt',
   seoTitle: null,
   seoDescription: null,
-  pricingCurrency: 'INR',
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
   photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: 'Front', versionId: null }],
   options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 'S' }, { id: 'v-m', name: 'M' }] }],
   versions: [
-    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true },
-    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true },
+    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
   ],
   readiness: [],
   ...p,
@@ -78,7 +78,7 @@ describe('the editor’s draft (CatEditor)', () => {
     const d = draftOf(product({ photos: [{ id: 'ph1', assetId: 'a1', url: '', alt: 'Front', versionId: null }, { id: 'ph2', assetId: 'a2', url: '', alt: '', versionId: 'ver-m' }] }), 'INR')
     const merchant = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 0 ? { ...v, removed: true } : v)) }, 'INR', 'merchant')
     expect(merchant.versions).toEqual([
-      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5' },
+      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
     ])
     expect(merchant.photos).toEqual([{ assetId: 'a1', alt: 'Front' }, { assetId: 'a2', version: 0 }])
     expect(merchant.visible).toBe(true)
@@ -122,5 +122,44 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(isDirty(named(d, 'Other'), d)).toBe(true)
     expect(priceRange(d, 'INR')).toEqual({ low: 249900, high: 279900 })
     expect(priceRange(blankDraft(), 'INR')).toBeNull()
+  })
+
+  it('sends only the listing sections the form shows, a version’s own specs by its place, and no badges from a supplier', () => {
+    const p = product({
+      listing: {
+        specs: [{ name: 'Material', value: 'Linen', versionId: null, filterValueId: null }, { name: 'Fit', value: 'Slim', versionId: 'ver-m', filterValueId: null }],
+        highlights: ['Pre-washed'],
+        faqs: [{ question: 'Does it shrink?', answer: 'No.' }],
+        relatedIds: ['p2'],
+        badgeIds: ['b1'],
+        compliance: [{ region: 'ALL', field: 'origin', value: 'India' }, { region: 'US', field: 'fibre', value: '100% linen' }],
+        ageRestricted: null,
+        hazardous: null,
+      },
+      filterValues: [{ valueId: 'fv1', versionId: null }, { valueId: 'fv2', versionId: 'ver-m' }],
+      sizeChartId: 'sc1',
+    })
+    const d = draftOf(p, 'INR')
+    expect(d.listing.legal).toEqual({ fibre: '', origin: 'India', care: '' })
+    expect(inputOf(d, 'INR', 'merchant')).not.toHaveProperty('listing')
+    const all = new Set(['specs', 'highlights', 'faqs', 'related', 'badges', 'sizeCharts', 'filters', 'legal'] as const)
+    const typed = { ...d, listing: { ...d.listing, legal: { ...d.listing.legal, care: 'Hand wash' } } }
+    const input = inputOf(typed, 'INR', 'merchant', all)
+    expect(input.listing).toEqual({
+      specs: [{ name: 'Material', value: 'Linen' }, { name: 'Fit', value: 'Slim', version: 1 }],
+      highlights: ['Pre-washed'],
+      faqs: [{ question: 'Does it shrink?', answer: 'No.' }],
+      relatedIds: ['p2'],
+      badgeIds: ['b1'],
+      compliance: [{ region: 'ALL', field: 'origin', value: 'India' }, { region: 'ALL', field: 'care', value: 'Hand wash' }, { region: 'US', field: 'fibre', value: '100% linen' }],
+      ageRestricted: false,
+      hazardous: false,
+    })
+    expect(input.filterValues).toEqual([{ valueId: 'fv1' }, { valueId: 'fv2', version: 1 }])
+    expect(input.sizeChartId).toBe('sc1')
+    expect(inputOf(d, 'INR', 'supplier', all).listing).not.toHaveProperty('badgeIds')
+    // A version no longer made takes its own specs and filter values with it.
+    const fewer = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 1 ? { ...v, removed: true } : v)) }, 'INR', 'merchant', all)
+    expect([fewer.listing?.specs, fewer.filterValues]).toEqual([[{ name: 'Material', value: 'Linen' }], [{ valueId: 'fv1' }]])
   })
 })

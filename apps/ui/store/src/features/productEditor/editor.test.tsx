@@ -15,12 +15,16 @@ const words = messages.editor
 const api = vi.hoisted(() => ({
   loadProduct: vi.fn(),
   loadProductBasics: vi.fn(),
+  loadFacets: vi.fn(),
+  loadSizeCharts: vi.fn(),
+  loadProductCollections: vi.fn(),
+  setProductCollections: vi.fn(),
   loadTaxSetup: vi.fn(),
   loadApprovalRequired: vi.fn(),
   saveProduct: vi.fn(),
   uploadPhoto: vi.fn(),
 }))
-const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn() }))
+const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
 
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
@@ -47,10 +51,10 @@ const cushion = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   slug: 'block-print-cushion',
   seoTitle: null,
   seoDescription: null,
-  pricingCurrency: 'INR',
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
   photos: [],
   options: [],
-  versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true }],
+  versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true, continueSelling: false }],
   readiness: [{ marketId: 'm1', marketName: 'India', ready: true, missing: [] }],
   ...p,
 })
@@ -76,7 +80,11 @@ const field = (label: string) => screen.getByLabelText(label) as HTMLInputElemen
 
 beforeEach(() => {
   api.loadProduct.mockResolvedValue(cushion())
-  api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric' })
+  api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: ['specs', 'highlights', 'faqs', 'badges'].map((key) => ({ key, enabled: true })), badges: [{ id: 'b1', label: 'Handmade', rule: 'manual' }] })
+  api.loadFacets.mockResolvedValue([{ id: 'f1', name: 'Fabric', shopperVisible: true, values: [{ id: 'fv1', name: 'Linen' }] }])
+  api.loadSizeCharts.mockResolvedValue([])
+  api.loadProductCollections.mockResolvedValue([{ id: 'c1', name: 'Summer edit', kind: 'manual' }])
+  listApi.loadHandPicked.mockResolvedValue([{ id: 'c1', name: 'Summer edit' }, { id: 'c2', name: 'Gifts' }])
   api.loadTaxSetup.mockResolvedValue({ pricesIncludeTax: true, classes: [{ id: 'tc-18', name: 'GST 18%', isDefault: true }] })
   api.loadApprovalRequired.mockResolvedValue(true)
   stockApi.loadWarehouses.mockResolvedValue([home])
@@ -334,5 +342,47 @@ describe('the product editor', () => {
     await settle()
     expect(api.saveProduct).not.toHaveBeenCalled()
     expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 5 }])
+  })
+
+  it('files the product under filters and collections: the filters with the product, the collections by their own call after it', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    api.setProductCollections.mockResolvedValue([{ id: 'c2', name: 'Gifts', kind: 'manual' }])
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    fireEvent.click(screen.getByRole('button', { name: '✓ Summer edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { filterValues: unknown }).filterValues).toEqual([{ valueId: 'fv1' }])
+    expect(api.setProductCollections).toHaveBeenCalledWith('p1', ['c2'])
+  })
+
+  it('keeps the collections picked and says so when only they fail to save', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    api.setProductCollections.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.saveCollectionsFailed)).toBeTruthy()
+    expect(screen.getByRole('button', { name: '✓ Gifts' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('asks for the legal details a market says are missing, and gives a manual badge', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ readiness: [{ marketId: 'm2', marketName: 'United States', ready: false, missing: ['fibre', 'care'] }] }))
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    const fibre = screen.getByLabelText(new RegExp(`^${words.sections.legalFields.fibre}`))
+    expect(screen.getAllByText('Needed for United States', { exact: false })).toHaveLength(2)
+    expect(screen.queryByLabelText(new RegExp(`^${words.sections.legalFields.origin}`))).toBeNull()
+    fireEvent.change(fibre, { target: { value: '100% cotton' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Handmade' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    const listing = (api.saveProduct.mock.calls[0]?.[2] as { listing: { compliance: unknown; badgeIds: unknown } }).listing
+    expect(listing.compliance).toEqual([{ region: 'ALL', field: 'fibre', value: '100% cotton' }])
+    expect(listing.badgeIds).toEqual(['b1'])
   })
 })

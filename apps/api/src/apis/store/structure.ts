@@ -183,7 +183,18 @@ export const registerStructure = (builder: StoreBuilder) => {
   const read = { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } as const
   const write = { api: 'store', scope: 'store', permission: 'catalog.write', target: 'none' } as const
 
+  const ProductCollection = builder.objectRef<{ id: string; name: string; kind: string }>('ProductCollection').implement({
+    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), kind: t.exposeString('kind') }),
+  })
+
   builder.queryFields((t) => ({
+    // The editor's "Collections & filters": the merchant side's, as collections are (a supplier reads none).
+    productCollections: t.field({
+      type: [ProductCollection],
+      args: { productId: t.arg.id({ required: true }) },
+      extensions: { access: read },
+      resolve: (_, args, ctx) => service(ctx).productCollections(String(args.productId)),
+    }),
     facets: t.field({
       type: FacetPage,
       args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
@@ -228,6 +239,13 @@ export const registerStructure = (builder: StoreBuilder) => {
   }))
 
   builder.mutationFields((t) => ({
+    // Answers the collections the product is now in.
+    setProductCollections: t.field({
+      type: [ProductCollection],
+      args: { productId: t.arg.id({ required: true }), collectionIds: t.arg.idList({ required: true }) },
+      extensions: { access: { ...write, audit: structureAudit.productCollectionsSet } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).setProductCollections(String(args.productId), args.collectionIds.map(String))),
+    }),
     saveFacet: t.id({
       args: { input: t.arg({ type: FacetInput, required: true }) },
       extensions: { access: { ...write, audit: structureAudit.facetSaved } },

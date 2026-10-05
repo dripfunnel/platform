@@ -38,6 +38,8 @@ export interface DraftVersion {
   heightMm: number | null
   hsCode: string | null
   taxClassId: string | null
+  trackStock: boolean | null
+  continueSelling: boolean | null
 }
 
 export interface DraftPhoto {
@@ -71,7 +73,37 @@ export interface Draft {
   taxClassId: string | null
   /** Stock as typed, by version (versionKey) and then location id; saved with setStock after the product. */
   stock: Record<string, Record<string, string>>
+  /** More options' switches for every version; null while the versions differ and nobody has chosen. */
+  trackStock: boolean | null
+  continueSelling: boolean | null
+  listing: DraftListing
+  /** The filter values the product is filed under; a version's own are kept as they came. */
+  filterValueIds: string[]
+  versionFilterValues: { valueId: string; versionChoices: string[] }[]
+  sizeChartId: string | null
+  /** The hand-picked collections it is in (the merchant side's), saved after the product. */
+  collectionIds: string[]
 }
+
+/** The listing's sections as the editor edits them (CATALOG S1–S9); a version's own specs are kept as they came. */
+export interface DraftListing {
+  specs: { name: string; value: string; filterValueId: string | null }[]
+  versionSpecs: { name: string; value: string; filterValueId: string | null; versionChoices: string[] }[]
+  highlights: string[]
+  faqs: { question: string; answer: string }[]
+  relatedIds: string[]
+  badgeIds: string[]
+  /** The details any country asks for, kept for every region (ALL) so they meet each market's need. */
+  legal: Record<LegalField, string>
+  otherCompliance: { region: string; field: string; value: string }[]
+  ageRestricted: boolean
+  hazardous: boolean
+}
+
+export const legalFields = ['fibre', 'origin', 'care'] as const
+export type LegalField = (typeof legalFields)[number]
+
+const blankListing = (): DraftListing => ({ specs: [], versionSpecs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], legal: { fibre: '', origin: '', care: '' }, otherCompliance: [], ageRestricted: false, hazardous: false })
 
 const keyOf = (choices: readonly string[]) => choices.map((c) => c.toLowerCase()).join('\u0000')
 
@@ -95,6 +127,8 @@ const blankVersion = (choices: string[], from?: DraftVersion): DraftVersion => (
   heightMm: from?.heightMm ?? null,
   hsCode: from?.hsCode ?? null,
   taxClassId: from?.taxClassId ?? null,
+  trackStock: from?.trackStock ?? null,
+  continueSelling: from?.continueSelling ?? null,
 })
 
 export type Units = 'metric' | 'imperial'
@@ -119,6 +153,13 @@ export const blankDraft = (units: Units = 'metric'): Draft => ({
   shippingChanged: unchanged,
   taxClassId: null,
   stock: {},
+  trackStock: true,
+  continueSelling: false,
+  listing: blankListing(),
+  filterValueIds: [],
+  versionFilterValues: [],
+  sizeChartId: null,
+  collectionIds: [],
 })
 
 const isKind = (value: string): value is ProductKind => (productKinds as readonly string[]).includes(value)
@@ -180,6 +221,8 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
       heightMm: v.heightMm,
       hsCode: v.hsCode,
       taxClassId: v.taxClassId,
+      trackStock: v.trackStock,
+      continueSelling: v.continueSelling,
     }
   })
   const weights = shared(product.versions.map((v) => v.weightGrams))
@@ -203,6 +246,33 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
     shippingChanged: unchanged,
     taxClassId: product.versions[0]?.taxClassId ?? null,
     stock: Object.fromEntries(product.versions.map((v) => [keyOf(v.choices), Object.fromEntries((levels.get(v.id) ?? []).map((l) => [l.warehouseId, String(l.onHand)]))])),
+    trackStock: shared(product.versions.map((v) => v.trackStock !== false)),
+    continueSelling: shared(product.versions.map((v) => v.continueSelling === true)),
+    listing: listingOf(product),
+    filterValueIds: product.filterValues.filter((f) => f.versionId === null).map((f) => f.valueId),
+    versionFilterValues: product.filterValues.flatMap((f) => (f.versionId === null ? [] : [{ valueId: f.valueId, versionChoices: choicesOf(product, f.versionId) }])),
+    sizeChartId: product.sizeChartId,
+    collectionIds: [],
+  }
+}
+
+const choicesOf = (product: EditorProduct, versionId: string) => product.versions.find((v) => v.id === versionId)?.choices ?? []
+
+const listingOf = (product: EditorProduct): DraftListing => {
+  const l = product.listing
+  const legal = { ...blankListing().legal }
+  for (const c of l.compliance) if (c.region === 'ALL' && (legalFields as readonly string[]).includes(c.field)) legal[c.field as LegalField] = c.value
+  return {
+    specs: l.specs.filter((sp) => sp.versionId === null).map((sp) => ({ name: sp.name, value: sp.value, filterValueId: sp.filterValueId })),
+    versionSpecs: l.specs.flatMap((sp) => (sp.versionId === null ? [] : [{ name: sp.name, value: sp.value, filterValueId: sp.filterValueId, versionChoices: choicesOf(product, sp.versionId) }])),
+    highlights: l.highlights,
+    faqs: l.faqs,
+    relatedIds: l.relatedIds,
+    badgeIds: l.badgeIds,
+    legal,
+    otherCompliance: l.compliance.filter((c) => !(c.region === 'ALL' && (legalFields as readonly string[]).includes(c.field))),
+    ageRestricted: l.ageRestricted === true,
+    hazardous: l.hazardous === true,
   }
 }
 
@@ -281,7 +351,10 @@ const amount = (text: string, currency: string): string | null => {
  * The save's input. A supplier never sends what's the store's to set (visibility, tax category); the price
  * in other currencies goes back as it came, since Markets sets those (#296).
  */
-export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier'): ProductInput => {
+/** The listing sections a form shows, and so sends; one it leaves out stays as the product has it (S9). */
+export type ListingSection = 'specs' | 'highlights' | 'faqs' | 'related' | 'badges' | 'sizeCharts' | 'filters' | 'legal'
+
+export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier', shown: ReadonlySet<ListingSection> = new Set()): ProductInput => {
   const live = draft.versions.filter((v) => !v.removed)
   const grams = gramsOf(draft.weight, draft.units)
   const box = boxOf(draft.box, draft.units)
@@ -305,6 +378,8 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
       heightMm: !physical ? null : changed.box ? (Array.isArray(box) ? box[2] : null) : v.heightMm,
       hsCode: !physical ? null : changed.hsCode ? draft.hsCode.trim() || null : v.hsCode,
       ...(side === 'merchant' ? { taxClassId: draft.taxClassId } : {}),
+      trackStock: physical ? (draft.trackStock ?? v.trackStock) : null,
+      continueSelling: physical ? (draft.continueSelling ?? v.continueSelling) : null,
     }
   })
   const indexOf = (choices: string[] | null) => (choices === null ? -1 : live.findIndex((v) => keyOf(v.choices) === keyOf(choices)))
@@ -324,6 +399,39 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
       if (p.versionChoices !== null && at < 0) return []
       return [{ assetId: p.assetId, ...(p.alt.trim() ? { alt: p.alt.trim() } : {}), ...(at >= 0 ? { version: at } : {}) }]
     }),
+    ...listingInputOf(draft, shown, side, indexOf),
+  }
+}
+
+const listingInputOf = (draft: Draft, shown: ReadonlySet<ListingSection>, side: 'merchant' | 'supplier', indexOf: (choices: string[] | null) => number): Pick<ProductInput, 'listing' | 'filterValues' | 'sizeChartId'> => {
+  const l = draft.listing
+  const kept = <T extends { versionChoices: string[] }>(rows: readonly T[]) => rows.flatMap((r) => (indexOf(r.versionChoices) < 0 ? [] : [{ row: r, version: indexOf(r.versionChoices) }]))
+  const listing: NonNullable<ProductInput['listing']> = {
+    ...(shown.has('specs')
+      ? {
+          specs: [
+            ...l.specs.filter((sp) => sp.name.trim() && sp.value.trim()).map((sp) => ({ name: sp.name.trim(), value: sp.value.trim(), ...(sp.filterValueId ? { filterValueId: sp.filterValueId } : {}) })),
+            ...kept(l.versionSpecs).map(({ row, version }) => ({ name: row.name, value: row.value, version, ...(row.filterValueId ? { filterValueId: row.filterValueId } : {}) })),
+          ],
+        }
+      : {}),
+    ...(shown.has('highlights') ? { highlights: l.highlights.map((h) => h.trim()).filter(Boolean) } : {}),
+    ...(shown.has('faqs') ? { faqs: l.faqs.filter((f) => f.question.trim() && f.answer.trim()).map((f) => ({ question: f.question.trim(), answer: f.answer.trim() })) } : {}),
+    ...(shown.has('related') ? { relatedIds: l.relatedIds } : {}),
+    // Badges are the store's to give (Settings › Catalogue).
+    ...(shown.has('badges') && side === 'merchant' ? { badgeIds: l.badgeIds } : {}),
+    ...(shown.has('legal')
+      ? {
+          compliance: [...legalFields.flatMap((field) => (l.legal[field].trim() ? [{ region: 'ALL', field, value: l.legal[field].trim() }] : [])), ...l.otherCompliance],
+          ageRestricted: l.ageRestricted,
+          hazardous: l.hazardous,
+        }
+      : {}),
+  }
+  return {
+    ...(Object.keys(listing).length > 0 ? { listing } : {}),
+    ...(shown.has('filters') ? { filterValues: [...draft.filterValueIds.map((valueId) => ({ valueId })), ...kept(draft.versionFilterValues).map(({ row, version }) => ({ valueId: row.valueId, version }))] } : {}),
+    ...(shown.has('sizeCharts') ? { sizeChartId: draft.kind === 'physical' ? draft.sizeChartId : null } : {}),
   }
 }
 

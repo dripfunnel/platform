@@ -1,5 +1,6 @@
 import type { EditorProduct, TaxSetup } from '../../api/productEditor'
 import type { StockLevel, Warehouse } from '../../api/stock'
+import type { EditorExtras } from './ListingSections'
 
 // The editor's states under ?state= (ui/README.md §6): loading, error, notFound, new, product (with choices),
 // simple (no choices), theirs (a supplier's product, as the merchant sees it), supplier, stockOnly, sentBack,
@@ -17,6 +18,7 @@ export interface EditorSample {
   approvalRequired: boolean
   warehouses: Warehouse[]
   levels: Map<string, StockLevel[]>
+  extras: EditorExtras
 }
 
 const inr = (amount: string, compareAtAmount: string | null = null) => ({ currency: 'INR', amount, compareAtAmount })
@@ -35,7 +37,7 @@ const version = (id: string, choices: string[], amount: string, visible = true) 
   heightMm: 30,
   hsCode: '6205',
   taxClassId: null,
-  trackStock: true,
+  trackStock: true, continueSelling: false,
 })
 
 const owner = { permissions: ['catalog.read', 'catalog.write', 'stock.read', 'stock.write', 'approve', 'manage-vendors', 'tax.configure'], seller: null }
@@ -65,7 +67,7 @@ const shirt: EditorProduct | null =
         slug: 'mara-linen-shirt',
         seoTitle: null,
         seoDescription: null,
-        pricingCurrency: 'INR',
+        pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
         photos: [],
         options: [
           { id: 'o-size', name: 'Size', values: ['S', 'M', 'L'].map((name) => ({ id: `v-${name}`, name })) },
@@ -101,9 +103,27 @@ const levels = new Map<string, StockLevel[]>([
   ['ver-c', [level(18, 3), level(6, 0, warehouses[1])]],
 ])
 
+const merchantExtras: EditorExtras = {
+  choices: {
+    shown: new Set(['specs', 'highlights', 'badges', 'sizeCharts', 'filters', 'legal']),
+    facets: [
+      { id: 'f-fabric', name: 'Fabric', shopperVisible: true, values: ['Linen', 'Cotton', 'Silk'].map((name) => ({ id: `fv-${name}`, name })) },
+      { id: 'f-occasion', name: 'Occasion', shopperVisible: true, values: ['Everyday', 'Festive'].map((name) => ({ id: `fv-${name}`, name })) },
+    ],
+    sizeCharts: [{ id: 'sc-shirts', name: 'Men’s shirts' }],
+    collections: { handPicked: [{ id: 'c-summer', name: 'Summer edit' }, { id: 'c-gifts', name: 'Gifts under ₹3,000' }], automatic: [{ id: 'c-linen', name: 'All linen', kind: 'automatic' }] },
+  },
+  badges: [
+    { id: 'b-new', label: 'New', rule: 'new' },
+    { id: 'b-handmade', label: 'Handmade', rule: 'manual' },
+  ],
+  memberships: [{ id: 'c-summer', name: 'Summer edit', kind: 'manual' }, { id: 'c-linen', name: 'All linen', kind: 'automatic' }],
+}
+const supplierExtras: EditorExtras = { choices: { ...merchantExtras.choices, collections: null }, badges: null, memberships: [] }
+
 export const editorSample = (state: EditorState | null): EditorSample | null => {
   if (!shirt || !state || state === 'loading' || state === 'error') return null
-  const base: EditorSample = { product: shirt, currency: 'INR', tax, seat: owner, readOnly: false, approvalRequired: true, warehouses, levels }
+  const base: EditorSample = { product: shirt, currency: 'INR', tax, seat: owner, readOnly: false, approvalRequired: true, warehouses, levels, extras: merchantExtras }
   const simple: EditorProduct = { ...shirt, id: 'p-cushion', name: 'Block-print Cushion Cover', options: [], versions: [{ ...version('ver-c', [], '129900'), prices: [inr('129900', '159900')] }] }
   switch (state) {
     case 'notFound':
@@ -115,11 +135,11 @@ export const editorSample = (state: EditorState | null): EditorSample | null => 
     case 'theirs':
       return { ...base, product: { ...shirt, supplier: northwind } }
     case 'supplier':
-      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
+      return { ...base, extras: supplierExtras, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
     case 'stockOnly':
-      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'stock.write', 'catalog.propose'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
+      return { ...base, extras: supplierExtras, tax: null, seat: { permissions: ['catalog.read', 'stock.write', 'catalog.propose'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null } }
     case 'sentBack':
-      return { ...base, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null, approval: 'sent_back', visible: false, sentBackReason: 'The main photo is blurry — please upload a sharper one.' } }
+      return { ...base, extras: supplierExtras, tax: null, seat: { permissions: ['catalog.read', 'catalog.write', 'stock.write'], seller: northwind }, product: { ...shirt, supplier: northwind, readiness: null, approval: 'sent_back', visible: false, sentBackReason: 'The main photo is blurry — please upload a sharper one.' } }
     case 'staff':
       return { ...base, seat: { permissions: ['catalog.read', 'stock.read'], seller: null } }
     case 'readOnly':

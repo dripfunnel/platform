@@ -880,6 +880,114 @@
   color: var(--df-color-danger);
 }
 
+.df-editor-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+}
+
+.df-editor-group h3 {
+  margin: 0;
+  color: var(--df-color-text-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-editor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-editor-chip[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-editor-chip:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.df-editor-facet {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--df-space-2);
+  align-items: center;
+  font-size: 13px;
+}
+
+.df-editor-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: var(--df-space-2);
+  align-items: center;
+}
+
+.df-editor-pair--one {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.df-editor-pair input,
+.df-editor-faq textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.df-editor-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: var(--df-space-2);
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-editor-faq textarea {
+  padding: 10px var(--df-space-3);
+  resize: vertical;
+}
+
+.df-editor-switches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-2);
+}
+
+.df-editor-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--df-space-3);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.df-editor-switch input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--df-color-success);
+}
+
+.df-editor-switch > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.df-editor-switch > span > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
 @media (max-width: 1024px) {
   .df-editor-layout {
     grid-template-columns: minmax(0, 1fr);

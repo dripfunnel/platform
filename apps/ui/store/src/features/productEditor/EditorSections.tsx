@@ -9,7 +9,7 @@ import type { Update } from './EditorCards'
 const words = messages.editor
 
 /** A closed section shows a summary of what it holds; open, its fields (CatEditor's "sections"). */
-const Section = ({ title, summary, open, onToggle, problem, children }: { title: string; summary: string; open: boolean; onToggle: () => void; problem: boolean; children: ReactNode }) => {
+export const Section = ({ title, summary, open, onToggle, problem, children }: { title: string; summary: string; open: boolean; onToggle: () => void; problem: boolean; children: ReactNode }) => {
   const id = useId()
   return (
     <section className={problem ? 'df-editor-section df-editor-section--problem' : 'df-editor-section'}>
@@ -29,7 +29,7 @@ const Section = ({ title, summary, open, onToggle, problem, children }: { title:
   )
 }
 
-const Field = ({ label, hint, problem, children }: { label: string; hint?: string; problem?: string | null; children: (id: string, describedBy: string | undefined) => ReactNode }) => {
+export const Field = ({ label, hint, problem, children }: { label: string; hint?: string; problem?: string | null; children: (id: string, describedBy: string | undefined) => ReactNode }) => {
   const id = useId()
   return (
     <div className="df-editor-field">
@@ -46,7 +46,7 @@ const Field = ({ label, hint, problem, children }: { label: string; hint?: strin
   )
 }
 
-export const EditorSections = ({ draft, update, disabled, problems, taxClasses, storeFields, isLive }: { draft: Draft; update: Update; disabled: boolean; problems: readonly DraftProblem[]; taxClasses: readonly { id: string; name: string; isDefault: boolean }[] | null; storeFields: boolean; isLive: boolean }) => {
+export const EditorSections = ({ draft, update, disabled, problems, taxClasses, storeFields, isLive, afterShipping, afterTax }: { draft: Draft; update: Update; disabled: boolean; problems: readonly DraftProblem[]; taxClasses: readonly { id: string; name: string; isDefault: boolean }[] | null; storeFields: boolean; isLive: boolean; afterShipping: ReactNode; afterTax: ReactNode }) => {
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const toggle = (key: string) => () => setOpen((o) => ({ ...o, [key]: !o[key] }))
   const single = draft.options.length === 0
@@ -73,6 +73,7 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
           </div>
         </Section>
       )}
+      {afterShipping}
       {taxClasses && (
         <Section title={words.sections.tax} summary={chosen ? chosen.name : usual ? fill(words.sections.taxDefault, { name: usual.name }) : words.sections.taxNone} open={!!open['tax']} onToggle={toggle('tax')} problem={false}>
           <Field label={words.sections.tax}>
@@ -92,6 +93,7 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
           <p className="df-editor-hint">{words.sections.taxNote}</p>
         </Section>
       )}
+      {afterTax}
       <Section title={words.sections.seo} summary={fill(words.sections.seoSummary, { title: draft.seoTitle || draft.name || words.sections.seoFilled })} open={!!open['seo']} onToggle={toggle('seo')} problem={false}>
         <Field label={words.sections.seoTitle}>{(id) => <input id={id} maxLength={70} placeholder={draft.name} value={draft.seoTitle} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoTitle: e.target.value }))} />}</Field>
         <Field label={words.sections.seoDescription}>{(id) => <textarea id={id} rows={2} maxLength={160} placeholder={draft.description.slice(0, 160)} value={draft.seoDescription} readOnly={disabled} onChange={(e) => update((x) => ({ ...x, seoDescription: e.target.value }))} />}</Field>
@@ -108,15 +110,35 @@ export const EditorSections = ({ draft, update, disabled, problems, taxClasses, 
           </Field>
         </div>
         {isLive && <p className="df-editor-hint">{words.sections.slugWarn}</p>}
+        <div className="df-editor-switches">
+          {draft.kind === 'physical' && (
+            <>
+              <Switch label={words.sections.track} sub={draft.trackStock === null ? words.sections.varies : words.sections.trackSub} on={draft.trackStock ?? true} disabled={disabled} onChange={(on) => update((x) => ({ ...x, trackStock: on }))} />
+              <Switch label={words.sections.oversell} sub={draft.continueSelling === null ? words.sections.varies : words.sections.oversellSub} on={draft.continueSelling ?? false} disabled={disabled} onChange={(on) => update((x) => ({ ...x, continueSelling: on }))} />
+            </>
+          )}
+          <Switch label={words.sections.age} sub={words.sections.ageSub} on={draft.listing.ageRestricted} disabled={disabled} onChange={(on) => update((x) => ({ ...x, listing: { ...x.listing, ageRestricted: on } }))} />
+          {draft.kind === 'physical' && <Switch label={words.sections.hazard} sub={words.sections.hazardSub} on={draft.listing.hazardous} disabled={disabled} onChange={(on) => update((x) => ({ ...x, listing: { ...x.listing, hazardous: on } }))} />}
+        </div>
       </Section>
     </>
   )
 }
 
+const Switch = ({ label, sub, on, disabled, onChange }: { label: string; sub: string; on: boolean; disabled: boolean; onChange: (on: boolean) => void }) => (
+  <label className="df-editor-switch">
+    <input type="checkbox" role="switch" checked={on} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+    <span>
+      <strong>{label}</strong>
+      <span>{sub}</span>
+    </span>
+  </label>
+)
+
 const needWords: Record<string, string> = messages.products.needs
 
 /** The side panel: whether it shows, where it is ready to sell, and what a shopper sees. */
-export const SidePanel = ({ draft, update, storeFields, canShow, readiness, currency, inclusive, approvalNote }: { draft: Draft; update: Update; storeFields: boolean; canShow: boolean; readiness: EditorProduct['readiness'] | undefined; currency: string; inclusive: boolean | null; approvalNote: boolean }) => {
+export const SidePanel = ({ draft, update, storeFields, canShow, readiness, currency, inclusive, approvalNote, badges }: { draft: Draft; update: Update; storeFields: boolean; canShow: boolean; readiness: EditorProduct['readiness'] | undefined; currency: string; inclusive: boolean | null; approvalNote: boolean; badges: readonly { id: string; label: string; rule: string }[] | null }) => {
   const range = priceRange(draft, currency)
   const money = (amount: number) => formatMoney({ amount, currency }, locale)
   const first = draft.options[0]
@@ -133,6 +155,24 @@ export const SidePanel = ({ draft, update, storeFields, canShow, readiness, curr
               </button>
             ))}
           </div>
+        </section>
+      )}
+      {badges && badges.length > 0 && (
+        <section className="df-editor-card">
+          <h2>{words.side.badges}</h2>
+          <div className="df-editor-chips">
+            {badges.map((b) => {
+              const manual = b.rule === 'manual'
+              const on = manual && draft.listing.badgeIds.includes(b.id)
+              return (
+                <button key={b.id} type="button" className="df-editor-chip" aria-pressed={on} disabled={!manual || !storeFields} onClick={() => update((d) => ({ ...d, listing: { ...d.listing, badgeIds: on ? d.listing.badgeIds.filter((x) => x !== b.id) : [...d.listing.badgeIds, b.id] } }))}>
+                  {on ? '✓ ' : ''}
+                  {manual ? b.label : fill(words.side.badgeAuto, { name: b.label })}
+                </button>
+              )
+            })}
+          </div>
+          <p className="df-editor-hint">{words.side.badgesNote}</p>
         </section>
       )}
       {approvalNote && (

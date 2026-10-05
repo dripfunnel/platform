@@ -220,6 +220,28 @@ describe('bulk actions', () => {
     expect((await add(picked?.id, [theirs?.id ?? ''])).code).toBe('NOT_FOUND')
   })
 
+  it('puts one product in exactly the hand-picked collections the editor names, and reads them with the automatic ones', async () => {
+    const [shirt] = (await page('owner', 'search: "Banana", sort: "name"')).rows
+    const [a] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Gifts', 'gifts', 'manual') returning id`
+    const [b] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Diwali', 'diwali', 'manual') returning id`
+    const [auto] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Everything', 'everything', 'automatic') returning id`
+    await db.sql`insert into collection_product (collection_id, product_id, store_id, position, source) values (${auto?.id ?? ''}, ${shirt?.id ?? ''}, ${t.storeA1}, 0, 'rule')`
+    const set = (ids: (string | undefined)[], who: Who = 'owner') => gql('mutation S($p: ID!, $c: [ID!]!) { setProductCollections(productId: $p, collectionIds: $c) { name kind } }', who, { p: shirt?.id, c: ids })
+    expect((await set([a?.id, b?.id])).data?.['setProductCollections']).toEqual([
+      { name: 'Diwali', kind: 'manual' },
+      { name: 'Gifts', kind: 'manual' },
+      { name: 'Everything', kind: 'automatic' },
+    ])
+    // Leaving one keeps the other; an automatic one is never the editor's to set.
+    expect(((await set([b?.id])).data?.['setProductCollections'] as { name: string }[]).map((c) => c.name)).toEqual(['Diwali', 'Everything'])
+    expect((await set([auto?.id])).code).toBe('NOT_FOUND')
+    expect((await set([b?.id], 'supplier')).code).toBe('FORBIDDEN')
+    expect((await set([b?.id], 'bOwner')).code).toBe('NOT_FOUND')
+    expect(((await gql('query C($p: ID!) { productCollections(productId: $p) { name } }', 'owner', { p: shirt?.id })).data?.['productCollections'] as { name: string }[]).map((c) => c.name)).toEqual(['Diwali', 'Everything'])
+    expect((await gql('query C($p: ID!) { productCollections(productId: $p) { name } }', 'supplier', { p: shirt?.id })).code).toBe('FORBIDDEN')
+    expect(await db.sql`select 1 from activity_log where action = 'product.collections_set' and target_id = ${shirt?.id ?? ''}`).toHaveLength(2)
+  })
+
   it('holds a hand-picked collection to 1,000 products, changing nothing when an add would pass it', async () => {
     const made = await db.sql<{ id: string }[]>`
       insert into product (store_id, name, slug) select ${t.storeA1}, 'Bulk ' || n, 'bulk-' || n from generate_series(1, 1001) n returning id`
