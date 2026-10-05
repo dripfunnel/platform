@@ -411,6 +411,17 @@ describe('collections', () => {
 })
 
 describe('the main menu', () => {
+  it('takes a page link only as a path on this shop, never one that leads to another site', async () => {
+    const page = async (url: string) => (await gql('mutation M($items: [MenuItemInput!]!) { saveMenu(revision: 0, items: $items) }', 'bOwner', { items: [{ label: 'Page', kind: 'page', url }] })).code
+    for (const url of ['//evil.example', '//evil.example/path', 'https://evil.example', 'about']) expect({ [url]: await page(url) }).toEqual({ [url]: 'INVALID_LINK' })
+    expect(await page('/pages/about-us')).toBeUndefined()
+    // The database refuses it too, whatever writes the row.
+    const [menu] = await db.sql<{ id: string }[]>`select id from menu where store_id = ${t.storeB1}`
+    await expect(db.sql`insert into menu_item (menu_id, store_id, label, kind, url, position) values (${menu?.id ?? ''}, ${t.storeB1}, 'X', 'page', '//evil.example', 9)`).rejects.toThrow(/check constraint/)
+    await db.sql`delete from menu_item where store_id = ${t.storeB1}`
+    await db.sql`delete from menu where store_id = ${t.storeB1}`
+  })
+
   it('ends two saves at one revision, or two first saves, with one saved and one stale', async () => {
     const menu = (rev: number, label: string) => gql('mutation M($rev: Int, $items: [MenuItemInput!]!) { saveMenu(revision: $rev, items: $items) }', 'bOwner', { rev, items: [{ label, kind: 'url', url: 'https://example.com/' + label }] })
     const firsts = await Promise.all([menu(0, 'a'), menu(0, 'b')])
