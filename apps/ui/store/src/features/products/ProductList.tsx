@@ -95,7 +95,14 @@ export const ProductList = () => {
     if (sample) return setView({ kind: 'ready', page: { rows: sample.rows, next: null, previous: null }, counts: sample.counts })
     void Promise.all([loadProducts(query, cursor), loadProductCounts()]).then(
       ([page, counts]) => {
-        if (mine === latest.current) setView({ kind: 'ready', page, counts })
+        if (mine !== latest.current) return
+        // A later page emptied by a delete or an approval: back to the first, never "No products match".
+        if (page.rows.length === 0 && (cursor.after || cursor.before)) {
+          setCursor({})
+          setPageIndex(0)
+          return
+        }
+        setView({ kind: 'ready', page, counts })
       },
       () => {
         if (mine === latest.current) setView({ kind: 'error' })
@@ -138,7 +145,17 @@ export const ProductList = () => {
 
   const approve = (targets: ProductRow[]) =>
     void run(async () => {
-      for (const row of targets) await approveProduct(row.id)
+      let done = 0
+      try {
+        for (const row of targets) {
+          await approveProduct(row.id)
+          done++
+        }
+      } catch (error) {
+        // Those approved before the failure are live: say so, rather than that nothing changed.
+        if (done === 0) throw error
+        return fill(words.review.approvedSome, { done: formatCount(done), count: formatCount(targets.length) })
+      }
       const [only] = targets
       return targets.length === 1 && only ? fill(words.review.approved, { name: only.name, supplier: only.supplier?.name ?? '' }) : fill(words.review.approvedMany, { count: formatCount(targets.length) })
     })

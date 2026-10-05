@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { allPages } from './allPages'
 import { query } from './client'
 
 // The Products list's reads and writes (FIRST-RELEASE §11, CatList; apps/api/schema/store.graphql,
@@ -77,17 +78,31 @@ export type ProductCounts = z.infer<typeof countsSchema>
 export const loadProductCounts = async (): Promise<ProductCounts> =>
   (await query('{ productCounts { all visible hidden pending sentBack lowStock missingInfo } }', z.object({ productCounts: countsSchema }))).productCounts
 
-/** The Owner's supplier filter: its suppliers by name. */
-export const loadSupplierChoices = async (): Promise<{ id: string; name: string }[]> =>
-  (await query('{ suppliers(first: 50) { nodes { id name } } }', z.object({ suppliers: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string() })) }) }))).suppliers.nodes
+const named = z.object({ id: z.string(), name: z.string() })
+const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
 
-/** Hand-picked collections, the ones "Add to collection" can fill. */
+/** The Owner's supplier filter: every supplier by name. */
+export const loadSupplierChoices = (): Promise<{ id: string; name: string }[]> =>
+  allPages(async (after) => {
+    const { suppliers } = await query(
+      'query S($after: String) { suppliers(first: 50, after: $after) { nodes { id name } pageInfo { hasNextPage endCursor } } }',
+      z.object({ suppliers: z.object({ nodes: z.array(named), pageInfo: pageInfoSchema }) }),
+      { after },
+    )
+    return { nodes: suppliers.nodes, next: suppliers.pageInfo.hasNextPage ? suppliers.pageInfo.endCursor : null }
+  })
+
+/** Every hand-picked collection, the ones "Add to collection" can fill; the API lists both kinds together. */
 export const loadHandPicked = async (): Promise<{ id: string; name: string }[]> => {
-  const { collections } = await query(
-    '{ collections(first: 50) { nodes { id name kind } } }',
-    z.object({ collections: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), kind: z.string() })) }) }),
-  )
-  return collections.nodes.filter((c) => c.kind === 'manual').map(({ id, name }) => ({ id, name }))
+  const all = await allPages(async (after) => {
+    const { collections } = await query(
+      'query C($after: String) { collections(first: 50, after: $after) { nodes { id name kind } pageInfo { hasNextPage endCursor } } }',
+      z.object({ collections: z.object({ nodes: z.array(named.extend({ kind: z.string() })), pageInfo: pageInfoSchema }) }),
+      { after },
+    )
+    return { nodes: collections.nodes, next: collections.pageInfo.hasNextPage ? collections.pageInfo.endCursor : null }
+  })
+  return all.filter((c) => c.kind === 'manual').map(({ id, name }) => ({ id, name }))
 }
 
 export const loadTaxClasses = async (): Promise<{ id: string; name: string; isDefault: boolean }[]> =>

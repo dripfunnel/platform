@@ -865,7 +865,8 @@
       "reasonLabel": "What should they fix?",
       "reasonPlaceholder": "e.g. The main photo is blurry — please upload a sharper one.",
       "reasonMissing": "Add a reason so they know what to fix",
-      "sentBack": "Sent back to {supplier}"
+      "sentBack": "Sent back to {supplier}",
+      "approvedSome": "{done} of {count} approved and live. The rest didn’t save. Try again."
     },
     "needs": {
       "price": "price",

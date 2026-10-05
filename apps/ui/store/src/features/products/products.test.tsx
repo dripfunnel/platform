@@ -129,6 +129,35 @@ describe('the Products list', () => {
     expect(screen.getByText('“Handloom Dupatta” approved and live. Northwind Textiles has been told.')).toBeTruthy()
   })
 
+  it('says how many were approved when a bulk approval fails part way', async () => {
+    const second = { ...dupatta, id: 'p3', name: 'Second dupatta' }
+    api.loadProducts.mockResolvedValue({ rows: [kurta, dupatta, second], next: null, previous: null })
+    api.loadProductCounts.mockResolvedValue(counts({ all: 3, pending: 2 }))
+    api.approveProduct.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('checkbox', { name: words.columns.select }))
+    fireEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: 'Approve 2' }))
+    await settle()
+    expect(api.approveProduct.mock.calls).toEqual([['p2'], ['p3']])
+    expect(screen.getByText('1 of 2 approved and live. The rest didn’t save. Try again.')).toBeTruthy()
+  })
+
+  it('goes back to the first page when an action empties a later one, never "No products match"', async () => {
+    api.deleteProducts.mockResolvedValue(2)
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.pages.next }))
+    await settle()
+    api.loadProducts.mockImplementation(async (_q: unknown, cursor: { after?: string }) => (cursor.after ? { rows: [], next: null, previous: 'c1' } : { rows: [kurta], next: null, previous: null }))
+    fireEvent.click(screen.getByRole('checkbox', { name: words.columns.select }))
+    fireEvent.click(screen.getByRole('button', { name: words.bulk.delete }))
+    fireEvent.click(screen.getByRole('button', { name: words.bulk.deleteConfirm }))
+    await settle()
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.anything(), {})
+    expect(screen.queryByRole('heading', { name: words.noResults.filters })).toBeNull()
+    expect(screen.getByText('Showing 1–1')).toBeTruthy()
+  })
+
   it('shows only what is not waiting, and says the waiting ones were skipped', async () => {
     api.setProductsVisible.mockResolvedValue(1)
     await show(owner)
