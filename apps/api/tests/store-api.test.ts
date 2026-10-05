@@ -1,5 +1,5 @@
 import { graphql, type GraphQLSchema } from 'graphql'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { actingCaller, storePolicy, type StoreContext } from '#apis/store/access'
 import { createStoreBuilder, pageInfoType } from '#apis/store/builder'
 import { requirePlan, storePage } from '#apis/store/refusals'
@@ -164,6 +164,30 @@ describe('the store caller', () => {
     await db.sql`update seller set status = 'active' where id = ${t.sellerA1First}`
     const [logged] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'store.crossing_refused' and actor_id = ${people.sam}`
     expect(logged?.n).toBe(0)
+  })
+
+  it('refuses a held seat whose role or tier it can’t read, with a technical log and no crossing entry', async () => {
+    // The checks make this unreachable today; dropped in this throwaway database to prove the guard.
+    await db.sql`alter table membership drop constraint membership_role`
+    await db.sql`alter table seller drop constraint seller_access_level_check`
+    const quinn = await insertId(db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'quinn@example.test', 'Quinn', 'active') returning id`)
+    const rhea = await insertId(db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'rhea@example.test', 'Rhea', 'active') returning id`)
+    const oddSeller = await insertId(db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${t.storeA2}, 'Odd Supply', 'vendor-everything', 'active') returning id`)
+    await member(quinn, t.storeA2, 'chief')
+    await member(rhea, t.storeA2, 'supplier-admin', oddSeller)
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    try {
+      for (const id of [quinn, rhea]) {
+        const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id, partnerId: t.partnerA }, now))
+        expect((await standingOf(t.partnerA, cookie, { [storeHeader]: t.storeA2 })).kind).toBe('crossing')
+      }
+      const lines = logged.mock.calls.map((c) => String(c[0])).filter((l) => l.includes('membership_unreadable'))
+      expect(lines).toHaveLength(2)
+      const [rows] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'store.crossing_refused' and actor_id in (${quinn}, ${rhea})`
+      expect(rows?.n).toBe(0)
+    } finally {
+      logged.mockRestore()
+    }
   })
 
   it('acts as a merchant-side member whatever X-Supplier says', async () => {
