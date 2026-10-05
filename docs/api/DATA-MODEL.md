@@ -827,7 +827,9 @@ store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_emai
                     -- contact_email, contact_phone, time_zone, unit_system, order_prefix,
                     -- next_order_number and tax_inclusive (country is home_country), written by
                     -- the merchant side through save_store_info() and set_store_tax_inclusive()
-                    -- only; customer_care, pickup and the stock defaults come with their cards
+                    -- only; customer_care, pickup and the stock defaults come with their cards.
+                    -- logo_asset_id references the store's own asset (id, store_id); time_zone
+                    -- holds the IANA name in its canonical form, never an offset
 
 store_language      (store_id, language, status, position)   UNIQUE (store_id, language)
                     -- offered on the storefront; main_language is one of them; status active |
