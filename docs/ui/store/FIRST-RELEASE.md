@@ -143,8 +143,10 @@ From the prototype's shell (`design.md` §3), which this release keeps:
   **disabled with the reason** ("Only the store owner can …"), never hidden (../README.md §5).
 - "Your sales" and "Your team" are drawn in `VendorViews` (#286); the prototype's catalogue supplier is a Supplier admin.
 - **Built on #291** (`apps/ui/store/src/nav.ts`): the rows above per role and tier, the group
-  headings, Billing's trial note, and every row leading to a screen or its placeholder. The
-  badges wait for `navBadges` (SAPI 5's approvals, SAPI 11's orders).
+  headings, Billing's trial note, and every row leading to a screen or its placeholder.
+  **Built on #298**: Products is a screen (§11), and the shell reads `navBadges` for its badge,
+  the products waiting for approval; a failed count draws no badge. Orders' badge stays 0 until
+  SAPI 11 counts the orders to ship.
 
 ### 3.2 Header
 
