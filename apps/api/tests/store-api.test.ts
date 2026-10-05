@@ -190,6 +190,18 @@ describe('the store caller', () => {
     }
   })
 
+  it('keeps the crossing entry small for a person in many stores', async () => {
+    const vic = await insertId(db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'vic@example.test', 'Vic', 'active') returning id`)
+    for (let n = 0; n < 5; n += 1) {
+      const store = await insertId(db.sql<{ id: string }[]>`insert into store (partner_id, name, code) values (${t.partnerA}, ${`Many ${n}`}, ${`many-${n}`}) returning id`)
+      await member(vic, store, 'staff')
+    }
+    const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: vic, partnerId: t.partnerA }, now))
+    expect((await standingOf(t.partnerA, cookie, { [storeHeader]: t.storeB1 })).kind).toBe('crossing')
+    const [row] = await db.sql<{ target_label: string }[]>`select target_label from activity_log where action = 'store.crossing_refused' and actor_id = ${vic}`
+    expect(row?.target_label).toMatch(/^holds [0-9a-f-]{36}, [0-9a-f-]{36}, [0-9a-f-]{36} and more$/)
+  })
+
   it('acts as a merchant-side member whatever X-Supplier says', async () => {
     const standing = await standingOf(t.partnerA, cookies.alice, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerA1First })
     expect(standing.kind === 'acting' && standing.caller.context.sellerScope).toEqual({ kind: 'all' })

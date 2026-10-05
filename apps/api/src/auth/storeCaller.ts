@@ -75,10 +75,14 @@ const callerOf = (person: StorePerson, sessionHash: string, row: MembershipRow):
   }
 }
 
+// The entry stays small however many stores the person holds.
+const heldInLabel = 3
+
 // ACCESS.md §4: naming a store the session doesn't hold is an attempted tenant crossing, logged
 // with the store asked for, the stores held and the person.
 const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts) => {
-  const held = await selectHeldStoreIds(tx, person.id, person.partnerId)
+  const held = await selectHeldStoreIds(tx, person.id, person.partnerId, heldInLabel + 1)
+  const listed = held.slice(0, heldInLabel).join(', ') + (held.length > heldInLabel ? ' and more' : '')
   await activity.record(tx, {
     category: 'security',
     action: 'store.crossing_refused',
@@ -88,7 +92,7 @@ const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string,
     actorLabel: null,
     partnerId: person.partnerId,
     // The header is request input: kept short, and only ever compared, never trusted.
-    target: { type: 'store', id: asked.slice(0, 64), label: held.length ? `holds ${held.join(', ')}` : 'holds no store' },
+    target: { type: 'store', id: asked.slice(0, 64), label: held.length ? `holds ${listed}` : 'holds no store' },
     reason: 'store_not_held',
     api: 'store',
     visibility: 'staff',
