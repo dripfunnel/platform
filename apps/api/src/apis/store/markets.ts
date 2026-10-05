@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { createMarketsService, marketsAudit, offeredLanguages, type LocaleRow, type MarketRow, type MarketsResult, type RateRow } from '#engine/modules/markets/index'
+import { createMarketsService, marketsAudit, offeredLanguages, type ConversionExample, type LocaleRow, type MarketRow, type MarketsResult, type RateRow } from '#engine/modules/markets/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -79,6 +79,19 @@ export const registerMarkets = (builder: StoreBuilder) => {
       fetchedAt: t.string({ resolve: (r) => r.fetched_at.toISOString() }),
     }),
   })
+  const Amount = builder.objectRef<{ amount: bigint; currency: string }>('ConvertedAmount').implement({
+    // Minor units as a string, with the currency: the client never computes a price (docs/ui/README §3).
+    fields: (t) => ({ amount: t.string({ resolve: (m) => m.amount.toString() }), currency: t.exposeString('currency') }),
+  })
+  const Example = builder.objectRef<ConversionExample>('ConversionExample').implement({
+    fields: (t) => ({
+      currency: t.exposeString('currency'),
+      from: t.field({ type: Amount, resolve: (e) => e.from }),
+      none: t.field({ type: Amount, nullable: true, resolve: (e) => e.to.none }),
+      nearest: t.field({ type: Amount, nullable: true, resolve: (e) => e.to.nearest }),
+      ends99: t.field({ type: Amount, nullable: true, resolve: (e) => e.to['ends-99'] }),
+    }),
+  })
   const Locale = builder.objectRef<LocaleRow>('StoreLocale').implement({
     fields: (t) => ({
       mainLanguage: t.exposeString('main_language'),
@@ -89,6 +102,8 @@ export const registerMarkets = (builder: StoreBuilder) => {
       offeredLanguages: t.stringList({ resolve: () => [...offeredLanguages] }),
       // The rates its converted prices use (CATALOG O5): a currency missing here isn't for sale until one arrives.
       rates: t.field({ type: [Rate], resolve: (_, __, ctx) => service(ctx).rates() }),
+      // SetStore's "₹100 → $1.99" for each currency it can convert to, under each rounding (O4).
+      examples: t.field({ type: [Example], resolve: (_, __, ctx) => service(ctx).examples() }),
     }),
   })
   const Duties = builder.objectRef<MarketRow>('MarketDuties').implement({

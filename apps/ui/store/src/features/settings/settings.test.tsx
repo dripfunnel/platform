@@ -58,6 +58,10 @@ const loc: StoreLocale = {
     { currency: 'AED', perEuro: '4', publishedOn: '2026-10-05' },
     { currency: 'GBP', perEuro: '0.84', publishedOn: '2026-10-05' },
   ],
+  examples: [
+    { currency: 'USD', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+    { currency: 'AED', from: { amount: '10000', currency: 'INR' }, none: { amount: '400' }, nearest: { amount: '400' }, ends99: { amount: '499' } },
+  ],
 }
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
@@ -168,6 +172,8 @@ describe('store info', () => {
     await show()
     const name = screen.getByLabelText(w.name)
     fireEvent.change(name, { target: { value: ' ' } })
+    // With no name the logo shows no letter, rather than one in some language.
+    expect(document.querySelector('.df-set-logo-initial')?.textContent).toBe('')
     fireEvent.click(screen.getByRole('button', { name: w.saveInfo }))
     expect(api.saveStoreInfo).not.toHaveBeenCalled()
     expect(document.getElementById(name.getAttribute('aria-describedby') ?? '')?.textContent).toBe(w.nameMissing)
