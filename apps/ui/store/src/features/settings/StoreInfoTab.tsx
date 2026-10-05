@@ -4,7 +4,7 @@ import { formatMoney } from '@dripfunnel/shared/format'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { uploadPhoto } from '../../api/productEditor'
 import { loadTranslationProgress, saveCurrencies, saveLanguages, saveStoreInfo, type StoreInfo, type StoreInfoInput, type StoreLocale } from '../../api/settings'
-import { fill, formatCount, locale, messages } from '../../messages'
+import { fill, formatCount, formatDay, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
 
 const words = messages.settings.store
@@ -69,7 +69,7 @@ export const example = (to: string, rounding: Currency['rounding'], examples: St
   if (!e || !result) return null
   const shown = `${formatMoney({ amount: Number(e.from.amount), currency: e.from.currency }, locale)} → ${formatMoney({ amount: Number(result.amount), currency: to }, locale)}`
   // Dated by the rates this example used, which the API sends with it.
-  return e.publishedOn ? fill(words.rates, { example: shown, date: e.publishedOn }) : fill(words.ratesUndated, { example: shown })
+  return e.publishedOn ? fill(words.rates, { example: shown, date: formatDay(e.publishedOn) }) : fill(words.ratesUndated, { example: shown })
 }
 
 /** Currencies the store can add: every one with a reference rate (the API's examples), as converting needs a rate. */

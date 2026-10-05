@@ -210,7 +210,7 @@ describe('currencies', () => {
     await show()
     const c = card(w.currencies)
     expect(c.getAllByRole('strong').map((x) => x.textContent)).toEqual(['INR', 'USD', 'AED'])
-    expect(c.getByText(/₹100\.00 → \$1\.99 · reference rates from the European Central Bank, published 2026-10-05/)).toBeTruthy()
+    expect(c.getByText(/₹100\.00 → \$1\.99 · reference rates from the European Central Bank, published Oct 5, 2026/)).toBeTruthy()
     expect(c.getByText(fill(w.typedNote, 'AED'))).toBeTruthy()
   })
 
@@ -226,7 +226,7 @@ describe('currencies', () => {
     expect(within(c.getByRole('combobox', { name: w.addCurrency })).getByRole('option', { name: /EUR/ })).toBeTruthy()
     fireEvent.change(c.getByRole('combobox', { name: w.addCurrency }), { target: { value: 'GBP' } })
     // Dated by the rates it used, not by whichever rate the store happened to have saved.
-    expect(c.getByText(/₹100\.00 → £1\.99 · reference rates from the European Central Bank, published 2026-10-04/)).toBeTruthy()
+    expect(c.getByText(/₹100\.00 → £1\.99 · reference rates from the European Central Bank, published Oct 4, 2026/)).toBeTruthy()
     fireEvent.click(c.getByRole('button', { name: w.saveCurrencies }))
     await settle()
     expect(api.saveCurrencies).toHaveBeenCalledWith([
