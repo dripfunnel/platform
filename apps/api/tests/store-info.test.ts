@@ -169,6 +169,27 @@ describe('Settings › Store info', () => {
     expect((await save({ ...base, nextOrderNumber: 100 })).code).toBe('ORDER_NUMBER_DOWN')
     expect((await save({ ...base, nextOrderNumber: 3000 })).code).toBeUndefined()
     expect((await info())?.nextOrderNumber).toBe('3000')
+    expect(await db.sql`select 1 from tax_registration where store_id = ${t.storeB1}`).toHaveLength(0)
+  })
+
+  it('never lowers a counter an order moved on while the save was waiting', async () => {
+    let release = () => undefined as void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    let taken = () => undefined as void
+    const locked = new Promise<void>((resolve) => (taken = resolve))
+    const order = db.sql.begin(async (tx) => {
+      await tx`update store set next_order_number = 5000 where id = ${t.storeA1}`
+      taken()
+      await held
+    })
+    await locked
+    const saving = save({ ...base, nextOrderNumber: 4000 })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    release()
+    await order
+    expect((await saving).code).toBe('ORDER_NUMBER_DOWN')
+    expect((await info())?.nextOrderNumber).toBe('5000')
+    await db.sql`update store set next_order_number = 3000 where id = ${t.storeA1}`
   })
 
   it('keeps the home country’s other registrations: a US store’s EIN and its sales-tax permit', async () => {
