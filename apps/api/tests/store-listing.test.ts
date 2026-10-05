@@ -126,6 +126,18 @@ describe('Settings › Catalogue', () => {
     }
   })
 
+  it('takes a badge off the products it was picked on once it shows by a rule instead', async () => {
+    const badge = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'Gift pick', tone: 'ok', rule: 'manual' } })).data?.['saveBadge'] as string
+    const picked = await product('owner', 'Gift box', { listing: { badgeIds: [badge] } })
+    expect((await listingOf('owner', picked.id))?.listing.badgeIds).toEqual([badge])
+    expect((await gql('mutation B($id: ID, $input: BadgeInput!) { saveBadge(id: $id, input: $input) }', 'owner', { id: badge, input: { label: 'Gift pick', tone: 'ok', rule: 'new_30_days' } })).code).toBeUndefined()
+    expect((await listingOf('owner', picked.id))?.listing.badgeIds).toEqual([])
+    // The product saves and copies again, holding no badge the trigger refuses.
+    const base = { name: 'Gift box', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }] }
+    expect((await gql(save, 'owner', { id: picked.id, revision: 1, input: { ...base, listing: { badgeIds: [] } } })).code).toBeUndefined()
+    expect((await gql('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id: picked.id })).code).toBeUndefined()
+  })
+
   it('keeps badges to 18 characters, unique labels and one rule each', async () => {
     const made = await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'Handmade', tone: 'peach', rule: 'manual' } })
     expect(made.data?.['saveBadge']).toBeTruthy()
