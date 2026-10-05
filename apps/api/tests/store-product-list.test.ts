@@ -105,6 +105,21 @@ describe('the Products list’s sorts', () => {
     expect((await page('owner', `sort: "price_low", after: "${byName.pageInfo?.endCursor}"`)).code).toBe('INVALID_CURSOR')
     expect((await page('owner', 'sort: "loudest"')).code).toBe('INVALID_INPUT')
   })
+
+  it('pages through ties one by one, by id, with nothing skipped or repeated, and a name lowercased as the database does', async () => {
+    for (const name of ['Tie one', 'Tie two', 'Tie three', 'İstanbul tie']) await create('owner', { name, options: [], versions: [{ choices: [], prices: [price('55500')] }] })
+    for (const sort of ['price_low', 'stock', 'name']) {
+      const seen: string[] = []
+      let after: string | undefined
+      for (let i = 0; i < 6; i++) {
+        const got = await page('owner', `search: "tie", sort: "${sort}", first: 1${after ? `, after: "${after}"` : ''}`)
+        seen.push(...got.rows.map((r) => r.name))
+        if (!got.pageInfo?.hasNextPage) break
+        after = got.pageInfo.endCursor
+      }
+      expect({ sort, seen: [...seen].sort() }).toEqual({ sort, seen: ['Tie one', 'Tie three', 'Tie two', 'İstanbul tie'].sort() })
+    }
+  })
 })
 
 describe('ready to sell per market', () => {
@@ -153,5 +168,14 @@ describe('bulk actions', () => {
     const [theirs] = await db.sql<{ id: string }[]>`select id from tax_class where store_id = ${t.storeB1} limit 1`
     expect((await set(theirs?.id)).code).toBe('NOT_FOUND')
     expect(await db.sql`select 1 from activity_log where action = 'product.tax_class_changed' and store_id = ${t.storeA1}`).toHaveLength(4)
+    // Another store's products: none changed, none logged, and a count of nothing.
+    const [b] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug) values (${t.storeB1}, 'B pot', 'b-pot') returning id`
+    await db.sql`insert into product_version (product_id, store_id, position) values (${b?.id ?? ''}, ${t.storeB1}, 0)`
+    expect((await gql('mutation T($ids: [ID!]!, $c: ID) { setProductsTaxClass(ids: $ids, taxClassId: $c) }', 'owner', { ids: [b?.id], c: exempt?.id })).data?.['setProductsTaxClass']).toBe(0)
+    expect(await db.sql`select tax_class_id from product_version where product_id = ${b?.id ?? ''}`).toEqual([{ tax_class_id: null }])
+    expect(await db.sql`select 1 from activity_log where action = 'product.tax_class_changed' and target_id = ${b?.id ?? ''}`).toHaveLength(0)
+    // Nor does another store read this store's readiness.
+    const ours = (await page('owner', 'search: "a", sort: "name"')).rows[0]?.id
+    expect((await gql('query P($id: ID!) { product(id: $id) { readiness { marketName } } }', 'bOwner', { id: ours })).data?.['product']).toBeNull()
   })
 })

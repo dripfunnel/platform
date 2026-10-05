@@ -28,6 +28,8 @@ export interface ProductListRow {
   stock: number
   created_at: Date
   updated_at: Date
+  /** The list's sort value as the database computed it, for a cursor (selectProducts). */
+  sort_key?: string
 }
 
 // A physical product with a tracked version, counted somewhere the caller reads, that can sell at most its
@@ -94,23 +96,9 @@ const sortOf: Record<ProductSort, { value: string; type: string; descending: boo
   stock: { value: 'stock', type: 'int', descending: false },
 }
 
-/** A row's sort value as text, for its cursor. */
-export const sortValueOf = (row: ProductListRow, sort: ProductSort): string => {
-  switch (sort) {
-    case 'created':
-      return row.created_at.toISOString()
-    case 'updated':
-      return row.updated_at.toISOString()
-    case 'name':
-      return row.name.toLowerCase()
-    case 'price_low':
-      return row.min_amount ?? '9223372036854775807'
-    case 'price_high':
-      return row.min_amount ?? '-1'
-    case 'stock':
-      return String(row.stock)
-  }
-}
+/** A row's sort value as text, for its cursor: the database's own for name, price and stock, so `lower()` and the cursor never differ. */
+export const sortValueOf = (row: ProductListRow, sort: ProductSort): string =>
+  sort === 'created' ? row.created_at.toISOString() : sort === 'updated' ? row.updated_at.toISOString() : (row.sort_key ?? '')
 
 export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQuery, window: SortWindow, sort: ProductSort = 'created'): Promise<ProductListRow[]> => {
   const order = sortOf[sort]
@@ -141,7 +129,7 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
         and ${query.untranslatedIn ? tx`not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${query.untranslatedIn})` : tx`true`}
         and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
     ), sorted as (
-      select base.*, ${tx.unsafe(order.value)} as sort_value from base
+      select base.*, ${tx.unsafe(order.value)} as sort_value, (${tx.unsafe(order.value)})::text as sort_key from base
     )
     select * from sorted
     where ${window.after ? beyond(window.after, true) : tx`true`}

@@ -397,8 +397,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return gone.length
     })
 
-  /** The merchant side's bulk show and hide (CatList); a supplier never reaches it. */
-  /** The merchant side's (fact 37): a supplier's products take the store's default. */
+  /** The merchant side's bulk "Change tax category" (CatList; fact 37): a supplier's products take the store's default. */
   const setTaxClass = (ids: readonly string[], taxClassId: string | null) =>
     inScope(async (tx): Promise<number | 'NOT_FOUND'> => {
       if (sellerId !== null) throw new Error('catalogue: a supplier never sets a tax class')
@@ -408,6 +407,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return changed.length
     })
 
+  /** The merchant side's bulk show and hide (CatList); a supplier never reaches it. */
   const setVisibility = (ids: readonly string[], visible: boolean) =>
     inScope(async (tx) => {
       if (sellerId !== null) throw new Error('catalogue: a supplier never sets visibility')
