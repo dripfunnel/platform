@@ -95,13 +95,13 @@ export const convert = (money: Money, to: string, perBaseFrom: string, perBaseTo
 
 export type PriceRounding = 'none' | 'nearest' | 'ends-99'
 
-/** CATALOG O4: a computed price as the store rounds it: to the whole unit, or up to one that ends in 99. */
+/** CATALOG O4: a computed price as the store rounds it: to the nearest whole unit, or up to one that ends in 99. */
 export const roundPrice = (money: Money, rounding: PriceRounding): Money => {
   if (rounding === 'none' || money.amount === 0n) return money
-  // A unit of a currency with no minor unit (JPY) is a hundred, so its prices end in 99 too.
-  const digits = minorDigits(money.currency)
-  const unit = digits === 0 ? 100n : 10n ** BigInt(digits)
+  const unit = 10n ** BigInt(minorDigits(money.currency))
   if (rounding === 'nearest') return { amount: divideHalfUp(money.amount, unit) * unit, currency: money.currency }
-  const up = ((money.amount + unit - 1n) / unit) * unit
+  // With no minor unit (JPY), "ends in 99" is ¥1,599 from ¥1,547, so the step is a hundred (O4).
+  const step = unit === 1n ? 100n : unit
+  const up = ((money.amount + step - 1n) / step) * step
   return { amount: up - 1n, currency: money.currency }
 }
