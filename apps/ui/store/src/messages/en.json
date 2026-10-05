@@ -689,7 +689,8 @@
       "needPhone": "Add your mobile number in Your details first.",
       "expired": "That took too long. Start again to get a new code.",
       "wrongPassword": "That isn’t your current password.",
-      "codesMade": "Your old backup codes no longer work"
+      "codesMade": "Your old backup codes no longer work",
+      "codePlaceholder": "123456"
     },
     "appearance": {
       "title": "Appearance",
