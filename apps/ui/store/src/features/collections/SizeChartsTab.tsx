@@ -262,6 +262,7 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
     <div className="df-charts">
       {list}
       <section className="df-chart" aria-labelledby={`${formId}-name`}>
+        {!canEdit && <p className="df-colls-note">{words.viewOnly}</p>}
         <div className="df-chart-top">
           <label htmlFor={`${formId}-name`} className="df-visually-hidden">
             {words.name}
