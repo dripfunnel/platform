@@ -3,7 +3,7 @@ import { useId, useState, type ReactNode } from 'react'
 import type { EditorProduct } from '../../api/productEditor'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { boxOf, gramsOf, priceRange, type Draft, type DraftProblem } from './draft'
+import { boxOf, gramsOf, priceRange, type Draft, type DraftProblem } from '../common/productDraft'
 import type { Update } from './EditorCards'
 
 const words = messages.editor

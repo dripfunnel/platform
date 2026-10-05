@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { loadProduct, loadProductBasics, saveProduct, type EditorProduct } from '../../api/productEditor'
 import { loadProductStock, loadWarehouses, setStock, type Warehouse } from '../../api/stock'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { draftOf, inputOf, quantityOf, stockChangesOf, versionKey, type Draft } from '../productEditor/draft'
+import { draftOf, inputOf, quantityOf, stockChangesOf, versionKey, type Draft } from '../common/productDraft'
 
 const words = messages.products.quick
 

@@ -2,8 +2,8 @@ import { minorOf, moneyText } from '@dripfunnel/shared/format'
 import type { EditorProduct, ProductInput } from '../../api/productEditor'
 import type { StockLevel } from '../../api/stock'
 
-// The editor's draft (CatEditor): text as typed, so a half-typed price is kept until it is saved, and the
-// product's versions as combinations of its choices. The API checks everything again on save.
+// A product as a form edits it, shared by the editor (CatEditor) and the list's quick edit: text as typed, so a
+// half-typed price is kept until it is saved, and the versions as combinations of the choices. The API checks it all.
 
 export const productKinds = ['physical', 'digital', 'service', 'gift_card'] as const
 export type ProductKind = (typeof productKinds)[number]
