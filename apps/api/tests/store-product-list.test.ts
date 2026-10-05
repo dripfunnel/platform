@@ -133,6 +133,11 @@ describe('the Products list’s sorts', () => {
       await db.sql`insert into stock_level (version_id, warehouse_id, store_id, on_hand) select v.id, ${shelf?.id ?? ''}, ${t.storeA1}, ${onHand} from product_version v where v.product_id = ${made[name] ?? ''}`
     }
     expect((await page('owner', 'search: "Zinc", sort: "stock"')).rows.map((r) => [r.name, r.stock])).toEqual([['Zinc dear', 2], ['Zinc cheap', 7], ['Zinc unpriced', 12]])
+    // Low is the chip's own test, each location's threshold (5 unless set): 2 is low; 7 isn't, nor 2 under a threshold of 1.
+    const low = async () => Object.fromEntries(((await gql('{ products(search: "Zinc") { nodes { name lowStock } } }', 'owner')).data?.['products'] as { nodes: { name: string; lowStock: boolean }[] }).nodes.map((n) => [n.name, n.lowStock]))
+    expect(await low()).toEqual({ 'Zinc cheap': false, 'Zinc dear': true, 'Zinc unpriced': false })
+    await db.sql`update stock_level set low_stock_threshold = 1 where warehouse_id = ${shelf?.id ?? ''} and version_id in (select id from product_version where product_id = ${made['Zinc dear'] ?? ''})`
+    expect((await low())['Zinc dear']).toBe(false)
   })
 
   it('refuses a well-formed cursor whose value its sort can’t hold, as any bad cursor', async () => {
