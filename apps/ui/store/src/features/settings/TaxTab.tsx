@@ -1,7 +1,7 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
-import { deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
+import { deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, setTaxRate, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
 
@@ -83,16 +83,17 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
       onConfirm: () => void write('prices', async () => (await setPricesIncludeTax(included), fill(included ? words.nowIncluded : words.nowExcluded, { name: t.name })), () => setSavedIncluded(included)),
     })
 
-  const zoneInput = (z: TaxZone, rates: { taxClassId: string; rateBps: number }[]) => ({ name: z.name, countries: z.countries, regions: z.regions, rates })
   const homeName = country ? (new Intl.DisplayNames([locale], { type: 'region' }).of(country) ?? country) : ''
   /**
-   * A category's rate at home: the home zone's line for it, made with the zone when there's none yet. The zone is
-   * read again first, since a zone save replaces its rates whole and the tab's copy may be older.
+   * A category's rate at home: that one rate in the home zone (others' changes kept), or the home zone made with it when
+   * there's none yet. The zones are read again first; a setup that doesn't come back is a failure, never "no zone".
    */
   const setHomeRate = async (classId: string, bps: number) => {
-    const now = homeZone((await loadTax())?.zones ?? [], country)
-    const rates = [...(now?.rates.filter((r) => r.taxClassId !== classId) ?? []), { taxClassId: classId, rateBps: bps }]
-    return now ? saveTaxZone(now.id, zoneInput(now, rates)) : saveTaxZone(null, { name: homeName, countries: country ? [country] : [], regions: [], rates })
+    const fresh = await loadTax()
+    if (!fresh) throw new Error('tax setup unread')
+    const now = homeZone(fresh.zones, country)
+    if (now) return setTaxRate(now.id, classId, bps)
+    return saveTaxZone(null, { name: homeName, countries: country ? [country] : [], regions: [], rates: [{ taxClassId: classId, rateBps: bps }] })
   }
   const usesRates = country !== 'US' && country !== null
 
@@ -111,8 +112,9 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
             try {
               await setHomeRate(classId, parsed.bps)
             } catch (error) {
-              // A category without its rate would sit there rate-less, and a retry would refuse its name: it goes again.
-              await deleteTaxClass(classId).catch(() => undefined)
+              // A category without its rate would sit there rate-less, and a retry would refuse its name: it goes again,
+              // and if that fails too the person is told it's there without a rate, to set with Manage.
+              if (!(await deleteTaxClass(classId).then(() => true, () => false))) return fill(words.addedNoRate, { name: parsed.name })
               throw error
             }
             return fill(words.added, { name: parsed.name })

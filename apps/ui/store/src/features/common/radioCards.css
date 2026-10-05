@@ -47,7 +47,7 @@
   font-size: 14px;
 }
 
-.df-radio-card-text > span {
+.df-radio-card-sub {
   color: var(--df-color-muted);
   font-size: 12px;
 }

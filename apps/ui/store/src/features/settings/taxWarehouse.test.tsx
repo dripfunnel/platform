@@ -14,7 +14,7 @@ import { messages } from '../../messages'
 const t = messages.settings.tax
 const wh = messages.warehouses
 
-const tax = vi.hoisted(() => ({ loadTax: vi.fn(), setPricesIncludeTax: vi.fn(), saveTaxClass: vi.fn(), deleteTaxClass: vi.fn(), saveTaxZone: vi.fn(), loadInvoiceSettings: vi.fn(), saveInvoiceSettings: vi.fn() }))
+const tax = vi.hoisted(() => ({ loadTax: vi.fn(), setPricesIncludeTax: vi.fn(), saveTaxClass: vi.fn(), deleteTaxClass: vi.fn(), saveTaxZone: vi.fn(), setTaxRate: vi.fn(), loadInvoiceSettings: vi.fn(), saveInvoiceSettings: vi.fn() }))
 vi.mock('../../api/tax', () => tax)
 const settings = vi.hoisted(() => ({ loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
 vi.mock('../../api/settings', () => settings)
@@ -44,9 +44,9 @@ const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 const confirm = (name: string) => fireEvent.click(dialog().getByRole('button', { name }))
 
-const show = async (tab: 'warehouse' | 'tax') => {
+const show = async (tab: 'warehouse' | 'tax', readOnly = false) => {
   const root = createRootRoute({ component: Outlet })
-  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting: owner, state: { readOnly: false } }), component: Outlet })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting: owner, state: { readOnly } }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/settings', validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier', 'warehouse', 'tax'])) }), component: SettingsPage })
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: [`/settings?tab=${tab}`] }) })
   await act(async () => {
@@ -63,7 +63,7 @@ beforeEach(() => {
   tax.loadInvoiceSettings.mockResolvedValue({ taxPerLine: true, emailWithDispatch: true, footer: 'Thank you', legalName: null })
   settings.loadStoreInfo.mockResolvedValue({ country: 'IN', taxId: '08ABCDE1234F1Z5' })
   settings.loadLocale.mockResolvedValue({ pricingCurrency: 'INR' })
-  for (const fn of [tax.setPricesIncludeTax, tax.deleteTaxClass, tax.saveInvoiceSettings]) fn.mockResolvedValue(undefined)
+  for (const fn of [tax.setPricesIncludeTax, tax.deleteTaxClass, tax.saveInvoiceSettings, tax.setTaxRate]) fn.mockResolvedValue(undefined)
   tax.saveTaxClass.mockResolvedValue('c-new')
   tax.saveTaxZone.mockResolvedValue('z-in')
   team.loadSuppliers.mockResolvedValue([{ id: 'v1', name: 'Northwind Textiles' }])
@@ -86,6 +86,13 @@ describe('warehouse', () => {
     expect(theirs.getByText('Northwind godown')).toBeTruthy()
     expect(theirs.getByText(/Northwind Textiles · 12 units/)).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Manage Northwind godown' })).toBeNull()
+  })
+
+  it('lets a read-only store look without managing, and lists a location whose supplier isn’t named without a name', async () => {
+    team.loadSuppliers.mockResolvedValue([])
+    await show('warehouse', true)
+    expect(screen.queryByRole('button', { name: 'Manage Workshop' })).toBeNull()
+    expect(region(wh.theirsTitle).getByText(/^12 units$/)).toBeTruthy()
   })
 
   it('shows the error with a retry when the suppliers don’t load', async () => {
@@ -135,13 +142,14 @@ describe('tax setup', () => {
     fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
     confirm(t.save)
     await settle()
-    expect(tax.saveTaxZone).toHaveBeenLastCalledWith('z-in', { name: 'India', countries: ['IN'], regions: [], rates: [{ taxClassId: 'c18', rateBps: 1800 }, { taxClassId: 'c12', rateBps: 500 }] })
+    expect(tax.setTaxRate).toHaveBeenLastCalledWith('z-in', 'c12', 500)
     fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
     fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7.5%' } })
     confirm(t.add)
     await settle()
     expect(tax.saveTaxClass).toHaveBeenLastCalledWith(null, { name: 'Books', taxCode: null, isDefault: false })
-    expect(tax.saveTaxZone).toHaveBeenLastCalledWith('z-in', expect.objectContaining({ rates: expect.arrayContaining([{ taxClassId: 'c-new', rateBps: 750 }]) }))
+    expect(tax.setTaxRate).toHaveBeenLastCalledWith('z-in', 'c-new', 750)
+    expect(tax.saveTaxZone).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Manage Exempt' }))
     fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'delete' } })
     confirm(t.continue)
@@ -152,7 +160,7 @@ describe('tax setup', () => {
   })
 
   it('takes the new category away again when its rate can’t be saved, and reads the setup again', async () => {
-    tax.saveTaxZone.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
+    tax.setTaxRate.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
     await show('tax')
     const reads = tax.loadTax.mock.calls.length
     fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
@@ -167,16 +175,69 @@ describe('tax setup', () => {
     expect(tax.loadTax.mock.calls.length).toBe(reads + 2)
   })
 
-  it('writes a changed rate over the zone as it is now, not as the tab first read it', async () => {
+  it('sets just that category’s rate, so someone else’s change to another rate stays', async () => {
     await show('tax')
-    // Someone else added a rate since the tab was read.
-    tax.loadTax.mockResolvedValue({ ...setup, zones: [{ ...setup.zones[0], rates: [...(setup.zones[0]?.rates ?? []), { taxClassId: 'c0', rateBps: 0 }] }, setup.zones[1]] })
     fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
     confirm(t.continue)
     fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
     confirm(t.save)
     await settle()
-    expect(tax.saveTaxZone).toHaveBeenLastCalledWith('z-in', expect.objectContaining({ rates: [{ taxClassId: 'c18', rateBps: 1800 }, { taxClassId: 'c0', rateBps: 0 }, { taxClassId: 'c12', rateBps: 500 }] }))
+    expect(tax.setTaxRate).toHaveBeenCalledWith('z-in', 'c12', 500)
+    expect(tax.saveTaxZone).not.toHaveBeenCalled()
+  })
+
+  it('makes the home zone with the rate where there’s none yet, but never when the setup didn’t read back', async () => {
+    tax.loadTax.mockResolvedValue({ ...setup, zones: [setup.zones[1]] })
+    await show('tax')
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
+    confirm(t.continue)
+    fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
+    confirm(t.save)
+    await settle()
+    expect(tax.saveTaxZone).toHaveBeenCalledWith(null, { name: 'India', countries: ['IN'], regions: [], rates: [{ taxClassId: 'c12', rateBps: 500 }] })
+    tax.saveTaxZone.mockClear()
+    // The re-read before writing answers nothing: that's a failure, not "no home zone", so no zone is made.
+    tax.loadTax.mockResolvedValueOnce(null)
+    fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
+    confirm(t.continue)
+    fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '6' } })
+    confirm(t.save)
+    await settle()
+    expect(tax.saveTaxZone).not.toHaveBeenCalled()
+    expect(tax.setTaxRate).not.toHaveBeenCalled()
+    expect(screen.getByText(t.refused.other)).toBeTruthy()
+  })
+
+  it('says the category is there without its rate when taking it away fails too', async () => {
+    tax.setTaxRate.mockRejectedValueOnce(new ApiError('ZONE_OVERLAP', 'overlap'))
+    tax.deleteTaxClass.mockRejectedValueOnce(new Error('offline'))
+    await show('tax')
+    fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
+    fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7' } })
+    confirm(t.add)
+    await settle()
+    await settle()
+    expect(screen.getByText('“Books” was added without its rate. Set it with Manage.')).toBeTruthy()
+  })
+
+  it('refuses a category and rate it can’t read before sending anything', async () => {
+    await show('tax')
+    for (const typed of ['Books 101', 'Books 7.555', '7']) {
+      fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
+      fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: typed } })
+      confirm(t.add)
+      expect(dialog().getByText(t.addInvalid), typed).toBeTruthy()
+      fireEvent.click(dialog().getByRole('button', { name: t.cancel }))
+    }
+    expect(tax.saveTaxClass).not.toHaveBeenCalled()
+  })
+
+  it('lets a read-only store look without changing anything', async () => {
+    await show('tax', true)
+    expect(screen.queryByRole('button', { name: t.addTitle })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Manage Clothing' })).toBeNull()
+    expect(region(t.pricesTitle).queryByRole('button', { name: t.save })).toBeNull()
+    expect((within(screen.getByRole('radiogroup', { name: t.pricesTitle })).getAllByRole('radio') as HTMLInputElement[]).every((r) => r.disabled)).toBe(true)
   })
 
   it('says why a category change was refused', async () => {

@@ -262,6 +262,25 @@ describe('Tax setup', () => {
     expect((await gql('mutation I($input: InvoiceSettingsInput!) { saveInvoiceSettings(input: $input) }', 'manager', { input: { taxPerLine: true, emailWithDispatch: true } })).code).toBe('FORBIDDEN')
   })
 
+  it('sets one category’s rate in a zone, so two people changing different categories both keep theirs', async () => {
+    const before = await setup('india')
+    const zone = before.zones.find((z) => z.rates.length >= 2)
+    const [a, b] = zone?.rates ?? []
+    const set = (who: Who, zoneId: string | undefined, taxClassId: string | undefined, rateBps: number) =>
+      gql('mutation R($z: ID!, $c: ID!, $r: Int!) { setTaxRate(zoneId: $z, taxClassId: $c, rateBps: $r) }', who, { z: zoneId, c: taxClassId, r: rateBps })
+    // Both read the same zone; each changes a different category at the same time.
+    const [first, second] = await Promise.all([set('india', zone?.id, a?.taxClassId, 123), set('india', zone?.id, b?.taxClassId, 456)])
+    expect([first.code, second.code]).toEqual([undefined, undefined])
+    const after = (await setup('india')).zones.find((z) => z.id === zone?.id)
+    expect(after?.rates.find((r) => r.taxClassId === a?.taxClassId)?.rateBps).toBe(123)
+    expect(after?.rates.find((r) => r.taxClassId === b?.taxClassId)?.rateBps).toBe(456)
+    expect(after?.rates).toHaveLength(zone?.rates.length ?? 0)
+    // Another store's zone or category is not there; a Manager reads tax but can't write it; a rate is a percentage.
+    expect((await set('other', zone?.id, a?.taxClassId, 100)).code).toBe('NOT_FOUND')
+    expect((await set('manager', zone?.id, a?.taxClassId, 100)).code).toBe('FORBIDDEN')
+    expect((await set('india', zone?.id, a?.taxClassId, 10_001)).code).toBe('INVALID_INPUT')
+  })
+
   it('keeps each store to its own classes, rates and versions', async () => {
     const theirs = (await setup('india')).classes[0]?.id
     expect((await gql('mutation Z($input: TaxZoneInput!) { saveTaxZone(input: $input) }', 'us', { input: { name: 'Borrowed', countries: ['US'], rates: [{ taxClassId: theirs, rateBps: 500 }] } })).code).toBe('NOT_FOUND')
