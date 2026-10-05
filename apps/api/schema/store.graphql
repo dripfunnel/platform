@@ -256,6 +256,7 @@ type Mutation {
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setTheme(theme: String!): Profile
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
