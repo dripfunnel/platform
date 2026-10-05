@@ -283,6 +283,11 @@ describe('a product’s listing sections', () => {
     expect((await gql(save, 'owner', { id: made.id, revision: 2, input: { ...base, listing: { relatedIds: shown?.listing.relatedIds } } })).code).toBeUndefined()
   })
 
+  it('has the indexes the sections and the chart counts read by', async () => {
+    const names = (await db.sql<{ indexname: string }[]>`select indexname from pg_indexes where indexname = any(${'{product_size_chart_idx,product_spec_product_idx,product_highlight_product_idx,product_faq_product_idx}'}::text[])`).map((r) => r.indexname)
+    expect(names.sort()).toEqual(['product_faq_product_idx', 'product_highlight_product_idx', 'product_size_chart_idx', 'product_spec_product_idx'])
+  })
+
   it('refuses a specification mirroring a filter value this store doesn’t have', async () => {
     const foreign = (await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'bOwner', { input: { name: 'B fabric', values: [{ name: 'Wool' }] } })).data?.['saveFacet'] as string
     const wool = ((await gql('{ facets(first: 50) { nodes { id values { id } } } }', 'bOwner')).data?.['facets'] as { nodes: { id: string; values: { id: string }[] }[] }).nodes.find((f) => f.id === foreign)?.values[0]?.id
