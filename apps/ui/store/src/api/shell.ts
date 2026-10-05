@@ -89,6 +89,13 @@ const switchSchema = z.object({ switchStore: choiceSchema })
 export const switchStore = async (storeId: string, supplierId: string | null): Promise<StoreChoice> =>
   (await query(`mutation Switch($storeId: ID!, $supplierId: ID) { switchStore(storeId: $storeId, supplierId: $supplierId) { membershipId store { id name } role tier seller { id name } } }`, switchSchema, { storeId, supplierId })).switchStore
 
+/** Opens a store: remembered only once the server confirms the person holds it, so a refusal leaves the old one. */
+export const openStore = async (choice: Pick<StoreChoice, 'store' | 'seller'>): Promise<StoreChoice> => {
+  const confirmed = await switchStore(choice.store.id, choice.seller?.id ?? null)
+  rememberActing({ storeId: confirmed.store.id, supplierId: confirmed.seller?.id ?? null })
+  return confirmed
+}
+
 /**
  * Ends the one session on this device, in every store (FIRST-RELEASE §3.2): the acting store is
  * forgotten first, then a plain form post the browser follows, so the page that comes next is the

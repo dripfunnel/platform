@@ -42,6 +42,20 @@ describe('loadMyStores and signOut', () => {
     vi.unstubAllGlobals()
   })
 
+  it('remembers a store only once the server confirms it, so a refused switch keeps the old one', async () => {
+    const { vi } = await import('vitest')
+    const items = new Map<string, string>([['df-store-acting', '{"storeId":"s1","supplierId":null}']])
+    vi.stubGlobal('localStorage', { getItem: (k: string) => items.get(k) ?? null, setItem: (k: string, v: string) => void items.set(k, v), removeItem: (k: string) => void items.delete(k) })
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: null, errors: [{ message: 'not yours', extensions: { code: 'FORBIDDEN' } }] })))
+    const { openStore } = await import('./shell')
+    await expect(openStore({ store: { id: 's2', name: 's2' }, seller: null })).rejects.toThrow()
+    expect(items.get('df-store-acting')).toBe('{"storeId":"s1","supplierId":null}')
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ data: { switchStore: choice('s2') } })))
+    await openStore({ store: { id: 's2', name: 's2' }, seller: null })
+    expect(items.get('df-store-acting')).toBe('{"storeId":"s2","supplierId":null}')
+    vi.unstubAllGlobals()
+  })
+
   it('forgets the acting store, then posts a form the browser follows to the server’s answer', async () => {
     const { vi } = await import('vitest')
     const items = new Map<string, string>([['df-store-acting', '{"storeId":"s1","supplierId":null}']])
