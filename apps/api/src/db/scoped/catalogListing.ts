@@ -150,7 +150,7 @@ export interface ListingWrite {
   faqs?: { question: string; answer: string }[]
   related?: string[]
   badgeIds?: string[]
-  flags?: { ageRestricted: boolean; hazardous: boolean }
+  flags?: { ageRestricted: boolean | null; hazardous: boolean | null }
   compliance?: { region: string; field: string; value: string }[]
   /** Null removes the rule; absent keeps it. */
   marketRule?: { mode: 'only' | 'except'; countries: string[] } | null
@@ -204,8 +204,10 @@ export const setProductListing = async (tx: ScopedSql, storeId: string, productI
   }
   if (l.flags) {
     await tx`
-      insert into product_flag (product_id, store_id, age_restricted, hazardous) values (${productId}, ${storeId}, ${l.flags.ageRestricted}, ${l.flags.hazardous})
-      on conflict (product_id) do update set age_restricted = excluded.age_restricted, hazardous = excluded.hazardous
+      insert into product_flag (product_id, store_id, age_restricted, hazardous)
+      values (${productId}, ${storeId}, coalesce(${l.flags.ageRestricted}::boolean, false), coalesce(${l.flags.hazardous}::boolean, false))
+      on conflict (product_id) do update set age_restricted = coalesce(${l.flags.ageRestricted}::boolean, product_flag.age_restricted),
+        hazardous = coalesce(${l.flags.hazardous}::boolean, product_flag.hazardous)
     `
   }
   if (l.compliance) {

@@ -20,7 +20,7 @@ import {
   upsertBadge,
   type FeatureKey,
 } from '#db/scoped/catalogListing'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanBadge, cleanSizeChart, ListingInvalid, type SizeChartInput } from './listing'
 import { isUuid } from '#core/ids'
 
@@ -127,6 +127,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
       let chartId: string
       let next: number
       if (id === null) {
+        await serialise(tx, `size_chart:${storeId}:${sellerId ?? ''}`)
         if ((await countSizeCharts(tx, storeId, sellerId)) >= maxSizeCharts) throw new Refused('TOO_MANY_SIZE_CHARTS')
         chartId = crypto.randomUUID()
         await insertSizeChart(tx, storeId, sellerId, chartId, clean)

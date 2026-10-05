@@ -46,7 +46,8 @@ export interface CleanListing {
   faqs?: { question: string; answer: string }[]
   related?: string[]
   badgeIds?: string[]
-  flags?: { ageRestricted: boolean; hazardous: boolean }
+  /** A flag left out keeps its saved value. */
+  flags?: { ageRestricted: boolean | null; hazardous: boolean | null }
   compliance?: { region: string; field: string; value: string }[]
   marketRule?: { mode: 'only' | 'except'; countries: string[] } | null
 }
@@ -85,7 +86,7 @@ export const cleanListing = (input: ListingInput, versionCount: number, marketRu
   }
   if (input.relatedIds) out.related = ids(input.relatedIds, maxRelated, 'related')
   if (input.badgeIds) out.badgeIds = ids(input.badgeIds, maxProductBadges, 'badges')
-  if (input.ageRestricted != null || input.hazardous != null) out.flags = { ageRestricted: input.ageRestricted === true, hazardous: input.hazardous === true }
+  if (input.ageRestricted != null || input.hazardous != null) out.flags = { ageRestricted: input.ageRestricted ?? null, hazardous: input.hazardous ?? null }
   if (input.compliance) {
     if (input.compliance.length > maxCompliance) throw new ListingInvalid('compliance')
     const seen = new Set<string>()
