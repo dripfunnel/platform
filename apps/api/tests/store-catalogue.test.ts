@@ -367,6 +367,17 @@ describe('photos, video and files', () => {
     const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string }
     const copied = (await gql(`query P($id: ID!) { product(id: $id) { photos { assetId } } }`, 'owner', { id: copy.id })).data?.['product'] as { photos: { assetId: string }[] }
     expect(copied.photos.map((p) => p.assetId)).toEqual([a.asset?.id, b.asset?.id])
+
+    // Dropping Blue without sending photos keeps its photo as the product's own, never on a version that's gone.
+    const versionsNow = [{ id: shown.versions[0]?.id, choices: ['Red'], prices: [price('100')] }]
+    const kept = await gql(save, 'owner', { id: saved?.id, revision: saved?.revision, input: { name: 'Photographed', description: 'Soft.', options: [{ name: 'Colour', values: [{ name: 'Red' }] }], versions: versionsNow } })
+    expect(kept.code).toBeUndefined()
+    const after = (await gql(`query P($id: ID!) { product(id: $id) { versions { id } photos { assetId versionId } } }`, 'owner', { id: saved?.id })).data?.['product'] as { versions: { id: string }[]; photos: { assetId: string; versionId: string | null }[] }
+    expect(after.versions).toHaveLength(1)
+    expect(after.photos).toEqual([
+      { assetId: a.asset?.id, versionId: null },
+      { assetId: b.asset?.id, versionId: null },
+    ])
   })
 
   it('counts and lists a product with no photo or no description as missing info', async () => {

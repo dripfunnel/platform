@@ -1,4 +1,5 @@
 import { isCurrency, parseMinor } from '#core/money'
+import { isUuid } from '#core/ids'
 
 // The catalogue's input rules (CATALOG-DESIGN §3 facts 1–5, 15; decided on #337): what a product must
 // be before it is written. Pure, so the API and imports share them.
@@ -186,7 +187,6 @@ export interface CleanProduct {
   video: { assetId: string | null; url: string | null } | null | undefined
 }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A link to a video host: https, a host and a path, nothing to run (CATALOG S7). */
 export const isVideoUrl = (value: string): boolean => {
@@ -204,7 +204,7 @@ const cleanPhotos = (photos: readonly PhotoInput[], versionCount: number): Clean
   const seen = new Set<string>()
   const clean: CleanPhoto[] = []
   for (const p of photos) {
-    if (!uuid.test(p.assetId) || seen.has(p.assetId.toLowerCase())) return 'INVALID_PHOTO'
+    if (!isUuid(p.assetId) || seen.has(p.assetId.toLowerCase())) return 'INVALID_PHOTO'
     seen.add(p.assetId.toLowerCase())
     const alt = text(p.alt, 250)
     if (alt === false) return 'INVALID_PHOTO'
@@ -222,7 +222,7 @@ const cleanVideo = (video: VideoInput | null | undefined): CleanProduct['video']
   const url = video.url?.trim() || null
   if (assetId === null && url === null) return null
   if ((assetId !== null) === (url !== null)) return 'INVALID_VIDEO'
-  if (assetId !== null && !uuid.test(assetId)) return 'INVALID_VIDEO'
+  if (assetId !== null && !isUuid(assetId)) return 'INVALID_VIDEO'
   if (url !== null && !isVideoUrl(url)) return 'INVALID_VIDEO'
   return { assetId: assetId?.toLowerCase() ?? null, url }
 }
