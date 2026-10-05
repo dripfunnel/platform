@@ -54,7 +54,10 @@ describe('prices in another currency (CATALOG fact 26, O4)', () => {
 
   it('rounds as the store asks', () => {
     expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'USD' })
-    expect(roundPrice({ amount: 1500n, currency: 'USD' }, 'ends-99')).toEqual({ amount: 1499n, currency: 'USD' })
+    // Never below the computed price: 15.00 goes up to 15.99, and 15.99 stays.
+    expect(roundPrice({ amount: 1500n, currency: 'USD' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'USD' })
+    expect(roundPrice({ amount: 1599n, currency: 'USD' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'USD' })
+    expect(roundPrice({ amount: 1500n, currency: 'JPY' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'JPY' })
     expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'nearest')).toEqual({ amount: 1500n, currency: 'USD' })
     expect(roundPrice({ amount: 1550n, currency: 'USD' }, 'nearest')).toEqual({ amount: 1600n, currency: 'USD' })
     expect(roundPrice({ amount: 1547n, currency: 'JPY' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'JPY' })
