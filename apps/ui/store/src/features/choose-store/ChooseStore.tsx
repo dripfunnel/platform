@@ -26,6 +26,9 @@ export const chooserStep = (stores: readonly StoreChoice[]): { kind: 'none' } | 
 /** Where an opened store lands: the page that sent the person here, on this host only, else Home. */
 export const chooserDestination = (next: unknown, origin: string): string => safeNext(next, origin, '/home')
 
+/** Signed out on the chooser: sign-in comes back here with the same landing, as loadShell's redirect does. */
+export const signInSearch = (next: unknown, origin: string): { next: string } => ({ next: chooserDestination(next, origin) })
+
 // FIRST-RELEASE.md §4 "Choose a store": the portal never picks between several; one goes straight in,
 // none is refused rather than shown an empty portal. The last store is a convenience (ACCESS.md §4).
 export const ChooseStore = ({ next, as }: { next: string | undefined; as?: string | undefined }) => {
@@ -62,7 +65,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
     try {
       const me = await loadMe()
       if (!me) {
-        await navigate({ to: '/sign-in' })
+        await navigate({ to: '/sign-in', search: signInSearch(next, window.location.origin) })
         return
       }
       const stores = await loadMyStores()
