@@ -6,6 +6,7 @@ import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
+import { requireFeature } from './listing'
 import { recomputeFor } from './structure'
 
 // Products (FIRST-RELEASE §11, §19; CATALOG-DESIGN §3): the merchant side reads and writes the store's
@@ -37,6 +38,8 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   INVALID_VIDEO: 'Use an uploaded video or an https link, not both.',
   FILE_REFUSED: 'That file isn’t here, or belongs to another product owner.',
   INVALID_FILTER: 'A filter value isn’t this store’s, or is listed twice.',
+  INVALID_LISTING: 'Something in the listing sections isn’t valid.',
+  LISTING_REFUSED: 'A related product, badge or size chart isn’t one this product can use.',
 }
 
 const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info']
@@ -166,6 +169,27 @@ export const registerProducts = (builder: StoreBuilder) => {
   const FilterValueRef = builder.objectRef<ProductRow['filter_values'][number]>('ProductFilterValue').implement({
     fields: (t) => ({ valueId: t.exposeID('value_id'), versionId: t.exposeID('version_id', { nullable: true }) }),
   })
+  const Spec = builder.objectRef<ProductRow['specs'][number]>('ProductSpec').implement({
+    fields: (t) => ({ name: t.exposeString('name'), value: t.exposeString('value'), versionId: t.exposeID('version_id', { nullable: true }), filterValueId: t.exposeID('filter_value_id', { nullable: true }) }),
+  })
+  const Faq = builder.objectRef<{ question: string; answer: string }>('ProductFaq').implement({ fields: (t) => ({ question: t.exposeString('question'), answer: t.exposeString('answer') }) })
+  const Compliance = builder.objectRef<{ region: string; field: string; value: string }>('ProductCompliance').implement({
+    fields: (t) => ({ region: t.exposeString('region'), field: t.exposeString('field'), value: t.exposeString('value') }),
+  })
+  const MarketRule = builder.objectRef<{ mode: string; countries: string[] }>('ProductMarketRule').implement({ fields: (t) => ({ mode: t.exposeString('mode'), countries: t.exposeStringList('countries') }) })
+  const ListingType = builder.objectRef<ProductRow>('ProductListing').implement({
+    fields: (t) => ({
+      specs: t.field({ type: [Spec], resolve: (p) => p.specs }),
+      highlights: t.stringList({ resolve: (p) => p.highlights }),
+      faqs: t.field({ type: [Faq], resolve: (p) => p.faqs }),
+      relatedIds: t.stringList({ resolve: (p) => p.related }),
+      badgeIds: t.stringList({ resolve: (p) => p.badge_ids }),
+      ageRestricted: t.boolean({ resolve: (p) => p.flags.ageRestricted }),
+      hazardous: t.boolean({ resolve: (p) => p.flags.hazardous }),
+      compliance: t.field({ type: [Compliance], resolve: (p) => p.compliance }),
+      marketRule: t.field({ type: MarketRule, nullable: true, resolve: (p) => p.market_rule }),
+    }),
+  })
   type VersionView = ProductRow['versions'][number] & { choiceNames: string[] }
   const VersionType = builder.objectRef<VersionView>('ProductVersion').implement({
     fields: (t) => ({
@@ -216,6 +240,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       }),
       photos: t.field({ type: [PhotoType], resolve: (p) => p.photos }),
       filterValues: t.field({ type: [FilterValueRef], resolve: (p) => p.filter_values }),
+      listing: t.field({ type: ListingType, resolve: (p) => p }),
+      sizeChartId: t.exposeID('size_chart_id', { nullable: true }),
       video: t.field({ type: VideoType, nullable: true, resolve: (p) => p.video }),
       createdAt: t.string({ resolve: (p) => p.created_at.toISOString() }),
       updatedAt: t.string({ resolve: (p) => p.updated_at.toISOString() }),
@@ -227,6 +253,27 @@ export const registerProducts = (builder: StoreBuilder) => {
     fields: (t) => ({ assetId: t.string({ required: true }), alt: t.string(), version: t.int() }),
   })
   const VideoInput = builder.inputType('ProductVideoInput', { fields: (t) => ({ assetId: t.string(), url: t.string() }) })
+  const SpecInput = builder.inputType('ProductSpecInput', {
+    // "Shoppers can filter by this" points at the filter value it mirrors (fact 30); `version` as for photos.
+    fields: (t) => ({ name: t.string({ required: true }), value: t.string({ required: true }), version: t.int(), filterValueId: t.string() }),
+  })
+  const FaqInput = builder.inputType('ProductFaqInput', { fields: (t) => ({ question: t.string({ required: true }), answer: t.string({ required: true }) }) })
+  const ComplianceInput = builder.inputType('ProductComplianceInput', { fields: (t) => ({ region: t.string({ required: true }), field: t.string({ required: true }), value: t.string({ required: true }) }) })
+  const MarketRuleInput = builder.inputType('ProductMarketRuleInput', { fields: (t) => ({ mode: t.string({ required: true }), countries: t.stringList({ required: true }) }) })
+  const ListingInputType = builder.inputType('ProductListingInput', {
+    // Each section left out stays as the product has it (CATALOG S9); `marketRule: null` removes the rule.
+    fields: (t) => ({
+      specs: t.field({ type: [SpecInput] }),
+      highlights: t.stringList(),
+      faqs: t.field({ type: [FaqInput] }),
+      relatedIds: t.stringList(),
+      badgeIds: t.stringList(),
+      ageRestricted: t.boolean(),
+      hazardous: t.boolean(),
+      compliance: t.field({ type: [ComplianceInput] }),
+      marketRule: t.field({ type: MarketRuleInput }),
+    }),
+  })
   const FilterValueInput = builder.inputType('ProductFilterValueInput', {
     // On the product, or one version by its place in `versions` (fact 13).
     fields: (t) => ({ valueId: t.string({ required: true }), version: t.int() }),
@@ -278,6 +325,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       photos: t.field({ type: [PhotoInput] }),
       video: t.field({ type: VideoInput }),
       filterValues: t.field({ type: [FilterValueInput] }),
+      listing: t.field({ type: ListingInputType }),
+      sizeChartId: t.string(),
     }),
   })
   const PatchInput = builder.inputType('ProductsPatch', { fields: (t) => ({ visible: t.boolean({ required: true }) }) })
@@ -357,6 +406,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: catalogAudit.updated } },
       resolve: async (_, args, ctx) => {
         const input: ProductInput = args.input
+        // A size chart is a plan feature (SAAS §6.1); removing one never is.
+        if (input.sizeChartId) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
         if (args.id === null || args.id === undefined) return answered(ctx, await service(ctx).create(input))
         const id = String(args.id)
         if (!uuid.test(id) || typeof args.revision !== 'number') throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })

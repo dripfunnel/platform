@@ -36,13 +36,16 @@ import {
   type ValueWrite,
   type VersionFields,
 } from '#db/scoped/catalog'
+import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { cleanListing, ListingInvalid, type CleanListing } from './listing'
 import { cleanProduct, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
+export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
 export { createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
 
@@ -113,6 +116,9 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
 // (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
 const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
 
+/** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
+type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
+
 class Refused extends Error {
   constructor(readonly refusal: SaveRefusal) {
     super(refusal.reason)
@@ -142,7 +148,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   })
 
   /** Options, values, versions, their choices and prices, matched by id to what the product has, a few statements in all. */
-  const writeChildren = async (tx: ScopedSql, productId: string, clean: CleanProduct, existing: ProductRow | null) => {
+  const writeChildren = async (tx: ScopedSql, productId: string, clean: Cleaned, existing: ProductRow | null) => {
     const at = now()
     const known = (ids: readonly string[], id: string | null) => {
       if (id !== null && !ids.includes(id)) throw new Refused({ reason: 'INVALID_INPUT' })
@@ -199,6 +205,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (!clean.filterValues.every((f) => known.has(f.valueId))) throw new Refused({ reason: 'INVALID_FILTER' })
       await setProductFilterValues(tx, storeId, productId, clean.filterValues.map((f) => ({ valueId: f.valueId, versionId: f.version === null ? null : (ids[f.version] ?? null) })))
     }
+    if (clean.listing) {
+      const { specs, ...rest } = clean.listing
+      await setProductListing(tx, storeId, productId, { ...rest, ...(specs ? { specs: specs.map(({ version, ...spec }) => ({ ...spec, versionId: version === null ? null : (ids[version] ?? null) })) } : {}) })
+    }
+    if (clean.sizeChartId !== undefined) await setProductSizeChart(tx, storeId, productId, clean.sizeChartId)
     await recompute(tx)
   }
 
@@ -209,20 +220,29 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (error instanceof Refused) return { ok: false, ...error.refusal }
       if (skuTaken(error)) return { ok: false, reason: 'DUPLICATE_SKU' }
       if (fileRefused(error)) return { ok: false, reason: 'FILE_REFUSED' }
+      if (listingRefused(error) || (typeof error === 'object' && error !== null && 'constraint_name' in error && error.constraint_name === 'product_related_check')) return { ok: false, reason: 'LISTING_REFUSED' }
       const clash = nameClash(error)
       if (clash) return { ok: false, reason: clash }
       throw error
     }
   }
 
-  const clean = async (tx: ScopedSql, input: ProductInput): Promise<CleanProduct> => {
+  const clean = async (tx: ScopedSql, input: ProductInput): Promise<Cleaned> => {
     const currency = await selectPricingCurrency(tx)
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
     if (typeof result === 'string') throw new Refused({ reason: result })
     // Vendor input can't carry visibility (ACCESS §7.2): refused, not quietly dropped.
     if (sellerId !== null && result.visible !== null) throw new Refused({ reason: 'SUPPLIER_FIELD' })
-    return result
+    const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
+    if (sizeChartId && !/^[0-9a-f-]{36}$/.test(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
+    try {
+      const listing = input.listing ? cleanListing(input.listing, result.versions.length, 'marketRule' in input.listing) : null
+      return { ...result, listing, sizeChartId }
+    } catch (error) {
+      if (error instanceof ListingInvalid) throw new Refused({ reason: 'INVALID_LISTING' })
+      throw error
+    }
   }
 
   const create = async (input: ProductInput): Promise<SaveResult> => {
@@ -266,7 +286,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       await lockCatalogue(tx, storeId)
       const wanted = (await countStoreProducts(tx)) + 1
       if (wanted > allowance) throw new Refused({ reason: 'PLAN_LIMIT', wanted })
-      const copy: CleanProduct = {
+      const copy: Cleaned = {
         name: source.name,
         description: source.description,
         slug: sellerId !== null ? supplierSlug(source.slug.replace(/-[a-z2-9]{6}$/, '')) : source.slug,
@@ -301,6 +321,18 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
         photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt, version: p.version_id === null ? null : source.versions.findIndex((v) => v.id === p.version_id) })).map((p) => ({ ...p, version: p.version === -1 ? null : p.version })),
         video: source.video ? { assetId: source.video.asset_id, url: source.video.url } : null,
         filterValues: source.filter_values.map((f) => ({ valueId: f.value_id, version: f.version_id === null ? null : source.versions.findIndex((v) => v.id === f.version_id) })).filter((f) => f.version !== -1),
+        // The copy keeps the listing it was made from, and the chart, which is the same owner's.
+        listing: {
+          specs: source.specs.map((p) => ({ name: p.name, value: p.value, filterValueId: p.filter_value_id, version: p.version_id === null ? null : Math.max(-1, source.versions.findIndex((v) => v.id === p.version_id)) })).filter((p) => p.version !== -1),
+          highlights: source.highlights,
+          faqs: source.faqs,
+          related: source.related,
+          badgeIds: source.badge_ids,
+          flags: source.flags,
+          compliance: source.compliance,
+          marketRule: source.market_rule,
+        },
+        sizeChartId: source.size_chart_id,
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })

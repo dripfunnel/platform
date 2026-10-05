@@ -1,4 +1,5 @@
 import { isCurrency, parseMinor } from '#core/money'
+import type { ListingInput } from './listing'
 
 // The catalogue's input rules (CATALOG-DESIGN §3 facts 1–5, 15; decided on #337): what a product must
 // be before it is written. Pure, so the API and imports share them.
@@ -101,6 +102,10 @@ export interface ProductInput {
   video?: VideoInput | null | undefined
   /** Absent keeps the product's filter values. */
   filterValues?: readonly FilterValueInput[] | null | undefined
+  /** The listing sections (CATALOG S); each one left out stays as it is (listing.ts). */
+  listing?: ListingInput | null | undefined
+  /** Absent keeps the product's chart; null removes it. */
+  sizeChartId?: string | null | undefined
 }
 
 export type CatalogRefusal =
@@ -123,6 +128,8 @@ export type CatalogRefusal =
   | 'INVALID_PHOTO'
   | 'INVALID_VIDEO'
   | 'INVALID_FILTER'
+  | 'INVALID_LISTING'
+  | 'LISTING_REFUSED'
 
 export interface CleanPrice {
   currency: string

@@ -7,6 +7,21 @@ type ActingStore {
   tier: String
 }
 
+type Badge {
+  id: ID
+  label: String
+  position: Int
+  rule: String
+  tone: String
+}
+
+input BadgeInput {
+  label: String!
+  position: Int
+  rule: String!
+  tone: String!
+}
+
 type Brand {
   accentColor: String
   background: String
@@ -28,6 +43,22 @@ type BrandFiles {
   logoDark: String
   logoLight: String
   mark: String
+}
+
+type CatalogueFeature {
+  enabled: Boolean
+  inPlan: Boolean
+  key: String
+}
+
+input CatalogueFeatureInput {
+  enabled: Boolean!
+  key: String!
+}
+
+type CatalogueSettings {
+  badges: [Badge!]
+  features: [CatalogueFeature!]
 }
 
 type Collection {
@@ -200,9 +231,11 @@ type Mutation {
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
+  deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
   deleteFacet(id: ID!): Boolean
   deleteProducts(ids: [ID!]!): Int
+  deleteSizeChart(id: ID!): Int
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
@@ -210,10 +243,13 @@ type Mutation {
   removeMember(membershipId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
+  saveBadge(id: ID, input: BadgeInput!): ID
+  saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveFacet(input: FacetInput!): ID
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
+  saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
@@ -259,6 +295,7 @@ type Product {
   description: String
   filterValues: [ProductFilterValue!]
   id: ID
+  listing: ProductListing
   name: String
   options: [ProductOption!]
   photos: [ProductPhoto!]
@@ -270,6 +307,7 @@ type Product {
   seoDescription: String
   seoTitle: String
   shared: Boolean
+  sizeChartId: ID
   slug: String
   supplier: ProductSupplier
   updatedAt: String
@@ -279,6 +317,18 @@ type Product {
   warrantyText: String
 }
 
+type ProductCompliance {
+  field: String
+  region: String
+  value: String
+}
+
+input ProductComplianceInput {
+  field: String!
+  region: String!
+  value: String!
+}
+
 type ProductCounts {
   all: Int
   hidden: Int
@@ -286,6 +336,16 @@ type ProductCounts {
   pending: Int
   sentBack: Int
   visible: Int
+}
+
+type ProductFaq {
+  answer: String
+  question: String
+}
+
+input ProductFaqInput {
+  answer: String!
+  question: String!
 }
 
 type ProductFilterValue {
@@ -302,6 +362,7 @@ input ProductInput {
   category: String
   description: String
   filterValues: [ProductFilterValueInput!]
+  listing: ProductListingInput
   name: String!
   options: [ProductOptionInput!]!
   photos: [ProductPhotoInput!]
@@ -309,11 +370,46 @@ input ProductInput {
   returnsText: String
   seoDescription: String
   seoTitle: String
+  sizeChartId: String
   slug: String
   versions: [ProductVersionInput!]!
   video: ProductVideoInput
   visible: Boolean
   warrantyText: String
+}
+
+type ProductListing {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductCompliance!]
+  faqs: [ProductFaq!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRule
+  relatedIds: [String!]
+  specs: [ProductSpec!]
+}
+
+input ProductListingInput {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductComplianceInput!]
+  faqs: [ProductFaqInput!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRuleInput
+  relatedIds: [String!]
+  specs: [ProductSpecInput!]
+}
+
+type ProductMarketRule {
+  countries: [String!]
+  mode: String
+}
+
+input ProductMarketRuleInput {
+  countries: [String!]!
+  mode: String!
 }
 
 type ProductOption {
@@ -356,6 +452,20 @@ type ProductPhoto {
 input ProductPhotoInput {
   alt: String
   assetId: String!
+  version: Int
+}
+
+type ProductSpec {
+  filterValueId: ID
+  name: String
+  value: String
+  versionId: ID
+}
+
+input ProductSpecInput {
+  filterValueId: String
+  name: String!
+  value: String!
   version: Int
 }
 
@@ -452,6 +562,7 @@ type Provisioning {
 
 type Query {
   brand: Brand
+  catalogueSettings: CatalogueSettings
   collection(id: ID!): Collection
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
@@ -468,6 +579,8 @@ type Query {
   productCounts: ProductCounts
   products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
+  sizeChart(id: ID!): SizeChart
+  sizeCharts: [SizeChart!]
   storeState: StoreState
 }
 
@@ -483,6 +596,11 @@ type SavedProduct {
   slug: String
 }
 
+type SavedSizeChart {
+  id: ID
+  revision: Int
+}
+
 type SecondFactorStep {
   backupCodes: [String!]
   done: Boolean
@@ -496,6 +614,53 @@ type SignedInSession {
   current: Boolean
   device: String
   lastUsedAt: String
+}
+
+type SizeChart {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNote!]
+  id: ID
+  measurements: [String!]
+  modelInfo: String
+  name: String
+  products: Int
+  revision: Int
+  rows: [SizeChartRow!]
+  supplierId: ID
+  systems: [String!]
+  unit: String
+  updatedAt: String
+}
+
+input SizeChartInput {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNoteInput!]
+  measurements: [String!]!
+  modelInfo: String
+  name: String!
+  rows: [SizeChartRowInput!]!
+  systems: [String!]
+  unit: String!
+}
+
+type SizeChartMeasureNote {
+  measurement: String
+  text: String
+}
+
+input SizeChartMeasureNoteInput {
+  measurement: String!
+  text: String!
+}
+
+type SizeChartRow {
+  size: String
+  values: [String!]
+}
+
+input SizeChartRowInput {
+  size: String!
+  values: [String!]!
 }
 
 type StoreChoice {

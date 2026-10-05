@@ -164,6 +164,15 @@ export interface ProductRow {
   photos: PhotoRow[]
   video: { asset_id: string | null; url: string | null } | null
   filter_values: { value_id: string; version_id: string | null }[]
+  specs: { name: string; value: string; version_id: string | null; filter_value_id: string | null }[]
+  highlights: string[]
+  faqs: { question: string; answer: string }[]
+  related: string[]
+  badge_ids: string[]
+  flags: { ageRestricted: boolean; hazardous: boolean }
+  compliance: { region: string; field: string; value: string }[]
+  market_rule: { mode: 'only' | 'except'; countries: string[] } | null
+  size_chart_id: string | null
 }
 
 export interface PhotoRow {
@@ -201,7 +210,16 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
         select json_agg(json_build_object('id', ph.id, 'asset_id', ph.asset_id, 'version_id', ph.version_id, 'alt', ph.alt, 'width', a.width, 'height', a.height) order by ph.position)
         from product_photo ph join asset a on a.id = ph.asset_id where ph.product_id = p.id), '[]'::json) as photos,
       (select json_build_object('asset_id', pv.asset_id, 'url', pv.url) from product_video pv where pv.product_id = p.id) as video,
-      coalesce((select json_agg(json_build_object('value_id', pfv.filter_value_id, 'version_id', pfv.version_id)) from product_filter_value pfv where pfv.product_id = p.id), '[]'::json) as filter_values
+      coalesce((select json_agg(json_build_object('value_id', pfv.filter_value_id, 'version_id', pfv.version_id)) from product_filter_value pfv where pfv.product_id = p.id), '[]'::json) as filter_values,
+      coalesce((select json_agg(json_build_object('name', x.name, 'value', x.value, 'version_id', x.version_id, 'filter_value_id', x.filter_value_id) order by x.position) from product_spec x where x.product_id = p.id), '[]'::json) as specs,
+      coalesce((select json_agg(x.text order by x.position) from product_highlight x where x.product_id = p.id), '[]'::json) as highlights,
+      coalesce((select json_agg(json_build_object('question', x.question, 'answer', x.answer) order by x.position) from product_faq x where x.product_id = p.id), '[]'::json) as faqs,
+      coalesce((select json_agg(x.related_product_id order by x.position) from product_related x where x.product_id = p.id), '[]'::json) as related,
+      coalesce((select json_agg(x.badge_id) from product_badge x where x.product_id = p.id), '[]'::json) as badge_ids,
+      coalesce((select json_build_object('ageRestricted', x.age_restricted, 'hazardous', x.hazardous) from product_flag x where x.product_id = p.id), json_build_object('ageRestricted', false, 'hazardous', false)) as flags,
+      coalesce((select json_agg(json_build_object('region', x.region, 'field', x.field, 'value', x.value) order by x.region, x.field) from product_compliance x where x.product_id = p.id), '[]'::json) as compliance,
+      (select json_build_object('mode', x.mode, 'countries', x.countries) from product_market_rule x where x.product_id = p.id) as market_rule,
+      p.size_chart_id
     from product p
     left join seller s on s.id = p.seller_id
     where p.id = ${productId} and p.store_id = ${storeId} and p.deleted_at is null

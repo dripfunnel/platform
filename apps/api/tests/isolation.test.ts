@@ -342,6 +342,7 @@ describe('the backstop itself', () => {
       'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
       'asset', 'product_photo', 'product_video',
       'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
+      'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -482,6 +483,22 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_filter_value (product_id, filter_value_id, store_id) values (${second}, ${valueRow?.id ?? ''}, ${t.storeA1})`)).rejects.toThrow(/no such product/)
     expect(await seen(t.storeA1, { kind: 'all' }, 'product_filter_value')).toBe(1)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from collection`)).rejects.toThrow(/permission denied/)
+    // Listing: a supplier reads the store's switches and badges but writes neither, keeps to its own charts,
+    // and adds sections only to its own products.
+    await db.sql`insert into store_feature (store_id, key, enabled) values (${t.storeA1}, 'faqs', true)`
+    await db.sql`insert into badge (store_id, label, tone, rule) values (${t.storeA1}, 'Iso badge', 'ok', 'manual')`
+    await db.sql`insert into size_chart (store_id, seller_id, name, unit) values (${t.storeA1}, null, 'Merchant chart', 'cm'), (${t.storeA1}, ${t.sellerA1First}, 'First chart', 'cm'), (${t.storeA1}, ${t.sellerA1Second}, 'Second chart', 'cm')`
+    expect(await seen(t.storeA1, supplier, 'store_feature')).toBe(1)
+    expect(await seen(t.storeA1, supplier, 'badge')).toBe(1)
+    expect(await seen(t.storeA1, supplier, 'size_chart')).toBe(1)
+    expect(await seen(t.storeA1, { kind: 'all' }, 'size_chart')).toBe(3)
+    for (const table of ['store_feature', 'badge', 'size_chart']) expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 0 })
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into badge (store_id, label, tone, rule) values (${t.storeA1}, 'Supplier badge', 'ok', 'manual')`)).rejects.toThrow(/row-level security/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into size_chart (store_id, seller_id, name, unit) values (${t.storeA1}, null, 'As merchant', 'cm')`)).rejects.toThrow(/makes its own size charts/)
+    await inStore(t.storeA1, supplier, (tx) => tx`insert into product_highlight (product_id, store_id, text, position) values (${first}, ${t.storeA1}, 'Own', 0)`)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_highlight (product_id, store_id, text, position) values (${second}, ${t.storeA1}, 'Theirs', 0)`)).rejects.toThrow(/no such product/)
+    expect(await seen(t.storeA1, supplier, 'product_highlight')).toBe(1)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from size_chart`)).rejects.toThrow(/permission denied/)
     // The plan count is the whole store's, a number only, whoever asks.
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)
