@@ -367,6 +367,28 @@ describe('a supplier’s own team', () => {
     expect((await team(admin)).some((m) => m.email === 'late@crew.example')).toBe(false)
   })
 
+  it('pages its team and holds a Supplier admin to People’s invitation limits', async () => {
+    for (const n of [1, 2, 3]) await inviteUser(admin, `page${n}@crew.example`, 'supplier-member')
+    const first = (await gql('{ mySupplierTeam(first: 2) { nodes { id } pageInfo { hasNextPage endCursor } } }', admin)).data?.['mySupplierTeam'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
+    expect(first.nodes).toHaveLength(2)
+    expect(first.pageInfo.hasNextPage).toBe(true)
+    const next = (await gql('query P($after: String) { mySupplierTeam(first: 2, after: $after) { nodes { id } } }', admin, { after: first.pageInfo.endCursor })).data?.['mySupplierTeam'] as { nodes: { id: string }[] }
+    expect(next.nodes.some((n) => first.nodes.some((f) => f.id === n.id))).toBe(false)
+    // Three a day to one address, a resend included (ACCESS §6.2).
+    const sent = (await inviteUser(admin, 'often@crew.example', 'supplier-member')).data?.['inviteSupplierUser'] as string
+    const again = (await gql('mutation R($id: ID!) { resendSupplierInvitation(invitationId: $id) }', admin, { id: sent })).data?.['resendSupplierInvitation'] as string
+    await gql('mutation R($id: ID!) { resendSupplierInvitation(invitationId: $id) }', admin, { id: again })
+    const fourth = await inviteUser(admin, 'often@crew.example', 'supplier-member')
+    expect({ code: fourth.code, per: fourth.errors?.[0]?.extensions['per'] }).toEqual({ code: 'RATE_LIMITED', per: 'address' })
+    // Twenty an hour from one inviter.
+    const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from invitation i join membership m on m.user_id = i.invited_by_user_id where m.seller_id = ${admin.seller} and m.role_key = 'supplier-admin' and i.created_at > ${new Date(now.getTime() - 3_600_000)}`
+    for (let i = n; i < 20; i++) expect((await inviteUser(admin, `burst${i}@crew.example`, 'supplier-member')).code).toBeUndefined()
+    const over = await inviteUser(admin, 'burst-over@crew.example', 'supplier-member')
+    expect({ code: over.code, per: over.errors?.[0]?.extensions['per'] }).toEqual({ code: 'RATE_LIMITED', per: 'inviter' })
+    // The tests after this one invite again.
+    await db.sql`update invitation set created_at = created_at - interval '2 hours' where seller_id = ${admin.seller}`
+  })
+
   it('reaches only its own supplier: another supplier’s people and the merchant’s invitations are not found', async () => {
     const made = await invite('owner', { name: 'Rival Co', email: 'lead@rival.example', accessLevel: 'vendor-catalogue' })
     other = await join('lead@rival.example', made.id ?? '')
@@ -404,11 +426,17 @@ describe('the Owner adding a person to a supplier', () => {
     expect((await add('three@lone.example', 'supplier-admin')).code).toBeUndefined()
     expect((await db.sql<{ role_key: string }[]>`select role_key from invitation where email = 'three@lone.example'`)[0]?.role_key).toBe('supplier-admin')
     expect((await add('Manager@a.example')).code).toBe('ALREADY_MEMBER')
+    // People's three a day to one address hold here too.
+    await add('twice@lone.example')
+    await add('twice@lone.example')
+    await add('twice@lone.example')
+    const limited = await add('twice@lone.example')
+    expect({ code: limited.code, per: limited.errors?.[0]?.extensions['per'] }).toEqual({ code: 'RATE_LIMITED', per: 'address' })
     expect((await add('four@lone.example', 'owner')).code).toBe('INVALID_INPUT')
     expect((await gql('mutation A($id: ID!) { addSupplierPerson(id: $id, email: "x@lone.example") }', 'manager', { id })).code).toBe('FORBIDDEN')
     expect((await gql('mutation A($id: ID!) { addSupplierPerson(id: $id, email: "x@lone.example") }', 'bOwner', { id })).code).toBe('NOT_FOUND')
     await gql('mutation S($id: ID!) { suspendSupplier(id: $id, hideProducts: false) }', 'owner', { id })
     expect((await add('five@lone.example')).code).toBe('SUSPENDED')
-    expect(await db.sql`select 1 from activity_log where action = 'supplier.person_added' and target_id = ${id}`).toHaveLength(2)
+    expect(await db.sql`select 1 from activity_log where action = 'supplier.person_added' and target_id = ${id}`).toHaveLength(5)
   })
 })
