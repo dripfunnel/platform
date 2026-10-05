@@ -60,11 +60,12 @@ const problemWords = (units: Units): Record<DraftProblem, string> => ({
 
 const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
 
-// A new product's counts that didn't save ride the navigation to its own page, which loads it fresh, to be saved
+// A new product's counts and collections that didn't save ride the navigation to its own page, which loads it fresh, to be saved
 // again there; history state belongs to that one navigation, so they never reach another store, seat or session.
 declare module '@tanstack/react-router' {
   interface HistoryState {
     unsavedCounts?: Record<string, Record<string, string>> | undefined
+    unsavedCollections?: string[] | undefined
   }
 }
 
@@ -99,20 +100,21 @@ export const ProductEditor = () => {
   const files = useRef(new Map<string, File>())
   const leaving = useRef(false)
   const carriedCounts = useRouterState({ select: (state) => state.location.state.unsavedCounts })
-  const carriedRef = useRef(carriedCounts)
-  carriedRef.current = carriedCounts
+  const carriedCollections = useRouterState({ select: (state) => state.location.state.unsavedCollections })
+  const carriedRef = useRef({ counts: carriedCounts, collections: carriedCollections })
+  carriedRef.current = { counts: carriedCounts, collections: carriedCollections }
 
   const show = useCallback((loaded: Loaded) => {
     const made = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels }) : blankDraft(loaded.units)
     const next = { ...made, collectionIds: loaded.extras.memberships.filter((m) => m.kind === 'manual').map((m) => m.id) }
-    const carried = loaded.product ? carriedRef.current : undefined
-    if (carried && loaded.product) {
-      // Applied once: a reload of this page shows what is stored, not counts already typed back in.
-      void navigate({ to: '/products/$productId', params: { productId: loaded.product.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts: undefined }) })
+    const { counts, collections } = loaded.product ? carriedRef.current : { counts: undefined, collections: undefined }
+    if ((counts || collections) && loaded.product) {
+      // Applied once: a reload of this page shows what is stored, not picks already typed back in.
+      void navigate({ to: '/products/$productId', params: { productId: loaded.product.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts: undefined, unsavedCollections: undefined }) })
     }
-    setDraft(carried ? { ...next, stock: { ...next.stock, ...carried } } : next)
+    setDraft({ ...next, stock: { ...next.stock, ...counts }, collectionIds: collections ?? next.collectionIds })
     setSaved(next)
-    setFailure(carried ? { text: words.stock.newFailed, stale: false } : null)
+    setFailure(counts ? { text: words.stock.newFailed, stale: false } : collections ? { text: words.saveCollectionsFailed, stale: false } : null)
     setHistory(closedHistory)
     setView({ kind: 'ready', ...loaded })
   }, [navigate])
@@ -247,9 +249,9 @@ export const ProductEditor = () => {
         // The new product's own page loads it fresh; its first counts go first, by the ids just read.
         const counted = draft.kind === 'physical' && Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
         const unsavedCounts = counted ? await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).then(() => undefined, () => draft.stock) : undefined
-        await saveCollections(done.id).catch(() => setToast(words.saveCollectionsFailed))
+        const unsavedCollections = await saveCollections(done.id).then(() => undefined, () => draft.collectionIds)
         leaving.current = true
-        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts }) }).finally(() => (leaving.current = false))
+        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts, unsavedCollections }) }).finally(() => (leaving.current = false))
         setSaving(false)
         return
       }

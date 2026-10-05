@@ -355,13 +355,13 @@ const amount = (text: string, currency: string): string | null => {
   return typeof minor === 'number' ? String(minor) : null
 }
 
+/** The listing sections a form shows, and so sends; one it leaves out stays as the product has it (S9). */
+export type ListingSection = 'specs' | 'highlights' | 'faqs' | 'related' | 'badges' | 'sizeCharts' | 'filters' | 'legal'
+
 /**
  * The save's input. A supplier never sends what's the store's to set (visibility, tax category); the price
  * in other currencies goes back as it came, since Markets sets those (#296).
  */
-/** The listing sections a form shows, and so sends; one it leaves out stays as the product has it (S9). */
-export type ListingSection = 'specs' | 'highlights' | 'faqs' | 'related' | 'badges' | 'sizeCharts' | 'filters' | 'legal'
-
 export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supplier', shown: ReadonlySet<ListingSection> = new Set()): ProductInput => {
   const live = draft.versions.filter((v) => !v.removed)
   const grams = gramsOf(draft.weight, draft.units)
