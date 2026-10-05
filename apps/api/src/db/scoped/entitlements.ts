@@ -1,8 +1,6 @@
 import type { ScopedSql } from './index'
 
-// SAAS.md §6.1's three kinds of entitlement for one store: its own values in its scope, and the
-// plan that unlocks one in `system` scope, since that reads the partner's other live plans, which
-// a store may not (0007's plan_store_read); only that plan's id and name leave this file.
+// SAAS.md §6.1. The unlocking plan is read in `system` scope: plan_store_read hides the partner's other plans (DATA-MODEL §5.2).
 
 export const switchKeys = ['custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'] as const
 export const amountKeys = ['products', 'staff', 'suppliers', 'languages', 'currencies', 'publish_now', 'ai_prompts'] as const
