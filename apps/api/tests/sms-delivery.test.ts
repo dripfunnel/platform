@@ -12,10 +12,12 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-const now = new Date('2026-10-05T09:00:00Z')
+// When the tests start, by the database's clock: codes expire from it. Each relay reads the clock again and gives the deliverer the same.
+let now: Date
 
 beforeAll(async () => {
   db = await createTestDatabase()
+  now = await dbNow()
   t = await seedTenants(db.sql)
 }, 60_000)
 
@@ -51,8 +53,17 @@ const code = (to: string, extra: Partial<SmsPayload> = {}): SmsPayload => ({ mes
 const queue = (partnerId: string, payload: SmsPayload) =>
   withSystemScope(db.sql, (tx) => queueSms(tx, { partnerId, storeId: null, idempotencyKey: `sms:${crypto.randomUUID()}`, payload }))
 
-const relay = (accounts: PartnerSmsAccounts, senders: SmsSenders) =>
-  relayDue(db.sql, { sms: smsDeliverer(db.sql, accounts, senders, () => now) }, { ...defaultRelayOptions, now: () => new Date(now.getTime() + 1000), baseDelayMs: 0 })
+/** The database's clock now: outbox rows are due by its now(), so the relay runs by it too. */
+const dbNow = async (): Promise<Date> => {
+  const [row] = await db.sql<{ now: Date }[]>`select now() as now`
+  if (!row) throw new Error('the test database gave no clock')
+  return row.now
+}
+
+const relay = async (accounts: PartnerSmsAccounts, senders: SmsSenders) => {
+  const at = new Date((await dbNow()).getTime() + 1000)
+  return relayDue(db.sql, { sms: smsDeliverer(db.sql, accounts, senders, () => at) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+}
 
 const msg91: PartnerSmsAccount = { provider: 'msg91', authKey: 'k', templates: { 'code.second_factor': 'tmpl-2fa' } }
 const twilio: PartnerSmsAccount = { provider: 'twilio', accountSid: 'AC1', authToken: 't', messagingServiceSid: 'MG1' }
@@ -127,7 +138,8 @@ describe('texts through the outbox', () => {
     const { senders, failNext } = fakeSenders()
     const id = await queue(t.partnerA, code('+16145550133'))
     failNext(new SmsUnavailable('answered 503'))
-    const counts = await relayDue(db.sql, { sms: smsDeliverer(db.sql, accountsOf({ [t.partnerA]: [twilio] }), senders, () => now) }, { ...defaultRelayOptions, now: () => new Date(now.getTime() + 1000), maxAttempts: 1 })
+    const at = new Date((await dbNow()).getTime() + 1000)
+    const counts = await relayDue(db.sql, { sms: smsDeliverer(db.sql, accountsOf({ [t.partnerA]: [twilio] }), senders, () => at) }, { ...defaultRelayOptions, now: () => at, maxAttempts: 1 })
     expect(counts.dead).toBe(1)
     const [row] = await db.sql<{ payload: unknown; failed_at: Date | null }[]>`select payload, failed_at from outbox where id = ${id ?? ''}`
     expect(row?.failed_at).not.toBeNull()
