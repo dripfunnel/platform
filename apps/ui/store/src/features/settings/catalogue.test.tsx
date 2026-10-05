@@ -194,6 +194,18 @@ describe('catalogue settings', () => {
     expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('keep a badge’s rule this screen doesn’t know when only its text is edited', async () => {
+    editor.loadProductBasics.mockResolvedValue({ ...basics(['badges']), badges: [{ id: 'b7', label: 'Staff pick', rule: 'staff_pick', tone: 'peach', position: 2 }] })
+    await show()
+    expect(screen.getByText(w.ruleOther)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Edit “Staff pick”' }))
+    expect((dialog().getByRole('combobox') as HTMLSelectElement).value).toBe('staff_pick')
+    fireEvent.change(dialog().getByLabelText(w.badgeText), { target: { value: 'Our pick' } })
+    fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
+    await settle()
+    expect(settings.saveBadge).toHaveBeenCalledWith('b7', { label: 'Our pick', rule: 'staff_pick', tone: 'peach', position: 2 })
+  })
+
   it('tell a seat that isn’t the owner to ask the owner, never offering plans', async () => {
     editor.loadProductBasics.mockResolvedValue(basics([], ['video', 'aplus']))
     await show({ ...owner, role: 'manager', permissions: ['catalog.read', 'settings'] })
