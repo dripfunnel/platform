@@ -101,6 +101,8 @@ export const WarehousesView = ({ canEdit }: { canEdit: boolean }) => {
       setForm(null)
     } catch (error) {
       setToast(refusalOf(error))
+      // Saving again would only be refused again: the form closes, and the list reloads with their change.
+      if (isApiError(error, 'STALE_REVISION')) setForm(null)
     } finally {
       setBusy(false)
       load()

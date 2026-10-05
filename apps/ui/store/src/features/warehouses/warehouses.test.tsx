@@ -91,21 +91,31 @@ describe('a supplier’s locations', () => {
     expect(screen.getByText(words.refused.WAREHOUSE_HOLDS_STOCK)).toBeTruthy()
   })
 
-  it('edits a location at the revision it was read, and keeps the form when someone saved first', async () => {
-    api.savePlace.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale')).mockResolvedValue('w1')
+  it('edits a location at the revision it was read, and closes the form with their change when someone saved first', async () => {
+    let stored = 1
+    api.savePlace.mockImplementation(async (id: string, revision: number) => {
+      if (revision !== stored) throw new ApiError('STALE_REVISION', 'stale')
+      stored += 1
+      return id
+    })
     await show()
+    stored = 2
     fireEvent.click(screen.getByRole('button', { name: fill('Workshop') }))
     fireEvent.click(dialog().getByRole('button', { name: messages.editor.apply }))
     expect((screen.getByLabelText(words.form.city) as HTMLInputElement).value).toBe('Moradabad')
     fireEvent.change(screen.getByLabelText(words.form.name), { target: { value: 'Main workshop' } })
+    api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4 }), place({ id: 'w1', name: 'Workshop HQ', isDefault: true, units: 30, revision: 2 })])
     fireEvent.click(screen.getByRole('button', { name: words.form.save }))
     await settle()
     expect(api.savePlace).toHaveBeenCalledWith('w1', 1, { name: 'Main workshop', address: { line1: '12 High St', city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' } })
     expect(screen.getByText(words.refused.STALE_REVISION)).toBeTruthy()
-    expect((screen.getByLabelText(words.form.name) as HTMLInputElement).value).toBe('Main workshop')
+    expect(screen.queryByLabelText(words.form.name)).toBeNull()
+    // Opened again, it edits their change at its new revision, and saves.
+    fireEvent.click(screen.getByRole('button', { name: fill('Workshop HQ') }))
+    fireEvent.click(dialog().getByRole('button', { name: messages.editor.apply }))
     fireEvent.click(screen.getByRole('button', { name: words.form.save }))
     await settle()
-    expect(screen.queryByLabelText(words.form.name)).toBeNull()
+    expect(api.savePlace).toHaveBeenLastCalledWith('w1', 2, expect.objectContaining({ name: 'Workshop HQ' }))
     expect(screen.getByText(words.saved)).toBeTruthy()
   })
 

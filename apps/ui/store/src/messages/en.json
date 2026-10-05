@@ -1731,7 +1731,7 @@
       "TOO_MANY_WAREHOUSES": "You can have up to 20 locations. Remove one first.",
       "DEFAULT_WAREHOUSE": "Make another location the default first.",
       "WAREHOUSE_HOLDS_STOCK": "This location still holds stock. Set it to 0 or move it first.",
-      "STALE_REVISION": "Someone else changed this location. Reload to see their changes.",
+      "STALE_REVISION": "Someone else changed this location first. It now shows their changes; edit it again to make yours.",
       "READ_ONLY": "Your store is read-only until the bill is paid.",
       "FORBIDDEN": "You can’t change locations.",
       "other": "That didn’t save. Try again."
@@ -1743,6 +1743,10 @@
       "retry": "Try again"
     },
     "viewOnly": "You can see the locations but not change them.",
+    "denied": {
+      "title": "You can’t see locations",
+      "body": "Ask an admin for access to warehouses."
+    },
     "manageButton": "Manage"
   }
 }

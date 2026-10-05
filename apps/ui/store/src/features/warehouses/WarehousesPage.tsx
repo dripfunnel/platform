@@ -1,3 +1,4 @@
+import { EmptyState } from '@dripfunnel/shared/ui'
 import { getRouteApi } from '@tanstack/react-router'
 import { messages } from '../../messages'
 import { SupplierTabs } from '../products/SupplierTabs'
@@ -13,7 +14,7 @@ export const WarehousesPage = () => {
     <div className="df-places-page">
       <h1 className="df-page-title">{acting.seller ? messages.products.titleSupplier : messages.warehouses.tabs.warehouses}</h1>
       {acting.seller && <SupplierTabs current="warehouses" />}
-      <WarehousesView canEdit={canEdit} />
+      {acting.permissions.includes('stock.read') ? <WarehousesView canEdit={canEdit} /> : <EmptyState title={messages.warehouses.denied.title} body={messages.warehouses.denied.body} />}
     </div>
   )
 }
