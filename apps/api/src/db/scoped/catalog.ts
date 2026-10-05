@@ -36,8 +36,8 @@ export interface ProductListRow {
 const lowStock = (tx: ScopedSql, product: string) => tx`exists (
   select 1 from product_version v
   where v.product_id = ${tx(product)}.id and v.deleted_at is null and v.track_stock is not false
-    and (select coalesce(sum(l.on_hand - l.reserved), 0) from stock_level l where l.version_id = v.id)
-      <= (select coalesce(min(l.low_stock_threshold), ${defaultLowStock}) from stock_level l where l.version_id = v.id)
+    and (select coalesce(sum(l.on_hand - l.reserved), 0) from stock_level l join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where l.version_id = v.id)
+      <= (select coalesce(min(l.low_stock_threshold), ${defaultLowStock}) from stock_level l join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where l.version_id = v.id)
 )`
 
 const filterOf = (tx: ScopedSql, filter: ProductFilter) => {
@@ -81,7 +81,7 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
       (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
          where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
       (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
-      (select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id where v.product_id = p.id and v.deleted_at is null) as stock
+      (select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = p.id and v.deleted_at is null) as stock
     from product p
     left join seller s on s.id = p.seller_id
     where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample

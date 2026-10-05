@@ -299,6 +299,20 @@ describe('Stock and its history', () => {
     expect((await history('bOwner', theirs.id))?.nodes).toEqual([])
   })
 
+  it('forgets a deleted location’s threshold and units in the chip and the list', async () => {
+    const where = await main()
+    const spare = (await saveWarehouse('owner', { name: 'Old shed' })).id ?? ''
+    const lamp = await product('owner', 'Shed lamp')
+    const v = lamp.versions[0] ?? ''
+    await setStock('owner', [{ versionId: v, warehouseId: where, quantity: 10 }, { versionId: v, warehouseId: spare, quantity: 0 }])
+    await gql('mutation T($v: ID!, $w: ID!, $n: Int) { setLowStockThreshold(versionId: $v, warehouseId: $w, threshold: $n) }', 'owner', { v, w: spare, n: 50 })
+    const isLow = async () => ((await gql('{ products(filter: "low_stock", first: 50) { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }).nodes.some((p) => p.id === lamp.id)
+    expect(await isLow()).toBe(true)
+    expect(await deleteWarehouse('owner', spare)).toBeUndefined()
+    // 10 left in the default location is above its threshold of 5; the deleted shed's 50 no longer counts.
+    expect(await isLow()).toBe(false)
+  })
+
   it('counts low stock in what the caller reads, at the threshold a location sets', async () => {
     const where = await main()
     const low = await product('owner', 'Low lamp')
