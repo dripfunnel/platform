@@ -999,8 +999,7 @@
   border-top: 1px solid var(--df-color-border);
 }
 
-.df-cat-list li > span:first-child,
-.df-cat-list li > span:nth-child(2) {
+.df-cat-text {
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -1012,15 +1011,13 @@
   font-size: 14px;
 }
 
-.df-cat-list li > span:first-child > span,
-.df-cat-list li > span:nth-child(2) > span {
+.df-cat-text > span {
   color: var(--df-color-muted);
   font-size: 12px;
 }
 
 .df-cat-badge {
-  flex: none !important;
-  min-width: auto !important;
+  flex: none;
   padding: 3px 8px;
   border: 1px solid var(--df-color-neutral-border);
   border-radius: 5px;

@@ -145,7 +145,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
             const allowed = inPlan(k)
             return (
               <li key={k}>
-                <span>
+                <span className="df-cat-text">
                   <strong>{words.sections[k]}</strong>
                   <span>{words.sectionHelp[k]}</span>
                 </span>
@@ -195,7 +195,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
                 return (
                   <li key={b.id}>
                     <span className={`df-cat-badge df-cat-badge--${toneOf(rule)}`}>{b.label}</span>
-                    <span>
+                    <span className="df-cat-text">
                       <span>{words.rules[rule]}</span>
                     </span>
                     {canEdit && (

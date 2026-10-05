@@ -4,7 +4,7 @@ import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
 import { deleteMarket, saveMarket, setEverywhereElse, type Market } from '../../api/markets'
 import type { StoreLocale } from '../../api/settings'
-import { fill, locale, messages } from '../../messages'
+import { fill, formatList, locale, messages } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
 import { RadioCards } from '../common/RadioCards'
 
@@ -176,7 +176,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
             <button type="button" aria-current={draft?.id === m.id ? 'true' : undefined} className={m.parentId ? 'df-mkt-item df-mkt-item--sub' : 'df-mkt-item'} onClick={() => pick(m)}>
               <span>
                 <strong>{m.name}</strong>
-                <span>{`${m.countries.map(countryName).join(', ')} · ${m.currency}`}</span>
+                <span>{fill(words.rowSub, { countries: formatList(m.countries.map(countryName)), currency: m.currency })}</span>
               </span>
               <span className={`df-mkt-tag df-mkt-tag--${m.primary ? 'primary' : m.active ? 'on' : 'off'}`}>{m.primary ? words.primary : !m.active ? words.off : m.parentId ? words.subMarket : words.active}</span>
             </button>
@@ -247,15 +247,15 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
     setAsk({
       title: fill(words.deleteTitle, { name: draft.name }),
       target: draft.name,
-      consequence: fill(words.deleteBody, { countries: draft.countries.map(countryName).join(', ') || words.theseCountries }),
+      consequence: fill(words.deleteBody, { countries: formatList(draft.countries.map(countryName)) || words.theseCountries }),
       confirmLabel: words.delete,
       danger: true,
       onConfirm: () =>
         void run(async () => {
           const gone = draft.id
           if (gone) await deleteMarket(gone)
-          // Its sub-markets become top-level, as the API moves them.
-          setMarkets((list) => list.filter((m) => m.id !== gone).map((m) => (m.parentId === gone ? { ...m, parentId: null } : m)))
+          // Its sub-markets become top-level, a revision on, as the API moves them (db/scoped/markets.ts).
+          setMarkets((list) => list.filter((m) => m.id !== gone).map((m) => (m.parentId === gone ? { ...m, parentId: null, revision: m.revision + 1 } : m)))
           setDraft(null)
           return fill(words.deleted, { name: draft.name })
         }),

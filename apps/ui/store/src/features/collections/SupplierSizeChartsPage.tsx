@@ -1,5 +1,5 @@
 import { EmptyState, Toast, useScreenState } from '@dripfunnel/shared/ui'
-import { getRouteApi } from '@tanstack/react-router'
+import { getRouteApi, Navigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { harnessEnabled } from '../../harness'
 import { messages } from '../../messages'
@@ -17,6 +17,8 @@ export const SupplierSizeChartsPage = () => {
   const [toast, setToast] = useState<string | null>(null)
   const canRead = forced ? forced !== 'denied' : acting.permissions.includes('catalog.read')
   const canEdit = forced ? forced !== 'staff' && forced !== 'readOnly' && forced !== 'denied' : acting.permissions.includes('catalog.write') && !(state?.readOnly ?? false)
+  // A supplier's own tab: the merchant side keeps its charts under Collections, apart from its suppliers' (R13).
+  if (!acting.seller && !forced) return <Navigate to="/collections" search={{ tab: 'sizeCharts' }} replace />
   return (
     <div className="df-charts-page">
       <h1 className="df-page-title">{messages.products.titleSupplier}</h1>
