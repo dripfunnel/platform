@@ -85,6 +85,13 @@ const product = async (who: Who, name: string) => {
   return (result.data?.['saveProduct'] as { id: string } | undefined)?.id ?? ''
 }
 
+const withMedia = async (who: Who, name: string, media: Record<string, unknown>) =>
+  (await gql('mutation S($input: ProductInput!) { saveProduct(input: $input) { id } }', who, { input: { name, options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], ...media } })).code
+const copyStory = async (who: Who, from: string, to: string[]) => {
+  const result = await gql('mutation C($from: ID!, $to: [ID!]!) { copyProductStory(fromProductId: $from, toProductIds: $to) }', who, { from, to })
+  return { copied: result.data?.['copyProductStory'] as number | undefined, code: result.code, extensions: result.errors?.[0]?.extensions }
+}
+
 interface StoryOut {
   revision: number
   status: string
@@ -219,6 +226,30 @@ describe('A+ content: owners', () => {
   })
 })
 
+describe('Files a story shows', () => {
+  it('stay their owner’s when a photo or video of another owner’s product names them', async () => {
+    const theirs = await product('supplier', 'Anand lamp')
+    const photo = await upload(t.storeA1, t.sellerA1First)
+    const video = await upload(t.storeA1, t.sellerA1First, 'video')
+    await saveStory('supplier', theirs, 0, [banner(photo, 'A lamp'), { id: 'v', kind: 'video', video: { assetId: video } }])
+    expect(await withMedia('owner', 'Store lamp', { photos: [{ assetId: photo, alt: 'x' }] })).toBe('FILE_REFUSED')
+    expect(await withMedia('owner', 'Store lamp', { video: { assetId: video } })).toBe('FILE_REFUSED')
+    expect((await db.sql<{ seller_id: string | null }[]>`select seller_id from asset where id = any (${`{${photo},${video}}`}::uuid[])`).map((a) => a.seller_id)).toEqual([t.sellerA1First, t.sellerA1First])
+
+    // A brand story holds only photos (migration 0045), so its file is refused as another product's photo.
+    const brandPhoto = await upload(t.storeA1, null)
+    await saveBlock('owner', { name: 'Lamps', title: 'Since 1990', body: 'Brass.', photo: { assetId: brandPhoto, alt: 'Brass' } })
+    const supplierProduct = await product('supplier', 'Anand lamp, brass')
+    const refused = await gql('mutation S($id: ID!, $revision: Int!, $input: ProductInput!) { saveProduct(id: $id, revision: $revision, input: $input) { id } }', 'owner', {
+      id: supplierProduct,
+      revision: 1,
+      input: { name: 'Anand lamp, brass', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], photos: [{ assetId: brandPhoto, alt: 'x' }] },
+    })
+    expect(refused.code).toBe('FILE_REFUSED')
+    expect((await db.sql<{ seller_id: string | null }[]>`select seller_id from asset where id = ${brandPhoto}`)[0]?.seller_id).toBeNull()
+  })
+})
+
 describe('Brand stories', () => {
   it('are the merchant’s: shared by many products, counted, kept while in use', async () => {
     const photo = await upload(t.storeA1, null)
@@ -255,6 +286,43 @@ describe('Brand stories', () => {
   })
 })
 
+describe('Brand stories, at the same moment', () => {
+  it('never leaves a story naming a brand story deleted at the same moment', async () => {
+    const product1 = await product('owner', 'Vase')
+    const blockId = (await saveBlock('owner', { name: 'Race', title: 'T', body: 'B' })).saved?.id ?? ''
+    // A save naming the block holds it, so a delete waits for the save, then sees the story.
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const saving = db.sql.begin(async (tx) => {
+      await tx`insert into product_story (product_id, store_id, draft) values (${product1}, ${t.storeA1}, ${tx.json([{ id: 'b', kind: 'brand', blockId }])})`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const deleting = gql('mutation D($id: ID!) { deleteStoryBlock(id: $id) }', 'owner', { id: blockId })
+    await new Promise((r) => setTimeout(r, 200))
+    release()
+    await saving
+    expect((await deleting).code).toBe('STORY_BLOCK_IN_USE')
+
+    // A delete holding the block makes a save that names it wait, then refuses it.
+    const product2 = await product('owner', 'Bowl')
+    const spare = (await saveBlock('owner', { name: 'Race 2', title: 'T', body: 'B' })).saved?.id ?? ''
+    let go = () => {}
+    const gate = new Promise<void>((resolve) => (go = resolve))
+    const removing = db.sql.begin(async (tx) => {
+      await tx`select 1 from story_block where id = ${spare} for update`
+      await tx`delete from story_block where id = ${spare}`
+      await gate
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const naming = saveStory('owner', product2, 0, [{ id: 'b', kind: 'brand', blockId: spare }])
+    await new Promise((r) => setTimeout(r, 200))
+    go()
+    await removing
+    expect((await naming).code).toBe('STORY_REFUSED')
+  })
+})
+
 describe('Copying A+ content', () => {
   it('puts the source’s draft on each target’s draft and leaves their pages alone', async () => {
     const source = await product('owner', 'Mug')
@@ -276,6 +344,31 @@ describe('Copying A+ content', () => {
     const third = await product('owner', 'Flask')
     await gql('mutation C($from: ID!, $to: [ID!]!) { copyProductStory(fromProductId: $from, toProductIds: $to) }', 'owner', { from: source, to: [third] })
     expect((await storyOf('owner', third))?.modules.find((m) => m.kind === 'compare')?.productIds).toEqual([target])
+  })
+
+  it('copies into 1 to 50 other products, named by id', async () => {
+    const source = await product('owner', 'Plate')
+    await saveStory('owner', source, 0, [{ id: 'f', kind: 'faq' }])
+    expect((await copyStory('owner', source, [])).extensions).toMatchObject({ code: 'INVALID_STORY', field: 'toProductIds' })
+    expect((await copyStory('owner', source, [source])).extensions).toMatchObject({ code: 'INVALID_STORY', field: 'toProductIds' })
+    expect((await copyStory('owner', source, ['plate'])).extensions).toMatchObject({ code: 'INVALID_STORY', field: 'toProductIds' })
+    const many = Array.from({ length: 51 }, (_, i) => `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`)
+    expect((await copyStory('owner', source, many)).extensions).toMatchObject({ code: 'INVALID_STORY', field: 'toProductIds' })
+    expect((await copyStory('owner', source, many.slice(0, 50))).code).toBe('NOT_FOUND')
+  })
+
+  it('refuses the whole copy when a target can’t carry what the story names', async () => {
+    const merchant = await product('owner', 'Store plate')
+    const theirs = await product('supplier', 'Anand plate')
+    const mine = await product('owner', 'Store plate, deep')
+    const blockId = (await saveBlock('owner', { name: 'Plates', title: 'T', body: 'B' })).saved?.id
+    const branded = await product('owner', 'Store plate, branded')
+    await saveStory('owner', branded, 0, [{ id: 'b', kind: 'brand', blockId }])
+    expect((await copyStory('owner', branded, [mine, theirs])).code).toBe('STORY_REFUSED')
+    await saveStory('owner', merchant, 0, [{ id: 'c', kind: 'compare', productIds: [mine, branded] }])
+    expect((await copyStory('owner', merchant, [theirs])).code).toBe('STORY_REFUSED')
+    expect(await storyOf('owner', theirs)).toMatchObject({ revision: 0, modules: [] })
+    expect((await storyOf('owner', mine))?.modules).toEqual([])
   })
 
   it('copies only between products the caller reads', async () => {

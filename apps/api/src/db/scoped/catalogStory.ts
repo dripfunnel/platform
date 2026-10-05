@@ -119,12 +119,11 @@ export const updateStoryBlock = async (tx: ScopedSql, storeId: string, id: strin
 
 /** Refused while any story shows it, counting trashed products too, since restoring one would break it. */
 export const deleteStoryBlock = async (tx: ScopedSql, storeId: string, id: string): Promise<{ name: string } | 'in_use' | null> => {
-  const [block] = await tx<{ name: string; used: boolean }[]>`
-    select b.name, exists (select 1 from product_story s where s.block_ids @> array[b.id]) as used
-    from story_block b where b.id = ${id} and b.store_id = ${storeId} for update
-  `
+  const [block] = await tx<{ name: string }[]>`select name from story_block where id = ${id} and store_id = ${storeId} for update`
   if (!block) return null
-  if (block.used) return 'in_use'
+  // A statement of its own, so it sees a story saved while this waited for the lock (migration 0045).
+  const [use] = await tx<{ used: boolean }[]>`select exists (select 1 from product_story where block_ids @> array[${id}::uuid]) as used`
+  if (use?.used) return 'in_use'
   await tx`delete from story_block where id = ${id} and store_id = ${storeId}`
   return { name: block.name }
 }

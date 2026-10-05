@@ -82,7 +82,9 @@ begin
            and (new.seller_id is null or p.seller_id is not distinct from new.seller_id)) <> cardinality(added) then
     raise exception 'catalogue: a story compares a product it can''t' using errcode = '23503';
   end if;
-  -- A brand story is the merchant's, so only the merchant's products carry one (Q5).
+  -- A brand story is the merchant's, so only the merchant's products carry one (Q5). The share lock waits
+  -- out a delete of the block, which locks it before checking it's unused.
+  perform 1 from story_block b where b.id = any (new.block_ids) and b.store_id = new.store_id for share;
   if cardinality(new.block_ids) > 0 and (new.seller_id is not null
      or (select count(*) from story_block b where b.id = any (new.block_ids) and b.store_id = new.store_id) <> cardinality(new.block_ids)) then
     raise exception 'catalogue: a story names a brand story it can''t' using errcode = '23503';
