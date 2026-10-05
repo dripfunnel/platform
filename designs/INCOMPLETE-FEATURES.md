@@ -9,7 +9,7 @@ This lists what the DF Store prototype starts but doesn't finish:
 
 Features with no design at all are in [MISSING-FEATURES.md](MISSING-FEATURES.md).
 
-Last updated: 2026-10-04. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
+Last updated: 2026-10-05. ~~Struck-through~~ items are now designed in the prototype. Line numbers refer to the files in this folder. "Toast only"
 means the button shows a message and nothing else happens.
 
 Everything in the prototype is dummy data. This list covers **design** gaps, meaning things
@@ -107,9 +107,10 @@ the missing backend.
   variants. Variants have a single stock number.
 - ~~**Per-market fixed price:** SetMarkets says to set it on each product (:95). The editor has no such field.~~
 - **"More options … where it ships"** (:697): there is no such control.
-- **Product types:**
-  - Services are toast only, "not in the first release" (:732).
-  - Digital downloads have no file upload.
+- ~~**Product types:**~~
+  - ~~Services are toast only, "not in the first release" (:732).~~
+  - ~~Digital downloads have no file upload.~~
+  Drawn on #286: download (a file or a licence-key pool), service (duration and location, no booking) and gift card (amounts, expiry, cards issued) in `CatEditor`.
 - **Product video:** gated by plan, but there is no upload in the editor.
 - **Translation:** only into French, even when Settings adds another language.
 - **Barcode:** the import template has a barcode column, the editor has none.
@@ -234,7 +235,7 @@ Now designed in the Store prototype:
 - **Orders:** returns (start → received → refund), refunds per supplier with override and real restock, booked labels instead of made-up tracking, customer link opens that customer.
 - **Other toast-only actions replaced:** sign-in backup code and support, invite role, offer uses/codes/QR downloads, “Load their version”, edit-conflict review, cart test send / export / order and customer links, Reports exports and a custom report builder, billing card in a hosted field, billing details on DripFunnel invoices, invoice PDF and export, proration, “Download my data first”, Choose-what-to-keep applies the courier.
 
-Still open: everything in §2 not listed above (e.g. menus beyond one level, A+ module editing and image crop, services, digital file upload, per-version prices, translation beyond French, traffic data, activity log).
+Still open: everything in §2 not listed above (e.g. menus beyond one level, A+ module editing and image crop, per-version prices, translation beyond French, traffic data). ~~Services, digital file upload, activity log~~: drawn on #286 (`CatEditor`, `StoreActivity`).
 
 ## 5. Loose ends fixed on 2026-10-04 (#183)
 
