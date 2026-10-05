@@ -192,6 +192,43 @@ describe('seats under concurrency', () => {
   })
 })
 
+describe('accounts that can’t be invited', () => {
+  it('answers a suspended account exactly as any other, with no membership and no email', async () => {
+    const suspended = await user(t.partnerA, 'suspended.account@a.example', 'Suspended')
+    await db.sql`update "user" set status = 'suspended' where id = ${suspended}`
+    expect((await gql('mutation { inviteMember(email: "suspended.account@a.example", role: "staff") }', 'owner')).data?.['inviteMember']).toBe(true)
+    expect(await db.sql`select 1 from membership where user_id = ${suspended}`).toHaveLength(0)
+    expect(await db.sql`select 1 from outbox where kind = 'email' and payload->>'to' = 'suspended.account@a.example'`).toHaveLength(0)
+    expect((await list('waiting')).some((n) => n.email === 'suspended.account@a.example')).toBe(true)
+  })
+})
+
+describe('the last Owner under concurrency', () => {
+  it('lets only one of two Owners demoting each other at once through', async () => {
+    const [a, b] = [await user(t.partnerB, 'co.owner.a@b.example', 'Co A'), await user(t.partnerB, 'co.owner.b@b.example', 'Co B')]
+    const store = (await db.sql<{ id: string }[]>`insert into store (partner_id, name, code) values (${t.partnerB}, 'Two Owners', 'two-owners') returning id`)[0]?.id ?? ''
+    const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerB}, 'Roomy', 'live') returning id`
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${t.partnerB}, 1, 'staff', 10)`
+    await subscribe(store, t.partnerB, plan?.id ?? '')
+    const memberships = await db.sql<{ id: string; user_id: string }[]>`
+      insert into membership (user_id, store_id, role_key, status) values (${a}, ${store}, 'owner', 'active'), (${b}, ${store}, 'owner', 'active') returning id, user_id`
+    const asOwner = async (userId: string, membershipId: string) => {
+      const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: userId, partnerId: t.partnerB }, now))
+      const facts = { requestId: 'r', ip: null, userAgent: null }
+      const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers: { cookie: `${storeCookieName}=${cookie}`, [storeHeader]: store } }), t.partnerB, now, activityLog, facts)
+      const result = await graphql({ schema: storeSchema as GraphQLSchema, source: `mutation { changeRole(membershipId: "${membershipId}", role: "staff") }`, contextValue: { standing, partnerId: t.partnerB, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext })
+      return result.errors?.[0]?.extensions['code'] as string | undefined
+    }
+    const idOf = (userId: string) => memberships.find((m) => m.user_id === userId)?.id ?? ''
+    // Each demotes the other: without the lock both would see one other Owner and both would pass.
+    const answers = await Promise.all([asOwner(a, idOf(b)), asOwner(b, idOf(a))])
+    expect(answers.filter((c) => c === undefined)).toHaveLength(1)
+    expect(answers.filter((c) => c === 'LAST_OWNER' || c === 'FORBIDDEN')).toHaveLength(1)
+    const [owners] = await db.sql<{ n: number }[]>`select count(*)::int as n from membership where store_id = ${store} and role_key = 'owner' and status = 'active'`
+    expect(owners?.n).toBe(1)
+  })
+})
+
 describe('roles and removal', () => {
   it('changes a role, keeps the last Owner, and records both', async () => {
     const manager = (await list('staff')).find((n) => n.email === 'manager@a.example')
