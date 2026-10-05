@@ -57,7 +57,7 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Feature environments token** (dev account only) | The `feature-env` workflow: Workers, Pages, Hyperdrive, DNS and routes for `<slug>-*.dripfunnel.ai` | API token: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit; *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit | GitHub environment `feature` secret `CLOUDFLARE_API_TOKEN` | 1 |
 | **Cloudflare Access on the dev account** | `*.dripfunnel.ai` for `@softobotics.com`, with a Bypass on `*-hooks.dripfunnel.ai` | Zero Trust org, one-time PIN login | Cloudflare | 1 |
 | **Custom hostnames token** (runtime) | Creating, checking and deleting Cloudflare for SaaS custom hostnames for partner portal hosts and merchant domains ([../api/SAAS.md](../api/SAAS.md) §8) | API token, scoped to *SSL and Certificates: Edit* and *Custom Hostnames: Edit* on the SaaS zone only | Worker secret | 4 (partner hosts), 6 (merchant domains) |
-| **Storefront deploy token** (runtime) | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token, scoped to *Pages: Edit* | Worker secret. **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
+| **Storefront deploy tokens** (runtime), one per pool account | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token per account, scoped to *Pages: Edit* on that account | Worker secret `CF_PAGES_POOL`, every account's id and token in one (§8.2). **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
 | **Cache purge token** (runtime) | Purging storefront caches after publish, the degraded-store edge rule, removing hidden products | API token, scoped to *Cache Purge* (plus *Zone Rulesets: Edit* if degraded pages are edge rules) | Worker secret | 6 |
 | **Cloudflare for SaaS** on the zone | Custom hostnames with automatic certificates for every partner and merchant host | Plan add-on | — | 4 |
 | — | Wildcard custom hostnames (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) may need **Enterprise**; per-hostname price at thousands of stores | **Verify** ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §5) | — | **Lead time**: contract |
@@ -409,7 +409,7 @@ slice.
 | Merchant API key and app grant secrets | Shown once, stored hashed with a visible prefix (ACCESS.md §5.6) | 10 |
 | **Outbound webhook signing secret** per endpoint | Merchants verify our webhooks | 10 |
 | Public store key | Identifies a store to the Shop API; public, not a secret | 6 |
-| Preview link signing key, `PREVIEW_LINK_KEY` (previews are gated by a signed link, decided 2026-10-05 on #284; storefront §4.1) | Signed preview URLs from the portal | 6 |
+| Preview link signing key, `PREVIEW_LINK_KEY` (previews are gated by a signed link, decided 2026-10-05 on #284; storefront §4.1) | Signed preview URLs from the portal | 6 (ST 1a, INF 2) |
 | Shopper session token signing (if not opaque) | Storefront shopper sessions (storefront §5) | 7 |
 
 ---
@@ -425,7 +425,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 3. Tenancy core | Neon project, app and migration roles, Neon API key, Hyperdrive; KEK; CSRF secret |
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS adapters: MSG91 (India) and Twilio (US)** (phone code, 2FA; decided 2026-10-05 on #284); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
-| 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy token; cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
+| 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy tokens (`CF_PAGES_POOL`); cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
 | 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** through MSG91 for cart reminders (decided 2026-10-05 on #337); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox in GitHub Actions (decided 2026-10-05 on #284) |
