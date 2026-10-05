@@ -111,6 +111,14 @@ export const ProductList = () => {
 
   useEffect(load, [load])
 
+  // A phone has no supplier filter (CatList), so one chosen on a wider screen is cleared rather than hidden.
+  useEffect(() => {
+    if (!phone || query.supplier === '') return
+    setQuery((current) => ({ ...current, supplier: '' }))
+    setCursor({})
+    setPageIndex(0)
+  }, [phone, query.supplier])
+
   useEffect(() => {
     if (sample) return setSuppliers(sample.suppliers)
     if (!access.seeSuppliers) return

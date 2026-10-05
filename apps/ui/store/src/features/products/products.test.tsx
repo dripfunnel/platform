@@ -89,6 +89,8 @@ describe('who may do what on Products', () => {
   it('lets a supplier propose its own products but never select, approve or see other suppliers', () => {
     expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false })
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'stock.write'] }, false).canEdit).toBe(false)
+    // A catalogue tier writes its products outright; a Stock-only one proposes them.
+    expect(accessOf({ ...supplier, permissions: ['catalog.read', 'catalog.write'] }, false)).toMatchObject({ canEdit: true, canSelect: false })
   })
 })
 
@@ -238,5 +240,20 @@ describe('the Products list', () => {
     api.loadProducts.mockRejectedValue(new Error('offline'))
     await show(owner)
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
+  })
+
+  it('clears a supplier filter on a phone, which has no control to show or clear it', async () => {
+    const wide = { matches: false }
+    const listeners: (() => void)[] = []
+    vi.stubGlobal('matchMedia', () => ({ get matches() { return wide.matches }, addEventListener: (_: string, f: () => void) => listeners.push(f), removeEventListener: () => undefined }))
+    await show(owner)
+    fireEvent.change(screen.getByLabelText(words.supplier.label), { target: { value: 'v1' } })
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: 'v1' }), {})
+    wide.matches = true
+    act(() => listeners.forEach((f) => f()))
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: '' }), {})
+    vi.unstubAllGlobals()
   })
 })

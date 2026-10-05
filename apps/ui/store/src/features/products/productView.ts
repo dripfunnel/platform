@@ -80,7 +80,7 @@ export const reviewChecks = (row: ProductRow): { ok: boolean; label: string }[] 
 
 export interface ProductAccess {
   supplier: boolean
-  /** Adds and edits: catalog.write for the merchant, catalog.propose for a supplier. */
+  /** Adds and edits: catalog.write, or for a Stock-only supplier catalog.propose, whose new products wait (#337). */
   canEdit: boolean
   /** Bulk changes, which only the merchant makes. */
   canSelect: boolean
@@ -93,7 +93,7 @@ export interface ProductAccess {
 export const accessOf = (acting: { permissions: readonly string[]; seller: unknown }, readOnly: boolean): ProductAccess => {
   const has = (p: string) => acting.permissions.includes(p)
   const supplier = acting.seller !== null
-  const canEdit = !readOnly && (supplier ? has('catalog.propose') : has('catalog.write'))
+  const canEdit = !readOnly && (has('catalog.write') || (supplier && has('catalog.propose')))
   return {
     supplier,
     canEdit,
