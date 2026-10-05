@@ -10,6 +10,7 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   advanceSignup,
   bumpSignupAttempt,
+  countSignupsSince,
   countSignupTextsSince,
   deleteSignup,
   insertSignup,
@@ -41,6 +42,7 @@ const reservedSubdomains = new Set(['admin', 'api', 'app', 'help', 'hooks', 'mai
 const subdomainPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
 const textsPerNumberPerDay = 3
 const textsPerPartnerPerHour = 200
+const startsPerPartnerPerHour = 500
 
 const startInput = z.strictObject({ name: z.string().max(120), email: z.string().max(320), password: z.string().max(1024) })
 const codeInput = z.strictObject({ code: z.string().max(16) })
@@ -66,12 +68,15 @@ export const startSignup = async (request: Request, deps: StoreAuthDeps): Promis
   const now = deps.now()
   const open = await withSystemScope(deps.sql, async (tx) => {
     // SAAS.md §4.1: sign-up is open only while the partner is Live.
-    if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return false
+    if ((await selectPartnerState(tx, deps.partnerId)) !== 'live') return 'closed' as const
+    // Per typed address and per client address already (handleStoreAuth); this bounds the partner's hour.
+    if ((await countSignupsSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000))) >= startsPerPartnerPerHour) return 'busy' as const
     const signupId = await insertSignup(tx, { partnerId: deps.partnerId, tokenHash: await hashSessionId(token), name, email, passwordHash, expiresAt: new Date(now.getTime() + signupMs), now })
     await queueSideEffect(tx, { kind: 'email', idempotencyKey: `signup-code:${signupId}`, payload: { template: 'signup-code', signupId }, partnerId: deps.partnerId, storeId: null })
-    return true
+    return 'open' as const
   })
-  if (!open) return refuse({ code: 'SIGNUP_CLOSED' })
+  if (open === 'closed') return refuse({ code: 'SIGNUP_CLOSED' })
+  if (open === 'busy') return refuse({ code: 'RATE_LIMITED' })
   return json(200, { ok: true, step: 'verify-email' }, setSignupCookie(token))
 }
 
