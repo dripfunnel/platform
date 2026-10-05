@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
+import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import {
   countBadges,
@@ -116,7 +117,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
       return true
     })
 
-  const sizeCharts = () => inScope((tx) => selectSizeCharts(tx, storeId))
+  const sizeCharts = (window: PageWindow) => inScope((tx) => selectSizeCharts(tx, storeId, window))
 
   const sizeChart = (id: string) => inScope((tx) => selectSizeChart(tx, storeId, id))
 

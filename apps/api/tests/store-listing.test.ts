@@ -141,7 +141,7 @@ describe('size charts', () => {
     const mine = await saveChart('owner')
     const theirs = await saveChart('supplier', { ...chart, name: 'Kurtas' })
     const other = await saveChart('otherSupplier', { ...chart, name: 'Shawls' })
-    const names = async (who: Who) => (((await gql('{ sizeCharts { name supplierId } }', who)).data?.['sizeCharts'] ?? []) as { name: string }[]).map((c) => c.name).sort()
+    const names = async (who: Who) => (((await gql('{ sizeCharts(first: 50) { nodes { name supplierId } } }', who)).data?.['sizeCharts'] as { nodes: { name: string }[] } | undefined)?.nodes ?? []).map((c) => c.name).sort()
     expect(await names('owner')).toEqual(["Kurtas", "Men's shirts", 'Shawls'])
     expect(await names('supplier')).toEqual(['Kurtas'])
     expect(await names('bOwner')).toEqual([])
@@ -153,6 +153,14 @@ describe('size charts', () => {
     expect(theirs.saved?.id).toBeTruthy()
   })
 
+  it('come a page at a time, newest edit first', async () => {
+    const page = (await gql('{ sizeCharts(first: 2) { nodes { name } pageInfo { hasNextPage endCursor } } }', 'owner')).data?.['sizeCharts'] as { nodes: { name: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
+    expect(page.nodes).toHaveLength(2)
+    expect(page.pageInfo.hasNextPage).toBe(true)
+    const next = (await gql('query S($after: String) { sizeCharts(first: 50, after: $after) { nodes { name } } }', 'owner', { after: page.pageInfo.endCursor })).data?.['sizeCharts'] as { nodes: { name: string }[] }
+    expect(next.nodes.some((n) => page.nodes.some((p) => p.name === n.name))).toBe(false)
+  })
+
   it('go only on a product of the same owner, and a delete says how many products lose it', async () => {
     const mine = (await saveChart('owner', { ...chart, name: 'Owner chart' })).saved?.id
     const theirs = (await saveChart('supplier', { ...chart, name: 'Supplier chart' })).saved?.id
@@ -162,7 +170,14 @@ describe('size charts', () => {
     expect((await product('owner', 'Wrong chart', { sizeChartId: theirs })).code).toBe('LISTING_REFUSED')
     expect((await product('supplier', 'Supplier with merchant chart', { sizeChartId: mine })).code).toBe('LISTING_REFUSED')
     expect((await product('supplier', 'Supplier kurta', { sizeChartId: theirs })).code).toBeUndefined()
-    expect((await gql('mutation D($id: ID!) { deleteSizeChart(id: $id) }', 'owner', { id: mine })).data?.['deleteSizeChart']).toBe(1)
+    // A trashed product loses the chart too, but the answer counts the live ones the editor showed.
+    const trashed = await product('owner', 'Trashed shirt', { sizeChartId: mine })
+    await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [trashed.id] })
+    const shown = ((await gql('query C($id: ID!) { sizeChart(id: $id) { products } }', 'owner', { id: mine })).data?.['sizeChart'] as { products: number }).products
+    expect(shown).toBe(1)
+    expect((await gql('mutation D($id: ID!) { deleteSizeChart(id: $id) }', 'owner', { id: mine })).data?.['deleteSizeChart']).toBe(shown)
+    const [linked] = await db.sql<{ n: number }[]>`select count(*)::int as n from product where size_chart_id = ${mine ?? ''}`
+    expect(linked?.n).toBe(0)
     expect((await listingOf('owner', merchantProduct.id))?.sizeChartId).toBeNull()
     expect((await gql('mutation D($id: ID!) { deleteSizeChart(id: $id) }', 'supplier', { id: mine })).code).toBe('NOT_FOUND')
   })

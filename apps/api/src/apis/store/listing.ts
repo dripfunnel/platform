@@ -1,10 +1,12 @@
 import { GraphQLError } from 'graphql'
 import type { StoreCaller } from '#auth/storeCaller'
+import { pageOf } from '#core/paging'
 import { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from '#engine/modules/catalog/index'
 import { planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
-import type { StoreBuilder } from './builder'
+import { pageInfoType, type StoreBuilder } from './builder'
+import { storePage } from './refusals'
 
 // Settings › Catalogue (CATALOG P1, S5) and size charts (R; FIRST-RELEASE §12, §19). The plan decides on the
 // server; a supplier never sees plans or prices (P11), only whether a section is there for it.
@@ -40,6 +42,7 @@ export const requireFeature = async (ctx: StoreContext, caller: StoreCaller, key
 }
 
 export const registerListing = (builder: StoreBuilder) => {
+  const PageInfo = pageInfoType(builder)
   const service = (ctx: StoreContext) => {
     if (!ctx.sql) throw forbidden()
     const caller = actingCaller(ctx)
@@ -60,7 +63,21 @@ export const registerListing = (builder: StoreBuilder) => {
   const Settings = builder.objectRef<{ features: { key: string; enabled: boolean; inPlan: boolean | null }[]; badges: { id: string; label: string; tone: string; rule: string; position: number }[] }>('CatalogueSettings').implement({
     fields: (t) => ({ features: t.field({ type: [Feature], resolve: (s) => s.features }), badges: t.field({ type: [Badge], resolve: (s) => s.badges }) }),
   })
-  type Chart = Awaited<ReturnType<ReturnType<typeof service>['sizeCharts']>>[number]
+  type Chart = NonNullable<Awaited<ReturnType<ReturnType<typeof service>['sizeChart']>>>
+  type ChartSummary = Awaited<ReturnType<ReturnType<typeof service>['sizeCharts']>>[number]
+  const SizeChartSummary = builder.objectRef<ChartSummary>('SizeChartSummary').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      name: t.exposeString('name'),
+      unit: t.exposeString('unit'),
+      supplierId: t.exposeID('seller_id', { nullable: true }),
+      products: t.exposeInt('products'),
+      updatedAt: t.string({ resolve: (c) => c.updated_at.toISOString() }),
+    }),
+  })
+  const SizeChartPage = builder.objectRef<{ nodes: ChartSummary[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('SizeChartPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [SizeChartSummary], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
+  })
   const MeasureNote = builder.objectRef<{ measurement: string; text: string }>('SizeChartMeasureNote').implement({
     fields: (t) => ({ measurement: t.exposeString('measurement'), text: t.exposeString('text') }),
   })
@@ -126,7 +143,15 @@ export const registerListing = (builder: StoreBuilder) => {
         return { features: rows, badges }
       },
     }),
-    sizeCharts: t.field({ type: [SizeChart], extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).sizeCharts() }),
+    sizeCharts: t.field({
+      type: SizeChartPage,
+      args: { first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) => {
+        const window = storePage(args)
+        return pageOf(await service(ctx).sizeCharts(window), window, (c) => ({ occurredAt: c.updated_at, id: c.id }))
+      },
+    }),
     sizeChart: t.field({
       type: SizeChart,
       nullable: true,

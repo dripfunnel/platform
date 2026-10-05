@@ -580,7 +580,7 @@ type Query {
   products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
   sizeChart(id: ID!): SizeChart
-  sizeCharts: [SizeChart!]
+  sizeCharts(after: String, before: String, first: Int): SizeChartPage
   storeState: StoreState
 }
 
@@ -653,6 +653,11 @@ input SizeChartMeasureNoteInput {
   text: String!
 }
 
+type SizeChartPage {
+  nodes: [SizeChartSummary!]
+  pageInfo: PageInfo
+}
+
 type SizeChartRow {
   size: String
   values: [String!]
@@ -661,6 +666,15 @@ type SizeChartRow {
 input SizeChartRowInput {
   size: String!
   values: [String!]!
+}
+
+type SizeChartSummary {
+  id: ID
+  name: String
+  products: Int
+  supplierId: ID
+  unit: String
+  updatedAt: String
 }
 
 type StoreChoice {

@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import type { PageWindow } from '#core/paging'
 import type { ScopedSql } from './index'
 
 // Settings › Catalogue, size charts and a product's listing sections (DATA-MODEL §7.2–7.3, migration 0044).
@@ -74,13 +75,28 @@ export interface SizeChartRow {
 
 export const maxSizeCharts = 200
 
-export const selectSizeCharts = (tx: ScopedSql, storeId: string): Promise<SizeChartRow[]> =>
-  tx<SizeChartRow[]>`
-    select c.id, c.seller_id, c.name, c.unit, c.systems, c.measurements, c.rows, c.how_to_measure, c.fit_notes, c.model_info, c.revision, c.updated_at,
+export interface SizeChartSummaryRow {
+  id: string
+  seller_id: string | null
+  name: string
+  unit: 'cm' | 'in'
+  updated_at: Date
+  products: number
+}
+
+/** A page of the store's charts in the caller's scope, newest edit first; the rows themselves come with one chart. */
+export const selectSizeCharts = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<SizeChartSummaryRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<SizeChartSummaryRow[]>`
+    select c.id, c.seller_id, c.name, c.unit, c.updated_at,
       (select count(*)::int from product p where p.size_chart_id = c.id and p.deleted_at is null) as products
     from size_chart c where c.store_id = ${storeId} and c.deleted_at is null
-    order by c.updated_at desc, c.id desc limit ${maxSizeCharts}
+      and ${window.after ? tx`(c.updated_at, c.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(c.updated_at, c.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
+    order by c.updated_at ${backwards ? tx`asc` : tx`desc`}, c.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
   `
+}
 
 export const selectSizeChart = async (tx: ScopedSql, storeId: string, id: string): Promise<SizeChartRow | null> =>
   (
@@ -121,9 +137,10 @@ export const updateSizeChart = async (tx: ScopedSql, storeId: string, id: string
 
 /** Soft delete (§7.1): the products using it lose it, which the editor said before deleting (R10). */
 export const softDeleteSizeChart = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<{ name: string; products: number } | null> => {
-  const freed = await tx`update product set size_chart_id = null, updated_at = ${now} where store_id = ${storeId} and size_chart_id = ${id}`
+  // Every link clears, a trashed product's too, but the answer counts live ones, as the editor's count did.
+  const freed = await tx<{ live: boolean }[]>`update product set size_chart_id = null, updated_at = ${now} where store_id = ${storeId} and size_chart_id = ${id} returning deleted_at is null as live`
   const [gone] = await tx<{ name: string }[]>`update size_chart set deleted_at = ${now}, updated_at = ${now} where id = ${id} and store_id = ${storeId} and deleted_at is null returning name`
-  return gone ? { name: gone.name, products: freed.count } : null
+  return gone ? { name: gone.name, products: freed.filter((f) => f.live).length } : null
 }
 
 export interface ListingWrite {
