@@ -4,6 +4,7 @@ import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { loadAllMarkets } from '../../api/markets'
+import { loadProductBasics } from '../../api/productEditor'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
 import { loadApproval, loadPeople, loadSuppliers } from '../../api/team'
@@ -12,6 +13,7 @@ import { messages } from '../../messages'
 import '../common/pageTabs.css'
 import { sampleReads, settingsStates, type SettingsReads } from './settingsStates'
 import { StoreInfoTab } from './StoreInfoTab'
+import { CatalogueTab } from './CatalogueTab'
 import { MarketsTab } from './MarketsTab'
 import { TaxTab } from './TaxTab'
 import { PeopleTab, SupplierTab } from './TeamTabs'
@@ -23,7 +25,7 @@ const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/settings')
 
 /** The tabs built so far; each card adds its own (FIRST-RELEASE §15). */
-export const settingsTabs = ['store', 'people', 'supplier', 'warehouse', 'tax', 'markets'] as const
+export const settingsTabs = ['store', 'people', 'supplier', 'warehouse', 'tax', 'markets', 'catalogue'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
 /** How a tab says something saved: a toast alone, or a toast and its reads again. */
@@ -35,10 +37,10 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets, catalogue: loadProductBasics }
 
 /** Each tab's reads, and what it shows with them. */
-const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render>> => ({
+const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: boolean }): Record<SettingsTab, () => Promise<Render>> => ({
   store: async () => {
     const [info, locale] = await Promise.all([reads.storeInfo(), reads.locale()])
     if (!info || !locale) throw new Error('store info missing')
@@ -69,6 +71,10 @@ const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render
     if (!locale) throw new Error('locale missing')
     return (done, canEdit) => <MarketsTab markets={markets} locale={locale} canEdit={canEdit} onSaved={done.toast} />
   },
+  catalogue: async () => {
+    const basics = await reads.catalogue()
+    return (done, canEdit) => <CatalogueTab basics={basics} planName={seat.planName} owner={seat.owner} canEdit={canEdit} onSaved={done.toast} onChanged={done.reload} />
+  },
 })
 
 /** Settings (PortalSettings, FIRST-RELEASE §15): the Owner's, one tab at a time. ?state= per settingsStates.ts. */
@@ -89,11 +95,11 @@ export const SettingsPage = () => {
     if (forced === 'error') return setView({ kind: 'error' })
     if (!allowed) return
     setView({ kind: 'loading' })
-    void loaders(forced ? sampleReads : apiReads)[tab]().then(
+    void loaders(forced ? sampleReads : apiReads, { planName: acting.plan?.name ?? null, owner: acting.role === 'owner' })[tab]().then(
       (render) => ask === latest.current && setView({ kind: 'ready', render }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
-  }, [forced, allowed, tab])
+  }, [forced, allowed, tab, acting])
   useEffect(load, [load])
 
   const done: Done = {
@@ -117,7 +123,7 @@ export const SettingsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets }}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets, catalogue: words.tabs.catalogue }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

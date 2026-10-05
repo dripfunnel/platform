@@ -2681,6 +2681,86 @@
         "other": "That didn’t save. Try again."
       },
       "subMarket": "Sub-market"
+    },
+    "catalogue": {
+      "sellTitle": "What do you mostly sell?",
+      "sellSub": "We’ll switch on the sections that fit. Change any of them below.",
+      "presets": {
+        "clothing": "Clothing",
+        "electronics": "Electronics",
+        "food": "Food & drink",
+        "beauty": "Beauty",
+        "handmade": "Handmade"
+      },
+      "presetApplied": "{name} sections switched on — press Save sections to keep them",
+      "sectionsTitle": "Product page sections",
+      "yourPlan": "Your plan: {plan}",
+      "sections": {
+        "sizeCharts": "Size charts",
+        "specs": "Specifications",
+        "highlights": "Highlights",
+        "faqs": "FAQs",
+        "badges": "Badges",
+        "related": "Related products",
+        "aplus": "A+ content · Product story",
+        "video": "Video"
+      },
+      "sectionHelp": {
+        "sizeCharts": "Helps shoppers pick the right size",
+        "specs": "Facts like Material: Cotton",
+        "highlights": "3–5 short points shoppers read first",
+        "faqs": "Questions and answers on the product",
+        "badges": "New, Bestseller, Handmade, Sale",
+        "related": "Frequently bought together",
+        "aplus": "Big photos and feature blocks",
+        "video": "Upload or link a YouTube video"
+      },
+      "included": "Included",
+      "seePlans": "See plans",
+      "askOwner": "Not in your plan — ask your store owner",
+      "offKeeps": "Turning a section off hides it on every product. What you’ve written is kept.",
+      "saveSections": "Save sections",
+      "sectionsSaved": "Sections saved — products now show what you switched on",
+      "badgesTitle": "Badges",
+      "badgesSub": "Small labels on product photos. Automatic ones come and go by themselves; manual ones you add on each product.",
+      "noBadges": "No badges yet. Add one, then pick it on a product or let it apply by itself.",
+      "addBadge": "Add a badge",
+      "editBadge": "Edit “{name}”",
+      "badgeBody": "Up to 18 characters. When it shows is the second choice below.",
+      "badgeText": "What it says",
+      "badgePlaceholder": "e.g. Organic",
+      "badgeMissing": "Type the badge text",
+      "badgeLong": "Keep it to 18 characters",
+      "when": "When it shows",
+      "pickEach": "pick it on each product",
+      "automatic": "automatic",
+      "saveBadge": "Save badge",
+      "rules": {
+        "new_30_days": "Added in the last 30 days",
+        "top_5_this_month": "Your 5 best sellers this month",
+        "below_compare_price": "Has a lower price than its compare price",
+        "few_left": "Only a few left",
+        "manual": "You choose the products"
+      },
+      "badgeSaved": "Badge saved",
+      "badgeAddedManual": "“{name}” added — pick it on any product under Badges",
+      "badgeAddedAuto": "“{name}” added — it applies by itself",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteBadgeTitle": "Delete “{name}”?",
+      "deleteBadgeBody": "It comes off every product straight away.",
+      "badgeDeleted": "Badge deleted",
+      "cancel": "Cancel",
+      "refused": {
+        "DUPLICATE_LABEL": "Another badge already says that.",
+        "TOO_MANY_BADGES": "A store can have up to 20 badges.",
+        "INVALID_INPUT": "Something here isn’t valid — a badge is up to 18 characters, and each automatic rule is on one badge only.",
+        "PLAN_LIMIT": "That section isn’t in your plan.",
+        "NOT_FOUND": "That badge isn’t here any more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change this.",
+        "other": "That didn’t save. Try again."
+      }
     }
   }
 }

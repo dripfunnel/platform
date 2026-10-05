@@ -414,6 +414,12 @@ never a market's own domain, decided on #337), products not sold there (`Market.
 duties by code or flat above a threshold. The prototype's delivery charge, tax registration and ways to pay per
 market wait for SAPI 23, SAPI 7's follow-up and SAPI 10, which own them; they aren't drawn until those give the
 API.
+Catalogue: "What do you mostly sell?" switches a preset's sections on (saved with the rest), each product page
+section with its switch and plan (the Owner sees "See plans"; anyone else "ask your store owner", P11), and the
+badges when they're on: add, edit (what it says and when it shows) and delete. **Legal details used on every
+product, store custom fields (decided on #337 to live here) and the "What you're using" meters wait for their
+API**: custom fields and default legal details were left on #293, and plan usage comes with Billing (SUI 12).
+They aren't drawn until then.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 

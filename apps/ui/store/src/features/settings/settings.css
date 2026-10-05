@@ -981,3 +981,70 @@
     min-height: 44px;
   }
 }
+
+/* Catalogue (designs/CatSettings.dc.html "catalogue") */
+
+.df-cat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-cat-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-cat-list li > span:first-child,
+.df-cat-list li > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.df-cat-list strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-cat-list li > span:first-child > span,
+.df-cat-list li > span:nth-child(2) > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-cat-badge {
+  flex: none !important;
+  min-width: auto !important;
+  padding: 3px 8px;
+  border: 1px solid var(--df-color-neutral-border);
+  border-radius: 5px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.df-cat-badge--ok {
+  border-color: var(--df-color-success-border);
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-cat-badge--peach {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+}
+
+.df-cat-badge-tools {
+  display: flex;
+  gap: 12px;
+}

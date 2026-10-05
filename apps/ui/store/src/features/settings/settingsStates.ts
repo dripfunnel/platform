@@ -1,5 +1,6 @@
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { Market } from '../../api/markets'
+import type { ProductBasics } from '../../api/productEditor'
 import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
 import type { Person, Supplier } from '../../api/team'
 
@@ -78,6 +79,7 @@ export interface SettingsReads {
   tax: () => Promise<TaxSetupFull | null>
   invoice: () => Promise<InvoiceSettings | null>
   markets: () => Promise<Market[]>
+  catalogue: () => Promise<ProductBasics>
 }
 
 const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
@@ -129,4 +131,15 @@ export const sampleReads: SettingsReads = {
   tax: async () => sampleTax,
   invoice: async () => ({ taxPerLine: true, emailWithDispatch: true, footer: null, legalName: 'Kesari Threads Pvt Ltd' }),
   markets: async () => sampleMarkets,
+  catalogue: async () => ({
+    pricingCurrency: 'INR',
+    unitSystem: 'metric',
+    mainLanguage: 'en-IN',
+    translationLanguages: [],
+    features: ['sizeCharts', 'specs', 'highlights', 'faqs', 'badges', 'related', 'aplus', 'video'].map((key) => ({ key, enabled: ['sizeCharts', 'specs', 'highlights', 'badges'].includes(key), inPlan: key !== 'video' })),
+    badges: [
+      { id: 'b-new', label: 'New', rule: 'new_30_days', tone: 'ok' },
+      { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral' },
+    ],
+  }),
 }
