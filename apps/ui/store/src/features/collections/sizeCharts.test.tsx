@@ -271,6 +271,8 @@ describe('size charts, the merchant’s', () => {
     await show(owner, merchant, true)
     expect(screen.getByText(words.offNote)).toBeTruthy()
     expect((screen.getByLabelText('M, Chest') as HTMLInputElement).readOnly).toBe(true)
+    // With a chart open, the note still says why nothing can be changed.
+    expect(screen.getByText(words.viewOnly)).toBeTruthy()
     expect(screen.queryByRole('button', { name: words.save })).toBeNull()
   })
 
