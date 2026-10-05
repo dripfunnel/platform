@@ -112,6 +112,16 @@ describe('A+ content', () => {
     expect(api.loadStoryBlocks).not.toHaveBeenCalled()
   })
 
+  it('gives a supplier the Home template without its brand story, so the draft saves', async () => {
+    api.saveProductStory.mockImplementation(async (_p: string, _r: number, modules: unknown[]) => story({ revision: 1, modules: modules as ProductStory['modules'] }))
+    await show(supplier)
+    fireEvent.click(screen.getByRole('button', { name: words.templates.home }))
+    expect(screen.getAllByRole('region').map((r) => r.getAttribute('aria-label'))).toEqual(['Large banner', 'Image + text', 'Photo strip'])
+    fireEvent.click(screen.getByRole('button', { name: words.saveDraft }))
+    await settle()
+    expect((api.saveProductStory.mock.calls[0]?.[2] as { kind: string }[]).map((m) => m.kind)).toEqual(['banner', 'imageText', 'gallery'])
+  })
+
   it('lets staff look but not change anything', async () => {
     api.loadProductStory.mockResolvedValue(story({ revision: 1, status: 'live', modules: [{ id: 'a', kind: 'faq', title: 'Questions', body: null, side: null, photo: null, items: null, photos: null, productIds: null, blockId: null, video: null }] }))
     await show(staff)

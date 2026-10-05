@@ -122,7 +122,8 @@ export const StoryEditor = () => {
   }
   const applyTemplate = (key: StoryTemplate) => {
     const apply = () => {
-      const made = storyTemplates[key].map(blankModule)
+      // A brand story is the store's own: a supplier's template goes without it, as its palette does.
+      const made = storyTemplates[key].filter((k) => !(supplier && k === 'brand')).map(blankModule)
       setModules(made)
       setTemplate(key)
       setSelected(made[0]?.id ?? null)
