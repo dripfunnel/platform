@@ -8,11 +8,12 @@ import {
   deleteOptions,
   fileRefused,
   deleteOptionValues,
-  insertOption,
-  insertOptionValue,
+  insertOptions,
+  insertOptionValues,
   insertProduct,
-  insertVersion,
+  insertVersions,
   lockCatalogue,
+  nameClash,
   selectPricingCurrency,
   selectProduct,
   selectProducts,
@@ -21,16 +22,18 @@ import {
   setProductVideo,
   setVersionChoices,
   setVersionPrices,
-  skuTakenInStore,
+  skuTaken,
   softDeleteProducts,
   softDeleteVersions,
-  updateOption,
-  updateOptionValue,
+  updateOptions,
+  updateOptionValues,
   updateProduct,
-  updateVersion,
+  updateVersions,
+  type OptionWrite,
   type ProductFields,
   type ProductQuery,
   type ProductRow,
+  type ValueWrite,
   type VersionFields,
 } from '#db/scoped/catalog'
 import { withScope, type ScopedSql } from '#db/scoped/index'
@@ -129,54 +132,57 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     ...facts,
   })
 
-  /** Options, values, versions, their choices and prices, matched by id to what the product has. */
+  /** Options, values, versions, their choices and prices, matched by id to what the product has, a few statements in all. */
   const writeChildren = async (tx: ScopedSql, productId: string, clean: CleanProduct, existing: ProductRow | null) => {
     const at = now()
     const known = (ids: readonly string[], id: string | null) => {
       if (id !== null && !ids.includes(id)) throw new Refused({ reason: 'INVALID_INPUT' })
       return id
     }
+    const options = clean.options.map((o, position) => {
+      const before = existing?.options.find((e) => e.id === known(existing.options.map((x) => x.id), o.id)) ?? null
+      const id = before?.id ?? crypto.randomUUID()
+      const values = o.values.map((v, valuePosition) => {
+        const kept = before ? known(before.values.map((x) => x.id), v.id) : null
+        return { id: kept ?? crypto.randomUUID(), optionId: id, name: v.name, position: valuePosition, kept: kept !== null }
+      })
+      return { id, name: o.name, position, kept: before !== null, values }
+    })
+    const keptOptionIds = new Set(options.filter((o) => o.kept).map((o) => o.id))
+    const keptValueIds = new Set(options.flatMap((o) => o.values.filter((v) => v.kept).map((v) => v.id)))
     // Removed options and values go first, so a name reused in the same save never meets its old row.
-    const optionIdsIn = clean.options.map((o) => known(existing?.options.map((e) => e.id) ?? [], o.id))
-    if (existing) await deleteOptions(tx, existing.options.filter((o) => !optionIdsIn.includes(o.id)).map((o) => o.id))
-    const valueIds: Map<string, string>[] = []
-    const optionIds: string[] = []
-    for (const [position, option] of clean.options.entries()) {
-      const before = existing?.options.find((o) => o.id === optionIdsIn[position])
-      if (before) {
-        const valueIdsIn = option.values.map((v) => known(before.values.map((e) => e.id), v.id))
-        await deleteOptionValues(tx, before.values.filter((v) => !valueIdsIn.includes(v.id)).map((v) => v.id))
-      }
-      const optionId = before ? before.id : await insertOption(tx, storeId, productId, option.name, position)
-      if (before) await updateOption(tx, optionId, option.name, position)
-      optionIds.push(optionId)
-      const byName = new Map<string, string>()
-      for (const [valuePosition, value] of option.values.entries()) {
-        const valueBefore = before?.values.find((v) => v.id === value.id)
-        const valueId = valueBefore ? valueBefore.id : await insertOptionValue(tx, storeId, optionId, value.name, valuePosition)
-        if (valueBefore) await updateOptionValue(tx, valueId, value.name, valuePosition)
-        byName.set(value.name.toLowerCase(), valueId)
-      }
-      valueIds.push(byName)
+    if (existing) {
+      await deleteOptions(tx, existing.options.filter((o) => !keptOptionIds.has(o.id)).map((o) => o.id))
+      await deleteOptionValues(tx, existing.options.filter((o) => keptOptionIds.has(o.id)).flatMap((o) => o.values.filter((v) => !keptValueIds.has(v.id)).map((v) => v.id)))
     }
+    const write = (o: OptionWrite) => ({ id: o.id, name: o.name, position: o.position })
+    const value = (v: ValueWrite) => ({ id: v.id, optionId: v.optionId, name: v.name, position: v.position })
+    await updateOptions(tx, options.filter((o) => o.kept).map(write))
+    await insertOptions(tx, storeId, productId, options.filter((o) => !o.kept).map(write))
+    const values = options.flatMap((o) => o.values)
+    await updateOptionValues(tx, values.filter((v) => v.kept).map(value))
+    await insertOptionValues(tx, storeId, values.filter((v) => !v.kept).map(value))
 
-    const keptVersions = new Set<string>()
-    const ordered: string[] = []
-    const versionIds = existing?.versions.map((v) => v.id) ?? []
-    for (const [position, version] of clean.versions.entries()) {
-      const id = known(versionIds, version.id)
-      const fields = versionFieldsOf(version, position)
-      const versionId = id ?? (await insertVersion(tx, storeId, productId, fields))
-      if (id) await updateVersion(tx, id, fields, at)
-      keptVersions.add(versionId)
-      const choices = version.choices.map((choice, i) => ({ optionId: optionIds[i] ?? '', valueId: valueIds[i]?.get(choice.toLowerCase()) ?? '' }))
-      await setVersionChoices(tx, storeId, versionId, choices)
-      await setVersionPrices(tx, storeId, versionId, version.prices)
-      ordered.push(versionId)
-    }
-    await softDeleteVersions(tx, versionIds.filter((id) => !keptVersions.has(id)), at)
+    const before = existing?.versions.map((v) => v.id) ?? []
+    const versions = clean.versions.map((v, position) => {
+      const kept = known(before, v.id)
+      return { id: kept ?? crypto.randomUUID(), kept: kept !== null, fields: versionFieldsOf(v, position), clean: v }
+    })
+    await updateVersions(tx, versions.filter((v) => v.kept).map((v) => ({ id: v.id, ...v.fields })), at)
+    await insertVersions(tx, storeId, productId, versions.filter((v) => !v.kept).map((v) => ({ id: v.id, ...v.fields })))
+    const ids = versions.map((v) => v.id)
+    const choices = versions.flatMap((v) =>
+      v.clean.choices.map((choice, i) => {
+        const option = options[i]
+        const chosen = option?.values.find((x) => x.name.toLowerCase() === choice.toLowerCase())
+        return { versionId: v.id, optionId: option?.id ?? '', valueId: chosen?.id ?? '' }
+      }),
+    )
+    await setVersionChoices(tx, storeId, ids, choices)
+    await setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))))
+    await softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at)
     if (clean.photos !== null) {
-      await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ordered[p.version] ?? null) })))
+      await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))
     }
     if (clean.video !== undefined) await setProductVideo(tx, storeId, productId, clean.video)
   }
@@ -186,8 +192,10 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return await inScope(work)
     } catch (error) {
       if (error instanceof Refused) return { ok: false, ...error.refusal }
-      if (skuTakenInStore(error)) return { ok: false, reason: 'DUPLICATE_SKU' }
+      if (skuTaken(error)) return { ok: false, reason: 'DUPLICATE_SKU' }
       if (fileRefused(error)) return { ok: false, reason: 'FILE_REFUSED' }
+      const clash = nameClash(error)
+      if (clash) return { ok: false, reason: clash }
       throw error
     }
   }

@@ -257,6 +257,33 @@ describe('a supplier', () => {
     expect((await listed('supplier', `(supplier: "${t.sellerA1Second}")`)).map((n) => n.id)).toEqual([supplierProduct])
   })
 
+  it('uses a product code the merchant or another supplier uses without being told it exists', async () => {
+    await create('owner', simple('Merchant coded', { versions: [{ choices: [], sku: 'SHARED-CODE', prices: [price('100')] }] }))
+    await create('otherSupplier', simple('Other coded', { versions: [{ choices: [], sku: 'SHARED-CODE-2', prices: [price('100')] }] }))
+    for (const sku of ['SHARED-CODE', 'SHARED-CODE-2']) {
+      const made = await create('supplier', simple(`Supplier ${sku}`, { versions: [{ choices: [], sku, prices: [price('100')] }] }))
+      expect(made.code).toBeUndefined()
+    }
+    // Its own codes are still its own to keep unique.
+    expect((await create('supplier', simple('Supplier again', { versions: [{ choices: [], sku: 'SHARED-CODE', prices: [price('100')] }] }))).code).toBe('DUPLICATE_SKU')
+  })
+
+  it('hears only that the store is full at the plan’s limit, never the plan or what unlocks more', async () => {
+    const [seller] = await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${t.storeA2}, 'Small supplier', 'vendor-catalogue', 'active') returning id`
+    const person = await user(t.partnerA, 'small.supplier@a.example', 'Small')
+    await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${person}, ${t.storeA2}, ${seller?.id ?? ''}, 'supplier-admin', 'active')`
+    const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: person, partnerId: t.partnerA }, now))
+    const facts = { requestId: 'r', ip: null, userAgent: null }
+    const headers = { cookie: `${storeCookieName}=${cookie}`, [storeHeader]: t.storeA2, [supplierHeader]: seller?.id ?? '' }
+    const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), t.partnerA, now, activityLog, facts)
+    let refusal: Record<string, unknown> | null = null
+    for (const name of ['S1', 'S2', 'S3']) {
+      const result = await graphql({ schema: storeSchema as GraphQLSchema, source: save, contextValue: { standing, partnerId: t.partnerA, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext, variableValues: { input: simple(name) } })
+      refusal = result.errors?.[0]?.extensions ?? refusal
+    }
+    expect(refusal).toEqual({ code: 'PLAN_LIMIT' })
+  })
+
   it('can’t edit, duplicate or delete what isn’t its own, and can’t set visibility at all', async () => {
     const input = simple('Taken over')
     for (const id of [merchantProduct, otherSupplierProduct]) {
@@ -272,7 +299,8 @@ describe('a supplier', () => {
   it('is seen by the merchant as a shared record named for its supplier', async () => {
     expect(await detail('owner', supplierProduct)).toMatchObject({ shared: true, supplier: { id: t.sellerA1First, name: 'Anand Textiles' } })
     const nodes = await listed('owner', `(supplier: "${t.sellerA1First}")`)
-    expect(nodes.map((n) => n.id)).toEqual([supplierProduct])
+    expect(nodes.map((n) => n.id)).toContain(supplierProduct)
+    expect(new Set(nodes.map((n) => n.supplier?.name))).toEqual(new Set(['Anand Textiles']))
     expect((await listed('owner', '(supplier: "own")')).some((n) => n.id === supplierProduct)).toBe(false)
   })
 })

@@ -25,7 +25,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   PRICE_REQUIRED: 'Every version needs a price in the store’s currency.',
   INVALID_PRICE: 'A price isn’t valid.',
   INVALID_BARCODE: 'A barcode’s check digit doesn’t match.',
-  DUPLICATE_SKU: 'Another product already uses that product code.',
+  DUPLICATE_SKU: 'You already use that product code on another product.',
   NOT_FOUND: 'That product isn’t here any more.',
   CURRENCY_REQUIRED: 'Choose the store’s currency first.',
   SUPPLIER_FIELD: 'Suppliers can’t set whether a product shows.',
@@ -296,6 +296,8 @@ export const registerProducts = (builder: StoreBuilder) => {
   /** The saved product, or the refusal as a stable code with its facts (FIRST-RELEASE §19). */
   const answered = async (ctx: StoreContext, result: SaveResult) => {
     if (result.ok) return { id: result.id, slug: result.slug, revision: result.revision }
+    // A supplier never reads the store's plan (§2 "masked"): it hears the store is full, not which plan or upgrade.
+    if (result.reason === 'PLAN_LIMIT' && actingCaller(ctx).seller !== null) throw new GraphQLError('This store can’t take more products right now. Ask the store.', { extensions: { code: 'PLAN_LIMIT' } })
     if (result.reason === 'PLAN_LIMIT' && ctx.sql) {
       const limit = await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'products', total: result.wanted }, ctx.now())
       throw new GraphQLError(words.PLAN_LIMIT, { extensions: { code: 'PLAN_LIMIT', key: 'products', limit: limit?.limit ?? 0, unlockedBy: limit?.unlockedBy ?? null } })

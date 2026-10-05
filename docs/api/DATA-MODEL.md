@@ -747,8 +747,8 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
 - **Keys**: `id uuid` primary keys; `created_at`; `updated_at` and a `revision integer` on
   anything two people may edit at once, so a save can refuse a stale revision (CATALOG E4,
   OFFERS N6). **The blocks below omit `id`, `created_at`, `updated_at` and `revision` where
-  this rule implies them.** Unique constraints are per store (SKU, web address, coupon code,
-  group name), per language for web addresses, never global.
+  this rule implies them.** Unique constraints are per store (web address, coupon code, group
+  name), per owner for a SKU (#293), per language for web addresses, never global.
 - **Money**: every column named `amount` or `*_amount` is `bigint` in minor units with a
   `currency char(3)` on the same row, every time, whatever table it is in, subscriptions,
   invoices and every line included; the one allowed inheritance is the order's two children,
@@ -954,7 +954,8 @@ product_version     (id, product_id, store_id, seller_id NULL, sku, barcode, nam
                      height_mm, net_quantity NULL, net_quantity_unit NULL, unit_price_reference NULL,
                      cost_amount, cost_currency, track_stock boolean NULL, continue_selling boolean NULL,
                      position, deleted_at)
-                    UNIQUE (store_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL
+                    UNIQUE NULLS NOT DISTINCT (store_id, seller_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL
+                    -- per owner (#293): a store-wide index would tell a supplier which codes others use
                     -- every product has at least one (fact 1); price, stock, SKU, code, tax
                     -- class and weight live here (fact 2); cost_amount and cost_currency are
                     -- never granted to app_shop (§5.3); nulls inherit the store default
