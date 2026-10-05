@@ -1193,7 +1193,8 @@ builds the table must ship:
   a ledger entry or a job (DATA-MODEL §7.11 shop branches);
 - a supplier reads only the labels it printed for its own parts, never an invoice or packing
   slip (`order_document`); a partner or staff query on `import_job` or `catalog_export` returns
-  nothing (DATA-MODEL §7.10, §7.11);
+  nothing, and a store-side query (merchant or supplier) on `export_job`, the partner's and staff's own exports
+  (DATA-MODEL §2.6), returns nothing (DATA-MODEL §7.10, §7.11);
 - a supplier reads the settings rows §7.11 names (`filter`, `filter_value`, `tax_class`,
   `store_language`, `store_currency`, `store_feature`, `badge`, `market` without duties and
   domain) and no other settings table, no `tax_rate`, and no `*_enc` column;
