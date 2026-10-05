@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorProduct } from '../../api/productEditor'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { editorAccessOf } from './access'
+import { editorAccessOf } from '../common/access'
 
 // CatEditor driven as each seat would (FIRST-RELEASE §11): what loads, what a save sends, what each refusal says.
 
