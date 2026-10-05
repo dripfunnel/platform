@@ -4,7 +4,7 @@ import { adminConsoleUrl, harnessEnabled, staffSession } from '../../api/staffSe
 import { formatTime, formatWait, messages } from '../../messages'
 
 // A store sees impersonations only; setup sessions are the partner console's (ACCESS.md §8.2).
-const storeStates = ['impersonating', 'ended', 'expired', 'invalid', 'notice'] as const satisfies readonly PortalHarnessState[]
+export const storeStates = ['impersonating', 'ended', 'expired', 'invalid', 'notice'] as const satisfies readonly PortalHarnessState[]
 
 export const copy = staffSessionCopy(messages.staffSession, { wait: formatWait, time: formatTime })
 

@@ -193,6 +193,13 @@ import banner waits for `storeState`'s import job (SAPI 16); support's Allow / D
 - **Reset password**: a link valid for 30 minutes; signs out everywhere else.
 - **Invitations**: a new person sets a name and password; an existing account joins without one;
   an expired link (7 days) says so and asks the inviter for a new one.
+- **Built on #292, part 1** (`apps/ui/store/src/features/auth/`): sign-in with its code, backup-code
+  and SMS set-up steps, the lock, reset, sign-up `su1`–`su4` and its building view, invitations
+  (`/accept-invite`, `/join`), the confirm-email link and the chooser in the same frame, each view
+  under `?state=` (`authStates.ts`). Not built, for want of an API: Google sign-in; setting up an
+  authenticator app at sign-in (SMS only); "Create another store", since sign-up starts only for a
+  new account; and the web address's suffix, which needs the partner's storefront domain. Country
+  is asked on the store step, where the API takes it.
 - **My profile** (`PortalProfile`): name, email (changed through a link to the new address),
   mobile, password (signs out other devices), two-step sign-in (authenticator app or SMS; ten
   backup codes shown once; an Owner can switch method but never turn it off), appearance (light

@@ -1,7 +1,7 @@
-/* PortalAuth's `pick` view: one bordered row per store, the last one opened ringed in the focus blue. */
+/* PortalAuth's `pick` view: one bordered row per store, the last one used ringed in the focus blue. */
 .df-store-choices {
   display: grid;
-  gap: var(--df-space-2);
+  gap: var(--df-space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -10,9 +10,9 @@
 .df-store-choice {
   display: flex;
   align-items: center;
-  gap: var(--df-space-3);
+  gap: 14px;
   width: 100%;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius-card);
   background: var(--df-color-surface);
@@ -23,12 +23,12 @@
 }
 
 .df-store-choice:hover {
-  background: var(--df-color-hover);
+  border-color: var(--df-color-focus);
 }
 
 .df-store-choice--last {
+  padding: 13px 15px;
   border: 2px solid var(--df-color-focus);
-  padding: 11px 13px;
 }
 
 .df-store-choice-mark {
@@ -36,13 +36,22 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-store-choice-mark--first {
   background: var(--df-color-brand);
   color: var(--df-color-brand-contrast);
-  font-family: var(--df-font-heading);
-  font-weight: 800;
+}
+
+.df-store-choice-mark--other {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
 }
 
 /* A supplier store carries a squared mark, as in SetTeam. */
@@ -53,17 +62,32 @@
 }
 
 .df-store-choice-text {
-  display: grid;
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-store-choice-text strong {
+  font-family: var(--df-font-heading);
+  font-size: 15px;
 }
 
 .df-store-choice-text small {
   color: var(--df-color-muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .df-store-choice-last {
-  color: var(--df-color-focus);
-  font-size: 12px;
-  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.df-store-choice-go {
+  color: var(--df-color-muted);
+  font-size: 18px;
 }

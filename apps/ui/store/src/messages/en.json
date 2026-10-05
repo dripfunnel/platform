@@ -292,5 +292,289 @@
       "confirm": "Remove",
       "cancel": "Cancel"
     }
+  },
+  "auth": {
+    "logoAlt": "DripFunnel",
+    "productLabel": "Store",
+    "privacy": "Privacy",
+    "privacyUrl": "https://dripfunnel.com/privacy",
+    "help": "Help",
+    "helpUrl": "https://help.dripfunnel.com/store",
+    "termsUrl": "https://dripfunnel.com/terms",
+    "footBrand": "One sign-in for every store you belong to",
+    "opensInNewTab": "(opens in a new tab)",
+    "back": "Back",
+    "show": "Show",
+    "hide": "Hide",
+    "notConnected": "We couldn’t reach the store service. Nothing was changed. Try again in a moment.",
+    "rateLimited": "Too many tries in a short time. Wait a few minutes, then try again.",
+    "panels": {
+      "in": {
+        "tag": "Welcome back",
+        "title": "Your shop, right where you left it.",
+        "body": "Orders to pack, products to add, and your storefront — all in one place.",
+        "points": [
+          "Owners, staff and suppliers use the same door",
+          "One sign-in for every store you belong to",
+          "Signing out ends every session on this device"
+        ]
+      },
+      "up": {
+        "tag": "Free trial",
+        "title": "Start selling in minutes, not weeks.",
+        "body": "Add a photo, a name and a price — your shop is live. Everything else can come later.",
+        "points": [
+          "No card needed to start",
+          "Your own web address from day one",
+          "Taxes, currencies and shipping set up for your country"
+        ]
+      },
+      "reset": {
+        "tag": "Account help",
+        "title": "Locked out? It happens.",
+        "body": "We’ll email you a link to choose a new password. It works for 30 minutes.",
+        "points": [
+          "We never ask for your password by email or phone",
+          "Your stores and data aren’t affected",
+          "Need more help? Contact support"
+        ]
+      }
+    },
+    "fields": {
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "newPassword": "Password",
+      "newPasswordAgain": "Type it again",
+      "name": "Your name",
+      "namePlaceholder": "e.g. Farhan Ali",
+      "code": "Code",
+      "codePlaceholder": "• • • • • •",
+      "backupCode": "Backup code",
+      "backupPlaceholder": "XXXX-XXXX",
+      "phone": "Mobile number",
+      "phonePlaceholder": "+91 98450 11234",
+      "remember": "Keep me signed in on this device for 30 days"
+    },
+    "strength": [
+      "At least 10 characters.",
+      "Weak — add numbers or symbols.",
+      "Okay — a little longer is safer.",
+      "Good password.",
+      "Strong password."
+    ],
+    "sendAgain": "Send again",
+    "waitToResend": "Didn’t get it? You can ask again in {seconds}s.",
+    "signIn": {
+      "title": "Sign in",
+      "sub": "Welcome back. Sign in to manage your store.",
+      "forgot": "Forgot password?",
+      "primary": "Sign in",
+      "missing": "Type your email and password.",
+      "refused": "That email and password don’t match. Check them, or reset your password.",
+      "signedOut": "You’re signed out of every store on this device.",
+      "expired": "You were signed out after 12 hours without activity. Sign in to pick up where you left off.",
+      "foot": "New to {product}?",
+      "footLink": "Create a store"
+    },
+    "secondFactor": {
+      "title": "Two-step sign-in",
+      "app": "Type the 6-digit code from your authenticator app.",
+      "sms": "We texted a 6-digit code to the phone ending {hint}.",
+      "smsUnsent": "We’ll text a 6-digit code to the phone on your account.",
+      "primary": "Verify and sign in",
+      "backup": "Use a backup code instead",
+      "incomplete": "The code has 6 digits — check the text again.",
+      "wrong": "That code doesn’t match. {tries} left.",
+      "tries": {
+        "one": "{count} try",
+        "other": "{count} tries"
+      },
+      "expired": "That code has expired. Ask for a new one.",
+      "sent": "New code sent.",
+      "wrongPlain": "That code doesn’t match."
+    },
+    "backup": {
+      "title": "Use a backup code",
+      "sub": "One of the 10 codes you saved when you turned on two-step sign-in, like K4P2-9XQM. Each works once.",
+      "primary": "Sign in",
+      "lost": "Lost them too? Contact support",
+      "malformed": "That doesn’t look like a backup code — it’s 8 letters and numbers, like K4P2-9XQM.",
+      "left": "Signed in with a backup code — {count} left. Make new ones in My profile."
+    },
+    "enrol": {
+      "title": "Turn on two-step sign-in",
+      "sub": "Store owners need it before the store opens — it protects your payouts and your customers’ data. We’ll text you a code each time you sign in.",
+      "subSent": "Type the 6-digit code we texted to the number ending {hint}.",
+      "sendPrimary": "Text me a code",
+      "confirmPrimary": "Turn on and sign in",
+      "changeNumber": "Change number",
+      "invalidPhone": "Use the full number with its country code, like +91 98450 11234.",
+      "stale": "This step timed out. Sign in again to set up two-step sign-in."
+    },
+    "codes": {
+      "title": "Save your backup codes",
+      "sub": "If you lose your phone, each code signs you in once. We won’t show them again.",
+      "download": "Download codes",
+      "done": "I’ve saved them",
+      "fileName": "backup-codes.txt"
+    },
+    "locked": {
+      "title": "Sign-in is paused for {minutes} minutes",
+      "sub": "There were 5 wrong tries in a row, so we paused sign-in to keep your store safe. We’ve emailed the account owner. Reset your password to get back in now.",
+      "primary": "Reset my password",
+      "foot": "Wasn’t you?",
+      "footLink": "Contact support"
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "sub": "Type the email you sign in with. We’ll send you a link to choose a new password.",
+      "primary": "Send reset link",
+      "back": "Back to sign in",
+      "invalid": "Type the email address you sign in with.",
+      "sentTitle": "Check your email",
+      "sentSub": "If {email} has an account, a link to reset the password is on its way. It works for 30 minutes.",
+      "again": "Send it again"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "sub": "You’ll be signed out everywhere else.",
+      "primary": "Save and sign in",
+      "mismatch": "The two passwords don’t match.",
+      "short": "Use at least 10 characters.",
+      "invalid": "This link no longer works. Reset links work once, for 30 minutes. Ask for a new one.",
+      "askAgain": "Ask for a new link",
+      "doneSignIn": "Password changed — sign in with your new password."
+    },
+    "invite": {
+      "title": "Join {store}",
+      "subNew": "{inviter} invited you as {role}. {can} Set a password to accept.",
+      "subJoin": "{inviter} invited you as {role}. {can} Sign in with the account you already have to accept.",
+      "emailHelp": "The invite was sent here, so it can’t be changed.",
+      "primary": "Accept and open the store",
+      "joinPrimary": "Sign in to accept",
+      "joining": "Joining {store}…",
+      "foot": "Already use {product}?",
+      "footLink": "Sign in to accept",
+      "roles": {
+        "owner": "an Owner",
+        "manager": "a Manager",
+        "staff": "Staff",
+        "supplier": "a supplier for {seller}"
+      },
+      "can": {
+        "owner": "You’ll be able to do everything, including billing.",
+        "manager": "You’ll see everything except Settings and Billing.",
+        "staff": "You’ll see orders, customers and products.",
+        "supplier": "You’ll add your products and see the orders that include them."
+      },
+      "nameRequired": "Add your name — your team sees it on orders you pack.",
+      "weak": "Use at least 10 characters for your password.",
+      "loading": "Checking your invitation…",
+      "terms": {
+        "before": "By accepting you agree to the ",
+        "after": "."
+      }
+    },
+    "inviteBad": {
+      "expired": {
+        "title": "This invitation has expired",
+        "sub": "Invitations work for 7 days. Ask {inviter} for a new one — the link in it replaces this one."
+      },
+      "used": {
+        "title": "This invitation was already used",
+        "sub": "Sign in with the account that accepted it."
+      },
+      "replaced": {
+        "title": "A newer invitation replaced this one",
+        "sub": "Open the link in the most recent email."
+      },
+      "invalid": {
+        "title": "This invitation link doesn’t work",
+        "sub": "Check you opened the whole link, or ask for a new invitation."
+      },
+      "signIn": "Sign in"
+    },
+    "signup": {
+      "steps": [
+        "Step 1 of 4 · Your account",
+        "Step 2 of 4 · Verify email",
+        "Step 3 of 4 · Your store",
+        "Step 4 of 4 · Verify phone"
+      ],
+      "su1": {
+        "title": "Create your store",
+        "sub": "It takes about two minutes.",
+        "primary": "Continue",
+        "foot": "Already have an account?",
+        "footLink": "Sign in",
+        "nameMissing": "Add your name.",
+        "emailBad": "That email doesn’t look right — check for typos.",
+        "closed": "New stores can’t be created here right now.",
+        "weak": "Use at least 10 characters for your password."
+      },
+      "su2": {
+        "title": "Check your email",
+        "sub": "We sent a 6-digit code to {email}. It works for 10 minutes. If you already have an account, the email says how to sign in instead.",
+        "primary": "Verify email",
+        "back": "Change email"
+      },
+      "su3": {
+        "title": "Tell us about your store",
+        "sub": "Just the basics. You can change all of it later.",
+        "store": "Store name",
+        "storePlaceholder": "e.g. Juniper & Co.",
+        "storeHelp": "Shoppers see this everywhere.",
+        "sub2": "Web address",
+        "subPlaceholder": "juniper",
+        "subHelp": "You can connect your own domain later.",
+        "country": "Country",
+        "countryHelp": "Sets your currency and tax rules.",
+        "primary": "Continue",
+        "nameMissing": "Give your store a name.",
+        "subBad": "Use letters, numbers and hyphens.",
+        "taken": "That address is taken. Try {suggestions}.",
+        "takenNone": "That address is taken. Try another.",
+        "or": "or",
+        "countryNone": "Choose a country."
+      },
+      "su4": {
+        "title": "Last step: your phone",
+        "titleSent": "Enter the code we texted",
+        "sub": "We text you a code so nobody else can open a store in your name. We won’t call or share it.",
+        "subSent": "Sent to the number ending {hint}.",
+        "primarySend": "Text me a code",
+        "primaryVerify": "Verify and build my store",
+        "changeNumber": "Change number"
+      },
+      "building": {
+        "title": "Setting up {store}",
+        "label": "Almost there",
+        "sub": "Opening your portal…",
+        "yourStore": "your store"
+      },
+      "expired": "This sign-up timed out. Start again — it only takes a minute.",
+      "terms": {
+        "before": "By creating a store you agree to the ",
+        "after": ". No card needed."
+      }
+    },
+    "confirmEmail": {
+      "title": "Confirming your new email…",
+      "doneTitle": "Your email is changed",
+      "doneSub": "Sign in with your new address from now on.",
+      "badTitle": "This link no longer works",
+      "badSub": "Email change links work once, for 24 hours, and stop when you change your password. Ask for a new one in My profile.",
+      "signIn": "Sign in"
+    },
+    "chooser": {
+      "lastUsed": "Last used"
+    },
+    "productName": "DF Store",
+    "terms": {
+      "terms": "Terms",
+      "middle": " and ",
+      "privacy": "Privacy policy"
+    }
   }
 }

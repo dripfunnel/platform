@@ -27,7 +27,12 @@ import { Route as AppSalesRouteImport } from './routes/_app/sales'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppStorefrontRouteImport } from './routes/_app/storefront'
 import { Route as AppTeamRouteImport } from './routes/_app/team'
+import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
+import { Route as AuthConfirmEmailRouteImport } from './routes/_auth/confirm-email'
+import { Route as AuthJoinRouteImport } from './routes/_auth/join'
+import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 
 const AppRoute = AppRouteImport.update({
@@ -118,9 +123,34 @@ const AppTeamRoute = AppTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AppRoute,
 } as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthConfirmEmailRoute = AuthConfirmEmailRouteImport.update({
+  id: '/confirm-email',
+  path: '/confirm-email',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthJoinRoute = AuthJoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
   getParentRoute: () => AuthRoute,
 } as any)
 const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
@@ -146,7 +176,12 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/storefront': typeof AppStorefrontRoute
   '/team': typeof AppTeamRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
+  '/confirm-email': typeof AuthConfirmEmailRoute
+  '/join': typeof AuthJoinRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
 }
 export interface FileRoutesByTo {
@@ -166,7 +201,12 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/storefront': typeof AppStorefrontRoute
   '/team': typeof AppTeamRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
+  '/confirm-email': typeof AuthConfirmEmailRoute
+  '/join': typeof AuthJoinRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
 }
 export interface FileRoutesById {
@@ -188,7 +228,12 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/storefront': typeof AppStorefrontRoute
   '/_app/team': typeof AppTeamRoute
+  '/_auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/_auth/confirm-email': typeof AuthConfirmEmailRoute
+  '/_auth/join': typeof AuthJoinRoute
+  '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
+  '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
 }
@@ -211,7 +256,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storefront'
     | '/team'
+    | '/accept-invite'
+    | '/confirm-email'
+    | '/join'
+    | '/reset-password'
     | '/sign-in'
+    | '/sign-up'
     | '/impersonate/enter'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -231,7 +281,12 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storefront'
     | '/team'
+    | '/accept-invite'
+    | '/confirm-email'
+    | '/join'
+    | '/reset-password'
     | '/sign-in'
+    | '/sign-up'
     | '/impersonate/enter'
   id:
     | '__root__'
@@ -252,7 +307,12 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/storefront'
     | '/_app/team'
+    | '/_auth/accept-invite'
+    | '/_auth/confirm-email'
+    | '/_auth/join'
+    | '/_auth/reset-password'
     | '/_auth/sign-in'
+    | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
   fileRoutesById: FileRoutesById
@@ -392,11 +452,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_auth/accept-invite': {
+      id: '/_auth/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/confirm-email': {
+      id: '/_auth/confirm-email'
+      path: '/confirm-email'
+      fullPath: '/confirm-email'
+      preLoaderRoute: typeof AuthConfirmEmailRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/join': {
+      id: '/_auth/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof AuthJoinRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/reset-password': {
+      id: '/_auth/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/sign-up': {
+      id: '/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
     }
     '/impersonate/enter': {
@@ -448,11 +543,21 @@ const AppRouteChildren: AppRouteChildren = {
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
+  AuthConfirmEmailRoute: typeof AuthConfirmEmailRoute
+  AuthJoinRoute: typeof AuthJoinRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
+  AuthConfirmEmailRoute: AuthConfirmEmailRoute,
+  AuthJoinRoute: AuthJoinRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
+  AuthSignUpRoute: AuthSignUpRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)

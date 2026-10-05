@@ -1,6 +1,4 @@
-import { Button, ErrorState, initials, LoadingState, safeNext } from '@dripfunnel/shared/ui'
-import '@dripfunnel/shared/ui/auth.css'
-import '@dripfunnel/shared/ui/shell.css'
+import { ErrorState, Icon, initials, LoadingState, safeNext } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/states.css'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -8,7 +6,8 @@ import { actingStore, rememberActing } from '../../acting'
 import { shellSample } from '../../api/sample'
 import { loadMe, loadMyStores, signOut, switchStore, type Me, type StoreChoice } from '../../api/shell'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { EnvironmentStrip } from '../shell/EnvironmentStrip'
+import { AuthFrame } from '../auth/AuthFrame'
+import { Foot } from '../auth/fields'
 import { choiceLabel } from '../shell/StoreSwitcher'
 import './chooseStore.css'
 
@@ -82,53 +81,40 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
   const leave = () => signOut()
 
   const last = actingStore()
+  if (view.kind === 'loading') return <AuthFrame panel="in" title={words.title}><LoadingState label={words.loading} /></AuthFrame>
+  if (view.kind === 'error') return <AuthFrame panel="in" title={words.error.title}><ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => void load() }} /></AuthFrame>
+  if (view.kind === 'none')
+    return (
+      <AuthFrame panel="in" title={words.none.title} sub={words.none.body} icon={{ name: 'alert', tone: 'warning' }}>
+        <Foot text={words.notYou} link={words.none.signOut} onClick={leave} />
+      </AuthFrame>
+    )
   return (
-    <div className="df-auth">
-      <div className="df-banners">
-        <EnvironmentStrip />
-      </div>
-      <main className="df-sign-in">
-        {view.kind === 'loading' && <LoadingState label={words.loading} />}
-        {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: () => void load() }} />}
-        {view.kind === 'none' && (
-          <section className="df-sign-in-card">
-            <h1>{words.none.title}</h1>
-            <p>{words.none.body}</p>
-            <Button onClick={leave}>{words.none.signOut}</Button>
-          </section>
-        )}
-        {view.kind === 'pick' && (
-          <section className="df-sign-in-card">
-            <h1>{words.title}</h1>
-            <p>{fill(words.body, { email: view.me.email, count: fill(plural(words.stores, view.stores.length), { count: formatCount(view.stores.length) }) })}</p>
-            <ul className="df-store-choices">
-              {view.stores.map((choice) => {
-                const isLast = last?.storeId === choice.store.id && (last.supplierId ?? null) === (choice.seller?.id ?? null)
-                return (
-                  <li key={choice.membershipId}>
-                    <button type="button" className={`df-store-choice${isLast ? ' df-store-choice--last' : ''}`} disabled={opening !== null} aria-busy={opening === choice.membershipId} onClick={() => void open(choice)}>
-                      <span className={`df-store-choice-mark${choice.seller ? ' df-store-choice-mark--supplier' : ''}`} aria-hidden="true">
-                        {initials(choice.store.name).slice(0, 1)}
-                      </span>
-                      <span className="df-store-choice-text">
-                        <strong>{choice.store.name}</strong>
-                        <small>{choiceLabel(choice)}</small>
-                      </span>
-                      {isLast && <span className="df-store-choice-last">{words.last}</span>}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-            <p className="df-sign-in-footer">
-              {words.notYou}{' '}
-              <button type="button" className="df-sign-in-link" onClick={leave}>
-                {words.signOut}
+    <AuthFrame panel="in" title={words.title} sub={fill(words.body, { email: view.me.email, count: fill(plural(words.stores, view.stores.length), { count: formatCount(view.stores.length) }) })}>
+      <ul className="df-store-choices">
+        {view.stores.map((choice, index) => {
+          const isLast = last?.storeId === choice.store.id && (last.supplierId ?? null) === (choice.seller?.id ?? null)
+          const tone = choice.seller ? 'supplier' : index === 0 ? 'first' : 'other'
+          return (
+            <li key={choice.membershipId}>
+              <button type="button" className={`df-store-choice${isLast ? ' df-store-choice--last' : ''}`} disabled={opening !== null} aria-busy={opening === choice.membershipId} onClick={() => void open(choice)}>
+                <span className={`df-store-choice-mark df-store-choice-mark--${tone}`} aria-hidden="true">
+                  {initials(choice.store.name).slice(0, 1)}
+                </span>
+                <span className="df-store-choice-text">
+                  <strong>{choice.store.name}</strong>
+                  <small>{choiceLabel(choice)}</small>
+                </span>
+                {isLast && <span className="df-store-choice-last">{messages.auth.chooser.lastUsed}</span>}
+                <span className="df-store-choice-go" aria-hidden="true">
+                  <Icon name="chevron" size={18} />
+                </span>
               </button>
-            </p>
-          </section>
-        )}
-      </main>
-    </div>
+            </li>
+          )
+        })}
+      </ul>
+      <Foot text={words.notYou} link={words.signOut} onClick={leave} />
+    </AuthFrame>
   )
 }
