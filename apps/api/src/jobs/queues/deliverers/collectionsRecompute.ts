@@ -2,11 +2,11 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import { newerRecomputeQueued, recomputeCollections } from '#db/scoped/catalogStructure'
 import { withSystemScope } from '#db/scoped/index'
+import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
 import type { Deliverer } from '../outbox-relay'
 
 const payload = z.object({ storeId: z.guid() }).strict()
 
-export const collectionsRecomputeKind = 'collections.recompute'
 
 /** `collections.recompute`: a store's automatic collections from their rules, after the change that asked (CATALOG fact 14). */
 export const collectionsRecomputeDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({

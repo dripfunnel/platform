@@ -29,12 +29,15 @@ import {
   type MenuItemRow,
   type RuleRow,
 } from '#db/scoped/catalogStructure'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { slugFrom } from './rules'
 import { isUuid } from '#core/ids'
 
 // Collections, filters and menus (CATALOG-DESIGN H–J; FIRST-RELEASE §12): the merchant side's. An
 // automatic collection's products are recomputed after commit (fact 14), through `recompute`.
+
+/** The outbox kind that recomputes a store's automatic collections (CATALOG fact 14); its deliverer is in jobs/. */
+export const collectionsRecomputeKind = 'collections.recompute'
 
 export const structureAudit = {
   collectionSaved: 'collection.saved',
@@ -312,7 +315,10 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         return { id: kept && v.id ? v.id : crypto.randomUUID(), name: valueName, position, kept }
       })
       // A store's filters stop at maxFacets, so a supplier's tagging list stays one a person can read.
-      if (existing === null && (await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
+      if (existing === null) {
+        await serialise(tx, `filter:${storeId}`)
+        if ((await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
+      }
       const facetId = id ?? crypto.randomUUID()
       await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())
       await activity.record(tx, entry(structureAudit.facetSaved, { type: 'filter', id: facetId, label: facetName }))
@@ -371,6 +377,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       let slug: string
       let nextRevision: number
       if (id === null) {
+        await serialise(tx, `collection:${storeId}`)
         if ((await countCollections(tx, storeId)) >= maxCollections) throw new Refused('TOO_MANY_COLLECTIONS')
         collectionId = crypto.randomUUID()
         slug = await insertCollection(tx, storeId, collectionId, clean.fields)

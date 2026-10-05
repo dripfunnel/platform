@@ -47,7 +47,7 @@ export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type P
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
-export { createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
+export { collectionsRecomputeKind, createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
@@ -65,7 +65,7 @@ export const catalogAudit = {
 } as const
 
 export type SaveRefusal =
-  | { reason: CatalogRefusal | 'NOT_FOUND' | 'CURRENCY_REQUIRED' | 'SUPPLIER_FIELD' | 'FILE_REFUSED' }
+  | { reason: CatalogRefusal | 'NOT_FOUND' | 'CURRENCY_REQUIRED' | 'SUPPLIER_FIELD' | 'FILE_REFUSED' | 'NOT_SHOWABLE' }
   | { reason: 'STALE_REVISION'; revision: number }
   | { reason: 'PLAN_LIMIT'; wanted: number }
 
@@ -273,6 +273,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (existing.revision !== revision) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       const product = await clean(tx, input)
       const visibility = product.visible === null ? existing.visibility : product.visible ? 'visible' : 'hidden'
+      const held = existing.hidden_by === 'plan' || existing.approval_status === 'pending' || existing.approval_status === 'sent_back'
+      if (visibility === 'visible' && existing.visibility !== 'visible' && held) throw new Refused({ reason: 'NOT_SHOWABLE' })
       // A live address changes only when asked for: a rename alone would break every link to it.
       const slug = !product.slugGiven || product.slug === existing.slug ? existing.slug : sellerId !== null ? supplierSlug(product.slug) : product.slug
       const done = await updateProduct(tx, { storeId, id, revision, fields: { ...fieldsOf(product, visibility), slug }, visibilityChange: sellerId === null && visibility !== existing.visibility }, now())
