@@ -283,7 +283,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
   if (!originAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
   const hyperdrive = config.HYPERDRIVE
   if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
-  const secrets = isStoreAuthPath(url.pathname) ? await secretsFor(config) : null
+  const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const partnerId = await resolvePortalPartner(sql, url.hostname)
     if (!partnerId) return notFound()
@@ -296,7 +296,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    return servers.store.fetch(request, { standing, partnerId, sql, activity: activityLog, facts, now: () => new Date() })
+    return servers.store.fetch(request, { standing, partnerId, sql, activity: activityLog, facts, secrets, now: () => new Date() })
   })
 }
 

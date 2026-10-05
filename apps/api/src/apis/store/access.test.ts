@@ -11,7 +11,7 @@ import { storeSchema } from './schema'
 
 // The Store API's access policy against a schema of test fields, one per scope (card #288).
 
-const person = { id: 'u1', name: 'Farhan Ali', email: 'farhan@example.test', partnerId: 'p1' }
+const person = { id: 'u1', name: 'Farhan Ali', email: 'farhan@example.test', partnerId: 'p1', sessionHash: 'h' }
 
 const acting = (role: StoreRole, status: Subscription = 'active'): StoreStanding => {
   const caller: StoreCaller = {

@@ -1,6 +1,7 @@
 import { secureSchema } from '../graphql/scope'
 import { storePolicy } from './access'
 import { createStoreBuilder } from './builder'
+import { registerProfile } from './profile'
 import { registerShell } from './shell'
 
 export type { StoreContext } from './access'
@@ -12,5 +13,6 @@ builder.queryFields((t) => ({
   health: t.string({ extensions: { access: { api: 'store', scope: 'public', permission: null } }, resolve: () => 'ok' }),
 }))
 registerShell(builder)
+registerProfile(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

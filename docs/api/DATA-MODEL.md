@@ -386,6 +386,11 @@ user_password_reset(id, request_id, partner_id, user_id, token_hash NULL UNIQUE,
             -- built on #290 (0037), as partner_password_reset (§3.2) for a person on the
             -- host's partner: one row per request at most, app_system alone; a reset spends
             -- every open row of that person and deletes all their user_session rows
+user_email_change(id, partner_id, user_id, new_email, token_hash NULL UNIQUE, expires_at,
+             used_at NULL, created_at)
+            -- built on #290 (0038): a new address proven by a link sent there, 24 hours, the
+            -- newest request only (a new one spends the old), app_system alone. 0038 also adds
+            -- user.theme ('light' | 'dark') and user.password_changed_at
 
 seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)

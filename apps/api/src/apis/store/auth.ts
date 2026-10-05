@@ -14,7 +14,7 @@ import {
 import { originAllowed, readCookie } from '#auth/cookie'
 import { lockMs, maxCodeTries, minutesUntil } from '#auth/partnerCode'
 import { verifyPassword } from '#auth/password'
-import { hashBackupCode, hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newBackupCodes, newSmsCode, phoneHint, smsCodeMs } from '#auth/storeCodes'
+import { hashBackupCode, maxSmsCodesPer10Min, newBackupCodes, phoneHint } from '#auth/storeCodes'
 import {
   clearStoreCookie,
   completeUserSession,
@@ -28,16 +28,11 @@ import {
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { isE164 } from '#core/sms'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { selectPortalBrand } from '#db/scoped/portalBrand'
 import {
-  bumpCodeAttempt,
   countCodesSince,
-  insertVerificationCode,
-  markCodeUsed,
   recordUserGoodCode,
   recordUserWrongCode,
   replaceBackupCodes,
-  selectLiveCode,
   selectSignInCandidate,
   selectUserSecondFactor,
   setUserSecondFactor,
@@ -45,8 +40,9 @@ import {
   type UserSecondFactor,
 } from '#db/scoped/userSignIn'
 import { queueSideEffect } from '#saas/outbox/index'
-import { queueSms } from '#saas/sms/index'
 import { admit, admitted, type StoreAuthDeps } from './admission'
+import { brandName, checkTextedCode, textCode } from './codes'
+import { confirmEmailChange } from './emailChange'
 import { acceptStoreInvitation, joinStore, lookUpStoreInvitation, requestStorePasswordReset, resetStorePassword } from './invitations'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 
@@ -68,6 +64,7 @@ const paths = {
   join: '/api/auth/join',
   requestReset: '/api/auth/request-password-reset',
   reset: '/api/auth/reset-password',
+  confirmEmail: '/api/auth/confirm-email',
 }
 
 const isRefusal = (value: Refusal | Record<string, unknown>): value is Refusal => typeof value['code'] === 'string'
@@ -81,12 +78,6 @@ const enrolInput = z.discriminatedUnion('method', [
   z.strictObject({ method: z.literal('sms'), phone: z.string().max(20).optional(), code: z.string().max(16).optional() }),
 ])
 
-/** The partner's brand name: the authenticator's issuer and the sender of every text (white label). */
-const brandName = async (tx: ScopedSql, partnerId: string, now: Date): Promise<string> => {
-  const brand = await selectPortalBrand(tx, partnerId, now)
-  if (!brand) throw new Error('store auth: the host resolved to a partner with no brand row')
-  return (brand.product_name ?? brand.partner_name).slice(0, 30)
-}
 
 export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Promise<Response> => {
   const url = new URL(request.url)
@@ -116,6 +107,7 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   if (url.pathname === paths.join) return joinStore(request, deps, facts, cookie)
   if (url.pathname === paths.requestReset) return requestStorePasswordReset(request, deps, facts)
   if (url.pathname === paths.reset) return resetStorePassword(request, deps, facts)
+  if (url.pathname === paths.confirmEmail) return confirmEmailChange(request, deps, facts)
   return enrol(request, deps, facts, cookie)
 }
 
@@ -181,34 +173,10 @@ const sendSignInCode = async (deps: StoreAuthDeps, facts: RequestFacts, cookie: 
     const phone = found.state.phone
     if (state.locked_until && state.locked_until > now) return { code: 'LOCKED', minutes: minutesUntil(state.locked_until, now) }
     if ((await countCodesSince(tx, state.id, new Date(now.getTime() - 10 * 60_000))) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
-    await textCode(tx, deps, state.id, phone, 'sign_in', now)
+    await textCode(tx, deps.partnerId, state.id, phone, 'sign_in', now)
     return { hint: phoneHint(phone) }
   })
   return 'code' in outcome ? refuse(outcome) : json(200, { ok: true, hint: outcome.hint })
-}
-
-const textCode = async (tx: ScopedSql, deps: StoreAuthDeps, userId: string, phone: string, purpose: 'sign_in' | 'enrol_phone', now: Date): Promise<void> => {
-  const id = crypto.randomUUID()
-  const code = newSmsCode()
-  const expiresAt = new Date(now.getTime() + smsCodeMs)
-  await insertVerificationCode(tx, { id, partnerId: deps.partnerId, userId, purpose, hash: await hashSmsCode(id, code), expiresAt, createdAt: now })
-  await queueSms(tx, {
-    partnerId: deps.partnerId,
-    storeId: null,
-    idempotencyKey: `verification_code:${id}`,
-    payload: { message: purpose === 'sign_in' ? 'code.second_factor' : 'code.verify_phone', to: phone, brand: await brandName(tx, deps.partnerId, now), vars: { code }, expiresAt: expiresAt.toISOString() },
-  })
-}
-
-/** Checks a texted code: the latest live one, five tries, used once. */
-const checkTextedCode = async (tx: ScopedSql, userId: string, purpose: 'sign_in' | 'enrol_phone', typed: string, now: Date): Promise<'ok' | 'wrong' | 'expired'> => {
-  const live = await selectLiveCode(tx, userId, purpose, now)
-  if (!live || live.attempts >= maxSmsCodeAttempts) return 'expired'
-  if ((await hashSmsCode(live.id, typed)) !== live.code_hash) {
-    await bumpCodeAttempt(tx, live.id)
-    return 'wrong'
-  }
-  return (await markCodeUsed(tx, live.id, now)) ? 'ok' : 'expired'
 }
 
 /** Once admitted, the cookie's lifetime grows from the pending ten minutes to the full session's. */
@@ -322,7 +290,7 @@ const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts,
       if (!isE164(phone)) return { code: 'INVALID_PHONE' }
       if ((await countCodesSince(tx, state.id, new Date(now.getTime() - 10 * 60_000))) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
       await setPendingEnrolment(tx, cookie, { phone })
-      await textCode(tx, deps, state.id, phone, 'enrol_phone', now)
+      await textCode(tx, deps.partnerId, state.id, phone, 'enrol_phone', now)
       return { hint: phoneHint(phone) }
     }
     if (!pending.pendingPhone) return { code: 'INVALID_CREDENTIALS' }

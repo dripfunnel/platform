@@ -38,7 +38,32 @@ type Me {
 }
 
 type Mutation {
+  changeEmail(email: String!): Boolean
+  changePassword(current: String!, next: String!): Boolean
+  regenerateBackupCodes: [String!]
+  setSecondFactor(code: String, method: String!): SecondFactorStep
+  signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
+  updateProfile(name: String!, phone: String, theme: String): Profile
+}
+
+type MyActivity {
+  nodes: [MyActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type MyActivityEntry {
+  action: String
+  id: ID
+  occurredAt: String
+  result: String
+  storeId: String
+  target: MyActivityTarget
+}
+
+type MyActivityTarget {
+  label: String
+  type: String
 }
 
 type Named {
@@ -53,6 +78,16 @@ type PageInfo {
   startCursor: String
 }
 
+type Profile {
+  email: String
+  name: String
+  passwordChangedAt: String
+  pendingEmail: String
+  phone: String
+  theme: String
+  twoFactor: TwoFactor
+}
+
 type Provisioning {
   state: String
   step: String
@@ -62,8 +97,26 @@ type Query {
   brand: Brand
   health: String
   me: Me
+  myActivity(after: String, before: String, first: Int): MyActivity
+  mySessions: [SignedInSession!]
   myStores(after: String, before: String, first: Int): StoreChoices
+  profile: Profile
   storeState: StoreState
+}
+
+type SecondFactorStep {
+  backupCodes: [String!]
+  done: Boolean
+  hint: String
+  secret: String
+  uri: String
+}
+
+type SignedInSession {
+  createdAt: String
+  current: Boolean
+  device: String
+  lastUsedAt: String
 }
 
 type StoreChoice {
@@ -92,4 +145,10 @@ type SupportBanner {
   agentFirstName: String
   endsAt: String
   partnerName: String
+}
+
+type TwoFactor {
+  backupCodesLeft: Int
+  method: String
+  required: Boolean
 }

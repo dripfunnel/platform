@@ -68,6 +68,19 @@ export const en = {
     body: (minutes: number) => `Your partner console account is locked for ${minutes} minutes after too many wrong 2-factor codes. You can sign in again after that.`,
     notYou: 'If that wasn’t you, reset your password from the sign-in page once the lock ends.',
   },
+  userEmailChange: {
+    subject: (brand: string) => `Confirm your new ${brand} email`,
+    heading: 'Confirm your new email',
+    body: (brand: string) => `Someone asked to use this address for their ${brand} account. Confirm it with the link below and it becomes the address you sign in with.`,
+    action: 'Confirm this email',
+    note: 'The link works once, for 24 hours. If you didn’t ask, ignore this email; nothing changes.',
+  },
+  userEmailChanging: {
+    subject: (brand: string) => `Your ${brand} email is about to change`,
+    heading: 'Your email is about to change',
+    body: (brand: string) => `Someone asked to move your ${brand} account to a new address. It changes only when the link sent there is clicked.`,
+    notYou: 'If that wasn’t you, sign in, change your password and sign out everywhere else; the request then can’t be confirmed without the new mailbox.',
+  },
   userLocked: {
     subject: (brand: string) => `Sign-in to ${brand} is paused`,
     heading: 'Sign-in is paused',

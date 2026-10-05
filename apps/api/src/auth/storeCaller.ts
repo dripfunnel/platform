@@ -19,6 +19,8 @@ export interface StorePerson {
   name: string
   email: string
   partnerId: string
+  /** The session's hash, only ever compared: "this browser" in My profile, the one sign-out-elsewhere keeps. */
+  sessionHash: string
 }
 
 export interface StoreCaller {
@@ -123,7 +125,8 @@ export const resolveStoreStanding = async (
     const session = await readUserSession(tx, cookie, partnerId, now)
     const row = session ? await selectStorePerson(tx, session.userId, partnerId) : null
     if (!row) return { kind: 'signed-out' }
-    const person: StorePerson = { ...row, partnerId }
+    const sessionHash = await hashSessionId(cookie)
+    const person: StorePerson = { ...row, partnerId, sessionHash }
     const asked = request.headers.get(storeHeader)
     if (!asked) return { kind: 'no-store', person }
     const memberships = uuid.test(asked) ? await selectMemberships(tx, person.id, partnerId, asked) : []
@@ -137,7 +140,7 @@ export const resolveStoreStanding = async (
     const merchant = memberships.find((m) => m.seller_id === null)
     const chosen = merchant ?? (supplier ? memberships.find((m) => m.seller_id === supplier) : memberships.length === 1 ? memberships[0] : undefined)
     if (!chosen) return { kind: 'supplier-required', person }
-    const caller = callerOf(person, await hashSessionId(cookie), chosen)
+    const caller = callerOf(person, sessionHash, chosen)
     if (!caller) {
       // A held store with a role nobody can read is a data fault, not a crossing: refused, logged technically.
       logEvent({ event: 'membership_unreadable', api: 'store', partnerId, storeId: chosen.store_id, code: chosen.role_key })

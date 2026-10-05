@@ -1,5 +1,6 @@
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
+import type { SecretBox } from '#auth/secretBox'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
 import { isStorePermission, storePermissions, storeRoleHas } from '#auth/storePermissions'
@@ -14,6 +15,8 @@ export interface StoreContext extends Record<string, unknown> {
   /** Null when the Worker has no database: every guarded field then answers UNAUTHENTICATED. */
   sql: postgres.Sql | null
   facts: RequestFacts
+  /** The credential key (THIRD-PARTY-ACCESS §5): My profile's authenticator set-up needs it. */
+  secrets?: SecretBox | null
   now: () => Date
 }
 

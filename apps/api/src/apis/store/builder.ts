@@ -11,8 +11,9 @@ export const createStoreBuilder = () => {
 
 export type StoreBuilder = ReturnType<typeof createStoreBuilder>
 
-/** The page shape every list returns: cursors, no totals (FIRST-RELEASE §19). Defined by the first list on a builder. */
-export const pageInfoType = (builder: StoreBuilder) =>
+const pageInfos = new WeakMap<StoreBuilder, ReturnType<typeof definePageInfo>>()
+
+const definePageInfo = (builder: StoreBuilder) =>
   builder.objectRef<PageInfo>('PageInfo').implement({
     fields: (t) => ({
       startCursor: t.exposeString('startCursor', { nullable: true }),
@@ -21,3 +22,12 @@ export const pageInfoType = (builder: StoreBuilder) =>
       hasNextPage: t.exposeBoolean('hasNextPage'),
     }),
   })
+
+/** The page shape every list returns: cursors, no totals (FIRST-RELEASE §19). One per builder, however many areas ask. */
+export const pageInfoType = (builder: StoreBuilder) => {
+  const known = pageInfos.get(builder)
+  if (known) return known
+  const made = definePageInfo(builder)
+  pageInfos.set(builder, made)
+  return made
+}

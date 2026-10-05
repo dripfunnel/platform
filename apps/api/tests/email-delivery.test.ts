@@ -187,6 +187,19 @@ describe('email delivery', () => {
     expect(ses.sent.find((m) => m.to.includes('known.person@shop.example'))?.text).toContain(`https://${portal}/join?token=`)
   })
 
+  it('sends an email change’s link to the new address only, and a notice without one to the old', async () => {
+    const [u] = await db.sql<{ id: string; email: string }[]>`select u.id, u.email from "user" u where u.partner_id = ${store.partnerId} and u.status = 'active' limit 1`
+    const [c] = await db.sql<{ id: string }[]>`insert into user_email_change (partner_id, user_id, new_email, expires_at) values (${store.partnerId}, ${u?.id ?? ''}, 'moved@shop.example', ${new Date(now.getTime() + 86_400_000)}) returning id`
+    for (const template of ['user-email-change', 'user-email-changing']) await queue(template, { emailChangeId: c?.id }, { partnerId: store.partnerId, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api, new Date(Date.now() + 23 * 3_600_000))
+    const link = ses.sent.find((m) => m.to.includes('moved@shop.example'))
+    const notice = ses.sent.find((m) => m.to.includes(u?.email ?? ''))
+    expect(link?.text).toMatch(/https:\/\/[^/]+\/confirm-email\?token=/)
+    expect(notice?.text).not.toContain('token=')
+    expect(notice?.subject).toContain('is about to change')
+  })
+
   it('sends no invitation link once the invitation is revoked, and none filed under another partner', async () => {
     const [row] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label, revoked_at) values (${store.id}, 'gone@shop.example', 'staff', ${new Date(now.getTime() + 86_400_000)}, 'Priya', ${now}) returning id`
     await queue('store-owner-invitation', { invitationId: row?.id, to: 'gone@shop.example', storeId: store.id }, { partnerId: store.partnerId, storeId: store.id })

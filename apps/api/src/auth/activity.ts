@@ -246,3 +246,12 @@ export const personJoinedStore = (user: { id: string; partnerId: string }, reque
 })
 export const personPasswordResetRequested = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_reset_requested', 'security', user, request)
 export const personPasswordReset = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_reset', 'security', user, request)
+// My profile (FIRST-RELEASE §4); LOGGING.md §3 names the two-factor and session codes.
+export const personProfileUpdated = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.profile_updated', 'auth', user, request)
+export const personPasswordChanged = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_changed', 'security', user, request)
+export const personEmailChangeRequested = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.email_change_requested', 'security', user, request)
+export const personEmailChanged = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.email_changed', 'security', user, request)
+export const personSecondFactorChanged = (user: { id: string; partnerId: string }, request: RequestFacts, method: 'app' | 'sms') =>
+  personEntry('two_factor.method_changed', 'security', user, request, method)
+export const personSecondFactorDisabled = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('two_factor.disabled', 'security', user, request)
+export const personOtherSessionsEnded = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('sessions.others_ended', 'security', user, request)
