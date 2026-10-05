@@ -20,7 +20,7 @@ export const newBackupCodes = (): string[] => Array.from({ length: backupCodeCou
 
 export const normaliseBackupCode = (typed: string): string => typed.trim().toLowerCase().replaceAll(/\s/g, '')
 
-// 40 bits is guessable offline from a bare hash: the password's PBKDF2 cost, salted by the person (#350).
+// Salted by the person and slow, since 40 bits would fall offline to a bare hash.
 export const hashBackupCode = (userId: string, code: string): Promise<string> => hashWithOwnerSalt(normaliseBackupCode(code), `backup:${userId}`)
 
 export const newSmsCode = (): string => {

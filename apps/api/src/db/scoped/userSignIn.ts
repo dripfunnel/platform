@@ -1,4 +1,4 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 // A merchant or supplier person's credentials on a portal host (ACCESS.md §2, §4). `system` scope
 // only: sign-in runs before there is a caller, and these columns are credentials.
@@ -59,13 +59,13 @@ export const markUserSignedIn = async (tx: ScopedSql, userId: string, now: Date)
 }
 
 /** A good code clears the count; a TOTP step is kept so the same code can't be used again. */
-export const recordUserGoodCode = async (tx: ScopedSql, userId: string, step: number | null, now: Date): Promise<void> => {
-  await tx`
+/** False when an authenticator step this new or newer was already spent, by this request's twin too. */
+export const recordUserGoodCode = async (tx: ScopedSql, userId: string, step: number | null, now: Date): Promise<boolean> =>
+  (await tx`
     update "user" set failed_code_count = 0, locked_until = null, last_sign_in_at = ${now},
       last_code_step = coalesce(${step}, last_code_step)
-    where id = ${userId}
-  `
-}
+    where id = ${userId} and (${step}::bigint is null or last_code_step is null or last_code_step < ${step})
+  `).count > 0
 
 /** Counts a wrong code; the one that reaches `max` locks the person until `lockedUntil`. */
 export const recordUserWrongCode = async (tx: ScopedSql, userId: string, max: number, lockedUntil: Date): Promise<{ triesLeft: number; locked: boolean }> => {
@@ -91,7 +91,7 @@ export const setUserSecondFactor = async (tx: ScopedSql, userId: string, method:
 /** Making new backup codes deletes the old (ACCESS.md §4). */
 export const replaceBackupCodes = async (tx: ScopedSql, user: { id: string; partnerId: string }, hashes: readonly string[]): Promise<void> => {
   await tx`delete from user_backup_code where user_id = ${user.id}`
-  for (const hash of hashes) await tx`insert into user_backup_code (user_id, partner_id, code_hash) values (${user.id}, ${user.partnerId}, ${hash})`
+  await tx`insert into user_backup_code (user_id, partner_id, code_hash) select ${user.id}, ${user.partnerId}, unnest(${pgArray(hashes)}::text[])`
 }
 
 /** Spends one unused code in the transaction that admits the session; returns how many are left, or null for no match. */
@@ -138,6 +138,6 @@ export const bumpCodeAttempt = async (tx: ScopedSql, id: string): Promise<void> 
   await tx`update verification_code set attempts = attempts + 1 where id = ${id}`
 }
 
-export const markCodeUsed = async (tx: ScopedSql, id: string, now: Date): Promise<void> => {
-  await tx`update verification_code set used_at = ${now} where id = ${id}`
-}
+/** False when another request spent it first: a code is accepted once, however many arrive together. */
+export const markCodeUsed = async (tx: ScopedSql, id: string, now: Date): Promise<boolean> =>
+  (await tx`update verification_code set used_at = ${now} where id = ${id} and used_at is null`).count > 0

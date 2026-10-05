@@ -386,3 +386,29 @@ describe('codes that are wrong, late or used', () => {
     expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code }, res.cookie)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
   })
 })
+
+describe('the same code arriving twice at once', () => {
+  it('admits one texted code once, even from two sessions racing', async () => {
+    const id = await user(t.partnerA, 'racer@a.example', 'Racing Person')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${id}, ${t.storeA1}, 'staff', 'active')`
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+16145550166' where id = ${id}`
+    const first = await post('/api/auth/sign-in', { email: 'racer@a.example', password })
+    const second = await post('/api/auth/sign-in', { email: 'racer@a.example', password })
+    await post('/api/auth/send-code', {}, first.cookie)
+    const code = await lastSmsCode('+16145550166')
+    const answers = await Promise.all([first.cookie, second.cookie].map(async (c) => (await post('/api/auth/second-factor', { code }, c)).body['ok']))
+    expect(answers.filter((ok) => ok === true)).toHaveLength(1)
+  })
+
+  it('admits one authenticator code once, even from two sessions racing', async () => {
+    const id = await user(t.partnerA, 'racer.app@a.example', 'Racing App')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${id}, ${t.storeA1}, 'staff', 'active')`
+    const secret = 'JBSWY3DPEHPK3PXP'
+    await db.sql`update "user" set two_factor_method = 'app', two_factor_enrolled_at = now(), two_factor_secret_enc = ${await secrets.seal(secret)}, last_code_step = null where id = ${id}`
+    const first = await post('/api/auth/sign-in', { email: 'racer.app@a.example', password })
+    const second = await post('/api/auth/sign-in', { email: 'racer.app@a.example', password })
+    const code = await codeAt(secret, stepAt(clock))
+    const answers = await Promise.all([first.cookie, second.cookie].map(async (c) => (await post('/api/auth/second-factor', { code }, c)).body['ok']))
+    expect(answers.filter((ok) => ok === true)).toHaveLength(1)
+  })
+})

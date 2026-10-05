@@ -93,7 +93,8 @@ const enrolInput = z.discriminatedUnion('method', [
 /** The partner's brand name: the authenticator's issuer and the sender of every text (white label). */
 const brandName = async (tx: ScopedSql, partnerId: string, now: Date): Promise<string> => {
   const brand = await selectPortalBrand(tx, partnerId, now)
-  return (brand?.product_name ?? brand?.partner_name ?? 'Your store').slice(0, 30)
+  if (!brand) throw new Error('store auth: the host resolved to a partner with no brand row')
+  return (brand.product_name ?? brand.partner_name).slice(0, 30)
 }
 
 export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Promise<Response> => {
@@ -205,8 +206,7 @@ const checkTextedCode = async (tx: ScopedSql, userId: string, purpose: 'sign_in'
     await bumpCodeAttempt(tx, live.id)
     return 'wrong'
   }
-  await markCodeUsed(tx, live.id, now)
-  return 'ok'
+  return (await markCodeUsed(tx, live.id, now)) ? 'ok' : 'expired'
 }
 
 /** Once admitted, the cookie's lifetime grows from the pending ten minutes to the full session's. */
@@ -243,7 +243,7 @@ const secondFactor = async (request: Request, deps: StoreAuthDeps, facts: Reques
         return checked === 'wrong' ? wrongCode(tx, deps, facts, state, now) : { code: 'CODE_EXPIRED' }
       }
     }
-    await recordUserGoodCode(tx, state.id, step, now)
+    if (!(await recordUserGoodCode(tx, state.id, step, now))) return { code: 'CODE_EXPIRED' }
     await completeUserSession(tx, cookie, pending.remember, now)
     admitted = { cookie, remember: pending.remember }
     await deps.activity.record(tx, personSignedIn(user, facts))
@@ -278,11 +278,7 @@ const backupCode = async (request: Request, deps: StoreAuthDeps, facts: RequestF
   return 'code' in outcome ? refuse(outcome) : json(200, { ok: true, left: outcome.left }, admittedCookie(admitted))
 }
 
-/**
- * An Owner without 2-factor sets it up before anything else answers (ACCESS.md §4). By app: asked
- * once without a code for the secret, then with the code. By SMS: asked with the number, which is
- * texted a code, then with that code. Either way the ten backup codes come back once, at the end.
- */
+/** An Owner's 2-factor set-up, by app or by SMS, ending with the ten backup codes (ACCESS.md §4). */
 const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null): Promise<Response> => {
   const input = await readBody(request, enrolInput)
   const now = deps.now()
