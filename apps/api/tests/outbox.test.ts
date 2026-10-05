@@ -3,7 +3,7 @@ import type { CallerContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
 import { backoffMs, defaultRelayOptions, GiveUp, relayDue, type Deliverers, type Effect, type RelayOptions } from '#jobs/queues/outbox-relay'
-import { queueSideEffect } from '#saas/outbox/index'
+import { NotYet, queueSideEffect } from '#saas/outbox/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -43,6 +43,11 @@ const deliverers: Deliverers = {
   flaky: {
     deliver: async () => {
       throw new Error('provider said no, and named someone@example.com while doing so')
+    },
+  },
+  waiting: {
+    deliver: async () => {
+      throw new NotYet('no_portal_host', 60_000)
     },
   },
   hopeless: {
@@ -168,6 +173,16 @@ describe('failures (AGENTS.md "Reliability")', () => {
     expect(kept?.payload).toEqual({ redacted: true })
     clock += 60_000
     expect(await relay(db.sql, 'hopeless')).toBe('skipped')
+  })
+
+  it('a row that can’t go yet waits as long as it takes, never counted toward giving up', async () => {
+    const id = await queued(staff, 'waiting', 'waiting-1')
+    if (!id) throw new Error('not queued')
+    for (let i = 0; i < 5; i += 1) {
+      expect(await relay(db.sql, 'waiting')).toBe('retry')
+      clock += 61_000
+    }
+    expect(await row(id)).toMatchObject({ attempts: 0, last_error: 'no_portal_host', failed_at: null, delivered_at: null })
   })
 
   it('a row with no deliverer is left untouched, attempts included', async () => {

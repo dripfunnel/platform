@@ -108,6 +108,14 @@ export const markAttemptFailed = async (
   `
 }
 
+/** A row that can't go yet: back in the queue at `nextAttemptAt`, this claim not counted as an attempt. */
+export const markPostponed = async (tx: ScopedSql, id: string, outcome: { error: string; nextAttemptAt: Date }): Promise<void> => {
+  await tx`
+    update outbox set attempts = greatest(attempts - 1, 0), last_error = ${outcome.error}, next_attempt_at = ${outcome.nextAttemptAt}, claimed_at = null
+    where id = ${id} and delivered_at is null
+  `
+}
+
 /** Replaces a finished row's payload with what its deliverer keeps (outbox-relay.ts `redact`). */
 export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Record<string, unknown>): Promise<void> => {
   await tx`update outbox set payload = ${JSON.stringify(kept)}::text::jsonb where id = ${id}`

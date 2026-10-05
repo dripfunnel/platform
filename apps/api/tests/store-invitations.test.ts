@@ -4,9 +4,10 @@ import type { StoreContext } from '#apis/store/access'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
 import { storeSchema } from '#apis/store/schema'
 import { hashPassword, verifyPassword } from '#auth/password'
+import { hashSessionId } from '#auth/session'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding } from '#auth/storeCaller'
-import { storeCookieName } from '#auth/storeSession'
+import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { mintStoreInvitationToken, mintUserResetToken, userPasswordResetRequestKind } from '#auth/storeTokens'
 import { withSystemScope } from '#db/scoped/index'
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
@@ -138,6 +139,13 @@ describe('accepting as a new person', () => {
     expect(await me(res.cookie)).toBeNull()
   })
 
+  it('never accepts a link on another partner’s host', async () => {
+    const id = await person(t.partnerA, 'traveller@a.example', 'invited')
+    const { token } = await invite({ storeId: t.storeA1, email: 'traveller@a.example', role: 'staff', userId: id })
+    expect((await post('/api/auth/accept-invitation', { token, name: 'Traveller', password }, '', onB())).body).toEqual({ ok: false, code: 'INVITATION_INVALID' })
+    expect(await membershipStatus(id, t.storeA1)).toBe('invited')
+  })
+
   it('never sets a password on an existing account through a join link', async () => {
     const id = await person(t.partnerA, 'existing@a.example', 'active')
     const { token } = await invite({ storeId: t.storeA2, email: 'existing@a.example', role: 'staff', userId: id })
@@ -173,10 +181,49 @@ describe('joining with an existing account', () => {
     expect(await me(cookie)).toBeNull()
   })
 
-  it('never joins a link from another partner’s host', async () => {
+  it('never joins a link on another partner’s host, even for someone signed in there', async () => {
     const id = await person(t.partnerA, 'wanderer@a.example', 'active')
     const { token } = await invite({ storeId: t.storeA1, email: 'wanderer@a.example', role: 'staff', userId: id })
-    expect((await post('/api/auth/join', { token }, await signIn('wanderer@a.example'), onB())).body).toEqual({ ok: false, code: 'INVALID_CREDENTIALS' })
+    const bId = await person(t.partnerB, 'wanderer@a.example', 'active')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${bId}, ${t.storeB1}, 'staff', 'active')`
+    const onBSession = (await post('/api/auth/sign-in', { email: 'wanderer@a.example', password }, '', onB())).cookie
+    expect((await post('/api/auth/join', { token }, onBSession, onB())).body).toEqual({ ok: false, code: 'INVITATION_INVALID' })
+    expect(await membershipStatus(id, t.storeA1)).toBe('invited')
+  })
+
+  it('never restores a suspended member or changes the role of a live one', async () => {
+    const suspended = await person(t.partnerA, 'suspended@a.example', 'active')
+    const { token: back } = await invite({ storeId: t.storeA1, email: 'suspended@a.example', role: 'staff', userId: suspended })
+    await db.sql`update membership set status = 'suspended' where user_id = ${suspended} and store_id = ${t.storeA1}`
+    expect((await post('/api/auth/join', { token: back }, await signIn('suspended@a.example'))).body).toEqual({ ok: false, code: 'INVITATION_INVALID' })
+    expect(await membershipStatus(suspended, t.storeA1)).toBe('suspended')
+    const owner = await person(t.partnerA, 'already.owner@a.example', 'active')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
+    const [inv] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${t.storeA2}, 'already.owner@a.example', 'staff', ${new Date(now.getTime() + day)}, 'Priya Shah') returning id`
+    const token = (await withSystemScope(db.sql, (tx) => mintStoreInvitationToken(tx, inv?.id ?? '', now))) ?? ''
+    const full = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: owner, partnerId: t.partnerA }, now))
+    expect((await post('/api/auth/join', { token }, full)).body).toEqual({ ok: false, code: 'INVITATION_INVALID' })
+    const [role] = await db.sql<{ role_key: string }[]>`select role_key from membership where user_id = ${owner} and store_id = ${t.storeA2}`
+    expect(role?.role_key).toBe('owner')
+  })
+
+  it('refuses an expired, revoked or closed-store link on join and on accept', async () => {
+    const id = await person(t.partnerA, 'many.links@a.example', 'active')
+    const joiner = await signIn('many.links@a.example')
+    const expired = await invite({ storeId: t.storeA1, email: 'many.links@a.example', role: 'staff', userId: id })
+    await db.sql`update invitation set expires_at = ${new Date(now.getTime() - 1000)} where id = ${expired.id}`
+    expect((await post('/api/auth/join', { token: expired.token }, joiner)).body).toEqual({ ok: false, code: 'INVITATION_EXPIRED', invitedBy: 'Priya Shah' })
+    const fresh = await person(t.partnerA, 'closed.store@a.example', 'invited')
+    const closed = await invite({ storeId: t.storeA2, email: 'closed.store@a.example', role: 'staff', userId: fresh })
+    await db.sql`update invitation set revoked_at = ${now} where id = ${closed.id}`
+    expect((await post('/api/auth/accept-invitation', { token: closed.token, name: 'Closed', password })).body).toEqual({ ok: false, code: 'INVITATION_INVALID' })
+    await db.sql`update invitation set revoked_at = null where id = ${closed.id}`
+    await db.sql`update store set status = 'closed' where id = ${t.storeA2}`
+    try {
+      expect((await post('/api/auth/accept-invitation', { token: closed.token, name: 'Closed', password })).body).toEqual({ ok: false, code: 'INVITATION_INVALID' })
+    } finally {
+      await db.sql`update store set status = 'active' where id = ${t.storeA2}`
+    }
   })
 })
 
@@ -215,11 +262,23 @@ describe('resetting a password', () => {
     const res = await post('/api/auth/reset-password', { token, password: 'a brand new passphrase' })
     expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'sms' })
     // Only the session this reset opened is left: the one from before is gone.
-    const [left] = await db.sql<{ n: number }[]>`select count(*)::int as n from user_session where user_id = ${id}`
-    expect(left?.n).toBe(1)
-    expect(elsewhere).not.toBe('')
+    const left = await db.sql<{ id_hash: string }[]>`select id_hash from user_session where user_id = ${id}`
+    expect(left.map((r) => r.id_hash)).toEqual([await hashSessionId(res.cookie)])
+    expect(left.map((r) => r.id_hash)).not.toContain(await hashSessionId(elsewhere))
     expect((await post('/api/auth/reset-password', { token, password: 'another new passphrase' })).body).toEqual({ ok: false, code: 'RESET_INVALID' })
     expect((await post('/api/auth/sign-in', { email: 'forgetful@a.example', password: 'a brand new passphrase' })).body).toMatchObject({ ok: true, step: 'second-factor' })
+  })
+
+  it('refuses a reset link past its 30 minutes, and one for an account no longer active', async () => {
+    const id = await person(t.partnerA, 'slow@a.example', 'active')
+    await post('/api/auth/request-password-reset', { email: 'slow@a.example' })
+    await relayResets()
+    const [reset] = await resetsOf(id)
+    const token = (await withSystemScope(db.sql, (tx) => mintUserResetToken(tx, reset?.id ?? '', now))) ?? ''
+    const late = deps({ now: () => new Date(now.getTime() + 31 * 60_000) })
+    expect((await post('/api/auth/reset-password', { token, password: 'a brand new passphrase' }, '', late)).body).toEqual({ ok: false, code: 'RESET_INVALID' })
+    await db.sql`update "user" set status = 'suspended' where id = ${id}`
+    expect((await post('/api/auth/reset-password', { token, password: 'a brand new passphrase' })).body).toEqual({ ok: false, code: 'RESET_INVALID' })
   })
 
   it('lifts a sign-in pause, as the locked screen promises', async () => {

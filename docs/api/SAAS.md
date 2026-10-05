@@ -178,7 +178,7 @@ receives uses the partner of the store (or portal host) it concerns, never anoth
   and every active Finance user. Store notices: the store's Owners.
 - **Links** are minted when the email is sent, in the transaction that sends it.
 - **Merchant links** (store invitations, password reset; #290) lead to the partner's live portal
-  host; until it has one, the email is retried, never dropped. An invitation to an account that
+  host; until it has one, the email waits, checked hourly and never counted toward giving up (`NotYet`). An invitation to an account that
   already has a password links to `/join`, any other to `/accept-invite` (ACCESS.md §6.2).
 - **Suppression.** An address SES reports as a permanent bounce or a complaint gets no merchant
   notice again. Account email (staff and partner invitations, password reset, lock notice) is
