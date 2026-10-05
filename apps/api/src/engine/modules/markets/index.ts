@@ -24,7 +24,7 @@ import {
   updateMarket,
   type LocaleRow,
 } from '#db/scoped/markets'
-import { selectRates, type RateRow } from '#db/scoped/rates'
+import { selectAllRates, selectRates, type RateRow } from '#db/scoped/rates'
 import { conversionExamples, priceInMarket, pricesByCurrency, type ConversionExample, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
 import { missingFor, type ReadinessNeed } from './readiness'
 import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type MarketInput, type MarketsRefusal } from './rules'
@@ -221,12 +221,15 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       return [...(await selectRates(tx, wanted)).values()]
     })
 
-  /** What 100 of the pricing currency comes to in the euro and each currency with a rate, under each rounding (O4). */
+  /**
+   * What 100 of the pricing currency comes to in the euro and every currency with a reference rate, under each
+   * rounding (O4): the currencies Settings can add, and the example for one added or switched but not yet saved.
+   */
   const examples = () =>
     inScope(async (tx): Promise<ConversionExample[]> => {
       const store = await selectLocale(tx, storeId)
       if (!store?.pricing_currency) return []
-      const rows = [...(await selectRates(tx, [store.pricing_currency, ...store.currencies.map((c) => c.currency)])).values()]
+      const rows = await selectAllRates(tx)
       const perEuro = new Map(rows.map((r) => [r.currency, r.per_euro]))
       return conversionExamples({ pricingCurrency: store.pricing_currency, currencies: [], perEuro }, ['EUR', ...rows.map((r) => r.currency)])
     })

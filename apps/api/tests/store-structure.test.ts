@@ -168,7 +168,8 @@ describe('filters', () => {
     const facet = (await saveFacet('owner', { name: 'Season', values: [{ name: 'Summer' }, { name: 'Winter' }] })).id ?? ''
     const [summer, winter] = (await facets('owner')).find((f) => f.id === facet)?.values ?? []
     const made = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Seasonal', kind: 'automatic', match: 'any', rules: [{ kind: 'filter_value', valueId: summer?.id }, { kind: 'filter_value', valueId: winter?.id }] } })).data?.['saveCollection'] as { id: string }
-    expect((await saveFacet('owner', { id: facet, name: 'Season', values: [{ id: winter?.id, name: 'Winter' }] })).code).toBeUndefined()
+    const revision = ((await gql('{ facets(first: 50) { nodes { id revision } } }', 'owner')).data?.['facets'] as { nodes: { id: string; revision: number }[] }).nodes.find((f) => f.id === facet)?.revision
+    expect((await saveFacet('owner', { id: facet, name: 'Season', revision, values: [{ id: winter?.id, name: 'Winter' }] })).code).toBeUndefined()
     const rules = (await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: { valueId: string }[] }
     expect(rules.rules).toEqual([{ valueId: winter?.id }])
     expect((await gql('mutation D($id: ID!) { deleteFacet(id: $id) }', 'owner', { id: facet })).data?.['deleteFacet']).toBe(true)
@@ -189,8 +190,8 @@ describe('filters', () => {
     const long = now?.values.find((v) => v.name === 'Long')?.id
     await gql('mutation M($into: ID!, $from: [ID!]!) { mergeFacetValues(into: $into, from: $from) }', 'owner', { into: short?.id, from: [long] })
     expect((await saveFacet('owner', { id, name: 'Sleeve', revision: now?.revision, values: now?.values.map((v) => ({ id: v.id, name: v.name })) ?? [] })).code).toBe('STALE_REVISION')
-    // Left out, a save is made whatever came between, as before.
-    expect((await saveFacet('owner', { id, name: 'Sleeves', values: [{ id: short?.id, name: 'Short' }] })).code).toBeUndefined()
+    // An update always names the revision it read; one that doesn't is refused, never made blind.
+    expect((await saveFacet('owner', { id, name: 'Sleeves', values: [{ id: short?.id, name: 'Short' }] })).code).toBe('INVALID_INPUT')
   })
 
   it('merges look-alike values into one, keeping every tag and rule', async () => {

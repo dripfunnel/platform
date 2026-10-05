@@ -102,7 +102,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
       onConfirm: (_, value, picks) => {
         const rule = badgeRules.find((r) => r === picks['rule']) ?? 'manual'
         const label = (value ?? '').trim()
-        void run(async () => (await saveBadge(b?.id ?? null, { label, rule, tone: toneOf(rule) }), b ? words.badgeSaved : fill(rule === 'manual' ? words.badgeAddedManual : words.badgeAddedAuto, { name: label })), onChanged)
+        void run(async () => (await saveBadge(b?.id ?? null, { label, rule, tone: toneOf(rule), position: b ? b.position : basics.badges.reduce((n, x) => Math.max(n, x.position + 1), 0) }), b ? words.badgeSaved : fill(rule === 'manual' ? words.badgeAddedManual : words.badgeAddedAuto, { name: label })), onChanged)
       },
     })
 

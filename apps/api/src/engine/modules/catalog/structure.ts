@@ -315,8 +315,10 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       if (id !== null && !isUuid(id)) throw new Refused('NOT_FOUND')
       const existing = id ? await selectFacetValueIds(tx, storeId, id) : null
       if (id !== null && existing === null) throw new Refused('NOT_FOUND')
+      // An update names the revision it read, so no save from an old read can delete a value added since (0057).
+      if (existing && (input.revision === null || input.revision === undefined)) throw new Refused('INVALID_INPUT')
       // Said before the values are checked: a value named from an older read may be the very change missed.
-      if (existing && input.revision !== null && input.revision !== undefined && input.revision !== existing.revision) throw new Refused('STALE_REVISION')
+      if (existing && input.revision !== existing.revision) throw new Refused('STALE_REVISION')
       const seen = new Set<string>()
       const values = input.values.map((v, position) => {
         const valueName = name(v.name, 60)

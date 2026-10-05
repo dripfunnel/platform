@@ -111,7 +111,8 @@ export const badgeRules = ['new_30_days', 'top_5_this_month', 'below_compare_pri
 export type BadgeRule = (typeof badgeRules)[number]
 
 /** A new badge (no id), or a change to one; answers its id. */
-export const saveBadge = async (id: string | null, input: { label: string; rule: BadgeRule; tone: 'ok' | 'peach' | 'neutral' }): Promise<string> =>
+/** `position` keeps an edited badge where it is; a new one goes last. */
+export const saveBadge = async (id: string | null, input: { label: string; rule: BadgeRule; tone: 'ok' | 'peach' | 'neutral'; position: number }): Promise<string> =>
   (await query('mutation B($id: ID, $input: BadgeInput!) { saveBadge(id: $id, input: $input) }', z.object({ saveBadge: z.string() }), { id, input })).saveBadge
 
 /** Off every product it was on, straight away. */

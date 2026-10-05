@@ -130,7 +130,9 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
     else go()
   }
 
-  const add = () =>
+  /** A new market replaces the one open, so unsaved changes ask first, as picking another does. */
+  const add = () => (dirty ? setAsk({ title: words.leaveTitle, target: '', consequence: words.leaveBody, confirmLabel: words.discard, danger: true, onConfirm: startNew }) : startNew())
+  const startNew = () =>
     setAsk({
       title: words.newTitle,
       target: '',
@@ -140,7 +142,6 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
       onConfirm: (_, value) => {
         setDraft({ id: null, revision: null, name: (value ?? '').trim(), parentId: null, primary: false, active: true, countries: [], currency: loc.pricingCurrency ?? currencies[0] ?? '', language: loc.mainLanguage ?? languages[0] ?? '', adjust: '', webMode: 'main', pathPrefix: '', products: 'all', excluded: [], duties: 'none', dutyRate: '', dutyThreshold: '' })
         setTried(false)
-        onSaved(words.created)
       },
     })
 
@@ -239,7 +240,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
       setMarkets((list) => (list.some((m) => m.id === stored.id) ? list.map((m) => (m.id === stored.id ? stored : m)) : [...list, stored]))
       setDraft(draftOfMarket(stored))
       setTried(false)
-      return fill(words.saved, { name: stored.name })
+      return fill(draft.id === null ? words.created : words.saved, { name: stored.name })
     })
   }
   const remove = () =>
@@ -373,8 +374,8 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
             <label htmlFor={`${id}-adjust`}>{words.adjust}</label>
             <span className="df-set-help">{words.adjustHelp}</span>
             <span className="df-mkt-suffix">
-              <input id={`${id}-adjust`} inputMode="decimal" value={draft.adjust} readOnly={ro} placeholder="0" aria-invalid={tried && problem === 'adjust'} onChange={(e) => set({ adjust: e.target.value.replace(/[^\d.-]/g, '') })} />
-              <span aria-hidden="true">%</span>
+              <input id={`${id}-adjust`} inputMode="decimal" value={draft.adjust} readOnly={ro} placeholder={words.placeholders.adjust} aria-invalid={tried && problem === 'adjust'} onChange={(e) => set({ adjust: e.target.value.replace(/[^\d.-]/g, '') })} />
+              <span aria-hidden="true">{words.percent}</span>
             </span>
           </div>
           <div className="df-set-field">
@@ -385,7 +386,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
               <option value="path">{words.pathAddress}</option>
             </select>
             {draft.webMode === 'path' && (
-              <input aria-label={words.path} className="df-set-mono" value={draft.pathPrefix} readOnly={ro} maxLength={20} placeholder="uk" aria-invalid={tried && problem === 'path'} onChange={(e) => set({ pathPrefix: e.target.value.toLowerCase() })} />
+              <input aria-label={words.path} className="df-set-mono" value={draft.pathPrefix} readOnly={ro} maxLength={20} placeholder={words.placeholders.path} aria-invalid={tried && problem === 'path'} onChange={(e) => set({ pathPrefix: e.target.value.toLowerCase() })} />
             )}
           </div>
         </section>
@@ -436,13 +437,13 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
               {draft.duties === 'flat' && (
                 <div className="df-set-field">
                   <label htmlFor={`${id}-drate`}>{words.dutyRate}</label>
-                  <input id={`${id}-drate`} inputMode="decimal" value={draft.dutyRate} readOnly={ro} placeholder="12" aria-invalid={tried && problem === 'dutyRate'} onChange={(e) => set({ dutyRate: e.target.value.replace(/[^\d.]/g, '') })} />
+                  <input id={`${id}-drate`} inputMode="decimal" value={draft.dutyRate} readOnly={ro} placeholder={words.placeholders.dutyRate} aria-invalid={tried && problem === 'dutyRate'} onChange={(e) => set({ dutyRate: e.target.value.replace(/[^\d.]/g, '') })} />
                 </div>
               )}
               <div className="df-set-field">
                 <label htmlFor={`${id}-dmin`}>{fill(words.dutyMin, { currency: draft.currency })}</label>
                 <span className="df-set-help">{words.dutyMinHelp}</span>
-                <input id={`${id}-dmin`} inputMode="decimal" value={draft.dutyThreshold} readOnly={ro} placeholder="0" aria-invalid={tried && problem === 'dutyThreshold'} onChange={(e) => set({ dutyThreshold: e.target.value })} />
+                <input id={`${id}-dmin`} inputMode="decimal" value={draft.dutyThreshold} readOnly={ro} placeholder={words.placeholders.dutyThreshold} aria-invalid={tried && problem === 'dutyThreshold'} onChange={(e) => set({ dutyThreshold: e.target.value })} />
               </div>
             </div>
           )}

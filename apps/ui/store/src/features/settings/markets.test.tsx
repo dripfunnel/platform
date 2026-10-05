@@ -8,7 +8,7 @@ import { z } from 'zod'
 import type { Market } from '../../api/markets'
 import type { StoreLocale } from '../../api/settings'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { fill, messages } from '../../messages'
 
 // Settings › Markets driven as the Owner would (SetMarkets).
 
@@ -124,6 +124,8 @@ describe('markets', () => {
     fireEvent.click(screen.getByRole('button', { name: w.add }))
     fireEvent.change(dialog().getByLabelText(w.name), { target: { value: 'Europe' } })
     fireEvent.click(dialog().getByRole('button', { name: w.create }))
+    // Nothing exists until it's saved, so nothing says it was made.
+    expect(screen.queryByText(fill(w.created, { name: 'Europe' }))).toBeNull()
     save()
     expect(api.saveMarket).not.toHaveBeenCalled()
     expect(screen.getByRole('alert').textContent).toBe(w.problems.countries)
@@ -134,6 +136,19 @@ describe('markets', () => {
     await settle()
     expect(api.saveMarket).toHaveBeenCalledWith(null, null, expect.objectContaining({ name: 'Europe', countries: ['DE', 'FR'], currency: 'USD', active: true }))
     expect(list().getByText('Europe')).toBeTruthy()
+    expect(screen.getByText(fill(w.created, { name: 'Europe' }))).toBeTruthy()
+  })
+
+  it('ask before a new market replaces unsaved changes', async () => {
+    await show()
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'India and Nepal' } })
+    fireEvent.click(screen.getByRole('button', { name: w.add }))
+    expect(dialog().getByText(w.leaveBody)).toBeTruthy()
+    fireEvent.click(dialog().getByRole('button', { name: w.cancel }))
+    expect((screen.getByLabelText(w.name) as HTMLInputElement).value).toBe('India and Nepal')
+    fireEvent.click(screen.getByRole('button', { name: w.add }))
+    fireEvent.click(dialog().getByRole('button', { name: w.discard }))
+    expect(dialog().getByLabelText(w.name)).toBeTruthy()
   })
 
   it('collect duties as a flat rate above a threshold in the market’s currency, and leave some products out', async () => {

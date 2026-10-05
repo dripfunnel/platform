@@ -2,7 +2,7 @@ import { GraphQLError } from 'graphql'
 import type { StoreCaller } from '#auth/storeCaller'
 import { pageOf } from '#core/paging'
 import { isUuid } from '#core/ids'
-import { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from '#engine/modules/catalog/index'
+import { createSettingsService, maxSizeCharts, settingsAudit, type SettingsRefusal, type SettingsResult } from '#engine/modules/catalog/index'
 import { planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -83,7 +83,12 @@ export const registerListing = (builder: StoreBuilder) => {
     }),
   })
   const SizeChartPage = builder.objectRef<{ nodes: ChartSummary[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('SizeChartPage').implement({
-    fields: (t) => ({ nodes: t.field({ type: [SizeChartSummary], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
+    fields: (t) => ({
+      nodes: t.field({ type: [SizeChartSummary], resolve: (p) => p.nodes }),
+      pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }),
+      // How many charts an owner may have, so a screen's meter never copies the number.
+      limit: t.int({ resolve: () => maxSizeCharts }),
+    }),
   })
   const MeasureNote = builder.objectRef<{ measurement: string; text: string }>('SizeChartMeasureNote').implement({
     fields: (t) => ({ measurement: t.exposeString('measurement'), text: t.exposeString('text') }),
