@@ -1,5 +1,4 @@
 import type postgres from 'postgres'
-import type { PageWindow } from '#core/paging'
 import { defaultLowStock } from './inventory'
 import { pgArray, uniqueViolation, type ScopedSql } from './index'
 
@@ -75,29 +74,79 @@ export interface ProductQuery {
   untranslatedIn?: string | null
 }
 
-export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQuery, window: PageWindow): Promise<ProductListRow[]> => {
+/** CatList's sorts; the two by time page by the row's time, the rest by their own value (core/cursor's value cursors). */
+export type ProductSort = 'created' | 'updated' | 'name' | 'price_low' | 'price_high' | 'stock'
+
+/** A page of a sorted list: the row's sort value (as text) and id to go after or before. */
+export interface SortWindow {
+  limit: number
+  after: { value: string; id: string } | null
+  before: { value: string; id: string } | null
+}
+
+const sortOf: Record<ProductSort, { value: string; type: string; descending: boolean }> = {
+  created: { value: 'created_at', type: 'timestamptz', descending: true },
+  updated: { value: 'updated_at', type: 'timestamptz', descending: true },
+  name: { value: 'lower(name)', type: 'text', descending: false },
+  // Unpriced products come last either way.
+  price_low: { value: 'coalesce(min_amount::bigint, 9223372036854775807)', type: 'bigint', descending: false },
+  price_high: { value: 'coalesce(min_amount::bigint, -1)', type: 'bigint', descending: true },
+  stock: { value: 'stock', type: 'int', descending: false },
+}
+
+/** A row's sort value as text, for its cursor. */
+export const sortValueOf = (row: ProductListRow, sort: ProductSort): string => {
+  switch (sort) {
+    case 'created':
+      return row.created_at.toISOString()
+    case 'updated':
+      return row.updated_at.toISOString()
+    case 'name':
+      return row.name.toLowerCase()
+    case 'price_low':
+      return row.min_amount ?? '9223372036854775807'
+    case 'price_high':
+      return row.min_amount ?? '-1'
+    case 'stock':
+      return String(row.stock)
+  }
+}
+
+export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQuery, window: SortWindow, sort: ProductSort = 'created'): Promise<ProductListRow[]> => {
+  const order = sortOf[sort]
   const backwards = window.before !== null && window.after === null
+  // Rows further along the sort than the cursor's: below it when the sort descends, above it when it ascends.
+  const beyond = (key: { value: string; id: string }, forward: boolean) =>
+    order.descending === forward
+      ? tx`(sort_value, id) < (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)`
+      : tx`(sort_value, id) > (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)`
+  const direction = order.descending !== backwards ? tx`desc` : tx`asc`
   return tx<ProductListRow[]>`
-    select p.id, p.name, p.slug, p.visibility, p.approval_status, p.product_type, p.seller_id, s.name as seller_name, s.status as seller_status,
-      p.created_at, p.updated_at,
-      (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
-      (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null and v.visibility = 'visible') as visible_versions,
-      (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
-         where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as min_amount,
-      (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
-         where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
-      (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
-      (select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = p.id and v.deleted_at is null) as stock
-    from product p
-    left join seller s on s.id = p.seller_id
-    where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
-      and ${filterOf(tx, query.filter)}
-      and ${query.seller === 'own' ? tx`p.seller_id is null` : query.seller ? tx`p.seller_id = ${query.seller}::uuid` : tx`true`}
-      and ${query.untranslatedIn ? tx`not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${query.untranslatedIn})` : tx`true`}
-      and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
-      and ${window.after ? tx`(p.created_at, p.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
-      and ${window.before ? tx`(p.created_at, p.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
-    order by p.created_at ${backwards ? tx`asc` : tx`desc`}, p.id ${backwards ? tx`asc` : tx`desc`}
+    with base as (
+      select p.id, p.name, p.slug, p.visibility, p.approval_status, p.product_type, p.seller_id, s.name as seller_name, s.status as seller_status,
+        p.created_at, p.updated_at,
+        (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
+        (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null and v.visibility = 'visible') as visible_versions,
+        (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
+           where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as min_amount,
+        (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
+           where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
+        (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
+        (select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = p.id and v.deleted_at is null) as stock
+      from product p
+      left join seller s on s.id = p.seller_id
+      where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
+        and ${filterOf(tx, query.filter)}
+        and ${query.seller === 'own' ? tx`p.seller_id is null` : query.seller ? tx`p.seller_id = ${query.seller}::uuid` : tx`true`}
+        and ${query.untranslatedIn ? tx`not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${query.untranslatedIn})` : tx`true`}
+        and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
+    ), sorted as (
+      select base.*, ${tx.unsafe(order.value)} as sort_value from base
+    )
+    select * from sorted
+    where ${window.after ? beyond(window.after, true) : tx`true`}
+      and ${window.before ? beyond(window.before, false) : tx`true`}
+    order by sort_value ${direction}, id ${direction}
     limit ${window.limit + 1}
   `
 }
@@ -344,6 +393,17 @@ export const setProductsVisibility = (tx: ScopedSql, storeId: string, ids: reado
     where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null and visibility <> ${visibility}
       and (${visibility} = 'hidden' or not ${heldBack(tx)})
     returning id, name
+  `
+
+/** CatList's bulk "Change tax category": every live version of each product takes the class (null is the store's default). */
+export const setProductsTaxClass = (tx: ScopedSql, storeId: string, ids: readonly string[], taxClassId: string | null, now: Date): Promise<{ id: string; name: string }[]> =>
+  tx<{ id: string; name: string }[]>`
+    with changed as (
+      update product_version v set tax_class_id = ${taxClassId}::uuid, updated_at = ${now}
+      where v.store_id = ${storeId} and v.product_id = any(${pgArray(ids)}::uuid[]) and v.deleted_at is null
+      returning v.product_id
+    )
+    select distinct p.id, p.name from product p join changed c on c.product_id = p.id
   `
 
 /** Soft delete (§7.1): the products and their versions go, orders keep their lines; the web addresses free up. */

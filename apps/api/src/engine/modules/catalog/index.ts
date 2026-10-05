@@ -1,6 +1,5 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import {
   countProducts,
@@ -18,6 +17,7 @@ import {
   selectProduct,
   selectProducts,
   setProductPhotos,
+  setProductsTaxClass,
   setProductsVisibility,
   setProductVideo,
   setVersionChoices,
@@ -32,6 +32,8 @@ import {
   type OptionWrite,
   type ProductFields,
   type ProductQuery,
+  type ProductSort,
+  type SortWindow,
   type ProductRow,
   type ValueWrite,
   type VersionFields,
@@ -55,7 +57,8 @@ export { createTranslationService, translationAudit, type ProductTranslationInpu
 export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalResult } from './approval'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
-export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
+export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
+export { sortValueOf } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
 // so a supplier's save reaches only its own products and a merchant's reaches the whole store.
@@ -67,6 +70,7 @@ export const catalogAudit = {
   deleted: 'product.deleted',
   shown: 'product.shown',
   hidden: 'product.hidden',
+  taxClassChanged: 'product.tax_class_changed',
 } as const
 
 export type SaveRefusal =
@@ -398,6 +402,16 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     })
 
   /** The merchant side's bulk show and hide (CatList); a supplier never reaches it. */
+  /** The merchant side's (fact 37): a supplier's products take the store's default. */
+  const setTaxClass = (ids: readonly string[], taxClassId: string | null) =>
+    inScope(async (tx): Promise<number | 'NOT_FOUND'> => {
+      if (sellerId !== null) throw new Error('catalogue: a supplier never sets a tax class')
+      if (taxClassId !== null && (!isUuid(taxClassId) || (await classesOfStore(tx, storeId, [taxClassId])) !== 1)) return 'NOT_FOUND'
+      const changed = await setProductsTaxClass(tx, storeId, ids, taxClassId, now())
+      await activity.recordAll(tx, changed.map((c) => entry(catalogAudit.taxClassChanged, { id: c.id, label: c.name })))
+      return changed.length
+    })
+
   const setVisibility = (ids: readonly string[], visible: boolean) =>
     inScope(async (tx) => {
       if (sellerId !== null) throw new Error('catalogue: a supplier never sets visibility')
@@ -406,11 +420,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return changed.length
     })
 
-  const list = (query: Omit<ProductQuery, 'currency'>, window: PageWindow) =>
+  const list = (query: Omit<ProductQuery, 'currency'>, window: SortWindow, sort: ProductSort = 'created') =>
     inScope(async (tx) => {
       const currency = await selectPricingCurrency(tx)
       // A supplier's filter is its own scope; the supplier filter is the merchant's.
-      return { currency, rows: await selectProducts(tx, storeId, { ...query, seller: sellerId !== null ? null : query.seller, currency }, window) }
+      return { currency, rows: await selectProducts(tx, storeId, { ...query, seller: sellerId !== null ? null : query.seller, currency }, window, sort) }
     })
 
   const counts = () => inScope((tx) => countProducts(tx, storeId))
@@ -418,5 +432,5 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const get = (id: string) =>
     inScope(async (tx) => ({ currency: await selectPricingCurrency(tx), product: await selectProduct(tx, storeId, id) }))
 
-  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility }
+  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass }
 }

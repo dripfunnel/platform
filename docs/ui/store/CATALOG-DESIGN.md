@@ -1162,7 +1162,13 @@ information (S4)**, which is configuration only.
   countries, and an Indian store selling domestically and to the UAE.
 - T2. **Compliance checklist per product**: "Ready to sell in: US ✓ · DE: 2 missing ·
   FR: French warnings needed". Clicking an item jumps to the field. It appears in the
-  product list as a filter and a column ("Not ready in EU: 34").
+  product list as a filter and a column ("Not ready in EU: 34"). **Built on #298** as the
+  prototype's `marketStatus` reckons it, per live top-level market: a price the market can
+  charge (gift cards aside), and for a physical product what its countries require, the US
+  fibre content, country of origin and care instructions, India the country of origin and an
+  MRP (compare-at price); a detail counts when filed for the country or for every country
+  (`product_compliance` keys `fibre`, `origin`, `care`). Other countries add theirs as they
+  launch.
 - T3. **Tax class** (§3 fact 37): a plain-language picker, "depends on location" messaging,
   exempt and reduced classes, and the US tax-code search via a tax service
   `(release: decide)`. Changing the class in bulk (B5).

@@ -243,6 +243,12 @@ export const registerStructure = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: structureAudit.facetValuesMerged } },
       resolve: async (_, args, ctx) => answered(await service(ctx).mergeValues(String(args.into), args.from.map(String))),
     }),
+    addProductsToCollection: t.int({
+      args: { collectionId: t.arg.id({ required: true }), productIds: t.arg.idList({ required: true }) },
+      extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.write', target: 'none', audit: structureAudit.collectionSaved } },
+      // Answers how many products the collection now holds.
+      resolve: async (_, args, ctx) => answered(await service(ctx).addToCollection(String(args.collectionId), args.productIds.map(String))),
+    }),
     saveCollection: t.field({
       type: SavedCollection,
       args: { id: t.arg.id(), revision: t.arg.int(), input: t.arg({ type: CollectionInput, required: true }) },

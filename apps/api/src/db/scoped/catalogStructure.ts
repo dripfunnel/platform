@@ -297,6 +297,18 @@ export const setCollectionProducts = async (tx: ScopedSql, storeId: string, coll
   `
 }
 
+/** CatList's bulk "Add to collection": after what it holds, those it already holds staying where they are. Answers how many it now holds. */
+export const addCollectionProducts = async (tx: ScopedSql, storeId: string, collectionId: string, productIds: readonly string[]): Promise<number> => {
+  await tx`
+    insert into collection_product (collection_id, product_id, store_id, position, source)
+    select ${collectionId}, p.id, ${storeId}, (select coalesce(max(position) + 1, 0) from collection_product where collection_id = ${collectionId}) + x.position, 'manual'
+    from jsonb_to_recordset(${rowsOf(tx, productIds.map((id, position) => ({ id, position })))}) as x(id uuid, position int)
+    join product p on p.id = x.id and p.store_id = ${storeId} and p.deleted_at is null
+    on conflict (collection_id, product_id) do nothing
+  `
+  return (await tx<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${collectionId}`)[0]?.n ?? 0
+}
+
 /** Soft delete (§7.1); a child moves to the top level rather than pointing at a deleted parent. */
 export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<{ name: string } | null> => {
   const [gone] = await tx<{ name: string }[]>`update collection set deleted_at = ${now}, updated_at = ${now} where id = ${id} and store_id = ${storeId} and deleted_at is null returning name`

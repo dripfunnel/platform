@@ -1,14 +1,13 @@
 import { GraphQLError } from 'graphql'
-import { pageOf } from '#core/paging'
-import type { CurrencyPrice } from '#engine/modules/markets/index'
-import { approvalAudit, catalogAudit, createCatalogService, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
+import type { CurrencyPrice, MarketReadiness } from '#engine/modules/markets/index'
+import { approvalAudit, catalogAudit, createCatalogService, sortValueOf, type ProductSort, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
 import { translationService } from './translations'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
-import { storePage } from './refusals'
+import { sortedPage, sortedPageOf } from './refusals'
 import { requireFeature } from './listing'
 import { recomputeFor } from './structure'
 import { isUuid } from '#core/ids'
@@ -47,6 +46,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   LISTING_REFUSED: 'A related product, badge or size chart isn’t one this product can use.',
 }
 
+const sorts: readonly ProductSort[] = ['created', 'updated', 'name', 'price_low', 'price_high', 'stock']
 const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info', 'low_stock']
 const maxBulk = 100
 
@@ -78,12 +78,14 @@ interface SummaryView {
   stock: number
   createdAt: string
   updatedAt: string
+  /** Per market, what it still lacks to sell there; null for a supplier, which reads no market. */
+  readiness: MarketReadiness[] | null
 }
 
 /** Where the portal reads a catalogue file: on its own host, through the caller's scope (assets.ts). */
 export const assetUrl = (assetId: string): string => `/api/assets/${assetId}`
 
-const summaryOf = (r: ProductListRow, currency: string | null): SummaryView => ({
+const summaryOf = (r: ProductListRow, currency: string | null, readiness: MarketReadiness[] | null): SummaryView => ({
   id: r.id,
   name: r.name,
   slug: r.slug,
@@ -101,6 +103,7 @@ const summaryOf = (r: ProductListRow, currency: string | null): SummaryView => (
   stock: r.stock,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
+  readiness,
 })
 
 export const registerProducts = (builder: StoreBuilder) => {
@@ -113,6 +116,17 @@ export const registerProducts = (builder: StoreBuilder) => {
   const SupplierRef = builder.objectRef<{ id: string; name: string }>('ProductSupplier').implement({
     fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }),
   })
+
+  const Readiness = builder.objectRef<MarketReadiness>('MarketReadiness').implement({
+    fields: (t) => ({
+      marketId: t.exposeID('marketId'),
+      marketName: t.exposeString('marketName'),
+      ready: t.boolean({ resolve: (r) => r.missing.length === 0 }),
+      // price | fibre | origin | care | compare (India's MRP): what it still needs there (CATALOG T2, fact 45).
+      missing: t.stringList({ resolve: (r) => r.missing }),
+    }),
+  })
+  const merchantRead = { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } as const
 
   const Summary = builder.objectRef<SummaryView>('ProductSummary').implement({
     fields: (t) => ({
@@ -133,6 +147,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       stock: t.exposeInt('stock'),
       createdAt: t.exposeString('createdAt'),
       updatedAt: t.exposeString('updatedAt'),
+      readiness: t.field({ type: [Readiness], nullable: true, extensions: { access: merchantRead }, resolve: (p) => p.readiness }),
     }),
   })
   const SummaryPage = builder.objectRef<{ nodes: SummaryView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('ProductPage').implement({
@@ -253,6 +268,12 @@ export const registerProducts = (builder: StoreBuilder) => {
       visible: t.boolean({ resolve: (p) => p.visibility === 'visible' }),
       approval: t.exposeString('approval_status', { nullable: true }),
       sentBackReason: t.exposeString('sent_back_reason', { nullable: true }),
+      readiness: t.field({
+        type: [Readiness],
+        nullable: true,
+        extensions: { access: merchantRead },
+        resolve: async (p, _, ctx) => (await marketsService(ctx).readiness([p.id])).get(p.id) ?? [],
+      }),
       // Prices in the store's other currencies and in a market are the merchant's (CATALOG O14): a supplier reads null.
       pricing: t.field({
         type: [VersionPricingType],
@@ -415,7 +436,8 @@ export const registerProducts = (builder: StoreBuilder) => {
   builder.queryFields((t) => ({
     products: t.field({
       type: SummaryPage,
-      args: { filter: t.arg.string(), search: t.arg.string(), supplier: t.arg.string(), untranslatedIn: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      // sort: created (the default) | updated | name | price_low | price_high | stock (CatList's sorts).
+      args: { filter: t.arg.string(), search: t.arg.string(), supplier: t.arg.string(), untranslatedIn: t.arg.string(), sort: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access: read },
       resolve: async (_, args, ctx) => {
         const filter = filters.find((f) => f === (args.filter ?? 'all'))
@@ -423,16 +445,21 @@ export const registerProducts = (builder: StoreBuilder) => {
         const supplier = args.supplier ?? null
         if (supplier !== null && supplier !== 'own' && !isUuid(supplier)) throw new GraphQLError('Choose a supplier.', { extensions: { code: 'INVALID_INPUT' } })
         const search = args.search?.trim().slice(0, 200) || null
-        const window = storePage(args)
+        const sort = sorts.find((x) => x === (args.sort ?? 'created'))
+        if (!sort) throw new GraphQLError('Choose how to sort.', { extensions: { code: 'INVALID_INPUT' } })
+        const byTime = sort === 'created' || sort === 'updated'
+        const window = sortedPage(args, sort, byTime)
         const untranslatedIn = args.untranslatedIn?.trim() || null
         // The same languages translationProgress counts, so the list and the count can't disagree.
         if (untranslatedIn) {
           const checked = await translationService(ctx).checkLanguage(untranslatedIn)
           if (!checked.ok) throw new GraphQLError('Choose one of your store’s other languages.', { extensions: { code: checked.reason } })
         }
-        const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier, untranslatedIn }, window)
-        const page = pageOf(rows, window, (r) => ({ occurredAt: r.created_at, id: r.id }))
-        return { nodes: page.nodes.map((r) => summaryOf(r, currency)), pageInfo: page.pageInfo }
+        const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier, untranslatedIn }, window, sort)
+        const page = sortedPageOf(rows, window, sort, byTime, (r) => ({ value: sortValueOf(r, sort), id: r.id }))
+        // The page's readiness in one go, the merchant side's alone (a supplier reads no market).
+        const readiness = actingCaller(ctx).seller === null ? await marketsService(ctx).readiness(page.nodes.map((r) => r.id)) : null
+        return { nodes: page.nodes.map((r) => summaryOf(r, currency, readiness ? (readiness.get(r.id) ?? []) : null)), pageInfo: page.pageInfo }
       },
     }),
     productCounts: t.field({ type: Counts, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).counts() }),
@@ -495,6 +522,16 @@ export const registerProducts = (builder: StoreBuilder) => {
       args: { ids: t.arg.idList({ required: true }) },
       extensions: { access: { ...write, audit: catalogAudit.deleted } },
       resolve: (_, args, ctx) => service(ctx).remove(ids(args.ids)),
+    }),
+    // Answers how many products changed.
+    setProductsTaxClass: t.int({
+      args: { ids: t.arg.idList({ required: true }), taxClassId: t.arg.id() },
+      extensions: { access: { ...merchantWrite, audit: catalogAudit.taxClassChanged } },
+      resolve: async (_, args, ctx) => {
+        const changed = await service(ctx).setTaxClass(ids(args.ids), args.taxClassId ? String(args.taxClassId) : null)
+        if (changed === 'NOT_FOUND') throw new GraphQLError('That tax category is no longer here.', { extensions: { code: 'NOT_FOUND' } })
+        return changed
+      },
     }),
     updateProducts: t.int({
       args: { ids: t.arg.idList({ required: true }), patch: t.arg({ type: PatchInput, required: true }) },

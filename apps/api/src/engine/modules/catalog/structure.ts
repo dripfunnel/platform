@@ -3,7 +3,9 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isCurrency, parseMinor } from '#core/money'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
+import { readableProducts } from '#db/scoped/catalogStory'
 import {
+  addCollectionProducts,
   countFacets,
   deleteFacet,
   insertCollection,
@@ -370,6 +372,23 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
     }
   }
 
+  /** CatList's bulk "Add to collection": a hand-picked one only, as automatic ones fill from their rules. */
+  const addToCollection = (collectionId: string, productIds: readonly string[]) =>
+    run(async (tx) => {
+      const ids = [...new Set(productIds.map((id) => id.toLowerCase()))]
+      if (!isUuid(collectionId) || ids.length === 0 || ids.length > maxCollectionProducts || !ids.every(isUuid)) throw new Refused('INVALID_INPUT')
+      await serialise(tx, `collection:${storeId}`)
+      const target = await selectCollection(tx, storeId, collectionId)
+      if (!target) throw new Refused('NOT_FOUND')
+      if (target.kind !== 'manual') throw new Refused('INVALID_INPUT')
+      if ((await readableProducts(tx, storeId, ids)).length !== ids.length) throw new Refused('NOT_FOUND')
+      const holds = await addCollectionProducts(tx, storeId, collectionId, ids)
+      if (holds > maxCollectionProducts) throw new Refused('TOO_MANY_PRODUCTS')
+      await activity.record(tx, { ...entry(structureAudit.collectionSaved, { type: 'collection', id: collectionId, label: target.name }), reason: `added ${ids.length}` })
+      await recompute(tx)
+      return holds
+    })
+
   const saveCollection = (id: string | null, revision: number | null, input: CollectionInput) =>
     run(async (tx) => {
       const clean = cleanCollection(input)
@@ -427,5 +446,5 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       return saved
     })
 
-  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, saveCollection, removeCollection, menu, saveMenu }
+  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, addToCollection, saveCollection, removeCollection, menu, saveMenu }
 }

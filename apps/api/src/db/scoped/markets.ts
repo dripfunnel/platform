@@ -198,3 +198,31 @@ export const marketClash = (error: unknown): 'COUNTRY_TAKEN' | 'NOT_PARENTS_COUN
   if (constraint === 'market_path_key') return 'DUPLICATE_PATH'
   return null
 }
+
+export interface ReadinessRow {
+  id: string
+  product_type: string
+  /** Each live version's prices, as priceInMarket reads them. */
+  versions: { prices: { currency: string; amount: string; compare_at_amount: string | null }[] }[]
+  /** Compliance fields with a value, as region:field. */
+  compliance: string[]
+}
+
+/** What readiness needs of a page of products, in one query (no N+1). */
+export const selectReadinessFacts = (tx: ScopedSql, storeId: string, productIds: readonly string[]): Promise<ReadinessRow[]> =>
+  tx<ReadinessRow[]>`
+    select p.id, p.product_type,
+      coalesce((select json_agg(json_build_object('prices', coalesce((select json_agg(json_build_object('currency', vp.currency::text, 'amount', vp.amount::text, 'compare_at_amount', vp.compare_at_amount::text))
+          from version_price vp where vp.version_id = v.id), '[]'::json)))
+        from product_version v where v.product_id = p.id and v.deleted_at is null), '[]'::json) as versions,
+      coalesce((select json_agg(c.region || ':' || c.field) from product_compliance c where c.product_id = p.id and c.value <> ''), '[]'::json) as compliance
+    from product p where p.store_id = ${storeId} and p.deleted_at is null and p.id = any(${pgArray(productIds)}::uuid[])
+  `
+
+/** The markets a product sells in: the live top-level ones; sub-markets share their parent's countries. */
+export const selectSellingMarkets = (tx: ScopedSql, storeId: string): Promise<{ id: string; name: string; countries: string[]; currency: string; price_adjustment_bps: number }[]> =>
+  tx<{ id: string; name: string; countries: string[]; currency: string; price_adjustment_bps: number }[]>`
+    select id, name, countries, currency::text as currency, price_adjustment_bps from market
+    where store_id = ${storeId} and deleted_at is null and parent_id is null and status = 'active'
+    order by created_at, id
+  `

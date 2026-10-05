@@ -255,6 +255,13 @@ type MarketPage {
   pageInfo: PageInfo
 }
 
+type MarketReadiness {
+  marketId: ID
+  marketName: String
+  missing: [String!]
+  ready: Boolean
+}
+
 type Me {
   acting: ActingStore
   email: String
@@ -303,6 +310,7 @@ input MoneyInput {
 }
 
 type Mutation {
+  addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
@@ -363,6 +371,7 @@ type Mutation {
   setEverywhereElse(marketId: ID): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setPricesIncludeTax(included: Boolean!): Boolean
+  setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
@@ -420,6 +429,7 @@ type Product {
   pricing(marketId: ID): [VersionPricing!]
   pricingCurrency: String
   productType: String
+  readiness: [MarketReadiness!]
   returnsText: String
   revision: Int
   sentBackReason: String
@@ -613,6 +623,7 @@ type ProductSummary {
   name: String
   photoUrl: String
   productType: String
+  readiness: [MarketReadiness!]
   slug: String
   stock: Int
   supplier: ProductSupplier
@@ -731,7 +742,7 @@ type Query {
   productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
   productStory(productId: ID!): ProductStory
   productTranslation(language: String!, productId: ID!): [Translation!]
-  products(after: String, before: String, filter: String, first: Int, search: String, supplier: String, untranslatedIn: String): ProductPage
+  products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   sizeChart(id: ID!): SizeChart
