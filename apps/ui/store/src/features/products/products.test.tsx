@@ -44,7 +44,7 @@ const row = (r: Partial<ProductRow> & Pick<ProductRow, 'id' | 'name'>): ProductR
   ...r,
 })
 
-const counts = (c: Partial<ProductCounts> = {}): ProductCounts => ({ all: 2, visible: 1, hidden: 1, pending: 1, sentBack: 0, lowStock: 0, missingInfo: 0, ...c })
+const counts = (c: Partial<ProductCounts> = {}): ProductCounts => ({ all: 2, visible: 1, hidden: 1, pending: 1, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 1, outOfStock: 0, ...c })
 
 const kurta = row({ id: 'p1', name: 'Mara Linen Shirt' })
 const dupatta = row({ id: 'p2', name: 'Handloom Dupatta', approval: 'pending', visible: false, supplier: { id: 'v1', name: 'Northwind Textiles' } })

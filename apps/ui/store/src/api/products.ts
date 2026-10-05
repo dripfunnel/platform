@@ -71,12 +71,12 @@ export const loadProducts = async (q: ProductQuery, cursor: { after?: string | n
   return { rows: products.nodes, next: products.pageInfo.hasNextPage ? products.pageInfo.endCursor : null, previous: products.pageInfo.hasPreviousPage ? products.pageInfo.startCursor : null }
 }
 
-const countsSchema = z.object({ all: z.number(), visible: z.number(), hidden: z.number(), pending: z.number(), sentBack: z.number(), lowStock: z.number(), missingInfo: z.number() })
+const countsSchema = z.object({ all: z.number(), visible: z.number(), hidden: z.number(), pending: z.number(), sentBack: z.number(), lowStock: z.number(), missingInfo: z.number(), fromSuppliers: z.number(), outOfStock: z.number() })
 
 export type ProductCounts = z.infer<typeof countsSchema>
 
 export const loadProductCounts = async (): Promise<ProductCounts> =>
-  (await query('{ productCounts { all visible hidden pending sentBack lowStock missingInfo } }', z.object({ productCounts: countsSchema }))).productCounts
+  (await query('{ productCounts { all visible hidden pending sentBack lowStock missingInfo fromSuppliers outOfStock } }', z.object({ productCounts: countsSchema }))).productCounts
 
 const named = z.object({ id: z.string(), name: z.string() })
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })

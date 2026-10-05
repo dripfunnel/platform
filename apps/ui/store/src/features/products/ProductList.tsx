@@ -242,7 +242,7 @@ export const ProductList = () => {
       <div className="df-products-head">
         <div>
           <h1 className="df-page-title">{title}</h1>
-          {view.kind === 'ready' && <p className="df-page-lede">{summaryOf(view.counts, rows, access.supplier)}</p>}
+          {view.kind === 'ready' && <p className="df-page-lede">{summaryOf(view.counts, access.supplier)}</p>}
         </div>
         {access.canEdit && !phone && <div className="df-products-head-actions">{addLink}</div>}
       </div>

@@ -56,16 +56,14 @@ export const readyOf = (row: ProductRow): { text: string; ready: boolean } | nul
   return ready === markets.length ? { text: fill(words.row.readyAll, { count: formatCount(markets.length) }), ready: true } : { text: fill(words.row.someReady, { ready: formatCount(ready), count: formatCount(markets.length) }), ready: false }
 }
 
-/** The line under the title: how many, from suppliers, out of stock; a supplier's own count and its approval work. */
-export const summaryOf = (counts: ProductCounts, rows: readonly ProductRow[], supplier: boolean): string => {
+/** The line under the title, every figure the store's (or a supplier's own), never one page's. */
+export const summaryOf = (counts: ProductCounts, supplier: boolean): string => {
   const products = fill(plural(words.summary.products, counts.all), { count: formatCount(counts.all) })
   if (supplier) return fill(words.summary.supplier, { products, waiting: formatCount(counts.pending), sentBack: formatCount(counts.sentBack) })
-  const fromSuppliers = rows.filter((r) => r.supplier).length
-  const outOfStock = rows.filter((r) => r.productType === 'physical' && r.stock <= 0).length
   return fill(words.summary.merchant, {
     products,
-    fromSuppliers: fromSuppliers > 0 ? fill(words.summary.fromSuppliers, { count: formatCount(fromSuppliers) }) : '',
-    outOfStock: fill(words.summary.outOfStock, { count: formatCount(outOfStock) }),
+    fromSuppliers: counts.fromSuppliers > 0 ? fill(words.summary.fromSuppliers, { count: formatCount(counts.fromSuppliers) }) : '',
+    outOfStock: fill(words.summary.outOfStock, { count: formatCount(counts.outOfStock) }),
   })
 }
 

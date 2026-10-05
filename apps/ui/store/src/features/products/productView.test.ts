@@ -57,10 +57,11 @@ describe('a Products list row in words (CatList)', () => {
     expect(readyOf(row({ readiness: null }))).toBeNull()
   })
 
-  it('sums up the list for the merchant and for a supplier', () => {
-    const counts = { all: 3, visible: 2, hidden: 1, pending: 1, sentBack: 0, lowStock: 0, missingInfo: 0 }
-    expect(summaryOf(counts, [row({ supplier: { id: 'v', name: 'N' } }), row({ stock: 0 })], false)).toBe('3 products · 1 from suppliers · 1 out of stock')
-    expect(summaryOf(counts, [], true)).toBe('3 products · 1 waiting for approval · 0 sent back')
+  it('sums up the whole catalogue from the API’s counts, never the page’s rows', () => {
+    const counts = { all: 120, visible: 100, hidden: 20, pending: 1, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 30, outOfStock: 4 }
+    expect(summaryOf(counts, false)).toBe('120 products · 30 from suppliers · 4 out of stock')
+    expect(summaryOf({ ...counts, fromSuppliers: 0 }, false)).toBe('120 products · 4 out of stock')
+    expect(summaryOf(counts, true)).toBe('120 products · 1 waiting for approval · 0 sent back')
   })
 
   it('lists what a review checks, each market’s missing details in words', () => {
