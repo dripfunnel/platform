@@ -401,8 +401,9 @@ describe('isolation (ACCESS.md §11.1)', () => {
   it('a supplier sees only its own team', async () => {
     const team = await as(supplier(a, storeA, sellerA), (tx) => selectStorePeople(tx, storeA))
     expect(team.map((p) => p.role_key).sort()).toEqual(['supplier-admin', 'supplier-member'])
-    expect(await count(supplier(a, storeA, sellerA), 'plan')).toBe(0)
-    expect(await count(supplier(a, storeA, sellerA), 'custom_domain')).toBe(0)
+    // The supplier role holds no grant on the store's plan or domains (#295).
+    await expect(count(supplier(a, storeA, sellerA), 'plan')).rejects.toThrow(/permission denied/i)
+    await expect(count(supplier(a, storeA, sellerA), 'custom_domain')).rejects.toThrow(/permission denied/i)
   })
 
   it('a shopper sees none of it', async () => {

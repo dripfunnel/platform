@@ -109,9 +109,9 @@ describe('a supplier in a store', () => {
     expect(await countOf(supplier(), 'store')).toBe(0)
   })
 
-  it('never reads the store customers', async () => {
-    expect(await idsOf(supplier(), 'customer')).toEqual([])
-    expect(await countOf(supplier(), 'customer')).toBe(0)
+  it('never reads the store customers: its role holds no grant on them (#295)', async () => {
+    await expect(idsOf(supplier(), 'customer')).rejects.toThrow(/permission denied/i)
+    await expect(countOf(supplier(), 'customer')).rejects.toThrow(/permission denied/i)
   })
 })
 
@@ -476,7 +476,8 @@ describe('the backstop itself', () => {
     await db.sql`insert into menu (store_id, key, name) values (${t.storeA1}, 'main', 'Main')`
     expect(await seen(t.storeA1, supplier, 'filter')).toBe(1)
     expect(await seen(t.storeA1, supplier, 'filter_value')).toBe(1)
-    for (const table of ['collection', 'menu']) expect({ [table]: await seen(t.storeA1, supplier, table) }).toEqual({ [table]: 0 })
+    // The supplier role holds no grant on collections or menus at all (#295).
+    for (const table of ['collection', 'menu']) await expect(seen(t.storeA1, supplier, table)).rejects.toThrow(/permission denied/i)
     for (const table of ['filter', 'collection', 'menu']) expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 0 })
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into filter (store_id, name, position) values (${t.storeA1}, 'Supplier filter', 1)`)).rejects.toThrow(/row-level security/)
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update filter set name = 'taken' where id = ${filterRow?.id ?? ''}`).count)).toBe(0)
@@ -517,7 +518,7 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json(compare(own))} where product_id = ${first}`)).rejects.toThrow(/compares a product it can't/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json(compare(second))} where product_id = ${first}`)).rejects.toThrow(/compares a product it can't/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json([{ id: 'b', kind: 'brand', blockId: block?.id ?? null }])} where product_id = ${first}`)).rejects.toThrow(/brand story it can't/)
-    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into story_block (store_id, name, content) values (${t.storeA1}, 'Supplier brand', '{}')`)).rejects.toThrow(/row-level security/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into story_block (store_id, name, content) values (${t.storeA1}, 'Supplier brand', '{}')`)).rejects.toThrow(/permission denied/)
     // Stock: quantities move only through stock_change(), which writes the movement itself, so no caller
     // sets a count, a reservation or a history row directly (migration 0046).
     const [version] = await db.sql<{ id: string }[]>`select id from product_version where product_id = ${own} limit 1`
@@ -554,12 +555,12 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)
   })
 
-  it('runs staff as app_platform, partner callers as app_partner and store callers as app_request (#205, #155)', async () => {
+  it('runs staff as app_platform, partner callers as app_partner, suppliers as app_supplier and other store callers as app_request (#205, #155, #295)', async () => {
     const roleOf = async (context: CallerContext) =>
       withScope(db.sql, context, async (tx) => (await tx<{ role: string }[]>`select current_user as role`)[0]?.role)
     expect(await roleOf(staff)).toBe('app_platform')
     expect(await roleOf(storeCaller(t.partnerA, t.storeA1))).toBe('app_request')
-    expect(await roleOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }))).toBe('app_request')
+    expect(await roleOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }))).toBe('app_supplier')
     expect(await roleOf(shopper(t.partnerA, t.storeA1, null))).toBe('app_request')
     expect(await roleOf(supportSession(t.partnerA, t.storeA1, 'read'))).toBe('app_request')
     expect(await roleOf(partnerCaller(t.partnerA))).toBe('app_partner')
@@ -607,6 +608,24 @@ describe('the backstop itself', () => {
     `
     expect(roles.filter((r) => r.rolbypassrls).map((r) => r.rolname)).toEqual(['app_definer'])
     expect(roles.filter((r) => r.rolcanlogin)).toEqual([])
+  })
+
+  it('keeps app_supplier to the tables a supplier reaches (DATA-MODEL §5.3, #295)', async () => {
+    const tables = async (sql: string) => (await db.sql.unsafe<{ t: string }[]>(sql)).map((r) => r.t)
+    // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
+    expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' order by 1`)).toEqual([
+      'activity_log', 'asset', 'badge', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
+      'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
+      'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
+      'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
+      'store_feature', 'user', 'version_price', 'warehouse',
+    ])
+    // By column only: the two a policy names (store) and a file check reads (story_block).
+    expect(await tables(`select distinct table_name || '(' || column_name || ')' as t from information_schema.column_privileges where grantee = 'app_supplier' and table_name in ('store', 'story_block') order by 1`)).toEqual([
+      'store(id)', 'store(partner_id)', 'story_block(asset_ids)', 'story_block(id)',
+    ])
+    // Grants that look wide are held to the supplier's own rows by policy; no store or brand story row is ever its.
+    expect(await idsOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), 'store')).toEqual([])
   })
 
   it('keeps app_definer to the functions DATA-MODEL §5.3 lists, each pinning its search path', async () => {

@@ -664,7 +664,7 @@ row by column only, and a trigger lets it change `state` only from Draft to Awai
 #214), every
 other request as `app_request`, and `app_definer` exists (owning
 only 0007's membership trigger, which checks parents the caller may not see); the first
-supplier and shopper cards add `app_supplier` and `app_shop` the same way (api/README.md §7).
+shopper card adds `app_shop` the same way (api/README.md §7). **Built on #295**: supplier users run as `app_supplier` (migration 0047). It holds `app_request`'s grants on the tables a supplier reaches only (its catalogue and stock, the settings it reads, its own seller, team and invitations, the activity log and outbox), those tables' policies name it, and every other table refuses it by grant before any policy runs. Two column grants serve policies and checks, not reads: `store(id, partner_id)` and `story_block(id, asset_ids)`, of which it holds no rows. `tests/isolation.test.ts` freezes the list.
 Every tenant table carries a restrictive pin per role holding it to its own `app.scope`
 values (`request_scope`: `store`, `shop`; `partner_scope`; `platform_scope`; `system_scope`), so a policy shared by two roles never lets one use the other's branch.
 **Until #210** `app_request` also keeps every platform branch and `platform` in its pin: the
