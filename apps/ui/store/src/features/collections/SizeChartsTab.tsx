@@ -97,13 +97,15 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
   }, [])
 
   const dirty = selected.kind === 'ready' && isChartDirty(selected.draft, selected.saved)
-  const choose = (id: string) =>
-    dirty ? setAsk({ title: words.leaveTitle, target: '', consequence: words.leaveBody, confirmLabel: words.discard, cancelLabel: words.keep, danger: true, onConfirm: () => open(id) }) : open(id)
+  /** Anything that leaves the open chart (another chart, a new one) asks first while it has unsaved changes. */
+  const leave = (then: () => void) =>
+    dirty ? setAsk({ title: words.leaveTitle, target: '', consequence: words.leaveBody, confirmLabel: words.discard, cancelLabel: words.keep, danger: true, onConfirm: then }) : then()
+  const choose = (id: string) => leave(() => open(id))
 
   const own = charts.length
   const atLimit = own >= maxSizeCharts
   const blocked = feature.inPlan === false || (feature.inPlan === null && !feature.enabled)
-  const startNew = () => (atLimit ? onToast(words.atLimit) : setStarting(true))
+  const startNew = () => (atLimit ? onToast(words.atLimit) : leave(() => setStarting(true)))
 
   const create = async (input: ReturnType<typeof chartInput>, toast: string) => {
     setBusy(true)

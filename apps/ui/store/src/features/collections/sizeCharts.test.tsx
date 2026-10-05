@@ -152,6 +152,20 @@ describe('size charts, the merchant’s', () => {
     expect(screen.getByText(words.pick)).toBeTruthy()
   })
 
+  it('asks before a new chart from a template replaces unsaved changes', async () => {
+    await show(owner, merchant)
+    fireEvent.change(screen.getByLabelText('M, Chest'), { target: { value: '99' } })
+    fireEvent.click(screen.getByRole('button', { name: words.new }))
+    expect(dialog().getByText(words.leaveBody)).toBeTruthy()
+    fireEvent.click(dialog().getByRole('button', { name: words.keep }))
+    expect(document.querySelector('dialog')).toBeNull()
+    expect((screen.getByLabelText('M, Chest') as HTMLInputElement).value).toBe('99')
+    fireEvent.click(screen.getByRole('button', { name: words.new }))
+    fireEvent.click(dialog().getByRole('button', { name: words.discard }))
+    await settle()
+    expect(screen.getByRole('heading', { name: words.startTitle })).toBeTruthy()
+  })
+
   it('says why a save was refused, and keeps the chart as typed', async () => {
     charts.loadSizeChart.mockResolvedValue({ ...tops, products: 0 })
     charts.saveSizeChart.mockRejectedValue(new ApiError('STALE_REVISION', 'stale'))
