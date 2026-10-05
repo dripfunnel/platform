@@ -141,7 +141,7 @@ From the prototype's shell (`design.md` §3), which this release keeps:
   "Suppliers" rows are superseded (§18).
 - Rows a role can't use are **absent**; a control a role can't use inside a screen is shown
   **disabled with the reason** ("Only the store owner can …"), never hidden (../README.md §5).
-- "Your sales" and "Your team" are not drawn (§18; SUI 1).
+- "Your sales" and "Your team" are drawn in `VendorViews` (#286); the prototype's catalogue supplier is a Supplier admin.
 
 ### 3.2 Header
 
@@ -160,7 +160,7 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 | **Suspended / cancelled** | SAAS §4.2 | Suspended: sign-in shows why and **the partner's** support contact. Cancelled: read-only until the period ends, then export only |
 | **Provisioning** | Steps 4–8 of SAAS §5 still running | "Setting up your storefront…" with the real step; Storefront and Settings open when done |
 | **Import running** | An import job | A banner with progress on every screen; leaving the page never stops it |
-| **Partner support session** | ACCESS §8 | Everyone signed in sees "{Partner} support ({name}) is viewing your store. Read-only. Ends in 28 min." and, when support asks to change something, **Allow / Deny** (Owner) — SUI 1 draws it |
+| **Partner support session** | ACCESS §8 | Everyone signed in sees "{Partner} support ({name}) is viewing your store. Read-only. Ends in 28 min." and, when support asks to change something, **Allow / Deny** (an Owner or a Manager, ACCESS §8) — drawn in the shell (#286, control *Partner support*) |
 | **Staff impersonation** | ACCESS §8.1 | "Support ({name}) is signed in as {person}. Ends in 28 min." — always "Support", never DripFunnel (`ImpBanner`) |
 | **Offline** | No network | Reading continues; saves refuse and keep what was typed |
 | **Session expired** | ACCESS §4 | Sign in again and come back to the same page |
@@ -317,8 +317,8 @@ Describe a change → the AI makes it on a preview → approve → publish, neve
 the live version, this month's AI tokens and build minutes, **history with "Go back to this"**
 (which never uses build minutes), "View live site". Catalogue **Publish now** and the publishing
 status (storefront ARCHITECTURE §4.2). **Content pages and the blog** (about, FAQ, contact,
-lookbook; SUI 17 on SAPI 24) (decided 2026-10-05 on #337). **Choose the storefront: AI or own** (flow 75; SUI 1
-draws it): a store on its own storefront gets its public store key and allowed origins and
+lookbook; SUI 17 on SAPI 24) (decided 2026-10-05 on #337). **Choose the storefront: AI or own** (flow 75; drawn on Storefront › Design, #286; sign-up
+starts every store on AI, decided on #286): a store on its own storefront gets its public store key and allowed origins and
 skips the AI designer. Owner; Manager view only.
 
 ---
@@ -336,11 +336,11 @@ skips the AI designer. Owner; Manager view only.
 | **Tax setup** (`SetOps`) | Prices include or exclude tax; tax categories and their rates (India) or **Stripe Tax** by state (US; on the merchant's own Stripe account); invoice settings |
 | **Markets** (`SetMarkets`) | Markets with countries, currency, language, price adjustment, fixed prices per product (Business), web address (main or path; one domain per store, never a market's own (decided 2026-10-05 on #337)), delivery charge, duties (Business), "everywhere else" |
 | **Catalogue** (`CatSettings`) | What you sell, product page sections by plan, badges (define; assign per product), legal details used on every product, what you're using against the plan |
-| **Customer accounts** | How shoppers sign in: email, mobile or both (ACCESS §2.1) — **SUI 1 draws it** |
-| **Developers** | Public store key, allowed origins, API keys (scopes, supplier binding, expiry, rotate, revoke, last used), webhooks (endpoints, events, delivery log, replay, auto-disable) — **SUI 1 draws it** |
-| **Apps** | Install with scope consent, configure, uninstall saying what stops — **SUI 1 draws it** |
-| **Support access** | "Allow {partner} support to view my store: On / Off" (on by default), the support access log, and that DripFunnel staff can still sign in as a user (USERS-AND-DOMAINS §4.1–4.2) — **SUI 1 draws it** |
-| **Activity log** | The whole store's log, shoppers included, filter by person, every name a link, export for the **Owner only** (LOGGING §6–7, ACCESS §5.1 `activity.export`). A Manager, who has no Settings, reads the same log as **Store activity** in the user menu, without the export — **SUI 1 draws it** |
+| **Customer accounts** | How shoppers sign in: email, mobile or both (ACCESS §2.1) — drawn in `SetAccess` (#286) |
+| **Developers** | Public store key, allowed origins, API keys (scopes, supplier binding, expiry, rotate, revoke, last used), webhooks (endpoints, events, delivery log, replay, auto-disable) — drawn in `SetDev` (#286) |
+| **Apps** | Install with scope consent, configure (on the app's own site, opened from here), uninstall saying what stops — drawn in `SetDev` (#286) |
+| **Support access** | "Allow {partner} support to view my store: On / Off" (on by default), the support access log, and that DripFunnel staff can still sign in as a user (USERS-AND-DOMAINS §4.1–4.2) — drawn in `SetAccess` (#286) |
+| **Activity log** | The whole store's log, shoppers included, filter by person, every name a link, export for the **Owner only** (LOGGING §6–7, ACCESS §5.1 `activity.export`). A Manager, who has no Settings, reads the same log as **Store activity** in the user menu, without the export — drawn in `StoreActivity` (#286) |
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
@@ -368,7 +368,9 @@ the last admin; DATA-MODEL §4.2). Their own warehouses and stock. Never offers,
 
 Where the prototype and the docs disagree. **Rule** differences: the doc wins, because a rule
 decided in a document outranks a prototype (docs/README.md §3). **Behaviour** differences: listed
-for SUI 1 to resolve in the prototype, or asked; none is picked silently.
+for SUI 1 to resolve in the prototype, or asked; none is picked silently. **SUI 1 (#286, 2026-10-05) brought the
+prototype in line with every row**: white-label billing without the partner tier, the hosted card box, the supplier
+ledger wording, the identical sign-up answer, Staff exports, and the screens that weren't drawn.
 
 | The prototype | This release | Kind |
 |---|---|---|
@@ -396,7 +398,10 @@ the Store API at `/api` on the portal host, the Shop API at `/shop-api` on every
 through `db/scoped`, supplier rows through `SellerScope`. A store or seller id in an argument is
 never authority. **Lists are cursor-paged** with `after` and `before`, a maximum page size of
 50, **no totals** (as ui/admin/FIRST-RELEASE §12 decided); counts on chips come from their own
-query. **Refusals are stable codes** with their facts, worded by the portal; every screen renders
+query. **Refusals are stable codes** with their facts, worded by the portal (built on #288: `UNAUTHENTICATED`,
+`FORBIDDEN` — a store the session doesn't hold is refused and logged, never "not found" — `STORE_REQUIRED`,
+`SUPPLIER_REQUIRED`, `STORE_SUSPENDED`, `READ_ONLY`, `INVALID_CURSOR`, and `PLAN_LIMIT` with `key`, `limit`
+and `unlockedBy`, the partner's cheapest live plan that allows it); every screen renders
 `?state=loading|error|denied|readOnly|offline` from the harness (../README.md §6).
 
 | Area | Queries | Mutations |

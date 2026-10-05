@@ -373,7 +373,9 @@ user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
             -- extends the absolute bound, never removes it; device_label and user_agent
             -- are what "Where you're signed in" lists. Policy as user_backup_code: own
-            -- rows on user_id = app.user_id in store scope, plus system; no partner branch
+            -- rows on user_id = app.user_id in store scope, plus system; no partner branch.
+            -- Built on #288 (0035): the hash readable by app_system alone, and a session
+            -- read only on its own partner's portal host
 
 seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)

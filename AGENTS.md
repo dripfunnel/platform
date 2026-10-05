@@ -78,7 +78,8 @@ Run the gates before reporting a change as done.
   relevant document in the same change as the code it describes, following docs/README.md §6.
 - **`designs/`** holds one clickable prototype per portal (`DF Store Prototype` →
   `apps/ui/store`, `DF Platform Prototype` → `apps/ui/platform`, `DF Admin Prototype` →
-  `apps/ui/admin`), the public pricing page with what each plan includes, and the style
+  `apps/ui/admin`), the shoppers' storefront (`DF Storefront Prototype` → the baseline theme
+  in `templates/storefront`), the public pricing page with what each plan includes, and the style
   guide the `--df-*` tokens come from. `designs/design.md` maps every screen to its file.
   `docs/` decides scope and rules; the prototype decides behaviour — layout, states,
   interactions, wording, the order of steps in a flow.
