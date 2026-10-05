@@ -38,7 +38,7 @@ import { queueSideEffect } from '#saas/outbox/index'
 import { forbidden } from '../graphql/scope'
 import type { StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
-import { brandName, checkTextedCode, textCode } from './codes'
+import { brandName, checkTextedCode, countWrong, textCode } from './codes'
 import { storePage } from './refusals'
 
 // My profile (FIRST-RELEASE §4, PortalProfile): one account across the partner's stores, so every
@@ -95,6 +95,19 @@ interface SecondFactorStep {
 }
 
 const step = (s: Partial<SecondFactorStep>): SecondFactorStep => ({ secret: null, uri: null, hint: null, done: false, backupCodes: null, ...s })
+
+/**
+ * The current password, counted like sign-in's (a wrong one is committed before the refusal, the fifth
+ * pauses everything): a stolen session can't guess it here, nor change the second factor without it.
+ */
+const provePassword = async (tx: ScopedSql, ctx: StoreContext, person: StorePerson, typed: string | null | undefined, now: Date): Promise<GraphQLError | null> => {
+  const candidate = await selectSignInCandidate(tx, person.partnerId, person.email)
+  if (!candidate) return forbidden()
+  if (candidate.locked_until && candidate.locked_until > now) return refused('LOCKED', 'Too many wrong tries. Try again in 15 minutes.')
+  if (await verifyPassword((typed ?? '').slice(0, 1024), candidate.password_hash)) return null
+  const { locked } = await countWrong(tx, ctx.activity, ctx.facts, candidate, now)
+  return locked ? refused('LOCKED', 'Too many wrong tries. Try again in 15 minutes.') : refused('INVALID_CREDENTIALS', 'That isn’t your current password.')
+}
 
 export const registerProfile = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
@@ -268,8 +281,8 @@ export const registerProfile = (builder: StoreBuilder) => {
         if (args.next.length < minPasswordLength || args.next.length > 1024) throw refused('WEAK_PASSWORD', 'Use at least 10 characters.')
         const now = ctx.now()
         const sql = sqlOf(ctx)
-        const candidate = await withSystemScope(sql, (tx) => selectSignInCandidate(tx, person.partnerId, person.email))
-        if (!candidate || !(await verifyPassword(args.current.slice(0, 1024), candidate.password_hash))) throw refused('INVALID_CREDENTIALS', 'That isn’t your current password.')
+        const proven = await withSystemScope(sql, (tx) => provePassword(tx, ctx, person, args.current, now))
+        if (proven instanceof GraphQLError) throw proven
         const hash = await hashPassword(args.next)
         await withSystemScope(sql, async (tx) => {
           await changeUserPassword(tx, person.id, hash, person.sessionHash, now)
@@ -280,7 +293,7 @@ export const registerProfile = (builder: StoreBuilder) => {
     }),
     setSecondFactor: t.field({
       type: StepType,
-      args: { method: t.arg.string({ required: true }), code: t.arg.string() },
+      args: { method: t.arg.string({ required: true }), code: t.arg.string(), password: t.arg.string() },
       extensions: { access: { ...session, audit: 'two_factor.method_changed', whileReadOnly: true } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
@@ -290,6 +303,11 @@ export const registerProfile = (builder: StoreBuilder) => {
         const outcome = await withSystemScope(sqlOf(ctx), async (tx): Promise<SecondFactorStep | GraphQLError> => {
           const profile = await readProfile(tx, person, now)
           const turningOn = profile.two_factor_method === null
+          // Switching or turning off an existing factor starts with the password (the confirm step reuses that proof).
+          if (!turningOn && code === null) {
+            const proven = await provePassword(tx, ctx, person, args.password, now)
+            if (proven) return proven
+          }
           const finish = async (method: 'app' | 'sms', secretEnc: string | null, phone: string | null, totpStep: number | null) => {
             await setUserSecondFactor(tx, person.id, method, secretEnc, phone, totpStep, now)
             await setPendingSecondFactor(tx, person.sessionHash, person.id, { secretEnc: null, phone: null })
@@ -322,7 +340,11 @@ export const registerProfile = (builder: StoreBuilder) => {
             const secret = pending?.pending_secret_enc ? await secrets.open(pending.pending_secret_enc) : null
             if (!pending?.pending_secret_enc || !secret) throw refused('CODE_EXPIRED', 'Start again to get a new setup key.')
             const checked = await checkCode(secret, code, now, null)
-            if (!checked.ok) return refused(checked.code, checked.code === 'WRONG_CODE' ? 'That code doesn’t match.' : 'That code has expired.')
+            if (!checked.ok && checked.code === 'WRONG_CODE') {
+              const { locked } = await countWrong(tx, ctx.activity, ctx.facts, { id: person.id, partner_id: person.partnerId, email: profile.email }, now)
+              return locked ? refused('LOCKED', 'Too many wrong tries. Try again in 15 minutes.') : refused('WRONG_CODE', 'That code doesn’t match.')
+            }
+            if (!checked.ok) return refused(checked.code, 'That code has expired.')
             return finish('app', pending.pending_secret_enc, null, checked.step)
           }
           if (args.method === 'sms') {

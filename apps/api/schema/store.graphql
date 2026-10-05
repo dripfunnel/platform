@@ -41,7 +41,7 @@ type Mutation {
   changeEmail(email: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   regenerateBackupCodes: [String!]
-  setSecondFactor(code: String, method: String!): SecondFactorStep
+  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProfile(name: String!, phone: String, theme: String): Profile

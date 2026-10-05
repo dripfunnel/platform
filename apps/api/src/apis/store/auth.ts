@@ -4,7 +4,6 @@ import {
   personBackupCodesGenerated,
   personBackupCodeUsed,
   personCodeRefused,
-  personLocked,
   personSecondFactorEnrolled,
   personSignedIn,
   personSignedOut,
@@ -12,7 +11,7 @@ import {
   type RequestFacts,
 } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
-import { lockMs, maxCodeTries, minutesUntil } from '#auth/partnerCode'
+import { lockMs, minutesUntil } from '#auth/partnerCode'
 import { verifyPassword } from '#auth/password'
 import { hashBackupCode, maxSmsCodesPer10Min, newBackupCodes, phoneHint } from '#auth/storeCodes'
 import {
@@ -31,7 +30,6 @@ import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import {
   countCodesSince,
   recordUserGoodCode,
-  recordUserWrongCode,
   replaceBackupCodes,
   selectSignInCandidate,
   selectUserSecondFactor,
@@ -39,9 +37,8 @@ import {
   spendBackupCode,
   type UserSecondFactor,
 } from '#db/scoped/userSignIn'
-import { queueSideEffect } from '#saas/outbox/index'
 import { admit, admitted, type StoreAuthDeps } from './admission'
-import { brandName, checkTextedCode, textCode } from './codes'
+import { brandName, checkTextedCode, countWrong, textCode } from './codes'
 import { confirmEmailChange } from './emailChange'
 import { acceptStoreInvitation, joinStore, lookUpStoreInvitation, requestStorePasswordReset, resetStorePassword } from './invitations'
 import { json, readBody, refuse, type Refusal } from './authHttp'
@@ -123,7 +120,7 @@ const signIn = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts
     if (!candidate || !ok) {
       await deps.activity.record(tx, personSignInRefused(deps.partnerId, facts, 'invalid_credentials'))
       // The answer stays the same either way (ACCESS.md §2): the pause shows only to the right password.
-      if (candidate && !(candidate.locked_until && candidate.locked_until > now)) await countWrong(tx, deps, facts, candidate, now)
+      if (candidate && !(candidate.locked_until && candidate.locked_until > now)) await countWrong(tx, deps.activity, facts, candidate, now)
       return { refusal: { code: 'INVALID_CREDENTIALS' } as const }
     }
     if (candidate.locked_until && candidate.locked_until > now) {
@@ -136,24 +133,8 @@ const signIn = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts
   return admitted(outcome)
 }
 
-/** Wrong passwords and codes share one count; the fifth pauses sign-in for 15 minutes and emails the person (FIRST-RELEASE §4). */
-const countWrong = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, person: { id: string; partner_id: string; email: string }, now: Date): Promise<{ triesLeft: number; locked: boolean }> => {
-  const lockedUntil = new Date(now.getTime() + lockMs)
-  const counted = await recordUserWrongCode(tx, person.id, maxCodeTries, lockedUntil)
-  if (!counted.locked) return counted
-  await deps.activity.record(tx, personLocked({ id: person.id, partnerId: person.partner_id }, facts))
-  await queueSideEffect(tx, {
-    kind: 'email',
-    idempotencyKey: `user-locked:${person.id}:${lockedUntil.toISOString()}`,
-    payload: { template: 'user-locked', userId: person.id, to: person.email, minutes: lockMs / 60_000 },
-    partnerId: person.partner_id,
-    storeId: null,
-  })
-  return counted
-}
-
 const wrongCode = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, state: UserSecondFactor, now: Date): Promise<Refusal> => {
-  const { triesLeft, locked } = await countWrong(tx, deps, facts, state, now)
+  const { triesLeft, locked } = await countWrong(tx, deps.activity, facts, state, now)
   return locked ? { code: 'LOCKED', minutes: lockMs / 60_000 } : { code: 'WRONG_CODE', triesLeft }
 }
 

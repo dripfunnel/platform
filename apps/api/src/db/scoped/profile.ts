@@ -106,10 +106,6 @@ export const applyEmailChange = async (tx: ScopedSql, change: { id: string; user
   return true
 }
 
-/** Whether an account under the partner already uses this address; asked only to word nothing differently. */
-export const emailInUse = async (tx: ScopedSql, partnerId: string, email: string): Promise<boolean> =>
-  (await tx`select 1 from "user" where partner_id = ${partnerId} and lower(email) = lower(${email})`).length > 0
-
 /** A switched or confirmed method's pending secret or number, kept on the person's own full session. */
 export const setPendingSecondFactor = async (tx: ScopedSql, sessionHash: string, userId: string, pending: { secretEnc: string | null; phone: string | null }): Promise<void> => {
   await tx`update user_session set pending_secret_enc = ${pending.secretEnc}, pending_phone = ${pending.phone} where id_hash = ${sessionHash} and user_id = ${userId} and stage = 'full'`

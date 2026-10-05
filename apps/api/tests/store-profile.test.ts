@@ -193,6 +193,15 @@ describe('changing my password', () => {
     expect(u?.password_changed_at?.toISOString()).toBe(now.toISOString())
   })
 
+  it('counts wrong current passwords like sign-in, refusing even the right one once paused', async () => {
+    const id = await person(t.partnerA, 'guesser@a.example')
+    const cookie = await sessionFor(id)
+    for (let i = 0; i < 5; i += 1) await gql('mutation { changePassword(current: "a wrong guess", next: "a whole new passphrase") }', cookie)
+    expect((await gql(`mutation { changePassword(current: "${password}", next: "a whole new passphrase") }`, cookie)).code).toBe('LOCKED')
+    const [u] = await db.sql<{ password_hash: string }[]>`select password_hash from "user" where id = ${id}`
+    expect(await verifyPassword(password, u?.password_hash ?? null)).toBe(true)
+  })
+
   it('signs out everywhere else on request', async () => {
     const id = await person(t.partnerA, 'tidy@a.example')
     const cookie = await sessionFor(id)
@@ -211,6 +220,8 @@ describe('two-step sign-in', () => {
     const { secret, uri } = start.data?.['setSecondFactor'] as { secret: string; uri: string }
     expect(uri).toContain('issuer=Partner%20A')
     expect((await gql('mutation { setSecondFactor(method: "app", code: "000000") { done } }', cookie)).code).toBe('WRONG_CODE')
+    const [counted] = await db.sql<{ failed_code_count: number }[]>`select failed_code_count from "user" where id = ${id}`
+    expect(counted?.failed_code_count).toBe(1)
     const done = await gql(`mutation { setSecondFactor(method: "app", code: "${await codeAt(secret, stepAt(now))}") { done backupCodes } }`, cookie)
     expect((done.data?.['setSecondFactor'] as { backupCodes: string[] }).backupCodes).toHaveLength(10)
     expect(((await gql('{ profile { twoFactor { method backupCodesLeft } } }', cookie)).data?.['profile'])).toEqual({ twoFactor: { method: 'app', backupCodesLeft: 10 } })
@@ -224,9 +235,10 @@ describe('two-step sign-in', () => {
     await db.sql`update "user" set two_factor_method = 'app', two_factor_enrolled_at = now(), two_factor_secret_enc = ${await secrets.seal('JBSWY3DPEHPK3PXP')} where id = ${id}`
     const cookie = await sessionFor(id)
     await gql('mutation { regenerateBackupCodes }', cookie)
-    expect((await gql('mutation { setSecondFactor(method: "sms") { hint } }', cookie)).code).toBe('PHONE_REQUIRED')
+    expect((await gql(`mutation { setSecondFactor(method: "sms", password: "${password}") { hint } }`, cookie)).code).toBe('PHONE_REQUIRED')
     await gql('mutation { updateProfile(name: "S", phone: "+16145550130") { name } }', cookie)
-    expect((await gql('mutation { setSecondFactor(method: "sms") { hint } }', cookie)).data?.['setSecondFactor']).toEqual({ hint: '•••• 0130' })
+    expect((await gql('mutation { setSecondFactor(method: "sms") { hint } }', cookie)).code).toBe('INVALID_CREDENTIALS')
+    expect((await gql(`mutation { setSecondFactor(method: "sms", password: "${password}") { hint } }`, cookie)).data?.['setSecondFactor']).toEqual({ hint: '•••• 0130' })
     expect((await gql('mutation { setSecondFactor(method: "sms", code: "000000") { done } }', cookie)).code).toBe('WRONG_CODE')
     const [attempts] = await db.sql<{ attempts: number }[]>`select attempts from verification_code where subject_id = ${id} order by created_at desc limit 1`
     expect(attempts?.attempts).toBe(1)
@@ -242,13 +254,14 @@ describe('two-step sign-in', () => {
     await db.sql`update "user" set two_factor_method = 'app', two_factor_enrolled_at = now(), two_factor_secret_enc = 'x' where id = ${staff}`
     const cookie = await sessionFor(staff)
     await gql('mutation { regenerateBackupCodes }', cookie)
-    expect((await gql('mutation { setSecondFactor(method: "off") { done } }', cookie)).data?.['setSecondFactor']).toEqual({ done: true })
+    expect((await gql('mutation { setSecondFactor(method: "off", password: "not it") { done } }', cookie)).code).toBe('INVALID_CREDENTIALS')
+    expect((await gql(`mutation { setSecondFactor(method: "off", password: "${password}") { done } }`, cookie)).data?.['setSecondFactor']).toEqual({ done: true })
     expect(((await gql('{ profile { twoFactor { method backupCodesLeft } } }', cookie)).data?.['profile'])).toEqual({ twoFactor: { method: null, backupCodesLeft: 0 } })
     expect((await gql('mutation { regenerateBackupCodes }', cookie)).code).toBe('SECOND_FACTOR_REQUIRED')
     const owner = await person(t.partnerA, 'keeps.it@a.example', 'owner', t.storeA2)
     await db.sql`update "user" set two_factor_method = 'app', two_factor_enrolled_at = now(), two_factor_secret_enc = 'x' where id = ${owner}`
     const ownerCookie = await sessionFor(owner)
-    expect((await gql('mutation { setSecondFactor(method: "off") { done } }', ownerCookie)).code).toBe('SECOND_FACTOR_REQUIRED')
+    expect((await gql(`mutation { setSecondFactor(method: "off", password: "${password}") { done } }`, ownerCookie)).code).toBe('SECOND_FACTOR_REQUIRED')
     expect(((await gql('{ profile { twoFactor { required } } }', ownerCookie)).data?.['profile'])).toEqual({ twoFactor: { required: true } })
   })
 })
