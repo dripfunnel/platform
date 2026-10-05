@@ -21,12 +21,11 @@ export interface DetailsChange {
  */
 export const saveDetails = async (
   change: DetailsChange,
-  theme: Profile['theme'],
   api: { updateProfile: typeof updateProfile; changeEmail: typeof changeEmail } = { updateProfile, changeEmail },
 ): Promise<{ saved: Profile | null; emailSentTo: string | null; failure: unknown }> => {
   let saved: Profile | null = null
   try {
-    if (change.details) saved = await api.updateProfile({ ...change.details, theme })
+    if (change.details) saved = await api.updateProfile(change.details)
     if (change.email) await api.changeEmail(change.email.to, change.email.password)
     return { saved, emailSentTo: change.email?.to ?? null, failure: null }
   } catch (failure) {
@@ -61,7 +60,6 @@ export const Details = ({ profile, onSaved, onChanged, onToast }: { profile: Pro
     setBusy(true)
     void saveDetails(
       { details: detailsChanged ? { name: name.trim(), phone: phone.trim() || null } : null, email: emailChanged ? { to: email.trim(), password } : null },
-      profile.theme,
     ).then(({ saved, emailSentTo, failure }) => {
       setBusy(false)
       if (saved) onSaved(saved)
