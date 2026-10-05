@@ -3,7 +3,7 @@ import { minorOf } from '@dripfunnel/shared/format'
 import { useId, useState } from 'react'
 import { fill, formatCount, messages, plural } from '../../messages'
 import type { StockLevel, Warehouse } from '../../api/stock'
-import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from './draft'
+import { combinationsOf, maxOptions, maxVersions, newVersionCount, quantityOf, syncVersions, versionKey, type Draft, type DraftOption, type DraftProblem, type DraftVersion } from '../common/productDraft'
 import { Card, type Update } from './EditorCards'
 import { reservedLine, StockHistory, type StockHistoryView } from './StockCard'
 

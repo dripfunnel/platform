@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { EditorProduct, Facet, ProductBasics, ProductCollection } from '../../api/productEditor'
 import { ProductSearch } from '../common/ProductSearch'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { legalFields, type Draft, type LegalField, type ListingSection } from './draft'
+import { legalFields, type Draft, type LegalField, type ListingSection } from '../common/productDraft'
 import type { Update } from './EditorCards'
 import { Field, Section } from './EditorSections'
 

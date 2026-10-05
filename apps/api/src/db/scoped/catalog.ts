@@ -101,7 +101,8 @@ const maxInt = 2147483647n
 const sortOf: Record<ProductSort, { key: (tx: ScopedSql, currency: string | null) => postgres.PendingQuery<postgres.Row[]>; type: string; descending: boolean; fits: (value: string) => boolean }> = {
   created: { key: (tx) => tx`p.created_at`, type: 'timestamptz', descending: true, fits: () => true },
   updated: { key: (tx) => tx`p.updated_at`, type: 'timestamptz', descending: true, fits: () => true },
-  name: { key: (tx) => tx`lower(p.name)`, type: 'text', descending: false, fits: () => true },
+  // A name's value is any text a product name can be: no NUL, which Postgres text can't hold, and no longer than a name.
+  name: { key: (tx) => tx`lower(p.name)`, type: 'text', descending: false, fits: (v) => v.length <= 255 && !v.includes('\u0000') },
   // Unpriced products come last either way.
   price_low: { key: (tx, currency) => tx`coalesce(${minPrice(tx, currency)}, ${String(maxBigint)}::bigint)`, type: 'bigint', descending: false, fits: (v) => integerWithin(v, -1n, maxBigint) },
   price_high: { key: (tx, currency) => tx`coalesce(${minPrice(tx, currency)}, -1::bigint)`, type: 'bigint', descending: true, fits: (v) => integerWithin(v, -1n, maxBigint) },
@@ -421,6 +422,7 @@ export const setProductsTaxClass = (tx: ScopedSql, storeId: string, ids: readonl
     with changed as (
       update product_version v set tax_class_id = ${taxClassId}::uuid, updated_at = ${now}
       where v.store_id = ${storeId} and v.product_id = any(${pgArray(ids)}::uuid[]) and v.deleted_at is null
+        and exists (select 1 from product p where p.id = v.product_id and p.deleted_at is null)
       returning v.product_id
     )
     select distinct p.id, p.name from product p join changed c on c.product_id = p.id

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import type { StockLevel, StockMovement, Warehouse } from '../../api/stock'
 import { fill, formatCount, formatTime, messages, plural } from '../../messages'
-import { quantityOf, versionKey, type Draft, type DraftProblem } from './draft'
+import { quantityOf, versionKey, type Draft, type DraftProblem } from '../common/productDraft'
 import { Card, type Update } from './EditorCards'
 
 const words = messages.editor.stock
