@@ -1077,7 +1077,10 @@ A link names only a file the caller can read, because a foreign key alone would 
 `collection_product` rows are written by the `collections.recompute` outbox deliverer as `app_system`,
 parents first, after every change that can move them (a product saved or deleted, a collection, a filter, a
 merge). `collection.computed_at` is when that last landed, and `rule_matches` how many matched: an
-automatic collection holds the newest 1,000, and the portal says when it holds fewer than matched. A menu nests one level, and a collection
+automatic collection holds the newest 1,000, and the portal says when it holds fewer than matched.
+An edit clears both until its recompute lands. A burst of changes queues a run each, and only the newest
+still queued does the work. A store holds at most 500 collections and 200 filters, and a filter value that
+goes takes the rules naming it. A menu nests one level, and a collection
 can't be its own ancestor, both enforced by triggers. The H6 "only products also in the parent" switch
 is `inherit_parent`.
 

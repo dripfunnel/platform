@@ -64,14 +64,20 @@ export interface FacetWrite {
 export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, exists: boolean, now: Date): Promise<void> => {
   if (exists) {
     await tx`update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, updated_at = ${now} where id = ${facet.id} and store_id = ${storeId}`
-    await tx`delete from filter_value where filter_id = ${facet.id} and not (id = any(${pgArray(facet.values.filter((v) => v.kept).map((v) => v.id))}::uuid[]))`
+    const kept = pgArray(facet.values.filter((v) => v.kept).map((v) => v.id))
+    // A rule naming a value that goes would point at nothing: it goes with it, and the recompute follows.
+    await tx`
+      delete from collection_rule where store_id = ${storeId} and kind = 'filter_value'
+        and args->>'valueId' in (select id::text from filter_value where filter_id = ${facet.id} and not (id = any(${kept}::uuid[])))
+    `
+    await tx`delete from filter_value where filter_id = ${facet.id} and not (id = any(${kept}::uuid[]))`
   } else {
     await tx`insert into filter (id, store_id, name, position, shopper_visible) values (${facet.id}, ${storeId}, ${facet.name}, ${facet.position}, ${facet.shopperVisible})`
   }
-  const kept = facet.values.filter((v) => v.kept).map(({ id, name, position }) => ({ id, name, position }))
+  const keptValues = facet.values.filter((v) => v.kept).map(({ id, name, position }) => ({ id, name, position }))
   const added = facet.values.filter((v) => !v.kept).map(({ id, name, position }) => ({ id, name, position }))
-  if (kept.length > 0) {
-    await tx`update filter_value v set name = x.name, position = x.position from jsonb_to_recordset(${rowsOf(tx, kept)}) as x(id uuid, name text, position int) where v.id = x.id and v.filter_id = ${facet.id}`
+  if (keptValues.length > 0) {
+    await tx`update filter_value v set name = x.name, position = x.position from jsonb_to_recordset(${rowsOf(tx, keptValues)}) as x(id uuid, name text, position int) where v.id = x.id and v.filter_id = ${facet.id}`
   }
   if (added.length > 0) {
     await tx`insert into filter_value (id, filter_id, store_id, name, position) select x.id, ${facet.id}, ${storeId}, x.name, x.position from jsonb_to_recordset(${rowsOf(tx, added)}) as x(id uuid, name text, position int)`
@@ -83,8 +89,13 @@ export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetI
   return facet ? (facet.ids ?? []) : null
 }
 
-export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> =>
-  (await tx<{ name: string }[]>`delete from filter where id = ${facetId} and store_id = ${storeId} returning name`)[0]?.name ?? null
+export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> => {
+  await tx`
+    delete from collection_rule where store_id = ${storeId} and kind = 'filter_value'
+      and args->>'valueId' in (select id::text from filter_value where filter_id = ${facetId} and store_id = ${storeId})
+  `
+  return (await tx<{ name: string }[]>`delete from filter where id = ${facetId} and store_id = ${storeId} returning name`)[0]?.name ?? null
+}
 
 /**
  * Look-alike values merged into one (CatCollections "merge"): every product tagged with a source keeps
@@ -238,6 +249,20 @@ const slugFree = async <T>(tx: ScopedSql, base: string, write: (slug: string, sp
   throw new Error('catalogue: no free collection address after 50 tries')
 }
 
+export const maxCollections = 500
+
+export const countCollections = async (tx: ScopedSql, storeId: string): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from collection where store_id = ${storeId} and deleted_at is null`)[0]?.n ?? 0
+
+/** Whether a later recompute for the store is still queued: that one will do this one's work (outbox, system scope). */
+export const newerRecomputeQueued = async (tx: ScopedSql, storeId: string, outboxId: string, kind: string): Promise<boolean> =>
+  (
+    await tx`
+      select 1 from outbox o where o.kind = ${kind} and o.store_id = ${storeId} and o.delivered_at is null and o.failed_at is null and o.id <> ${outboxId}
+        and o.created_at > (select created_at from outbox where id = ${outboxId}) limit 1
+    `
+  ).length > 0
+
 export const insertCollection = async (tx: ScopedSql, storeId: string, id: string, f: CollectionFields): Promise<string> =>
   (
     await slugFree(tx, f.slug, (slug, sp) => sp`
@@ -253,7 +278,9 @@ export const updateCollection = async (tx: ScopedSql, storeId: string, id: strin
       await sp`
         update collection set name = ${f.name}, slug = ${slug}, description = ${f.description}, kind = ${f.kind}, match = ${f.match}, parent_id = ${f.parentId},
           inherit_parent = ${f.inheritParent}, visibility = ${f.visibility}, image_asset_id = ${f.imageAssetId}, sort = ${f.sort}, seo_title = ${f.seoTitle},
-          seo_description = ${f.seoDescription}, updated_at = ${now}, revision = revision + 1
+          seo_description = ${f.seoDescription}, updated_at = ${now}, revision = revision + 1,
+          -- An edited automatic collection is "Updating…" until its recompute lands (fact 11).
+          ${f.kind === 'automatic' ? sp`computed_at = null, rule_matches = null` : sp`rule_matches = null`}
         where id = ${id} and store_id = ${storeId} and revision = ${revision} and deleted_at is null
       `
     ).count,

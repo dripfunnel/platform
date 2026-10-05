@@ -137,6 +137,17 @@ describe('filters', () => {
     expect((await product('owner', 'Wrong tag', { filterValues: [{ valueId: bValue }] })).code).toBe('INVALID_FILTER')
   })
 
+  it('drops a collection rule whose filter value is removed', async () => {
+    const facet = (await saveFacet('owner', { name: 'Season', values: [{ name: 'Summer' }, { name: 'Winter' }] })).id ?? ''
+    const [summer, winter] = (await facets('owner')).find((f) => f.id === facet)?.values ?? []
+    const made = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Seasonal', kind: 'automatic', match: 'any', rules: [{ kind: 'filter_value', valueId: summer?.id }, { kind: 'filter_value', valueId: winter?.id }] } })).data?.['saveCollection'] as { id: string }
+    expect((await saveFacet('owner', { id: facet, name: 'Season', values: [{ id: winter?.id, name: 'Winter' }] })).code).toBeUndefined()
+    const rules = (await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: { valueId: string }[] }
+    expect(rules.rules).toEqual([{ valueId: winter?.id }])
+    expect((await gql('mutation D($id: ID!) { deleteFacet(id: $id) }', 'owner', { id: facet })).data?.['deleteFacet']).toBe(true)
+    expect(((await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: unknown[] }).rules).toEqual([])
+  })
+
   it('merges look-alike values into one, keeping every tag and rule', async () => {
     const facet = (await saveFacet('owner', { name: 'Colour', values: [{ name: 'Navy' }, { name: 'Navy blue' }] })).id ?? ''
     const [navy, navyBlue] = (await facets('owner')).find((f) => f.id === facet)?.values ?? []
@@ -221,6 +232,40 @@ describe('collections', () => {
     const [held] = await db.sql<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${made.id}`
     expect(held?.n).toBe(1000)
     await gql('mutation D($id: ID!) { deleteCollection(id: $id) }', 'bOwner', { id: made.id })
+  })
+
+  it('stops at 500 collections a store, which bounds every recompute', async () => {
+    await db.sql`insert into collection (store_id, name, slug, kind) select ${t.storeB1}, 'Cap ' || n, 'cap-' || n, 'manual' from generate_series(1, 500) as n`
+    const refused = await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'bOwner', { input: { name: 'One more', kind: 'manual' } })
+    expect(refused.code).toBe('TOO_MANY_COLLECTIONS')
+    await db.sql`update collection set deleted_at = now() where store_id = ${t.storeB1} and slug like 'cap-%'`
+  })
+
+  it('shows an edited automatic collection as updating until its recompute lands', async () => {
+    const { saved } = await save({ name: 'Edited later', kind: 'automatic', rules: [{ kind: 'name_contains', text: 'zzz' }] })
+    await drainRecompute()
+    const computed = (await gql('query C($id: ID!) { collection(id: $id) { computedAt ruleMatches } }', 'owner', { id: saved?.id })).data?.['collection'] as { computedAt: string | null; ruleMatches: number | null }
+    expect(computed.computedAt).not.toBeNull()
+    await save({ name: 'Edited later', kind: 'automatic', rules: [{ kind: 'name_contains', text: 'yyy' }] }, saved?.id, 1)
+    expect((await gql('query C($id: ID!) { collection(id: $id) { computedAt ruleMatches } }', 'owner', { id: saved?.id })).data?.['collection']).toEqual({ computedAt: null, ruleMatches: null })
+  })
+
+  it('recomputes once for a burst of changes: only the newest queued run does the work', async () => {
+    await drainRecompute()
+    for (const name of ['Burst one', 'Burst two', 'Burst three']) await product('owner', name)
+    const queued = await db.sql<{ id: string; payload: unknown }[]>`select id, payload from outbox where kind = ${collectionsRecomputeKind} and delivered_at is null order by created_at`
+    expect(queued.length).toBeGreaterThanOrEqual(3)
+    const deliverer = collectionsRecomputeDeliverer(db.sql, () => now)
+    await db.sql`update collection set computed_at = null where store_id = ${t.storeA1} and kind = 'automatic'`
+    const first = queued[0]
+    await deliverer.deliver({ id: first?.id, kind: collectionsRecomputeKind, payload: first?.payload } as never, new AbortController().signal)
+    const [untouched] = await db.sql<{ n: number }[]>`select count(*)::int as n from collection where store_id = ${t.storeA1} and kind = 'automatic' and computed_at is not null`
+    expect(untouched?.n).toBe(0)
+    const last = queued[queued.length - 1]
+    await deliverer.deliver({ id: last?.id, kind: collectionsRecomputeKind, payload: last?.payload } as never, new AbortController().signal)
+    const [done] = await db.sql<{ n: number }[]>`select count(*)::int as n from collection where store_id = ${t.storeA1} and kind = 'automatic' and computed_at is null and deleted_at is null`
+    expect(done?.n).toBe(0)
+    await db.sql`update outbox set delivered_at = now() where kind = ${collectionsRecomputeKind} and delivered_at is null`
   })
 
   it('refuses a parent that is itself or inside it, a stale save, and a rule naming another store’s product', async () => {

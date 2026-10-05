@@ -8,7 +8,9 @@ import {
   deleteFacet,
   insertCollection,
   knownCatalogueIds,
+  countCollections,
   maxCollectionProducts,
+  maxCollections,
   maxFacets,
   mergeFacetValues,
   selectCollection,
@@ -64,6 +66,7 @@ export type StructureRefusal =
   | 'INVALID_LINK'
   | 'TOO_DEEP'
   | 'TOO_MANY_FILTERS'
+  | 'TOO_MANY_COLLECTIONS'
 
 export type StructureResult<T> = { ok: true; value: T } | { ok: false; reason: StructureRefusal }
 
@@ -368,6 +371,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       let slug: string
       let nextRevision: number
       if (id === null) {
+        if ((await countCollections(tx, storeId)) >= maxCollections) throw new Refused('TOO_MANY_COLLECTIONS')
         collectionId = crypto.randomUUID()
         slug = await insertCollection(tx, storeId, collectionId, clean.fields)
         nextRevision = 1

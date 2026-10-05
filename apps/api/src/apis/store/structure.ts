@@ -28,6 +28,7 @@ const words: Record<StructureRefusal, string> = {
   INVALID_LINK: 'A menu item links a collection, a page of the shop, or an https address.',
   TOO_DEEP: 'A menu nests one level.',
   TOO_MANY_FILTERS: 'A store can have up to 200 filters. Merge or remove one first.',
+  TOO_MANY_COLLECTIONS: 'A store can have up to 500 collections. Remove one first.',
 }
 
 const answered = <T>(result: StructureResult<T>): T => {

@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
-import { recomputeCollections } from '#db/scoped/catalogStructure'
+import { newerRecomputeQueued, recomputeCollections } from '#db/scoped/catalogStructure'
 import { withSystemScope } from '#db/scoped/index'
 import type { Deliverer } from '../outbox-relay'
 
@@ -13,6 +13,11 @@ export const collectionsRecomputeDeliverer = (sql: postgres.Sql, now: () => Date
   deliver: async (effect) => {
     const parsed = payload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('collections.recompute: bad payload')
-    await withSystemScope(sql, (tx) => recomputeCollections(tx, parsed.data.storeId, now()))
+    // A burst of changes queues a run each; only the newest still queued does the work, so the store's
+    // collections are recomputed once for the burst rather than once per change.
+    await withSystemScope(sql, async (tx) => {
+      if (await newerRecomputeQueued(tx, parsed.data.storeId, effect.id, collectionsRecomputeKind)) return
+      await recomputeCollections(tx, parsed.data.storeId, now())
+    })
   },
 })
