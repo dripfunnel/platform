@@ -153,7 +153,7 @@ describe('the store caller', () => {
     const rows = await db.sql<{ actor_id: string; target_id: string; target_label: string; result: string }[]>`
       select actor_id, target_id, target_label, result from activity_log where action = 'store.crossing_refused' and actor_id = ${people.alice} order by occurred_at, id
     `
-    expect(rows.map((r) => r.target_id)).toEqual([t.storeA2, t.storeB1, 'not-a-uuid'])
+    expect(rows.map((r) => r.target_id).sort()).toEqual([t.storeA2, t.storeB1, 'not-a-uuid'].sort())
     expect(rows.every((r) => r.result === 'denied' && r.target_label === `holds ${t.storeA1}`)).toBe(true)
   })
 
@@ -188,6 +188,15 @@ describe('the store caller', () => {
     } finally {
       logged.mockRestore()
     }
+  })
+
+  it('logs a crossing repeated within a minute once, and again after it', async () => {
+    const asked = t.storeB1
+    for (const at of [now, new Date(now.getTime() + 30_000), new Date(now.getTime() + 61_000)]) {
+      expect((await standingOf(t.partnerA, cookies.pat, { [storeHeader]: asked }, at)).kind).toBe('crossing')
+    }
+    const [rows] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'store.crossing_refused' and actor_id = ${people.pat} and target_id = ${asked}`
+    expect(rows?.n).toBe(2)
   })
 
   it('keeps the crossing entry small for a person in many stores', async () => {

@@ -68,3 +68,14 @@ export const selectHeldStoreIds = async (tx: ScopedSql, userId: string, partnerI
   `
   return rows.map((r) => r.store_id)
 }
+
+/** Whether this person's crossing into this store was already logged since `since` (actor index). */
+export const crossingLoggedSince = async (tx: ScopedSql, userId: string, asked: string, since: Date): Promise<boolean> =>
+  (
+    await tx`
+      select 1 from activity_log
+      where actor_kind = 'person' and actor_id = ${userId} and occurred_at > ${since}
+        and action = 'store.crossing_refused' and target_id = ${asked}
+      limit 1
+    `
+  ).length > 0
