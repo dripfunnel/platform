@@ -6,6 +6,7 @@ import { approvalRequired, submitForApproval } from '#db/scoped/approval'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import {
   countUntranslatedProducts,
+  existingSharedNames,
   deleteTranslations,
   selectEntityTranslation,
   selectLanguages,
@@ -20,7 +21,7 @@ import {
   type TranslationWrite,
 } from '#db/scoped/translations'
 import { approvalAudit } from './approval'
-import { slugFrom } from './rules'
+import { slugFrom, supplierSlug } from './rules'
 
 export type { SharedNameRow, TranslationRow } from '#db/scoped/translations'
 
@@ -65,6 +66,7 @@ export interface TranslationDeps {
 }
 
 const limits: Record<TranslationField, number> = { name: 255, slug: 120, description: 20_000 }
+export const maxSharedNames = 100
 
 export const createTranslationService = ({ sql, context, actor, activity, facts, now }: TranslationDeps) => {
   const { storeId } = context
@@ -113,7 +115,9 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       if (value === undefined) return
       const row = main(field)
       if (!row) return
-      const text = (value ?? '').trim()
+      const typed = (value ?? '').trim()
+      // A supplier's new address gets its random suffix, as its main one does; one it keeps stays as it is.
+      const text = field === 'slug' && sellerId !== null && typed !== '' && typed !== row.text ? supplierSlug(typed) : typed
       if (text.length > limits[field]) throw new Refused('INVALID_INPUT')
       if (text === '') clears.push({ entity, entityId, field })
       else writes.push({ entity, entityId, field, main: row.main, text })
@@ -203,7 +207,13 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
 
   const saveSharedNames = (language: string, names: readonly { kind: 'option_name' | 'choice_name'; source: string; text: string | null }[]) =>
     run(async (tx) => {
+      if (names.length > maxSharedNames) throw new Refused('INVALID_INPUT')
       await translating(tx, language)
+      // Only names the catalogue uses, as sharedNames lists them; anything else would be a row no one sees.
+      for (const kind of ['option_name', 'choice_name'] as const) {
+        const asked = [...new Set(names.filter((n) => n.kind === kind).map((n) => n.source.trim().toLowerCase()))]
+        if (asked.length > 0 && (await existingSharedNames(tx, storeId, kind, asked)).length !== asked.length) throw new Refused('NOT_FOUND')
+      }
       const writes: TranslationWrite[] = []
       const clears: { entity: TranslationEntity; entityId: string; field: TranslationField }[] = []
       for (const n of names) {
@@ -219,6 +229,13 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       return true as const
     })
 
+  /** For the products list's "Not translated into …" (fact 19): the same languages the counts take. */
+  const checkLanguage = (language: string) =>
+    run(async (tx) => {
+      await translating(tx, language)
+      return true as const
+    })
+
   /** Fact 19's progress: how many of the caller's products have no name in the language yet. */
   const counts = (language: string) =>
     run(async (tx) => {
@@ -226,5 +243,5 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       return countUntranslatedProducts(tx, storeId, language)
     })
 
-  return { productTranslation, saveProductTranslation, entityTranslation, saveEntityTranslation, sharedNames, saveSharedNames, counts }
+  return { productTranslation, saveProductTranslation, entityTranslation, saveEntityTranslation, sharedNames, saveSharedNames, counts, checkLanguage }
 }

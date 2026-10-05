@@ -100,8 +100,8 @@ export const roundPrice = (money: Money, rounding: PriceRounding): Money => {
   if (rounding === 'none' || money.amount === 0n) return money
   const unit = 10n ** BigInt(minorDigits(money.currency))
   if (rounding === 'nearest') return { amount: divideHalfUp(money.amount, unit) * unit, currency: money.currency }
-  // With no minor unit (JPY), "ends in 99" is ¥1,599 from ¥1,547, so the step is a hundred (O4).
+  // Up to the nearest amount ending in 99, never below the computed one; with no minor unit (JPY) of the
+  // hundred, so ¥1,547 is ¥1,599 (O4).
   const step = unit === 1n ? 100n : unit
-  const up = ((money.amount + step - 1n) / step) * step
-  return { amount: up - 1n, currency: money.currency }
+  return { amount: money.amount + ((step - 1n - (money.amount % step)) % step), currency: money.currency }
 }

@@ -42,7 +42,7 @@ import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStru
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
-import { cleanProduct, reviewedChanges, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
+import { cleanProduct, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
@@ -124,7 +124,6 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
 
 // A supplier's address carries its own random ending, so a clash with a product it can't see shows nothing
 // (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
-const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
 
 
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
