@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { rememberActing } from '../acting'
 import { merchantRoles, supplierTiers, type Seat } from '../nav'
 import { query } from './client'
 
@@ -40,9 +41,26 @@ const choicesSchema = z.object({ myStores: z.object({ nodes: z.array(choiceSchem
 
 export type StoreChoice = z.infer<typeof choiceSchema>
 
-/** The person's stores under this partner; the switcher shows the first fifty, as the API pages. */
-export const loadMyStores = async (): Promise<StoreChoice[]> =>
-  (await query(`{ myStores(first: 50) { nodes { membershipId store { id name } role tier seller { id name } } pageInfo { hasNextPage endCursor } } }`, choicesSchema)).myStores.nodes
+// Fifty a page (the API's most); twenty pages is a thousand stores, more than any person holds.
+const maxPages = 20
+
+/** Every store the person holds under this partner: the switcher and the chooser need the whole list. */
+export const loadMyStores = async (): Promise<StoreChoice[]> => {
+  const all: StoreChoice[] = []
+  let after: string | null = null
+  for (let page = 0; page < maxPages; page += 1) {
+    const answer: z.infer<typeof choicesSchema> = await query(
+      `query Mine($after: String) { myStores(first: 50, after: $after) { nodes { membershipId store { id name } role tier seller { id name } } pageInfo { hasNextPage endCursor } } }`,
+      choicesSchema,
+      { after },
+    )
+    const { myStores } = answer
+    all.push(...myStores.nodes)
+    if (!myStores.pageInfo.hasNextPage || !myStores.pageInfo.endCursor) break
+    after = myStores.pageInfo.endCursor
+  }
+  return all
+}
 
 const stateSchema = z.object({
   storeState: z
@@ -68,8 +86,12 @@ const switchSchema = z.object({ switchStore: choiceSchema })
 export const switchStore = async (storeId: string, supplierId: string | null): Promise<StoreChoice> =>
   (await query(`mutation Switch($storeId: ID!, $supplierId: ID) { switchStore(storeId: $storeId, supplierId: $supplierId) { membershipId store { id name } role tier seller { id name } } }`, switchSchema, { storeId, supplierId })).switchStore
 
-/** Ends the one session on this device, in every store (FIRST-RELEASE §3.2). */
+/**
+ * Ends the one session on this device, in every store (FIRST-RELEASE §3.2), and forgets the acting
+ * store first, so the next person on a shared device starts with none. Resolves once the server answered.
+ */
 export const signOut = async (): Promise<void> => {
+  rememberActing(null)
   try {
     await fetch('/api/auth/sign-out', { method: 'POST', credentials: 'same-origin' })
   } catch {

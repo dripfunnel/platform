@@ -109,7 +109,7 @@
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius-card);
   background: var(--df-color-surface);
-  box-shadow: 0 12px 32px rgb(10 22 34 / 0.18);
+  box-shadow: var(--df-shadow-floating);
 }
 
 .df-switcher-item {

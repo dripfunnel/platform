@@ -81,7 +81,6 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
   }, [load])
 
   const leave = async () => {
-    rememberActing(null)
     await signOut()
     await navigate({ to: '/sign-in' })
   }
