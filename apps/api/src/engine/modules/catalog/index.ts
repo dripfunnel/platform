@@ -291,7 +291,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     // A sent-back product is resubmitted whether or not approval is still on: only the merchant's review ends it.
     const resubmitting = existing.approval_status === 'sent_back'
     if (!resubmitting && (reviewed.length === 0 || !(await approvalRequired(tx)))) return { approval: existing.approval_status, reviewed: [] }
-    await submitForApproval(tx, storeId, id)
+    await submitForApproval(tx, storeId, id, now())
     await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label: product.name }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
     return { approval: 'pending', reviewed }
   }
