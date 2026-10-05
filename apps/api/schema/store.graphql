@@ -231,14 +231,17 @@ type Mutation {
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
+  copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
   deleteFacet(id: ID!): Boolean
   deleteProducts(ids: [ID!]!): Int
   deleteSizeChart(id: ID!): Int
+  deleteStoryBlock(id: ID!): Boolean
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
+  publishProductStory(productId: ID!, revision: Int!): ProductStory
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
@@ -249,7 +252,9 @@ type Mutation {
   saveFacet(input: FacetInput!): ID
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
+  saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
+  saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
@@ -469,6 +474,20 @@ input ProductSpecInput {
   version: Int
 }
 
+type ProductStory {
+  modules: [StoryModule!]
+  productId: ID
+  publishedAt: String
+  revision: Int
+  status: String
+  template: String
+}
+
+input ProductStoryInput {
+  modules: [StoryModuleInput!]!
+  template: String
+}
+
 type ProductSummary {
   approval: String
   buyable: Boolean
@@ -577,11 +596,14 @@ type Query {
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
   productCounts: ProductCounts
+  productStory(productId: ID!): ProductStory
   products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   storeState: StoreState
+  storyBlock(id: ID!): StoryBlock
+  storyBlocks(after: String, before: String, first: Int): StoryBlockPage
 }
 
 type SavedCollection {
@@ -597,6 +619,11 @@ type SavedProduct {
 }
 
 type SavedSizeChart {
+  id: ID
+  revision: Int
+}
+
+type SavedStoryBlock {
   id: ID
   revision: Int
 }
@@ -719,6 +746,96 @@ type StoreState {
   status: String
   support: SupportBanner
   trialEndsAt: String
+}
+
+type StoryBlock {
+  body: String
+  id: ID
+  name: String
+  photo: StoryPhoto
+  products: Int
+  revision: Int
+  title: String
+  updatedAt: String
+}
+
+input StoryBlockInput {
+  body: String!
+  name: String!
+  photo: StoryPhotoInput
+  title: String!
+}
+
+type StoryBlockPage {
+  nodes: [StoryBlockSummary!]
+  pageInfo: PageInfo
+}
+
+type StoryBlockSummary {
+  id: ID
+  name: String
+  products: Int
+  updatedAt: String
+}
+
+type StoryItem {
+  photo: StoryPhoto
+  text: String
+  title: String
+}
+
+input StoryItemInput {
+  photo: StoryPhotoInput
+  text: String
+  title: String
+}
+
+type StoryModule {
+  blockId: ID
+  body: String
+  id: String
+  items: [StoryItem!]
+  kind: String
+  photo: StoryPhoto
+  photos: [StoryPhoto!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideo
+}
+
+input StoryModuleInput {
+  blockId: ID
+  body: String
+  id: String!
+  items: [StoryItemInput!]
+  kind: String!
+  photo: StoryPhotoInput
+  photos: [StoryPhotoInput!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideoInput
+}
+
+type StoryPhoto {
+  alt: String
+  assetId: ID
+}
+
+input StoryPhotoInput {
+  alt: String
+  assetId: ID
+}
+
+type StoryVideo {
+  assetId: ID
+  url: String
+}
+
+input StoryVideoInput {
+  assetId: ID
+  url: String
 }
 
 type SupportBanner {

@@ -343,6 +343,7 @@ describe('the backstop itself', () => {
       'asset', 'product_photo', 'product_video',
       'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
+      'product_story', 'story_block',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -502,6 +503,25 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_related (product_id, related_product_id, store_id, position) values (${first}, ${own}, ${t.storeA1}, 0)`)).rejects.toThrow(/no such product to relate/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_related (product_id, related_product_id, store_id, position) values (${first}, ${second}, ${t.storeA1}, 0)`)).rejects.toThrow(/no such product to relate/)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from size_chart`)).rejects.toThrow(/permission denied/)
+    // A+: a supplier keeps to its own products' stories and never reads the merchant's brand stories, and
+    // no story on a supplier's product names another owner's product or a brand story, whoever writes it.
+    await db.sql`insert into story_block (store_id, name, content) values (${t.storeA1}, 'Iso brand', '{"title":"T","body":"B","photo":null}')`
+    const [block] = await db.sql<{ id: string }[]>`select id from story_block where name = 'Iso brand'`
+    await inStore(t.storeA1, supplier, (tx) => tx`insert into product_story (product_id, store_id) values (${first}, ${t.storeA1})`)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_story (product_id, store_id) values (${second}, ${t.storeA1})`)).rejects.toThrow(/no such product/)
+    await inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_story (product_id, store_id) values (${own}, ${t.storeA1})`)
+    expect(await seen(t.storeA1, supplier, 'product_story')).toBe(1)
+    expect(await seen(t.storeA1, supplier, 'story_block')).toBe(0)
+    expect(await seen(t.storeB1, { kind: 'all' }, 'product_story')).toBe(0)
+    const compare = (id: string) => [{ id: 'c', kind: 'compare', productIds: [id] }]
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json(compare(own))} where product_id = ${first}`)).rejects.toThrow(/compares a product it can't/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json(compare(second))} where product_id = ${first}`)).rejects.toThrow(/compares a product it can't/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json([{ id: 'b', kind: 'brand', blockId: block?.id ?? null }])} where product_id = ${first}`)).rejects.toThrow(/brand story it can't/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into story_block (store_id, name, content) values (${t.storeA1}, 'Supplier brand', '{}')`)).rejects.toThrow(/row-level security/)
+    for (const table of ['product_story', 'story_block']) {
+      await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
+      await expect(withScope(db.sql, staff, (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
+    }
     // The plan count is the whole store's, a number only, whoever asks.
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)

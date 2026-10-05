@@ -1023,14 +1023,15 @@ menu                (id, store_id, key ('main'), name)
 menu_item           (id, menu_id, store_id, parent_id NULL, label, kind ('collection'|'page'|'url'),
                      collection_id NULL, url NULL, position)      -- J4 pages and URLs (§6)
 
-product_story       (product_id PK, store_id, seller_id NULL, status ('draft'|'live'),
-                     template, draft jsonb, live jsonb)
+product_story       (product_id PK, store_id, seller_id NULL, template NULL, draft jsonb,
+                     live jsonb NULL, published_at NULL, asset_ids, product_ids, block_ids, revision)
                     -- A+ content (CATALOG Q): ordered modules as a document, draft separate
-                    -- from live (Q9); module kinds limited to what the store's core version
-                    -- renders (fact 28); text per language in translation, keyed by the
-                    -- module id inside the document (Q10)
-story_block         (id, store_id, kind ('brand_story'), content jsonb)
-                    -- a reusable block shared by many products (Q5, release: decide)
+                    -- from live (Q9); its status is derived: no live is a draft, a live equal to
+                    -- the draft is live, else changed; module kinds limited to what the store's
+                    -- core version renders (fact 28); text per language in translation, keyed
+                    -- by the module id inside the document (Q10)
+story_block         (id, store_id, kind ('brand_story'), name, content jsonb, asset_ids, revision)
+                    -- a reusable block shared by many products (Q5)
 
 size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems text[],
                      rows jsonb, measurements jsonb, how_to_measure jsonb, fit_notes, model_info,
@@ -1090,9 +1091,17 @@ product's `product_spec`, `product_highlight`, `product_faq`, `product_related`,
 `store_feature` rows has the prototype's starting set (CatSettings). A product's chart is its own owner's,
 so a supplier never holds a chart it can't read. Each owner holds up to 200 charts, counted per owner so a
 supplier's count says nothing of others'. Only a manual badge is picked on a product, and a related
-product is one the caller can read. Lists are jsonb, not arrays (docs/api/README.md §7). Not yet:
-`size_chart_rule` (R6), `product_story` and `story_block` (A+), custom fields, `translation`, and
-readiness per market, which needs markets (SAPI 6).
+product is one the caller can read. Lists are jsonb, not arrays (docs/api/README.md §7).
+
+**Part 5** (migration 0045): `product_story` (store-and-seller) and `story_block` (inside the store, the
+merchant side's only). A trigger keeps the `*_ids` columns from both documents, for "used on" counts and
+file ownership; nothing reads them back as arrays. Every id a story names must be one the caller reads in
+the store: files of the right kind, which move to the product's owner unless another owner already shows
+them (as photos do, §7.3 `asset`); a compared product the save adds is not trashed and, when the product is a
+supplier's, has its owner, whoever saves; brand stories only on the merchant's products. Up to 10 modules a story and 50
+brand stories a store; a brand story in use isn't deleted. Not yet: `size_chart_rule` (R6), custom fields,
+`translation`, readiness per market, which needs markets (SAPI 6), and the shop read branches, which come
+with the Shop API (SAPI 8).
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
 product with no visible version is reported as "not buyable" (fact 8); a version with no price

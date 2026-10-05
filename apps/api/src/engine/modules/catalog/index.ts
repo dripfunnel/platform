@@ -47,6 +47,8 @@ export { assetsAudit, createAssetService, type AssetStore, type UploadResult } f
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
 export { createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
+export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
+export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
