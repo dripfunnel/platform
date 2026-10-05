@@ -1712,7 +1712,6 @@
       "countryInvalid": "Use the 2-letter country code, like IN"
     },
     "makeDefault": "Make default",
-    "makeDefaultTitle": "Make {name} the default?",
     "makeDefaultBody": "New products start here. Existing stock doesn’t move.",
     "editNext": "Change its name or address next.",
     "deleteNext": "You’ll confirm before it’s deleted.",

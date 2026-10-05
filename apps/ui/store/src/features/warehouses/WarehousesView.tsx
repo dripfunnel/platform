@@ -36,6 +36,7 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
   const id = useId()
   // Opened from a button or a dialog: the form takes focus so its arrival is announced (WCAG 2.4.3).
   useEffect(() => document.getElementById(`${id}-name`)?.focus(), [id])
+  const [tried, setTried] = useState(false)
   const nameMissing = form.name.trim() === ''
   const countryBad = form.country.trim() !== '' && !/^[A-Za-z]{2}$/.test(form.country.trim())
   const field = (key: keyof Omit<Form, 'id' | 'revision'>, label: string, extra: { placeholder?: string; problem?: string | null } = {}) => (
@@ -45,12 +46,18 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
       {extra.problem && <span id={`${id}-${key}-problem`} className="df-places-problem">{extra.problem}</span>}
     </div>
   )
+  // Save says what's missing and goes to it, as the prototype's required name does, rather than sitting disabled.
+  const trySave = () => {
+    if (!nameMissing && !countryBad) return onSave()
+    setTried(true)
+    document.getElementById(`${id}-${nameMissing ? 'name' : 'country'}`)?.focus()
+  }
   return (
     <section className="df-places-form" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>{form.id ? fill(words.form.editTitle, { name: form.name }) : words.form.addTitle}</h3>
       {!form.id && <p className="df-places-hint">{words.form.addBody}</p>}
       <div className="df-places-grid">
-        {field('name', words.form.name, { placeholder: words.form.namePlaceholder })}
+        {field('name', words.form.name, { placeholder: words.form.namePlaceholder, problem: tried && nameMissing ? words.form.nameMissing : null })}
         {field('line1', words.form.line1)}
         {field('line2', words.form.line2)}
         {field('city', words.form.city)}
@@ -62,7 +69,7 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
         <button type="button" className="df-button" disabled={busy} onClick={onCancel}>
           {words.form.cancel}
         </button>
-        <button type="button" className="df-button df-button--primary" disabled={busy || nameMissing || countryBad} onClick={onSave}>
+        <button type="button" className="df-button df-button--primary" disabled={busy} onClick={trySave}>
           {form.id ? words.form.save : words.form.saveAdd}
         </button>
       </div>
