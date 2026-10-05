@@ -184,6 +184,9 @@ describe('ready to sell per market', () => {
     const own = await create('supplier', { name: 'Supplier lamp', options: [], versions: [{ choices: [], prices: [price('5000')] }] })
     const theirs = await gql('{ products(search: "Supplier lamp") { nodes { name readiness { marketName } } } }', 'supplier')
     expect({ nodes: (theirs.data?.['products'] as { nodes: unknown[] }).nodes, errors: theirs.errors }).toEqual({ nodes: [{ name: 'Supplier lamp', readiness: null }], errors: undefined })
+    // Nor one product's readiness, which names the store's markets.
+    const one = await gql('query P($id: ID!) { product(id: $id) { name readiness { marketName missing } } }', 'supplier', { id: own.saved?.id })
+    expect({ product: one.data?.['product'], errors: one.errors }).toEqual({ product: { name: 'Supplier lamp', readiness: null }, errors: undefined })
     expect(own.saved).toBeDefined()
   })
 
