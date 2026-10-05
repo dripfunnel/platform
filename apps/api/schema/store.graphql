@@ -59,6 +59,10 @@ input CatalogueFeatureInput {
 type CatalogueSettings {
   badges: [Badge!]
   features: [CatalogueFeature!]
+  mainLanguage: String
+  pricingCurrency: String
+  translationLanguages: [String!]
+  unitSystem: String
 }
 
 type Collection {
@@ -195,6 +199,19 @@ input InviteSupplierInput {
   shippingMode: String
 }
 
+type InvoiceSettings {
+  emailWithDispatch: Boolean
+  footer: String
+  legalName: String
+  taxPerLine: Boolean
+}
+
+input InvoiceSettingsInput {
+  emailWithDispatch: Boolean!
+  footer: String
+  taxPerLine: Boolean!
+}
+
 type Market {
   active: Boolean
   countries: [String!]
@@ -240,6 +257,13 @@ input MarketInput {
 type MarketPage {
   nodes: [Market!]
   pageInfo: PageInfo
+}
+
+type MarketReadiness {
+  marketId: ID
+  marketName: String
+  missing: [String!]
+  ready: Boolean
 }
 
 type Me {
@@ -290,6 +314,7 @@ input MoneyInput {
 }
 
 type Mutation {
+  addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
@@ -305,6 +330,8 @@ type Mutation {
   deleteProducts(ids: [ID!]!): Int
   deleteSizeChart(id: ID!): Int
   deleteStoryBlock(id: ID!): Boolean
+  deleteTaxClass(id: ID!): Boolean
+  deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
@@ -324,22 +351,32 @@ type Mutation {
   revokeSupplierInvitation(invitationId: ID!): Boolean
   saveBadge(id: ID, input: BadgeInput!): ID
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
+  saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveFacet(input: FacetInput!): ID
+  saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
   saveLanguages(languages: [String!]!, main: String!): Boolean
   saveMarket(id: ID, input: MarketInput!, revision: Int): Market
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
+  saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
+  saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
+  saveStoreInfo(input: StoreInfoInput!): Boolean
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
+  saveTaxClass(id: ID, input: TaxClassInput!): ID
+  saveTaxZone(id: ID, input: TaxZoneInput!): ID
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
   sendBackProduct(id: ID!, reason: String!): Boolean
   setApproval(on: Boolean!): Boolean
   setDefaultWarehouse(id: ID!): Boolean
   setEverywhereElse(marketId: ID): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setPricesIncludeTax(included: Boolean!): Boolean
+  setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
+  setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
@@ -397,6 +434,7 @@ type Product {
   pricing(marketId: ID): [VersionPricing!]
   pricingCurrency: String
   productType: String
+  readiness: [MarketReadiness!]
   returnsText: String
   revision: Int
   sentBackReason: String
@@ -413,6 +451,12 @@ type Product {
   warrantyText: String
 }
 
+type ProductCollection {
+  id: ID
+  kind: String
+  name: String
+}
+
 type ProductCompliance {
   field: String
   region: String
@@ -427,9 +471,11 @@ input ProductComplianceInput {
 
 type ProductCounts {
   all: Int
+  fromSuppliers: Int
   hidden: Int
   lowStock: Int
   missingInfo: Int
+  outOfStock: Int
   pending: Int
   sentBack: Int
   visible: Int
@@ -483,6 +529,7 @@ type ProductListing {
   hazardous: Boolean
   highlights: [String!]
   marketRule: ProductMarketRule
+  related: [RelatedProduct!]
   relatedIds: [String!]
   specs: [ProductSpec!]
 }
@@ -569,6 +616,7 @@ input ProductSpecInput {
 type ProductStory {
   modules: [StoryModule!]
   productId: ID
+  products: [StoryProduct!]
   publishedAt: String
   revision: Int
   status: String
@@ -585,11 +633,13 @@ type ProductSummary {
   buyable: Boolean
   createdAt: String
   id: ID
+  lowStock: Boolean
   maxPrice: Money
   minPrice: Money
   name: String
   photoUrl: String
   productType: String
+  readiness: [MarketReadiness!]
   slug: String
   stock: Int
   supplier: ProductSupplier
@@ -602,6 +652,14 @@ type ProductSummary {
 type ProductSupplier {
   id: ID
   name: String
+}
+
+input ProductTranslationInput {
+  description: String
+  name: String
+  names: [SharedNameTranslationInput!]
+  slug: String
+  versions: [VersionNameTranslationInput!]
 }
 
 type ProductVersion {
@@ -617,6 +675,7 @@ type ProductVersion {
   name: String
   prices: [VersionPrice!]
   sku: String
+  taxClassId: ID
   trackStock: Boolean
   visible: Boolean
   weightGrams: Int
@@ -636,6 +695,7 @@ input ProductVersionInput {
   name: String
   prices: [VersionPriceInput!]!
   sku: String
+  taxClassId: ID
   trackStock: Boolean
   visible: Boolean
   weightGrams: Int
@@ -675,11 +735,13 @@ type Provisioning {
 type Query {
   brand: Brand
   catalogueSettings: CatalogueSettings
+  catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
   collection(id: ID!): Collection
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
   facets(after: String, before: String, first: Int): FacetPage
   health: String
+  invoiceSettings: InvoiceSettings
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
   me: Me
@@ -692,14 +754,18 @@ type Query {
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
+  productCollections(productId: ID!): [ProductCollection!]
   productCounts: ProductCounts
   productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
   productStory(productId: ID!): ProductStory
-  products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
+  productTranslation(language: String!, productId: ID!): [Translation!]
+  products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
@@ -708,6 +774,9 @@ type Query {
   supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
+  taxSetup: TaxSetup
+  translationProgress(language: String!): TranslationProgress
   warehouses(after: String, before: String, first: Int): WarehousePage
 }
 
@@ -716,6 +785,11 @@ type ReferenceRate {
   fetchedAt: String
   perEuro: String
   publishedOn: String
+}
+
+type RelatedProduct {
+  id: ID
+  name: String
 }
 
 type SavedCollection {
@@ -748,6 +822,25 @@ type SecondFactorStep {
   hint: String
   secret: String
   uri: String
+}
+
+type SharedName {
+  kind: String
+  main: String
+  source: String
+  text: String
+  uses: Int
+}
+
+type SharedNamePage {
+  nodes: [SharedName!]
+  pageInfo: PageInfo
+}
+
+input SharedNameTranslationInput {
+  kind: String!
+  source: String!
+  text: String
 }
 
 type SignedInSession {
@@ -867,6 +960,20 @@ type StockVersionPage {
   pageInfo: PageInfo
 }
 
+type StoreAddress {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
+input StoreAddressInput {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
 type StoreChoice {
   membershipId: ID
   role: String
@@ -891,6 +998,37 @@ input StoreCurrencyInput {
   code: String!
   mode: String!
   rounding: String
+}
+
+type StoreInfo {
+  address: StoreAddress
+  contactEmail: String
+  contactPhone: String
+  country: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String
+  nextOrderNumber: String
+  orderPrefix: String
+  taxId: String
+  timeZone: String
+  unitSystem: String
+}
+
+input StoreInfoInput {
+  address: StoreAddressInput
+  contactEmail: String
+  contactPhone: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String!
+  nextOrderNumber: Int!
+  orderPrefix: String
+  taxId: String
+  timeZone: String!
+  unitSystem: String!
 }
 
 type StoreLanguage {
@@ -1022,6 +1160,11 @@ input StoryPhotoInput {
   assetId: ID
 }
 
+type StoryProduct {
+  id: ID
+  name: String
+}
+
 type StoryVideo {
   assetId: ID
   url: String
@@ -1081,10 +1224,114 @@ type SupportBanner {
   partnerName: String
 }
 
+type TaxClass {
+  id: ID
+  isDefault: Boolean
+  name: String
+  taxCode: String
+  versions: Int
+}
+
+input TaxClassInput {
+  isDefault: Boolean
+  name: String!
+  taxCode: String
+}
+
+type TaxComponent {
+  amount: String
+  name: String
+  rateBps: Int
+}
+
+type TaxQuote {
+  currency: String
+  lines: [TaxQuoteLine!]
+  pricesIncludeTax: Boolean
+  source: String
+  total: String
+}
+
+type TaxQuoteLine {
+  components: [TaxComponent!]
+  lineAmount: String
+  quantity: Int
+  rateBps: Int
+  tax: String
+  versionId: ID
+}
+
+input TaxQuoteLineInput {
+  quantity: Int!
+  versionId: ID!
+}
+
+type TaxRate {
+  rateBps: Int
+  taxClassId: ID
+}
+
+input TaxRateInput {
+  rateBps: Int!
+  taxClassId: ID!
+}
+
+type TaxSetup {
+  classes: [TaxClass!]
+  pricesIncludeTax: Boolean
+  zones: [TaxZone!]
+}
+
+input TaxShipToInput {
+  country: String!
+  postal: String
+  region: String
+}
+
+type TaxZone {
+  countries: [String!]
+  id: ID
+  name: String
+  rates: [TaxRate!]
+  regions: [String!]
+}
+
+input TaxZoneInput {
+  countries: [String!]!
+  name: String!
+  rates: [TaxRateInput!]!
+  regions: [String!]
+}
+
+type Translation {
+  entity: String
+  entityId: String
+  field: String
+  main: String
+  status: String
+  text: String
+}
+
+type TranslationProgress {
+  products: Int
+  untranslated: Int
+}
+
+input TranslationTextInput {
+  description: String
+  name: String
+  slug: String
+}
+
 type TwoFactor {
   backupCodesLeft: Int
   method: String
   required: Boolean
+}
+
+input VersionNameTranslationInput {
+  id: ID!
+  name: String
 }
 
 type VersionPrice {

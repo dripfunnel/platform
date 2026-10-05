@@ -1,6 +1,7 @@
 import type { PlanPrice } from '../../api/plans'
 import { fill, formatAmount, messages } from '../../messages'
-import { minorOf, type PlanDraft } from './planDraft'
+import { minorOf } from '@dripfunnel/shared/format'
+import type { PlanDraft } from './planDraft'
 
 const words = messages.plans.editor
 

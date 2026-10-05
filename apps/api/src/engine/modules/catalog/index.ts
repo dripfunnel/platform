@@ -1,6 +1,5 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import {
   countProducts,
@@ -18,6 +17,7 @@ import {
   selectProduct,
   selectProducts,
   setProductPhotos,
+  setProductsTaxClass,
   setProductsVisibility,
   setProductVideo,
   setVersionChoices,
@@ -32,17 +32,20 @@ import {
   type OptionWrite,
   type ProductFields,
   type ProductQuery,
+  type ProductSort,
+  type SortWindow,
   type ProductRow,
   type ValueWrite,
   type VersionFields,
 } from '#db/scoped/catalog'
 import { approvalRequired, submitForApproval } from '#db/scoped/approval'
+import { classesOfStore } from '#db/scoped/tax'
 import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
-import { cleanProduct, reviewedChanges, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
+import { cleanProduct, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
@@ -50,10 +53,12 @@ export { assetsAudit, createAssetService, type AssetStore, type UploadResult } f
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
 export { collectionsRecomputeKind, createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
+export { createTranslationService, translationAudit, type ProductTranslationInput, type SharedNameRow, type TextPatch, type TranslationResult, type TranslationRow } from './translations'
 export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalResult } from './approval'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
-export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
+export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
+export { sortValueFits, sortValueOf } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
 // so a supplier's save reaches only its own products and a merchant's reaches the whole store.
@@ -65,6 +70,7 @@ export const catalogAudit = {
   deleted: 'product.deleted',
   shown: 'product.shown',
   hidden: 'product.hidden',
+  taxClassChanged: 'product.tax_class_changed',
 } as const
 
 export type SaveRefusal =
@@ -118,13 +124,9 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   cost: v.cost,
   trackStock: v.trackStock,
   continueSelling: v.continueSelling,
+  taxClassId: v.taxClassId,
   position,
 })
-
-// A supplier's address carries its own random ending, so a clash with a product it can't see shows nothing
-// (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
-const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
-
 
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
 type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
@@ -251,7 +253,10 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (typeof result === 'string') throw new Refused({ reason: result })
     // Vendor input can't carry visibility (ACCESS §7.2), nor prices in the store's other currencies (CATALOG O14):
     // refused, not quietly dropped.
-    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    // A version's tax class is one of the store's live ones (fact 37); a supplier's take the store's default.
+    const classes = [...new Set(result.versions.flatMap((v) => (v.taxClassId ? [v.taxClassId] : [])))]
+    if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
     if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
     try {
@@ -355,6 +360,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           hsCode: v.hs_code,
           customsDescription: v.customs_description,
           trackStock: v.track_stock,
+          taxClassId: v.tax_class_id,
           continueSelling: v.continue_selling,
         })),
         // The same files, on the copy's own photos; the copy's versions are in the source's order.
@@ -391,6 +397,16 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return gone.length
     })
 
+  /** The merchant side's bulk "Change tax category" (CatList; fact 37): a supplier's products take the store's default. */
+  const setTaxClass = (ids: readonly string[], taxClassId: string | null) =>
+    inScope(async (tx): Promise<number | 'NOT_FOUND'> => {
+      if (sellerId !== null) throw new Error('catalogue: a supplier never sets a tax class')
+      if (taxClassId !== null && (!isUuid(taxClassId) || (await classesOfStore(tx, storeId, [taxClassId])) !== 1)) return 'NOT_FOUND'
+      const changed = await setProductsTaxClass(tx, storeId, ids, taxClassId, now())
+      await activity.recordAll(tx, changed.map((c) => entry(catalogAudit.taxClassChanged, { id: c.id, label: c.name })))
+      return changed.length
+    })
+
   /** The merchant side's bulk show and hide (CatList); a supplier never reaches it. */
   const setVisibility = (ids: readonly string[], visible: boolean) =>
     inScope(async (tx) => {
@@ -400,11 +416,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return changed.length
     })
 
-  const list = (query: Omit<ProductQuery, 'currency'>, window: PageWindow) =>
+  const list = (query: Omit<ProductQuery, 'currency'>, window: SortWindow, sort: ProductSort = 'created') =>
     inScope(async (tx) => {
       const currency = await selectPricingCurrency(tx)
       // A supplier's filter is its own scope; the supplier filter is the merchant's.
-      return { currency, rows: await selectProducts(tx, storeId, { ...query, seller: sellerId !== null ? null : query.seller, currency }, window) }
+      return { currency, rows: await selectProducts(tx, storeId, { ...query, seller: sellerId !== null ? null : query.seller, currency }, window, sort) }
     })
 
   const counts = () => inScope((tx) => countProducts(tx, storeId))
@@ -412,5 +428,5 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const get = (id: string) =>
     inScope(async (tx) => ({ currency: await selectPricingCurrency(tx), product: await selectProduct(tx, storeId, id) }))
 
-  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility }
+  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass }
 }

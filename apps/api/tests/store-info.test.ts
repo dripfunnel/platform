@@ -1,0 +1,224 @@
+import { graphql, type GraphQLSchema } from 'graphql'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import type { StoreContext } from '#apis/store/access'
+import { storeSchema } from '#apis/store/schema'
+import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
+import { createUserSession, storeCookieName } from '#auth/storeSession'
+import type { CallerContext } from '#core/tenancy'
+import { withScope, withSystemScope } from '#db/scoped/index'
+import { activityLog } from '#saas/activity/index'
+import { createTestDatabase, type TestDatabase } from './support/database'
+import { seedTenants, type Tenants } from './support/fixtures'
+
+// Card #296 (SAPI 6, part 4): Settings › Store info (SetStore; DATA-MODEL §7.2).
+
+let db: TestDatabase
+let t: Tenants
+const now = new Date('2026-10-05T09:00:00Z')
+type Who = 'owner' | 'manager' | 'supplier' | 'bOwner'
+const people: Record<Who, string> = { owner: '', manager: '', supplier: '', bOwner: '' }
+const cookies: Record<Who, string> = { owner: '', manager: '', supplier: '', bOwner: '' }
+
+const user = async (partnerId: string, email: string, name: string) =>
+  (await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${partnerId}, ${email}, ${name}, 'active') returning id`)[0]?.id ?? ''
+
+const subscribe = async (storeId: string, partnerId: string, limits: { languages: number; currencies: number }) => {
+  const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, ${`Plan ${storeId.slice(0, 6)}`}, 'live') returning id`
+  for (const [key, amount] of Object.entries({ products: 50, ...limits })) {
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${partnerId}, 1, ${key}, ${amount})`
+  }
+  await db.sql`update store set plan_id = ${plan?.id ?? ''}, pricing_currency = 'INR', country = 'IN' where id = ${storeId}`
+  await db.sql`delete from store_subscription where store_id = ${storeId}`
+  await db.sql`insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end)
+    values (${storeId}, ${partnerId}, ${plan?.id ?? ''}, 1, 'active', 'month', 'INR', 0, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)})`
+}
+
+beforeAll(async () => {
+  db = await createTestDatabase()
+  t = await seedTenants(db.sql)
+  await subscribe(t.storeA1, t.partnerA, { languages: 2, currencies: 3 })
+  await subscribe(t.storeB1, t.partnerB, { languages: 2, currencies: 3 })
+  people.owner = await user(t.partnerA, 'owner@a.example', 'Olivia')
+  people.manager = await user(t.partnerA, 'manager@a.example', 'Mo')
+  people.supplier = await user(t.partnerA, 'anand@a.example', 'Anand')
+  people.bOwner = await user(t.partnerB, 'owner@b.example', 'Bea')
+  await db.sql`insert into membership (user_id, store_id, role_key, status) values (${people.owner}, ${t.storeA1}, 'owner', 'active'), (${people.manager}, ${t.storeA1}, 'manager', 'active'), (${people.bOwner}, ${t.storeB1}, 'owner', 'active')`
+  await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${people.supplier}, ${t.storeA1}, ${t.sellerA1First}, 'supplier-admin', 'active')`
+  for (const who of Object.keys(cookies) as Who[]) {
+    cookies[who] = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people[who], partnerId: who === 'bOwner' ? t.partnerB : t.partnerA }, now))
+  }
+}, 60_000)
+
+afterAll(async () => {
+  await db?.drop()
+})
+
+const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}) => {
+  const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
+  const facts = { requestId: 'r', ip: null, userAgent: null }
+  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: who === 'bOwner' ? t.storeB1 : t.storeA1, ...(who === 'supplier' ? { [supplierHeader]: t.sellerA1First } : {}) }
+  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
+  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
+  return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
+}
+
+type Info = { name: string; legalName: string; description: string; logoAssetId: string | null; address: { street: string; city: string; postal: string; region: string }; contactEmail: string | null; contactPhone: string | null; country: string | null; taxId: string | null; timeZone: string; unitSystem: string; orderPrefix: string; nextOrderNumber: string }
+const infoFields = 'name legalName description logoAssetId address { street city postal region } contactEmail contactPhone country taxId timeZone unitSystem orderPrefix nextOrderNumber'
+const info = async (who: Who = 'owner') => (await gql(`{ storeInfo { ${infoFields} } }`, who)).data?.['storeInfo'] as Info | null
+const save = (input: Record<string, unknown>, who: Who = 'owner') => gql('mutation S($input: StoreInfoInput!) { saveStoreInfo(input: $input) }', who, { input })
+const base = {
+  name: 'Kesari Threads',
+  legalName: 'Kesari Threads Pvt Ltd',
+  description: 'Everyday clothes, made to last.',
+  address: { street: '12 MI Road', city: 'Jaipur', postal: '302001', region: 'Rajasthan' },
+  contactEmail: 'hello@kesari.example',
+  contactPhone: '+91 98290 00000',
+  taxId: '08abcde1234f1z5',
+  timeZone: 'Asia/Kolkata',
+  unitSystem: 'metric',
+  orderPrefix: 'kt-',
+  nextOrderNumber: 2849,
+}
+
+describe('Settings › Store info', () => {
+  it('saves the section, the legal name and the home country’s tax id in their own homes', async () => {
+    expect((await save(base)).data?.['saveStoreInfo']).toBe(true)
+    expect(await info()).toEqual({
+      name: 'Kesari Threads',
+      legalName: 'Kesari Threads Pvt Ltd',
+      description: 'Everyday clothes, made to last.',
+      logoAssetId: null,
+      address: { street: '12 MI Road', city: 'Jaipur', postal: '302001', region: 'Rajasthan' },
+      contactEmail: 'hello@kesari.example',
+      contactPhone: '+91 98290 00000',
+      country: 'IN',
+      taxId: '08ABCDE1234F1Z5',
+      timeZone: 'Asia/Kolkata',
+      unitSystem: 'metric',
+      orderPrefix: 'KT-',
+      nextOrderNumber: '2849',
+    })
+    expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1}`).toEqual([{ kind: 'gst', number: '08ABCDE1234F1Z5' }])
+    expect((await save({ ...base, taxId: '' })).code).toBeUndefined()
+    expect((await info())?.taxId).toBeNull()
+    // The entry names the fields that changed, never their values (LOGGING.md §5).
+    expect(await db.sql`select reason from activity_log where action = 'store.info_saved' and store_id = ${t.storeA1} order by occurred_at, id`).toEqual([
+      { reason: 'name, legal_name, description, address, contact_email, contact_phone, tax_id, time_zone, order_prefix, next_order_number' },
+      { reason: 'tax_id' },
+    ])
+  })
+
+  it('starts a new store on its country’s time zone, units and tax display', async () => {
+    const made = async (country: string) => (await db.sql<{ time_zone: string; unit_system: string; tax_inclusive: boolean }[]>`insert into store (partner_id, name, code, country) values (${t.partnerA}, ${`New ${country}`}, ${`new-${country.toLowerCase()}`}, ${country}) returning time_zone, unit_system, tax_inclusive`)[0]
+    expect(await made('IN')).toEqual({ time_zone: 'Asia/Kolkata', unit_system: 'metric', tax_inclusive: true })
+    expect(await made('US')).toEqual({ time_zone: 'America/New_York', unit_system: 'imperial', tax_inclusive: false })
+    expect(await made('DE')).toEqual({ time_zone: 'UTC', unit_system: 'metric', tax_inclusive: true })
+  })
+
+  it('refuses what isn’t valid: a tax id not in the country’s format, a made-up time zone, a bad email or prefix', async () => {
+    expect((await save({ ...base, taxId: 'NOT-A-GSTIN' })).code).toBe('INVALID_TAX_ID')
+    for (const zone of ['Mars/Olympus', '+05:30', '-0800', '']) expect({ zone, code: (await save({ ...base, timeZone: zone })).code }).toEqual({ zone, code: 'INVALID_TIME_ZONE' })
+    expect((await save({ ...base, contactEmail: 'nobody' })).code).toBe('INVALID_EMAIL')
+    expect((await save({ ...base, orderPrefix: 'TOO-LONG' })).code).toBe('INVALID_INPUT')
+    expect((await save({ ...base, name: ' ' })).code).toBe('INVALID_INPUT')
+    expect((await save({ ...base, description: 'x'.repeat(121) })).code).toBe('INVALID_INPUT')
+  })
+
+  it('takes only the store’s own image as its logo', async () => {
+    const [mine] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${`stores/${t.storeA1}/assets/00000000-0000-4000-8000-000000000001.png`}, 'image', 'image/png', 10, ${'a'.repeat(64)}) returning id`
+    const [theirs] = await db.sql<{ id: string }[]>`insert into asset (store_id, r2_key, kind, mime, bytes, checksum) values (${t.storeB1}, ${`stores/${t.storeB1}/assets/00000000-0000-4000-8000-000000000002.png`}, 'image', 'image/png', 10, ${'b'.repeat(64)}) returning id`
+    expect((await save({ ...base, logoAssetId: theirs?.id })).code).toBe('INVALID_LOGO')
+    expect((await save({ ...base, logoAssetId: mine?.id })).code).toBeUndefined()
+    expect((await info())?.logoAssetId).toBe(mine?.id)
+    // The database holds the rule too: a logo is never another store's asset, and one in use can't go.
+    await expect(db.sql`update store set logo_asset_id = ${theirs?.id ?? ''} where id = ${t.storeA1}`).rejects.toThrow(/store_logo_asset_fkey/)
+    await expect(db.sql`delete from asset where id = ${mine?.id ?? ''}`).rejects.toThrow(/store_logo_asset_fkey/)
+  })
+
+  it('stores a time zone by its canonical name, whatever its casing or old name', async () => {
+    for (const [typed, stored] of [['asia/kolkata', 'Asia/Kolkata'], ['Asia/Calcutta', 'Asia/Kolkata'], ['america/new_york', 'America/New_York'], ['utc', 'UTC']] as const) {
+      expect((await save({ ...base, timeZone: typed })).code).toBeUndefined()
+      expect({ typed, stored: (await info())?.timeZone }).toEqual({ typed, stored })
+    }
+  })
+
+  it('is the Owner’s to write, the merchant side’s to read, and no supplier’s or other store’s', async () => {
+    expect((await info('manager'))?.name).toBe('Kesari Threads')
+    expect((await save(base, 'manager')).code).toBe('FORBIDDEN')
+    expect((await gql('{ storeInfo { name } }', 'supplier')).code).toBe('FORBIDDEN')
+    // Store B saves its own, which changes nothing of store A's, and reads only its own back.
+    const before = await info()
+    expect((await save({ ...base, name: 'Bea Goods', legalName: 'Bea Goods Ltd', taxId: '', contactEmail: 'bea@b.example', address: { street: '1 B Street' } }, 'bOwner')).code).toBeUndefined()
+    expect(await info()).toEqual(before)
+    expect(await info('bOwner')).toMatchObject({ name: 'Bea Goods', legalName: 'Bea Goods Ltd', taxId: null, contactEmail: 'bea@b.example', address: { street: '1 B Street', city: '' } })
+    const storeB: CallerContext = { caller: { kind: 'person', userId: people.bOwner, sessionId: 's' }, partnerId: t.partnerB, storeId: t.storeB1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    for (const table of ['invoice_settings', 'tax_registration']) {
+      expect(await withScope(db.sql, storeB, (tx) => tx.unsafe(`select 1 from ${table} where store_id = '${t.storeA1}'`))).toHaveLength(0)
+    }
+    expect(await withScope(db.sql, storeB, async (tx) => (await tx`update invoice_settings set legal_name = 'Hijack' where store_id = ${t.storeA1}`).count)).toBe(0)
+    const supplier: CallerContext = { caller: { kind: 'person', userId: people.supplier, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller', sellerId: t.sellerA1First }, subscription: 'active' }
+    await expect(withScope(db.sql, supplier, (tx) => tx`select save_store_info('{}'::jsonb)`)).rejects.toThrow(/merchant side of a store only|permission denied/)
+    await expect(withScope(db.sql, supplier, (tx) => tx`select set_store_tax_inclusive(false)`)).rejects.toThrow(/merchant side of a store only|permission denied/)
+    // Read-only support passes no write through either definer, which the support policies can't reach.
+    const support: CallerContext = { caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    await expect(withScope(db.sql, support, (tx) => tx`select save_store_info(${tx.json({ name: 'Support was here', next_order_number: 9999 })})`)).rejects.toThrow(/merchant side of a store only/)
+    await expect(withScope(db.sql, support, (tx) => tx`select set_store_tax_inclusive(false)`)).rejects.toThrow(/merchant side of a store only/)
+    const merchant: CallerContext = { ...support, caller: { kind: 'person', userId: people.owner, sessionId: 's' } }
+    await withScope(db.sql, merchant, (tx) => tx`select set_store_tax_inclusive(false)`)
+    expect(await db.sql`select id, tax_inclusive from store where id in (${t.storeA1}, ${t.storeB1}) order by id = ${t.storeA1} desc`).toEqual([{ id: t.storeA1, tax_inclusive: false }, { id: t.storeB1, tax_inclusive: true }])
+    expect((await info())?.name).toBe('Kesari Threads')
+    for (const table of ['invoice_settings', 'tax_registration']) {
+      await expect(withScope(db.sql, supplier, (tx) => tx.unsafe(`select 1 from ${table}`))).rejects.toThrow(/permission denied/i)
+    }
+  })
+
+  it('takes a tax id only where the store has a country, and order numbers only upward', async () => {
+    // Store B was made with no country, so there is no home registration to file its tax id under.
+    expect((await save({ ...base, name: 'Bea Goods', taxId: 'DE123456789' }, 'bOwner')).code).toBe('INVALID_TAX_ID')
+    expect((await save({ ...base, nextOrderNumber: 100 })).code).toBe('ORDER_NUMBER_DOWN')
+    expect((await save({ ...base, nextOrderNumber: 3000 })).code).toBeUndefined()
+    expect((await info())?.nextOrderNumber).toBe('3000')
+    expect(await db.sql`select 1 from tax_registration where store_id = ${t.storeB1}`).toHaveLength(0)
+  })
+
+  it('never lowers a counter an order moved on while the save was waiting', async () => {
+    let release = (): void => undefined
+    const held = new Promise<void>((resolve) => (release = resolve))
+    let taken = (): void => undefined
+    const locked = new Promise<void>((resolve) => (taken = resolve))
+    const order = db.sql.begin(async (tx) => {
+      await tx`update store set next_order_number = 5000 where id = ${t.storeA1}`
+      taken()
+      await held
+    })
+    await locked
+    const saving = save({ ...base, nextOrderNumber: 4000 })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    release()
+    await order
+    expect((await saving).code).toBe('ORDER_NUMBER_DOWN')
+    expect((await info())?.nextOrderNumber).toBe('5000')
+    await db.sql`update store set next_order_number = 3000 where id = ${t.storeA1}`
+  })
+
+  it('keeps the home country’s other registrations: a US store’s EIN and its sales-tax permit', async () => {
+    await db.sql`update store set country = 'US' where id = ${t.storeA1}`
+    try {
+      await db.sql`insert into tax_registration (store_id, country, kind, number) values (${t.storeA1}, 'US', 'sales_tax_permit', 'OH-PERMIT-77')`
+      expect((await save({ ...base, nextOrderNumber: 3000, taxId: '12-3456789' })).code).toBeUndefined()
+      expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1} and country = 'US' order by kind`).toEqual([{ kind: 'ein', number: '12-3456789' }, { kind: 'sales_tax_permit', number: 'OH-PERMIT-77' }])
+      expect((await info())?.taxId).toBe('12-3456789')
+      // Typing a permit over the EIN shown saves the permit and shows it; the EIN stays.
+      expect((await save({ ...base, nextOrderNumber: 3000, taxId: 'OH-PERMIT-88' })).code).toBeUndefined()
+      expect((await info())?.taxId).toBe('OH-PERMIT-88')
+      expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1} and country = 'US' order by kind`).toEqual([{ kind: 'ein', number: '12-3456789' }, { kind: 'sales_tax_permit', number: 'OH-PERMIT-88' }])
+      // Clearing the field leaves the store with no home tax id: the EIN goes with the permit.
+      expect((await save({ ...base, nextOrderNumber: 3000, taxId: '' })).code).toBeUndefined()
+      expect((await info())?.taxId).toBeNull()
+      expect(await db.sql`select 1 from tax_registration where store_id = ${t.storeA1} and country = 'US'`).toHaveLength(0)
+    } finally {
+      await db.sql`update store set country = 'IN' where id = ${t.storeA1}`
+    }
+  })
+})

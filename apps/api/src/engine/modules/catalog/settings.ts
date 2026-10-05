@@ -20,6 +20,8 @@ import {
   upsertBadge,
   type FeatureKey,
 } from '#db/scoped/catalogListing'
+import { selectPricingCurrency, selectUnitSystem } from '#db/scoped/catalog'
+import { selectLanguages } from '#db/scoped/translations'
 import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanBadge, cleanSizeChart, ListingInvalid, type SizeChartInput } from './listing'
 import { isUuid } from '#core/ids'
@@ -87,7 +89,8 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
     }
   }
 
-  const settings = () => inScope(async (tx) => ({ features: await selectFeatures(tx, storeId), badges: await selectBadges(tx, storeId) }))
+  // The pricing currency and units too: a supplier adding a product prices and weighs it in the store's, and reads no store row.
+  const settings = () => inScope(async (tx) => ({ features: await selectFeatures(tx, storeId), badges: await selectBadges(tx, storeId), pricingCurrency: await selectPricingCurrency(tx), unitSystem: await selectUnitSystem(tx), languages: await selectLanguages(tx, storeId) }))
 
   const saveFeatures = (features: readonly { key: string; enabled: boolean }[]) =>
     run(async (tx) => {

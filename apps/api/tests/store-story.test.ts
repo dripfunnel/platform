@@ -202,6 +202,10 @@ describe('A+ content: owners', () => {
     expect((await saveStory('owner', theirs, 0, compare([theirsToo]))).story?.modules[0]?.productIds).toEqual([theirsToo])
     // The merchant's own products may compare any of the store's.
     expect((await saveStory('owner', merchant, 0, compare([theirs, other]))).story?.revision).toBe(1)
+    // The comparison's chips are named with the story, one read; a supplier is named only its own.
+    const names = async (who: Who, id: string) => ((await gql('query Q($id: ID!) { productStory(productId: $id) { products { id name } } }', who, { id })).data?.['productStory'] as { products: { name: string }[] }).products.map((p) => p.name).sort()
+    expect(await names('owner', merchant)).toEqual(['Anand tee', 'Bhatia tee'])
+    expect(await names('supplier', theirs)).toEqual(['Anand tee, heavy'])
     // A compared product trashed later doesn't block the next save, but can't be added again.
     await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [other] })
     expect((await saveStory('owner', merchant, 1, [...compare([theirs, other]), { id: 'f', kind: 'faq' }])).story?.revision).toBe(2)

@@ -1,7 +1,8 @@
 import { identityChanged } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { rememberActing } from '../acting'
-import { merchantRoles, supplierTiers, type Seat } from '../nav'
+import { merchantRoles, supplierTiers, type NavBadgeSource, type Seat } from '../nav'
+import { allPages } from './allPages'
 import { query } from './client'
 
 // The shell's reads (FIRST-RELEASE.md §3, §19; apps/api/schema/store.graphql): who is signed in and
@@ -42,28 +43,16 @@ const choicesSchema = z.object({ myStores: z.object({ nodes: z.array(choiceSchem
 
 export type StoreChoice = z.infer<typeof choiceSchema>
 
-/** Every store the person holds under this partner, fifty a page: the switcher and the chooser need the whole list. */
-export const loadMyStores = async (): Promise<StoreChoice[]> => {
-  const all: StoreChoice[] = []
-  let after: string | null = null
-  const cursors = new Set<string>()
-  for (;;) {
-    const answer: z.infer<typeof choicesSchema> = await query(
+/** Every store the person holds under this partner: the switcher and the chooser need the whole list. */
+export const loadMyStores = (): Promise<StoreChoice[]> =>
+  allPages(async (after) => {
+    const { myStores }: z.infer<typeof choicesSchema> = await query(
       `query Mine($after: String) { myStores(first: 50, after: $after) { nodes { membershipId store { id name } role tier seller { id name } } pageInfo { hasNextPage endCursor } } }`,
       choicesSchema,
       { after },
     )
-    const { myStores } = answer
-    all.push(...myStores.nodes)
-    const { hasNextPage, endCursor } = myStores.pageInfo
-    if (!hasNextPage) break
-    // A page that promises more but gives no new cursor would loop for ever; it fails rather than truncates.
-    if (!endCursor || cursors.has(endCursor)) throw new Error('myStores paging made no progress')
-    cursors.add(endCursor)
-    after = endCursor
-  }
-  return all
-}
+    return myStores
+  })
 
 const stateSchema = z.object({
   storeState: z
@@ -82,6 +71,14 @@ export type StoreState = NonNullable<z.infer<typeof stateSchema>['storeState']>
 
 export const loadStoreState = async (): Promise<StoreState | null> =>
   (await query(`{ storeState { readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt } } }`, stateSchema)).storeState
+
+const badgesSchema = z.object({ navBadges: z.object({ products: z.number().int().nullable() }).nullable() })
+
+/** The menu's counts (FIRST-RELEASE §19): products to approve now; orders to ship once SAPI 11 counts them. */
+export const loadNavBadges = async (): Promise<Record<NavBadgeSource, number>> => {
+  const { navBadges } = await query('{ navBadges { products } }', badgesSchema)
+  return { ordersToShip: 0, productsToApprove: navBadges?.products ?? 0 }
+}
 
 const switchSchema = z.object({ switchStore: choiceSchema })
 

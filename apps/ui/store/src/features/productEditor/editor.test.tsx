@@ -1,0 +1,633 @@
+// @vitest-environment happy-dom
+import { ApiError } from '@dripfunnel/shared/graphql'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet, RouterProvider } from '@tanstack/react-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { EditorProduct } from '../../api/productEditor'
+import type { Acting } from '../../api/shell'
+import { messages } from '../../messages'
+import { editorAccessOf } from '../common/access'
+
+// CatEditor driven as each seat would (FIRST-RELEASE §11): what loads, what a save sends, what each refusal says.
+
+const words = messages.editor
+
+const api = vi.hoisted(() => ({
+  loadProduct: vi.fn(),
+  loadProductBasics: vi.fn(),
+  loadFacets: vi.fn(),
+  loadStoreCurrencies: vi.fn(),
+  loadPricing: vi.fn(),
+  loadMarkets: vi.fn(),
+  loadSizeCharts: vi.fn(),
+  loadProductCollections: vi.fn(),
+  setProductCollections: vi.fn(),
+  loadTaxSetup: vi.fn(),
+  loadApprovalRequired: vi.fn(),
+  saveProduct: vi.fn(),
+  uploadPhoto: vi.fn(),
+}))
+const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
+const translationApi = vi.hoisted(() => ({ loadProductTranslation: vi.fn(), saveProductTranslation: vi.fn() }))
+const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
+
+vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
+vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...listApi }))
+vi.mock('../../api/translations', async (actual) => ({ ...(await actual<typeof import('../../api/translations')>()), ...translationApi }))
+vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
+
+const { ProductEditor } = await import('./ProductEditor')
+
+const owner: Acting = { store: { id: 's1', name: 'Kesari' }, role: 'owner', tier: null, seller: null, plan: null, permissions: ['catalog.read', 'catalog.write', 'stock.read', 'stock.write', 'approve', 'tax.configure'] }
+const staff: Acting = { ...owner, role: 'staff', permissions: ['catalog.read', 'stock.read'] }
+const supplier: Acting = { ...owner, role: 'supplier-member', tier: 'vendor-catalogue', seller: { id: 'v1', name: 'Northwind Textiles' }, permissions: ['catalog.read', 'catalog.write', 'stock.write'] }
+const stockOnly: Acting = { ...supplier, tier: 'vendor-stock', permissions: ['catalog.read', 'stock.write', 'catalog.propose'] }
+
+const cushion = (p: Partial<EditorProduct> = {}): EditorProduct => ({
+  id: 'p1',
+  revision: 2,
+  name: 'Block-print Cushion',
+  description: '',
+  productType: 'physical',
+  visible: true,
+  approval: null,
+  sentBackReason: null,
+  supplier: null,
+  slug: 'block-print-cushion',
+  seoTitle: null,
+  seoDescription: null,
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
+  photos: [],
+  options: [],
+  versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true, continueSelling: false }],
+  readiness: [{ marketId: 'm1', marketName: 'India', ready: true, missing: [] }],
+  ...p,
+})
+
+const home = { id: 'w1', name: 'Jaipur studio', isDefault: true }
+
+const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
+
+const show = async (acting: Acting, path = '/products/p1', readOnly = false) => {
+  const root = createRootRoute({ component: Outlet })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
+  const list = createRoute({ getParentRoute: () => app, path: '/products', component: () => <p>The list</p> })
+  const editor = createRoute({ getParentRoute: () => app, path: '/products/$productId', component: ProductEditor })
+  const story = createRoute({ getParentRoute: () => app, path: '/products/$productId/story', component: () => <p>The A+ editor</p> })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, editor, story])]), history: createMemoryHistory({ initialEntries: [path] }) })
+  await act(async () => {
+    render(<RouterProvider router={router} />)
+  })
+  await settle()
+  return router
+}
+
+const field = (label: string) => screen.getByLabelText(label) as HTMLInputElement
+
+beforeEach(() => {
+  api.loadProduct.mockResolvedValue(cushion())
+  api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: ['specs', 'highlights', 'faqs', 'badges'].map((key) => ({ key, enabled: true, inPlan: true })), badges: [{ id: 'b1', label: 'Handmade', rule: 'manual' }] })
+  api.loadFacets.mockResolvedValue([{ id: 'f1', name: 'Fabric', shopperVisible: true, values: [{ id: 'fv1', name: 'Linen' }] }])
+  api.loadSizeCharts.mockResolvedValue([])
+  api.loadStoreCurrencies.mockResolvedValue([])
+  api.loadPricing.mockResolvedValue([])
+  api.loadProductCollections.mockResolvedValue([{ id: 'c1', name: 'Summer edit', kind: 'manual' }])
+  listApi.loadHandPicked.mockResolvedValue([{ id: 'c1', name: 'Summer edit' }, { id: 'c2', name: 'Gifts' }])
+  api.loadTaxSetup.mockResolvedValue({ pricesIncludeTax: true, classes: [{ id: 'tc-18', name: 'GST 18%', isDefault: true }] })
+  api.loadApprovalRequired.mockResolvedValue(true)
+  stockApi.loadWarehouses.mockResolvedValue([home])
+  stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 12, reserved: 2 }]]]))
+  stockApi.setStock.mockResolvedValue(undefined)
+  vi.stubGlobal('confirm', () => true)
+})
+
+afterEach(() => {
+  cleanup()
+  vi.resetAllMocks()
+  vi.unstubAllGlobals()
+})
+
+describe('who may do what in the editor', () => {
+  it('lets the merchant edit and set the store’s fields; a supplier edits its own; a Stock-only one only proposes new ones', () => {
+    expect(editorAccessOf(owner, false, false)).toMatchObject({ side: 'merchant', canEdit: true, storeFields: true, proposes: false })
+    expect(editorAccessOf(supplier, false, false)).toMatchObject({ side: 'supplier', canEdit: true, storeFields: false })
+    expect(editorAccessOf(stockOnly, false, true)).toMatchObject({ canEdit: true, proposes: true })
+    expect(editorAccessOf(stockOnly, false, false)).toMatchObject({ canEdit: false, viewOnly: true })
+    expect(editorAccessOf(staff, false, false)).toMatchObject({ canEdit: false, viewOnly: true })
+    expect(editorAccessOf(owner, true, false)).toMatchObject({ canEdit: false, readOnlyStore: true, viewOnly: false })
+  })
+})
+
+describe('the product editor', () => {
+  it('adds a product: asks for a name and a price first, then saves it in minor units and opens it', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
+    api.loadProduct.mockResolvedValue(cushion({ id: 'p9', name: 'Kurta' }))
+    const router = await show(owner, '/products/new')
+    expect(screen.getByRole('heading', { level: 1, name: words.newProduct })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.saveNew }))
+    await settle()
+    expect(screen.getByText(words.name.missing)).toBeTruthy()
+    expect(screen.getByText(words.price.missing)).toBeTruthy()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.change(field(words.price.price), { target: { value: '1299.5' } })
+    fireEvent.click(within(screen.getByRole('region', { name: words.bar.unsaved })).getByRole('button', { name: words.saveNew }))
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalledWith(null, null, expect.objectContaining({ name: 'Kurta', productType: 'physical', visible: true, versions: [expect.objectContaining({ choices: [], prices: [{ currency: 'INR', amount: '129950' }], taxClassId: null })] }), false)
+    await settle()
+    expect(router.state.location.pathname).toBe('/products/p9')
+  })
+
+  it('never offers to save a new product twice when reading it back fails: it opens its page instead', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
+    api.loadProduct.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    const router = await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.change(field(words.price.price), { target: { value: '1299' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalledTimes(1)
+    expect(router.state.location.pathname).toBe('/products/p9')
+  })
+
+  it('keeps an existing product saved at its new revision when reading it back fails', async () => {
+    api.saveProduct.mockResolvedValueOnce({ id: 'p1', revision: 3, approval: null }).mockResolvedValueOnce({ id: 'p1', revision: 4, approval: null })
+    await show(owner)
+    api.loadProduct.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed again' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct.mock.calls.map((c) => [c[0], c[1]])).toEqual([['p1', 2], ['p1', 3]])
+  })
+
+  it('makes versions from the choices and saves each with its own price', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.choices.add }))
+    const values = screen.getByLabelText(`Size: ${words.choices.valuePlaceholder}`)
+    for (const size of ['S', 'M']) {
+      fireEvent.change(values, { target: { value: size } })
+      fireEvent.keyDown(values, { key: 'Enter' })
+    }
+    expect(screen.getByText('2 size makes 2 versions.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Create 2 versions' }))
+    expect(field('Price of S').value).toBe('1299.00')
+    fireEvent.change(field('Price of M'), { target: { value: '1499' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    const input = api.saveProduct.mock.calls[0]?.[2] as { options: unknown; versions: { id?: string; choices: string[]; prices: unknown }[] }
+    expect(input.options).toEqual([{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }])
+    expect(input.versions.map((v) => [v.choices, v.prices])).toEqual([
+      [['S'], [{ currency: 'INR', amount: '129900' }]],
+      [['M'], [{ currency: 'INR', amount: '149900' }]],
+    ])
+    expect(api.saveProduct.mock.calls[0]?.[1]).toBe(2)
+  })
+
+  it('blocks a save while choices changed and the versions weren’t updated', async () => {
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: words.choices.add }))
+    const values = screen.getByLabelText(`Size: ${words.choices.valuePlaceholder}`)
+    fireEvent.change(values, { target: { value: 'S' } })
+    fireEvent.keyDown(values, { key: 'Enter' })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+  })
+
+  it('says when someone else saved first, and keeps the changes on the page', async () => {
+    api.saveProduct.mockRejectedValue(new ApiError('STALE_REVISION', 'stale'))
+    await show(owner)
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed cushion' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.banner.stale)).toBeTruthy()
+    expect(screen.getByText(words.refused.STALE_REVISION)).toBeTruthy()
+    expect(field(words.name.label).value).toBe('Renamed cushion')
+  })
+
+  it('adds an uploaded photo, and says why one didn’t upload', async () => {
+    api.uploadPhoto.mockResolvedValueOnce({ ok: true, assetId: 'a1' }).mockResolvedValueOnce({ ok: false, code: 'TOO_LARGE' })
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    vi.stubGlobal('fetch', async () => new Response(null, { status: 404 }))
+    await show(owner)
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = (name: string) => new File(['x'], name, { type: 'image/png' })
+    fireEvent.change(input, { target: { files: [file('a.png'), file('b.png')] } })
+    await settle()
+    expect(screen.getByText(words.photos.refused.TOO_LARGE)).toBeTruthy()
+    expect(screen.getByText(words.photos.main)).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { photos: unknown }).photos).toEqual([{ assetId: 'a1' }])
+  })
+
+  it('names a supplier’s product to the merchant, and deletes only after confirming', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' } }))
+    listApi.deleteProducts.mockResolvedValue(1)
+    const router = await show(owner)
+    expect(screen.getByText('This is Northwind Textiles’s product.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: words.delete }))
+    expect(listApi.deleteProducts).not.toHaveBeenCalled()
+    fireEvent.click(within(document.querySelector('dialog') as HTMLElement).getByRole('button', { name: words.deleteConfirm }))
+    await settle()
+    expect(listApi.deleteProducts).toHaveBeenCalledWith(['p1'])
+    expect(router.state.location.pathname).toBe('/products')
+  })
+
+  it('gives a supplier its own form: no visibility or tax category, sent-back reason shown, changes submitted', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ supplier: { id: 'v1', name: 'Northwind Textiles' }, approval: 'sent_back', sentBackReason: 'Sharper photo please', readiness: null }))
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: 'pending' })
+    await show(supplier)
+    expect(screen.getByText('“Sharper photo please” Fix it and send it again.')).toBeTruthy()
+    expect(screen.queryByText(words.side.onStore)).toBeNull()
+    expect(screen.queryByText(words.sections.tax)).toBeNull()
+    expect(api.loadTaxSetup).not.toHaveBeenCalled()
+    fireEvent.change(field(words.name.label), { target: { value: 'Cushion' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.submit })[0] as HTMLElement)
+    await settle()
+    const input = api.saveProduct.mock.calls[0]?.[2] as Record<string, unknown> & { versions: Record<string, unknown>[] }
+    expect('visible' in input).toBe(false)
+    expect(input.versions.every((v) => !('taxClassId' in v))).toBe(true)
+    expect(screen.getByText(words.submitted)).toBeTruthy()
+  })
+
+  it('lets a Stock-only supplier propose a new product, and only look at an existing one', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: 'pending' })
+    await show(stockOnly, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Lamp' } })
+    fireEvent.change(field(words.price.price), { target: { value: '50' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.submit })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct.mock.calls[0]?.[3]).toBe(true)
+    cleanup()
+    await show(stockOnly)
+    expect(screen.getByText(words.banner.stockOnly)).toBeTruthy()
+    expect(field(words.name.label).readOnly).toBe(true)
+    expect(screen.queryByRole('button', { name: words.save })).toBeNull()
+    expect(screen.getByRole('button', { name: words.stock.saveStock })).toBeTruthy()
+  })
+
+  it('shows staff and a read-only store the product without a way to change it', async () => {
+    await show(staff)
+    expect(screen.getByText(words.banner.viewOnly)).toBeTruthy()
+    expect(field(words.name.label).readOnly).toBe(true)
+    cleanup()
+    await show(owner, '/products/p1', true)
+    expect(screen.getByText(words.banner.readOnly)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: words.save })).toBeNull()
+  })
+
+  it('says a product that isn’t there isn’t there, and offers to try again when loading fails', async () => {
+    api.loadProduct.mockResolvedValue(null)
+    await show(owner)
+    expect(screen.getByRole('heading', { name: words.notFound.title })).toBeTruthy()
+    cleanup()
+    api.loadProduct.mockRejectedValue(new Error('offline'))
+    await show(owner)
+    expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
+  })
+
+  it('saves typed stock after the product, by the version’s id, and says what is reserved', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    expect(screen.getByText('2 reserved for orders · sold, not shipped yet. You can sell 10 more.')).toBeTruthy()
+    const count = field('Stock at Jaipur studio')
+    expect(count.value).toBe('12')
+    fireEvent.click(screen.getByRole('button', { name: words.stock.more }))
+    expect(count.value).toBe('13')
+    fireEvent.change(count, { target: { value: 'many' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    expect(screen.getByText(words.stock.invalid)).toBeTruthy()
+    fireEvent.change(count, { target: { value: '30' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 30 }])
+  })
+
+  it('saves no counts for a product that is no longer physical', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: 'many' } })
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.digital) }))
+    api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalled()
+    expect(stockApi.setStock).not.toHaveBeenCalled()
+  })
+
+  it('keeps the product saved and the counts typed when only the stock fails', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    stockApi.setStock.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '30' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.stock.failed)).toBeTruthy()
+    expect(field('Stock at Jaipur studio').value).toBe('30')
+  })
+
+  it('changes stock with a reason at once, and shows it in the history', async () => {
+    stockApi.adjustStock.mockResolvedValue(32)
+    stockApi.loadStockHistory.mockResolvedValue({ rows: [{ id: 'm1', versionId: 'ver-1', delta: 20, reason: 'received', resultingQuantity: 32, warehouseName: 'Jaipur studio', actorName: 'Farhan', actorKind: 'person', occurredAt: '2026-10-05T10:00:00Z' }], more: false })
+    await show(owner)
+    stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 32, reserved: 2 }]]]))
+    fireEvent.click(screen.getByRole('button', { name: words.stock.adjust }))
+    const dialog = within(document.querySelector('dialog') as HTMLElement)
+    fireEvent.change(dialog.getByLabelText(words.stock.adjustCount), { target: { value: '+20' } })
+    fireEvent.click(dialog.getByRole('button', { name: words.apply }))
+    await settle()
+    expect(stockApi.adjustStock).toHaveBeenCalledWith('ver-1', 'w1', 20, 'received')
+    expect(field('Stock at Jaipur studio').value).toBe('32')
+    // Stored already, so not an unsaved change.
+    expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: words.stock.history }))
+    await settle()
+    expect(screen.getByText(words.stock.reasons.received)).toBeTruthy()
+    expect(screen.getByText('Jaipur studio · by Farhan · now 32')).toBeTruthy()
+  })
+
+  it('lets a Stock-only supplier save the counts of a product it can’t otherwise change', async () => {
+    await show({ ...stockOnly, permissions: [...stockOnly.permissions] })
+    expect(field(words.name.label).readOnly).toBe(true)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '5' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.stock.saveStock })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+    expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 5 }])
+  })
+
+  it('files the product under filters and collections: the filters with the product, the collections by their own call after it', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    api.setProductCollections.mockResolvedValue([{ id: 'c2', name: 'Gifts', kind: 'manual' }])
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Summer edit', pressed: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { filterValues: unknown }).filterValues).toEqual([{ valueId: 'fv1' }])
+    expect(api.setProductCollections).toHaveBeenCalledWith('p1', ['c2'])
+  })
+
+  it('keeps the collections picked and says so when only they fail to save', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    api.setProductCollections.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.saveCollectionsFailed)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Gifts', pressed: true })).toBeTruthy()
+  })
+
+  it('says when the collections didn’t load, offers none, and saves without touching them', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    api.loadProductCollections.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    expect(screen.getByText(words.sections.collFailed)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Gifts' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalled()
+    expect(api.setProductCollections).not.toHaveBeenCalled()
+  })
+
+  it('says when the hand-picked collections, filters or size charts didn’t load, rather than that there are none', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: true }], badges: [] })
+    listApi.loadHandPicked.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    api.loadFacets.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    api.loadSizeCharts.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    expect(screen.getByText(words.sections.collFailed)).toBeTruthy()
+    expect(screen.queryByText(words.sections.handPickedNone)).toBeNull()
+    expect(screen.getByText(words.sections.filtersFailed)).toBeTruthy()
+    expect(screen.queryByText(words.sections.filtersNone)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.chart) }))
+    expect(screen.getByText(words.sections.chartFailed)).toBeTruthy()
+    expect((screen.getByLabelText(words.sections.chart) as HTMLSelectElement).disabled).toBe(true)
+  })
+
+  it('asks for the legal details a market says are missing, and gives a manual badge', async () => {
+    api.loadProduct.mockResolvedValue(cushion({ readiness: [{ marketId: 'm2', marketName: 'United States', ready: false, missing: ['fibre', 'care'] }] }))
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    const fibre = screen.getByLabelText(new RegExp(`^${words.sections.legalFields.fibre}`))
+    expect(screen.getAllByText('Needed for United States', { exact: false })).toHaveLength(2)
+    expect(screen.queryByLabelText(new RegExp(`^${words.sections.legalFields.origin}`))).toBeNull()
+    fireEvent.change(fibre, { target: { value: '100% cotton' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Handmade' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    const listing = (api.saveProduct.mock.calls[0]?.[2] as { listing: { compliance: unknown; badgeIds: unknown } }).listing
+    expect(listing.compliance).toEqual([{ region: 'ALL', field: 'fibre', value: '100% cotton' }])
+    expect(listing.badgeIds).toEqual(['b1'])
+  })
+
+  it('says why it waits while a photo is still uploading', async () => {
+    api.uploadPhoto.mockReturnValue(new Promise(() => undefined))
+    await show(owner)
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [new File(['x'], 'a.png', { type: 'image/png' })] } })
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.photos.waitUpload)).toBeTruthy()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+  })
+
+  it('carries a new product’s counts to its own page when only they fail, to save again there', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
+    api.loadProduct.mockResolvedValue(cushion({ id: 'p9', name: 'Kurta' }))
+    stockApi.loadProductStock.mockResolvedValue(new Map())
+    stockApi.setStock.mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'offline'))
+    const router = await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.change(field(words.price.price), { target: { value: '1299' } })
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: '7' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    await settle()
+    expect(router.state.location.pathname).toBe('/products/p9')
+    expect(screen.getByText(words.stock.newFailed)).toBeTruthy()
+    expect(field('Stock at Jaipur studio').value).toBe('7')
+    // Carried by that one navigation, then gone: a reload or a later visit shows what is stored.
+    await settle()
+    expect(router.state.location.state.unsavedCounts).toBeUndefined()
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(stockApi.setStock).toHaveBeenLastCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 7 }])
+  })
+
+  it('carries a new product’s collection picks to its own page when only they fail, to save again there', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
+    api.loadProduct.mockResolvedValue(cushion({ id: 'p9', name: 'Kurta' }))
+    api.setProductCollections.mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'offline')).mockResolvedValue([{ id: 'c2', name: 'Gifts', kind: 'manual' }])
+    const router = await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.change(field(words.price.price), { target: { value: '1299' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    await settle()
+    expect(router.state.location.pathname).toBe('/products/p9')
+    expect(screen.getByText(words.saveCollectionsFailed)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Gifts', pressed: true })).toBeTruthy()
+    await settle()
+    expect(router.state.location.state.unsavedCollections).toBeUndefined()
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.setProductCollections).toHaveBeenLastCalledWith('p9', ['c2'])
+  })
+
+  it('changes only the location a reason names, leaving a count typed elsewhere as typed', async () => {
+    const two = [{ id: 'w1', name: 'Jaipur studio', isDefault: true }, { id: 'w2', name: 'Delhi godown', isDefault: false }]
+    stockApi.loadWarehouses.mockResolvedValue(two)
+    const levels = (jaipur: number) => new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: jaipur, reserved: 0 }, { warehouseId: 'w2', warehouseName: 'Delhi godown', isDefault: false, onHand: 6, reserved: 0 }]]])
+    stockApi.loadProductStock.mockResolvedValue(levels(12))
+    stockApi.adjustStock.mockResolvedValue(17)
+    await show(owner)
+    fireEvent.change(field('Stock at Delhi godown'), { target: { value: '40' } })
+    stockApi.loadProductStock.mockResolvedValue(levels(17))
+    fireEvent.click(screen.getByRole('button', { name: words.stock.adjust }))
+    const dialog = within(document.querySelector('dialog') as HTMLElement)
+    fireEvent.change(dialog.getByLabelText(words.stock.adjustCount), { target: { value: '+5' } })
+    fireEvent.click(dialog.getByRole('button', { name: words.apply }))
+    await settle()
+    expect(field('Stock at Jaipur studio').value).toBe('17')
+    expect(field('Stock at Delhi godown').value).toBe('40')
+    expect(screen.getByRole('region', { name: words.bar.unsaved })).toBeTruthy()
+  })
+
+  it('finds related products by name, saying when nothing matches or the search fails', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'related', enabled: true, inPlan: true }], badges: [] })
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    listApi.loadProducts.mockResolvedValueOnce({ rows: [], next: null, previous: null }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ rows: [{ id: 'p2', name: 'Kurta' }], next: null, previous: null })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.related) }))
+    const find = screen.getByLabelText(words.sections.relatedSearch)
+    for (const [typed, expected] of [['zz', 'No products match “zz”'], ['ku', messages.productSearch.failed]] as const) {
+      fireEvent.change(find, { target: { value: typed } })
+      await act(async () => vi.advanceTimersByTimeAsync(350))
+      expect(screen.getByText(expected)).toBeTruthy()
+    }
+    fireEvent.change(find, { target: { value: 'kur' } })
+    await act(async () => vi.advanceTimersByTimeAsync(350))
+    fireEvent.click(screen.getByRole('button', { name: 'Kurta' }))
+    expect(screen.getByText('Kurta')).toBeTruthy()
+    vi.useRealTimers()
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { listing: { relatedIds: unknown } }).listing.relatedIds).toEqual(['p2'])
+  })
+
+  it('opens A+ content for a saved product, asks a new one to save first, and says when the plan lacks it', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'aplus', enabled: true, inPlan: true }], badges: [] })
+    const router = await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.aplus) }))
+    fireEvent.click(screen.getByRole('link', { name: words.sections.aplusOpen }))
+    await settle()
+    expect(router.state.location.pathname).toBe('/products/p1/story')
+    cleanup()
+    await show(owner, '/products/new')
+    fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.aplus) }))
+    expect(screen.getByText(words.sections.aplusSaveFirst)).toBeTruthy()
+    cleanup()
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'aplus', enabled: true, inPlan: false }], badges: [] })
+    await show(owner)
+    expect(screen.getAllByText(words.sections.aplusPlan).length).toBeGreaterThan(0)
+  })
+
+  it('translates the product into the store’s other languages, saving only what changed', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [], mainLanguage: 'en-IN', translationLanguages: ['hi-IN'] })
+    const missing = [
+      { entity: 'product', entityId: 'p1', field: 'name', main: 'Block-print Cushion', text: null, status: 'missing' },
+      { entity: 'product', entityId: 'p1', field: 'description', main: '', text: null, status: 'missing' },
+    ]
+    translationApi.loadProductTranslation.mockResolvedValue(missing)
+    translationApi.saveProductTranslation.mockResolvedValue([{ ...missing[0], text: 'Chhapai takiya', status: 'translated' }, missing[1]])
+    await show(owner)
+    const hindi = screen.getByRole('tab', { name: /Hindi/ })
+    fireEvent.click(hindi)
+    await settle()
+    expect(translationApi.loadProductTranslation).toHaveBeenCalledWith('p1', 'hi-IN')
+    expect(screen.getByRole('tab', { name: /1 to do/ })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Chhapai takiya' } })
+    fireEvent.click(screen.getByRole('button', { name: words.translate.save }))
+    await settle()
+    expect(translationApi.saveProductTranslation).toHaveBeenCalledWith('p1', 'hi-IN', { name: 'Chhapai takiya' })
+    expect(screen.getByRole('tab', { name: /done/ })).toBeTruthy()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+  })
+
+  it('moves between the language tabs with the arrow keys, one tab stop, labelling the panel it shows', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [], mainLanguage: 'en-IN', translationLanguages: ['hi-IN'] })
+    translationApi.loadProductTranslation.mockResolvedValue([])
+    await show(owner)
+    const list = screen.getByRole('tablist', { name: words.translate.tabs })
+    const [main, hindi] = screen.getAllByRole('tab') as [HTMLElement, HTMLElement]
+    expect([main.tabIndex, hindi.tabIndex]).toEqual([0, -1])
+    expect(screen.getByRole('tabpanel', { name: main.textContent ?? '' }).id).toBe(main.getAttribute('aria-controls'))
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+    await settle()
+    expect(hindi.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(hindi)
+    expect([main.tabIndex, hindi.tabIndex]).toEqual([-1, 0])
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(hindi.id)
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+    expect(main.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('says the prices in other currencies didn’t load, rather than showing none or unsaved ones', async () => {
+    api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'auto' }])
+    api.loadPricing.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    expect(screen.getByText(words.price.abroadFailed)).toBeTruthy()
+    expect(screen.queryByText(words.price.autoNone)).toBeNull()
+    cleanup()
+    api.loadStoreCurrencies.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    expect(screen.getByText(words.price.abroadFailed)).toBeTruthy()
+  })
+
+  it('prices each hand-priced currency, and shows the converted ones as saved', async () => {
+    api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'auto' }, { code: 'AED', mode: 'manual' }])
+    api.loadPricing.mockResolvedValue([{ versionId: 'ver-1', prices: [{ currency: 'USD', amount: '1599', compareAtAmount: null, source: 'converted' }], inMarket: null }])
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    expect(screen.getByText(/15\.99 · set automatically/)).toBeTruthy()
+    expect(screen.getByText('Not for sale in AED until you add a price.')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Price in AED'), { target: { value: '55' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { versions: { prices: unknown }[] }).versions[0]?.prices).toEqual([{ currency: 'INR', amount: '129900' }, { currency: 'AED', amount: '5500' }])
+  })
+
+  it('leaves the product unchanged when a related product is picked and then removed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'related', enabled: true, inPlan: true }], badges: [] })
+    listApi.loadProducts.mockResolvedValue({ rows: [{ id: 'p2', name: 'Kurta' }], next: null, previous: null })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.related) }))
+    fireEvent.change(screen.getByLabelText(words.sections.relatedSearch), { target: { value: 'kur' } })
+    await act(async () => vi.advanceTimersByTimeAsync(350))
+    vi.useRealTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Kurta' }))
+    expect(screen.getByRole('region', { name: words.bar.unsaved })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Kurta' }))
+    expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
+  })
+})

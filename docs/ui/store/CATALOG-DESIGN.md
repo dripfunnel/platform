@@ -314,7 +314,8 @@ main language and offered languages, and translations per language with fallback
     - Accented Latin characters are simplified ("crème brûlée" → `creme-brulee`).
     - For non-Latin scripts (Arabic, Cyrillic, Devanagari, CJK), offer transliteration
       ("кроссовки" → `krossovki`) rather than an unreadable encoded URL *(ask which the
-      storefront wants)*.
+      storefront wants)*. **Until that's decided** (#296): a name with no Latin letters keeps
+      the main language's address, and the merchant may type one.
 23. **Photo alt text per language** is an engine requirement `(release: decide)`: alt text
     belongs to the photo's use on a product, with a translation per language. Until it ships,
     alt text is one text in the main language, and the UI does not offer to translate it.
@@ -903,9 +904,9 @@ with validation before any write, partial-failure reports, and translation and c
   many products. On a phone it stacks.
 - N5. Product status per language: "Translated", "Not translated (shoppers see [main
   language])",
-  "Changed since translated" when the main text was edited after the translation (the engine
-  must track when each translation was last aligned with the main text, `(release: decide)`;
-  ask).
+  "Changed since translated" when the main text was edited after the translation. **Decided on
+  #296**: each translation keeps the md5 of the main text it translated, so the status is a
+  comparison, per field.
 - N6. Translate options and choices once per product. Show where "Red" is used across the
   catalogue: translations are **shared** across the catalogue (decided 2026-10-05 on #337).
 - N7. Collections, filters, filter choices and menus are translatable too, on the same
@@ -1161,7 +1162,13 @@ information (S4)**, which is configuration only.
   countries, and an Indian store selling domestically and to the UAE.
 - T2. **Compliance checklist per product**: "Ready to sell in: US ✓ · DE: 2 missing ·
   FR: French warnings needed". Clicking an item jumps to the field. It appears in the
-  product list as a filter and a column ("Not ready in EU: 34").
+  product list as a filter and a column ("Not ready in EU: 34"). **Built on #298** as the
+  prototype's `marketStatus` reckons it, per live top-level market: a price the market can
+  charge (gift cards aside), and for a physical product what its countries require, the US
+  fibre content, country of origin and care instructions, India the country of origin and an
+  MRP (compare-at price); a detail counts when filed for the country or for every country
+  (`product_compliance` keys `fibre`, `origin`, `care`). Other countries add theirs as they
+  launch.
 - T3. **Tax class** (§3 fact 37): a plain-language picker, "depends on location" messaging,
   exempt and reduced classes, and the US tax-code search via a tax service
   `(release: decide)`. Changing the class in bulk (B5).

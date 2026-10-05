@@ -171,6 +171,17 @@ export const setExcludedProducts = async (tx: ScopedSql, storeId: string, market
   `
 }
 
+/** Which of these products each market selling only some leaves out, as market id → product ids. */
+export const selectExclusions = async (tx: ScopedSql, storeId: string, productIds: readonly string[]): Promise<Map<string, Set<string>>> => {
+  const rows = await tx<{ market_id: string; product_id: string }[]>`
+    select x.market_id, x.product_id from market_excluded_product x join market m on m.id = x.market_id
+    where x.store_id = ${storeId} and m.products = 'some' and x.product_id = any(${pgArray(productIds)}::uuid[])
+  `
+  const out = new Map<string, Set<string>>()
+  for (const r of rows) out.set(r.market_id, (out.get(r.market_id) ?? new Set()).add(r.product_id))
+  return out
+}
+
 /** Products of the store among these, for a market's exclusions. */
 export const countStoreProducts = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from product where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`)[0]?.n ?? 0
@@ -201,3 +212,31 @@ export const marketClash = (error: unknown): 'COUNTRY_TAKEN' | 'NOT_PARENTS_COUN
   if (constraint === 'market_path_key') return 'DUPLICATE_PATH'
   return null
 }
+
+export interface ReadinessRow {
+  id: string
+  product_type: string
+  /** Each live version's prices, as priceInMarket reads them. */
+  versions: { prices: { currency: string; amount: string; compare_at_amount: string | null }[] }[]
+  /** Compliance fields with a value, as region:field. */
+  compliance: string[]
+}
+
+/** What readiness needs of a page of products, in one query (no N+1). */
+export const selectReadinessFacts = (tx: ScopedSql, storeId: string, productIds: readonly string[]): Promise<ReadinessRow[]> =>
+  tx<ReadinessRow[]>`
+    select p.id, p.product_type,
+      coalesce((select json_agg(json_build_object('prices', coalesce((select json_agg(json_build_object('currency', vp.currency::text, 'amount', vp.amount::text, 'compare_at_amount', vp.compare_at_amount::text))
+          from version_price vp where vp.version_id = v.id), '[]'::json)))
+        from product_version v where v.product_id = p.id and v.deleted_at is null), '[]'::json) as versions,
+      coalesce((select json_agg(c.region || ':' || c.field) from product_compliance c where c.product_id = p.id and c.value <> ''), '[]'::json) as compliance
+    from product p where p.store_id = ${storeId} and p.deleted_at is null and p.id = any(${pgArray(productIds)}::uuid[])
+  `
+
+/** The markets a product sells in: the live top-level ones; sub-markets share their parent's countries. */
+export const selectSellingMarkets = (tx: ScopedSql, storeId: string): Promise<{ id: string; name: string; countries: string[]; currency: string; price_adjustment_bps: number }[]> =>
+  tx<{ id: string; name: string; countries: string[]; currency: string; price_adjustment_bps: number }[]>`
+    select id, name, countries, currency::text as currency, price_adjustment_bps from market
+    where store_id = ${storeId} and deleted_at is null and parent_id is null and status = 'active'
+    order by created_at, id
+  `

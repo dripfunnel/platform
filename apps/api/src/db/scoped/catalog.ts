@@ -1,5 +1,4 @@
 import type postgres from 'postgres'
-import type { PageWindow } from '#core/paging'
 import { defaultLowStock } from './inventory'
 import { pgArray, uniqueViolation, type ScopedSql } from './index'
 
@@ -27,8 +26,12 @@ export interface ProductListRow {
   photo_asset_id: string | null
   /** On hand across the caller's locations. */
   stock: number
+  /** Low stock by the store's own rule, each location's threshold (the Low stock chip's, lowStock below). */
+  low_stock: boolean
   created_at: Date
   updated_at: Date
+  /** The list's sort value as the database computed it, for a cursor (selectProducts). */
+  sort_key?: string
 }
 
 // A physical product with a tracked version, counted somewhere the caller reads, that can sell at most its
@@ -71,13 +74,77 @@ export interface ProductQuery {
   /** The merchant's supplier filter: a seller id, `own` for the store's own products, or null for all. */
   seller: string | null
   currency: string | null
+  /** Fact 19's "Not translated into German": a language the product has no name in yet, or null. */
+  untranslatedIn?: string | null
 }
 
-export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQuery, window: PageWindow): Promise<ProductListRow[]> => {
+/** CatList's sorts; the two by time page by the row's time, the rest by their own value (core/cursor's value cursors). */
+export type ProductSort = 'created' | 'updated' | 'name' | 'price_low' | 'price_high' | 'stock'
+
+/** A page of a sorted list: the row's sort value (as text) and id to go after or before. */
+export interface SortWindow {
+  limit: number
+  after: { value: string; id: string } | null
+  before: { value: string; id: string } | null
+}
+
+// Each sort's key from the product's own columns, or from one aggregate for price and stock, so a page
+// sorts and limits before the list's other per-row subqueries run (selectProducts).
+const minPrice = (tx: ScopedSql, currency: string | null) =>
+  tx`(select min(vp.amount) from version_price vp join product_version v on v.id = vp.version_id where v.product_id = p.id and v.deleted_at is null and vp.currency = ${currency})`
+const stockOf = (tx: ScopedSql, product: string) =>
+  tx`(select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = ${tx(product)}.id and v.deleted_at is null)`
+
+const maxBigint = 9223372036854775807n
+const maxInt = 2147483647n
+
+const sortOf: Record<ProductSort, { key: (tx: ScopedSql, currency: string | null) => postgres.PendingQuery<postgres.Row[]>; type: string; descending: boolean; fits: (value: string) => boolean }> = {
+  created: { key: (tx) => tx`p.created_at`, type: 'timestamptz', descending: true, fits: () => true },
+  updated: { key: (tx) => tx`p.updated_at`, type: 'timestamptz', descending: true, fits: () => true },
+  // A name's value is any text a product name can be: no NUL, which Postgres text can't hold, and no longer than a name.
+  name: { key: (tx) => tx`lower(p.name)`, type: 'text', descending: false, fits: (v) => v.length <= 255 && !v.includes('\u0000') },
+  // Unpriced products come last either way.
+  price_low: { key: (tx, currency) => tx`coalesce(${minPrice(tx, currency)}, ${String(maxBigint)}::bigint)`, type: 'bigint', descending: false, fits: (v) => integerWithin(v, -1n, maxBigint) },
+  price_high: { key: (tx, currency) => tx`coalesce(${minPrice(tx, currency)}, -1::bigint)`, type: 'bigint', descending: true, fits: (v) => integerWithin(v, -1n, maxBigint) },
+  stock: { key: (tx) => stockOf(tx, 'p'), type: 'int', descending: false, fits: (v) => integerWithin(v, -maxInt - 1n, maxInt) },
+}
+
+const integerWithin = (value: string, low: bigint, high: bigint): boolean => /^-?\d{1,19}$/.test(value) && BigInt(value) >= low && BigInt(value) <= high
+
+/** Whether a cursor's value is one this sort's key can hold, before it reaches a cast. */
+export const sortValueFits = (sort: ProductSort, value: string): boolean => sortOf[sort].fits(value)
+
+/** A row's sort value as text, for its cursor: the database's own for name, price and stock, so `lower()` and the cursor never differ. */
+export const sortValueOf = (row: ProductListRow, sort: ProductSort): string =>
+  sort === 'created' ? row.created_at.toISOString() : sort === 'updated' ? row.updated_at.toISOString() : (row.sort_key ?? '')
+
+export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQuery, window: SortWindow, sort: ProductSort = 'created'): Promise<ProductListRow[]> => {
+  const order = sortOf[sort]
   const backwards = window.before !== null && window.after === null
+  // Rows further along the sort than the cursor's: below it when the sort descends, above it when it ascends.
+  const beyond = (key: { value: string; id: string }, forward: boolean) =>
+    order.descending === forward
+      ? tx`(sort_value, id) < (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)`
+      : tx`(sort_value, id) > (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)`
+  const direction = order.descending !== backwards ? tx`desc` : tx`asc`
   return tx<ProductListRow[]>`
+    with matching as (
+      select p.id, ${order.key(tx, query.currency)} as sort_value
+      from product p
+      where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
+        and ${filterOf(tx, query.filter)}
+        and ${query.seller === 'own' ? tx`p.seller_id is null` : query.seller ? tx`p.seller_id = ${query.seller}::uuid` : tx`true`}
+        and ${query.untranslatedIn ? tx`not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${query.untranslatedIn})` : tx`true`}
+        and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
+    ), page as (
+      select * from matching
+      where ${window.after ? beyond(window.after, true) : tx`true`}
+        and ${window.before ? beyond(window.before, false) : tx`true`}
+      order by sort_value ${direction}, id ${direction}
+      limit ${window.limit + 1}
+    )
     select p.id, p.name, p.slug, p.visibility, p.approval_status, p.product_type, p.seller_id, s.name as seller_name, s.status as seller_status,
-      p.created_at, p.updated_at,
+      p.created_at, p.updated_at, page.sort_value::text as sort_key,
       (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
       (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null and v.visibility = 'visible') as visible_versions,
       (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
@@ -85,17 +152,12 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
       (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
          where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
       (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
-      (select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = p.id and v.deleted_at is null) as stock
-    from product p
+      ${stockOf(tx, 'p')} as stock,
+      ${lowStock(tx, 'p')} as low_stock
+    from page
+    join product p on p.id = page.id
     left join seller s on s.id = p.seller_id
-    where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
-      and ${filterOf(tx, query.filter)}
-      and ${query.seller === 'own' ? tx`p.seller_id is null` : query.seller ? tx`p.seller_id = ${query.seller}::uuid` : tx`true`}
-      and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
-      and ${window.after ? tx`(p.created_at, p.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
-      and ${window.before ? tx`(p.created_at, p.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
-    order by p.created_at ${backwards ? tx`asc` : tx`desc`}, p.id ${backwards ? tx`asc` : tx`desc`}
-    limit ${window.limit + 1}
+    order by page.sort_value ${direction}, page.id ${direction}
   `
 }
 
@@ -107,6 +169,9 @@ export interface ProductCounts {
   sentBack: number
   missingInfo: number
   lowStock: number
+  /** The summary line's: products a supplier owns, and physical ones with nothing on hand (as the list's stock). */
+  fromSuppliers: number
+  outOfStock: number
 }
 
 /** The list's chips, from their own query and in the caller's scope, so a supplier counts only its own (ACCESS §7.1). */
@@ -119,10 +184,12 @@ export const countProducts = async (tx: ScopedSql, storeId: string): Promise<Pro
         count(*) filter (where approval_status = 'pending')::int as pending,
         count(*) filter (where approval_status = 'sent_back')::int as "sentBack",
         count(*) filter (where description = '' or not exists (select 1 from product_photo ph where ph.product_id = product.id))::int as "missingInfo",
-        count(*) filter (where ${lowStock(tx, 'product')})::int as "lowStock"
+        count(*) filter (where ${lowStock(tx, 'product')})::int as "lowStock",
+        count(*) filter (where seller_id is not null)::int as "fromSuppliers",
+        count(*) filter (where product_type = 'physical' and ${stockOf(tx, 'product')} <= 0)::int as "outOfStock"
       from product where store_id = ${storeId} and deleted_at is null and not is_sample
     `
-  )[0] ?? { all: 0, visible: 0, hidden: 0, pending: 0, sentBack: 0, missingInfo: 0, lowStock: 0 }
+  )[0] ?? { all: 0, visible: 0, hidden: 0, pending: 0, sentBack: 0, missingInfo: 0, lowStock: 0, fromSuppliers: 0, outOfStock: 0 }
 
 export interface OptionRow {
   id: string
@@ -144,6 +211,7 @@ export interface VersionRow {
   name: string | null
   visibility: 'visible' | 'hidden'
   hs_code: string | null
+  tax_class_id: string | null
   customs_description: string | null
   weight_grams: number | null
   length_mm: number | null
@@ -191,6 +259,8 @@ export interface ProductRow {
   highlights: string[]
   faqs: { question: string; answer: string }[]
   related: string[]
+  /** The same related products by name, in the caller's scope, for the editor's chips. */
+  related_names: { id: string; name: string }[]
   badge_ids: string[]
   flags: { ageRestricted: boolean; hazardous: boolean }
   compliance: { region: string; field: string; value: string }[]
@@ -220,7 +290,7 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
         from product_option o where o.product_id = p.id), '[]'::json) as options,
       coalesce((
         select json_agg(json_build_object(
-          'id', v.id, 'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'visibility', v.visibility, 'hs_code', v.hs_code,
+          'id', v.id, 'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'visibility', v.visibility, 'hs_code', v.hs_code, 'tax_class_id', v.tax_class_id,
           'customs_description', v.customs_description, 'weight_grams', v.weight_grams, 'length_mm', v.length_mm,
           'width_mm', v.width_mm, 'height_mm', v.height_mm, 'cost_amount', v.cost_amount::text, 'cost_currency', v.cost_currency,
           'track_stock', v.track_stock, 'continue_selling', v.continue_selling, 'position', v.position,
@@ -239,6 +309,7 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
       coalesce((select json_agg(json_build_object('question', x.question, 'answer', x.answer) order by x.position) from product_faq x where x.product_id = p.id), '[]'::json) as faqs,
       -- A trashed product drops out, so a copy or a re-save never names one the trigger refuses.
       coalesce((select json_agg(x.related_product_id order by x.position) from product_related x join product rp on rp.id = x.related_product_id and rp.deleted_at is null where x.product_id = p.id), '[]'::json) as related,
+      coalesce((select json_agg(json_build_object('id', rp.id, 'name', rp.name) order by x.position) from product_related x join product rp on rp.id = x.related_product_id and rp.deleted_at is null where x.product_id = p.id), '[]'::json) as related_names,
       coalesce((select json_agg(x.badge_id) from product_badge x where x.product_id = p.id), '[]'::json) as badge_ids,
       coalesce((select json_build_object('ageRestricted', x.age_restricted, 'hazardous', x.hazardous) from product_flag x where x.product_id = p.id), json_build_object('ageRestricted', false, 'hazardous', false)) as flags,
       coalesce((select json_agg(json_build_object('region', x.region, 'field', x.field, 'value', x.value) order by x.region, x.field) from product_compliance x where x.product_id = p.id), '[]'::json) as compliance,
@@ -261,6 +332,9 @@ export const countStoreProducts = async (tx: ScopedSql): Promise<number> => (awa
 
 /** The acting store's pricing currency, which a supplier prices in too but can't read the store row for (migration 0041). */
 export const selectPricingCurrency = async (tx: ScopedSql): Promise<string | null> => (await tx<{ c: string | null }[]>`select store_pricing_currency() as c`)[0]?.c ?? null
+
+/** Metric or imperial, for the weight and box a product is typed in (0056). */
+export const selectUnitSystem = async (tx: ScopedSql): Promise<'metric' | 'imperial'> => ((await tx<{ u: string | null }[]>`select store_unit_system() as u`)[0]?.u === 'imperial' ? 'imperial' : 'metric')
 
 export interface ProductFields {
   name: string
@@ -342,6 +416,18 @@ export const setProductsVisibility = (tx: ScopedSql, storeId: string, ids: reado
     returning id, name
   `
 
+/** CatList's bulk "Change tax category": every live version of each product takes the class (null is the store's default). */
+export const setProductsTaxClass = (tx: ScopedSql, storeId: string, ids: readonly string[], taxClassId: string | null, now: Date): Promise<{ id: string; name: string }[]> =>
+  tx<{ id: string; name: string }[]>`
+    with changed as (
+      update product_version v set tax_class_id = ${taxClassId}::uuid, updated_at = ${now}
+      where v.store_id = ${storeId} and v.product_id = any(${pgArray(ids)}::uuid[]) and v.deleted_at is null
+        and exists (select 1 from product p where p.id = v.product_id and p.deleted_at is null)
+      returning v.product_id
+    )
+    select distinct p.id, p.name from product p join changed c on c.product_id = p.id
+  `
+
 /** Soft delete (§7.1): the products and their versions go, orders keep their lines; the web addresses free up. */
 export const softDeleteProducts = async (tx: ScopedSql, storeId: string, ids: readonly string[], now: Date): Promise<{ id: string; name: string }[]> => {
   const gone = await tx<{ id: string; name: string }[]>`
@@ -349,7 +435,11 @@ export const softDeleteProducts = async (tx: ScopedSql, storeId: string, ids: re
     where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null
     returning id, name
   `
-  if (gone.length > 0) await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where store_id = ${storeId} and product_id = any(${pgArray(gone.map((g) => g.id))}::uuid[]) and deleted_at is null`
+  if (gone.length > 0) {
+    await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where store_id = ${storeId} and product_id = any(${pgArray(gone.map((g) => g.id))}::uuid[]) and deleted_at is null`
+    // Their translated web addresses free up with them (DATA-MODEL §7.3).
+    await tx`delete from translation where store_id = ${storeId} and entity = 'product' and field = 'slug' and entity_id = any(${pgArray(gone.map((g) => g.id))}::text[])`
+  }
   return gone
 }
 
@@ -425,22 +515,24 @@ export interface VersionFields {
   cost: { amount: string; currency: string } | null
   trackStock: boolean | null
   continueSelling: boolean | null
+  /** Undefined keeps the version's class. */
+  taxClassId?: string | null | undefined
   position: number
 }
 
 const versionRows = (tx: ScopedSql, rows: readonly (VersionFields & { id: string })[]) =>
-  rowsOf(tx, rows.map(({ cost, ...v }) => ({ ...v, costAmount: cost?.amount ?? null, costCurrency: cost?.currency ?? null })))
+  rowsOf(tx, rows.map(({ cost, taxClassId, ...v }) => ({ ...v, costAmount: cost?.amount ?? null, costCurrency: cost?.currency ?? null, taxClassId: taxClassId ?? null, keepTaxClass: taxClassId === undefined })))
 
 export const insertVersions = async (tx: ScopedSql, storeId: string, productId: string, rows: readonly (VersionFields & { id: string })[]): Promise<void> => {
   if (rows.length === 0) return
   await tx`
     insert into product_version (id, product_id, store_id, sku, barcode, name, visibility, hs_code, customs_description, weight_grams, length_mm, width_mm, height_mm,
-      cost_amount, cost_currency, track_stock, continue_selling, position)
+      cost_amount, cost_currency, track_stock, continue_selling, tax_class_id, position)
     select x.id, ${productId}, ${storeId}, x.sku, x.barcode, x.name, x.visibility, x."hsCode", x."customsDescription", x."weightGrams", x."lengthMm", x."widthMm", x."heightMm",
-      x."costAmount", x."costCurrency", x."trackStock", x."continueSelling", x.position
+      x."costAmount", x."costCurrency", x."trackStock", x."continueSelling", x."taxClassId", x.position
     from jsonb_to_recordset(${versionRows(tx, rows)}) as x(
       id uuid, sku text, barcode text, name text, visibility text, "hsCode" text, "customsDescription" text, "weightGrams" int,
-      "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, position int
+      "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, "taxClassId" uuid, position int
     )
   `
 }
@@ -457,6 +549,14 @@ export const updateVersions = async (tx: ScopedSql, rows: readonly (VersionField
       "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, position int
     ) where v.id = x.id
   `
+  // A class is the merchant side's to set (fact 37), so only a save that names one writes the column.
+  if (rows.some((r) => r.taxClassId !== undefined)) {
+    await tx`
+      update product_version v set tax_class_id = x."taxClassId"
+      from jsonb_to_recordset(${versionRows(tx, rows)}) as x(id uuid, "taxClassId" uuid, "keepTaxClass" boolean)
+      where v.id = x.id and not x."keepTaxClass"
+    `
+  }
 }
 
 /** A removed version's photos stay on the product as its own, and its filter tags go, so no facet or rule counts it. */

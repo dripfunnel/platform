@@ -1,4 +1,4 @@
-import type { Money } from '@dripfunnel/shared/format'
+import { minorOf, moneyText, type Money } from '@dripfunnel/shared/format'
 import { allowanceKeys, limitKeys, toggleKeys, type EntitlementKey, type NumberKey, type Plan, type PlanCeilings, type PlanInput, type ToggleKey } from '../../api/plans'
 import { sameJson } from '../common/sameJson'
 
@@ -12,10 +12,7 @@ export interface PlanDraft {
   numbers: Record<NumberKey, string>
 }
 
-// How many minor-unit digits a currency has, from Intl, so a 0-decimal currency is typed and shown as whole units.
-const digitsOf = (currency: string) => new Intl.NumberFormat('en', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits ?? 2
-
-const textOfMoney = (money: Money | null) => (money ? (money.amount / 10 ** digitsOf(money.currency)).toFixed(digitsOf(money.currency)) : '')
+const textOfMoney = (money: Money | null) => (money ? moneyText(money) : '')
 
 export const draftOf = (plan: Plan | null, currencies: readonly string[], defaultTrial: number): PlanDraft => ({
   name: plan?.name ?? '',
@@ -32,16 +29,6 @@ export const draftOf = (plan: Plan | null, currencies: readonly string[], defaul
 })
 
 export const isDirty = (draft: PlanDraft, original: PlanDraft) => !sameJson(draft, original)
-
-// "49" or "49.00" in major units to the currency's minor units; empty is unpriced; anything else is invalid.
-export const minorOf = (text: string, currency: string): Money['amount'] | null | 'invalid' => {
-  const trimmed = text.trim()
-  if (trimmed === '') return null
-  const digits = digitsOf(currency)
-  if (!new RegExp(`^\\d{1,7}${digits > 0 ? `(\\.\\d{1,${digits}})?` : ''}$`).test(trimmed)) return 'invalid'
-  const [whole = '0', fraction = ''] = trimmed.split('.')
-  return Number(whole) * 10 ** digits + Number(fraction.padEnd(digits, '0') || '0')
-}
 
 export const numberOf = (text: string) => Number(text.replace(/\D/g, '') || '0')
 

@@ -72,6 +72,8 @@ export interface VersionInput {
   customsDescription?: string | null | undefined
   trackStock?: boolean | null | undefined
   continueSelling?: boolean | null | undefined
+  /** The store's tax class (fact 37); left out keeps the version's, null is the store's default. */
+  taxClassId?: string | null | undefined
 }
 
 export interface OptionInput {
@@ -169,6 +171,7 @@ export interface CleanVersion {
   customsDescription: string | null
   trackStock: boolean | null
   continueSelling: boolean | null
+  taxClassId: string | null | undefined
 }
 
 export interface CleanOption {
@@ -257,6 +260,9 @@ export const slugFrom = (text: string): string =>
     .slice(0, 100)
     .replace(/-+$/, '')
 
+/** A supplier's web address carries a random suffix, so a clash never tells it what another supplier's is. */
+export const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
+
 /** A GTIN (EAN-8, UPC-A, EAN-13, GTIN-14) whose check digit holds (fact 44). */
 export const isBarcode = (value: string): boolean => {
   if (!/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(value)) return false
@@ -300,6 +306,7 @@ const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: str
   if (sku === false || name === false || customs === false || barcode === false || hsCode === false) return 'INVALID_INPUT'
   if (barcode !== null && !isBarcode(barcode)) return 'INVALID_BARCODE'
   if (hsCode !== null && !/^\d{6,10}$/.test(hsCode)) return 'INVALID_INPUT'
+  if (v.taxClassId != null && !isUuid(v.taxClassId)) return 'INVALID_INPUT'
   const sizes = [whole(v.weightGrams, 10_000_000), whole(v.lengthMm, 100_000), whole(v.widthMm, 100_000), whole(v.heightMm, 100_000)]
   if (sizes.includes(false)) return 'INVALID_INPUT'
   const currencies = new Set<string>()
@@ -336,6 +343,7 @@ const cleanVersion = (v: VersionInput, optionCount: number, pricingCurrency: str
     customsDescription: customs,
     trackStock: v.trackStock ?? null,
     continueSelling: v.continueSelling ?? null,
+    taxClassId: v.taxClassId === undefined ? undefined : v.taxClassId === null ? null : v.taxClassId.toLowerCase(),
   }
 }
 

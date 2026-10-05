@@ -44,6 +44,7 @@ export { dashboardNotice, dashboardStates, type DashboardNoticeWords, type Dashb
 export { initials } from './initials'
 export { isBackdropClick } from './isBackdropClick'
 export { useTheme } from './useTheme'
+export { isPhone, usePhone } from './usePhone'
 export { SideNav, type NavRowView, type SideNavProps } from './SideNav'
 export { navView, type NavViewWords } from './navView'
 export { NavDrawer, type NavDrawerProps } from './NavDrawer'

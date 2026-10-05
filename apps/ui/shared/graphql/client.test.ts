@@ -10,7 +10,12 @@ describe('createApiClient', () => {
     answering(Promise.resolve(new Response(JSON.stringify({ data: { health: 'ok' } }))))
     expect(await createApiClient().request('{ health }')).toEqual({ health: 'ok' })
     answering(Promise.resolve(new Response(JSON.stringify({ errors: [{ message: 'no', extensions: { code: 'FORBIDDEN' } }] }))))
-    await expect(createApiClient().request('{ health }')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    await expect(createApiClient().request('{ health }')).rejects.toMatchObject({ code: 'FORBIDDEN', details: {} })
+  })
+
+  it('keeps a refusal’s other facts beside its code', async () => {
+    answering(Promise.resolve(new Response(JSON.stringify({ errors: [{ message: 'finish first', extensions: { code: 'STORY_INCOMPLETE', gaps: [{ moduleId: 'a', field: 'alt' }] } }] }))))
+    await expect(createApiClient().request('{ health }')).rejects.toMatchObject({ code: 'STORY_INCOMPLETE', details: { gaps: [{ moduleId: 'a', field: 'alt' }] } })
   })
 
   it('sends the headers its caller names, read afresh on every call', async () => {

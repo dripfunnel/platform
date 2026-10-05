@@ -10,6 +10,9 @@ import {
   insertMarket,
   marketClash,
   moveMarketsOffRemoved,
+  selectReadinessFacts,
+  selectExclusions,
+  selectSellingMarkets,
   saveCurrencies as writeCurrencies,
   saveLanguages as writeLanguages,
   selectLocale,
@@ -23,10 +26,18 @@ import {
 } from '#db/scoped/markets'
 import { selectRates, type RateRow } from '#db/scoped/rates'
 import { priceInMarket, pricesByCurrency, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
+import { missingFor, type ReadinessNeed } from './readiness'
 import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type MarketInput, type MarketsRefusal } from './rules'
 
 export { offeredLanguages, type CurrencyInput, type MarketInput } from './rules'
 export type { CurrencyPrice } from './pricing'
+export type { ReadinessNeed } from './readiness'
+
+export interface MarketReadiness {
+  marketId: string
+  marketName: string
+  missing: ReadinessNeed[]
+}
 export type { RateRow } from '#db/scoped/rates'
 export type { LocaleRow, MarketRow } from '#db/scoped/markets'
 
@@ -226,7 +237,35 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       return versions.map((v) => ({ versionId: v.id, prices: pricesByCurrency(v.prices, setting), inMarket: market ? priceInMarket(v.prices, market, setting) : null }))
     })
 
-  return { locale, rates, pricing, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
+  /** Each product's readiness in each market it sells in (CATALOG T2), for a page of products in one go. */
+  const readiness = (productIds: readonly string[]) =>
+    inScope(async (tx): Promise<Map<string, MarketReadiness[]>> => {
+      const out = new Map<string, MarketReadiness[]>()
+      if (productIds.length === 0) return out
+      const store = await selectLocale(tx, storeId)
+      if (!store?.pricing_currency) return out
+      const markets = await selectSellingMarkets(tx, storeId)
+      const excluded = await selectExclusions(tx, storeId, productIds)
+      const currencies = store.currencies.filter((c) => c.status === 'active')
+      const perEuro = new Map([...(await selectRates(tx, [store.pricing_currency, ...currencies.map((c) => c.currency)])).values()].map((r) => [r.currency, r.per_euro]))
+      const setting: StorePricing = { pricingCurrency: store.pricing_currency, currencies, perEuro }
+      for (const row of await selectReadinessFacts(tx, storeId, productIds)) {
+        const compliance = new Set(row.compliance)
+        const hasCompareAt = row.versions.some((v) => v.prices.some((p) => p.currency === store.pricing_currency && p.compare_at_amount !== null))
+        out.set(
+          row.id,
+          // A market that doesn't sell the product asks nothing of it.
+          markets.filter((m) => !excluded.get(m.id)?.has(row.id)).map((m) => ({
+            marketId: m.id,
+            marketName: m.name,
+            missing: missingFor({ productType: row.product_type, priced: row.versions.some((v) => priceInMarket(v.prices, m, setting).amount !== null), hasCompareAt, compliance }, m.countries),
+          })),
+        )
+      }
+      return out
+    })
+
+  return { locale, rates, pricing, readiness, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
 }
 
 export type { MarketsRefusal }

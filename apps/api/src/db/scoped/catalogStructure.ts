@@ -297,6 +297,68 @@ export const setCollectionProducts = async (tx: ScopedSql, storeId: string, coll
   `
 }
 
+/** CatList's bulk "Add to collection": after what it holds, those it already holds staying where they are. Answers how many it now holds. */
+export const addCollectionProducts = async (tx: ScopedSql, storeId: string, collectionId: string, productIds: readonly string[]): Promise<number> => {
+  await tx`
+    insert into collection_product (collection_id, product_id, store_id, position, source)
+    select ${collectionId}, p.id, ${storeId}, (select coalesce(max(position) + 1, 0) from collection_product where collection_id = ${collectionId}) + x.position, 'manual'
+    from jsonb_to_recordset(${rowsOf(tx, productIds.map((id, position) => ({ id, position })))}) as x(id uuid, position int)
+    join product p on p.id = x.id and p.store_id = ${storeId} and p.deleted_at is null
+    on conflict (collection_id, product_id) do nothing
+  `
+  return (await tx<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${collectionId}`)[0]?.n ?? 0
+}
+
+/**
+ * The collections a product is in, hand-picked and automatic, for the editor's "Collections & filters": one list,
+ * bounded by the store's own cap on collections.
+ */
+export const selectProductCollections = (tx: ScopedSql, storeId: string, productId: string): Promise<{ id: string; name: string; kind: string }[]> =>
+  tx<{ id: string; name: string; kind: string }[]>`
+    select c.id, c.name, c.kind from collection_product cp
+    join collection c on c.id = cp.collection_id and c.store_id = cp.store_id and c.deleted_at is null
+    where cp.product_id = ${productId} and cp.store_id = ${storeId}
+    order by c.kind desc, lower(c.name), c.id
+    limit ${maxCollections}
+  `
+
+/** A product the caller reads, by its name, or null. */
+export const selectProductName = async (tx: ScopedSql, storeId: string, id: string): Promise<string | null> =>
+  (await tx<{ name: string }[]>`select name from product where id = ${id} and store_id = ${storeId} and deleted_at is null`)[0]?.name ?? null
+
+/** Which of these are the store's hand-picked collections. */
+export const selectManualCollectionIds = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<string[]> =>
+  ids.length === 0
+    ? []
+    : (await tx<{ id: string }[]>`select id from collection where store_id = ${storeId} and deleted_at is null and kind = 'manual' and id = any(${pgArray(ids)}::uuid[])`).map((r) => r.id)
+
+/**
+ * The product in exactly these hand-picked collections: out of the others, onto the end of each new one. Answers
+ * the collections it joined that now hold more than they may.
+ */
+export const setProductManualCollections = async (tx: ScopedSql, storeId: string, productId: string, ids: readonly string[]): Promise<string[]> => {
+  await tx`
+    delete from collection_product cp using collection c
+    where c.id = cp.collection_id and c.kind = 'manual' and cp.store_id = ${storeId} and cp.product_id = ${productId}
+      and not (cp.collection_id = any(${pgArray(ids)}::uuid[]))
+  `
+  const joined: string[] = []
+  for (const id of ids) {
+    const added = await tx`
+      insert into collection_product (collection_id, product_id, store_id, position, source)
+      select ${id}, ${productId}, ${storeId}, coalesce(max(position) + 1, 0), 'manual' from collection_product where collection_id = ${id}
+      on conflict (collection_id, product_id) do nothing
+    `
+    if (added.count > 0) joined.push(id)
+  }
+  if (joined.length === 0) return []
+  return (
+    await tx<{ id: string }[]>`
+      select collection_id as id from collection_product where collection_id = any(${pgArray(joined)}::uuid[]) group by collection_id having count(*) > ${maxCollectionProducts}
+    `
+  ).map((r) => r.id)
+}
+
 /** Soft delete (§7.1); a child moves to the top level rather than pointing at a deleted parent. */
 export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<{ name: string } | null> => {
   const [gone] = await tx<{ name: string }[]>`update collection set deleted_at = ${now}, updated_at = ${now} where id = ${id} and store_id = ${storeId} and deleted_at is null returning name`
@@ -306,6 +368,8 @@ export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: s
   await tx`update menu_item set parent_id = null where store_id = ${storeId} and parent_id in (select mi.id from menu_item mi where mi.store_id = ${storeId} and mi.collection_id = ${id})`
   await tx`update menu set revision = revision + 1, updated_at = ${now} where store_id = ${storeId} and id in (select menu_id from menu_item where store_id = ${storeId} and collection_id = ${id})`
   await tx`delete from menu_item where store_id = ${storeId} and collection_id = ${id}`
+  // Its translated web addresses free up with it (DATA-MODEL §7.3).
+  await tx`delete from translation where store_id = ${storeId} and entity = 'collection' and entity_id = ${id} and field = 'slug'`
   return gone
 }
 
