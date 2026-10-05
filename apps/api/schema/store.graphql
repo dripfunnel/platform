@@ -234,6 +234,7 @@ type Market {
   duties: MarketDuties
   everywhereElse: Boolean
   excludedProductIds: [ID!]
+  excludedProducts: [MarketExcludedProduct!]
   id: ID
   language: String
   name: String
@@ -250,6 +251,11 @@ type MarketDuties {
   mode: String
   rateBps: Int
   thresholdAmount: String
+}
+
+type MarketExcludedProduct {
+  id: ID
+  name: String
 }
 
 input MarketInput {

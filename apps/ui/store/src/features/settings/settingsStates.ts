@@ -1,4 +1,5 @@
 import type { StoreInfo, StoreLocale } from '../../api/settings'
+import type { Market } from '../../api/markets'
 import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
 import type { Person, Supplier } from '../../api/team'
 
@@ -76,7 +77,32 @@ export interface SettingsReads {
   approval: () => Promise<boolean>
   tax: () => Promise<TaxSetupFull | null>
   invoice: () => Promise<InvoiceSettings | null>
+  markets: () => Promise<Market[]>
 }
+
+const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
+  parentId: null,
+  primary: false,
+  everywhereElse: false,
+  active: true,
+  language: 'en-IN',
+  priceAdjustmentBps: 0,
+  webMode: 'main',
+  pathPrefix: null,
+  products: 'all',
+  excludedProducts: [],
+  duties: { mode: 'none', rateBps: null, thresholdAmount: null },
+  revision: 1,
+  ...m,
+})
+
+const sampleMarkets: Market[] = harness
+  ? [
+      market({ id: 'mk-in', name: 'India', countries: ['IN'], currency: 'INR', primary: true }),
+      market({ id: 'mk-us', name: 'United States', countries: ['US'], currency: 'USD', language: 'en-US', priceAdjustmentBps: 1000, webMode: 'path', pathPrefix: 'us', everywhereElse: true, duties: { mode: 'by_code', rateBps: null, thresholdAmount: '80000' } }),
+      market({ id: 'mk-ae', name: 'UAE', countries: ['AE'], currency: 'AED', active: false }),
+    ]
+  : []
 
 const sampleTax: TaxSetupFull | null = harness
   ? {
@@ -102,4 +128,5 @@ export const sampleReads: SettingsReads = {
   approval: async () => true,
   tax: async () => sampleTax,
   invoice: async () => ({ taxPerLine: true, emailWithDispatch: true, footer: null, legalName: 'Kesari Threads Pvt Ltd' }),
+  markets: async () => sampleMarkets,
 }

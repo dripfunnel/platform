@@ -3,6 +3,7 @@ import '@dripfunnel/shared/ui/detail.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { loadAllMarkets } from '../../api/markets'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadInvoiceSettings, loadTax } from '../../api/tax'
 import { loadApproval, loadPeople, loadSuppliers } from '../../api/team'
@@ -11,6 +12,7 @@ import { messages } from '../../messages'
 import '../common/pageTabs.css'
 import { sampleReads, settingsStates, type SettingsReads } from './settingsStates'
 import { StoreInfoTab } from './StoreInfoTab'
+import { MarketsTab } from './MarketsTab'
 import { TaxTab } from './TaxTab'
 import { PeopleTab, SupplierTab } from './TeamTabs'
 import { WarehousesView } from '../warehouses/WarehousesView'
@@ -21,7 +23,7 @@ const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/settings')
 
 /** The tabs built so far; each card adds its own (FIRST-RELEASE §15). */
-export const settingsTabs = ['store', 'people', 'supplier', 'warehouse', 'tax'] as const
+export const settingsTabs = ['store', 'people', 'supplier', 'warehouse', 'tax', 'markets'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
 /** How a tab says something saved: a toast alone, or a toast and its reads again. */
@@ -33,7 +35,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings, markets: loadAllMarkets }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render>> => ({
@@ -60,6 +62,12 @@ const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render
     const [tax, invoice, info, locale] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo(), reads.locale()])
     if (!tax || !invoice) throw new Error('tax setup missing')
     return (done, canEdit) => <TaxTab tax={tax} invoice={invoice} country={info?.country ?? null} taxId={info?.taxId ?? null} currency={locale?.pricingCurrency ?? null} canEdit={canEdit} onSaved={done.toast} onChanged={done.reload} />
+  },
+  // Each save answers the market as stored, so the tab keeps its own list rather than reading again.
+  markets: async () => {
+    const [markets, locale] = await Promise.all([reads.markets(), reads.locale()])
+    if (!locale) throw new Error('locale missing')
+    return (done, canEdit) => <MarketsTab markets={markets} locale={locale} canEdit={canEdit} onSaved={done.toast} />
   },
 })
 
@@ -109,7 +117,7 @@ export const SettingsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, warehouse: words.tabs.warehouse, tax: words.tabs.tax }}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, warehouse: words.tabs.warehouse, tax: words.tabs.tax, markets: words.tabs.markets }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

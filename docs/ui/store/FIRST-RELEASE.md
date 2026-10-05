@@ -407,6 +407,13 @@ shoppers pay changes, and doesn't offer the prototype's "keep what shoppers pay"
 Categories show their rate in the home zone and change it there; "Add a rate" makes the category and its home
 rate; a US store's rates come from the shopper's state, so it adds none here. Other places' zones are listed;
 editing them waits for a drawing. The invoice card keeps the footer as it is (the prototype doesn't draw it).
+Markets: the list with each market's countries, currency and state, "everywhere else", and the one picked
+beside with what a shopper there sees; countries already in another market can't be picked; a market inside
+another copies its currency and language; price adjustment, web address (the main address or a path on it,
+never a market's own domain, decided on #337), products not sold there (`Market.excludedProducts`, named), and
+duties by code or flat above a threshold. The prototype's delivery charge, tax registration and ways to pay per
+market wait for SAPI 23, SAPI 7's follow-up and SAPI 10, which own them; they aren't drawn until those give the
+API.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 

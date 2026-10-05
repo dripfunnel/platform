@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { actingHeaders } from '../acting'
 import { allPages } from './allPages'
 import { loadFilters } from './filters'
+import { loadAllMarkets } from './markets'
 import { loadTax } from './tax'
 import { query } from './client'
 
@@ -246,12 +247,5 @@ export const loadStoreCurrencies = async (): Promise<{ code: string; mode: 'auto
 }
 
 /** The store's active markets, for each one's price. */
-export const loadMarkets = (): Promise<{ id: string; name: string; currency: string }[]> =>
-  allPages(async (after) => {
-    const { markets } = await query(
-      'query M($after: String) { markets(first: 50, after: $after) { nodes { id name currency active parentId } pageInfo { hasNextPage endCursor } } }',
-      z.object({ markets: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), currency: z.string(), active: z.boolean(), parentId: z.string().nullable() })), pageInfo: pageInfoSchema }) }),
-      { after },
-    )
-    return { nodes: markets.nodes.filter((m) => m.active && m.parentId === null).map(({ id, name, currency }) => ({ id, name, currency })), pageInfo: markets.pageInfo }
-  })
+export const loadMarkets = async (): Promise<{ id: string; name: string; currency: string }[]> =>
+  (await loadAllMarkets()).filter((m) => m.active && m.parentId === null).map(({ id, name, currency }) => ({ id, name, currency }))

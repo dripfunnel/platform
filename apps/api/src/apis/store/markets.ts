@@ -98,6 +98,9 @@ export const registerMarkets = (builder: StoreBuilder) => {
       thresholdAmount: t.exposeString('duties_threshold_amount', { nullable: true }),
     }),
   })
+  const ExcludedProduct = builder.objectRef<{ id: string; name: string }>('MarketExcludedProduct').implement({
+    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }),
+  })
   const Market = builder.objectRef<MarketRow>('Market').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -114,6 +117,7 @@ export const registerMarkets = (builder: StoreBuilder) => {
       pathPrefix: t.exposeString('path_prefix', { nullable: true }),
       products: t.exposeString('products'),
       excludedProductIds: t.exposeIDList('excluded_product_ids'),
+      excludedProducts: t.field({ type: [ExcludedProduct], resolve: (m) => m.excluded_products }),
       duties: t.field({ type: Duties, resolve: (m) => m }),
       active: t.boolean({ resolve: (m) => m.status === 'active' }),
       revision: t.exposeInt('revision'),

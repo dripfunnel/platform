@@ -160,6 +160,12 @@ describe('markets', () => {
     expect((await save({ ...base, excludedProductIds: [theirs?.id] }, europe, 1)).code).toBe('NOT_FOUND')
     const saved = await save({ ...base, excludedProductIds: [mine?.id] }, europe, 1)
     expect(saved.market).toMatchObject({ excludedProductIds: [mine?.id], revision: 2 })
+    // Named for the list of what isn't sold there; a product deleted since drops out of it.
+    const named = async () => ((await gql('query M($id: ID!) { market(id: $id) { excludedProducts { id name } } }', 'owner', { id: europe })).data?.['market'] as { excludedProducts: unknown[] }).excludedProducts
+    expect(await named()).toEqual([{ id: mine?.id, name: 'Kurta' }])
+    await db.sql`update product set deleted_at = now() where id = ${mine?.id ?? ''}`
+    expect(await named()).toEqual([])
+    await db.sql`update product set deleted_at = null where id = ${mine?.id ?? ''}`
     expect((await save(base, europe, 1)).code).toBe('STALE_REVISION')
     const home = (await markets()).find((m) => m.primary)
     expect((await save({ name: 'Home', countries: ['US'], currency: 'INR', language: 'en-US', active: false }, home?.id, home?.revision)).code).toBe('PRIMARY_MARKET')
