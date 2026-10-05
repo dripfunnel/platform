@@ -524,7 +524,7 @@ describe('approval of suppliers’ products (ACCESS §7.2, CATALOG L)', () => {
     expect((made.data?.['saveProduct'] as { approval: string }).approval).toBe('pending')
     expect(await state(id)).toEqual({ approval_status: 'pending', visibility: 'hidden', sent_back_reason: null })
     expect(((await gql('{ navBadges { products } }', 'owner')).data?.['navBadges'] as { products: number }).products).toBeGreaterThan(0)
-    expect((await gql('{ navBadges { products } }', 'supplier')).code).toBe('FORBIDDEN')
+    expect((await gql('{ navBadges { products } }', 'supplier')).data?.['navBadges']).toEqual({ products: 0 })
     // Only the Owner reviews; another store's Owner doesn't find it.
     expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'staff', { id })).code).toBe('FORBIDDEN')
     expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'supplier', { id })).code).toBe('FORBIDDEN')

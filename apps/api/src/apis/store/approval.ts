@@ -25,7 +25,7 @@ export const registerApproval = (builder: StoreBuilder) => {
   }
   const approve = { api: 'store', scope: 'store', permission: 'approve', target: 'none' } as const
 
-  // The menu's badges (FIRST-RELEASE §3.1); orders' count comes with SAPI 11.
+  // The menu's badges (FIRST-RELEASE §3.1, §19: a supplier's too); To ship's count comes with SAPI 11.
   const NavBadges = builder.objectRef<{ products: number }>('StoreNavBadges').implement({
     fields: (t) => ({ products: t.exposeInt('products') }),
   })
@@ -33,8 +33,9 @@ export const registerApproval = (builder: StoreBuilder) => {
   builder.queryFields((t) => ({
     navBadges: t.field({
       type: NavBadges,
-      extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } },
-      resolve: async (_, __, ctx) => ({ products: await service(ctx).awaiting() }),
+      extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.read', target: 'none' } },
+      // The queue is the merchant's to review; VendorViews draws no badge on a supplier's Your products.
+      resolve: async (_, __, ctx) => ({ products: actingCaller(ctx).seller !== null ? 0 : await service(ctx).awaiting() }),
     }),
     supplierApprovalRequired: t.boolean({
       extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.read', target: 'none' } },
