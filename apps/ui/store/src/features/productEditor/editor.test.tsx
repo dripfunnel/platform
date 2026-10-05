@@ -382,6 +382,36 @@ describe('the product editor', () => {
     expect(screen.getByRole('button', { name: 'Gifts', pressed: true })).toBeTruthy()
   })
 
+  it('says when the collections didn’t load, offers none, and saves without touching them', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    api.loadProductCollections.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    expect(screen.getByText(words.sections.collFailed)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Gifts' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalled()
+    expect(api.setProductCollections).not.toHaveBeenCalled()
+  })
+
+  it('says when the hand-picked collections, filters or size charts didn’t load, rather than that there are none', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: true }], badges: [] })
+    listApi.loadHandPicked.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    api.loadFacets.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    api.loadSizeCharts.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    expect(screen.getByText(words.sections.collFailed)).toBeTruthy()
+    expect(screen.queryByText(words.sections.handPickedNone)).toBeNull()
+    expect(screen.getByText(words.sections.filtersFailed)).toBeTruthy()
+    expect(screen.queryByText(words.sections.filtersNone)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.chart) }))
+    expect(screen.getByText(words.sections.chartFailed)).toBeTruthy()
+    expect((screen.getByLabelText(words.sections.chart) as HTMLSelectElement).disabled).toBe(true)
+  })
+
   it('asks for the legal details a market says are missing, and gives a manual badge', async () => {
     api.loadProduct.mockResolvedValue(cushion({ readiness: [{ marketId: 'm2', marketName: 'United States', ready: false, missing: ['fibre', 'care'] }] }))
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })

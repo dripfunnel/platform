@@ -111,6 +111,7 @@ const merchantExtras: EditorExtras = {
       { id: 'f-occasion', name: 'Occasion', shopperVisible: true, values: ['Everyday', 'Festive'].map((name) => ({ id: `fv-${name}`, name })) },
     ],
     sizeCharts: [{ id: 'sc-shirts', name: 'Men’s shirts' }],
+    unavailable: new Set(),
     collections: { handPicked: [{ id: 'c-summer', name: 'Summer edit' }, { id: 'c-gifts', name: 'Gifts under ₹3,000' }], automatic: [{ id: 'c-linen', name: 'All linen', kind: 'automatic' }] },
   },
   badges: [
