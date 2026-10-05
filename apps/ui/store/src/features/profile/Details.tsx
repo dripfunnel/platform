@@ -8,9 +8,35 @@ const words = messages.profile.details
 
 const emailLooksValid = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)
 
+export interface DetailsChange {
+  /** Null when neither changed. */
+  details: { name: string; phone: string | null } | null
+  /** Null when the address is the same. */
+  email: { to: string; password: string } | null
+}
+
+/**
+ * The save, in order: name and mobile first, then the email's link. A refused email keeps the details
+ * already saved, so the card shows both what saved and why the email didn't.
+ */
+export const saveDetails = async (
+  change: DetailsChange,
+  theme: Profile['theme'],
+  api: { updateProfile: typeof updateProfile; changeEmail: typeof changeEmail } = { updateProfile, changeEmail },
+): Promise<{ saved: Profile | null; emailSentTo: string | null; failure: unknown }> => {
+  let saved: Profile | null = null
+  try {
+    if (change.details) saved = await api.updateProfile({ ...change.details, theme })
+    if (change.email) await api.changeEmail(change.email.to, change.email.password)
+    return { saved, emailSentTo: change.email?.to ?? null, failure: null }
+  } catch (failure) {
+    return { saved, emailSentTo: null, failure }
+  }
+}
+
 // "Your details": name and mobile save at once; a new email needs the password and changes only when
 // the link sent to it is clicked (ACCESS.md §4). The sign-in number changes only by switching method.
-export const Details = ({ profile, onSaved, onToast }: { profile: Profile; onSaved: (profile: Profile) => void; onToast: (text: string) => void }) => {
+export const Details = ({ profile, onSaved, onChanged, onToast }: { profile: Profile; onSaved: (profile: Profile) => void; onChanged: () => void; onToast: (text: string) => void }) => {
   const [name, setName] = useState(profile.name)
   const [email, setEmail] = useState(profile.email)
   const [phone, setPhone] = useState(profile.phone ?? '')
@@ -33,21 +59,20 @@ export const Details = ({ profile, onSaved, onToast }: { profile: Profile; onSav
     if (emailChanged && !emailLooksValid(email.trim())) return setError(words.emailBad)
     if (emailChanged && !password) return setError(words.passwordMissing)
     setBusy(true)
-    void (async () => {
-      try {
-        if (detailsChanged) onSaved(await updateProfile({ name: name.trim(), phone: phone.trim() || null, theme: profile.theme }))
-        if (emailChanged) {
-          await changeEmail(email.trim(), password)
-          setEmail(profile.email)
-          setPassword('')
-          onToast(fill(words.sent, { email: email.trim() }))
-        } else onToast(words.saved)
-      } catch (failure) {
-        setError(profileRefusal(failure, messages.auth.notConnected))
-      } finally {
-        setBusy(false)
-      }
-    })()
+    void saveDetails(
+      { details: detailsChanged ? { name: name.trim(), phone: phone.trim() || null } : null, email: emailChanged ? { to: email.trim(), password } : null },
+      profile.theme,
+    ).then(({ saved, emailSentTo, failure }) => {
+      setBusy(false)
+      if (saved) onSaved(saved)
+      if (failure) return setError(profileRefusal(failure, messages.auth.notConnected))
+      if (!emailSentTo) return onToast(words.saved)
+      setEmail(profile.email)
+      setPassword('')
+      onToast(fill(words.sent, { email: emailSentTo }))
+      // The profile now has a pending address, which the card shows until its link is clicked.
+      onChanged()
+    })
   }
 
   return (
