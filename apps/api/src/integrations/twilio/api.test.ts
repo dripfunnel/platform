@@ -27,10 +27,15 @@ describe('the Twilio sender', () => {
     await expect(twilioSender({ ...credentials, fetchImpl: answering(401, {}) }).send(sms)).rejects.toEqual(new SmsRefused('twilio_401'))
   })
 
-  it('treats an outage, throttling, no answer and an unreadable answer as worth retrying', async () => {
+  it('takes any 2xx as sent, even with an unreadable body, so a text is never sent twice', async () => {
+    expect(await twilioSender({ ...credentials, fetchImpl: answering(201, { nope: true }) }).send(sms)).toEqual({ providerId: 'unknown' })
+    const notJson = (async () => new Response('<html>ok</html>', { status: 200 })) as typeof fetch
+    expect(await twilioSender({ ...credentials, fetchImpl: notJson }).send(sms)).toEqual({ providerId: 'unknown' })
+  })
+
+  it('treats an outage, throttling and no answer as worth retrying', async () => {
     await expect(twilioSender({ ...credentials, fetchImpl: answering(500, {}) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
     await expect(twilioSender({ ...credentials, fetchImpl: answering(429, {}) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
-    await expect(twilioSender({ ...credentials, fetchImpl: answering(201, { nope: true }) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
     const failing = (async () => {
       throw new TypeError('network')
     }) as typeof fetch

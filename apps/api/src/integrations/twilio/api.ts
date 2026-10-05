@@ -35,8 +35,8 @@ export const twilioSender = ({ accountSid, authToken, messagingServiceSid, fetch
       const error = errorSchema.safeParse(json)
       throw new SmsRefused(error.success && error.data.code !== undefined ? `twilio_${error.data.code}` : `twilio_${response.status}`)
     }
+    // A 2xx is Twilio accepting the text: retrying an unreadable answer would send it twice.
     const sent = sentSchema.safeParse(json)
-    if (!sent.success) throw new SmsUnavailable('answered in a shape we do not read')
-    return { providerId: sent.data.sid }
+    return { providerId: sent.success ? sent.data.sid : 'unknown' }
   },
 })
