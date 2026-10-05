@@ -49,13 +49,19 @@ export const countPeople = async (tx: ScopedSql, storeId: string): Promise<{ sta
     `
   )[0] ?? { staff: 0, waiting: 0 }
 
-/** Managers and Staff, active or invited: the plan's `staff` limit counts them, never an Owner (decided on #290). */
-export const countStaffSeats = async (tx: ScopedSql, storeId: string): Promise<number> =>
+/** One People write at a time per store, so a seat counted is still free when it is taken. */
+export const lockStorePeople = async (tx: ScopedSql, storeId: string): Promise<void> => {
+  await tx`select pg_advisory_xact_lock(hashtext(${`store_people:${storeId}`}))`
+}
+
+/** Managers and Staff, active or invited, but the invitation being replaced: the plan's `staff` limit counts them, never an Owner (decided on #290). */
+export const countStaffSeats = async (tx: ScopedSql, storeId: string, exceptInvitationId: string | null): Promise<number> =>
   (
     await tx<{ n: number }[]>`
       select (
         (select count(*) from membership where store_id = ${storeId} and seller_id is null and status = 'active' and role_key <> 'owner')
-        + (select count(*) from invitation where store_id = ${storeId} and seller_id is null and accepted_at is null and revoked_at is null and role_key <> 'owner')
+        + (select count(*) from invitation where store_id = ${storeId} and seller_id is null and accepted_at is null and revoked_at is null and role_key <> 'owner'
+             and id is distinct from ${exceptInvitationId}::uuid)
       )::int as n
     `
   )[0]?.n ?? 0

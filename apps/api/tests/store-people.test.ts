@@ -147,6 +147,8 @@ describe('inviting', () => {
     expect(await as('mutation { inviteMember(email: "seat2@a.example", role: "staff") }')).toBeUndefined()
     expect(await as('mutation { inviteMember(email: "seat3@a.example", role: "staff") }')).toBe('PLAN_LIMIT')
     expect(await as('mutation { inviteMember(email: "another.owner@a.example", role: "owner") }')).toBeUndefined()
+    // Re-inviting a pending address at the limit frees its own seat as it takes it.
+    expect(await as('mutation { inviteMember(email: "seat2@a.example", role: "manager") }')).toBeUndefined()
     // Demoting an Owner takes a seat too: with both seats filled it is refused.
     const [secondOwner] = await db.sql<{ id: string }[]>`select m.id from membership m join "user" u on u.id = m.user_id where m.store_id = ${t.storeA2} and u.email = 'owner2@a.example'`
     const extraOwner = await user(t.partnerA, 'owner3@a.example', 'Owner Three')
@@ -174,6 +176,19 @@ describe('limits on invitations', () => {
     `
     expect((await gql('mutation { inviteMember(email: "twenty.first@a.example", role: "staff") }', 'owner')).code).toBe('RATE_LIMITED')
     await db.sql`delete from invitation where email like 'bulk%@a.example'`
+  })
+})
+
+describe('seats under concurrency', () => {
+  it('lets only one of two invitations racing for the last seat through', async () => {
+    // Store B already has one pending Staff invitation (above): two seats leave exactly one free.
+    const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerB}, 'Two seats', 'live') returning id`
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${t.partnerB}, 1, 'staff', 2)`
+    await db.sql`update store_subscription set plan_id = ${plan?.id ?? ''} where store_id = ${t.storeB1}`
+    await db.sql`update store set plan_id = ${plan?.id ?? ''} where id = ${t.storeB1}`
+    const answers = await Promise.all(['race.one@b.example', 'race.two@b.example'].map(async (email) => (await gql(`mutation { inviteMember(email: "${email}", role: "staff") }`, 'bOwner')).code))
+    expect(answers.filter((c) => c === undefined)).toHaveLength(1)
+    expect(answers.filter((c) => c === 'PLAN_LIMIT')).toHaveLength(1)
   })
 })
 
