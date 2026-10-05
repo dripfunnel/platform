@@ -179,7 +179,7 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 - **Store created by the partner**: the Owner gets an invitation, never a password.
 - **Sign-in**: email and password, then the second factor **when the person has it on**. An
   Owner without it is sent to turn it on before the store opens (the `enrol` view, #183); every
-  other role may skip it. Five wrong passwords pause sign-in for 15 minutes and email the Owner.
+  other role may skip it. Five wrong passwords or codes (one count) pause sign-in for 15 minutes and email the account's own address, the prototype's "we've emailed the account owner" (built on #290).
   Backup codes work once each. Google sign-in authenticates an existing account only (ACCESS §2).
 - **Choose a store / switch store**: the portal never picks; a person who belongs to no store is
   refused, not shown an empty portal. "Create another store" starts sign-up step 3.
@@ -378,6 +378,7 @@ ledger wording, the identical sign-up answer, Staff exports, and the screens tha
 | Billing's card form | A hosted payment field; a card number never touches DripFunnel | rule |
 | The refund override says "comes off their next payout" | Recorded on the supplier ledger and settled outside (DESIGN-BRIEF 71; #183 left the wording to this card) | rule |
 | Sign-up says "There's already an account for this email" | Identical response whether or not the email has an account (ACCESS §2, README §7) | rule |
+| Sign-in counts down the tries left and shows the paused screen after five wrong passwords | Every wrong password gets the same "don't match" answer; only the right password, during the pause, is told it is paused (ACCESS §2: never reveal an account) | rule |
 | README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
 | Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
 | ~~No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload~~ | Drawn by SUI 1 (#286) | resolved |

@@ -1,5 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { isMerchantRole, isSupplierRole, isSupplierTier, storePermissions, storeRoleHas, type StoreRole } from '#auth/storePermissions'
+import { recordCrossing } from '#auth/storeCaller'
 import { selectMemberships } from '#db/scoped/storeCaller'
 import { pageOf } from '#core/paging'
 import { withScope, withSystemScope } from '#db/scoped/index'
@@ -252,8 +253,13 @@ export const registerShell = (builder: StoreBuilder) => {
         if (standing.kind === 'signed-out') throw forbidden()
         const person = standing.person
         const sql = sqlOf(ctx)
-        return withSystemScope(sql, async (tx) => {
+        // Null is a store not held: logged as a crossing in this transaction, refused once it commits.
+        const switched = await withSystemScope(sql, async (tx): Promise<Choice | null> => {
           const memberships = /^[0-9a-f-]{36}$/i.test(String(storeId)) ? await selectMemberships(tx, person.id, person.partnerId, String(storeId)) : []
+          if (memberships.length === 0) {
+            await recordCrossing(tx, person, String(storeId), ctx.activity, ctx.facts, ctx.now())
+            return null
+          }
           const row = supplierId ? memberships.find((m) => m.seller_id === supplierId) : memberships.length === 1 ? memberships[0] : undefined
           if (!row && memberships.length > 1 && !supplierId) throw new GraphQLError('Choose which supplier you are acting for.', { extensions: { code: 'SUPPLIER_REQUIRED' } })
           const choice = row ? choiceOf({ membership_id: row.membership_id, store_id: row.store_id, store_name: row.store_name, role_key: row.role_key, seller_id: row.seller_id, seller_name: row.seller_name, access_level: row.access_level, created_at: new Date() }) : null
@@ -276,6 +282,8 @@ export const registerShell = (builder: StoreBuilder) => {
           })
           return choice
         })
+        if (!switched) throw forbidden()
+        return switched
       },
     }),
   }))

@@ -142,3 +142,6 @@ export const bumpCodeAttempt = async (tx: ScopedSql, id: string): Promise<void> 
 /** False when another request spent it first: a code is accepted once, however many arrive together. */
 export const markCodeUsed = async (tx: ScopedSql, id: string, now: Date): Promise<boolean> =>
   (await tx`update verification_code set used_at = ${now} where id = ${id} and used_at is null`).count > 0
+
+export const selectUserPartner = async (tx: ScopedSql, userId: string): Promise<string | null> =>
+  (await tx<{ partner_id: string }[]>`select partner_id from "user" where id = ${userId}`)[0]?.partner_id ?? null
