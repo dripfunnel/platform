@@ -171,6 +171,7 @@ type ConversionExample {
   from: ConvertedAmount
   nearest: ConvertedAmount
   none: ConvertedAmount
+  publishedOn: String
 }
 
 type ConvertedAmount {

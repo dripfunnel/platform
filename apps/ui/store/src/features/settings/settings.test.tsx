@@ -59,10 +59,10 @@ const loc: StoreLocale = {
     { currency: 'GBP', perEuro: '0.84', publishedOn: '2026-10-05' },
   ],
   examples: [
-    { currency: 'USD', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
-    { currency: 'AED', from: { amount: '10000', currency: 'INR' }, none: { amount: '400' }, nearest: { amount: '400' }, ends99: { amount: '499' } },
-    { currency: 'EUR', from: { amount: '10000', currency: 'INR' }, none: { amount: '100' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
-    { currency: 'GBP', from: { amount: '10000', currency: 'INR' }, none: { amount: '84' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+    { currency: 'USD', publishedOn: '2026-10-05', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+    { currency: 'AED', publishedOn: '2026-10-05', from: { amount: '10000', currency: 'INR' }, none: { amount: '400' }, nearest: { amount: '400' }, ends99: { amount: '499' } },
+    { currency: 'EUR', publishedOn: '2026-10-05', from: { amount: '10000', currency: 'INR' }, none: { amount: '100' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+    { currency: 'GBP', publishedOn: '2026-10-04', from: { amount: '10000', currency: 'INR' }, none: { amount: '84' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
   ],
 }
 
@@ -225,7 +225,8 @@ describe('currencies', () => {
     // Any currency with a rate can be added, the euro among them, and shows its example before it's saved.
     expect(within(c.getByRole('combobox', { name: w.addCurrency })).getByRole('option', { name: /EUR/ })).toBeTruthy()
     fireEvent.change(c.getByRole('combobox', { name: w.addCurrency }), { target: { value: 'GBP' } })
-    expect(c.getByText(/₹100\.00 → £1\.99/)).toBeTruthy()
+    // Dated by the rates it used, not by whichever rate the store happened to have saved.
+    expect(c.getByText(/₹100\.00 → £1\.99 · reference rates from the European Central Bank, published 2026-10-04/)).toBeTruthy()
     fireEvent.click(c.getByRole('button', { name: w.saveCurrencies }))
     await settle()
     expect(api.saveCurrencies).toHaveBeenCalledWith([

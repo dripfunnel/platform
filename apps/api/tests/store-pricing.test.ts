@@ -136,11 +136,11 @@ describe('the conversion example in Settings', () => {
   it('converts 100 of the pricing currency as a price is converted, under each rounding, in minor units', async () => {
     // No currency saved: every one with a rate is still there, to add or to switch to converting before saving.
     await gql('mutation C($c: [StoreCurrencyInput!]!) { saveCurrencies(currencies: $c) }', 'owner', { c: [] })
-    const examples = ((await gql('{ storeLocale { examples { currency from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }', 'owner')).data?.['storeLocale'] as { examples: unknown[] }).examples
+    const examples = ((await gql('{ storeLocale { examples { currency publishedOn from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }', 'owner')).data?.['storeLocale'] as { examples: unknown[] }).examples
     // ₹100 at 90 to the euro and 1.08 dollars to the euro is $1.20 exactly; to the nearest whole $1, up to .99 $1.99.
     expect(examples).toEqual([
-      { currency: 'EUR', from: { amount: '10000', currency: 'INR' }, none: { amount: '111' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
-      { currency: 'USD', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+      { currency: 'EUR', publishedOn: '2026-10-02', from: { amount: '10000', currency: 'INR' }, none: { amount: '111' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+      { currency: 'USD', publishedOn: '2026-10-02', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
     ])
   })
 })
