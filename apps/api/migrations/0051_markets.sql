@@ -93,6 +93,10 @@ begin
   if new.deleted_at is not null then
     return new;
   end if;
+  -- Sub-markets go one level deep: a market with its own never goes under another.
+  if tg_op = 'UPDATE' and new.parent_id is not null and exists (select 1 from market c where c.parent_id = new.id and c.deleted_at is null) then
+    raise exception 'market: a sub-market sits under one of the store''s top-level markets' using errcode = '23514';
+  end if;
   if new.parent_id is not null then
     select parent_id, countries, deleted_at into parent from market where id = new.parent_id and store_id = new.store_id;
     if not found or parent.deleted_at is not null or parent.parent_id is not null then
@@ -108,6 +112,12 @@ begin
       and m.parent_id is not distinct from new.parent_id and m.countries ?| array(select jsonb_array_elements_text(new.countries))
   ) then
     raise exception 'market: a country is in one market only' using errcode = '23505';
+  end if;
+  -- Its own sub-markets stay within its countries.
+  if tg_op = 'UPDATE' then
+    if exists (select 1 from market c where c.parent_id = new.id and c.deleted_at is null and not (new.countries @> c.countries)) then
+      raise exception 'market: a sub-market''s countries are its parent''s' using errcode = '23514';
+    end if;
   end if;
   return new;
 end

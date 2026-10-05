@@ -163,7 +163,8 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
         if (revision !== existing.revision) throw new Refused({ ok: false, reason: 'STALE_REVISION' })
         // The primary market is where the store sells first: it can't be switched off or put under another.
         if (existing.is_primary && (!cleaned.active || cleaned.parentId !== null)) throw new Refused({ ok: false, reason: 'PRIMARY_MARKET' })
-        if (cleaned.parentId === existing.id) throw new Refused({ ok: false, reason: 'BAD_PARENT' })
+        // A sub-market can't be its own parent, nor "Everywhere else", which serves whoever no market names.
+        if (cleaned.parentId === existing.id || (existing.is_fallback && cleaned.parentId !== null)) throw new Refused({ ok: false, reason: 'BAD_PARENT' })
         if (!(await updateMarket(tx, storeId, existing.id, existing.revision, cleaned, at))) throw new Refused({ ok: false, reason: 'STALE_REVISION' })
         saved = { id: existing.id, revision: existing.revision + 1 }
       }

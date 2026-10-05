@@ -131,6 +131,19 @@ describe('markets', () => {
     expect((await save({ name: 'europe', countries: ['ES'], currency: 'EUR', language: 'en-US' })).code).toBe('DUPLICATE_NAME')
   })
 
+  it('keeps a parent’s sub-markets within it: no shrinking under them, and no going under another while it has them', async () => {
+    const nordics = (await save({ name: 'Nordics', countries: ['SE', 'NO', 'DK'], currency: 'INR', language: 'en-US' })).market
+    const sweden = (await save({ name: 'Sweden', parentId: nordics?.id, countries: ['SE'], currency: 'INR', language: 'en-US' })).market
+    expect((await save({ name: 'Nordics', countries: ['NO', 'DK'], currency: 'INR', language: 'en-US' }, nordics?.id, nordics?.revision)).code).toBe('NOT_PARENTS_COUNTRIES')
+    expect((await save({ name: 'Nordics', parentId: europe, countries: ['SE', 'NO', 'DK'], currency: 'INR', language: 'en-US' }, nordics?.id, nordics?.revision)).code).toBe('BAD_PARENT')
+    expect((await gql('mutation E($id: ID) { setEverywhereElse(marketId: $id) }', 'owner', { id: nordics?.id })).data?.['setEverywhereElse']).toBe(true)
+    const fallback = (await markets()).find((m) => m.id === nordics?.id)
+    expect((await save({ name: 'Nordics', parentId: europe, countries: ['SE', 'NO', 'DK'], currency: 'INR', language: 'en-US' }, fallback?.id, fallback?.revision)).code).toBe('BAD_PARENT')
+    await gql('mutation E($id: ID) { setEverywhereElse(marketId: $id) }', 'owner', { id: null })
+    await gql('mutation D($id: ID!) { deleteMarket(id: $id) }', 'owner', { id: sweden?.id })
+    await gql('mutation D($id: ID!) { deleteMarket(id: $id) }', 'owner', { id: nordics?.id })
+  })
+
   it('refuses what the store doesn’t offer and what isn’t valid', async () => {
     expect((await save({ name: 'Gulf', countries: ['AE'], currency: 'AED', language: 'en-US' })).code).toBe('NOT_OFFERED')
     expect((await save({ name: 'Hindi', countries: ['NP'], currency: 'INR', language: 'hi-IN' })).code).toBe('NOT_OFFERED')

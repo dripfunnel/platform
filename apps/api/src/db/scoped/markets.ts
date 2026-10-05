@@ -193,7 +193,7 @@ export const marketClash = (error: unknown): 'COUNTRY_TAKEN' | 'NOT_PARENTS_COUN
   const constraint = 'constraint_name' in error ? String(error.constraint_name) : ''
   if (message.includes('a country is in one market only')) return 'COUNTRY_TAKEN'
   if (message.includes('countries are its parent')) return 'NOT_PARENTS_COUNTRIES'
-  if (message.includes('a sub-market sits under')) return 'BAD_PARENT'
+  if (message.includes('a sub-market sits under') || constraint === 'market_fallback_top') return 'BAD_PARENT'
   if (constraint === 'market_name_key') return 'DUPLICATE_NAME'
   if (constraint === 'market_path_key') return 'DUPLICATE_PATH'
   return null
