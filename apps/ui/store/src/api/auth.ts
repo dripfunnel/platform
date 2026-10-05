@@ -142,6 +142,15 @@ export const joinStore = (token: string) => post('join', { token }, z.object({ o
 
 export const confirmEmailChange = (token: string) => post('confirm-email', { token }, ok)
 
+const confirming = new Map<string, ReturnType<typeof confirmEmailChange>>()
+
+/** The link is single-use: every render that asks for one token shares the one answer (StrictMode runs effects twice). */
+export const confirmEmailChangeOnce = (token: string): ReturnType<typeof confirmEmailChange> => {
+  const asked = confirming.get(token) ?? confirmEmailChange(token)
+  confirming.set(token, asked)
+  return asked
+}
+
 const countrySchema = z.object({ code: z.string(), name: z.string(), currency: z.string() })
 
 export type Country = z.infer<typeof countrySchema>

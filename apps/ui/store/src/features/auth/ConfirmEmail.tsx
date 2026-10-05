@@ -1,7 +1,7 @@
 import { LoadingState, useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { confirmEmailChange, isRefusal } from '../../api/auth'
+import { confirmEmailChangeOnce, isRefusal } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { messages } from '../../messages'
 import { confirmEmailStates } from './authStates'
@@ -19,7 +19,13 @@ export const ConfirmEmail = ({ token }: { token: string | undefined }) => {
   const state = forced ?? answered
   useEffect(() => {
     if (!token || forced) return
-    void confirmEmailChange(token).then((answer) => setState(isRefusal(answer) ? 'bad' : 'done'))
+    let current = true
+    void confirmEmailChangeOnce(token).then((answer) => {
+      if (current) setState(isRefusal(answer) ? 'bad' : 'done')
+    })
+    return () => {
+      current = false
+    }
   }, [token, forced])
   if (state === 'pending') return <AuthFrame panel="in" title={words.title}><LoadingState label={words.title} /></AuthFrame>
   return (
