@@ -125,4 +125,12 @@ describe('A+ content', () => {
     await show(owner)
     expect(screen.getByRole('heading', { name: words.notFound.title })).toBeTruthy()
   })
+
+  it('says the brand stories couldn’t be read, never that there are none', async () => {
+    api.loadStoryBlocks.mockRejectedValue(new Error('offline'))
+    api.loadProductStory.mockResolvedValue(story({ revision: 1, modules: [{ id: 'b', kind: 'brand', title: null, body: null, side: null, photo: null, items: null, photos: null, productIds: null, blockId: null, video: null }] }))
+    await show(owner)
+    expect(screen.getByText(words.panel.brandFailed)).toBeTruthy()
+    expect(screen.queryByText(words.panel.brandEmpty)).toBeNull()
+  })
 })

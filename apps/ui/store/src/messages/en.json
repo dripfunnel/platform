@@ -1611,7 +1611,9 @@
       "fromFaqs": "questions",
       "video": "Video link",
       "videoPlaceholder": "https://www.youtube.com/watch?v=…",
-      "videoHint": "A YouTube or Vimeo link."
+      "videoHint": "A YouTube or Vimeo link.",
+      "brandFailed": "We couldn’t load your brand stories. Try again in a moment.",
+      "compareGone": "A product no longer here"
     },
     "gaps": {
       "one": "1 thing to fill in before publishing — it’s marked.",

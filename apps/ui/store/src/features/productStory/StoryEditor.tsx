@@ -24,7 +24,8 @@ interface Loaded {
   productId: string
   productName: string
   story: ProductStory
-  blocks: { id: string; name: string }[]
+  /** The store's brand stories, or 'failed' when they couldn't be read: never shown as none. */
+  blocks: { id: string; name: string }[] | 'failed'
   /** Video's switch and plan; a supplier is told neither, so it reads the switch alone. */
   video: 'on' | 'off' | 'plan'
 }
@@ -71,7 +72,7 @@ export const StoryEditor = () => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
     if (sample) return show(sample.loaded)
-    void Promise.all([loadProduct(productId), loadProductStory(productId), supplier ? Promise.resolve([]) : loadStoryBlocks().catch(() => []), loadProductBasics()]).then(
+    void Promise.all([loadProduct(productId), loadProductStory(productId), supplier ? Promise.resolve([]) : loadStoryBlocks().catch(() => 'failed' as const), loadProductBasics()]).then(
       ([product, story, blocks, basics]) => {
         if (!product || !story) return setView({ kind: 'notFound' })
         const video = basics.features.find((f) => f.key === 'video')

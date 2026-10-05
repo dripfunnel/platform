@@ -166,7 +166,7 @@ export const SidePanel = ({ draft, update, storeFields, canShow, readiness, curr
               const on = manual && draft.listing.badgeIds.includes(b.id)
               return (
                 <button key={b.id} type="button" className="df-editor-chip" aria-pressed={on} disabled={!manual || !storeFields} onClick={() => update((d) => ({ ...d, listing: { ...d.listing, badgeIds: on ? d.listing.badgeIds.filter((x) => x !== b.id) : [...d.listing.badgeIds, b.id] } }))}>
-                  {on ? '✓ ' : ''}
+                  {on && <span aria-hidden="true">✓ </span>}
                   {manual ? b.label : fill(words.side.badgeAuto, { name: b.label })}
                 </button>
               )

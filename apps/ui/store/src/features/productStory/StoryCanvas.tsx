@@ -54,7 +54,7 @@ const Preview = ({ m, names }: { m: DraftModule; names: Readonly<Record<string, 
       return (
         <div>
           <strong className="df-story-heading">{title}</strong>
-          <ul className="df-story-box">{m.items.map((item, i) => <li key={i}>{item.title.trim() || '…'}</li>)}</ul>
+          <ul className="df-story-box">{m.items.map((item, i) => <li key={i}>{item.title.trim() || words.placeholders.item}</li>)}</ul>
         </div>
       )
     case 'compare':
@@ -64,7 +64,7 @@ const Preview = ({ m, names }: { m: DraftModule; names: Readonly<Record<string, 
           <div className="df-story-features">
             {m.productIds.map((id) => (
               <span key={id} className="df-story-compare">
-                {names[id] ?? '…'}
+                {names[id] ?? words.panel.compareGone}
               </span>
             ))}
           </div>

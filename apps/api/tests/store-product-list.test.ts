@@ -251,6 +251,14 @@ describe('bulk actions', () => {
     expect(((await gql('query C($p: ID!) { productCollections(productId: $p) { name } }', 'owner', { p: shirt?.id })).data?.['productCollections'] as { name: string }[]).map((c) => c.name)).toEqual(['Diwali', 'Everything'])
     expect((await gql('query C($p: ID!) { productCollections(productId: $p) { name } }', 'supplier', { p: shirt?.id })).code).toBe('FORBIDDEN')
     expect(await db.sql`select 1 from activity_log where action = 'product.collections_set' and target_id = ${shirt?.id ?? ''}`).toHaveLength(2)
+    // A full collection refuses one more, and the whole call rolls back: the product keeps the memberships it had.
+    const [full] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Full', 'full', 'manual') returning id`
+    await db.sql`insert into product (store_id, name, slug) select ${t.storeA1}, 'Filler ' || n, 'filler-' || n from generate_series(1, 1000) n`
+    await db.sql`insert into collection_product (collection_id, product_id, store_id, position, source) select ${full?.id ?? ''}, id, ${t.storeA1}, row_number() over () - 1, 'manual' from product where store_id = ${t.storeA1} and slug like 'filler-%'`
+    const before = await db.sql`select collection_id from collection_product where product_id = ${shirt?.id ?? ''} order by collection_id`
+    expect((await set([a?.id, full?.id])).code).toBe('TOO_MANY_PRODUCTS')
+    expect(await db.sql`select collection_id from collection_product where product_id = ${shirt?.id ?? ''} order by collection_id`).toEqual(before)
+    expect(await db.sql<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${full?.id ?? ''}`).toEqual([{ n: 1000 }])
   })
 
   it('holds a hand-picked collection to 1,000 products, changing nothing when an add would pass it', async () => {

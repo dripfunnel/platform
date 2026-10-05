@@ -2,7 +2,7 @@ import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, EmptyState, ErrorState, LoadingState, Toast, useScreenState, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
-import { getRouteApi, Link, useBlocker, useNavigate, useParams } from '@tanstack/react-router'
+import { getRouteApi, Link, useBlocker, useNavigate, useParams, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts, loadHandPicked } from '../../api/products'
@@ -73,8 +73,13 @@ const problemWords = (units: Units): Record<DraftProblem, string> => ({
 
 const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
 
-// A new product's counts that didn't save, carried to its own page (which loads it fresh) to be saved again there.
-const unsavedCounts = new Map<string, Draft['stock']>()
+// A new product's counts that didn't save ride the navigation to its own page, which loads it fresh, to be saved
+// again there; history state belongs to that one navigation, so they never reach another store, seat or session.
+declare module '@tanstack/react-router' {
+  interface HistoryState {
+    unsavedCounts?: Record<string, Record<string, string>> | undefined
+  }
+}
 
 const refusalOf = (error: unknown): string => {
   if (!isApiError(error)) return words.refused.other
@@ -112,18 +117,24 @@ export const ProductEditor = () => {
   }, [language])
   const files = useRef(new Map<string, File>())
   const leaving = useRef(false)
+  const carriedCounts = useRouterState({ select: (state) => state.location.state.unsavedCounts })
+  const carriedRef = useRef(carriedCounts)
+  carriedRef.current = carriedCounts
 
   const show = useCallback((loaded: Loaded) => {
     const made = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels, manualCurrencies: loaded.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code) }) : blankDraft(loaded.units)
     const next = { ...made, collectionIds: loaded.extras.memberships.filter((m) => m.kind === 'manual').map((m) => m.id) }
-    const carried = loaded.product ? unsavedCounts.get(loaded.product.id) : undefined
-    if (loaded.product) unsavedCounts.delete(loaded.product.id)
+    const carried = loaded.product ? carriedRef.current : undefined
+    if (carried && loaded.product) {
+      // Applied once: a reload of this page shows what is stored, not counts already typed back in.
+      void navigate({ to: '/products/$productId', params: { productId: loaded.product.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts: undefined }) })
+    }
     setDraft(carried ? { ...next, stock: { ...next.stock, ...carried } } : next)
     setSaved(next)
     setFailure(carried ? { text: words.stock.newFailed, stale: false } : null)
     setHistory(closedHistory)
     setView({ kind: 'ready', ...loaded })
-  }, [])
+  }, [navigate])
 
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
@@ -254,10 +265,10 @@ export const ProductEditor = () => {
       if (isNew) {
         // The new product's own page loads it fresh; its first counts go first, by the ids just read.
         const counted = Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
-        if (counted) await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).catch(() => unsavedCounts.set(done.id, draft.stock))
+        const unsavedCounts = counted ? await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).then(() => undefined, () => draft.stock) : undefined
         await saveCollections(done.id).catch(() => setToast(words.saveCollectionsFailed))
         leaving.current = true
-        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true }).finally(() => (leaving.current = false))
+        void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts }) }).finally(() => (leaving.current = false))
         setSaving(false)
         return
       }
