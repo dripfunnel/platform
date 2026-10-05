@@ -21,9 +21,13 @@ import {
   updateMarket,
   type LocaleRow,
 } from '#db/scoped/markets'
+import { selectRates, type RateRow } from '#db/scoped/rates'
+import { priceInMarket, pricesByCurrency, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
 import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type MarketInput, type MarketsRefusal } from './rules'
 
 export { offeredLanguages, type CurrencyInput, type MarketInput } from './rules'
+export type { CurrencyPrice } from './pricing'
+export type { RateRow } from '#db/scoped/rates'
 export type { LocaleRow, MarketRow } from '#db/scoped/markets'
 
 // The store's languages, currencies and markets (CATALOG N, O; SetStore, SetMarkets): the merchant side's
@@ -195,7 +199,32 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       return true as const
     })
 
-  return { locale, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
+  /** The store's converted currencies' reference rates, for O5's "Rates updated …"; the euro needs none. */
+  const rates = () =>
+    inScope(async (tx): Promise<RateRow[]> => {
+      const store = await selectLocale(tx, storeId)
+      const converted = (store?.currencies ?? []).filter((c) => c.status === 'active' && c.mode === 'convert').map((c) => c.currency)
+      const wanted = [...new Set([...converted, store?.pricing_currency ?? ''])].filter((c) => c !== '' && c !== 'EUR')
+      return [...(await selectRates(tx, wanted)).values()]
+    })
+
+  /**
+   * Each version's price in every currency the store sells in, and in a market when one is named (CATALOG O2;
+   * the card's "a product priced per market is read back per market"). Null when the market isn't the store's.
+   */
+  const pricing = (versions: readonly { id: string; prices: readonly TypedPrice[] }[], marketId: string | null) =>
+    inScope(async (tx): Promise<{ versionId: string; prices: CurrencyPrice[]; inMarket: CurrencyPrice | null }[] | null> => {
+      const store = await selectLocale(tx, storeId)
+      if (!store?.pricing_currency) return versions.map((v) => ({ versionId: v.id, prices: [], inMarket: null }))
+      const market = marketId === null ? null : isUuid(marketId) ? await selectMarket(tx, storeId, marketId) : null
+      if (marketId !== null && !market) return null
+      const currencies = store.currencies.filter((c) => c.status === 'active')
+      const perEuro = new Map([...(await selectRates(tx, [store.pricing_currency, ...currencies.map((c) => c.currency)])).values()].map((r) => [r.currency, r.per_euro]))
+      const setting: StorePricing = { pricingCurrency: store.pricing_currency, currencies, perEuro }
+      return versions.map((v) => ({ versionId: v.id, prices: pricesByCurrency(v.prices, setting), inMarket: market ? priceInMarket(v.prices, market, setting) : null }))
+    })
+
+  return { locale, rates, pricing, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
 }
 
 export type { MarketsRefusal }

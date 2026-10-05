@@ -66,3 +66,42 @@ export const applyBps = (money: Money, bps: number): Money => {
   const half = scaled >= 0n ? 5000n : -5000n
   return { amount: (scaled + half) / 10000n, currency: money.currency }
 }
+
+const ratePattern = /^(0|[1-9][0-9]{0,9})(?:\.([0-9]{1,12}))?$/
+
+/** A positive decimal rate ("83.1234") as a fraction, or null; rates are never floats. */
+const rationalOf = (rate: string): { numerator: bigint; denominator: bigint } | null => {
+  const match = ratePattern.exec(rate)
+  if (!match) return null
+  const fraction = match[2] ?? ''
+  const numerator = BigInt(`${match[1] ?? '0'}${fraction}`)
+  return numerator > 0n ? { numerator, denominator: 10n ** BigInt(fraction.length) } : null
+}
+
+const divideHalfUp = (numerator: bigint, denominator: bigint): bigint => (numerator * 2n + denominator) / (denominator * 2n)
+
+/**
+ * CATALOG fact 26: an amount in another currency, from both currencies' rates against one base (units per
+ * euro, as the reference rates come), rounded half up to the target's minor unit; null without a rate.
+ */
+export const convert = (money: Money, to: string, perBaseFrom: string, perBaseTo: string): Money | null => {
+  const from = rationalOf(perBaseFrom)
+  const target = rationalOf(perBaseTo)
+  if (!from || !target || !isCurrency(to)) return null
+  const numerator = money.amount * target.numerator * from.denominator * 10n ** BigInt(minorDigits(to))
+  const denominator = target.denominator * from.numerator * 10n ** BigInt(minorDigits(money.currency))
+  return { amount: divideHalfUp(numerator, denominator), currency: to }
+}
+
+export type PriceRounding = 'none' | 'nearest' | 'ends-99'
+
+/** CATALOG O4: a computed price as the store rounds it: to the whole unit, or up to one that ends in 99. */
+export const roundPrice = (money: Money, rounding: PriceRounding): Money => {
+  if (rounding === 'none' || money.amount === 0n) return money
+  // A unit of a currency with no minor unit (JPY) is a hundred, so its prices end in 99 too.
+  const digits = minorDigits(money.currency)
+  const unit = digits === 0 ? 100n : 10n ** BigInt(digits)
+  if (rounding === 'nearest') return { amount: divideHalfUp(money.amount, unit) * unit, currency: money.currency }
+  const up = ((money.amount + unit - 1n) / unit) * unit
+  return { amount: up - 1n, currency: money.currency }
+}

@@ -249,8 +249,9 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
     if (typeof result === 'string') throw new Refused({ reason: result })
-    // Vendor input can't carry visibility (ACCESS §7.2): refused, not quietly dropped.
-    if (sellerId !== null && result.visible !== null) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    // Vendor input can't carry visibility (ACCESS §7.2), nor prices in the store's other currencies (CATALOG O14):
+    // refused, not quietly dropped.
+    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
     if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
     try {

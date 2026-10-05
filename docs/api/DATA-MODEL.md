@@ -832,7 +832,12 @@ store_currency      (store_id, currency, mode ('manual'|'convert'), rounding ('n
                      rate_source, rate_updated_at)            UNIQUE (store_id, currency)
                     -- CATALOG facts 25–26; converted prices (release: decide); built on #296 with
                     -- status active | removed (prices kept, unused; O9) and position, the pricing
-                    -- currency not among the rows; the rate columns come with converted prices
+                    -- currency not among the rows; the rate columns aren't per store: converted
+                    -- prices are computed when read from exchange_rate, never stored (#296)
+exchange_rate       (currency PK, per_euro numeric, source ('ecb'), published_on date, fetched_at)
+                    -- platform data, no tenant's (migration 0052): the ECB's daily euro reference
+                    -- rates, refreshed by the `rates.refresh` job every six hours, a day older than
+                    -- the one held ignored; every store reads it, only app_system writes it
 
 custom_domain (+ columns) checks_until, removed_at
                     -- as built on #32 (migration 0007): host, status ∈ waiting | verifying |

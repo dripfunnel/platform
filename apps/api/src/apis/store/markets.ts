@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { createMarketsService, marketsAudit, offeredLanguages, type LocaleRow, type MarketRow, type MarketsResult } from '#engine/modules/markets/index'
+import { createMarketsService, marketsAudit, offeredLanguages, type LocaleRow, type MarketRow, type MarketsResult, type RateRow } from '#engine/modules/markets/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -30,22 +30,25 @@ const words: Record<Exclude<MarketsResult<unknown>, { ok: true }>['reason'], str
   PLAN_LIMIT: 'Your plan doesn’t include more.',
 }
 
+/** The markets service for the acting caller; products.ts prices with it too. */
+export const marketsService = (ctx: StoreContext) => {
+  if (!ctx.sql) throw forbidden()
+  const sql = ctx.sql
+  const caller = actingCaller(ctx)
+  return createMarketsService({
+    sql,
+    context: caller.context,
+    actor: { id: caller.person.id, partnerId: caller.person.partnerId },
+    activity: ctx.activity,
+    facts: ctx.facts,
+    now: ctx.now,
+    allowance: (key) => allowanceFor(sql, caller.context, key, ctx.now()),
+  })
+}
+
 export const registerMarkets = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
-  const service = (ctx: StoreContext) => {
-    if (!ctx.sql) throw forbidden()
-    const sql = ctx.sql
-    const caller = actingCaller(ctx)
-    return createMarketsService({
-      sql,
-      context: caller.context,
-      actor: { id: caller.person.id, partnerId: caller.person.partnerId },
-      activity: ctx.activity,
-      facts: ctx.facts,
-      now: ctx.now,
-      allowance: (key) => allowanceFor(sql, caller.context, key, ctx.now()),
-    })
-  }
+  const service = marketsService
 
   const answered = async <T>(ctx: StoreContext, result: MarketsResult<T>): Promise<T> => {
     if (result.ok) return result.value
@@ -68,6 +71,14 @@ export const registerMarkets = (builder: StoreBuilder) => {
       status: t.exposeString('status'),
     }),
   })
+  const Rate = builder.objectRef<RateRow>('ReferenceRate').implement({
+    fields: (t) => ({
+      currency: t.exposeString('currency'),
+      perEuro: t.exposeString('per_euro'),
+      publishedOn: t.exposeString('published_on'),
+      fetchedAt: t.string({ resolve: (r) => r.fetched_at.toISOString() }),
+    }),
+  })
   const Locale = builder.objectRef<LocaleRow>('StoreLocale').implement({
     fields: (t) => ({
       mainLanguage: t.exposeString('main_language'),
@@ -76,6 +87,8 @@ export const registerMarkets = (builder: StoreBuilder) => {
       languages: t.field({ type: [Language], resolve: (l) => l.languages }),
       currencies: t.field({ type: [Currency], resolve: (l) => l.currencies }),
       offeredLanguages: t.stringList({ resolve: () => [...offeredLanguages] }),
+      // The rates its converted prices use (CATALOG O5): a currency missing here isn't for sale until one arrives.
+      rates: t.field({ type: [Rate], resolve: (_, __, ctx) => service(ctx).rates() }),
     }),
   })
   const Duties = builder.objectRef<MarketRow>('MarketDuties').implement({

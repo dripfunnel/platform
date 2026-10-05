@@ -1,8 +1,10 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
+import type { CurrencyPrice } from '#engine/modules/markets/index'
 import { approvalAudit, catalogAudit, createCatalogService, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
+import { marketsService } from './markets'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
@@ -31,7 +33,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   DUPLICATE_SKU: 'You already use that product code on another product.',
   NOT_FOUND: 'That product isn’t here any more.',
   CURRENCY_REQUIRED: 'Choose the store’s currency first.',
-  SUPPLIER_FIELD: 'Suppliers can’t set whether a product shows.',
+  SUPPLIER_FIELD: 'That’s the store’s to set: whether a product shows, and its prices in other currencies.',
   NOT_SHOWABLE: 'This product is paused by your plan or waiting for approval, so it can’t be shown yet.',
   STALE_REVISION: 'Someone else saved this product. Reload to see their changes.',
   PLAN_LIMIT: 'Your plan has no room for more products.',
@@ -219,6 +221,24 @@ export const registerProducts = (builder: StoreBuilder) => {
     }),
   })
   type ProductView = ProductRow & { pricingCurrency: string | null; viewerIsSupplier: boolean }
+  const CurrencyPriceType = builder.objectRef<CurrencyPrice>('CurrencyPrice').implement({
+    fields: (t) => ({
+      currency: t.exposeString('currency'),
+      // Minor units as a string; null when it isn't for sale in this currency yet (CATALOG O2).
+      amount: t.string({ nullable: true, resolve: (p) => (p.amount === null ? null : p.amount.toString()) }),
+      compareAtAmount: t.string({ nullable: true, resolve: (p) => (p.compareAt === null ? null : p.compareAt.toString()) }),
+      // typed (the merchant's, kept as an override) | converted (from the pricing price at the reference rate) | null.
+      source: t.exposeString('source', { nullable: true }),
+    }),
+  })
+  const VersionPricingType = builder.objectRef<{ versionId: string; prices: CurrencyPrice[]; inMarket: CurrencyPrice | null }>('VersionPricing').implement({
+    fields: (t) => ({
+      versionId: t.exposeID('versionId'),
+      prices: t.field({ type: [CurrencyPriceType], resolve: (v) => v.prices }),
+      inMarket: t.field({ type: CurrencyPriceType, nullable: true, resolve: (v) => v.inMarket }),
+    }),
+  })
+
   const ProductType = builder.objectRef<ProductView>('Product').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -230,6 +250,14 @@ export const registerProducts = (builder: StoreBuilder) => {
       visible: t.boolean({ resolve: (p) => p.visibility === 'visible' }),
       approval: t.exposeString('approval_status', { nullable: true }),
       sentBackReason: t.exposeString('sent_back_reason', { nullable: true }),
+      // Prices in the store's other currencies and in a market are the merchant's (CATALOG O14): a supplier reads null.
+      pricing: t.field({
+        type: [VersionPricingType],
+        nullable: true,
+        args: { marketId: t.arg.id() },
+        extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } },
+        resolve: (p, args, ctx) => marketsService(ctx).pricing(p.versions, args.marketId ? String(args.marketId) : null),
+      }),
       warrantyText: t.exposeString('warranty_text', { nullable: true }),
       returnsText: t.exposeString('returns_text', { nullable: true }),
       seoTitle: t.exposeString('seo_title', { nullable: true }),

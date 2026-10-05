@@ -944,14 +944,17 @@ with validation before any write, partial-failure reports, and translation and c
   codes or switchers appear anywhere.
 - O2. On the price field, other currencies show beneath the main price:
   - **Set automatically**: "USD $15.99 · set automatically". The value is read-only, with
-    "Set this one yourself" to override it for this version (§3 fact 26, `(release: decide)`).
+    "Set this one yourself" to override it for this version (§3 fact 26; built on #296: a typed
+    price is that override, and always wins over the converted one).
   - **Set by you**: an editable field per currency ("USD $ ____"). Empty is allowed but
     flagged: "Not for sale in USD until you add a price."
 - O3. Versions table (D4): a column per manual currency, with "Apply to all" per currency and
   a toggle to hide the extra columns when not needed.
 - O4. Rounding shown as it will apply ("$15.47 → $15.99"), with a link to Settings.
 - O5. Rates freshness: "Rates updated 2 hours ago", and what shoppers see if rates are stale or
-  unavailable `(release: decide)`.
+  unavailable. **Decided on #296**: the ECB's daily euro reference rates, checked every six hours; a
+  converted price uses the latest rate held, however old (the portal shows its date), and a
+  currency with no rate at all isn't for sale until one arrives.
 - O6. Product list: price column in the pricing currency, and a filter "Missing a USD price".
   Bulk "Set USD price" for selected.
 - O7. Quick edit (B6) includes manual currencies.

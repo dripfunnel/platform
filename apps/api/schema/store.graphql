@@ -148,6 +148,13 @@ type CollectionSummary {
   visible: Boolean
 }
 
+type CurrencyPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+  source: String
+}
+
 type Facet {
   id: ID
   name: String
@@ -387,6 +394,7 @@ type Product {
   name: String
   options: [ProductOption!]
   photos: [ProductPhoto!]
+  pricing(marketId: ID): [VersionPricing!]
   pricingCurrency: String
   productType: String
   returnsText: String
@@ -703,6 +711,13 @@ type Query {
   warehouses(after: String, before: String, first: Int): WarehousePage
 }
 
+type ReferenceRate {
+  currency: String
+  fetchedAt: String
+  perEuro: String
+  publishedOn: String
+}
+
 type SavedCollection {
   id: ID
   revision: Int
@@ -889,6 +904,7 @@ type StoreLocale {
   mainLanguage: String
   offeredLanguages: [String!]
   pricingCurrency: String
+  rates: [ReferenceRate!]
 }
 
 type StoreNavBadges {
@@ -1081,6 +1097,12 @@ input VersionPriceInput {
   amount: String!
   compareAtAmount: String
   currency: String!
+}
+
+type VersionPricing {
+  inMarket: CurrencyPrice
+  prices: [CurrencyPrice!]
+  versionId: ID
 }
 
 type Warehouse {

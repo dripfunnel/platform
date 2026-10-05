@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { add, applyBps, compare, fromMajor, isCurrency, minorDigits, parseMinor, toMinorString } from './money'
+import { add, applyBps, compare, convert, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMinorString } from './money'
 
 describe('money', () => {
   it('knows each currency’s minor unit, zero- and three-decimal ones included', () => {
@@ -39,5 +39,25 @@ describe('money', () => {
     expect(applyBps({ amount: 4900n, currency: 'EUR' }, 1900)).toEqual({ amount: 931n, currency: 'EUR' })
     expect(applyBps({ amount: 5n, currency: 'EUR' }, 5000)).toEqual({ amount: 3n, currency: 'EUR' })
     expect(() => applyBps({ amount: 5n, currency: 'EUR' }, 1.5)).toThrow()
+  })
+})
+
+describe('prices in another currency (CATALOG fact 26, O4)', () => {
+  it('converts through both currencies’ rates against the euro, rounding half up to the target’s unit', () => {
+    // 1299.00 INR at 90 INR and 1.08 USD to the euro.
+    expect(convert({ amount: 129900n, currency: 'INR' }, 'USD', '90', '1.08')).toEqual({ amount: 1559n, currency: 'USD' })
+    expect(convert({ amount: 1000n, currency: 'EUR' }, 'JPY', '1', '160.5')).toEqual({ amount: 1605n, currency: 'JPY' })
+    expect(convert({ amount: 1605n, currency: 'JPY' }, 'EUR', '160.5', '1')).toEqual({ amount: 1000n, currency: 'EUR' })
+    expect(convert({ amount: 100n, currency: 'USD' }, 'EUR', '0', '1')).toBeNull()
+    expect(convert({ amount: 100n, currency: 'USD' }, 'EUR', '1.1e3', '1')).toBeNull()
+  })
+
+  it('rounds as the store asks', () => {
+    expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'USD' })
+    expect(roundPrice({ amount: 1500n, currency: 'USD' }, 'ends-99')).toEqual({ amount: 1499n, currency: 'USD' })
+    expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'nearest')).toEqual({ amount: 1500n, currency: 'USD' })
+    expect(roundPrice({ amount: 1550n, currency: 'USD' }, 'nearest')).toEqual({ amount: 1600n, currency: 'USD' })
+    expect(roundPrice({ amount: 1547n, currency: 'JPY' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'JPY' })
+    expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'none')).toEqual({ amount: 1547n, currency: 'USD' })
   })
 })
