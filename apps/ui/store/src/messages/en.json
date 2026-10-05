@@ -1778,6 +1778,7 @@
     "empty": {
       "title": "Group your products",
       "body": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts under {price}”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
+      "bodyNoPrice": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
       "action": "Create your first collection"
     },
     "list": {
@@ -2299,6 +2300,7 @@
       "roundNearest": "To the nearest whole",
       "round99": "To end in .99",
       "rates": "{example} · reference rates from the European Central Bank, published {date}",
+      "ratesUndated": "{example} · reference rates from the European Central Bank",
       "noRate": "There’s no reference rate for this currency yet, so converted prices wait until one arrives.",
       "typedNote": "Products can’t be bought in {code} until you type a {code} price on them.",
       "stopTitle": "Stop converting {code} automatically?",

@@ -86,6 +86,7 @@ export const registerMarkets = (builder: StoreBuilder) => {
   const Example = builder.objectRef<ConversionExample>('ConversionExample').implement({
     fields: (t) => ({
       currency: t.exposeString('currency'),
+      publishedOn: t.exposeString('publishedOn', { nullable: true }),
       from: t.field({ type: Amount, resolve: (e) => e.from }),
       none: t.field({ type: Amount, nullable: true, resolve: (e) => e.to.none }),
       nearest: t.field({ type: Amount, nullable: true, resolve: (e) => e.to.nearest }),

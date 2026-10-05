@@ -27,7 +27,7 @@ export const draftOfChart = (c: SizeChart): ChartDraft => ({
   unit: c.unit,
   systems: [...c.systems],
   measurements: [...c.measurements],
-  rows: c.rows.map((r) => ({ size: r.size, values: r.values.map((v) => (v === noValue ? '' : v)) })),
+  rows: c.rows.map((r) => ({ size: r.size === noValue ? '' : r.size, values: r.values.map((v) => (v === noValue ? '' : v)) })),
   fitNotes: c.fitNotes ?? '',
   howToMeasure: c.howToMeasure,
   modelInfo: c.modelInfo,

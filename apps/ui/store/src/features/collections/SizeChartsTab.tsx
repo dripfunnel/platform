@@ -244,7 +244,7 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
           setBusy(true)
           try {
             await deleteSizeChart(d.id)
-            setSelected({ kind: 'none' })
+            if (wanted.current === d.id) setSelected({ kind: 'none' })
             onSaved(words.deleted)
           } catch (error) {
             onToast(refusalOf(error))
