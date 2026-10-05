@@ -194,8 +194,10 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
     run(async (tx) => {
       const chosen = id === null ? null : isUuid(id) ? await selectMarket(tx, storeId, id, true) : null
       if (id !== null && (!chosen || chosen.parent_id !== null)) throw new Refused({ ok: false, reason: 'NOT_FOUND' })
-      await setFallbackMarket(tx, storeId, chosen?.id ?? null)
-      await activity.record(tx, entry(marketsAudit.fallbackChanged, { type: 'market', id: chosen?.id ?? storeId, label: chosen?.name ?? 'None' }, null))
+      const was = await setFallbackMarket(tx, storeId, chosen?.id ?? null)
+      // The market that now serves everyone else, or, cleared, the one that stopped; nothing changed, no entry.
+      const target = chosen ?? was
+      if (target) await activity.record(tx, entry(marketsAudit.fallbackChanged, { type: 'market', id: target.id, label: target.name }, chosen ? 'on' : 'off'))
       return true as const
     })
 
