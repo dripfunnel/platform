@@ -50,6 +50,8 @@ create index size_chart_list_idx on size_chart (store_id, seller_id, updated_at 
 
 alter table product add column size_chart_id uuid;
 alter table product add foreign key (size_chart_id, store_id) references size_chart (id, store_id);
+-- A chart's product count and its delete read products by chart (R1, R10).
+create index product_size_chart_idx on product (store_id, size_chart_id) where size_chart_id is not null;
 grant update (size_chart_id) on product to app_request;
 
 -- A product's chart is its own owner's, so a supplier never holds a chart it can't read (R13).
@@ -151,6 +153,11 @@ create table product_compliance (
 );
 
 -- "Where you sell" per product (fact 42); jsonb countries, as size_chart's lists.
+-- The product's sections are read and replaced by product on every save.
+create index product_spec_product_idx on product_spec (product_id, position);
+create index product_highlight_product_idx on product_highlight (product_id, position);
+create index product_faq_product_idx on product_faq (product_id, position);
+
 create table product_market_rule (
   product_id uuid primary key,
   store_id uuid not null,
