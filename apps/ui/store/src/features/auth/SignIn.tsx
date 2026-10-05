@@ -274,7 +274,21 @@ export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
     case 'sent':
       return (
         <AuthFrame panel="reset" title={words.forgot.sentTitle} sub={fill(words.forgot.sentSub, { email: view.email })} back={{ label: words.forgot.back, onBack: () => go({ kind: 'login' }) }} icon={{ name: 'mail', tone: 'info' }} notice={notice}>
-          <Secondary onClick={() => void run(async () => setInfo(isRefusal(await requestPasswordReset(view.email)) ? words.rateLimited : words.forgot.resent))}>{words.forgot.again}</Secondary>
+          <Secondary
+            onClick={() =>
+              void run(async () => {
+                const answer = await requestPasswordReset(view.email)
+                if (isRefusal(answer)) {
+                  setInfo(null)
+                  return setError(refusalText(answer))
+                }
+                setError(null)
+                setInfo(words.forgot.resent)
+              })
+            }
+          >
+            {words.forgot.again}
+          </Secondary>
         </AuthFrame>
       )
   }
