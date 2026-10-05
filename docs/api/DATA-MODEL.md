@@ -1520,10 +1520,7 @@ export_job          (id, store_id, seller_id NULL, kind ('products'|'orders'|'cu
                     -- every CSV the prototype downloads; a supplier's export is its own rows
                     -- only; files expire (expires_at, days not weeks) and a deletion request
                     -- purges earlier the ones that contain the person (§7.5)
-signup              (id, partner_id, email, password_enc, name, store_name, country, plan_id,
-                     storefront_kind, job_id NULL, expires_at)
-                    -- partner-scoped; SAAS §4.1's row between the signup steps, deleted by
-                    -- SAAS §5 step 8; password_enc readable by app_system only (§2.1)
+signup              §3.3 (built on #290)
 access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what,
                      resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)
                     -- "Send request" from a Manager or Staff, shown on the Owner's Home
