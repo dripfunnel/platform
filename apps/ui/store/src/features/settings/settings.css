@@ -615,7 +615,7 @@
   padding: 6px 8px;
   border-radius: 6px;
   background: var(--df-color-surface);
-  color: var(--df-color-info) !important;
+  color: var(--df-color-info);
   font-size: 12px;
 }
 

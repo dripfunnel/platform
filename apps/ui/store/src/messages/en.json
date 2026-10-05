@@ -2579,6 +2579,7 @@
       "addInvalid": "Type a name and a percentage, e.g. “Books 7”",
       "add": "Add",
       "added": "{name} added",
+      "addedNoRate": "“{name}” was added without its rate. Set it with Manage.",
       "defaultNote": "Changing the default doesn’t touch products you’ve already priced.",
       "otherPlaces": "Rates in other places",
       "invoiceTitle": "On the invoice",

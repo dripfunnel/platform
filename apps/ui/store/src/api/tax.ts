@@ -35,6 +35,11 @@ export const deleteTaxClass = async (id: string): Promise<void> => {
 export const saveTaxZone = async (id: string | null, input: { name: string; countries: string[]; regions: string[]; rates: { taxClassId: string; rateBps: number }[] }): Promise<string> =>
   (await query('mutation S($id: ID, $input: TaxZoneInput!) { saveTaxZone(id: $id, input: $input) }', z.object({ saveTaxZone: z.string() }), { id, input })).saveTaxZone
 
+/** One category's rate in one zone; the zone's other rates stay as they are, whoever changed them. */
+export const setTaxRate = async (zoneId: string, taxClassId: string, rateBps: number): Promise<void> => {
+  await query('mutation R($z: ID!, $c: ID!, $r: Int!) { setTaxRate(zoneId: $z, taxClassId: $c, rateBps: $r) }', z.object({ setTaxRate: z.boolean() }), { z: zoneId, c: taxClassId, r: rateBps })
+}
+
 const invoiceSchema = z.object({ taxPerLine: z.boolean(), emailWithDispatch: z.boolean(), footer: z.string().nullable(), legalName: z.string().nullable() })
 export type InvoiceSettings = z.infer<typeof invoiceSchema>
 
