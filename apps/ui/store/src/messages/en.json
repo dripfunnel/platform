@@ -565,7 +565,9 @@
       "doneSub": "Sign in with your new address from now on.",
       "badTitle": "This link no longer works",
       "badSub": "Email change links work once, for 24 hours, and stop when you change your password. Ask for a new one in My profile.",
-      "signIn": "Sign in"
+      "signIn": "Sign in",
+      "retryTitle": "We couldn’t check this link",
+      "retry": "Try again"
     },
     "chooser": {
       "lastUsed": "Last used"

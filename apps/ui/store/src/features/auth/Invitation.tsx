@@ -1,7 +1,7 @@
 import { LoadingState, useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { acceptInvitation, isRefusal, joinStore, lookUpInvitation, type AuthRefusal, type Invitation as InvitationFacts } from '../../api/auth'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { acceptInvitation, isRefusal, joinOutcome, joinStoreOnce, lookUpInvitation, type AuthRefusal, type Invitation as InvitationFacts } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { invitationStates, sampleInvitation } from './authStates'
@@ -49,19 +49,28 @@ export const Invitation = ({ token, path }: { token: string | undefined; path: '
     async (facts: InvitationFacts) => {
       if (!token) return
       setView({ kind: 'joining', facts })
-      const answer = await joinStore(token)
+      setError(null)
+      const answer = await joinStoreOnce(token)
+      const next = joinOutcome(answer)
+      if (next === 'signIn') return void navigate({ to: '/sign-in', search: { next: `/join?token=${encodeURIComponent(token)}` } })
       if (isRefusal(answer)) {
-        if (answer.code === 'INVALID_CREDENTIALS') return void navigate({ to: '/sign-in', search: { next: `/join?token=${encodeURIComponent(token)}` } })
-        return setView(answer.code.startsWith('INVITATION_') ? { kind: 'bad', refusal: answer } : { kind: 'open', facts })
+        if (next === 'bad') return setView({ kind: 'bad', refusal: answer })
+        // The request failed, not the link: say so and wait for the person, never retry by ourselves.
+        setView({ kind: 'open', facts })
+        return setError(refusalText(answer))
       }
-      void navigate(answer.step === 'enrol' ? { to: '/sign-in', search: { step: 'enrol', next: '/home' } } : { to: '/stores', search: { next: '/home' } })
+      void navigate(next === 'enrol' ? { to: '/sign-in', search: { step: 'enrol', next: '/home' } } : { to: '/stores', search: { next: '/home' } })
     },
     [token, navigate],
   )
 
+  // Once per token, whatever the view does next; the button joins again after a failed request.
+  const joined = useRef<string | null>(null)
   useEffect(() => {
-    if (path === 'join' && !forced && view.kind === 'open' && view.facts.path === 'join') void join(view.facts)
-  }, [path, forced, view, join])
+    if (path !== 'join' || forced || !token || view.kind !== 'open' || view.facts.path !== 'join' || joined.current === token) return
+    joined.current = token
+    void join(view.facts)
+  }, [path, forced, token, view, join])
 
   if (view.kind === 'loading') return <AuthFrame panel="in" title={iv.loading}><LoadingState label={iv.loading} /></AuthFrame>
   if (view.kind === 'bad') return <BadInvitation refusal={view.refusal} />
