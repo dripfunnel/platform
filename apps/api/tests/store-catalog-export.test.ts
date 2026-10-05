@@ -179,7 +179,11 @@ describe('an export’s size', () => {
     // Header, two rows, the note: newest first, and never half a product.
     expect(lines).toHaveLength(4)
     expect(lines.at(-1)).toBe('Only the first 2 rows are included; narrow the filter to see the rest.')
-    const cut = await withScope(db.sql, ownerScope(), async (tx) => buildCatalogExport(tx, (await selectCatalogExport(tx, t.storeA1, products ?? '')) ?? Promise.reject(new Error('no job')), 4))
+    const cut = await withScope(db.sql, ownerScope(), async (tx) => {
+      const job = await selectCatalogExport(tx, t.storeA1, products ?? '')
+      if (!job) throw new Error('no job')
+      return buildCatalogExport(tx, job, 4)
+    })
     // At four rows the next product is Kurta, whose two versions would make five: it's left out whole.
     expect(cut.csv).not.toContain('KU-S')
     expect(cut.rows).toBeLessThanOrEqual(4)
