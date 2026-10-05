@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
+import { hashSessionId, newSessionId } from '#auth/session'
 import type { TenantContext } from '#core/tenancy'
 import { appendImportFile, failImport, insertShopifyImport, saveImportCheck, selectCatalogImport } from '#db/scoped/catalogImports'
 import { deleteConnection, finishConnection, markConnectionExpired, savePendingConnection, selectConnection, type ConnectionRow } from '#db/scoped/externalConnections'
@@ -41,9 +42,6 @@ export const shopDomainOf = (input: string): string | null => {
   const shop = text.includes('.') ? text : `${text}.myshopify.com`
   return /^[a-z0-9][a-z0-9-]{0,60}\.myshopify\.com$/.test(shop) ? shop : null
 }
-
-export const hashState = async (state: string): Promise<string> =>
-  [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(state)))].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 export type ShopifyRefusal = 'NOT_AVAILABLE' | 'INVALID_SHOP' | 'NOT_CONNECTED' | 'EXPIRED' | 'SHOPIFY_UNAVAILABLE' | 'INVALID_INPUT'
 export type ShopifyResult<T> = { ok: true; value: T } | { ok: false; reason: ShopifyRefusal }
@@ -99,8 +97,9 @@ export const createShopifyService = (d: ShopifyDeps) => {
     if (!shop || !secrets) return { ok: false, reason: 'NOT_AVAILABLE' }
     const domain = shopDomainOf(input)
     if (!domain) return { ok: false, reason: 'INVALID_SHOP' }
-    const state = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('')
-    const stateHash = await hashState(state)
+    // The state is a one-time secret like a session's id, kept only as its hash (auth/session.ts).
+    const state = newSessionId()
+    const stateHash = await hashSessionId(state)
     await inScope(async (tx) => {
       await savePendingConnection(tx, { storeId, sellerId, shop: domain, stateHash, returnHost: d.host, by: actor.id, expiresAt: new Date(now().getTime() + pendingMs) })
       await activity.record(tx, entry(shopifyAudit.connectStarted, { type: 'connection', id: domain, label: domain }))
@@ -111,7 +110,7 @@ export const createShopifyService = (d: ShopifyDeps) => {
   /** Back from Shopify with the key the callback gave: only the person who started it finishes it (login CSRF). */
   const finish = async (key: string): Promise<ShopifyResult<string>> => {
     if (!/^[0-9a-f]{64}$/.test(key)) return { ok: false, reason: 'NOT_CONNECTED' }
-    const finishHash = await hashState(key)
+    const finishHash = await hashSessionId(key)
     return inScope(async (tx) => {
       const done = await finishConnection(tx, { storeId, sellerId, finishHash, by: actor.id, at: now() })
       if (!done) return { ok: false, reason: 'NOT_CONNECTED' }

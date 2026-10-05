@@ -70,7 +70,6 @@ export { catalogJobPayload, jobContextOf, type CatalogJobPayload } from './jobSc
 export {
   createShopifyService,
   fetchShopPage,
-  hashState,
   maxPicked,
   ShopUnauthorized,
   ShopUnavailable,

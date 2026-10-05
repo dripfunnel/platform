@@ -3,7 +3,7 @@ import type { SecretBox } from '#auth/secretBox'
 import { logEvent } from '#core/log'
 import { approveConnection, deleteConnection, selectPendingByState } from '#db/scoped/externalConnections'
 import { withSystemScope } from '#db/scoped/index'
-import { hashState } from '#engine/modules/catalog/index'
+import { hashSessionId, newSessionId } from '#auth/session'
 import type { ShopifyApi } from '#integrations/shopify/api'
 
 // hooks.dripfunnel.com/shopify/callback (CATALOG K7): Shopify sends the person back here after they approve the
@@ -27,7 +27,7 @@ export const handleShopifyCallback = async (request: Request, { sql, api, secret
   const query = new URL(request.url).searchParams
   const state = query.get('state') ?? ''
   if (!/^[0-9a-f]{64}$/.test(state)) return expired()
-  const pending = await withSystemScope(sql, async (tx) => selectPendingByState(tx, await hashState(state)))
+  const pending = await withSystemScope(sql, async (tx) => selectPendingByState(tx, await hashSessionId(state)))
   if (!pending || (pending.expires_at !== null && pending.expires_at < now()) || !pending.return_host) return expired()
   const host = pending.return_host
   const forget = () => withSystemScope(sql, (tx) => deleteConnection(tx, pending.store_id, pending.seller_id))
@@ -44,7 +44,7 @@ export const handleShopifyCallback = async (request: Request, { sql, api, secret
     return back(host, 'shopify=failed')
   }
   const sealed = await secrets.seal(token)
-  const key = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('')
-  const approved = await withSystemScope(sql, async (tx) => approveConnection(tx, pending.id, { tokenSealed: sealed, finishHash: await hashState(key), expiresAt: new Date(now().getTime() + finishMs) }))
+  const key = newSessionId()
+  const approved = await withSystemScope(sql, async (tx) => approveConnection(tx, pending.id, { tokenSealed: sealed, finishHash: await hashSessionId(key), expiresAt: new Date(now().getTime() + finishMs) }))
   return back(host, approved ? `shopify=finish&key=${key}` : 'shopify=failed')
 }
