@@ -1,7 +1,6 @@
 {
   "home": {
-    "title": "Store",
-    "signIn": "Sign in",
+    "title": "Home",
     "account": "Your account",
     "accountSub": "What a staff session can’t change is turned off here, with the reason."
   },
@@ -44,6 +43,254 @@
     "invalid": {
       "title": "This link no longer works",
       "body": "Staff session links work once, from the DripFunnel admin console. Start a new session there."
+    }
+  },
+  "shell": {
+    "skipToContent": "Skip to content",
+    "navLabel": "Store",
+    "openMenu": "Open the menu",
+    "closeMenu": "Close the menu",
+    "homeLink": "Store home",
+    "productLabel": "Store",
+    "logoAlt": "DripFunnel",
+    "help": "Help",
+    "helpUrl": "https://help.dripfunnel.com/store",
+    "opensInNewTab": "(opens in a new tab)",
+    "placeholder": "This screen arrives with its own card. The menu row is here so every row leads somewhere.",
+    "groups": {
+      "catalogue": "Catalogue",
+      "shop": "Your shop",
+      "admin": "Admin"
+    },
+    "roles": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "staff": "Staff"
+    },
+    "badges": {
+      "ordersToShip": {
+        "one": "{count} order to ship",
+        "other": "{count} orders to ship"
+      },
+      "productsToApprove": {
+        "one": "{count} product waiting for approval",
+        "other": "{count} products waiting for approval"
+      }
+    },
+    "trialNote": {
+      "one": "{count} day left",
+      "other": "{count} days left"
+    },
+    "userMenu": {
+      "label": "Account: {name}, {role}",
+      "profile": "My profile",
+      "switchStore": "Switch store",
+      "signOut": "Sign out",
+      "signOutHint": "Signs you out of every store on this device",
+      "theme": {
+        "label": "Appearance",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "switcher": {
+      "label": "Switch store: {store}",
+      "title": "Switch store",
+      "current": "Current store",
+      "failed": "That store couldn’t be opened. Choose it again, or pick another."
+    },
+    "environment": {
+      "dev": {
+        "name": "Dev",
+        "warning": "Test data. Nothing here reaches real shoppers"
+      },
+      "feature": {
+        "name": "Feature",
+        "warning": "Test data. Nothing here reaches real shoppers"
+      },
+      "local": {
+        "name": "Local",
+        "warning": "Test data. Nothing here reaches real shoppers"
+      }
+    },
+    "banners": {
+      "provisioning": {
+        "title": "Your store is being built —",
+        "body": "about a minute. Products work now; Storefront and Settings open when it’s ready."
+      },
+      "pastDue": {
+        "title": "Your store is view-only.",
+        "body": "Your last payment didn’t go through. Everything is safe — pay to start editing again.",
+        "action": "Go to billing"
+      },
+      "trial": {
+        "title": "Free trial · {days}.",
+        "body": "You have everything in {plan}. No card needed.",
+        "action": "Choose a plan"
+      },
+      "trialEnding": {
+        "title": "Your trial ends tomorrow.",
+        "body": "Choose a plan to keep everything, or pick what to keep on the free plan.",
+        "action": "Choose what to keep"
+      },
+      "suspended": {
+        "title": "This store is suspended.",
+        "body": "Nothing can be changed and the shop shows a notice. {contact}",
+        "contact": "Contact {support} to find out why.",
+        "noContact": "Contact your store’s provider to find out why."
+      },
+      "cancelled": {
+        "title": "This store is cancelled.",
+        "body": "You can look around and export until the paid period ends."
+      },
+      "support": {
+        "title": "{partner} support ({name}) is viewing your store.",
+        "body": "Read-only. Ends in {time}."
+      },
+      "offline": {
+        "title": "You’re offline.",
+        "body": "Changes are kept on this device and will save when you’re back."
+      }
+    },
+    "loadError": {
+      "title": "We couldn’t open your store",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "orders": "Orders",
+    "customers": "Customers",
+    "offers": "Offers",
+    "carts": "Abandoned carts",
+    "reports": "Reports",
+    "products": "Products",
+    "collections": "Collections",
+    "storefront": "Storefront",
+    "settings": "Settings",
+    "billing": "Billing",
+    "yourProducts": "Your products",
+    "toShip": "To ship",
+    "sales": "Your sales",
+    "team": "Your team"
+  },
+  "screens": {
+    "home": {
+      "title": "Home"
+    },
+    "orders": {
+      "title": "Orders"
+    },
+    "customers": {
+      "title": "Customers"
+    },
+    "offers": {
+      "title": "Offers"
+    },
+    "carts": {
+      "title": "Abandoned carts"
+    },
+    "reports": {
+      "title": "Reports"
+    },
+    "products": {
+      "title": "Products"
+    },
+    "collections": {
+      "title": "Collections"
+    },
+    "storefront": {
+      "title": "Storefront"
+    },
+    "settings": {
+      "title": "Settings"
+    },
+    "billing": {
+      "title": "Billing"
+    },
+    "yourProducts": {
+      "title": "Your products"
+    },
+    "toShip": {
+      "title": "To ship"
+    },
+    "sales": {
+      "title": "Your sales"
+    },
+    "team": {
+      "title": "Your team"
+    },
+    "profile": {
+      "title": "My profile"
+    }
+  },
+  "chooseStore": {
+    "title": "Choose a store",
+    "body": "Signed in as {email}. You belong to {count} — pick one to open.",
+    "stores": {
+      "one": "{count} store",
+      "other": "{count} stores"
+    },
+    "last": "Last opened",
+    "supplier": "Supplier · {seller}",
+    "loading": "Loading your stores",
+    "none": {
+      "title": "You don’t belong to a store here",
+      "body": "Your account isn’t a member of any store on this site. If you were invited, open the link in the invitation email.",
+      "signOut": "Sign out"
+    },
+    "error": {
+      "title": "We couldn’t load your stores",
+      "body": "The store service didn’t answer. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "notYou": "Not you?",
+    "signOut": "Sign out"
+  },
+  "states": {
+    "empty": {
+      "title": "Nothing here yet",
+      "body": "A new store is empty everywhere. What you add shows up here.",
+      "action": "Add the first one"
+    },
+    "loading": {
+      "label": "Loading"
+    },
+    "error": {
+      "title": "We couldn’t load this",
+      "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "detailsLabel": "Technical details",
+      "codeLabel": "Error code",
+      "code": "UNKNOWN",
+      "requestIdLabel": "Request id",
+      "requestId": "7f3a91c2",
+      "retry": "Try again"
+    },
+    "denied": {
+      "action": "Change settings",
+      "reason": "Only the store owner can change this."
+    },
+    "readonly": {
+      "title": "Your store is view-only",
+      "body": "Your last payment didn’t go through. Everything is safe — you can look around, and saving works again once it’s paid."
+    },
+    "confirm": {
+      "open": "Remove…",
+      "title": "Remove this?",
+      "target": "Mara Linen Shirt",
+      "consequence": "Removes Mara Linen Shirt from your store. Shoppers can’t find it after this.",
+      "notes": [
+        "Orders that include it keep their copy."
+      ],
+      "reason": "Reason",
+      "reasonHint": "Required.",
+      "typeLabel": "Type Mara Linen Shirt to confirm",
+      "typeHint": "Type the name exactly to confirm.",
+      "typeExpected": "Mara Linen Shirt",
+      "confirm": "Remove",
+      "cancel": "Cancel"
     }
   }
 }

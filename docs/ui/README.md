@@ -108,8 +108,7 @@ apps/ui/<app>/
     after the first paint and the page would flash the wrong theme.
   - **Each app stores its own choice**: `df-admin-theme` and `df-store-theme` are the keys
     the Admin and Store prototypes use (the Store's since its dark mode of 2026-10-02; the
-    merchant portal will store it once My profile › Appearance is built, and until then its
-    script follows the OS); the Platform prototype has no key, and the console uses
+    merchant portal stores it from its user menu's Appearance since #291); the Platform prototype has no key, and the console uses
     `df-platform-theme`. `shared/ui/theme.ts` holds the resolution the app uses after load. In
     the merchant portal the choice is the person's, saved on their account too (DATA-MODEL.md
     §3.3 `user.theme`), and never changes the shop.

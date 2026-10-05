@@ -13,7 +13,8 @@
     "@dripfunnel/shared": "workspace:*",
     "@tanstack/react-router": "^1.170.39",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tanstack/router-plugin": "^1.168.40",

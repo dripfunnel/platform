@@ -1,0 +1,69 @@
+/* PortalAuth's `pick` view: one bordered row per store, the last one opened ringed in the focus blue. */
+.df-store-choices {
+  display: grid;
+  gap: var(--df-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-store-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-3);
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-store-choice:hover {
+  background: var(--df-color-hover);
+}
+
+.df-store-choice--last {
+  border: 2px solid var(--df-color-focus);
+  padding: 11px 13px;
+}
+
+.df-store-choice-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-family: var(--df-font-heading);
+  font-weight: 800;
+}
+
+/* A supplier store carries a squared mark, as in SetTeam. */
+.df-store-choice-mark--supplier {
+  border-radius: 3px;
+  background: var(--df-color-muted);
+  color: var(--df-color-surface);
+}
+
+.df-store-choice-text {
+  display: grid;
+  flex: 1;
+}
+
+.df-store-choice-text small {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-store-choice-last {
+  color: var(--df-color-focus);
+  font-size: 12px;
+  font-weight: 600;
+}

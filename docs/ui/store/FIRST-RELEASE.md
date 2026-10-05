@@ -142,6 +142,9 @@ From the prototype's shell (`design.md` §3), which this release keeps:
 - Rows a role can't use are **absent**; a control a role can't use inside a screen is shown
   **disabled with the reason** ("Only the store owner can …"), never hidden (../README.md §5).
 - "Your sales" and "Your team" are drawn in `VendorViews` (#286); the prototype's catalogue supplier is a Supplier admin.
+- **Built on #291** (`apps/ui/store/src/nav.ts`): the rows above per role and tier, the group
+  headings, Billing's trial note, and every row leading to a screen or its placeholder. The
+  badges wait for `navBadges` (SAPI 5's approvals, SAPI 11's orders).
 
 ### 3.2 Header
 
@@ -167,6 +170,10 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 | **Load error · not found · denied** | The API failed · a bad link · a role without access | The shell's generic states, each with its own sentence; a supplier's foreign URL is "not found" |
 | **Edit conflict** | Someone else saved first | "Review their changes" or "Load their version"; nothing is overwritten silently |
 | **Environment marker** | Non-production hosts | The shared Dev, Feature or Local strip (`environmentFor`, #65); nothing in production |
+
+**Built on #291**: the header (§3.2) and the banners for trial and its last day, past due,
+suspended, cancelled, provisioning, partner support and offline, in the prototype's words. The
+import banner waits for `storeState`'s import job (SAPI 16); support's Allow / Deny for SAPI 21.
 
 ---
 
