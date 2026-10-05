@@ -31,8 +31,8 @@ const basics = (on: string[], notInPlan: string[] = []): ProductBasics => ({
   translationLanguages: [],
   features: keys.map((key) => ({ key, enabled: on.includes(key), inPlan: !notInPlan.includes(key) })),
   badges: [
-    { id: 'b1', label: 'New', rule: 'new_30_days', tone: 'ok' },
-    { id: 'b2', label: 'Handmade', rule: 'manual', tone: 'neutral' },
+    { id: 'b1', label: 'New', rule: 'new_30_days', tone: 'ok', position: 3 },
+    { id: 'b2', label: 'Handmade', rule: 'manual', tone: 'neutral', position: 4 },
   ],
 })
 
@@ -97,13 +97,13 @@ describe('catalogue settings', () => {
     fireEvent.change(dialog().getByLabelText(w.badgeText), { target: { value: 'Organic' } })
     fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
     await settle()
-    expect(settings.saveBadge).toHaveBeenCalledWith(null, { label: 'Organic', rule: 'manual', tone: 'neutral' })
+    expect(settings.saveBadge).toHaveBeenCalledWith(null, { label: 'Organic', rule: 'manual', tone: 'neutral', position: 5 })
     expect(screen.getByText('“Organic” added — pick it on any product under Badges')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Edit “New”' }))
     fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'few_left' } })
     fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
     await settle()
-    expect(settings.saveBadge).toHaveBeenLastCalledWith('b1', { label: 'New', rule: 'few_left', tone: 'peach' })
+    expect(settings.saveBadge).toHaveBeenLastCalledWith('b1', { label: 'New', rule: 'few_left', tone: 'peach', position: 3 })
     fireEvent.click(screen.getByRole('button', { name: 'Delete “Handmade”?' }))
     fireEvent.click(dialog().getByRole('button', { name: w.delete }))
     await settle()

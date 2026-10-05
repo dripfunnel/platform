@@ -144,8 +144,8 @@ export const sampleReads: SettingsReads = {
     translationLanguages: [],
     features: ['sizeCharts', 'specs', 'highlights', 'faqs', 'badges', 'related', 'aplus', 'video'].map((key) => ({ key, enabled: ['sizeCharts', 'specs', 'highlights', 'badges'].includes(key), inPlan: key !== 'video' })),
     badges: [
-      { id: 'b-new', label: 'New', rule: 'new_30_days', tone: 'ok' },
-      { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral' },
+      { id: 'b-new', label: 'New', rule: 'new_30_days', tone: 'ok', position: 0 },
+      { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral', position: 1 },
     ],
   }),
 }
