@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:880px;">
+  <div><div style="{{ S.h }}">{{ title }}</div><div style="{{ S.sub }}">{{ sub }}</div></div>
+
+  <sc-if value="{{ isCustomers }}" hint-placeholder-val="{{ true }}">
+    <div style="{{ S.card }}" role="radiogroup" aria-label="How shoppers sign in">
+      <sc-for list="{{ modes }}" as="m" hint-placeholder-count="3">
+        <button onClick="{{ m.pick }}" role="radio" aria-checked="{{ m.on }}" disabled="{{ ro }}" style="display:flex;gap:12px;align-items:flex-start;text-align:left;padding:14px;border-radius:10px;border:{{ m.bd }};background:{{ m.bg }};cursor:pointer;color:var(--text,#14181F);">
+          <span style="width:18px;height:18px;border-radius:50%;border:2px solid {{ m.dot }};flex:none;margin-top:2px;display:flex;align-items:center;justify-content:center;"><span style="width:8px;height:8px;border-radius:50%;background:{{ m.fill }};"></span></span>
+          <span style="display:flex;flex-direction:column;gap:2px;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ m.label }}</strong><span style="font-size:13px;color:var(--muted,#5A6472);">{{ m.sub }}</span></span>
+        </button>
+      </sc-for>
+    </div>
+    <sc-if value="{{ dropsMobile }}" hint-placeholder-val="{{ false }}"><div style="{{ S.warn }}">{{ dropLine }}</div></sc-if>
+    <div style="{{ S.card }}">
+      <strong style="font-family:Manrope,sans-serif;font-size:14px;">What shoppers see</strong>
+      <span style="font-size:13px;color:var(--text2,#434A55);">{{ seeLine }}</span>
+      <span style="font-size:13px;color:var(--text2,#434A55);">Guests can always check out without an account. A guest who later signs in with the same {{ guestKey }} sees their earlier orders{{ guestPhone }}.</span>
+      <span style="font-size:12px;color:var(--muted,#5A6472);">{{ smsLine }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;"><span style="font-size:12px;color:var(--muted,#5A6472);">{{ countLine }}</span><button onClick="{{ a.save }}" disabled="{{ cantSave }}" style="{{ saveStyle }}">Save</button></div>
+  </sc-if>
+
+  <sc-if value="{{ isSupport }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ a.toggle }}" disabled="{{ ro }}" style="display:flex;align-items:center;gap:12px;padding:16px;background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;text-align:left;cursor:pointer;color:var(--text,#14181F);" role="switch" aria-checked="{{ supOn }}">
+      <span style="width:42px;height:24px;border-radius:12px;background:{{ sw.bg }};position:relative;flex:none;"><span style="position:absolute;top:4px;left:{{ sw.knob }};width:16px;height:16px;border-radius:50%;background:#FFFFFF;"></span></span>
+      <span style="display:flex;flex-direction:column;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ switchLabel }}</strong><span style="font-size:13px;color:var(--muted,#5A6472);">{{ switchSub }}</span></span>
+    </button>
+    <div style="{{ S.card }}">
+      <strong style="font-family:Manrope,sans-serif;font-size:14px;">How a support session works</strong>
+      <ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--text2,#434A55);">
+        <li>Support opens one only with a reason or a ticket number, and only while this is on.</li>
+        <li>It’s read-only and ends after 30 minutes. Everyone signed in sees a banner while it’s open.</li>
+        <li>You’re emailed when one starts. You or a manager can let them make changes for that one session.</li>
+        <li>Even then they can’t change passwords, payment details, payouts or who works here.</li>
+        <li>Every page they open and everything they change is in your Activity log, under their name.</li>
+      </ul>
+      <span style="font-size:12px;color:var(--muted,#5A6472);">Separately, DripFunnel’s own staff can sign in as a user to fix a problem. That’s rare, and logged too.</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;"><strong style="font-family:Manrope,sans-serif;font-size:15px;">Support access log</strong><span style="font-size:12px;color:var(--muted,#5A6472);">Last 90 days</span></div>
+    <sc-if value="{{ noLog }}" hint-placeholder-val="{{ false }}"><div style="{{ S.empty }}">No support sessions yet. When {{ partner }} support opens one, it’s listed here.</div></sc-if>
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;">
+      <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}"><div style="display:grid;grid-template-columns:{{ cols }};gap:12px;padding:10px 16px;border-bottom:1px solid var(--border,#EDEAE5);font-size:12px;color:var(--muted,#5A6472);font-weight:600;"><span>Who</span><span>Why</span><span>When</span><span>Changes</span></div></sc-if>
+      <sc-for list="{{ log }}" as="r" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:{{ cols }};gap:4px 12px;padding:12px 16px;border-bottom:1px solid var(--border,#EDEAE5);font-size:13px;align-items:start;">
+          <span style="display:flex;flex-direction:column;"><strong>{{ r.who }}</strong><span style="color:var(--muted,#5A6472);font-size:12px;">{{ r.org }}</span></span>
+          <span style="color:var(--text2,#434A55);">{{ r.why }}</span>
+          <span style="display:flex;flex-direction:column;"><span>{{ r.when }}</span><span style="color:var(--muted,#5A6472);font-size:12px;">{{ r.len }}</span></span>
+          <span style="color:{{ r.chFg }};">{{ r.changes }}</span>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { draft: null };
+  renderVals() {
+    const app = this.props.app; if (!app) return { S: {}, a: {} };
+    const mode = this.props.mode || 'customers'; const c = app.caps; const phone = app.phone; const R = app.R;
+    const ro = !c.isOwner || !!c.readOnly;
+    const S = {
+      h: 'font-family:Manrope,sans-serif;font-weight:700;font-size:18px;', sub: 'font-size:13px;color:var(--muted,#5A6472);',
+      card: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;',
+      warn: 'padding:12px 14px;border-radius:10px;background:var(--wbg,#FFF6E5);border:1px solid var(--wbd,#F2D9A6);color:var(--wfg,#7A4B00);font-size:13px;',
+      empty: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:28px;text-align:center;font-size:14px;color:var(--muted,#5A6472);'
+    };
+    const partner = (app.st.brand && app.st.brand.name) || 'your partner';
+    if (mode === 'customers') {
+      const saved = app.st.customerAccounts || 'both'; const cur = this.state.draft || saved;
+      const IN = R.key === 'IN';
+      const modes = [['email', 'Email and password', 'Shoppers register with an email address and a password.'], ['mobile', 'Mobile number and a text code', 'Shoppers sign in with a 6-digit code sent by SMS' + (IN ? ' or WhatsApp' : '') + '. No password to forget.'], ['both', 'Both', 'Shoppers pick. One account can hold an email and a mobile number.' + (IN ? ' Most shops in India choose this.' : '')]]
+        .map(([k, l, sub]) => { const on = cur === k; return { label: l, sub, on, bd: on ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: on ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', dot: on ? 'var(--focus,#00519F)' : 'var(--field,#C9CDD3)', fill: on ? 'var(--focus,#00519F)' : 'transparent', pick: () => !ro && this.setState({ draft: k }) }; });
+      const dropsMobile = saved !== 'email' && cur === 'email'; const dirty = cur !== saved;
+      return { S, pad: phone ? '14px' : '22px 28px', title: 'Customer accounts', sub: 'How shoppers create an account and sign in on your storefront.', isCustomers: true, isSupport: false, ro, modes, dropsMobile,
+        dropLine: '214 customers have only a mobile number. They keep their accounts and orders; the next time they sign in, we ask them to add an email.',
+        seeLine: cur === 'email' ? 'Sign in and Create account ask for an email and a password, with “Forgot password?”.' : cur === 'mobile' ? 'Sign in asks for a mobile number, then a code. New shoppers are signed up the same way.' : 'Sign in shows two tabs, Email and Mobile number. Checkout asks for both, so courier updates reach the shopper.',
+        guestKey: cur === 'mobile' ? 'mobile number' : cur === 'email' ? 'email' : 'email or mobile number', guestPhone: cur === 'email' ? '' : ' — a mobile number only once they prove it with a code',
+        smsLine: cur === 'email' ? '' : 'Codes are sent through ' + partner + '’s SMS account' + (IN ? ' (MSG91)' : ' (Twilio)') + '. You aren’t charged for them.',
+        countLine: '1,284 customer accounts · 812 with email · 686 with a mobile number', cantSave: ro || !dirty,
+        saveStyle: 'height:40px;padding:0 18px;border:0;border-radius:8px;background:' + (ro || !dirty ? '#9AA1AB' : '#EC844F') + ';color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;',
+        a: { save: () => { app.set('customerAccounts', cur); this.setState({ draft: null }); app.toast('Saved. Your storefront updates in about a minute.'); } } };
+    }
+    const on = app.st.supportAccess !== false;
+    const log = on ? [['Ravi Kumar', partner + ' support', 'Ticket #4821: product photos look blurry', 'Today, 10:42', '28 min', 'Allowed by Farhan'], ['Ravi Kumar', partner + ' support', 'Can’t connect Razorpay', '2 Oct, 16:05', '12 min', 'Read-only'], ['Anita Shah', partner + ' support', 'Ticket #4590: shipping rates', '24 Sep, 11:20', '30 min · timed out', 'Read-only']] : [['Ravi Kumar', partner + ' support', 'Can’t connect Razorpay', '2 Oct, 16:05', '12 min', 'Read-only']];
+    const wide = !phone;
+    return { S, pad: phone ? '14px' : '22px 28px', title: 'Support access', sub: 'Whether ' + partner + '’s support team can open your store to help you.', isCustomers: false, isSupport: true, ro, supOn: on, partner,
+      sw: { bg: on ? '#1D6B47' : 'var(--off,#C9CDD3)', knob: on ? '22px' : '4px' }, switchLabel: 'Allow ' + partner + ' support to view my store', switchSub: on ? 'On. Support can open a read-only session when you ask for help.' : 'Off. Support can only ask you to switch this on.',
+      wide, cols: wide ? '1.2fr 2fr 1.1fr 1fr' : '1fr', noLog: !log.length,
+      log: log.map(([who, org, why, when, len, ch]) => ({ who, org, why, when, len, changes: ch, chFg: ch === 'Read-only' ? 'var(--muted,#5A6472)' : 'var(--wfg,#7A4B00)' })),
+      a: { toggle: () => { if (ro) return; if (on) { app.modal({ title: 'Turn off support access?', body: 'Any support session open now ends straight away. ' + partner + ' support can then only ask you to switch this back on.', confirm: 'Turn off', danger: true, onConfirm: () => { app.set('supportAccess', false); app.set('support', 'none'); app.toast('Support access is off'); } }); } else { app.set('supportAccess', true); app.toast('Support access is on'); } } } };
+  }
+}
+</script>
+</body>
+</html>

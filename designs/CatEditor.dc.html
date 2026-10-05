@@ -59,12 +59,56 @@
         <sc-if value="{{ notTranslating }}" hint-placeholder-val="{{ true }}">
           <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:10px;">
             <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">What are you selling?</span>
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
-              <sc-for list="{{ types }}" as="t" hint-placeholder-count="3">
-                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;opacity:{{ t.op }};"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:var(--text,#14181F);">{{ t.label }}</div><div style="font-size:12px;color:var(--muted,#5A6472);">{{ t.sub }}</div></button>
+            <div style="display:grid;grid-template-columns:{{ typeCols }};gap:8px;">
+              <sc-for list="{{ types }}" as="t" hint-placeholder-count="4">
+                <button onClick="{{ t.onClick }}" style="border:{{ t.bd }};background:{{ t.bg }};border-radius:10px;padding:10px 12px;text-align:left;cursor:pointer;opacity:{{ t.op }};min-height:56px;"><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:14px;color:var(--text,#14181F);">{{ t.label }}</div><div style="font-size:12px;color:var(--muted,#5A6472);">{{ t.sub }}</div></button>
               </sc-for>
             </div>
           </div>
+
+          <sc-if value="{{ kind.dl }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">What the shopper gets</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ kind.dlModes }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.onClick }}" style="height:36px;padding:0 14px;border-radius:18px;border:1px solid {{ m.bd }};background:{{ m.bg }};color:{{ m.fg }};font-size:13px;font-weight:600;cursor:pointer;">{{ m.label }}</button></sc-for></div>
+              <sc-if value="{{ kind.isFile }}" hint-placeholder-val="{{ true }}">
+                <sc-if value="{{ kind.noFile }}" hint-placeholder-val="{{ true }}"><button onClick="{{ kind.upload }}" disabled="{{ roMost }}" style="border:2px dashed var(--field,#D7D3CD);border-radius:10px;background:var(--paper,#FDFAF7);padding:22px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:var(--text,#14181F);"><strong style="font-size:14px;">Upload the file</strong><span style="font-size:12px;color:var(--muted,#5A6472);">PDF, ZIP, MP3, MP4 or an image · up to 2 GB · stored privately, never on your storefront</span></button></sc-if>
+                <sc-if value="{{ kind.hasFile }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:1px solid var(--border,#E8E2DC);border-radius:10px;flex-wrap:wrap;"><span style="display:flex;flex-direction:column;"><strong style="font-size:14px;">{{ kind.fileName }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ kind.fileMeta }}</span></span><span style="display:flex;gap:8px;"><button onClick="{{ kind.upload }}" disabled="{{ roMost }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Replace</button></span></div></sc-if>
+                <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+                  <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Downloads per order<select value="{{ kind.dlLimit }}" onChange="{{ on.dlLimit }}" disabled="{{ roMost }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;background:var(--card,#FFFFFF);font-size:14px;"><option value="3">3</option><option value="5">5</option><option value="10">10</option></select></label>
+                  <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Link works for<select value="{{ kind.dlDays }}" onChange="{{ on.dlDays }}" disabled="{{ roMost }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;background:var(--card,#FFFFFF);font-size:14px;"><option value="7">7 days</option><option value="30">30 days</option><option value="365">1 year</option></select></label>
+                </div>
+                <span style="font-size:12px;color:var(--muted,#5A6472);">The shopper gets the link as soon as the payment goes through — never before, so a bank transfer waits until you mark it paid.</span>
+              </sc-if>
+              <sc-if value="{{ kind.isKeys }}" hint-placeholder-val="{{ false }}">
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Licence keys<textarea rows="4" value="{{ kind.keysText }}" onChange="{{ on.keys }}" readOnly="{{ roMost }}" placeholder="One key per line" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:10px 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;resize:vertical;"></textarea></label>
+                <span style="font-size:13px;color:{{ kind.keysFg }};">{{ kind.keysLine }}</span>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ kind.svc }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">About the service</span>
+              <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">How long it takes <span style="font-weight:400;color:var(--muted,#5A6472);">Optional</span><input value="{{ kind.svcDuration }}" onChange="{{ on.svcDuration }}" readOnly="{{ roMost }}" placeholder="e.g. 2 hours" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;"></label>
+                <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;">Where <span style="font-weight:400;color:var(--muted,#5A6472);">Optional</span><input value="{{ kind.svcWhere }}" onChange="{{ on.svcWhere }}" readOnly="{{ roMost }}" placeholder="{{ kind.wherePh }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;"></label>
+              </div>
+              <div style="padding:10px 12px;border-radius:8px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);font-size:13px;color:var(--ifg,#00325F);">No booking calendar. After an order, you arrange a time with the shopper. They’re told: “We’ll email you within a working day to arrange a time.” No shipping, weight or stock.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ kind.gc }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
+              <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Gift card amounts</span>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ kind.amounts }}" as="a" hint-placeholder-count="4"><span style="height:34px;padding:0 6px 0 12px;border-radius:17px;border:1px solid var(--field,#D7D3CD);display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;">{{ a.label }}<button onClick="{{ a.remove }}" aria-label="{{ a.aria }}" disabled="{{ roMost }}" style="width:24px;height:24px;border:0;background:none;cursor:pointer;color:var(--muted,#5A6472);">✕</button></span></sc-for><button onClick="{{ kind.addAmount }}" disabled="{{ roMost }}" style="height:34px;padding:0 12px;border-radius:17px;border:1px dashed var(--field,#D7D3CD);background:none;font-size:13px;cursor:pointer;">+ Add an amount</button></div>
+              <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;max-width:360px;">Cards expire after<select value="{{ kind.gcExpiry }}" onChange="{{ on.gcExpiry }}" disabled="{{ roMost }}" style="height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 10px;background:var(--card,#FFFFFF);font-size:14px;"><sc-for list="{{ kind.expiries }}" as="x" hint-placeholder-count="3"><option value="{{ x.v }}">{{ x.l }}</option></sc-for></select><span style="font-weight:400;font-size:12px;color:var(--muted,#5A6472);">{{ kind.expiryRule }}</span></label>
+              <span style="font-size:12px;color:var(--muted,#5A6472);">No tax when a card is bought; tax is charged on what it’s spent on. Sent by email on the date the shopper picks.</span>
+              <div style="border-top:1px solid var(--border,#E8E2DC);padding-top:12px;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><strong style="font-size:14px;">Cards issued</strong><button onClick="{{ kind.issue }}" disabled="{{ roMost }}" style="height:34px;padding:0 12px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;cursor:pointer;">Issue a card</button></div>
+                <sc-for list="{{ kind.cards }}" as="g" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:{{ kind.cardCols }};gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--border,#E8E2DC);font-size:13px;align-items:center;"><span style="font-family:'IBM Plex Mono',monospace;">{{ g.code }}</span><span>{{ g.to }}</span><span>{{ g.balance }}</span><span style="color:var(--muted,#5A6472);">{{ g.expires }}</span><span style="justify-self:start;padding:1px 8px;border-radius:10px;font-size:12px;background:{{ g.bg }};color:{{ g.fg }};">{{ g.status }}</span></div></sc-for>
+              </div>
+            </div>
+          </sc-if>
 
           <div style="background:var(--card,#FFFFFF);border:1px solid {{ err.photoBd }};border-radius:12px;padding:18px 22px;display:flex;flex-direction:column;gap:12px;">
             <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">Photos</span><span style="font-size:12px;color:{{ photoMeterFg }};">{{ photoMeter }}</span></div>
@@ -791,9 +835,24 @@ class Component extends DCLogic {
 
     const stockTotal = (Number(d.stock) || 0) + (d.split ? Number(d.stock2) || 0 : 0);
     const saveLabel = c.isVendorStock ? 'Save stock' : (vendorApproval ? 'Submit for approval' : (d.isNew ? 'Save product' : 'Save'));
-    const types = [['physical', 'A physical item', 'You pack and ship it'], ['download', 'A download', 'Ebook, pattern, gift card'], ['service', 'A service', 'Coming later']].map(([k, l, sub]) => ({ label: l, sub,
-      bd: d.type === k ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.type === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', op: k === 'service' ? 0.5 : 1,
-      onClick: () => { if (roMost) return; if (k === 'service') { app.toast('Services aren’t in the first release'); return; } this.upd({ type: k, track: k !== 'download' }); if (k === 'download') app.toast('Downloads have no weight, box or stock — those boxes are gone'); } }));
+    const types = [['physical', 'A physical item', 'You pack and ship it'], ['download', 'A download', 'A file or a licence key'], ['service', 'A service', 'Arranged after the order'], ['giftcard', 'A gift card', 'Sent by email']].map(([k, l, sub]) => ({ label: l, sub,
+      bd: d.type === k ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.type === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', op: 1,
+      onClick: () => { if (roMost || d.type === k) return; this.upd({ type: k, track: k === 'physical' }); if (k !== 'physical') app.toast('No weight, box, shipping or stock for this kind — those boxes are gone'); } }));
+    const IN = R.key === 'IN'; const gcAmts = d.gcAmounts || (IN ? [500, 1000, 2000, 5000] : [25, 50, 100, 200]);
+    const keys = (d.keys || '').split('\n').map(x => x.trim()).filter(Boolean);
+    const kind = { dl: d.type === 'download', svc: d.type === 'service', gc: d.type === 'giftcard', dlLimit: d.dlLimit || '5', dlDays: d.dlDays || '30', svcDuration: d.svcDuration || '', svcWhere: d.svcWhere || '', gcExpiry: d.gcExpiry || (IN ? '1y' : '5y'),
+      dlModes: [['file', 'A file to download'], ['keys', 'A licence key']].map(([k, l]) => { const on = (d.dlMode || 'file') === k; return { label: l, bd: on ? '#14181F' : 'var(--field,#D7D3CD)', bg: on ? '#14181F' : 'var(--card,#FFFFFF)', fg: on ? '#FFFFFF' : 'var(--text,#14181F)', onClick: () => !roMost && this.upd({ dlMode: k }) }; }),
+      isFile: (d.dlMode || 'file') === 'file', isKeys: d.dlMode === 'keys', noFile: !d.dlFile, hasFile: !!d.dlFile, fileName: d.dlFile ? d.dlFile.name : '', fileMeta: d.dlFile ? d.dlFile.size + ' · uploaded ' + d.dlFile.when : '',
+      upload: () => { if (roMost) return; this.upd({ dlFile: { name: IN ? 'sanganeri-patterns.pdf' : 'mending-guide.pdf', size: IN ? '18 MB' : '21 MB', when: 'just now' } }); app.toast('Uploaded — checked for viruses and stored privately'); },
+      keysText: d.keys || '', keysLine: keys.length ? keys.length + (keys.length === 1 ? ' key' : ' keys') + ' left · one is sent per order' + (keys.length < 5 ? ' · running low: add more before they run out' : '') : 'Paste the keys you were given, one per line. Each order takes one; when none are left the product shows as sold out.', keysFg: keys.length && keys.length < 5 ? 'var(--link,#B8541F)' : 'var(--muted,#5A6472)',
+      wherePh: IN ? 'e.g. Our Jaipur studio, MI Road' : 'e.g. Our Columbus studio, 410 Oak St',
+      amounts: gcAmts.map(a => ({ label: fmt(a), aria: 'Remove ' + fmt(a), remove: () => { if (gcAmts.length <= 1) { app.toast('Keep at least one amount'); return; } this.upd({ gcAmounts: gcAmts.filter(x => x !== a) }); } })),
+      addAmount: () => app.modal({ title: 'Add an amount', input: { label: 'Amount in ' + R.cur, placeholder: IN ? '3000' : '75', required: true }, confirm: 'Add', validate: v => { const n = Math.round(Number(v)); return !n || n <= 0 ? 'Enter an amount above zero.' : gcAmts.includes(n) ? 'That amount is already there.' : ''; }, onConfirm: v => { const n = Math.round(Number(v)); this.upd({ gcAmounts: [...gcAmts, n].sort((x, y) => x - y) }); } }),
+      expiries: IN ? [{ v: '1y', l: '1 year (the shortest allowed)' }, { v: '2y', l: '2 years' }, { v: '3y', l: '3 years' }, { v: 'never', l: 'Never' }] : [{ v: '5y', l: '5 years (the shortest allowed)' }, { v: '7y', l: '7 years' }, { v: 'never', l: 'Never' }],
+      expiryRule: IN ? 'India: at least 1 year from the day a card is sent.' : 'US: at least 5 years from the day a card is sent.',
+      issue: () => app.modal({ title: 'Issue a gift card', body: 'For store credit or a goodwill gesture. It’s emailed now and logged under your name.', input: { label: 'Send to (email)', placeholder: 'name@example.com', required: true }, confirm: 'Issue ' + fmt(gcAmts[0]), validate: v => /.+@.+\..+/.test(v || '') ? '' : 'Enter an email like name@example.com.', onConfirm: v => app.toast('Gift card sent to ' + v) }),
+      cardCols: app.phone ? '1fr 1fr' : '1.2fr 1.6fr 1fr 1fr auto',
+      cards: [['•••• 91MX', IN ? 'Meera Iyer' : 'Emma Laurent', IN ? 1000 : 50, IN ? '14 Aug 2027' : '14 Aug 2031', 'Active'], ['•••• 4QK2', IN ? 'Rohan Mehta' : 'Jordan Blake', IN ? 250 : 12.5, IN ? '2 Jan 2027' : '2 Jan 2031', 'Part used'], ['•••• Z7PD', IN ? 'Kabir Singh' : 'Sam Ortiz', 0, IN ? '9 Mar 2026' : '9 Mar 2030', IN ? 'Expired' : 'Used up']].map(([code, to, bal, exp, st]) => ({ code, to, balance: fmt(bal), expires: (st === 'Expired' ? 'Expired ' : 'Expires ') + exp, status: st, bg: st === 'Active' ? 'var(--okbg,#EEF7F2)' : st === 'Part used' ? 'var(--ibg,#F4F8FB)' : 'var(--sunk,#F2F0EC)', fg: st === 'Active' ? 'var(--okfg,#1D6B47)' : st === 'Part used' ? 'var(--ifg,#00325F)' : 'var(--muted,#5A6472)' })) };
 
     const fmtWrap = (pre, post) => () => this.upd(dd => ({ desc: dd.desc + (dd.desc && !dd.desc.endsWith('\n') ? '\n' : '') + pre + 'text' + post }));
     const langs = c.multiLang ? [{ k: 'main', name: 'English', st: '· main', dot: '#1D6B47' }, { k: 'fr', name: 'Français', st: fr.name ? (fr.desc || !d.desc ? '· done' : '· part done') : '· not translated', dot: fr.name ? (fr.desc || !d.desc ? '#1D6B47' : '#D9A43A') : '#C9CDD3' }]
@@ -812,14 +871,14 @@ class Component extends DCLogic {
       multiLang: c.multiLang, langs, translating, notTranslating: !translating, banners,
       showTip: d.isNew && app.walkthrough && !c.isVendor && !phone, tip,
       ro, roMost, canEditMost, canManage: c.canManage,
-      types, photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
+      types, kind, typeCols: app.phone ? 'repeat(2,minmax(0,1fr))' : 'repeat(4,minmax(0,1fr))', twoCols: app.phone ? '1fr' : '1fr 1fr', photos, hasPhotos: readyPhotos.length > 0, altText: readyPhotos[0] ? readyPhotos[0].alt : '', canAddPhoto: canEditMost && !atLimit, photoAtLimit: atLimit && canEditMost,
       addPhotoLabel: phone ? 'Take or add photo' : 'Add photos', photoLimitText: c.isOwner ? `${limit} of ${limit} photos · ${c.P.rank < 1 ? 'Growth allows 5' : c.P.rank < 2 ? 'Growth Pro allows 25' : 'Business allows 50'}` : `${limit} of ${limit} photos`,
       photoMeter: `${d.photos.length} of ${limit} photos`, photoMeterFg: d.photos.length >= limit * 0.8 ? 'var(--wfg,#7A4B00)' : 'var(--muted,#5A6472)',
       photoHelp: readyPhotos.length ? 'The first photo is the one shoppers see in lists. Square photos look best. iPhone photos are converted for you.' : 'Products with a photo sell far better. On a phone, this opens the camera.',
       err: { ...err, nameBd: E('name'), priceBd: E('price'), compareBd: E('compare'), skuBd: E('sku'), codeBd: E('code'), photoBd: 'var(--border,#E8E2DC)', photoFg: 'var(--muted,#5A6472)' },
       fmtBtns: [{ label: 'B', w: 700, s: 'normal', onClick: fmtWrap('**', '**') }, { label: 'I', w: 400, s: 'italic', onClick: fmtWrap('_', '_') }, { label: '• List', w: 400, s: 'normal', onClick: fmtWrap('• ', '') }, { label: 'Link', w: 400, s: 'normal', onClick: () => app.modal({ title: 'Add a link', input: { label: 'Web address', placeholder: 'https://', required: true }, confirm: 'Add link', onConfirm: v => this.upd(dd => ({ desc: dd.desc + ' ' + v })) }) }],
       aiLeft: app.aiLeft(),
-      showPriceCard: !hasV, showStockCard: !hasV && d.type === 'physical',
+      showPriceCard: !hasV && d.type !== 'giftcard', showStockCard: !hasV && d.type === 'physical',
       compareVal: autoMode ? (d.isNew ? 'Shown once it has sold for a while' : fmt(price)) : d.compare, compareRo: autoMode || roMost, comparePh: 'optional', compareBg: autoMode ? 'var(--paper,#FDFAF7)' : 'var(--card,#FFFFFF)', compareFg: autoMode ? 'var(--muted,#5A6472)' : 'var(--text,#14181F)',
       breakdown, hasProfit: !!(price && cost), profitText: profit >= 0 ? `You make ${fmt(profit)} per sale · ${Math.round(profit / net * 100)}% margin` : `You lose ${fmt(-profit)} on each sale`, profitBg: profit >= 0 ? 'var(--okbg,#EEF7F2)' : 'var(--pbg,#FDF0E8)', profitFg: profit >= 0 ? 'var(--okfg,#1D6B47)' : 'var(--link,#B8541F)',
       multiCur: c.multiCur, autoPrice: price ? nfAuto.format(autoRounded) + ' ' + R.autoSuffix : '—', autoNote: price ? `${nfAuto.format(autoVal)} → ${nfAuto.format(autoRounded)} · rates updated 2 h ago` : 'Worked out from your price', manPh: R.manSuffix, manBd: manMissing ? '#B8541F' : 'var(--field,#D7D3CD)', manMissing,
@@ -859,7 +918,9 @@ class Component extends DCLogic {
       visOpts: [['visible', 'Visible', 'Shoppers can find and buy it'], ['hidden', 'Hidden', 'Only you and your team can see it']].map(([k, l, sub]) => ({ label: l, sub, bd: d.status === k || (k === 'visible' && d.status === 'sentback') ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: d.status === k ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', dot: d.status === k ? '5px solid var(--focus,#00519F)' : '1.5px solid var(--faint,#9AA1AB)', onClick: () => { if (roMost) return; this.upd({ status: k }); } })),
       markets, pv, priceShow: hasV ? `${live.length} versions` : fmt(price), stockShow: hasV ? String(live.reduce((a, v) => a + (Number(v.stock) || 0), 0)) : String(stockTotal), photoCount: String(readyPhotos.length),
       dirtyBar: c.canEdit && (dirty || !!s.saveErr), barText: s.saveErr ? 'Couldn’t save — your draft is safe' : 'Unsaved changes', barDot: s.saveErr ? '#B8541F' : '#EC844F', barPad: phone ? '14px' : '28px', showSaveAnother: d.isNew && !phone,
+      roMost,
       on: {
+        dlLimit: e => this.upd({ dlLimit: e.target.value }), dlDays: e => this.upd({ dlDays: e.target.value }), keys: e => this.upd({ keys: e.target.value }), svcDuration: e => this.upd({ svcDuration: e.target.value }), svcWhere: e => this.upd({ svcWhere: e.target.value }), gcExpiry: e => this.upd({ gcExpiry: e.target.value }),
         name: e => { const v = e.target.value; this.upd(dd => ({ name: v, sku: dd.skuTouched ? dd.sku : '', slug: dd.slugTouched ? dd.slug : '' })); },
         desc: e => this.upd({ desc: e.target.value }), price: e => this.upd({ price: e.target.value }), compare: e => this.upd({ compare: e.target.value }), cost: e => this.upd({ cost: e.target.value }),
         man: e => this.upd({ man: e.target.value }), stock: e => this.upd({ stock: e.target.value.replace(/[^0-9]/g, '') }), stock2: e => this.upd({ stock2: e.target.value.replace(/[^0-9]/g, '') }),

@@ -53,8 +53,13 @@ Every child receives a single `app` prop (see §3).
 | Collections / Filters / Menus | `CatCollections` | Three tabs of one destination; mounts `CatSizeCharts` |
 | Size charts | `CatSizeCharts` | Child of Collections |
 | Import & export | `CatImport` | CSV, Shopify import, match rules, progress, pause |
-| Storefront | `PortalStorefront` | AI "describe your shop", preview widths, publish |
-| Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets` |
+| Storefront | `PortalStorefront` | Tabs Design · Pages · Journal; how the storefront is built (AI or your own, #286); AI "describe your shop", preview widths, publish |
+| Pages and Journal | `StorefrontContent` | Content pages (about, FAQ, contact, lookbook) and blog posts: list, block editor, search preview, publish, schedule, delete (#286) |
+| Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets`, `SetAccess`, `SetDev`, `StoreActivity` |
+| Customer accounts, Support access | `SetAccess` | `mode=customers`: email, mobile or both, what shoppers see. `mode=support`: the On/Off switch, how a session works, the support access log (#286) |
+| Developers, Apps | `SetDev` | `mode=developers`: storefront key, allowed websites, API keys (scopes, supplier binding, expiry, shown once, rotate, revoke), webhooks (events, deliveries, send again, turned off after failures). `mode=apps`: private apps, install consent, open on the app's site, remove saying what stops (#286) |
+| Activity log, Store activity | `StoreActivity` | Settings tab for the Owner (with export); the Manager's *Store activity* from the user menu (export disabled with the reason) (#286) |
+| Your sales, Your team | `VendorViews` | Supplier screens: their own lines without totals; their team with the last-admin rule (#286) |
 | Billing | `PortalBilling` | Plan, card, invoices, downgrade, cancel |
 | Choose what to keep | `PortalKeep` | Trial-ended downgrade: pick which products stay live |
 | My profile | `PortalProfile` | Name, email, password, two-step sign-in, backup codes, appearance (light/dark) |
@@ -97,7 +102,7 @@ design. Add a new state as a control option before adding UI to reach it.
 
 | Prototype | Controls |
 | --- | --- |
-| Store | Role · Region · Plan · Store (stocked / empty / signup) · Scenario · toggles (Languages, Currencies, Approval, Offline…) · Desktop/Phone · Reset data |
+| Store | Role · Region · Plan · Store (stocked / empty / signup) · Partner support (no session, open, asks to make changes, changes allowed) · Scenario · toggles (Languages, Currencies, Approval, Offline…) · Desktop/Phone · Reset data. URL parameters `region`, `role`, `plan`, `device`, `theme`, `screen`, `settingsTab`, `editId`, `support` and `sfTab` open a state directly (#286) |
 | Platform | Partner (Northstar live, Kaufladen draft / set up by DF / awaiting / sent back / just approved) · Role · Theme · Screen · Signed in · Invitation · Scenario |
 | Admin | Signed in as · Theme · Environment · Screen · Data · Sign-in |
 
@@ -176,7 +181,7 @@ Plan states in the control: `trial` (day 3, full Business), `trial9`
 | Owner | Home, Orders, Customers, Offers, Abandoned carts, Reports · *Catalogue:* Products, Collections · *Your shop:* Storefront · *Admin:* Settings, Billing |
 | Manager | Same minus the Admin group; Storefront is view only |
 | Staff | Home, Orders, Customers, Offers (view only), Abandoned carts (view only) · *Catalogue:* Products, Collections (view only) |
-| Supplier (catalogue) | Your products, To ship |
+| Supplier (catalogue) | Your products, To ship, Your sales, Your team (this supplier user is a Supplier admin) |
 | Supplier (stock only) | Your products (stock only) |
 
 Supplier roles exist only on Business and above; picking one on a lower

@@ -35,8 +35,9 @@ Compared with Shopify and Wix, the biggest gaps are:
    marketing, no reviews, no gift cards and no loyalty.
 4. **Notifications.** There is no screen for the order, shipping and account emails that
    shoppers receive.
-5. **Extensibility.** There are no API keys, no webhooks, no apps or integrations, and no
-   sales channels (Google, Meta, marketplaces).
+5. **Extensibility.** ~~There are no API keys, no webhooks, no apps or integrations~~ API keys,
+   webhooks and private apps are drawn (`SetDev`, #286); there are still no sales channels
+   (Google, Meta, marketplaces).
 6. **Inventory depth.** There is no stock history, no transfers and no purchase orders.
 7. **Trust and admin.** There is no activity log, no granular permissions and no profile or
    two-step (2FA) settings.
@@ -114,7 +115,7 @@ shows what is needed.
 | Data requests: export or delete a customer (GDPR, DPDP) | ✓ | ✓ | — | — (required by AGENTS.md) |
 | Email marketing campaigns and automations | ✓ | ✓ | — | — (abandoned cart only) |
 | SMS / WhatsApp marketing | ~ app | ~ | — | ~ (WhatsApp for abandoned carts, India only) |
-| Gift cards: sell, issue, balance, redeem | ✓ | ✓ | — | — (only a seeded "Gift card" product) |
+| Gift cards: sell, issue, balance, redeem | ✓ | ✓ | — | ✓ product kind with amounts, expiry and cards issued (`CatEditor`, #286); balance and redeem on the storefront (`DF Storefront Prototype`) |
 | Store credit | ✓ | ~ | — | — |
 | Loyalty or rewards points | ~ app | ✓ | — | — |
 | Referral or affiliate programme | ~ app | ~ | — | — |

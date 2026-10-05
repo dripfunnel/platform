@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="padding:{{ pad }};display:flex;flex-direction:column;gap:14px;max-width:960px;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;"><div><div style="{{ S.h }}">{{ title }}</div><div style="{{ S.sub }}">{{ sub }}</div></div><sc-if value="{{ isApps }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.addApp }}" disabled="{{ ro }}" style="{{ S.primary }}">Add an app</button></sc-if></div>
+  <sc-if value="{{ ro }}" hint-placeholder-val="{{ false }}"><div style="{{ S.info }}">{{ roLine }}</div></sc-if>
+
+  <sc-if value="{{ isDev }}" hint-placeholder-val="{{ true }}">
+    <div style="{{ S.card }}">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><strong style="{{ S.t }}">Storefront key</strong><span style="font-size:12px;color:var(--muted,#5A6472);">Public — safe to put in a website</span></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><code style="{{ S.code }}">{{ pubKey }}</code><button onClick="{{ a.copyPub }}" style="{{ S.btn }}">Copy</button></div>
+      <span style="font-size:13px;color:var(--text2,#434A55);">It lets a storefront show your products and take orders. It can’t see orders, customers or settings.</span>
+      <div style="border-top:1px solid var(--border,#E8E2DC);padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+        <strong style="font-size:13px;">Websites allowed to use it</strong>
+        <sc-for list="{{ origins }}" as="o" hint-placeholder-count="2"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;">{{ o.url }}</code><sc-if value="{{ o.canRemove }}" hint-placeholder-val="{{ true }}"><button onClick="{{ o.remove }}" disabled="{{ ro }}" style="{{ S.link }}">Remove</button></sc-if><sc-if value="{{ o.fixed }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--muted,#5A6472);">your storefront</span></sc-if></div></sc-for>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><input value="{{ originIn }}" onChange="{{ a.originIn }}" readOnly="{{ ro }}" placeholder="https://www.yoursite.com" aria-label="Website address" style="{{ S.input }}flex:1;min-width:200px;"><button onClick="{{ a.addOrigin }}" disabled="{{ ro }}" style="{{ S.btn }}">Add</button></div>
+        <sc-if value="{{ originErr }}" hint-placeholder-val="{{ false }}"><span style="font-size:12px;color:var(--link,#B8541F);">{{ originErr }}</span></sc-if>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;"><div><strong style="{{ S.t }}">API keys</strong><div style="{{ S.sub }}">For your own programs on a server — never in a website or an app on a phone. {{ limitLine }}</div></div><button onClick="{{ a.newKey }}" disabled="{{ ro }}" style="{{ S.btn }}">Create API key</button></div>
+    <sc-if value="{{ showNew }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ S.card }}border-color:var(--focus,#00519F);">
+        <sc-if value="{{ newDone }}" hint-placeholder-val="{{ false }}">
+          <strong style="{{ S.t }}">Copy your key now</strong>
+          <div style="{{ S.warn }}">This is the only time we show it. Store it somewhere safe, like your server’s secret settings. If you lose it, create a new one.</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><code style="{{ S.code }}">{{ secret }}</code><button onClick="{{ a.copySecret }}" style="{{ S.btn }}">Copy</button></div>
+          <button onClick="{{ a.doneKey }}" style="{{ S.primary }}align-self:flex-start;">I’ve stored it</button>
+        </sc-if>
+        <sc-if value="{{ newForm }}" hint-placeholder-val="{{ true }}">
+          <strong style="{{ S.t }}">New API key</strong>
+          <label style="{{ S.label }}">Name<input value="{{ nk.name }}" onChange="{{ a.nkName }}" placeholder="e.g. Warehouse stock sync" style="{{ S.input }}"><sc-if value="{{ nkErr }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--link,#B8541F);">{{ nkErr }}</span></sc-if></label>
+          <div style="{{ S.label }}">What it can do<div style="display:grid;grid-template-columns:{{ scopeCols }};gap:6px 14px;font-weight:400;"><sc-for list="{{ scopes }}" as="sc" hint-placeholder-count="6"><label style="display:flex;gap:8px;align-items:center;font-size:13px;min-height:32px;"><input type="checkbox" checked="{{ sc.on }}" onChange="{{ sc.toggle }}" style="width:18px;height:18px;">{{ sc.label }}</label></sc-for></div></div>
+          <div style="display:grid;grid-template-columns:{{ twoCols }};gap:10px;">
+            <label style="{{ S.label }}">Works for<select value="{{ nk.seller }}" onChange="{{ a.nkSeller }}" style="{{ S.input }}"><option value="">The whole store</option><sc-for list="{{ suppliers }}" as="v" hint-placeholder-count="2"><option value="{{ v.id }}">Only supplier {{ v.name }}</option></sc-for></select><span style="font-weight:400;font-size:12px;color:var(--muted,#5A6472);">{{ sellerHelp }}</span></label>
+            <label style="{{ S.label }}">Expires<select value="{{ nk.exp }}" onChange="{{ a.nkExp }}" style="{{ S.input }}"><option value="30">In 30 days</option><option value="90">In 90 days</option><option value="365">In 1 year</option><option value="never">Never</option></select></label>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.createKey }}" style="{{ S.primary }}">Create key</button><button onClick="{{ a.cancelKey }}" style="{{ S.btn }}">Cancel</button></div>
+        </sc-if>
+      </div>
+    </sc-if>
+    <div style="{{ S.table }}">
+      <sc-for list="{{ keys }}" as="k" hint-placeholder-count="3">
+        <div style="display:grid;grid-template-columns:{{ keyCols }};gap:4px 12px;padding:12px 16px;border-bottom:1px solid var(--border,#EDEAE5);font-size:13px;align-items:center;">
+          <span style="display:flex;flex-direction:column;min-width:0;"><strong>{{ k.name }}</strong><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ k.prefix }}</span></span>
+          <span style="color:var(--text2,#434A55);">{{ k.scopes }}<br><span style="color:var(--muted,#5A6472);font-size:12px;">{{ k.scope }}</span></span>
+          <span style="display:flex;flex-direction:column;"><span>{{ k.used }}</span><span style="font-size:12px;color:{{ k.byFg }};">{{ k.by }}</span></span>
+          <span style="font-size:12px;color:{{ k.expFg }};">{{ k.exp }}</span>
+          <span style="display:flex;gap:8px;justify-content:flex-end;"><button onClick="{{ k.rotate }}" disabled="{{ ro }}" style="{{ S.link }}">Rotate</button><button onClick="{{ k.revoke }}" disabled="{{ ro }}" style="{{ S.link }}color:var(--bfg,#A1261B);">Revoke</button></span>
+        </div>
+      </sc-for>
+      <sc-if value="{{ noKeys }}" hint-placeholder-val="{{ false }}"><div style="padding:22px;text-align:center;font-size:13px;color:var(--muted,#5A6472);">No API keys. Create one when a developer asks for access.</div></sc-if>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px;flex-wrap:wrap;"><div><strong style="{{ S.t }}">Webhooks</strong><div style="{{ S.sub }}">We send an event to your server when something happens in your store.</div></div><button onClick="{{ a.newHook }}" disabled="{{ ro }}" style="{{ S.btn }}">Add endpoint</button></div>
+    <sc-if value="{{ hookForm }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ S.card }}border-color:var(--focus,#00519F);">
+        <label style="{{ S.label }}">Endpoint URL<input value="{{ hk.url }}" onChange="{{ a.hkUrl }}" placeholder="https://api.yoursite.com/dripfunnel" style="{{ S.input }}"><sc-if value="{{ hkErr }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--link,#B8541F);">{{ hkErr }}</span></sc-if></label>
+        <div style="{{ S.label }}">Events<div style="display:grid;grid-template-columns:{{ scopeCols }};gap:6px 14px;font-weight:400;"><sc-for list="{{ events }}" as="ev" hint-placeholder-count="6"><label style="display:flex;gap:8px;align-items:center;font-size:13px;min-height:32px;"><input type="checkbox" checked="{{ ev.on }}" onChange="{{ ev.toggle }}" style="width:18px;height:18px;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12px;">{{ ev.label }}</code></label></sc-for></div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.createHook }}" style="{{ S.primary }}">Add endpoint</button><button onClick="{{ a.cancelHook }}" style="{{ S.btn }}">Cancel</button></div>
+      </div>
+    </sc-if>
+    <sc-for list="{{ hooks }}" as="h" hint-placeholder-count="2">
+      <div style="{{ S.card }}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span style="display:flex;flex-direction:column;min-width:0;"><code style="font-family:'IBM Plex Mono',monospace;font-size:13px;word-break:break-all;">{{ h.url }}</code><span style="font-size:12px;color:var(--muted,#5A6472);">{{ h.events }}</span></span><span style="padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;background:{{ h.bg }};color:{{ h.fg }};">{{ h.status }}</span></div>
+        <sc-if value="{{ h.disabled }}" hint-placeholder-val="{{ false }}"><div style="{{ S.warn }}display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><span>Turned off on 3 Oct after 3 days of failed deliveries (your server answered 500). We emailed you. Nothing was lost: events wait for 7 days.</span><button onClick="{{ h.enable }}" disabled="{{ ro }}" style="{{ S.btn }}">Turn back on</button></div></sc-if>
+        <button onClick="{{ h.toggleLog }}" style="{{ S.link }}align-self:flex-start;">{{ h.logLabel }}</button>
+        <sc-if value="{{ h.showLog }}" hint-placeholder-val="{{ false }}"><div style="border-top:1px solid var(--border,#E8E2DC);">
+          <sc-for list="{{ h.log }}" as="d" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:{{ logCols }};gap:4px 12px;padding:8px 0;border-bottom:1px solid var(--border,#EDEAE5);font-size:12.5px;align-items:center;"><span style="color:var(--muted,#5A6472);">{{ d.when }}</span><code style="font-family:'IBM Plex Mono',monospace;">{{ d.event }}</code><span style="color:{{ d.fg }};font-weight:600;">{{ d.code }}</span><span style="color:var(--muted,#5A6472);">{{ d.ms }}</span><button onClick="{{ d.replay }}" disabled="{{ ro }}" style="{{ S.link }}justify-self:end;">Send again</button></div></sc-for>
+        </div></sc-if>
+      </div>
+    </sc-for>
+  </sc-if>
+
+  <sc-if value="{{ isApps }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ S.info }}">An app is a program you or your developer runs on its own website. It reaches your store with only the access you approve, and you open it from here. There’s no app store yet.</div>
+    <sc-if value="{{ consent }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ S.card }}border-color:var(--focus,#00519F);">
+        <div style="display:flex;gap:12px;align-items:center;"><span style="width:44px;height:44px;border-radius:10px;background:#0A2A4A;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;">LS</span><span style="display:flex;flex-direction:column;"><strong style="{{ S.t }}">Install Ledger Sync?</strong><span style="font-size:12px;color:var(--muted,#5A6472);">By Tally Bridges Pvt Ltd · ledgersync.app</span></span></div>
+        <strong style="font-size:13px;">It will be able to</strong>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text2,#434A55);display:flex;flex-direction:column;gap:3px;"><li>See your orders, refunds and invoices</li><li>See your products and prices</li></ul>
+        <strong style="font-size:13px;">It won’t be able to</strong>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text2,#434A55);display:flex;flex-direction:column;gap:3px;"><li>Change anything in your store</li><li>See customers’ addresses, your payment details or passwords</li></ul>
+        <span style="font-size:12px;color:var(--muted,#5A6472);">It works for the whole store. You can remove it any time.</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.install }}" style="{{ S.primary }}">Install</button><button onClick="{{ a.cancelInstall }}" style="{{ S.btn }}">Cancel</button></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ noApps }}" hint-placeholder-val="{{ false }}"><div style="{{ S.empty }}">No apps yet. When a developer gives you an install link, add it here.</div></sc-if>
+    <sc-for list="{{ apps }}" as="p" hint-placeholder-count="2">
+      <div style="{{ S.card }}flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="width:44px;height:44px;border-radius:10px;background:{{ p.bg }};color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-family:Manrope,sans-serif;font-weight:800;flex:none;">{{ p.init }}</span>
+        <span style="display:flex;flex-direction:column;flex:1;min-width:200px;"><strong style="{{ S.t }}">{{ p.name }}</strong><span style="font-size:12px;color:var(--muted,#5A6472);">{{ p.meta }}</span><span style="font-size:13px;color:var(--text2,#434A55);">{{ p.access }}</span></span>
+        <span style="display:flex;gap:8px;"><button onClick="{{ p.open }}" style="{{ S.btn }}">Open app ↗</button><button onClick="{{ p.remove }}" disabled="{{ ro }}" style="{{ S.btn }}color:var(--bfg,#A1261B);">Remove</button></span>
+      </div>
+    </sc-for>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { originIn: '', originErr: '', showNew: false, newDone: false, nk: { name: '', seller: '', exp: '90', scopes: ['products.read'] }, nkErr: '', secret: '', hookForm: false, hk: { url: '', events: ['order.placed'] }, hkErr: '', logOpen: null, consent: false };
+  renderVals() {
+    const app = this.props.app; if (!app) return { S: {}, a: {} };
+    const mode = this.props.mode || 'developers'; const c = app.caps; const phone = app.phone; const s = this.state;
+    const ro = !c.isOwner || !!c.readOnly;
+    const S = {
+      h: 'font-family:Manrope,sans-serif;font-weight:700;font-size:18px;', sub: 'font-size:13px;color:var(--muted,#5A6472);', t: 'font-family:Manrope,sans-serif;font-weight:700;font-size:15px;',
+      card: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;',
+      table: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;',
+      info: 'padding:12px 14px;border-radius:10px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);color:var(--ifg,#00325F);font-size:13px;',
+      warn: 'padding:10px 12px;border-radius:8px;background:var(--wbg,#FFF6E5);border:1px solid var(--wbd,#F2D9A6);color:var(--wfg,#7A4B00);font-size:13px;',
+      empty: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:28px;text-align:center;font-size:14px;color:var(--muted,#5A6472);',
+      code: "font-family:'IBM Plex Mono',monospace;font-size:13px;padding:8px 10px;border-radius:8px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);word-break:break-all;flex:1;min-width:0;",
+      btn: 'height:36px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;',
+      primary: 'height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;',
+      link: 'border:0;background:none;padding:0;color:var(--link,#B8541F);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:3px;',
+      input: 'height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;background:var(--card,#FFFFFF);font-weight:400;width:100%;',
+      label: 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;'
+    };
+    const store = (app.storeName || 'shop').toLowerCase().replace(/[^a-z]/g, '').slice(0, 10);
+    const roLine = c.readOnly ? 'Your store is view-only until the payment goes through.' : 'Only the store owner can change this.';
+    const base = { S, ro, roLine, pad: phone ? '14px' : '22px 28px', isDev: mode === 'developers', isApps: mode === 'apps', twoCols: phone ? '1fr' : '1fr 1fr', scopeCols: phone ? '1fr' : 'repeat(3,minmax(0,1fr))' };
+    if (mode === 'apps') {
+      const apps = app.st.devApps || [];
+      return { ...base, title: 'Apps', sub: 'Programs that work with your store, each with only the access you gave it.', consent: s.consent, noApps: !apps.length,
+        apps: apps.map(p => ({ ...p, open: () => app.toast('Opens ' + p.site + ' in a new tab (prototype)'), remove: () => app.modal({ title: 'Remove ' + p.name + '?', body: p.stops + ' Its access ends now. Anything it already copied stays with it — ask the developer to delete it.', confirm: 'Remove app', danger: true, onConfirm: () => { app.set('devApps', x => x.filter(y => y.id !== p.id)); app.toast(p.name + ' removed'); } }) })),
+        a: { addApp: () => app.modal({ title: 'Add an app', body: 'Paste the install link the developer gave you.', input: { label: 'Install link', placeholder: 'https://ledgersync.app/install/…', required: true }, confirm: 'Continue', validate: v => /^https:\/\//.test(v || '') ? '' : 'Paste a link that starts with https://', onConfirm: () => this.setState({ consent: true }) }),
+          install: () => { app.set('devApps', x => [...x, { id: 'a' + Date.now(), name: 'Ledger Sync', init: 'LS', bg: '#0A2A4A', site: 'ledgersync.app', meta: 'By Tally Bridges Pvt Ltd · installed just now by Farhan', access: 'Can see orders, refunds, invoices and products', stops: 'Your accounts stop getting new orders and refunds.' }]); this.setState({ consent: false }); app.toast('Ledger Sync installed. Open it to finish setting it up.'); }, cancelInstall: () => this.setState({ consent: false }) } };
+    }
+    const keys = app.st.devKeys || []; const hooks = app.st.devHooks || []; const sup = (app.data('suppliers') || []).map(v => ({ id: v.id, name: v.name }));
+    const SC = [['products.read', 'See products'], ['products.write', 'Change products'], ['stock.write', 'Change stock'], ['orders.read', 'See orders'], ['orders.write', 'Update orders'], ['customers.read', 'See customers']];
+    const scopeName = k => (SC.find(x => x[0] === k) || [k, k])[1];
+    const origins = [{ url: 'https://' + app.R.domain, fixed: true, canRemove: false }, ...(app.st.devOrigins || []).map(u => ({ url: u, fixed: false, canRemove: true, remove: () => app.set('devOrigins', x => x.filter(y => y !== u)) }))];
+    const EV = ['order.placed', 'order.paid', 'order.shipped', 'order.refunded', 'product.updated', 'stock.changed'];
+    const plan = c.P || {};
+    return { ...base, title: 'Developers', sub: 'Keys and webhooks for software that works with your store.', pubKey: 'pk_live_' + store + '_7Hq2LmX9', origins, originIn: s.originIn, originErr: s.originErr,
+      limitLine: plan.rank >= 3 ? 'Your plan: 600 requests a minute, 5 million a month.' : 'Your plan: 60 requests a minute, 100,000 a month.',
+      showNew: s.showNew, newDone: s.newDone, newForm: !s.newDone, nk: s.nk, nkErr: s.nkErr, secret: s.secret, suppliers: sup,
+      sellerHelp: s.nk.seller ? 'It only sees and changes that supplier’s products, stock and orders.' : 'It sees the whole store, within what you tick above.',
+      scopes: SC.map(([k, l]) => ({ label: l, on: s.nk.scopes.includes(k), toggle: () => this.setState({ nk: { ...s.nk, scopes: s.nk.scopes.includes(k) ? s.nk.scopes.filter(x => x !== k) : [...s.nk.scopes, k] } }) })),
+      keyCols: phone ? '1fr' : '1.4fr 1.6fr 1.2fr 0.9fr auto', noKeys: !keys.length,
+      keys: keys.map(k => ({ name: k.name, prefix: k.prefix + '…', scopes: k.scopes.map(scopeName).join(', '), scope: k.seller ? 'Only supplier ' + k.seller : 'Whole store', used: k.used, by: k.gone ? 'Created by ' + k.by + ' — no longer here' : 'Created by ' + k.by, byFg: k.gone ? 'var(--wfg,#7A4B00)' : 'var(--muted,#5A6472)', exp: k.exp, expFg: /in [0-9] day/.test(k.exp) ? 'var(--link,#B8541F)' : 'var(--muted,#5A6472)',
+        rotate: () => app.modal({ title: 'Rotate ' + k.name + '?', body: 'We make a new key and show it once. The old one keeps working for 24 hours so you can swap it without downtime.', confirm: 'Rotate key', onConfirm: () => { this.setState({ showNew: true, newDone: true, secret: 'sk_live_' + store + '_' + Math.random().toString(36).slice(2, 14) + Math.random().toString(36).slice(2, 14) }); } }),
+        revoke: () => app.modal({ title: 'Revoke ' + k.name + '?', body: 'It stops working straight away. Anything using it gets an error until it has a new key.', confirm: 'Revoke key', danger: true, onConfirm: () => { app.set('devKeys', x => x.filter(y => y.id !== k.id)); app.toast(k.name + ' revoked'); } }) })),
+      hookForm: s.hookForm, hk: s.hk, hkErr: s.hkErr, events: EV.map(e => ({ label: e, on: s.hk.events.includes(e), toggle: () => this.setState({ hk: { ...s.hk, events: s.hk.events.includes(e) ? s.hk.events.filter(x => x !== e) : [...s.hk.events, e] } }) })),
+      logCols: phone ? '1fr 1fr' : '1.2fr 1.4fr 0.6fr 0.6fr auto',
+      hooks: hooks.map(h => { const open = s.logOpen === h.id; const st = h.disabled ? ['Turned off', 'var(--bbg,#FDECEC)', 'var(--bfg,#A1261B)'] : h.failing ? ['Failing', 'var(--wbg,#FFF6E5)', 'var(--wfg,#7A4B00)'] : ['Working', 'var(--okbg,#EEF7F2)', 'var(--okfg,#1D6B47)']; return { url: h.url, events: h.events.join(' · '), status: st[0], bg: st[1], fg: st[2], disabled: !!h.disabled, showLog: open, logLabel: open ? 'Hide recent deliveries' : 'Recent deliveries',
+        toggleLog: () => this.setState({ logOpen: open ? null : h.id }), enable: () => { app.set('devHooks', x => x.map(y => y.id === h.id ? { ...y, disabled: false, failing: false } : y)); app.toast('Turned back on. Waiting events are being sent.'); },
+        log: (h.disabled ? [['3 Oct, 09:12', 'order.placed', '500', '1.2 s'], ['3 Oct, 08:40', 'order.paid', '500', '1.1 s'], ['2 Oct, 18:03', 'order.placed', 'Timed out', '10 s']] : [['Today, 10:44', 'order.placed', '200', '182 ms'], ['Today, 10:44', 'order.paid', '200', '164 ms'], ['Today, 09:02', 'order.shipped', '200', '201 ms']]).map(([when, event, code, ms]) => ({ when, event, code, ms, fg: code === '200' ? 'var(--okfg,#1D6B47)' : 'var(--bfg,#A1261B)', replay: () => app.toast('Sent again: ' + event) })) }; }),
+      a: {
+        copyPub: () => app.toast('Storefront key copied'), originIn: e => this.setState({ originIn: e.target.value, originErr: '' }),
+        addOrigin: () => { const v = s.originIn.trim().replace(/\/$/, ''); if (!/^https:\/\/[a-z0-9.-]+\.[a-z]{2,}$/i.test(v)) { this.setState({ originErr: 'Enter a full address that starts with https://, like https://www.yoursite.com' }); return; } app.set('devOrigins', x => [...(x || []), v]); this.setState({ originIn: '' }); app.toast(v + ' can now use your storefront key'); },
+        newKey: () => this.setState({ showNew: true, newDone: false, nk: { name: '', seller: '', exp: '90', scopes: ['products.read'] }, nkErr: '' }), cancelKey: () => this.setState({ showNew: false }),
+        nkName: e => this.setState({ nk: { ...s.nk, name: e.target.value }, nkErr: '' }), nkSeller: e => this.setState({ nk: { ...s.nk, seller: e.target.value } }), nkExp: e => this.setState({ nk: { ...s.nk, exp: e.target.value } }),
+        createKey: () => { if (!s.nk.name.trim()) { this.setState({ nkErr: 'Give it a name you’ll recognise later.' }); return; } if (!s.nk.scopes.length) { this.setState({ nkErr: 'Tick at least one thing it can do.' }); return; } const secret = 'sk_live_' + store + '_' + Math.random().toString(36).slice(2, 14) + Math.random().toString(36).slice(2, 14); const seller = (sup.find(v => v.id === s.nk.seller) || {}).name || ''; app.set('devKeys', x => [{ id: 'k' + Date.now(), name: s.nk.name.trim(), prefix: secret.slice(0, 16), scopes: s.nk.scopes, seller, used: 'Never used', by: 'Farhan', exp: s.nk.exp === 'never' ? 'Never expires' : 'Expires in ' + (s.nk.exp === '365' ? '1 year' : s.nk.exp + ' days') }, ...x]); this.setState({ newDone: true, secret }); },
+        copySecret: () => app.toast('Key copied'), doneKey: () => this.setState({ showNew: false, newDone: false, secret: '' }),
+        newHook: () => this.setState({ hookForm: true, hk: { url: '', events: ['order.placed'] }, hkErr: '' }), cancelHook: () => this.setState({ hookForm: false }), hkUrl: e => this.setState({ hk: { ...s.hk, url: e.target.value }, hkErr: '' }),
+        createHook: () => { const u = s.hk.url.trim(); if (!/^https:\/\//.test(u)) { this.setState({ hkErr: 'Use an address that starts with https://' }); return; } if (/localhost|127\.0\.0\.1|192\.168\.|10\.|169\.254\./.test(u)) { this.setState({ hkErr: 'That address points inside a private network. Use one the internet can reach.' }); return; } if (!s.hk.events.length) { this.setState({ hkErr: 'Pick at least one event.' }); return; } app.set('devHooks', x => [...x, { id: 'h' + Date.now(), url: u, events: s.hk.events }]); this.setState({ hookForm: false }); app.modal({ title: 'Signing secret', body: 'whsec_' + Math.random().toString(36).slice(2, 18) + ' — copy it now; we don’t show it again. Your server uses it to check each event came from us.', confirm: 'I’ve stored it' }); }
+      } };
+  }
+}
+</script>
+</body>
+</html>

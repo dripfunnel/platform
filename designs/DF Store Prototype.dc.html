@@ -51,6 +51,10 @@ a:hover{color:#00519F;}
       <select value="{{ st.dataset }}" onChange="{{ on.dataset }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
         <option value="stocked">Stocked</option><option value="empty">Brand new (empty)</option><option value="signup">Sign up from scratch</option>
       </select></label>
+    <label style="display:flex;align-items:center;gap:6px;">Partner support
+      <select value="{{ st.support }}" onChange="{{ on.support }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
+        <option value="none">No session</option><option value="open">Session open (read-only)</option><option value="asking">Asks to make changes</option><option value="write">Changes allowed</option>
+      </select></label>
     <label style="display:flex;align-items:center;gap:6px;">Scenario
       <select value="{{ st.scn }}" onChange="{{ on.scn }}" style="height:28px;border-radius:6px;border:1px solid #3A424E;background:#232A33;color:#FFFFFF;font-size:12px;padding:0 6px;">
         <option value="normal">Normal</option><option value="slow">Page is slow to load</option><option value="loadErr">Page won’t load</option><option value="notFound">Broken or old link</option><option value="expired">Session expired</option><option value="removed">Removed from this store</option><option value="invite">Invitation link (staff)</option><option value="inviteBad">Invitation expired</option>
@@ -102,6 +106,13 @@ a:hover{color:#00519F;}
 
       <div data-cat-main="1" style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:auto;position:relative;">
         
+        <sc-if value="{{ sup.show }}" hint-placeholder-val="{{ false }}">
+          <div role="status" style="display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:10px {{ frame.padX }};background:repeating-linear-gradient(135deg,var(--wbg,#FFF6E5) 0 14px,#FBEFD6 14px 28px);border-bottom:1px solid var(--wbd,#F2D9A6);color:var(--wfg,#7A4B00);font-size:13px;">
+            <span style="flex:1;min-width:220px;"><strong>{{ sup.title }}</strong> {{ sup.body }}</span>
+            <sc-if value="{{ sup.canDecide }}" hint-placeholder-val="{{ false }}"><span style="display:flex;gap:8px;"><button onClick="{{ on.supDeny }}" style="height:32px;padding:0 12px;border:1px solid var(--wbd,#F2D9A6);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:12px;cursor:pointer;">Deny</button><button onClick="{{ on.supAllow }}" style="height:32px;padding:0 12px;border:1px solid #EC844F;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:12px;cursor:pointer;">Allow changes</button></span></sc-if>
+            <sc-if value="{{ sup.canEnd }}" hint-placeholder-val="{{ false }}"><button onClick="{{ on.supEnd }}" style="height:32px;padding:0 12px;border:1px solid var(--wbd,#F2D9A6);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-family:Manrope,sans-serif;font-weight:600;font-size:12px;cursor:pointer;">{{ sup.endLabel }}</button></sc-if>
+          </div>
+        </sc-if>
         <sc-for list="{{ banners }}" as="b" hint-placeholder-count="0">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px {{ frame.padX }};background:{{ b.bg }};border-bottom:1px solid {{ b.bd }};color:{{ b.fg }};font-size:13px;">
             <span style="flex:1;min-width:200px;"><strong>{{ b.title }}</strong> {{ b.body }}</span>
@@ -153,6 +164,9 @@ a:hover{color:#00519F;}
           <sc-if value="{{ scr.settings }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalSettings" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
           <sc-if value="{{ scr.aplus }}" hint-placeholder-val="{{ false }}"><dc-import name="CatAPlus" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
           <sc-if value="{{ scr.profile }}" hint-placeholder-val="{{ false }}"><dc-import name="PortalProfile" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.activity }}" hint-placeholder-val="{{ false }}"><dc-import name="StoreActivity" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.sales }}" hint-placeholder-val="{{ false }}"><dc-import name="VendorViews" app="{{ app }}" mode="sales" hint-size="100%,700px"></dc-import></sc-if>
+          <sc-if value="{{ scr.team }}" hint-placeholder-val="{{ false }}"><dc-import name="VendorViews" app="{{ app }}" mode="team" hint-size="100%,700px"></dc-import></sc-if>
           <sc-if value="{{ scr.other }}" hint-placeholder-val="{{ false }}">
             <div style="padding:64px 32px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;"><span style="font-family:Manrope,sans-serif;font-weight:800;font-size:22px;">{{ otherTitle }}</span><span style="color:var(--muted,#5A6472);max-width:46ch;">{{ otherBody }}</span><button onClick="{{ on.openConsole }}" style="height:42px;padding:0 18px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;">Open the partner console</button></div>
           </sc-if>
@@ -260,8 +274,11 @@ a:hover{color:#00519F;}
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = this.fresh('US', 'stocked', {});
-    try { this.state.theme = localStorage.getItem('df-store-theme') || 'light'; } catch (e) { this.state.theme = 'light'; }
+    const q = new URLSearchParams(location.search);
+    this.state = this.fresh(q.get('region') || 'US', 'stocked', {});
+    try { this.state.theme = q.get('theme') || localStorage.getItem('df-store-theme') || 'light'; } catch (e) { this.state.theme = 'light'; }
+    ['role', 'plan', 'device', 'screen', 'settingsTab', 'support', 'editId'].forEach(k => { if (q.get(k)) this.state[k] = q.get(k); });
+    if (q.get('screen')) this.state.loading = false;
     const imp = (() => { try { const m = location.href.match(/[?&]imp=([^&#]+)/); return m ? JSON.parse(localStorage.getItem('df-imp-bus-v1') || '{}')[decodeURIComponent(m[1])] : null; } catch (e) { return null; } })();
     if (imp && imp.open) { const RM = { Owner:'owner', Manager:'manager', Staff:'staff', 'Supplier admin':'vendor', 'Supplier member':'vendorStock' }; const role = imp.kind === 'support' ? 'owner' : RM[imp.role] || 'staff', vend = role === 'vendor' || role === 'vendorStock'; Object.assign(this.state, { role, impS: imp, ...(vend ? { plan: 'business', screen: 'products' } : {}) }); }
   }
@@ -351,7 +368,7 @@ class Component extends DCLogic {
       mk('Block-print Kurta', { price: 30, supplier: 'Sanganer Prints', status: 'waiting', filters: { Fabric: 'Cotton', Occasion: 'Wedding' }, options: [{ name: 'Size', choices: R.sizes }] }),
       mk('Canvas Tote', { price: 18, cost: 5, status: 'hidden', stock: 0, filters: { Fabric: 'Canvas' }, legal: legal({ fibre: '100% cotton canvas' }) }),
       mk('Merino Beanie', { price: 24, supplier: 'Northwind Textiles', status: 'sentback', sentBack: 'The main photo is blurry — please upload a sharper one. Also add the fibre content.', filters: { Fabric: 'Wool' }, legal: legal({ fibre: '' }), photos: 1 }),
-      mk('Gift card', { price: 50, type: 'download', track: false, photos: 1, filters: {}, legal: legal({ fibre: 'n/a', care: 'n/a' }) }),
+      mk('Gift card', { price: 50, type: 'giftcard', track: false, photos: 1, filters: {}, legal: legal({ fibre: 'n/a', care: 'n/a' }) }),
       mk('Stoneware Mug', { price: 16, stock: 18, photos: 0, filters: { Fabric: 'Stoneware' }, legal: legal({ fibre: 'n/a', care: 'Dishwasher safe' }) }),
       mk('Silk Scarf', { price: 42, filters: { Fabric: 'Silk', Occasion: 'Wedding' }, photos: 3, colourPhotos: true, options: [{ name: 'Colour', choices: ['Ivory', 'Rust', 'Teal'] }], stocks: [4, 5, 0], pendingOrders: true, legal: legal({ fibre: '100% silk', care: 'Hand wash' }) }),
       mk('Linen Midi Dress', { price: 89, supplier: 'Northwind Textiles', status: 'waiting', filters: { Fabric: 'Linen', Occasion: 'Wedding' }, options: [{ name: 'Size', choices: R.sizes }], legal: legal({ fibre: '100% linen' }) }),
@@ -433,6 +450,11 @@ class Component extends DCLogic {
   fresh(region, dataset, keep) {
     return {
       region, dataset, role: 'owner', plan: 'trial', theme: (this.state && this.state.theme) || 'light', profiles: { owner: { name: 'Farhan Ali', email: 'farhan@' + this.REG(region).domain, phone: this.REG(region).phone, tfa: dataset === 'empty' ? 'off' : 'sms', backup: dataset === 'empty' ? 0 : 10, pwDate: 'Changed 3 months ago' }, manager: { name: 'Priya Shah', email: 'priya@' + this.REG(region).domain, phone: '', tfa: 'off', backup: 0, pwDate: 'Changed 5 weeks ago' }, staff: { name: 'Tom Okafor', email: 'tom@' + this.REG(region).domain, phone: '', tfa: 'off', backup: 0, pwDate: 'Changed 2 weeks ago' }, vendor: { name: 'Nadia Tran', email: 'nadia@northwind.co', phone: '', tfa: 'app', backup: 8, pwDate: 'Changed 4 months ago' } }, job: null, preview: null, doc: null, device: 'desktop', aiKey: '', aiUsed: 42, bwUsed: 0.8, bwExtra: 0, billing: 'year', setupBought: false, kept: null, graceDays: 3,
+      support: 'none', supportAccess: true, customerAccounts: 'both', storefrontMode: 'ai',
+      devOrigins: [], devKeys: [{ id: 'k1', name: 'Warehouse stock sync', prefix: 'sk_live_wsk7Hq2', scopes: ['products.read', 'stock.write'], seller: '', used: 'Used 12 min ago', by: 'Farhan', exp: 'Expires in 84 days' }, { id: 'k2', name: 'Northwind feed', prefix: 'sk_live_nwf3Kp9', scopes: ['products.read', 'stock.write'], seller: 'Northwind Textiles', used: 'Used yesterday', by: 'Sam Patel', gone: true, exp: 'Expires in 6 days' }],
+      devHooks: [{ id: 'h1', url: 'https://erp.example.com/hooks/dripfunnel', events: ['order.placed', 'order.paid', 'order.shipped'] }, { id: 'h2', url: 'https://old-crm.example.com/df', events: ['order.placed'], disabled: true }],
+      devApps: [{ id: 'a1', name: 'Shipping Labels Pro', init: 'SL', bg: '#1D6B47', site: 'labelspro.app', meta: 'By Packwise Ltd · installed 12 Aug by Farhan', access: 'Can see orders and addresses, and mark orders shipped', stops: 'Labels stop printing and orders aren’t marked shipped automatically.' }],
+      vendorTeam: [{ name: 'Nadia Tran', email: 'nadia@northwind.com', role: 'admin', status: 'active', you: true }, { name: 'Leo Park', email: 'leo@northwind.com', role: 'member', status: 'active' }, { name: 'mira', email: 'mira@northwind.com', role: 'member', status: 'invited' }],
       brand: { active: false, name: 'Northstar Commerce', short: 'N', primary: '#1B3A5B', accent: '#2BB673', font: 'Manrope', loginTitle: 'Sell online with Northstar', loginBody: 'Everything your shop needs, in one place.', domain: 'admin.northstar.shop', emailFrom: 'hello@northstar.shop', support: 'help.northstar.shop', hidePowered: true },
       partners: [{ id: 'pc1', name: 'Bloom & Co.', owner: 'asha@bloomco.in', plan: 'growth', status: 'active', stores: 1, created: '12 Aug 2026', features: { suppliers: false, markets: true, storefrontAI: true }, domain: 'bloomco.northstar.shop' }, { id: 'pc2', name: 'Urban Threads', owner: 'dev@urbanthreads.com', plan: 'business', status: 'active', stores: 3, created: '2 Jul 2026', features: { suppliers: true, markets: true, storefrontAI: true }, domain: 'shop.urbanthreads.com' }, { id: 'pc3', name: 'Kiran Crafts', owner: 'kiran@crafts.in', plan: 'starter', status: 'invited', stores: 0, created: '25 Sep 2026', features: { suppliers: false, markets: false, storefrontAI: false }, domain: '' }, { id: 'pc4', name: 'Old Mill Goods', owner: 'ops@oldmill.co', plan: 'free', status: 'deactivated', stores: 1, created: '3 Mar 2026', features: { suppliers: false, markets: false, storefrontAI: false }, domain: 'oldmill.northstar.shop' }], multiLang: false, multiCur: false, approvalOn: true,
       sim: { offline: false, uploadFail: false, conflict: false },
@@ -522,9 +544,10 @@ class Component extends DCLogic {
   marketStatus(p) {
     const R = this.REG(this.state.region);
     const labels = { fibre: 'Fibre content', origin: 'Country of origin', care: 'Care instructions', frText: 'Safety text in French', batch: 'Batch or type number', arText: 'Label details in Arabic', compare: R.compareLabel };
-    const hasPrice = p.variants && p.variants.length ? p.variants.some(v => !v.removed && Number(v.price) > 0) : Number(p.price) > 0;
+    const hasPrice = p.type === 'giftcard' || (p.variants && p.variants.length ? p.variants.some(v => !v.removed && Number(v.price) > 0) : Number(p.price) > 0);
+    const physical = !p.type || p.type === 'physical';
     return R.markets.map(m => {
-      const missing = m.needs.filter(n => n === 'compare' ? !Number(p.compare) : !((p.legal || {})[n] || '').trim()).map(n => ({ key: n, label: labels[n] }));
+      const missing = m.needs.filter(() => physical).filter(n => n === 'compare' ? !Number(p.compare) : !((p.legal || {})[n] || '').trim()).map(n => ({ key: n, label: labels[n] }));
       if (!hasPrice) missing.unshift({ key: 'price', label: 'Price' });
       return { code: m.code, name: m.name, missing, ok: !missing.length };
     });
@@ -541,18 +564,20 @@ class Component extends DCLogic {
 
   canOpen(screen, role) {
     if (screen === 'profile') return true;
-    const V = ['products', 'product', 'orders', 'order'], VS = ['products', 'product'];
+    const V = ['products', 'product', 'orders', 'order', 'sales', 'team'], VS = ['products', 'product'];
     const ST = ['home', 'orders', 'order', 'customers', 'products', 'product', 'collections', 'offers', 'offer', 'carts', 'denied', 'missing'];
     if (role === 'vendorStock') return VS.includes(screen) || screen === 'denied' || screen === 'missing';
     if (role === 'vendor') return V.includes(screen) || screen === 'denied' || screen === 'missing';
     if (role === 'staff') return ST.includes(screen);
-    if (role === 'manager') return !['settings', 'billing', 'keep'].includes(screen);
+    if (screen === 'activity') return role === 'manager' || role === 'owner';
+    if (role === 'manager') return !['settings', 'billing', 'keep', 'sales', 'team'].includes(screen);
+    if (role === 'owner' && ['sales', 'team'].includes(screen)) return false;
     return true;
   }
   go(screen, extra) {
     if (screen === 'approve') { screen = 'products'; extra = { productFilter: 'waiting', ...(extra || {}) }; }
     if (screen === 'sizecharts') { screen = 'collections'; extra = { collTab: 'sizecharts', ...(extra || {}) }; }
-    const KNOWN = ['keep', 'home', 'orders', 'order', 'customers', 'reports', 'storefront', 'billing', 'products', 'product', 'collections', 'imports', 'offers', 'offer', 'carts', 'settings', 'aplus', 'other', 'denied', 'missing', 'profile'];
+    const KNOWN = ['keep', 'home', 'orders', 'order', 'customers', 'reports', 'storefront', 'billing', 'products', 'product', 'collections', 'imports', 'offers', 'offer', 'carts', 'settings', 'aplus', 'other', 'denied', 'missing', 'profile', 'activity', 'sales', 'team'];
     if (!KNOWN.includes(screen)) { extra = { otherTitle: { brand: 'Branding', plans: 'Plans', partner: 'Partner customers' }[screen] || 'This page', otherKey: screen, ...(extra || {}) }; screen = 'other'; }
     const role = this.caps().role;
     if (!this.canOpen(screen, role)) { extra = { deniedFrom: screen }; screen = 'denied'; }
@@ -670,7 +695,8 @@ class Component extends DCLogic {
       products: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z', collections: 'M12 3 3 7.8l9 4.8 9-4.8z M3 12.2 12 17l9-4.8 M3 16.6 12 21.4l9-4.8',
       sizecharts: 'M3 15.5 15.5 3l5.5 5.5L8.5 21z M7 11.5l2 2 M9.8 8.7l1.5 1.5 M12.6 5.9l2 2', imports: 'M12 3.4v10.8 M7.6 9.8 12 14.2l4.4-4.4 M4 16.4v4h16v-4',
       approve: 'M8.8 12.4 11 14.6l4.4-4.4 M12 3.4a8.6 8.6 0 1 0 0 17.2 8.6 8.6 0 0 0 0-17.2z', settings: 'M4 7h16 M4 12.5h16 M4 18h16 M9.5 5.2v3.6 M15.5 10.7v3.6 M7.5 16.2v3.6',
-      customers: 'M9 11.2a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8 M2.6 20c0-3.5 2.9-5.4 6.4-5.4s6.4 1.9 6.4 5.4', offers: 'M3.6 12.4V3.6h8.8l8 8-8.8 8.8z M8 8h.01', carts: 'M3 4h2.4l2.2 11h10.6l2-8H6.4 M9 20h.01 M17 20h.01'
+      customers: 'M9 11.2a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8 M2.6 20c0-3.5 2.9-5.4 6.4-5.4s6.4 1.9 6.4 5.4', offers: 'M3.6 12.4V3.6h8.8l8 8-8.8 8.8z M8 8h.01', carts: 'M3 4h2.4l2.2 11h10.6l2-8H6.4 M9 20h.01 M17 20h.01',
+      sales: 'M4 19.5h16 M6.5 16V11 M11 16V6.5 M15.5 16v-7 M20 16V4', team: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M16.5 10a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5 M2.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5 M14 14.6c.8-.4 1.6-.6 2.5-.6 2.8 0 5 1.8 5 4.6'
     };
     const cur = s.screen === 'product' || s.screen === 'aplus' || s.screen === 'imports' ? 'products' : (s.screen === 'order' ? 'orders' : s.screen === 'offer' ? 'offers' : s.screen);
     const item = (key, label, extra) => ({ item: true, heading: '', key, label, icon: ICON[key] || ICON.products, badge: '', note: '', ...extra,
@@ -680,7 +706,7 @@ class Component extends DCLogic {
     let nav;
     const toShip = s.orders.filter(o => ['unfulfilled', 'partial'].includes(o.status) && (!c.isVendor || o.lines.some(l => l.supplier === vendorName && l.shipped < l.qty))).length;
     const lock = { locked: s.provisioning };
-    if (c.isVendor) { nav = [item('products', 'Your products', { note: c.isVendorStock ? 'stock only' : '' })]; if (!c.isVendorStock) nav.push(item('orders', 'To ship', { badge: toShip ? String(toShip) : '' })); }
+    if (c.isVendor) { nav = [item('products', 'Your products', { note: c.isVendorStock ? 'stock only' : '' })]; if (!c.isVendorStock) { nav.push(item('orders', 'To ship', { badge: toShip ? String(toShip) : '' })); nav.push(item('sales', 'Your sales')); nav.push(item('team', 'Your team')); } }
     else if (c.isStaff) nav = [item('home', 'Home'), item('orders', 'Orders', { badge: toShip ? String(toShip) : '' }), item('customers', 'Customers'), item('offers', 'Offers', { note: 'view only' }), item('carts', 'Abandoned carts', { note: 'view only' }), head('Catalogue'), item('products', 'Products', { note: 'view only' }), item('collections', 'Collections', { note: 'view only' })];
     else {
       nav = [item('home', 'Home'), item('orders', 'Orders', { badge: toShip ? String(toShip) : '' }), item('customers', 'Customers'), item('offers', 'Offers'), item('carts', 'Abandoned carts'), item('reports', 'Reports'), head('Catalogue'), item('products', 'Products', { badge: c.approvalOn && waiting ? String(waiting) : '' }), item('collections', 'Collections')];
@@ -688,8 +714,14 @@ class Component extends DCLogic {
       if (c.isOwner) { nav.push(head('Admin')); nav.push(item('settings', 'Settings', lock)); nav.push(item('billing', 'Billing', { note: c.trial ? (s.plan === 'trial9' ? '1 day left' : '7 days left') : '' })); }
     }
 
-    const crumbs = { denied: 'No access', missing: 'Not found', keep: 'Billing / Choose what to keep', home: 'Home', orders: c.isVendor ? 'To ship' : 'Orders', customers: 'Customers', offers: s.offerView ? 'Offers / Offer' : 'Offers', offer: s.offerId ? 'Offers / Edit offer' : 'Offers / New offer', carts: s.cartView ? 'Abandoned carts / Cart' : 'Abandoned carts', reports: 'Reports', storefront: 'Storefront', billing: 'Billing', products: c.isVendor ? 'Your products' : 'Catalogue / Products', product: 'Catalogue / Products / ' + (s.editId ? ((s.products.find(p => p.id === s.editId) || {}).name || 'Product') : 'New product'), collections: 'Catalogue / Collections', sizecharts: 'Catalogue / Size charts', imports: 'Products / Import & export', settings: 'Settings', aplus: 'Products / A+ content', profile: 'My profile', other: s.otherTitle || '' };
+    const crumbs = { denied: 'No access', missing: 'Not found', keep: 'Billing / Choose what to keep', home: 'Home', orders: c.isVendor ? 'To ship' : 'Orders', customers: 'Customers', offers: s.offerView ? 'Offers / Offer' : 'Offers', offer: s.offerId ? 'Offers / Edit offer' : 'Offers / New offer', carts: s.cartView ? 'Abandoned carts / Cart' : 'Abandoned carts', reports: 'Reports', storefront: 'Storefront', billing: 'Billing', products: c.isVendor ? 'Your products' : 'Catalogue / Products', product: 'Catalogue / Products / ' + (s.editId ? ((s.products.find(p => p.id === s.editId) || {}).name || 'Product') : 'New product'), collections: 'Catalogue / Collections', sizecharts: 'Catalogue / Size charts', imports: 'Products / Import & export', settings: 'Settings', aplus: 'Products / A+ content', profile: 'My profile', activity: 'Store activity', sales: 'Your sales', team: 'Your team', other: s.otherTitle || '' };
 
+    const supName = 'Ravi', partner = s.brand.name;
+    const canDecide = (c.isOwner || c.isManager) && s.support === 'asking';
+    const sup = { show: !c.isVendor && s.support !== 'none',
+      title: s.support === 'write' ? partner + ' support (' + supName + ') can make changes in your store.' : partner + ' support (' + supName + ') is viewing your store.',
+      body: s.support === 'asking' ? 'Read-only. ' + supName + ' asks to make changes: “Fix the product photos for ticket #4821.” Ends in 28 min.' + (canDecide ? '' : ' Only the owner or a manager can allow it.') : s.support === 'write' ? 'For this session only, allowed by ' + (s.supAllowedBy || 'Farhan') + '. Passwords, payments, payouts and roles stay locked. Ends in 21 min.' : 'Read-only. Ends in 28 min. Every page they open is in Settings › Activity log.',
+      canDecide, canEnd: c.isOwner, endLabel: 'End session' };
     const banners = [];
     if (s.provisioning) banners.push({ title: 'Your store is being built —', body: 'about a minute. Products work now; Storefront and Settings open when it’s ready.', bg: 'var(--ibg,#EAF1F8)', bd: 'var(--ibd,#C9DAEC)', fg: 'var(--ifg,#00325F)', cta: '', onClick: null });
     if (s.plan === 'pastdue') banners.push({ title: 'Your store is view-only.', body: 'Your last payment didn’t go through. Everything is safe — pay to start editing again.', bg: 'var(--wbg,#FFF6E5)', bd: 'var(--wbd,#F2D9A6)', fg: 'var(--wfg,#7A4B00)', cta: c.isOwner ? 'Go to billing' : '', onClick: () => this.go('billing') });
@@ -760,7 +792,7 @@ class Component extends DCLogic {
     };
 
     return {
-      st: s, R, app, nav, toggles, banners, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
+      st: s, R, app, nav, toggles, banners, sup, modal, modalVal: s.modalVal, hasModal: !!m, toast: s.toast || {}, hasToast: !!s.toast,
       roleLabel: { owner: 'Owner', manager: 'Manager', staff: 'Staff', vendor: 'Supplier · Northwind', vendorStock: 'Supplier · stock only' }[s.role],
       user: (() => { const me = s.profiles[c.isVendor ? 'vendor' : s.role] || {}; const ini = (me.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase(); return { initials: ini, name: me.name, sub: c.isVendor ? 'Northwind Textiles' : { owner: 'Owner', manager: 'Manager', staff: 'Staff' }[s.role] }; })(),
       theme: s.theme === 'dark' ? 'dark' : 'light', hasPreview: !!s.preview, pv: this.pvVals(R, fmt, phone), hasDoc: !!s.doc, doc: this.docVals(),
@@ -768,7 +800,7 @@ class Component extends DCLogic {
       brandOn: c.P.whiteLabel && s.brand.active, brandOff: !(c.P.whiteLabel && s.brand.active), brand: s.brand, navBg: c.P.whiteLabel && s.brand.active ? s.brand.primary : (s.theme === 'dark' ? '#050D14' : '#0A2A4A'),
       authed: s.auth === 'in', unauthed: s.auth !== 'in', loading: s.loading || s.scn === 'slow', notLoading: !s.loading, authKey: 'au' + s.auth + s.authNonce, pageErr: s.scn === 'loadErr' && !s.loading, crumbName: (crumbs[s.screen] || 'this page').split(' / ').pop().toLowerCase().replace(/^catalogue$/, 'this page'), errRef: s.screen + '-' + String(s.authNonce + 4821).slice(-4),
       denied: (() => { const lbl = { settings: 'Settings', billing: 'Billing', keep: 'Billing', reports: 'Reports', storefront: 'Storefront', imports: 'Import & export', aplus: 'A+ content', home: 'Home', orders: 'Orders', order: 'this order', collections: 'Collections', offers: 'Offers', offer: 'this offer', carts: 'Abandoned carts', customers: 'Customers' }[s.deniedFrom] || 'this page'; const who = { manager: 'Managers', staff: 'Staff', vendor: 'Suppliers', vendorStock: 'Suppliers with stock-only access' }[c.role] || 'Your role'; return { title: 'You don’t have access to ' + lbl, body: who + ' can’t open ' + lbl + (['settings', 'billing', 'keep'].includes(s.deniedFrom) ? ' — only the store owner can. ' : '. ') + (c.isVendor ? 'Ask ' + (s.storeInfo || {}).name + ' if you need it.' : 'Ask Farhan Ali, the owner, if you need something changed there.'), back: c.isVendor ? 'Go to your products' : 'Go to Home', canAsk: !c.isVendor }; })(),
-      scr: { profile: s.screen === 'profile', denied: s.screen === 'denied', missing: s.screen === 'missing', partner: s.screen === 'partner', brand: s.screen === 'brand', plans: s.screen === 'plans', keep: s.screen === 'keep', home: s.screen === 'home', orders: s.screen === 'orders' || s.screen === 'order' || s.screen === 'customers', reports: s.screen === 'reports', storefront: s.screen === 'storefront', billing: s.screen === 'billing', products: s.screen === 'products', product: s.screen === 'product', collections: s.screen === 'collections', sizecharts: s.screen === 'sizecharts', imports: s.screen === 'imports', approve: s.screen === 'approve', offers: s.screen === 'offers', offer: s.screen === 'offer', carts: s.screen === 'carts', settings: s.screen === 'settings', aplus: s.screen === 'aplus', other: s.screen === 'other' },
+      scr: { activity: s.screen === 'activity', sales: s.screen === 'sales', team: s.screen === 'team', profile: s.screen === 'profile', denied: s.screen === 'denied', missing: s.screen === 'missing', partner: s.screen === 'partner', brand: s.screen === 'brand', plans: s.screen === 'plans', keep: s.screen === 'keep', home: s.screen === 'home', orders: s.screen === 'orders' || s.screen === 'order' || s.screen === 'customers', reports: s.screen === 'reports', storefront: s.screen === 'storefront', billing: s.screen === 'billing', products: s.screen === 'products', product: s.screen === 'product', collections: s.screen === 'collections', sizecharts: s.screen === 'sizecharts', imports: s.screen === 'imports', approve: s.screen === 'approve', offers: s.screen === 'offers', offer: s.screen === 'offer', carts: s.screen === 'carts', settings: s.screen === 'settings', aplus: s.screen === 'aplus', other: s.screen === 'other' },
       otherTitle: s.otherTitle || '', storeName: (s.storeInfo || {}).name || R.store, screenDisplay: s.loading || s.scn === 'slow' || s.scn === 'loadErr' ? 'none' : 'block', editKey: 'ed' + s.editNonce, offerKey: 'of' + (s.offerNonce || 0), crumb: crumbs[s.screen] || '',
       isPhone: phone, showDevice: true, navShown: !phone || s.navOpen, drawerScrim: phone && s.navOpen,
       dev: { dBg: phone ? 'transparent' : '#EC844F', dFg: phone ? '#D6DEE7' : 'var(--text,#14181F)', pBg: phone ? '#EC844F' : 'transparent', pFg: phone ? 'var(--text,#14181F)' : '#D6DEE7' }, fullDisp: phone ? 'none' : 'inline', meDisp: phone ? 'none' : 'flex',
@@ -779,7 +811,11 @@ class Component extends DCLogic {
         plan: e => { const plan = e.target.value; const lose = ['vendor', 'vendorStock'].includes(s.role) && !this.planOf(plan).suppliers; this.setState({ plan, ...(lose ? { role: 'owner', screen: 'home' } : {}) }); },
         dataset: e => { const d = e.target.value; this.setState({ dataset: d, auth: d === 'signup' ? 'signup' : 'in', screen: 'home', firstSaved: false, walkthrough: true, provisioning: false, profiles: { ...s.profiles, owner: { ...s.profiles.owner, tfa: d === 'empty' ? 'off' : 'sms', backup: d === 'empty' ? 0 : 10 } }, ...this.seed(s.region, d) }); },
         switchStore: () => this.modal({ title: 'Switch store', body: 'One sign-in for every store you belong to. Your last store is first.', choices: [{ label: (s.storeInfo || {}).name || R.store, sub: 'Owner · current store', value: 'cur' }, { label: 'Aurelia Home', sub: 'Owner · India', value: 'IN' }, { label: 'Kala Weaves', sub: 'Supplier access · Products and stock', value: 'v' }], confirm: 'Open', onConfirm: v => { if (v === 'cur') return; if (v === 'v') { this.setState({ role: 'vendor', screen: 'products' }); this.toast('Opened as a supplier — your navigation is different here'); return; } this.setState(this.fresh('IN', 'stocked', { device: s.device })); this.toast('Switched store'); } }),
-        userMenu: () => this.modal({ title: ({ owner: 'Farhan Ali', manager: 'Priya Shah', staff: 'Tom Okafor' }[s.role] || 'Nadia Tran'), body: 'One account across every store you belong to.', choices: [{ label: 'My profile', sub: 'Name, password, two-step sign-in', value: 'profile' }, { label: 'Switch store', sub: 'Pick another store', value: 'switch' }, { label: 'Sign out', sub: 'Signs you out of every store on this device', value: 'out' }], confirm: 'Go', onConfirm: v => { if (v === 'out') { this.setState({ auth: 'login', navOpen: false }); } else if (v === 'switch') { setTimeout(() => this.renderVals().on.switchStore(), 50); } else this.go('profile'); } }),
+        support: e => this.setState({ support: e.target.value, supAllowedBy: null }),
+        supAllow: () => this.modal({ title: 'Let ' + partner + ' support make changes?', body: supName + ' can edit products, orders and settings for the rest of this session (28 min). They still can’t change passwords, payment details, payouts or who works here. Everything they change is logged under their name' + (c.isManager ? ', and the store owners are emailed.' : '.'), confirm: 'Allow changes', onConfirm: () => { this.setState({ support: 'write', supAllowedBy: c.isManager ? 'Priya' : 'Farhan' }); this.toast('Changes allowed for this session'); } }),
+        supDeny: () => { this.setState({ support: 'open' }); this.toast(supName + ' stays read-only. We’ve told them.'); },
+        supEnd: () => this.modal({ title: 'End the support session?', body: supName + ' is sent out of your store now. They can open a new session later with a new reason.', confirm: 'End session', danger: true, onConfirm: () => { this.setState({ support: 'none' }); this.toast('Support session ended'); } }),
+        userMenu: () => this.modal({ title: ({ owner: 'Farhan Ali', manager: 'Priya Shah', staff: 'Tom Okafor' }[s.role] || 'Nadia Tran'), body: 'One account across every store you belong to.', choices: [{ label: 'My profile', sub: 'Name, password, two-step sign-in', value: 'profile' }, ...(s.role === 'manager' ? [{ label: 'Store activity', sub: 'Who did what in this store', value: 'activity' }] : []), { label: 'Switch store', sub: 'Pick another store', value: 'switch' }, { label: 'Sign out', sub: 'Signs you out of every store on this device', value: 'out' }], confirm: 'Go', onConfirm: v => { if (v === 'out') { this.setState({ auth: 'login', navOpen: false }); } else if (v === 'switch') { setTimeout(() => this.renderVals().on.switchStore(), 50); } else this.go(v === 'activity' ? 'activity' : 'profile'); } }),
         reset: () => { this.setState(this.fresh(s.region, s.dataset, { device: s.device })); this.toast('Data reset'); },
         scn: e => { const v = e.target.value; clearTimeout(this._lt);
           if (v === 'expired' || v === 'removed') { this.setState({ scn: 'normal', auth: 'login', authNote: v, navOpen: false, modal: null, authNonce: s.authNonce + 1 }); return; }
@@ -802,8 +838,11 @@ class Component extends DCLogic {
           if (mm.input && mm.input.required && !s.modalVal.trim()) { this.setState({ modalErr: mm.input.error || 'Please fill this in.' }); return; }
           if (mm.choices && mm.choices.length && !s.modalChoice) { this.setState({ modalChoice: mm.choices[0].value }); }
           const val = mm.input ? s.modalVal : (s.modalChoice || (mm.choices && mm.choices[0] ? mm.choices[0].value : null));
+          const choice = s.modalChoice || (mm.choices && mm.choices[0] ? mm.choices[0].value : null);
+          const bad = mm.validate ? mm.validate(val, choice) : '';
+          if (bad) { this.setState({ modalErr: bad }); return; }
           this.setState({ modal: null, modalVal: '', modalChoice: null });
-          if (mm.onConfirm) mm.onConfirm(val);
+          if (mm.onConfirm) mm.onConfirm(val, choice);
         },
         toastAction: () => { const t = s.toast; this.setState({ toast: null }); if (t && t.fn) t.fn(); },
         toastClose: () => this.setState({ toast: null })
