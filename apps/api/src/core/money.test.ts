@@ -58,6 +58,9 @@ describe('prices in another currency (CATALOG fact 26, O4)', () => {
     expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'nearest')).toEqual({ amount: 1500n, currency: 'USD' })
     expect(roundPrice({ amount: 1550n, currency: 'USD' }, 'nearest')).toEqual({ amount: 1600n, currency: 'USD' })
     expect(roundPrice({ amount: 1547n, currency: 'JPY' }, 'ends-99')).toEqual({ amount: 1599n, currency: 'JPY' })
+    // Whole yen are already whole units.
+    expect(roundPrice({ amount: 1547n, currency: 'JPY' }, 'nearest')).toEqual({ amount: 1547n, currency: 'JPY' })
+    expect(roundPrice({ amount: 12345n, currency: 'KWD' }, 'nearest')).toEqual({ amount: 12000n, currency: 'KWD' })
     expect(roundPrice({ amount: 1547n, currency: 'USD' }, 'none')).toEqual({ amount: 1547n, currency: 'USD' })
   })
 })

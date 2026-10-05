@@ -951,7 +951,10 @@ with validation before any write, partial-failure reports, and translation and c
     flagged: "Not for sale in USD until you add a price."
 - O3. Versions table (D4): a column per manual currency, with "Apply to all" per currency and
   a toggle to hide the extra columns when not needed.
-- O4. Rounding shown as it will apply ("$15.47 → $15.99"), with a link to Settings.
+- O4. Rounding shown as it will apply ("$15.47 → $15.99"), with a link to Settings. **Built on
+  #296**: `nearest` is the nearest whole unit (a no-op for a currency with no minor unit, such as
+  JPY); `ends-99` rounds up to the next price ending in 99 of the minor unit ($15.99), or, with no
+  minor unit, of the hundred (¥1,547 → ¥1,599).
 - O5. Rates freshness: "Rates updated 2 hours ago", and what shoppers see if rates are stale or
   unavailable. **Decided on #296**: the ECB's daily euro reference rates, checked every six hours; a
   converted price uses the latest rate held, however old (the portal shows its date), and a

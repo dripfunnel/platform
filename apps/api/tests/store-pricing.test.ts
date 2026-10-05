@@ -118,7 +118,11 @@ describe('a product’s price in each currency', () => {
     const rates = ((await gql('{ storeLocale { rates { currency perEuro publishedOn } } }', 'owner')).data?.['storeLocale'] as { rates: { currency: string; perEuro: string; publishedOn: string }[] }).rates
     expect(rates.map((r) => [r.currency, Number(r.perEuro), r.publishedOn]).sort()).toEqual([['INR', 90, '2026-10-02']])
     const own = ((await saveProduct('supplier', [{ currency: 'INR', amount: '50000' }])).data?.['saveProduct'] as { id: string }).id
-    expect((await pricingOf(own, undefined, 'supplier'))?.pricing).toBeNull()
+    // The field's own access refuses a supplier: it reads null, as refused object fields do (decided on #14),
+    // while the merchant reads the same product's prices.
+    const refused = await gql('query P($id: ID!) { product(id: $id) { name pricing { versionId } } }', 'supplier', { id: own })
+    expect({ data: refused.data?.['product'], errors: refused.errors }).toEqual({ data: { name: 'Linen kurta', pricing: null }, errors: undefined })
+    expect((await pricingOf(own))?.pricing).toHaveLength(1)
     expect((await saveProduct('supplier', [{ currency: 'INR', amount: '50000' }, { currency: 'EUR', amount: '600' }], own)).code).toBe('SUPPLIER_FIELD')
     expect((await pricingOf(own))?.pricing?.[0]?.prices.find((p) => p.currency === 'EUR')).toMatchObject({ source: 'converted' })
   })
@@ -135,6 +139,17 @@ describe('the reference rates', () => {
       { currency: 'USD', rate: '1.090000000000', day: '2026-10-03' },
     ])
     await expect(ratesRefreshDeliverer(db.sql, { fetch: async () => Promise.reject(new Error('down')) }).deliver(effect, AbortSignal.timeout(1000))).rejects.toThrow('down')
+  })
+
+  it('is written by the rates job alone: no store’s or supplier’s request changes a rate', async () => {
+    const { withScope } = await import('#db/scoped/index')
+    const merchant = { caller: { kind: 'person' as const, userId: people.owner, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const supplier = { ...merchant, caller: { kind: 'person' as const, userId: people.supplier, sessionId: 's' }, sellerScope: { kind: 'seller' as const, sellerId: t.sellerA1First } }
+    for (const who of [merchant, supplier]) {
+      await expect(withScope(db.sql, who, (tx) => tx`update exchange_rate set per_euro = 1 where currency = 'USD'`)).rejects.toThrow(/permission denied/i)
+      await expect(withScope(db.sql, who, (tx) => tx`insert into exchange_rate (currency, per_euro, source, published_on, fetched_at) values ('GBP', 1, 'ecb', current_date, now())`)).rejects.toThrow(/permission denied/i)
+    }
+    expect((await withScope(db.sql, merchant, (tx) => tx<{ currency: string }[]>`select currency::text as currency from exchange_rate order by currency`)).map((r) => r.currency)).toEqual(['INR', 'USD'])
   })
 
   it('asks once per six-hour window however often the cron runs', async () => {
