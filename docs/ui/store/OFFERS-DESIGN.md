@@ -226,9 +226,10 @@ promotions tests before relying on it.
    - Total uses and uses per customer work for codes and for automatic offers. The engine's
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
-   - "Per customer" only works once the shopper is known. A **guest** is recognised by email,
-     or by phone when that is how they checked out (decided 2026-10-05 on #337). Say it in the helper text
-     ("Shoppers checking out as guests are recognised by email or phone").
+   - "Per customer" only works once the shopper is known. A **guest** is recognised by normalised
+     email, or by phone only once proven by a code (mobile sign-in, ACCESS §2.1); a typed,
+     unproven phone never counts (decided 2026-10-05 on #337). Limits are best-effort for guests. Say it in the
+     helper text ("Shoppers checking out as guests are recognised by email").
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".
 9. **Status is derived, not stored.** The portal (or the Store API) computes it from
@@ -718,7 +719,7 @@ Ready-made starting points that fill the form and leave the merchant to adjust:
   Is "one code per order" store-wide or per offer? (§3 fact 7, M4)
 - ~~Do cancelled or refunded orders give a use back? How are guests recognised for
   per-customer limits? (§3 fact 8)~~ Cancelled before fulfilment gives it back, refunds don't;
-  guests by email or phone (decided 2026-10-05 on #337).
+  guests by email, or a phone proven by a code (decided 2026-10-05 on #337).
 - ~~When does the store time-zone setting ship, and where in Settings does it live? (§3 fact 9)~~
   **Settled 2026-10-02**: first release, Settings › Store info.
 - ~~Multi-currency stores: how are per-currency amounts entered, and what is the fallback if

@@ -379,6 +379,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
+| `support.allow_write`: Allow or Deny a support agent's write request inside an open session (§8) (decided 2026-10-05 on #337) | ✓ | ✓ | |
 
 **Owner-only capabilities**, checked for the acting store; someone may be an Owner in one
 store and a vendor in another:
@@ -390,7 +391,7 @@ store and a vendor in another:
 | `approve` | The approval setting and queue (flows 18–19) |
 | `publish` | Storefront: describe, preview, approve, publish, undo (flows 48–52) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
-| `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access**, and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
+| `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 
 A Manager reaching an Owner-only screen gets the designed permission-denied state (flow 67);
 the resolver refuses regardless of the screen.
@@ -681,7 +682,8 @@ Accept: token + password (new) or token + signed-in session (existing)
   refused like any other), activates the member and signs them in. The last accepted Super
   admin can't be demoted or removed, checked under a lock so two demotions at once can't both
   pass (`LAST_SUPER_ADMIN`); removing a member ends their sessions.
-- **Expiry**: 7 days (decided 2026-10-05 on #337); 7 days for staff (decided on #45). Pending invitations show their expiry; expired ones are
+- **Expiry**: 7 days for merchant and vendor invitations (decided 2026-10-05 on #337), the same as platform staff
+  invitations (#45). Pending invitations show their expiry; expired ones are
   obvious and offer resend (flow 10).
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.
@@ -857,7 +859,8 @@ Browser → https://<store's portal host>/support/enter?token=…
   Every read in the session is attributed to the real agent, not to the merchant.
 - **Write elevation**: support requests write access; the merchant clicks "Allow" or "Deny";
   the elevation applies to that one session and is logged. **An Owner or a Manager** may allow it
-  (decided 2026-10-05 on #337).
+  (`support.allow_write`, §5.1) (decided 2026-10-05 on #337). It only exists inside a session the Owner's On/Off
+  switch let start; a Manager's Allow emails the Owners like a session start does.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
   ownership or roles; create API keys or install apps. A support session is not a person, so it
   can't act as one.

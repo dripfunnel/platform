@@ -122,8 +122,8 @@ partner and merchant.
   how long) and in the platform audit log. The store's Owners are emailed when a session
   starts (decided 2026-10-05 on #337).
 - **Changing anything** (for example fixing a product for the merchant) needs the merchant's
-  approval for that one session: support requests write access, the merchant clicks
-  "Allow" or "Deny", and the elevation is logged.
+  approval for that one session: support requests write access, an Owner or a Manager clicks
+  "Allow" or "Deny" (decided 2026-10-05 on #337), and the elevation is logged.
 - These rules are for **partner support**. DripFunnel staff don't use support sessions; they
   impersonate users (§4.2).
 

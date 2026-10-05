@@ -680,8 +680,8 @@ lists every view and checks the filter is there.
   supplier** (§7.6); **3 options and 100 versions** per product (§7.3); A+ reusable blocks
   (`story_block`) **ship**; `menu_item` **may** point at pages and URLs; **several** shipping
   methods at once; **one domain per store**, never per market; store custom fields and product
-  video **ship**; offer targets resolve at pricing time, guests are recognised by email or
-  phone, a cancellation before fulfilment gives an offer use back (#337). Still open: whether
+  video **ship**; offer targets resolve at pricing time, guests are recognised by email or a
+  proven phone, a cancellation before fulfilment gives an offer use back (#337). Still open: whether
   report schedules are designed at all (#183).
 
 ---
@@ -1316,7 +1316,7 @@ promotion_code      (id, promotion_id, store_id, batch_id NULL, code, single_use
 promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_id,
                      customer_id NULL, customer_email, discount_amount, currency)
                     UNIQUE (promotion_id, order_id)
-                    -- counted from placed orders; guests recognised by email or phone (fact 8, decided 2026-10-05);
+                    -- counted from placed orders; guests by normalised email, a phone only once proven (fact 8, #337);
                     -- results (part P) aggregate this table
 ```
 
