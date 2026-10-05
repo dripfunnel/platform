@@ -768,7 +768,7 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   the activity log.
 - **Built on #295** (migration 0050's guard decides it, so no request skips the queue). Decided there: a product made
   while approval was off counts as approved when it is next edited; any supplier save of a sent-back product resubmits
-  it; publishing a supplier's A+ content sends its product back to the queue (CATALOG Q11); turning approval off leaves
+  it, even after approval is switched off, so a sent-back product is never stranded; publishing a supplier's A+ content sends its product back to the queue (CATALOG Q11); turning approval off leaves
   what is waiting in the queue, so nothing unreviewed goes live by a switch; approving shows the product unless something
   else hides it (the plan, a suspension).
 

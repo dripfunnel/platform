@@ -562,6 +562,33 @@ describe('approval of suppliers’ products (ACCESS §7.2, CATALOG L)', () => {
     expect(await state(id)).toEqual({ approval_status: 'pending', visibility: 'hidden', sent_back_reason: null })
   })
 
+  it('never strands a sent-back product when approval is switched off: the supplier resubmits it and the merchant decides', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Stranded stool') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    await gql('mutation B($id: ID!) { sendBackProduct(id: $id, reason: "Needs a size") }', 'owner', { id })
+    await approval(false)
+    try {
+      const version = (await detail('owner', id))?.versions[0]?.id
+      expect((await saveAs('supplier', id, { ...simple('Stranded stool', { description: 'Now 45 cm' }), versions: [{ id: version, choices: [], prices: [price('129900')] }] })).saved).toMatchObject({ approval: 'pending' })
+      expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+      expect(await state(id)).toMatchObject({ approval_status: 'approved', visibility: 'visible' })
+    } finally {
+      await approval(true)
+    }
+  })
+
+  it('keeps another store’s Owner out of this store’s queue, its badge and its switch', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Private lamp') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    expect((await gql('mutation B($id: ID!) { sendBackProduct(id: $id, reason: "Not yours") }', 'bOwner', { id })).code).toBe('NOT_FOUND')
+    expect(await state(id)).toMatchObject({ approval_status: 'pending', sent_back_reason: null })
+    expect((await gql('{ navBadges { products } }', 'bOwner')).data?.['navBadges']).toEqual({ products: 0 })
+    expect(((await gql('{ navBadges { products } }', 'owner')).data?.['navBadges'] as { products: number }).products).toBeGreaterThan(0)
+    expect((await gql('mutation { setApproval(on: true) }', 'bOwner')).data?.['setApproval']).toBe(true)
+    expect((await gql('mutation { setApproval(on: false) }', 'bOwner')).data?.['setApproval']).toBe(true)
+    expect((await gql('{ supplierApprovalRequired }', 'supplier')).data?.['supplierApprovalRequired']).toBe(true)
+  })
+
   it('leaves the queue as it is when switched off, so nothing unreviewed goes live by a switch', async () => {
     const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Waiting vase') })
     const id = (made.data?.['saveProduct'] as { id: string }).id

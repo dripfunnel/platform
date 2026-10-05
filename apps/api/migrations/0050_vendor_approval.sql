@@ -71,8 +71,9 @@ begin
   end if;
   if new.visibility is distinct from old.visibility or new.approval_status is distinct from old.approval_status
      or new.sent_back_reason is distinct from old.sent_back_reason then
+    -- Resubmitting a sent-back product works whatever the switch says, so turning approval off strands nothing.
     if not (new.approval_status = 'pending' and old.approval_status is distinct from 'pending' and new.visibility = 'hidden'
-            and new.sent_back_reason is null and store_vendor_approval()) then
+            and new.sent_back_reason is null and (store_vendor_approval() or old.approval_status = 'sent_back')) then
       raise exception 'catalogue: a supplier changes no visibility, approval or hide' using errcode = '42501';
     end if;
   end if;

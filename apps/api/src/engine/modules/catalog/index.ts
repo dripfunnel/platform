@@ -285,9 +285,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
    * one sent back, puts it back in the queue and off the storefront (ACCESS §7.2, CATALOG E3, L4).
    */
   const reviewAfterSave = async (tx: ScopedSql, id: string, product: Cleaned, existing: ProductRow): Promise<{ approval: ProductRow['approval_status']; reviewed: ('name' | 'price' | 'photos')[] }> => {
-    if (sellerId === null || existing.approval_status === 'pending' || !(await approvalRequired(tx))) return { approval: existing.approval_status, reviewed: [] }
+    if (sellerId === null || existing.approval_status === 'pending') return { approval: existing.approval_status, reviewed: [] }
     const reviewed = reviewedChanges(existing, product)
-    if (existing.approval_status !== 'sent_back' && reviewed.length === 0) return { approval: existing.approval_status, reviewed }
+    // A sent-back product is resubmitted whether or not approval is still on: only the merchant's review ends it.
+    const resubmitting = existing.approval_status === 'sent_back'
+    if (!resubmitting && (reviewed.length === 0 || !(await approvalRequired(tx)))) return { approval: existing.approval_status, reviewed: [] }
     await submitForApproval(tx, storeId, id)
     await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label: product.name }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
     return { approval: 'pending', reviewed }
