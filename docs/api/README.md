@@ -208,7 +208,7 @@ request ─▶ router.ts (host, path) ─▶ apis/<api> Yoga server
 
 Side effects (emails, webhooks, search indexing, cache purges, builds) are never done in the
 request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after commit. A kind
-with no deliverer registered (email without SES values) waits unclaimed; a deliverer's
+with no deliverer registered (email without SES values, texts until #275 reads partners' SMS accounts) waits unclaimed; a deliverer's
 `heldTemplates` (today the store owner invitation) wait the same way.
 
 ---

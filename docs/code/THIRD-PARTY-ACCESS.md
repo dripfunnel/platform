@@ -386,6 +386,26 @@ never shown again once saved (**#275** builds the table, the APIs and both scree
 | Partner's own billing system *(later, "partner bills its own merchants")* | How the platform learns a store's status (SAAS §14 *(ask)*) | A Platform API key we issue, or their webhook secret | — |
 | Partner brand fonts, logos | Branding | None | — |
 
+**The texts a partner registers (India's DLT; built on #289).** MSG91 sends only registered
+templates, so each partner registers these six with its own sender header, word for word, the
+variables in this order, and enters each template id with its MSG91 credentials (#275). Twilio
+sends the same words as plain text. `apps/api/src/saas/sms/index.ts` holds the wording; a
+change there needs every Indian partner to register it again.
+
+| Message | Wording (variables numbered) |
+|---|---|
+| `code.second_factor`, `code.shopper_sign_in` | {1}: {2} is your sign-in code. It works for 10 minutes. Never share it. |
+| `code.verify_phone` | {1}: {2} is your code to confirm this number. It works for 10 minutes. |
+| `order.confirmed` | {1}: thanks for your order {2}. We'll text you when it ships. |
+| `order.shipped` | {1}: order {2} is on its way with {3}. Track it: {4} |
+| `order.delivered` | {1}: order {2} was delivered. Need help? {3} |
+
+{1} is the sender's name (the partner's product, or the store's), and a code is 6 digits. The
+`sms` outbox deliverer (`jobs/queues/deliverers/sms.ts`) picks MSG91 for `+91` numbers and Twilio
+for the rest; it drops a code past its expiry, a refusal, and a partner with no account or
+template, logging only a code, and retries an outage. Until #275 reads the accounts, the Worker
+registers no `sms` deliverer and texts wait in the outbox, as email waits without SES.
+
 ---|---|---|
 | Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email | DNS records only; no credential |
 | **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Collected by **Stripe Connect onboarding**, never typed into our forms |
@@ -551,7 +571,7 @@ no variable name: the partner enters them in the partner console, or staff in a 
 | AI provider key | AI on its plans that include AI | Anthropic Console → its own organisation → API keys, with a spend limit | AI runs (`ai_run`) |
 | Shiprocket API user | India rates, labels, tracking | Shiprocket → Settings → API → create an API user | Courier adapter |
 | US courier aggregator key | USPS, UPS, FedEx through **EasyPost** (#337) | The aggregator's dashboard → API keys (production key) | Courier adapter |
-| SMS / WhatsApp sender | Codes and WhatsApp reminders in its name | The provider's console; DLT registration (India) and Meta business verification first | Codes and reminders |
+| SMS / WhatsApp sender | Codes, shoppers' order updates and WhatsApp reminders in its name | The provider's console; DLT registration (India: the six templates in §4) and Meta business verification first | The `sms` deliverer (#289), registered by #275 |
 | Google OAuth client | "Continue with Google" on its portal host | Google Cloud → APIs & Services → Credentials → OAuth client (web), redirect `https://<portal host>/api/auth/google/callback` | Portal sign-in |
 | Support chat widget | Its support chat in the portal | The chat tool's settings → install / identity verification | The portal's chat widget |
 
