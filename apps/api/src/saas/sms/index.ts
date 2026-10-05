@@ -40,6 +40,7 @@ export const smsPayloadSchema = z
   .strict()
   .superRefine((p, ctx) => {
     if (!varsSchemas[p.message].safeParse(p.vars).success) ctx.addIssue({ code: 'custom', message: `vars for ${p.message}` })
+    if (p.message.startsWith('code.') && p.expiresAt === null) ctx.addIssue({ code: 'custom', message: `${p.message} needs expiresAt` })
   })
 
 export type SmsPayload = z.infer<typeof smsPayloadSchema>

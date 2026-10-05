@@ -29,7 +29,8 @@ export const twilioSender = ({ accountSid, authToken, messagingServiceSid, fetch
       throw new SmsUnavailable('no answer')
     }
     const json: unknown = await response.json().catch(() => null)
-    if (response.status >= 500 || response.status === 429) throw new SmsUnavailable(`answered ${response.status}`)
+    // A refused credential is the partner's to fix, not the number's fault: retried, never dropped.
+    if (response.status >= 500 || response.status === 429 || response.status === 401 || response.status === 403) throw new SmsUnavailable(`answered ${response.status}`)
     if (!response.ok) {
       // Twilio's numeric error code (e.g. 21211, an invalid number) is safe to log; its message can echo the number.
       const error = errorSchema.safeParse(json)

@@ -29,7 +29,11 @@ describe('the MSG91 sender', () => {
 
   it('reads a refusal answered with 200 and type error as a refusal, keeping only its code', async () => {
     await expect(msg91Sender({ authKey: 'k', fetchImpl: answering(200, { type: 'error', message: 'Invalid mobile 9198…', code: '418' }) }).send(sms)).rejects.toEqual(new SmsRefused('msg91_418'))
-    await expect(msg91Sender({ authKey: 'k', fetchImpl: answering(401, { type: 'error' }) }).send(sms)).rejects.toEqual(new SmsRefused('msg91_401'))
+  })
+
+  it('retries a refused auth key rather than dropping the text: the key is the partner’s to fix', async () => {
+    await expect(msg91Sender({ authKey: 'k', fetchImpl: answering(401, { type: 'error' }) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
+    await expect(msg91Sender({ authKey: 'k', fetchImpl: answering(403, {}) }).send(sms)).rejects.toBeInstanceOf(SmsUnavailable)
   })
 
   it('treats an outage, throttling and no answer as worth retrying', async () => {
