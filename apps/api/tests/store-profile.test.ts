@@ -131,9 +131,13 @@ describe('changing my details', () => {
     await gql('mutation { updateProfile(name: "First", phone: "+919845022114") { name } }', cookie)
     // Another device renames the person after this page read "First".
     await db.sql`update "user" set name = 'Renamed', phone = '+919845022115' where id = ${id}`
+    const updates = async () => (await actions(id)).filter((a) => a === 'person.profile_updated').length
+    const before = await updates()
     expect((await gql('mutation { setTheme(theme: "dark") { name phone theme } }', cookie)).data?.['setTheme']).toEqual({ name: 'Renamed', phone: '+919845022115', theme: 'dark' })
+    // One audited entry for the save, none for a refused theme.
+    expect(await updates()).toBe(before + 1)
     expect((await gql('mutation { setTheme(theme: "neon") { theme } }', cookie)).code).toBe('INVALID_INPUT')
-    expect((await actions(id)).filter((a) => a === 'person.profile_updated').length).toBeGreaterThanOrEqual(2)
+    expect(await updates()).toBe(before + 1)
   })
 
   it('never changes the number sign-in codes go to without texting it first', async () => {
