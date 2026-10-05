@@ -7,6 +7,7 @@ import { harnessEnabled } from '../../harness'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { placesSample, placesStates } from './placesStates'
 import './warehouses.css'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.warehouses
 
@@ -30,7 +31,7 @@ export const placeInputOf = (f: Form): PlaceInput => {
 
 const addressLine = (p: Place) => [p.address?.line1, p.address?.city, p.address?.region, p.address?.country].filter(Boolean).join(', ')
 
-const refusalOf = (error: unknown) => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
+const refusalOf = refusalIn(words.refused)
 
 const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f: Form) => void; busy: boolean; onSave: () => void; onCancel: () => void }) => {
   const id = useId()

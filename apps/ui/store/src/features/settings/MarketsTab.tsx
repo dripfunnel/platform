@@ -7,6 +7,7 @@ import type { StoreLocale } from '../../api/settings'
 import { fill, formatList, locale, messages } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
 import { RadioCards } from '../common/RadioCards'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.settings.markets
 
@@ -98,7 +99,7 @@ const inputOf = (d: MarketDraft) => {
   }
 }
 
-const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
+const refusalOf = refusalIn(words.refused)
 
 export interface MarketsTabProps {
   markets: readonly Market[]

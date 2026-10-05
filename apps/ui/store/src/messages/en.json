@@ -2802,7 +2802,9 @@
         "below_compare_price": "Has a lower price than its compare price — automatic",
         "few_left": "Only a few left — automatic",
         "manual": "You choose the products — pick it on each product"
-      }
+      },
+      "ruleOther": "Shown by a rule set elsewhere",
+      "ruleKept": "Keep its current rule"
     }
   }
 }

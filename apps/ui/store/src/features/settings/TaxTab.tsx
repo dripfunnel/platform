@@ -1,15 +1,15 @@
-import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
 import { deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, setTaxRate, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.settings.tax
 
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 
-const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
+const refusalOf = refusalIn(words.refused)
 
 /** What the home country calls its tax, and whether its stores usually type prices with it included. */
 export const taxWordsFor = (country: string | null): { name: string; usuallyIncluded: boolean } =>
