@@ -197,6 +197,35 @@ describe('Stock locations', () => {
     expect(await db.sql`select 1 from stock_level where warehouse_id = ${spare}`).toHaveLength(0)
   })
 
+  it('keeps one live default when Make default races a delete or another Make default', async () => {
+    const makeDefault = async (id: string) => (await gql('mutation M($id: ID!) { setDefaultWarehouse(id: $id) }', 'owner', { id })).code
+    const before = await main()
+    const doomed = (await saveWarehouse('owner', { name: 'Doomed room' })).id ?? ''
+    // A delete holds the location and has soft-deleted it, not yet committed.
+    let commit = () => {}
+    const held = new Promise<void>((resolve) => (commit = resolve))
+    const deleting = db.sql.begin(async (tx) => {
+      await tx`select 1 from warehouse where id = ${doomed} for update`
+      await tx`update warehouse set deleted_at = now() where id = ${doomed}`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const making = makeDefault(doomed)
+    await new Promise((r) => setTimeout(r, 200))
+    commit()
+    await deleting
+    expect(await making).toBe('NOT_FOUND')
+    expect(await main()).toBe(before)
+
+    const [a = '', b = ''] = [(await saveWarehouse('owner', { name: 'Room A' })).id, (await saveWarehouse('owner', { name: 'Room B' })).id]
+    expect(await Promise.all([makeDefault(a), makeDefault(b)])).toEqual([undefined, undefined])
+    const defaults = (await places('owner')).filter((w) => w.supplierId === null && w.isDefault)
+    expect(defaults).toHaveLength(1)
+    // Each became default in turn, so a rename sent from before is stale.
+    expect((await saveWarehouse('owner', { name: 'Renamed A' }, a, 1)).code).toBe('STALE_REVISION')
+    await makeDefault(before)
+  })
+
   it('holds the limit when two locations are made at the same moment', async () => {
     const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from warehouse where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and deleted_at is null`
     await db.sql`insert into warehouse (store_id, seller_id, name) select ${t.storeA1}, ${t.sellerA1Second}, 'Racer ' || g from generate_series(1, ${19 - n}) g`

@@ -72,14 +72,17 @@ export const updateWarehouse = async (tx: ScopedSql, storeId: string, id: string
     `
   ).length === 1
 
-/** Moves the owner's default here; existing stock stays where it is. */
-export const makeDefaultWarehouse = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<void> => {
+/** Moves the owner's default here; existing stock stays where it is. False when it's gone, a delete having won. */
+export const makeDefaultWarehouse = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<boolean> => {
+  // The row locked live first, so a delete either waits and then finds it the default, or has already removed it.
+  const [target] = await tx<{ seller_id: string | null }[]>`select seller_id from warehouse where id = ${id} and store_id = ${storeId} and deleted_at is null for update`
+  if (!target) return false
   await tx`
     update warehouse set is_default = false, updated_at = ${now}, revision = revision + 1
-    where store_id = ${storeId} and is_default and deleted_at is null and id <> ${id}
-      and seller_id is not distinct from (select seller_id from warehouse where id = ${id})
+    where store_id = ${storeId} and is_default and deleted_at is null and id <> ${id} and seller_id is not distinct from ${target.seller_id}::uuid
   `
-  await tx`update warehouse set is_default = true, updated_at = ${now} where id = ${id} and store_id = ${storeId}`
+  await tx`update warehouse set is_default = true, updated_at = ${now}, revision = revision + 1 where id = ${id} and not is_default`
+  return true
 }
 
 /** Refused while it holds stock or is the default, which a location must hand on first (SetOps). */

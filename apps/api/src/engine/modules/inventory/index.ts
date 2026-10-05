@@ -158,7 +158,8 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
   const setDefault = (id: string) =>
     run(async (tx) => {
       const w = await ownWarehouse(tx, id)
-      await makeDefaultWarehouse(tx, storeId, id, now())
+      await serialise(tx, `warehouse:${storeId}:${sellerId ?? ''}`)
+      if (!(await makeDefaultWarehouse(tx, storeId, id, now()))) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(inventoryAudit.warehouseSaved, { type: 'warehouse', id, label: `${w.name}: default` }))
       return true
     })
