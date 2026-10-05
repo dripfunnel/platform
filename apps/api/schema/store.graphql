@@ -398,6 +398,7 @@ type Mutation {
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
   confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
+  connectShopify(shop: String!): String
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -409,6 +410,7 @@ type Mutation {
   deleteTaxClass(id: ID!): Boolean
   deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
+  disconnectShopify: Boolean
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
   inviteSupplier(input: InviteSupplierInput!): ID
@@ -461,6 +463,7 @@ type Mutation {
   setTheme(theme: String!): Profile
   signOutOtherSessions: Int
   startCatalogImport(file: String!): ID
+  startShopifyImport(all: Boolean, productIds: [ID!]): ID
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
@@ -846,6 +849,8 @@ type Query {
   products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
   sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
+  shopifyConnection: ShopifyConnection
+  shopifyProducts(after: String, search: String): ShopifyProductPage
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
@@ -925,6 +930,25 @@ input SharedNameTranslationInput {
   kind: String!
   source: String!
   text: String
+}
+
+type ShopifyConnection {
+  available: Boolean
+  shop: String
+  status: String
+}
+
+type ShopifyProduct {
+  id: ID
+  imageUrl: String
+  status: String
+  title: String
+  versions: Int
+}
+
+type ShopifyProductPage {
+  next: String
+  nodes: [ShopifyProduct!]
 }
 
 type SignedInSession {

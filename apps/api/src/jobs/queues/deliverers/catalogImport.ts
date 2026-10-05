@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
-import type { AssetStore } from '#engine/modules/catalog/index'
+import type { SecretBox } from '#auth/secretBox'
+import type { AssetStore, ShopConnect } from '#engine/modules/catalog/index'
 import {
   attachImportPhoto,
   catalogJobPayload,
@@ -10,6 +11,7 @@ import {
   createCatalogService,
   createTranslationService,
   failCatalogImport,
+  fetchShopPage,
   importPhotoPayload,
   jobContextOf,
   runImportChunk,
@@ -31,7 +33,7 @@ import { defaultRelayOptions, type Deliverer, type Effect } from '../outbox-rela
 const chunkBudgetMs = 6_000
 const maxPhotoBytes = 20 * 1024 * 1024
 
-const jobPayload = catalogJobPayload.extend({ phase: z.enum(['check', 'run']) }).strict()
+const jobPayload = catalogJobPayload.extend({ phase: z.enum(['fetch', 'check', 'run']) }).strict()
 const photoPayload = catalogJobPayload.extend(importPhotoPayload.shape).strict()
 
 const depsFor = (sql: postgres.Sql, p: CatalogJobPayload, effect: Effect, now: () => Date): ImportJobDeps => {
@@ -71,13 +73,19 @@ const failingLast = async (sql: postgres.Sql, p: CatalogJobPayload, effect: Effe
   }
 }
 
-export const catalogImportDeliverer = (sql: postgres.Sql, now: () => Date = () => new Date()): Deliverer => ({
+/** A connected import reads its shop first (`fetch`), a page a delivery, with the store's sealed token. */
+export const catalogImportDeliverer = (sql: postgres.Sql, shop: ShopConnect | null, secrets: SecretBox | null, now: () => Date = () => new Date()): Deliverer => ({
   deliver: async (effect) => {
     const parsed = jobPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.catalog: bad payload')
     const p = parsed.data
     const deps = depsFor(sql, p, effect, now)
-    await failingLast(sql, p, effect, now, () => (p.phase === 'check' ? checkImport(deps, p.jobId) : runImportChunk(deps, p.jobId, chunkBudgetMs)))
+    const phases = {
+      fetch: () => fetchShopPage({ ...deps, shop, secrets }, p.jobId),
+      check: () => checkImport(deps, p.jobId),
+      run: () => runImportChunk(deps, p.jobId, chunkBudgetMs),
+    }
+    await failingLast(sql, p, effect, now, phases[p.phase])
   },
 })
 

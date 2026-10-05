@@ -64,7 +64,7 @@ const relay = async () => {
     const counts = await relayDue(
       db.sql,
       {
-        'import.catalog': catalogImportDeliverer(db.sql, () => now),
+        'import.catalog': catalogImportDeliverer(db.sql, null, null, () => now),
         'import.photos': importPhotosDeliverer(db.sql, r2, lookup, () => now, fakeFetch),
         'export.catalog': catalogExportDeliverer(db.sql, () => now),
       },

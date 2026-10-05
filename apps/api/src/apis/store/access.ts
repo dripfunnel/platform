@@ -1,6 +1,7 @@
 import type postgres from 'postgres'
 import { GraphQLError } from 'graphql'
 import type { SecretBox } from '#auth/secretBox'
+import type { ShopConnect } from '#engine/modules/catalog/index'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
 import { isStorePermission, storePermissions, storeRoleHas, type StorePermission, type StoreRole } from '#auth/storePermissions'
@@ -17,6 +18,10 @@ export interface StoreContext extends Record<string, unknown> {
   facts: RequestFacts
   /** The credential key (THIRD-PARTY-ACCESS §5): My profile's authenticator set-up needs it. */
   secrets?: SecretBox | null
+  /** The portal host, which Connect Shopify comes back to. */
+  host?: string
+  /** Connect Shopify's app, or null where none is set up (CATALOG K7). */
+  shopify?: ShopConnect | null
   now: () => Date
 }
 

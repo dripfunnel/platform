@@ -35,6 +35,9 @@ import { entraProvider } from '#integrations/entra/provider'
 import { stripeClient, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
+import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
+import { localShopify, shopifyApi, type ShopifyApi } from '#integrations/shopify/api'
+import { deleteAbandonedConnections, deleteStalePendingConnections } from '#db/scoped/externalConnections'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
 import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
 import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
@@ -102,8 +105,23 @@ const sesFor = (config: Config): { api: SesApi; senderDomain: string; suppressio
   return { api: sesBuilt.api, senderDomain, suppressionKey }
 }
 
+// Connect Shopify's app (CATALOG K7): the real one where its secrets are set, the local stand-in where asked for.
+let shopifyBuilt: { key: string; api: ShopifyApi } | undefined
+const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | null => {
+  const redirectUri = `https://${config.HOOKS_HOST}${shopifyCallbackPath}`
+  const { SHOPIFY_CLIENT_ID: clientId, SHOPIFY_CLIENT_SECRET: clientSecret } = config
+  if (clientId && clientSecret) {
+    const key = `${clientId}:${clientSecret}`
+    if (shopifyBuilt?.key !== key) shopifyBuilt = { key, api: shopifyApi({ clientId, clientSecret }) }
+    return { api: shopifyBuilt.api, redirectUri }
+  }
+  return config.SHOPIFY_LOCAL === '1' ? { api: localShopify(), redirectUri } : null
+}
+
+const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
+
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES is configured (outbox-relay.ts).
-const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null): Deliverers => {
   const lookup = dohLookup()
   const ses = sesFor(config)
   return {
@@ -115,7 +133,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | nul
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
     'export.catalog': catalogExportDeliverer(sql),
-    'import.catalog': catalogImportDeliverer(sql),
+    'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
     'import.photos': importPhotosDeliverer(sql, assets, lookup),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
@@ -312,7 +330,7 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, now: () => new Date() }
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), now: () => new Date() }
     if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
     return servers.store.fetch(request, context)
   })
@@ -324,6 +342,13 @@ let snsBuilt: SnsVerifier | undefined
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
 const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+  if (url.pathname === shopifyCallbackPath) {
+    const shopify = shopifyFor(config)
+    const secrets = await secretsFor(config)
+    if (!shopify || !secrets) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleShopifyCallback(request, { sql, api: shopify.api, secrets, activity: activityLog, now: () => new Date() }))
+  }
   if (url.pathname === sesHookPath) {
     const topicArn = config.SES_EVENTS_TOPIC_ARN
     const suppressionKey = config.EMAIL_SUPPRESSION_KEY
@@ -428,6 +453,8 @@ export default {
         await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
         await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
         await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+        await deleteStalePendingConnections(tx, at)
+        await deleteAbandonedConnections(tx, at)
         return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
       }).catch((error: unknown) => {
         logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
@@ -443,7 +470,7 @@ export default {
         return 0
       })
       if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
-      const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null))
+      const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config)))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
       }

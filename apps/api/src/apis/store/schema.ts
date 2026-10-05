@@ -18,6 +18,7 @@ import { registerStoreInfo } from './storeInfo'
 import { registerTax } from './tax'
 import { registerCatalogExports } from './catalogExports'
 import { registerCatalogImports } from './catalogImports'
+import { registerShopify } from './shopify'
 
 export type { StoreContext } from './access'
 
@@ -42,6 +43,7 @@ registerTranslations(builder)
 registerStoreInfo(builder)
 registerCatalogExports(builder)
 registerCatalogImports(builder)
+registerShopify(builder)
 registerTax(builder)
 registerListing(builder)
 

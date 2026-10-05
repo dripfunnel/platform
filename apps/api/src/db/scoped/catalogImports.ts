@@ -26,6 +26,9 @@ export interface CatalogImportRow {
   failed: number
   photos_pending: number
   problems_csv: string | null
+  connection_id: string | null
+  selection: unknown
+  cursor: string | null
   requested_by_id: string
   requested_by_label: string
   created_at: Date
@@ -34,7 +37,7 @@ export interface CatalogImportRow {
   expires_at: Date | null
 }
 
-export type CatalogImportSummary = Omit<CatalogImportRow, 'file' | 'plan' | 'problems' | 'problems_csv'>
+export type CatalogImportSummary = Omit<CatalogImportRow, 'file' | 'plan' | 'problems' | 'problems_csv' | 'connection_id' | 'selection' | 'cursor'>
 
 const summary = (tx: ScopedSql) =>
   tx`id, store_id, seller_id, source, state, match_mode, warehouse_id, products, ready, matched, done, created, updated, skipped, failed, photos_pending,
@@ -47,6 +50,21 @@ export const insertCatalogImport = async (tx: ScopedSql, i: { storeId: string; s
     values (${id}, ${i.storeId}, ${i.sellerId}, ${i.source}, ${i.file}, ${i.byId}, ${i.byLabel})
   `
   return id
+}
+
+/** A connected import (K7): no file yet; the job reads the picked products, or all of them, into one. */
+export const insertShopifyImport = async (tx: ScopedSql, i: { storeId: string; sellerId: string | null; connectionId: string; selection: readonly string[] | null; byId: string; byLabel: string }): Promise<string> => {
+  const id = crypto.randomUUID()
+  await tx`
+    insert into catalog_import (id, store_id, seller_id, source, file, connection_id, selection, requested_by_id, requested_by_label)
+    values (${id}, ${i.storeId}, ${i.sellerId}, 'shopify', '', ${i.connectionId}, ${i.selection === null ? null : JSON.stringify(i.selection)}::text::jsonb, ${i.byId}, ${i.byLabel})
+  `
+  return id
+}
+
+/** A page of the shop's products added to the file, and where the next page starts (null when it was the last). */
+export const appendImportFile = async (tx: ScopedSql, id: string, rows: string, cursor: string | null): Promise<void> => {
+  await tx`update catalog_import set file = file || ${rows}, cursor = ${cursor} where id = ${id} and state = 'checking'`
 }
 
 export const selectCatalogImport = async (tx: ScopedSql, storeId: string, id: string): Promise<CatalogImportRow | null> =>

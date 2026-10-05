@@ -127,7 +127,12 @@ const fileWords: Record<FileRefusal, string> = {
 const problemList = z.array(z.object({ line: z.number().int(), column: z.string().nullable(), code: z.string() }).loose())
 /** In the file's order, whichever job found each. */
 const problemsOf = (raw: unknown): ImportProblem[] => ((problemList.safeParse(raw).data ?? []) as ImportProblem[]).toSorted((a, b) => a.line - b.line)
-const messageOf = (code: string): string => (problemWords as Record<string, string>)[code] ?? (fileWords as Record<string, string>)[code] ?? 'This row couldn’t be imported.'
+/** A connected import that couldn't read the shop (shopify.ts fetchShopPage). */
+const shopWords: Record<string, string> = {
+  SHOPIFY_EXPIRED: 'Your Shopify connection has expired. Connect your shop again.',
+  NOT_AVAILABLE: 'Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead.',
+}
+const messageOf = (code: string): string => (problemWords as Record<string, string>)[code] ?? (fileWords as Record<string, string>)[code] ?? shopWords[code] ?? 'This row couldn’t be imported.'
 
 const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: string | null }, shown: number): CatalogImportDto => {
   const problems = problemsOf(job.problems)

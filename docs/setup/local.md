@@ -92,6 +92,8 @@ can use your own role and database names, as long as you put them in `.env.local
    | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | **Delete** unless you have Stripe **test-mode** values (§8). Without them, billing answers "not connected". |
    | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_SENDER_DOMAIN`, `EMAIL_SUPPRESSION_KEY` | **Delete** unless you have the SES values; emails then wait in the outbox. To send for real, see §8.1; the key is your own, `openssl rand -base64 32`. |
 | `SES_EVENTS_TOPIC_ARN` | **Delete.** Bounces arrive through SNS, which can't reach your machine. |
+   | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | **Delete** unless you have a Shopify app's values. Without them, Connect Shopify says it isn't set up. |
+   | `SHOPIFY_LOCAL` | Keep `1` to try Connect Shopify without an app: approval comes straight back and the shop is empty, every call logged. Never set outside your machine. |
 
    Keep a whole group or delete the whole group: two of the three Entra values switch nothing
    on. The example's placeholder values (`dummy…`, all-zero ids) make that feature fail, and

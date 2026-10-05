@@ -631,7 +631,7 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
-      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
+      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
@@ -641,7 +641,7 @@ describe('the backstop itself', () => {
     // their definer functions; its team's invitations and memberships by column (0049); the settings and its seller it only reads.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE') order by 1`)).toEqual([
-      'activity_log', 'asset', 'catalog_export', 'catalog_import', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
+      'activity_log', 'asset', 'catalog_export', 'catalog_import', 'external_connection', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
       'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related',
       'product_spec', 'product_story', 'product_version', 'product_version_option_value', 'product_video', 'size_chart', 'stock_level',
       'translation', 'version_price', 'warehouse',

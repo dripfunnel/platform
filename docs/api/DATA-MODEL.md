@@ -1609,8 +1609,13 @@ webhook_delivery    (id, endpoint_id, store_id, outbox_id, event, attempt, statu
                      |'delivered'|'failed'), response_code, error text NULL, delivered_at, next_attempt_at)
                     -- PLATFORM-PROMPT §5.5: delivered from the outbox, replayable, endpoint
                     -- disabled after repeated failure
-external_connection (id, store_id, provider ('shopify'), token_enc, shop_domain, status,
-                     connected_by, connected_at, expires_at)       -- CATALOG K7
+external_connection (id, store_id, seller_id NULL, provider ('shopify'), shop_domain, status
+                     ('pending'|'connected'|'expired'), token_sealed NULL, state_hash NULL,
+                     return_host NULL, connected_by, created_at, connected_at, expires_at)
+                    -- CATALOG K7, built on #301 (migration 0060): one an owner (the store, or a
+                    -- supplier its own); pending for ten minutes under the hash of the OAuth state,
+                    -- completed by hooks/shopify; the token sealed with the credential key and
+                    -- deleted once an import has read the shop, or after a day unused
 catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), state ('checking'
                      |'ready'|'running'|'done'|'failed'), file text NULL, plan jsonb NULL,
                      match_mode ('update'|'skip') NULL, warehouse_id NULL, products, ready,
@@ -1623,7 +1628,8 @@ catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), sta
                     -- SKU among the importer's own products only (update or skip, K4); photos are
                     -- fetched one by one from public addresses; every imported count writes
                     -- stock_movement 'import'. The file and plan go when the run ends, the error file
-                    -- a day later. Shopify connect adds connection_id and selection (K7)
+                    -- a day later. A connected import (K7) has connection_id, selection (the picked
+                    -- products, null for all) and cursor, and is read into the file before its check
 catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'), filter jsonb,
                      state ('queued'|'done'|'failed'), rows, truncated, csv text NULL,
                      requested_by_id, requested_by_label, created_at, finished_at, expires_at)

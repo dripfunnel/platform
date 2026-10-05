@@ -67,9 +67,26 @@ export {
 } from './exports'
 export { catalogJobPayload, jobContextOf, type CatalogJobPayload } from './jobScope'
 export {
+  createShopifyService,
+  fetchShopPage,
+  hashState,
+  maxPicked,
+  ShopUnauthorized,
+  ShopUnavailable,
+  shopifyAudit,
+  type ShopConnect,
+  type ShopFetchDeps,
+  type ShopGateway,
+  type ShopifyConnectionDto,
+  type ShopifyRefusal,
+  type ShopifyService,
+} from './shopify'
+export type { ShopProduct } from './shopifyFile'
+export {
   attachImportPhoto,
   catalogImportAudit,
   catalogImportKind,
+  catalogImportLifetimeMs,
   checkImport,
   createCatalogImportService,
   failCatalogImport,
