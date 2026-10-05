@@ -28,7 +28,7 @@
       people: { name: 'Ananya Rao', email: 'ananya.rao@example.com', phone: '+91 98450 22113', addr: ['Ananya Rao', '14, 5th Cross, Indiranagar', 'Bengaluru, Karnataka 560038', 'India'] },
       service: { name: 'Block-printing workshop', base: 35, duration: '2 hours', where: 'Our Jaipur studio, MI Road', desc: 'Print your own cotton stole with our printers, using our wooden blocks and natural dyes. Materials and chai included.' },
       digital: { name: 'Block-print pattern pack', base: 9, file: 'PDF, 24 pages · 18 MB', desc: 'Twelve of our classic Sanganeri motifs as printable pattern sheets, with notes on colour and repeat.' },
-      sms: true, whatsapp: true
+      sms: true, whatsapp: true, returnDays: 14
     },
     US: {
       key: 'US', store: 'Juniper & Co.', init: 'J', locale: 'en-US', cur: 'USD', incl: false, accent: '#2F5D50', accentInk: '#FFFFFF', tint: '#E3ECE8',
@@ -54,7 +54,7 @@
       people: { name: 'Maya Chen', email: 'maya.chen@example.com', phone: '+1 614 555 0199', addr: ['Maya Chen', '88 Neil Ave, Apt 4', 'Columbus, OH 43215', 'United States'] },
       service: { name: 'Alterations appointment', base: 25, duration: '30 minutes', where: 'Our Columbus studio, 410 Oak St', desc: 'Hemming, taking in or letting out anything you bought from us. Bring the piece; we pin, you approve.' },
       digital: { name: 'Mending guide', base: 9, file: 'PDF, 32 pages · 21 MB', desc: 'Visible mending for cotton, linen and wool: darning, patching and sashiko stitches, step by step.' },
-      sms: true, whatsapp: false
+      sms: true, whatsapp: false, returnDays: 30
     }
   };
 
@@ -108,7 +108,7 @@
     ];
     const faqs = [
       ['How long does delivery take?', k === 'IN' ? 'Standard delivery takes 3–5 working days anywhere in India; express takes 1–2. You get a tracking link by SMS and email when your order ships.' : 'Standard shipping takes 3–5 business days; express takes 1–2. You get a tracking link by email when your order ships.'],
-      ['Can I return something?', 'Yes, within 14 days of delivery if it’s unworn with tags on. Start a return from your order in your account and we’ll email a label.'],
+      ['Can I return something?', 'Yes, within ' + R.returnDays + ' days of delivery if it’s unworn with tags on. Start a return from your order in your account and we’ll email a label.'],
       ['Do you ship outside ' + (k === 'IN' ? 'India' : 'the US') + '?', 'Not yet. We’ll say so here when we do.'],
       ['How do I look after hand-printed fabric?', 'Wash it cold and separately the first two times, in mild detergent, and dry it in the shade.']
     ];
