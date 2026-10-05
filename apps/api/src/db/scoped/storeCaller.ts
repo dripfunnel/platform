@@ -60,11 +60,22 @@ export const selectMemberships = async (tx: ScopedSql, userId: string, partnerId
   `
 
 /** Every store the person may act in under this partner, for the crossing entry (ACCESS.md §4). */
-export const selectHeldStoreIds = async (tx: ScopedSql, userId: string, partnerId: string): Promise<string[]> => {
+export const selectHeldStoreIds = async (tx: ScopedSql, userId: string, partnerId: string, limit: number): Promise<string[]> => {
   const rows = await tx<{ store_id: string }[]>`
     select distinct m.store_id from membership m join store s on s.id = m.store_id
     where m.user_id = ${userId} and m.status = 'active' and s.partner_id = ${partnerId} and s.status <> 'closed'
-    order by m.store_id
+    order by m.store_id limit ${limit}
   `
   return rows.map((r) => r.store_id)
 }
+
+/** Whether this person's crossing into this store was already logged since `since` (actor index). */
+export const crossingLoggedSince = async (tx: ScopedSql, userId: string, asked: string, since: Date): Promise<boolean> =>
+  (
+    await tx`
+      select 1 from activity_log
+      where actor_kind = 'person' and actor_id = ${userId} and occurred_at > ${since}
+        and action = 'store.crossing_refused' and target_id = ${asked}
+      limit 1
+    `
+  ).length > 0

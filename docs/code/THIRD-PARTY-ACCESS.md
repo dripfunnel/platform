@@ -412,13 +412,6 @@ the message kind, never the number or the code.
 Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
 can text twice.
 
----|---|---|
-| Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email | DNS records only; no credential |
-| **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Collected by **Stripe Connect onboarding**, never typed into our forms |
-| Card for DripFunnel's charges to the partner | Partner billing | Stripe Elements (§2.7) |
-| Partner's own billing system *(later, "partner bills its own merchants")* | How the platform learns a store's status (SAAS §14 *(ask)*) | A Platform API key we issue, or their webhook secret |
-| Partner brand fonts, logos | Branding | None |
-
 ---
 
 ## 5. Secrets the platform generates itself
@@ -562,7 +555,7 @@ generation are in the section it cites. *First needed* names a slice (§6) for t
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
 | `CF_PAGES_POOL` | The Cloudflare accounts storefronts' Pages projects spread over (#337): a JSON list of `{ "accountId", "token" }`, each token scoped to *Pages: Edit* on its own account, the first entry the main account. Replaces a single `CF_STOREFRONT_DEPLOY_TOKEN` (named on #287) | Worker secret | §2.1 | INF 1 |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
-| `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod (named on #287) | Worker variable | §2.7, §3.1 | SAPI 10 |
+| `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod (named on #287) | Worker variable | §3.1 | SAPI 10 |
 | `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (#284, storefront ARCHITECTURE §4.1; HMAC-SHA-256 with the expiry in the link *(proposed, ST 1a confirms)*). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** *(proposed, SAPI 10 confirms)*: connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | Worker secret | §2.7, §3.1 | SAPI 10 |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |

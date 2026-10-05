@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SmsRefused, SmsUnavailable, type OutgoingSms, type SmsSender } from '#core/sms'
 import { withSystemScope } from '#db/scoped/index'
-import { expireUnsentSms } from '#db/scoped/outbox'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
-import { orderTextMs, queueSms, type PartnerSmsAccount, type PartnerSmsAccounts, type SmsPayload } from '#saas/sms/index'
+import { expireUnsentSms, orderTextMs, queueSms, type PartnerSmsAccount, type PartnerSmsAccounts, type SmsPayload } from '#saas/sms/index'
+import { queueSideEffect } from '#saas/outbox/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -57,7 +57,7 @@ const relay = (accounts: PartnerSmsAccounts, senders: SmsSenders) =>
 const msg91: PartnerSmsAccount = { provider: 'msg91', authKey: 'k', templates: { 'code.second_factor': 'tmpl-2fa' } }
 const twilio: PartnerSmsAccount = { provider: 'twilio', accountSid: 'AC1', authToken: 't', messagingServiceSid: 'MG1' }
 
-const sweep = (at: Date) => withSystemScope(db.sql, (tx) => expireUnsentSms(tx, at, defaultRelayOptions.leaseMs, orderTextMs))
+const sweep = (at: Date) => withSystemScope(db.sql, (tx) => expireUnsentSms(tx, at, defaultRelayOptions.leaseMs))
 
 const pending = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'sms' and delivered_at is null and failed_at is null`)[0]?.n
 
@@ -153,6 +153,33 @@ describe('texts through the outbox', () => {
     expect(await sweep(new Date(now.getTime() + orderTextMs + 1000))).toBe(1)
     const [row] = await db.sql<{ payload: unknown }[]>`select payload from outbox where id = ${id ?? ''}`
     expect(row?.payload).toEqual({ message: 'order.shipped', redacted: true })
+  })
+
+  it('texts each partner’s people through that partner’s own account and templates only', async () => {
+    const used: string[] = []
+    const senders: SmsSenders = {
+      msg91: (c) => ({ send: async (sms) => (used.push(`msg91:${c.authKey}:${sms.dlt?.templateId ?? ''}`), { providerId: 'm' }) }),
+      twilio: (c) => ({ send: async () => (used.push(`twilio:${c.accountSid}`), { providerId: 't' }) }),
+    }
+    const accounts = accountsOf({
+      [t.partnerA]: [msg91, twilio],
+      [t.partnerB]: [{ provider: 'msg91', authKey: 'k-b', templates: { 'code.second_factor': 'tmpl-b' } }, { ...twilio, accountSid: 'AC-B' }],
+    })
+    await queue(t.partnerA, code('+919845022170'))
+    await queue(t.partnerB, code('+919845022171'))
+    await queue(t.partnerA, code('+16145550170'))
+    await queue(t.partnerB, code('+16145550171'))
+    await relay(accounts, senders)
+    expect(used.sort()).toEqual(['msg91:k-b:tmpl-b', 'msg91:k:tmpl-2fa', 'twilio:AC-B', 'twilio:AC1'].sort())
+  })
+
+  it('sends nothing for a row with no partner, whoever has an account', async () => {
+    const { senders, sent } = fakeSenders()
+    const id = await withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'sms', partnerId: null, storeId: null, idempotencyKey: `sms:${crypto.randomUUID()}`, payload: code('+16145550172') }))
+    await relay(accountsOf({ [t.partnerA]: [twilio], [t.partnerB]: [twilio] }), senders)
+    expect(sent).toEqual([])
+    const [row] = await db.sql<{ last_error: string }[]>`select last_error from outbox where id = ${id ?? ''}`
+    expect(row?.last_error).toBe('bad_payload')
   })
 
   it('refuses to queue a text that isn’t one of its messages', async () => {
