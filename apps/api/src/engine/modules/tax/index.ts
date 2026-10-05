@@ -40,7 +40,7 @@ export const taxAudit = {
   invoiceSettingsSaved: 'invoice_settings.saved',
 } as const
 
-export type TaxRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_NAME' | 'DEFAULT_CLASS' | 'CLASS_IN_USE' | 'PRICE_REQUIRED'
+export type TaxRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_NAME' | 'DEFAULT_CLASS' | 'CLASS_IN_USE' | 'PRICE_REQUIRED' | 'TOO_MANY' | 'TAX_UNAVAILABLE'
 export type TaxResult<T> = { ok: true; value: T } | { ok: false; reason: TaxRefusal }
 
 class Refused extends Error {
@@ -80,6 +80,9 @@ export interface CartTax {
 }
 
 const maxLines = 100
+// Each store's own list, read whole by Tax setup, stays short (AGENTS.md: every list has a maximum).
+export const maxTaxClasses = 50
+export const maxTaxZones = 100
 
 export const createTaxService = ({ sql, context, actor, activity, facts, now, stripe }: TaxDeps) => {
   const { storeId } = context
@@ -137,6 +140,7 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
     run(async (tx) => {
       const cleaned = cleanClass(input)
       let saved: string
+      if (id === null && ((await selectTaxSetup(tx, storeId))?.classes.length ?? 0) >= maxTaxClasses) throw new Refused('TOO_MANY')
       if (id === null) saved = await insertTaxClass(tx, storeId, cleaned)
       else {
         if (!isUuid(id) || !(await updateTaxClass(tx, storeId, id, cleaned))) throw new Refused('NOT_FOUND')
@@ -173,6 +177,7 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
       if (rates.length > 0 && (await classesOfStore(tx, storeId, rates.map((r) => r.taxClassId))) !== rates.length) throw new Refused('NOT_FOUND')
       const zone = { name, countries, regions, rates }
       let saved: string
+      if (id === null && ((await selectTaxSetup(tx, storeId))?.zones.length ?? 0) >= maxTaxZones) throw new Refused('TOO_MANY')
       if (id === null) saved = await insertTaxZone(tx, storeId, zone)
       else {
         if (!isUuid(id) || !(await updateTaxZone(tx, storeId, id, zone))) throw new Refused('NOT_FOUND')
@@ -209,7 +214,9 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
    * the store's Stripe account is connected, its own rates otherwise. Carts (SAPI 9) price with it.
    */
   const quote = async (cart: readonly CartLine[], shipTo: ShipTo & { postal: string | null }): Promise<TaxResult<CartTax>> => {
-    if (cart.length === 0 || cart.length > maxLines || !isCountry(shipTo.country) || !cart.every((l) => isUuid(l.versionId) && Number.isInteger(l.quantity) && l.quantity >= 1 && l.quantity <= 10_000)) {
+    // One line per version, as a cart holds them: Stripe answers per line by the version's id.
+    const distinct = new Set(cart.map((l) => l.versionId.toLowerCase())).size === cart.length
+    if (cart.length === 0 || cart.length > maxLines || !distinct || !isCountry(shipTo.country) || !cart.every((l) => isUuid(l.versionId) && Number.isInteger(l.quantity) && l.quantity >= 1 && l.quantity <= 10_000)) {
       return { ok: false, reason: 'INVALID_INPUT' }
     }
     const loaded = await inScope(async (tx) => {
@@ -226,7 +233,13 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
     const setting = loaded.setting
     const accountId = shipTo.country === 'US' && stripe ? await stripe.accountId() : null
     if (stripe && accountId) {
-      const result = await stripe.calculate({ accountId, currency: loaded.currency, inclusive: setting.tax_inclusive, shipTo, lines: priced.map((p) => ({ reference: p.id, amount: p.lineAmount, taxCode: p.taxCode })) })
+      // Stripe down or refusing is a tax the cart can't know yet, never a guess at the store's own rates.
+      let result: Awaited<ReturnType<StripeTaxDeps['calculate']>>
+      try {
+        result = await stripe.calculate({ accountId, currency: loaded.currency, inclusive: setting.tax_inclusive, shipTo, lines: priced.map((p) => ({ reference: p.id, amount: p.lineAmount, taxCode: p.taxCode })) })
+      } catch {
+        return { ok: false, reason: 'TAX_UNAVAILABLE' }
+      }
       return {
         ok: true,
         value: {

@@ -66,10 +66,12 @@ export const taxIn = (amount: bigint, rateBps: number, inclusive: boolean): bigi
 
 const splitGst = (tax: bigint, rateBps: number, inState: boolean): TaxComponent[] => {
   if (!inState) return [{ name: 'IGST', rateBps, amount: tax }]
+  // Halves in whole basis points and minor units, the state's share taking any odd one, so they add up.
   const central = tax / 2n
+  const centralRate = Math.floor(rateBps / 2)
   return [
-    { name: 'CGST', rateBps: rateBps / 2, amount: central },
-    { name: 'SGST', rateBps: rateBps / 2, amount: tax - central },
+    { name: 'CGST', rateBps: centralRate, amount: central },
+    { name: 'SGST', rateBps: rateBps - centralRate, amount: tax - central },
   ]
 }
 
