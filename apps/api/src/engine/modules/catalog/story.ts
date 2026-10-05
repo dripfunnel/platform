@@ -11,6 +11,7 @@ import {
   maxStoryBlocks,
   publishStoryDraft,
   readableProducts,
+  selectProductNames,
   selectStory,
   selectStoryBlock,
   selectStoryBlocks,
@@ -55,6 +56,8 @@ export interface Story {
   publishedAt: Date | null
   revision: number
   updatedAt: Date | null
+  /** The products its comparisons name, by name, those the caller reads. */
+  products: { id: string; name: string }[]
 }
 
 
@@ -69,8 +72,10 @@ const statusOf = (row: StoryRow): StoryStatus => (row.live === null ? 'draft' : 
 
 const storyOf = (productId: string, row: StoryRow | null): Story =>
   row
-    ? { productId, template: row.template, modules: row.draft as StoryModule[], status: statusOf(row), publishedAt: row.published_at, revision: row.revision, updatedAt: row.updated_at }
-    : { productId, template: null, modules: [], status: 'draft', publishedAt: null, revision: 0, updatedAt: null }
+    ? { productId, template: row.template, modules: row.draft as StoryModule[], status: statusOf(row), publishedAt: row.published_at, revision: row.revision, updatedAt: row.updated_at, products: [] }
+    : { productId, template: null, modules: [], status: 'draft', publishedAt: null, revision: 0, updatedAt: null, products: [] }
+
+const comparedIn = (modules: readonly StoryModule[]) => [...new Set(modules.flatMap((m) => (m.kind === 'compare' ? m.productIds : [])))]
 
 export interface StoryDeps {
   sql: postgres.Sql
@@ -122,10 +127,12 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
   }
 
   /** Null when the caller can't read the product; a product with no story yet has an empty draft at revision 0. */
+  const named = async (tx: ScopedSql, s: Story): Promise<Story> => ({ ...s, products: await selectProductNames(tx, storeId, comparedIn(s.modules)) })
+
   const story = (productId: string) =>
     inScope(async (tx) => {
       if (!isUuid(productId) || (await readableProducts(tx, storeId, [productId])).length === 0) return null
-      return storyOf(productId, await selectStory(tx, storeId, productId))
+      return named(tx, storyOf(productId, await selectStory(tx, storeId, productId)))
     })
 
   const save = (productId: string, revision: number, input: StoryInput) =>
@@ -135,7 +142,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
       const done = revision === 0 ? await insertStory(tx, storeId, productId, clean.template, clean.modules) : await updateStoryDraft(tx, storeId, productId, revision, clean.template, clean.modules, now())
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: (await selectStory(tx, storeId, productId))?.revision ?? 0 })
       await activity.record(tx, entry(storyAudit.saved, { type: 'product', id: productId, label: name }))
-      return storyOf(productId, await selectStory(tx, storeId, productId))
+      return named(tx, storyOf(productId, await selectStory(tx, storeId, productId)))
     })
 
   // Q11's review of a supplier's story comes with approval (SAPI 5); until then it publishes as the product saves.
@@ -152,7 +159,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
       if (sellerId !== null && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId, now()))) {
         await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { type: 'product', id: productId, label: name }), reason: 'A+ content' })
       }
-      return storyOf(productId, await selectStory(tx, storeId, productId))
+      return named(tx, storyOf(productId, await selectStory(tx, storeId, productId)))
     })
 
   /** Q6: the source's draft becomes each target's draft; the answer is how many products got it. */

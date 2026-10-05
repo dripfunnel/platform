@@ -614,6 +614,7 @@ input ProductSpecInput {
 type ProductStory {
   modules: [StoryModule!]
   productId: ID
+  products: [StoryProduct!]
   publishedAt: String
   revision: Int
   status: String
@@ -1155,6 +1156,11 @@ type StoryPhoto {
 input StoryPhotoInput {
   alt: String
   assetId: ID
+}
+
+type StoryProduct {
+  id: ID
+  name: String
 }
 
 type StoryVideo {

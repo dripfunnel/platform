@@ -35,6 +35,7 @@ import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
+import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -164,6 +165,12 @@ const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
   path: '/products/$productId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProductsProductIdStoryRoute =
+  AppProductsProductIdStoryRouteImport.update({
+    id: '/products_/$productId_/story',
+    path: '/products/$productId/story',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -216,6 +224,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -245,6 +254,7 @@ export interface FileRoutesById {
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/products_/$productId': typeof AppProductsProductIdRoute
+  '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/products/$productId'
+    | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/products/$productId'
+    | '/products/$productId/story'
   id:
     | '__root__'
     | '/_app'
@@ -327,6 +339,7 @@ export interface FileRouteTypes {
     | '/impersonate/enter'
     | '/_app/'
     | '/_app/products_/$productId'
+    | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -520,6 +533,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/products_/$productId_/story': {
+      id: '/_app/products_/$productId_/story'
+      path: '/products/$productId/story'
+      fullPath: '/products/$productId/story'
+      preLoaderRoute: typeof AppProductsProductIdStoryRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -540,6 +560,7 @@ interface AppRouteChildren {
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+  AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -559,6 +580,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
+  AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

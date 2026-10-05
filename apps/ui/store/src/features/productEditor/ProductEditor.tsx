@@ -27,6 +27,11 @@ type Loaded = { product: EditorProduct | null; currency: string; units: Units; t
 
 const sectionKeys: readonly ListingSection[] = ['specs', 'highlights', 'faqs', 'related', 'badges', 'sizeCharts']
 
+const aplusOf = (basics: ProductBasics): 'on' | 'plan' | null => {
+  const f = basics.features.find((x) => x.key === 'aplus')
+  return !f?.enabled ? null : f.inPlan === false ? 'plan' : 'on'
+}
+
 const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: string | null): Promise<Extras> => {
   const on = new Set(basics.features.filter((f) => f.enabled).map((f) => f.key))
   const shown = new Set<ListingSection>([...sectionKeys.filter((k) => on.has(k)), 'filters', 'legal'])
@@ -38,7 +43,7 @@ const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: s
     merchant && productId ? loadProductCollections(productId).catch(() => []) : Promise.resolve([]),
   ])
   return {
-    choices: { shown, facets, sizeCharts, collections: merchant ? { handPicked, automatic: memberships.filter((m) => m.kind !== 'manual') } : null },
+    choices: { shown, facets, sizeCharts, collections: merchant ? { handPicked, automatic: memberships.filter((m) => m.kind !== 'manual') } : null, aplus: aplusOf(basics) },
     badges: merchant && shown.has('badges') ? basics.badges : null,
     memberships,
   }

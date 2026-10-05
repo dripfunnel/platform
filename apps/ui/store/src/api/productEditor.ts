@@ -80,14 +80,15 @@ export const loadProduct = async (id: string): Promise<EditorProduct | null> =>
 const basicsSchema = z.object({
   pricingCurrency: z.string().nullable(),
   unitSystem: z.enum(['metric', 'imperial']).catch('metric'),
-  features: z.array(z.object({ key: z.string(), enabled: z.boolean() })),
+  // inPlan is null for a supplier, which is never told the plan.
+  features: z.array(z.object({ key: z.string(), enabled: z.boolean(), inPlan: z.boolean().nullable() })),
   badges: z.array(z.object({ id: z.string(), label: z.string(), rule: z.string() })),
 })
 export type ProductBasics = z.infer<typeof basicsSchema>
 
 /** What a product is typed in and which sections it has: the store's currency, units, catalogue switches and badges. */
 export const loadProductBasics = async (): Promise<ProductBasics> =>
-  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled } badges { id label rule } } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
+  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled inPlan } badges { id label rule } } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
 
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
 

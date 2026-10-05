@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 import type { EditorProduct, Facet, ProductBasics, ProductCollection } from '../../api/productEditor'
-import { loadProducts } from '../../api/products'
+import { ProductSearch } from '../common/ProductSearch'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { legalFields, type Draft, type LegalField, type ListingSection } from './draft'
 import type { Update } from './EditorCards'
@@ -18,6 +19,8 @@ export interface ListingChoices {
   sizeCharts: readonly { id: string; name: string }[]
   /** The merchant side's: its hand-picked collections, and the automatic ones the product is in; null for a supplier. */
   collections: { handPicked: readonly { id: string; name: string }[]; automatic: readonly ProductCollection[] } | null
+  /** A+ content: switched on and on the plan, switched on but not on the plan, or off. */
+  aplus: 'on' | 'plan' | null
 }
 
 /** The listing's choices: which sections the store switched on, its filters, charts and badges, and the collections. */
@@ -159,6 +162,24 @@ const SpecsSection = ({ draft, update, disabled, specs, highlights }: { draft: D
   )
 }
 
+/** A+ content opens its own screen (CatAPlus); a new product is saved first, and a plan without it says so. */
+const AplusSection = ({ productId, aplus }: { productId: string | null; aplus: 'on' | 'plan' }) => {
+  const [open, setOpen] = useState(false)
+  return (
+    <Section title={words.aplus} summary={aplus === 'plan' ? words.aplusPlan : words.aplusSummary} open={open} onToggle={() => setOpen((o) => !o)} problem={false}>
+      {aplus === 'plan' ? (
+        <p className="df-editor-hint">{words.aplusPlan}</p>
+      ) : productId ? (
+        <Link className="df-button" to="/products/$productId/story" params={{ productId }}>
+          {words.aplusOpen}
+        </Link>
+      ) : (
+        <p className="df-editor-hint">{words.aplusSaveFirst}</p>
+      )}
+    </Section>
+  )
+}
+
 const FaqsSection = ({ draft, update, disabled }: { draft: Draft; update: Update; disabled: boolean }) => {
   const [open, setOpen] = useState(false)
   const faqs = draft.listing.faqs
@@ -196,36 +217,13 @@ const FaqsSection = ({ draft, update, disabled }: { draft: Draft; update: Update
   )
 }
 
-type Search = { kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kind: 'found'; rows: { id: string; name: string }[] }
-
 /** Related products: automatic from the same collection, or up to four found by name. */
 const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; update: Update; disabled: boolean; productId: string | null }) => {
   const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
-  const [search, setSearch] = useState<Search>({ kind: 'idle' })
   const ids = draft.listing.relatedIds
   const names = draft.listing.relatedNames
   const setIds = (next: string[], named?: { id: string; name: string }) => update((d) => ({ ...d, listing: { ...d.listing, relatedIds: next, relatedNames: named ? { ...d.listing.relatedNames, [named.id]: named.name } : d.listing.relatedNames } }))
-  useEffect(() => {
-    const q = query.trim()
-    if (q.length < 2) return setSearch({ kind: 'idle' })
-    setSearch({ kind: 'loading' })
-    let live = true
-    const timer = setTimeout(
-      () =>
-        void loadProducts({ filter: 'all', search: q, supplier: '', sort: 'name' }).then(
-          (page) => live && setSearch({ kind: 'found', rows: page.rows.filter((r) => r.id !== productId).map((r) => ({ id: r.id, name: r.name })) }),
-          () => live && setSearch({ kind: 'failed' }),
-        ),
-      300,
-    )
-    return () => {
-      live = false
-      clearTimeout(timer)
-    }
-  }, [query, productId])
   const summary = ids.length === 0 ? words.relatedSummaryAuto : fill(plural(words.relatedPicked, ids.length), { count: formatCount(ids.length) })
-  const choices = search.kind === 'found' ? search.rows.filter((p) => !ids.includes(p.id)).slice(0, 8) : []
   return (
     <Section title={words.related} summary={summary} open={open} onToggle={() => setOpen((o) => !o)} problem={false}>
       <label className="df-editor-switch">
@@ -246,21 +244,7 @@ const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; 
           ))}
         </div>
       )}
-      {!disabled && ids.length < maxRelated && (
-        <>
-          <input type="search" className="df-editor-versions-search" aria-label={words.relatedSearch} placeholder={words.relatedSearch} value={query} onChange={(e) => setQuery(e.target.value)} />
-          <div className="df-editor-chips" role="status">
-            {search.kind === 'loading' && <span className="df-editor-hint">{words.relatedSearching}</span>}
-            {search.kind === 'failed' && <span className="df-editor-problem">{words.relatedFailed}</span>}
-            {search.kind === 'found' && choices.length === 0 && <span className="df-editor-hint">{fill(words.relatedNone, { query: query.trim() })}</span>}
-            {choices.map((p) => (
-              <button key={p.id} type="button" className="df-editor-chip" onClick={() => setIds([...ids, p.id], p)}>
-                + {p.name}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {!disabled && ids.length < maxRelated && <ProductSearch label={words.relatedSearch} hide={[...ids, ...(productId ? [productId] : [])]} onPick={(p) => setIds([...ids, p.id], p)} />}
       <p className="df-editor-hint">{words.relatedHelp}</p>
     </Section>
   )
@@ -302,6 +286,7 @@ export const ListingSections = ({ draft, update, disabled, choices, productId, r
   <>
     {choices.shown.has('sizeCharts') && draft.kind === 'physical' && <SizeChartSection draft={draft} update={update} disabled={disabled} charts={choices.sizeCharts} />}
     {(choices.shown.has('specs') || choices.shown.has('highlights')) && <SpecsSection draft={draft} update={update} disabled={disabled} specs={choices.shown.has('specs')} highlights={choices.shown.has('highlights')} />}
+    {choices.aplus && <AplusSection productId={productId} aplus={choices.aplus} />}
     {choices.shown.has('faqs') && <FaqsSection draft={draft} update={update} disabled={disabled} />}
     {choices.shown.has('related') && <RelatedSection draft={draft} update={update} disabled={disabled} productId={productId} />}
     <LegalSection draft={draft} update={update} disabled={disabled} readiness={readiness} />

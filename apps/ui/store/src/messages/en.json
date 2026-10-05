@@ -1300,10 +1300,13 @@
       "ageSub": "For alcohol, knives and other age-restricted items",
       "hazard": "Hazardous to ship",
       "hazardSub": "Couriers need to know before they pick it up",
-      "relatedSearching": "Looking…",
-      "relatedFailed": "The search didn’t answer. Try again in a moment.",
-      "relatedNone": "No products match “{query}”",
-      "relatedGone": "A product no longer here"
+      "relatedGone": "A product no longer here",
+      "aplus": "A+ content · Product story",
+      "aplusOpen": "Edit A+ content",
+      "aplusStart": "Add A+ content",
+      "aplusSummary": "Big photos and feature blocks below your product",
+      "aplusSaveFirst": "Save the product first, then add its A+ content.",
+      "aplusPlan": "A+ content isn’t on your plan."
     },
     "side": {
       "onStore": "On your store",
@@ -1436,5 +1439,179 @@
       "newFailed": "The product saved, but its stock didn’t. The counts you typed are below; save again to keep them."
     },
     "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again."
+  },
+  "story": {
+    "title": "A+ content",
+    "back": "← {name}",
+    "count": "{count} of {max} modules",
+    "state": {
+      "unsaved": "Unsaved changes",
+      "live": "Live on your store",
+      "changed": "Draft has changes · live page unchanged",
+      "draft": "Draft · not on your store yet"
+    },
+    "views": {
+      "label": "Preview as",
+      "desktop": "Desktop",
+      "phone": "Phone"
+    },
+    "saveDraft": "Save draft",
+    "publish": "Publish with product",
+    "submit": "Submit with product",
+    "saving": "Saving…",
+    "palette": "Add a module",
+    "kinds": {
+      "banner": "Large banner",
+      "imageText": "Image + text",
+      "features": "Features",
+      "compare": "Comparison chart",
+      "gallery": "Photo strip",
+      "box": "What’s in the box",
+      "specs": "Specifications",
+      "brand": "Brand story",
+      "faq": "FAQ",
+      "video": "Video"
+    },
+    "kindTags": {
+      "specs": "from product",
+      "faq": "from product",
+      "brand": "shared"
+    },
+    "sizes": {
+      "banner": "1464 × 600",
+      "imageText": "970 × 600",
+      "features": "300 × 225",
+      "gallery": "600 × 600",
+      "brand": "970 × 300",
+      "video": "1280 × 720"
+    },
+    "videoOff": "Video is switched off in Settings › Catalogue",
+    "videoPlan": "Video isn’t on your plan",
+    "startFrom": "Or start from",
+    "templates": {
+      "fashion": "Fashion",
+      "electronics": "Electronics",
+      "home": "Home",
+      "beauty": "Beauty"
+    },
+    "templateTitle": "Replace with the {name} template?",
+    "templateBody": "Your current modules will be swapped out. Nothing is published until you publish.",
+    "templateConfirm": "Replace",
+    "templateAdded": "{name} template added — fill in each module",
+    "copyFrom": "Copy from another product…",
+    "copySearch": "Find the product to copy from",
+    "copyTitle": "Copy A+ content from “{name}”?",
+    "copyBody": "This product’s draft is replaced with that one’s. Its live page doesn’t change until you publish.",
+    "copyConfirm": "Copy",
+    "copied": "Copied — change anything that’s different for this product",
+    "empty": "Add a module from the left, or start from a template. Shoppers see this below your product description.",
+    "tooMany": "{max} modules is the most a product can have — remove one to add another",
+    "up": "Move up",
+    "down": "Move down",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "removed": "Module removed",
+    "select": "Edit {name}",
+    "panel": {
+      "title": "Headline",
+      "titlePlaceholder": "A short headline",
+      "body": "Text",
+      "bodyPlaceholder": "2 or 3 sentences",
+      "side": "Photo on the",
+      "left": "Left",
+      "right": "Right",
+      "photo": "Photo · best at {size}",
+      "photoAdd": "Add a photo",
+      "photoReplace": "Replace",
+      "photoRemove": "Remove the photo",
+      "alt": "Describe the photo",
+      "altHint": "required — shoppers using screen readers hear this",
+      "altPlaceholder": "e.g. {name} on a wooden chair",
+      "items": "Features",
+      "itemTitle": "Feature {n}",
+      "itemText": "Its line",
+      "itemPhoto": "Its photo (optional)",
+      "itemAdd": "+ Add a feature",
+      "itemRemove": "Remove feature {n}",
+      "boxItem": "Item {n}",
+      "boxAdd": "+ Add an item",
+      "boxRemove": "Remove item {n}",
+      "gallery": "Photos · up to 8",
+      "galleryAdd": "Add photos",
+      "galleryAlt": "Describe photo {n}",
+      "galleryRemove": "Remove photo {n}",
+      "compare": "Products to compare · 2 to 5",
+      "compareSearch": "Find a product to compare",
+      "compareRemove": "Remove {name}",
+      "compareNote": "Rows come from each product’s Specifications — never retyped.",
+      "brand": "Brand story",
+      "brandNone": "Choose a brand story",
+      "brandEmpty": "No brand stories yet. They are made in Settings › Catalogue and shown on every product that uses them.",
+      "brandSupplier": "Brand stories are your store owner’s.",
+      "fromProduct": "Shows this product’s {what}, as they are in the editor.",
+      "fromSpecs": "specifications",
+      "fromFaqs": "questions",
+      "video": "Video link",
+      "videoPlaceholder": "https://www.youtube.com/watch?v=…",
+      "videoHint": "A YouTube or Vimeo link."
+    },
+    "gaps": {
+      "one": "1 thing to fill in before publishing — it’s marked.",
+      "other": "{count} things to fill in before publishing — they’re marked."
+    },
+    "gapFields": {
+      "title": "Add a headline",
+      "body": "Add the text",
+      "photo": "Add a photo",
+      "alt": "Describe the photo",
+      "items": "Fill in every item",
+      "products": "Pick at least 2 products",
+      "block": "Choose a brand story",
+      "video": "Add a video link"
+    },
+    "saved": "Draft saved — your live page hasn’t changed",
+    "published": "A+ content is live on your product page",
+    "submitted": "Sent for approval with the product",
+    "refused": {
+      "STORY_REFUSED": "A photo, product or brand story here isn’t one this product can use.",
+      "STALE_REVISION": "Someone else saved this A+ content. Reload to see their changes.",
+      "INVALID_STORY": "Something in a module isn’t valid.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can look at A+ content but not change it.",
+      "other": "That didn’t save. Your changes are still here; try again."
+    },
+    "viewOnly": "You can look at A+ content but not change it.",
+    "readOnly": "Your store is read-only until the bill is paid — nothing can be published.",
+    "leave": "Your A+ changes aren’t saved. Leave without saving?",
+    "loading": "Loading the A+ content",
+    "error": {
+      "title": "We couldn’t load the A+ content",
+      "body": "Nothing is lost. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "notFound": {
+      "title": "This product isn’t here",
+      "body": "It may have been deleted, or it belongs to someone else.",
+      "back": "Back to products"
+    },
+    "cancel": "Cancel",
+    "placeholders": {
+      "banner": "Your headline",
+      "imageText": "Your headline",
+      "features": "Why it’s worth it",
+      "compare": "Compare",
+      "gallery": "In use",
+      "box": "What’s in the box",
+      "specs": "Specifications",
+      "faq": "Questions",
+      "video": "Video",
+      "text": "Your 2 or 3 sentences",
+      "item": "A feature"
+    }
+  },
+  "productSearch": {
+    "looking": "Looking…",
+    "failed": "The search didn’t answer. Try again in a moment.",
+    "none": "No products match “{query}”"
   }
 }

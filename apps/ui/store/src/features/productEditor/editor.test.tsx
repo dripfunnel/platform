@@ -68,7 +68,8 @@ const show = async (acting: Acting, path = '/products/p1', readOnly = false) => 
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
   const list = createRoute({ getParentRoute: () => app, path: '/products', component: () => <p>The list</p> })
   const editor = createRoute({ getParentRoute: () => app, path: '/products/$productId', component: ProductEditor })
-  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, editor])]), history: createMemoryHistory({ initialEntries: [path] }) })
+  const story = createRoute({ getParentRoute: () => app, path: '/products/$productId/story', component: () => <p>The A+ editor</p> })
+  const router = createRouter({ routeTree: root.addChildren([app.addChildren([list, editor, story])]), history: createMemoryHistory({ initialEntries: [path] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -80,7 +81,7 @@ const field = (label: string) => screen.getByLabelText(label) as HTMLInputElemen
 
 beforeEach(() => {
   api.loadProduct.mockResolvedValue(cushion())
-  api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: ['specs', 'highlights', 'faqs', 'badges'].map((key) => ({ key, enabled: true })), badges: [{ id: 'b1', label: 'Handmade', rule: 'manual' }] })
+  api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: ['specs', 'highlights', 'faqs', 'badges'].map((key) => ({ key, enabled: true, inPlan: true })), badges: [{ id: 'b1', label: 'Handmade', rule: 'manual' }] })
   api.loadFacets.mockResolvedValue([{ id: 'f1', name: 'Fabric', shopperVisible: true, values: [{ id: 'fv1', name: 'Linen' }] }])
   api.loadSizeCharts.mockResolvedValue([])
   api.loadProductCollections.mockResolvedValue([{ id: 'c1', name: 'Summer edit', kind: 'manual' }])
@@ -438,13 +439,13 @@ describe('the product editor', () => {
 
   it('finds related products by name, saying when nothing matches or the search fails', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
-    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'related', enabled: true }], badges: [] })
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'related', enabled: true, inPlan: true }], badges: [] })
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
     listApi.loadProducts.mockResolvedValueOnce({ rows: [], next: null, previous: null }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ rows: [{ id: 'p2', name: 'Kurta' }], next: null, previous: null })
     await show(owner)
     fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.related) }))
     const find = screen.getByLabelText(words.sections.relatedSearch)
-    for (const [typed, expected] of [['zz', 'No products match “zz”'], ['ku', words.sections.relatedFailed]] as const) {
+    for (const [typed, expected] of [['zz', 'No products match “zz”'], ['ku', messages.productSearch.failed]] as const) {
       fireEvent.change(find, { target: { value: typed } })
       await act(async () => vi.advanceTimersByTimeAsync(350))
       expect(screen.getByText(expected)).toBeTruthy()
@@ -457,5 +458,22 @@ describe('the product editor', () => {
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     expect((api.saveProduct.mock.calls[0]?.[2] as { listing: { relatedIds: unknown } }).listing.relatedIds).toEqual(['p2'])
+  })
+
+  it('opens A+ content for a saved product, asks a new one to save first, and says when the plan lacks it', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'aplus', enabled: true, inPlan: true }], badges: [] })
+    const router = await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.aplus) }))
+    fireEvent.click(screen.getByRole('link', { name: words.sections.aplusOpen }))
+    await settle()
+    expect(router.state.location.pathname).toBe('/products/p1/story')
+    cleanup()
+    await show(owner, '/products/new')
+    fireEvent.click(screen.getByRole('button', { name: (n) => n.startsWith(words.sections.aplus) }))
+    expect(screen.getByText(words.sections.aplusSaveFirst)).toBeTruthy()
+    cleanup()
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'aplus', enabled: true, inPlan: false }], badges: [] })
+    await show(owner)
+    expect(screen.getAllByText(words.sections.aplusPlan).length).toBeGreaterThan(0)
   })
 })
