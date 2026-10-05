@@ -170,7 +170,7 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       await deleteTranslations(tx, storeId, language, own.clears)
       await activity.record(tx, entry(translationAudit.product, { type: 'product', id: productId, label: product.main }, language))
       // N16: a supplier's new translation waits for the merchant while approval is on.
-      if (sellerId !== null && own.writes.length > 0 && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId))) {
+      if (sellerId !== null && own.writes.length > 0 && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId, now()))) {
         await activity.record(tx, entry(approvalAudit.sentBackForApproval, { type: 'product', id: productId, label: product.main }, 'translation'))
       }
       return await selectProductTranslation(tx, storeId, productId, language)

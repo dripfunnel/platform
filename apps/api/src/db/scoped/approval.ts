@@ -12,12 +12,12 @@ export const setApprovalRequired = async (tx: ScopedSql, on: boolean): Promise<v
   await tx`select set_store_vendor_approval(${on})`
 }
 
-/** Back in the queue and off the storefront until approved; false when it was already waiting. */
-export const submitForApproval = async (tx: ScopedSql, storeId: string, id: string): Promise<boolean> =>
+/** A supplier's live product back in the queue and off the storefront until approved; false when it was already waiting. */
+export const submitForApproval = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<boolean> =>
   (
     await tx`
-      update product set approval_status = 'pending', visibility = 'hidden', sent_back_reason = null
-      where id = ${id} and store_id = ${storeId} and approval_status is distinct from 'pending'
+      update product set approval_status = 'pending', visibility = 'hidden', sent_back_reason = null, updated_at = ${now}
+      where id = ${id} and store_id = ${storeId} and seller_id is not null and deleted_at is null and approval_status is distinct from 'pending'
     `
   ).count > 0
 
