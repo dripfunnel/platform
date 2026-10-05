@@ -8,7 +8,7 @@ create table story_block (
   name text not null check (char_length(name) between 1 and 80),
   content jsonb not null check (jsonb_typeof(content) = 'object'),
   asset_ids uuid[] not null default '{}',
-  updated_at timestamptz not null default now(),
+  updated_at timestamptz not null default date_trunc('milliseconds', now()), -- as the list cursor carries it (core/cursor.ts)
   revision integer not null default 1,
   unique (id, store_id)
 );

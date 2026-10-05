@@ -39,7 +39,7 @@ create table size_chart (
   fit_notes text check (char_length(fit_notes) <= 500),
   model_info text check (char_length(model_info) <= 200),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
+  updated_at timestamptz not null default date_trunc('milliseconds', now()), -- as the list cursor carries it (core/cursor.ts)
   revision integer not null default 1,
   deleted_at timestamptz,
   foreign key (seller_id, store_id) references seller (id, store_id)

@@ -194,6 +194,20 @@ describe('size charts', () => {
     await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and name like 'Cap %'`
   })
 
+  it('page charts made in the same instant one at a time, every one once', async () => {
+    const made = (await db.sql<{ id: string }[]>`insert into size_chart (store_id, name, unit) select ${t.storeB1}, 'Instant ' || g, 'cm' from generate_series(1, 3) g returning id`).map((r) => r.id)
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 10; page += 1) {
+      const answer = (await gql('query L($after: String) { sizeCharts(first: 1, after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }', 'bOwner', { after })).data?.['sizeCharts'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+      seen.push(...answer.nodes.map((n) => n.id))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor ?? undefined
+    }
+    expect(made.every((id) => seen.filter((s) => s === id).length === 1)).toBe(true)
+    await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeB1} and name like 'Instant %'`
+  })
+
   it('hold the limit when two charts are made at the same moment', async () => {
     const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from size_chart where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and deleted_at is null`
     await db.sql`insert into size_chart (store_id, seller_id, name, unit) select ${t.storeA1}, ${t.sellerA1Second}, 'Race ' || g, 'cm' from generate_series(1, ${199 - n}) as g`

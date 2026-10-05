@@ -278,6 +278,20 @@ describe('Brand stories', () => {
     expect((await saveStory('owner', theirs, 0, [{ id: 'b', kind: 'brand', blockId }])).code).toBe('STORY_REFUSED')
   })
 
+  it('page one at a time when made in the same instant, every one once', async () => {
+    const made = (await db.sql<{ id: string }[]>`insert into story_block (store_id, name, content) select ${t.storeB1}, 'Instant ' || g, '{"title":"T","body":"B","photo":null}' from generate_series(1, 3) g returning id`).map((r) => r.id)
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 10; page += 1) {
+      const answer = (await gql('query L($after: String) { storyBlocks(first: 1, after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }', 'bOwner', { after })).data?.['storyBlocks'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+      seen.push(...answer.nodes.map((n) => n.id))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor ?? undefined
+    }
+    expect(seen.sort()).toEqual([...made].sort())
+    await db.sql`delete from story_block where store_id = ${t.storeB1}`
+  })
+
   it('stops at 50 a store', async () => {
     const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from story_block where store_id = ${t.storeA1}`
     await db.sql`insert into story_block (store_id, name, content) select ${t.storeA1}, 'Filler ' || g, '{"title":"T","body":"B","photo":null}' from generate_series(1, ${50 - n}) g`
