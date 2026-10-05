@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import type { ProductRow } from '../../api/products'
 import { fill, messages } from '../../messages'
+import { AssetImage } from '../common/AssetImage'
 import { priceText, readyOf, reviewChecks, statusOf, stockOf, subOf, type ProductAccess, type RowStatus } from './productView'
 
 const words = messages.products
@@ -20,7 +21,7 @@ const Status = ({ row }: { row: ProductRow }) => {
 }
 
 const Thumb = ({ row }: { row: ProductRow }) =>
-  row.photoUrl ? <img className="df-products-thumb" src={row.photoUrl} alt="" /> : <span className="df-products-thumb df-products-thumb--none">{words.row.noPhoto}</span>
+  row.photoUrl ? <AssetImage className="df-products-thumb" url={row.photoUrl} alt="" placeholder="" /> : <span className="df-products-thumb df-products-thumb--none">{words.row.noPhoto}</span>
 
 export interface ProductRowsProps {
   rows: readonly ProductRow[]

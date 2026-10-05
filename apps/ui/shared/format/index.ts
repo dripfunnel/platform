@@ -1,6 +1,6 @@
 export { formatDateTime } from './dateTime'
 export { formatDuration } from './duration'
-export { formatMoney, type Money } from './money'
+export { formatMoney, minorOf, moneyDigits, moneyText, type Money } from './money'
 export { formatNumber } from './number'
 export { pluralForm } from './plural'
 export { csv, csvCell, csvLink } from './csv'

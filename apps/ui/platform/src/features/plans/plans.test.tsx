@@ -7,7 +7,7 @@ import { messages } from '../../messages'
 import type { PartnerRole } from '../shell/partnerRoles'
 import { PlanEditor } from './PlanEditor'
 import { makeLiveRefusal } from './PlanEditorScreen'
-import { draftOf, inputOf, isDirty, minorOf, rowsAboveCeiling } from './planDraft'
+import { draftOf, inputOf, isDirty, rowsAboveCeiling } from './planDraft'
 import { retireDialog, retireInput, saveDialog } from './planDialogs'
 import { Plans } from './Plans'
 import { growthEditors, newPlanEditor, plansPages } from './plansTestData'
@@ -136,12 +136,6 @@ describe('the plan editor', () => {
   })
 
   it('reads prices as money and keeps a half-typed one as text', () => {
-    expect(minorOf('49', 'USD')).toBe(4900)
-    expect(minorOf('49.5', 'USD')).toBe(4950)
-    expect(minorOf('', 'USD')).toBeNull()
-    expect(minorOf('abc', 'USD')).toBe('invalid')
-    expect(minorOf('4900', 'JPY')).toBe(4900)
-    expect(minorOf('49.00', 'JPY')).toBe('invalid')
     expect(inputOf({ ...original, prices: { ...original.prices, USD: { monthly: 'abc', yearly: '' } } })).toBeNull()
   })
 

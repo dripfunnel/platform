@@ -108,6 +108,8 @@ describe('Settings › Catalogue', () => {
     const theirs = await settings('supplier')
     expect(theirs.features.every((f) => f.inPlan === null)).toBe(true)
     expect(theirs.features.find((f) => f.key === 'faqs')?.enabled).toBe(true)
+    // The currency it prices a new product in, which it reads nowhere else.
+    expect(((await gql('{ catalogueSettings { pricingCurrency } }', 'supplier')).data?.['catalogueSettings'] as { pricingCurrency: string }).pricingCurrency).toBe('INR')
     expect((await gql('mutation S($features: [CatalogueFeatureInput!]!) { saveCatalogueSettings(features: $features) { key } }', 'supplier', { features: [] })).code).toBe('FORBIDDEN')
   })
 

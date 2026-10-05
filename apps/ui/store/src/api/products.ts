@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
+import { loadTaxSetup } from './productEditor'
 import { query } from './client'
 
 // The Products list's reads and writes (FIRST-RELEASE §11, CatList; apps/api/schema/store.graphql,
@@ -105,8 +106,7 @@ export const loadHandPicked = async (): Promise<{ id: string; name: string }[]> 
   return all.filter((c) => c.kind === 'manual').map(({ id, name }) => ({ id, name }))
 }
 
-export const loadTaxClasses = async (): Promise<{ id: string; name: string; isDefault: boolean }[]> =>
-  (await query('{ taxSetup { classes { id name isDefault } } }', z.object({ taxSetup: z.object({ classes: z.array(z.object({ id: z.string(), name: z.string(), isDefault: z.boolean() })) }).nullable() }))).taxSetup?.classes ?? []
+export const loadTaxClasses = async (): Promise<{ id: string; name: string; isDefault: boolean }[]> => (await loadTaxSetup())?.classes ?? []
 
 export const setProductsVisible = async (ids: string[], visible: boolean): Promise<number> =>
   (await query('mutation V($ids: [ID!]!, $visible: Boolean!) { updateProducts(ids: $ids, patch: { visible: $visible }) }', z.object({ updateProducts: z.number() }), { ids, visible })).updateProducts

@@ -59,6 +59,7 @@ input CatalogueFeatureInput {
 type CatalogueSettings {
   badges: [Badge!]
   features: [CatalogueFeature!]
+  pricingCurrency: String
 }
 
 type Collection {

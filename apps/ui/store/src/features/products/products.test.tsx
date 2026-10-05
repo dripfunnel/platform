@@ -89,6 +89,8 @@ describe('who may do what on Products', () => {
   it('lets a supplier propose its own products but never select, approve or see other suppliers', () => {
     expect(accessOf(supplier, false)).toEqual({ supplier: true, canEdit: true, canSelect: false, canApprove: false, seeSuppliers: false, viewOnly: false })
     expect(accessOf({ ...supplier, permissions: ['catalog.read', 'stock.write'] }, false).canEdit).toBe(false)
+    // A catalogue tier writes its products outright; a Stock-only one proposes them.
+    expect(accessOf({ ...supplier, permissions: ['catalog.read', 'catalog.write'] }, false)).toMatchObject({ canEdit: true, canSelect: false })
   })
 })
 

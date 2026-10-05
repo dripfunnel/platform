@@ -59,8 +59,12 @@ export const registerListing = (builder: StoreBuilder) => {
   const Badge = builder.objectRef<{ id: string; label: string; tone: string; rule: string; position: number }>('Badge').implement({
     fields: (t) => ({ id: t.exposeID('id'), label: t.exposeString('label'), tone: t.exposeString('tone'), rule: t.exposeString('rule'), position: t.exposeInt('position') }),
   })
-  const Settings = builder.objectRef<{ features: { key: string; enabled: boolean; inPlan: boolean | null }[]; badges: { id: string; label: string; tone: string; rule: string; position: number }[] }>('CatalogueSettings').implement({
-    fields: (t) => ({ features: t.field({ type: [Feature], resolve: (s) => s.features }), badges: t.field({ type: [Badge], resolve: (s) => s.badges }) }),
+  const Settings = builder.objectRef<{ features: { key: string; enabled: boolean; inPlan: boolean | null }[]; badges: { id: string; label: string; tone: string; rule: string; position: number }[]; pricingCurrency: string | null }>('CatalogueSettings').implement({
+    fields: (t) => ({
+      features: t.field({ type: [Feature], resolve: (s) => s.features }),
+      badges: t.field({ type: [Badge], resolve: (s) => s.badges }),
+      pricingCurrency: t.exposeString('pricingCurrency', { nullable: true }),
+    }),
   })
   type Chart = NonNullable<Awaited<ReturnType<ReturnType<typeof service>['sizeChart']>>>
   type ChartSummary = Awaited<ReturnType<ReturnType<typeof service>['sizeCharts']>>[number]
@@ -130,7 +134,7 @@ export const registerListing = (builder: StoreBuilder) => {
       extensions: { access: read },
       resolve: async (_, __, ctx) => {
         const caller = actingCaller(ctx)
-        const { features, badges } = await service(ctx).settings()
+        const { features, badges, pricingCurrency } = await service(ctx).settings()
         const rows = await Promise.all(
           Object.entries(features).map(async ([key, enabled]) => {
             const planKey = featurePlanKey[key]
@@ -138,7 +142,7 @@ export const registerListing = (builder: StoreBuilder) => {
             return caller.seller !== null ? { key, enabled: enabled && inPlan, inPlan: null } : { key, enabled, inPlan }
           }),
         )
-        return { features: rows, badges }
+        return { features: rows, badges, pricingCurrency }
       },
     }),
     sizeCharts: t.field({
