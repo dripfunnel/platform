@@ -190,13 +190,16 @@ describe('the store caller', () => {
     }
   })
 
-  it('logs a crossing repeated within a minute once, and again after it', async () => {
-    const asked = t.storeB1
-    for (const at of [now, new Date(now.getTime() + 30_000), new Date(now.getTime() + 61_000)]) {
-      expect((await standingOf(t.partnerA, cookies.pat, { [storeHeader]: asked }, at)).kind).toBe('crossing')
+  it('logs at most five crossings a minute per person, whatever stores they name', async () => {
+    const lee = await insertId(db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'lee@example.test', 'Lee', 'active') returning id`)
+    const cookie = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: lee, partnerId: t.partnerA }, now))
+    for (let n = 0; n < 12; n += 1) {
+      expect((await standingOf(t.partnerA, cookie, { [storeHeader]: crypto.randomUUID() }, new Date(now.getTime() + n * 1000))).kind).toBe('crossing')
     }
-    const [rows] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'store.crossing_refused' and actor_id = ${people.pat} and target_id = ${asked}`
-    expect(rows?.n).toBe(2)
+    const count = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'store.crossing_refused' and actor_id = ${lee}`)[0]?.n
+    expect(await count()).toBe(5)
+    await standingOf(t.partnerA, cookie, { [storeHeader]: crypto.randomUUID() }, new Date(now.getTime() + 70_000))
+    expect(await count()).toBe(6)
   })
 
   it('keeps the crossing entry small for a person in many stores', async () => {
