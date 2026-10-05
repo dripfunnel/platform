@@ -280,4 +280,45 @@ describe('the Products list', () => {
     expect(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
   })
+
+  it('clears a supplier filter on a phone, which has no control to show or clear it', async () => {
+    const wide = { matches: false }
+    const listeners: (() => void)[] = []
+    vi.stubGlobal('matchMedia', () => ({ get matches() { return wide.matches }, addEventListener: (_: string, f: () => void) => listeners.push(f), removeEventListener: () => undefined }))
+    await show(owner)
+    fireEvent.change(screen.getByLabelText(words.supplier.label), { target: { value: 'v1' } })
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: 'v1' }), {})
+    wide.matches = true
+    act(() => listeners.forEach((f) => f()))
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: '' }), {})
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps saved prices when only the stock fails, and sends just the counts on retry at the new revision', async () => {
+    const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric' })
+    editorApi.loadProduct.mockResolvedValue({
+      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', photos: [], options: [], readiness: [],
+      versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true }],
+    })
+    editorApi.saveProduct.mockResolvedValue({ id: 'p1', revision: 6, approval: null })
+    stockApi.loadWarehouses.mockResolvedValue([{ id: 'w1', name: 'Jaipur studio', isDefault: true }])
+    stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 4, reserved: 0 }]]]))
+    stockApi.setStock.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(undefined)
+    await show(editable)
+    fireEvent.click(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' }))
+    await settle()
+    const panel = within(screen.getByRole('region', { name: 'Quick edit · Mara Linen Shirt' }))
+    fireEvent.change(panel.getByLabelText('Price of This product'), { target: { value: '1399' } })
+    fireEvent.change(panel.getByLabelText('Stock of This product'), { target: { value: '9' } })
+    fireEvent.click(panel.getByRole('button', { name: 'Save 2 changes' }))
+    await settle()
+    expect(panel.getByText(words.quick.stockFailed)).toBeTruthy()
+    fireEvent.click(panel.getByRole('button', { name: 'Save 1 change' }))
+    await settle()
+    expect(editorApi.saveProduct).toHaveBeenCalledTimes(1)
+    expect(stockApi.setStock).toHaveBeenLastCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 9 }])
+  })
 })

@@ -60,6 +60,7 @@ type CatalogueSettings {
   badges: [Badge!]
   features: [CatalogueFeature!]
   pricingCurrency: String
+  unitSystem: String
 }
 
 type Collection {

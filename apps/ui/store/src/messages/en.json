@@ -992,7 +992,8 @@
       "priceMissing": "Add a price above zero so shoppers can buy this",
       "stockInvalid": "Type a whole number of items, 0 or more",
       "failed": "That didn’t save. Your changes are still here; try again.",
-      "stale": "Someone else saved this product. Close and open it again to see their changes."
+      "stale": "Someone else saved this product. Close and open it again to see their changes.",
+      "stockFailed": "The prices are saved; the stock didn’t save. Try again."
     }
   },
   "editor": {

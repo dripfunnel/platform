@@ -62,13 +62,25 @@ export const QuickEdit = ({ productId, side, canPrice, canStock, onDone, onCance
     if (home && live.some((v) => quantityOf(stockText(versionKey(v.choices))) === 'invalid')) return setProblem(words.stockInvalid)
     setBusy(true)
     setProblem(null)
+    let base = loaded
+    if (canPrice && draft.versions.some((_, i) => priceChanged(i))) {
+      try {
+        const done = await saveProduct(product.id, product.revision, inputOf(draft, currency, side), false)
+        // The prices are stored at a new revision: they become the baseline, so a retry sends only the counts.
+        base = { ...loaded, product: { ...product, revision: done.revision }, draft: { ...draft, stock: loaded.draft.stock } }
+        setLoaded(base)
+      } catch (error) {
+        setProblem(isApiError(error, 'STALE_REVISION') ? words.stale : words.failed)
+        setBusy(false)
+        return
+      }
+    }
     try {
-      if (canPrice && draft.versions.some((_, i) => priceChanged(i))) await saveProduct(product.id, product.revision, inputOf(draft, currency, side), false)
       const ids = new Map(product.versions.map((v) => [versionKey(v.choices), v.id]))
-      await setStock(stockChangesOf(draft, loaded.draft, (key) => ids.get(key)))
+      await setStock(stockChangesOf(draft, base.draft, (key) => ids.get(key)))
       onDone(fill(plural(words.saved, changes), { count: formatCount(changes), name: product.name }))
-    } catch (error) {
-      setProblem(isApiError(error, 'STALE_REVISION') ? words.stale : words.failed)
+    } catch {
+      setProblem(base === loaded ? words.failed : words.stockFailed)
       setBusy(false)
     }
   }
