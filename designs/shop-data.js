@@ -113,10 +113,12 @@
       ['How do I look after hand-printed fabric?', 'Wash it cold and separately the first two times, in mild detergent, and dry it in the shade.']
     ];
     const orders = [
-      { id: k === 'IN' ? 'KT-1042' : 'JC-1042', date: '2026-10-02', status: 'shipped', lines: [['p1', 'Sand / M', 1], ['p8', '', 2]], courier: k === 'IN' ? 'Shiprocket · Delhivery' : 'USPS', awb: k === 'IN' ? '14326219874' : '9400 1000 0000 0000 0000 00', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242' },
-      { id: k === 'IN' ? 'KT-1031' : 'JC-1031', date: '2026-09-21', status: 'delivered', lines: [['p3', 'M', 1]], courier: k === 'IN' ? 'Shiprocket · Blue Dart' : 'UPS', awb: '1Z999AA10123456784', pay: k === 'IN' ? 'Cash on delivery' : 'PayPal' },
-      { id: k === 'IN' ? 'KT-1050' : 'JC-1050', date: '2026-10-04', status: 'awaiting', lines: [['p4', 'Rust', 1]], courier: '', awb: '', pay: 'Bank transfer' },
-      { id: k === 'IN' ? 'KT-1022' : 'JC-1022', date: '2026-09-02', status: 'digital', lines: [['p11', '', 1]], courier: '', awb: '', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242' }
+      { id: k === 'IN' ? 'KT-1055' : 'JC-1055', date: '2026-10-05', status: 'preparing', lines: [['p2', 'M', 1]], courier: '', awb: '', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [['Placed', '5 Oct, 09:12'], ['Paid', '5 Oct, 09:12'], ['Shipped', 'Usually within 2 days'], ['Delivered', '']] },
+      { id: k === 'IN' ? 'KT-1042' : 'JC-1042', date: '2026-10-02', status: 'shipped', lines: [['p1', 'Sand / M', 1], ['p8', '', 2]], courier: k === 'IN' ? 'Shiprocket · Delhivery' : 'USPS', awb: k === 'IN' ? '14326219874' : '9400 1000 0000 0000 0000 00', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [['Placed', '2 Oct, 10:14'], ['Paid', '2 Oct, 10:14'], ['Shipped', '3 Oct, 16:40'], ['Delivered', 'Expected 7–8 Oct']] },
+      { id: k === 'IN' ? 'KT-1031' : 'JC-1031', date: '2026-09-21', status: 'delivered', delivered: '2026-09-25', lines: [['p3', 'M', 1]], courier: k === 'IN' ? 'Shiprocket · Blue Dart' : 'UPS', awb: '1Z999AA10123456784', pay: k === 'IN' ? 'Cash on delivery' : 'PayPal', steps: [['Placed', '21 Sep, 18:02'], ['Paid', k === 'IN' ? '25 Sep, on delivery' : '21 Sep, 18:02'], ['Shipped', '22 Sep, 11:30'], ['Delivered', '25 Sep, 14:05']] },
+      { id: k === 'IN' ? 'KT-1050' : 'JC-1050', date: '2026-10-04', status: 'awaiting', lines: [['p4', 'Rust', 1]], courier: '', awb: '', pay: 'Bank transfer', steps: [['Placed', '4 Oct, 20:41'], ['Paid', 'Waiting for your transfer'], ['Shipped', ''], ['Delivered', '']] },
+      { id: k === 'IN' ? 'KT-1018' : 'JC-1018', date: '2026-08-28', status: 'delivered', delivered: '2026-09-01', lines: [['p6', '', 1]], courier: k === 'IN' ? 'Shiprocket · Delhivery' : 'USPS', awb: '14326201122', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [['Placed', '28 Aug, 12:40'], ['Paid', '28 Aug, 12:40'], ['Shipped', '29 Aug, 10:15'], ['Delivered', '1 Sep, 13:20']] },
+      { id: k === 'IN' ? 'KT-1022' : 'JC-1022', date: '2026-09-02', status: 'digital', lines: [['p11', '', 1]], courier: '', awb: '', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [] }
     ];
     return { R, products, collections, menu, posts, faqs, orders };
   }
