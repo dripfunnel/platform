@@ -151,6 +151,8 @@ export interface ProductRow {
   category: string | null
   visibility: 'visible' | 'hidden'
   approval_status: 'approved' | 'pending' | 'sent_back' | null
+  /** 'plan' when the plan paused it (CATALOG fact 32). */
+  hidden_by: string | null
   sent_back_reason: string | null
   warranty_text: string | null
   returns_text: string | null
@@ -188,7 +190,7 @@ export interface PhotoRow {
 export const selectProduct = async (tx: ScopedSql, storeId: string, productId: string): Promise<ProductRow | null> => {
   const [row] = await tx<ProductRow[]>`
     select p.id, p.store_id, p.seller_id, s.name as seller_name, s.status as seller_status, p.name, p.slug, p.description,
-      p.product_type, p.category, p.visibility, p.approval_status, p.sent_back_reason, p.warranty_text, p.returns_text,
+      p.product_type, p.category, p.visibility, p.approval_status, p.hidden_by, p.sent_back_reason, p.warranty_text, p.returns_text,
       p.seo_title, p.seo_description, p.revision, p.created_at, p.updated_at,
       coalesce((
         select json_agg(json_build_object('id', o.id, 'name', o.name, 'position', o.position, 'values', coalesce((
@@ -304,10 +306,14 @@ export const updateProduct = async (tx: ScopedSql, row: { storeId: string; id: s
   }
 }
 
+/** Paused by the plan, or waiting for the merchant's review: only the upgrade or the approval shows it. */
+export const heldBack = (tx: ScopedSql) => tx`(hidden_by is not distinct from 'plan' or approval_status in ('pending', 'sent_back'))`
+
 export const setProductsVisibility = (tx: ScopedSql, storeId: string, ids: readonly string[], visibility: 'visible' | 'hidden', now: Date): Promise<{ id: string; name: string }[]> =>
   tx<{ id: string; name: string }[]>`
     update product set visibility = ${visibility}, updated_at = ${now}, revision = revision + 1
     where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null and visibility <> ${visibility}
+      and (${visibility} = 'hidden' or not ${heldBack(tx)})
     returning id, name
   `
 
@@ -428,11 +434,12 @@ export const updateVersions = async (tx: ScopedSql, rows: readonly (VersionField
   `
 }
 
-/** A removed version's photos stay on the product as its own, never pointing at a version that's gone. */
+/** A removed version's photos stay on the product as its own, and its filter tags go, so no facet or rule counts it. */
 export const softDeleteVersions = async (tx: ScopedSql, ids: readonly string[], now: Date): Promise<void> => {
   if (ids.length === 0) return
   await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`
   await tx`update product_photo set version_id = null where version_id = any(${pgArray(ids)}::uuid[])`
+  await tx`delete from product_filter_value where version_id = any(${pgArray(ids)}::uuid[])`
 }
 
 /** Each version's choice for every option, replacing what those versions had. */

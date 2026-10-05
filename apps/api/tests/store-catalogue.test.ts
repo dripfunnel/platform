@@ -217,6 +217,22 @@ describe('the merchant side', () => {
     expect(counts.hidden).toBeGreaterThanOrEqual(2)
   })
 
+  it('never shows a product the plan paused or that waits for approval, in bulk or one at a time', async () => {
+    const paused = (await create('owner', simple('Paused vase', { visible: false }))).saved
+    const pending = (await create('owner', simple('Pending vase', { visible: false }))).saved
+    await db.sql`update product set hidden_by = 'plan' where id = ${paused?.id ?? ''}`
+    await db.sql`update product set approval_status = 'pending' where id = ${pending?.id ?? ''}`
+    const show = await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: true }) }`, 'owner', { ids: [paused?.id, pending?.id] })
+    expect(show.data?.['updateProducts']).toBe(0)
+    for (const held of [paused, pending]) {
+      expect((await detail('owner', held?.id ?? ''))?.visible).toBe(false)
+      const resaved = await gql(save, 'owner', { id: held?.id, revision: held?.revision, input: { ...simple('Held again'), visible: true } })
+      expect(resaved.code).toBe('NOT_SHOWABLE')
+    }
+    // Hiding is always allowed, and a held product saves while it stays hidden.
+    expect((await gql(save, 'owner', { id: paused?.id, revision: paused?.revision, input: simple('Still paused') })).code).toBeUndefined()
+  })
+
   it('refuses what the engine’s rules refuse, by code', async () => {
     expect((await create('owner', simple(''))).code).toBe('NAME_REQUIRED')
     expect((await create('owner', simple('No price', { versions: [{ choices: [], prices: [{ currency: 'USD', amount: '100' }] }] }))).code).toBe('PRICE_REQUIRED')

@@ -5,7 +5,8 @@ import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
-import { collectionsRecomputeDeliverer, collectionsRecomputeKind } from '#jobs/queues/deliverers/collectionsRecompute'
+import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
+import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -196,6 +197,29 @@ describe('collections', () => {
     await drainRecompute()
     expect(await members(all.saved?.id ?? '')).toEqual([])
     expect((await members(any.saved?.id ?? '')).some((m) => m.id === linen.id)).toBe(true)
+  })
+
+  it('forgets a removed version’s tags, so its facet and the rules on it stop counting the product', async () => {
+    const finish = await saveFacet('owner', { name: 'Finish', values: [{ name: 'Matte' }] })
+    const matte = (await facets('owner')).find((f) => f.id === finish.id)?.values[0]
+    const options = [{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }]
+    const versions = [{ choices: ['S'], prices: [{ currency: 'INR', amount: '50000' }] }, { choices: ['M'], prices: [{ currency: 'INR', amount: '50000' }] }]
+    const made = await product('owner', 'Matte mug', { options, versions, filterValues: [{ valueId: matte?.id, version: 1 }] })
+    const rule = await save({ name: 'Matte things', kind: 'automatic', rules: [{ kind: 'filter_value', valueId: matte?.id }] })
+    await drainRecompute()
+    expect((await members(rule.saved?.id ?? '')).map((m) => m.id)).toEqual([made.id])
+
+    const read = (await gql('query P($id: ID!) { product(id: $id) { revision versions { id } } }', 'owner', { id: made.id })).data?.['product'] as { revision: number; versions: { id: string }[] }
+    const kept = await gql('mutation S($id: ID, $revision: Int, $input: ProductInput!) { saveProduct(id: $id, revision: $revision, input: $input) { id } }', 'owner', {
+      id: made.id,
+      revision: read.revision,
+      input: { name: 'Matte mug', options: [{ name: 'Size', values: [{ name: 'S' }] }], versions: [{ id: read.versions[0]?.id, choices: ['S'], prices: [{ currency: 'INR', amount: '50000' }] }] },
+    })
+    expect(kept.code).toBeUndefined()
+    expect((await facets('owner')).find((f) => f.id === finish.id)?.values[0]?.products).toBe(0)
+    expect(((await gql('query P($id: ID!) { product(id: $id) { filterValues { valueId } } }', 'owner', { id: made.id })).data?.['product'] as { filterValues: unknown[] }).filterValues).toEqual([])
+    await drainRecompute()
+    expect(await members(rule.saved?.id ?? '')).toEqual([])
   })
 
   it('pages a collection’s products in its own order', async () => {
