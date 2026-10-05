@@ -904,6 +904,7 @@ input SizeChartMeasureNoteInput {
 }
 
 type SizeChartPage {
+  limit: Int
   nodes: [SizeChartSummary!]
   pageInfo: PageInfo
 }
