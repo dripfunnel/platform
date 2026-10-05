@@ -95,7 +95,6 @@ export const softDeleteWarehouse = async (tx: ScopedSql, storeId: string, id: st
 }
 
 export interface StockLevelRow {
-  version_id: string
   warehouse_id: string
   warehouse_name: string
   is_default: boolean
@@ -104,14 +103,34 @@ export interface StockLevelRow {
   low_stock_threshold: number | null
 }
 
-/** A product's stock in every location the caller reads, default location first. */
-export const selectProductStock = (tx: ScopedSql, storeId: string, productId: string): Promise<StockLevelRow[]> =>
-  tx<StockLevelRow[]>`
-    select l.version_id, l.warehouse_id, w.name as warehouse_name, w.is_default, l.on_hand, l.reserved, l.low_stock_threshold
-    from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id
-    where v.product_id = ${productId} and l.store_id = ${storeId} and v.deleted_at is null and w.deleted_at is null
-    order by v.position, w.is_default desc, w.created_at, w.id
+export interface StockVersionRow {
+  version_id: string
+  position: number
+  levels: StockLevelRow[]
+}
+
+/**
+ * A product's stock a page of versions at a time, in the editor's order, each with its levels in the
+ * locations the caller reads, default first; a version's levels sit in its owner's locations, at most 20.
+ */
+export const selectProductStock = (tx: ScopedSql, storeId: string, productId: string, window: PageWindow): Promise<StockVersionRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<StockVersionRow[]>`
+    select v.id as version_id, v.position,
+      coalesce((
+        select jsonb_agg(jsonb_build_object('warehouse_id', l.warehouse_id, 'warehouse_name', w.name, 'is_default', w.is_default,
+          'on_hand', l.on_hand, 'reserved', l.reserved, 'low_stock_threshold', l.low_stock_threshold) order by w.is_default desc, w.created_at, w.id)
+        from stock_level l join warehouse w on w.id = l.warehouse_id
+        where l.version_id = v.id and w.deleted_at is null
+      ), '[]'::jsonb) as levels
+    from product_version v
+    where v.product_id = ${productId} and v.store_id = ${storeId} and v.deleted_at is null
+      and ${window.after ? tx`(-v.position, v.id) < (${window.after.occurredAt.getTime()}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(-v.position, v.id) > (${window.before.occurredAt.getTime()}, ${window.before.id})` : tx`true`}
+    order by v.position ${backwards ? tx`desc` : tx`asc`}, v.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
   `
+}
 
 export type ChangeReason = 'received' | 'returned' | 'damaged' | 'counted' | 'typed'
 
@@ -124,9 +143,15 @@ export const changeStock = async (tx: ScopedSql, versionId: string, warehouseId:
   return row
 }
 
-/** False when the caller doesn't hold that version's stock there. */
-export const setLowStockThreshold = async (tx: ScopedSql, storeId: string, versionId: string, warehouseId: string, threshold: number | null): Promise<boolean> =>
-  (await tx`update stock_level set low_stock_threshold = ${threshold} where version_id = ${versionId} and warehouse_id = ${warehouseId} and store_id = ${storeId} returning version_id`).length === 1
+/** False when the caller doesn't hold that version's stock in a location of its own. */
+export const setLowStockThreshold = async (tx: ScopedSql, storeId: string, sellerId: string | null, versionId: string, warehouseId: string, threshold: number | null): Promise<boolean> =>
+  (
+    await tx`
+      update stock_level set low_stock_threshold = ${threshold}
+      where version_id = ${versionId} and warehouse_id = ${warehouseId} and store_id = ${storeId} and seller_id is not distinct from ${sellerId}
+      returning version_id
+    `
+  ).length === 1
 
 export const stockRefused = (error: unknown): 'NOT_FOUND' | 'BELOW_ZERO' | null => {
   if (typeof error !== 'object' || error === null || !('message' in error) || typeof error.message !== 'string') return null

@@ -534,6 +534,10 @@ describe('the backstop itself', () => {
     expect(await seen(t.storeB1, { kind: 'all' }, 'stock_movement')).toBe(0)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'For them')`)).rejects.toThrow(/theirs to change/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, null, 'As merchant')`)).rejects.toThrow(/adds its own locations/)
+    const [theirs] = await db.sql<{ id: string }[]>`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'Iso godown') returning id`
+    const [theirVersion] = await db.sql<{ id: string }[]>`select v.id from product_version v join product p on p.id = v.product_id where p.seller_id = ${t.sellerA1First} limit 1`
+    await db.sql`insert into stock_level (version_id, warehouse_id, store_id) values (${theirVersion?.id ?? ''}, ${theirs?.id ?? ''}, ${t.storeA1})`
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set low_stock_threshold = 0 where warehouse_id = ${theirs?.id ?? ''}`)).rejects.toThrow(/theirs to change/)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/permission denied/)
     for (const table of ['warehouse', 'stock_level', 'stock_movement']) {
       await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)

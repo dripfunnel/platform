@@ -107,6 +107,20 @@ $$;
 
 create trigger warehouse_owner_check before insert or update on warehouse for each row execute function warehouse_owner_check();
 
+-- The same for a supplier's low-stock threshold, which drives its own chip.
+create function stock_level_threshold_check() returns trigger
+language plpgsql
+as $$
+begin
+  if app_setting_text('app.scope') = 'store' and app_setting_text('app.seller_id') = '' and new.seller_id is not null then
+    raise exception 'stock: a supplier''s location is theirs to change' using errcode = '42501';
+  end if;
+  return new;
+end
+$$;
+
+create trigger stock_level_threshold_check before update of low_stock_threshold on stock_level for each row execute function stock_level_threshold_check();
+
 -- The one write path for a quantity from the Store API (G4): `delta`, or `target` for a typed number. The
 -- caller's own scope decides what it reaches: the merchant side its own locations, a supplier its own.
 create function stock_change(p_version uuid, p_location uuid, p_delta integer, p_target integer, p_reason text, out quantity integer, out change integer)

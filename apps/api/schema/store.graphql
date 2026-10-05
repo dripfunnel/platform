@@ -604,7 +604,7 @@ type Query {
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
   productCounts: ProductCounts
-  productStock(productId: ID!): [StockLevel!]
+  productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
   productStory(productId: ID!): ProductStory
   products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
@@ -720,7 +720,6 @@ type StockLevel {
   lowStockThreshold: Int
   onHand: Int
   reserved: Int
-  versionId: ID
   warehouseId: ID
   warehouseName: String
 }
@@ -753,6 +752,16 @@ input StockQuantityInput {
   quantity: Int!
   versionId: ID!
   warehouseId: ID!
+}
+
+type StockVersion {
+  levels: [StockLevel!]
+  versionId: ID
+}
+
+type StockVersionPage {
+  nodes: [StockVersion!]
+  pageInfo: PageInfo
 }
 
 type StoreChoice {

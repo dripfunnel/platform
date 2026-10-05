@@ -112,14 +112,13 @@ const history = async (who: Who, productId: string, versionId?: string, first?: 
   )
   return result.data?.['stockHistory'] as { nodes: MovementOut[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } | undefined
 }
-const levels = async (who: Who, productId: string) =>
-  ((await gql('query L($p: ID!) { productStock(productId: $p) { versionId warehouseId warehouseName onHand reserved lowStockThreshold } }', who, { p: productId })).data?.['productStock'] ?? []) as {
-    versionId: string
-    warehouseId: string
-    onHand: number
-    reserved: number
-    lowStockThreshold: number
-  }[]
+type LevelOut = { versionId: string; warehouseId: string; onHand: number; reserved: number; lowStockThreshold: number }
+const stockPage = async (who: Who, productId: string, first?: number, after?: string) =>
+  (await gql('query L($p: ID!, $first: Int, $after: String) { productStock(productId: $p, first: $first, after: $after) { nodes { versionId levels { warehouseId onHand reserved lowStockThreshold } } pageInfo { hasNextPage endCursor } } }', who, { p: productId, first, after })).data?.['productStock'] as
+    | { nodes: { versionId: string; levels: Omit<LevelOut, 'versionId'>[] }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+    | undefined
+/** Every level the caller reads, in the editor's order. */
+const levels = async (who: Who, productId: string): Promise<LevelOut[]> => ((await stockPage(who, productId))?.nodes ?? []).flatMap((v) => v.levels.map((l) => ({ versionId: v.versionId, ...l })))
 const main = async () => (await places('owner')).find((w) => w.isDefault && w.supplierId === null)?.id ?? ''
 
 describe('Stock locations', () => {
@@ -206,6 +205,10 @@ describe('Stock and its history', () => {
     const page = await history('owner', id, undefined, 2)
     expect(page?.pageInfo.hasNextPage).toBe(true)
     expect((await history('owner', id, undefined, 2, page?.pageInfo.endCursor ?? undefined))?.nodes.map((m) => m.reason)).toEqual(['typed', 'starting'])
+    const first = await stockPage('owner', id, 1)
+    expect(first?.nodes.map((v) => v.versionId)).toEqual([small])
+    expect(first?.pageInfo.hasNextPage).toBe(true)
+    expect((await stockPage('owner', id, 1, first?.pageInfo.endCursor ?? undefined))?.nodes.map((v) => v.versionId)).toEqual([large])
     expect(await levels('owner', id)).toMatchObject([
       { versionId: small, onHand: 15, reserved: 0, lowStockThreshold: 5 },
       { versionId: large, onHand: 3, reserved: 0 },
@@ -265,6 +268,12 @@ describe('Stock and its history', () => {
     expect(after.products.nodes.some((p) => p.id === low.id)).toBe(false)
     expect(after.productCounts.lowStock).toBe(before.productCounts.lowStock - 1)
     expect((await gql('mutation T($v: ID!, $w: ID!, $n: Int) { setLowStockThreshold(versionId: $v, warehouseId: $w, threshold: $n) }', 'supplier', { v, w: where, n: 9 })).code).toBe('NOT_FOUND')
+    // The merchant side never sets a supplier's threshold, which drives that supplier's chip.
+    const godown = (await places('supplier')).find((w) => w.isDefault)?.id ?? ''
+    const theirs = await product('supplier', 'Anand lamp')
+    await setStock('supplier', [{ versionId: theirs.versions[0] ?? '', warehouseId: godown, quantity: 9 }])
+    expect((await gql('mutation T($v: ID!, $w: ID!, $n: Int) { setLowStockThreshold(versionId: $v, warehouseId: $w, threshold: $n) }', 'owner', { v: theirs.versions[0], w: godown, n: 0 })).code).toBe('NOT_FOUND')
+    expect((await gql('mutation T($v: ID!, $w: ID!, $n: Int) { setLowStockThreshold(versionId: $v, warehouseId: $w, threshold: $n) }', 'supplier', { v: theirs.versions[0], w: godown, n: 10 })).data?.['setLowStockThreshold']).toBe(10)
     // A supplier's chip counts only its own products.
     expect((await chip('supplier')).products.nodes.every((p) => p.id !== low.id)).toBe(true)
   })

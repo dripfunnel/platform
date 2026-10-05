@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { createInventoryService, defaultLowStock, inventoryAudit, type InventoryRefusal, type InventoryResult, type StockLevelRow, type StockMovementRow, type WarehouseRow } from '#engine/modules/inventory/index'
+import { createInventoryService, defaultLowStock, inventoryAudit, type InventoryRefusal, type InventoryResult, type StockLevelRow, type StockMovementRow, type StockVersionRow, type WarehouseRow } from '#engine/modules/inventory/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
@@ -60,7 +60,6 @@ export const registerInventory = (builder: StoreBuilder) => {
   })
   const StockLevel = builder.objectRef<StockLevelRow>('StockLevel').implement({
     fields: (t) => ({
-      versionId: t.exposeID('version_id'),
       warehouseId: t.exposeID('warehouse_id'),
       warehouseName: t.exposeString('warehouse_name'),
       isDefault: t.exposeBoolean('is_default'),
@@ -69,6 +68,12 @@ export const registerInventory = (builder: StoreBuilder) => {
       reserved: t.exposeInt('reserved'),
       lowStockThreshold: t.int({ resolve: (l) => l.low_stock_threshold ?? defaultLowStock }),
     }),
+  })
+  const StockVersion = builder.objectRef<StockVersionRow>('StockVersion').implement({
+    fields: (t) => ({ versionId: t.exposeID('version_id'), levels: t.field({ type: [StockLevel], resolve: (v) => v.levels }) }),
+  })
+  const StockVersionPage = builder.objectRef<{ nodes: StockVersionRow[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('StockVersionPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [StockVersion], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
   const Movement = builder.objectRef<StockMovementRow>('StockMovement').implement({
     fields: (t) => ({
@@ -116,11 +121,15 @@ export const registerInventory = (builder: StoreBuilder) => {
         return pageOf(await service(ctx).warehouses(window), window, (w) => ({ occurredAt: w.created_at, id: w.id }))
       },
     }),
+    // A page of versions in the editor's order, each with its levels (G2).
     productStock: t.field({
-      type: [StockLevel],
-      args: { productId: t.arg.id({ required: true }) },
+      type: StockVersionPage,
+      args: { productId: t.arg.id({ required: true }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access: read },
-      resolve: (_, args, ctx) => service(ctx).productStock(String(args.productId)),
+      resolve: async (_, args, ctx) => {
+        const window = storePage(args)
+        return pageOf(await service(ctx).productStock(String(args.productId), window), window, (v) => ({ occurredAt: new Date(-v.position), id: v.version_id }))
+      },
     }),
     stockHistory: t.field({
       type: MovementPage,

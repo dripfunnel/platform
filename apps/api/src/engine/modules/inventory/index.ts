@@ -24,7 +24,7 @@ import {
 // Inventory (PLATFORM-PROMPT §5.4, CATALOG-DESIGN G, SetOps): each owner counts its own locations, and
 // every change to a quantity is a movement with its reason, by the database (migration 0046).
 
-export { defaultLowStock, type StockLevelRow, type StockMovementRow, type WarehouseRow } from '#db/scoped/inventory'
+export { defaultLowStock, type StockLevelRow, type StockMovementRow, type StockVersionRow, type WarehouseRow } from '#db/scoped/inventory'
 
 export const inventoryAudit = {
   adjusted: 'stock.adjusted',
@@ -173,7 +173,7 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
       return true
     })
 
-  const productStock = (productId: string) => inScope((tx) => (uuid.test(productId) ? selectProductStock(tx, storeId, productId) : Promise.resolve([])))
+  const productStock = (productId: string, window: PageWindow) => inScope((tx) => (uuid.test(productId) ? selectProductStock(tx, storeId, productId, window) : Promise.resolve([])))
 
   const moved = (versionId: string, warehouseId: string, reason: ChangeReason, delta: number, quantity: number) =>
     entry(inventoryAudit.adjusted, { type: 'product_version', id: versionId, label: `${reason} ${delta > 0 ? '+' : ''}${delta} → ${quantity} at ${warehouseId}` })
@@ -208,9 +208,11 @@ export const createInventoryService = ({ sql, context, actor, activity, facts, n
 
   const setThreshold = (versionId: string, warehouseId: string, threshold: number | null) =>
     run(async (tx) => {
-      if (!uuid.test(versionId) || !uuid.test(warehouseId)) throw new Refused('NOT_FOUND')
+      if (!uuid.test(versionId)) throw new Refused('NOT_FOUND')
+      // The merchant side reads a supplier's thresholds but never sets them: they drive the supplier's chip.
+      await ownWarehouse(tx, warehouseId)
       const clean = threshold === null ? null : whole(threshold, 0)
-      if (!(await setLowStockThreshold(tx, storeId, versionId, warehouseId, clean))) throw new Refused('NOT_FOUND')
+      if (!(await setLowStockThreshold(tx, storeId, sellerId, versionId, warehouseId, clean))) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(inventoryAudit.thresholdSet, { type: 'product_version', id: versionId, label: clean === null ? 'default' : String(clean) }))
       return clean
     })
