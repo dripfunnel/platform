@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { actingCaller, storePolicy, type StoreContext } from '#apis/store/access'
 import { createStoreBuilder, pageInfoType } from '#apis/store/builder'
 import { requirePlan, storePage } from '#apis/store/refusals'
+import type { PlanCheck } from '#saas/entitlements/index'
 import { resolvePortalPartner, resolveStoreStanding, storeHeader, supplierHeader, type StoreStanding } from '#auth/storeCaller'
 import { createUserSession, idleMs, storeCookieName } from '#auth/storeSession'
 import { secureSchema } from '#apis/graphql/scope'
@@ -156,11 +157,21 @@ describe('the store caller', () => {
     expect(rows.every((r) => r.result === 'denied' && r.target_label === `holds ${t.storeA1}`)).toBe(true)
   })
 
-  it('refuses a supplier the person doesn’t work for, a suspended supplier and a suspended membership', async () => {
-    expect((await standingOf(t.partnerA, cookies.sam, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerB1 })).kind).toBe('crossing')
+  it('asks again, logging no crossing, for a supplier the person doesn’t work for or one suspended, in a store they hold', async () => {
+    expect((await standingOf(t.partnerA, cookies.sam, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerB1 })).kind).toBe('supplier-required')
     await db.sql`update seller set status = 'suspended' where id = ${t.sellerA1First}`
-    expect((await standingOf(t.partnerA, cookies.sam, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerA1First })).kind).toBe('crossing')
+    expect((await standingOf(t.partnerA, cookies.sam, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerA1First })).kind).toBe('supplier-required')
     await db.sql`update seller set status = 'active' where id = ${t.sellerA1First}`
+    const [logged] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'store.crossing_refused' and actor_id = ${people.sam}`
+    expect(logged?.n).toBe(0)
+  })
+
+  it('acts as a merchant-side member whatever X-Supplier says', async () => {
+    const standing = await standingOf(t.partnerA, cookies.alice, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerA1First })
+    expect(standing.kind === 'acting' && standing.caller.context.sellerScope).toEqual({ kind: 'all' })
+  })
+
+  it('refuses a suspended membership as a store not held', async () => {
     await db.sql`update membership set status = 'suspended' where user_id = ${people.pat}`
     expect((await standingOf(t.partnerA, cookies.pat, { [storeHeader]: t.storeA1 })).kind).toBe('crossing')
     await db.sql`update membership set status = 'active' where user_id = ${people.pat}`
@@ -244,31 +255,36 @@ describe('PLAN_LIMIT', () => {
 
   it('refuses a switch the plan leaves off, naming the partner’s cheapest plan that has it', async () => {
     const context = await contextOf(cookies.alice, t.storeA1, t.partnerA)
-    await expect(requirePlan(db.sql, context, 'aplus', now)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', key: 'aplus', limit: null, unlockedBy: { id: business, name: 'Business' } } })
+    await expect(requirePlan(db.sql, context, { key: 'aplus' }, now)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', key: 'aplus', limit: null, unlockedBy: { id: business, name: 'Business' } } })
   })
 
   it('refuses going past a limit and allows reaching it', async () => {
     const context = await contextOf(cookies.alice, t.storeA1, t.partnerA)
-    await expect(requirePlan(db.sql, context, 'products', now, 10)).resolves.toBeUndefined()
-    await expect(requirePlan(db.sql, context, 'products', now, 11)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', limit: 10, unlockedBy: { name: 'Business' } } })
+    await expect(requirePlan(db.sql, context, { key: 'products', total: 10 }, now)).resolves.toBeUndefined()
+    await expect(requirePlan(db.sql, context, { key: 'products', total: 11 }, now)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', limit: 10, unlockedBy: { name: 'Business' } } })
   })
 
   it('counts a live override instead of the plan’s limit', async () => {
     await db.sql`insert into store_limit_override (store_id, key, amount, duration, reason, created_by_kind, created_by_label) values (${t.storeA1}, 'products', 20, 'always', 'Launch week', 'staff', 'Priya')`
     const context = await contextOf(cookies.alice, t.storeA1, t.partnerA)
-    await expect(requirePlan(db.sql, context, 'products', now, 15)).resolves.toBeUndefined()
+    await expect(requirePlan(db.sql, context, { key: 'products', total: 15 }, now)).resolves.toBeUndefined()
   })
 
   it('holds a supplier’s action to the store’s own plan, read in the store’s scope', async () => {
     const standing = await standingOf(t.partnerA, cookies.sam, { [storeHeader]: t.storeA1, [supplierHeader]: t.sellerA1First })
     if (standing.kind !== 'acting') throw new Error(`expected acting, got ${standing.kind}`)
-    await expect(requirePlan(db.sql, standing.caller.context, 'products', now, 20)).resolves.toBeUndefined()
-    await expect(requirePlan(db.sql, standing.caller.context, 'products', now, 21)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', limit: 20 } })
+    await expect(requirePlan(db.sql, standing.caller.context, { key: 'products', total: 20 }, now)).resolves.toBeUndefined()
+    await expect(requirePlan(db.sql, standing.caller.context, { key: 'products', total: 21 }, now)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', limit: 20 } })
   })
 
   it('refuses a key the plan doesn’t set, and never names another partner’s plan', async () => {
     const context = await contextOf(cookies.bob, t.storeB1, t.partnerB)
-    await expect(requirePlan(db.sql, context, 'aplus', now)).resolves.toBeUndefined()
-    await expect(requirePlan(db.sql, context, 'offers', now)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', unlockedBy: null } })
+    await expect(requirePlan(db.sql, context, { key: 'aplus' }, now)).resolves.toBeUndefined()
+    await expect(requirePlan(db.sql, context, { key: 'offers' }, now)).rejects.toMatchObject({ extensions: { code: 'PLAN_LIMIT', unlockedBy: null } })
+  })
+
+  it('fails closed when a limit is checked without the total it would reach', async () => {
+    const context = await contextOf(cookies.alice, t.storeA1, t.partnerA)
+    await expect(requirePlan(db.sql, context, { key: 'products' } as PlanCheck, now)).rejects.toThrow('needs a total')
   })
 })

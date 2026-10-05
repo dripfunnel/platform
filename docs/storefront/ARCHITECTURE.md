@@ -74,7 +74,7 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 | `ui/headless` | Unstyled, accessible behaviour components the theme skins: variant picker, quantity stepper, cart drawer state, address form (country-aware fields), payment element host, facet filter, pagination, locale and currency pickers, consent banner, search overlay. |
 | `contracts` | The TypeScript interfaces and route manifest the theme must satisfy (§3), and the contract test suite. |
 
-**Cancelling and returns on the storefront** (decided on #285): a shopper may cancel an order
+**Cancelling and returns on the storefront** (*proposed* on #285, awaiting Gaurav's approval; §12): a shopper may cancel an order
 until it ships, and may ask for a return until the **store's returns window** closes, counted from
 delivery. The window is the store's own policy, read by `platform/store` with the other policies,
 never the theme's; a product's own rule overrides it (CATALOG-DESIGN S8), and neither may go below
@@ -388,3 +388,4 @@ for providers the store doesn't use.
   store locator)?~~ About, FAQ, contact, lookbook **and a blog** (SAPI 24); no store locator (decided 2026-10-05 on #337).
 - ~~How store repos authenticate to GitHub Packages in CI (decided registry; see
   `../code/ARCHITECTURE.md` §5 for the options).~~ The GitHub App's per-repo grant, a read-only token secret only if that's impossible (decided 2026-10-05 on #337).
+- Shopper cancelling and returns (§2.1, proposed on #285): cancel until the order ships; a return until the store's window closes, counted from delivery; a product's rule over the store's, never below a market's legal floor. The prototype draws this; it stands until approved or changed on #285.
