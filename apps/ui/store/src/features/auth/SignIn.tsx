@@ -10,6 +10,7 @@ import { BackupCodes } from './BackupCodes'
 import { CodeField, Field, Foot, PasswordField, Primary, Secondary, useResendWait } from './fields'
 import { productName } from '../common/productName'
 import { refusalText } from './refusals'
+import { looksLikeEmail } from '../common/email'
 
 const words = messages.auth
 
@@ -155,7 +156,7 @@ export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
         return
       }
       if (view.kind === 'forgot') {
-        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setError(words.forgot.invalid)
+        if (!looksLikeEmail(email)) return setError(words.forgot.invalid)
         const answer = await requestPasswordReset(email.trim())
         return isRefusal(answer) ? refused(answer) : go({ kind: 'sent', email: email.trim() })
       }

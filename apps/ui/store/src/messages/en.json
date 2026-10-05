@@ -2567,6 +2567,7 @@
       "rateTitle": "{name}: rate in {place}",
       "rateBody": "Every product using this category charges the new rate from now on.",
       "rateLabel": "Rate, %",
+      "ratePlaceholder": "5",
       "rateInvalid": "Type a percentage from 0 to 100",
       "rateSaved": "{name}’s rate saved",
       "addTitle": "Add a rate",

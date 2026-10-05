@@ -14,7 +14,7 @@ export const WarehousesPage = () => {
     <div className="df-places-page">
       <h1 className="df-page-title">{acting.seller ? messages.products.titleSupplier : messages.warehouses.tabs.warehouses}</h1>
       {acting.seller && <SupplierTabs current="warehouses" />}
-      {acting.permissions.includes('stock.read') ? <WarehousesView canEdit={canEdit} /> : <EmptyState title={messages.warehouses.denied.title} body={messages.warehouses.denied.body} />}
+      {acting.permissions.includes('stock.read') ? <WarehousesView canEdit={canEdit} side={acting.seller ? 'supplier' : 'merchant'} /> : <EmptyState title={messages.warehouses.denied.title} body={messages.warehouses.denied.body} />}
     </div>
   )
 }
