@@ -9,6 +9,7 @@ import { Field, Section } from './EditorSections'
 
 const words = messages.editor.sections
 
+export type UnavailableChoice = 'facets' | 'sizeCharts' | 'collections'
 
 export interface ListingChoices {
   /** Which listing sections the store has switched on (Settings › Catalogue), and filters, legal always. */
@@ -19,6 +20,8 @@ export interface ListingChoices {
   collections: { handPicked: readonly { id: string; name: string }[]; automatic: readonly ProductCollection[] } | null
   /** A+ content: switched on and on the plan, switched on but not on the plan, or off. */
   aplus: 'on' | 'plan' | null
+  /** Choices that failed to load: shown as such and not offered, so a save can't drop what wasn't read. */
+  unavailable: ReadonlySet<UnavailableChoice>
 }
 
 /** The listing's choices: which sections the store switched on, its filters, charts and badges, and the collections. */
@@ -46,7 +49,9 @@ const CollectionsSection = ({ draft, update, disabled, choices }: { draft: Draft
       {choices.collections && (
         <div className="df-editor-group">
           <h3>{words.handPicked}</h3>
-          {choices.collections.handPicked.length === 0 ? (
+          {choices.unavailable.has('collections') ? (
+            <p className="df-editor-problem" role="alert">{words.collFailed}</p>
+          ) : choices.collections.handPicked.length === 0 ? (
             <p className="df-editor-hint">{words.handPickedNone}</p>
           ) : (
             <div className="df-editor-chips">
@@ -61,12 +66,16 @@ const CollectionsSection = ({ draft, update, disabled, choices }: { draft: Draft
               })}
             </div>
           )}
-          {automatic.length > 0 && <p className="df-editor-hint">{fill(words.automaticAlso, { names: automatic.map((c) => c.name).join(', ') })}</p>}
+          {!choices.unavailable.has('collections') && automatic.length > 0 && <p className="df-editor-hint">{fill(words.automaticAlso, { names: automatic.map((c) => c.name).join(', ') })}</p>}
         </div>
       )}
       <div className="df-editor-group">
         <h3>{words.filters}</h3>
-        {choices.facets.length === 0 && <p className="df-editor-hint">{words.filtersNone}</p>}
+        {choices.unavailable.has('facets') ? (
+          <p className="df-editor-problem" role="alert">{words.filtersFailed}</p>
+        ) : (
+          choices.facets.length === 0 && <p className="df-editor-hint">{words.filtersNone}</p>
+        )}
         {choices.facets.map((f) => (
           <div key={f.id} className="df-editor-facet">
             <span>
@@ -91,14 +100,14 @@ const CollectionsSection = ({ draft, update, disabled, choices }: { draft: Draft
   )
 }
 
-const SizeChartSection = ({ draft, update, disabled, charts }: { draft: Draft; update: Update; disabled: boolean; charts: readonly { id: string; name: string }[] }) => {
+const SizeChartSection = ({ draft, update, disabled, charts, failed }: { draft: Draft; update: Update; disabled: boolean; charts: readonly { id: string; name: string }[]; failed: boolean }) => {
   const [open, setOpen] = useState(false)
   const chosen = charts.find((c) => c.id === draft.sizeChartId)
   return (
     <Section title={words.chart} summary={chosen ? chosen.name : words.chartEmpty} open={open} onToggle={() => setOpen((o) => !o)} problem={false}>
       <Field label={words.chart}>
         {(id) => (
-          <select id={id} value={draft.sizeChartId ?? ''} disabled={disabled} onChange={(e) => update((d) => ({ ...d, sizeChartId: e.target.value || null }))}>
+          <select id={id} value={draft.sizeChartId ?? ''} disabled={disabled || failed} onChange={(e) => update((d) => ({ ...d, sizeChartId: e.target.value || null }))}>
             <option value="">{words.chartNone}</option>
             {charts.map((c) => (
               <option key={c.id} value={c.id}>
@@ -108,6 +117,7 @@ const SizeChartSection = ({ draft, update, disabled, charts }: { draft: Draft; u
           </select>
         )}
       </Field>
+      {failed && <p className="df-editor-problem" role="alert">{words.chartFailed}</p>}
     </Section>
   )
 }
@@ -288,7 +298,7 @@ export const CollectionsPart = ({ draft, update, disabled, choices }: ListingPro
 /** The rest of the listing, between the tax category and the search listing, in CatEditor's order. */
 export const ListingSections = ({ draft, update, disabled, choices, productId, readiness }: ListingProps) => (
   <>
-    {choices.shown.has('sizeCharts') && draft.kind === 'physical' && <SizeChartSection draft={draft} update={update} disabled={disabled} charts={choices.sizeCharts} />}
+    {choices.shown.has('sizeCharts') && draft.kind === 'physical' && <SizeChartSection draft={draft} update={update} disabled={disabled} charts={choices.sizeCharts} failed={choices.unavailable.has('sizeCharts')} />}
     {(choices.shown.has('specs') || choices.shown.has('highlights')) && <SpecsSection draft={draft} update={update} disabled={disabled} specs={choices.shown.has('specs')} highlights={choices.shown.has('highlights')} />}
     {choices.aplus && <AplusSection productId={productId} aplus={choices.aplus} />}
     {choices.shown.has('faqs') && <FaqsSection draft={draft} update={update} disabled={disabled} />}
