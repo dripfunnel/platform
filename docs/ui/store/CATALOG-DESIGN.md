@@ -390,8 +390,8 @@ must store all of it per store, and enforce the pricing-currency lock.
     `(release: decide)`.
 31. **Category decides what's relevant.** A size chart means nothing for a phone, and a battery
     spec means nothing for a T-shirt. Relevance comes from the store's configuration (which
-    features are on) and, optionally, a product category or template *(ask;
-    `(release: decide)`)*. The product type (§3 fact 12) is related but separate. Don't show
+    features are on) and the store-type preset chosen at sign-up, editable in Settings ›
+    Catalogue (P2) (decided 2026-10-05 on #337). The product type (§3 fact 12) is related but separate. Don't show
     every section on every product.
 32. **Downgrading must not destroy content.** When a plan loses a feature or limit, existing
     content is **kept**. Decided 2026-10-02 on #186's review (SAAS §6.2, the prototype's *Choose what to

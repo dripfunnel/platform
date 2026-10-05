@@ -522,7 +522,7 @@ or admin console (ACCESS.md §8), integrations and apps:
   deploys it to the store's Pages project (Pages direct upload) with its own token, so no deploy
   token ever reaches the repo.
 - **Cache purge** on catalogue change by tag or URL (check what the plan allows).
-- **Assets** on R2 with image resizing *(ask: Cloudflare Images vs our own variants)*.
+- **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - Degraded storefront for past-due or suspended stores, served at the edge.
 - **A store may have no AI storefront at all.** A merchant using their own frontend gets a
   public store key, allowed origins (CORS), checkout and account URLs they control, and no
@@ -633,7 +633,8 @@ designed, don't restart:
     replay, failing-endpoint alerts);
   - **Apps**: browse, install with scope consent, configure, uninstall, and what an app can
     see;
-  - a vendor's own API key for their stock or catalogue integration, if allowed *(ask)*;
+  - a vendor-bound API key, created by the Owner for a supplier's stock or catalogue
+    integration (ACCESS §5.6) (decided 2026-10-05 on #337); a supplier creating its own stays later (DESIGN-BRIEF 78);
   - in DF Admin: app registrations and review, API usage and abuse limits per store.
   Write these for a non-technical merchant who needs to hand details to a developer, not for
   the developer.
