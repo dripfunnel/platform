@@ -6,6 +6,7 @@ import {
   countProducts,
   countStoreProducts,
   deleteOptions,
+  fileRefused,
   deleteOptionValues,
   insertOption,
   insertOptionValue,
@@ -15,7 +16,9 @@ import {
   selectPricingCurrency,
   selectProduct,
   selectProducts,
+  setProductPhotos,
   setProductsVisibility,
+  setProductVideo,
   setVersionChoices,
   setVersionPrices,
   skuTakenInStore,
@@ -33,7 +36,8 @@ import {
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanProduct, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
 
-export { maxOptions, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
+export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
+export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
@@ -49,7 +53,7 @@ export const catalogAudit = {
 } as const
 
 export type SaveRefusal =
-  | { reason: CatalogRefusal | 'NOT_FOUND' | 'CURRENCY_REQUIRED' | 'SUPPLIER_FIELD' }
+  | { reason: CatalogRefusal | 'NOT_FOUND' | 'CURRENCY_REQUIRED' | 'SUPPLIER_FIELD' | 'FILE_REFUSED' }
   | { reason: 'STALE_REVISION'; revision: number }
   | { reason: 'PLAN_LIMIT'; wanted: number }
 
@@ -157,6 +161,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
 
     const keptVersions = new Set<string>()
+    const ordered: string[] = []
     const versionIds = existing?.versions.map((v) => v.id) ?? []
     for (const [position, version] of clean.versions.entries()) {
       const id = known(versionIds, version.id)
@@ -167,8 +172,13 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const choices = version.choices.map((choice, i) => ({ optionId: optionIds[i] ?? '', valueId: valueIds[i]?.get(choice.toLowerCase()) ?? '' }))
       await setVersionChoices(tx, storeId, versionId, choices)
       await setVersionPrices(tx, storeId, versionId, version.prices)
+      ordered.push(versionId)
     }
     await softDeleteVersions(tx, versionIds.filter((id) => !keptVersions.has(id)), at)
+    if (clean.photos !== null) {
+      await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ordered[p.version] ?? null) })))
+    }
+    if (clean.video !== undefined) await setProductVideo(tx, storeId, productId, clean.video)
   }
 
   const run = async (work: (tx: ScopedSql) => Promise<SaveResult>): Promise<SaveResult> => {
@@ -177,6 +187,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     } catch (error) {
       if (error instanceof Refused) return { ok: false, ...error.refusal }
       if (skuTakenInStore(error)) return { ok: false, reason: 'DUPLICATE_SKU' }
+      if (fileRefused(error)) return { ok: false, reason: 'FILE_REFUSED' }
       throw error
     }
   }
@@ -260,6 +271,9 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           trackStock: v.track_stock,
           continueSelling: v.continue_selling,
         })),
+        // The same files, on the copy's own photos; the copy's versions are in the source's order.
+        photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt, version: p.version_id === null ? null : source.versions.findIndex((v) => v.id === p.version_id) })).map((p) => ({ ...p, version: p.version === -1 ? null : p.version })),
+        video: source.video ? { assetId: source.video.asset_id, url: source.video.url } : null,
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })

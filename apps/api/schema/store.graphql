@@ -105,6 +105,7 @@ type Product {
   id: ID
   name: String
   options: [ProductOption!]
+  photos: [ProductPhoto!]
   pricingCurrency: String
   productType: String
   returnsText: String
@@ -117,6 +118,7 @@ type Product {
   supplier: ProductSupplier
   updatedAt: String
   versions: [ProductVersion!]
+  video: ProductVideo
   visible: Boolean
   warrantyText: String
 }
@@ -124,6 +126,7 @@ type Product {
 type ProductCounts {
   all: Int
   hidden: Int
+  missingInfo: Int
   pending: Int
   sentBack: Int
   visible: Int
@@ -134,12 +137,14 @@ input ProductInput {
   description: String
   name: String!
   options: [ProductOptionInput!]!
+  photos: [ProductPhotoInput!]
   productType: String
   returnsText: String
   seoDescription: String
   seoTitle: String
   slug: String
   versions: [ProductVersionInput!]!
+  video: ProductVideoInput
   visible: Boolean
   warrantyText: String
 }
@@ -171,6 +176,22 @@ type ProductPage {
   pageInfo: PageInfo
 }
 
+type ProductPhoto {
+  alt: String
+  assetId: ID
+  height: Int
+  id: ID
+  url: String
+  versionId: ID
+  width: Int
+}
+
+input ProductPhotoInput {
+  alt: String
+  assetId: String!
+  version: Int
+}
+
 type ProductSummary {
   approval: String
   buyable: Boolean
@@ -179,6 +200,7 @@ type ProductSummary {
   maxPrice: Money
   minPrice: Money
   name: String
+  photoUrl: String
   productType: String
   slug: String
   supplier: ProductSupplier
@@ -229,6 +251,17 @@ input ProductVersionInput {
   visible: Boolean
   weightGrams: Int
   widthMm: Int
+}
+
+type ProductVideo {
+  assetId: ID
+  uploaded: Boolean
+  url: String
+}
+
+input ProductVideoInput {
+  assetId: String
+  url: String
 }
 
 input ProductsPatch {

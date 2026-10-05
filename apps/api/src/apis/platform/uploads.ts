@@ -3,6 +3,7 @@ import type { ActivityLog } from '#auth/activity'
 import { factsOf } from '#auth/activity'
 import { resolvePartner } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
+import { readCapped } from '#core/http'
 import { brandFileKinds, maxBrandFileBytes, uploadBrandFile, type BrandFileKind, type BrandFileStore } from '#saas/partnerBranding/index'
 
 // `POST /api/uploads/brand-file?kind=…` (card #219): the raw file as the body. The Worker has
@@ -16,31 +17,6 @@ export interface BrandUploadRouteDeps {
   /** Null where no assets bucket is bound yet (THIRD-PARTY-ACCESS.md §2.1). */
   store: BrandFileStore | null
   now: () => Date
-}
-
-/** At most `limit + 1` bytes, so a large body is refused without being held whole. */
-const readCapped = async (request: Request, limit: number): Promise<Uint8Array> => {
-  const reader = request.body?.getReader()
-  if (!reader) return new Uint8Array()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    chunks.push(value)
-    size += value.byteLength
-    if (size > limit) {
-      await reader.cancel()
-      break
-    }
-  }
-  const bytes = new Uint8Array(size)
-  let at = 0
-  for (const chunk of chunks) {
-    bytes.set(chunk, at)
-    at += chunk.byteLength
-  }
-  return bytes
 }
 
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })

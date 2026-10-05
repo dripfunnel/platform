@@ -15,3 +15,28 @@ export const readBody = async <T>(request: Request, schema: z.ZodType<T>): Promi
     return null
   }
 }
+
+/** At most `limit + 1` bytes, so a large body is refused without being held whole. */
+export const readCapped = async (request: Request, limit: number): Promise<Uint8Array> => {
+  const reader = request.body?.getReader()
+  if (!reader) return new Uint8Array()
+  const chunks: Uint8Array[] = []
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    size += value.byteLength
+    if (size > limit) {
+      await reader.cancel()
+      break
+    }
+  }
+  const bytes = new Uint8Array(size)
+  let at = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, at)
+    at += chunk.byteLength
+  }
+  return bytes
+}

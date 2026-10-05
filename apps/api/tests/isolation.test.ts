@@ -340,6 +340,7 @@ describe('the backstop itself', () => {
       'partner_password_reset', 'user_session', 'user_backup_code', 'verification_code',
       'user_password_reset', 'user_email_change', 'signup', 'signup_text',
       'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
+      'asset', 'product_photo', 'product_video',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -439,6 +440,18 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product set store_id = ${t.storeB1} where id = ${own}`)).rejects.toThrow(/permission denied/)
     // A read-only support session writes nothing.
     await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA1, 'read'), (tx) => tx`insert into product (store_id, name, slug) values (${t.storeA1}, 'x', 'iso-support')`)).rejects.toThrow(/row-level security/)
+    // Files: a supplier reads only its own, partner and staff can't ask, and nobody uploads as someone else.
+    const file = async (sellerId: string | null, n: number) =>
+      (await db.sql<{ id: string }[]>`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, ${sellerId}, ${`stores/${t.storeA1}/assets/00000000-0000-4000-8000-00000000000${n}.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)}) returning id`)[0]?.id ?? ''
+    const ownFile = await file(null, 1)
+    await file(t.sellerA1First, 2)
+    await file(t.sellerA1Second, 3)
+    expect(await seen(t.storeA1, { kind: 'all' }, 'asset')).toBe(3)
+    expect(await seen(t.storeA1, supplier, 'asset')).toBe(1)
+    expect(await seen(t.storeB1, { kind: 'all' }, 'asset')).toBe(0)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from asset`)).rejects.toThrow(/permission denied/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, null, ${`stores/${t.storeA1}/assets/00000000-0000-4000-8000-000000000009.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)})`)).rejects.toThrow(/uploads as itself/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${first}, ${t.storeA1}, ${ownFile}, 0)`)).rejects.toThrow(/no such file/)
     // The plan count is the whole store's, a number only, whoever asks.
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)

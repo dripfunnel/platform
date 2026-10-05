@@ -4,7 +4,7 @@ import { pgArray, type ScopedSql } from './index'
 // The catalogue's core (DATA-MODEL §7.3, migration 0041): every read and write runs in the caller's
 // scope, so a supplier reaches its own products only and RLS is the backstop of every query here.
 
-export type ProductFilter = 'all' | 'visible' | 'hidden' | 'pending' | 'sent_back'
+export type ProductFilter = 'all' | 'visible' | 'hidden' | 'pending' | 'sent_back' | 'missing_info'
 
 export interface ProductListRow {
   id: string
@@ -21,6 +21,8 @@ export interface ProductListRow {
   min_amount: string | null
   max_amount: string | null
   visible_versions: number
+  /** The main photo's file, or null. */
+  photo_asset_id: string | null
   created_at: Date
   updated_at: Date
 }
@@ -35,6 +37,9 @@ const filterOf = (tx: ScopedSql, filter: ProductFilter) => {
       return tx`p.approval_status = 'pending'`
     case 'sent_back':
       return tx`p.approval_status = 'sent_back'`
+    // No photo or no description: what a shopper can't judge the product by (CatList "Missing info").
+    case 'missing_info':
+      return tx`(p.description = '' or not exists (select 1 from product_photo ph where ph.product_id = p.id))`
     case 'all':
       return tx`true`
   }
@@ -59,7 +64,8 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
       (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
          where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as min_amount,
       (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
-         where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount
+         where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
+      (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id
     from product p
     left join seller s on s.id = p.seller_id
     where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
@@ -79,6 +85,7 @@ export interface ProductCounts {
   hidden: number
   pending: number
   sentBack: number
+  missingInfo: number
 }
 
 /** The list's chips, from their own query and in the caller's scope, so a supplier counts only its own (ACCESS §7.1). */
@@ -89,10 +96,11 @@ export const countProducts = async (tx: ScopedSql, storeId: string): Promise<Pro
         count(*) filter (where visibility = 'visible')::int as visible,
         count(*) filter (where visibility = 'hidden')::int as hidden,
         count(*) filter (where approval_status = 'pending')::int as pending,
-        count(*) filter (where approval_status = 'sent_back')::int as "sentBack"
+        count(*) filter (where approval_status = 'sent_back')::int as "sentBack",
+        count(*) filter (where description = '' or not exists (select 1 from product_photo ph where ph.product_id = product.id))::int as "missingInfo"
       from product where store_id = ${storeId} and deleted_at is null and not is_sample
     `
-  )[0] ?? { all: 0, visible: 0, hidden: 0, pending: 0, sentBack: 0 }
+  )[0] ?? { all: 0, visible: 0, hidden: 0, pending: 0, sentBack: 0, missingInfo: 0 }
 
 export interface OptionRow {
   id: string
@@ -152,6 +160,17 @@ export interface ProductRow {
   updated_at: Date
   options: OptionRow[]
   versions: VersionRow[]
+  photos: PhotoRow[]
+  video: { asset_id: string | null; url: string | null } | null
+}
+
+export interface PhotoRow {
+  id: string
+  asset_id: string
+  version_id: string | null
+  alt: string | null
+  width: number | null
+  height: number | null
 }
 
 /** One product with its options, values, live versions and prices, or null when the caller's scope has none. */
@@ -175,7 +194,11 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
           'prices', coalesce((select json_agg(json_build_object('currency', vp.currency, 'amount', vp.amount::text, 'compare_at_amount', vp.compare_at_amount::text) order by vp.currency)
             from version_price vp where vp.version_id = v.id), '[]'::json)
         ) order by v.position)
-        from product_version v where v.product_id = p.id and v.deleted_at is null), '[]'::json) as versions
+        from product_version v where v.product_id = p.id and v.deleted_at is null), '[]'::json) as versions,
+      coalesce((
+        select json_agg(json_build_object('id', ph.id, 'asset_id', ph.asset_id, 'version_id', ph.version_id, 'alt', ph.alt, 'width', a.width, 'height', a.height) order by ph.position)
+        from product_photo ph join asset a on a.id = ph.asset_id where ph.product_id = p.id), '[]'::json) as photos,
+      (select json_build_object('asset_id', pv.asset_id, 'url', pv.url) from product_video pv where pv.product_id = p.id) as video
     from product p
     left join seller s on s.id = p.seller_id
     where p.id = ${productId} and p.store_id = ${storeId} and p.deleted_at is null
@@ -373,5 +396,49 @@ export const setVersionPrices = async (tx: ScopedSql, storeId: string, versionId
     `
   }
 }
+
+export interface NewAsset {
+  storeId: string
+  sellerId: string | null
+  key: string
+  kind: 'image' | 'video'
+  mime: string
+  bytes: number
+  width: number | null
+  height: number | null
+  checksum: string
+  createdBy: string | null
+}
+
+export const insertAsset = async (tx: ScopedSql, a: NewAsset): Promise<string> => {
+  const [made] = await tx<{ id: string }[]>`
+    insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, width, height, checksum, created_by)
+    values (${a.storeId}, ${a.sellerId}, ${a.key}, ${a.kind}, ${a.mime}, ${a.bytes}, ${a.width}, ${a.height}, ${a.checksum}, ${a.createdBy})
+    returning id
+  `
+  if (!made) throw new Error('catalogue: asset insert returned nothing')
+  return made.id
+}
+
+/** A file the caller's scope can read: its R2 key and type, or null. */
+export const selectAsset = async (tx: ScopedSql, storeId: string, id: string): Promise<{ r2_key: string; mime: string; bytes: number } | null> =>
+  (await tx<{ r2_key: string; mime: string; bytes: number }[]>`select r2_key, mime, bytes from asset where id = ${id} and store_id = ${storeId}`)[0] ?? null
+
+/** The product's photos in order, replacing what it had; each names a file the caller can read (migration 0042). */
+export const setProductPhotos = async (tx: ScopedSql, storeId: string, productId: string, photos: readonly { assetId: string; alt: string | null; versionId: string | null }[]): Promise<void> => {
+  await tx`delete from product_photo where product_id = ${productId}`
+  for (const [position, p] of photos.entries()) {
+    await tx`insert into product_photo (product_id, version_id, store_id, asset_id, position, alt) values (${productId}, ${p.versionId}, ${storeId}, ${p.assetId}, ${position}, ${p.alt})`
+  }
+}
+
+export const setProductVideo = async (tx: ScopedSql, storeId: string, productId: string, video: { assetId: string | null; url: string | null } | null): Promise<void> => {
+  await tx`delete from product_video where product_id = ${productId}`
+  if (video) await tx`insert into product_video (product_id, store_id, asset_id, url) values (${productId}, ${storeId}, ${video.assetId}, ${video.url})`
+}
+
+/** A photo or video naming a file the caller can't use (migration 0042's triggers). */
+export const fileRefused = (error: unknown): boolean =>
+  typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && /catalogue: (no such file|that file is another owner)/.test(error.message)
 
 export const skuTakenInStore = (error: unknown): boolean => uniqueViolation(error, 'product_version_sku_key')

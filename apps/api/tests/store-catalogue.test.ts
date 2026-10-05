@@ -1,6 +1,7 @@
 import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
+import { handleAssets } from '#apis/store/assets'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
@@ -72,6 +73,35 @@ const gql = async (source: string, who: Who, variables: Record<string, unknown> 
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
+
+// The ASSETS bucket, in memory: what a put stored is what a get returns.
+const bucket = new Map<string, Uint8Array>()
+const r2 = {
+  put: async (key: string, value: Uint8Array) => void bucket.set(key, value),
+  get: async (key: string) => {
+    const value = bucket.get(key)
+    return value ? { body: new Response(value.slice()).body as ReadableStream } : null
+  },
+}
+
+const contextFor = async (who: Who, storeId: string) => {
+  const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
+  const facts = { requestId: 'r', ip: null, userAgent: null }
+  const seller = sellerOf[who]?.()
+  const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId, ...(seller ? { [supplierHeader]: seller } : {}) }
+  const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
+  return { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now } satisfies StoreContext
+}
+
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 2, 0x80, 0, 0, 1, 0xe0, 8, 6, 0, 0, 0])
+
+const upload = async (who: Who, body: Uint8Array<ArrayBuffer> = png, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1) => {
+  const response = await handleAssets(new Request('https://store.example/api/assets', { method: 'POST', body }), await contextFor(who, storeId), r2)
+  const answer = (await response.json()) as { ok: boolean; code?: string; asset?: { id: string; width: number; height: number } }
+  return { status: response.status, ...answer }
+}
+
+const fetchAsset = async (who: Who, id: string) => (await handleAssets(new Request(`https://store.example/api/assets/${id}`), await contextFor(who, who === 'bOwner' ? t.storeB1 : t.storeA1), r2)).status
 
 const save = `mutation Save($id: ID, $revision: Int, $input: ProductInput!) { saveProduct(id: $id, revision: $revision, input: $input) { id slug revision } }`
 const price = (amount: string, compareAtAmount?: string) => ({ currency: 'INR', amount, ...(compareAtAmount ? { compareAtAmount } : {}) })
@@ -244,6 +274,71 @@ describe('a supplier', () => {
     const nodes = await listed('owner', `(supplier: "${t.sellerA1First}")`)
     expect(nodes.map((n) => n.id)).toEqual([supplierProduct])
     expect((await listed('owner', '(supplier: "own")')).some((n) => n.id === supplierProduct)).toBe(false)
+  })
+})
+
+describe('photos, video and files', () => {
+  it('stores an upload under the store, reads it back to its own side only, and refuses what isn’t a photo or video', async () => {
+    const mine = await upload('owner')
+    expect(mine).toMatchObject({ status: 200, ok: true, asset: { width: 640, height: 480 } })
+    const [row] = await db.sql<{ seller_id: string | null; r2_key: string; bytes: number }[]>`select seller_id, r2_key, bytes from asset where id = ${mine.asset?.id ?? ''}`
+    expect(row?.seller_id).toBeNull()
+    expect(row?.r2_key.startsWith(`stores/${t.storeA1}/assets/`)).toBe(true)
+    expect(bucket.get(row?.r2_key ?? '')?.byteLength).toBe(png.byteLength)
+    expect(await fetchAsset('owner', mine.asset?.id ?? '')).toBe(200)
+    expect(await fetchAsset('supplier', mine.asset?.id ?? '')).toBe(404)
+    expect(await fetchAsset('bOwner', mine.asset?.id ?? '')).toBe(404)
+    expect(await upload('owner', new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'))).toMatchObject({ status: 415, code: 'UNSUPPORTED_TYPE' })
+    expect(await upload('owner', new Uint8Array())).toMatchObject({ status: 400, code: 'EMPTY' })
+    expect(await upload('staff')).toMatchObject({ status: 403, code: 'FORBIDDEN' })
+  })
+
+  it('links photos in order, one to a version, and shows them with the product', async () => {
+    const [a, b] = [await upload('owner'), await upload('owner')]
+    const options = [{ name: 'Colour', values: [{ name: 'Red' }, { name: 'Blue' }] }]
+    const versions = [{ choices: ['Red'], prices: [price('100')] }, { choices: ['Blue'], prices: [price('100')] }]
+    const { saved } = await create('owner', { name: 'Photographed', description: 'Soft.', options, versions, photos: [{ assetId: a.asset?.id, alt: 'Front' }, { assetId: b.asset?.id, version: 1 }], video: { url: 'https://www.youtube.com/watch?v=x' } })
+    const shown = (await gql(`query P($id: ID!) { product(id: $id) { versions { id } photos { assetId url alt versionId width } video { url uploaded } } }`, 'owner', { id: saved?.id })).data?.['product'] as { versions: { id: string }[]; photos: { assetId: string; url: string; alt: string | null; versionId: string | null; width: number }[]; video: { url: string; uploaded: boolean } }
+    expect(shown.photos).toEqual([
+      { assetId: a.asset?.id, url: `/api/assets/${a.asset?.id}`, alt: 'Front', versionId: null, width: 640 },
+      { assetId: b.asset?.id, url: `/api/assets/${b.asset?.id}`, alt: null, versionId: shown.versions[1]?.id, width: 640 },
+    ])
+    expect(shown.video).toEqual({ url: 'https://www.youtube.com/watch?v=x', uploaded: false })
+    const nodes = (await gql('{ products(filter: "missing_info") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }
+    expect(nodes.nodes.some((n) => n.id === saved?.id)).toBe(false)
+    const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string }
+    const copied = (await gql(`query P($id: ID!) { product(id: $id) { photos { assetId } } }`, 'owner', { id: copy.id })).data?.['product'] as { photos: { assetId: string }[] }
+    expect(copied.photos.map((p) => p.assetId)).toEqual([a.asset?.id, b.asset?.id])
+  })
+
+  it('counts and lists a product with no photo or no description as missing info', async () => {
+    const { saved } = await create('owner', simple('Bare product'))
+    const nodes = (await gql('{ products(filter: "missing_info") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }
+    expect(nodes.nodes.some((n) => n.id === saved?.id)).toBe(true)
+    expect(((await gql('{ productCounts { missingInfo } }', 'owner')).data?.['productCounts'] as { missingInfo: number }).missingInfo).toBeGreaterThan(0)
+  })
+
+  it('keeps a supplier to its own files, and gives it the merchant’s photo on its product', async () => {
+    const merchantFile = await upload('owner')
+    const supplierFile = await upload('supplier')
+    const [row] = await db.sql<{ seller_id: string }[]>`select seller_id from asset where id = ${supplierFile.asset?.id ?? ''}`
+    expect(row?.seller_id).toBe(t.sellerA1First)
+    expect(await fetchAsset('owner', supplierFile.asset?.id ?? '')).toBe(200)
+    expect((await create('supplier', simple('Stolen photo', { photos: [{ assetId: merchantFile.asset?.id }] }))).code).toBe('FILE_REFUSED')
+    const theirs = await create('supplier', simple('Supplier product', { photos: [{ assetId: supplierFile.asset?.id }] }))
+    // The merchant adds a photo of its own to the supplier's product: the supplier now reads that file.
+    const added = await upload('owner')
+    const input = simple('Supplier product', { photos: [{ assetId: supplierFile.asset?.id }, { assetId: added.asset?.id }] })
+    expect((await gql(save, 'owner', { id: theirs.saved?.id, revision: 1, input })).data?.['saveProduct']).toMatchObject({ revision: 2 })
+    expect(await fetchAsset('supplier', added.asset?.id ?? '')).toBe(200)
+    // A file in use on the supplier's product stays theirs: the merchant can't move it to its own.
+    expect((await create('owner', simple('Merchant reuse', { photos: [{ assetId: added.asset?.id }] }))).code).toBe('FILE_REFUSED')
+    expect(await fetchAsset('otherSupplier', added.asset?.id ?? '')).toBe(404)
+  })
+
+  it('refuses another store’s file by id as if it weren’t there', async () => {
+    const theirs = await upload('bOwner')
+    expect((await create('owner', simple('Cross-store photo', { photos: [{ assetId: theirs.asset?.id }] }))).code).toBe('FILE_REFUSED')
   })
 })
 

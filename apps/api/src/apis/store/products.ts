@@ -31,9 +31,13 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   SUPPLIER_FIELD: 'Suppliers can’t set whether a product shows.',
   STALE_REVISION: 'Someone else saved this product. Reload to see their changes.',
   PLAN_LIMIT: 'Your plan has no room for more products.',
+  TOO_MANY_PHOTOS: 'A product can have up to 20 photos.',
+  INVALID_PHOTO: 'A photo isn’t valid.',
+  INVALID_VIDEO: 'Use an uploaded video or an https link, not both.',
+  FILE_REFUSED: 'That file isn’t here, or belongs to another product owner.',
 }
 
-const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back']
+const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info']
 const maxBulk = 100
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -61,9 +65,13 @@ interface SummaryView {
   buyable: boolean
   minPrice: Money | null
   maxPrice: Money | null
+  photoUrl: string | null
   createdAt: string
   updatedAt: string
 }
+
+/** Where the portal reads a catalogue file: on its own host, through the caller's scope (assets.ts). */
+export const assetUrl = (assetId: string): string => `/api/assets/${assetId}`
 
 const summaryOf = (r: ProductListRow, currency: string | null): SummaryView => ({
   id: r.id,
@@ -79,6 +87,7 @@ const summaryOf = (r: ProductListRow, currency: string | null): SummaryView => (
   buyable: r.visibility === 'visible' && r.visible_versions > 0,
   minPrice: currency && r.min_amount !== null ? { amount: r.min_amount, currency } : null,
   maxPrice: currency && r.max_amount !== null ? { amount: r.max_amount, currency } : null,
+  photoUrl: r.photo_asset_id ? assetUrl(r.photo_asset_id) : null,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
 })
@@ -108,6 +117,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       buyable: t.exposeBoolean('buyable'),
       minPrice: t.field({ type: MoneyType, nullable: true, resolve: (p) => p.minPrice }),
       maxPrice: t.field({ type: MoneyType, nullable: true, resolve: (p) => p.maxPrice }),
+      photoUrl: t.exposeString('photoUrl', { nullable: true }),
       createdAt: t.exposeString('createdAt'),
       updatedAt: t.exposeString('updatedAt'),
     }),
@@ -115,8 +125,15 @@ export const registerProducts = (builder: StoreBuilder) => {
   const SummaryPage = builder.objectRef<{ nodes: SummaryView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('ProductPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Summary], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
-  const Counts = builder.objectRef<{ all: number; visible: number; hidden: number; pending: number; sentBack: number }>('ProductCounts').implement({
-    fields: (t) => ({ all: t.exposeInt('all'), visible: t.exposeInt('visible'), hidden: t.exposeInt('hidden'), pending: t.exposeInt('pending'), sentBack: t.exposeInt('sentBack') }),
+  const Counts = builder.objectRef<{ all: number; visible: number; hidden: number; pending: number; sentBack: number; missingInfo: number }>('ProductCounts').implement({
+    fields: (t) => ({
+      all: t.exposeInt('all'),
+      visible: t.exposeInt('visible'),
+      hidden: t.exposeInt('hidden'),
+      pending: t.exposeInt('pending'),
+      sentBack: t.exposeInt('sentBack'),
+      missingInfo: t.exposeInt('missingInfo'),
+    }),
   })
 
   const ValueType = builder.objectRef<{ id: string; name: string }>('ProductOptionValue').implement({ fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }) })
@@ -125,6 +142,24 @@ export const registerProducts = (builder: StoreBuilder) => {
   })
   const PriceType = builder.objectRef<{ currency: string; amount: string; compareAtAmount: string | null }>('VersionPrice').implement({
     fields: (t) => ({ currency: t.exposeString('currency'), amount: t.exposeString('amount'), compareAtAmount: t.exposeString('compareAtAmount', { nullable: true }) }),
+  })
+  const PhotoType = builder.objectRef<ProductRow['photos'][number]>('ProductPhoto').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      assetId: t.exposeID('asset_id'),
+      url: t.string({ resolve: (p) => assetUrl(p.asset_id) }),
+      versionId: t.exposeID('version_id', { nullable: true }),
+      alt: t.exposeString('alt', { nullable: true }),
+      width: t.exposeInt('width', { nullable: true }),
+      height: t.exposeInt('height', { nullable: true }),
+    }),
+  })
+  const VideoType = builder.objectRef<NonNullable<ProductRow['video']>>('ProductVideo').implement({
+    fields: (t) => ({
+      assetId: t.exposeID('asset_id', { nullable: true }),
+      url: t.string({ resolve: (v) => v.url ?? (v.asset_id ? assetUrl(v.asset_id) : '') }),
+      uploaded: t.boolean({ resolve: (v) => v.asset_id !== null }),
+    }),
   })
   type VersionView = ProductRow['versions'][number] & { choiceNames: string[] }
   const VersionType = builder.objectRef<VersionView>('ProductVersion').implement({
@@ -174,10 +209,18 @@ export const registerProducts = (builder: StoreBuilder) => {
         type: [VersionType],
         resolve: (p) => p.versions.map((v) => ({ ...v, choiceNames: p.options.map((o) => o.values.find((value) => value.id === v.choices[o.id])?.name ?? '') })),
       }),
+      photos: t.field({ type: [PhotoType], resolve: (p) => p.photos }),
+      video: t.field({ type: VideoType, nullable: true, resolve: (p) => p.video }),
       createdAt: t.string({ resolve: (p) => p.created_at.toISOString() }),
       updatedAt: t.string({ resolve: (p) => p.updated_at.toISOString() }),
     }),
   })
+
+  const PhotoInput = builder.inputType('ProductPhotoInput', {
+    // `version` is the photo's version by its place in `versions`, so a new version can have one.
+    fields: (t) => ({ assetId: t.string({ required: true }), alt: t.string(), version: t.int() }),
+  })
+  const VideoInput = builder.inputType('ProductVideoInput', { fields: (t) => ({ assetId: t.string(), url: t.string() }) })
 
   const PriceInput = builder.inputType('VersionPriceInput', {
     fields: (t) => ({ currency: t.string({ required: true }), amount: t.string({ required: true }), compareAtAmount: t.string() }),
@@ -222,6 +265,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       seoDescription: t.string(),
       options: t.field({ type: [OptionInput], required: true }),
       versions: t.field({ type: [VersionInput], required: true }),
+      photos: t.field({ type: [PhotoInput] }),
+      video: t.field({ type: VideoInput }),
     }),
   })
   const PatchInput = builder.inputType('ProductsPatch', { fields: (t) => ({ visible: t.boolean({ required: true }) }) })

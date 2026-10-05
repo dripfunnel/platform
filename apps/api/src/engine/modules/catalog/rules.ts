@@ -6,6 +6,7 @@ import { isCurrency, parseMinor } from '#core/money'
 export const maxOptions = 3
 export const maxVersions = 100
 export const maxValuesPerOption = 100
+export const maxPhotos = 20
 
 /** Refused outright (decided on #337); alcohol is allowed and carries an age check. */
 export const refusedCategories = ['weapons', 'prescription_medicine', 'illegal_drugs', 'tobacco_vapes', 'adult', 'counterfeit'] as const
@@ -45,6 +46,18 @@ export interface OptionInput {
   values: readonly { id?: string | null | undefined; name: string }[]
 }
 
+export interface PhotoInput {
+  assetId: string
+  alt?: string | null | undefined
+  /** The version it shows, by its place in `versions`; null for the whole product. */
+  version?: number | null | undefined
+}
+
+export interface VideoInput {
+  assetId?: string | null | undefined
+  url?: string | null | undefined
+}
+
 export interface ProductInput {
   name: string
   description?: string | null | undefined
@@ -58,6 +71,10 @@ export interface ProductInput {
   seoDescription?: string | null | undefined
   options: readonly OptionInput[]
   versions: readonly VersionInput[]
+  /** In order; the first is the main photo. Absent keeps the product's photos as they are. */
+  photos?: readonly PhotoInput[] | null | undefined
+  /** Absent keeps the video; `{}` with neither removes it. */
+  video?: VideoInput | null | undefined
 }
 
 export type CatalogRefusal =
@@ -76,6 +93,9 @@ export type CatalogRefusal =
   | 'INVALID_PRICE'
   | 'INVALID_BARCODE'
   | 'DUPLICATE_SKU'
+  | 'TOO_MANY_PHOTOS'
+  | 'INVALID_PHOTO'
+  | 'INVALID_VIDEO'
 
 export interface CleanPrice {
   currency: string
@@ -108,6 +128,12 @@ export interface CleanOption {
   values: { id: string | null; name: string }[]
 }
 
+export interface CleanPhoto {
+  assetId: string
+  alt: string | null
+  version: number | null
+}
+
 export interface CleanProduct {
   name: string
   description: string
@@ -121,6 +147,51 @@ export interface CleanProduct {
   seoDescription: string | null
   options: CleanOption[]
   versions: CleanVersion[]
+  /** Null leaves the product's photos as they are. */
+  photos: CleanPhoto[] | null
+  /** Undefined leaves the video; null removes it. */
+  video: { assetId: string | null; url: string | null } | null | undefined
+}
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** A link to a video host: https, a host and a path, nothing to run (CATALOG S7). */
+export const isVideoUrl = (value: string): boolean => {
+  if (value.length > 500) return false
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname.includes('.') && url.username === '' && url.password === ''
+  } catch {
+    return false
+  }
+}
+
+const cleanPhotos = (photos: readonly PhotoInput[], versionCount: number): CleanPhoto[] | CatalogRefusal => {
+  if (photos.length > maxPhotos) return 'TOO_MANY_PHOTOS'
+  const seen = new Set<string>()
+  const clean: CleanPhoto[] = []
+  for (const p of photos) {
+    if (!uuid.test(p.assetId) || seen.has(p.assetId.toLowerCase())) return 'INVALID_PHOTO'
+    seen.add(p.assetId.toLowerCase())
+    const alt = text(p.alt, 250)
+    if (alt === false) return 'INVALID_PHOTO'
+    const version = p.version ?? null
+    if (version !== null && (!Number.isInteger(version) || version < 0 || version >= versionCount)) return 'INVALID_PHOTO'
+    clean.push({ assetId: p.assetId.toLowerCase(), alt, version })
+  }
+  return clean
+}
+
+const cleanVideo = (video: VideoInput | null | undefined): CleanProduct['video'] | CatalogRefusal => {
+  if (video === undefined) return undefined
+  if (video === null) return null
+  const assetId = video.assetId?.trim() || null
+  const url = video.url?.trim() || null
+  if (assetId === null && url === null) return null
+  if ((assetId !== null) === (url !== null)) return 'INVALID_VIDEO'
+  if (assetId !== null && !uuid.test(assetId)) return 'INVALID_VIDEO'
+  if (url !== null && !isVideoUrl(url)) return 'INVALID_VIDEO'
+  return { assetId: assetId?.toLowerCase() ?? null, url }
 }
 
 /** A web address from a name (fact 22): accents folded, lower-case words joined by hyphens. */
@@ -281,6 +352,11 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     versions.push(clean)
   }
 
+  const photos = input.photos === null || input.photos === undefined ? null : cleanPhotos(input.photos, versions.length)
+  if (typeof photos === 'string') return photos
+  const video = cleanVideo(input.video)
+  if (typeof video === 'string') return video
+
   const [warrantyText, returnsText, seoTitle, seoDescription] = extras as (string | null)[]
   return {
     name,
@@ -295,5 +371,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     seoDescription: seoDescription ?? null,
     options,
     versions,
+    photos,
+    video,
   }
 }

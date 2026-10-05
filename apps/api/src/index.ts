@@ -9,6 +9,7 @@ import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleAssets, isAssetsPath } from '#apis/store/assets'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
@@ -297,7 +298,9 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    return servers.store.fetch(request, { standing, partnerId, sql, activity: activityLog, facts, secrets, now: () => new Date() })
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, now: () => new Date() }
+    if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    return servers.store.fetch(request, context)
   })
 }
 

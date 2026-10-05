@@ -52,6 +52,31 @@ describe('a product before it is written', () => {
   })
 })
 
+describe('photos and video', () => {
+  const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
+
+  it('keeps photos in order, each for the product or one of its versions', () => {
+    expect(cleanProduct(simple({ photos: [{ assetId: id(1), alt: ' Front ' }, { assetId: id(2), version: 0 }] }), 'INR')).toMatchObject({ photos: [{ assetId: id(1), alt: 'Front', version: null }, { assetId: id(2), alt: null, version: 0 }] })
+    expect(cleanProduct(simple(), 'INR')).toMatchObject({ photos: null, video: undefined })
+  })
+
+  it('refuses more than twenty photos, one twice, a version that isn’t there, and a bad id', () => {
+    expect(cleanProduct(simple({ photos: Array.from({ length: 21 }, (_, i) => ({ assetId: id(i) })) }), 'INR')).toBe('TOO_MANY_PHOTOS')
+    expect(cleanProduct(simple({ photos: [{ assetId: id(1) }, { assetId: id(1).toUpperCase() }] }), 'INR')).toBe('INVALID_PHOTO')
+    expect(cleanProduct(simple({ photos: [{ assetId: id(1), version: 1 }] }), 'INR')).toBe('INVALID_PHOTO')
+    expect(cleanProduct(simple({ photos: [{ assetId: 'not-an-id' }] }), 'INR')).toBe('INVALID_PHOTO')
+  })
+
+  it('takes a video as an upload or an https link, never both, and {} removes it', () => {
+    expect(cleanProduct(simple({ video: { url: 'https://www.youtube.com/watch?v=abc' } }), 'INR')).toMatchObject({ video: { assetId: null, url: 'https://www.youtube.com/watch?v=abc' } })
+    expect(cleanProduct(simple({ video: { assetId: id(3) } }), 'INR')).toMatchObject({ video: { assetId: id(3), url: null } })
+    expect(cleanProduct(simple({ video: {} }), 'INR')).toMatchObject({ video: null })
+    for (const video of [{ url: 'http://example.com/v' }, { url: 'javascript:alert(1)' }, { url: 'https://user:pw@example.com/v' }, { assetId: id(3), url: 'https://example.com/v' }]) {
+      expect(cleanProduct(simple({ video }), 'INR')).toBe('INVALID_VIDEO')
+    }
+  })
+})
+
 describe('web addresses and barcodes', () => {
   it('folds accents and joins words', () => {
     expect(slugFrom('Crème brûlée — Large')).toBe('creme-brulee-large')
