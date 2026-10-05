@@ -29,6 +29,8 @@ export interface SignInProps {
   resume?: { step: 'enrol' } | { step: 'second-factor'; method: 'app' | 'sms' } | undefined
   /** Why the person is here: signed out, or their session expired (FIRST-RELEASE §3.3). */
   note?: 'signedOut' | 'expired' | undefined
+  /** Opens on "Forgot password", as a dead reset link's "Ask for a new link" does. */
+  start?: 'forgot' | undefined
 }
 
 
@@ -71,11 +73,11 @@ const forcedStart = (state: SignInState): { view: View; error: string | null } =
 
 // PortalAuth's login, tfa, backup, enrol, locked and forgot views (FIRST-RELEASE §4; ACCESS.md §4; ?state=
 // per authStates.ts). Admitted, the person goes to the store chooser, which opens their one store or asks which.
-export const SignIn = ({ next, note, resume }: SignInProps) => {
+export const SignIn = ({ next, note, resume, start: opening }: SignInProps) => {
   const navigate = useNavigate()
   const forced = useScreenState(signInStates, harnessEnabled)
   const start = forced ? forcedStart(forced) : null
-  const [view, setView] = useState<View>(start?.view ?? (resume?.step === 'enrol' ? { kind: 'enrol', hint: null } : resume?.step === 'second-factor' ? { kind: 'code', method: resume.method, hint: null } : { kind: 'login' }))
+  const [view, setView] = useState<View>(start?.view ?? (opening === 'forgot' ? { kind: 'forgot' } : resume?.step === 'enrol' ? { kind: 'enrol', hint: null } : resume?.step === 'second-factor' ? { kind: 'code', method: resume.method, hint: null } : { kind: 'login' }))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [remember, setRemember] = useState(false)
