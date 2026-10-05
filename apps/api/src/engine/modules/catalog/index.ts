@@ -61,13 +61,27 @@ export {
   catalogExportFilter,
   catalogExportKind,
   catalogExportLifetimeMs,
-  catalogExportPayload,
   createCatalogExportService,
-  exportContextOf,
   type CatalogExportDto,
-  type CatalogExportPayload,
   type CatalogExportService,
 } from './exports'
+export { catalogJobPayload, jobContextOf, type CatalogJobPayload } from './jobScope'
+export {
+  attachImportPhoto,
+  catalogImportAudit,
+  catalogImportKind,
+  checkImport,
+  createCatalogImportService,
+  failCatalogImport,
+  importPhotoPayload,
+  importPhotosKind,
+  runImportChunk,
+  type CatalogImportDto,
+  type CatalogImportRefusal,
+  type CatalogImportService,
+  type ImportJobDeps,
+  type PhotoFetch,
+} from './imports'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'

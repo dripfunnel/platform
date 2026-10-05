@@ -67,6 +67,38 @@ enum CatalogExportKind {
   stock
 }
 
+type CatalogImport {
+  created: Int
+  done: Int
+  failed: Int
+  finishedAt: String
+  id: ID
+  matched: Int
+  photosPending: Int
+  problemCount: Int
+  problems: [CatalogImportProblem!]
+  problemsCsv: String
+  products: Int
+  ready: Int
+  requestedAt: String
+  skipped: Int
+  source: String
+  state: String
+  updated: Int
+}
+
+enum CatalogImportMatching {
+  skip
+  update
+}
+
+type CatalogImportProblem {
+  code: String
+  column: String
+  line: Int
+  message: String
+}
+
 type CatalogueFeature {
   enabled: Boolean
   inPlan: Boolean
@@ -365,6 +397,7 @@ type Mutation {
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
   changeSupplierRole(membershipId: ID!, role: String!): Boolean
+  confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
   copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
@@ -427,6 +460,7 @@ type Mutation {
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
   setTheme(theme: String!): Profile
   signOutOtherSessions: Int
+  startCatalogImport(file: String!): ID
   suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
@@ -780,6 +814,9 @@ type Query {
   brand: Brand
   catalogExport(id: ID!): CatalogExport
   catalogExports: [CatalogExport!]
+  catalogImport(id: ID!): CatalogImport
+  catalogImportTemplate: String
+  catalogImports: [CatalogImport!]
   catalogueSettings: CatalogueSettings
   catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
   collection(id: ID!): Collection

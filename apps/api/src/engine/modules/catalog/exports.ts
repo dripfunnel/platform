@@ -18,6 +18,7 @@ import {
 } from '#db/scoped/catalogExports'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { selectLanguages } from '#db/scoped/translations'
+import { jobPayloadOf, type CatalogJobPayload } from './jobScope'
 
 // Products and stock as spreadsheets (CATALOG K8–K11; FIRST-RELEASE §13): jobs built after commit in the
 // asker's own scope, so a supplier's file is its screen and holds only its rows.
@@ -40,40 +41,6 @@ export const catalogExportFilter = z
   })
   .strict()
 export type CatalogExportFilter = z.infer<typeof catalogExportFilter>
-
-const caller = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('person'), userId: z.guid() }).strict(),
-  z.object({ kind: z.literal('impersonation'), impersonationId: z.guid(), staffId: z.guid(), userId: z.guid() }).strict(),
-  z.object({ kind: z.literal('support'), supportSessionId: z.guid(), partnerUserId: z.guid(), access: z.enum(['read', 'write']) }).strict(),
-])
-
-/** The job and whose scope it reads in; a person's session is left out, since nothing reads it there. */
-export const catalogExportPayload = z
-  .object({
-    jobId: z.guid(),
-    partnerId: z.guid(),
-    storeId: z.guid(),
-    caller,
-    sellerId: z.guid().nullable(),
-    subscription: z.enum(['trial', 'active', 'past_due', 'cancelled', 'suspended']),
-  })
-  .strict()
-export type CatalogExportPayload = z.infer<typeof catalogExportPayload>
-
-export const exportContextOf = (p: CatalogExportPayload): TenantContext => ({
-  caller: p.caller.kind === 'person' ? { kind: 'person', userId: p.caller.userId, sessionId: '' } : p.caller,
-  partnerId: p.partnerId,
-  storeId: p.storeId,
-  sellerScope: p.sellerId ? { kind: 'seller', sellerId: p.sellerId } : { kind: 'all' },
-  subscription: p.subscription,
-})
-
-const payloadCaller = (context: TenantContext): CatalogExportPayload['caller'] | null => {
-  const c = context.caller
-  if (c.kind === 'person') return { kind: 'person', userId: c.userId }
-  if (c.kind === 'impersonation' || c.kind === 'support') return c
-  return null
-}
 
 const optionColumns = [1, 2, 3].flatMap((n) => [`option${n} name`, `option${n} value`])
 const productHeader = ['handle', 'name', 'description', 'type', 'visible', ...optionColumns, 'sku', 'barcode', 'price', 'compare at price', 'cost', 'weight grams', 'stock']
@@ -188,7 +155,7 @@ export interface CatalogExportDeps {
   facts: RequestFacts
   now: () => Date
   /** Queues the job's outbox row in the same transaction. */
-  queue: (tx: ScopedSql, payload: CatalogExportPayload) => Promise<unknown>
+  queue: (tx: ScopedSql, payload: CatalogJobPayload) => Promise<unknown>
 }
 
 export const createCatalogExportService = ({ sql, context, actor, activity, facts, now, queue }: CatalogExportDeps) => {
@@ -199,12 +166,12 @@ export const createCatalogExportService = ({ sql, context, actor, activity, fact
   /** A supplier's filter is its own products whatever it sends; the merchant's search text isn't logged (LOGGING §4.1). */
   const requestExport = async (kind: CatalogExportKind, raw: unknown): Promise<{ ok: true; jobId: string } | { ok: false; reason: CatalogExportRefusal }> => {
     const parsed = catalogExportFilter.safeParse(raw ?? {})
-    const by = payloadCaller(context)
-    if (!parsed.success || !by) return { ok: false, reason: 'INVALID_INPUT' }
+    if (!parsed.success || !jobPayloadOf(context, storeId)) return { ok: false, reason: 'INVALID_INPUT' }
     const filter = sellerId ? { ...parsed.data, supplier: null } : parsed.data
     const jobId = await inScope(async (tx) => {
       const id = await insertCatalogExport(tx, { storeId, sellerId, kind, filter, byId: actor.id, byLabel: actor.label })
-      await queue(tx, { jobId: id, partnerId: context.partnerId, storeId, caller: by, sellerId, subscription: context.subscription })
+      const payload = jobPayloadOf(context, id)
+      if (payload) await queue(tx, payload)
       await activity.record(tx, {
         category: 'write',
         action: catalogExportAudit,

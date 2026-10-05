@@ -45,6 +45,8 @@ import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
+import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
+import { deleteExpiredImports, failDeadImports } from '#db/scoped/catalogImports'
 import { deleteExpiredCatalogExports, failDeadCatalogExports } from '#db/scoped/catalogExports'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
@@ -101,7 +103,7 @@ const sesFor = (config: Config): { api: SesApi; senderDomain: string; suppressio
 }
 
 // The side effects the relay can deliver. `email` waits, unclaimed, until SES is configured (outbox-relay.ts).
-const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null): Deliverers => {
   const lookup = dohLookup()
   const ses = sesFor(config)
   return {
@@ -113,6 +115,8 @@ const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
     'export.catalog': catalogExportDeliverer(sql),
+    'import.catalog': catalogImportDeliverer(sql),
+    'import.photos': importPhotosDeliverer(sql, assets, lookup),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
@@ -423,7 +427,8 @@ export default {
         const at = new Date()
         await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
         await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-        return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at))
+        await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+        return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
       }).catch((error: unknown) => {
         logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
         return 0
@@ -438,7 +443,7 @@ export default {
         return 0
       })
       if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
-      const counts = await relayDue(sql, deliverersFor(sql, config))
+      const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
       }

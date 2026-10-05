@@ -531,7 +531,8 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set on_hand = 99 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set reserved = 1 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into stock_movement (store_id, version_id, warehouse_id, delta, resulting_quantity, reason, actor_kind) values (${t.storeA1}, ${version?.id ?? ''}, ${location?.id ?? ''}, 5, 5, 'received', 'system')`)).rejects.toThrow(/permission denied/)
-    for (const reason of ['order', 'import', 'starting', 'transfer']) {
+    // `import` is the importer's own (0059, #301), under the same location and owner checks as `received`.
+    for (const reason of ['order', 'starting', 'transfer']) {
       await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, ${reason})`)).rejects.toThrow(/known reason/)
     }
     await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
@@ -630,7 +631,7 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
-      'activity_log', 'asset', 'badge', 'catalog_export', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
+      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
@@ -640,7 +641,7 @@ describe('the backstop itself', () => {
     // their definer functions; its team's invitations and memberships by column (0049); the settings and its seller it only reads.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE') order by 1`)).toEqual([
-      'activity_log', 'asset', 'catalog_export', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
+      'activity_log', 'asset', 'catalog_export', 'catalog_import', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
       'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related',
       'product_spec', 'product_story', 'product_version', 'product_version_option_value', 'product_video', 'size_chart', 'stock_level',
       'translation', 'version_price', 'warehouse',

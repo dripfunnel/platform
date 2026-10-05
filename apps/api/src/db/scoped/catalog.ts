@@ -637,6 +637,11 @@ export const setProductPhotos = async (tx: ScopedSql, storeId: string, productId
   `
 }
 
+/** One photo at its place among the product's, as an import fetches them one at a time (#301). */
+export const addProductPhoto = async (tx: ScopedSql, storeId: string, productId: string, photo: { assetId: string; alt: string | null; position: number }): Promise<void> => {
+  await tx`insert into product_photo (product_id, store_id, asset_id, position, alt) values (${productId}, ${storeId}, ${photo.assetId}, ${photo.position}, ${photo.alt})`
+}
+
 export const setProductVideo = async (tx: ScopedSql, storeId: string, productId: string, video: { assetId: string | null; url: string | null } | null): Promise<void> => {
   await tx`delete from product_video where product_id = ${productId}`
   if (video) await tx`insert into product_video (product_id, store_id, asset_id, url) values (${productId}, ${storeId}, ${video.assetId}, ${video.url})`
