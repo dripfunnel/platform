@@ -281,6 +281,15 @@ describe('the shell', () => {
     expect(masked.data?.['me']?.acting?.plan).toBeNull()
     expect(masked.data?.['me']?.acting?.tier).toBe('vendor-stock')
     expect(masked.data?.['me']?.acting?.permissions).not.toContain('orders.read')
+    for (const status of ['past_due', 'cancelled']) {
+      await db.sql`update store set status = ${status} where id = ${t.storeA1}`
+      try {
+        const frozen = await gql('{ storeState { readOnly status } }', supplier, { [storeHeader]: t.storeA1 })
+        expect({ status, state: frozen.data?.['storeState'] }).toEqual({ status, state: { readOnly: true, status: null } })
+      } finally {
+        await db.sql`update store set status = 'trial' where id = ${t.storeA1}`
+      }
+    }
   })
 
   it('shows every person in the store the open support session, with only the banner’s facts', async () => {
