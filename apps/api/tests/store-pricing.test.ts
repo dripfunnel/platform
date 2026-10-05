@@ -134,7 +134,8 @@ describe('a product’s price in each currency', () => {
 
 describe('the conversion example in Settings', () => {
   it('converts 100 of the pricing currency as a price is converted, under each rounding, in minor units', async () => {
-    await gql('mutation C($c: [StoreCurrencyInput!]!) { saveCurrencies(currencies: $c) }', 'owner', { c: [{ code: 'USD', mode: 'convert', rounding: 'ends-99' }] })
+    // No currency saved: every one with a rate is still there, to add or to switch to converting before saving.
+    await gql('mutation C($c: [StoreCurrencyInput!]!) { saveCurrencies(currencies: $c) }', 'owner', { c: [] })
     const examples = ((await gql('{ storeLocale { examples { currency from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }', 'owner')).data?.['storeLocale'] as { examples: unknown[] }).examples
     // ₹100 at 90 to the euro and 1.08 dollars to the euro is $1.20 exactly; to the nearest whole $1, up to .99 $1.99.
     expect(examples).toEqual([

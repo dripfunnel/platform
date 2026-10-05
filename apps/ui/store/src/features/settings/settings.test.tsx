@@ -62,6 +62,8 @@ const loc: StoreLocale = {
   examples: [
     { currency: 'USD', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
     { currency: 'AED', from: { amount: '10000', currency: 'INR' }, none: { amount: '400' }, nearest: { amount: '400' }, ends99: { amount: '499' } },
+    { currency: 'EUR', from: { amount: '10000', currency: 'INR' }, none: { amount: '100' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+    { currency: 'GBP', from: { amount: '10000', currency: 'INR' }, none: { amount: '84' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
   ],
 }
 
@@ -221,7 +223,10 @@ describe('currencies', () => {
     expect(dialog().getByText(/You’ll type a USD price on each product/)).toBeTruthy()
     fireEvent.click(dialog().getByRole('button', { name: w.stopConfirm }))
     fireEvent.click(c.getByRole('button', { name: 'Remove AED' }))
+    // Any currency with a rate can be added, the euro among them, and shows its example before it's saved.
+    expect(within(c.getByRole('combobox', { name: w.addCurrency })).getByRole('option', { name: /EUR/ })).toBeTruthy()
     fireEvent.change(c.getByRole('combobox', { name: w.addCurrency }), { target: { value: 'GBP' } })
+    expect(c.getByText(/₹100\.00 → £1\.99/)).toBeTruthy()
     fireEvent.click(c.getByRole('button', { name: w.saveCurrencies }))
     await settle()
     expect(api.saveCurrencies).toHaveBeenCalledWith([
