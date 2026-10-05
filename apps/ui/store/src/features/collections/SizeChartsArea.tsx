@@ -1,24 +1,24 @@
 import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { loadProductBasics } from '../../api/productEditor'
-import { loadSizeChartList, type SizeChart, type SizeChartSummary } from '../../api/sizeCharts'
+import { loadSizeChartLimit, loadSizeChartList, type SizeChart, type SizeChartSummary } from '../../api/sizeCharts'
 import { messages } from '../../messages'
 import { SizeChartsTab } from './SizeChartsTab'
 
 const words = messages.collections.charts
 
-type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; charts: SizeChartSummary[]; feature: { enabled: boolean; inPlan: boolean | null }; unit: 'cm' | 'in'; india: boolean }
+type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; charts: SizeChartSummary[]; limit: number; feature: { enabled: boolean; inPlan: boolean | null }; unit: 'cm' | 'in'; india: boolean }
 
 /** What the area reads: the API, or the ?state= harness's samples. */
 export interface ChartReads {
-  list: () => Promise<{ charts: SizeChartSummary[]; feature: { enabled: boolean; inPlan: boolean | null }; unit: 'cm' | 'in'; india: boolean }>
+  list: () => Promise<{ charts: SizeChartSummary[]; limit: number; feature: { enabled: boolean; inPlan: boolean | null }; unit: 'cm' | 'in'; india: boolean }>
   chart?: (id: string) => Promise<SizeChart | null>
 }
 
 const apiList: ChartReads['list'] = async () => {
-  const [charts, basics] = await Promise.all([loadSizeChartList(), loadProductBasics()])
+  const [charts, limit, basics] = await Promise.all([loadSizeChartList(), loadSizeChartLimit(), loadProductBasics()])
   const f = basics.features.find((x) => x.key === 'sizeCharts')
-  return { charts, feature: { enabled: f?.enabled ?? false, inPlan: f?.inPlan ?? null }, unit: basics.unitSystem === 'imperial' ? 'in' : 'cm', india: basics.pricingCurrency === 'INR' }
+  return { charts, limit, feature: { enabled: f?.enabled ?? false, inPlan: f?.inPlan ?? null }, unit: basics.unitSystem === 'imperial' ? 'in' : 'cm', india: basics.pricingCurrency === 'INR' }
 }
 
 export interface SizeChartsAreaProps {
@@ -48,6 +48,7 @@ export const SizeChartsArea = ({ side, canEdit, owner, onToast, reads }: SizeCha
   return (
     <SizeChartsTab
       charts={view.charts}
+      limit={view.limit}
       canEdit={canEdit}
       feature={view.feature}
       owner={owner}

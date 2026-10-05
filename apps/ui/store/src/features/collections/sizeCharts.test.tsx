@@ -13,7 +13,7 @@ import { messages } from '../../messages'
 
 const words = messages.collections.charts
 
-const charts = vi.hoisted(() => ({ loadSizeChartList: vi.fn(), loadSizeChart: vi.fn(), saveSizeChart: vi.fn(), deleteSizeChart: vi.fn() }))
+const charts = vi.hoisted(() => ({ loadSizeChartList: vi.fn(), loadSizeChartLimit: vi.fn(), loadSizeChart: vi.fn(), saveSizeChart: vi.fn(), deleteSizeChart: vi.fn() }))
 vi.mock('../../api/sizeCharts', () => charts)
 const editorApi = vi.hoisted(() => ({ loadProductBasics: vi.fn() }))
 vi.mock('../../api/productEditor', () => editorApi)
@@ -69,6 +69,7 @@ const show = async (acting: Acting, path: string, readOnly = false) => {
 
 beforeEach(() => {
   charts.loadSizeChartList.mockResolvedValue([summary(tops), theirs])
+  charts.loadSizeChartLimit.mockResolvedValue(200)
   charts.loadSizeChart.mockResolvedValue(tops)
   charts.saveSizeChart.mockResolvedValue({ id: 'c1', revision: 3 })
   editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: true, inPlan: true }] })
@@ -150,6 +151,44 @@ describe('size charts, the merchant’s', () => {
     await settle()
     expect(charts.deleteSizeChart).toHaveBeenCalledWith('c1')
     expect(screen.getByText(words.pick)).toBeTruthy()
+  })
+
+  it('shows the chart picked last, whichever read answers first', async () => {
+    const jeans = { ...tops, id: 'c5', name: 'Jeans' }
+    charts.loadSizeChartList.mockResolvedValue([summary(tops), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    await show(owner, merchant)
+    let answerTops: (c: typeof tops) => void = () => undefined
+    charts.loadSizeChart.mockImplementation((id: string) => (id === 'c1' ? new Promise((resolve) => (answerTops = resolve)) : Promise.resolve(jeans)))
+    fireEvent.click(screen.getByRole('button', { name: /Jeans/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Tops/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Jeans/ }))
+    await settle()
+    await act(async () => answerTops(tops))
+    expect((screen.getByLabelText(words.name) as HTMLInputElement).value).toBe('Jeans')
+  })
+
+  it('keeps another chart open when a save answers after it was picked', async () => {
+    const jeans = { ...tops, id: 'c5', name: 'Jeans', products: 0 }
+    charts.loadSizeChartList.mockResolvedValue([summary({ ...tops, products: 0 }), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    charts.loadSizeChart.mockImplementation((id: string) => Promise.resolve(id === 'c5' ? jeans : { ...tops, products: 0 }))
+    let answerSave: (r: { id: string; revision: number }) => void = () => undefined
+    charts.saveSizeChart.mockReturnValueOnce(new Promise((resolve) => (answerSave = resolve)))
+    await show(owner, merchant)
+    fireEvent.change(screen.getByLabelText(words.name), { target: { value: 'Tops 2' } })
+    fireEvent.click(screen.getByRole('button', { name: words.save }))
+    fireEvent.click(screen.getByRole('button', { name: /Jeans/ }))
+    fireEvent.click(dialog().getByRole('button', { name: words.discard }))
+    await settle()
+    expect((screen.getByLabelText(words.name) as HTMLInputElement).value).toBe('Jeans')
+    await act(async () => answerSave({ id: 'c1', revision: 4 }))
+    await settle()
+    expect((screen.getByLabelText(words.name) as HTMLInputElement).value).toBe('Jeans')
+  })
+
+  it('takes the limit from the API', async () => {
+    charts.loadSizeChartLimit.mockResolvedValue(1)
+    await show(owner, merchant)
+    expect(screen.getByText('1 of 1')).toBeTruthy()
   })
 
   it('asks before a new chart from a template replaces unsaved changes', async () => {

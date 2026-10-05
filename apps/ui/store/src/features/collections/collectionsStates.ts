@@ -112,7 +112,7 @@ export const sampleChartReads = (state: CollectionsState): ChartReads => ({
     if (state === 'loading') return new Promise(() => undefined)
     if (state === 'error') throw new Error('sample')
     const charts = state === 'empty' ? [] : sampleCharts
-    return { charts: charts.map(({ id, name, unit, products, supplierId }) => ({ id, name, unit, products, supplierId })), feature: { enabled: true, inPlan: true }, unit: 'cm', india: true }
+    return { charts: charts.map(({ id, name, unit, products, supplierId }) => ({ id, name, unit, products, supplierId })), limit: 200, feature: { enabled: true, inPlan: true }, unit: 'cm', india: true }
   },
   chart: async (id) => sampleCharts.find((c) => c.id === id) ?? null,
 })
