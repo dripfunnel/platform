@@ -3,6 +3,8 @@ import type { DnsLookup } from '../dns/doh'
 
 // A file from an address a user gave us (AGENTS.md "Security": SSRF, timeouts, bounded retries): https on a
 // public name only, every address it resolves to public, each redirect checked the same way, and a size cap.
+// The check and the Worker's own fetch both resolve through Cloudflare, and a Worker has no route to a private
+// network or metadata service, so an answer that changes in between still can't reach one (#408 review).
 
 export type PublicFetchRefusal = 'BAD_URL' | 'PRIVATE_ADDRESS' | 'NOT_FOUND' | 'TOO_LARGE' | 'UNAVAILABLE'
 export type PublicFetchResult = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; code: PublicFetchRefusal }

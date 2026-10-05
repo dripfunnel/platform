@@ -221,6 +221,13 @@ describe('a spreadsheet import', () => {
     const ready = await upload('owner', 'handle,name,price\nnew-pot,New pot,20\n')
     expect((await confirm('owner', ready.id, 'update', supplierPlace)).code).toBe('WAREHOUSE_NOT_FOUND')
     expect((await gql('mutation S($f: String!) { startCatalogImport(file: $f) }', 'owner', { f: 'x'.repeat(5 * 1024 * 1024 + 1) })).code).toBe('FILE_TOO_LARGE')
+    // A store that hasn't chosen its currency can't have prices read: refused, never priced in one we picked.
+    await db.sql`update store set pricing_currency = null where id = ${t.storeA1}`
+    try {
+      expect((await upload('owner', 'handle,name,price\npot,Pot,10\n')).job).toMatchObject({ state: 'unreadable', problems: [{ line: 0, code: 'CURRENCY_REQUIRED' }] })
+    } finally {
+      await db.sql`update store set pricing_currency = 'INR' where id = ${t.storeA1}`
+    }
   })
 })
 

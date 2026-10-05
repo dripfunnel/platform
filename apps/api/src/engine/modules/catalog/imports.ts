@@ -292,8 +292,15 @@ export const checkImport = async (d: ImportJobDeps, jobId: string): Promise<void
     const job = await selectCatalogImport(tx, storeId, jobId)
     if (job?.state !== 'checking' || job.file === null) return
     const at = d.now()
+    // No currency of the store's own, no price can be read: the file is refused, never priced in one we chose.
+    const currency = await selectPricingCurrency(tx)
+    if (!currency) {
+      await saveImportCheck(tx, jobId, { source: 'csv', plan: null, products: 0, ready: 0, matched: 0, problems: [{ line: 0, column: null, code: 'CURRENCY_REQUIRED' }] })
+      await failImport(tx, jobId, at, new Date(at.getTime() + catalogImportLifetimeMs))
+      return
+    }
     const plan = planImport(job.file, {
-      currency: (await selectPricingCurrency(tx)) ?? 'USD',
+      currency,
       languages: await translationLanguages(tx, storeId),
       // A supplier prices in the pricing currency only (O14), and doesn't read the store's currencies.
       manualCurrencies: sellerId === null ? await selectManualCurrencies(tx, storeId) : [],
@@ -366,10 +373,9 @@ export const mergeForUpdate = (planned: ProductInput, existing: ProductRow): Pro
 
 type Outcome = { kind: 'created' | 'updated'; id: string } | { kind: 'skipped' } | { kind: 'failed'; code: ProblemCode }
 
-const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, alongside: (kind: 'created' | 'updated') => Alongside): Promise<Outcome> => {
-  const { storeId } = d.context
-  const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null
-  const matches = [...new Set((await withScope(d.sql, d.context, (tx) => selectOwnSkus(tx, storeId, sellerId, skusOf(p)))).map((r) => r.product_id))]
+/** `owners` maps each SKU of the chunk to the importer's product holding it, read once for the chunk. */
+const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, owners: ReadonlyMap<string, string>, alongside: (kind: 'created' | 'updated') => Alongside): Promise<Outcome> => {
+  const matches = [...new Set(skusOf(p).flatMap((sku) => owners.get(sku.toLowerCase()) ?? []))]
   if (matches.length > 1) return { kind: 'failed', code: 'MATCHES_MANY' }
   const [existingId] = matches
   if (existingId && job.match_mode === 'skip') return { kind: 'skipped' }
@@ -451,6 +457,10 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
   if (!job || job.state !== 'running' || !plan) return
   const payload = jobPayloadOf(d.context, jobId)
   const none = { created: 0, updated: 0, skipped: 0, failed: 0, photos: 0 }
+  const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null
+  // The chunk's SKUs matched in one query, not one a product.
+  const chunk = plan.products.slice(job.done, job.done + chunkProducts)
+  const owners = new Map((await withScope(d.sql, d.context, (tx) => selectOwnSkus(tx, storeId, sellerId, chunk.flatMap(skusOf)))).map((r) => [r.sku, r.product_id]))
   let at = job.done
   while (at < plan.products.length && at - job.done < chunkProducts && Date.now() - started < budgetMs) {
     const done = at + 1
@@ -465,7 +475,7 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
       if (payload) for (const [position, photo] of photos.entries()) await d.queue(tx, importPhotosKind, `${jobId}:photo:${productId}:${position}`, { ...payload, productId, position, ...photo })
       await saveImportProgress(tx, jobId, { ...none, [kind]: 1, done, photos: photos.length, problems })
     }
-    const outcome = await importOne(d, job, p, alongside)
+    const outcome = await importOne(d, job, p, owners, alongside)
     if (outcome.kind === 'failed' || outcome.kind === 'skipped') {
       const problems: ImportProblem[] = outcome.kind === 'failed' ? [{ line, column: null, code: outcome.code }] : []
       await withScope(d.sql, d.context, (tx) => saveImportProgress(tx, jobId, { ...none, [outcome.kind]: 1, done, problems }))
