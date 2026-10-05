@@ -256,6 +256,7 @@ type Mutation {
   inviteSupplier(input: InviteSupplierInput!): ID
   inviteSupplierUser(email: String!, role: String!): ID
   mergeFacetValues(from: [ID!]!, into: ID!): Int
+  proposeProduct(input: ProductInput!): SavedProduct
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean

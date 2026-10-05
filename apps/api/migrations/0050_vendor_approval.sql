@@ -38,6 +38,15 @@ grant execute on function set_store_vendor_approval(boolean) to app_request;
 
 -- As 0041's, and while approval is on a supplier's new product is made hidden and pending whatever it sent; its
 -- one approval change is sending its own product back to the queue (a reviewed field changed, or resubmitting).
+-- A Stock-only supplier's product is always a proposal, and it changes no product row after (decided on #337).
+-- The acting supplier's tier, from its own seller row (which its policy lets it read).
+create function supplier_tier() returns text
+language sql
+stable
+as $$
+  select access_level from seller where id = nullif(app_setting_text('app.seller_id'), '')::uuid
+$$;
+
 create or replace function product_supplier_guard() returns trigger
 language plpgsql
 as $$
@@ -50,7 +59,7 @@ begin
        or new.hidden_by is not null or new.status_before_hide is not null or new.is_sample then
       raise exception 'catalogue: a supplier creates only its own products, with no approval, hide or sample' using errcode = '42501';
     end if;
-    if store_vendor_approval() then
+    if store_vendor_approval() or supplier_tier() = 'vendor-stock' then
       new.visibility := 'hidden';
       new.approval_status := 'pending';
     end if;
@@ -66,6 +75,9 @@ begin
             and new.sent_back_reason is null and store_vendor_approval()) then
       raise exception 'catalogue: a supplier changes no visibility, approval or hide' using errcode = '42501';
     end if;
+  end if;
+  if supplier_tier() = 'vendor-stock' then
+    raise exception 'catalogue: a Stock only supplier proposes products and changes none' using errcode = '42501';
   end if;
   return new;
 end

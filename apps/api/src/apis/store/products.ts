@@ -1,6 +1,6 @@
 import { GraphQLError } from 'graphql'
 import { pageOf } from '#core/paging'
-import { catalogAudit, createCatalogService, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
+import { approvalAudit, catalogAudit, createCatalogService, type ProductFilter, type ProductInput, type ProductListRow, type ProductRow, type SaveResult } from '#engine/modules/catalog/index'
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
@@ -413,6 +413,16 @@ export const registerProducts = (builder: StoreBuilder) => {
   }))
 
   builder.mutationFields((t) => ({
+    // A Stock-only supplier's new product, waiting for the merchant's approval (decided on #337).
+    proposeProduct: t.field({
+      type: Saved,
+      args: { input: t.arg({ type: ProductInputType, required: true }) },
+      extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.propose', target: 'none', audit: approvalAudit.proposed } },
+      resolve: async (_, args, ctx) => {
+        if (args.input.sizeChartId) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+        return answered(ctx, await service(ctx).propose(args.input))
+      },
+    }),
     saveProduct: t.field({
       type: Saved,
       args: { id: t.arg.id(), revision: t.arg.int(), input: t.arg({ type: ProductInputType, required: true }) },

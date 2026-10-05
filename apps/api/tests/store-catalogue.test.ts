@@ -591,4 +591,31 @@ describe('approval of suppliers’ products (ACCESS §7.2, CATALOG L)', () => {
       await approval(true)
     }
   })
+
+  it('lets a Stock-only supplier propose a product, which waits for the merchant even with approval off, and change no product after', async () => {
+    await db.sql`update seller set access_level = 'vendor-stock' where id = ${t.sellerA1Second}`
+    await approval(false)
+    try {
+      expect((await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'otherSupplier', { input: simple('Not allowed') })).code).toBe('FORBIDDEN')
+      expect(await upload('otherSupplier')).toMatchObject({ ok: true })
+      const proposed = await gql('mutation P($input: ProductInput!) { proposeProduct(input: $input) { id approval } }', 'otherSupplier', { input: simple('Proposed basket') })
+      const id = (proposed.data?.['proposeProduct'] as { id: string; approval: string }).id
+      expect((proposed.data?.['proposeProduct'] as { approval: string }).approval).toBe('pending')
+      expect(await state(id)).toEqual({ approval_status: 'pending', visibility: 'hidden', sent_back_reason: null })
+      expect(await db.sql`select 1 from activity_log where action = 'product.proposed' and target_id = ${id}`).toHaveLength(1)
+      // Only that tier proposes; the merchant and a catalogue supplier create as they always do.
+      expect((await gql('mutation P($input: ProductInput!) { proposeProduct(input: $input) { id } }', 'supplier', { input: simple('Not a proposal') })).code).toBe('FORBIDDEN')
+      expect((await gql('mutation P($input: ProductInput!) { proposeProduct(input: $input) { id } }', 'owner', { input: simple('Not a proposal') })).code).toBe('FORBIDDEN')
+      expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+      expect(await state(id)).toMatchObject({ approval_status: 'approved', visibility: 'visible' })
+      const version = (await detail('owner', id))?.versions[0]?.id
+      expect((await saveAs('otherSupplier', id, { ...simple('Proposed basket, renamed'), versions: [{ id: version, choices: [], prices: [price('129900')] }] })).code).toBe('FORBIDDEN')
+      const as = { caller: { kind: 'person' as const, userId: people.otherSupplier, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller' as const, sellerId: t.sellerA1Second }, subscription: 'active' as const }
+      const { withScope } = await import('#db/scoped/index')
+      await expect(withScope(db.sql, as, (tx) => tx`update product set name = 'Sneaky rename' where id = ${id}`)).rejects.toThrow(/proposes products and changes none/)
+    } finally {
+      await approval(true)
+      await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1Second}`
+    }
+  })
 })

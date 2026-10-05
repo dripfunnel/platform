@@ -12,6 +12,7 @@ export const approvalAudit = {
   settingChanged: 'catalogue.approval_changed',
   // A supplier's approved product back in the queue, the cause as the reason (LOGGING.md §5).
   sentBackForApproval: 'product.sent_back_for_approval',
+  proposed: 'product.proposed',
   approved: 'product.approved',
   sentBack: 'product.sent_back',
 } as const

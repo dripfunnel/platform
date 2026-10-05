@@ -262,7 +262,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
   }
 
-  const create = async (input: ProductInput): Promise<SaveResult> => {
+  /** A Stock-only supplier's proposal waits for the merchant whatever the switch says (decided on #337; 0050's guard). */
+  const create = async (input: ProductInput, proposal = false): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
       const product = await clean(tx, input)
@@ -273,8 +274,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const visibility = sellerId !== null || product.visible !== false ? 'visible' : 'hidden'
       const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: { ...fieldsOf(product, visibility), slug: sellerId !== null ? supplierSlug(product.slug) : product.slug } })
       await writeChildren(tx, made.id, product, null)
-      await activity.record(tx, entry(catalogAudit.created, { id: made.id, label: product.name }))
-      const pending = sellerId !== null && (await approvalRequired(tx))
+      await activity.record(tx, entry(proposal ? approvalAudit.proposed : catalogAudit.created, { id: made.id, label: product.name }))
+      const pending = sellerId !== null && (proposal || (await approvalRequired(tx)))
       return { ok: true, id: made.id, slug: made.slug, revision: 1, approval: pending ? 'pending' : null, reviewed: [] }
     })
   }
@@ -291,6 +292,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label: product.name }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
     return { approval: 'pending', reviewed }
   }
+
+  const propose = (input: ProductInput) => (sellerId === null ? Promise.reject(new Error('catalogue: only a supplier proposes')) : create(input, true))
 
   const update = (id: string, revision: number, input: ProductInput): Promise<SaveResult> =>
     run(async (tx) => {
@@ -406,5 +409,5 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const get = (id: string) =>
     inScope(async (tx) => ({ currency: await selectPricingCurrency(tx), product: await selectProduct(tx, storeId, id) }))
 
-  return { list, counts, get, create, update, duplicate, remove, setVisibility }
+  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility }
 }

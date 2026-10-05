@@ -430,6 +430,7 @@ supplier who can look and not touch.
 |---|:--:|:--:|:--:|:--:|
 | `catalog.read` | ✓ | ✓ | ✓ | ✓ |
 | `catalog.write` | | ✓ | ✓ | ✓ |
+| `catalog.propose`: a new product that waits for the merchant's approval, never an edit (decided on #337, built on #295) | ✓ | | | |
 | `stock.read`, `stock.write`, `warehouses.write` | ✓ | ✓ | ✓ | ✓ |
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
 | `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
@@ -444,7 +445,9 @@ supplier who can look and not touch.
 - **Stock only** is "they update quantities. Nothing else." Catalogue read is included because
   stock is meaningless without finding the version to count. It must never grant catalogue
   write; mapping it onto `vendor-catalogue` would let a supplier add and edit products while
-  the screen promised otherwise.
+  the screen promised otherwise. It may **propose** a new product (`proposeProduct`, with its
+  photos), which is created hidden and waiting for approval whatever the store's switch says, and
+  it changes no product row after that: migration 0050's guard holds both.
 - **Unlike the first platform, these ticks are the enforced boundary.** Because permissions apply per
   row, `catalog.write` for a vendor is "write my own products" at the engine, not only in the
   portal.
