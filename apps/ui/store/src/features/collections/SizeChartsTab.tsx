@@ -47,7 +47,7 @@ const TemplatePicker = ({ unit, india, onPick, onCancel }: { unit: 'cm' | 'in'; 
       <p>{fill(words.startBody, { unit: unit === 'in' ? words.unitIn : words.unitCm })}</p>
       <fieldset>
         <legend className="df-visually-hidden">{words.startTitle}</legend>
-        {templates(unit, india).map((t) => (
+        {templates(unit, india, words).map((t) => (
           <label key={t.key} className={pick === t.key ? 'df-chart-template df-chart-template--on' : 'df-chart-template'}>
             <input type="radio" name={`${id}-pick`} checked={pick === t.key} onChange={() => setPick(t.key)} />
             <span>
@@ -122,7 +122,7 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
 
   const fromTemplate = (key: TemplateKey) => {
     setStarting(false)
-    const t = templates(unit, india).find((x) => x.key === key)
+    const t = templates(unit, india, words).find((x) => x.key === key)
     if (t) void create(chartInput({ id: null, revision: null, name: words.newName[key], unit, ...t.chart, fitNotes: '', howToMeasure: [], modelInfo: null }), words.created)
   }
 
@@ -335,7 +335,7 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
                 type="button"
                 disabled={busy}
                 onClick={() => {
-                  const next = withSystems(d)
+                  const next = withSystems(d, [words.systems.us, words.systems.uk, words.systems.eu])
                   if (!next) return onToast(words.systemsThere)
                   set(next)
                   onToast(words.systemsAdded)
