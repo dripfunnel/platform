@@ -1,7 +1,4 @@
--- SAPI 6 (#296), part 3: translations (DATA-MODEL §7.3; CATALOG facts 18–22, N). Per language, a product's
--- name, web address and description, its versions' names, collections', filters' and filter choices' names,
--- and option and choice names once for the whole catalogue (N6, decided on #337). The main language's text
--- stays on the rows themselves; a missing translation falls back to it (fact 19).
+-- SAPI 6 (#296), part 3: translations per language, as DATA-MODEL §7.3 and CATALOG facts 18–22 and N set them out.
 
 create table translation (
   store_id uuid not null references store (id),
@@ -94,8 +91,7 @@ create policy support_no_insert on translation as restrictive for insert to app_
 create policy support_no_update on translation as restrictive for update to app_request, app_supplier with check (app_setting_text('app.support') <> 'read');
 create policy support_no_delete on translation as restrictive for delete to app_request, app_supplier using (app_setting_text('app.support') <> 'read');
 
--- A supplier translates into the store's languages (N15): it reads which they are, and the main one through a
--- definer, as it reads no store row.
+-- A supplier reads the store's languages to translate into (N15), and the main one by a definer (no store row).
 grant select on store_language to app_supplier;
 alter policy store_language_merchant on store_language to app_request;
 create policy store_language_supplier_read on store_language for select to app_supplier

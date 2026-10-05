@@ -128,10 +128,6 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   position,
 })
 
-// A supplier's address carries its own random ending, so a clash with a product it can't see shows nothing
-// (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
-
-
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
 type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
 
@@ -300,7 +296,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     // A sent-back product is resubmitted whether or not approval is still on: only the merchant's review ends it.
     const resubmitting = existing.approval_status === 'sent_back'
     if (!resubmitting && (reviewed.length === 0 || !(await approvalRequired(tx)))) return { approval: existing.approval_status, reviewed: [] }
-    await submitForApproval(tx, storeId, id)
+    await submitForApproval(tx, storeId, id, now())
     await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label: product.name }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
     return { approval: 'pending', reviewed }
   }

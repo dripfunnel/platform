@@ -178,9 +178,13 @@ describe('Settings › Store info', () => {
       expect((await save({ ...base, nextOrderNumber: 3000, taxId: '12-3456789' })).code).toBeUndefined()
       expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1} and country = 'US' order by kind`).toEqual([{ kind: 'ein', number: '12-3456789' }, { kind: 'sales_tax_permit', number: 'OH-PERMIT-77' }])
       expect((await info())?.taxId).toBe('12-3456789')
-      // Clearing the field removes the one shown, the EIN; the permit stays and shows next.
+      // Typing a permit over the EIN shown saves the permit and shows it; the EIN stays.
+      expect((await save({ ...base, nextOrderNumber: 3000, taxId: 'OH-PERMIT-88' })).code).toBeUndefined()
+      expect((await info())?.taxId).toBe('OH-PERMIT-88')
+      expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1} and country = 'US' order by kind`).toEqual([{ kind: 'ein', number: '12-3456789' }, { kind: 'sales_tax_permit', number: 'OH-PERMIT-88' }])
+      // Clearing the field removes the one shown, the permit; the EIN stays and shows next.
       expect((await save({ ...base, nextOrderNumber: 3000, taxId: '' })).code).toBeUndefined()
-      expect((await info())?.taxId).toBe('OH-PERMIT-77')
+      expect((await info())?.taxId).toBe('12-3456789')
     } finally {
       await db.sql`update store set country = 'IN' where id = ${t.storeA1}`
     }
