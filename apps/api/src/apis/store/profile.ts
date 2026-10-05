@@ -31,6 +31,7 @@ import {
   setPendingSecondFactor,
   turnOffUserSecondFactor,
   updateProfileDetails,
+  updateUserTheme,
   type ProfileRow,
 } from '#db/scoped/profile'
 import { countCodesSince, replaceBackupCodes, selectSignInCandidate, setUserSecondFactor } from '#db/scoped/userSignIn'
@@ -243,6 +244,25 @@ export const registerProfile = (builder: StoreBuilder) => {
             // The number a sign-in code goes to changes only by proving it (setSecondFactor), never here.
             if (before.two_factor_method === 'sms' && phone !== before.phone) throw refused('PHONE_IN_USE_FOR_SIGN_IN', 'Change this number under Two-step sign-in, which texts it a code first.')
             await updateProfileDetails(tx, person.id, { name, phone, theme })
+            await record(ctx, tx, personProfileUpdated(userOf(person), ctx.facts))
+            return readProfile(tx, person, now)
+          }),
+        )
+      },
+    }),
+    // Appearance (PortalProfile): the theme alone, which also works while the store is read-only.
+    setTheme: t.field({
+      type: ProfileType,
+      args: { theme: t.arg.string({ required: true }) },
+      extensions: { access: { ...session, audit: 'person.profile_updated', whileReadOnly: true } },
+      resolve: async (_, args, ctx) => {
+        const person = personOf(ctx)
+        if (args.theme !== 'light' && args.theme !== 'dark') throw refused('INVALID_INPUT', 'Choose light or dark.')
+        const theme = args.theme
+        const now = ctx.now()
+        return profileOf(
+          await withSystemScope(sqlOf(ctx), async (tx) => {
+            await updateUserTheme(tx, person.id, theme)
             await record(ctx, tx, personProfileUpdated(userOf(person), ctx.facts))
             return readProfile(tx, person, now)
           }),

@@ -1,6 +1,7 @@
-import { useId, type InputHTMLAttributes, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { Field as CommonField, Primary as CommonPrimary, Secondary as CommonSecondary, type FieldProps as CommonFieldProps } from '../common/fields'
 
-// PortalProfile's pieces: a card per section, a labelled field with its help line, and the two buttons.
+// PortalProfile's pieces: a card per section, and the portal's field and buttons in its look (common/fields).
 
 export const Card = ({ title, sub, aside, children }: { title: string; sub?: ReactNode; aside?: ReactNode; children?: ReactNode }) => (
   <section className="df-profile-card">
@@ -15,40 +16,20 @@ export const Card = ({ title, sub, aside, children }: { title: string; sub?: Rea
   </section>
 )
 
-interface FieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
-  label: string
-  value: string
-  onValue: (value: string) => void
-  help?: ReactNode
-  helpTone?: 'muted' | 'good' | 'bad' | undefined
-  variant?: 'code' | undefined
-}
+type FieldProps = Omit<CommonFieldProps, 'look' | 'helpTone'> & { helpTone?: 'muted' | 'good' | undefined }
 
-export const Field = ({ label, value, onValue, help, helpTone = 'muted', variant, ...input }: FieldProps) => {
-  const id = useId()
-  return (
-    <div className={`df-profile-field${variant ? ` df-profile-field--${variant}` : ''}`}>
-      <label htmlFor={id}>{label}</label>
-      <input id={id} value={value} onChange={(event) => onValue(event.target.value)} aria-describedby={help ? `${id}-help` : undefined} {...input} />
-      {help && (
-        <span id={`${id}-help`} className={`df-profile-help df-profile-help--${helpTone}`}>
-          {help}
-        </span>
-      )}
-    </div>
-  )
-}
+export const Field = ({ helpTone = 'muted', ...props }: FieldProps) => <CommonField look="profile" helpTone={helpTone} {...props} />
 
 export const Primary = ({ children, onClick, busy, disabled, type = 'button' }: { children: ReactNode; onClick?: () => void; busy?: boolean; disabled?: boolean; type?: 'button' | 'submit' }) => (
-  <button type={type} className="df-profile-primary" onClick={onClick} disabled={disabled ?? busy} aria-busy={busy}>
+  <CommonPrimary look="profile" type={type} onClick={onClick} busy={busy} disabled={disabled}>
     {children}
-  </button>
+  </CommonPrimary>
 )
 
 export const Secondary = ({ children, onClick, size }: { children: ReactNode; onClick: () => void; size?: 'small' | 'strong' }) => (
-  <button type="button" className={`df-profile-secondary${size ? ` df-profile-secondary--${size}` : ''}`} onClick={onClick}>
+  <CommonSecondary look="profile" onClick={onClick} size={size}>
     {children}
-  </button>
+  </CommonSecondary>
 )
 
 export const Alert = ({ text }: { text: string | null }) =>

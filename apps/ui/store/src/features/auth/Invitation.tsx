@@ -6,7 +6,8 @@ import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { invitationStates, sampleInvitation } from './authStates'
 import { AuthFrame } from './AuthFrame'
-import { Field, Foot, NewPasswordField, Primary, productName, Secondary, Terms } from './fields'
+import { Field, Foot, NewPasswordField, Primary, Secondary, Terms } from './fields'
+import { productName } from '../common/productName'
 import { badInvitationKey, refusalText, roleWords } from './refusals'
 
 const words = messages.auth

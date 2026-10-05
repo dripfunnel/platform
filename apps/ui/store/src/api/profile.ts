@@ -54,6 +54,10 @@ export const loadMyActivity = async (after: string | null): Promise<{ entries: M
 export const updateProfile = async (details: { name: string; phone: string | null; theme: 'light' | 'dark' | null }): Promise<Profile> =>
   (await query(`mutation Update($name: String!, $phone: String, $theme: String) { updateProfile(name: $name, phone: $phone, theme: $theme) { ${profileFields} } }`, z.object({ updateProfile: profileSchema }), details)).updateProfile
 
+/** The theme alone, so it never writes back a name or number read earlier. */
+export const setTheme = async (theme: 'light' | 'dark'): Promise<Profile> =>
+  (await query(`mutation Theme($theme: String!) { setTheme(theme: $theme) { ${profileFields} } }`, z.object({ setTheme: profileSchema }), { theme })).setTheme
+
 /** Sends a link to the new address; the email changes when it is clicked (ACCESS.md §4). */
 export const changeEmail = async (email: string, password: string): Promise<void> => {
   await query(`mutation Email($email: String!, $password: String!) { changeEmail(email: $email, password: $password) }`, z.object({ changeEmail: z.boolean().nullable() }), { email, password })
