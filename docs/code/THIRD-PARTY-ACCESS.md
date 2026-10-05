@@ -554,7 +554,7 @@ Where it is kept:
 ### 8.2 Not read yet
 
 Named now so each card uses the same name. The rest join their app's `.env.example` in the card that first reads them. Each row's role, scope and
-generation are in the section it cites.
+generation are in the section it cites. *First needed* names a slice (§6) for the rows that predate the Store strand, and a Store card (FIRST-RELEASE §20: INF 1, SAPI 10, ST 1a…) for the rows it added.
 
 | Name | Role | Kept in | Section | First needed |
 |---|---|---|---|---|
@@ -563,7 +563,7 @@ generation are in the section it cites.
 | `CF_PAGES_POOL` | The Cloudflare accounts storefronts' Pages projects spread over (#337): a JSON list of `{ "accountId", "token" }`, each token scoped to *Pages: Edit* on its own account, the first entry the main account. Replaces a single `CF_STOREFRONT_DEPLOY_TOKEN` (named on #287) | Worker secret | §2.1 | INF 1 |
 | `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
 | `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod (named on #287) | Worker variable | §2.7, §3.1 | SAPI 10 |
-| `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (HMAC-SHA-256, expiry in the link; #284, storefront ARCHITECTURE §4.1). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
+| `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (#284, storefront ARCHITECTURE §4.1; HMAC-SHA-256 with the expiry in the link *(proposed, ST 1a confirms)*). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** *(proposed, SAPI 10 confirms)*: connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | Worker secret | §2.7, §3.1 | SAPI 10 |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
 | `AI_GATEWAY_TOKEN` | Cloudflare AI Gateway in front of every partner's AI calls *(optional)* | Worker secret | §2.6 | slice 9 |
