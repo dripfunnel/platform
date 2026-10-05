@@ -173,9 +173,9 @@ describe('Settings › Store info', () => {
   })
 
   it('never lowers a counter an order moved on while the save was waiting', async () => {
-    let release = () => undefined as void
+    let release = (): void => undefined
     const held = new Promise<void>((resolve) => (release = resolve))
-    let taken = () => undefined as void
+    let taken = (): void => undefined
     const locked = new Promise<void>((resolve) => (taken = resolve))
     const order = db.sql.begin(async (tx) => {
       await tx`update store set next_order_number = 5000 where id = ${t.storeA1}`
