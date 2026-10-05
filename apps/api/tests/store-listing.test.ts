@@ -201,16 +201,24 @@ describe('a product’s listing sections', () => {
     const auto = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'New in', tone: 'ok', rule: 'new_30_days' } })).data?.['saveBadge'] as string
     expect((await product('owner', 'Auto badge', { listing: { badgeIds: [auto] } })).code).toBe('LISTING_REFUSED')
     expect((await product('owner', 'Bad country', { listing: { marketRule: { mode: 'only', countries: ['ZZ'] } } })).code).toBe('INVALID_LISTING')
+    expect((await product('owner', 'Bad chart id', { sizeChartId: '-'.repeat(36) })).code).toBe('INVALID_LISTING')
+    const self = await product('owner', 'Self related')
+    expect((await gql(save, 'owner', { id: self.id, revision: 1, input: { name: 'Self related', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing: { relatedIds: [self.id] } } })).code).toBe('LISTING_REFUSED')
     expect(await listingOf('supplier', merchant.id)).toBeNull()
   })
 
   it('needs the plan for a size chart, but never for removing one', async () => {
     const mine = (await saveChart('owner', { ...chart, name: 'Plan chart' })).saved?.id
+    const other = (await saveChart('owner', { ...chart, name: 'Other plan chart' })).saved?.id
     const made = await product('owner', 'Plan shirt', { sizeChartId: mine })
     await subscribe(t.storeA1, t.partnerA, plans.bare)
     try {
-      expect((await gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Plan shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: mine } })).code).toBe('PLAN_LIMIT')
-      expect((await gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Plan shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: null } })).code).toBeUndefined()
+      expect((await gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Plan shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: other } })).code).toBe('PLAN_LIMIT')
+      // The chart it already has keeps saving with every other change; only assigning one needs the plan.
+      expect((await gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Plan shirt renamed', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: mine } })).code).toBeUndefined()
+      const copy = (await gql('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id: made.id })).data?.['duplicateProduct'] as { id: string }
+      expect((await listingOf('owner', copy.id))?.sizeChartId).toBeNull()
+      expect((await gql(save, 'owner', { id: made.id, revision: 2, input: { name: 'Plan shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], sizeChartId: null } })).code).toBeUndefined()
     } finally {
       await subscribe(t.storeA1, t.partnerA, plans.full)
     }

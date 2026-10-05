@@ -406,11 +406,15 @@ export const registerProducts = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: catalogAudit.updated } },
       resolve: async (_, args, ctx) => {
         const input: ProductInput = args.input
-        // A size chart is a plan feature (SAAS §6.1); removing one never is.
-        if (input.sizeChartId) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
-        if (args.id === null || args.id === undefined) return answered(ctx, await service(ctx).create(input))
+        const chart = input.sizeChartId?.toLowerCase() ?? null
+        // Assigning a size chart is a plan feature (SAAS §6.1); keeping the one it has or removing it never is.
+        if (args.id === null || args.id === undefined) {
+          if (chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
+          return answered(ctx, await service(ctx).create(input))
+        }
         const id = String(args.id)
         if (!uuid.test(id) || typeof args.revision !== 'number') throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
+        if (chart && (await service(ctx).get(id)).product?.size_chart_id !== chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
         return answered(ctx, await service(ctx).update(id, args.revision, input))
       },
     }),
@@ -421,7 +425,9 @@ export const registerProducts = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) => {
         const id = String(args.id)
         if (!uuid.test(id)) throw new GraphQLError(words.NOT_FOUND, { extensions: { code: 'NOT_FOUND' } })
-        return answered(ctx, await service(ctx).duplicate(id))
+        // A copy is a new assignment: on a plan without size charts it is made without the chart.
+        const keepSizeChart = ctx.sql ? (await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'size_charts' }, ctx.now())) === null : false
+        return answered(ctx, await service(ctx).duplicate(id, { keepSizeChart }))
       },
     }),
     deleteProducts: t.int({

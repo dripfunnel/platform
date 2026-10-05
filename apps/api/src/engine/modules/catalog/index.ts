@@ -116,6 +116,8 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
 // (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
 const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
 
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
 type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
 
@@ -220,6 +222,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (error instanceof Refused) return { ok: false, ...error.refusal }
       if (skuTaken(error)) return { ok: false, reason: 'DUPLICATE_SKU' }
       if (fileRefused(error)) return { ok: false, reason: 'FILE_REFUSED' }
+      // product_related_check is the table's own check that a product never relates to itself.
       if (listingRefused(error) || (typeof error === 'object' && error !== null && 'constraint_name' in error && error.constraint_name === 'product_related_check')) return { ok: false, reason: 'LISTING_REFUSED' }
       const clash = nameClash(error)
       if (clash) return { ok: false, reason: clash }
@@ -235,7 +238,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     // Vendor input can't carry visibility (ACCESS §7.2): refused, not quietly dropped.
     if (sellerId !== null && result.visible !== null) throw new Refused({ reason: 'SUPPLIER_FIELD' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
-    if (sizeChartId && !/^[0-9a-f-]{36}$/.test(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
+    if (sizeChartId && !uuid.test(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
     try {
       const listing = input.listing ? cleanListing(input.listing, result.versions.length, 'marketRule' in input.listing) : null
       return { ...result, listing, sizeChartId }
@@ -278,7 +281,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     })
 
   /** A hidden copy, stock not copied (decided on #337); SKUs and barcodes stay with the original, being unique. */
-  const duplicate = async (id: string): Promise<SaveResult> => {
+  const duplicate = async (id: string, options: { keepSizeChart: boolean }): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
       const source = await selectProduct(tx, storeId, id)
@@ -332,7 +335,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           compliance: source.compliance,
           marketRule: source.market_rule,
         },
-        sizeChartId: source.size_chart_id,
+        sizeChartId: options.keepSizeChart ? source.size_chart_id : null,
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
