@@ -30,6 +30,8 @@ import { allowanceFor, planLimitFor, type PlanLimit } from '#saas/entitlements/i
 import { openSupplierInvitationTo, type SupplierRole } from '#db/scoped/supplierTeam'
 import { normalisedEmail } from '#saas/storePeople/index'
 import { sendSupplierInvitation } from './invitations'
+
+export { sendSupplierInvitation, type InvitationRefusal } from './invitations'
 import { isUuid } from '#core/ids'
 
 // Settings › Supplier (ACCESS §5.2, §7.5; SetTeam): the merchant's suppliers, every write under the store's
