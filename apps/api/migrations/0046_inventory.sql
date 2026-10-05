@@ -9,7 +9,7 @@ create table warehouse (
   name text not null check (char_length(name) between 1 and 80),
   address jsonb not null default '{}' check (jsonb_typeof(address) = 'object'),
   is_default boolean not null default false,
-  created_at timestamptz not null default now(),
+  created_at timestamptz not null default date_trunc('milliseconds', now()), -- as the list cursor carries it (core/cursor.ts)
   updated_at timestamptz not null default now(),
   revision integer not null default 1,
   deleted_at timestamptz,
@@ -81,6 +81,8 @@ begin
   new.seller_id := w.seller_id;
   if tg_table_name = 'stock_movement' then
     new.product_id := v.product_id;
+    -- Milliseconds, as a history cursor carries them, so paging never skips a row inside one.
+    new.occurred_at := date_trunc('milliseconds', new.occurred_at);
   end if;
   return new;
 end

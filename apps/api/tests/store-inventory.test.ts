@@ -245,6 +245,20 @@ describe('Stock locations', () => {
     await db.sql`delete from warehouse where name like 'Racer %'`
   })
 
+  it('pages locations made in the same instant one at a time, every one once', async () => {
+    const made = (await db.sql<{ id: string }[]>`insert into warehouse (store_id, name) select ${t.storeB1}, 'Instant ' || g from generate_series(1, 3) g returning id`).map((r) => r.id)
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 10; page += 1) {
+      const answer = (await gql('query L($after: String) { warehouses(first: 1, after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }', 'bOwner', { after })).data?.['warehouses'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+      seen.push(...answer.nodes.map((n) => n.id))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor ?? undefined
+    }
+    expect(made.every((id) => seen.filter((s) => s === id).length === 1)).toBe(true)
+    await db.sql`delete from warehouse where store_id = ${t.storeB1} and name like 'Instant %'`
+  })
+
   it('stops at 20 an owner, counted per owner', async () => {
     const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from warehouse where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and deleted_at is null`
     await db.sql`insert into warehouse (store_id, seller_id, name) select ${t.storeA1}, ${t.sellerA1Second}, 'Filler ' || g from generate_series(1, ${20 - n}) g`
@@ -306,6 +320,22 @@ describe('Stock and its history', () => {
     expect(a.set?.map((x) => x.versionId)).toEqual(forward.map((x) => x.versionId))
     expect(b.set?.map((x) => x.versionId)).toEqual(backward.map((x) => x.versionId))
     await deleteWarehouse('owner', spare).catch(() => undefined)
+  })
+
+  it('pages a save of many changes one at a time, every movement once', async () => {
+    const where = await main()
+    const { id, versions } = await product('owner', 'Paged cups', 12)
+    await setStock('owner', versions.map((versionId, i) => ({ versionId, warehouseId: where, quantity: i + 1 })))
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 20; page += 1) {
+      const result = await gql('query H($p: ID!, $after: String) { stockHistory(productId: $p, first: 1, after: $after) { nodes { versionId } pageInfo { hasNextPage endCursor } } }', 'owner', { p: id, after })
+      const answer = result.data?.['stockHistory'] as { nodes: { versionId: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+      seen.push(...answer.nodes.map((n) => n.versionId))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor ?? undefined
+    }
+    expect(seen.sort()).toEqual([...versions].sort())
   })
 
   it('refuses unknown reasons, a zero change, repeats in one save and a Staff change', async () => {
