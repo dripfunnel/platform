@@ -80,7 +80,7 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  constructor(props) { super(props); const a = props.app; this.state = { view: a ? ({ signup: 'su1', invite: 'invite', inviteBad: 'inviteBad' }[a.st.auth] || 'login') : 'login', tries: 0, email: '', pw: '', pw2: '', code: '', name: '', store: '', sub: '', region: a ? a.st.region : 'US', cur: '', lang: '', phone: '', err: '', sent: false, show: false, wait: 0, build: 0 }; }
+  constructor(props) { super(props); const a = props.app; this.state = { view: a ? (a.st.authView || { signup: 'su1', invite: 'invite', inviteBad: 'inviteBad' }[a.st.auth] || 'login') : 'login', tries: 0, email: '', pw: '', pw2: '', code: '', name: '', store: '', sub: '', region: a ? a.st.region : 'US', cur: '', lang: '', phone: '', err: '', sent: false, show: false, wait: 0, build: 0 }; }
   componentWillUnmount() { clearInterval(this._t); clearInterval(this._b); }
   timer() { clearInterval(this._t); this.setState({ wait: 30 }); this._t = setInterval(() => { const w = this.state.wait - 1; this.setState({ wait: Math.max(0, w) }); if (w <= 0) clearInterval(this._t); }, 1000); }
   strength(pw) { let n = 0; if (pw.length >= 10) n++; if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) n++; if (/\d/.test(pw)) n++; if (/[^A-Za-z0-9]/.test(pw) || pw.length >= 12) n++; return n; }

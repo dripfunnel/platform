@@ -1,7 +1,7 @@
 import type { ActivityEntry, ActivityLog } from '#auth/activity'
 import { redactChanges } from '#core/redaction'
 import type { NewActivityRow } from '#db/schema/activity'
-import { insertActivity } from '#db/scoped/activity'
+import { insertActivities, insertActivity } from '#db/scoped/activity'
 
 // LOGGING.md §4: the address and user agent belong to `auth` and `security` entries only.
 const keepsRequestFacts = (entry: ActivityEntry): boolean => entry.category === 'auth' || entry.category === 'security'
@@ -40,5 +40,8 @@ export const toRow = (entry: ActivityEntry): NewActivityRow => ({
 export const activityLog: ActivityLog = {
   record: async (tx, entry) => {
     await insertActivity(tx, toRow(entry))
+  },
+  recordAll: async (tx, entries) => {
+    await insertActivities(tx, entries.map(toRow))
   },
 }

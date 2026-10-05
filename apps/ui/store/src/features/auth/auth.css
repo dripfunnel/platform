@@ -1,0 +1,534 @@
+/* PortalAuth (designs/PortalAuth.dc.html): two halves on a desktop, the form alone on a phone. */
+
+.df-portal-auth {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+  background: var(--df-color-page);
+  color: var(--df-color-text);
+  font-family: var(--df-font);
+}
+
+.df-portal-auth-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.df-portal-auth-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+  overflow: hidden;
+  padding: 48px 56px;
+  background: var(--df-color-side);
+  color: var(--df-color-side-strong);
+}
+
+.df-portal-auth-ring {
+  position: absolute;
+  right: -120px;
+  bottom: -120px;
+  width: 420px;
+  height: 420px;
+  box-sizing: border-box;
+  border: 60px solid color-mix(in srgb, var(--df-color-brand) 14%, transparent);
+  border-radius: 50%;
+}
+
+.df-portal-auth-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.df-portal-auth-mark img {
+  display: block;
+  height: 32px;
+  width: auto;
+}
+
+.df-portal-auth-mark-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-family: var(--df-font-heading);
+  font-weight: 800;
+}
+
+.df-portal-auth-mark-name {
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.df-portal-auth-mark--light .df-portal-auth-mark-name {
+  color: var(--df-color-heading);
+}
+
+.df-portal-auth-product {
+  padding-left: 10px;
+  border-left: 1px solid var(--df-color-side-divider);
+  color: var(--df-color-side-text);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.df-portal-auth-pitch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 420px;
+}
+
+.df-portal-auth-tag {
+  color: var(--df-color-brand);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.df-portal-auth-title {
+  font-family: var(--df-font-heading);
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-wrap: pretty;
+}
+
+.df-portal-auth-body {
+  color: var(--df-color-side-text);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.df-portal-auth-pitch ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 6px 0 0;
+  list-style: none;
+}
+
+.df-portal-auth-pitch li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--df-color-side-row);
+  font-size: 14px;
+}
+
+.df-portal-auth-tick {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--df-color-brand) 20%, transparent);
+  color: var(--df-color-brand);
+  font-size: 11px;
+}
+
+.df-portal-auth-foot {
+  position: relative;
+  color: var(--df-color-side-text);
+  font-size: 12px;
+}
+
+.df-portal-auth-foot a {
+  color: var(--df-color-side-row);
+}
+
+.df-portal-auth-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+}
+
+.df-portal-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.df-portal-auth-phone-logo {
+  display: none;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-portal-auth-phone-logo img {
+  display: block;
+  height: 28px;
+  width: auto;
+}
+
+.df-portal-auth-phone-logo .df-portal-auth-product {
+  border-left-color: var(--df-color-border);
+  color: var(--df-color-muted);
+}
+
+.df-portal-auth-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-portal-auth-stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.df-portal-auth-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.df-portal-auth-dots span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-portal-auth-dots .df-on {
+  background: var(--df-color-brand);
+}
+
+.df-portal-auth-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  font-size: 24px;
+}
+
+.df-portal-auth-icon--info {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-focus);
+}
+
+.df-portal-auth-icon--warning {
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+}
+
+.df-portal-auth-heading h1 {
+  margin: 0;
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.df-portal-auth-heading h1:focus {
+  outline: none;
+}
+
+.df-portal-auth-heading p {
+  margin: 6px 0 0;
+  color: var(--df-color-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.df-portal-auth-notice {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.df-portal-auth-notice--info {
+  border-color: var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-portal-auth-notice--error {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+}
+
+/* Fields, as PortalAuth draws them */
+
+.df-auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-auth-label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-auth-aside {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-auth-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 50px;
+  padding: 0 6px 0 14px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-surface);
+}
+
+.df-auth-control:focus-within {
+  border-color: var(--df-color-focus);
+  box-shadow: 0 0 0 3px var(--df-color-info-surface);
+}
+
+.df-auth-control[data-invalid='true'] {
+  border-color: var(--df-color-link);
+}
+
+.df-auth-control input,
+.df-auth-control select {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.df-auth-control--code input {
+  font-family: var(--df-font-mono);
+  letter-spacing: 0.5em;
+}
+
+.df-auth-control--backup input {
+  font-family: var(--df-font-mono);
+  letter-spacing: 0.2em;
+}
+
+.df-auth-affix {
+  color: var(--df-color-muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.df-auth-eye {
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text-strong);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-auth-meter {
+  display: flex;
+  gap: 4px;
+}
+
+.df-auth-meter span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-auth-meter[data-strength='1'] span:nth-child(-n + 1) {
+  background: var(--df-color-link);
+}
+
+.df-auth-meter[data-strength='2'] span:nth-child(-n + 2) {
+  background: var(--df-color-warning);
+}
+
+.df-auth-meter[data-strength='3'] span:nth-child(-n + 3),
+.df-auth-meter[data-strength='4'] span:nth-child(-n + 4) {
+  background: var(--df-color-success);
+}
+
+.df-auth-help {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-auth-help--weak {
+  color: var(--df-color-link);
+}
+
+.df-auth-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--df-color-text-strong);
+  font-size: 14px;
+}
+
+.df-auth-primary {
+  height: 52px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-auth-primary:hover {
+  background: var(--df-color-brand-hover);
+}
+
+.df-auth-primary:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.df-auth-secondary {
+  height: 48px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-auth-foot {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.df-auth-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.df-auth-terms {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.df-auth-terms a {
+  color: var(--df-color-link);
+}
+
+.df-auth-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 8px;
+  background: var(--df-color-page);
+  font-family: var(--df-font-mono);
+  font-size: 14px;
+  list-style: none;
+}
+
+.df-portal-auth-legal {
+  display: none;
+  padding: 0 20px 24px;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.df-portal-auth-legal a {
+  color: var(--df-color-muted);
+}
+
+@media (max-width: 639px) {
+  .df-portal-auth-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-portal-auth-panel {
+    display: none;
+  }
+
+  .df-portal-auth-main {
+    align-items: flex-start;
+    padding: 32px 20px;
+  }
+
+  .df-portal-auth-phone-logo {
+    display: flex;
+  }
+
+  .df-portal-auth-legal {
+    display: block;
+  }
+}

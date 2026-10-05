@@ -331,7 +331,7 @@ leaks structurally hard:
   collection contents, exports, reports, notifications.
 - **Isolation tests**: two stores and two vendors per test; every endpoint asserts nothing
   crosses. The archived `e2e:settings` two-store check is the model.
-- Unique constraints are per store (SKU, web address, coupon code), never global.
+- Unique constraints are per store (web address, coupon code), per owner for a SKU (#293), never global.
 
 ### 5.2 Identity, sessions, roles
 

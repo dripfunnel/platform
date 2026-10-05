@@ -392,6 +392,26 @@
   color: var(--df-color-side-strong);
 }
 
+/* The store menu's group headings (Catalogue, Your shop, Admin), as the prototype draws them. */
+.df-nav-group {
+  margin: 0;
+  padding: var(--df-space-4) var(--df-space-5) 6px;
+  color: var(--df-color-side-text);
+  font-family: var(--df-font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.df-nav-note {
+  margin-left: auto;
+  color: var(--df-color-side-text);
+  font-family: var(--df-font);
+  font-size: 11px;
+  font-weight: 400;
+}
+
 .df-nav-badge {
   display: inline-flex;
   align-items: center;
@@ -504,7 +524,7 @@
     right: 6px;
   }
 
-  .df-sidenav--bar .df-nav-footer {
+  .df-sidenav--bar :is(.df-nav-footer, .df-nav-group, .df-nav-note) {
     display: none;
   }
 

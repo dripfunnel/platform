@@ -68,6 +68,19 @@ export const en = {
     body: (minutes: number) => `Your partner console account is locked for ${minutes} minutes after too many wrong 2-factor codes. You can sign in again after that.`,
     notYou: 'If that wasn’t you, reset your password from the sign-in page once the lock ends.',
   },
+  signupCode: {
+    subject: (brand: string) => `Your ${brand} sign-up code`,
+    heading: 'Check it’s you',
+    body: (code: string) => `Your code is ${code}. Type it on the sign-up page to carry on. It works for 10 minutes.`,
+    note: 'If you didn’t start a sign-up, ignore this email; nothing is made without the code.',
+  },
+  signupHasAccount: {
+    subject: (brand: string) => `You already have a ${brand} account`,
+    heading: 'You already have an account',
+    body: (brand: string) => `Someone started a new ${brand} sign-up with this address, which already has an account. Sign in instead; you can create another store from there.`,
+    action: 'Sign in',
+    note: 'If that wasn’t you, ignore this email; nothing has changed.',
+  },
   userEmailChange: {
     subject: (brand: string) => `Confirm your new ${brand} email`,
     heading: 'Confirm your new email',

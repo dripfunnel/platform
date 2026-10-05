@@ -1,6 +1,20 @@
 // One outline set for both consoles (designs/design.md §4: 18px, 1.6px stroke); the paths are
 // the prototypes' own.
 const paths = {
+  // The merchant portal's menu (designs/DF Store Prototype.dc.html, its ICON map).
+  house: 'M3 10.4 12 3.4l9 7 M5.4 9.2V20.4h13.2V9.2 M9.6 20.4v-6.6h4.8v6.6',
+  orders: 'M3 7.6 12 3l9 4.6v8.8L12 21l-9-4.6z M3 7.6 12 12.2l9-4.6 M12 12.2V21',
+  customers: 'M9 11.2a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8 M2.6 20c0-3.5 2.9-5.4 6.4-5.4s6.4 1.9 6.4 5.4',
+  offers: 'M3.6 12.4V3.6h8.8l8 8-8.8 8.8z M8 8h.01',
+  carts: 'M3 4h2.4l2.2 11h10.6l2-8H6.4 M9 20h.01 M17 20h.01',
+  reports: 'M6 3.6h8.4L19 8.2v12.2H6z M14.2 3.6v4.6H19 M9.4 17.4v-3.2 M12 17.4v-6 M14.6 17.4v-2',
+  products: 'M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z',
+  collections: 'M12 3 3 7.8l9 4.8 9-4.8z M3 12.2 12 17l9-4.8 M3 16.6 12 21.4l9-4.8',
+  storefront: 'M3.2 9.4 5.2 4h13.6l2 5.4 M3.2 9.4h17.6V20H3.2z M9 20v-5.8h6V20',
+  settings: 'M4 7h16 M4 12.5h16 M4 18h16 M9.5 5.2v3.6 M15.5 10.7v3.6 M7.5 16.2v3.6',
+  billing: 'M2.6 6.4h18.8v11.2H2.6z M2.6 10.4h18.8 M6 14.4h3.4',
+  sales: 'M4 19.5h16 M6.5 16V11 M11 16V6.5 M15.5 16v-7 M20 16V4',
+  team: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M16.5 10a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5 M2.5 19.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5 M14 14.6c.8-.4 1.6-.6 2.5-.6 2.8 0 5 1.8 5 4.6',
   home: 'M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z',
   users:
     'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
@@ -28,6 +42,14 @@ const paths = {
   cross: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM15 9l-6 6M9 9l6 6',
   shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
   ban: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM4.9 4.9l14.2 14.2',
+  caret: 'M6 9l6 6 6-6',
+  chevron: 'M9 6l6 6-6 6',
+  mail: 'M3 5.5h18v13H3z M3.5 6.5l8.5 6.5 8.5-6.5',
+  phone: 'M7.5 2.5h9v19h-9z M11 18.5h2',
+  hash: 'M10 3.5 8 20.5 M16 3.5l-2 17 M4.5 9h16 M3.5 15h16',
+  spark: 'M12 3c.7 5 2.3 8.3 9 9-6.7.7-8.3 4-9 9-.7-5-2.3-8.3-9-9 6.7-.7 8.3-4 9-9z',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+  back: 'M19 12H5M11 6l-6 6 6 6',
   alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
 } satisfies Record<string, string>
 

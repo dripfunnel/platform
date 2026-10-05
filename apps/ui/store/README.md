@@ -15,3 +15,13 @@ bar from `@dripfunnel/shared/ui` above every page. Without the admin console, `?
 The bar's Back link goes to the admin console on its dev port under `vite dev`; a build
 uses `VITE_ADMIN_URL` (https only, e.g. a feature environment's console) or
 `https://admin.dripfunnel.com`.
+
+**Without an API** (`vite dev`, or a build with `VITE_STATE_HARNESS=1`; ui/README.md §6), the shell
+renders from a sample:
+
+- `?as=` a seat: `owner`, `manager`, `staff`, `supplier-stock`, `supplier-catalogue`,
+  `supplier-orders`, `supplier-admin`;
+- `?store=` a standing: `trial` (the default), `trial-ending`, `active`, `pastdue`, `suspended`,
+  `cancelled`, `provisioning`, `support`;
+- `?brand=partner`: the prototype's partner look (Northstar);
+- `?state=` a screen state, as on every screen; `/stores?as=owner` shows the chooser.

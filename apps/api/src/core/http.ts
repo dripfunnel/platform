@@ -15,3 +15,35 @@ export const readBody = async <T>(request: Request, schema: z.ZodType<T>): Promi
     return null
   }
 }
+
+export type CappedBody = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false }
+
+/**
+ * The body, or `{ ok: false }` once it passes `limit` or the length it declared. The buffer grows only as
+ * bytes arrive, so a declared length the client never sends holds nothing (a stalled upload pins no memory).
+ */
+export const readCapped = async (request: Request, limit: number): Promise<CappedBody> => {
+  const declared = Number(request.headers.get('content-length') ?? NaN)
+  const cap = Number.isInteger(declared) && declared >= 0 ? Math.min(declared, limit) : limit
+  if (Number.isInteger(declared) && declared > limit) return { ok: false }
+  const reader = request.body?.getReader()
+  if (!reader) return { ok: true, bytes: new Uint8Array() }
+  let bytes = new Uint8Array(0)
+  let size = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (size + value.byteLength > cap) {
+      await reader.cancel()
+      return { ok: false }
+    }
+    if (size + value.byteLength > bytes.byteLength) {
+      const grown = new Uint8Array(Math.min(cap, Math.max(size + value.byteLength, bytes.byteLength * 2, 64 * 1024)))
+      grown.set(bytes.subarray(0, size))
+      bytes = grown
+    }
+    bytes.set(value, size)
+    size += value.byteLength
+  }
+  return { ok: true, bytes: size === bytes.byteLength ? bytes : bytes.slice(0, size) }
+}

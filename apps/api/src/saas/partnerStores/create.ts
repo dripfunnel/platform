@@ -154,6 +154,7 @@ export const createPartnerCreateStore = ({ sql, caller, facts, activity, now }: 
         name: input.name,
         code: await freeStoreCode(tx, partnerId, codeFrom(input.name)),
         country: country.code,
+        pricingCurrency: country.currency,
         planId: plan.id,
         status,
         trialEndsAt,

@@ -277,7 +277,7 @@ class Component extends DCLogic {
     const q = new URLSearchParams(location.search);
     this.state = this.fresh(q.get('region') || 'US', 'stocked', {});
     try { this.state.theme = q.get('theme') || localStorage.getItem('df-store-theme') || 'light'; } catch (e) { this.state.theme = 'light'; }
-    ['role', 'plan', 'device', 'screen', 'settingsTab', 'support', 'editId'].forEach(k => { if (q.get(k)) this.state[k] = q.get(k); });
+    ['role', 'plan', 'device', 'screen', 'settingsTab', 'support', 'editId', 'auth', 'authView'].forEach(k => { if (q.get(k)) this.state[k] = q.get(k); });
     if (q.get('screen')) this.state.loading = false;
     const imp = (() => { try { const m = location.href.match(/[?&]imp=([^&#]+)/); return m ? JSON.parse(localStorage.getItem('df-imp-bus-v1') || '{}')[decodeURIComponent(m[1])] : null; } catch (e) { return null; } })();
     if (imp && imp.open) { const RM = { Owner:'owner', Manager:'manager', Staff:'staff', 'Supplier admin':'vendor', 'Supplier member':'vendorStock' }; const role = imp.kind === 'support' ? 'owner' : RM[imp.role] || 'staff', vend = role === 'vendor' || role === 'vendorStock'; Object.assign(this.state, { role, impS: imp, ...(vend ? { plan: 'business', screen: 'products' } : {}) }); }

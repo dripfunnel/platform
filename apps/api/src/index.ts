@@ -9,6 +9,7 @@ import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
 import { signedOutStoreContext } from '#apis/store/access'
 import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleAssets, isAssetsPath } from '#apis/store/assets'
 import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
@@ -34,6 +35,8 @@ import { stripeClient, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
+import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
+import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
@@ -45,6 +48,7 @@ import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPa
 import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
+import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -96,6 +100,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
   const lookup = dohLookup()
   const ses = sesFor(config)
   return {
+    [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
@@ -296,7 +301,9 @@ const handleStore = async (request: Request, url: URL, config: Config, env: Env,
     }
     const facts = factsOf(request)
     const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
-    return servers.store.fetch(request, { standing, partnerId, sql, activity: activityLog, facts, secrets, now: () => new Date() })
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, now: () => new Date() }
+    if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    return servers.store.fetch(request, context)
   })
 }
 
@@ -411,6 +418,10 @@ export default {
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
+      // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
+      await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
         logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
         return 0

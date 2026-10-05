@@ -6,6 +6,7 @@
     "./ui": "./ui/index.ts",
     "./ui/tokens.css": "./ui/tokens.css",
     "./graphql": "./graphql/index.ts",
+    "./auth": "./auth/index.ts",
     "./search": "./search/index.ts",
     "./format": "./format/index.ts",
     "./ui/fonts.css": "./ui/fonts.css",
@@ -33,8 +34,10 @@
   },
   "devDependencies": {
     "@tanstack/react-router": "^1.170.39",
+    "@testing-library/react": "^16.3.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "happy-dom": "^20.14.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5"

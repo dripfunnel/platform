@@ -35,3 +35,9 @@ export const planLimitFor = async (sql: postgres.Sql, context: TenantContext, ch
   const unlockedBy = await withSystemScope(sql, (tx) => selectUnlockingPlan(tx, context.storeId, key, amount ? total : null))
   return { key, limit: amount ? (current.amount ?? 0) : null, unlockedBy }
 }
+
+/** The store's current amount for a limit (its override or its plan's), 0 when neither sets one: read once before a locked count. */
+export const allowanceFor = async (sql: postgres.Sql, context: TenantContext, key: AmountKey, now: Date): Promise<number> => {
+  const current = await withScope(sql, { ...context, sellerScope: { kind: 'all' } }, (tx) => selectStoreEntitlement(tx, context.storeId, key, now))
+  return current.amount ?? 0
+}
