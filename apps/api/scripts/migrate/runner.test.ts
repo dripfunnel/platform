@@ -23,7 +23,8 @@ describe('migrate', () => {
       const appliedAgain = await sql<{ name: string }[]>`select name from schema_migrations where name = '0001_init.sql'`
       expect(appliedAgain).toHaveLength(1)
     },
-    20_000,
+    // Applies every pending migration, on dev against the remote test branch: the gap between deploys sets the time.
+    120_000,
   )
 
   it('refuses a non-local host itself, so the test path cannot reach a real database', async () => {
