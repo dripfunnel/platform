@@ -1,4 +1,5 @@
 import type { StoreInfo, StoreLocale } from '../../api/settings'
+import type { Person, Supplier } from '../../api/team'
 
 // Settings' states under ?state= (ui/README.md §6): loading, error, ready, readOnly (a store past due: look only)
 // and denied (anyone but the Owner).
@@ -47,3 +48,38 @@ export const sampleLocale: StoreLocale | null = harness
       ],
     }
   : null
+
+const samplePeople: Person[] = harness
+  ? [
+      { id: 'm1', kind: 'member', name: 'Farhan Ali', email: 'farhan@kesarithreads.in', role: 'owner', you: true, since: '2026-06-01T09:00:00Z', expiresAt: null, expired: false },
+      { id: 'm2', kind: 'member', name: 'Meera Joshi', email: 'meera@kesarithreads.in', role: 'manager', you: false, since: '2026-07-12T09:00:00Z', expiresAt: null, expired: false },
+      { id: 'm3', kind: 'member', name: 'Ravi Kumar', email: 'ravi@kesarithreads.in', role: 'staff', you: false, since: '2026-08-02T09:00:00Z', expiresAt: null, expired: false },
+      { id: 'i1', kind: 'invitation', name: null, email: 'asha@example.com', role: 'staff', you: false, since: '2026-10-04T09:00:00Z', expiresAt: '2026-10-11T09:00:00Z', expired: false },
+    ]
+  : []
+
+const sampleSuppliers: Supplier[] = harness
+  ? [
+      { id: 'v1', name: 'Northwind Textiles', accessLevel: 'vendor-catalogue', shippingMode: 'to-store', labelAccount: 'store', status: 'active', users: 2, products: 14 },
+      { id: 'v2', name: 'Sanganer Prints', accessLevel: 'vendor-orders-fulfil', shippingMode: 'to-shopper', labelAccount: 'own', status: 'active', users: 1, products: 8 },
+      { id: 'v3', name: 'Moradabad Brass', accessLevel: 'vendor-stock', shippingMode: 'to-store', labelAccount: 'store', status: 'suspended', users: 1, products: 3 },
+    ]
+  : []
+
+/** Everything the Settings tabs read. */
+export interface SettingsReads {
+  storeInfo: () => Promise<StoreInfo | null>
+  locale: () => Promise<StoreLocale | null>
+  people: () => Promise<Person[]>
+  suppliers: () => Promise<Supplier[]>
+  approval: () => Promise<boolean>
+}
+
+/** The tabs' reads under ?state=: the samples above. */
+export const sampleReads: SettingsReads = {
+  storeInfo: async () => sampleInfo,
+  locale: async () => sampleLocale,
+  people: async () => samplePeople,
+  suppliers: async () => sampleSuppliers,
+  approval: async () => true,
+}

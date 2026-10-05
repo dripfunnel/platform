@@ -2,13 +2,15 @@ import { DetailTabs, EmptyState, ErrorState, LoadingState, Toast, useScreenState
 import '@dripfunnel/shared/ui/detail.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { useCallback, useEffect, useState } from 'react'
-import { loadLocale, loadStoreInfo, type StoreInfo, type StoreLocale } from '../../api/settings'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { loadLocale, loadStoreInfo } from '../../api/settings'
+import { loadApproval, loadPeople, loadSuppliers } from '../../api/team'
 import { harnessEnabled } from '../../harness'
 import { messages } from '../../messages'
-import { sampleInfo, sampleLocale, settingsStates } from './settingsStates'
-import { StoreInfoTab } from './StoreInfoTab'
 import '../common/pageTabs.css'
+import { sampleReads, settingsStates, type SettingsReads } from './settingsStates'
+import { StoreInfoTab } from './StoreInfoTab'
+import { PeopleTab, SupplierTab } from './TeamTabs'
 import './settings.css'
 
 const words = messages.settings
@@ -16,10 +18,31 @@ const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/settings')
 
 /** The tabs built so far; each card adds its own (FIRST-RELEASE §15). */
-export const settingsTabs = ['store'] as const
+export const settingsTabs = ['store', 'people', 'supplier'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
-type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; info: StoreInfo; locale: StoreLocale }
+/** What a tab shows once its reads are in, given how to say it saved (and read again). */
+type Render = (saved: (toast: string) => void, canEdit: boolean) => ReactNode
+type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
+
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval }
+
+/** Each tab's reads, and what it shows with them. */
+const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render>> => ({
+  store: async () => {
+    const [info, locale] = await Promise.all([reads.storeInfo(), reads.locale()])
+    if (!info || !locale) throw new Error('store info missing')
+    return (saved, canEdit) => <StoreInfoTab key={JSON.stringify([info, locale])} info={info} locale={locale} canEdit={canEdit} onSaved={saved} />
+  },
+  people: async () => {
+    const people = await reads.people()
+    return (saved, canEdit) => <PeopleTab people={people} canEdit={canEdit} onChanged={saved} />
+  },
+  supplier: async () => {
+    const [suppliers, approval] = await Promise.all([reads.suppliers(), reads.approval()])
+    return (saved, canEdit) => <SupplierTab suppliers={suppliers} approval={approval} canEdit={canEdit} onChanged={saved} />
+  },
+})
 
 /** Settings (PortalSettings, FIRST-RELEASE §15): the Owner's, one tab at a time. ?state= per settingsStates.ts. */
 export const SettingsPage = () => {
@@ -34,14 +57,17 @@ export const SettingsPage = () => {
   const load = useCallback(() => {
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
-    if (forced && sampleInfo && sampleLocale) return setView({ kind: 'ready', info: sampleInfo, locale: sampleLocale })
     if (!allowed) return
+    let live = true
     setView({ kind: 'loading' })
-    void Promise.all([loadStoreInfo(), loadLocale()]).then(
-      ([info, locale]) => (info && locale ? setView({ kind: 'ready', info, locale }) : setView({ kind: 'error' })),
-      () => setView({ kind: 'error' }),
+    void loaders(forced ? sampleReads : apiReads)[tab]().then(
+      (render) => live && setView({ kind: 'ready', render }),
+      () => live && setView({ kind: 'error' }),
     )
-  }, [forced, allowed])
+    return () => {
+      live = false
+    }
+  }, [forced, allowed, tab])
   useEffect(load, [load])
 
   const saved = (text: string) => {
@@ -53,13 +79,19 @@ export const SettingsPage = () => {
     if (!allowed) return <EmptyState title={words.denied.title} body={words.denied.body} />
     if (view.kind === 'loading') return <LoadingState label={words.loading} />
     if (view.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
-    return <StoreInfoTab key={JSON.stringify([view.info, view.locale])} info={view.info} locale={view.locale} canEdit={!readOnly} onSaved={saved} />
+    return view.render(saved, !readOnly)
   }
 
   return (
     <div className="df-settings">
       <div className="df-page-tabs">
-        <DetailTabs label={words.tabs.label} tabs={settingsTabs} labels={{ store: words.tabs.store }} current={tab} link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />} />
+        <DetailTabs
+          label={words.tabs.label}
+          tabs={settingsTabs}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier }}
+          current={tab}
+          link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
+        />
       </div>
       {allowed && readOnly && <p className="df-set-readonly">{words.readOnly}</p>}
       {body()}
@@ -67,3 +99,4 @@ export const SettingsPage = () => {
     </div>
   )
 }
+

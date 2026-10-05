@@ -18,6 +18,7 @@ const api = vi.hoisted(() => ({ loadStoreInfo: vi.fn(), saveStoreInfo: vi.fn(), 
 vi.mock('../../api/settings', () => api)
 const editorApi = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
 vi.mock('../../api/productEditor', () => editorApi)
+vi.mock('../../api/team', async (actual) => ({ ...(await actual<typeof import('../../api/team')>()), loadPeople: vi.fn(), loadSuppliers: vi.fn(), loadApproval: vi.fn() }))
 
 const { SettingsPage } = await import('./SettingsPage')
 
@@ -66,7 +67,7 @@ const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 const show = async (acting: Acting = owner, readOnly = false) => {
   const root = createRootRoute({ component: Outlet })
   const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
-  const page = createRoute({ getParentRoute: () => app, path: '/settings', validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store'])) }), component: SettingsPage })
+  const page = createRoute({ getParentRoute: () => app, path: '/settings', validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier'])) }), component: SettingsPage })
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([page])]), history: createMemoryHistory({ initialEntries: ['/settings'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)

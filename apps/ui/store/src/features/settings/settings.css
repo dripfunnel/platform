@@ -361,3 +361,249 @@
     min-height: 44px;
   }
 }
+
+/* People and Supplier (designs/SetTeam.dc.html) */
+
+.df-team {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1000px;
+}
+
+.df-team-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.df-team-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.df-team-head p,
+.df-team-foot {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-team-foot {
+  font-size: 12px;
+}
+
+.df-team-approval {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-team-approval > span:first-child {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-team-approval > span:first-child::after {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--df-color-surface);
+  content: '';
+}
+
+.df-team-approval[aria-checked='true'] > span:first-child {
+  background: var(--df-color-success);
+}
+
+.df-team-approval[aria-checked='true'] > span:first-child::after {
+  left: 22px;
+}
+
+.df-team-approval > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.df-team-approval strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-team-approval > span:last-child > span {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-team-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.df-team-chips button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-team-chips button[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-team-empty {
+  margin: 0;
+  padding: 32px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.df-team-list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-team-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 13px;
+}
+
+.df-team-row:last-child {
+  border-bottom: 0;
+}
+
+.df-team-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.df-team-who > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-team-who strong {
+  font-family: var(--df-font-heading);
+}
+
+.df-team-who > span:last-child > span {
+  overflow: hidden;
+  color: var(--df-color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-team-mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-family: var(--df-font-heading);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.df-team-mark--company {
+  border-radius: 4px;
+  background: var(--df-color-muted);
+  color: var(--df-color-surface);
+}
+
+.df-team-role {
+  color: var(--df-color-text);
+}
+
+.df-team-status--ok {
+  color: var(--df-color-success);
+}
+
+.df-team-status--wait {
+  color: var(--df-color-warning);
+}
+
+.df-team-status--off {
+  color: var(--df-color-link);
+}
+
+.df-team-menu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 6px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .df-team-row {
+    grid-template-columns: minmax(0, 1fr) auto 44px;
+  }
+
+  .df-team-status {
+    display: none;
+  }
+
+  .df-team-menu {
+    width: 44px;
+    height: 44px;
+  }
+
+  .df-team-chips button {
+    min-height: 44px;
+  }
+}

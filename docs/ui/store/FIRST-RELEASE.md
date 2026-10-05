@@ -376,7 +376,7 @@ skips the AI designer. Owner; Manager view only.
 | Tab | What ships |
 |---|---|
 | **Store info** (`SetStore`) | Name, legal name, description, contact, address, tax id, **time zone**, **units**, **order-number format**, logo; **currencies** (auto-converted or typed) and **languages**; the web address and **Connect your own domain** (record → we check → certificate → live, with failure; SAAS §8) |
-| **People** (`SetTeam`) | Everyone, staff and supplier users, with invitations waiting; invite, resend, revoke, change role, remove from this store (never the account); the last Owner can't be demoted |
+| **People** (`SetTeam`) | Everyone who works in the store, with invitations waiting; invite, resend, revoke, change role, remove from this store (never the account); the last Owner can't be demoted. Supplier users belong to their company: counted on its row in Supplier, added there by the Owner ("Add a person") and managed by the supplier's own admin in Your team (#295) |
 | **Supplier** (`SetTeam`) | Suppliers with users, products, access level and status; invite (first user's email), change access level and shipping mode, suspend (hide or keep selling), remove (hidden, kept, marked); the approval switch |
 | **Payment setup** (`SetOps`) | Gateways by region: **Stripe, PayPal** (US); **Razorpay, Cashfree, PhonePe, cash on delivery** (India); **bank transfer** (both); connect with the merchant's own credentials (encrypted, never shown again), disconnect, which are live |
 | **Shipping** (`SetOps`) | What the shopper pays (courier's live rate, flat rate, collect in person with hours), when delivery is free, delivery partners (**Shiprocket**; USPS, UPS, FedEx through the aggregator) with pricing, standby, test and manage, where you deliver (everywhere, or uploaded postcodes) |
@@ -397,6 +397,9 @@ separately, as SetStore does. Converted currencies show an example at the refere
 language shows how much is translated (`translationProgress`). **Your shop's web address and "Connect your own
 domain"** wait for the publishing cards (INF 1–2, SAPI 17), which give the API for them; the card isn't drawn
 until then rather than offering a button that does nothing.
+People lists the store's own people and invitations (#290 part 5's `people`); the Supplier tab gives each
+company's access level (all four of ACCESS §5.2, where SetTeam draws three), how it ships and who buys its labels,
+suspend (hide or keep selling), reactivate and remove, and the approval switch.
 
 ## 16. Billing (`PortalBilling`, Owner only)
 
