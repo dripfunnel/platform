@@ -165,6 +165,8 @@ export interface CleanProduct {
   name: string
   description: string
   slug: string
+  /** Whether the caller asked for this address; otherwise an update keeps the one it has (fact 15). */
+  slugGiven: boolean
   productType: ProductType
   category: string | null
   visible: boolean | null
@@ -334,6 +336,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
   if (category !== null && isRefusedCategory(category)) return 'CATEGORY_REFUSED'
   const extras = [text(input.warrantyText, 5000), text(input.returnsText, 5000), text(input.seoTitle, 120), text(input.seoDescription, 320)]
   if (extras.includes(false)) return 'INVALID_INPUT'
+  const slugGiven = Boolean(input.slug?.trim())
   const slug = slugFrom(input.slug?.trim() || name) || 'product'
 
   if (input.options.length > maxOptions) return 'TOO_MANY_OPTIONS'
@@ -404,6 +407,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     name,
     description,
     slug,
+    slugGiven,
     productType,
     category,
     visible: input.visible ?? null,

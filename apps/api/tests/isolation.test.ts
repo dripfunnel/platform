@@ -415,13 +415,17 @@ describe('the backstop itself', () => {
     const second = await product(t.storeA1, t.sellerA1Second, 'iso-second')
     const other = await product(t.storeB1, null, 'iso-b')
     for (const id of [own, first, second, other]) {
-      const [v] = await db.sql<{ id: string }[]>`insert into product_version (product_id, store_id, position) values (${id}, ${id === other ? t.storeB1 : t.storeA1}, 0) returning id`
-      await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${v?.id ?? ''}, ${id === other ? t.storeB1 : t.storeA1}, 'INR', 100)`
+      const storeId = id === other ? t.storeB1 : t.storeA1
+      const [v] = await db.sql<{ id: string }[]>`insert into product_version (product_id, store_id, position) values (${id}, ${storeId}, 0) returning id`
+      await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${v?.id ?? ''}, ${storeId}, 'INR', 100)`
+      const [o] = await db.sql<{ id: string }[]>`insert into product_option (product_id, store_id, name, position) values (${id}, ${storeId}, 'Size', 0) returning id`
+      const [ov] = await db.sql<{ id: string }[]>`insert into product_option_value (option_id, store_id, name, position) values (${o?.id ?? ''}, ${storeId}, 'S', 0) returning id`
+      await db.sql`insert into product_version_option_value (version_id, option_id, value_id, store_id) values (${v?.id ?? ''}, ${o?.id ?? ''}, ${ov?.id ?? ''}, ${storeId})`
     }
     const seen = (storeId: string, sellerScope: SellerScope, table: string) =>
       inStore(storeId, sellerScope, async (tx) => (await tx.unsafe(`select count(*)::int as n from ${table}`))[0]?.['n'] as number)
     const supplier = { kind: 'seller', sellerId: t.sellerA1First } as const
-    for (const table of ['product', 'product_version', 'version_price', 'price_history']) {
+    for (const table of ['product', 'product_version', 'version_price', 'price_history', 'product_option', 'product_option_value', 'product_version_option_value']) {
       expect({ [table]: await seen(t.storeA1, { kind: 'all' }, table) }).toEqual({ [table]: 3 })
       expect({ [table]: await seen(t.storeA1, supplier, table) }).toEqual({ [table]: 1 })
       expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 1 })

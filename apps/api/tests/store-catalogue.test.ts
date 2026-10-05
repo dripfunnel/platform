@@ -180,6 +180,14 @@ describe('the merchant side', () => {
     expect((await create('owner', simple('Linen towel'))).saved?.slug).toBe('linen-towel')
   })
 
+  it('keeps a live address through a rename, and changes it only when asked', async () => {
+    const { saved } = await create('owner', simple('Wool hat'))
+    const renamed = await gql(save, 'owner', { id: saved?.id, revision: 1, input: simple('Warm wool hat') })
+    expect(renamed.data?.['saveProduct']).toMatchObject({ slug: 'wool-hat' })
+    const moved = await gql(save, 'owner', { id: saved?.id, revision: 2, input: simple('Warm wool hat', { slug: 'warm-wool-hat' }) })
+    expect(moved.data?.['saveProduct']).toMatchObject({ slug: 'warm-wool-hat' })
+  })
+
   it('duplicates into a hidden copy with its prices and no product codes', async () => {
     const { saved } = await create('owner', simple('Silk scarf', { versions: [{ choices: [], sku: 'SCARF-1', prices: [price('250000')] }] }))
     const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id slug } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string; slug: string }
@@ -255,6 +263,15 @@ describe('a supplier', () => {
     expect(await detail('supplier', supplierProduct)).toMatchObject({ shared: true, supplier: { id: t.sellerA1First } })
     // Its supplier filter is its own scope: asking for another's gives nothing more.
     expect((await listed('supplier', `(supplier: "${t.sellerA1Second}")`)).map((n) => n.id)).toEqual([supplierProduct])
+  })
+
+  it('gets an address that says nothing of the merchant’s or another supplier’s products', async () => {
+    await create('owner', simple('Secret launch'))
+    const clash = await create('supplier', simple('Secret launch'))
+    const fresh = await create('supplier', simple('Never used name'))
+    // Both carry a random ending, so a taken address looks the same as a free one.
+    expect(clash.saved?.slug).toMatch(/^secret-launch-[a-z2-9]{6}$/)
+    expect(fresh.saved?.slug).toMatch(/^never-used-name-[a-z2-9]{6}$/)
   })
 
   it('uses a product code the merchant or another supplier uses without being told it exists', async () => {
