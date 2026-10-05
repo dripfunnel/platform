@@ -23,11 +23,11 @@ export const priceText = (row: ProductRow): string => {
 
 export type StockTone = 'out' | 'low' | 'normal'
 
-/** Only physical products count stock (CATALOG T14); five and under is low, as the store's default threshold. */
+/** Only physical products count stock (CATALOG T14); low is the API's own test, each location's threshold. */
 export const stockOf = (row: ProductRow): { text: string; tone: StockTone } => {
   if (row.productType !== 'physical') return { text: words.row.notTracked, tone: 'normal' }
   if (row.stock <= 0) return { text: words.row.outOfStock, tone: 'out' }
-  if (row.stock <= 5) return { text: fill(words.row.low, { count: formatCount(row.stock) }), tone: 'low' }
+  if (row.lowStock) return { text: fill(words.row.low, { count: formatCount(row.stock) }), tone: 'low' }
   return { text: fill(words.row.inStock, { count: formatCount(row.stock) }), tone: 'normal' }
 }
 

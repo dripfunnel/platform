@@ -921,7 +921,8 @@
       "collectionLabel": "Collection",
       "collectionConfirm": "Add",
       "taxLabel": "Tax category",
-      "taxConfirm": "Apply"
+      "taxConfirm": "Apply",
+      "taxNone": "Set up your tax categories in Settings › Tax first"
     },
     "noResults": {
       "search": "No products match “{search}”",
