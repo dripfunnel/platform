@@ -15,6 +15,7 @@ import {
   importPhotoPayload,
   jobContextOf,
   runImportChunk,
+  skipImportPhoto,
   type CatalogJobPayload,
   type ImportJobDeps,
   type PhotoFetch,
@@ -105,6 +106,12 @@ export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | nu
       const stored = await createAssetService({ sql, context: deps.context, actor: deps.actor, activity: activityLog, facts: deps.facts, store: assets }).upload(got.bytes)
       return stored.ok && stored.asset.kind === 'image' ? { ok: true, assetId: stored.asset.id } : { ok: false, code: 'PHOTO_REFUSED' }
     }
-    await failingLast(sql, p, effect, now, () => attachImportPhoto(deps, p.jobId, p, fetchPhoto))
+    // A photo is a line of the import, not its end: after the last attempt it's reported and the run goes on (K6).
+    try {
+      await attachImportPhoto(deps, p.jobId, p, fetchPhoto)
+    } catch (error) {
+      if (effect.attempt >= defaultRelayOptions.maxAttempts) return skipImportPhoto(deps, p.jobId, p)
+      throw error
+    }
   },
 })

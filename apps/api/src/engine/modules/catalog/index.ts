@@ -93,6 +93,7 @@ export {
   importPhotoPayload,
   importPhotosKind,
   runImportChunk,
+  skipImportPhoto,
   type CatalogImportDto,
   type CatalogImportRefusal,
   type CatalogImportService,
