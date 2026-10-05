@@ -51,7 +51,7 @@ export const loadMyStores = (): Promise<StoreChoice[]> =>
       choicesSchema,
       { after },
     )
-    return { nodes: myStores.nodes, next: myStores.pageInfo.hasNextPage ? myStores.pageInfo.endCursor : null }
+    return myStores
   })
 
 const stateSchema = z.object({
