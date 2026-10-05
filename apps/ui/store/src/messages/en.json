@@ -2714,7 +2714,7 @@
       },
       "percent": "%",
       "rowSub": "{countries} · {currency}",
-      "deletedProduct": "A product deleted since",
+      "deletedProduct": "A product deleted since — dropped when you save",
       "chipNote": "{country} · {note}",
       "notParents": "not in {name}",
       "reread": "{refusal} The list now shows what’s saved."
