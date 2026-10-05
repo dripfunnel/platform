@@ -25,7 +25,12 @@ const toneOf = (rule: BadgeRule): 'ok' | 'peach' | 'neutral' => (rule === 'new_3
 
 const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
 
-const sectionsOf = (basics: ProductBasics): Sections => Object.fromEntries(sectionKeys.map((k) => [k, basics.features.find((f) => f.key === k)?.enabled ?? false])) as Sections
+/** A section the plan no longer has reads as off, as the server treats it: a save never sends it on (P5). */
+const sectionsOf = (basics: ProductBasics): Sections =>
+  Object.fromEntries(sectionKeys.map((k) => {
+    const f = basics.features.find((x) => x.key === k)
+    return [k, (f?.enabled ?? false) && f?.inPlan !== false]
+  })) as Sections
 
 export interface CatalogueTabProps {
   basics: ProductBasics
@@ -89,7 +94,7 @@ export const CatalogueTab = ({ basics, planName, owner, canEdit, onSaved, onChan
         {
           key: 'rule',
           label: words.when,
-          options: badgeRules.map((r) => ({ value: r, label: `${words.rules[r]} — ${r === 'manual' ? words.pickEach : words.automatic}` })),
+          options: badgeRules.map((r) => ({ value: r, label: words.ruleOptions[r] })),
           initial: badgeRules.find((r) => r === b?.rule) ?? 'manual',
           error: () => null,
         },

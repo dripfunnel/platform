@@ -2188,6 +2188,22 @@
       "denied": {
         "title": "You can’t see size charts",
         "body": "Ask your admin for access to the catalogue."
+      },
+      "columns": {
+        "chest": "Chest",
+        "waist": "Waist",
+        "length": "Length",
+        "bust": "Bust",
+        "foot": "Foot",
+        "shoulder": "Shoulder",
+        "leg": "Leg",
+        "measurement": "Measurement"
+      },
+      "systems": {
+        "us": "US",
+        "uk": "UK",
+        "eu": "EU",
+        "jp": "JP"
       }
     }
   },
@@ -2732,8 +2748,6 @@
       "badgeMissing": "Type the badge text",
       "badgeLong": "Keep it to 18 characters",
       "when": "When it shows",
-      "pickEach": "pick it on each product",
-      "automatic": "automatic",
       "saveBadge": "Save badge",
       "rules": {
         "new_30_days": "Added in the last 30 days",
@@ -2760,6 +2774,13 @@
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "FORBIDDEN": "Only the store owner can change this.",
         "other": "That didn’t save. Try again."
+      },
+      "ruleOptions": {
+        "new_30_days": "Added in the last 30 days — automatic",
+        "top_5_this_month": "Your 5 best sellers this month — automatic",
+        "below_compare_price": "Has a lower price than its compare price — automatic",
+        "few_left": "Only a few left — automatic",
+        "manual": "You choose the products — pick it on each product"
       }
     }
   }

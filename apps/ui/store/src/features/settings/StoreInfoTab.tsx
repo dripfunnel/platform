@@ -1,6 +1,7 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
-import { useEffect, useId, useState } from 'react'
+import { formatMoney } from '@dripfunnel/shared/format'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { uploadPhoto } from '../../api/productEditor'
 import { loadTranslationProgress, saveCurrencies, saveLanguages, saveStoreInfo, type StoreInfo, type StoreInfoInput, type StoreLocale } from '../../api/settings'
 import { fill, formatCount, locale, messages } from '../../messages'
@@ -61,14 +62,12 @@ const zones = (current: string): { value: string; label: string }[] => {
 
 const languageName = (code: string) => new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code
 
-/** What 100 of the pricing currency comes to in another, at the reference rate and its rounding (CATALOG O5). */
-export const example = (from: string, to: string, rounding: Currency['rounding'], rates: StoreLocale['rates']): string | null => {
-  const per = (c: string) => (c === 'EUR' ? 1 : Number(rates.find((r) => r.currency === c)?.perEuro ?? NaN))
-  const raw = (100 / per(from)) * per(to)
-  if (!Number.isFinite(raw)) return null
-  const value = rounding === 'ends-99' ? Math.ceil(raw) - 0.01 : rounding === 'nearest' ? Math.round(raw) : raw
-  const money = (c: string, v: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: c }).format(v)
-  return `${money(from, 100)} → ${money(to, value)}`
+/** "₹100.00 → $1.99": the API's worked example for that currency and rounding (CATALOG O5); the UI only formats it. */
+export const example = (to: string, rounding: Currency['rounding'], examples: StoreLocale['examples']): string | null => {
+  const e = examples.find((x) => x.currency === to)
+  const result = e && (rounding === 'ends-99' ? e.ends99 : rounding === 'nearest' ? e.nearest : e.none)
+  if (!e || !result) return null
+  return `${formatMoney({ amount: Number(e.from.amount), currency: e.from.currency }, locale)} → ${formatMoney({ amount: Number(result.amount), currency: to }, locale)}`
 }
 
 /** Currencies the store can add: the ones the reference rates cover, as converting needs a rate. */
@@ -98,6 +97,8 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
   const [failure, setFailure] = useState<{ card: 'info' | 'currencies' | 'languages'; text: string } | null>(null)
   const [ask, setAsk] = useState<Ask | null>(null)
   const ro = !canEdit
+  // Built once a zone: every keystroke elsewhere re-renders, and ~400 formatters each time is slow.
+  const zoneOptions = useMemo(() => zones(form.timeZone), [form.timeZone])
   const labels = labelsFor(info.country)
   const main = loc.mainLanguage ?? languages[0] ?? ''
 
@@ -228,7 +229,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
             <label htmlFor={`${id}-tz`}>{words.timeZone}</label>
             <span className="df-set-help">{words.timeZoneHelp}</span>
             <select id={`${id}-tz`} value={form.timeZone} disabled={ro} onChange={(e) => setForm({ ...form, timeZone: e.target.value })}>
-              {zones(form.timeZone).map((z) => (
+              {zoneOptions.map((z) => (
                 <option key={z.value} value={z.value}>
                   {z.label}
                 </option>
@@ -274,7 +275,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
             <AssetImage url={`/api/assets/${form.logoAssetId}`} alt={words.logoAlt} className="df-set-logo-image" placeholder="" />
           ) : (
             <span className="df-set-logo-initial" aria-hidden="true">
-              {(form.name.trim() || 'S').slice(0, 1).toUpperCase()}
+              {form.name.trim().slice(0, 1).toUpperCase()}
             </span>
           )}
           <span className={logoProblem ? 'df-set-problem' : 'df-set-help'} role={logoProblem ? 'alert' : undefined}>
@@ -310,7 +311,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
           <span>{words.mainCurrency}</span>
         </div>
         {currencies.map((c) => {
-          const shown = loc.pricingCurrency ? example(loc.pricingCurrency, c.code, c.rounding, loc.rates) : null
+          const shown = example(c.code, c.rounding, loc.examples)
           return (
             <div key={c.code} className="df-set-currency">
               <div className="df-set-currency-head">

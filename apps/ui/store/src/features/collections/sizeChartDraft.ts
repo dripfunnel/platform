@@ -13,6 +13,8 @@ export interface ChartDraft {
   /** Kept as they are: the prototype draws neither. */
   howToMeasure: SizeChart['howToMeasure']
   modelInfo: string | null
+  /** The rows as typed before a unit switch, so switching back restores them rather than re-rounding. */
+  typed?: { unit: 'cm' | 'in'; rows: ChartDraft['rows']; shown: ChartDraft['rows'] } | undefined
 }
 
 /** What a blank cell is sent and shown as: the API needs a value in every cell, and "—" is how CatSizeCharts shows none. */
@@ -57,9 +59,15 @@ export const chartProblem = (d: ChartDraft): ChartProblem | null => {
 
 const numeric = /^\d+(\.\d+)?([–-]\d+(\.\d+)?)?$/
 
-/** The measurements in the other unit, rounded to one decimal; sizes, size systems and words stay as typed. */
+/**
+ * The measurements in the other unit, rounded to one decimal; sizes, size systems and words stay as typed. Always
+ * from the values as typed, so cm → in → cm gives back exactly what was there; an edit since makes them the typed ones.
+ */
 export const inUnit = (d: ChartDraft, unit: 'cm' | 'in'): ChartDraft => {
   if (unit === d.unit) return d
+  const untouched = d.typed !== undefined && JSON.stringify(d.typed.shown) === JSON.stringify(d.rows)
+  const base = untouched && d.typed ? { unit: d.typed.unit, rows: d.typed.rows } : { unit: d.unit, rows: d.rows }
+  if (base.unit === unit) return { ...d, unit, rows: base.rows, typed: undefined }
   const factor = unit === 'cm' ? 2.54 : 1 / 2.54
   const convert = (v: string) =>
     numeric.test(v.trim())
@@ -69,16 +77,17 @@ export const inUnit = (d: ChartDraft, unit: 'cm' | 'in'): ChartDraft => {
           .map((part) => (/^[\d.]+$/.test(part) ? String(Math.round(Number(part) * factor * 10) / 10) : part))
           .join('')
       : v
-  return { ...d, unit, rows: d.rows.map((r) => ({ ...r, values: r.values.map((v, i) => (i < d.systems.length ? v : convert(v))) })) }
+  const rows = base.rows.map((r) => ({ ...r, values: r.values.map((v, i) => (i < d.systems.length ? v : convert(v))) }))
+  return { ...d, unit, rows, typed: { ...base, shown: rows } }
 }
 
 export const withRow = (d: ChartDraft): ChartDraft => ({ ...d, rows: [...d.rows, { size: '', values: [...d.systems, ...d.measurements].map(() => '') }] })
 
 export const withMeasurement = (d: ChartDraft, name: string): ChartDraft => ({ ...d, measurements: [...d.measurements, name], rows: d.rows.map((r) => ({ ...r, values: [...r.values, ''] })) })
 
-/** US, UK and EU columns, empty for the merchant to fill: the prototype's made-up numbers aren't (INCOMPLETE-FEATURES). */
-export const withSystems = (d: ChartDraft): ChartDraft | null => {
-  const add = ['US', 'UK', 'EU'].filter((s) => !d.systems.some((x) => x.toUpperCase() === s))
+/** US, UK and EU columns (in the portal's words), empty for the merchant to fill: the prototype's made-up numbers aren't (INCOMPLETE-FEATURES). */
+export const withSystems = (d: ChartDraft, labels: readonly string[]): ChartDraft | null => {
+  const add = labels.filter((s) => !d.systems.some((x) => x.toUpperCase() === s.toUpperCase()))
   if (add.length === 0) return null
   const at = d.systems.length
   return { ...d, systems: [...d.systems, ...add], rows: d.rows.map((r) => ({ ...r, values: [...r.values.slice(0, at), ...add.map(() => ''), ...r.values.slice(at)] })) }
@@ -94,20 +103,27 @@ export const withoutColumn = (d: ChartDraft, i: number): ChartDraft => ({
 
 export type TemplateKey = 'tops' | 'women' | 'jeans' | 'shoes' | 'kurta' | 'blank'
 
+/** The templates' column and size-system names, from messages, so a chart starts in the portal's words. */
+export interface TemplateWords {
+  columns: Record<'chest' | 'waist' | 'length' | 'bust' | 'foot' | 'shoulder' | 'leg' | 'measurement', string>
+  systems: Record<'uk' | 'eu' | 'jp', string>
+}
+
 /** CatSizeCharts' starting points, in the store's unit; kurtas where the store sells in India. */
-export const templates = (unit: 'cm' | 'in', india: boolean): { key: TemplateKey; chart: Pick<ChartDraft, 'systems' | 'measurements' | 'rows'> }[] => {
+export const templates = (unit: 'cm' | 'in', india: boolean, w: TemplateWords): { key: TemplateKey; chart: Pick<ChartDraft, 'systems' | 'measurements' | 'rows'> }[] => {
   const inch = unit === 'in'
   const sizes = ['S', 'M', 'L', 'XL', 'XXL']
   const row = (size: string, values: (string | number)[]) => ({ size, values: values.map(String) })
+  const c = w.columns
   return [
-    { key: 'tops', chart: { systems: [], measurements: ['Chest', 'Waist', 'Length'], rows: sizes.map((s, i) => row(s, inch ? [34 + i * 2, 28 + i * 2, 27 + i] : [86 + i * 5, 71 + i * 5, 68 + i * 2])) } },
+    { key: 'tops', chart: { systems: [], measurements: [c.chest, c.waist, c.length], rows: sizes.map((s, i) => row(s, inch ? [34 + i * 2, 28 + i * 2, 27 + i] : [86 + i * 5, 71 + i * 5, 68 + i * 2])) } },
     {
       key: 'women',
-      chart: { systems: ['UK', 'EU'], measurements: ['Bust', 'Waist'], rows: [['2', '6', '34'], ['4', '8', '36'], ['6', '10', '38'], ['8', '12', '40'], ['10', '14', '42']].map(([us = '', uk = '', eu = ''], i) => row(us, [uk, eu, ...(inch ? [32 + i, 25 + i] : [81 + i * 3, 64 + i * 3])])) },
+      chart: { systems: [w.systems.uk, w.systems.eu], measurements: [c.bust, c.waist], rows: [['2', '6', '34'], ['4', '8', '36'], ['6', '10', '38'], ['8', '12', '40'], ['10', '14', '42']].map(([us = '', uk = '', eu = ''], i) => row(us, [uk, eu, ...(inch ? [32 + i, 25 + i] : [81 + i * 3, 64 + i * 3])])) },
     },
-    { key: 'jeans', chart: { systems: [], measurements: ['Waist', 'Leg'], rows: ['28×30', '30×32', '32×32', '34×32'].map((s) => row(s, s.split('×').map((n) => (inch ? n : String(Math.round(Number(n) * 2.54)))))) } },
-    { key: 'shoes', chart: { systems: ['UK', 'EU', 'JP'], measurements: ['Foot'], rows: [['7', '6', '40', '25', inch ? '9.6' : '24.4'], ['8', '7', '41', '26', inch ? '9.9' : '25.2'], ['9', '8', '42', '27', inch ? '10.2' : '26']].map(([us = '', ...rest]) => row(us, rest)) } },
-    ...(india ? [{ key: 'kurta' as const, chart: { systems: [], measurements: ['Chest', 'Length', 'Shoulder'], rows: sizes.map((s, i) => row(s, [96 + i * 5, 107 + i * 2, 38 + i].map((cm) => (inch ? Math.round((cm / 2.54) * 10) / 10 : cm)))) } }] : []),
-    { key: 'blank', chart: { systems: [], measurements: ['Measurement'], rows: [row('', [''])] } },
+    { key: 'jeans', chart: { systems: [], measurements: [c.waist, c.leg], rows: ['28×30', '30×32', '32×32', '34×32'].map((s) => row(s, s.split('×').map((n) => (inch ? n : String(Math.round(Number(n) * 2.54)))))) } },
+    { key: 'shoes', chart: { systems: [w.systems.uk, w.systems.eu, w.systems.jp], measurements: [c.foot], rows: [['7', '6', '40', '25', inch ? '9.6' : '24.4'], ['8', '7', '41', '26', inch ? '9.9' : '25.2'], ['9', '8', '42', '27', inch ? '10.2' : '26']].map(([us = '', ...rest]) => row(us, rest)) } },
+    ...(india ? [{ key: 'kurta' as const, chart: { systems: [], measurements: [c.chest, c.length, c.shoulder], rows: sizes.map((s, i) => row(s, [96 + i * 5, 107 + i * 2, 38 + i].map((cm) => (inch ? Math.round((cm / 2.54) * 10) / 10 : cm)))) } }] : []),
+    { key: 'blank', chart: { systems: [], measurements: [c.measurement], rows: [row('', [''])] } },
   ]
 }
