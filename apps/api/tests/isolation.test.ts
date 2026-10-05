@@ -638,6 +638,13 @@ describe('the backstop itself', () => {
     expect(await tables(`select distinct table_name || '(' || column_name || ')' as t from information_schema.column_privileges where grantee = 'app_supplier' and table_name in ('store', 'story_block') order by 1`)).toEqual([
       'store(id)', 'store(partner_id)', 'story_block(asset_ids)', 'story_block(id)',
     ])
+    // Copied from app_request, so the credential columns stay withheld (DATA-MODEL §2.1); backup codes' table it never holds.
+    const withheld = [['user', 'password_hash'], ['user', 'two_factor_secret_enc'], ['user', 'phone'], ['invitation', 'token_hash']] as const
+    for (const [table, column] of withheld) {
+      const [held] = await db.sql<{ ok: boolean }[]>`select has_column_privilege('app_supplier', ${`"${table}"`}, ${column}, 'SELECT') as ok`
+      expect({ table, column, readable: held?.ok }).toEqual({ table, column, readable: false })
+      await expect(withScope(db.sql, storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), (tx) => tx.unsafe(`select ${column} from "${table}"`))).rejects.toThrow(/permission denied/i)
+    }
     // Grants that look wide are held to the supplier's own rows by policy; no store or brand story row is ever its.
     expect(await idsOf(storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First }), 'store')).toEqual([])
   })
