@@ -326,6 +326,9 @@ export const countStoreProducts = async (tx: ScopedSql): Promise<number> => (awa
 /** The acting store's pricing currency, which a supplier prices in too but can't read the store row for (migration 0041). */
 export const selectPricingCurrency = async (tx: ScopedSql): Promise<string | null> => (await tx<{ c: string | null }[]>`select store_pricing_currency() as c`)[0]?.c ?? null
 
+/** Metric or imperial, for the weight and box a product is typed in (0056). */
+export const selectUnitSystem = async (tx: ScopedSql): Promise<'metric' | 'imperial'> => ((await tx<{ u: string | null }[]>`select store_unit_system() as u`)[0]?.u === 'imperial' ? 'imperial' : 'metric')
+
 export interface ProductFields {
   name: string
   slug: string

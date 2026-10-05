@@ -60,9 +60,9 @@ const productFields = `id revision name description productType visible approval
 export const loadProduct = async (id: string): Promise<EditorProduct | null> =>
   (await query(`query P($id: ID!) { product(id: $id) { ${productFields} } }`, z.object({ product: productSchema.nullable() }), { id })).product
 
-/** What a new product needs to start: the currency it is priced in, which every seat may read. */
-export const loadPricingCurrency = async (): Promise<string | null> =>
-  (await query('{ catalogueSettings { pricingCurrency } }', z.object({ catalogueSettings: z.object({ pricingCurrency: z.string().nullable() }) }))).catalogueSettings.pricingCurrency
+/** What a product is typed in: the store's pricing currency and its units, which every seat may read. */
+export const loadProductBasics = async (): Promise<{ pricingCurrency: string | null; unitSystem: 'metric' | 'imperial' }> =>
+  (await query('{ catalogueSettings { pricingCurrency unitSystem } }', z.object({ catalogueSettings: z.object({ pricingCurrency: z.string().nullable(), unitSystem: z.enum(['metric', 'imperial']).catch('metric') }) }))).catalogueSettings
 
 export interface ProductInput {
   name: string
