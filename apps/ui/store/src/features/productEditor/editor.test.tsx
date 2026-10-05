@@ -412,6 +412,9 @@ describe('the product editor', () => {
     expect(router.state.location.pathname).toBe('/products/p9')
     expect(screen.getByText(words.stock.newFailed)).toBeTruthy()
     expect(field('Stock at Jaipur studio').value).toBe('7')
+    // Carried by that one navigation, then gone: a reload or a later visit shows what is stored.
+    await settle()
+    expect(router.state.location.state.unsavedCounts).toBeUndefined()
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     expect(stockApi.setStock).toHaveBeenLastCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 7 }])
