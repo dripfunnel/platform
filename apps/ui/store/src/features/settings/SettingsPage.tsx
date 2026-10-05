@@ -21,8 +21,13 @@ const pageRoute = getRouteApi('/_app/settings')
 export const settingsTabs = ['store', 'people', 'supplier'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
-/** What a tab shows once its reads are in, given how to say it saved (and read again). */
-type Render = (saved: (toast: string) => void, canEdit: boolean) => ReactNode
+/** How a tab says something saved: a toast alone, or a toast and its reads again. */
+interface Done {
+  toast: (text: string) => void
+  reload: (text: string) => void
+}
+/** What a tab shows once its reads are in. */
+type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
 const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval }
@@ -32,15 +37,16 @@ const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render
   store: async () => {
     const [info, locale] = await Promise.all([reads.storeInfo(), reads.locale()])
     if (!info || !locale) throw new Error('store info missing')
-    return (saved, canEdit) => <StoreInfoTab key={JSON.stringify([info, locale])} info={info} locale={locale} canEdit={canEdit} onSaved={saved} />
+    // Each card keeps what it saved; reading the tab again would throw away what's typed in the other two.
+    return (done, canEdit) => <StoreInfoTab info={info} locale={locale} canEdit={canEdit} onSaved={done.toast} />
   },
   people: async () => {
     const people = await reads.people()
-    return (saved, canEdit) => <PeopleTab people={people} canEdit={canEdit} onChanged={saved} />
+    return (done, canEdit) => <PeopleTab people={people} canEdit={canEdit} onChanged={done.reload} />
   },
   supplier: async () => {
     const [suppliers, approval] = await Promise.all([reads.suppliers(), reads.approval()])
-    return (saved, canEdit) => <SupplierTab suppliers={suppliers} approval={approval} canEdit={canEdit} onChanged={saved} />
+    return (done, canEdit) => <SupplierTab suppliers={suppliers} approval={approval} canEdit={canEdit} onChanged={done.reload} />
   },
 })
 
@@ -70,16 +76,19 @@ export const SettingsPage = () => {
   }, [forced, allowed, tab])
   useEffect(load, [load])
 
-  const saved = (text: string) => {
-    setToast(text)
-    load()
+  const done: Done = {
+    toast: setToast,
+    reload: (text) => {
+      setToast(text)
+      load()
+    },
   }
 
   const body = () => {
     if (!allowed) return <EmptyState title={words.denied.title} body={words.denied.body} />
     if (view.kind === 'loading') return <LoadingState label={words.loading} />
     if (view.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
-    return view.render(saved, !readOnly)
+    return view.render(done, !readOnly)
   }
 
   return (

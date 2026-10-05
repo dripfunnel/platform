@@ -22,7 +22,10 @@ export const refusalText = (error: unknown): string => {
   return (words.refused as Record<string, string>)[error.code] ?? words.refused.other
 }
 
-export const formOf = (i: StoreInfo): StoreInfoInput => ({
+/** The card as typed: the next order number stays text until saved, so it can be cleared and retyped. */
+export type StoreInfoForm = Omit<StoreInfoInput, 'nextOrderNumber'> & { nextOrderNumber: string }
+
+export const formOf = (i: StoreInfo): StoreInfoForm => ({
   name: i.name,
   legalName: i.legalName ?? '',
   description: i.description ?? '',
@@ -34,7 +37,7 @@ export const formOf = (i: StoreInfo): StoreInfoInput => ({
   timeZone: i.timeZone,
   unitSystem: i.unitSystem,
   orderPrefix: i.orderPrefix ?? '',
-  nextOrderNumber: Number(i.nextOrderNumber) || 1,
+  nextOrderNumber: i.nextOrderNumber,
 })
 
 /** The address and tax id fields' names in the home country's own words (SetStore, CATALOG fact 36). */
@@ -81,13 +84,14 @@ export interface StoreInfoTabProps {
 /** SetStore: the store's details, then its currencies, then its languages, each card saving on its own. */
 export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoTabProps) => {
   const id = useId()
-  const saved = formOf(info)
-  const [form, setForm] = useState<StoreInfoInput>(saved)
-  const [infoProblem, setInfoProblem] = useState<string | null>(null)
+  // What each card last saved: a save moves its own card's line only, so edits in the others stay as typed.
+  const [saved, setSaved] = useState(() => formOf(info))
+  const [savedCurrencies, setSavedCurrencies] = useState(() => loc.currencies.filter((c) => c.status === 'active'))
+  const [savedLanguages, setSavedLanguages] = useState(() => loc.languages.filter((l) => l.status === 'active').map((l) => l.code))
+  const [form, setForm] = useState<StoreInfoForm>(saved)
+  const [infoProblem, setInfoProblem] = useState<{ field: 'name' | 'next'; text: string } | null>(null)
   const [logoProblem, setLogoProblem] = useState<string | null>(null)
-  const savedCurrencies = loc.currencies.filter((c) => c.status === 'active')
   const [currencies, setCurrencies] = useState<Currency[]>(savedCurrencies)
-  const savedLanguages = loc.languages.filter((l) => l.status === 'active').map((l) => l.code)
   const [languages, setLanguages] = useState<string[]>(savedLanguages)
   const [progress, setProgress] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<'info' | 'currencies' | 'languages' | 'logo' | null>(null)
@@ -97,28 +101,34 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
   const labels = labelsFor(info.country)
   const main = loc.mainLanguage ?? languages[0] ?? ''
 
+  const counted = savedLanguages.filter((c) => c !== main)
   useEffect(() => {
     let live = true
-    for (const code of savedLanguages.filter((c) => c !== main))
-      void loadTranslationProgress(code).then(
-        (p) => live && p && setProgress((all) => ({ ...all, [code]: fill(words.translated, { done: formatCount(p.products - p.untranslated), count: formatCount(p.products) }) })),
-        () => live && setProgress((all) => ({ ...all, [code]: words.progressFailed })),
-      )
+    void loadTranslationProgress(counted).then(
+      (all) =>
+        live &&
+        setProgress(Object.fromEntries(counted.map((code) => {
+          const p = all.get(code)
+          return [code, p ? fill(words.translated, { done: formatCount(p.products - p.untranslated), count: formatCount(p.products) }) : words.progressFailed]
+        }))),
+      () => live && setProgress(Object.fromEntries(counted.map((code) => [code, words.progressFailed]))),
+    )
     return () => {
       live = false
     }
-    // The saved languages, read once with the tab: a language just added has nothing translated yet.
-  }, [])
+    // Read again only when the saved languages change; a language just added has nothing translated yet.
+  }, [counted.join()])
 
   const dirtyInfo = JSON.stringify(form) !== JSON.stringify(saved)
   const dirtyCurrencies = JSON.stringify(currencies.map(({ code, mode, rounding }) => ({ code, mode, rounding }))) !== JSON.stringify(savedCurrencies.map(({ code, mode, rounding }) => ({ code, mode, rounding })))
   const dirtyLanguages = JSON.stringify(languages) !== JSON.stringify(savedLanguages)
 
-  const write = async (card: 'info' | 'currencies' | 'languages', work: () => Promise<void>, toast: string) => {
+  const write = async (card: 'info' | 'currencies' | 'languages', work: () => Promise<void>, toast: string, done: () => void) => {
     setBusy(card)
     setFailure(null)
     try {
       await work()
+      done()
       onSaved(toast)
     } catch (error) {
       setFailure({ card, text: refusalText(error) })
@@ -128,9 +138,14 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
   }
 
   const saveInfo = () => {
-    if (form.name.trim() === '') return setInfoProblem(words.nameMissing)
+    if (form.name.trim() === '') return setInfoProblem({ field: 'name', text: words.nameMissing })
+    if (!/^\d{1,9}$/.test(form.nextOrderNumber.trim()) || Number(form.nextOrderNumber) < 1) return setInfoProblem({ field: 'next', text: words.nextMissing })
     setInfoProblem(null)
-    void write('info', () => saveStoreInfo({ ...form, orderPrefix: form.orderPrefix.toUpperCase() }), words.savedInfo)
+    const sent = { ...form, orderPrefix: form.orderPrefix.toUpperCase(), nextOrderNumber: String(Number(form.nextOrderNumber)) }
+    void write('info', () => saveStoreInfo({ ...sent, nextOrderNumber: Number(sent.nextOrderNumber) }), words.savedInfo, () => {
+      setSaved(sent)
+      setForm(sent)
+    })
   }
 
   const logo = (file: File | undefined) => {
@@ -154,13 +169,13 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
         value={form[key]}
         readOnly={ro}
         maxLength={max}
-        aria-invalid={key === 'name' && infoProblem !== null}
-        aria-describedby={key === 'name' && infoProblem ? `${id}-name-problem` : undefined}
+        aria-invalid={key === 'name' && infoProblem?.field === 'name'}
+        aria-describedby={key === 'name' && infoProblem?.field === 'name' ? `${id}-name-problem` : undefined}
         onChange={(e) => setForm({ ...form, [key]: e.target.value })}
       />
-      {key === 'name' && infoProblem && (
+      {key === 'name' && infoProblem?.field === 'name' && (
         <span id={`${id}-name-problem`} className="df-set-problem">
-          {infoProblem}
+          {infoProblem.text}
         </span>
       )}
     </div>
@@ -235,8 +250,23 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
             <span className="df-set-help">{fill(words.nextOrder, { number: `${form.orderPrefix.toUpperCase()}${form.nextOrderNumber}` })}</span>
             <span className="df-set-pair" role="group" aria-labelledby={`${id}-orders`}>
               <input aria-label={words.prefix} className="df-set-mono" value={form.orderPrefix} readOnly={ro} maxLength={6} onChange={(e) => setForm({ ...form, orderPrefix: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '') })} />
-              <input aria-label={words.nextNumber} className="df-set-mono" inputMode="numeric" value={String(form.nextOrderNumber)} readOnly={ro} onChange={(e) => setForm({ ...form, nextOrderNumber: Number(e.target.value.replace(/\D/g, '')) || 1 })} />
+              <input
+                aria-label={words.nextNumber}
+                className="df-set-mono"
+                inputMode="numeric"
+                value={form.nextOrderNumber}
+                readOnly={ro}
+                maxLength={9}
+                aria-invalid={infoProblem?.field === 'next'}
+                aria-describedby={infoProblem?.field === 'next' ? `${id}-next-problem` : undefined}
+                onChange={(e) => setForm({ ...form, nextOrderNumber: e.target.value.replace(/\D/g, '') })}
+              />
             </span>
+            {infoProblem?.field === 'next' && (
+              <span id={`${id}-next-problem`} className="df-set-problem">
+                {infoProblem.text}
+              </span>
+            )}
           </div>
         </div>
         <div className="df-set-logo">
@@ -331,7 +361,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
                 </option>
               ))}
             </select>
-            <button type="button" className="df-button df-button--primary" disabled={busy !== null || !dirtyCurrencies} onClick={() => void write('currencies', () => saveCurrencies(currencies.map(({ code, mode, rounding }) => ({ code, mode, rounding }))), words.savedCurrencies)}>
+            <button type="button" className="df-button df-button--primary" disabled={busy !== null || !dirtyCurrencies} onClick={() => void write('currencies', () => saveCurrencies(currencies.map(({ code, mode, rounding }) => ({ code, mode, rounding }))), words.savedCurrencies, () => setSavedCurrencies(currencies))}>
               {busy === 'currencies' ? words.saving : words.saveCurrencies}
             </button>
           </div>
@@ -385,7 +415,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
                   </option>
                 ))}
             </select>
-            <button type="button" className="df-button df-button--primary" disabled={busy !== null || !dirtyLanguages} onClick={() => void write('languages', () => saveLanguages(languages, main), words.savedLanguages)}>
+            <button type="button" className="df-button df-button--primary" disabled={busy !== null || !dirtyLanguages} onClick={() => void write('languages', () => saveLanguages(languages, main), words.savedLanguages, () => setSavedLanguages(languages))}>
               {busy === 'languages' ? words.saving : words.saveLanguages}
             </button>
           </div>

@@ -81,7 +81,7 @@ const card = (title: string) => within(screen.getByRole('region', { name: title 
 beforeEach(() => {
   api.loadStoreInfo.mockResolvedValue(info)
   api.loadLocale.mockResolvedValue(loc)
-  api.loadTranslationProgress.mockResolvedValue({ products: 40, untranslated: 12 })
+  api.loadTranslationProgress.mockResolvedValue(new Map([['hi-IN', { products: 40, untranslated: 12 }]]))
   api.saveStoreInfo.mockResolvedValue(undefined)
   api.saveCurrencies.mockResolvedValue(undefined)
   api.saveLanguages.mockResolvedValue(undefined)
@@ -132,7 +132,36 @@ describe('store info', () => {
     await settle()
     expect(api.saveStoreInfo).toHaveBeenCalledWith(expect.objectContaining({ name: 'Kesari Threads', orderPrefix: 'KT2', unitSystem: 'imperial', taxId: '08ABCDE1234F1Z5', nextOrderNumber: 1042, timeZone: 'Asia/Kolkata', address: info.address }))
     expect(screen.getByText(w.savedInfo)).toBeTruthy()
-    expect(api.loadStoreInfo).toHaveBeenCalledTimes(2)
+    // Saved is the card's new line: nothing left to save, and the tab isn't read again.
+    expect((screen.getByRole('button', { name: w.saveInfo }) as HTMLButtonElement).disabled).toBe(true)
+    expect(api.loadStoreInfo).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps what’s typed in one card when another saves', async () => {
+    await show()
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'Kesari Threads & Co' } })
+    const c = card(w.currencies)
+    fireEvent.change(c.getByRole('combobox', { name: w.addCurrency }), { target: { value: 'GBP' } })
+    fireEvent.click(c.getByRole('button', { name: w.saveCurrencies }))
+    await settle()
+    expect(api.saveCurrencies).toHaveBeenCalled()
+    expect((screen.getByLabelText(w.name) as HTMLInputElement).value).toBe('Kesari Threads & Co')
+    expect((screen.getByRole('button', { name: w.saveInfo }) as HTMLButtonElement).disabled).toBe(false)
+    expect((c.getByRole('button', { name: w.saveCurrencies }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('lets the next order number be cleared and retyped, and won’t save it empty', async () => {
+    await show()
+    const next = screen.getByLabelText(w.nextNumber) as HTMLInputElement
+    fireEvent.change(next, { target: { value: '' } })
+    expect(next.value).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: w.saveInfo }))
+    expect(api.saveStoreInfo).not.toHaveBeenCalled()
+    expect(document.getElementById(next.getAttribute('aria-describedby') ?? '')?.textContent).toBe(w.nextMissing)
+    fireEvent.change(next, { target: { value: '2000' } })
+    fireEvent.click(screen.getByRole('button', { name: w.saveInfo }))
+    await settle()
+    expect(api.saveStoreInfo).toHaveBeenCalledWith(expect.objectContaining({ nextOrderNumber: 2000 }))
   })
 
   it('needs a name, and says why the API refused a save, keeping what was typed', async () => {
@@ -210,7 +239,8 @@ describe('languages', () => {
   it('show how much is translated, ask before removing one, and save with the main language kept', async () => {
     await show()
     const l = card(w.languages)
-    expect(api.loadTranslationProgress).toHaveBeenCalledWith('hi-IN')
+    expect(api.loadTranslationProgress).toHaveBeenCalledTimes(1)
+    expect(api.loadTranslationProgress).toHaveBeenCalledWith(['hi-IN'])
     expect(l.getByText('28 of 40 products translated')).toBeTruthy()
     expect(l.getByText(w.mainLanguage)).toBeTruthy()
     fireEvent.change(l.getByRole('combobox', { name: w.addLanguage }), { target: { value: 'en-US' } })
