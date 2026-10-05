@@ -194,7 +194,7 @@ export const ProductList = () => {
 
   const pickTax = () =>
     void loadTaxClasses().then(
-      (classes) => setDialog({ kind: 'tax', ids: chosenIds, options: classes.map((c) => ({ value: c.id, label: c.name })) }),
+      (classes) => (classes.length === 0 ? setToast(words.bulk.taxNone) : setDialog({ kind: 'tax', ids: chosenIds, options: classes.map((c) => ({ value: c.id, label: c.name })) })),
       () => setToast(words.failed),
     )
 

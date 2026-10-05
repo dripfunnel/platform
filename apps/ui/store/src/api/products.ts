@@ -29,6 +29,8 @@ const rowSchema = z.object({
   maxPrice: moneySchema.nullable(),
   photoUrl: z.string().nullable(),
   stock: z.number().int(),
+  // The Low stock chip's own test, by each location's threshold.
+  lowStock: z.boolean(),
   // Null for a supplier, which reads no market.
   readiness: z.array(readinessSchema).nullable(),
 })
@@ -58,7 +60,7 @@ export interface ProductPage {
 
 export const productPageSize = 10
 
-const rowFields = 'id name visible approval productType supplier { id name } supplierRemoved versionCount minPrice { amount currency } maxPrice { amount currency } photoUrl stock readiness { marketName ready missing }'
+const rowFields = 'id name visible approval productType supplier { id name } supplierRemoved versionCount minPrice { amount currency } maxPrice { amount currency } photoUrl stock lowStock readiness { marketName ready missing }'
 
 /** One page; `after` pages on, `before` back. */
 export const loadProducts = async (q: ProductQuery, cursor: { after?: string | null; before?: string | null } = {}): Promise<ProductPage> => {

@@ -15,6 +15,7 @@ const row = (r: Partial<ProductRow> = {}): ProductRow => ({
   maxPrice: { amount: '129900', currency: 'INR' },
   photoUrl: null,
   stock: 24,
+  lowStock: false,
   readiness: [{ marketName: 'India', ready: true, missing: [] }],
   ...r,
 })
@@ -34,8 +35,9 @@ describe('a Products list row in words (CatList)', () => {
 
   it('counts stock for physical products only, out at nothing and low at five', () => {
     expect(stockOf(row({ stock: 0 }))).toEqual({ text: 'Out of stock', tone: 'out' })
-    expect(stockOf(row({ stock: 5 }))).toEqual({ text: 'Low: 5', tone: 'low' })
-    expect(stockOf(row({ stock: 6 }))).toEqual({ text: '6 in stock', tone: 'normal' })
+    expect(stockOf(row({ stock: 5, lowStock: true }))).toEqual({ text: 'Low: 5', tone: 'low' })
+    // Low is the API's call, by each location's threshold: 4 under a threshold of 2 isn't.
+    expect(stockOf(row({ stock: 4 }))).toEqual({ text: '4 in stock', tone: 'normal' })
     expect(stockOf(row({ productType: 'gift_card', stock: 0 }))).toEqual({ text: 'Not tracked', tone: 'normal' })
   })
 

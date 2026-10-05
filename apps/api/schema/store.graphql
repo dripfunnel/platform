@@ -629,6 +629,7 @@ type ProductSummary {
   buyable: Boolean
   createdAt: String
   id: ID
+  lowStock: Boolean
   maxPrice: Money
   minPrice: Money
   name: String

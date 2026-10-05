@@ -25,6 +25,7 @@ const row = (r: Partial<ProductRow> & Pick<ProductRow, 'id' | 'name'>): ProductR
   maxPrice: inr('129900'),
   photoUrl: null,
   stock: 24,
+  lowStock: false,
   readiness: ready(),
   ...r,
 })
@@ -34,7 +35,7 @@ const rows: ProductRow[] =
   import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
     ? [
         row({ id: 's1', name: 'Mara Linen Shirt', versionCount: 6, minPrice: inr('249900'), maxPrice: inr('279900'), stock: 41 }),
-        row({ id: 's2', name: 'Block-print Cushion Cover', stock: 3, readiness: ready(['compare']) }),
+        row({ id: 's2', name: 'Block-print Cushion Cover', stock: 3, lowStock: true, readiness: ready(['compare']) }),
         row({ id: 's3', name: 'Indigo Table Runner', visible: false, stock: 0 }),
         row({ id: 's4', name: 'Handloom Cotton Dupatta', supplier: { id: 'v1', name: 'Northwind Textiles' }, approval: 'pending', visible: false, readiness: ready(['origin']) }),
         row({ id: 's5', name: 'Sanganer Print Tote', supplier: { id: 'v2', name: 'Sanganer Prints' }, approval: 'sent_back', visible: false }),
@@ -49,7 +50,7 @@ const counts = (list: ProductRow[]): ProductCounts => ({
   hidden: list.filter((r) => !r.visible).length,
   pending: list.filter((r) => r.approval === 'pending').length,
   sentBack: list.filter((r) => r.approval === 'sent_back').length,
-  lowStock: list.filter((r) => r.productType === 'physical' && r.stock > 0 && r.stock <= 5).length,
+  lowStock: list.filter((r) => r.lowStock).length,
   missingInfo: list.filter((r) => !r.photoUrl).length,
   fromSuppliers: list.filter((r) => r.supplier).length,
   outOfStock: list.filter((r) => r.productType === 'physical' && r.stock <= 0).length,

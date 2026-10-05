@@ -26,6 +26,8 @@ export interface ProductListRow {
   photo_asset_id: string | null
   /** On hand across the caller's locations. */
   stock: number
+  /** Low stock by the store's own rule, each location's threshold (the Low stock chip's, lowStock below). */
+  low_stock: boolean
   created_at: Date
   updated_at: Date
   /** The list's sort value as the database computed it, for a cursor (selectProducts). */
@@ -149,7 +151,8 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
       (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
          where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
       (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
-      ${stockOf(tx, 'p')} as stock
+      ${stockOf(tx, 'p')} as stock,
+      ${lowStock(tx, 'p')} as low_stock
     from page
     join product p on p.id = page.id
     left join seller s on s.id = p.seller_id

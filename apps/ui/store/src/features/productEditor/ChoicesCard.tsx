@@ -199,7 +199,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
                   </td>
                   {where && (
                     <td>
-                      <input className="df-editor-cell df-editor-cell--narrow" inputMode="numeric" aria-label={fill(messages.editor.stock.stockOf, { name })} value={typedAt(v)} placeholder="0" readOnly={!stock?.canStock || v.removed} aria-invalid={problems.includes('stock') && quantityOf(typedAt(v)) === 'invalid'} onChange={(event) => setStockOf(v, event.target.value)} />
+                      <input className="df-editor-cell df-editor-cell--narrow" inputMode="numeric" aria-label={fill(messages.editor.stock.stockOf, { name })} value={typedAt(v)} placeholder={messages.editor.stock.countPlaceholder} readOnly={!stock?.canStock || v.removed} aria-invalid={problems.includes('stock') && quantityOf(typedAt(v)) === 'invalid'} onChange={(event) => setStockOf(v, event.target.value)} />
                     </td>
                   )}
                   <td>

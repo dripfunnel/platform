@@ -58,7 +58,8 @@ export const QuickEdit = ({ productId, side, canPrice, canStock, onDone, onCance
 
   const save = async () => {
     if (changes === 0) return onCancel()
-    if (live.some((v) => { const p = minorOf(v.price, currency); return p === null || p === 'invalid' || p <= 0 })) return setProblem(words.priceMissing)
+    // Prices are checked only where they can be changed: counts alone never wait on a price.
+    if (canPrice && live.some((v) => { const p = minorOf(v.price, currency); return p === null || p === 'invalid' || p <= 0 })) return setProblem(words.priceMissing)
     if (home && live.some((v) => quantityOf(stockText(versionKey(v.choices))) === 'invalid')) return setProblem(words.stockInvalid)
     setBusy(true)
     setProblem(null)
@@ -102,7 +103,7 @@ export const QuickEdit = ({ productId, side, canPrice, canStock, onDone, onCance
           <div key={key} className="df-products-quick-row">
             <span>{name}</span>
             <input inputMode="decimal" aria-label={fill(words.price, { name })} value={v.price} readOnly={!canPrice || busy} onChange={(event) => setVersion(i, event.target.value)} />
-            {physical && <input inputMode="numeric" aria-label={fill(words.stock, { name })} value={stockText(key)} placeholder="0" readOnly={!canStock || busy} onChange={(event) => setCount(key, event.target.value)} />}
+            {physical && <input inputMode="numeric" aria-label={fill(words.stock, { name })} value={stockText(key)} placeholder={words.countPlaceholder} readOnly={!canStock || busy} onChange={(event) => setCount(key, event.target.value)} />}
             <span className="df-products-quick-changed">{priceChanged(i) || stockChanged(key) ? words.changed : ''}</span>
           </div>
         )

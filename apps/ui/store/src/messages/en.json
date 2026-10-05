@@ -921,7 +921,8 @@
       "collectionLabel": "Collection",
       "collectionConfirm": "Add",
       "taxLabel": "Tax category",
-      "taxConfirm": "Apply"
+      "taxConfirm": "Apply",
+      "taxNone": "Set up your tax categories in Settings › Tax first"
     },
     "noResults": {
       "search": "No products match “{search}”",
@@ -993,7 +994,8 @@
       "stockInvalid": "Type a whole number of items, 0 or more",
       "failed": "That didn’t save. Your changes are still here; try again.",
       "stale": "Someone else saved this product. Close and open it again to see their changes.",
-      "stockFailed": "The prices are saved; the stock didn’t save. Try again."
+      "stockFailed": "The prices are saved; the stock didn’t save. Try again.",
+      "countPlaceholder": "0"
     }
   },
   "editor": {
@@ -1073,7 +1075,8 @@
         "FORBIDDEN": "You can’t add photos here.",
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "NOT_CONNECTED": "The photo didn’t upload. Check your connection and try again."
-      }
+      },
+      "waitUpload": "A photo is still uploading. Save again once it’s in."
     },
     "name": {
       "label": "Product name",
@@ -1422,8 +1425,14 @@
       "versionsTotal": "{count} in stock across all versions",
       "untracked": "Not tracked for this kind of product.",
       "saveStock": "Save stock",
-      "failed": "The product saved, but the stock didn’t. Try saving again."
-    },
+      "failed": "The product saved, but the stock didn’t. Try saving again.",
+      "adjustPlaceholder": "+20",
+      "countPlaceholder": "0",
+      "deltaUp": "+{count}",
+      "deltaDown": "−{count}",
+      "newFailed": "The product saved, but its stock didn’t. The counts you typed are below; save again to keep them."
+    }
+,
     "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again."
   }
 }
