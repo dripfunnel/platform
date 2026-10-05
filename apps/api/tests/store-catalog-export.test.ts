@@ -227,6 +227,16 @@ describe('who reads an export', () => {
     expect(refused.code).toBe('FORBIDDEN')
   })
 
+  it('never shows the store the partner’s own exports (export_job), merchant or supplier', async () => {
+    await db.sql`insert into export_job (partner_id, kind, filter, requested_by_id, requested_by_label) values (${t.partnerA}, 'stores', '{}', ${crypto.randomUUID()}, 'Partner admin')`
+    expect((await db.sql<{ n: number }[]>`select count(*)::int as n from export_job where partner_id = ${t.partnerA}`)[0]?.n).toBeGreaterThan(0)
+    const store = (sellerScope: TenantContext['sellerScope']): TenantContext => ({ caller: { kind: 'person', userId: people.owner, sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope, subscription: 'active' })
+    for (const scope of [store({ kind: 'all' }), store({ kind: 'seller', sellerId: t.sellerA1First })]) {
+      const seen = await withScope(db.sql, scope, (tx) => tx<{ id: string }[]>`select id from export_job`).catch((error: unknown) => (String(error).includes('permission denied') ? [] : Promise.reject(error)))
+      expect(seen).toEqual([])
+    }
+  })
+
   it('says expired after its hour, failed when the relay gives up, and is purged', async () => {
     const { id } = await ask('owner', 'products')
     await db.sql`update outbox set failed_at = ${now} where kind = 'export.catalog' and payload->>'jobId' = ${id ?? ''}`
