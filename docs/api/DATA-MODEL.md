@@ -1088,7 +1088,8 @@ is `inherit_parent`.
 product's `product_spec`, `product_highlight`, `product_faq`, `product_related`, `product_badge`,
 `product_flag`, `product_compliance` and `product_market_rule`, plus `product.size_chart_id`. A store with no
 `store_feature` rows has the prototype's starting set (CatSettings). A product's chart is its own owner's,
-so a supplier never holds a chart it can't read. Only a manual badge is picked on a product, and a related
+so a supplier never holds a chart it can't read. Each owner holds up to 200 charts, counted per owner so a
+supplier's count says nothing of others'. Only a manual badge is picked on a product, and a related
 product is one the caller can read. Lists are jsonb, not arrays (docs/api/README.md §7). Not yet:
 `size_chart_rule` (R6), `product_story` and `story_block` (A+), custom fields, `translation`, and
 readiness per market, which needs markets (SAPI 6).

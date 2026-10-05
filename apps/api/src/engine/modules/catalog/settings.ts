@@ -127,7 +127,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
       let chartId: string
       let next: number
       if (id === null) {
-        if ((await countSizeCharts(tx, storeId)) >= maxSizeCharts) throw new Refused('TOO_MANY_SIZE_CHARTS')
+        if ((await countSizeCharts(tx, storeId, sellerId)) >= maxSizeCharts) throw new Refused('TOO_MANY_SIZE_CHARTS')
         chartId = crypto.randomUUID()
         await insertSizeChart(tx, storeId, sellerId, chartId, clean)
         next = 1

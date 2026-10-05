@@ -40,8 +40,9 @@ export const maxBadges = 20
 export const selectBadges = (tx: ScopedSql, storeId: string): Promise<BadgeRow[]> =>
   tx<BadgeRow[]>`select id, label, tone, rule, position from badge where store_id = ${storeId} order by position, created_at limit ${maxBadges}`
 
-export const countSizeCharts = async (tx: ScopedSql, storeId: string): Promise<number> =>
-  (await tx<{ n: number }[]>`select count(*)::int as n from size_chart where store_id = ${storeId} and deleted_at is null`)[0]?.n ?? 0
+/** One owner's charts: the cap is per owner, since a supplier's count must say nothing of others' (ACCESS §7.1). */
+export const countSizeCharts = async (tx: ScopedSql, storeId: string, sellerId: string | null): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from size_chart where store_id = ${storeId} and seller_id is not distinct from ${sellerId}::uuid and deleted_at is null`)[0]?.n ?? 0
 
 export const countBadges = async (tx: ScopedSql, storeId: string): Promise<number> => (await tx<{ n: number }[]>`select count(*)::int as n from badge where store_id = ${storeId}`)[0]?.n ?? 0
 

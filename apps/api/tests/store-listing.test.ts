@@ -153,6 +153,15 @@ describe('size charts', () => {
     expect(theirs.saved?.id).toBeTruthy()
   })
 
+  it('stop at 200 for each owner, a supplier’s count saying nothing of the merchant’s', async () => {
+    await db.sql`insert into size_chart (store_id, seller_id, name, unit) select ${t.storeA1}, ${t.sellerA1Second}, 'Cap ' || n, 'cm' from generate_series(1, 200) as n`
+    expect((await saveChart('otherSupplier', { ...chart, name: 'One too many' })).code).toBe('TOO_MANY_SIZE_CHARTS')
+    // The merchant and another supplier have their own 200, untouched by this one's.
+    expect((await saveChart('supplier', { ...chart, name: 'Still room' })).code).toBeUndefined()
+    expect((await saveChart('owner', { ...chart, name: 'Owner room' })).code).toBeUndefined()
+    await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and name like 'Cap %'`
+  })
+
   it('come a page at a time, newest edit first', async () => {
     const page = (await gql('{ sizeCharts(first: 2) { nodes { name } pageInfo { hasNextPage endCursor } } }', 'owner')).data?.['sizeCharts'] as { nodes: { name: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
     expect(page.nodes).toHaveLength(2)

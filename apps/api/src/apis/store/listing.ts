@@ -6,7 +6,7 @@ import { planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
-import { storePage } from './refusals'
+import { requirePlan, storePage } from './refusals'
 
 // Settings › Catalogue (CATALOG P1, S5) and size charts (R; FIRST-RELEASE §12, §19). The plan decides on the
 // server; a supplier never sees plans or prices (P11), only whether a section is there for it.
@@ -17,7 +17,7 @@ const words: Record<SettingsRefusal, string> = {
   STALE_REVISION: 'Someone else saved this. Reload to see their changes.',
   DUPLICATE_LABEL: 'Another badge already has that label.',
   TOO_MANY_BADGES: 'A store can have up to 20 badges.',
-  TOO_MANY_SIZE_CHARTS: 'A store can have up to 200 size charts.',
+  TOO_MANY_SIZE_CHARTS: 'You can have up to 200 size charts. Remove one first.',
 }
 
 const answered = <T>(result: SettingsResult<T>): T => {
@@ -35,10 +35,8 @@ export const featurePlanKey: Partial<Record<string, GatedKey>> = { sizeCharts: '
  */
 export const requireFeature = async (ctx: StoreContext, caller: StoreCaller, key: GatedKey): Promise<void> => {
   if (!ctx.sql) throw forbidden()
-  const limit = await planLimitFor(ctx.sql, caller.context, { key }, ctx.now())
-  if (!limit) return
-  if (caller.seller !== null) throw new GraphQLError('This isn’t available in this store.', { extensions: { code: 'FEATURE_UNAVAILABLE' } })
-  throw new GraphQLError('Your plan doesn’t include this.', { extensions: { code: 'PLAN_LIMIT', key: limit.key, limit: limit.limit, unlockedBy: limit.unlockedBy } })
+  if (caller.seller === null) return requirePlan(ctx.sql, caller.context, { key }, ctx.now())
+  if (await planLimitFor(ctx.sql, caller.context, { key }, ctx.now())) throw new GraphQLError('This isn’t available in this store.', { extensions: { code: 'FEATURE_UNAVAILABLE' } })
 }
 
 export const registerListing = (builder: StoreBuilder) => {
