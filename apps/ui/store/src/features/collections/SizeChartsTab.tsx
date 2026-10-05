@@ -8,9 +8,6 @@ import { chartInput, chartProblem, draftOfChart, inUnit, isChartDirty, noValue, 
 
 const words = messages.collections.charts
 
-/** A store's or a supplier's own charts stop here (catalogListing.ts maxSizeCharts). */
-const maxSizeCharts = 200
-
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'> & { cancelLabel?: string }
 type Selected = { kind: 'none' } | { kind: 'loading'; id: string } | { kind: 'failed'; id: string } | { kind: 'ready'; draft: ChartDraft; saved: ChartDraft; products: number }
 
@@ -19,6 +16,8 @@ const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refus
 export interface SizeChartsTabProps {
   /** The caller's own charts. */
   charts: readonly SizeChartSummary[]
+  /** The API's cap on an owner's charts. */
+  limit: number
   canEdit: boolean
   /** Settings › Catalogue's switch, and whether the plan has charts (null: a supplier, told only whether they're on). */
   feature: { enabled: boolean; inPlan: boolean | null }
@@ -70,7 +69,7 @@ const TemplatePicker = ({ unit, india, onPick, onCancel }: { unit: 'cm' | 'in'; 
 }
 
 /** CatSizeCharts: the caller's charts on the left; the one picked as an editable grid, its note and a shopper view. */
-export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, onToast, onSaved, read = loadSizeChart }: SizeChartsTabProps) => {
+export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, india, onToast, onSaved, read = loadSizeChart }: SizeChartsTabProps) => {
   const formId = useId()
   const [selected, setSelected] = useState<Selected>({ kind: 'none' })
   const [ask, setAsk] = useState<Ask | null>(null)
@@ -80,14 +79,17 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
   const [tried, setTried] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
 
+  // The chart last asked for: a read or save that answers after another pick is ignored.
+  const wanted = useRef<string | null>(null)
   const open = (id: string) => {
+    wanted.current = id
     setSelected({ kind: 'loading', id })
     setPreview(false)
     setTried(false)
     setFailure(null)
     void read(id).then(
-      (c) => (c ? setSelected({ kind: 'ready', draft: draftOfChart(c), saved: draftOfChart(c), products: c.products }) : setSelected({ kind: 'none' })),
-      () => setSelected({ kind: 'failed', id }),
+      (c) => wanted.current === id && setSelected(c ? { kind: 'ready', draft: draftOfChart(c), saved: draftOfChart(c), products: c.products } : { kind: 'none' }),
+      () => wanted.current === id && setSelected({ kind: 'failed', id }),
     )
   }
   // The first chart opens with the tab, as the prototype's does; later picks go through `choose`.
@@ -103,7 +105,7 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
   const choose = (id: string) => leave(() => open(id))
 
   const own = charts.length
-  const atLimit = own >= maxSizeCharts
+  const atLimit = own >= limit
   const blocked = feature.inPlan === false || (feature.inPlan === null && !feature.enabled)
   const startNew = () => (atLimit ? onToast(words.atLimit) : leave(() => setStarting(true)))
 
@@ -129,7 +131,7 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
   const head = (
     <div className="df-charts-head">
       <span>
-        <strong>{words.title}</strong> <span className={atLimit ? 'df-charts-meter df-charts-meter--full' : 'df-charts-meter'}>{fill(words.meter, { count: formatCount(own), limit: formatCount(maxSizeCharts) })}</span>
+        <strong>{words.title}</strong> <span className={atLimit ? 'df-charts-meter df-charts-meter--full' : 'df-charts-meter'}>{fill(words.meter, { count: formatCount(own), limit: formatCount(limit) })}</span>
       </span>
       {canEdit && !blocked && (
         <button type="button" className="df-button df-button--primary df-button--small" disabled={busy || atLimit} onClick={startNew}>
@@ -206,7 +208,8 @@ export const SizeChartsTab = ({ charts, canEdit, feature, owner, unit, india, on
     try {
       const done = await saveSizeChart(d.id, d.revision, chartInput(d))
       const next = { ...d, revision: done.revision }
-      setSelected({ kind: 'ready', draft: next, saved: next, products })
+      // Another chart picked meanwhile stays open; this one's save is still said and the list reloads.
+      if (wanted.current === d.id) setSelected({ kind: 'ready', draft: next, saved: next, products })
       onSaved(products > 0 ? fill(plural(words.savedOn, products), { name: d.name.trim(), count: formatCount(products) }) : fill(words.saved, { name: d.name.trim() }))
     } catch (error) {
       setFailure(refusalOf(error))

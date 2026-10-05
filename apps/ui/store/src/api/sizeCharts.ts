@@ -22,6 +22,10 @@ export const loadSizeChartList = (): Promise<SizeChartSummary[]> =>
       ).sizeCharts,
   )
 
+/** How many charts an owner may have (the API's cap), for the meter and the Limit reached state. */
+export const loadSizeChartLimit = async (): Promise<number> =>
+  (await query('{ sizeCharts(first: 1) { limit } }', z.object({ sizeCharts: z.object({ limit: z.number().int() }) }))).sizeCharts.limit
+
 const chartSchema = z.object({
   id: z.string(),
   name: z.string(),
