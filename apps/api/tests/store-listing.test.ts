@@ -298,8 +298,8 @@ describe('a product’s listing sections', () => {
   })
 
   it('has the indexes the sections and the chart counts read by', async () => {
-    const names = (await db.sql<{ indexname: string }[]>`select indexname from pg_indexes where indexname = any(${'{product_size_chart_idx,product_spec_product_idx,product_highlight_product_idx,product_faq_product_idx}'}::text[])`).map((r) => r.indexname)
-    expect(names.sort()).toEqual(['product_faq_product_idx', 'product_highlight_product_idx', 'product_size_chart_idx', 'product_spec_product_idx'])
+    const names = (await db.sql<{ indexname: string }[]>`select indexname from pg_indexes where indexname = any(${'{product_size_chart_idx,product_spec_product_idx,product_highlight_product_idx,product_faq_product_idx,product_badge_badge_idx,product_related_target_idx}'}::text[])`).map((r) => r.indexname)
+    expect(names.sort()).toEqual(['product_badge_badge_idx', 'product_faq_product_idx', 'product_highlight_product_idx', 'product_related_target_idx', 'product_size_chart_idx', 'product_spec_product_idx'])
   })
 
   it('refuses a specification mirroring a filter value this store doesn’t have', async () => {
