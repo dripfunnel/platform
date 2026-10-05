@@ -336,6 +336,7 @@ type Mutation {
   saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
   saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
+  saveStoreInfo(input: StoreInfoInput!): Boolean
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
   sendBackProduct(id: ID!, reason: String!): Boolean
@@ -714,6 +715,7 @@ type Query {
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeInfo: StoreInfo
   storeLocale: StoreLocale
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
@@ -901,6 +903,20 @@ type StockVersionPage {
   pageInfo: PageInfo
 }
 
+type StoreAddress {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
+input StoreAddressInput {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
 type StoreChoice {
   membershipId: ID
   role: String
@@ -925,6 +941,37 @@ input StoreCurrencyInput {
   code: String!
   mode: String!
   rounding: String
+}
+
+type StoreInfo {
+  address: StoreAddress
+  contactEmail: String
+  contactPhone: String
+  country: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String
+  nextOrderNumber: String
+  orderPrefix: String
+  taxId: String
+  timeZone: String
+  unitSystem: String
+}
+
+input StoreInfoInput {
+  address: StoreAddressInput
+  contactEmail: String
+  contactPhone: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String!
+  nextOrderNumber: Int!
+  orderPrefix: String
+  taxId: String
+  timeZone: String!
+  unitSystem: String!
 }
 
 type StoreLanguage {
