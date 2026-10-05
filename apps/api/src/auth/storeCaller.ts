@@ -84,7 +84,7 @@ const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string,
     result: 'denied',
     actorKind: 'person',
     actorId: person.id,
-    actorLabel: `${person.name} <${person.email}>`,
+    actorLabel: null,
     partnerId: person.partnerId,
     // The header is request input: kept short, and only ever compared, never trusted.
     target: { type: 'store', id: asked.slice(0, 64), label: held.length ? `holds ${held.join(', ')}` : 'holds no store' },
@@ -118,10 +118,17 @@ export const resolveStoreStanding = async (
     const asked = request.headers.get(storeHeader)
     if (!asked) return { kind: 'no-store', person }
     const memberships = uuid.test(asked) ? await selectMemberships(tx, person.id, partnerId, asked) : []
+    if (memberships.length === 0) {
+      await recordCrossing(tx, person, asked, activity, facts)
+      return { kind: 'crossing', person }
+    }
+    // A merchant-side member is never also a supplier there (membership_check_parents), so X-Supplier
+    // only chooses between supplier seats; a held store with no seat chosen is asked, not logged.
     const supplier = request.headers.get(supplierHeader)
-    const chosen = supplier ? memberships.find((m) => m.seller_id === supplier) : memberships.length === 1 ? memberships[0] : undefined
-    if (!chosen && !supplier && memberships.length > 1) return { kind: 'supplier-required', person }
-    const caller = chosen && callerOf(person, await hashSessionId(cookie), chosen)
+    const merchant = memberships.find((m) => m.seller_id === null)
+    const chosen = merchant ?? (supplier ? memberships.find((m) => m.seller_id === supplier) : memberships.length === 1 ? memberships[0] : undefined)
+    if (!chosen) return { kind: 'supplier-required', person }
+    const caller = callerOf(person, await hashSessionId(cookie), chosen)
     if (!caller) {
       await recordCrossing(tx, person, asked, activity, facts)
       return { kind: 'crossing', person }
