@@ -80,5 +80,6 @@ export const saveHomeTaxId = async (tx: ScopedSql, storeId: string, country: str
   if (registration) await tx`insert into tax_registration (store_id, country, kind, number) values (${storeId}, ${country}, ${registration.kind}, ${registration.number})`
 }
 
-/** The logo refused by save_store_info: not one of the store's own images. */
-export const logoRefused = (error: unknown): boolean => error instanceof Error && error.message.includes("the store's own image")
+/** What save_store_info refused: a logo not the store's own image, or an order number lower than the next one. */
+export const storeInfoRefused = (error: unknown): 'INVALID_LOGO' | 'ORDER_NUMBER_DOWN' | null =>
+  !(error instanceof Error) ? null : error.message.includes("the store's own image") ? 'INVALID_LOGO' : error.message.includes('order numbers only go up') ? 'ORDER_NUMBER_DOWN' : null

@@ -63,7 +63,8 @@ export const cleanStoreInfo = (input: StoreInfoInput, country: string | null): (
   const logo = input.logoAssetId ? input.logoAssetId.toLowerCase() : null
   if (logo !== null && !isUuid(logo)) return 'INVALID_INPUT'
   const rawTax = (input.taxId ?? '').trim()
-  const taxId = rawTax === '' ? null : taxIdOf(country, rawTax)
+  // A tax id is the home country's: a store with none set has nowhere to file it.
+  const taxId = rawTax === '' || country === null ? null : taxIdOf(country, rawTax)
   if (rawTax !== '' && !taxId) return 'INVALID_TAX_ID'
   return {
     name,

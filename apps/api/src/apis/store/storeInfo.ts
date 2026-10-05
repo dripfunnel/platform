@@ -12,6 +12,7 @@ const words: Record<Exclude<StoreInfoResult<unknown>, { ok: true }>['reason'], s
   INVALID_TIME_ZONE: 'Choose a time zone from the list.',
   INVALID_TAX_ID: 'That tax id isn’t in the format your country uses.',
   INVALID_LOGO: 'Use an image you uploaded to this store.',
+  ORDER_NUMBER_DOWN: 'Order numbers only go up: choose one at least your next number.',
   NOT_FOUND: 'That is no longer here.',
 }
 
