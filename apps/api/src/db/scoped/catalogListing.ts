@@ -48,7 +48,10 @@ export const countBadges = async (tx: ScopedSql, storeId: string): Promise<numbe
 
 export const upsertBadge = async (tx: ScopedSql, storeId: string, badge: BadgeRow, exists: boolean): Promise<boolean> => {
   if (exists) {
-    return (await tx`update badge set label = ${badge.label}, tone = ${badge.tone}, rule = ${badge.rule}, position = ${badge.position} where id = ${badge.id} and store_id = ${storeId}`).count === 1
+    const done = (await tx`update badge set label = ${badge.label}, tone = ${badge.tone}, rule = ${badge.rule}, position = ${badge.position} where id = ${badge.id} and store_id = ${storeId}`).count === 1
+    // Only a manual badge is picked on a product (S5): one that becomes automatic shows by its rule instead.
+    if (done && badge.rule !== 'manual') await tx`delete from product_badge where badge_id = ${badge.id} and store_id = ${storeId}`
+    return done
   }
   await tx`insert into badge (id, store_id, label, tone, rule, position) values (${badge.id}, ${storeId}, ${badge.label}, ${badge.tone}, ${badge.rule}, ${badge.position})`
   return true
