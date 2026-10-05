@@ -281,6 +281,18 @@ describe('the shell', () => {
     expect(masked.data?.['me']?.acting?.plan).toBeNull()
     expect(masked.data?.['me']?.acting?.tier).toBe('vendor-stock')
     expect(masked.data?.['me']?.acting?.permissions).not.toContain('orders.read')
+    // A supplier keeps working while the store is past due and isn't told why; a cancelled store is read-only for all.
+    for (const [status, readOnly] of [['past_due', false], ['cancelled', true]] as const) {
+      await db.sql`update store set status = ${status} where id = ${t.storeA1}`
+      try {
+        const seen = await gql('{ storeState { readOnly status pastDueSince } }', supplier, { [storeHeader]: t.storeA1 })
+        expect({ status, state: seen.data?.['storeState'] }).toEqual({ status, state: { readOnly, status: null, pastDueSince: null } })
+        const merchant = await gql('{ storeState { readOnly } }', staff, { [storeHeader]: t.storeA1 })
+        expect({ status, merchant: merchant.data?.['storeState'] }).toEqual({ status, merchant: { readOnly: true } })
+      } finally {
+        await db.sql`update store set status = 'trial' where id = ${t.storeA1}`
+      }
+    }
   })
 
   it('shows every person in the store the open support session, with only the banner’s facts', async () => {

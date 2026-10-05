@@ -69,6 +69,10 @@ export const copyStoryDraft = async (tx: ScopedSql, storeId: string, copies: rea
 export const readableProducts = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<string[]> =>
   (await tx<{ id: string }[]>`select id from product where id = any (${pgArray(ids)}::uuid[]) and store_id = ${storeId} and deleted_at is null`).map((r) => r.id)
 
+/** These products by name, those the caller reads: a comparison's chips, in one read. */
+export const selectProductNames = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<{ id: string; name: string }[]> =>
+  ids.length === 0 ? [] : tx<{ id: string; name: string }[]>`select id, name from product where id = any (${pgArray(ids)}::uuid[]) and store_id = ${storeId} and deleted_at is null`
+
 export const storyRefused = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && /catalogue: (a story |a brand story |that file is another owner)/.test(error.message)
 

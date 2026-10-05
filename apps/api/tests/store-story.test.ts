@@ -202,6 +202,10 @@ describe('A+ content: owners', () => {
     expect((await saveStory('owner', theirs, 0, compare([theirsToo]))).story?.modules[0]?.productIds).toEqual([theirsToo])
     // The merchant's own products may compare any of the store's.
     expect((await saveStory('owner', merchant, 0, compare([theirs, other]))).story?.revision).toBe(1)
+    // The comparison's chips are named with the story, one read; a supplier is named only its own.
+    const names = async (who: Who, id: string) => ((await gql('query Q($id: ID!) { productStory(productId: $id) { products { id name } } }', who, { id })).data?.['productStory'] as { products: { name: string }[] }).products.map((p) => p.name).sort()
+    expect(await names('owner', merchant)).toEqual(['Anand tee', 'Bhatia tee'])
+    expect(await names('supplier', theirs)).toEqual(['Anand tee, heavy'])
     // A compared product trashed later doesn't block the next save, but can't be added again.
     await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [other] })
     expect((await saveStory('owner', merchant, 1, [...compare([theirs, other]), { id: 'f', kind: 'faq' }])).story?.revision).toBe(2)
@@ -421,5 +425,23 @@ describe('Another store', () => {
     expect(await storyOf('bOwner', id)).toBeNull()
     expect((await saveStory('bOwner', id, 1, [])).code).toBe('NOT_FOUND')
     expect((await gql('{ storyBlocks { nodes { id } } }', 'bOwner')).data?.['storyBlocks']).toEqual({ nodes: [] })
+  })
+})
+
+describe('a supplier’s A+ under approval (CATALOG Q11)', () => {
+  it('sends the product back to the queue when the supplier publishes its story, and is shown again once approved', async () => {
+    const id = await product('supplier', 'Approval kurta')
+    await gql('mutation { setApproval(on: true) }', 'owner')
+    try {
+      await db.sql`update product set approval_status = 'approved', visibility = 'visible' where id = ${id}`
+      const saved = await saveStory('supplier', id, 0, [{ id: 'a', kind: 'specs' }])
+      expect((await db.sql<{ approval_status: string }[]>`select approval_status from product where id = ${id}`)[0]?.approval_status).toBe('approved')
+      expect((await publish('supplier', id, saved.story?.revision ?? 0)).code).toBeUndefined()
+      expect((await db.sql<{ approval_status: string; visibility: string }[]>`select approval_status, visibility from product where id = ${id}`)[0]).toEqual({ approval_status: 'pending', visibility: 'hidden' })
+      expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+      expect((await db.sql<{ approval_status: string; visibility: string }[]>`select approval_status, visibility from product where id = ${id}`)[0]).toEqual({ approval_status: 'approved', visibility: 'visible' })
+    } finally {
+      await gql('mutation { setApproval(on: false) }', 'owner')
+    }
   })
 })

@@ -1,0 +1,193 @@
+import { describe, expect, it } from 'vitest'
+import type { EditorProduct } from '../../api/productEditor'
+import { blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, versionKey, type Draft } from './productDraft'
+
+const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
+  id: 'p1',
+  revision: 3,
+  name: 'Mara Linen Shirt',
+  description: 'Soft linen.',
+  productType: 'physical',
+  visible: true,
+  approval: null,
+  sentBackReason: null,
+  supplier: null,
+  slug: 'mara-linen-shirt',
+  seoTitle: null,
+  seoDescription: null,
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
+  photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: 'Front', versionId: null }],
+  options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 'S' }, { id: 'v-m', name: 'M' }] }],
+  versions: [
+    { id: 'ver-s', choices: ['S'], name: null, sku: 'MARA-S', barcode: null, visible: true, prices: [{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000', compareAtAmount: null }], cost: { currency: 'INR', amount: '90000' }, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+    { id: 'ver-m', choices: ['M'], name: null, sku: null, barcode: null, visible: false, prices: [{ currency: 'INR', amount: '279900', compareAtAmount: null }], cost: null, weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+  ],
+  readiness: [],
+  ...p,
+})
+
+const named = (d: Draft, name: string): Draft => ({ ...d, name })
+
+describe('the editor’s draft (CatEditor)', () => {
+  it('reads a product as typed text in the pricing currency, keeping other currencies aside', () => {
+    const d = draftOf(product(), 'INR')
+    expect(d.versions.map((v) => [v.choices, v.price, v.compareAt, v.cost, v.sku, v.visible])).toEqual([
+      [['S'], '2499.00', '2999.00', '900.00', 'MARA-S', true],
+      [['M'], '2799.00', '', '', '', false],
+    ])
+    expect(d.versions[0]?.otherPrices).toEqual([{ currency: 'USD', amount: '3000', compareAtAmount: null }])
+    expect([d.weight, d.box, d.hsCode, d.taxClassId]).toEqual(['0.4', '25 × 20 × 3', '6205', 'tc5'])
+  })
+
+  it('makes every combination of the choices, keeping the versions that match and pricing new ones like the first', () => {
+    const d = draftOf(product(), 'INR')
+    const colours: Draft = { ...d, options: [...d.options, { id: null, name: 'Colour', values: [{ id: null, name: 'Sand' }, { id: null, name: 'Ink' }] }] }
+    expect(combinationsOf(colours.options)).toEqual([['S', 'Sand'], ['S', 'Ink'], ['M', 'Sand'], ['M', 'Ink']])
+    expect(newVersionCount(colours)).toBe(4)
+    const synced = syncVersions(colours)
+    expect(synced.map((v) => [v.choices.join('/'), v.id, v.price])).toEqual([
+      ['S/Sand', null, '2499.00'],
+      ['S/Ink', null, '2499.00'],
+      ['M/Sand', null, '2499.00'],
+      ['M/Ink', null, '2499.00'],
+    ])
+    // Matching is by name whatever the case, so a renamed value's version stays.
+    expect(syncVersions({ ...d, options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 's' }] }] }).map((v) => [v.id, v.choices])).toEqual([['ver-s', ['s']]])
+  })
+
+  it('asks for a name, a price above zero for each version made, and versions that match the choices', () => {
+    const blank = blankDraft()
+    expect(problemsOf(blank, 'INR')).toEqual(['name', 'price'])
+    const priced = named({ ...blank, versions: blank.versions.map((v) => ({ ...v, price: '499' })) }, 'Kurta')
+    expect(problemsOf(priced, 'INR')).toEqual([])
+    expect(problemsOf({ ...priced, versions: priced.versions.map((v) => ({ ...v, compareAt: '400' })) }, 'INR')).toEqual(['compare'])
+    expect(problemsOf({ ...priced, options: [{ id: null, name: 'Size', values: [{ id: null, name: 'S' }] }] }, 'INR')).toEqual(['versions'])
+    expect(problemsOf({ ...priced, options: [{ id: null, name: 'Size', values: [] }] }, 'INR')).toContain('options')
+    expect(problemsOf({ ...priced, weight: 'heavy' }, 'INR')).toEqual(['weight'])
+    // A version not made needs no price.
+    const d = draftOf(product(), 'INR')
+    expect(problemsOf({ ...d, versions: d.versions.map((v, i) => (i === 1 ? { ...v, price: '', removed: true } : v)) }, 'INR')).toEqual([])
+  })
+
+  it('checks stock counts only for a physical product', () => {
+    const blank = blankDraft()
+    const priced = named({ ...blank, versions: blank.versions.map((v) => ({ ...v, price: '499' })) }, 'Kurta')
+    const stock = { [versionKey(priced.versions[0]?.choices ?? [])]: { w1: '-x' } }
+    expect(problemsOf({ ...priced, stock }, 'INR')).toEqual(['stock'])
+    expect(problemsOf({ ...priced, kind: 'digital', stock }, 'INR')).toEqual([])
+  })
+
+  it('refuses more than 100 versions before the API has to', () => {
+    const many = (n: number) => ({ id: null, name: `K${n}`, values: Array.from({ length: 5 }, (_, i) => ({ id: null, name: `${n}-${i}` })) })
+    expect(problemsOf({ ...blankDraft(), name: 'x', options: [many(1), many(2), many(3)] }, 'INR')).toContain('tooMany')
+  })
+
+  it('builds the save: minor units, shipping on every version, nothing a supplier may not set, a photo by its version’s place', () => {
+    const d = draftOf(product({ photos: [{ id: 'ph1', assetId: 'a1', url: '', alt: 'Front', versionId: null }, { id: 'ph2', assetId: 'a2', url: '', alt: '', versionId: 'ver-m' }] }), 'INR')
+    const merchant = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 0 ? { ...v, removed: true } : v)) }, 'INR', 'merchant')
+    expect(merchant.versions).toEqual([
+      { id: 'ver-m', choices: ['M'], sku: null, visible: false, prices: [{ currency: 'INR', amount: '279900' }], weightGrams: 400, lengthMm: 250, widthMm: 200, heightMm: 30, hsCode: '6205', taxClassId: 'tc5', trackStock: true, continueSelling: false },
+    ])
+    expect(merchant.photos).toEqual([{ assetId: 'a1', alt: 'Front' }, { assetId: 'a2', version: 0 }])
+    expect(merchant.visible).toBe(true)
+    const supplier = inputOf(d, 'INR', 'supplier')
+    expect('visible' in supplier).toBe(false)
+    expect(supplier.versions.every((v) => !('taxClassId' in v))).toBe(true)
+    expect(supplier.versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900', compareAtAmount: '299900' }, { currency: 'USD', amount: '3000' }])
+    // A download or a service has no parcel.
+    expect(inputOf({ ...d, kind: 'digital' }, 'INR', 'merchant').versions[0]).toMatchObject({ weightGrams: null, lengthMm: null, hsCode: null })
+  })
+
+  it('reads weight and box as typed, in the store’s units, with a point or a comma', () => {
+    expect([gramsOf('0.4'), gramsOf('0,4'), gramsOf(''), gramsOf('a')]).toEqual([400, 400, null, 'invalid'])
+    expect([boxOf('25 × 20 × 3'), boxOf('25x20x3.5'), boxOf(''), boxOf('25 × 20')]).toEqual([[250, 200, 30], [250, 200, 35], null, 'invalid'])
+    expect([gramsOf('2', 'imperial'), boxOf('10 × 8 × 1', 'imperial')]).toEqual([907, [254, 203, 25]])
+    const d = draftOf(product(), 'INR', { units: 'imperial' })
+    expect([d.weight, d.box]).toEqual(['0.882', '9.8 × 7.9 × 1.2'])
+  })
+
+  it('keeps each version’s own shipping unless the field is changed, then gives it to every version', () => {
+    const two = product({ versions: product().versions.map((v, i) => ({ ...v, weightGrams: i === 0 ? 400 : 650, hsCode: '6205' })) })
+    const d = draftOf(two, 'INR')
+    expect([d.weight, d.hsCode]).toEqual(['', '6205'])
+    expect(inputOf(d, 'INR', 'merchant').versions.map((v) => v.weightGrams)).toEqual([400, 650])
+    const set = { ...d, weight: '1', shippingChanged: { ...d.shippingChanged, weight: true } }
+    expect(inputOf(set, 'INR', 'merchant').versions.map((v) => v.weightGrams)).toEqual([1000, 1000])
+  })
+
+  it('sends back a cost kept in another currency unless a cost is typed', () => {
+    const p = product({ versions: product().versions.map((v) => ({ ...v, cost: { currency: 'USD', amount: '1100' } })) })
+    const d = draftOf(p, 'INR')
+    expect(d.versions[0]?.cost).toBe('')
+    expect(inputOf(d, 'INR', 'merchant').versions[0]?.cost).toEqual({ currency: 'USD', amount: '1100' })
+    const typed = { ...d, versions: d.versions.map((v) => ({ ...v, cost: '900' })) }
+    expect(inputOf(typed, 'INR', 'merchant').versions[0]?.cost).toEqual({ currency: 'INR', amount: '90000' })
+  })
+
+  it('knows when it has changed, and the range of its prices', () => {
+    const d = draftOf(product(), 'INR')
+    expect(isDirty(d, draftOf(product(), 'INR'))).toBe(false)
+    expect(isDirty(named(d, 'Other'), d)).toBe(true)
+    expect(priceRange(d, 'INR')).toEqual({ low: 249900, high: 279900 })
+    expect(priceRange(blankDraft(), 'INR')).toBeNull()
+  })
+
+  it('sends only the listing sections the form shows, a version’s own specs by its place, and no badges from a supplier', () => {
+    const p = product({
+      listing: {
+        specs: [{ name: 'Material', value: 'Linen', versionId: null, filterValueId: null }, { name: 'Fit', value: 'Slim', versionId: 'ver-m', filterValueId: null }],
+        highlights: ['Pre-washed'],
+        faqs: [{ question: 'Does it shrink?', answer: 'No.' }],
+        relatedIds: ['p2'],
+        related: [{ id: 'p2', name: 'Kurta' }],
+        badgeIds: ['b1'],
+        compliance: [{ region: 'ALL', field: 'origin', value: 'India' }, { region: 'US', field: 'fibre', value: '100% linen' }],
+        ageRestricted: null,
+        hazardous: null,
+      },
+      filterValues: [{ valueId: 'fv1', versionId: null }, { valueId: 'fv2', versionId: 'ver-m' }],
+      sizeChartId: 'sc1',
+    })
+    const d = draftOf(p, 'INR')
+    expect(d.listing.legal).toEqual({ fibre: '', origin: 'India', care: '' })
+    expect(inputOf(d, 'INR', 'merchant')).not.toHaveProperty('listing')
+    const all = new Set(['specs', 'highlights', 'faqs', 'related', 'badges', 'sizeCharts', 'filters', 'legal'] as const)
+    const typed = { ...d, listing: { ...d.listing, legal: { ...d.listing.legal, care: 'Hand wash' } } }
+    const input = inputOf(typed, 'INR', 'merchant', all)
+    expect(input.listing).toEqual({
+      specs: [{ name: 'Material', value: 'Linen' }, { name: 'Fit', value: 'Slim', version: 1 }],
+      highlights: ['Pre-washed'],
+      faqs: [{ question: 'Does it shrink?', answer: 'No.' }],
+      relatedIds: ['p2'],
+      badgeIds: ['b1'],
+      compliance: [{ region: 'ALL', field: 'origin', value: 'India' }, { region: 'ALL', field: 'care', value: 'Hand wash' }, { region: 'US', field: 'fibre', value: '100% linen' }],
+      ageRestricted: false,
+      hazardous: false,
+    })
+    expect(input.filterValues).toEqual([{ valueId: 'fv1' }, { valueId: 'fv2', version: 1 }])
+    expect(input.sizeChartId).toBe('sc1')
+    expect(inputOf(d, 'INR', 'supplier', all).listing).not.toHaveProperty('badgeIds')
+    // A version no longer made takes its own specs and filter values with it.
+    const fewer = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 1 ? { ...v, removed: true } : v)) }, 'INR', 'merchant', all)
+    expect([fewer.listing?.specs, fewer.filterValues]).toEqual([[{ name: 'Material', value: 'Linen' }], [{ valueId: 'fv1' }]])
+  })
+
+  it('takes a typed price in each hand-priced currency, leaves converted ones as they came, and drops an emptied one', () => {
+    const p = product({ versions: [{ ...product().versions[0], prices: [{ currency: 'INR', amount: '249900', compareAtAmount: null }, { currency: 'USD', amount: '3000', compareAtAmount: null }, { currency: 'AED', amount: '11000', compareAtAmount: null }] } as EditorProduct['versions'][number]] })
+    const d = draftOf(p, 'INR', { manualCurrencies: ['AED'] })
+    expect(d.versions[0]?.manualPrices).toEqual({ AED: '110.00' })
+    const typed = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '120' } })) }
+    expect(inputOf(typed, 'INR', 'merchant').versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900' }, { currency: 'USD', amount: '3000' }, { currency: 'AED', amount: '12000' }])
+    const emptied = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '' } })) }
+    expect(inputOf(emptied, 'INR', 'merchant').versions[0]?.prices.map((x) => x.currency)).toEqual(['INR', 'USD'])
+    expect(problemsOf({ ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: 'abc' } })) }, 'INR')).toContain('manual')
+  })
+
+  it('keeps a hand-priced currency’s stored compare-at price when its price is saved', () => {
+    const p = product({ versions: [{ ...product().versions[0], prices: [{ currency: 'INR', amount: '249900', compareAtAmount: null }, { currency: 'AED', amount: '10000', compareAtAmount: '15000' }] } as EditorProduct['versions'][number]] })
+    const d = draftOf(p, 'INR', { manualCurrencies: ['AED'] })
+    expect(inputOf(d, 'INR', 'merchant').versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900' }, { currency: 'AED', amount: '10000', compareAtAmount: '15000' }])
+    const typed = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '120' } })) }
+    expect(inputOf(typed, 'INR', 'merchant').versions[0]?.prices[1]).toEqual({ currency: 'AED', amount: '12000', compareAtAmount: '15000' })
+  })
+})

@@ -3,7 +3,7 @@ import { GraphQLError } from 'graphql'
 import type { SecretBox } from '#auth/secretBox'
 import type { ActivityLog, RequestFacts } from '#auth/activity'
 import type { StoreCaller, StoreStanding } from '#auth/storeCaller'
-import { isStorePermission, storePermissions, storeRoleHas } from '#auth/storePermissions'
+import { isStorePermission, storePermissions, storeRoleHas, type StorePermission, type StoreRole } from '#auth/storePermissions'
 import { accessErrorCode, forbidden, unauthenticated, type AccessPolicy } from '../graphql/scope'
 
 export interface StoreContext extends Record<string, unknown> {
@@ -29,10 +29,19 @@ export const supplierRequired = () => refusal('Choose which supplier you are act
 export const storeSuspended = () => refusal('This store is suspended.', accessErrorCode.storeSuspended)
 export const readOnly = () => refusal('This store is read-only.', accessErrorCode.readOnly)
 
+/** Past due or cancelled for the merchant side; a supplier keeps working while past due and isn't told (FIRST-RELEASE §1). */
+export const readOnlyFor = (role: StoreRole, status: string): boolean => status === 'cancelled' || (status === 'past_due' && role.side === 'merchant')
+
+// The decision's "stock, shipping" (#337): what a past-due store's supplier still writes; the rest waits as the merchant's does.
+const supplierWorkWhilePastDue: readonly StorePermission[] = ['stock.write', 'warehouses.write', 'orders.fulfil']
+
+const writeRefused = (role: StoreRole, status: string, permission: StorePermission): boolean =>
+  readOnlyFor(role, status) || (status === 'past_due' && role.side === 'supplier' && !supplierWorkWhilePastDue.includes(permission))
+
 /**
  * ACCESS.md §5.1–5.2 per role and tier, within the acting store only. `store` fields are the
- * merchant side's; `store-seller` fields admit suppliers too, on their own rows. Past due or
- * cancelled, every write is refused but the few declared `whileReadOnly` (SAAS.md §4.2).
+ * merchant side's; `store-seller` fields admit suppliers too, on their own rows. Read-only, every
+ * write is refused but the few declared `whileReadOnly` (SAAS.md §4.2).
  */
 export const storePolicy: AccessPolicy<StoreContext> = {
   api: 'store',
@@ -48,8 +57,7 @@ export const storePolicy: AccessPolicy<StoreContext> = {
     if (caller.store.status === 'suspended') throw storeSuspended()
     if (access.scope === 'store' && caller.role.side === 'supplier') throw forbidden()
     if (access.permission === null || !isStorePermission(access.permission) || !storeRoleHas(caller.role, access.permission)) throw forbidden()
-    const frozen = caller.store.status === 'past_due' || caller.store.status === 'cancelled'
-    if (operation === 'mutation' && frozen && !access.whileReadOnly) throw readOnly()
+    if (operation === 'mutation' && writeRefused(caller.role, caller.store.status, access.permission) && !access.whileReadOnly) throw readOnly()
   },
 }
 
