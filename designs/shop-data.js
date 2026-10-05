@@ -9,7 +9,7 @@
       address: ['Kesari Threads', 'MI Road', 'Jaipur, Rajasthan 302001', 'India'], taxId: 'GSTIN 08ABCDE1234F1Z5',
       taxLine: 'Inclusive of all taxes', taxShort: 'incl. GST', taxName: 'GST', compareName: 'MRP', postal: 'PIN code', region: 'State', regionName: 'Rajasthan',
       sizes: ['S', 'M', 'L', 'XL'], mult: v => Math.round(v * 55 / 50) * 50 - 1,
-      languages: [['en-IN', 'English'], ['hi-IN', 'हिन्दी']], currencies: ['INR'],
+      languages: [['en-IN', 'English']], currencies: ['INR'],
       delivery: [
         { id: 'std', name: 'Standard delivery', note: '3–5 working days · Shiprocket', price: 79, freeOver: 1999 },
         { id: 'exp', name: 'Express delivery', note: '1–2 working days · Shiprocket', price: 149 },
@@ -58,7 +58,6 @@
     }
   };
 
-  const HI = { Shop: 'खरीदें', Search: 'खोजें', Cart: 'कार्ट', Account: 'खाता', 'Add to cart': 'कार्ट में डालें', Checkout: 'चेकआउट', 'Sign in': 'साइन इन', 'New in': 'नया', About: 'हमारे बारे में', Journal: 'जर्नल', Help: 'सहायता', 'Your cart': 'आपका कार्ट', 'Shown in English': 'अंग्रेज़ी में दिखाया गया' };
 
   function catalogue(k) {
     const R = REG[k]; const P = v => R.mult(v);
@@ -123,5 +122,5 @@
     return { R, products, collections, menu, posts, faqs, orders };
   }
 
-  window.SHOP = { REG, HI, catalogue };
+  window.SHOP = { REG, catalogue };
 })();
