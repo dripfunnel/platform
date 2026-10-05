@@ -202,6 +202,21 @@ describe('Tax setup', () => {
     expect((await del(standard?.id)).code).toBe('CLASS_IN_USE')
   })
 
+  it('never deletes a class a product save is putting a version on: the delete waits, then finds it in use', async () => {
+    const books = (await gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'india', { input: { name: 'Books race' } })).data?.['saveTaxClass'] as string
+    const { versionId } = await product('india', 'INR', '30000')
+    let deleting: Promise<{ code: string | undefined }> | null = null
+    // The save's side: the class held as validation holds it, a version put on it before commit.
+    await db.sql.begin(async (tx) => {
+      await tx`select id from tax_class where id = ${books} for share`
+      deleting = gql('mutation D($id: ID!) { deleteTaxClass(id: $id) }', 'india', { id: books })
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      await tx`update product_version set tax_class_id = ${books} where id = ${versionId}`
+    })
+    expect((await (deleting as unknown as Promise<{ code: string | undefined }>)).code).toBe('CLASS_IN_USE')
+    expect((await db.sql<{ deleted_at: Date | null }[]>`select deleted_at from tax_class where id = ${books}`)[0]?.deleted_at).toBeNull()
+  })
+
   it('holds each store to 50 classes and 100 zones', async () => {
     const count = (await setup('us')).classes.length
     const saveClass = (name: string) => gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'us', { input: { name } })
