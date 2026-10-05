@@ -55,7 +55,9 @@ let store: { id: string; partnerId: string; name: string; ownerEmail: string }
 
 beforeAll(async () => {
   db = await createTestDatabase()
-  now = (await db.sql<{ now: Date }[]>`select now() as now`)[0]?.now ?? new Date()
+  const [clock] = await db.sql<{ now: Date }[]>`select now() as now`
+  if (!clock) throw new Error('the test database gave no clock')
+  now = clock.now
   await seed(db.url, now)
   const [p] = await db.sql<{ id: string; owner: string; finance: string }[]>`
     select p.id,
