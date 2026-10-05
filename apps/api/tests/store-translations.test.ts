@@ -246,6 +246,24 @@ describe('suppliers and other stores', () => {
     expect((await translationOf('owner', gone, 'hi-IN')).code).toBe('NOT_FOUND')
   })
 
+  it('refuses one field named twice in a request, and writes nothing', async () => {
+    const shirt = await create('owner', kurtaInput('Twice kurta'))
+    const version = (await translationOf('owner', shirt, 'hi-IN')).rows?.find((r) => r.entity === 'version')?.entityId ?? ''
+    expect((await translate('owner', shirt, 'hi-IN', { versions: [{ id: version, name: 'x' }, { id: version, name: 'y' }] })).code).toBe('INVALID_INPUT')
+    const twice = [{ kind: 'choice_name', source: 'Red', text: 'a' }, { kind: 'choice_name', source: 'red ', text: 'b' }]
+    expect((await gql('mutation S($n: [SharedNameTranslationInput!]!) { saveSharedNames(language: "hi-IN", names: $n) }', 'owner', { n: twice })).code).toBe('INVALID_INPUT')
+    expect(await db.sql`select 1 from translation where entity_id = ${version}`).toHaveLength(0)
+  })
+
+  it('counts what’s left to translate exactly as the list shows it, leaving sample products out', async () => {
+    const sample = await create('owner', kurtaInput('Sample kurta'))
+    await db.sql`update product set is_sample = true where id = ${sample}`
+    const progress = (await gql('{ translationProgress(language: "hi-IN") { products untranslated } }', 'owner')).data?.['translationProgress'] as { products: number; untranslated: number }
+    const listed = ((await gql('{ products(untranslatedIn: "hi-IN", first: 100) { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }).nodes
+    expect(listed.map((n) => n.id)).not.toContain(sample)
+    expect(progress.untranslated).toBe(listed.length)
+  })
+
   it('keeps another store out, in the API and in the database', async () => {
     const kurta = ((await gql('{ products(search: "Linen") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }).nodes[0]?.id ?? ''
     expect((await translationOf('bOwner', kurta, 'hi-IN')).code).toBe('NOT_FOUND')

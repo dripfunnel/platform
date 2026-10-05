@@ -112,7 +112,7 @@ export const countUntranslatedProducts = async (tx: ScopedSql, storeId: string, 
     await tx<{ products: number; untranslated: number }[]>`
       select count(*)::int as products,
         count(*) filter (where not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${language}))::int as untranslated
-      from product p where p.store_id = ${storeId} and p.deleted_at is null
+      from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
     `
   )[0] ?? { products: 0, untranslated: 0 }
 

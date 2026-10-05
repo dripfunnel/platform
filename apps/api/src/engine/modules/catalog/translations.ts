@@ -68,6 +68,11 @@ export interface TranslationDeps {
 const limits: Record<TranslationField, number> = { name: 255, slug: 120, description: 20_000 }
 export const maxSharedNames = 100
 
+/** One request names each field once: a second would make the upsert touch a row twice, and which wins is unclear. */
+const onceEach = (keys: readonly { entity: TranslationEntity; entityId: string; field: TranslationField }[]) => {
+  if (new Set(keys.map((k) => `${k.entity}|${k.entityId}|${k.field}`)).size !== keys.length) throw new Refused('INVALID_INPUT')
+}
+
 export const createTranslationService = ({ sql, context, actor, activity, facts, now }: TranslationDeps) => {
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
@@ -166,6 +171,7 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
         own.writes.push(...change.writes.map((w) => ({ ...w, main: source })))
         own.clears.push(...change.clears)
       }
+      onceEach([...own.writes, ...own.clears])
       await upsertTranslations(tx, storeId, language, own.writes, now())
       await deleteTranslations(tx, storeId, language, own.clears)
       await activity.record(tx, entry(translationAudit.product, { type: 'product', id: productId, label: product.main }, language))
@@ -223,6 +229,7 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
         if (text === '') clears.push({ entity: n.kind, entityId: source, field: 'name' })
         else writes.push({ entity: n.kind, entityId: source, field: 'name', main: source, text })
       }
+      onceEach([...writes, ...clears])
       await upsertTranslations(tx, storeId, language, writes, now())
       await deleteTranslations(tx, storeId, language, clears)
       await activity.record(tx, entry(translationAudit.shared, { type: 'store', id: storeId, label: 'Option and choice names' }, `${language}: ${names.length}`))
