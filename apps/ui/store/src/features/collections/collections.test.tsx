@@ -71,7 +71,7 @@ beforeEach(() => {
   api.previewCollection.mockResolvedValue({ count: 0, products: [] })
   api.searchPickable.mockResolvedValue([])
   api.loadMembers.mockResolvedValue([])
-  filtersApi.loadFilters.mockResolvedValue(facets.map((f, position) => ({ ...f, position, values: f.values.map((v) => ({ ...v, products: 0 })) })))
+  filtersApi.loadFilters.mockResolvedValue(facets.map((f, position) => ({ ...f, position, revision: 1, values: f.values.map((v) => ({ ...v, products: 0 })) })))
   editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR' })
   menuApi.loadMenu.mockResolvedValue(null)
 })
@@ -259,9 +259,9 @@ describe('a collection being made or changed', () => {
 
 describe('filters', () => {
   const f = filtersApi
-  const colour = { id: 'colour', name: 'Colour', position: 1, shopperVisible: true, values: [{ id: 'ow', name: 'Off-white', products: 6 }, { id: 'ow2', name: 'Off white', products: 2 }, { id: 'indigo', name: 'Indigo', products: 5 }] }
-  const fabric = { id: 'fabric', name: 'Fabric', position: 0, shopperVisible: true, values: [{ id: 'linen', name: 'Linen', products: 9 }, { id: 'cotton', name: 'Cotton', products: 0 }] }
-  const tag = { id: 'tag', name: 'Reorder soon', position: 4, shopperVisible: false, values: [] }
+  const colour = { id: 'colour', name: 'Colour', position: 1, revision: 7, shopperVisible: true, values: [{ id: 'ow', name: 'Off-white', products: 6 }, { id: 'ow2', name: 'Off white', products: 2 }, { id: 'indigo', name: 'Indigo', products: 5 }] }
+  const fabric = { id: 'fabric', name: 'Fabric', position: 0, revision: 7, shopperVisible: true, values: [{ id: 'linen', name: 'Linen', products: 9 }, { id: 'cotton', name: 'Cotton', products: 0 }] }
+  const tag = { id: 'tag', name: 'Reorder soon', position: 4, revision: 7, shopperVisible: false, values: [] }
   const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 
   beforeEach(() => {
@@ -285,7 +285,7 @@ describe('filters', () => {
     fireEvent.change(dialog().getByLabelText(words.filters.newName), { target: { value: 'Fit' } })
     fireEvent.click(dialog().getByRole('button', { name: words.filters.newConfirm }))
     await settle()
-    expect(f.saveFilter).toHaveBeenCalledWith({ id: null, name: 'Fit', position: 5, shopperVisible: true, values: [] })
+    expect(f.saveFilter).toHaveBeenCalledWith({ id: null, revision: null, name: 'Fit', position: 5, shopperVisible: true, values: [] })
     expect(screen.getByText('“Fit” created — add its values')).toBeTruthy()
     expect(f.loadFilters).toHaveBeenCalledTimes(2)
   })
@@ -297,7 +297,7 @@ describe('filters', () => {
     fireEvent.change(dialog().getByLabelText(words.filters.addValue), { target: { value: 'Bamboo' } })
     fireEvent.click(dialog().getByRole('button', { name: words.filters.addConfirm }))
     await settle()
-    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
+    expect(f.saveFilter).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'fabric', revision: 7, values: [{ id: 'linen', name: 'Linen' }, { id: 'cotton', name: 'Cotton' }, { id: null, name: 'Bamboo' }] }))
     fireEvent.click(fab().getByRole('button', { name: 'Linen 9' }))
     expect(dialog().getByText('9 products use it. Renaming keeps them all; deleting takes it off them.')).toBeTruthy()
     fireEvent.click(dialog().getByRole('button', { name: words.filters.next }))
@@ -333,6 +333,13 @@ describe('filters', () => {
     fireEvent.click(dialog().getByRole('button', { name: words.filters.addConfirm }))
     await settle()
     expect(screen.getByText(words.filters.refused.DUPLICATE_VALUE)).toBeTruthy()
+    // A save from an older read is refused, and the filters load again to show the other change.
+    f.saveFilter.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    const loads = f.loadFilters.mock.calls.length
+    fireEvent.click(screen.getByRole('button', { name: 'Fabric: shoppers see this. Make it internal' }))
+    await settle()
+    expect(screen.getByText(words.filters.refused.STALE_REVISION)).toBeTruthy()
+    expect(f.loadFilters.mock.calls.length).toBe(loads + 1)
   })
 
   it('lets staff look without changing anything', async () => {
@@ -407,6 +414,15 @@ describe('the main menu', () => {
       'Main menu',
       3,
     )
+  })
+
+  it('shows two items with the same name in both previews, each its own', async () => {
+    const link = (id: string, url: string) => ({ id, parentId: null, kind: 'url', label: 'Sale', collectionId: null, url })
+    m.loadMenu.mockResolvedValue({ name: 'Main menu', revision: 1, items: [link('l1', 'https://a.example/sale'), link('l2', 'https://b.example/sale')] })
+    await show(owner, '/collections?tab=menus')
+    expect(within(screen.getByRole('region', { name: words.menus.desktop })).getAllByText('Sale')).toHaveLength(2)
+    expect(within(screen.getByRole('region', { name: words.menus.phone })).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByText('Link · https://a.example/sale')).toBeTruthy()
   })
 
   it('won’t nest the first item, and reloads the menu when someone else changed it first', async () => {

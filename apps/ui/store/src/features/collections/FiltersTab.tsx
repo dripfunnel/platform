@@ -51,7 +51,7 @@ export const FiltersTab = ({ filters, collections, canEdit, onChanged }: Filters
   }
 
   const write = (f: Filter, patch: Partial<Pick<Filter, 'shopperVisible'>> & { values?: { id: string | null; name: string }[] }) =>
-    saveFilter({ id: f.id, name: f.name, position: f.position, shopperVisible: patch.shopperVisible ?? f.shopperVisible, values: patch.values ?? f.values.map((v) => ({ id: v.id, name: v.name })) })
+    saveFilter({ id: f.id, revision: f.revision, name: f.name, position: f.position, shopperVisible: patch.shopperVisible ?? f.shopperVisible, values: patch.values ?? f.values.map((v) => ({ id: v.id, name: v.name })) })
 
   const create = () =>
     setAsk({
@@ -63,7 +63,7 @@ export const FiltersTab = ({ filters, collections, canEdit, onChanged }: Filters
       onConfirm: (_, value) => {
         const name = (value ?? '').trim()
         void run(async () => {
-          await saveFilter({ id: null, name, position: Math.max(-1, ...filters.map((f) => f.position)) + 1, shopperVisible: true, values: [] })
+          await saveFilter({ id: null, revision: null, name, position: Math.max(-1, ...filters.map((f) => f.position)) + 1, shopperVisible: true, values: [] })
           return fill(words.created, { name })
         })
       },

@@ -17,10 +17,10 @@ const values = (counts: Record<string, number>) => Object.entries(counts).map(([
 
 export const sampleFilters: Filter[] = harness
   ? [
-      { id: 'f-fabric', name: 'Fabric', position: 0, shopperVisible: true, values: values({ Linen: 9, Cotton: 14, Silk: 3 }) },
-      { id: 'f-colour', name: 'Colour', position: 1, shopperVisible: true, values: values({ 'Off-white': 6, 'Off white': 2, Indigo: 5 }) },
-      { id: 'f-occasion', name: 'Occasion', position: 2, shopperVisible: true, values: values({ Everyday: 11, Festive: 7, Wedding: 4 }) },
-      { id: 'f-reorder', name: 'Reorder soon', position: 3, shopperVisible: false, values: values({ Yes: 2 }) },
+      { id: 'f-fabric', name: 'Fabric', position: 0, revision: 1, shopperVisible: true, values: values({ Linen: 9, Cotton: 14, Silk: 3 }) },
+      { id: 'f-colour', name: 'Colour', position: 1, revision: 1, shopperVisible: true, values: values({ 'Off-white': 6, 'Off white': 2, Indigo: 5 }) },
+      { id: 'f-occasion', name: 'Occasion', position: 2, revision: 1, shopperVisible: true, values: values({ Everyday: 11, Festive: 7, Wedding: 4 }) },
+      { id: 'f-reorder', name: 'Reorder soon', position: 3, revision: 1, shopperVisible: false, values: values({ Yes: 2 }) },
     ]
   : []
 

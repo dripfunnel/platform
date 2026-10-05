@@ -176,6 +176,7 @@ type Facet {
   id: ID
   name: String
   position: Int
+  revision: Int
   shopperVisible: Boolean
   values: [FacetValue!]
 }
@@ -184,6 +185,7 @@ input FacetInput {
   id: String
   name: String!
   position: Int
+  revision: Int
   shopperVisible: Boolean
   values: [FacetValueInput!]!
 }
