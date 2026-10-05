@@ -44,16 +44,12 @@ export const SettingsPage = () => {
   }, [forced, allowed])
   useEffect(load, [load])
 
-  const saved = (text: string) => {
-    setToast(text)
-    load()
-  }
-
   const body = () => {
     if (!allowed) return <EmptyState title={words.denied.title} body={words.denied.body} />
     if (view.kind === 'loading') return <LoadingState label={words.loading} />
     if (view.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
-    return <StoreInfoTab key={JSON.stringify([view.info, view.locale])} info={view.info} locale={view.locale} canEdit={!readOnly} onSaved={saved} />
+    // Each card keeps what it saved; reading the tab again would throw away what's typed in the other two.
+    return <StoreInfoTab info={view.info} locale={view.locale} canEdit={!readOnly} onSaved={setToast} />
   }
 
   return (

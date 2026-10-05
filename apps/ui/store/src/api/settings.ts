@@ -78,6 +78,13 @@ export const saveLanguages = async (languages: string[], main: string): Promise<
   await query('mutation L($l: [String!]!, $m: String!) { saveLanguages(languages: $l, main: $m) }', z.object({ saveLanguages: z.boolean() }), { l: languages, m: main })
 }
 
-/** How many products are translated into a language, of how many. */
-export const loadTranslationProgress = async (language: string): Promise<{ products: number; untranslated: number } | null> =>
-  (await query('query P($l: String!) { translationProgress(language: $l) { products untranslated } }', z.object({ translationProgress: z.object({ products: z.number().int(), untranslated: z.number().int() }).nullable() }), { l: language })).translationProgress
+const progressSchema = z.object({ products: z.number().int(), untranslated: z.number().int() }).nullable()
+
+/** How many products are translated into each language, of how many: every language in one request. */
+export const loadTranslationProgress = async (languages: readonly string[]): Promise<Map<string, { products: number; untranslated: number } | null>> => {
+  if (languages.length === 0) return new Map()
+  const fields = languages.map((_, i) => `l${i}: translationProgress(language: $l${i}) { products untranslated }`).join(' ')
+  const params = languages.map((_, i) => `$l${i}: String!`).join(', ')
+  const answer = await query(`query P(${params}) { ${fields} }`, z.record(z.string(), progressSchema), Object.fromEntries(languages.map((l, i) => [`l${i}`, l])))
+  return new Map(languages.map((l, i) => [l, answer[`l${i}`] ?? null]))
+}

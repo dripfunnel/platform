@@ -2321,7 +2321,8 @@
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "FORBIDDEN": "Only the store owner can change settings.",
         "other": "That didn’t save. Try again."
-      }
+      },
+      "nextMissing": "Type the next order number — 1 or more, and no lower than it is now."
     }
   }
 }
