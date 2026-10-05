@@ -284,6 +284,26 @@ describe('Brand stories', () => {
     expect((await saveBlock('owner', { name: 'One more', title: 'T', body: 'B' })).code).toBe('TOO_MANY_STORY_BLOCKS')
     await db.sql`delete from story_block where name like 'Filler %'`
   })
+
+  it('holds the limit when two are made at the same moment', async () => {
+    const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from story_block where store_id = ${t.storeA1}`
+    await db.sql`insert into story_block (store_id, name, content) select ${t.storeA1}, 'Filler ' || g, '{"title":"T","body":"B","photo":null}' from generate_series(1, ${49 - n}) g`
+    // Another save holds the store's lock and has made the 50th, not yet committed.
+    let commit = () => {}
+    const held = new Promise<void>((resolve) => (commit = resolve))
+    const other = db.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext(${`story_block:${t.storeA1}`}))`
+      await tx`insert into story_block (store_id, name, content) values (${t.storeA1}, 'Filler 50', '{"title":"T","body":"B","photo":null}')`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const mine = saveBlock('owner', { name: 'Racing', title: 'T', body: 'B' })
+    await new Promise((r) => setTimeout(r, 200))
+    commit()
+    await other
+    expect((await mine).code).toBe('TOO_MANY_STORY_BLOCKS')
+    await db.sql`delete from story_block where name like 'Filler %'`
+  })
 })
 
 describe('Brand stories, at the same moment', () => {
