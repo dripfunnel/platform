@@ -27,6 +27,8 @@ export const MyActivity = ({ storeNames, sample }: { storeNames: ReadonlyMap<str
   }, [sample, first])
 
   const older = (ready: Extract<View, { kind: 'ready' }>) => {
+    // One page at a time: the button is gone while it loads, so a double click can't fetch it twice.
+    if (ready.more === 'loading') return
     setView({ ...ready, more: 'loading' })
     loadMyActivity(ready.next).then(
       (page) => setView({ kind: 'ready', entries: [...ready.entries, ...page.entries], next: page.next, more: 'idle' }),
@@ -69,7 +71,8 @@ export const MyActivity = ({ storeNames, sample }: { storeNames: ReadonlyMap<str
               {words.error}
             </p>
           )}
-          {view.next && (
+          {view.more === 'loading' && <p className="df-profile-note">{words.loading}</p>}
+          {view.next && view.more !== 'loading' && (
             <div>
               <Secondary size="small" onClick={() => older(view)}>
                 {words.more}

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import type { Profile } from '../../api/profile'
 import { messages } from '../../messages'
 import { storeStates } from '../staff-session/StaffSessionRoot'
-import { Details } from './Details'
+import { Details, saveDetails } from './Details'
 import { passwordHint } from './PasswordCard'
 import { profileSample, profileStates } from './profileStates'
 import { activityLine, lastFour, profileRefusal } from './profileWords'
@@ -109,14 +109,53 @@ describe('two-step sign-in', () => {
 
 describe('your details', () => {
   it('locks the number while it gets the sign-in codes', () => {
-    const html = renderToString(<Details profile={profile({ method: 'sms', backupCodesLeft: 8, required: false })} onSaved={none} onToast={none} />)
+    const html = renderToString(<Details profile={profile({ method: 'sms', backupCodesLeft: 8, required: false })} onSaved={none} onChanged={none} onToast={none} />)
     expect(html).toContain(words.details.phoneLocked)
     expect(html).toMatch(/readOnly=""|readonly=""/)
   })
 
   it('says a new email is waiting for its link', () => {
-    const html = renderToString(<Details profile={profile({ method: null, backupCodesLeft: 0, required: false }, { pendingEmail: 'new@example.com' })} onSaved={none} onToast={none} />)
+    const html = renderToString(<Details profile={profile({ method: null, backupCodesLeft: 0, required: false }, { pendingEmail: 'new@example.com' })} onSaved={none} onChanged={none} onToast={none} />)
     expect(html).toContain('new@example.com')
+  })
+})
+
+describe('saving your details', () => {
+  const base = profile({ method: null, backupCodesLeft: 0, required: false })
+  const fake = (emailFails = false) => {
+    const calls: string[] = []
+    return {
+      calls,
+      api: {
+        updateProfile: async (d: { name: string; phone: string | null; theme: Profile['theme'] }) => (calls.push(`details:${d.name}`), { ...base, name: d.name }),
+        changeEmail: async (to: string) => {
+          calls.push(`email:${to}`)
+          if (emailFails) throw new ApiError('INVALID_CREDENTIALS', 'no')
+        },
+      },
+    }
+  }
+
+  it('saves the details, then asks for the email link, in that order', async () => {
+    const { calls, api } = fake()
+    const result = await saveDetails({ details: { name: 'Farhan A', phone: null }, email: { to: 'new@example.com', password: 'pw' } }, null, api)
+    expect(calls).toEqual(['details:Farhan A', 'email:new@example.com'])
+    expect(result).toMatchObject({ saved: { name: 'Farhan A' }, emailSentTo: 'new@example.com', failure: null })
+  })
+
+  it('keeps the details saved when the email is refused, and says why', async () => {
+    const { api } = fake(true)
+    const result = await saveDetails({ details: { name: 'Farhan B', phone: null }, email: { to: 'new@example.com', password: 'wrong' } }, null, api)
+    expect(result.saved).toMatchObject({ name: 'Farhan B' })
+    expect(result.emailSentTo).toBeNull()
+    expect(profileRefusal(result.failure, 'x')).toBe(words.twoStep.wrongPassword)
+  })
+
+  it('sends only what changed', async () => {
+    const { calls, api } = fake()
+    await saveDetails({ details: null, email: { to: 'only@example.com', password: 'pw' } }, null, api)
+    await saveDetails({ details: { name: 'Only name', phone: null }, email: null }, null, api)
+    expect(calls).toEqual(['email:only@example.com', 'details:Only name'])
   })
 })
 

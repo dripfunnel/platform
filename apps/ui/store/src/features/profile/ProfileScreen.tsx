@@ -53,7 +53,7 @@ export const ProfileScreen = () => {
       {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}
       {view.kind === 'ready' && (
         <>
-          <Details key={`${view.profile.email}-${view.profile.phone ?? ''}`} profile={view.profile} onSaved={saved} onToast={setToast} />
+          <Details key={view.profile.email} profile={view.profile} onSaved={saved} onChanged={load} onToast={setToast} />
           <PasswordCard changedAt={view.profile.passwordChangedAt} onChanged={load} onToast={setToast} />
           <TwoStep key={forced ?? 'live'} profile={view.profile} onChanged={load} onToast={setToast} initialSetup={sample?.setup ?? null} />
           <Appearance profile={view.profile} onSaved={saved} onFailed={() => setToast(messages.auth.notConnected)} />
