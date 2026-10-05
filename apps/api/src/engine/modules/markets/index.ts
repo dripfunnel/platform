@@ -11,6 +11,7 @@ import {
   marketClash,
   moveMarketsOffRemoved,
   selectReadinessFacts,
+  selectExclusions,
   selectSellingMarkets,
   saveCurrencies as writeCurrencies,
   saveLanguages as writeLanguages,
@@ -244,6 +245,7 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       const store = await selectLocale(tx, storeId)
       if (!store?.pricing_currency) return out
       const markets = await selectSellingMarkets(tx, storeId)
+      const excluded = await selectExclusions(tx, storeId, productIds)
       const currencies = store.currencies.filter((c) => c.status === 'active')
       const perEuro = new Map([...(await selectRates(tx, [store.pricing_currency, ...currencies.map((c) => c.currency)])).values()].map((r) => [r.currency, r.per_euro]))
       const setting: StorePricing = { pricingCurrency: store.pricing_currency, currencies, perEuro }
@@ -252,7 +254,8 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
         const hasCompareAt = row.versions.some((v) => v.prices.some((p) => p.currency === store.pricing_currency && p.compare_at_amount !== null))
         out.set(
           row.id,
-          markets.map((m) => ({
+          // A market that doesn't sell the product asks nothing of it.
+          markets.filter((m) => !excluded.get(m.id)?.has(row.id)).map((m) => ({
             marketId: m.id,
             marketName: m.name,
             missing: missingFor({ productType: row.product_type, priced: row.versions.some((v) => priceInMarket(v.prices, m, setting).amount !== null), hasCompareAt, compliance }, m.countries),

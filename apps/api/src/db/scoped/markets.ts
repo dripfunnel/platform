@@ -171,6 +171,17 @@ export const setExcludedProducts = async (tx: ScopedSql, storeId: string, market
   `
 }
 
+/** Which of these products each market selling only some leaves out, as market id → product ids. */
+export const selectExclusions = async (tx: ScopedSql, storeId: string, productIds: readonly string[]): Promise<Map<string, Set<string>>> => {
+  const rows = await tx<{ market_id: string; product_id: string }[]>`
+    select x.market_id, x.product_id from market_excluded_product x join market m on m.id = x.market_id
+    where x.store_id = ${storeId} and m.products = 'some' and x.product_id = any(${pgArray(productIds)}::uuid[])
+  `
+  const out = new Map<string, Set<string>>()
+  for (const r of rows) out.set(r.market_id, (out.get(r.market_id) ?? new Set()).add(r.product_id))
+  return out
+}
+
 /** Products of the store among these, for a market's exclusions. */
 export const countStoreProducts = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<number> =>
   (await tx<{ n: number }[]>`select count(*)::int as n from product where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`)[0]?.n ?? 0
