@@ -56,6 +56,7 @@ const loc: StoreLocale = {
     { code: 'en-US', status: 'active' },
   ],
   rates: [],
+  examples: [],
 }
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
