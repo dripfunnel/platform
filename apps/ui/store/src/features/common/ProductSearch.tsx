@@ -42,7 +42,8 @@ export const ProductSearch = ({ label, hide, onPick, limit = 8 }: { label: strin
         {search.kind === 'found' && choices.length === 0 && <span className="df-product-search-note">{fill(words.none, { query: query.trim() })}</span>}
         {choices.map((p) => (
           <button key={p.id} type="button" className="df-product-search-pick" onClick={() => onPick(p)}>
-            + {p.name}
+            <span aria-hidden="true">+ </span>
+            {p.name}
           </button>
         ))}
       </div>

@@ -126,9 +126,10 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
     return row.name
   }
 
-  /** Null when the caller can't read the product; a product with no story yet has an empty draft at revision 0. */
+  /** The story with the products its comparisons name, by name, in the caller's scope. */
   const named = async (tx: ScopedSql, s: Story): Promise<Story> => ({ ...s, products: await selectProductNames(tx, storeId, comparedIn(s.modules)) })
 
+  /** Null when the caller can't read the product; a product with no story yet has an empty draft at revision 0. */
   const story = (productId: string) =>
     inScope(async (tx) => {
       if (!isUuid(productId) || (await readableProducts(tx, storeId, [productId])).length === 0) return null

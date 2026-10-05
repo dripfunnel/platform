@@ -91,7 +91,7 @@ export const StoryPanel = ({
   gaps: readonly StoryGap[]
   productName: string
   productId: string
-  blocks: readonly { id: string; name: string }[]
+  blocks: readonly { id: string; name: string }[] | 'failed'
   supplier: boolean
   names: Readonly<Record<string, string>>
   onNamed: (product: { id: string; name: string }) => void
@@ -162,7 +162,7 @@ export const StoryPanel = ({
               <input aria-label={fill(panel.boxItem, { n: String(i + 1) })} maxLength={80} value={item.title} readOnly={disabled} onChange={(e) => set({ items: m.items.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)) })} />
               {!disabled && (
                 <button type="button" className="df-story-link" aria-label={fill(panel.boxRemove, { n: String(i + 1) })} onClick={() => set({ items: m.items.filter((_, j) => j !== i) })}>
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               )}
             </span>
@@ -194,10 +194,10 @@ export const StoryPanel = ({
           <span className="df-story-row">
             {m.productIds.map((id) => (
               <span key={id} className="df-story-chip">
-                {names[id] ?? '…'}
+                {names[id] ?? panel.compareGone}
                 {!disabled && (
-                  <button type="button" aria-label={fill(panel.compareRemove, { name: names[id] ?? '' })} onClick={() => set({ productIds: m.productIds.filter((x) => x !== id) })}>
-                    ×
+                  <button type="button" aria-label={fill(panel.compareRemove, { name: names[id] ?? panel.compareGone })} onClick={() => set({ productIds: m.productIds.filter((x) => x !== id) })}>
+                    <span aria-hidden="true">×</span>
                   </button>
                 )}
               </span>
@@ -220,6 +220,8 @@ export const StoryPanel = ({
       {m.kind === 'brand' &&
         (supplier ? (
           <p className="df-story-hint">{panel.brandSupplier}</p>
+        ) : blocks === 'failed' ? (
+          <p className="df-story-problem">{panel.brandFailed}</p>
         ) : blocks.length === 0 ? (
           <p className="df-story-hint">{panel.brandEmpty}</p>
         ) : (

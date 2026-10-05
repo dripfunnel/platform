@@ -455,7 +455,7 @@ describe('the product editor', () => {
     }
     fireEvent.change(find, { target: { value: 'kur' } })
     await act(async () => vi.advanceTimersByTimeAsync(350))
-    fireEvent.click(screen.getByRole('button', { name: '+ Kurta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Kurta' }))
     expect(screen.getByText('Kurta')).toBeTruthy()
     vi.useRealTimers()
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
