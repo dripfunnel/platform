@@ -39,6 +39,8 @@ const clearSignupCookie = () => `${signupCookieName}=; Path=/; Secure; HttpOnly;
 /** Names a store can't take: the platform's own hosts under every partner domain. */
 const reservedSubdomains = new Set(['admin', 'api', 'app', 'help', 'hooks', 'mail', 'platform', 'portal', 'preview', 'shop', 'shops', 'status', 'store', 'support', 'www'])
 const subdomainPattern = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/
+const textsPerNumberPerDay = 3
+const textsPerPartnerPerHour = 200
 
 const startInput = z.strictObject({ name: z.string().max(120), email: z.string().max(320), password: z.string().max(1024) })
 const codeInput = z.strictObject({ code: z.string().max(16) })
@@ -149,10 +151,13 @@ export const sendSignupPhoneCode = async (request: Request, deps: StoreAuthDeps,
   const outcome = await withSignup(deps, cookie, ['phone'], async (tx, s): Promise<SignupRefusal | { hint: string }> => {
     const phone = input?.phone.trim() ?? ''
     if (!isE164(phone)) return { code: 'INVALID_PHONE' }
-    if ((await countSignupTextsSince(tx, s.id, new Date(now.getTime() - 10 * 60_000))) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
+    // Per sign-up, per number and per partner, so texts can't be pumped to numbers nobody here owns.
+    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - 10 * 60_000), { signupId: s.id })) >= maxSmsCodesPer10Min) return { code: 'RATE_LIMITED' }
+    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - signupMs), { phone })) >= textsPerNumberPerDay) return { code: 'RATE_LIMITED' }
+    if ((await countSignupTextsSince(tx, deps.partnerId, new Date(now.getTime() - 60 * 60_000), {})) >= textsPerPartnerPerHour) return { code: 'RATE_LIMITED' }
     const code = newSmsCode()
     const expiresAt = new Date(now.getTime() + smsCodeMs)
-    await setSignupPhoneCode(tx, s.id, phone, await hashSmsCode(`signup-phone:${s.id}`, code), expiresAt, now)
+    await setSignupPhoneCode(tx, { id: s.id, partnerId: deps.partnerId }, phone, await hashSmsCode(`signup-phone:${s.id}`, code), expiresAt, now)
     await queueSms(tx, {
       partnerId: deps.partnerId,
       storeId: null,

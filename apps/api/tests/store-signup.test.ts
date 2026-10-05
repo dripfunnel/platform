@@ -168,6 +168,19 @@ describe('signing up', () => {
     expect(await db.sql`select 1 from signup where email = 'abandoned@a.example'`).toHaveLength(0)
   })
 
+  it('texts one number at most three times a day, across every sign-up, and caps the partner’s hour', async () => {
+    const answers = []
+    for (let i = 0; i < 4; i += 1) {
+      const signup = await throughStore(`pump${i}@a.example`, `pump-${i}`, 'US')
+      answers.push((await post('/api/auth/sign-up/send-phone', { phone: '+16145550199' }, signup)).body['code'])
+    }
+    expect(answers).toEqual([undefined, undefined, undefined, 'RATE_LIMITED'])
+    await db.sql`insert into signup_text (partner_id, phone, sent_at) select ${t.partnerA}, '+1614555' || lpad(n::text, 4, '0'), ${now} from generate_series(1, 200) n`
+    const signup = await throughStore('late@a.example', 'late-comer', 'US')
+    expect((await post('/api/auth/sign-up/send-phone', { phone: '+16145559876' }, signup)).body).toEqual({ ok: false, code: 'RATE_LIMITED' })
+    await db.sql`delete from signup_text where phone like '+1614555%' and signup_id is null`
+  })
+
   it('texts at most three codes in ten minutes', async () => {
     const signup = await throughStore('chatty@a.example', 'chatty', 'US')
     const answers = []

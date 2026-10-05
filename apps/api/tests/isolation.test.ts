@@ -338,6 +338,7 @@ describe('the backstop itself', () => {
       'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
       'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job',
       'partner_password_reset', 'user_session', 'user_backup_code', 'verification_code',
+      'user_password_reset', 'user_email_change', 'signup', 'signup_text',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -374,6 +375,32 @@ describe('the backstop itself', () => {
       ).rejects.toThrow(/permission denied/)
     }
     expect(await as('app_system', 'system', async (tx) => (await tx`select 1 from partner_password_reset where token_hash = 'isolation-hash'`).length)).toBe(1)
+  })
+
+  it('keeps sign-ups, merchant resets and email changes to system scope: no request, partner or staff role reads or writes one (#290)', async () => {
+    const [person] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${t.partnerA}, 'signup.isolation@a.example', 'Iso', 'active') returning id`
+    const userId = person?.id ?? ''
+    await db.sql`insert into signup (partner_id, token_hash, stage, name, email, password_hash, expires_at) values (${t.partnerA}, 'iso-signup', 'email', 'Iso', 'iso@a.example', 'hash', now() + interval '1 day')`
+    await db.sql`insert into signup_text (partner_id, phone, sent_at) values (${t.partnerA}, '+16145550000', now())`
+    await db.sql`insert into user_password_reset (request_id, partner_id, user_id, token_hash, expires_at) values (gen_random_uuid(), ${t.partnerA}, ${userId}, 'iso-reset', now() + interval '30 minutes')`
+    await db.sql`insert into user_email_change (partner_id, user_id, new_email, token_hash, expires_at) values (${t.partnerA}, ${userId}, 'new@a.example', 'iso-change', now() + interval '1 day')`
+    const as = (role: string, scope: string, work: (tx: postgres.TransactionSql) => Promise<unknown>) =>
+      db.sql.begin(async (tx: postgres.TransactionSql) => {
+        await tx.unsafe(`set local role ${role}`)
+        await tx`select set_config('app.scope', ${scope}, true)`
+        await tx`select set_config('app.partner_id', ${t.partnerA}, true)`
+        await tx`select set_config('app.store_id', ${t.storeA1}, true)`
+        await tx`select set_config('app.user_id', ${userId}, true)`
+        return work(tx)
+      })
+    for (const [role, scope] of [['app_request', 'store'], ['app_partner', 'partner'], ['app_platform', 'platform']] as const) {
+      for (const table of ['signup', 'signup_text', 'user_password_reset', 'user_email_change']) {
+        await expect(as(role, scope, (tx) => tx.unsafe(`select * from ${table}`))).rejects.toThrow(/permission denied/)
+      }
+      await expect(as(role, scope, (tx) => tx`insert into signup (partner_id, token_hash, stage, name, email, password_hash, expires_at) values (${t.partnerA}, 'x', 'email', 'x', 'x@a.example', 'h', now())`)).rejects.toThrow(/permission denied/)
+      await expect(as(role, scope, (tx) => tx`insert into user_email_change (partner_id, user_id, new_email, expires_at) values (${t.partnerA}, ${userId}, 'x@a.example', now())`)).rejects.toThrow(/permission denied/)
+    }
+    expect(await as('app_system', 'system', async (tx) => (await tx`select 1 from signup where token_hash = 'iso-signup'`).length)).toBe(1)
   })
 
   it('runs staff as app_platform, partner callers as app_partner and store callers as app_request (#205, #155)', async () => {
