@@ -15,8 +15,7 @@ import {
   selectSupplierTeam,
   setSupplierMemberRole,
 } from '#db/scoped/supplierTeam'
-import { sendSupplierInvitation, type InvitationRefusal } from '#saas/storeSuppliers/invitations'
-import { supplierRoleOf } from '#saas/storeSuppliers/index'
+import { sendSupplierInvitation, supplierRoleOf, type InvitationRefusal } from '#saas/storeSuppliers/index'
 import { normalisedEmail } from '#saas/storePeople/index'
 
 // Your team (ACCESS §7.5, VendorViews): a Supplier admin's own supplier only, in its scope. A supplier
