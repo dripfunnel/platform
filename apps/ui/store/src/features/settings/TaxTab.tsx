@@ -1,8 +1,9 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
-import { deleteTaxClass, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
+import { deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
+import { RadioCards } from '../common/RadioCards'
 
 const words = messages.settings.tax
 
@@ -32,7 +33,6 @@ export interface TaxTabProps {
   invoice: InvoiceSettings
   country: string | null
   taxId: string | null
-  currency: string | null
   canEdit: boolean
   /** Said, nothing to read again (the price mode, the invoice). */
   onSaved: (toast: string) => void
@@ -41,7 +41,7 @@ export interface TaxTabProps {
 }
 
 /** Tax setup: how prices are typed, the store's categories and their rates at home, other places' rates, and the invoice. */
-export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSaved, onChanged }: TaxTabProps) => {
+export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChanged }: TaxTabProps) => {
   const id = useId()
   const [included, setIncluded] = useState(tax.pricesIncludeTax)
   const [savedIncluded, setSavedIncluded] = useState(tax.pricesIncludeTax)
@@ -50,15 +50,11 @@ export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSave
   const [savedInvoice, setSavedInvoice] = useState({ perLine: invoice.taxPerLine, email: invoice.emailWithDispatch })
   const [ask, setAsk] = useState<Ask | null>(null)
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<{ card: 'prices' | 'classes' | 'invoice'; text: string } | null>(null)
+  const [failure, setFailure] = useState<{ card: 'prices' | 'invoice'; text: string } | null>(null)
   const t = taxWordsFor(country)
   const home = homeZone(tax.zones, country)
   const others = tax.zones.filter((z) => z !== home)
   const rateOf = (c: TaxClass) => home?.rates.find((r) => r.taxClassId === c.id)?.rateBps ?? null
-  const defaultRate = tax.classes.find((c) => c.isDefault)
-  const exampleRate = defaultRate ? rateOf(defaultRate) : null
-  const money = (v: number) => (currency ? new Intl.NumberFormat(locale, { style: 'currency', currency }).format(v) : formatCount(v))
-  const sample = currency === 'INR' ? 1000 : 100
   const ro = !canEdit || busy
 
   const write = async (card: 'prices' | 'classes' | 'invoice', work: () => Promise<string>, after: () => void = () => undefined) => {
@@ -70,15 +66,12 @@ export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSave
       if (card === 'classes') onChanged(toast)
       else onSaved(toast)
     } catch (error) {
-      setFailure({ card, text: refusalOf(error) })
+      // A category change may have half happened: the tab reads the setup again, the refusal said in the toast.
+      if (card === 'classes') onChanged(refusalOf(error))
+      else setFailure({ card, text: refusalOf(error) })
     } finally {
       setBusy(false)
     }
-  }
-
-  const examples = {
-    included: exampleRate === null ? fill(words.exampleIncludedPlain, { price: money(sample) }) : fill(words.exampleIncluded, { price: money(sample), tax: money(sample - sample / (1 + exampleRate / 10_000)), name: t.name }),
-    excluded: exampleRate === null ? fill(words.exampleExcludedPlain, { price: money(sample), name: t.name }) : fill(words.exampleExcluded, { price: money(sample), total: money(sample * (1 + exampleRate / 10_000)), name: t.name }),
   }
 
   const savePrices = () =>
@@ -92,10 +85,14 @@ export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSave
 
   const zoneInput = (z: TaxZone, rates: { taxClassId: string; rateBps: number }[]) => ({ name: z.name, countries: z.countries, regions: z.regions, rates })
   const homeName = country ? (new Intl.DisplayNames([locale], { type: 'region' }).of(country) ?? country) : ''
-  /** A category's rate at home: the home zone's line for it, made with the zone when there's none yet. */
-  const setHomeRate = (classId: string, bps: number) => {
-    const rates = [...(home?.rates.filter((r) => r.taxClassId !== classId) ?? []), { taxClassId: classId, rateBps: bps }]
-    return home ? saveTaxZone(home.id, zoneInput(home, rates)) : saveTaxZone(null, { name: homeName, countries: country ? [country] : [], regions: [], rates })
+  /**
+   * A category's rate at home: the home zone's line for it, made with the zone when there's none yet. The zone is
+   * read again first, since a zone save replaces its rates whole and the tab's copy may be older.
+   */
+  const setHomeRate = async (classId: string, bps: number) => {
+    const now = homeZone((await loadTax())?.zones ?? [], country)
+    const rates = [...(now?.rates.filter((r) => r.taxClassId !== classId) ?? []), { taxClassId: classId, rateBps: bps }]
+    return now ? saveTaxZone(now.id, zoneInput(now, rates)) : saveTaxZone(null, { name: homeName, countries: country ? [country] : [], regions: [], rates })
   }
   const usesRates = country !== 'US' && country !== null
 
@@ -111,7 +108,13 @@ export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSave
         if (parsed)
           void write('classes', async () => {
             const classId = await saveTaxClass(null, { name: parsed.name, taxCode: null, isDefault: false })
-            await setHomeRate(classId, parsed.bps)
+            try {
+              await setHomeRate(classId, parsed.bps)
+            } catch (error) {
+              // A category without its rate would sit there rate-less, and a retry would refuse its name: it goes again.
+              await deleteTaxClass(classId).catch(() => undefined)
+              throw error
+            }
             return fill(words.added, { name: parsed.name })
           })
       },
@@ -161,15 +164,19 @@ export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSave
             {failure.text}
           </p>
         )}
-        <div className="df-tax-options" role="radiogroup" aria-labelledby={`${id}-prices`}>
-          {([true, false] as const).map((v) => (
-            <button key={String(v)} type="button" role="radio" aria-checked={included === v} disabled={ro} className="df-tax-option" onClick={() => setIncluded(v)}>
-              <strong>{fill(v ? words.include : words.exclude, { name: t.name })}</strong>
-              <span>{fill(v ? words.includeSub : words.excludeSub, { name: t.name })}</span>
-              <span className="df-tax-example">{v ? examples.included : examples.excluded}</span>
-            </button>
-          ))}
-        </div>
+        <RadioCards
+          labelledBy={`${id}-prices`}
+          value={included ? 'included' : 'excluded'}
+          disabled={ro}
+          onChange={(v) => setIncluded(v === 'included')}
+          options={(['included', 'excluded'] as const).map((v) => ({
+            value: v,
+            label: fill(v === 'included' ? words.include : words.exclude, { name: t.name }),
+            sub: fill(v === 'included' ? words.includeSub : words.excludeSub, { name: t.name }),
+            // In words: the UI never works out a price or its tax (ui/README §3).
+            extra: <span className="df-tax-example">{fill(v === 'included' ? words.exampleIncluded : words.exampleExcluded, { name: t.name })}</span>,
+          }))}
+        />
         {canEdit && (
           <div className="df-set-foot">
             <span />
@@ -190,11 +197,6 @@ export const TaxTab = ({ tax, invoice, country, taxId, currency, canEdit, onSave
           )}
         </div>
         <p className="df-set-lede">{usesRates ? words.classesSub : words.classesSubUs}</p>
-        {failure?.card === 'classes' && (
-          <p className="df-set-failure" role="alert">
-            {failure.text}
-          </p>
-        )}
         <ul className="df-tax-classes">
           {tax.classes.map((c) => {
             const rate = rateOf(c)

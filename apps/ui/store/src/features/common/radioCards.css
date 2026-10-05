@@ -1,0 +1,59 @@
+/* A choice of one as cards: the native radio kept for keyboards and screen readers, the card carrying the look. */
+.df-radio-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.df-radio-card {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  cursor: pointer;
+}
+
+.df-radio-card--on {
+  padding: 11px;
+  border: 2px solid var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-radio-card input {
+  flex: none;
+  margin: 2px 0 0;
+  accent-color: var(--df-color-focus);
+}
+
+.df-radio-card:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-radio-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.df-radio-card-text strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-radio-card-text > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .df-radio-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

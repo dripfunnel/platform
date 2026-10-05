@@ -6,6 +6,7 @@ import { deleteCollection, loadCollection, loadMembers, previewCollection, saveC
 import { loadMenu } from '../../api/menu'
 import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
+import { RadioCards } from '../common/RadioCards'
 import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, slugOf, type CollectionDraft, type RuleRow } from './collectionDraft'
 
 const words = messages.collections.editor
@@ -181,7 +182,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
   const nameMissing = draft.name.trim() === ''
   const parents = collections.filter((c) => c.id !== draft.id && (c.parentId === null || c.id === draft.parentId))
   const parent = collections.find((c) => c.id === draft.parentId) ?? null
-  const slug = loaded.slug ?? (slugOf(draft.name) || 'your-collection')
+  const slug = loaded.slug ?? (slugOf(draft.name) || words.slugPlaceholder)
   const count = draft.kind === 'manual' ? draft.productIds.length : preview.kind === 'ready' ? preview.preview.count : null
   const shown = draft.kind === 'manual' ? draft.productIds.slice(0, 6).map((p) => ({ id: p, name: names[p] ?? '' })) : preview.kind === 'ready' ? preview.preview.products : []
 
@@ -275,14 +276,16 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
 
         <section className="df-coll-card" aria-labelledby={`${formId}-fill`}>
           <h2 id={`${formId}-fill`}>{words.fill}</h2>
-          <div className="df-coll-kinds" role="radiogroup" aria-labelledby={`${formId}-fill`}>
-            {(['automatic', 'manual'] as const).map((k) => (
-              <button key={k} type="button" role="radio" aria-checked={draft.kind === k} disabled={ro} className="df-coll-kind" onClick={() => set({ kind: k })}>
-                <strong>{k === 'automatic' ? words.automatic : words.manual}</strong>
-                <span>{k === 'automatic' ? words.automaticSub : words.manualSub}</span>
-              </button>
-            ))}
-          </div>
+          <RadioCards
+            labelledBy={`${formId}-fill`}
+            value={draft.kind}
+            disabled={ro}
+            onChange={(kind) => set({ kind })}
+            options={[
+              { value: 'automatic', label: words.automatic, sub: words.automaticSub },
+              { value: 'manual', label: words.manual, sub: words.manualSub },
+            ]}
+          />
           {draft.kind === 'automatic' ? (
             <div className="df-coll-rules">
               <label className="df-coll-match">
@@ -346,7 +349,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
                 <input type="checkbox" checked={draft.inheritParent} disabled={ro} onChange={(e) => set({ inheritParent: e.target.checked })} />
                 {fill(words.inherit, { name: parent.name })}
               </label>
-              <span className="df-coll-hint">{fill(words.flow, { parent: parent.name, parentCount: formatCount(parent.products), name: draft.name || words.untitled, count: count === null ? '…' : formatCount(count) })}</span>
+              <span className="df-coll-hint">{fill(words.flow, { parent: parent.name, parentCount: formatCount(parent.products), name: draft.name || words.untitled, count: count === null ? words.countPending : formatCount(count) })}</span>
             </>
           )}
         </section>

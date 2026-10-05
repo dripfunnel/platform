@@ -59,9 +59,9 @@ const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render
     return (_, canEdit) => <WarehousesView canEdit={canEdit} supplierNames={names} />
   },
   tax: async () => {
-    const [tax, invoice, info, locale] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo(), reads.locale()])
+    const [tax, invoice, info] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo()])
     if (!tax || !invoice) throw new Error('tax setup missing')
-    return (done, canEdit) => <TaxTab tax={tax} invoice={invoice} country={info?.country ?? null} taxId={info?.taxId ?? null} currency={locale?.pricingCurrency ?? null} canEdit={canEdit} onSaved={done.toast} onChanged={done.reload} />
+    return (done, canEdit) => <TaxTab tax={tax} invoice={invoice} country={info?.country ?? null} taxId={info?.taxId ?? null} canEdit={canEdit} onSaved={done.toast} onChanged={done.reload} />
   },
   // Each save answers the market as stored, so the tab keeps its own list rather than reading again.
   markets: async () => {
