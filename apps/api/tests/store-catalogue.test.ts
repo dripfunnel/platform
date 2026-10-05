@@ -603,6 +603,20 @@ describe('approval of suppliers’ products (ACCESS §7.2, CATALOG L)', () => {
     }
   })
 
+  it('puts only a supplier’s live product in the queue, never a deleted one or the merchant’s own', async () => {
+    const { submitForApproval } = await import('#db/scoped/approval')
+    const { withScope } = await import('#db/scoped/index')
+    const merchant = { caller: { kind: 'person' as const, userId: people.owner, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const gone = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Gone jar') })
+    const goneId = (gone.data?.['saveProduct'] as { id: string }).id
+    await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id: goneId })
+    await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [goneId] })
+    const own = (await create('owner', simple('Own jar'))).saved?.id ?? ''
+    expect(await withScope(db.sql, merchant, (tx) => submitForApproval(tx, t.storeA1, goneId, now))).toBe(false)
+    expect(await withScope(db.sql, merchant, (tx) => submitForApproval(tx, t.storeA1, own, now))).toBe(false)
+    expect(await db.sql`select approval_status from product where id in (${goneId}, ${own}) order by id = ${goneId} desc`).toEqual([{ approval_status: 'approved' }, { approval_status: null }])
+  })
+
   it('is held in the database: a supplier can only send its own product to the queue, never approve it or show it', async () => {
     const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Guarded lamp') })
     const id = (made.data?.['saveProduct'] as { id: string }).id
