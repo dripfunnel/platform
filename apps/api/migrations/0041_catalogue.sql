@@ -38,7 +38,7 @@ create table product (
   -- The portal's search, in the main language (§7.1 "Search"); the storefront's index comes with the Shop API.
   search tsvector generated always as (to_tsvector('simple', name || ' ' || description)) stored,
   created_by uuid,
-  created_at timestamptz not null default now(),
+  created_at timestamptz not null default date_trunc('milliseconds', now()), -- as a list cursor carries it (core/cursor.ts)
   updated_at timestamptz not null default now(),
   revision integer not null default 1,
   deleted_at timestamptz,
