@@ -304,7 +304,7 @@ export const CollectionEditor = ({ id, suggested, facets, collections, pricingCu
                   {words.addRule}
                 </button>
               )}
-              <p className="df-coll-note">{fill(words.priceNote, { currency: pricingCurrency ?? '' })}</p>
+              <p className="df-coll-note">{pricingCurrency ? fill(words.priceNote, { currency: pricingCurrency }) : words.priceNoteNoCurrency}</p>
             </div>
           ) : (
             <div className="df-coll-picks">
