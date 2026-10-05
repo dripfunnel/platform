@@ -65,6 +65,8 @@ export const moveMarketsOffRemoved = async (tx: ScopedSql, storeId: string, main
       update market m set
         currency = case when m.currency = ${main.currency} or exists (select 1 from store_currency c where c.store_id = m.store_id and c.currency = m.currency and c.status = 'active') then m.currency else ${main.currency} end,
         language = case when m.language = ${main.language} or exists (select 1 from store_language l where l.store_id = m.store_id and l.language = m.language and l.status = 'active') then m.language else ${main.language} end,
+        -- The duty-free threshold is money in the market's currency (CATALOG T): a new currency needs its own.
+        duties_threshold_amount = case when m.currency = ${main.currency} or exists (select 1 from store_currency c where c.store_id = m.store_id and c.currency = m.currency and c.status = 'active') then m.duties_threshold_amount else null end,
         updated_at = ${now}, revision = m.revision + 1
       where m.store_id = ${storeId} and m.deleted_at is null
         and (
@@ -180,10 +182,11 @@ export const deleteMarket = async (tx: ScopedSql, storeId: string, id: string, n
   await tx`update market set parent_id = null, updated_at = ${now}, revision = revision + 1 where parent_id = ${id} and store_id = ${storeId} and deleted_at is null`
 }
 
-/** "Everywhere else": one top-level market or none. */
-export const setFallbackMarket = async (tx: ScopedSql, storeId: string, id: string | null): Promise<void> => {
-  await tx`update market set is_fallback = false where store_id = ${storeId} and is_fallback and id is distinct from ${id}::uuid`
+/** "Everywhere else": one top-level market or none. Answers the market that had it, if another. */
+export const setFallbackMarket = async (tx: ScopedSql, storeId: string, id: string | null): Promise<{ id: string; name: string } | null> => {
+  const [was] = await tx<{ id: string; name: string }[]>`update market set is_fallback = false where store_id = ${storeId} and is_fallback and id is distinct from ${id}::uuid returning id, name`
   if (id) await tx`update market set is_fallback = true where id = ${id} and store_id = ${storeId} and parent_id is null and deleted_at is null`
+  return was ?? null
 }
 
 /** What a market write clashed with, from 0051's checks; null for anything else. */
