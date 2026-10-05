@@ -156,6 +156,13 @@ describe('inviting a supplier', () => {
     }
   })
 
+  it('keeps People’s invitation limits: three a day to one address, and nothing written past them', async () => {
+    for (const n of [1, 2, 3]) expect((await invite('owner', { name: `Limit Co ${n}`, email: 'busy@limit.example', accessLevel: 'vendor-stock' })).code).toBeUndefined()
+    const fourth = await invite('owner', { name: 'Limit Co 4', email: 'busy@limit.example', accessLevel: 'vendor-stock' })
+    expect({ code: fourth.code, per: fourth.errors?.[0]?.extensions['per'] }).toEqual({ code: 'RATE_LIMITED', per: 'address' })
+    expect(await db.sql`select 1 from seller where name = 'Limit Co 4'`).toHaveLength(0)
+  })
+
   it('is the Owner’s alone, and another store’s Owner sees none of it', async () => {
     expect((await invite('manager', { name: 'By Mo', email: 'mo@supply.example', accessLevel: 'vendor-stock' })).code).toBe('FORBIDDEN')
     expect((await gql('{ suppliers { nodes { id } } }', 'manager')).code).toBe('FORBIDDEN')
