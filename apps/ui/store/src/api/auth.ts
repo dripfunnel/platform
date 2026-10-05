@@ -1,9 +1,8 @@
-import { identityChanged } from '@dripfunnel/shared/ui'
+import { createAuthClient, type AuthRefusal as SharedAuthRefusal } from '@dripfunnel/shared/auth'
 import { z } from 'zod'
 
 // The Store API's /api/auth/* routes on a partner's portal host (ACCESS.md §4, §6; FIRST-RELEASE §4;
-// apps/api src/apis/store/auth.ts, invitations.ts, signup.ts, emailChange.ts): JSON in, `{ ok, … }` or
-// `{ ok: false, code }` out, and the session is the cookie they set. Anything else reads as NOT_CONNECTED.
+// apps/api src/apis/store/auth.ts, invitations.ts, signup.ts, emailChange.ts), through shared/auth.
 export const authCodes = [
   'INVALID_CREDENTIALS',
   'WRONG_CODE',
@@ -31,57 +30,13 @@ export const authCodes = [
 
 export type AuthCode = (typeof authCodes)[number]
 
-export interface AuthRefusal {
-  ok: false
-  code: AuthCode
-  triesLeft?: number | undefined
-  minutes?: number | undefined
-  invitedBy?: string | undefined
-  suggestions?: string[] | undefined
-}
-
-const refusalSchema = z.object({
-  ok: z.literal(false),
-  code: z.string(),
-  triesLeft: z.number().int().optional(),
-  minutes: z.number().int().optional(),
-  invitedBy: z.string().optional(),
-  suggestions: z.array(z.string()).optional(),
-})
-
-// A code the API has never promised is not worded as if it had been.
-const refusalOf = (answer: z.infer<typeof refusalSchema>): AuthRefusal => {
-  const code = z.enum(authCodes).safeParse(answer.code)
-  if (!code.success) return { ok: false, code: 'NOT_CONNECTED' }
-  return { ok: false, code: code.data, triesLeft: answer.triesLeft, minutes: answer.minutes, invitedBy: answer.invitedBy, suggestions: answer.suggestions }
-}
-
-const notConnected: AuthRefusal = { ok: false, code: 'NOT_CONNECTED' }
-const timeoutMs = 15_000
+export type AuthRefusal = SharedAuthRefusal<AuthCode>
 
 // The routes after which this browser is someone else (sharedSessionReads.ts `identityChanged`).
-const identityRoutes = new Set(['sign-in', 'second-factor', 'backup-code', 'enrol-second-factor', 'accept-invitation', 'join', 'reset-password', 'sign-up/verify-phone'])
-
-const post = async <Schema extends z.ZodType>(route: string, body: Record<string, unknown>, done: Schema): Promise<z.infer<Schema> | AuthRefusal> => {
-  try {
-    const response = await fetch(`/api/auth/${route}`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
-    const answer: unknown = await response.json()
-    const refused = refusalSchema.safeParse(answer)
-    if (refused.success) return refusalOf(refused.data)
-    const parsed = done.safeParse(answer)
-    if (!parsed.success) return notConnected
-    if (identityRoutes.has(route)) identityChanged()
-    return parsed.data as z.infer<Schema>
-  } catch {
-    return notConnected
-  }
-}
+const { post } = createAuthClient({
+  codes: authCodes,
+  identityRoutes: new Set(['sign-in', 'second-factor', 'backup-code', 'enrol-second-factor', 'accept-invitation', 'join', 'reset-password', 'sign-up/verify-phone']),
+})
 
 export const isRefusal = (value: { ok: boolean }): value is AuthRefusal => value.ok === false
 
