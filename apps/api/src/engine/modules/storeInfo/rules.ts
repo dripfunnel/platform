@@ -21,12 +21,28 @@ export interface StoreInfoInput {
   nextOrderNumber: number
 }
 
-const isTimeZone = (zone: string): boolean => {
+// ICU still answers with a few zones' old names; the IANA database's current ones are stored.
+const renamed: Readonly<Record<string, string>> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Atlantic/Faeroe': 'Atlantic/Faroe',
+  'America/Buenos_Aires': 'America/Argentina/Buenos_Aires',
+  'Pacific/Truk': 'Pacific/Chuuk',
+  'Pacific/Ponape': 'Pacific/Pohnpei',
+  'Pacific/Enderbury': 'Pacific/Kanton',
+}
+
+/** A zone's canonical name in any casing or alias, or null; an offset such as +05:30 has no daylight rules, so it isn't one. */
+export const timeZoneOf = (zone: string): string | null => {
+  if (!/^[A-Za-z]/.test(zone)) return null
   try {
-    new Intl.DateTimeFormat('en', { timeZone: zone })
-    return true
+    const resolved = new Intl.DateTimeFormat('en', { timeZone: zone }).resolvedOptions().timeZone
+    return /^[A-Z]/.test(resolved) ? (renamed[resolved] ?? resolved) : null
   } catch {
-    return false
+    return null
   }
 }
 
@@ -56,7 +72,8 @@ export const cleanStoreInfo = (input: StoreInfoInput, country: string | null): (
   const region = field(input.address?.region, 100)
   if ([legal, email, phone, street, city, postal, region].includes(false)) return 'INVALID_INPUT'
   if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return 'INVALID_EMAIL'
-  if (!isTimeZone(input.timeZone)) return 'INVALID_TIME_ZONE'
+  const timeZone = timeZoneOf(input.timeZone.trim())
+  if (!timeZone) return 'INVALID_TIME_ZONE'
   if (input.unitSystem !== 'metric' && input.unitSystem !== 'imperial') return 'INVALID_INPUT'
   const prefix = (input.orderPrefix ?? '').trim().toUpperCase()
   if (!/^[A-Z0-9-]{0,6}$/.test(prefix) || !Number.isInteger(input.nextOrderNumber) || input.nextOrderNumber < 1 || input.nextOrderNumber > 999_999_999) return 'INVALID_INPUT'
@@ -73,7 +90,7 @@ export const cleanStoreInfo = (input: StoreInfoInput, country: string | null): (
     address: { street: street || '', city: city || '', postal: postal || '', region: region || '' },
     contactEmail: email || null,
     contactPhone: phone || null,
-    timeZone: input.timeZone,
+    timeZone,
     unitSystem: input.unitSystem,
     orderPrefix: prefix,
     nextOrderNumber: input.nextOrderNumber,

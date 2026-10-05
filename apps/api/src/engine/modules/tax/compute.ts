@@ -34,13 +34,14 @@ export interface ShipTo {
 
 export interface TaxComponent {
   name: 'CGST' | 'SGST' | 'IGST' | 'Tax'
-  rateBps: number
+  /** Null from Stripe Tax, whose rate varies by jurisdiction and is answered as an amount. */
+  rateBps: number | null
   amount: bigint
 }
 
 export interface LineTax {
   id: string
-  rateBps: number
+  rateBps: number | null
   amount: bigint
   components: TaxComponent[]
 }
@@ -53,6 +54,16 @@ export const rateFor = (classId: string | null, shipTo: ShipTo, rates: readonly 
   const here = rates.filter((r) => r.taxClassId === classId && r.countries.includes(shipTo.country))
   const regional = here.find((r) => r.regions.length > 0 && r.regions.some((region) => same(region, shipTo.region)))
   return (regional ?? here.find((r) => r.regions.length === 0))?.rateBps ?? 0
+}
+
+/**
+ * Whether two zones would both answer for one place and class, so rateFor couldn't choose: they share a country,
+ * a class has a rate in both, and both are country-wide or both name a region in common (a region beats a country).
+ */
+export const zonesClash = (a: { countries: readonly string[]; regions: readonly string[]; classIds: readonly string[] }, b: typeof a): boolean => {
+  if (!a.countries.some((c) => b.countries.includes(c)) || !a.classIds.some((c) => b.classIds.includes(c))) return false
+  if (a.regions.length === 0 || b.regions.length === 0) return a.regions.length === b.regions.length
+  return a.regions.some((r) => b.regions.some((other) => same(r, other)))
 }
 
 /** The tax in an amount: carved out of it when prices include tax, added on top when they don't. */

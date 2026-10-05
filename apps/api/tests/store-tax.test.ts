@@ -163,7 +163,7 @@ describe('a US store', () => {
       },
     })
     const result = await service.quote([{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'NY', postal: '10001' })
-    expect(result).toMatchObject({ ok: true, value: { source: 'stripe', total: 160n } })
+    expect(result).toMatchObject({ ok: true, value: { source: 'stripe', total: 160n, lines: [{ rateBps: null, amount: 160n, components: [{ name: 'Tax', rateBps: null, amount: 160n }] }] } })
     expect(asked).toMatchObject({ accountId: 'acct_columbus', currency: 'USD', inclusive: false, shipTo: { country: 'US', region: 'NY', postal: '10001' }, lines: [{ reference: mug.versionId, amount: 2000n, taxCode: 'txcd_99999999' }] })
     // An Indian address never goes to Stripe.
     expect((await service.quote([{ versionId: mug.versionId, quantity: 1 }], { country: 'IN', region: null, postal: null })).ok && asked).toMatchObject({ shipTo: { country: 'US' } })
@@ -180,6 +180,35 @@ describe('a US store', () => {
       stripe: { accountId: async () => 'acct_columbus', calculate: async () => Promise.reject(new Error('Stripe answered 503')) },
     })
     expect(await down.quote([{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'NY', postal: null })).toEqual({ ok: false, reason: 'TAX_UNAVAILABLE' })
+    // An answer missing a line is a tax not known, never a line taxed nothing.
+    const bowl = await product('us', 'USD', '3000')
+    const partial = createTaxService({
+      sql: db.sql,
+      context: owner,
+      actor: { id: people.us, partnerId: t.partnerA },
+      activity: activityLog,
+      facts: { requestId: 'r', ip: null, userAgent: null },
+      now: () => now,
+      stripe: { accountId: async () => 'acct_columbus', calculate: async () => ({ total: 400n, lines: [{ reference: mug.versionId, amount: 160n }] }) },
+    })
+    expect(await partial.quote([{ versionId: mug.versionId, quantity: 1 }, { versionId: bowl.versionId, quantity: 1 }], { country: 'US', region: 'NY', postal: null })).toEqual({ ok: false, reason: 'TAX_UNAVAILABLE' })
+  })
+
+  it('refuses a zone that would answer for the same place and category as another', async () => {
+    const general = (await setup('us')).classes.find((c) => c.isDefault)?.id
+    const zone = (name: string, regions: string[]) => gql('mutation Z($input: TaxZoneInput!) { saveTaxZone(input: $input) }', 'us', { input: { name, countries: ['US'], regions, rates: [{ taxClassId: general, rateBps: 600 }] } })
+    // Ohio and the rest of the US are already set (above); another rate for Ohio, or for the whole US, would be a coin toss.
+    expect((await zone('Ohio again', ['oh', 'PA'])).code).toBe('ZONE_OVERLAP')
+    expect((await zone('All of the US', [])).code).toBe('ZONE_OVERLAP')
+    expect((await zone('Pennsylvania', ['PA'])).code).toBeUndefined()
+    // Saving a zone over itself is never a clash.
+    const ohio = (await setup('us')).zones.find((z) => z.name === 'Ohio')
+    expect((await gql('mutation Z($id: ID, $input: TaxZoneInput!) { saveTaxZone(id: $id, input: $input) }', 'us', { id: ohio?.id, input: { name: 'Ohio', countries: ['US'], regions: ['OH'], rates: [{ taxClassId: general, rateBps: 575 }] } })).code).toBeUndefined()
+  })
+
+  it('lets only someone with tax.configure change tax setup: a Manager reads it but can’t write', async () => {
+    expect((await setup('manager')).classes.length).toBeGreaterThan(0)
+    expect((await gql('mutation { setPricesIncludeTax(included: false) }', 'manager')).code).toBe('FORBIDDEN')
   })
 })
 
@@ -243,8 +272,13 @@ describe('Tax setup', () => {
     expect((await product('us', 'USD', '1000', theirs)).code).toBe('INVALID_INPUT')
     expect((await setup('other')).classes.some((c) => c.id === theirs)).toBe(false)
     const supplier: CallerContext = { caller: { kind: 'person', userId: people.supplier, sessionId: 's' }, partnerId: t.partnerA, storeId: stores.india, sellerScope: { kind: 'seller', sellerId: seller }, subscription: 'active' }
-    for (const table of ['tax_class', 'tax_zone', 'tax_rate', 'invoice_settings']) {
+    for (const table of ['tax_zone', 'tax_rate', 'invoice_settings']) {
       await expect(withScope(db.sql, supplier, (tx) => tx.unsafe(`select 1 from ${table}`))).rejects.toThrow(/permission denied/i)
     }
+    // A supplier reads its store's category names to see what its products are filed under (ACCESS §7.11), never Stripe's codes.
+    const names = await withScope(db.sql, supplier, (tx) => tx<{ store_id: string }[]>`select store_id, name from tax_class`)
+    expect(names.length).toBeGreaterThan(0)
+    expect(names.every((c) => c.store_id === stores.india)).toBe(true)
+    await expect(withScope(db.sql, supplier, (tx) => tx`select tax_code from tax_class`)).rejects.toThrow(/permission denied/i)
   })
 })

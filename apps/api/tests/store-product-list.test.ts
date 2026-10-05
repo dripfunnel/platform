@@ -175,6 +175,18 @@ describe('ready to sell per market', () => {
     expect({ nodes: (theirs.data?.['products'] as { nodes: unknown[] }).nodes, errors: theirs.errors }).toEqual({ nodes: [{ name: 'Supplier lamp', readiness: null }], errors: undefined })
     expect(own.saved).toBeDefined()
   })
+
+  it('asks nothing of a product for a market that doesn’t sell it', async () => {
+    const shirt = (await create('owner', { name: 'Excluded shirt', options: [], versions: [{ choices: [], prices: [price('99900')] }] })).saved?.id ?? ''
+    const markets = async () => (await page('owner', 'search: "Excluded shirt"')).rows[0]?.readiness?.map((r) => r.marketName)
+    expect(await markets()).toContain('United States')
+    const [us] = await db.sql<{ id: string }[]>`update market set products = 'some' where store_id = ${t.storeA1} and name = 'United States' returning id`
+    await db.sql`insert into market_excluded_product (market_id, product_id, store_id) values (${us?.id ?? ''}, ${shirt}, ${t.storeA1})`
+    expect(await markets()).not.toContain('United States')
+    // Exclusions count only while the market sells some products.
+    await db.sql`update market set products = 'all' where id = ${us?.id ?? ''}`
+    expect(await markets()).toContain('United States')
+  })
 })
 
 describe('bulk actions', () => {
@@ -192,6 +204,22 @@ describe('bulk actions', () => {
     expect((await add(picked?.id, ids.slice(0, 1), 'bOwner')).code).toBe('NOT_FOUND')
     const [theirs] = await db.sql<{ id: string }[]>`insert into product (store_id, name, slug) values (${t.storeB1}, 'B thing', 'b-thing') returning id`
     expect((await add(picked?.id, [theirs?.id ?? ''])).code).toBe('NOT_FOUND')
+  })
+
+  it('holds a hand-picked collection to 1,000 products, changing nothing when an add would pass it', async () => {
+    const made = await db.sql<{ id: string }[]>`
+      insert into product (store_id, name, slug) select ${t.storeA1}, 'Bulk ' || n, 'bulk-' || n from generate_series(1, 1001) n returning id`
+    const [full] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Nearly full', 'nearly-full', 'manual') returning id`
+    await db.sql`insert into collection_product (collection_id, product_id, store_id, position, source)
+      select ${full?.id ?? ''}, id, ${t.storeA1}, row_number() over () - 1, 'manual' from product where store_id = ${t.storeA1} and slug like 'bulk-%' and slug <> 'bulk-1000' and slug <> 'bulk-1001'`
+    const add = (productIds: string[]) => gql('mutation A($c: ID!, $p: [ID!]!) { addProductsToCollection(collectionId: $c, productIds: $p) }', 'owner', { c: full?.id, p: productIds })
+    const held = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from collection_product where collection_id = ${full?.id ?? ''}`)[0]?.n
+    expect(await held()).toBe(999)
+    const last = made.map((m) => m.id).slice(-2)
+    expect((await add(last)).code).toBe('TOO_MANY_PRODUCTS')
+    expect(await held()).toBe(999)
+    expect((await add(made.map((m) => m.id))).code).toBe('INVALID_INPUT')
+    expect((await add(last.slice(0, 1))).data?.['addProductsToCollection']).toBe(1000)
   })
 
   it('changes every version’s tax category at once, the merchant side’s only', async () => {

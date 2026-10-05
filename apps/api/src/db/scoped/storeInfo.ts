@@ -79,7 +79,7 @@ export const saveLegalName = async (tx: ScopedSql, storeId: string, legalName: s
 
 /**
  * The home country's registration of the kind the id is (CATALOG fact 36 allows several, a US store's EIN and its
- * sales-tax permit): that kind's row updated or added, the others kept; cleared, the one Store info shows goes.
+ * sales-tax permit): that kind's row updated or added, the others kept. Cleared, the store has no home tax id left.
  */
 export const saveHomeTaxId = async (tx: ScopedSql, storeId: string, country: string, registration: { kind: 'gst' | 'ein' | 'sales_tax_permit' | 'vat'; number: string } | null): Promise<void> => {
   if (registration) {
@@ -89,9 +89,7 @@ export const saveHomeTaxId = async (tx: ScopedSql, storeId: string, country: str
     `
     return
   }
-  await tx`
-    delete from tax_registration where id = (select r.id from tax_registration r where r.store_id = ${storeId} and r.country = ${country} order by ${shownFirst(tx)} limit 1)
-  `
+  await tx`delete from tax_registration where store_id = ${storeId} and country = ${country}`
 }
 
 /** What save_store_info refused: a logo not the store's own image, or an order number lower than the next one. */
