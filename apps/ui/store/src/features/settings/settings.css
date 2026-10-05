@@ -607,3 +607,122 @@
     min-height: 44px;
   }
 }
+
+/* Tax setup (designs/CatSettings.dc.html tax tab, SetOps.dc.html "tax") */
+
+.df-tax-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.df-tax-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-tax-option[aria-checked='true'] {
+  padding: 13px 15px;
+  border: 2px solid var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-tax-option strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-tax-option > span {
+  font-size: 13px;
+}
+
+.df-tax-example {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 12px !important;
+}
+
+.df-tax-classes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-tax-classes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-tax-classes li > span:first-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.df-tax-classes li > span:first-child > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-tax-rate {
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+  font-size: 12px;
+}
+
+.df-tax-rate--default {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-tax-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  font-size: 14px;
+}
+
+.df-places-theirs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-places-theirs h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+}
+
+@media (max-width: 720px) {
+  .df-tax-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-tax-check {
+    min-height: 44px;
+  }
+}

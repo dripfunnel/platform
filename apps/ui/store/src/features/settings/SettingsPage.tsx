@@ -4,13 +4,16 @@ import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
+import { loadInvoiceSettings, loadTax } from '../../api/tax'
 import { loadApproval, loadPeople, loadSuppliers } from '../../api/team'
 import { harnessEnabled } from '../../harness'
 import { messages } from '../../messages'
 import '../common/pageTabs.css'
 import { sampleReads, settingsStates, type SettingsReads } from './settingsStates'
 import { StoreInfoTab } from './StoreInfoTab'
+import { TaxTab } from './TaxTab'
 import { PeopleTab, SupplierTab } from './TeamTabs'
+import { WarehousesView } from '../warehouses/WarehousesView'
 import './settings.css'
 
 const words = messages.settings
@@ -18,7 +21,7 @@ const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/settings')
 
 /** The tabs built so far; each card adds its own (FIRST-RELEASE §15). */
-export const settingsTabs = ['store', 'people', 'supplier'] as const
+export const settingsTabs = ['store', 'people', 'supplier', 'warehouse', 'tax'] as const
 export type SettingsTab = (typeof settingsTabs)[number]
 
 /** How a tab says something saved: a toast alone, or a toast and its reads again. */
@@ -30,7 +33,7 @@ interface Done {
 type Render = (done: Done, canEdit: boolean) => ReactNode
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; render: Render }
 
-const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval }
+const apiReads: SettingsReads = { storeInfo: loadStoreInfo, locale: loadLocale, people: loadPeople, suppliers: loadSuppliers, approval: loadApproval, tax: loadTax, invoice: loadInvoiceSettings }
 
 /** Each tab's reads, and what it shows with them. */
 const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render>> => ({
@@ -47,6 +50,16 @@ const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render
   supplier: async () => {
     const [suppliers, approval] = await Promise.all([reads.suppliers(), reads.approval()])
     return (done, canEdit) => <SupplierTab suppliers={suppliers} approval={approval} canEdit={canEdit} onChanged={done.reload} />
+  },
+  // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
+  warehouse: async () => {
+    const names = new Map((await reads.suppliers()).map((s) => [s.id, s.name]))
+    return (_, canEdit) => <WarehousesView canEdit={canEdit} supplierNames={names} />
+  },
+  tax: async () => {
+    const [tax, invoice, info, locale] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo(), reads.locale()])
+    if (!tax || !invoice) throw new Error('tax setup missing')
+    return (done, canEdit) => <TaxTab tax={tax} invoice={invoice} country={info?.country ?? null} taxId={info?.taxId ?? null} currency={locale?.pricingCurrency ?? null} canEdit={canEdit} onSaved={done.toast} onChanged={done.reload} />
   },
 })
 
@@ -97,7 +110,7 @@ export const SettingsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={settingsTabs}
-          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier }}
+          labels={{ store: words.tabs.store, people: words.tabs.people, supplier: words.tabs.supplier, warehouse: words.tabs.warehouse, tax: words.tabs.tax }}
           current={tab}
           link={(target, props) => <Link to="/settings" search={target === 'store' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

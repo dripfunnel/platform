@@ -81,7 +81,7 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
  * Where stock sits (SetOps "Warehouse"): the caller's own locations, the default one first-class. A supplier keeps its
  * own here, inside "Your products" (#337); the store's Settings › Warehouse shows the same list for the merchant.
  */
-export const WarehousesView = ({ canEdit }: { canEdit: boolean }) => {
+export const WarehousesView = ({ canEdit, supplierNames = null }: { canEdit: boolean; supplierNames?: ReadonlyMap<string, string> | null }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [form, setForm] = useState<Form | null>(null)
   const [busy, setBusy] = useState(false)
@@ -157,7 +157,9 @@ export const WarehousesView = ({ canEdit }: { canEdit: boolean }) => {
       },
     })
 
-  const places = [...view.places].sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+  // The merchant side also reads its suppliers' locations: listed apart and never changed here (SetOps, FIRST-RELEASE §15).
+  const places = view.places.filter((p) => p.supplierId === null).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+  const theirs = supplierNames ? view.places.filter((p) => p.supplierId !== null) : []
   return (
     <div className="df-places">
       <div className="df-places-head">
@@ -195,6 +197,25 @@ export const WarehousesView = ({ canEdit }: { canEdit: boolean }) => {
             </li>
           ))}
         </ul>
+      )}
+      {theirs.length > 0 && (
+        <section className="df-places-theirs" aria-labelledby="df-places-theirs">
+          <h2 id="df-places-theirs">{words.theirsTitle}</h2>
+          <p className="df-places-hint">{words.theirsSub}</p>
+          <ul className="df-places-list">
+            {theirs.map((p) => (
+              <li key={p.id}>
+                <span className="df-places-mark df-places-mark--supplier" aria-hidden="true">
+                  {words.supplierMark}
+                </span>
+                <span className="df-places-text">
+                  <strong>{p.name}</strong>
+                  <span>{[supplierNames?.get(p.supplierId ?? '') ?? '', addressLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {ask && <ConfirmDialog key={`${ask.title}|${ask.target}`} {...ask} open cancelLabel={words.form.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
       <Toast message={toast} onDone={() => setToast(null)} />

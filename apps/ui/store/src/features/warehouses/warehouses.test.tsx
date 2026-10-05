@@ -15,7 +15,7 @@ vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('
 
 const { WarehousesView, placeInputOf } = await import('./WarehousesView')
 
-const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
+const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, supplierId: null, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 

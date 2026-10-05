@@ -30,7 +30,7 @@ const show = async (acting: Acting, readOnly = false) => {
 }
 
 beforeEach(() => {
-  api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null }])
+  api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null }])
 })
 
 afterEach(() => {

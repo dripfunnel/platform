@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { actingHeaders } from '../acting'
 import { allPages } from './allPages'
 import { loadFilters } from './filters'
+import { loadTax } from './tax'
 import { query } from './client'
 
 // The product editor's reads and writes (FIRST-RELEASE §11, CatEditor; apps/api/schema/store.graphql,
@@ -197,11 +198,14 @@ export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: stri
   }
 }
 
-const taxSetupSchema = z.object({ taxSetup: z.object({ pricesIncludeTax: z.boolean(), classes: z.array(z.object({ id: z.string(), name: z.string(), isDefault: z.boolean() })) }).nullable() })
-export type TaxSetup = NonNullable<z.infer<typeof taxSetupSchema>['taxSetup']>
+/** What the editor needs of the tax setup; Settings › Tax setup reads the whole of it (api/tax.ts). */
+export interface TaxSetup {
+  pricesIncludeTax: boolean
+  classes: { id: string; name: string; isDefault: boolean }[]
+}
 
 /** The merchant side's tax categories and whether prices include tax; a supplier reads neither here. */
-export const loadTaxSetup = async (): Promise<TaxSetup | null> => (await query('{ taxSetup { pricesIncludeTax classes { id name isDefault } } }', taxSetupSchema)).taxSetup
+export const loadTaxSetup = (): Promise<TaxSetup | null> => loadTax()
 
 /** Whether a supplier's changes wait for the merchant (SAPI 5's approval switch). */
 export const loadApprovalRequired = async (): Promise<boolean> => (await query('{ supplierApprovalRequired }', z.object({ supplierApprovalRequired: z.boolean() }))).supplierApprovalRequired

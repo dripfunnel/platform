@@ -4,6 +4,6 @@ import { z } from 'zod'
 import { SettingsPage } from '../../features/settings/SettingsPage'
 
 export const Route = createFileRoute('/_app/settings')({
-  validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier'])) }),
+  validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier', 'warehouse', 'tax'])) }),
   component: SettingsPage,
 })
