@@ -140,6 +140,8 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
+  /* A collection inside another sits one step in for each level (--df-colls-depth, set per row). */
+  padding-inline-start: calc(var(--df-colls-depth, 0) * var(--df-space-7));
 }
 
 .df-colls-name > span:last-child {
@@ -848,6 +850,10 @@
   border: 1px solid var(--df-color-border);
   border-radius: var(--df-radius);
   background: var(--df-color-surface);
+}
+
+.df-menu-row--kid {
+  margin-inline-start: var(--df-space-7);
 }
 
 .df-menu-row--hidden {

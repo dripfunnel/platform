@@ -364,7 +364,7 @@ describe('the main menu', () => {
     await show(owner, '/collections?tab=menus')
     const items = screen.getAllByRole('listitem').filter((li) => li.classList.contains('df-menu-row'))
     expect(items.map((li) => li.querySelector('.df-menu-label')?.textContent)).toEqual(['Summer edit', 'Men', 'Shirts', 'Staff picks'])
-    expect(items[2]?.style.marginInlineStart).toBe('28px')
+    expect(items[2]?.classList.contains('df-menu-row--kid')).toBe(true)
     expect(within(items[3] as HTMLElement).getByText(words.menus.hiddenNote)).toBeTruthy()
     const desktop = within(screen.getByRole('region', { name: words.menus.desktop }))
     expect(desktop.getByText('Kesari')).toBeTruthy()

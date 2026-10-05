@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import type { CSSProperties } from 'react'
 import type { CollectionSummary } from '../../api/collections'
 import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
@@ -73,7 +74,7 @@ export const CollectionList = ({ collections, facets, canEdit, seasonal, giftPri
             return (
               <li key={c.id}>
                 <Link to="/collections" search={{ edit: c.id }} className="df-colls-row" aria-label={fill(words.list.open, { name: c.name })}>
-                  <span className="df-colls-name" style={{ paddingInlineStart: `${depth * 28}px` }}>
+                  <span className="df-colls-name" style={{ '--df-colls-depth': depth } as CSSProperties}>
                     <span className="df-colls-thumb" aria-hidden="true" />
                     <span>
                       <strong>{c.name}</strong>

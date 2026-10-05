@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { actingHeaders } from '../acting'
 import { allPages } from './allPages'
+import { loadFilters } from './filters'
 import { query } from './client'
 
 // The product editor's reads and writes (FIRST-RELEASE §11, CatEditor; apps/api/schema/store.graphql,
@@ -94,12 +95,17 @@ export const loadProductBasics = async (): Promise<ProductBasics> =>
 
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
 
-const facetSchema = z.object({ id: z.string(), name: z.string(), shopperVisible: z.boolean(), values: z.array(z.object({ id: z.string(), name: z.string() })) })
-export type Facet = z.infer<typeof facetSchema>
+/** A filter as the editor tags with it; the Filters tab reads more of it (api/filters.ts Filter). */
+export interface Facet {
+  id: string
+  name: string
+  shopperVisible: boolean
+  values: { id: string; name: string }[]
+}
 
 /** The store's filters and their values, which a product is filed under. */
-export const loadFacets = (): Promise<Facet[]> =>
-  allPages(async (after) => (await query('query F($after: String) { facets(first: 50, after: $after) { nodes { id name shopperVisible values { id name } } pageInfo { hasNextPage endCursor } } }', z.object({ facets: z.object({ nodes: z.array(facetSchema), pageInfo: pageInfoSchema }) }), { after })).facets)
+/** The store's filters for tagging a product: the Filters tab's own read (api/filters.ts), so the two can't drift. */
+export const loadFacets = (): Promise<Facet[]> => loadFilters()
 
 /** The size charts the caller may pick: the store's, and a supplier's own. */
 export const loadSizeCharts = (): Promise<{ id: string; name: string }[]> =>
