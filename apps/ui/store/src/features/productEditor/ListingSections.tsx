@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react'
 import type { EditorProduct, Facet, ProductBasics, ProductCollection } from '../../api/productEditor'
 import { loadProducts } from '../../api/products'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { legalFields, type Draft, type LegalField, type ListingSection } from '../common/productDraft'
+import { legalFields, maxFaqs, maxHighlights, maxRelated, maxSpecs, type Draft, type LegalField, type ListingSection } from '../common/productDraft'
 import type { Update } from './EditorCards'
 import { Field, Section } from './EditorSections'
 
 const words = messages.editor.sections
 
-const maxHighlights = 5
-const maxRelated = 4
 
 export interface ListingChoices {
   /** Which listing sections the store has switched on (Settings › Catalogue), and filters, legal always. */
@@ -48,7 +46,7 @@ const CollectionsSection = ({ draft, update, disabled, choices }: { draft: Draft
                 const on = draft.collectionIds.includes(c.id)
                 return (
                   <button key={c.id} type="button" className="df-editor-chip" aria-pressed={on} disabled={disabled} onClick={() => update((d) => ({ ...d, collectionIds: toggle(d.collectionIds, c.id) }))}>
-                    {on ? '✓ ' : ''}
+                    {on && <span aria-hidden="true">✓ </span>}
                     {c.name}
                   </button>
                 )
@@ -123,12 +121,12 @@ const SpecsSection = ({ draft, update, disabled, specs, highlights }: { draft: D
               <input aria-label={`${words.specValue} ${i + 1}`} maxLength={200} placeholder={words.specValuePlaceholder} value={sp.value} readOnly={disabled} onChange={(e) => setListing((x) => ({ ...x, specs: x.specs.map((y, j) => (j === i ? { ...y, value: e.target.value } : y)) }))} />
               {!disabled && (
                 <button type="button" className="df-editor-link" aria-label={fill(words.specRemove, { name: sp.name || String(i + 1) })} onClick={() => setListing((x) => ({ ...x, specs: x.specs.filter((_, j) => j !== i) }))}>
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               )}
             </div>
           ))}
-          {!disabled && l.specs.length < 50 && (
+          {!disabled && l.specs.length < maxSpecs && (
             <button type="button" className="df-editor-link" onClick={() => setListing((x) => ({ ...x, specs: [...x.specs, { name: '', value: '', filterValueId: null }] }))}>
               {words.specAdd}
             </button>
@@ -143,7 +141,7 @@ const SpecsSection = ({ draft, update, disabled, specs, highlights }: { draft: D
               <input aria-label={fill(words.highlightLabel, { n: String(i + 1) })} maxLength={120} placeholder={words.highlightPlaceholder} value={h} readOnly={disabled} onChange={(e) => setListing((x) => ({ ...x, highlights: x.highlights.map((y, j) => (j === i ? e.target.value : y)) }))} />
               {!disabled && (
                 <button type="button" className="df-editor-link" aria-label={fill(words.highlightRemove, { n: String(i + 1) })} onClick={() => setListing((x) => ({ ...x, highlights: x.highlights.filter((_, j) => j !== i) }))}>
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               )}
             </div>
@@ -171,14 +169,14 @@ const FaqsSection = ({ draft, update, disabled }: { draft: Draft; update: Update
             <input aria-label={`${words.faqQuestion} ${i + 1}`} maxLength={200} placeholder={words.faqQuestion} value={f.question} readOnly={disabled} onChange={(e) => setFaqs((x) => x.map((y, j) => (j === i ? { ...y, question: e.target.value } : y)))} />
             {!disabled && (
               <button type="button" className="df-editor-link" aria-label={`${words.faqRemove} ${i + 1}`} onClick={() => setFaqs((x) => x.filter((_, j) => j !== i))}>
-                ×
+                <span aria-hidden="true">×</span>
               </button>
             )}
           </div>
           <textarea aria-label={`${words.faqAnswer} ${i + 1}`} rows={2} maxLength={2000} placeholder={words.faqAnswer} value={f.answer} readOnly={disabled} onChange={(e) => setFaqs((x) => x.map((y, j) => (j === i ? { ...y, answer: e.target.value } : y)))} />
         </div>
       ))}
-      {!disabled && faqs.length < 20 && (
+      {!disabled && faqs.length < maxFaqs && (
         <div className="df-editor-chips">
           <button type="button" className="df-editor-link" onClick={() => setFaqs((x) => [...x, { question: '', answer: '' }])}>
             {words.faqAdd}
@@ -187,7 +185,8 @@ const FaqsSection = ({ draft, update, disabled }: { draft: Draft; update: Update
             .filter((q) => !faqs.some((f) => f.question === q))
             .map((q) => (
               <button key={q} type="button" className="df-editor-chip" onClick={() => setFaqs((x) => [...x, { question: q, answer: '' }])}>
-                + {q}
+                <span aria-hidden="true">+ </span>
+                {q}
               </button>
             ))}
         </div>
@@ -239,7 +238,7 @@ const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; 
               {names[id] ?? words.relatedGone}
               {!disabled && (
                 <button type="button" aria-label={fill(words.relatedRemove, { name: names[id] ?? words.relatedGone })} onClick={() => setIds(ids.filter((x) => x !== id))}>
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               )}
             </span>

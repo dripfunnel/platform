@@ -10,6 +10,11 @@ export type ProductKind = (typeof productKinds)[number]
 
 export const maxOptions = 3
 export const maxVersions = 100
+/** The listing's limits, the API's (catalog/listing.ts and its related-products rule). */
+export const maxSpecs = 50
+export const maxHighlights = 5
+export const maxFaqs = 20
+export const maxRelated = 4
 
 export interface DraftOption {
   id: string | null
