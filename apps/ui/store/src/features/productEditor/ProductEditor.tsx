@@ -14,7 +14,7 @@ import { ChoicesCard, type Ask } from './ChoicesCard'
 import { blankDraft, draftOf, inputOf, isDirty, problemsOf, stockChangesOf, versionKey, type Draft, type DraftProblem, type ListingSection, type Units } from '../common/productDraft'
 import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from './EditorCards'
 import { EditorSections, SidePanel } from './EditorSections'
-import { CollectionsPart, ListingSections, type EditorExtras as Extras } from './ListingSections'
+import { CollectionsPart, ListingSections, type EditorExtras as Extras, type UnavailableChoice } from './ListingSections'
 import { signed, StockCard, type StockHistoryView } from './StockCard'
 import { LanguageTabs, languageTabId } from './LanguageTabs'
 import { todoCount, TranslationView } from './TranslationView'
@@ -38,12 +38,14 @@ const aplusOf = (basics: ProductBasics): 'on' | 'plan' | null => {
 const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: string | null): Promise<Extras> => {
   const on = new Set(basics.features.filter((f) => f.enabled).map((f) => f.key))
   const shown = new Set<ListingSection>([...sectionKeys.filter((k) => on.has(k)), 'filters', 'legal'])
-  // A section's choices failing to load leaves that section empty rather than the editor unusable.
+  // A section whose choices fail to load says so and offers none; the rest of the editor still works.
+  const unavailable = new Set<UnavailableChoice>()
+  const orNone = <T,>(load: Promise<T[]>, key: UnavailableChoice) => load.catch(() => (unavailable.add(key), [] as T[]))
   const [facets, sizeCharts, handPicked, memberships, currencies, pricing] = await Promise.all([
-    loadFacets().catch(() => []),
-    shown.has('sizeCharts') ? loadSizeCharts().catch(() => []) : Promise.resolve([]),
-    merchant ? loadHandPicked().catch(() => []) : Promise.resolve([]),
-    merchant && productId ? loadProductCollections(productId).catch(() => []) : Promise.resolve([]),
+    orNone(loadFacets(), 'facets'),
+    shown.has('sizeCharts') ? orNone(loadSizeCharts(), 'sizeCharts') : Promise.resolve([]),
+    merchant ? orNone(loadHandPicked(), 'collections') : Promise.resolve([]),
+    merchant && productId ? orNone(loadProductCollections(productId), 'collections') : Promise.resolve([]),
     merchant ? loadStoreCurrencies().catch(() => []) : Promise.resolve([]),
     merchant && productId ? loadPricing(productId).catch(() => []) : Promise.resolve([]),
   ])
@@ -51,7 +53,7 @@ const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: s
     languages: { main: basics.mainLanguage, others: basics.translationLanguages },
     currencies,
     converted: new Map(pricing.map((p) => [p.versionId, p.prices])),
-    choices: { shown, facets, sizeCharts, collections: merchant ? { handPicked, automatic: memberships.filter((m) => m.kind !== 'manual') } : null, aplus: aplusOf(basics) },
+    choices: { shown, facets, sizeCharts, collections: merchant ? { handPicked, automatic: memberships.filter((m) => m.kind !== 'manual') } : null, aplus: aplusOf(basics), unavailable },
     badges: merchant && shown.has('badges') ? basics.badges : null,
     memberships,
   }
@@ -243,7 +245,7 @@ export const ProductEditor = () => {
     setSaving(true)
     setFailure(null)
     let stored: EditorProduct | null = product
-    const collectionsChanged = access.storeFields && [...draft.collectionIds].sort().join() !== [...saved.collectionIds].sort().join()
+    const collectionsChanged = access.storeFields && !view.extras.choices.unavailable.has('collections') && [...draft.collectionIds].sort().join() !== [...saved.collectionIds].sort().join()
     /** The hand-picked collections after the product, by its own call; answers the listing's choices with them. */
     const saveCollections = async (id: string): Promise<Extras> => {
       if (!collectionsChanged) return view.extras
