@@ -55,7 +55,9 @@ create table tax_registration (
   kind text not null check (kind in ('gst', 'ein', 'sales_tax_permit', 'vat')),
   number text not null check (char_length(number) between 3 and 30),
   valid_from date,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Store info shows the one saved last.
+  updated_at timestamptz not null default now()
 );
 create unique index tax_registration_key on tax_registration (store_id, country, kind);
 
