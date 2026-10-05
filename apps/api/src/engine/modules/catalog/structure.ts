@@ -334,7 +334,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         if ((await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
       }
       const facetId = id ?? crypto.randomUUID()
-      if (!(await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now(), input.revision ?? null))) throw new Refused('STALE_REVISION')
+      if (!(await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing ? existing.revision : null, now()))) throw new Refused('STALE_REVISION')
       await activity.record(tx, entry(structureAudit.facetSaved, { type: 'filter', id: facetId, label: facetName }))
       // A value removed is a rule's target gone: the collections that used it shrink.
       await recompute(tx)

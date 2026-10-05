@@ -60,13 +60,14 @@ export interface FacetWrite {
 
 /**
  * The filter and its values as given: kept values renamed and reordered, new ones added, the rest removed.
- * With the revision it was read at, false (and nothing written) when another save came first.
+ * An update names the revision it was read at (null makes a new filter); false, nothing written, when another came first.
  */
-export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, exists: boolean, now: Date, readAt: number | null = null): Promise<boolean> => {
+export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, readAt: number | null, now: Date): Promise<boolean> => {
+  const exists = readAt !== null
   if (exists) {
     const [saved] = await tx`
       update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, revision = revision + 1, updated_at = ${now}
-      where id = ${facet.id} and store_id = ${storeId} and ${readAt === null ? tx`true` : tx`revision = ${readAt}`}
+      where id = ${facet.id} and store_id = ${storeId} and revision = ${readAt}
       returning id
     `
     if (!saved) return false
