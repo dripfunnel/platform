@@ -102,7 +102,11 @@ describe('Settings › Store info', () => {
     expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1}`).toEqual([{ kind: 'gst', number: '08ABCDE1234F1Z5' }])
     expect((await save({ ...base, taxId: '' })).code).toBeUndefined()
     expect((await info())?.taxId).toBeNull()
-    expect(await db.sql`select 1 from activity_log where action = 'store.info_saved' and store_id = ${t.storeA1}`).toHaveLength(2)
+    // The entry names the fields that changed, never their values (LOGGING.md §5).
+    expect(await db.sql`select reason from activity_log where action = 'store.info_saved' and store_id = ${t.storeA1} order by occurred_at, id`).toEqual([
+      { reason: 'name, legal_name, description, address, contact_email, contact_phone, tax_id, time_zone, order_prefix, next_order_number' },
+      { reason: 'tax_id' },
+    ])
   })
 
   it('starts a new store on its country’s time zone, units and tax display', async () => {
@@ -133,11 +137,37 @@ describe('Settings › Store info', () => {
     expect((await info('manager'))?.name).toBe('Kesari Threads')
     expect((await save(base, 'manager')).code).toBe('FORBIDDEN')
     expect((await gql('{ storeInfo { name } }', 'supplier')).code).toBe('FORBIDDEN')
-    expect((await info('bOwner'))?.name).not.toBe('Kesari Threads')
+    // Store B saves its own, which changes nothing of store A's, and reads only its own back.
+    const before = await info()
+    expect((await save({ ...base, name: 'Bea Goods', legalName: 'Bea Goods Ltd', taxId: '', contactEmail: 'bea@b.example', address: { street: '1 B Street' } }, 'bOwner')).code).toBeUndefined()
+    expect(await info()).toEqual(before)
+    expect(await info('bOwner')).toMatchObject({ name: 'Bea Goods', legalName: 'Bea Goods Ltd', taxId: null, contactEmail: 'bea@b.example', address: { street: '1 B Street', city: '' } })
+    const storeB: CallerContext = { caller: { kind: 'person', userId: people.bOwner, sessionId: 's' }, partnerId: t.partnerB, storeId: t.storeB1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    for (const table of ['invoice_settings', 'tax_registration']) {
+      expect(await withScope(db.sql, storeB, (tx) => tx.unsafe(`select 1 from ${table} where store_id = '${t.storeA1}'`))).toHaveLength(0)
+    }
+    expect(await withScope(db.sql, storeB, async (tx) => (await tx`update invoice_settings set legal_name = 'Hijack' where store_id = ${t.storeA1}`).count)).toBe(0)
     const supplier: CallerContext = { caller: { kind: 'person', userId: people.supplier, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller', sellerId: t.sellerA1First }, subscription: 'active' }
     await expect(withScope(db.sql, supplier, (tx) => tx`select save_store_info('{}'::jsonb)`)).rejects.toThrow(/merchant side of a store only|permission denied/)
+    await expect(withScope(db.sql, supplier, (tx) => tx`select set_store_tax_inclusive(false)`)).rejects.toThrow(/merchant side of a store only|permission denied/)
+    // Read-only support passes no write through either definer, which the support policies can't reach.
+    const support: CallerContext = { caller: { kind: 'support', supportSessionId: 'ss', partnerUserId: 'pu', access: 'read' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    await expect(withScope(db.sql, support, (tx) => tx`select save_store_info(${tx.json({ name: 'Support was here', next_order_number: 9999 })})`)).rejects.toThrow(/merchant side of a store only/)
+    await expect(withScope(db.sql, support, (tx) => tx`select set_store_tax_inclusive(false)`)).rejects.toThrow(/merchant side of a store only/)
+    const merchant: CallerContext = { ...support, caller: { kind: 'person', userId: people.owner, sessionId: 's' } }
+    await withScope(db.sql, merchant, (tx) => tx`select set_store_tax_inclusive(false)`)
+    expect(await db.sql`select id, tax_inclusive from store where id in (${t.storeA1}, ${t.storeB1}) order by id = ${t.storeA1} desc`).toEqual([{ id: t.storeA1, tax_inclusive: false }, { id: t.storeB1, tax_inclusive: true }])
+    expect((await info())?.name).toBe('Kesari Threads')
     for (const table of ['invoice_settings', 'tax_registration']) {
       await expect(withScope(db.sql, supplier, (tx) => tx.unsafe(`select 1 from ${table}`))).rejects.toThrow(/permission denied/i)
     }
+  })
+
+  it('takes a tax id only where the store has a country, and order numbers only upward', async () => {
+    // Store B was made with no country, so there is no home registration to file its tax id under.
+    expect((await save({ ...base, name: 'Bea Goods', taxId: 'DE123456789' }, 'bOwner')).code).toBe('INVALID_TAX_ID')
+    expect((await save({ ...base, nextOrderNumber: 100 })).code).toBe('ORDER_NUMBER_DOWN')
+    expect((await save({ ...base, nextOrderNumber: 3000 })).code).toBeUndefined()
+    expect((await info())?.nextOrderNumber).toBe('3000')
   })
 })

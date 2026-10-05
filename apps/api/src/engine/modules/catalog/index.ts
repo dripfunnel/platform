@@ -206,7 +206,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       }),
     )
     await setVersionChoices(tx, storeId, ids, choices)
-    await setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))))
+    await setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))), sellerId === null ? null : await selectPricingCurrency(tx))
     await softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at)
     if (clean.photos !== null) {
       await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))

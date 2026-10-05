@@ -68,6 +68,10 @@ begin
   if app_setting_text('app.scope') <> 'store' or app_setting_text('app.seller_id') <> '' or app_setting_text('app.support') = 'read' then
     raise exception 'save_store_info: the merchant side of a store only' using errcode = '42501';
   end if;
+  -- Order numbers only go up, so a stale form can never hand out one already used.
+  if (info->>'next_order_number')::bigint < (select s.next_order_number from store s where s.id = app_setting_uuid('app.store_id')) then
+    raise exception 'save_store_info: order numbers only go up' using errcode = '23514';
+  end if;
   -- The logo is one of the store's own merchant-side images.
   if info->>'logo_asset_id' is not null and not exists (
     select 1 from asset a where a.id = (info->>'logo_asset_id')::uuid and a.store_id = app_setting_uuid('app.store_id') and a.seller_id is null and a.kind = 'image'
@@ -89,6 +93,7 @@ begin
 end
 $$;
 grant select (id, store_id, seller_id, kind) on asset to app_definer;
+grant select (id, next_order_number) on store to app_definer;
 grant update (name, description, logo_asset_id, address, contact_email, contact_phone, time_zone, unit_system, order_prefix, next_order_number) on store to app_definer;
 alter function save_store_info(jsonb) owner to app_definer;
 revoke execute on function save_store_info(jsonb) from public;
