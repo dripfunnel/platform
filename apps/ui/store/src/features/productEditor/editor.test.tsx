@@ -16,6 +16,9 @@ const api = vi.hoisted(() => ({
   loadProduct: vi.fn(),
   loadProductBasics: vi.fn(),
   loadFacets: vi.fn(),
+  loadStoreCurrencies: vi.fn(),
+  loadPricing: vi.fn(),
+  loadMarkets: vi.fn(),
   loadSizeCharts: vi.fn(),
   loadProductCollections: vi.fn(),
   setProductCollections: vi.fn(),
@@ -25,10 +28,12 @@ const api = vi.hoisted(() => ({
   uploadPhoto: vi.fn(),
 }))
 const listApi = vi.hoisted(() => ({ deleteProducts: vi.fn(), loadHandPicked: vi.fn(), loadProducts: vi.fn() }))
+const translationApi = vi.hoisted(() => ({ loadProductTranslation: vi.fn(), saveProductTranslation: vi.fn() }))
 const stockApi = vi.hoisted(() => ({ loadProductStock: vi.fn(), loadWarehouses: vi.fn(), loadStockHistory: vi.fn(), adjustStock: vi.fn(), setStock: vi.fn() }))
 
 vi.mock('../../api/productEditor', async (actual) => ({ ...(await actual<typeof import('../../api/productEditor')>()), ...api }))
 vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...listApi }))
+vi.mock('../../api/translations', async (actual) => ({ ...(await actual<typeof import('../../api/translations')>()), ...translationApi }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...stockApi }))
 
 const { ProductEditor } = await import('./ProductEditor')
@@ -84,6 +89,8 @@ beforeEach(() => {
   api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: ['specs', 'highlights', 'faqs', 'badges'].map((key) => ({ key, enabled: true, inPlan: true })), badges: [{ id: 'b1', label: 'Handmade', rule: 'manual' }] })
   api.loadFacets.mockResolvedValue([{ id: 'f1', name: 'Fabric', shopperVisible: true, values: [{ id: 'fv1', name: 'Linen' }] }])
   api.loadSizeCharts.mockResolvedValue([])
+  api.loadStoreCurrencies.mockResolvedValue([])
+  api.loadPricing.mockResolvedValue([])
   api.loadProductCollections.mockResolvedValue([{ id: 'c1', name: 'Summer edit', kind: 'manual' }])
   listApi.loadHandPicked.mockResolvedValue([{ id: 'c1', name: 'Summer edit' }, { id: 'c2', name: 'Gifts' }])
   api.loadTaxSetup.mockResolvedValue({ pricesIncludeTax: true, classes: [{ id: 'tc-18', name: 'GST 18%', isDefault: true }] })
@@ -475,5 +482,40 @@ describe('the product editor', () => {
     api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'aplus', enabled: true, inPlan: false }], badges: [] })
     await show(owner)
     expect(screen.getAllByText(words.sections.aplusPlan).length).toBeGreaterThan(0)
+  })
+
+  it('translates the product into the store’s other languages, saving only what changed', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [], mainLanguage: 'en-IN', translationLanguages: ['hi-IN'] })
+    const missing = [
+      { entity: 'product', entityId: 'p1', field: 'name', main: 'Block-print Cushion', text: null, status: 'missing' },
+      { entity: 'product', entityId: 'p1', field: 'description', main: '', text: null, status: 'missing' },
+    ]
+    translationApi.loadProductTranslation.mockResolvedValue(missing)
+    translationApi.saveProductTranslation.mockResolvedValue([{ ...missing[0], text: 'Chhapai takiya', status: 'translated' }, missing[1]])
+    await show(owner)
+    const hindi = screen.getByRole('tab', { name: /Hindi/ })
+    fireEvent.click(hindi)
+    await settle()
+    expect(translationApi.loadProductTranslation).toHaveBeenCalledWith('p1', 'hi-IN')
+    expect(screen.getByRole('tab', { name: /1 to do/ })).toBeTruthy()
+    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: 'Chhapai takiya' } })
+    fireEvent.click(screen.getByRole('button', { name: words.translate.save }))
+    await settle()
+    expect(translationApi.saveProductTranslation).toHaveBeenCalledWith('p1', 'hi-IN', { name: 'Chhapai takiya' })
+    expect(screen.getByRole('tab', { name: /done/ })).toBeTruthy()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+  })
+
+  it('prices each hand-priced currency, and shows the converted ones as saved', async () => {
+    api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'auto' }, { code: 'AED', mode: 'manual' }])
+    api.loadPricing.mockResolvedValue([{ versionId: 'ver-1', prices: [{ currency: 'USD', amount: '1599', compareAtAmount: null, source: 'converted' }], inMarket: null }])
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    expect(screen.getByText(/15\.99 · set automatically/)).toBeTruthy()
+    expect(screen.getByText('Not for sale in AED until you add a price.')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Price in AED'), { target: { value: '55' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { versions: { prices: unknown }[] }).versions[0]?.prices).toEqual([{ currency: 'INR', amount: '129900' }, { currency: 'AED', amount: '5500' }])
   })
 })

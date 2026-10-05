@@ -4,7 +4,7 @@ import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useBlocker, useNavigate, useParams } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { loadApprovalRequired, loadFacets, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
+import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts, loadHandPicked } from '../../api/products'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
 import { harnessEnabled } from '../../harness'
@@ -16,6 +16,8 @@ import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from '
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras } from './ListingSections'
 import { signed, StockCard, type StockHistoryView } from './StockCard'
+import { languageName, todoCount, TranslationView } from './TranslationView'
+import { MarketPrices, PricesAbroad } from './PricesAbroad'
 import { editorSample, editorStates } from './editorStates'
 import './editor.css'
 
@@ -36,13 +38,18 @@ const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: s
   const on = new Set(basics.features.filter((f) => f.enabled).map((f) => f.key))
   const shown = new Set<ListingSection>([...sectionKeys.filter((k) => on.has(k)), 'filters', 'legal'])
   // A section's choices failing to load leaves that section empty rather than the editor unusable.
-  const [facets, sizeCharts, handPicked, memberships] = await Promise.all([
+  const [facets, sizeCharts, handPicked, memberships, currencies, pricing] = await Promise.all([
     loadFacets().catch(() => []),
     shown.has('sizeCharts') ? loadSizeCharts().catch(() => []) : Promise.resolve([]),
     merchant ? loadHandPicked().catch(() => []) : Promise.resolve([]),
     merchant && productId ? loadProductCollections(productId).catch(() => []) : Promise.resolve([]),
+    merchant ? loadStoreCurrencies().catch(() => []) : Promise.resolve([]),
+    merchant && productId ? loadPricing(productId).catch(() => []) : Promise.resolve([]),
   ])
   return {
+    languages: { main: basics.mainLanguage, others: basics.translationLanguages },
+    currencies,
+    converted: new Map(pricing.map((p) => [p.versionId, p.prices])),
     choices: { shown, facets, sizeCharts, collections: merchant ? { handPicked, automatic: memberships.filter((m) => m.kind !== 'manual') } : null, aplus: aplusOf(basics) },
     badges: merchant && shown.has('badges') ? basics.badges : null,
     memberships,
@@ -61,6 +68,7 @@ const problemWords = (units: Units): Record<DraftProblem, string> => ({
   weight: fill(words.sections.weightInvalid, { example: words.sections.units[units].weightPlaceholder }),
   box: fill(words.sections.boxInvalid, { example: words.sections.units[units].boxPlaceholder }),
   stock: words.stock.invalid,
+  manual: words.refused.INVALID_PRICE,
 })
 
 const closedHistory: StockHistoryView = { open: false, rows: null, more: false, failed: false }
@@ -96,11 +104,17 @@ export const ProductEditor = () => {
   const [ask, setAsk] = useState<Parameters<Ask>[0] | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [history, setHistory] = useState<StockHistoryView>(closedHistory)
+  const [language, setLanguage] = useState<string | null>(null)
+  const [todo, setTodo] = useState<Record<string, number>>({})
+  const [translationDirty, setTranslationDirty] = useState(false)
+  const countRows = useCallback((rows: Parameters<typeof todoCount>[0]) => {
+    if (language) setTodo((t) => ({ ...t, [language]: todoCount(rows) }))
+  }, [language])
   const files = useRef(new Map<string, File>())
   const leaving = useRef(false)
 
   const show = useCallback((loaded: Loaded) => {
-    const made = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels }) : blankDraft(loaded.units)
+    const made = loaded.product ? draftOf(loaded.product, loaded.currency, { units: loaded.units, levels: loaded.levels, manualCurrencies: loaded.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code) }) : blankDraft(loaded.units)
     const next = { ...made, collectionIds: loaded.extras.memberships.filter((m) => m.kind === 'manual').map((m) => m.id) }
     const carried = loaded.product ? unsavedCounts.get(loaded.product.id) : undefined
     if (loaded.product) unsavedCounts.delete(loaded.product.id)
@@ -137,7 +151,8 @@ export const ProductEditor = () => {
   useEffect(load, [load])
 
   const dirty = view.kind === 'ready' && isDirty(draft, saved)
-  useBlocker({ shouldBlockFn: () => dirty && !leaving.current && !window.confirm(words.leave), enableBeforeUnload: () => dirty })
+  const unsaved = dirty || translationDirty
+  useBlocker({ shouldBlockFn: () => unsaved && !leaving.current && !window.confirm(words.leave), enableBeforeUnload: () => unsaved })
 
   const update = useCallback((change: (d: Draft) => Draft) => {
     setDraft(change)
@@ -387,14 +402,45 @@ export const ProductEditor = () => {
         </div>
       ))}
 
+      {!isNew && product && view.extras.languages.main && view.extras.languages.others.length > 0 && (
+        <div className="df-editor-languages" role="tablist" aria-label={words.translate.tabs}>
+          <span>{words.translate.tabs}</span>
+          {[null, ...view.extras.languages.others].map((code) => (
+            <button
+              key={code ?? 'main'}
+              type="button"
+              role="tab"
+              aria-selected={language === code}
+              disabled={translationDirty && language !== code}
+              onClick={() => {
+                setLanguage(code)
+                setTranslationDirty(false)
+              }}
+            >
+              {code === null ? fill(words.translate.main, { language: languageName(view.extras.languages.main ?? '') }) : languageName(code)}
+              {code !== null && todo[code] !== undefined && <span>{todo[code] === 0 ? words.translate.done : fill(plural(words.translate.todo, todo[code] ?? 0), { count: String(todo[code]) })}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="df-editor-layout">
         <div className="df-editor-main">
+          {language && product && view.extras.languages.main ? (
+            <TranslationView productId={product.id} language={language} mainLanguage={view.extras.languages.main} supplier={access.side === 'supplier'} disabled={!access.canEdit} onSaved={setToast} onRows={countRows} onDirty={setTranslationDirty} />
+          ) : (
+            <>
           <KindCard draft={draft} update={update} disabled={disabled} />
           <PhotosCard draft={draft} update={update} disabled={disabled} pending={pending} onFiles={addFiles} onRetry={(id) => { const file = files.current.get(id); if (file) upload(id, file) }} onDismiss={(id) => { files.current.delete(id); setPending((list) => list.filter((p) => p.id !== id)) }} />
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
-          {!made && <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} />}
+          {!made && (
+                <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
+                  <PricesAbroad draft={draft} update={update} disabled={disabled} currencies={view.extras.currencies} converted={view.extras.converted.get(product?.versions[0]?.id ?? '') ?? []} problems={shownProblems} />
+                  {product && access.storeFields && <MarketPrices productId={product.id} />}
+                </PriceCard>
+              )}
           {physical && !made && <StockCard draft={draft} update={update} canStock={access.canStock && !saving} warehouses={view.warehouses} levels={product ? (view.levels.get(product.versions[0]?.id ?? '') ?? []) : []} versionId={product?.versions[0]?.id ?? null} problems={shownProblems} history={history} onHistory={toggleHistory} onAdjust={adjust} names={names} />}
-          <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />
+          <ChoicesCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} ask={setAsk} onToast={setToast} manual={view.extras.currencies.filter((c) => c.mode === 'manual').map((c) => c.code)} stock={physical ? { warehouse: home, canStock: access.canStock && !saving, levels: view.levels, history, onHistory: toggleHistory, names } : null} />
           <EditorSections
             draft={draft}
             update={update}
@@ -406,6 +452,8 @@ export const ProductEditor = () => {
             afterShipping={<CollectionsPart {...listingProps} />}
             afterTax={<ListingSections {...listingProps} />}
           />
+            </>
+          )}
         </div>
         <SidePanel draft={draft} update={update} storeFields={access.storeFields} canShow={product?.approval !== 'pending'} readiness={isNew ? undefined : (product?.readiness ?? null)} currency={currency} inclusive={tax ? tax.pricesIncludeTax : null} approvalNote={access.side === 'supplier' && isNew && waitsForApproval} badges={view.extras.badges} />
       </div>

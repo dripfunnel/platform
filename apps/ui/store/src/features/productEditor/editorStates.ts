@@ -104,6 +104,9 @@ const levels = new Map<string, StockLevel[]>([
 ])
 
 const merchantExtras: EditorExtras = {
+  languages: { main: 'en-IN', others: ['hi-IN'] },
+  currencies: [{ code: 'USD', mode: 'auto' }, { code: 'AED', mode: 'manual' }],
+  converted: new Map([['ver-c', [{ currency: 'USD', amount: '1599', compareAtAmount: null, source: 'converted' }]]]),
   choices: {
     shown: new Set(['specs', 'highlights', 'badges', 'sizeCharts', 'filters', 'legal']),
     facets: [
@@ -120,7 +123,7 @@ const merchantExtras: EditorExtras = {
   ],
   memberships: [{ id: 'c-summer', name: 'Summer edit', kind: 'manual' }, { id: 'c-linen', name: 'All linen', kind: 'automatic' }],
 }
-const supplierExtras: EditorExtras = { choices: { ...merchantExtras.choices, collections: null }, badges: null, memberships: [] }
+const supplierExtras: EditorExtras = { languages: merchantExtras.languages, currencies: [], converted: new Map(), choices: { ...merchantExtras.choices, collections: null }, badges: null, memberships: [] }
 
 export const editorSample = (state: EditorState | null): EditorSample | null => {
   if (!shirt || !state || state === 'loading' || state === 'error') return null

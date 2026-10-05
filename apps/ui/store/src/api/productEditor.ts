@@ -83,12 +83,14 @@ const basicsSchema = z.object({
   // inPlan is null for a supplier, which is never told the plan.
   features: z.array(z.object({ key: z.string(), enabled: z.boolean(), inPlan: z.boolean().nullable() })),
   badges: z.array(z.object({ id: z.string(), label: z.string(), rule: z.string() })),
+  mainLanguage: z.string().nullable(),
+  translationLanguages: z.array(z.string()),
 })
 export type ProductBasics = z.infer<typeof basicsSchema>
 
 /** What a product is typed in and which sections it has: the store's currency, units, catalogue switches and badges. */
 export const loadProductBasics = async (): Promise<ProductBasics> =>
-  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled inPlan } badges { id label rule } } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
+  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled inPlan } badges { id label rule } mainLanguage translationLanguages } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
 
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
 
@@ -197,3 +199,35 @@ export const loadTaxSetup = async (): Promise<TaxSetup | null> => (await query('
 
 /** Whether a supplier's changes wait for the merchant (SAPI 5's approval switch). */
 export const loadApprovalRequired = async (): Promise<boolean> => (await query('{ supplierApprovalRequired }', z.object({ supplierApprovalRequired: z.boolean() }))).supplierApprovalRequired
+
+const currencyPriceSchema = z.object({ currency: z.string(), amount: z.string(), compareAtAmount: z.string().nullable(), source: z.string() })
+export type CurrencyPrice = z.infer<typeof currencyPriceSchema>
+
+/** Each version's price in every currency the store sells in, and in one market when named (the merchant side's, O14). */
+export const loadPricing = async (productId: string, marketId: string | null = null): Promise<{ versionId: string; prices: CurrencyPrice[]; inMarket: CurrencyPrice | null }[]> =>
+  (
+    await query(
+      'query P($id: ID!, $m: ID) { product(id: $id) { pricing(marketId: $m) { versionId prices { currency amount compareAtAmount source } inMarket { currency amount compareAtAmount source } } } }',
+      z.object({ product: z.object({ pricing: z.array(z.object({ versionId: z.string(), prices: z.array(currencyPriceSchema), inMarket: currencyPriceSchema.nullable() })).nullable() }).nullable() }),
+      { id: productId, m: marketId },
+    )
+  ).product?.pricing ?? []
+
+const currencySchema = z.object({ code: z.string(), mode: z.string(), status: z.string() })
+
+/** The store's other currencies and how each is priced: converted for you (auto) or typed per product (manual). */
+export const loadStoreCurrencies = async (): Promise<{ code: string; mode: 'auto' | 'manual' }[]> => {
+  const { storeLocale } = await query('{ storeLocale { pricingCurrency currencies { code mode status } } }', z.object({ storeLocale: z.object({ pricingCurrency: z.string().nullable(), currencies: z.array(currencySchema) }).nullable() }))
+  return (storeLocale?.currencies ?? []).filter((c) => c.status === 'active' && c.code !== storeLocale?.pricingCurrency).map((c) => ({ code: c.code, mode: c.mode === 'manual' ? 'manual' : 'auto' }))
+}
+
+/** The store's active markets, for each one's price. */
+export const loadMarkets = (): Promise<{ id: string; name: string; currency: string }[]> =>
+  allPages(async (after) => {
+    const { markets } = await query(
+      'query M($after: String) { markets(first: 50, after: $after) { nodes { id name currency active parentId } pageInfo { hasNextPage endCursor } } }',
+      z.object({ markets: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), currency: z.string(), active: z.boolean(), parentId: z.string().nullable() })), pageInfo: pageInfoSchema }) }),
+      { after },
+    )
+    return { nodes: markets.nodes.filter((m) => m.active && m.parentId === null).map(({ id, name, currency }) => ({ id, name, currency })), pageInfo: markets.pageInfo }
+  })

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
-import type { EditorProduct, Facet, ProductBasics, ProductCollection } from '../../api/productEditor'
+import type { CurrencyPrice, EditorProduct, Facet, ProductBasics, ProductCollection } from '../../api/productEditor'
 import { ProductSearch } from '../common/ProductSearch'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { legalFields, type Draft, type LegalField, type ListingSection } from '../common/productDraft'
@@ -25,6 +25,11 @@ export interface ListingChoices {
 
 /** The listing's choices: which sections the store switched on, its filters, charts and badges, and the collections. */
 export interface EditorExtras {
+  /** The store's main language and the others a product is translated into. */
+  languages: { main: string | null; others: string[] }
+  /** The merchant side's other currencies, and each version's saved prices in them (O14); none for a supplier. */
+  currencies: { code: string; mode: 'auto' | 'manual' }[]
+  converted: Map<string, CurrencyPrice[]>
   choices: ListingChoices
   badges: ProductBasics['badges'] | null
   memberships: ProductCollection[]

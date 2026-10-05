@@ -30,8 +30,10 @@ export interface DraftVersion {
   visible: boolean
   /** "We don't make this": left out of the save, and back with "Add back" (CatEditor). */
   removed: boolean
-  /** Prices in other currencies, kept as they were: Markets sets them (#296). */
+  /** Prices in other currencies, kept as they were: Markets converts them, unless typed below (#296). */
   otherPrices: { currency: string; amount: string; compareAtAmount: string | null }[]
+  /** A price typed per product in each currency the store prices by hand (Settings › Markets, mode manual). */
+  manualPrices: Record<string, string>
   weightGrams: number | null
   lengthMm: number | null
   widthMm: number | null
@@ -123,6 +125,7 @@ const blankVersion = (choices: string[], from?: DraftVersion): DraftVersion => (
   visible: true,
   removed: false,
   otherPrices: [],
+  manualPrices: Object.fromEntries(Object.keys(from?.manualPrices ?? {}).map((c) => [c, from?.manualPrices[c] ?? ''])),
   weightGrams: from?.weightGrams ?? null,
   lengthMm: from?.lengthMm ?? null,
   widthMm: from?.widthMm ?? null,
@@ -203,7 +206,7 @@ const shared = <T,>(values: readonly T[]): T | null => (values.length > 0 && val
 
 const textOf = (amount: string | null | undefined, currency: string) => (amount ? moneyText({ amount: Number(amount), currency }) : '')
 
-export const draftOf = (product: EditorProduct, currency: string, { units = 'metric', levels = new Map() }: { units?: Units; levels?: ReadonlyMap<string, readonly StockLevel[]> } = {}): Draft => {
+export const draftOf = (product: EditorProduct, currency: string, { units = 'metric', levels = new Map(), manualCurrencies = [] }: { units?: Units; levels?: ReadonlyMap<string, readonly StockLevel[]>; manualCurrencies?: readonly string[] } = {}): Draft => {
   const versions = product.versions.map((v): DraftVersion => {
     const own = v.prices.find((p) => p.currency === currency)
     return {
@@ -217,6 +220,7 @@ export const draftOf = (product: EditorProduct, currency: string, { units = 'met
       visible: v.visible,
       removed: false,
       otherPrices: v.prices.filter((p) => p.currency !== currency),
+      manualPrices: Object.fromEntries(manualCurrencies.map((c) => [c, textOf(v.prices.find((p) => p.currency === c)?.amount, c)])),
       weightGrams: v.weightGrams,
       lengthMm: v.lengthMm,
       widthMm: v.widthMm,
@@ -322,7 +326,7 @@ export const newVersionCount = (draft: Draft): number => {
   return combinationsOf(draft.options).filter((c) => !existing.has(keyOf(c))).length
 }
 
-export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'stock'
+export type DraftProblem = 'name' | 'price' | 'compare' | 'cost' | 'options' | 'versions' | 'tooMany' | 'weight' | 'box' | 'stock' | 'manual'
 
 /** What stops a save, in the order the form shows it; the API checks it all again. */
 export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
@@ -334,6 +338,7 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (priced.some((p) => p === null || p === 'invalid' || p <= 0)) problems.push('price')
   if (live.some((v, i) => { const at = minorOf(v.compareAt, currency); const p = priced[i]; return at === 'invalid' || (typeof at === 'number' && typeof p === 'number' && at <= p) })) problems.push('compare')
   if (live.some((v) => minorOf(v.cost, currency) === 'invalid')) problems.push('cost')
+  if (live.some((v) => Object.entries(v.manualPrices).some(([c, t]) => { const n = minorOf(t, c); return n === 'invalid' || n === 0 }))) problems.push('manual')
   const names = draft.options.map((o) => o.name.trim().toLowerCase())
   if (draft.options.length > maxOptions || names.some((n) => n === '') || new Set(names).size !== names.length || draft.options.some((o) => o.values.length === 0)) problems.push('options')
   // Choices changed since the versions were made: "Update versions" first, as the prototype asks.
@@ -372,7 +377,15 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
       choices: v.choices,
       sku: v.sku.trim() || null,
       visible: v.visible,
-      prices: [{ currency, amount: price, ...(compareAt ? { compareAtAmount: compareAt } : {}) }, ...v.otherPrices.map((p) => ({ currency: p.currency, amount: p.amount, ...(p.compareAtAmount ? { compareAtAmount: p.compareAtAmount } : {}) }))],
+      prices: [
+        { currency, amount: price, ...(compareAt ? { compareAtAmount: compareAt } : {}) },
+        // A hand-priced currency sends what is typed (none when empty: not for sale there yet); the rest as they came.
+        ...v.otherPrices.filter((p) => v.manualPrices[p.currency] === undefined).map((p) => ({ currency: p.currency, amount: p.amount, ...(p.compareAtAmount ? { compareAtAmount: p.compareAtAmount } : {}) })),
+        ...Object.entries(v.manualPrices).flatMap(([c, t]) => {
+          const typed = amount(t, c)
+          return typed ? [{ currency: c, amount: typed }] : []
+        }),
+      ],
       ...(cost ? { cost: { currency, amount: cost } } : v.cost.trim() === '' && v.otherCost ? { cost: v.otherCost } : {}),
       // A field changed here goes to every version; an untouched one keeps each version's own.
       weightGrams: !physical ? null : changed.weight ? (typeof grams === 'number' ? grams : null) : v.weightGrams,

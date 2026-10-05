@@ -119,6 +119,11 @@ describe('Settings › Catalogue', () => {
       const read = async (who: Who) => (await gql('{ catalogueSettings { pricingCurrency unitSystem } }', who)).data?.['catalogueSettings']
       for (const who of ['owner', 'manager', 'supplier', 'otherSupplier'] as const) expect({ who, got: await read(who) }).toEqual({ who, got: { pricingCurrency: 'INR', unitSystem: 'metric' } })
       expect(await read('bOwner')).toEqual({ pricingCurrency: 'USD', unitSystem: 'imperial' })
+      // The languages a product is translated into, which a supplier needs too (N15).
+      await db.sql`insert into store_language (store_id, language, position) values (${t.storeA1}, 'hi-IN', 9) on conflict do nothing`
+      for (const who of ['owner', 'supplier'] as const) {
+        expect((await gql('{ catalogueSettings { mainLanguage translationLanguages } }', who)).data?.['catalogueSettings']).toEqual({ mainLanguage: 'en-US', translationLanguages: ['hi-IN'] })
+      }
       // A supplier of the other store reads that store's, through the same definers, and nothing in another scope.
       const theirs: CallerContext = { caller: { kind: 'person', userId: people.bOwner, sessionId: 's' }, partnerId: t.partnerB, storeId: t.storeB1, sellerScope: { kind: 'seller', sellerId: t.sellerB1 }, subscription: 'active' }
       expect(await withScope(db.sql, theirs, (tx) => tx`select store_pricing_currency() as c, store_unit_system() as u`)).toEqual([{ c: 'USD', u: 'imperial' }])

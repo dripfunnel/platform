@@ -121,7 +121,7 @@ const OptionRow = ({ draft, index, update, disabled, ask, onToast }: { draft: Dr
 }
 
 /** The versions table: price, code and whether each shows; "We don't make this" leaves a combination out. */
-const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; stock: VersionStock | null }) => {
+const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock, manual }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; stock: VersionStock | null; manual: readonly string[] }) => {
   const where = stock?.warehouse ?? null
   const typedAt = (v: DraftVersion) => (where ? (draft.stock[versionKey(v.choices)]?.[where.id] ?? '') : '')
   const setStockOf = (v: DraftVersion, text: string) => where && update((d) => ({ ...d, stock: { ...d.stock, [versionKey(v.choices)]: { ...d.stock[versionKey(v.choices)], [where.id]: text } } }))
@@ -182,6 +182,9 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
             <tr>
               <th>{words.versions.version}</th>
               <th>{words.versions.price}</th>
+              {manual.map((c) => (
+                <th key={c}>{c}</th>
+              ))}
               {where && <th>{messages.editor.stock.title}</th>}
               <th>{words.versions.code}</th>
               <th>{words.versions.onStore}</th>
@@ -197,6 +200,11 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
                   <td>
                     <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.priceOf, { name })} value={v.price} readOnly={disabled || v.removed} aria-invalid={bad} onChange={(event) => set(i, { price: event.target.value })} />
                   </td>
+                  {manual.map((c) => (
+                    <td key={c}>
+                      <input className="df-editor-cell" inputMode="decimal" aria-label={fill(words.versions.manualOf, { currency: c, name })} value={v.manualPrices[c] ?? ''} readOnly={disabled || v.removed} onChange={(event) => set(i, { manualPrices: { ...v.manualPrices, [c]: event.target.value } })} />
+                    </td>
+                  ))}
                   {where && (
                     <td>
                       <input className="df-editor-cell df-editor-cell--narrow" inputMode="numeric" aria-label={fill(messages.editor.stock.stockOf, { name })} value={typedAt(v)} placeholder={messages.editor.stock.countPlaceholder} readOnly={!stock?.canStock || v.removed} aria-invalid={problems.includes('stock') && quantityOf(typedAt(v)) === 'invalid'} onChange={(event) => setStockOf(v, event.target.value)} />
@@ -222,7 +230,7 @@ const VersionsTable = ({ draft, update, disabled, currency, problems, ask, stock
 }
 
 /** "Does it come in different sizes, colours or other choices?": up to three kinds, then their versions. */
-export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, onToast, stock }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; onToast: (text: string) => void; stock: VersionStock | null }) => {
+export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, onToast, stock, manual = [] }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; ask: Ask; onToast: (text: string) => void; stock: VersionStock | null; manual?: readonly string[] }) => {
   const addOption = (name: string) => update((d) => ({ ...d, options: [...d.options, { id: null, name: name.trim().slice(0, 60), values: [] }] }))
   if (draft.options.length === 0)
     return (
@@ -293,7 +301,7 @@ export const ChoicesCard = ({ draft, update, disabled, currency, problems, ask, 
           </div>
         )
       )}
-      {made && <VersionsTable draft={draft} update={update} disabled={disabled} currency={currency} problems={problems} ask={ask} stock={stock} />}
+      {made && <VersionsTable draft={draft} update={update} disabled={disabled} currency={currency} problems={problems} ask={ask} stock={stock} manual={manual} />}
     </Card>
   )
 }

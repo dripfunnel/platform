@@ -1104,7 +1104,19 @@
       "none": "Type a price — it’s what the shopper pays.",
       "profit": "You make {amount} per sale · {margin}% margin",
       "loss": "You lose {amount} on each sale",
-      "compareHelp": "Show a crossed-out price only when it was really sold for that before."
+      "compareHelp": "Show a crossed-out price only when it was really sold for that before.",
+      "abroad": "Shoppers abroad",
+      "auto": "{price} · set automatically",
+      "autoNone": "Set automatically once the price is saved",
+      "autoNote": "Converted from your price at today’s rate, rounded as Settings › Markets says.",
+      "manualLabel": "Price in {currency}",
+      "manualMissing": "Not for sale in {currency} until you add a price.",
+      "manualInvalid": "Type a price in {currency} above zero",
+      "perMarket": "Price per market",
+      "perMarketNote": "Each market’s price comes from your price, its currency and its adjustment. A fixed price per market comes later.",
+      "perMarketShow": "Show each market’s price",
+      "perMarketFailed": "We couldn’t work out the market prices. Try again in a moment.",
+      "perMarketNone": "No price yet"
     },
     "choices": {
       "ask": "Does it come in different sizes, colours or other choices?",
@@ -1172,7 +1184,8 @@
       "hideIt": "Hide it for now",
       "notMake": "We don’t make this",
       "allHidden": "That would hide every version. Hide the whole product instead.",
-      "help": "Tap “Visible” to hide one version. “We don’t make this” removes a combination — add it back any time."
+      "help": "Tap “Visible” to hide one version. “We don’t make this” removes a combination — add it back any time.",
+      "manualOf": "{currency} price of {name}"
     },
     "sections": {
       "open": "Open",
@@ -1438,7 +1451,52 @@
       "deltaDown": "−{count}",
       "newFailed": "The product saved, but its stock didn’t. The counts you typed are below; save again to keep them."
     },
-    "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again."
+    "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again.",
+    "translate": {
+      "tabs": "Editing in",
+      "main": "{language} · main",
+      "todo": {
+        "one": "1 to do",
+        "other": "{count} to do"
+      },
+      "done": "done",
+      "title": "Translating into {language}",
+      "mainText": "{language}: {text}",
+      "empty": "(empty)",
+      "fields": {
+        "name": "Name",
+        "description": "Description",
+        "slug": "Web address"
+      },
+      "versions": "Versions",
+      "names": "Choice names",
+      "namesNote": "Translated once for every product that uses them.",
+      "namesSupplier": "Choice names are your store owner’s to translate.",
+      "status": {
+        "missing": "Not translated",
+        "translated": "Translated",
+        "changed": "Changed in {language} since"
+      },
+      "placeholder": "In {language}",
+      "slugNote": "Made from the translated name when left empty.",
+      "same": "Same in every language",
+      "sameBody": "Price, stock, photos and the tax category don’t change with the language.",
+      "notYet": "Not in {language} yet.",
+      "notYetBody": "Shoppers see the {main} text until you add it — nothing is broken.",
+      "save": "Save translation",
+      "saved": "{language} saved",
+      "clearHint": "Leave a field empty to show the {main} text.",
+      "loading": "Loading the translation",
+      "failed": "We couldn’t load this translation. Try again in a moment.",
+      "refused": {
+        "NOT_A_TRANSLATION_LANGUAGE": "That language isn’t one of your store’s.",
+        "DUPLICATE_SLUG": "Another product already uses that web address in this language.",
+        "INVALID_SLUG": "Use lowercase letters, numbers and hyphens in the web address.",
+        "SUPPLIER_FIELD": "Choice names are your store owner’s to translate.",
+        "other": "That didn’t save. Your text is still here; try again."
+      },
+      "saveProductFirst": "Save your changes to the product first, then translate it."
+    }
   },
   "story": {
     "title": "A+ content",

@@ -163,4 +163,15 @@ describe('the editor’s draft (CatEditor)', () => {
     const fewer = inputOf({ ...d, versions: d.versions.map((v, i) => (i === 1 ? { ...v, removed: true } : v)) }, 'INR', 'merchant', all)
     expect([fewer.listing?.specs, fewer.filterValues]).toEqual([[{ name: 'Material', value: 'Linen' }], [{ valueId: 'fv1' }]])
   })
+
+  it('takes a typed price in each hand-priced currency, leaves converted ones as they came, and drops an emptied one', () => {
+    const p = product({ versions: [{ ...product().versions[0], prices: [{ currency: 'INR', amount: '249900', compareAtAmount: null }, { currency: 'USD', amount: '3000', compareAtAmount: null }, { currency: 'AED', amount: '11000', compareAtAmount: null }] } as EditorProduct['versions'][number]] })
+    const d = draftOf(p, 'INR', { manualCurrencies: ['AED'] })
+    expect(d.versions[0]?.manualPrices).toEqual({ AED: '110.00' })
+    const typed = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '120' } })) }
+    expect(inputOf(typed, 'INR', 'merchant').versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900' }, { currency: 'USD', amount: '3000' }, { currency: 'AED', amount: '12000' }])
+    const emptied = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '' } })) }
+    expect(inputOf(emptied, 'INR', 'merchant').versions[0]?.prices.map((x) => x.currency)).toEqual(['INR', 'USD'])
+    expect(problemsOf({ ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: 'abc' } })) }, 'INR')).toContain('manual')
+  })
 })

@@ -178,7 +178,7 @@ export const BasicsCard = ({ draft, update, disabled, problems }: { draft: Draft
 export const exampleOf = (currency: string) => formatMoney({ amount: 129900, currency }, locale)
 
 /** Price, compare-at price and cost for a product without choices, with what the shopper pays and what it makes. */
-export const PriceCard = ({ draft, update, disabled, currency, problems, inclusive }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; inclusive: boolean | null }) => {
+export const PriceCard = ({ draft, update, disabled, currency, problems, inclusive, children }: { draft: Draft; update: Update; disabled: boolean; currency: string; problems: readonly DraftProblem[]; inclusive: boolean | null; children?: ReactNode }) => {
   const id = useId()
   const version = draft.versions[0]
   if (!version) return null
@@ -214,6 +214,7 @@ export const PriceCard = ({ draft, update, disabled, currency, problems, inclusi
         {profit !== null && <span className={profit >= 0 ? 'df-editor-profit' : 'df-editor-profit df-editor-profit--loss'}>{profit >= 0 ? fill(words.price.profit, { amount: money(profit), margin: String(Math.round((profit / (shown ?? 1)) * 100)) }) : fill(words.price.loss, { amount: money(-profit) })}</span>}
       </div>
       <p className="df-editor-hint">{words.price.compareHelp}</p>
+      {children}
     </Card>
   )
 }

@@ -59,7 +59,9 @@ input CatalogueFeatureInput {
 type CatalogueSettings {
   badges: [Badge!]
   features: [CatalogueFeature!]
+  mainLanguage: String
   pricingCurrency: String
+  translationLanguages: [String!]
   unitSystem: String
 }
 
