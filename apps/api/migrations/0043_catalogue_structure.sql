@@ -127,7 +127,7 @@ create table menu_item (
   foreign key (collection_id, store_id) references collection (id, store_id),
   -- A collection item names one; a page is a path on the shop; a link is https (J4).
   check ((kind = 'collection') = (collection_id is not null)),
-  check (kind <> 'page' or url ~ '^/[a-z0-9/_-]*$'),
+  check (kind <> 'page' or url ~ '^/([a-z0-9_-][a-z0-9/_-]*)?$'),
   check (kind <> 'url' or url ~ '^https://'),
   check (kind = 'collection' or url is not null)
 );

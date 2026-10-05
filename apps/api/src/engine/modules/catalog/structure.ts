@@ -218,7 +218,8 @@ export const cleanMenu = (items: readonly MenuItemInput[]): Omit<MenuItemRow, 'p
       rows.push({ id, parent_id: parent, label, kind: 'collection', collection_id: item.collectionId.toLowerCase(), url: null })
     } else if (item.kind === 'page') {
       const url = item.url?.trim() ?? ''
-      if (!/^\/[a-z0-9/_-]*$/.test(url) || url.length > 500) throw new Refused('INVALID_LINK')
+      // A path on this shop: never `//host`, which a browser follows to another site.
+      if (!/^\/([a-z0-9_-][a-z0-9/_-]*)?$/.test(url) || url.length > 500) throw new Refused('INVALID_LINK')
       rows.push({ id, parent_id: parent, label, kind: 'page', collection_id: null, url })
     } else if (item.kind === 'url') {
       const url = item.url?.trim() ?? ''
