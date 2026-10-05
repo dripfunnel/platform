@@ -32,8 +32,8 @@ export const selectProfile = async (tx: ScopedSql, userId: string, now: Date): P
     `
   )[0] ?? null
 
-export const updateProfileDetails = async (tx: ScopedSql, userId: string, d: { name: string; phone: string | null; theme: 'light' | 'dark' | null }): Promise<void> => {
-  await tx`update "user" set name = ${d.name}, phone = ${d.phone}, theme = ${d.theme} where id = ${userId}`
+export const updateProfileDetails = async (tx: ScopedSql, userId: string, d: { name: string; phone: string | null }): Promise<void> => {
+  await tx`update "user" set name = ${d.name}, phone = ${d.phone} where id = ${userId}`
 }
 
 /** Light or dark only, so a theme click never writes back a name or number read earlier. */

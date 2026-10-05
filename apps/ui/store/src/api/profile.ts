@@ -51,8 +51,9 @@ export const loadMyActivity = async (after: string | null): Promise<{ entries: M
   return { entries: myActivity.nodes, next: myActivity.pageInfo.hasNextPage ? myActivity.pageInfo.endCursor : null }
 }
 
-export const updateProfile = async (details: { name: string; phone: string | null; theme: 'light' | 'dark' | null }): Promise<Profile> =>
-  (await query(`mutation Update($name: String!, $phone: String, $theme: String) { updateProfile(name: $name, phone: $phone, theme: $theme) { ${profileFields} } }`, z.object({ updateProfile: profileSchema }), details)).updateProfile
+/** Name and mobile; the theme is setTheme's alone. */
+export const updateProfile = async (details: { name: string; phone: string | null }): Promise<Profile> =>
+  (await query(`mutation Update($name: String!, $phone: String) { updateProfile(name: $name, phone: $phone) { ${profileFields} } }`, z.object({ updateProfile: profileSchema }), details)).updateProfile
 
 /** The theme alone, so it never writes back a name or number read earlier. */
 export const setTheme = async (theme: 'light' | 'dark'): Promise<Profile> =>
