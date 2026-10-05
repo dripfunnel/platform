@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CallerContext } from '#core/tenancy'
 import { withScope, withSystemScope } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
-import { backoffMs, defaultRelayOptions, relayDue, type Deliverers, type Effect, type RelayOptions } from '#jobs/queues/outbox-relay'
+import { backoffMs, defaultRelayOptions, GiveUp, relayDue, type Deliverers, type Effect, type RelayOptions } from '#jobs/queues/outbox-relay'
 import { queueSideEffect } from '#saas/outbox/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -44,6 +44,12 @@ const deliverers: Deliverers = {
     deliver: async () => {
       throw new Error('provider said no, and named someone@example.com while doing so')
     },
+  },
+  hopeless: {
+    deliver: async () => {
+      throw new GiveUp('no_account')
+    },
+    redact: () => ({ redacted: true }),
   },
   // Ignores the signal and never settles: the relay must not wait for it.
   hanging: { deliver: () => new Promise<void>(() => {}) },
@@ -152,11 +158,23 @@ describe('failures (AGENTS.md "Reliability")', () => {
     expect(await relay(db.sql, 'flaky')).toBe('skipped')
   })
 
+  it('a row its deliverer gives up is dropped at once under its code, redacted, never delivered or retried', async () => {
+    const id = await queued(staff, 'hopeless', 'hopeless-1')
+    if (!id) throw new Error('not queued')
+    expect(await relay(db.sql, 'hopeless')).toBe('dropped')
+    expect(await row(id)).toMatchObject({ attempts: 1, last_error: 'no_account', delivered_at: null })
+    expect((await row(id)).failed_at).not.toBeNull()
+    const [kept] = await db.sql<{ payload: unknown }[]>`select payload from outbox where id = ${id}`
+    expect(kept?.payload).toEqual({ redacted: true })
+    clock += 60_000
+    expect(await relay(db.sql, 'hopeless')).toBe('skipped')
+  })
+
   it('a row with no deliverer is left untouched, attempts included', async () => {
     const id = await queued(staff, 'carrier-pigeon', 'pigeon-1')
     if (!id) throw new Error('not queued')
     await sweep(db.sql, deliverers, options)
-    expect(await sweep(db.sql, {}, options)).toEqual({ delivered: 0, retry: 0, dead: 0, skipped: 0 })
+    expect(await sweep(db.sql, {}, options)).toEqual({ delivered: 0, retry: 0, dead: 0, dropped: 0, skipped: 0 })
     expect(await row(id)).toMatchObject({ attempts: 0, claimed_at: null, last_error: null, failed_at: null })
   })
 

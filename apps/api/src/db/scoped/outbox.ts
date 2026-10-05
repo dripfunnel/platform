@@ -116,11 +116,13 @@ export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Recor
 }
 
 /**
- * Gives up texts past their expiry that nobody sent, delivered or not registered (#275 pending),
- * keeping only the message kind: a code and a number never outlive the code (#289).
+ * Gives up unsent texts nobody will send in time, delivered or not registered (#275 pending): a code
+ * past its expiry, an order update older than `orderTextMs`. A row the relay holds is left to it.
  */
-export const expireUnsentSms = async (tx: ScopedSql, now: Date): Promise<number> =>
+export const expireUnsentSms = async (tx: ScopedSql, now: Date, leaseMs: number, orderTextMs: number): Promise<number> =>
   (await tx`
     update outbox set payload = jsonb_build_object('message', payload->'message', 'redacted', true), failed_at = ${now}, last_error = 'expired', claimed_at = null
-    where kind = 'sms' and delivered_at is null and failed_at is null and (payload->>'expiresAt')::timestamptz <= ${now}
+    where kind = 'sms' and delivered_at is null and failed_at is null
+      and (claimed_at is null or claimed_at < ${new Date(now.getTime() - leaseMs)})
+      and coalesce((payload->>'expiresAt')::timestamptz, created_at + ${`${orderTextMs} milliseconds`}::interval) <= ${now}
   `).count
