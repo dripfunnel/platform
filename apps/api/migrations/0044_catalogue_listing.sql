@@ -154,6 +154,8 @@ create table product_compliance (
 
 -- "Where you sell" per product (fact 42); jsonb countries, as size_chart's lists.
 -- The product's sections are read and replaced by product on every save.
+create index product_badge_badge_idx on product_badge (store_id, badge_id);
+create index product_related_target_idx on product_related (related_product_id);
 create index product_spec_product_idx on product_spec (product_id, position);
 create index product_highlight_product_idx on product_highlight (product_id, position);
 create index product_faq_product_idx on product_faq (product_id, position);

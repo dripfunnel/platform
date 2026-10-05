@@ -411,6 +411,17 @@ describe('collections', () => {
 })
 
 describe('the main menu', () => {
+  it('ends two saves at one revision, or two first saves, with one saved and one stale', async () => {
+    const menu = (rev: number, label: string) => gql('mutation M($rev: Int, $items: [MenuItemInput!]!) { saveMenu(revision: $rev, items: $items) }', 'bOwner', { rev, items: [{ label, kind: 'url', url: 'https://example.com/' + label }] })
+    const firsts = await Promise.all([menu(0, 'a'), menu(0, 'b')])
+    expect(firsts.map((r) => r.code ?? 'saved').sort()).toEqual(['STALE_REVISION', 'saved'])
+    const again = await Promise.all([menu(1, 'c'), menu(1, 'd')])
+    expect(again.map((r) => r.code ?? 'saved').sort()).toEqual(['STALE_REVISION', 'saved'])
+    expect((await gql('{ menu { revision } }', 'bOwner')).data?.['menu']).toEqual({ revision: 2 })
+    await db.sql`delete from menu_item where store_id = ${t.storeB1}`
+    await db.sql`delete from menu where store_id = ${t.storeB1}`
+  })
+
   it('saves one level of items at the revision read, linking only this store’s collections', async () => {
     const picks = (await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'owner', { input: { name: 'Menu picks', kind: 'manual' } })).data?.['saveCollection'] as { id: string }
     const items = [{ label: 'Shop', kind: 'collection', collectionId: picks.id, children: [{ label: 'Returns', kind: 'page', url: '/policies/refund' }] }, { label: 'Blog', kind: 'url', url: 'https://blog.example.com' }]
