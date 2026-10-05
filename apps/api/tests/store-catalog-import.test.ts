@@ -172,6 +172,20 @@ describe('a spreadsheet import', () => {
     expect(await db.sql`select amount::text as amount from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'KU-S' and vp.currency = 'USD'`).toEqual([{ amount: '1599' }])
   })
 
+  it('keeps what an update’s file has no column or value for, on the product and each version it names', async () => {
+    const [ku] = await productBySku('KU-S')
+    await db.sql`update product_version set name = 'Small', length_mm = 300, width_mm = 200, height_mm = 20, hs_code = '621142', customs_description = 'Cotton kurta', track_stock = false, continue_selling = true, cost_amount = 55000, cost_currency = 'INR', weight_grams = 280, barcode = '036000291452'
+      where sku = 'KU-S'`
+    await db.sql`update product set seo_title = 'Kurta, handloomed', product_type = 'physical' where id = ${ku?.id ?? ''}`
+    const { id } = await upload('owner', 'handle,name,option1 name,option1 value,sku,price,cost,weight grams,barcode\nkurta,Kurta,Size,S,KU-S,1399.00,,,\nkurta,,,M,KU-M,1399.00,,,\n')
+    expect((await confirm('owner', id, 'update')).job).toMatchObject({ state: 'done', updated: 1, failed: 0 })
+    expect(await db.sql`select name, length_mm, width_mm, height_mm, hs_code, customs_description, track_stock, continue_selling, cost_amount::text as cost, weight_grams, barcode from product_version where sku = 'KU-S' and deleted_at is null`).toEqual([
+      { name: 'Small', length_mm: 300, width_mm: 200, height_mm: 20, hs_code: '621142', customs_description: 'Cotton kurta', track_stock: false, continue_selling: true, cost: '55000', weight_grams: 280, barcode: '036000291452' },
+    ])
+    expect(await db.sql`select seo_title, description from product where id = ${ku?.id ?? ''}`).toEqual([{ seo_title: 'Kurta, handloomed', description: 'Handloomed in Bengal' }])
+    expect(await db.sql`select amount::text as amount from version_price vp join product_version v on v.id = vp.version_id where v.sku = 'KU-S' and vp.currency = 'INR'`).toEqual([{ amount: '139900' }])
+  })
+
   it('reads Shopify’s file, fetching photos from public addresses only', async () => {
     const shopify = [
       'Handle,Title,Body (HTML),Vendor,Type,Published,Option1 Name,Option1 Value,Variant SKU,Variant Grams,Variant Inventory Qty,Variant Price,Image Src,Image Alt Text,Status',

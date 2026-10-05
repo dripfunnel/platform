@@ -244,6 +244,29 @@ describe('size charts, the merchant’s', () => {
     expect(screen.queryByRole('link', { name: words.seePlans })).toBeNull()
   })
 
+  it('offers no copy where the plan has no charts, as it offers no new one', async () => {
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: true, inPlan: false }] })
+    await show(owner, merchant)
+    expect(screen.queryByRole('button', { name: words.new })).toBeNull()
+    expect(screen.queryByRole('button', { name: words.copy })).toBeNull()
+  })
+
+  it('marks both measurements that share a name, tied to the problem said, and keeps a note when its column is renamed', async () => {
+    charts.loadSizeChart.mockResolvedValue({ ...tops, products: 0, howToMeasure: [{ measurement: 'Chest', text: 'Around the fullest part' }] })
+    await show(owner, merchant)
+    fireEvent.change(screen.getByLabelText('Column 3 name'), { target: { value: 'chest' } })
+    fireEvent.click(screen.getByRole('button', { name: words.save }))
+    const heads = [screen.getByLabelText('Column 2 name'), screen.getByLabelText('Column 3 name')]
+    expect(heads.map((h) => h.getAttribute('aria-invalid'))).toEqual(['true', 'true'])
+    const problem = document.getElementById(heads[0]?.getAttribute('aria-describedby') ?? '')
+    expect(problem?.textContent).toBe(words.problems.duplicate)
+    fireEvent.change(screen.getByLabelText('Column 3 name'), { target: { value: 'Waist' } })
+    fireEvent.change(screen.getByLabelText('Column 2 name'), { target: { value: 'Bust' } })
+    fireEvent.click(screen.getByRole('button', { name: words.save }))
+    await settle()
+    expect(charts.saveSizeChart).toHaveBeenLastCalledWith('c1', 2, expect.objectContaining({ measurements: ['Bust', 'Waist'], howToMeasure: [{ measurement: 'Bust', text: 'Around the fullest part' }] }))
+  })
+
   it('says when charts are switched off, and lets a read-only store look only', async () => {
     editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: false, inPlan: true }] })
     await show(owner, merchant, true)

@@ -332,7 +332,7 @@ export const mergeForUpdate = (planned: ProductInput, existing: ProductRow): Pro
   const names = (list: readonly { name: string }[]) => list.map((o) => o.name.toLowerCase()).join('|')
   if (kept.length > 0 && names(planned.options) !== names(existing.options)) return 'OPTIONS_DIFFER'
   const valueName = (optionId: string, valueId: string) => existing.options.find((o) => o.id === optionId)?.values.find((v) => v.id === valueId)?.name ?? ''
-  const keptVersions: VersionInput[] = kept.map((v) => ({
+  const stored = (v: ProductRow['versions'][number]): VersionInput => ({
     id: v.id,
     choices: existing.options.map((o) => valueName(o.id, v.choices[o.id] ?? '')),
     sku: v.sku,
@@ -349,13 +349,24 @@ export const mergeForUpdate = (planned: ProductInput, existing: ProductRow): Pro
     customsDescription: v.customs_description,
     trackStock: v.track_stock,
     continueSelling: v.continue_selling,
-  }))
+  })
+  const keptVersions = kept.map(stored)
   const versions: VersionInput[] = [
     ...planned.versions.map((v) => {
       const before = v.sku ? bySku.get(v.sku.toLowerCase()) : undefined
       // A currency the file doesn't name keeps the price it has, converted ones included.
       const others = (before?.prices ?? []).filter((p) => !v.prices.some((x) => x.currency === p.currency.trim())).map((p) => ({ currency: p.currency.trim(), amount: p.amount, compareAtAmount: p.compare_at_amount }))
-      return { ...v, id: before?.id ?? null, prices: [...v.prices, ...others] }
+      // A matched version starts from what's stored; the file changes what it has a column and a value for.
+      if (!before) return v
+      return {
+        ...stored(before),
+        choices: v.choices,
+        sku: v.sku,
+        barcode: v.barcode ?? before.barcode,
+        cost: v.cost ?? stored(before).cost,
+        weightGrams: v.weightGrams ?? before.weight_grams,
+        prices: [...v.prices, ...others],
+      }
     }),
     ...keptVersions,
   ]
@@ -372,8 +383,17 @@ export const mergeForUpdate = (planned: ProductInput, existing: ProductRow): Pro
       values: [...values.values()].map((name) => ({ id: before?.values.find((x) => x.name.toLowerCase() === name.toLowerCase())?.id ?? null, name })),
     }
   })
-  // The web address stays as it is: a file's handle never moves a live product's links.
-  return { ...planned, slug: undefined, options, versions }
+  // The web address stays as it is: a file's handle never moves a live product's links. A blank cell keeps what's there.
+  return {
+    ...planned,
+    slug: undefined,
+    description: planned.description || existing.description,
+    productType: planned.productType ?? existing.product_type,
+    seoTitle: planned.seoTitle ?? existing.seo_title,
+    seoDescription: planned.seoDescription ?? existing.seo_description,
+    options,
+    versions,
+  }
 }
 
 type Outcome = { kind: 'created' | 'updated'; id: string } | { kind: 'skipped' } | { kind: 'failed'; code: ProblemCode }

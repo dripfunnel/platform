@@ -1,5 +1,6 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
-import { ConfirmDialog, Icon, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { ConfirmDialog, Icon, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
+import { looksLikeEmail } from '../common/email'
 import { useState } from 'react'
 import {
   accessLevels,
@@ -28,22 +29,12 @@ const words = messages.settings.team
 
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 
-const email = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
-
 /** The API's refusal in words, with the plan's figure or the limit's reason where it gave one. */
 const refusalOf = (error: unknown): string => {
   if (!isApiError(error)) return words.refused.other
   if (error.code === 'PLAN_LIMIT' && typeof error.details['limit'] === 'number') return fill(words.planLimit, { count: formatCount(error.details['limit']) })
   return (words.refused as Record<string, string>)[error.code] ?? words.refused.other
 }
-
-const initials = (text: string) =>
-  text
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('')
-    .slice(0, 2) || '?'
 
 /** One run of writes behind a dialog: busy while it goes, the toast after, the list read again either way. */
 const useRun = (onDone: (toast: string) => void) => {
@@ -114,7 +105,7 @@ export const PeopleTab = ({ people, canEdit, onChanged }: PeopleTabProps) => {
       target: '',
       consequence: words.inviteBody,
       confirmLabel: words.inviteNext,
-      input: { label: words.theirEmail, type: 'email', initial: '', placeholder: words.emailPlaceholder, error: (v) => (email.test(v.trim()) ? null : words.emailInvalid) },
+      input: { label: words.theirEmail, type: 'email', initial: '', placeholder: words.emailPlaceholder, error: (v) => (looksLikeEmail(v) ? null : words.emailInvalid) },
       onConfirm: (_, value) => {
         const to = (value ?? '').trim()
         setAsk({
@@ -257,7 +248,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
           target: words.step.replace('{n}', '2'),
           consequence: words.firstUserBody,
           confirmLabel: words.next,
-          input: { label: words.theirEmail, type: 'email', initial: '', placeholder: words.emailPlaceholder, error: (v) => (email.test(v.trim()) ? null : words.emailInvalid) },
+          input: { label: words.theirEmail, type: 'email', initial: '', placeholder: words.emailPlaceholder, error: (v) => (looksLikeEmail(v) ? null : words.emailInvalid) },
           onConfirm: (_, address) => {
             const to = (address ?? '').trim()
             setAsk({
@@ -302,7 +293,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
             target: s.name,
             consequence: fill(words.addPersonBody, { name: s.name }),
             confirmLabel: words.sendInvite,
-            input: { label: words.theirEmail, type: 'email', initial: '', placeholder: words.emailPlaceholder, error: (v) => (email.test(v.trim()) ? null : words.emailInvalid) },
+            input: { label: words.theirEmail, type: 'email', initial: '', placeholder: words.emailPlaceholder, error: (v) => (looksLikeEmail(v) ? null : words.emailInvalid) },
             onConfirm: (_, value) => void run(async () => (await addSupplierPerson(s.id, (value ?? '').trim()), fill(words.inviteSent, { email: (value ?? '').trim() }))),
           })
         if (what === 'access')
@@ -400,7 +391,7 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
           {shown.map((s) => (
             <Row
               key={s.id}
-              mark={initials(s.name)}
+              mark={initials(s.name) || '?'}
               square
               name={s.name}
               sub={`${fill(plural(words.users, s.users), { count: formatCount(s.users) })} · ${fill(plural(words.products, s.products), { count: formatCount(s.products) })}`}
