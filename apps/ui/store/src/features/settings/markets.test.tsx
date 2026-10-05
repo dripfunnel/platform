@@ -202,4 +202,20 @@ describe('markets', () => {
     expect(api.deleteMarket).toHaveBeenCalledWith('ae')
     expect(list().queryByText('UAE')).toBeNull()
   })
+
+  it('saves a sub-market after its parent is deleted at the revision the API moved it to', async () => {
+    const texas = market({ id: 'tx', name: 'Texas', parentId: 'us', countries: ['US'], currency: 'USD', language: 'en-US', revision: 2 })
+    api.loadAllMarkets.mockResolvedValue([india, { ...us, everywhereElse: false }, texas, gulf])
+    await show()
+    open('United States')
+    fireEvent.click(screen.getByRole('button', { name: w.delete }))
+    fireEvent.click(dialog().getByRole('button', { name: w.delete }))
+    await settle()
+    open('Texas')
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'Texas and nearby' } })
+    save()
+    await settle()
+    // The API moved Texas to the top and its revision with it (2 → 3), so the save is at 3, not refused as stale.
+    expect(api.saveMarket).toHaveBeenLastCalledWith('tx', 3, expect.objectContaining({ name: 'Texas and nearby', parentId: null }))
+  })
 })

@@ -2707,7 +2707,8 @@
         "dutyRate": "12",
         "dutyThreshold": "0"
       },
-      "percent": "%"
+      "percent": "%",
+      "rowSub": "{countries} · {currency}"
     }
   }
 }
