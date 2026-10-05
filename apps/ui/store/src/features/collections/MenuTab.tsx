@@ -181,7 +181,7 @@ export const MenuTab = ({ menu, collections, storeName, canEdit, onSaved, onStal
             const label = named(r)
             const note = r.kind !== 'collection' ? fill(words.link, { url: r.url ?? '' }) : !c ? '' : c.visible ? fill(plural(words.products, c.products), { count: formatCount(c.products) }) : words.hiddenNote
             return (
-              <li key={r.key} className={shown(r) ? 'df-menu-row' : 'df-menu-row df-menu-row--hidden'} style={{ marginInlineStart: r.depth ? '28px' : 0 }}>
+              <li key={r.key} className={['df-menu-row', shown(r) ? '' : 'df-menu-row--hidden', r.depth ? 'df-menu-row--kid' : ''].filter(Boolean).join(' ')}>
                 <span className="df-menu-label">{label}</span>
                 <span className="df-menu-note">{note}</span>
                 {canEdit && (
