@@ -4,7 +4,7 @@
   const REG = {
     IN: {
       key: 'IN', store: 'Kesari Threads', init: 'K', locale: 'en-IN', cur: 'INR', incl: true, accent: '#B4532A', accentInk: '#FFFFFF', tint: '#F6E7DD',
-      liveHost: 'kesarithreads.in', shopHost: 'kesari-threads.shops.northstarshops.com', previewHost: 'kesari-threads.preview.northstarshops.com',
+      liveHost: 'kesarithreads.in', shopHost: 'kesari-threads.shops.northstar.shop', previewHost: 'kesari-threads.preview.northstar.shop',
       tagline: 'Hand block-printed cotton and linen from Jaipur.', city: 'Jaipur', email: 'hello@kesarithreads.in', phone: '+91 98450 11234',
       address: ['Kesari Threads', 'MI Road', 'Jaipur, Rajasthan 302001', 'India'], taxId: 'GSTIN 08ABCDE1234F1Z5',
       taxLine: 'Inclusive of all taxes', taxShort: 'incl. GST', taxName: 'GST', compareName: 'MRP', postal: 'PIN code', region: 'State', regionName: 'Rajasthan',
@@ -32,7 +32,7 @@
     },
     US: {
       key: 'US', store: 'Juniper & Co.', init: 'J', locale: 'en-US', cur: 'USD', incl: false, accent: '#2F5D50', accentInk: '#FFFFFF', tint: '#E3ECE8',
-      liveHost: 'juniperandco.com', shopHost: 'juniper-co.shops.northstarshops.com', previewHost: 'juniper-co.preview.northstarshops.com',
+      liveHost: 'juniperandco.com', shopHost: 'juniper-co.shops.northstar.shop', previewHost: 'juniper-co.preview.northstar.shop',
       tagline: 'Everyday clothes and home goods, made to last.', city: 'Columbus', email: 'hello@juniperandco.com', phone: '+1 614 555 0142',
       address: ['Juniper & Co.', '410 Oak St', 'Columbus, OH 43215', 'United States'], taxId: '',
       taxLine: 'Tax calculated at checkout', taxShort: '+ tax', taxName: 'Sales tax', compareName: 'List price', postal: 'ZIP code', region: 'State', regionName: 'Ohio',
