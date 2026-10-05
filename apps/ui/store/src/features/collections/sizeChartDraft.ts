@@ -81,6 +81,23 @@ export const inUnit = (d: ChartDraft, unit: 'cm' | 'in'): ChartDraft => {
   return { ...d, unit, rows, typed: { ...base, shown: rows } }
 }
 
+/** Column `i` of the systems-then-measurements columns renamed; a measurement takes its how-to-measure note with it. */
+export const withHead = (d: ChartDraft, i: number, value: string): ChartDraft => {
+  if (i < d.systems.length) return { ...d, systems: d.systems.map((s, j) => (j === i ? value : s)) }
+  const before = d.measurements[i - d.systems.length]
+  return {
+    ...d,
+    measurements: d.measurements.map((m, j) => (j + d.systems.length === i ? value : m)),
+    howToMeasure: d.howToMeasure.map((h) => (h.measurement === before ? { ...h, measurement: value } : h)),
+  }
+}
+
+/** The measurement columns whose name another one shares, as indexes into the systems-then-measurements columns. */
+export const duplicateHeads = (d: ChartDraft): Set<number> => {
+  const names = d.measurements.map((m) => m.trim().toLowerCase())
+  return new Set(names.flatMap((n, j) => (n !== '' && names.indexOf(n) !== names.lastIndexOf(n) ? [j + d.systems.length] : [])))
+}
+
 export const withRow = (d: ChartDraft): ChartDraft => ({ ...d, rows: [...d.rows, { size: '', values: [...d.systems, ...d.measurements].map(() => '') }] })
 
 export const withMeasurement = (d: ChartDraft, name: string): ChartDraft => ({ ...d, measurements: [...d.measurements, name], rows: d.rows.map((r) => ({ ...r, values: [...r.values, ''] })) })

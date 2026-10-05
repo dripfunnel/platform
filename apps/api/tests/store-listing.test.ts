@@ -215,6 +215,15 @@ describe('size charts', () => {
     expect((await saveChart('supplier', { ...chart, name: 'Still room' })).code).toBeUndefined()
     expect((await saveChart('owner', { ...chart, name: 'Owner room' })).code).toBeUndefined()
     await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and name like 'Cap %'`
+    // The store's own charts stop at 200 too; the list answers that cap to every seat, as the meter shows it.
+    const own = (await db.sql<{ n: number }[]>`select count(*)::int as n from size_chart where store_id = ${t.storeA1} and seller_id is null and deleted_at is null`)[0]?.n ?? 0
+    await db.sql`insert into size_chart (store_id, name, unit) select ${t.storeA1}, 'Store cap ' || n, 'cm' from generate_series(1, ${200 - own}) as n`
+    expect((await saveChart('owner', { ...chart, name: 'Store one too many' })).code).toBe('TOO_MANY_SIZE_CHARTS')
+    expect((await saveChart('supplier', { ...chart, name: 'Supplier still has room' })).code).toBeUndefined()
+    for (const who of ['owner', 'supplier'] as const) {
+      expect(((await gql('{ sizeCharts(first: 1) { limit } }', who)).data?.['sizeCharts'] as { limit: number }).limit, who).toBe(200)
+    }
+    await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id is null and name like 'Store cap %'`
   })
 
   it('page charts made in the same instant one at a time, every one once', async () => {
