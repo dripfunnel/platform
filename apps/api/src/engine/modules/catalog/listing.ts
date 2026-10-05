@@ -1,7 +1,8 @@
+import { isUuid } from '#core/ids'
+
 // A product's listing sections and the store's size charts and badges before they are written
 // (CATALOG-DESIGN R, S): pure, as rules.ts, so the API and imports share them.
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export class ListingInvalid extends Error {
   constructor(readonly field: string) {
@@ -23,7 +24,7 @@ const optionalWords = (value: string | null | undefined, max: number, field: str
 
 const ids = (values: readonly string[], max: number, field: string): string[] => {
   const clean = [...new Set(values.map((v) => v.toLowerCase()))]
-  if (clean.length > max || !clean.every((v) => uuid.test(v))) throw new ListingInvalid(field)
+  if (clean.length > max || !clean.every((v) => isUuid(v))) throw new ListingInvalid(field)
   return clean
 }
 
@@ -45,7 +46,8 @@ export interface CleanListing {
   faqs?: { question: string; answer: string }[]
   related?: string[]
   badgeIds?: string[]
-  flags?: { ageRestricted: boolean; hazardous: boolean }
+  /** A flag left out keeps its saved value. */
+  flags?: { ageRestricted: boolean | null; hazardous: boolean | null }
   compliance?: { region: string; field: string; value: string }[]
   marketRule?: { mode: 'only' | 'except'; countries: string[] } | null
 }
@@ -70,7 +72,7 @@ export const cleanListing = (input: ListingInput, versionCount: number, marketRu
       const version = s.version ?? null
       if (version !== null && (!Number.isInteger(version) || version < 0 || version >= versionCount)) throw new ListingInvalid('specs')
       const filterValueId = s.filterValueId ?? null
-      if (filterValueId !== null && !uuid.test(filterValueId)) throw new ListingInvalid('specs')
+      if (filterValueId !== null && !isUuid(filterValueId)) throw new ListingInvalid('specs')
       return { name: words(s.name, 60, 'specs'), value: words(s.value, 200, 'specs'), version, filterValueId: filterValueId?.toLowerCase() ?? null }
     })
   }
@@ -84,7 +86,7 @@ export const cleanListing = (input: ListingInput, versionCount: number, marketRu
   }
   if (input.relatedIds) out.related = ids(input.relatedIds, maxRelated, 'related')
   if (input.badgeIds) out.badgeIds = ids(input.badgeIds, maxProductBadges, 'badges')
-  if (input.ageRestricted != null || input.hazardous != null) out.flags = { ageRestricted: input.ageRestricted === true, hazardous: input.hazardous === true }
+  if (input.ageRestricted != null || input.hazardous != null) out.flags = { ageRestricted: input.ageRestricted ?? null, hazardous: input.hazardous ?? null }
   if (input.compliance) {
     if (input.compliance.length > maxCompliance) throw new ListingInvalid('compliance')
     const seen = new Set<string>()

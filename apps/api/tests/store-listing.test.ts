@@ -162,6 +162,26 @@ describe('size charts', () => {
     await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and name like 'Cap %'`
   })
 
+  it('hold the limit when two charts are made at the same moment', async () => {
+    const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from size_chart where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and deleted_at is null`
+    await db.sql`insert into size_chart (store_id, seller_id, name, unit) select ${t.storeA1}, ${t.sellerA1Second}, 'Race ' || g, 'cm' from generate_series(1, ${199 - n}) as g`
+    // Another save holds the owner's lock and has made the 200th chart, not yet committed.
+    let commit = () => {}
+    const held = new Promise<void>((resolve) => (commit = resolve))
+    const other = db.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext(${`size_chart:${t.storeA1}:${t.sellerA1Second}`}))`
+      await tx`insert into size_chart (store_id, seller_id, name, unit) values (${t.storeA1}, ${t.sellerA1Second}, 'Race 200', 'cm')`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const mine = saveChart('otherSupplier', { ...chart, name: 'One more' })
+    await new Promise((r) => setTimeout(r, 200))
+    commit()
+    await other
+    expect((await mine).code).toBe('TOO_MANY_SIZE_CHARTS')
+    await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second}`
+  })
+
   it('come a page at a time, newest edit first', async () => {
     const page = (await gql('{ sizeCharts(first: 2) { nodes { name } pageInfo { hasNextPage endCursor } } }', 'owner')).data?.['sizeCharts'] as { nodes: { name: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
     expect(page.nodes).toHaveLength(2)
@@ -213,6 +233,22 @@ describe('a product’s listing sections', () => {
     const updated = await gql(save, 'owner', { id: made.id, revision: 1, input: { name: 'Listed shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing: { highlights: ['Soft only'], marketRule: null } } })
     expect(updated.code).toBeUndefined()
     expect((await listingOf('owner', made.id))?.listing).toMatchObject({ specs: [{ name: 'Material' }], highlights: ['Soft only'], marketRule: null, relatedIds: [related.id] })
+  })
+
+  it('keeps the flag left out, and drops a trashed related product so a copy and a re-save still work', async () => {
+    const related = await product('owner', 'Soon trashed')
+    const made = await product('owner', 'Flagged lamp', { listing: { relatedIds: [related.id], ageRestricted: true, hazardous: true } })
+    const base = { name: 'Flagged lamp', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }] }
+    expect((await gql(save, 'owner', { id: made.id, revision: 1, input: { ...base, listing: { ageRestricted: false } } })).code).toBeUndefined()
+    expect((await listingOf('owner', made.id))?.listing).toMatchObject({ ageRestricted: false, hazardous: true })
+
+    await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [related.id] })
+    const shown = await listingOf('owner', made.id)
+    expect(shown?.listing.relatedIds).toEqual([])
+    const copy = await gql('mutation C($id: ID!) { duplicateProduct(id: $id) { id } }', 'owner', { id: made.id })
+    expect(copy.code).toBeUndefined()
+    // The form sends back what it read, which no longer names the trashed product.
+    expect((await gql(save, 'owner', { id: made.id, revision: 2, input: { ...base, listing: { relatedIds: shown?.listing.relatedIds } } })).code).toBeUndefined()
   })
 
   it('keeps a specification when the filter value it mirrors is removed, without the link', async () => {

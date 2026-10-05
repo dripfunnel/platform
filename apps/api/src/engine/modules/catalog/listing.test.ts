@@ -22,7 +22,7 @@ describe('a product’s listing sections', () => {
     const clean = cleanListing({ specs: [{ name: 'Material', value: 'Cotton' }, { name: 'Storage', value: '128 GB', version: 1 }], ageRestricted: true, compliance: [{ region: 'eu', field: 'country_of_origin', value: 'India' }] }, 2, false)
     expect(clean).toEqual({
       specs: [{ name: 'Material', value: 'Cotton', version: null, filterValueId: null }, { name: 'Storage', value: '128 GB', version: 1, filterValueId: null }],
-      flags: { ageRestricted: true, hazardous: false },
+      flags: { ageRestricted: true, hazardous: null },
       compliance: [{ region: 'EU', field: 'country_of_origin', value: 'India' }],
     })
   })
