@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { deleteSizeChart, loadSizeChart, saveSizeChart, type SizeChart, type SizeChartSummary } from '../../api/sizeCharts'
 import { fill, formatCount, messages, plural } from '../../messages'
-import { chartInput, chartProblem, draftOfChart, inUnit, isChartDirty, noValue, templates, withMeasurement, withoutColumn, withRow, withSystems, type ChartDraft, type TemplateKey } from './sizeChartDraft'
+import { chartInput, chartProblem, draftOfChart, duplicateHeads, inUnit, withHead, isChartDirty, noValue, templates, withMeasurement, withoutColumn, withRow, withSystems, type ChartDraft, type TemplateKey } from './sizeChartDraft'
 
 const words = messages.collections.charts
 
@@ -198,8 +198,10 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
   const set = (next: ChartDraft) => setSelected({ ...selected, draft: next })
   const columns = [...d.systems, ...d.measurements]
   const problem = chartProblem(d)
-  const setHead = (i: number, value: string) =>
-    set(i < d.systems.length ? { ...d, systems: d.systems.map((s, j) => (j === i ? value : s)) } : { ...d, measurements: d.measurements.map((m, j) => (j + d.systems.length === i ? value : m)) })
+  const setHead = (i: number, value: string) => set(withHead(d, i, value))
+  const doubled = duplicateHeads(d)
+  const problemId = `${formId}-problem`
+  const headInvalid = (i: number, h: string) => tried && ((problem === 'columns' && h.trim() === '') || (problem === 'duplicate' && doubled.has(i)))
   const setCell = (row: number, col: number, value: string) => set({ ...d, rows: d.rows.map((r, i) => (i === row ? (col < 0 ? { ...r, size: value } : { ...r, values: r.values.map((v, j) => (j === col ? value : v)) }) : r)) })
 
   const commit = async () => {
@@ -297,7 +299,7 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
             <span role="columnheader">{words.sizeHead}</span>
             {columns.map((h, i) => (
               <span role="columnheader" key={i}>
-                <input aria-label={fill(words.headCell, { n: String(i + 2) })} value={h} readOnly={ro} maxLength={40} aria-invalid={tried && problem === 'columns' && h.trim() === ''} onChange={(e) => setHead(i, e.target.value)} />
+                <input aria-label={fill(words.headCell, { n: String(i + 2) })} value={h} readOnly={ro} maxLength={40} aria-invalid={headInvalid(i, h)} aria-describedby={headInvalid(i, h) ? problemId : undefined} onChange={(e) => setHead(i, e.target.value)} />
                 {canEdit && (i < d.systems.length || d.measurements.length > 1) && (
                   <button type="button" aria-label={fill(words.removeColumn, { name: h || String(i + 2) })} disabled={busy} onClick={() => set(withoutColumn(d, i))}>
                     <Icon name="close" size={12} />
@@ -351,7 +353,7 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
           )}
         </div>
         {tried && problem && (
-          <p className="df-coll-problem" role="alert">
+          <p id={problemId} className="df-coll-problem" role="alert">
             {words.problems[problem]}
           </p>
         )}
@@ -365,9 +367,11 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
             <button type="button" className="df-button df-coll-delete" disabled={busy} onClick={remove}>
               {words.delete}
             </button>
-            <button type="button" className="df-button" disabled={busy} onClick={copy}>
-              {words.copy}
-            </button>
+            {!blocked && (
+              <button type="button" className="df-button" disabled={busy} onClick={copy}>
+                {words.copy}
+              </button>
+            )}
             <button type="button" className="df-button df-button--primary" disabled={busy} onClick={save}>
               {busy ? words.saving : words.save}
             </button>
@@ -377,7 +381,7 @@ export const SizeChartsTab = ({ charts, limit, canEdit, feature, owner, unit, in
           <div className="df-chart-preview">
             <div>
               <strong>{fill(words.previewTitle, { name: d.name })}</strong>
-              <span>{fill(words.previewSwitch, { unit: d.unit, other: d.unit === 'cm' ? 'in' : 'cm' })}</span>
+              <span>{fill(words.previewSwitch, { unit: d.unit === 'in' ? words.unitIn : words.unitCm, other: d.unit === 'cm' ? words.unitIn : words.unitCm })}</span>
             </div>
             <table>
               <thead>

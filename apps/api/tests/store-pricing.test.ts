@@ -145,6 +145,22 @@ describe('the conversion example in Settings', () => {
   })
 })
 
+describe('an example’s date', () => {
+  it('is the older of the two rates it used, the euro’s fixed 1 having none', async () => {
+    await db.sql`update exchange_rate set published_on = '2026-09-30' where currency = 'USD'`
+    try {
+      const examples = ((await gql('{ storeLocale { examples { currency publishedOn } } }', 'owner')).data?.['storeLocale'] as { examples: { currency: string; publishedOn: string | null }[] }).examples
+      // USD: INR's rate is from 2 October, USD's from 30 September, so 30 September. EUR: only INR's, 2 October.
+      expect(examples).toEqual([
+        { currency: 'EUR', publishedOn: '2026-10-02' },
+        { currency: 'USD', publishedOn: '2026-09-30' },
+      ])
+    } finally {
+      await db.sql`update exchange_rate set published_on = '2026-10-02' where currency = 'USD'`
+    }
+  })
+})
+
 describe('the reference rates', () => {
   it('replaces a rate with a newer day’s and ignores an older one', async () => {
     const deliver = (publishedOn: string, perEuro: Record<string, string>) =>

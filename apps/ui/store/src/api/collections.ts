@@ -138,6 +138,10 @@ export interface CollectionInput {
   visible: boolean
   rules: RuleInput[]
   productIds: string[]
+  imageAssetId?: string | null
+  sort?: string
+  seoTitle?: string | null
+  seoDescription?: string | null
 }
 
 /** A new collection (no id), or the next revision of one. */

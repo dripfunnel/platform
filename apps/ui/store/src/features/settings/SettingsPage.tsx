@@ -58,7 +58,7 @@ const loaders = (reads: SettingsReads, seat: { planName: string | null; owner: b
   // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
   warehouse: async () => {
     const names = new Map((await reads.suppliers()).map((s) => [s.id, s.name]))
-    return (_, canEdit) => <WarehousesView canEdit={canEdit} supplierNames={names} />
+    return (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" supplierNames={names} />
   },
   tax: async () => {
     const [tax, invoice, info] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo()])
