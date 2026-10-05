@@ -22,8 +22,9 @@ export type UserSessionStage = 'second-factor' | 'enrol' | 'full'
 
 const absoluteFor = (remember: boolean) => (remember ? rememberAbsoluteMs : absoluteMs)
 
-export const setStoreCookie = (id: string, remember: boolean): string =>
-  `${storeCookieName}=${id}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(absoluteFor(remember) / 1000)}`
+// A session still waiting for its second factor lives in the browser only as long as on the server.
+export const setStoreCookie = (id: string, remember: boolean, stage: UserSessionStage = 'full'): string =>
+  `${storeCookieName}=${id}; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=${Math.floor((stage === 'full' ? absoluteFor(remember) : pendingMs) / 1000)}`
 
 export const clearStoreCookie = (): string => `${storeCookieName}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`
 

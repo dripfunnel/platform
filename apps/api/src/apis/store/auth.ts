@@ -2,6 +2,7 @@ import type postgres from 'postgres'
 import { z } from 'zod'
 import {
   factsOf,
+  personBackupCodesGenerated,
   personBackupCodeUsed,
   personCodeRefused,
   personLocked,
@@ -50,7 +51,7 @@ import {
   type UserSecondFactor,
 } from '#db/scoped/userSignIn'
 import { queueSms } from '#saas/sms/index'
-import { json, readBody, refuse, type Refusal } from '../platform/authHttp'
+import { json, readBody, refuse, type Refusal } from './authHttp'
 
 // Sign-in on a partner's portal host (ACCESS.md §2, §4; FIRST-RELEASE §4; #290): the same shape
 // as the partner console's (apis/platform/auth.ts), with SMS codes and backup codes besides an
@@ -150,7 +151,7 @@ const signIn = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts
   })
   if ('refusal' in outcome) return refuse(outcome.refusal)
   const step = outcome.stage === 'full' ? 'done' : outcome.stage
-  return json(200, { ok: true, step, ...(outcome.stage === 'second-factor' ? { method: outcome.method } : {}) }, setStoreCookie(outcome.session, outcome.remember))
+  return json(200, { ok: true, step, ...(outcome.stage === 'second-factor' ? { method: outcome.method } : {}) }, setStoreCookie(outcome.session, outcome.remember, outcome.stage))
 }
 
 /** A wrong code counts; the fifth locks sign-in for 15 minutes (ACCESS.md §4, as the partner console). */
@@ -208,10 +209,15 @@ const checkTextedCode = async (tx: ScopedSql, userId: string, purpose: 'sign_in'
   return 'ok'
 }
 
+/** Once admitted, the cookie's lifetime grows from the pending ten minutes to the full session's. */
+const admittedCookie = (admitted: { cookie: string; remember: boolean } | null): string | undefined =>
+  admitted ? setStoreCookie(admitted.cookie, admitted.remember) : undefined
+
 const secondFactor = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null): Promise<Response> => {
   const input = await readBody(request, codeInput)
   const now = deps.now()
   const secrets = deps.secrets
+  let admitted: { cookie: string; remember: boolean } | null = null
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | null> => {
     const found = await pendingSecondFactor(tx, deps, cookie, now)
     if (!cookie || !found || !input) return { code: 'INVALID_CREDENTIALS' }
@@ -239,16 +245,18 @@ const secondFactor = async (request: Request, deps: StoreAuthDeps, facts: Reques
     }
     await recordUserGoodCode(tx, state.id, step, now)
     await completeUserSession(tx, cookie, pending.remember, now)
+    admitted = { cookie, remember: pending.remember }
     await deps.activity.record(tx, personSignedIn(user, facts))
     return null
   })
-  return outcome ? refuse(outcome) : json(200, { ok: true })
+  return outcome ? refuse(outcome) : json(200, { ok: true }, admittedCookie(admitted))
 }
 
 /** A backup code instead of the second factor, spent in the transaction that admits the session. */
 const backupCode = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null): Promise<Response> => {
   const input = await readBody(request, codeInput)
   const now = deps.now()
+  let admitted: { cookie: string; remember: boolean } | null = null
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | { left: number }> => {
     const found = await pendingSecondFactor(tx, deps, cookie, now)
     if (!cookie || !found || !input) return { code: 'INVALID_CREDENTIALS' }
@@ -262,11 +270,12 @@ const backupCode = async (request: Request, deps: StoreAuthDeps, facts: RequestF
     }
     await recordUserGoodCode(tx, state.id, null, now)
     await completeUserSession(tx, cookie, pending.remember, now)
+    admitted = { cookie, remember: pending.remember }
     await deps.activity.record(tx, personBackupCodeUsed(user, facts))
     await deps.activity.record(tx, personSignedIn(user, facts))
     return { left }
   })
-  return 'code' in outcome ? refuse(outcome) : json(200, { ok: true, left: outcome.left })
+  return 'code' in outcome ? refuse(outcome) : json(200, { ok: true, left: outcome.left }, admittedCookie(admitted))
 }
 
 /**
@@ -277,6 +286,7 @@ const backupCode = async (request: Request, deps: StoreAuthDeps, facts: RequestF
 const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts, cookie: string | null): Promise<Response> => {
   const input = await readBody(request, enrolInput)
   const now = deps.now()
+  let admitted: { cookie: string; remember: boolean } | null = null
   const outcome = await withSystemScope(deps.sql, async (tx): Promise<Refusal | Record<string, unknown>> => {
     const pending = cookie ? await readPendingUserSession(tx, cookie, deps.partnerId, 'enrol', now) : null
     const state = pending ? await selectUserSecondFactor(tx, pending.userId) : null
@@ -288,7 +298,9 @@ const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts,
       const codes = newBackupCodes()
       await replaceBackupCodes(tx, user, await Promise.all(codes.map(hashBackupCode)))
       await completeUserSession(tx, cookie, pending.remember, now)
+      admitted = { cookie, remember: pending.remember }
       await deps.activity.record(tx, personSecondFactorEnrolled(user, facts, method))
+      await deps.activity.record(tx, personBackupCodesGenerated(user, facts))
       await deps.activity.record(tx, personSignedIn(user, facts))
       return { done: true, backupCodes: codes }
     }
@@ -320,5 +332,5 @@ const enrol = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts,
     if (checked !== 'ok') return { code: checked === 'wrong' ? 'WRONG_CODE' : 'CODE_EXPIRED' }
     return finish('sms', null, pending.pendingPhone, null)
   })
-  return isRefusal(outcome) ? refuse(outcome) : json(200, { ok: true, ...outcome })
+  return isRefusal(outcome) ? refuse(outcome) : json(200, { ok: true, ...outcome }, admittedCookie(admitted))
 }

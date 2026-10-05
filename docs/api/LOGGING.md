@@ -57,7 +57,7 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 `supplier.shipping_mode_changed`, `supplier.suspended`, `supplier.resumed`,
 `supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
 `two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
-detail, never the code), `sessions.others_ended`, `customer.consent_recorded`,
+detail, never the code), `person.signed_in`, `person.signed_out`, `person.sign_in_refused`, `person.second_factor_refused` (the reason code, never the code typed), `person.locked`, `person.switched_store` (#290), `sessions.others_ended`, `customer.consent_recorded`,
 `customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind),
 `impersonation.started`, `impersonation.extended`, `impersonation.ended`,
 `staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,

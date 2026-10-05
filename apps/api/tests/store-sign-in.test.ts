@@ -2,6 +2,7 @@ import { graphql, type GraphQLSchema } from 'graphql'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { handleStoreAuth, type StoreAuthDeps } from '#apis/store/auth'
+import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
 import { storeSchema } from '#apis/store/schema'
 import { hashPassword } from '#auth/password'
 import { secretBox, type SecretBox } from '#auth/secretBox'
@@ -23,6 +24,7 @@ const host = 'store.partner-a.example'
 const hostB = 'store.partner-b.example'
 const password = 'correct horse battery'
 const people = { owner: '', staff: '', supplier: '', bOwner: '' }
+let ownerBackupCodes: string[] = []
 
 const user = async (partnerId: string, email: string, name: string) => {
   const [row] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status, password_hash) values (${partnerId}, ${email}, ${name}, 'active', ${await hashPassword(password)}) returning id`
@@ -57,7 +59,7 @@ const cookieOf = (response: Response) => /__Host-portal_session=([^;]*)/.exec(re
 
 const post = async (path: string, body: unknown, cookie = '', d = deps()) => {
   const response = await handleStoreAuth(
-    new Request(`https://${host}${path}`, { method: 'POST', headers: { origin: `https://${host}`, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7', ...(cookie ? { cookie: `${storeCookieName}=${cookie}` } : {}) }, body: JSON.stringify(body) }),
+    new Request(`https://${d.host}${path}`, { method: 'POST', headers: { origin: `https://${d.host}`, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7', ...(cookie ? { cookie: `${storeCookieName}=${cookie}` } : {}) }, body: JSON.stringify(body) }),
     d,
   )
   return { status: response.status, body: (response.headers.get('content-type')?.includes('json') ? await response.json() : null) as Record<string, unknown>, cookie: cookieOf(response) || cookie }
@@ -65,7 +67,7 @@ const post = async (path: string, body: unknown, cookie = '', d = deps()) => {
 
 const gql = async (source: string, cookie: string, headers: Record<string, string> = {}, partnerId = t.partnerA) => {
   const facts = { requestId: 'r', ip: null, userAgent: null }
-  const request = new Request(`https://${host}/api/`, { headers: { cookie: `${storeCookieName}=${cookie}`, ...headers } })
+  const request = new Request(`https://${partnerId === t.partnerA ? host : hostB}/api/`, { headers: { cookie: `${storeCookieName}=${cookie}`, ...headers } })
   const standing = await resolveStoreStanding(db.sql, request, partnerId, clock, activityLog, facts)
   const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => clock }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue })
@@ -136,6 +138,20 @@ describe('an Owner without 2-factor', () => {
     expect(res.body).toEqual({ ok: true, step: 'enrol' })
     cookie = res.cookie
     expect((await gql('{ me { name } }', cookie)).data?.['me']).toBeNull()
+    expect((await gql('{ myStores { nodes { store { id } } } }', cookie)).code).toBe('UNAUTHENTICATED')
+    expect((await gql('{ storeState { status } }', cookie, { [storeHeader]: t.storeA1 })).code).toBe('UNAUTHENTICATED')
+  })
+
+  it('keeps the pending cookie for ten minutes, the time the server holds the step open', async () => {
+    const response = await handleStoreAuth(
+      new Request(`https://${host}/api/auth/sign-in`, { method: 'POST', headers: { origin: `https://${host}`, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' }, body: JSON.stringify({ email: 'owner@a.example', password }) }),
+      deps(),
+    )
+    expect(response.headers.get('set-cookie')).toContain('Max-Age=600')
+  })
+
+  it('is not let into enrolment on another partner’s host with this host’s cookie', async () => {
+    expect((await post('/api/auth/enrol-second-factor', { method: 'app' }, cookie, deps({ partnerId: t.partnerB, host: hostB }))).body).toEqual({ ok: false, code: 'INVALID_CREDENTIALS' })
   })
 
   it('enrols an authenticator app named after the partner, and gets ten backup codes once', async () => {
@@ -146,10 +162,11 @@ describe('an Owner without 2-factor', () => {
     const done = await post('/api/auth/enrol-second-factor', { method: 'app', code }, cookie)
     expect(done.body['done']).toBe(true)
     expect(done.body['backupCodes']).toHaveLength(10)
+    expect(done.cookie).toBe(cookie)
     expect((await gql('{ me { name acting { role } } }', cookie, { [storeHeader]: t.storeA1 })).data?.['me']).toEqual({ name: 'Olivia Owner', acting: { role: 'owner' } })
     const [stored] = await db.sql<{ n: number }[]>`select count(*)::int as n from user_backup_code where user_id = ${people.owner} and used_at is null`
     expect(stored?.n).toBe(10)
-    ;(globalThis as Record<string, unknown>)['backup'] = (done.body['backupCodes'] as string[])[0]
+    ownerBackupCodes = done.body['backupCodes'] as string[]
   })
 })
 
@@ -162,11 +179,19 @@ describe('the second factor', () => {
     expect(res.body).toEqual({ ok: true, step: 'second-factor', method: 'app' })
     const [row] = await db.sql<{ two_factor_secret_enc: string }[]>`select two_factor_secret_enc from "user" where id = ${people.owner}`
     const secret = (await secrets.open(row?.two_factor_secret_enc ?? '')) ?? ''
-    expect((await post('/api/auth/second-factor', { code: await codeAt(secret, stepAt(clock)) }, res.cookie)).body).toEqual({ ok: true })
+    const code = await codeAt(secret, stepAt(clock))
+    const admitted = await handleStoreAuth(
+      new Request(`https://${host}/api/auth/second-factor`, { method: 'POST', headers: { origin: `https://${host}`, 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7', cookie: `${storeCookieName}=${res.cookie}` }, body: JSON.stringify({ code }) }),
+      deps(),
+    )
+    expect(await admitted.json()).toEqual({ ok: true })
+    expect(admitted.headers.get('set-cookie')).toContain(`Max-Age=${12 * 60 * 60}`)
+    const replay = await post('/api/auth/sign-in', { email: 'owner@a.example', password })
+    expect((await post('/api/auth/second-factor', { code }, replay.cookie)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
   })
 
   it('takes a backup code once, says how many are left, and refuses it the second time', async () => {
-    const code = String((globalThis as Record<string, unknown>)['backup'])
+    const code = ownerBackupCodes[0] ?? ''
     expect((await post('/api/auth/backup-code', { code }, await signInOwner())).body).toEqual({ ok: true, left: 9 })
     expect((await post('/api/auth/backup-code', { code }, await signInOwner())).body).toEqual({ ok: false, code: 'WRONG_CODE', triesLeft: 4 })
   })
@@ -269,5 +294,95 @@ describe('the shell', () => {
     const response = await handleStoreAuth(new Request(`https://${host}/api/auth/sign-out`, { method: 'POST', headers: { origin: `https://${host}`, cookie: `${storeCookieName}=${staff}` } }), deps())
     expect(response.headers.get('set-cookie')).toContain('Max-Age=0')
     expect((await gql('{ me { name } }', staff)).data?.['me']).toBeNull()
+  })
+})
+
+describe('what never crosses a partner, a store or a supplier', () => {
+  it('serves only the published brand’s files, and only the host partner’s', async () => {
+    await db.sql`
+      insert into partner_branding (partner_id, state, product_name, primary_color, accent_color, font, corner, background, logo_light_key, logo_dark_key, created_by_kind, created_by_label)
+      values (${t.partnerA}, 'draft', 'Draft Name', '#000000', '#000000', 'Manrope', 'rounded', 'sand', 'partners/a/brand/draft.svg', 'partners/a/brand/draft-dark.svg', 'system', 'test')
+    `
+    const objects = new Set(['partners/a/brand/logo.svg', 'partners/a/brand/draft.svg', 'partners/a/brand/draft-dark.svg'])
+    const assets = { get: async (key: string) => (objects.has(key) ? { body: key, httpMetadata: { contentType: 'image/svg+xml' } } : null) } as unknown as R2Bucket
+    const serve = async (partnerId: string, path: string) => {
+      const file = brandFileOf(path)
+      return file ? serveBrandFile(db.sql, assets, partnerId, file, clock) : new Response(null, { status: 404 })
+    }
+    const live = await serve(t.partnerA, '/api/brand/logo-light')
+    expect(live.status).toBe(200)
+    expect(await live.text()).toBe('partners/a/brand/logo.svg')
+    expect((await serve(t.partnerA, '/api/brand/logo-dark')).status).toBe(404)
+    expect((await serve(t.partnerB, '/api/brand/logo-light')).status).toBe(404)
+    expect((await serve(t.partnerA, '/api/brand/../secrets')).status).toBe(404)
+  })
+
+  it('reads no other partner’s session: a full session from this host is nobody on partner B’s', async () => {
+    const res = await post('/api/auth/sign-in', { email: 'nadia@northwind.example', password })
+    expect((await gql('{ me { name } }', res.cookie, {}, t.partnerB)).data?.['me']).toBeNull()
+  })
+
+  it('gives a supplier nothing of a store it doesn’t hold, and no switch to another supplier’s seat', async () => {
+    const supplier = (await post('/api/auth/sign-in', { email: 'nadia@northwind.example', password })).cookie
+    const elsewhere = await gql('{ storeState { status readOnly } }', supplier, { [storeHeader]: t.storeA2 })
+    expect(elsewhere.data?.['storeState'] ?? null).toBeNull()
+    expect(elsewhere.code).toBe('FORBIDDEN')
+    const other = await gql(`mutation { switchStore(storeId: "${t.storeA1}", supplierId: "${t.sellerA1Second}") { store { id } } }`, supplier)
+    expect(other.code).toBe('FORBIDDEN')
+    const own = await gql(`mutation { switchStore(storeId: "${t.storeA1}", supplierId: "${t.sellerA1First}") { store { id } } }`, supplier)
+    expect(own.data?.['switchStore']).toEqual({ store: { id: t.storeA1 } })
+  })
+
+  it('never shows partner A’s support session to partner B’s people, even naming A’s store', async () => {
+    const bStaff = await user(t.partnerB, 'staff@b.example', 'Ben Staff')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${bStaff}, ${t.storeB1}, 'staff', 'active')`
+    const bPerson = (await post('/api/auth/sign-in', { email: 'staff@b.example', password }, '', deps({ partnerId: t.partnerB, host: hostB }))).cookie
+    const crossing = await gql('{ storeState { support { partnerName } } }', bPerson, { [storeHeader]: t.storeA1 }, t.partnerB)
+    expect(crossing.data?.['storeState'] ?? null).toBeNull()
+    expect(crossing.code).toBe('FORBIDDEN')
+    const own = await gql('{ storeState { support { partnerName } } }', bPerson, { [storeHeader]: t.storeB1 }, t.partnerB)
+    expect(own.data?.['storeState']?.support).toBeNull()
+  })
+})
+
+describe('codes that are wrong, late or used', () => {
+  const smsPerson = async (email: string, phone: string) => {
+    const id = await user(t.partnerA, email, 'Texted Person')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${id}, ${t.storeA1}, 'staff', 'active')`
+    await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = ${phone} where id = ${id}`
+    return id
+  }
+
+  it('locks after five wrong texted codes', async () => {
+    await smsPerson('texted@a.example', '+16145550111')
+    const res = await post('/api/auth/sign-in', { email: 'texted@a.example', password })
+    await post('/api/auth/send-code', {}, res.cookie)
+    const answers = []
+    for (let i = 0; i < 5; i += 1) answers.push((await post('/api/auth/second-factor', { code: '000000' }, res.cookie)).body)
+    expect(answers.slice(0, 4).map((a) => a['triesLeft'])).toEqual([4, 3, 2, 1])
+    expect(answers[4]).toEqual({ ok: false, code: 'LOCKED', minutes: 15 })
+  })
+
+  it('refuses a wrong or stale app code during enrolment, and sets no method', async () => {
+    const owner = await user(t.partnerA, 'app.owner@a.example', 'App Owner')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
+    const res = await post('/api/auth/sign-in', { email: 'app.owner@a.example', password })
+    const start = await post('/api/auth/enrol-second-factor', { method: 'app' }, res.cookie)
+    const secret = String(start.body['secret'])
+    expect((await post('/api/auth/enrol-second-factor', { method: 'app', code: '000000' }, res.cookie)).body).toEqual({ ok: false, code: 'WRONG_CODE' })
+    expect((await post('/api/auth/enrol-second-factor', { method: 'app', code: await codeAt(secret, stepAt(clock) - 5) }, res.cookie)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
+    const [row] = await db.sql<{ two_factor_method: string | null }[]>`select two_factor_method from "user" where id = ${owner}`
+    expect(row?.two_factor_method).toBeNull()
+  })
+
+  it('refuses a wrong or expired texted code during enrolment', async () => {
+    const owner = await user(t.partnerA, 'sms.owner@a.example', 'Sms Owner')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
+    const res = await post('/api/auth/sign-in', { email: 'sms.owner@a.example', password })
+    await post('/api/auth/enrol-second-factor', { method: 'sms', phone: '+16145550122' }, res.cookie)
+    expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code: '000000' }, res.cookie)).body).toEqual({ ok: false, code: 'WRONG_CODE' })
+    const code = await lastSmsCode('+16145550122')
+    await db.sql`update verification_code set expires_at = ${new Date(clock.getTime() - 1000)} where subject_id = ${owner}`
+    expect((await post('/api/auth/enrol-second-factor', { method: 'sms', code }, res.cookie)).body).toEqual({ ok: false, code: 'CODE_EXPIRED' })
   })
 })

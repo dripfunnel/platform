@@ -262,7 +262,7 @@ export const registerShell = (builder: StoreBuilder) => {
             result: 'success',
             actorKind: 'person',
             actorId: person.id,
-            actorLabel: `${person.name} <${person.email}>`,
+            actorLabel: null,
             partnerId: person.partnerId,
             storeId: choice.storeId,
             sellerId: choice.sellerId,
