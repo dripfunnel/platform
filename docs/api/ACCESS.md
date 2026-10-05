@@ -706,6 +706,17 @@ Accept: token + password (new) or token + signed-in session (existing)
   survives if they belong elsewhere and is deleted only when the last membership goes. Their
   open requests in this store fail on the next request.
 - **Owner invariant**: refuse to remove or demote the last active Owner of a store.
+- **Merchant People, built on #290** (`apis/store/people.ts`, Settings › People, Owner only through
+  `invite`, every statement in the acting store's scope): `people` (active merchant members and open
+  invitations, cursor-paged; supplier users are SAPI 5's) and `peopleCounts`; `inviteMember` (Owner,
+  Manager or Staff; "already a member here" the only refusal about the person, checked first; the
+  account found or made `invited` by `store_invitee`, migrations/0040, the same call whether or not it
+  exists; the plan's `staff` limit counts Managers and Staff, active or invited, never an Owner);
+  `resendInvitation` (a new link revokes the old) and `revokeInvitation`; `changeRole` and
+  `removeMember`, the last Owner kept under a lock (`LAST_OWNER`). Invitations are capped at 20 an
+  hour per inviter and 3 a day per address in the store. A removed membership stays as `removed`
+  (requests never delete), and a revoked invitation's `invited` account is kept, as the partner team
+  keeps its rows (#199).
 
 ---
 

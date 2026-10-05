@@ -18,6 +18,14 @@ const now = new Date('2026-10-05T09:00:00Z')
 const people = { owner: '', manager: '', staff: '', supplier: '', bOwner: '' }
 const cookies = { owner: '', manager: '', staff: '', supplier: '', bOwner: '' }
 
+const subscribe = async (storeId: string, partnerId: string, planId: string) => {
+  await db.sql`update store set plan_id = ${planId} where id = ${storeId}`
+  await db.sql`
+    insert into store_subscription (store_id, partner_id, plan_id, plan_version, status, interval, currency, amount, period_start, period_end)
+    values (${storeId}, ${partnerId}, ${planId}, 1, 'active', 'month', 'INR', 0, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)})
+  `
+}
+
 const user = async (partnerId: string, email: string, name: string) => {
   const [row] = await db.sql<{ id: string }[]>`insert into "user" (partner_id, email, name, status) values (${partnerId}, ${email}, ${name}, 'active') returning id`
   return row?.id ?? ''
@@ -34,6 +42,12 @@ beforeAll(async () => {
   people.bOwner = await user(t.partnerB, 'owner@b.example', 'Bea Owner')
   await db.sql`insert into membership (user_id, store_id, role_key, status) values (${people.owner}, ${t.storeA1}, 'owner', 'active'), (${people.manager}, ${t.storeA1}, 'manager', 'active'), (${people.staff}, ${t.storeA1}, 'staff', 'active'), (${people.bOwner}, ${t.storeB1}, 'owner', 'active')`
   await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${people.supplier}, ${t.storeA1}, ${t.sellerA1First}, 'supplier-admin', 'active')`
+  // Room for the team: the plan's staff seats are tested on a store of their own below.
+  for (const [partnerId, storeId] of [[t.partnerA, t.storeA1], [t.partnerB, t.storeB1]] as const) {
+    const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${partnerId}, 'Team', 'live') returning id`
+    await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${partnerId}, 1, 'staff', 50)`
+    await subscribe(storeId, partnerId, plan?.id ?? '')
+  }
   for (const name of Object.keys(cookies) as (keyof typeof cookies)[]) {
     cookies[name] = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: people[name], partnerId: name === 'bOwner' ? t.partnerB : t.partnerA }, now))
   }
@@ -119,7 +133,7 @@ describe('inviting', () => {
   it('holds a store to its plan’s staff seats, never counting an Owner', async () => {
     const [plan] = await db.sql<{ id: string }[]>`insert into plan (partner_id, name, status) values (${t.partnerA}, 'Tiny', 'live') returning id`
     await db.sql`insert into plan_entitlement (plan_id, partner_id, version, key, amount) values (${plan?.id ?? ''}, ${t.partnerA}, 1, 'staff', 2)`
-    await db.sql`update store set plan_id = ${plan?.id ?? ''} where id = ${t.storeA2}`
+    await subscribe(t.storeA2, t.partnerA, plan?.id ?? '')
     const owner2 = await user(t.partnerA, 'owner2@a.example', 'Owner Two')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner2}, ${t.storeA2}, 'owner', 'active')`
     const c = await withSystemScope(db.sql, (tx) => createUserSession(tx, { id: owner2, partnerId: t.partnerA }, now))

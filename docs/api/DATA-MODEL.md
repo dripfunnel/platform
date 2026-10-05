@@ -417,6 +417,8 @@ seller      (id, store_id, name, access_level, shipping_mode, status, suspended_
 membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store
             UNIQUE (user_id, seller_id) WHERE seller_id IS NOT NULL -- one role per supplier
+            -- status: invited | active | suspended | removed (removed added on #290, 0040: a
+            -- removal keeps the row the activity log names)
             -- and no merchant-side and supplier-side membership for the same (user, store): trigger
             CHECK (seller_id IS NULL     AND role_key IN ('owner','manager','staff'))
                OR (seller_id IS NOT NULL AND role_key IN ('supplier-admin','supplier-member'))

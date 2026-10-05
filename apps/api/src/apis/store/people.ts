@@ -158,6 +158,8 @@ export const registerPeople = (builder: StoreBuilder) => {
         const email = emailOf(args.email)
         const role = roleOf(args.role)
         const sql = sqlOf(ctx)
+        // "Already a member here" comes first: it is the only refusal about the person (ACCESS.md §6.3).
+        if (await withScope(sql, caller.context, (tx) => isMemberHere(tx, caller.store.id, email))) throw refused('ALREADY_MEMBER', 'They’re already in this store.')
         // Planned outside the transaction that writes: its unlocking-plan read needs system scope.
         if (role !== 'owner') {
           const seats = await withScope(sql, caller.context, (tx) => countStaffSeats(tx, caller.store.id))
