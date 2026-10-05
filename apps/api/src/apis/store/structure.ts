@@ -55,18 +55,19 @@ export const registerStructure = (builder: StoreBuilder) => {
   const FacetValue = builder.objectRef<{ id: string; name: string; products: number }>('FacetValue').implement({
     fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), products: t.exposeInt('products') }),
   })
-  const Facet = builder.objectRef<{ id: string; name: string; position: number; shopper_visible: boolean; values: { id: string; name: string; products: number }[] }>('Facet').implement({
+  const Facet = builder.objectRef<{ id: string; name: string; position: number; shopper_visible: boolean; revision: number; values: { id: string; name: string; products: number }[] }>('Facet').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
       name: t.exposeString('name'),
       position: t.exposeInt('position'),
+      revision: t.exposeInt('revision'),
       // An internal tag only the team sees (CATALOG I1).
       shopperVisible: t.exposeBoolean('shopper_visible'),
       values: t.field({ type: [FacetValue], resolve: (f) => f.values }),
     }),
   })
 
-  type FacetView = { id: string; name: string; position: number; shopper_visible: boolean; values: { id: string; name: string; products: number }[] }
+  type FacetView = { id: string; name: string; position: number; shopper_visible: boolean; revision: number; values: { id: string; name: string; products: number }[] }
   const FacetPage = builder.objectRef<{ nodes: FacetView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('FacetPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Facet], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
@@ -153,7 +154,7 @@ export const registerStructure = (builder: StoreBuilder) => {
 
   const FacetValueInput = builder.inputType('FacetValueInput', { fields: (t) => ({ id: t.string(), name: t.string({ required: true }) }) })
   const FacetInput = builder.inputType('FacetInput', {
-    fields: (t) => ({ id: t.string(), name: t.string({ required: true }), shopperVisible: t.boolean(), position: t.int(), values: t.field({ type: [FacetValueInput], required: true }) }),
+    fields: (t) => ({ id: t.string(), name: t.string({ required: true }), shopperVisible: t.boolean(), position: t.int(), revision: t.int(), values: t.field({ type: [FacetValueInput], required: true }) }),
   })
   const RuleInput = builder.inputType('CollectionRuleInput', {
     fields: (t) => ({ kind: t.string({ required: true }), valueId: t.string(), text: t.string(), productId: t.string(), versionId: t.string(), currency: t.string(), min: t.string(), max: t.string() }),

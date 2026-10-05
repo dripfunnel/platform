@@ -175,6 +175,24 @@ describe('filters', () => {
     expect(((await gql('query C($id: ID!) { collection(id: $id) { rules { valueId } } }', 'owner', { id: made.id })).data?.['collection'] as { rules: unknown[] }).rules).toEqual([])
   })
 
+  it('refuses a save made from an older read, so a value added since isn’t deleted by it', async () => {
+    const { id } = await saveFacet('owner', { name: 'Sleeve', values: [{ name: 'Short' }] })
+    const read = async () => (await gql('{ facets(first: 50) { nodes { id revision values { id name } } } }', 'owner')).data?.['facets'] as { nodes: { id: string; revision: number; values: { id: string; name: string }[] }[] }
+    const first = (await read()).nodes.find((f) => f.id === id)
+    const short = first?.values[0]
+    // Someone adds "Long" from the same read; a second save from that read would drop it.
+    expect((await saveFacet('owner', { id, name: 'Sleeve', revision: first?.revision, values: [{ id: short?.id, name: 'Short' }, { name: 'Long' }] })).code).toBeUndefined()
+    expect((await saveFacet('owner', { id, name: 'Sleeve', shopperVisible: false, revision: first?.revision, values: [{ id: short?.id, name: 'Short' }] })).code).toBe('STALE_REVISION')
+    const now = (await read()).nodes.find((f) => f.id === id)
+    expect(now?.values.map((v) => v.name)).toEqual(['Short', 'Long'])
+    // A merge changes the values too, so a read from before it is stale.
+    const long = now?.values.find((v) => v.name === 'Long')?.id
+    await gql('mutation M($into: ID!, $from: [ID!]!) { mergeFacetValues(into: $into, from: $from) }', 'owner', { into: short?.id, from: [long] })
+    expect((await saveFacet('owner', { id, name: 'Sleeve', revision: now?.revision, values: now?.values.map((v) => ({ id: v.id, name: v.name })) ?? [] })).code).toBe('STALE_REVISION')
+    // Left out, a save is made whatever came between, as before.
+    expect((await saveFacet('owner', { id, name: 'Sleeves', values: [{ id: short?.id, name: 'Short' }] })).code).toBeUndefined()
+  })
+
   it('merges look-alike values into one, keeping every tag and rule', async () => {
     const facet = (await saveFacet('owner', { name: 'Colour', values: [{ name: 'Navy' }, { name: 'Navy blue' }] })).id ?? ''
     const [navy, navyBlue] = (await facets('owner')).find((f) => f.id === facet)?.values ?? []
