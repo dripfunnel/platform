@@ -36,6 +36,9 @@ import { isUuid } from '#core/ids'
 // Collections, filters and menus (CATALOG-DESIGN H–J; FIRST-RELEASE §12): the merchant side's. An
 // automatic collection's products are recomputed after commit (fact 14), through `recompute`.
 
+/** The outbox kind that recomputes a store's automatic collections (CATALOG fact 14); its deliverer is in jobs/. */
+export const collectionsRecomputeKind = 'collections.recompute'
+
 export const structureAudit = {
   collectionSaved: 'collection.saved',
   collectionDeleted: 'collection.deleted',
