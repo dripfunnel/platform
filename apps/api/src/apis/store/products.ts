@@ -216,6 +216,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       widthMm: t.exposeInt('width_mm', { nullable: true }),
       heightMm: t.exposeInt('height_mm', { nullable: true }),
       hsCode: t.exposeString('hs_code', { nullable: true }),
+      // Null: the store's default class (CATALOG fact 38).
+      taxClassId: t.exposeID('tax_class_id', { nullable: true }),
       customsDescription: t.exposeString('customs_description', { nullable: true }),
       trackStock: t.exposeBoolean('track_stock', { nullable: true }),
       continueSelling: t.exposeBoolean('continue_selling', { nullable: true }),
@@ -333,6 +335,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       widthMm: t.int(),
       heightMm: t.int(),
       hsCode: t.string(),
+      taxClassId: t.id(),
       customsDescription: t.string(),
       trackStock: t.boolean(),
       continueSelling: t.boolean(),

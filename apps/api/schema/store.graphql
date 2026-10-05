@@ -195,6 +195,19 @@ input InviteSupplierInput {
   shippingMode: String
 }
 
+type InvoiceSettings {
+  emailWithDispatch: Boolean
+  footer: String
+  legalName: String
+  taxPerLine: Boolean
+}
+
+input InvoiceSettingsInput {
+  emailWithDispatch: Boolean!
+  footer: String
+  taxPerLine: Boolean!
+}
+
 type Market {
   active: Boolean
   countries: [String!]
@@ -305,6 +318,8 @@ type Mutation {
   deleteProducts(ids: [ID!]!): Int
   deleteSizeChart(id: ID!): Int
   deleteStoryBlock(id: ID!): Boolean
+  deleteTaxClass(id: ID!): Boolean
+  deleteTaxZone(id: ID!): Boolean
   deleteWarehouse(id: ID!): Boolean
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
@@ -328,6 +343,7 @@ type Mutation {
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveFacet(input: FacetInput!): ID
+  saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
   saveLanguages(languages: [String!]!, main: String!): Boolean
   saveMarket(id: ID, input: MarketInput!, revision: Int): Market
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
@@ -338,12 +354,15 @@ type Mutation {
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoreInfo(input: StoreInfoInput!): Boolean
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
+  saveTaxClass(id: ID, input: TaxClassInput!): ID
+  saveTaxZone(id: ID, input: TaxZoneInput!): ID
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
   sendBackProduct(id: ID!, reason: String!): Boolean
   setApproval(on: Boolean!): Boolean
   setDefaultWarehouse(id: ID!): Boolean
   setEverywhereElse(marketId: ID): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setPricesIncludeTax(included: Boolean!): Boolean
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
@@ -629,6 +648,7 @@ type ProductVersion {
   name: String
   prices: [VersionPrice!]
   sku: String
+  taxClassId: ID
   trackStock: Boolean
   visible: Boolean
   weightGrams: Int
@@ -648,6 +668,7 @@ input ProductVersionInput {
   name: String
   prices: [VersionPriceInput!]!
   sku: String
+  taxClassId: ID
   trackStock: Boolean
   visible: Boolean
   weightGrams: Int
@@ -693,6 +714,7 @@ type Query {
   collections(after: String, before: String, first: Int): CollectionPage
   facets(after: String, before: String, first: Int): FacetPage
   health: String
+  invoiceSettings: InvoiceSettings
   market(id: ID!): Market
   markets(after: String, before: String, first: Int): MarketPage
   me: Me
@@ -724,6 +746,8 @@ type Query {
   supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
+  taxSetup: TaxSetup
   translationProgress(language: String!): TranslationProgress
   warehouses(after: String, before: String, first: Int): WarehousePage
 }
@@ -1160,6 +1184,85 @@ type SupportBanner {
   agentFirstName: String
   endsAt: String
   partnerName: String
+}
+
+type TaxClass {
+  id: ID
+  isDefault: Boolean
+  name: String
+  taxCode: String
+  versions: Int
+}
+
+input TaxClassInput {
+  isDefault: Boolean
+  name: String!
+  taxCode: String
+}
+
+type TaxComponent {
+  amount: String
+  name: String
+  rateBps: Int
+}
+
+type TaxQuote {
+  currency: String
+  lines: [TaxQuoteLine!]
+  pricesIncludeTax: Boolean
+  source: String
+  total: String
+}
+
+type TaxQuoteLine {
+  components: [TaxComponent!]
+  lineAmount: String
+  quantity: Int
+  rateBps: Int
+  tax: String
+  versionId: ID
+}
+
+input TaxQuoteLineInput {
+  quantity: Int!
+  versionId: ID!
+}
+
+type TaxRate {
+  rateBps: Int
+  taxClassId: ID
+}
+
+input TaxRateInput {
+  rateBps: Int!
+  taxClassId: ID!
+}
+
+type TaxSetup {
+  classes: [TaxClass!]
+  pricesIncludeTax: Boolean
+  zones: [TaxZone!]
+}
+
+input TaxShipToInput {
+  country: String!
+  postal: String
+  region: String
+}
+
+type TaxZone {
+  countries: [String!]
+  id: ID
+  name: String
+  rates: [TaxRate!]
+  regions: [String!]
+}
+
+input TaxZoneInput {
+  countries: [String!]!
+  name: String!
+  rates: [TaxRateInput!]!
+  regions: [String!]
 }
 
 type Translation {

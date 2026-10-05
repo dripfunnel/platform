@@ -147,6 +147,7 @@ export interface VersionRow {
   name: string | null
   visibility: 'visible' | 'hidden'
   hs_code: string | null
+  tax_class_id: string | null
   customs_description: string | null
   weight_grams: number | null
   length_mm: number | null
@@ -223,7 +224,7 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
         from product_option o where o.product_id = p.id), '[]'::json) as options,
       coalesce((
         select json_agg(json_build_object(
-          'id', v.id, 'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'visibility', v.visibility, 'hs_code', v.hs_code,
+          'id', v.id, 'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'visibility', v.visibility, 'hs_code', v.hs_code, 'tax_class_id', v.tax_class_id,
           'customs_description', v.customs_description, 'weight_grams', v.weight_grams, 'length_mm', v.length_mm,
           'width_mm', v.width_mm, 'height_mm', v.height_mm, 'cost_amount', v.cost_amount::text, 'cost_currency', v.cost_currency,
           'track_stock', v.track_stock, 'continue_selling', v.continue_selling, 'position', v.position,
@@ -432,22 +433,24 @@ export interface VersionFields {
   cost: { amount: string; currency: string } | null
   trackStock: boolean | null
   continueSelling: boolean | null
+  /** Undefined keeps the version's class. */
+  taxClassId?: string | null | undefined
   position: number
 }
 
 const versionRows = (tx: ScopedSql, rows: readonly (VersionFields & { id: string })[]) =>
-  rowsOf(tx, rows.map(({ cost, ...v }) => ({ ...v, costAmount: cost?.amount ?? null, costCurrency: cost?.currency ?? null })))
+  rowsOf(tx, rows.map(({ cost, taxClassId, ...v }) => ({ ...v, costAmount: cost?.amount ?? null, costCurrency: cost?.currency ?? null, taxClassId: taxClassId ?? null, keepTaxClass: taxClassId === undefined })))
 
 export const insertVersions = async (tx: ScopedSql, storeId: string, productId: string, rows: readonly (VersionFields & { id: string })[]): Promise<void> => {
   if (rows.length === 0) return
   await tx`
     insert into product_version (id, product_id, store_id, sku, barcode, name, visibility, hs_code, customs_description, weight_grams, length_mm, width_mm, height_mm,
-      cost_amount, cost_currency, track_stock, continue_selling, position)
+      cost_amount, cost_currency, track_stock, continue_selling, tax_class_id, position)
     select x.id, ${productId}, ${storeId}, x.sku, x.barcode, x.name, x.visibility, x."hsCode", x."customsDescription", x."weightGrams", x."lengthMm", x."widthMm", x."heightMm",
-      x."costAmount", x."costCurrency", x."trackStock", x."continueSelling", x.position
+      x."costAmount", x."costCurrency", x."trackStock", x."continueSelling", x."taxClassId", x.position
     from jsonb_to_recordset(${versionRows(tx, rows)}) as x(
       id uuid, sku text, barcode text, name text, visibility text, "hsCode" text, "customsDescription" text, "weightGrams" int,
-      "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, position int
+      "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, "taxClassId" uuid, position int
     )
   `
 }
@@ -464,6 +467,14 @@ export const updateVersions = async (tx: ScopedSql, rows: readonly (VersionField
       "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, position int
     ) where v.id = x.id
   `
+  // A class is the merchant side's to set (fact 37), so only a save that names one writes the column.
+  if (rows.some((r) => r.taxClassId !== undefined)) {
+    await tx`
+      update product_version v set tax_class_id = x."taxClassId"
+      from jsonb_to_recordset(${versionRows(tx, rows)}) as x(id uuid, "taxClassId" uuid, "keepTaxClass" boolean)
+      where v.id = x.id and not x."keepTaxClass"
+    `
+  }
 }
 
 /** A removed version's photos stay on the product as its own, and its filter tags go, so no facet or rule counts it. */

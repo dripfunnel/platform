@@ -37,6 +37,7 @@ import {
   type VersionFields,
 } from '#db/scoped/catalog'
 import { approvalRequired, submitForApproval } from '#db/scoped/approval'
+import { classesOfStore } from '#db/scoped/tax'
 import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
@@ -119,6 +120,7 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   cost: v.cost,
   trackStock: v.trackStock,
   continueSelling: v.continueSelling,
+  taxClassId: v.taxClassId,
   position,
 })
 
@@ -251,7 +253,10 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (typeof result === 'string') throw new Refused({ reason: result })
     // Vendor input can't carry visibility (ACCESS §7.2), nor prices in the store's other currencies (CATALOG O14):
     // refused, not quietly dropped.
-    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    // A version's tax class is one of the store's live ones (fact 37); a supplier's take the store's default.
+    const classes = [...new Set(result.versions.flatMap((v) => (v.taxClassId ? [v.taxClassId] : [])))]
+    if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
     if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
     try {
@@ -355,6 +360,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           hsCode: v.hs_code,
           customsDescription: v.customs_description,
           trackStock: v.track_stock,
+          taxClassId: v.tax_class_id,
           continueSelling: v.continue_selling,
         })),
         // The same files, on the copy's own photos; the copy's versions are in the source's order.
