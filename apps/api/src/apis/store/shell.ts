@@ -7,7 +7,7 @@ import { withScope, withSystemScope } from '#db/scoped/index'
 import { selectPortalBrand } from '#db/scoped/portalBrand'
 import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type MembershipChoiceRow } from '#db/scoped/storeShell'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -55,9 +55,6 @@ const choiceOf = (row: MembershipChoiceRow): Choice | null => {
 
 const roleName = (role: StoreRole) => role.role
 const tierOf = (role: StoreRole) => (role.side === 'supplier' ? role.tier : null)
-
-/** Past due or cancelled: the portal is read-only for everyone in it (Store FIRST-RELEASE §1). */
-const frozenStatus = (status: string) => status === 'past_due' || status === 'cancelled'
 
 /** What the support banner shows (0036): the partner, the agent's first name and when the session ends. */
 const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Date }) => ({ partnerName: s.partner_name, agentFirstName: s.agent_name.split(' ')[0] ?? s.agent_name, endsAt: s.expires_at.toISOString() })
@@ -233,7 +230,7 @@ export const registerShell = (builder: StoreBuilder) => {
         // reads nothing of the store row: the support banner comes from its definer function (0036).
         if (caller.role.side !== 'merchant') {
           const open = await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
-          return { readOnly: frozenStatus(caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
+          return { readOnly: readOnlyFor(caller.role, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
         }
         const { row, support } = await withScope(sql, caller.context, async (tx) => ({
           row: await selectStoreState(tx, caller.store.id),
@@ -241,7 +238,7 @@ export const registerShell = (builder: StoreBuilder) => {
         }))
         const status = row?.status ?? caller.store.status
         return {
-          readOnly: frozenStatus(status),
+          readOnly: readOnlyFor(caller.role, status),
           status,
           trialEndsAt: row?.trial_ends_at ? row.trial_ends_at.toISOString() : null,
           pastDueSince: row?.past_due_since ? row.past_due_since.toISOString() : null,
