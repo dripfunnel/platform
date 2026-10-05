@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EditorProduct } from '../../api/productEditor'
-import { blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, type Draft } from './productDraft'
+import { blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, versionKey, type Draft } from './productDraft'
 
 const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   id: 'p1',
@@ -67,6 +67,14 @@ describe('the editor’s draft (CatEditor)', () => {
     // A version not made needs no price.
     const d = draftOf(product(), 'INR')
     expect(problemsOf({ ...d, versions: d.versions.map((v, i) => (i === 1 ? { ...v, price: '', removed: true } : v)) }, 'INR')).toEqual([])
+  })
+
+  it('checks stock counts only for a physical product', () => {
+    const blank = blankDraft()
+    const priced = named({ ...blank, versions: blank.versions.map((v) => ({ ...v, price: '499' })) }, 'Kurta')
+    const stock = { [versionKey(priced.versions[0]?.choices ?? [])]: { w1: '-x' } }
+    expect(problemsOf({ ...priced, stock }, 'INR')).toEqual(['stock'])
+    expect(problemsOf({ ...priced, kind: 'digital', stock }, 'INR')).toEqual([])
   })
 
   it('refuses more than 100 versions before the API has to', () => {

@@ -303,6 +303,18 @@ describe('the product editor', () => {
     expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 30 }])
   })
 
+  it('saves no counts for a product that is no longer physical', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: 'many' } })
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.digital) }))
+    api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalled()
+    expect(stockApi.setStock).not.toHaveBeenCalled()
+  })
+
   it('keeps the product saved and the counts typed when only the stock fails', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
     stockApi.setStock.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
