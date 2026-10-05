@@ -44,6 +44,10 @@ describe('a product before it is written', () => {
 
   it('refuses the categories decided on #337, a repeated SKU and a barcode whose check digit fails', () => {
     expect(cleanProduct(simple({ category: 'weapons' }), 'INR')).toBe('CATEGORY_REFUSED')
+    for (const category of ['Weapons', ' TOBACCO ', 'tobacco & vapes', 'Fire-arms', 'Prescription Medicine', 'counterfeit_goods', 'Adult content']) {
+      expect({ [category]: cleanProduct(simple({ category }), 'INR') }).toEqual({ [category]: 'CATEGORY_REFUSED' })
+    }
+    expect(cleanProduct(simple({ category: 'Medicine cabinets' }), 'INR')).toMatchObject({ category: 'Medicine cabinets' })
     expect(cleanProduct(simple({ category: 'alcohol' }), 'INR')).toMatchObject({ category: 'alcohol' })
     const sizes = { name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }
     expect(cleanProduct(simple({ options: [sizes], versions: [version(['S'], { sku: 'A-1' }), version(['M'], { sku: 'a-1' })] }), 'INR')).toBe('DUPLICATE_SKU')
