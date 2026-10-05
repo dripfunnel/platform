@@ -4,7 +4,7 @@ Production on `dripfunnel.com`: how to set it up once, how values get onto it, a
 release goes live. **Production is not fully provisioned yet.** §2 says what is missing, and
 each step below that hasn't been done is marked **Not done yet**.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 The deploy design is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What each value is
 for, its least scope and how to make it is in
@@ -158,6 +158,9 @@ moment you save.
 | `SES_SENDER_DOMAIN` | Text | `dripfunnel-mail.com` | verified in SES with DKIM, SPF and DMARC; partners' fallbacks are its subdomains |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the production bounce topic's ARN | SNS topic with `SignatureVersion` 2, subscribed to `https://hooks.dripfunnel.com/ses` |
+| `CF_PAGES_POOL` | Secret | the production pool, JSON `[{ "accountId", "token" }]` | A Pages-scoped token per production pool account (THIRD-PARTY-ACCESS §2.1, §8.2). Needed from INF 1 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the **live** `ca_…` | Stripe (live mode) › Connect › Settings, with the redirect `https://hooks.dripfunnel.com/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1). Needed from SAPI 10 |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32`, production's own. Needed from ST 1a |
 
 The consoles' build flags in production: `VITE_STATE_HARNESS` stays **unset** (no `?state=`
 harness in production). `VITE_ADMIN_URL` defaults to `https://admin.dripfunnel.com`.

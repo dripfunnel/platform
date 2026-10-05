@@ -1,13 +1,21 @@
 import { z } from 'zod'
 import { mintInvitationToken, mintResetToken } from '#auth/partnerTokens'
 import { mintStaffInvitationToken } from '#auth/staffTokens'
+import { mintEmailChangeToken } from '#auth/emailChangeTokens'
+import { mintSignupEmailCode } from '#auth/signupCodes'
+import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
 import { selectBillingAccount } from '#db/scoped/partnerBilling'
 import { selectCataloguePlan } from '#db/scoped/partnerPlans'
-import { selectActivePartnerEmails, selectInvitedPartnerRole, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
+import { selectActivePartnerEmails, selectInvitedPartnerRole, selectLivePortalHost, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
 import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
+import { selectEmailChangeForEmail } from '#db/scoped/profile'
+import { selectSignupForEmail } from '#db/scoped/signup'
+import { selectStoreInvitationForEmail, selectUserResetPartner } from '#db/scoped/userInvitations'
+import { selectUserPartner } from '#db/scoped/userSignIn'
 import { senderLabel } from '#saas/domains/index'
+import { NotYet } from '#saas/outbox/index'
 import { en } from './messages'
 import type { Brand, EmailContent } from './render'
 
@@ -24,10 +32,14 @@ export type Prepared =
   /** `accountSecurity`: an invitation, reset or lock notice, which is sent even to a suppressed address. */
   | { send: true; to: string[]; voice: Voice; brand: Brand; content: EmailContent; accountSecurity: boolean }
   /** Nothing to send: the link is no longer open, or nobody is left to tell. A code, never a name. */
-  | { send: false; reason: 'link_closed' | 'no_recipient' | 'held' | 'tenant_mismatch' }
+  | { send: false; reason: 'link_closed' | 'no_recipient' | 'tenant_mismatch' }
 
-/** Waits in the outbox until merchant sign-in can accept it (the Store card that follows #274). */
-export const heldTemplates = ['store-owner-invitation'] as const
+/** A merchant's link needs the partner's portal host: until one is live the email waits, checked hourly, never given up. */
+export class NoPortalHost extends NotYet {
+  constructor() {
+    super('no_portal_host', 60 * 60 * 1000)
+  }
+}
 
 // The DripFunnel look, from the style guide's tokens (apps/ui/shared/ui/tokens.css).
 const dripfunnel: Brand = { name: 'DripFunnel', primary: '#0a2a4a', accent: '#ec844f', supportEmail: null, supportUrl: null, poweredBy: false }
@@ -39,7 +51,13 @@ const payloads = {
   'partner-owner-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
   'partner-team-invitation': z.object({ partnerInvitationId: id, to: email, partnerName: z.string().max(200) }),
   'partner-password-reset': z.object({ partnerPasswordResetId: id, to: email }),
+  'store-owner-invitation': z.object({ invitationId: id, to: email, storeId: id }),
+  'user-password-reset': z.object({ userPasswordResetId: id, to: email }),
   'partner-user-locked': z.object({ partnerUserId: id, to: email, minutes: z.number().int().positive() }),
+  'user-locked': z.object({ userId: id, to: email, minutes: z.number().int().positive() }),
+  'user-email-change': z.object({ emailChangeId: id }),
+  'signup-code': z.object({ signupId: id }),
+  'user-email-changing': z.object({ emailChangeId: id }),
   'partner-domain-live': z.object({ partnerId: id, domainId: id, kind: z.enum(['portal', 'preview', 'shops', 'email']) }),
   'partner-card-declined': z.object({ invoiceId: z.string().max(255) }),
   'partner-payout-account-failed': z.object({}),
@@ -119,7 +137,6 @@ const billingEmail = async (tx: ScopedSql, template: 'partner-card-declined' | '
 export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partnerId: string | null }, hosts: EmailHosts, now: Date): Promise<Prepared> => {
   const { payload } = row
   const template = templateOf.parse(payload).template
-  if ((heldTemplates as readonly string[]).includes(template)) return { send: false, reason: 'held' }
   if (!(template in payloads)) throw new Error(`email: unknown template ${template}`)
   const t = template as Template
   const parse = <K extends Template>(k: K) => payloads[k].parse(payload) as z.infer<(typeof payloads)[K]>
@@ -163,11 +180,107 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       const w = en.partnerPasswordReset
       return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body], action: { label: w.action, url: link(hosts.platformHost, '/reset-password', token) }, note: w.note }, true)
     }
+    case 'store-owner-invitation': {
+      const p = parse(t)
+      const invitation = await selectStoreInvitationForEmail(tx, p.invitationId)
+      if (!invitation) return { send: false, reason: 'link_closed' }
+      if (invitation.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, invitation.partner_id)
+      const host = await selectLivePortalHost(tx, invitation.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      if (!host) throw new NoPortalHost()
+      const token = await mintStoreInvitationToken(tx, p.invitationId, now)
+      if (!token) return { send: false, reason: 'link_closed' }
+      const w = en.storeInvitation
+      const role = invitation.seller_name ? w.roles.supplier(invitation.seller_name) : (w.roles[invitation.role_key as 'owner' | 'manager' | 'staff'] ?? w.roles.staff)
+      const content: EmailContent = invitation.has_password
+        ? { subject: w.subject(invitation.store_name), heading: w.heading(invitation.store_name), paragraphs: [w.existingPerson(invitation.invited_by_label, invitation.store_name, role)], action: { label: w.actionJoin, url: link(host, '/join', token) }, note: w.note }
+        : { subject: w.subject(invitation.store_name), heading: w.heading(invitation.store_name), paragraphs: [w.newPerson(invitation.invited_by_label, invitation.store_name, role)], action: { label: w.actionNew, url: link(host, '/accept-invite', token) }, note: w.note }
+      return { send: true, accountSecurity: true, to: [p.to], voice: look.voice, brand: look.brand, content }
+    }
+    case 'user-password-reset': {
+      const p = parse(t)
+      const partnerId = await selectUserResetPartner(tx, p.userPasswordResetId)
+      if (!partnerId) return { send: false, reason: 'link_closed' }
+      if (partnerId !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, partnerId)
+      const host = await selectLivePortalHost(tx, partnerId)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      if (!host) throw new NoPortalHost()
+      const token = await mintUserResetToken(tx, p.userPasswordResetId, now)
+      if (!token) return { send: false, reason: 'link_closed' }
+      const w = en.userPasswordReset
+      return {
+        send: true,
+        accountSecurity: true,
+        to: [p.to],
+        voice: look.voice,
+        brand: look.brand,
+        content: { subject: w.subject(look.brand.name), heading: w.heading, paragraphs: [w.body(look.brand.name)], action: { label: w.action, url: link(host, '/reset-password', token) }, note: w.note },
+      }
+    }
     case 'partner-user-locked': {
       const p = parse(t)
       if ((await selectRecordPartner(tx, 'user', p.partnerUserId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerUserLocked
       return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] }, true)
+    }
+    case 'signup-code': {
+      const p = parse(t)
+      const signup = await selectSignupForEmail(tx, p.signupId)
+      if (!signup || signup.stage !== 'email') return { send: false, reason: 'link_closed' }
+      if (signup.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, signup.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const brand = look.brand.name
+      // A code is made either way, so the next step answers alike; only the mailbox learns of the account (ACCESS.md §2).
+      const code = await mintSignupEmailCode(tx, p.signupId, now)
+      if (!code) return { send: false, reason: 'link_closed' }
+      if (signup.has_account) {
+        const host = await selectLivePortalHost(tx, signup.partner_id)
+        if (!host) throw new NoPortalHost()
+        const w = en.signupHasAccount
+        return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(brand)], action: { label: w.action, url: `https://${host}/sign-in` }, note: w.note } }
+      }
+      const w = en.signupCode
+      return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(code)], note: w.note } }
+    }
+    case 'user-email-change':
+    case 'user-email-changing': {
+      const p = parse(t)
+      const change = await selectEmailChangeForEmail(tx, p.emailChangeId)
+      if (!change) return { send: false, reason: 'link_closed' }
+      if (change.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, change.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const brand = look.brand.name
+      if (t === 'user-email-changing') {
+        const w = en.userEmailChanging
+        return { send: true, accountSecurity: true, to: [change.old_email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(brand), w.notYou] } }
+      }
+      const host = await selectLivePortalHost(tx, change.partner_id)
+      if (!host) throw new NoPortalHost()
+      const token = await mintEmailChangeToken(tx, p.emailChangeId, now)
+      if (!token) return { send: false, reason: 'link_closed' }
+      const w = en.userEmailChange
+      return {
+        send: true,
+        accountSecurity: true,
+        to: [change.new_email],
+        voice: look.voice,
+        brand: look.brand,
+        content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(brand)], action: { label: w.action, url: link(host, '/confirm-email', token) }, note: w.note },
+      }
+    }
+    case 'user-locked': {
+      const p = parse(t)
+      const partnerId = await selectUserPartner(tx, p.userId)
+      if (!partnerId) return { send: false, reason: 'no_recipient' }
+      if (partnerId !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, partnerId)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const w = en.userLocked
+      return { send: true, accountSecurity: true, to: [p.to], voice: look.voice, brand: look.brand, content: { subject: w.subject(look.brand.name), heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] } }
     }
     case 'partner-domain-live': {
       const p = parse(t)

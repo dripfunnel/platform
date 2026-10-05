@@ -1,3 +1,962 @@
+type ActingStore {
+  permissions: [String!]
+  plan: Named
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type Badge {
+  id: ID
+  label: String
+  position: Int
+  rule: String
+  tone: String
+}
+
+input BadgeInput {
+  label: String!
+  position: Int
+  rule: String!
+  tone: String!
+}
+
+type Brand {
+  accentColor: String
+  background: String
+  corner: String
+  files: BrandFiles
+  font: String
+  helpUrl: String
+  poweredBy: Boolean
+  primaryColor: String
+  privacyUrl: String
+  productName: String
+  supportEmail: String
+  supportUrl: String
+  termsUrl: String
+}
+
+type BrandFiles {
+  favicon: String
+  logoDark: String
+  logoLight: String
+  mark: String
+}
+
+type CatalogueFeature {
+  enabled: Boolean
+  inPlan: Boolean
+  key: String
+}
+
+input CatalogueFeatureInput {
+  enabled: Boolean!
+  key: String!
+}
+
+type CatalogueSettings {
+  badges: [Badge!]
+  features: [CatalogueFeature!]
+}
+
+type Collection {
+  computedAt: String
+  description: String
+  id: ID
+  imageAssetId: ID
+  inheritParent: Boolean
+  kind: String
+  match: String
+  name: String
+  parentId: ID
+  revision: Int
+  ruleMatches: Int
+  rules: [CollectionRule!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  truncated: Boolean
+  visible: Boolean
+}
+
+input CollectionInput {
+  description: String
+  imageAssetId: String
+  inheritParent: Boolean
+  kind: String!
+  match: String
+  name: String!
+  parentId: String
+  productIds: [String!]
+  rules: [CollectionRuleInput!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  visible: Boolean
+}
+
+type CollectionMember {
+  id: ID
+  name: String
+  source: String
+}
+
+type CollectionMemberPage {
+  nodes: [CollectionMember!]
+  pageInfo: PageInfo
+}
+
+type CollectionPage {
+  nodes: [CollectionSummary!]
+  pageInfo: PageInfo
+}
+
+type CollectionRule {
+  currency: String
+  kind: String
+  max: String
+  min: String
+  productId: ID
+  text: String
+  valueId: ID
+  versionId: ID
+}
+
+input CollectionRuleInput {
+  currency: String
+  kind: String!
+  max: String
+  min: String
+  productId: String
+  text: String
+  valueId: String
+  versionId: String
+}
+
+type CollectionSummary {
+  computedAt: String
+  id: ID
+  kind: String
+  name: String
+  parentId: ID
+  products: Int
+  slug: String
+  visible: Boolean
+}
+
+type Facet {
+  id: ID
+  name: String
+  position: Int
+  shopperVisible: Boolean
+  values: [FacetValue!]
+}
+
+input FacetInput {
+  id: String
+  name: String!
+  position: Int
+  shopperVisible: Boolean
+  values: [FacetValueInput!]!
+}
+
+type FacetPage {
+  nodes: [Facet!]
+  pageInfo: PageInfo
+}
+
+type FacetValue {
+  id: ID
+  name: String
+  products: Int
+}
+
+input FacetValueInput {
+  id: String
+  name: String!
+}
+
+type Me {
+  acting: ActingStore
+  email: String
+  id: ID
+  name: String
+}
+
+type Menu {
+  items: [MenuItem!]
+  name: String
+  revision: Int
+}
+
+input MenuChildInput {
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type MenuItem {
+  collectionId: ID
+  id: ID
+  kind: String
+  label: String
+  parentId: ID
+  url: String
+}
+
+input MenuItemInput {
+  children: [MenuChildInput!]
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type Money {
+  amount: String
+  currency: String
+}
+
+input MoneyInput {
+  amount: String!
+  currency: String!
+}
+
+type Mutation {
+  adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  changeEmail(email: String!, password: String!): Boolean
+  changePassword(current: String!, next: String!): Boolean
+  changeRole(membershipId: ID!, role: String!): Boolean
+  copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
+  deleteBadge(id: ID!): Boolean
+  deleteCollection(id: ID!): Boolean
+  deleteFacet(id: ID!): Boolean
+  deleteProducts(ids: [ID!]!): Int
+  deleteSizeChart(id: ID!): Int
+  deleteStoryBlock(id: ID!): Boolean
+  deleteWarehouse(id: ID!): Boolean
+  duplicateProduct(id: ID!): SavedProduct
+  inviteMember(email: String!, role: String!): Boolean
+  mergeFacetValues(from: [ID!]!, into: ID!): Int
+  publishProductStory(productId: ID!, revision: Int!): ProductStory
+  regenerateBackupCodes: [String!]
+  removeMember(membershipId: ID!): Boolean
+  resendInvitation(invitationId: ID!): Boolean
+  revokeInvitation(invitationId: ID!): Boolean
+  saveBadge(id: ID, input: BadgeInput!): ID
+  saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
+  saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveFacet(input: FacetInput!): ID
+  saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
+  saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
+  saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
+  saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
+  saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
+  saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  setDefaultWarehouse(id: ID!): Boolean
+  setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setTheme(theme: String!): Profile
+  signOutOtherSessions: Int
+  switchStore(storeId: ID!, supplierId: ID): StoreChoice
+  updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
+  updateProfile(name: String!, phone: String): Profile
+}
+
+type MyActivity {
+  nodes: [MyActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type MyActivityEntry {
+  action: String
+  id: ID
+  occurredAt: String
+  result: String
+  storeId: String
+  target: MyActivityTarget
+}
+
+type MyActivityTarget {
+  label: String
+  type: String
+}
+
+type Named {
+  id: ID
+  name: String
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type Product {
+  approval: String
+  category: String
+  createdAt: String
+  description: String
+  filterValues: [ProductFilterValue!]
+  id: ID
+  listing: ProductListing
+  name: String
+  options: [ProductOption!]
+  photos: [ProductPhoto!]
+  pricingCurrency: String
+  productType: String
+  returnsText: String
+  revision: Int
+  sentBackReason: String
+  seoDescription: String
+  seoTitle: String
+  shared: Boolean
+  sizeChartId: ID
+  slug: String
+  supplier: ProductSupplier
+  updatedAt: String
+  versions: [ProductVersion!]
+  video: ProductVideo
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductCompliance {
+  field: String
+  region: String
+  value: String
+}
+
+input ProductComplianceInput {
+  field: String!
+  region: String!
+  value: String!
+}
+
+type ProductCounts {
+  all: Int
+  hidden: Int
+  lowStock: Int
+  missingInfo: Int
+  pending: Int
+  sentBack: Int
+  visible: Int
+}
+
+type ProductFaq {
+  answer: String
+  question: String
+}
+
+input ProductFaqInput {
+  answer: String!
+  question: String!
+}
+
+type ProductFilterValue {
+  valueId: ID
+  versionId: ID
+}
+
+input ProductFilterValueInput {
+  valueId: String!
+  version: Int
+}
+
+input ProductInput {
+  category: String
+  description: String
+  filterValues: [ProductFilterValueInput!]
+  listing: ProductListingInput
+  name: String!
+  options: [ProductOptionInput!]!
+  photos: [ProductPhotoInput!]
+  productType: String
+  returnsText: String
+  seoDescription: String
+  seoTitle: String
+  sizeChartId: String
+  slug: String
+  versions: [ProductVersionInput!]!
+  video: ProductVideoInput
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductListing {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductCompliance!]
+  faqs: [ProductFaq!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRule
+  relatedIds: [String!]
+  specs: [ProductSpec!]
+}
+
+input ProductListingInput {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductComplianceInput!]
+  faqs: [ProductFaqInput!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRuleInput
+  relatedIds: [String!]
+  specs: [ProductSpecInput!]
+}
+
+type ProductMarketRule {
+  countries: [String!]
+  mode: String
+}
+
+input ProductMarketRuleInput {
+  countries: [String!]!
+  mode: String!
+}
+
+type ProductOption {
+  id: ID
+  name: String
+  values: [ProductOptionValue!]
+}
+
+input ProductOptionInput {
+  id: ID
+  name: String!
+  values: [ProductOptionValueInput!]!
+}
+
+type ProductOptionValue {
+  id: ID
+  name: String
+}
+
+input ProductOptionValueInput {
+  id: ID
+  name: String!
+}
+
+type ProductPage {
+  nodes: [ProductSummary!]
+  pageInfo: PageInfo
+}
+
+type ProductPhoto {
+  alt: String
+  assetId: ID
+  height: Int
+  id: ID
+  url: String
+  versionId: ID
+  width: Int
+}
+
+input ProductPhotoInput {
+  alt: String
+  assetId: String!
+  version: Int
+}
+
+type ProductSpec {
+  filterValueId: ID
+  name: String
+  value: String
+  versionId: ID
+}
+
+input ProductSpecInput {
+  filterValueId: String
+  name: String!
+  value: String!
+  version: Int
+}
+
+type ProductStory {
+  modules: [StoryModule!]
+  productId: ID
+  publishedAt: String
+  revision: Int
+  status: String
+  template: String
+}
+
+input ProductStoryInput {
+  modules: [StoryModuleInput!]!
+  template: String
+}
+
+type ProductSummary {
+  approval: String
+  buyable: Boolean
+  createdAt: String
+  id: ID
+  maxPrice: Money
+  minPrice: Money
+  name: String
+  photoUrl: String
+  productType: String
+  slug: String
+  stock: Int
+  supplier: ProductSupplier
+  supplierRemoved: Boolean
+  updatedAt: String
+  versionCount: Int
+  visible: Boolean
+}
+
+type ProductSupplier {
+  id: ID
+  name: String
+}
+
+type ProductVersion {
+  barcode: String
+  choices: [String!]
+  continueSelling: Boolean
+  cost: Money
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPrice!]
+  sku: String
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+input ProductVersionInput {
+  barcode: String
+  choices: [String!]!
+  continueSelling: Boolean
+  cost: MoneyInput
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPriceInput!]!
+  sku: String
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+type ProductVideo {
+  assetId: ID
+  uploaded: Boolean
+  url: String
+}
+
+input ProductVideoInput {
+  assetId: String
+  url: String
+}
+
+input ProductsPatch {
+  visible: Boolean!
+}
+
+type Profile {
+  email: String
+  name: String
+  passwordChangedAt: String
+  pendingEmail: String
+  phone: String
+  theme: String
+  twoFactor: TwoFactor
+}
+
+type Provisioning {
+  state: String
+  step: String
+}
+
 type Query {
+  brand: Brand
+  catalogueSettings: CatalogueSettings
+  collection(id: ID!): Collection
+  collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
+  collections(after: String, before: String, first: Int): CollectionPage
+  facets(after: String, before: String, first: Int): FacetPage
   health: String
+  me: Me
+  menu: Menu
+  myActivity(after: String, before: String, first: Int): MyActivity
+  mySessions: [SignedInSession!]
+  myStores(after: String, before: String, first: Int): StoreChoices
+  people(after: String, before: String, filter: String, first: Int): StorePeople
+  peopleCounts: StorePeopleCounts
+  product(id: ID!): Product
+  productCounts: ProductCounts
+  productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
+  productStory(productId: ID!): ProductStory
+  products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
+  profile: Profile
+  sizeChart(id: ID!): SizeChart
+  sizeCharts(after: String, before: String, first: Int): SizeChartPage
+  stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeState: StoreState
+  storyBlock(id: ID!): StoryBlock
+  storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  warehouses(after: String, before: String, first: Int): WarehousePage
+}
+
+type SavedCollection {
+  id: ID
+  revision: Int
+  slug: String
+}
+
+type SavedProduct {
+  id: ID
+  revision: Int
+  slug: String
+}
+
+type SavedSizeChart {
+  id: ID
+  revision: Int
+}
+
+type SavedStoryBlock {
+  id: ID
+  revision: Int
+}
+
+type SecondFactorStep {
+  backupCodes: [String!]
+  done: Boolean
+  hint: String
+  secret: String
+  uri: String
+}
+
+type SignedInSession {
+  createdAt: String
+  current: Boolean
+  device: String
+  lastUsedAt: String
+}
+
+type SizeChart {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNote!]
+  id: ID
+  measurements: [String!]
+  modelInfo: String
+  name: String
+  products: Int
+  revision: Int
+  rows: [SizeChartRow!]
+  supplierId: ID
+  systems: [String!]
+  unit: String
+  updatedAt: String
+}
+
+input SizeChartInput {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNoteInput!]
+  measurements: [String!]!
+  modelInfo: String
+  name: String!
+  rows: [SizeChartRowInput!]!
+  systems: [String!]
+  unit: String!
+}
+
+type SizeChartMeasureNote {
+  measurement: String
+  text: String
+}
+
+input SizeChartMeasureNoteInput {
+  measurement: String!
+  text: String!
+}
+
+type SizeChartPage {
+  nodes: [SizeChartSummary!]
+  pageInfo: PageInfo
+}
+
+type SizeChartRow {
+  size: String
+  values: [String!]
+}
+
+input SizeChartRowInput {
+  size: String!
+  values: [String!]!
+}
+
+type SizeChartSummary {
+  id: ID
+  name: String
+  products: Int
+  supplierId: ID
+  unit: String
+  updatedAt: String
+}
+
+type StockLevel {
+  isDefault: Boolean
+  lowStockThreshold: Int
+  onHand: Int
+  reserved: Int
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovement {
+  actorKind: String
+  actorName: String
+  delta: Int
+  id: ID
+  occurredAt: String
+  reason: String
+  resultingQuantity: Int
+  versionId: ID
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovementPage {
+  nodes: [StockMovement!]
+  pageInfo: PageInfo
+}
+
+type StockQuantity {
+  quantity: Int
+  versionId: ID
+  warehouseId: ID
+}
+
+input StockQuantityInput {
+  quantity: Int!
+  versionId: ID!
+  warehouseId: ID!
+}
+
+type StockVersion {
+  levels: [StockLevel!]
+  versionId: ID
+}
+
+type StockVersionPage {
+  nodes: [StockVersion!]
+  pageInfo: PageInfo
+}
+
+type StoreChoice {
+  membershipId: ID
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type StoreChoices {
+  nodes: [StoreChoice!]
+  pageInfo: PageInfo
+}
+
+type StorePeople {
+  nodes: [StorePerson!]
+  pageInfo: PageInfo
+}
+
+type StorePeopleCounts {
+  staff: Int
+  waiting: Int
+}
+
+type StorePerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  name: String
+  role: String
+  since: String
+  you: Boolean
+}
+
+type StoreState {
+  pastDueSince: String
+  provisioning: Provisioning
+  readOnly: Boolean
+  status: String
+  support: SupportBanner
+  trialEndsAt: String
+}
+
+type StoryBlock {
+  body: String
+  id: ID
+  name: String
+  photo: StoryPhoto
+  products: Int
+  revision: Int
+  title: String
+  updatedAt: String
+}
+
+input StoryBlockInput {
+  body: String!
+  name: String!
+  photo: StoryPhotoInput
+  title: String!
+}
+
+type StoryBlockPage {
+  nodes: [StoryBlockSummary!]
+  pageInfo: PageInfo
+}
+
+type StoryBlockSummary {
+  id: ID
+  name: String
+  products: Int
+  updatedAt: String
+}
+
+type StoryItem {
+  photo: StoryPhoto
+  text: String
+  title: String
+}
+
+input StoryItemInput {
+  photo: StoryPhotoInput
+  text: String
+  title: String
+}
+
+type StoryModule {
+  blockId: ID
+  body: String
+  id: String
+  items: [StoryItem!]
+  kind: String
+  photo: StoryPhoto
+  photos: [StoryPhoto!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideo
+}
+
+input StoryModuleInput {
+  blockId: ID
+  body: String
+  id: String!
+  items: [StoryItemInput!]
+  kind: String!
+  photo: StoryPhotoInput
+  photos: [StoryPhotoInput!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideoInput
+}
+
+type StoryPhoto {
+  alt: String
+  assetId: ID
+}
+
+input StoryPhotoInput {
+  alt: String
+  assetId: ID
+}
+
+type StoryVideo {
+  assetId: ID
+  url: String
+}
+
+input StoryVideoInput {
+  assetId: ID
+  url: String
+}
+
+type SupportBanner {
+  agentFirstName: String
+  endsAt: String
+  partnerName: String
+}
+
+type TwoFactor {
+  backupCodesLeft: Int
+  method: String
+  required: Boolean
+}
+
+type VersionPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+}
+
+input VersionPriceInput {
+  amount: String!
+  compareAtAmount: String
+  currency: String!
+}
+
+type Warehouse {
+  address: WarehouseAddress
+  id: ID
+  isDefault: Boolean
+  name: String
+  revision: Int
+  supplierId: ID
+  units: Int
+}
+
+type WarehouseAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseAddressInput {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseInput {
+  address: WarehouseAddressInput
+  name: String!
+}
+
+type WarehousePage {
+  nodes: [Warehouse!]
+  pageInfo: PageInfo
 }

@@ -9,6 +9,7 @@ import {
 import type { AccessTarget } from '#auth/assignment'
 import type { PartnerPermission } from '#auth/partnerPermissions'
 import type { StaffPermission } from '#auth/permissions'
+import type { StorePermission } from '#auth/storePermissions'
 
 export type Api = 'admin' | 'platform' | 'store' | 'shop'
 
@@ -18,7 +19,7 @@ export type FieldScope = 'public' | 'session' | 'store' | 'store-seller' | 'part
 export interface Access<Args = Record<string, unknown>> {
   api: Api
   scope: FieldScope
-  permission: StaffPermission | PartnerPermission | null
+  permission: StaffPermission | PartnerPermission | StorePermission | null
   /** What a targeted field acts on, so a partner-scoped role is held to its partners.
    *  `'none'` is a deliberate answer: a list, which filters its own rows. */
   target?: 'none' | ((args: Args) => AccessTarget)
@@ -26,6 +27,8 @@ export interface Access<Args = Record<string, unknown>> {
   audit?: string
   /** The staff sessions refused this field whatever their role (ACCESS.md §8.1, §8.2, §8.3). */
   blockedFor?: readonly StaffSessionKind[]
+  /** A mutation that still works while the store is read-only: paying, signing out (FIRST-RELEASE §19). */
+  whileReadOnly?: boolean
 }
 
 export type StaffSessionKind = 'impersonation' | 'setup'
@@ -43,6 +46,12 @@ export const accessErrorCode = {
   forbidden: 'FORBIDDEN',
   blockedWhileImpersonating: 'BLOCKED_WHILE_IMPERSONATING',
   partnerEntersThisItself: 'PARTNER_ENTERS_THIS_ITSELF',
+  // The Store API's: no acting store named, a supplier to choose, a suspended store, writes while
+  // read-only (ACCESS.md §4, FIRST-RELEASE §19).
+  storeRequired: 'STORE_REQUIRED',
+  supplierRequired: 'SUPPLIER_REQUIRED',
+  storeSuspended: 'STORE_SUSPENDED',
+  readOnly: 'READ_ONLY',
 } as const
 
 // One message per code, whatever the target: the refusal must not say whether it exists.
@@ -65,7 +74,7 @@ export interface AccessPolicy<Context> {
   /** This API's permission catalogue; a field naming another API's permission fails the build. */
   permissions: readonly string[]
   /** Throws `unauthenticated()` or `forbidden()`. Never called for `public` fields. */
-  authorize: (access: Access, context: Context, args: Record<string, unknown>) => Promise<void>
+  authorize: (access: Access, context: Context, args: Record<string, unknown>, operation: 'query' | 'mutation' | 'subscription') => Promise<void>
 }
 
 class AccessDeclarationError extends Error {}
@@ -101,7 +110,7 @@ const guard = <Context>(field: GraphQLField<unknown, Context>, access: Access, p
   field.resolve = async (source, args, context, info) => {
     if (access.scope !== 'public') {
       try {
-        await policy.authorize(access, context, args)
+        await policy.authorize(access, context, args, info.operation.operation)
       } catch (error) {
         if (onRefusal === 'null' && isRefusal(error)) return null
         throw error

@@ -9,6 +9,8 @@
   --df-color-brand: #ec844f;
   --df-color-brand-hover: #d96c33;
   --df-color-brand-contrast: #4a1b0c;
+  /* Dark text on a light brand colour, the same in both themes: a partner's accent carries it (SAAS §3.3). */
+  --df-color-ink: #14181f;
   --df-color-page: #fdfaf7;
   --df-color-surface: #ffffff;
   --df-color-heading: #0a2a4a;

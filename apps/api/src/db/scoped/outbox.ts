@@ -65,8 +65,7 @@ const isUniqueViolation = (error: unknown): boolean =>
  * left untouched. The attempt is counted here, so a relay that dies mid-delivery still moves
  * the row towards its limit. `skip locked` lets two sweeps run at once without sharing a row.
  */
-/** `held`: `kind:template` pairs left unclaimed (outbox-relay.ts `heldTemplates`). */
-export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Date, limit: number, leaseMs: number, held: readonly string[] = []): Promise<OutboxRow[]> => {
+export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Date, limit: number, leaseMs: number): Promise<OutboxRow[]> => {
   const leaseExpired = new Date(now.getTime() - leaseMs)
   return tx<OutboxRow[]>`
     update outbox set attempts = attempts + 1, claimed_at = ${now}
@@ -74,7 +73,6 @@ export const claimDue = async (tx: ScopedSql, kinds: readonly string[], now: Dat
       select id from outbox
       where delivered_at is null and failed_at is null
         and kind = any(${pgArray(kinds)}::text[])
-        and kind || ':' || coalesce(payload->>'template', '') <> all(${pgArray(held)}::text[])
         and next_attempt_at <= ${now}
         and (claimed_at is null or claimed_at < ${leaseExpired})
       order by next_attempt_at
@@ -109,3 +107,57 @@ export const markAttemptFailed = async (
     where id = ${id} and delivered_at is null
   `
 }
+
+/** A row that can't go yet: back in the queue at `nextAttemptAt`, this claim not counted as an attempt. */
+export const markPostponed = async (tx: ScopedSql, id: string, outcome: { error: string; nextAttemptAt: Date }): Promise<void> => {
+  await tx`
+    update outbox set attempts = greatest(attempts - 1, 0), last_error = ${outcome.error}, next_attempt_at = ${outcome.nextAttemptAt}, claimed_at = null
+    where id = ${id} and delivered_at is null
+  `
+}
+
+/** Replaces a finished row's payload with what its deliverer keeps (outbox-relay.ts `redact`). */
+export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Record<string, unknown>): Promise<void> => {
+  await tx`update outbox set payload = ${JSON.stringify(kept)}::text::jsonb where id = ${id}`
+}
+
+export interface UnsentExpiry {
+  kind: string
+  /** The payload's ISO timestamp after which the row is useless; rows without one use `fallbackMs` from creation. */
+  expiresAtKey: string
+  fallbackMs: number
+  /** The payload keys that survive, beside `redacted: true`. */
+  keep: readonly string[]
+  leaseMs: number
+  limit: number
+}
+
+/** Gives up at most `limit` unsent rows of a kind past their expiry, redacted; a row the relay holds is left to it. */
+export const expireUnsent = async (tx: ScopedSql, e: UnsentExpiry, now: Date): Promise<number> =>
+  (await tx`
+    update outbox set
+      payload = (select coalesce(jsonb_object_agg(k, payload->k), '{}'::jsonb) from unnest(${pgArray(e.keep)}::text[]) k) || '{"redacted": true}'::jsonb,
+      failed_at = ${now}, last_error = 'expired', claimed_at = null
+    where id in (
+      select id from outbox
+      where kind = ${e.kind} and delivered_at is null and failed_at is null
+        and (claimed_at is null or claimed_at < ${new Date(now.getTime() - e.leaseMs)})
+        and coalesce((payload->>${e.expiresAtKey})::timestamptz, created_at + ${`${e.fallbackMs} milliseconds`}::interval) <= ${now}
+      order by created_at
+      limit ${e.limit}
+      for update skip locked
+    )
+  `).count
+
+/**
+ * Whether a newer row of `kind` for the store is due by `now`, so this one can leave the work to it.
+ * One still backing off isn't, so a failed newer run never holds up the older ones.
+ */
+export const newerDueEffect = async (tx: ScopedSql, effect: { id: string; kind: string; storeId: string }, now: Date): Promise<boolean> =>
+  (
+    await tx`
+      select 1 from outbox o where o.kind = ${effect.kind} and o.store_id = ${effect.storeId} and o.id <> ${effect.id}
+        and o.delivered_at is null and o.failed_at is null and o.next_attempt_at <= ${now}
+        and o.created_at > (select created_at from outbox where id = ${effect.id}) limit 1
+    `
+  ).length > 0

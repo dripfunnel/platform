@@ -57,7 +57,7 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Feature environments token** (dev account only) | The `feature-env` workflow: Workers, Pages, Hyperdrive, DNS and routes for `<slug>-*.dripfunnel.ai` | API token: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit; *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit | GitHub environment `feature` secret `CLOUDFLARE_API_TOKEN` | 1 |
 | **Cloudflare Access on the dev account** | `*.dripfunnel.ai` for `@softobotics.com`, with a Bypass on `*-hooks.dripfunnel.ai` | Zero Trust org, one-time PIN login | Cloudflare | 1 |
 | **Custom hostnames token** (runtime) | Creating, checking and deleting Cloudflare for SaaS custom hostnames for partner portal hosts and merchant domains ([../api/SAAS.md](../api/SAAS.md) §8) | API token, scoped to *SSL and Certificates: Edit* and *Custom Hostnames: Edit* on the SaaS zone only | Worker secret | 4 (partner hosts), 6 (merchant domains) |
-| **Storefront deploy token** (runtime) | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token, scoped to *Pages: Edit* | Worker secret. **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
+| **Storefront deploy tokens** (runtime), one per pool account | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token per account, scoped to *Pages: Edit* on that account | Worker secret `CF_PAGES_POOL`, every account's id and token in one (§8.2). **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
 | **Cache purge token** (runtime) | Purging storefront caches after publish, the degraded-store edge rule, removing hidden products | API token, scoped to *Cache Purge* (plus *Zone Rulesets: Edit* if degraded pages are edge rules) | Worker secret | 6 |
 | **Cloudflare for SaaS** on the zone | Custom hostnames with automatic certificates for every partner and merchant host | Plan add-on | — | 4 |
 | — | Wildcard custom hostnames (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) may need **Enterprise**; per-hostname price at thousands of stores | **Verify** ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §5) | — | **Lead time**: contract |
@@ -287,7 +287,7 @@ The Platform prototype's provider list also has Adyen.
 
 | Provider | Region (prototype) | What the merchant gives | Webhook | Notes |
 |---|---|---|---|---|
-| **Stripe** | US (DE: prototype only) | Nothing pasted: the merchant connects through **Stripe Connect OAuth** | **One Connect endpoint** on DripFunnel's account, receiving every connected merchant account's events, each routed to its store by the connected account id; no per-store endpoints or secrets. *(Proposed, SAPI 10 confirms)*: the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts | **Stripe Connect Standard (OAuth)**, decided 2026-10-05 on #284, instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
+| **Stripe** | US (DE: prototype only) | Nothing pasted: the merchant connects through **Stripe Connect OAuth**, which returns to **one fixed redirect on the hooks host**, `https://hooks.<host>/stripe/connect/callback` (dev `dev-hooks.dripfunnel.ai`, prod `hooks.dripfunnel.com`) *(proposed on #287, SAPI 10 confirms)*: Stripe returns only to registered URLs and every partner's portal host differs, so the callback sends the merchant back to their own portal; the platform's `ca_…` id is `STRIPE_CONNECT_CLIENT_ID` (§8.2) | **One Connect endpoint** on DripFunnel's account, receiving every connected merchant account's events, each routed to its store by the connected account id; no per-store endpoints or secrets. *(Proposed, SAPI 10 confirms)*: the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts | **Stripe Connect Standard (OAuth)**, decided 2026-10-05 on #284, instead of pasted keys: no secret handling, one webhook, and Apple Pay / Google Pay **payment-method domain registration** per merchant domain through the API. Pasted keys need the merchant to register each domain |
 | **Razorpay** | IN | Key ID, key secret | Webhook secret the merchant sets in Razorpay | Razorpay **Route** if vendors are paid out (PLATFORM-PROMPT §10 *(ask)*) |
 | **Cashfree** | IN | App ID (client ID), secret key | Signed with the secret key | In the old plugins and the api layout |
 | **PayPal** | US (DE: prototype only) | REST app client ID + secret | Webhook ID (verified through PayPal's API) | Or PayPal partner onboarding *(later)* |
@@ -386,12 +386,31 @@ never shown again once saved (**#275** builds the table, the APIs and both scree
 | Partner's own billing system *(later, "partner bills its own merchants")* | How the platform learns a store's status (SAAS §14 *(ask)*) | A Platform API key we issue, or their webhook secret | — |
 | Partner brand fonts, logos | Branding | None | — |
 
----|---|---|
-| Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email | DNS records only; no credential |
-| **Payout account** (Platform prototype: IBAN or account number, "checked with a small test deposit") | Monthly payouts when DripFunnel bills on the partner's behalf | Collected by **Stripe Connect onboarding**, never typed into our forms |
-| Card for DripFunnel's charges to the partner | Partner billing | Stripe Elements (§2.7) |
-| Partner's own billing system *(later, "partner bills its own merchants")* | How the platform learns a store's status (SAAS §14 *(ask)*) | A Platform API key we issue, or their webhook secret |
-| Partner brand fonts, logos | Branding | None |
+**The texts a partner registers (India's DLT; built on #289).** MSG91 sends only registered
+templates, so each partner registers these six with its own sender header, word for word, the
+variables in this order, and enters each template id with its MSG91 credentials (#275). Twilio
+sends the same words as plain text. `apps/api/src/saas/sms/index.ts` holds the wording; a
+change there needs every Indian partner to register it again.
+
+| Message | Wording (variables numbered) |
+|---|---|
+| `code.second_factor`, `code.shopper_sign_in` | {1}: {2} is your sign-in code. It works for 10 minutes. Never share it. |
+| `code.verify_phone` | {1}: {2} is your code to confirm this number. It works for 10 minutes. |
+| `order.confirmed` | {1}: thanks for your order {2}. We'll text you when it ships. |
+| `order.shipped` | {1}: order {2} is on its way with {3}. Track it: {4} |
+| `order.delivered` | {1}: order {2} was delivered. Need help? {3} |
+
+{1} is the sender's name (the partner's product, or the store's), and a code is 6 digits. The
+`sms` outbox deliverer (`jobs/queues/deliverers/sms.ts`) picks MSG91 for `+91` numbers and Twilio
+for the rest; it drops a code past its expiry, a refusal, and a partner with no account or
+template, logging only a code, and retries an outage or a refused credential (401, 403). Until #275
+reads the accounts, the Worker registers no `sms` deliverer and texts wait in the outbox, as email
+waits without SES. A dropped text is recorded as given up, with its reason as `last_error`, never
+as delivered. A code needs an expiry, and an order update unsent after 3 days is given up too (the
+cron's sweep, which leaves a row the relay holds); once a text is sent or given up, its row keeps only
+the message kind, never the number or the code.
+Neither provider takes an idempotency key, so a crash between its acceptance and the row being marked
+can text twice.
 
 ---
 
@@ -409,7 +428,7 @@ slice.
 | Merchant API key and app grant secrets | Shown once, stored hashed with a visible prefix (ACCESS.md §5.6) | 10 |
 | **Outbound webhook signing secret** per endpoint | Merchants verify our webhooks | 10 |
 | Public store key | Identifies a store to the Shop API; public, not a secret | 6 |
-| Preview link signing key (previews are gated by a signed link, decided 2026-10-05 on #284; storefront §4.1) | Signed preview URLs from the portal | 6 |
+| Preview link signing key, `PREVIEW_LINK_KEY` (previews are gated by a signed link, decided 2026-10-05 on #284; storefront §4.1) | Signed preview URLs from the portal | 6 (ST 1a, INF 2) |
 | Shopper session token signing (if not opaque) | Storefront shopper sessions (storefront §5) | 7 |
 
 ---
@@ -425,7 +444,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 3. Tenancy core | Neon project, app and migration roles, Neon API key, Hyperdrive; KEK; CSRF secret |
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS adapters: MSG91 (India) and Twilio (US)** (phone code, 2FA; decided 2026-10-05 on #284); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
-| 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy token; cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
+| 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy tokens (`CF_PAGES_POOL`); cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
 | 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** through MSG91 for cart reminders (decided 2026-10-05 on #337); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox in GitHub Actions (decided 2026-10-05 on #284) |
@@ -528,13 +547,16 @@ Where it is kept:
 ### 8.2 Not read yet
 
 Named now so each card uses the same name. The rest join their app's `.env.example` in the card that first reads them. Each row's role, scope and
-generation are in the section it cites.
+generation are in the section it cites. *First needed* names a slice (§6) for the rows that predate the Store strand, and a Store card (FIRST-RELEASE §20: INF 1, SAPI 10, ST 1a…) for the rows it added.
 
 | Name | Role | Kept in | Section | First needed |
 |---|---|---|---|---|
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | Store repos through the provisioning App | Ids as Worker variables; key and webhook secret as Worker secrets | §2.3 | slice 6 |
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
-| `CF_STOREFRONT_DEPLOY_TOKEN`, `CF_CACHE_PURGE_TOKEN` | Publishing storefronts and purging their caches | Worker secrets | §2.1 | slice 6 |
+| `CF_PAGES_POOL` | The Cloudflare accounts storefronts' Pages projects spread over (#337): a JSON list of `{ "accountId", "token" }`, each token scoped to *Pages: Edit* on its own account, the first entry the main account. Replaces a single `CF_STOREFRONT_DEPLOY_TOKEN` (named on #287) | Worker secret | §2.1 | INF 1 |
+| `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
+| `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod (named on #287) | Worker variable | §3.1 | SAPI 10 |
+| `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (#284, storefront ARCHITECTURE §4.1; HMAC-SHA-256 with the expiry in the link *(proposed, ST 1a confirms)*). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** *(proposed, SAPI 10 confirms)*: connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | Worker secret | §2.7, §3.1 | SAPI 10 |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
 | `AI_GATEWAY_TOKEN` | Cloudflare AI Gateway in front of every partner's AI calls *(optional)* | Worker secret | §2.6 | slice 9 |
@@ -551,7 +573,7 @@ no variable name: the partner enters them in the partner console, or staff in a 
 | AI provider key | AI on its plans that include AI | Anthropic Console → its own organisation → API keys, with a spend limit | AI runs (`ai_run`) |
 | Shiprocket API user | India rates, labels, tracking | Shiprocket → Settings → API → create an API user | Courier adapter |
 | US courier aggregator key | USPS, UPS, FedEx through **EasyPost** (#337) | The aggregator's dashboard → API keys (production key) | Courier adapter |
-| SMS / WhatsApp sender | Codes and WhatsApp reminders in its name | The provider's console; DLT registration (India) and Meta business verification first | Codes and reminders |
+| SMS / WhatsApp sender | Codes, shoppers' order updates and WhatsApp reminders in its name | The provider's console; DLT registration (India: the six templates in §4) and Meta business verification first | The `sms` deliverer (#289), registered by #275 |
 | Google OAuth client | "Continue with Google" on its portal host | Google Cloud → APIs & Services → Credentials → OAuth client (web), redirect `https://<portal host>/api/auth/google/callback` | Portal sign-in |
 | Support chat widget | Its support chat in the portal | The chat tool's settings → install / identity verification | The portal's chat widget |
 

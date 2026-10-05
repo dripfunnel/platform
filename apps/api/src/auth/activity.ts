@@ -40,6 +40,8 @@ export interface ActivityEntry {
 
 export interface ActivityLog {
   record: (tx: ScopedSql, entry: ActivityEntry) => Promise<void>
+  /** Many entries in one statement, for a bulk action's one entry per target (AGENTS.md "no N+1"). */
+  recordAll: (tx: ScopedSql, entries: readonly ActivityEntry[]) => Promise<void>
 }
 
 /** A staff session ended in the partner console: by the staff member, or by its user or partner going (ACCESS.md §8.1, §8.2). */
@@ -194,3 +196,64 @@ export const factsOf = (request: Request): RequestFacts => ({
   ip: request.headers.get('cf-connecting-ip'),
   userAgent: request.headers.get('user-agent'),
 })
+
+// A merchant or supplier person on a portal host (#290). Visibility `self`: a person spans the
+// partner's stores, so their sign-ins are theirs to see, and staff's (LOGGING.md §6).
+const personEntry = (action: string, category: 'auth' | 'security', user: { id: string; partnerId: string }, request: RequestFacts, reason: string | null = null): ActivityEntry => ({
+  category,
+  action,
+  result: 'success',
+  actorKind: 'person',
+  actorId: user.id,
+  actorLabel: null,
+  partnerId: user.partnerId,
+  reason,
+  api: 'store',
+  visibility: 'self',
+  ...request,
+})
+
+export const personSignedIn = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.signed_in', 'auth', user, request)
+export const personSignedOut = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.signed_out', 'auth', user, request)
+// LOGGING.md §3 names these three for the merchant portal.
+export const personSecondFactorEnrolled = (user: { id: string; partnerId: string }, request: RequestFacts, method: 'app' | 'sms') =>
+  personEntry('two_factor.enabled', 'security', user, request, method)
+export const personBackupCodesGenerated = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('backup_codes.generated', 'security', user, request)
+export const personBackupCodeUsed = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('backup_code.used', 'security', user, request)
+export const personLocked = (user: { id: string; partnerId: string }, request: RequestFacts) => ({ ...personEntry('person.locked', 'security', user, request), result: 'denied' as const })
+export const personCodeRefused = (user: { id: string; partnerId: string }, request: RequestFacts, code: string) => ({ ...personEntry('person.second_factor_refused', 'security', user, request, code), result: 'denied' as const })
+
+/** No account is named: the same entry whether the email exists or not (ACCESS.md §2). */
+export const personSignInRefused = (partnerId: string, request: RequestFacts, reason: 'invalid_credentials' | 'locked'): ActivityEntry => ({
+  category: 'auth',
+  action: 'person.sign_in_refused',
+  result: 'denied',
+  actorKind: 'anonymous',
+  actorId: null,
+  actorLabel: null,
+  partnerId,
+  reason,
+  api: 'store',
+  visibility: 'staff',
+  ...request,
+})
+
+/** ACCESS.md §6.2: the store's own log shows who joined, as what; the token is never logged. */
+export const personJoinedStore = (user: { id: string; partnerId: string }, request: RequestFacts, store: { id: string; name: string }, sellerId: string | null, role: string): ActivityEntry => ({
+  ...personEntry('person.invitation_accepted', 'auth', user, request, role),
+  storeId: store.id,
+  sellerId,
+  target: { type: 'store', id: store.id, label: store.name },
+  visibility: 'store',
+})
+export const personPasswordResetRequested = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_reset_requested', 'security', user, request)
+export const personPasswordReset = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_reset', 'security', user, request)
+// My profile (FIRST-RELEASE §4); LOGGING.md §3 names the two-factor and session codes.
+export const personProfileUpdated = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.profile_updated', 'auth', user, request)
+export const personPasswordChanged = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_changed', 'security', user, request)
+export const personEmailChangeRequested = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.email_change_requested', 'security', user, request)
+export const personEmailChanged = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.email_changed', 'security', user, request)
+export const personSecondFactorChanged = (user: { id: string; partnerId: string }, request: RequestFacts, method: 'app' | 'sms') =>
+  personEntry('two_factor.method_changed', 'security', user, request, method)
+export const personSecondFactorDisabled = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('two_factor.disabled', 'security', user, request)
+export const personOtherSessionsEnded = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('sessions.others_ended', 'security', user, request)

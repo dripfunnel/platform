@@ -10,7 +10,8 @@ export class ApiError extends Error {
 type GraphQLResponse<T> = { data?: T; errors?: { message: string; extensions?: { code?: string } }[] }
 
 // Trailing slash: the `/api/*` route misses bare `/api` (ARCHITECTURE.md §2).
-export const createApiClient = ({ endpoint = '/api/', timeoutMs = 15_000 } = {}) => ({
+// `headers` is read on every call: the merchant portal names its acting store there (ACCESS.md §4).
+export const createApiClient = ({ endpoint = '/api/', timeoutMs = 15_000, headers = (): Record<string, string> => ({}) } = {}) => ({
   async request<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
     // No answer, a timeout, or a gateway's error page instead of the API's JSON: all one
     // stable code, so every screen shows its load-error state (ui/README.md §3).
@@ -19,7 +20,7 @@ export const createApiClient = ({ endpoint = '/api/', timeoutMs = 15_000 } = {})
       const response = await fetch(endpoint, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
+        headers: { ...headers(), 'content-type': 'application/json' },
         body: JSON.stringify({ query, variables }),
         signal: AbortSignal.timeout(timeoutMs),
       })

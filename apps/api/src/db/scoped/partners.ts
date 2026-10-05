@@ -323,6 +323,10 @@ export const updatePartnerDomainCheck = async (tx: ScopedSql, id: string, check:
 export const selectPartnerHosts = (tx: ScopedSql, partnerId: string): Promise<{ kind: DomainKind; host: string }[]> =>
   tx<{ kind: DomainKind; host: string }[]>`select kind, host from partner_domain where partner_id = ${partnerId}`
 
+/** The partner's live portal host, where every link to a merchant leads; null until one is live. */
+export const selectLivePortalHost = async (tx: ScopedSql, partnerId: string): Promise<string | null> =>
+  (await tx<{ host: string }[]>`select host from partner_domain where partner_id = ${partnerId} and kind = 'portal' and status = 'live' order by created_at limit 1`)[0]?.host ?? null
+
 /** A partner's active users with any of these roles, oldest first: who an account notice goes to. */
 export const selectActivePartnerEmails = async (tx: ScopedSql, partnerId: string, roles: readonly PartnerUserRow['role_key'][], limit: number): Promise<string[]> =>
   (

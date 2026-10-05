@@ -37,3 +37,12 @@ export const withSystemScope = async <T>(sql: postgres.Sql, work: (tx: ScopedSql
 // send a JavaScript array (docs/api/README.md §7).
 export const pgArray = (values: readonly string[]): string => `{${values.map((v) => `"${v.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`).join(',')}}`
 
+
+/** Holds `key` to the end of the transaction, so a count-then-insert under a limit can't race (AGENTS.md "Reliability"). */
+export const serialise = async (tx: ScopedSql, key: string): Promise<void> => {
+  await tx`select pg_advisory_xact_lock(hashtext(${key}))`
+}
+
+/** A unique constraint's refusal, by name, so a caller can answer it as the clash it is. */
+export const uniqueViolation = (error: unknown, constraint: string): boolean =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint
