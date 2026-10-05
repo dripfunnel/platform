@@ -21,8 +21,8 @@ describe('checkDatabase', () => {
   })
 
   it('says Postgres is down when nothing listens on the port', async () => {
-    const url = Object.assign(new URL(DATABASE_URL), { port: '1' }).toString()
-    const [finding] = await checkDatabase(url, migrationsDir, 'setup')
+    // Loopback, not DATABASE_URL's host: CI points DATABASE_URL at Neon, where port 1 times out differently.
+    const [finding] = await checkDatabase('postgres://dripfunnel_dev:dripfunnel_dev@localhost:1/dripfunnel', migrationsDir, 'setup')
     expect(finding?.problem).toBe("Postgres isn't answering on localhost:1.")
   })
 
