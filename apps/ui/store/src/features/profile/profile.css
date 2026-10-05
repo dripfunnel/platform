@@ -84,37 +84,56 @@
   gap: var(--df-space-1);
 }
 
-.df-profile-field label {
+.df-profile-label {
+  display: flex;
+  justify-content: space-between;
   color: var(--df-color-text);
   font-size: 13px;
   font-weight: 600;
 }
 
-.df-profile-field input {
+.df-profile-control {
+  display: flex;
+  align-items: center;
   box-sizing: border-box;
   height: 42px;
   padding: 0 12px;
   border: 1px solid var(--df-color-field-border);
   border-radius: var(--df-radius);
-  outline: none;
   background: var(--df-color-surface);
+}
+
+.df-profile-control:focus-within {
+  border-color: var(--df-color-focus);
+  box-shadow: 0 0 0 3px var(--df-color-info-surface);
+}
+
+.df-profile-control input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--df-color-text);
   font: inherit;
   font-size: 14px;
 }
 
-.df-profile-field input:focus {
-  border-color: var(--df-color-focus);
-  box-shadow: 0 0 0 3px var(--df-color-info-surface);
+.df-profile-control[data-readonly='true'] {
+  background: var(--df-color-page);
 }
 
-.df-profile-field input[readonly] {
-  background: var(--df-color-page);
+.df-profile-control[data-readonly='true'] input {
   color: var(--df-color-muted);
 }
 
-.df-profile-field--code input {
+.df-profile-control--code {
   height: 44px;
+}
+
+.df-profile-control--code input {
   font-family: var(--df-font-mono);
   font-size: 18px;
   letter-spacing: 0.3em;

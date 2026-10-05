@@ -47,6 +47,7 @@ type Mutation {
   resendInvitation(invitationId: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setTheme(theme: String!): Profile
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProfile(name: String!, phone: String, theme: String): Profile

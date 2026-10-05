@@ -48,7 +48,7 @@ export const ResetPassword = ({ token }: { token: string | undefined }) => {
       ) : (
         <form className="df-portal-auth-form" onSubmit={submit} noValidate>
           <NewPasswordField label={words.fields.newPassword} value={password} onValue={setPassword} />
-          <PasswordField label={words.fields.newPasswordAgain} autoComplete="new-password" value={again} onValue={setAgain} invalid={again !== '' && again !== password} help={again !== '' && again !== password ? words.reset.mismatch : undefined} helpWeak />
+          <PasswordField label={words.fields.newPasswordAgain} autoComplete="new-password" value={again} onValue={setAgain} invalid={again !== '' && again !== password} help={again !== '' && again !== password ? words.reset.mismatch : undefined} helpTone="weak" />
           <Primary busy={busy}>{words.reset.primary}</Primary>
         </form>
       )}

@@ -125,6 +125,17 @@ describe('changing my details', () => {
     expect(await actions(id)).toContain('person.profile_updated')
   })
 
+  it('saves the theme alone, keeping a name and number changed elsewhere since the page loaded', async () => {
+    const id = await person(t.partnerA, 'theme@a.example')
+    const cookie = await sessionFor(id)
+    await gql('mutation { updateProfile(name: "First", phone: "+919845022114") { name } }', cookie)
+    // Another device renames the person after this page read "First".
+    await db.sql`update "user" set name = 'Renamed', phone = '+919845022115' where id = ${id}`
+    expect((await gql('mutation { setTheme(theme: "dark") { name phone theme } }', cookie)).data?.['setTheme']).toEqual({ name: 'Renamed', phone: '+919845022115', theme: 'dark' })
+    expect((await gql('mutation { setTheme(theme: "neon") { theme } }', cookie)).code).toBe('INVALID_INPUT')
+    expect((await actions(id)).filter((a) => a === 'person.profile_updated').length).toBeGreaterThanOrEqual(2)
+  })
+
   it('never changes the number sign-in codes go to without texting it first', async () => {
     const id = await person(t.partnerA, 'texted@a.example')
     await db.sql`update "user" set two_factor_method = 'sms', two_factor_enrolled_at = now(), phone = '+16145550120' where id = ${id}`
