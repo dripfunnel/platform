@@ -927,7 +927,7 @@ asset               (id, store_id, seller_id NULL, r2_key, kind ('image'|'video'
                     -- supplier's to read, ACCESS §7.1); unlinked uploads are the uploader's
 
 product             (id, store_id, seller_id NULL, name, slug, description, product_type
-                     ('physical'|'digital'|'service'), category, visibility ('visible'|'hidden'),
+                     ('physical'|'digital'|'service'|'gift_card'), category, visibility ('visible'|'hidden'),
                      approval_status ('approved'|'pending'|'sent_back') NULL, sent_back_reason,
                      hidden_by ('seller_suspended'|'seller_removed'|'plan') NULL, status_before_hide,
                      publish_at NULL, size_chart_id NULL, related_mode ('manual'|'auto_collection'),
@@ -1053,6 +1053,15 @@ product_search      (product_id, store_id, language, document tsvector)
                     -- (facts 14, 19), written by the outbox consumer; visibility-scoped
                     -- reads only (§7.11)
 ```
+
+**Built on #293, part 1** (migration 0041): `product`, its options and values, `product_version`, their
+option values, `version_price` and `price_history`, with `store.pricing_currency` and `main_language` from
+§7.2. A child's `seller_id` is copied from its parent by a trigger that runs as the caller, so a parent
+the caller can't read refuses the write. `product_supplier_guard` stops a supplier setting visibility,
+approval or a hide, and `version_price_history` (an `app_definer` trigger) writes the history. Two
+`app_definer` functions give a supplier only a number or a code it needs: `store_product_count()` for
+the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax), `size_chart_id`
+(with size charts), and the `shop` branches, which come with the Shop API.
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
 product with no visible version is reported as "not buyable" (fact 8); a version with no price

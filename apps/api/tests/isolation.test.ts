@@ -339,6 +339,7 @@ describe('the backstop itself', () => {
       'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job',
       'partner_password_reset', 'user_session', 'user_backup_code', 'verification_code',
       'user_password_reset', 'user_email_change', 'signup', 'signup_text',
+      'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -401,6 +402,46 @@ describe('the backstop itself', () => {
       await expect(as(role, scope, (tx) => tx`insert into user_email_change (partner_id, user_id, new_email, expires_at) values (${t.partnerA}, ${userId}, 'x@a.example', now())`)).rejects.toThrow(/permission denied/)
     }
     expect(await as('app_system', 'system', async (tx) => (await tx`select 1 from signup where token_hash = 'iso-signup'`).length)).toBe(1)
+  })
+
+  it('holds the catalogue to the store and its supplier, with no partner, staff or forged history (#293)', async () => {
+    const inStore = (storeId: string, sellerScope: SellerScope, work: (tx: ScopedSql) => Promise<unknown>) => withScope(db.sql, storeCaller(storeId === t.storeB1 ? t.partnerB : t.partnerA, storeId, sellerScope), work)
+    const product = async (storeId: string, sellerId: string | null, slug: string) =>
+      (await db.sql<{ id: string }[]>`insert into product (store_id, seller_id, name, slug) values (${storeId}, ${sellerId}, ${slug}, ${slug}) returning id`)[0]?.id ?? ''
+    const own = await product(t.storeA1, null, 'iso-own')
+    const first = await product(t.storeA1, t.sellerA1First, 'iso-first')
+    const second = await product(t.storeA1, t.sellerA1Second, 'iso-second')
+    const other = await product(t.storeB1, null, 'iso-b')
+    for (const id of [own, first, second, other]) {
+      const [v] = await db.sql<{ id: string }[]>`insert into product_version (product_id, store_id, position) values (${id}, ${id === other ? t.storeB1 : t.storeA1}, 0) returning id`
+      await db.sql`insert into version_price (version_id, store_id, currency, amount) values (${v?.id ?? ''}, ${id === other ? t.storeB1 : t.storeA1}, 'INR', 100)`
+    }
+    const seen = (storeId: string, sellerScope: SellerScope, table: string) =>
+      inStore(storeId, sellerScope, async (tx) => (await tx.unsafe(`select count(*)::int as n from ${table}`))[0]?.['n'] as number)
+    const supplier = { kind: 'seller', sellerId: t.sellerA1First } as const
+    for (const table of ['product', 'product_version', 'version_price', 'price_history']) {
+      expect({ [table]: await seen(t.storeA1, { kind: 'all' }, table) }).toEqual({ [table]: 3 })
+      expect({ [table]: await seen(t.storeA1, supplier, table) }).toEqual({ [table]: 1 })
+      expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 1 })
+      // No partner or staff branch, nor a grant: they can't even ask (§7.11).
+      await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
+      await expect(withScope(db.sql, staff, (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
+    }
+    // A supplier can't attach to another's product, take one over, or show and hide its own.
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_version (product_id, store_id, position) values (${second}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'x', 'iso-x')`)).rejects.toThrow()
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`update product set visibility = 'visible' where id = ${first}`)).rejects.toThrow(/supplier changes no visibility/)
+    expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update product set name = 'taken' where id = ${second}`).count)).toBe(0)
+    // Nobody points a child into another store, or writes price history by hand.
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_version (product_id, store_id, position) values (${other}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product (store_id, name, slug) values (${t.storeB1}, 'x', 'iso-forged')`)).rejects.toThrow(/row-level security/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into price_history (version_id, store_id, currency, amount, from_at) select id, store_id, 'INR', 1, now() from product_version limit 1`)).rejects.toThrow(/permission denied/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product set store_id = ${t.storeB1} where id = ${own}`)).rejects.toThrow(/permission denied/)
+    // A read-only support session writes nothing.
+    await expect(withScope(db.sql, supportSession(t.partnerA, t.storeA1, 'read'), (tx) => tx`insert into product (store_id, name, slug) values (${t.storeA1}, 'x', 'iso-support')`)).rejects.toThrow(/row-level security/)
+    // The plan count is the whole store's, a number only, whoever asks.
+    expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)
   })
 
   it('runs staff as app_platform, partner callers as app_partner and store callers as app_request (#205, #155)', async () => {

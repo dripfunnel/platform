@@ -34,7 +34,7 @@ export const provisionStore = async (tx: ScopedSql, input: ProvisionInput, at: D
   // 1. Account and store.
   failAt('accountAndStore')
   const userId = await insertSignupUser(tx, { partnerId: input.partnerId, ...input.owner, now: at })
-  const storeId = await insertPartnerStore(tx, { partnerId: input.partnerId, name: input.store.name, code: input.store.code, country: input.store.country, status: 'trial', planId: plan.id, trialEndsAt, createdAt: at })
+  const storeId = await insertPartnerStore(tx, { partnerId: input.partnerId, name: input.store.name, code: input.store.code, country: input.store.country, pricingCurrency: input.store.currency, status: 'trial', planId: plan.id, trialEndsAt, createdAt: at })
   await insertActiveOwnerMembership(tx, userId, storeId)
   await insertNewSubscription(tx, { storeId, partnerId: input.partnerId, planId: plan.id, planVersion: plan.version, status: 'trial', currency: input.store.currency, amount: plan.monthly, periodStart: at, periodEnd: addMonth(at), trialEndsAt })
   const steps = stepsFor('own')

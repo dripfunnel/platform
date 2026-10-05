@@ -37,18 +37,32 @@ type Me {
   name: String
 }
 
+type Money {
+  amount: String
+  currency: String
+}
+
+input MoneyInput {
+  amount: String!
+  currency: String!
+}
+
 type Mutation {
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
+  deleteProducts(ids: [ID!]!): Int
+  duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
+  saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
+  updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String, theme: String): Profile
 }
 
@@ -83,6 +97,144 @@ type PageInfo {
   startCursor: String
 }
 
+type Product {
+  approval: String
+  category: String
+  createdAt: String
+  description: String
+  id: ID
+  name: String
+  options: [ProductOption!]
+  pricingCurrency: String
+  productType: String
+  returnsText: String
+  revision: Int
+  sentBackReason: String
+  seoDescription: String
+  seoTitle: String
+  shared: Boolean
+  slug: String
+  supplier: ProductSupplier
+  updatedAt: String
+  versions: [ProductVersion!]
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductCounts {
+  all: Int
+  hidden: Int
+  pending: Int
+  sentBack: Int
+  visible: Int
+}
+
+input ProductInput {
+  category: String
+  description: String
+  name: String!
+  options: [ProductOptionInput!]!
+  productType: String
+  returnsText: String
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  versions: [ProductVersionInput!]!
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductOption {
+  id: ID
+  name: String
+  values: [ProductOptionValue!]
+}
+
+input ProductOptionInput {
+  id: ID
+  name: String!
+  values: [ProductOptionValueInput!]!
+}
+
+type ProductOptionValue {
+  id: ID
+  name: String
+}
+
+input ProductOptionValueInput {
+  id: ID
+  name: String!
+}
+
+type ProductPage {
+  nodes: [ProductSummary!]
+  pageInfo: PageInfo
+}
+
+type ProductSummary {
+  approval: String
+  buyable: Boolean
+  createdAt: String
+  id: ID
+  maxPrice: Money
+  minPrice: Money
+  name: String
+  productType: String
+  slug: String
+  supplier: ProductSupplier
+  supplierRemoved: Boolean
+  updatedAt: String
+  versionCount: Int
+  visible: Boolean
+}
+
+type ProductSupplier {
+  id: ID
+  name: String
+}
+
+type ProductVersion {
+  barcode: String
+  choices: [String!]
+  continueSelling: Boolean
+  cost: Money
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPrice!]
+  sku: String
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+input ProductVersionInput {
+  barcode: String
+  choices: [String!]!
+  continueSelling: Boolean
+  cost: MoneyInput
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPriceInput!]!
+  sku: String
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+input ProductsPatch {
+  visible: Boolean!
+}
+
 type Profile {
   email: String
   name: String
@@ -107,8 +259,17 @@ type Query {
   myStores(after: String, before: String, first: Int): StoreChoices
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
+  product(id: ID!): Product
+  productCounts: ProductCounts
+  products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
   storeState: StoreState
+}
+
+type SavedProduct {
+  id: ID
+  revision: Int
+  slug: String
 }
 
 type SecondFactorStep {
@@ -180,4 +341,16 @@ type TwoFactor {
   backupCodesLeft: Int
   method: String
   required: Boolean
+}
+
+type VersionPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+}
+
+input VersionPriceInput {
+  amount: String!
+  compareAtAmount: String
+  currency: String!
 }
