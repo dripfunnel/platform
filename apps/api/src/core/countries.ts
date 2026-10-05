@@ -27,3 +27,8 @@ export const countriesIn = (currencies: ReadonlySet<string>): Country[] =>
     .map((code) => countryOf(code))
     .filter((c): c is Country => c !== null && currencies.has(c.currency))
     .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+
+const anyRegion = new Intl.DisplayNames(['en'], { type: 'region', fallback: 'none' })
+
+/** Any ISO 3166-1 alpha-2 country the runtime names, for where a market sells (wider than where a store is made). */
+export const isCountry = (code: string): boolean => /^[A-Z]{2}$/.test(code) && anyRegion.of(code) !== undefined

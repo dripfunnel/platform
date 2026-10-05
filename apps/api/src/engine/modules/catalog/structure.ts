@@ -3,7 +3,13 @@ import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
 import { isCurrency, parseMinor } from '#core/money'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
+import { readableProducts } from '#db/scoped/catalogStory'
 import {
+  addCollectionProducts,
+  selectManualCollectionIds,
+  selectProductName,
+  selectProductCollections,
+  setProductManualCollections,
   countFacets,
   deleteFacet,
   insertCollection,
@@ -46,6 +52,7 @@ export const structureAudit = {
   facetDeleted: 'filter.deleted',
   facetValuesMerged: 'filter.values_merged',
   menuSaved: 'menu.saved',
+  productCollectionsSet: 'product.collections_set',
 } as const
 
 export const maxRules = 20
@@ -370,6 +377,42 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
     }
   }
 
+  /** CatList's bulk "Add to collection": a hand-picked one only, as automatic ones fill from their rules. */
+  const addToCollection = (collectionId: string, productIds: readonly string[]) =>
+    run(async (tx) => {
+      const ids = [...new Set(productIds.map((id) => id.toLowerCase()))]
+      if (!isUuid(collectionId) || ids.length === 0 || ids.length > maxCollectionProducts || !ids.every(isUuid)) throw new Refused('INVALID_INPUT')
+      await serialise(tx, `collection:${storeId}`)
+      const target = await selectCollection(tx, storeId, collectionId)
+      if (!target) throw new Refused('NOT_FOUND')
+      if (target.kind !== 'manual') throw new Refused('INVALID_INPUT')
+      if ((await readableProducts(tx, storeId, ids)).length !== ids.length) throw new Refused('NOT_FOUND')
+      const holds = await addCollectionProducts(tx, storeId, collectionId, ids)
+      if (holds > maxCollectionProducts) throw new Refused('TOO_MANY_PRODUCTS')
+      await activity.record(tx, { ...entry(structureAudit.collectionSaved, { type: 'collection', id: collectionId, label: target.name }), reason: `added ${ids.length}` })
+      await recompute(tx)
+      return holds
+    })
+
+  /** The editor's "Collections & filters": the collections a product is in, hand-picked and automatic. */
+  const productCollections = (productId: string) => inScope((tx) => (isUuid(productId) ? selectProductCollections(tx, storeId, productId.toLowerCase()) : Promise.resolve([])))
+
+  /** The product in exactly these hand-picked collections; automatic ones fill from their rules. */
+  const setProductCollections = (productId: string, collectionIds: readonly string[]) =>
+    run(async (tx) => {
+      const id = productId.toLowerCase()
+      const ids = [...new Set(collectionIds.map((c) => c.toLowerCase()))]
+      if (!isUuid(id) || ids.length > maxCollections || !ids.every(isUuid)) throw new Refused('INVALID_INPUT')
+      await serialise(tx, `collection:${storeId}`)
+      const name = await selectProductName(tx, storeId, id)
+      if (name === null) throw new Refused('NOT_FOUND')
+      if ((await selectManualCollectionIds(tx, storeId, ids)).length !== ids.length) throw new Refused('NOT_FOUND')
+      if ((await setProductManualCollections(tx, storeId, id, ids)).length > 0) throw new Refused('TOO_MANY_PRODUCTS')
+      await activity.record(tx, { ...entry(structureAudit.productCollectionsSet, { type: 'product', id, label: name }), reason: `${ids.length} hand-picked` })
+      await recompute(tx)
+      return selectProductCollections(tx, storeId, id)
+    })
+
   const saveCollection = (id: string | null, revision: number | null, input: CollectionInput) =>
     run(async (tx) => {
       const clean = cleanCollection(input)
@@ -427,5 +470,5 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       return saved
     })
 
-  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, saveCollection, removeCollection, menu, saveMenu }
+  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, addToCollection, productCollections, setProductCollections, saveCollection, removeCollection, menu, saveMenu }
 }

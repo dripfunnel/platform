@@ -212,6 +212,8 @@ describe('the merchant side', () => {
     const { saved } = await create('owner', simple('Bulk candle'))
     expect((await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'owner', { ids: [saved?.id] })).data?.['updateProducts']).toBe(1)
     expect((await detail('owner', saved?.id ?? ''))?.visible).toBe(false)
+    expect((await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: true }) }`, 'owner', { ids: [saved?.id] })).data?.['updateProducts']).toBe(1)
+    await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'owner', { ids: [saved?.id] })
     const counts = (await gql('{ productCounts { all visible hidden } }', 'owner')).data?.['productCounts'] as { all: number; visible: number; hidden: number }
     expect(counts.all).toBe(counts.visible + counts.hidden)
     expect(counts.hidden).toBeGreaterThanOrEqual(2)
@@ -489,5 +491,172 @@ describe('another store', () => {
     expect((await gql(`mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }`, 'bOwner', { ids: [saved?.id] })).data?.['deleteProducts']).toBe(0)
     expect((await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'bOwner', { ids: [saved?.id] })).data?.['updateProducts']).toBe(0)
     expect((await gql('{ products { nodes { id } } }', 'bOwner', {}, t.storeA1)).code).toBe('FORBIDDEN')
+  })
+})
+
+describe('approval of suppliers’ products (ACCESS §7.2, CATALOG L)', () => {
+  const approval = (on: boolean) => gql('mutation S($on: Boolean!) { setApproval(on: $on) }', 'owner', { on })
+  const state = async (id: string) => (await db.sql<{ approval_status: string | null; visibility: string; sent_back_reason: string | null }[]>`select approval_status, visibility, sent_back_reason from product where id = ${id}`)[0]
+  const saveAs = async (who: Who, id: string, input: Record<string, unknown>) => {
+    const revision = (await detail('owner', id))?.revision
+    const result = await gql('mutation Save($id: ID, $revision: Int, $input: ProductInput!) { saveProduct(id: $id, revision: $revision, input: $input) { id revision approval reviewed } }', who, { id, revision, input })
+    return { saved: result.data?.['saveProduct'] as { approval: string | null; reviewed: string[] } | undefined, code: result.code }
+  }
+
+  beforeAll(async () => {
+    expect((await approval(true)).data?.['setApproval']).toBe(true)
+  })
+  afterAll(async () => {
+    await approval(false)
+  })
+
+  it('is the Owner’s switch, and everyone in the store reads it', async () => {
+    expect((await gql('mutation { setApproval(on: false) }', 'staff')).code).toBe('FORBIDDEN')
+    expect((await gql('mutation { setApproval(on: false) }', 'supplier')).code).toBe('FORBIDDEN')
+    expect((await gql('{ supplierApprovalRequired }', 'supplier')).data?.['supplierApprovalRequired']).toBe(true)
+    expect((await gql('{ supplierApprovalRequired }', 'bOwner')).data?.['supplierApprovalRequired']).toBe(false)
+    expect(await db.sql`select 1 from activity_log where action = 'catalogue.approval_changed' and store_id = ${t.storeA1} and reason = 'on'`).toHaveLength(1)
+  })
+
+  it('creates a supplier’s product hidden and waiting, and the merchant approves it into the shop', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id approval } }', 'supplier', { input: simple('Queued scarf') })
+    const id = (made.data?.['saveProduct'] as { id: string; approval: string }).id
+    expect((made.data?.['saveProduct'] as { approval: string }).approval).toBe('pending')
+    expect(await state(id)).toEqual({ approval_status: 'pending', visibility: 'hidden', sent_back_reason: null })
+    expect(((await gql('{ navBadges { products } }', 'owner')).data?.['navBadges'] as { products: number }).products).toBeGreaterThan(0)
+    expect((await gql('{ navBadges { products } }', 'supplier')).data?.['navBadges']).toEqual({ products: 0 })
+    // Only the Owner reviews; another store's Owner doesn't find it.
+    expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'staff', { id })).code).toBe('FORBIDDEN')
+    expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'supplier', { id })).code).toBe('FORBIDDEN')
+    expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'bOwner', { id })).code).toBe('NOT_FOUND')
+    expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+    expect(await state(id)).toEqual({ approval_status: 'approved', visibility: 'visible', sent_back_reason: null })
+    expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).code).toBe('NOT_FOUND')
+  })
+
+  it('sends an approved product back to the queue only when its name, a price or its photos change', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Approved mug') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })
+    const version = (await detail('owner', id))?.versions[0]?.id
+    const kept = await saveAs('supplier', id, { ...simple('Approved mug', { description: 'Now with a handle' }), versions: [{ id: version, choices: [], prices: [price('129900')] }] })
+    expect(kept.saved).toMatchObject({ approval: 'approved', reviewed: [] })
+    expect(await state(id)).toMatchObject({ approval_status: 'approved', visibility: 'visible' })
+    const repriced = await saveAs('supplier', id, { ...simple('Approved mug'), versions: [{ id: version, choices: [], prices: [price('99900')] }] })
+    expect(repriced.saved).toMatchObject({ approval: 'pending', reviewed: ['price'] })
+    expect(await state(id)).toMatchObject({ approval_status: 'pending', visibility: 'hidden' })
+    // The merchant may edit it while it waits (L5), which doesn't decide it.
+    expect((await saveAs('owner', id, { ...simple('Approved mug, large'), versions: [{ id: version, choices: [], prices: [price('99900')] }] })).saved).toMatchObject({ approval: 'pending' })
+    expect(await db.sql`select reason from activity_log where action = 'product.sent_back_for_approval' and target_id = ${id}`).toEqual([{ reason: 'price' }])
+  })
+
+  it('sends back with a reason the supplier sees, and the supplier’s next save resubmits it', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Rough rug') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    expect((await gql('mutation B($id: ID!) { sendBackProduct(id: $id, reason: "  ") }', 'owner', { id })).code).toBe('REASON_REQUIRED')
+    expect((await gql('mutation B($id: ID!) { sendBackProduct(id: $id, reason: "The photos are blurry") }', 'owner', { id })).data?.['sendBackProduct']).toBe(true)
+    expect(await state(id)).toEqual({ approval_status: 'sent_back', visibility: 'hidden', sent_back_reason: 'The photos are blurry' })
+    expect(((await gql('query P($id: ID!) { product(id: $id) { approval sentBackReason } }', 'supplier', { id })).data?.['product'])).toEqual({ approval: 'sent_back', sentBackReason: 'The photos are blurry' })
+    const version = (await detail('owner', id))?.versions[0]?.id
+    expect((await saveAs('supplier', id, { ...simple('Rough rug', { description: 'Sharper photos' }), versions: [{ id: version, choices: [], prices: [price('129900')] }] })).saved).toMatchObject({ approval: 'pending', reviewed: [] })
+    expect(await state(id)).toEqual({ approval_status: 'pending', visibility: 'hidden', sent_back_reason: null })
+  })
+
+  it('never strands a sent-back product when approval is switched off: the supplier resubmits it and the merchant decides', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Stranded stool') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    await gql('mutation B($id: ID!) { sendBackProduct(id: $id, reason: "Needs a size") }', 'owner', { id })
+    await approval(false)
+    try {
+      const version = (await detail('owner', id))?.versions[0]?.id
+      expect((await saveAs('supplier', id, { ...simple('Stranded stool', { description: 'Now 45 cm' }), versions: [{ id: version, choices: [], prices: [price('129900')] }] })).saved).toMatchObject({ approval: 'pending' })
+      expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+      expect(await state(id)).toMatchObject({ approval_status: 'approved', visibility: 'visible' })
+    } finally {
+      await approval(true)
+    }
+  })
+
+  it('keeps another store’s Owner out of this store’s queue, its badge and its switch', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Private lamp') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    expect((await gql('mutation B($id: ID!) { sendBackProduct(id: $id, reason: "Not yours") }', 'bOwner', { id })).code).toBe('NOT_FOUND')
+    expect(await state(id)).toMatchObject({ approval_status: 'pending', sent_back_reason: null })
+    expect((await gql('{ navBadges { products } }', 'bOwner')).data?.['navBadges']).toEqual({ products: 0 })
+    expect(((await gql('{ navBadges { products } }', 'owner')).data?.['navBadges'] as { products: number }).products).toBeGreaterThan(0)
+    expect((await gql('mutation { setApproval(on: true) }', 'bOwner')).data?.['setApproval']).toBe(true)
+    expect((await gql('mutation { setApproval(on: false) }', 'bOwner')).data?.['setApproval']).toBe(true)
+    expect((await gql('{ supplierApprovalRequired }', 'supplier')).data?.['supplierApprovalRequired']).toBe(true)
+  })
+
+  it('leaves the queue as it is when switched off, so nothing unreviewed goes live by a switch', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Waiting vase') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    await approval(false)
+    try {
+      expect(await state(id)).toMatchObject({ approval_status: 'pending', visibility: 'hidden' })
+      const live = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id approval } }', 'supplier', { input: simple('Live vase') })
+      expect((live.data?.['saveProduct'] as { approval: string | null }).approval).toBeNull()
+      expect(await state((live.data?.['saveProduct'] as { id: string }).id)).toMatchObject({ approval_status: null, visibility: 'visible' })
+    } finally {
+      await approval(true)
+    }
+  })
+
+  it('puts only a supplier’s live product in the queue, never a deleted one or the merchant’s own', async () => {
+    const { submitForApproval } = await import('#db/scoped/approval')
+    const { withScope } = await import('#db/scoped/index')
+    const merchant = { caller: { kind: 'person' as const, userId: people.owner, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' as const }, subscription: 'active' as const }
+    const gone = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Gone jar') })
+    const goneId = (gone.data?.['saveProduct'] as { id: string }).id
+    await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id: goneId })
+    await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [goneId] })
+    const own = (await create('owner', simple('Own jar'))).saved?.id ?? ''
+    expect(await withScope(db.sql, merchant, (tx) => submitForApproval(tx, t.storeA1, goneId, now))).toBe(false)
+    expect(await withScope(db.sql, merchant, (tx) => submitForApproval(tx, t.storeA1, own, now))).toBe(false)
+    expect(await db.sql`select approval_status from product where id in (${goneId}, ${own}) order by id = ${goneId} desc`).toEqual([{ approval_status: 'approved' }, { approval_status: null }])
+  })
+
+  it('is held in the database: a supplier can only send its own product to the queue, never approve it or show it', async () => {
+    const made = await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'supplier', { input: simple('Guarded lamp') })
+    const id = (made.data?.['saveProduct'] as { id: string }).id
+    const as = { caller: { kind: 'person' as const, userId: people.supplier, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller' as const, sellerId: t.sellerA1First }, subscription: 'active' as const }
+    const { withScope } = await import('#db/scoped/index')
+    await expect(withScope(db.sql, as, (tx) => tx`update product set approval_status = 'approved', visibility = 'visible' where id = ${id}`)).rejects.toThrow(/changes no visibility, approval or hide/)
+    await expect(withScope(db.sql, as, (tx) => tx`insert into product (store_id, seller_id, name, slug, approval_status) values (${t.storeA1}, ${t.sellerA1First}, 'Sneaky', 'sneaky-x1', 'approved')`)).rejects.toThrow(/with no approval/)
+    await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })
+    await approval(false)
+    try {
+      await expect(withScope(db.sql, as, (tx) => tx`update product set approval_status = 'pending', visibility = 'hidden' where id = ${id}`)).rejects.toThrow(/changes no visibility, approval or hide/)
+    } finally {
+      await approval(true)
+    }
+  })
+
+  it('lets a Stock-only supplier propose a product, which waits for the merchant even with approval off, and change no product after', async () => {
+    await db.sql`update seller set access_level = 'vendor-stock' where id = ${t.sellerA1Second}`
+    await approval(false)
+    try {
+      expect((await gql('mutation Save($input: ProductInput!) { saveProduct(input: $input) { id } }', 'otherSupplier', { input: simple('Not allowed') })).code).toBe('FORBIDDEN')
+      expect(await upload('otherSupplier')).toMatchObject({ ok: true })
+      const proposed = await gql('mutation P($input: ProductInput!) { proposeProduct(input: $input) { id approval } }', 'otherSupplier', { input: simple('Proposed basket') })
+      const id = (proposed.data?.['proposeProduct'] as { id: string; approval: string }).id
+      expect((proposed.data?.['proposeProduct'] as { approval: string }).approval).toBe('pending')
+      expect(await state(id)).toEqual({ approval_status: 'pending', visibility: 'hidden', sent_back_reason: null })
+      expect(await db.sql`select 1 from activity_log where action = 'product.proposed' and target_id = ${id}`).toHaveLength(1)
+      // Only that tier proposes; the merchant and a catalogue supplier create as they always do.
+      expect((await gql('mutation P($input: ProductInput!) { proposeProduct(input: $input) { id } }', 'supplier', { input: simple('Not a proposal') })).code).toBe('FORBIDDEN')
+      expect((await gql('mutation P($input: ProductInput!) { proposeProduct(input: $input) { id } }', 'owner', { input: simple('Not a proposal') })).code).toBe('FORBIDDEN')
+      expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+      expect(await state(id)).toMatchObject({ approval_status: 'approved', visibility: 'visible' })
+      const version = (await detail('owner', id))?.versions[0]?.id
+      expect((await saveAs('otherSupplier', id, { ...simple('Proposed basket, renamed'), versions: [{ id: version, choices: [], prices: [price('129900')] }] })).code).toBe('FORBIDDEN')
+      const as = { caller: { kind: 'person' as const, userId: people.otherSupplier, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller' as const, sellerId: t.sellerA1Second }, subscription: 'active' as const }
+      const { withScope } = await import('#db/scoped/index')
+      await expect(withScope(db.sql, as, (tx) => tx`update product set name = 'Sneaky rename' where id = ${id}`)).rejects.toThrow(/proposes products and changes none/)
+    } finally {
+      await approval(true)
+      await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1Second}`
+    }
   })
 })

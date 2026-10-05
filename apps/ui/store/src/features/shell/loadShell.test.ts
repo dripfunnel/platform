@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { actingStore, rememberActing } from '../../acting'
 import type { Acting, Me } from '../../api/shell'
 
-const api = vi.hoisted(() => ({ loadMe: vi.fn(), loadMyStores: vi.fn(), loadStoreState: vi.fn() }))
+const api = vi.hoisted(() => ({ loadMe: vi.fn(), loadMyStores: vi.fn(), loadStoreState: vi.fn(), loadNavBadges: vi.fn() }))
 
 vi.mock('../../api/shell', async (actual) => ({ ...(await actual<typeof import('../../api/shell')>()), ...api }))
 
@@ -29,6 +29,7 @@ describe('loadShell', () => {
     const items = new Map<string, string>()
     vi.stubGlobal('localStorage', { getItem: (k: string) => items.get(k) ?? null, setItem: (k: string, v: string) => void items.set(k, v), removeItem: (k: string) => void items.delete(k) })
     rememberActing({ storeId: 's1', supplierId: null })
+    api.loadNavBadges.mockResolvedValue({ ordersToShip: 0, productsToApprove: 0 })
   })
 
   it('sends someone signed out to sign-in, coming back to the same page', async () => {
@@ -64,6 +65,15 @@ describe('loadShell', () => {
     api.loadMe.mockResolvedValue(me(acting))
     api.loadMyStores.mockResolvedValue([])
     api.loadStoreState.mockResolvedValue(null)
-    expect(await outcome()).toMatchObject({ data: { acting, seat: { side: 'merchant', role: 'owner' } } })
+    api.loadNavBadges.mockResolvedValue({ ordersToShip: 0, productsToApprove: 2 })
+    expect(await outcome()).toMatchObject({ data: { acting, seat: { side: 'merchant', role: 'owner' }, badges: { productsToApprove: 2 } } })
+  })
+
+  it('draws no badge when its count fails, and still opens the shell', async () => {
+    api.loadMe.mockResolvedValue(me(acting))
+    api.loadMyStores.mockResolvedValue([])
+    api.loadStoreState.mockResolvedValue(null)
+    api.loadNavBadges.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    expect(await outcome()).toMatchObject({ data: { badges: { ordersToShip: 0, productsToApprove: 0 } } })
   })
 })

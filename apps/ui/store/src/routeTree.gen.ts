@@ -34,6 +34,9 @@ import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-pass
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
+import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
+import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -158,6 +161,22 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
+  id: '/products_/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsWarehousesRoute = AppProductsWarehousesRouteImport.update({
+  id: '/products_/warehouses',
+  path: '/products/warehouses',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsProductIdStoryRoute =
+  AppProductsProductIdStoryRouteImport.update({
+    id: '/products_/$productId_/story',
+    path: '/products/$productId/story',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -183,6 +202,9 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/warehouses': typeof AppProductsWarehousesRoute
+  '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -208,6 +230,9 @@ export interface FileRoutesByTo {
   '/sign-in': typeof AuthSignInRoute
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/warehouses': typeof AppProductsWarehousesRoute
+  '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -236,6 +261,9 @@ export interface FileRoutesById {
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/products_/$productId': typeof AppProductsProductIdRoute
+  '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
+  '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -263,6 +291,9 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/products/$productId'
+    | '/products/warehouses'
+    | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -288,6 +319,9 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/impersonate/enter'
+    | '/products/$productId'
+    | '/products/warehouses'
+    | '/products/$productId/story'
   id:
     | '__root__'
     | '/_app'
@@ -315,6 +349,9 @@ export interface FileRouteTypes {
     | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/products_/$productId'
+    | '/_app/products_/warehouses'
+    | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -501,6 +538,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/products_/$productId': {
+      id: '/_app/products_/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof AppProductsProductIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products_/warehouses': {
+      id: '/_app/products_/warehouses'
+      path: '/products/warehouses'
+      fullPath: '/products/warehouses'
+      preLoaderRoute: typeof AppProductsWarehousesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products_/$productId_/story': {
+      id: '/_app/products_/$productId_/story'
+      path: '/products/$productId/story'
+      fullPath: '/products/$productId/story'
+      preLoaderRoute: typeof AppProductsProductIdStoryRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -520,6 +578,9 @@ interface AppRouteChildren {
   AppStorefrontRoute: typeof AppStorefrontRoute
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+  AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
+  AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -538,6 +599,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppStorefrontRoute: AppStorefrontRoute,
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppProductsProductIdRoute: AppProductsProductIdRoute,
+  AppProductsWarehousesRoute: AppProductsWarehousesRoute,
+  AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

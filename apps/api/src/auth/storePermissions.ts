@@ -49,6 +49,7 @@ export const storePermissions = [
   'billing',
   'settings',
   'supplier.team',
+  'catalog.propose',
 ] as const
 
 export type StorePermission = (typeof storePermissions)[number]
@@ -72,7 +73,7 @@ const managerSet: readonly StorePermission[] = [
   'support.allow_write',
 ]
 
-const supplierOnly: readonly StorePermission[] = ['orders.fulfil', 'exports.products', 'exports.orders', 'sales.read', 'supplier.team']
+const supplierOnly: readonly StorePermission[] = ['orders.fulfil', 'exports.products', 'exports.orders', 'sales.read', 'supplier.team', 'catalog.propose']
 
 export const merchantRolePermissions: Record<MerchantRole, readonly StorePermission[]> = {
   owner: storePermissions.filter((p) => !supplierOnly.includes(p)),
@@ -85,7 +86,8 @@ const writesCatalogue: readonly StorePermission[] = [...everyTier, 'catalog.writ
 const readsOrders: readonly StorePermission[] = [...writesCatalogue, 'orders.read', 'sales.read', 'exports.orders']
 
 export const supplierTierPermissions: Record<SupplierTier, readonly StorePermission[]> = {
-  'vendor-stock': everyTier,
+  // A Stock-only supplier may propose new products, which wait for the merchant; it changes nothing else (#295, #337).
+  'vendor-stock': [...everyTier, 'catalog.propose'],
   'vendor-catalogue': writesCatalogue,
   'vendor-orders-read': readsOrders,
   'vendor-orders-fulfil': [...readsOrders, 'orders.fulfil', 'orders.refund'],

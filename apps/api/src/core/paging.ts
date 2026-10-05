@@ -39,11 +39,8 @@ export const pageWindow = (request: PageRequest, maxSize: number): PageWindowRes
   return { ok: true, window: { limit, after, before } }
 }
 
-/**
- * The page from rows fetched newest first, `limit + 1` of them; reading backwards (`before`)
- * they arrive oldest first and are turned round here.
- */
-export const pageOf = <T>(rows: readonly T[], window: PageWindow, keyOf: (row: T) => Keyset): Page<T> => {
+/** The page from `limit + 1` rows fetched in the list's order; reading backwards (`before`) they arrive reversed and are turned round here. */
+export const pageWith = <T>(rows: readonly T[], window: { limit: number; after: unknown; before: unknown }, cursorOf: (row: T) => string): Page<T> => {
   const backwards = window.before !== null && window.after === null
   const more = rows.length > window.limit
   const kept = rows.slice(0, window.limit)
@@ -53,10 +50,13 @@ export const pageOf = <T>(rows: readonly T[], window: PageWindow, keyOf: (row: T
   return {
     nodes,
     pageInfo: {
-      startCursor: first ? encodeCursor(keyOf(first)) : null,
-      endCursor: last ? encodeCursor(keyOf(last)) : null,
+      startCursor: first ? cursorOf(first) : null,
+      endCursor: last ? cursorOf(last) : null,
       hasPreviousPage: backwards ? more : window.after !== null,
       hasNextPage: backwards ? window.before !== null : more,
     },
   }
 }
+
+/** The page from rows fetched newest first, `limit + 1` of them, each cursor the row's time and id. */
+export const pageOf = <T>(rows: readonly T[], window: PageWindow, keyOf: (row: T) => Keyset): Page<T> => pageWith(rows, window, (row) => encodeCursor(keyOf(row)))

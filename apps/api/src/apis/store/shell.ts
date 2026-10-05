@@ -7,7 +7,7 @@ import { withScope, withSystemScope } from '#db/scoped/index'
 import { selectPortalBrand } from '#db/scoped/portalBrand'
 import { selectMyMemberships, selectOpenSupportSession, selectStoreState, type MembershipChoiceRow } from '#db/scoped/storeShell'
 import { forbidden } from '../graphql/scope'
-import { actingCaller, type StoreContext } from './access'
+import { actingCaller, readOnlyFor, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 
@@ -55,6 +55,9 @@ const choiceOf = (row: MembershipChoiceRow): Choice | null => {
 
 const roleName = (role: StoreRole) => role.role
 const tierOf = (role: StoreRole) => (role.side === 'supplier' ? role.tier : null)
+
+/** What the support banner shows (0036): the partner, the agent's first name and when the session ends. */
+const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Date }) => ({ partnerName: s.partner_name, agentFirstName: s.agent_name.split(' ')[0] ?? s.agent_name, endsAt: s.expires_at.toISOString() })
 
 export const registerShell = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
@@ -223,19 +226,24 @@ export const registerShell = (builder: StoreBuilder) => {
       resolve: async (_, __, ctx) => {
         const caller = actingCaller(ctx)
         const sql = sqlOf(ctx)
+        // A supplier hears whether the store is read-only and who from support is in it (§19 "masked"), so it
+        // reads nothing of the store row: the support banner comes from its definer function (0036).
+        if (caller.role.side !== 'merchant') {
+          const open = await withScope(sql, caller.context, (tx) => selectOpenSupportSession(tx, ctx.now()))
+          return { readOnly: readOnlyFor(caller.role, caller.store.status), status: null, trialEndsAt: null, pastDueSince: null, provisioning: null, support: open ? bannerOf(open) : null }
+        }
         const { row, support } = await withScope(sql, caller.context, async (tx) => ({
           row: await selectStoreState(tx, caller.store.id),
           support: await selectOpenSupportSession(tx, ctx.now()),
         }))
         const status = row?.status ?? caller.store.status
-        const merchant = caller.role.side === 'merchant'
         return {
-          readOnly: status === 'past_due' || status === 'cancelled',
-          status: merchant ? status : null,
-          trialEndsAt: merchant && row?.trial_ends_at ? row.trial_ends_at.toISOString() : null,
-          pastDueSince: merchant && row?.past_due_since ? row.past_due_since.toISOString() : null,
-          provisioning: merchant && row?.job_state && row.job_step && row.job_state !== 'done' ? { state: row.job_state, step: row.job_step } : null,
-          support: support ? { partnerName: support.partner_name, agentFirstName: support.agent_name.split(' ')[0] ?? support.agent_name, endsAt: support.expires_at.toISOString() } : null,
+          readOnly: readOnlyFor(caller.role, status),
+          status,
+          trialEndsAt: row?.trial_ends_at ? row.trial_ends_at.toISOString() : null,
+          pastDueSince: row?.past_due_since ? row.past_due_since.toISOString() : null,
+          provisioning: row?.job_state && row.job_step && row.job_state !== 'done' ? { state: row.job_state, step: row.job_step } : null,
+          support: support ? bannerOf(support) : null,
         }
       },
     }),

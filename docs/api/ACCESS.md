@@ -430,6 +430,7 @@ supplier who can look and not touch.
 |---|:--:|:--:|:--:|:--:|
 | `catalog.read` | ✓ | ✓ | ✓ | ✓ |
 | `catalog.write` | | ✓ | ✓ | ✓ |
+| `catalog.propose`: a new product that waits for the merchant's approval, never an edit (decided on #337, built on #295) | ✓ | | | |
 | `stock.read`, `stock.write`, `warehouses.write` | ✓ | ✓ | ✓ | ✓ |
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
 | `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
@@ -444,7 +445,9 @@ supplier who can look and not touch.
 - **Stock only** is "they update quantities. Nothing else." Catalogue read is included because
   stock is meaningless without finding the version to count. It must never grant catalogue
   write; mapping it onto `vendor-catalogue` would let a supplier add and edit products while
-  the screen promised otherwise.
+  the screen promised otherwise. It may **propose** a new product (`proposeProduct`, with its
+  photos), which is created hidden and waiting for approval whatever the store's switch says, and
+  it changes no product row after that: migration 0050's guard holds both.
 - **Unlike the first platform, these ticks are the enforced boundary.** Because permissions apply per
   row, `catalog.write` for a vendor is "write my own products" at the engine, not only in the
   portal.
@@ -763,6 +766,11 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   portal says which change needs approval. Accepted with the decision: a vendor can take its
   own product off sale by editing one of those fields, which the Owner sees in the queue and
   the activity log.
+- **Built on #295** (migration 0050's guard decides it, so no request skips the queue). Decided there: a product made
+  while approval was off counts as approved when it is next edited; any supplier save of a sent-back product resubmits
+  it, even after approval is switched off, so a sent-back product is never stranded; publishing a supplier's A+ content sends its product back to the queue (CATALOG Q11); turning approval off leaves
+  what is waiting in the queue, so nothing unreviewed goes live by a switch; approving shows the product unless something
+  else hides it (the plan, a suspension).
 
 ### 7.3 Orders: vendor sub-orders
 
@@ -818,7 +826,11 @@ another vendor holds (DESIGN-BRIEF fact 10).
   transaction (§6.2). That first user becomes its **Supplier admin**.
 - **Team** (Supplier admin): invite colleagues into its own supplier, change their team
   role, remove them. The invitation's `seller_id` comes from the inviter's membership. A
-  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one.
+  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one, by
+  adding a person to the supplier as its Supplier admin (SetTeam "Add a person", which otherwise adds a
+  member; decided on #295). The Owner adding someone on the merchant side hears "already in this store"; a
+  Supplier admin inviting one is answered as for any address, with no seat held and no email, so a supplier
+  learns nothing of the store's staff.
 - **Change access level**: write `seller.access_level`. It applies to all of the supplier's
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
@@ -954,8 +966,8 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   extension of 30 set on the row, one open per staff member at the index, the hashed one-time
   handoff (five minutes, a return mints a fresh one and the old stops working), and the
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
-  in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
-  (`SUPPLIER_NOT_SUPPORTED`). In the partner console, the exchange, the `impersonation` caller
+  in `access_ref`). Impersonating a supplier user is still refused
+  (`SUPPLIER_NOT_SUPPORTED`): `app_supplier` exists since #295, and the impersonation path for it isn't built. In the partner console, the exchange, the `impersonation` caller
   and the blocked list's structural test are built on #243 (§8.3). The store portal's half waits
   for the Store API.
 

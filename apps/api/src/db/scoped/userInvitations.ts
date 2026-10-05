@@ -10,6 +10,8 @@ export interface StoreInvitationByToken {
   store_status: string
   seller_id: string | null
   seller_name: string | null
+  /** The supplier's, for a supplier's invitation: only an invited or active one takes people in. */
+  seller_status: string | null
   email: string
   role_key: string
   invited_by_label: string
@@ -25,7 +27,7 @@ export interface StoreInvitationByToken {
 export const selectStoreInvitationByToken = async (tx: ScopedSql, partnerId: string, tokenHash: string): Promise<StoreInvitationByToken | null> =>
   (
     await tx<StoreInvitationByToken[]>`
-      select i.id, i.store_id, s.name as store_name, s.status as store_status, i.seller_id, sel.name as seller_name,
+      select i.id, i.store_id, s.name as store_name, s.status as store_status, i.seller_id, sel.name as seller_name, sel.status as seller_status,
         i.email, i.role_key, i.invited_by_label, i.expires_at, i.accepted_at, i.revoked_at,
         exists (
           select 1 from invitation n
@@ -73,6 +75,8 @@ const activateMembership = async (tx: ScopedSql, i: StoreInvitationByToken, user
   if (existing && existing.status !== 'invited') return false
   if (existing) await tx`update membership set status = 'active', role_key = ${i.role_key} where user_id = ${userId} and store_id = ${i.store_id} and seller_id is not distinct from ${i.seller_id}`
   else await tx`insert into membership (user_id, store_id, seller_id, role_key, status) values (${userId}, ${i.store_id}, ${i.seller_id}, ${i.role_key}, 'active')`
+  // A supplier's first user joining makes the supplier active (ACCESS §7.5), so its memberships resolve.
+  if (i.seller_id) await tx`update seller set status = 'active' where id = ${i.seller_id} and status = 'invited'`
   return true
 }
 

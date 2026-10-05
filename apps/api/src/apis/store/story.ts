@@ -63,6 +63,7 @@ export const registerStory = (builder: StoreBuilder) => {
       video: t.field({ type: VideoType, nullable: true, resolve: (m) => field(m, 'video') as { assetId: string | null; url: string | null } | null }),
     }),
   })
+  const StoryProduct = builder.objectRef<{ id: string; name: string }>('StoryProduct').implement({ fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }) })
   const StoryType = builder.objectRef<Story>('ProductStory').implement({
     fields: (t) => ({
       productId: t.exposeID('productId'),
@@ -72,6 +73,7 @@ export const registerStory = (builder: StoreBuilder) => {
       status: t.exposeString('status'),
       publishedAt: t.string({ nullable: true, resolve: (s) => s.publishedAt?.toISOString() ?? null }),
       revision: t.exposeInt('revision'),
+      products: t.field({ type: [StoryProduct], resolve: (s) => s.products }),
     }),
   })
   type BlockSummary = { id: string; name: string; products: number; updated_at: Date }

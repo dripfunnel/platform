@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanProduct, isBarcode, slugFrom, type ProductInput, type VersionInput } from './rules'
+import { cleanProduct, isBarcode, reviewedChanges, slugFrom, type CleanProduct, type ProductInput, type VersionInput } from './rules'
 
 const version = (choices: string[] = [], extra: Partial<VersionInput> = {}): VersionInput => ({ choices, prices: [{ currency: 'INR', amount: '129900' }], ...extra })
 const simple = (extra: Partial<ProductInput> = {}): ProductInput => ({ name: 'Cotton shirt', options: [], versions: [version()], ...extra })
@@ -98,5 +98,31 @@ describe('web addresses and barcodes', () => {
     expect(isBarcode('036000291452')).toBe(true)
     expect(isBarcode('4006381333932')).toBe(false)
     expect(isBarcode('12345')).toBe(false)
+  })
+})
+
+describe('what sends an approved supplier product back for review (ACCESS §7.2)', () => {
+  const v1 = '00000000-0000-4000-8000-000000000001'
+  const a1 = '00000000-0000-4000-8000-0000000000a1'
+  const a2 = '00000000-0000-4000-8000-0000000000a2'
+  const before = { name: 'Linen shirt', versions: [{ id: v1, prices: [{ currency: 'INR', amount: '4900', compare_at_amount: null }, { currency: 'USD', amount: '59', compare_at_amount: '79' }] }], photos: [{ asset_id: a1 }, { asset_id: a2 }] }
+  const after = (patch: Partial<Pick<CleanProduct, 'name' | 'versions' | 'photos'>> = {}): Pick<CleanProduct, 'name' | 'versions' | 'photos'> => {
+    const product = cleanProduct({ name: 'Linen shirt', options: [], versions: [{ choices: [], prices: [{ currency: 'USD', amount: '59', compareAtAmount: '79' }, { currency: 'INR', amount: '4900' }] }] }, 'INR')
+    if (typeof product === 'string') throw new Error(product)
+    return { name: product.name, versions: product.versions.map((v) => ({ ...v, id: v1 })), photos: [{ assetId: a2, alt: null, version: null }, { assetId: a1, alt: 'Back', version: null }], ...patch }
+  }
+
+  it('lets everything else through, the photos’ order and alt text included', () => {
+    expect(reviewedChanges(before, after())).toEqual([])
+    expect(reviewedChanges(before, after({ photos: null }))).toEqual([])
+  })
+
+  it('names the name, a price (a compare-at price or a new version included) and the photo set', () => {
+    expect(reviewedChanges(before, after({ name: 'Linen shirt, white' }))).toEqual(['name'])
+    const [version] = after().versions
+    if (!version) throw new Error('no version')
+    expect(reviewedChanges(before, after({ versions: [{ ...version, prices: version.prices.map((p) => (p.currency === 'USD' ? { ...p, compareAt: '99' } : p)) }] }))).toEqual(['price'])
+    expect(reviewedChanges(before, after({ versions: [version, { ...version, id: null }] }))).toEqual(['price'])
+    expect(reviewedChanges(before, after({ photos: [{ assetId: a1, alt: null, version: null }] }))).toEqual(['photos'])
   })
 })

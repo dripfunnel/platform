@@ -31,6 +31,7 @@ const closedAs = (i: StoreInvitationByToken, now: Date): Refusal | null => {
   if (i.accepted_at) return { code: 'INVITATION_USED' }
   if (i.revoked_at) return { code: i.replaced ? 'INVITATION_REPLACED' : 'INVITATION_INVALID' }
   if (!i.user_id || (i.user_status !== 'invited' && i.user_status !== 'active') || i.store_status === 'closed') return { code: 'INVITATION_INVALID' }
+  if (i.seller_id && i.seller_status !== 'invited' && i.seller_status !== 'active') return { code: 'INVITATION_INVALID' }
   if (i.expires_at <= now) return { code: 'INVITATION_EXPIRED', invitedBy: i.invited_by_label }
   return null
 }

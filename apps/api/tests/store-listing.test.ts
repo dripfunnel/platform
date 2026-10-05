@@ -4,7 +4,8 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import { withSystemScope } from '#db/scoped/index'
+import type { CallerContext } from '#core/tenancy'
+import { withScope, withSystemScope } from '#db/scoped/index'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -109,6 +110,28 @@ describe('Settings › Catalogue', () => {
     expect(theirs.features.every((f) => f.inPlan === null)).toBe(true)
     expect(theirs.features.find((f) => f.key === 'faqs')?.enabled).toBe(true)
     expect((await gql('mutation S($features: [CatalogueFeatureInput!]!) { saveCatalogueSettings(features: $features) { key } }', 'supplier', { features: [] })).code).toBe('FORBIDDEN')
+  })
+
+  it('tells every seat its own store’s currency and units for a new product, never another store’s', async () => {
+    const [before] = await db.sql<{ c: string; u: string }[]>`select pricing_currency::text as c, unit_system as u from store where id = ${t.storeB1}`
+    await db.sql`update store set pricing_currency = 'USD', unit_system = 'imperial' where id = ${t.storeB1}`
+    try {
+      const read = async (who: Who) => (await gql('{ catalogueSettings { pricingCurrency unitSystem } }', who)).data?.['catalogueSettings']
+      for (const who of ['owner', 'manager', 'supplier', 'otherSupplier'] as const) expect({ who, got: await read(who) }).toEqual({ who, got: { pricingCurrency: 'INR', unitSystem: 'metric' } })
+      expect(await read('bOwner')).toEqual({ pricingCurrency: 'USD', unitSystem: 'imperial' })
+      // The languages a product is translated into, which a supplier needs too (N15).
+      await db.sql`insert into store_language (store_id, language, position) values (${t.storeA1}, 'hi-IN', 9) on conflict do nothing`
+      const languages = async (who: Who) => (await gql('{ catalogueSettings { mainLanguage translationLanguages } }', who)).data?.['catalogueSettings'] as { mainLanguage: string; translationLanguages: string[] }
+      for (const who of ['owner', 'manager', 'supplier', 'otherSupplier'] as const) expect({ who, got: await languages(who) }).toEqual({ who, got: { mainLanguage: 'en-US', translationLanguages: ['hi-IN'] } })
+      expect((await languages('bOwner')).translationLanguages).not.toContain('hi-IN')
+      // A supplier of the other store reads that store's, through the same definers, and nothing in another scope.
+      const theirs: CallerContext = { caller: { kind: 'person', userId: people.bOwner, sessionId: 's' }, partnerId: t.partnerB, storeId: t.storeB1, sellerScope: { kind: 'seller', sellerId: t.sellerB1 }, subscription: 'active' }
+      expect(await withScope(db.sql, theirs, (tx) => tx`select store_pricing_currency() as c, store_unit_system() as u`)).toEqual([{ c: 'USD', u: 'imperial' }])
+      // The jobs' role reads neither: they never price a product.
+      await expect(withSystemScope(db.sql, (tx) => tx`select store_unit_system()`)).rejects.toThrow(/permission denied/)
+    } finally {
+      await db.sql`update store set pricing_currency = ${before?.c ?? null}, unit_system = ${before?.u ?? 'metric'} where id = ${t.storeB1}`
+    }
   })
 
   it('switches on a plan feature only when the plan has it, naming the plan that does', async () => {
@@ -335,6 +358,9 @@ describe('a product’s listing sections', () => {
     // The merchant's own product may relate a supplier's: that row is the merchant's, never the supplier's to read.
     expect((await gql(save, 'owner', { id: merchant.id, revision: 1, input: { name: 'Merchant only', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing: { relatedIds: [own.id] } } })).code).toBeUndefined()
     expect((await product('supplier', 'Supplier relates own', { listing: { relatedIds: [own.id] } })).code).toBeUndefined()
+    // The editor names them from the listing itself, in order, never a read per product.
+    const named = await gql('query P($id: ID!) { product(id: $id) { listing { related { id name } } } }', 'owner', { id: merchant.id })
+    expect((named.data?.['product'] as { listing: { related: unknown } }).listing.related).toEqual([{ id: own.id, name: 'Supplier own' }])
     const auto = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'New in', tone: 'ok', rule: 'new_30_days' } })).data?.['saveBadge'] as string
     expect((await product('owner', 'Auto badge', { listing: { badgeIds: [auto] } })).code).toBe('LISTING_REFUSED')
     expect((await product('owner', 'Bad country', { listing: { marketRule: { mode: 'only', countries: ['ZZ'] } } })).code).toBe('INVALID_LISTING')

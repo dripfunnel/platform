@@ -90,7 +90,7 @@ describe('who reads and writes the account', () => {
     await expect(as(partner(ids.ns), (tx) => tx`select payment_method_brand from store_subscription`)).rejects.toThrow(/permission denied/i)
     await expect(as(merchant, (tx) => tx`select created_by_label from store_trial_extension`)).rejects.toThrow(/permission denied/i)
     expect(ids.seller).not.toBe('')
-    expect(await as(inStore(ids.ns, ids.sellerStore, 'person', ids.seller), (tx) => tx`select store_id from store_subscription`)).toEqual([])
+    await expect(as(inStore(ids.ns, ids.sellerStore, 'person', ids.seller), (tx) => tx`select store_id from store_subscription`)).rejects.toThrow(/permission denied/i)
     expect(await as(inStore(ids.ns, ids.nsStore, 'shopper'), (tx) => tx`select store_id from store_usage`)).toEqual([])
   })
 

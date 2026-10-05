@@ -1,6 +1,5 @@
 import type postgres from 'postgres'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import {
   countProducts,
@@ -18,6 +17,7 @@ import {
   selectProduct,
   selectProducts,
   setProductPhotos,
+  setProductsTaxClass,
   setProductsVisibility,
   setProductVideo,
   setVersionChoices,
@@ -32,15 +32,20 @@ import {
   type OptionWrite,
   type ProductFields,
   type ProductQuery,
+  type ProductSort,
+  type SortWindow,
   type ProductRow,
   type ValueWrite,
   type VersionFields,
 } from '#db/scoped/catalog'
+import { approvalRequired, submitForApproval } from '#db/scoped/approval'
+import { classesOfStore } from '#db/scoped/tax'
 import { listingRefused, setProductListing, setProductSizeChart } from '#db/scoped/catalogListing'
 import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { approvalAudit } from './approval'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
-import { cleanProduct, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
+import { cleanProduct, reviewedChanges, supplierSlug, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
 import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
@@ -48,9 +53,12 @@ export { assetsAudit, createAssetService, type AssetStore, type UploadResult } f
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
 export { collectionsRecomputeKind, createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
+export { createTranslationService, translationAudit, type ProductTranslationInput, type SharedNameRow, type TextPatch, type TranslationResult, type TranslationRow } from './translations'
+export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalResult } from './approval'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
-export type { ProductCounts, ProductFilter, ProductListRow, ProductRow } from '#db/scoped/catalog'
+export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
+export { sortValueFits, sortValueOf } from '#db/scoped/catalog'
 
 // The catalogue's writes (CATALOG-DESIGN §3; ACCESS §7): one transaction per save in the caller's scope,
 // so a supplier's save reaches only its own products and a merchant's reaches the whole store.
@@ -62,6 +70,7 @@ export const catalogAudit = {
   deleted: 'product.deleted',
   shown: 'product.shown',
   hidden: 'product.hidden',
+  taxClassChanged: 'product.tax_class_changed',
 } as const
 
 export type SaveRefusal =
@@ -69,7 +78,10 @@ export type SaveRefusal =
   | { reason: 'STALE_REVISION'; revision: number }
   | { reason: 'PLAN_LIMIT'; wanted: number }
 
-export type SaveResult = { ok: true; id: string; slug: string; revision: number } | ({ ok: false } & SaveRefusal)
+/** `approval` as the save left it; `reviewed` the fields that sent a supplier's product back for approval (ACCESS §7.2). */
+export type SaveResult =
+  | { ok: true; id: string; slug: string; revision: number; approval: 'approved' | 'pending' | 'sent_back' | null; reviewed: ('name' | 'price' | 'photos')[] }
+  | ({ ok: false } & SaveRefusal)
 
 export interface CatalogDeps {
   sql: postgres.Sql
@@ -112,13 +124,9 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
   cost: v.cost,
   trackStock: v.trackStock,
   continueSelling: v.continueSelling,
+  taxClassId: v.taxClassId,
   position,
 })
-
-// A supplier's address carries its own random ending, so a clash with a product it can't see shows nothing
-// (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
-const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
-
 
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
 type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
@@ -198,7 +206,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       }),
     )
     await setVersionChoices(tx, storeId, ids, choices)
-    await setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))))
+    await setVersionPrices(tx, storeId, ids, versions.flatMap((v) => v.clean.prices.map((p) => ({ versionId: v.id, ...p }))), sellerId === null ? null : await selectPricingCurrency(tx))
     await softDeleteVersions(tx, before.filter((id) => !ids.includes(id)), at)
     if (clean.photos !== null) {
       await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))
@@ -243,8 +251,12 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     if (!currency) throw new Refused({ reason: 'CURRENCY_REQUIRED' })
     const result = cleanProduct(input, currency)
     if (typeof result === 'string') throw new Refused({ reason: result })
-    // Vendor input can't carry visibility (ACCESS §7.2): refused, not quietly dropped.
-    if (sellerId !== null && result.visible !== null) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    // Vendor input can't carry visibility (ACCESS §7.2), nor prices in the store's other currencies (CATALOG O14):
+    // refused, not quietly dropped.
+    if (sellerId !== null && (result.visible !== null || result.versions.some((v) => v.taxClassId !== undefined || v.prices.some((p) => p.currency !== currency)))) throw new Refused({ reason: 'SUPPLIER_FIELD' })
+    // A version's tax class is one of the store's live ones (fact 37); a supplier's take the store's default.
+    const classes = [...new Set(result.versions.flatMap((v) => (v.taxClassId ? [v.taxClassId] : [])))]
+    if (classes.length > 0 && (await classesOfStore(tx, storeId, classes)) !== classes.length) throw new Refused({ reason: 'INVALID_INPUT' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
     if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
     try {
@@ -256,21 +268,40 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
   }
 
-  const create = async (input: ProductInput): Promise<SaveResult> => {
+  /** A Stock-only supplier's proposal waits for the merchant whatever the switch says (decided on #337; 0050's guard). */
+  const create = async (input: ProductInput, proposal = false): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
       const product = await clean(tx, input)
       await lockCatalogue(tx, storeId)
       const wanted = (await countStoreProducts(tx)) + 1
       if (wanted > allowance) throw new Refused({ reason: 'PLAN_LIMIT', wanted })
-      // A supplier's product is created visible while the store doesn't require approval (ACCESS §7.2 "Off").
+      // A supplier's product is created visible, or hidden and pending while the store requires approval: 0050's guard decides.
       const visibility = sellerId !== null || product.visible !== false ? 'visible' : 'hidden'
       const made = await insertProduct(tx, { storeId, sellerId, createdBy: actor.id, fields: { ...fieldsOf(product, visibility), slug: sellerId !== null ? supplierSlug(product.slug) : product.slug } })
       await writeChildren(tx, made.id, product, null)
-      await activity.record(tx, entry(catalogAudit.created, { id: made.id, label: product.name }))
-      return { ok: true, id: made.id, slug: made.slug, revision: 1 }
+      await activity.record(tx, entry(proposal ? approvalAudit.proposed : catalogAudit.created, { id: made.id, label: product.name }))
+      const pending = sellerId !== null && (proposal || (await approvalRequired(tx)))
+      return { ok: true, id: made.id, slug: made.slug, revision: 1, approval: pending ? 'pending' : null, reviewed: [] }
     })
   }
+
+  /**
+   * While approval is on, a supplier's save of an approved product whose name, a price or photo set changed, or of
+   * one sent back, puts it back in the queue and off the storefront (ACCESS §7.2, CATALOG E3, L4).
+   */
+  const reviewAfterSave = async (tx: ScopedSql, id: string, product: Cleaned, existing: ProductRow): Promise<{ approval: ProductRow['approval_status']; reviewed: ('name' | 'price' | 'photos')[] }> => {
+    if (sellerId === null || existing.approval_status === 'pending') return { approval: existing.approval_status, reviewed: [] }
+    const reviewed = reviewedChanges(existing, product)
+    // A sent-back product is resubmitted whether or not approval is still on: only the merchant's review ends it.
+    const resubmitting = existing.approval_status === 'sent_back'
+    if (!resubmitting && (reviewed.length === 0 || !(await approvalRequired(tx)))) return { approval: existing.approval_status, reviewed: [] }
+    await submitForApproval(tx, storeId, id, now())
+    await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { id, label: product.name }), reason: reviewed.length > 0 ? reviewed.join(', ') : 'resubmitted' })
+    return { approval: 'pending', reviewed }
+  }
+
+  const propose = (input: ProductInput) => (sellerId === null ? Promise.reject(new Error('catalogue: only a supplier proposes')) : create(input, true))
 
   const update = (id: string, revision: number, input: ProductInput): Promise<SaveResult> =>
     run(async (tx) => {
@@ -287,7 +318,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       if (!done) throw new Refused({ reason: 'STALE_REVISION', revision: existing.revision })
       await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))
-      return { ok: true, id, slug: done.slug, revision: revision + 1 }
+      const review = await reviewAfterSave(tx, id, product, existing)
+      return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }
     })
 
   /** A hidden copy, stock not copied (decided on #337); SKUs and barcodes stay with the original, being unique. */
@@ -328,6 +360,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
           hsCode: v.hs_code,
           customsDescription: v.customs_description,
           trackStock: v.track_stock,
+          taxClassId: v.tax_class_id,
           continueSelling: v.continue_selling,
         })),
         // The same files, on the copy's own photos; the copy's versions are in the source's order.
@@ -351,7 +384,8 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
       await writeChildren(tx, made.id, copy, null)
       await activity.record(tx, entry(catalogAudit.duplicated, { id: made.id, label: source.name }))
-      return { ok: true, id: made.id, slug: made.slug, revision: 1 }
+      const pending = sellerId !== null && (await approvalRequired(tx))
+      return { ok: true, id: made.id, slug: made.slug, revision: 1, approval: pending ? 'pending' : null, reviewed: [] }
     })
   }
 
@@ -363,6 +397,16 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return gone.length
     })
 
+  /** The merchant side's bulk "Change tax category" (CatList; fact 37): a supplier's products take the store's default. */
+  const setTaxClass = (ids: readonly string[], taxClassId: string | null) =>
+    inScope(async (tx): Promise<number | 'NOT_FOUND'> => {
+      if (sellerId !== null) throw new Error('catalogue: a supplier never sets a tax class')
+      if (taxClassId !== null && (!isUuid(taxClassId) || (await classesOfStore(tx, storeId, [taxClassId])) !== 1)) return 'NOT_FOUND'
+      const changed = await setProductsTaxClass(tx, storeId, ids, taxClassId, now())
+      await activity.recordAll(tx, changed.map((c) => entry(catalogAudit.taxClassChanged, { id: c.id, label: c.name })))
+      return changed.length
+    })
+
   /** The merchant side's bulk show and hide (CatList); a supplier never reaches it. */
   const setVisibility = (ids: readonly string[], visible: boolean) =>
     inScope(async (tx) => {
@@ -372,11 +416,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       return changed.length
     })
 
-  const list = (query: Omit<ProductQuery, 'currency'>, window: PageWindow) =>
+  const list = (query: Omit<ProductQuery, 'currency'>, window: SortWindow, sort: ProductSort = 'created') =>
     inScope(async (tx) => {
       const currency = await selectPricingCurrency(tx)
       // A supplier's filter is its own scope; the supplier filter is the merchant's.
-      return { currency, rows: await selectProducts(tx, storeId, { ...query, seller: sellerId !== null ? null : query.seller, currency }, window) }
+      return { currency, rows: await selectProducts(tx, storeId, { ...query, seller: sellerId !== null ? null : query.seller, currency }, window, sort) }
     })
 
   const counts = () => inScope((tx) => countProducts(tx, storeId))
@@ -384,5 +428,5 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const get = (id: string) =>
     inScope(async (tx) => ({ currency: await selectPricingCurrency(tx), product: await selectProduct(tx, storeId, id) }))
 
-  return { list, counts, get, create, update, duplicate, remove, setVisibility }
+  return { list, counts, get, create, propose, update, duplicate, remove, setVisibility, setTaxClass }
 }

@@ -30,6 +30,7 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
+import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { stripeClient, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
@@ -37,6 +38,7 @@ import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
 import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
 import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
+import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
@@ -50,6 +52,7 @@ import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
+import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
 import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
@@ -110,6 +113,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
     [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
+    [ratesRefreshKind]: ratesRefreshDeliverer(sql, ecbRates()),
   }
 }
 
@@ -409,6 +413,9 @@ export default {
         return 0
       })
       if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
+      await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       const purged = await withSystemScope(sql, async (tx) => {
         const at = new Date()
         await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
