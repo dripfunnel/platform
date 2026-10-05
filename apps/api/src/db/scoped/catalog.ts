@@ -1,3 +1,4 @@
+import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
 import { pgArray, type ScopedSql } from './index'
 
@@ -210,11 +211,7 @@ export interface ProductFields {
 const uniqueViolation = (error: unknown, constraint: string): boolean =>
   typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint
 
-/**
- * A web address unique in the store (CATALOG fact 15): on a clash the next free `-2`, `-3`, tried
- * inside a savepoint so the transaction survives. The address taken may be another owner's, which
- * a supplier never reads; it learns only that the address is taken.
- */
+// A web address unique in the store, suffixed on a clash (CATALOG fact 15); in a savepoint so the transaction lives.
 const withFreeSlug = async <T>(tx: ScopedSql, base: string, write: (slug: string, sp: ScopedSql) => Promise<T>): Promise<{ value: T; slug: string }> => {
   for (let n = 1; n <= 50; n += 1) {
     const slug = n === 1 ? base : `${base.slice(0, 116)}-${n}`
@@ -281,28 +278,58 @@ export const softDeleteProducts = async (tx: ScopedSql, storeId: string, ids: re
   return gone
 }
 
-export const insertOption = async (tx: ScopedSql, storeId: string, productId: string, name: string, position: number): Promise<string> => {
-  const [made] = await tx<{ id: string }[]>`insert into product_option (product_id, store_id, name, position) values (${productId}, ${storeId}, ${name}, ${position}) returning id`
-  if (!made) throw new Error('catalogue: option insert returned nothing')
-  return made.id
+// Every child write below is one statement for all its rows (AGENTS.md "no N+1"): the rows go as one
+// JSON parameter, read with json_to_recordset, and new rows carry ids made by the caller.
+// The client's own jsonb parameter: a string cast to ::json would arrive encoded twice.
+const rowsOf = (tx: ScopedSql, rows: readonly object[]) => tx.json(rows as unknown as postgres.JSONValue)
+
+export interface OptionWrite {
+  id: string
+  name: string
+  position: number
 }
 
-export const updateOption = async (tx: ScopedSql, id: string, name: string, position: number): Promise<void> => {
-  await tx`update product_option set name = ${name}, position = ${position} where id = ${id}`
+export const insertOptions = async (tx: ScopedSql, storeId: string, productId: string, rows: readonly OptionWrite[]): Promise<void> => {
+  if (rows.length === 0) return
+  await tx`
+    insert into product_option (id, product_id, store_id, name, position)
+    select x.id, ${productId}, ${storeId}, x.name, x.position from jsonb_to_recordset(${rowsOf(tx, rows)}) as x(id uuid, name text, position int)
+  `
+}
+
+export const updateOptions = async (tx: ScopedSql, rows: readonly OptionWrite[]): Promise<void> => {
+  if (rows.length === 0) return
+  await tx`
+    update product_option o set name = x.name, position = x.position
+    from jsonb_to_recordset(${rowsOf(tx, rows)}) as x(id uuid, name text, position int) where o.id = x.id
+  `
 }
 
 export const deleteOptions = async (tx: ScopedSql, ids: readonly string[]): Promise<void> => {
   if (ids.length > 0) await tx`delete from product_option where id = any(${pgArray(ids)}::uuid[])`
 }
 
-export const insertOptionValue = async (tx: ScopedSql, storeId: string, optionId: string, name: string, position: number): Promise<string> => {
-  const [made] = await tx<{ id: string }[]>`insert into product_option_value (option_id, store_id, name, position) values (${optionId}, ${storeId}, ${name}, ${position}) returning id`
-  if (!made) throw new Error('catalogue: option value insert returned nothing')
-  return made.id
+export interface ValueWrite {
+  id: string
+  optionId: string
+  name: string
+  position: number
 }
 
-export const updateOptionValue = async (tx: ScopedSql, id: string, name: string, position: number): Promise<void> => {
-  await tx`update product_option_value set name = ${name}, position = ${position} where id = ${id}`
+export const insertOptionValues = async (tx: ScopedSql, storeId: string, rows: readonly ValueWrite[]): Promise<void> => {
+  if (rows.length === 0) return
+  await tx`
+    insert into product_option_value (id, option_id, store_id, name, position)
+    select x.id, x."optionId", ${storeId}, x.name, x.position from jsonb_to_recordset(${rowsOf(tx, rows)}) as x(id uuid, "optionId" uuid, name text, position int)
+  `
+}
+
+export const updateOptionValues = async (tx: ScopedSql, rows: readonly ValueWrite[]): Promise<void> => {
+  if (rows.length === 0) return
+  await tx`
+    update product_option_value v set name = x.name, position = x.position
+    from jsonb_to_recordset(${rowsOf(tx, rows)}) as x(id uuid, name text, position int) where v.id = x.id
+  `
 }
 
 export const deleteOptionValues = async (tx: ScopedSql, ids: readonly string[]): Promise<void> => {
@@ -326,25 +353,34 @@ export interface VersionFields {
   position: number
 }
 
-export const insertVersion = async (tx: ScopedSql, storeId: string, productId: string, v: VersionFields): Promise<string> => {
-  const [made] = await tx<{ id: string }[]>`
-    insert into product_version (product_id, store_id, sku, barcode, name, visibility, hs_code, customs_description, weight_grams, length_mm, width_mm, height_mm,
+const versionRows = (tx: ScopedSql, rows: readonly (VersionFields & { id: string })[]) =>
+  rowsOf(tx, rows.map(({ cost, ...v }) => ({ ...v, costAmount: cost?.amount ?? null, costCurrency: cost?.currency ?? null })))
+
+export const insertVersions = async (tx: ScopedSql, storeId: string, productId: string, rows: readonly (VersionFields & { id: string })[]): Promise<void> => {
+  if (rows.length === 0) return
+  await tx`
+    insert into product_version (id, product_id, store_id, sku, barcode, name, visibility, hs_code, customs_description, weight_grams, length_mm, width_mm, height_mm,
       cost_amount, cost_currency, track_stock, continue_selling, position)
-    values (${productId}, ${storeId}, ${v.sku}, ${v.barcode}, ${v.name}, ${v.visibility}, ${v.hsCode}, ${v.customsDescription}, ${v.weightGrams}, ${v.lengthMm}, ${v.widthMm}, ${v.heightMm},
-      ${v.cost?.amount ?? null}::bigint, ${v.cost?.currency ?? null}, ${v.trackStock}, ${v.continueSelling}, ${v.position})
-    returning id
+    select x.id, ${productId}, ${storeId}, x.sku, x.barcode, x.name, x.visibility, x."hsCode", x."customsDescription", x."weightGrams", x."lengthMm", x."widthMm", x."heightMm",
+      x."costAmount", x."costCurrency", x."trackStock", x."continueSelling", x.position
+    from jsonb_to_recordset(${versionRows(tx, rows)}) as x(
+      id uuid, sku text, barcode text, name text, visibility text, "hsCode" text, "customsDescription" text, "weightGrams" int,
+      "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, position int
+    )
   `
-  if (!made) throw new Error('catalogue: version insert returned nothing')
-  return made.id
 }
 
-export const updateVersion = async (tx: ScopedSql, id: string, v: VersionFields, now: Date): Promise<void> => {
+export const updateVersions = async (tx: ScopedSql, rows: readonly (VersionFields & { id: string })[], now: Date): Promise<void> => {
+  if (rows.length === 0) return
   await tx`
-    update product_version set sku = ${v.sku}, barcode = ${v.barcode}, name = ${v.name}, visibility = ${v.visibility}, hs_code = ${v.hsCode},
-      customs_description = ${v.customsDescription}, weight_grams = ${v.weightGrams}, length_mm = ${v.lengthMm}, width_mm = ${v.widthMm}, height_mm = ${v.heightMm},
-      cost_amount = ${v.cost?.amount ?? null}::bigint, cost_currency = ${v.cost?.currency ?? null}, track_stock = ${v.trackStock}, continue_selling = ${v.continueSelling},
-      position = ${v.position}, updated_at = ${now}
-    where id = ${id}
+    update product_version v set sku = x.sku, barcode = x.barcode, name = x.name, visibility = x.visibility, hs_code = x."hsCode",
+      customs_description = x."customsDescription", weight_grams = x."weightGrams", length_mm = x."lengthMm", width_mm = x."widthMm", height_mm = x."heightMm",
+      cost_amount = x."costAmount", cost_currency = x."costCurrency", track_stock = x."trackStock", continue_selling = x."continueSelling",
+      position = x.position, updated_at = ${now}
+    from jsonb_to_recordset(${versionRows(tx, rows)}) as x(
+      id uuid, sku text, barcode text, name text, visibility text, "hsCode" text, "customsDescription" text, "weightGrams" int,
+      "lengthMm" int, "widthMm" int, "heightMm" int, "costAmount" bigint, "costCurrency" text, "trackStock" boolean, "continueSelling" boolean, position int
+    ) where v.id = x.id
   `
 }
 
@@ -352,26 +388,36 @@ export const softDeleteVersions = async (tx: ScopedSql, ids: readonly string[], 
   if (ids.length > 0) await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`
 }
 
-/** The version's choice for every option, replacing what it had. */
-export const setVersionChoices = async (tx: ScopedSql, storeId: string, versionId: string, choices: readonly { optionId: string; valueId: string }[]): Promise<void> => {
-  await tx`delete from product_version_option_value where version_id = ${versionId}`
-  for (const c of choices) {
-    await tx`insert into product_version_option_value (version_id, option_id, value_id, store_id) values (${versionId}, ${c.optionId}, ${c.valueId}, ${storeId})`
-  }
+/** Each version's choice for every option, replacing what those versions had. */
+export const setVersionChoices = async (tx: ScopedSql, storeId: string, versionIds: readonly string[], rows: readonly { versionId: string; optionId: string; valueId: string }[]): Promise<void> => {
+  if (versionIds.length === 0) return
+  await tx`delete from product_version_option_value where version_id = any(${pgArray(versionIds)}::uuid[])`
+  if (rows.length === 0) return
+  await tx`
+    insert into product_version_option_value (version_id, option_id, value_id, store_id)
+    select x."versionId", x."optionId", x."valueId", ${storeId} from jsonb_to_recordset(${rowsOf(tx, rows)}) as x("versionId" uuid, "optionId" uuid, "valueId" uuid)
+  `
 }
 
-/** The version's prices, one per currency: changed ones updated (their history closes), missing ones removed. */
-export const setVersionPrices = async (tx: ScopedSql, storeId: string, versionId: string, prices: readonly { currency: string; amount: string; compareAt: string | null }[]): Promise<void> => {
-  const keep = prices.map((p) => p.currency)
-  await tx`delete from version_price where version_id = ${versionId} and not (currency = any(${pgArray(keep)}::text[]))`
-  for (const p of prices) {
-    await tx`
-      insert into version_price (version_id, store_id, currency, amount, compare_at_amount)
-      values (${versionId}, ${storeId}, ${p.currency}, ${p.amount}::bigint, ${p.compareAt}::bigint)
-      on conflict (version_id, currency) do update set amount = excluded.amount, compare_at_amount = excluded.compare_at_amount, source = 'manual'
-        where version_price.amount is distinct from excluded.amount or version_price.compare_at_amount is distinct from excluded.compare_at_amount
-    `
-  }
+/** The versions' prices, one per currency: changed ones updated (their history closes), missing ones removed. */
+export const setVersionPrices = async (tx: ScopedSql, storeId: string, versionIds: readonly string[], rows: readonly { versionId: string; currency: string; amount: string; compareAt: string | null }[]): Promise<void> => {
+  if (versionIds.length === 0) return
+  const json = rowsOf(tx, rows)
+  await tx`
+    delete from version_price vp where vp.version_id = any(${pgArray(versionIds)}::uuid[])
+      and not exists (select 1 from jsonb_to_recordset(${json}) as x("versionId" uuid, currency text) where x."versionId" = vp.version_id and x.currency = vp.currency)
+  `
+  if (rows.length === 0) return
+  await tx`
+    insert into version_price (version_id, store_id, currency, amount, compare_at_amount)
+    select x."versionId", ${storeId}, x.currency, x.amount, x."compareAt" from jsonb_to_recordset(${json}) as x("versionId" uuid, currency text, amount bigint, "compareAt" bigint)
+    on conflict (version_id, currency) do update set amount = excluded.amount, compare_at_amount = excluded.compare_at_amount, source = 'manual'
+      where version_price.amount is distinct from excluded.amount or version_price.compare_at_amount is distinct from excluded.compare_at_amount
+  `
 }
 
-export const skuTakenInStore = (error: unknown): boolean => uniqueViolation(error, 'product_version_sku_key')
+/** Two options or two values of one, renamed onto each other in one save (the name indexes aren't deferrable). */
+export const nameClash = (error: unknown): 'DUPLICATE_OPTION' | 'DUPLICATE_VALUE' | null =>
+  uniqueViolation(error, 'product_option_name_key') ? 'DUPLICATE_OPTION' : uniqueViolation(error, 'product_option_value_name_key') ? 'DUPLICATE_VALUE' : null
+
+export const skuTaken = (error: unknown): boolean => uniqueViolation(error, 'product_version_sku_key')

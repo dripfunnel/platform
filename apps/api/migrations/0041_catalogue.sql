@@ -112,7 +112,8 @@ create table product_version (
 );
 
 create unique index product_version_id_store_key on product_version (id, store_id);
-create unique index product_version_sku_key on product_version (store_id, sku) where sku is not null and deleted_at is null;
+-- Per owner, not per store: a store-wide index would tell a supplier which codes others use (ACCESS §7.1).
+create unique index product_version_sku_key on product_version (store_id, seller_id, sku) nulls not distinct where sku is not null and deleted_at is null;
 create index product_version_product_idx on product_version (product_id, position) where deleted_at is null;
 
 create table product_version_option_value (
