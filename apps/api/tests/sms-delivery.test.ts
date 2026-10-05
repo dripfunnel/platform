@@ -12,8 +12,7 @@ import { seedTenants, type Tenants } from './support/fixtures'
 
 let db: TestDatabase
 let t: Tenants
-// When the test runs, not a fixed date: outbox rows take the database's now(), which a fixed clock falls behind.
-const now = new Date()
+const now = new Date('2026-10-05T09:00:00Z')
 
 beforeAll(async () => {
   db = await createTestDatabase()
