@@ -134,6 +134,26 @@ describe('Settings › Catalogue', () => {
     expect((await settings('supplier')).badges.map((b) => b.label)).toContain('Handmade')
     expect((await settings('bOwner')).badges).toEqual([])
   })
+
+  it('holds the badge limit when two are made at the same moment', async () => {
+    const [{ n } = { n: 0 }] = await db.sql<{ n: number }[]>`select count(*)::int as n from badge where store_id = ${t.storeB1}`
+    await db.sql`insert into badge (store_id, label, tone, rule) select ${t.storeB1}, 'B' || g, 'ok', 'manual' from generate_series(1, ${19 - n}) g`
+    // Another save holds the store's lock and has made the 20th, not yet committed.
+    let commit = () => {}
+    const held = new Promise<void>((resolve) => (commit = resolve))
+    const other = db.sql.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(hashtext(${`badge:${t.storeB1}`}))`
+      await tx`insert into badge (store_id, label, tone, rule) values (${t.storeB1}, 'B20', 'ok', 'manual')`
+      await held
+    })
+    await new Promise((r) => setTimeout(r, 100))
+    const mine = gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'bOwner', { input: { label: 'B21', tone: 'ok', rule: 'manual' } })
+    await new Promise((r) => setTimeout(r, 200))
+    commit()
+    await other
+    expect((await mine).code).toBe('TOO_MANY_BADGES')
+    await db.sql`delete from badge where store_id = ${t.storeB1}`
+  })
 })
 
 describe('size charts', () => {
