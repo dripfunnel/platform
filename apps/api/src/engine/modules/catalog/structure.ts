@@ -4,12 +4,15 @@ import { isCurrency, parseMinor } from '#core/money'
 import type { PageWindow } from '#core/paging'
 import type { TenantContext } from '#core/tenancy'
 import {
+  countFacets,
   deleteFacet,
   insertCollection,
   knownCatalogueIds,
   maxCollectionProducts,
+  maxFacets,
   mergeFacetValues,
   selectCollection,
+  selectCollectionProducts,
   selectCollections,
   selectFacets,
   selectFacetValueIds,
@@ -59,6 +62,7 @@ export type StructureRefusal =
   | 'TOO_MANY_ITEMS'
   | 'INVALID_LINK'
   | 'TOO_DEEP'
+  | 'TOO_MANY_FILTERS'
 
 export type StructureResult<T> = { ok: true; value: T } | { ok: false; reason: StructureRefusal }
 
@@ -142,7 +146,7 @@ export interface CollectionInput {
 
 const sorts = ['manual', 'newest', 'price_asc', 'price_desc', 'best_selling']
 
-export const cleanCollection = (input: CollectionInput): { fields: CollectionFields; rules: RuleRow[]; productIds: string[] } => {
+export const cleanCollection = (input: CollectionInput): { fields: CollectionFields; slugGiven: boolean; rules: RuleRow[]; productIds: string[] } => {
   const collectionName = name(input.name, 120)
   if (input.kind !== 'manual' && input.kind !== 'automatic') throw new Refused('INVALID_INPUT')
   const match = input.match ?? 'all'
@@ -173,6 +177,7 @@ export const cleanCollection = (input: CollectionInput): { fields: CollectionFie
       seoTitle: optional(input.seoTitle, 120),
       seoDescription: optional(input.seoDescription, 320),
     },
+    slugGiven: Boolean(input.slug?.trim()),
     rules: rules.map(cleanRule),
     productIds,
   }
@@ -300,6 +305,8 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         if (v.id && !kept) throw new Refused('INVALID_INPUT')
         return { id: kept && v.id ? v.id : crypto.randomUUID(), name: valueName, position, kept }
       })
+      // Created only while the list can show it: `facets` answers at most maxFacets (catalogStructure.ts).
+      if (existing === null && (await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
       const facetId = id ?? crypto.randomUUID()
       await writeFacet(tx, storeId, { id: facetId, name: facetName, position: input.position ?? 0, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())
       await activity.record(tx, entry(structureAudit.facetSaved, { type: 'filter', id: facetId, label: facetName }))
@@ -332,6 +339,8 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
 
   const collection = (id: string) => inScope((tx) => selectCollection(tx, storeId, id))
 
+  const members = (id: string, window: PageWindow) => inScope((tx) => selectCollectionProducts(tx, storeId, id, window))
+
   /** Every id a collection names is checked to be this store's, as RLS would only filter it to nothing. */
   const checkIds = async (tx: ScopedSql, id: string | null, clean: ReturnType<typeof cleanCollection>) => {
     const ruled = (key: string) => clean.rules.map((r) => r.args[key]).filter((v): v is string => typeof v === 'string')
@@ -361,7 +370,9 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         nextRevision = 1
       } else {
         if (revision === null) throw new Refused('INVALID_INPUT')
-        const done = await updateCollection(tx, storeId, id, revision, clean.fields, now())
+        // A live address changes only when asked for: a rename alone would break every link to it.
+        const stored = clean.slugGiven ? null : await selectCollection(tx, storeId, id)
+        const done = await updateCollection(tx, storeId, id, revision, stored ? { ...clean.fields, slug: stored.slug } : clean.fields, now())
         if (!done) throw new Refused((await selectCollection(tx, storeId, id)) ? 'STALE_REVISION' : 'NOT_FOUND')
         collectionId = id
         slug = done
@@ -399,5 +410,5 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       return saved
     })
 
-  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, saveCollection, removeCollection, menu, saveMenu }
+  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, saveCollection, removeCollection, menu, saveMenu }
 }

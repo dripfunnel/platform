@@ -27,6 +27,7 @@ const words: Record<StructureRefusal, string> = {
   TOO_MANY_ITEMS: 'A menu can have up to 100 items.',
   INVALID_LINK: 'A menu item links a collection, a page of the shop, or an https address.',
   TOO_DEEP: 'A menu nests one level.',
+  TOO_MANY_FILTERS: 'A store can have up to 200 filters. Merge or remove one first.',
 }
 
 const answered = <T>(result: StructureResult<T>): T => {
@@ -116,8 +117,10 @@ export const registerStructure = (builder: StoreBuilder) => {
       computedAt: t.string({ nullable: true, resolve: (c) => c.computed_at?.toISOString() ?? null }),
       revision: t.exposeInt('revision'),
       rules: t.field({ type: [Rule], resolve: (c) => c.rules }),
-      products: t.field({ type: [MemberType], resolve: (c) => c.products }),
     }),
+  })
+  const MemberPage = builder.objectRef<{ nodes: { id: string; name: string; source: string }[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('CollectionMemberPage').implement({
+    fields: (t) => ({ nodes: t.field({ type: [MemberType], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
   const MenuItem = builder.objectRef<{ id: string; parent_id: string | null; label: string; kind: string; collection_id: string | null; url: string | null }>('MenuItem').implement({
     fields: (t) => ({
@@ -194,6 +197,18 @@ export const registerStructure = (builder: StoreBuilder) => {
       args: { id: t.arg.id({ required: true }) },
       extensions: { access: read },
       resolve: (_, args, ctx) => (uuid.test(String(args.id)) ? service(ctx).collection(String(args.id)) : null),
+    }),
+    collectionProducts: t.field({
+      type: MemberPage,
+      args: { id: t.arg.id({ required: true }), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) => {
+        const window = storePage(args)
+        if (!uuid.test(String(args.id))) return { nodes: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false } }
+        const rows = await service(ctx).members(String(args.id), window)
+        // The cursor's time is the negated position (catalogStructure.ts selectCollectionProducts).
+        return pageOf(rows, window, (r) => ({ occurredAt: new Date(-r.position), id: r.id }))
+      },
     }),
     menu: t.field({ type: MenuType, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).menu() }),
   }))

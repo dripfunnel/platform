@@ -40,7 +40,6 @@ type Collection {
   match: String
   name: String
   parentId: ID
-  products: [CollectionMember!]
   revision: Int
   rules: [CollectionRule!]
   seoDescription: String
@@ -71,6 +70,11 @@ type CollectionMember {
   id: ID
   name: String
   source: String
+}
+
+type CollectionMemberPage {
+  nodes: [CollectionMember!]
+  pageInfo: PageInfo
 }
 
 type CollectionPage {
@@ -442,6 +446,7 @@ type Provisioning {
 type Query {
   brand: Brand
   collection(id: ID!): Collection
+  collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
   facets: [Facet!]
   health: String

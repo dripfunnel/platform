@@ -84,7 +84,7 @@ const drainRecompute = async () => {
 }
 
 const members = async (collectionId: string) =>
-  ((await gql('query C($id: ID!) { collection(id: $id) { products { id source } computedAt } }', 'owner', { id: collectionId })).data?.['collection'] as { products: { id: string; source: string }[] }).products
+  ((await gql('query C($id: ID!) { collectionProducts(id: $id, first: 50) { nodes { id source } } }', 'owner', { id: collectionId })).data?.['collectionProducts'] as { nodes: { id: string; source: string }[] }).nodes
 
 describe('filters', () => {
   let fabric = ''
@@ -100,6 +100,13 @@ describe('filters', () => {
     expect((await saveFacet('staff', { name: 'Staff', values: [] })).code).toBe('FORBIDDEN')
     expect((await saveFacet('owner', { name: 'fabric', values: [] })).code).toBe('DUPLICATE_NAME')
     expect(await facets('bOwner')).toEqual([])
+  })
+
+  it('stops at 200 filters, so every one the store has can be listed', async () => {
+    await db.sql`insert into filter (store_id, name, position) select ${t.storeB1}, 'Bulk ' || n, n from generate_series(1, 200) as n`
+    expect((await saveFacet('bOwner', { name: 'One too many', values: [] })).code).toBe('TOO_MANY_FILTERS')
+    expect((await facets('bOwner')).length).toBe(200)
+    await db.sql`delete from filter where store_id = ${t.storeB1} and name like 'Bulk %'`
   })
 
   it('tag products and versions, each side counting only what it can see', async () => {
@@ -166,6 +173,26 @@ describe('collections', () => {
     await drainRecompute()
     expect(await members(all.saved?.id ?? '')).toEqual([])
     expect((await members(any.saved?.id ?? '')).some((m) => m.id === linen.id)).toBe(true)
+  })
+
+  it('pages a collection’s products in its own order', async () => {
+    const ids = [(await product('owner', 'Page one')).id, (await product('owner', 'Page two')).id, (await product('owner', 'Page three')).id]
+    const { saved } = await save({ name: 'Paged', kind: 'manual', productIds: [ids[2], ids[0], ids[1]] })
+    const page = async (after?: string) =>
+      (await gql('query C($id: ID!, $after: String) { collectionProducts(id: $id, first: 2, after: $after) { nodes { id } pageInfo { hasNextPage endCursor } } }', 'owner', { id: saved?.id, after })).data?.['collectionProducts'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string } }
+    const first = await page()
+    expect(first.nodes.map((n) => n.id)).toEqual([ids[2], ids[0]])
+    expect(first.pageInfo.hasNextPage).toBe(true)
+    const second = await page(first.pageInfo.endCursor)
+    expect(second.nodes.map((n) => n.id)).toEqual([ids[1]])
+    expect(second.pageInfo.hasNextPage).toBe(false)
+    expect((await gql('query C($id: ID!) { collectionProducts(id: $id) { nodes { id } } }', 'bOwner', { id: saved?.id })).data?.['collectionProducts']).toEqual({ nodes: [] })
+  })
+
+  it('keeps a live address through a rename, and changes it only when asked', async () => {
+    const { saved } = await save({ name: 'Summer edit', kind: 'manual' })
+    expect((await save({ name: 'Summer edit 2026', kind: 'manual' }, saved?.id, 1)).saved?.slug).toBe('summer-edit')
+    expect((await save({ name: 'Summer edit 2026', kind: 'manual', slug: 'summer-2026' }, saved?.id, 2)).saved?.slug).toBe('summer-2026')
   })
 
   it('refuses a parent that is itself or inside it, a stale save, and a rule naming another store’s product', async () => {

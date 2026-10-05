@@ -21,6 +21,8 @@ export interface FacetRow {
 
 export const maxFacets = 200
 
+export const countFacets = async (tx: ScopedSql, storeId: string): Promise<number> => (await tx<{ n: number }[]>`select count(*)::int as n from filter where store_id = ${storeId}`)[0]?.n ?? 0
+
 export const selectFacets = (tx: ScopedSql, storeId: string): Promise<FacetRow[]> =>
   tx<FacetRow[]>`
     select f.id, f.name, f.position, f.shopper_visible,
@@ -154,8 +156,30 @@ export interface CollectionRow {
   computed_at: Date | null
   revision: number
   rules: RuleRow[]
-  /** Hand-picked, in order; for an automatic collection, the rules' result so far. */
-  products: { id: string; name: string; source: 'manual' | 'rule' }[]
+}
+
+export interface MemberRow {
+  id: string
+  name: string
+  source: 'manual' | 'rule'
+  position: number
+}
+
+/**
+ * A collection's products in its order, a page at a time: hand-picked in the order given, an automatic one
+ * the rules' result so far. The cursor's time is the negated position, so "newest first" is first first.
+ */
+export const selectCollectionProducts = (tx: ScopedSql, storeId: string, collectionId: string, window: PageWindow): Promise<MemberRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<MemberRow[]>`
+    select p.id, p.name, cp.source, cp.position from collection_product cp join product p on p.id = cp.product_id
+    join collection c on c.id = cp.collection_id and c.store_id = ${storeId} and c.deleted_at is null
+    where cp.collection_id = ${collectionId} and p.deleted_at is null
+      and ${window.after ? tx`(-cp.position, p.id) < (${window.after.occurredAt.getTime()}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(-cp.position, p.id) > (${window.before.occurredAt.getTime()}, ${window.before.id})` : tx`true`}
+    order by cp.position ${backwards ? tx`desc` : tx`asc`}, p.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
+  `
 }
 
 export const maxCollectionProducts = 1000
@@ -165,10 +189,7 @@ export const selectCollection = async (tx: ScopedSql, storeId: string, id: strin
     await tx<CollectionRow[]>`
       select c.id, c.name, c.slug, c.description, c.kind, c.match, c.parent_id, c.inherit_parent, c.visibility, c.image_asset_id, c.sort,
         c.seo_title, c.seo_description, c.computed_at, c.revision,
-        coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
-        coalesce((select json_agg(x order by x.position) from (
-          select json_build_object('id', p.id, 'name', p.name, 'source', cp.source) as x, cp.position from collection_product cp join product p on p.id = cp.product_id
-          where cp.collection_id = c.id and p.deleted_at is null order by cp.position limit ${maxCollectionProducts}) as x), '[]'::json) as products
+        coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
       from collection c where c.id = ${id} and c.store_id = ${storeId} and c.deleted_at is null
     `
   )[0] ?? null
