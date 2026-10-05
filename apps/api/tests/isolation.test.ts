@@ -432,6 +432,11 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_version (product_id, store_id, position) values (${second}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'x', 'iso-x')`)).rejects.toThrow()
     await expect(inStore(t.storeA1, supplier, (tx) => tx`update product set visibility = 'visible' where id = ${first}`)).rejects.toThrow(/supplier changes no visibility/)
+    // Nor create one as a sample, sent back or hidden, which would sit outside the plan's count and the lists.
+    for (const column of ['is_sample', 'sent_back_reason', 'status_before_hide']) {
+      const value = column === 'is_sample' ? true : column === 'sent_back_reason' ? 'x' : 'visible'
+      await expect(inStore(t.storeA1, supplier, (tx) => tx.unsafe(`insert into product (store_id, seller_id, name, slug, ${column}) values ($1, $2, 'x', 'iso-${column.replaceAll('_', '-')}', $3)`, [t.storeA1, t.sellerA1First, value]))).rejects.toThrow(/no approval, hide or sample/)
+    }
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update product set name = 'taken' where id = ${second}`).count)).toBe(0)
     // Nobody points a child into another store, or writes price history by hand.
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_version (product_id, store_id, position) values (${other}, ${t.storeA1}, 1)`)).rejects.toThrow(/no such product/)
