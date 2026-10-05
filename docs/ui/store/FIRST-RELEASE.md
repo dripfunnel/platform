@@ -173,7 +173,7 @@ every store on this device"). On a phone the menu is a drawer behind a button.
 ## 4. Getting in (DESIGN-BRIEF A, flows 1–7, 13)
 
 - **Sign-up** (`PortalAuth` `su1`–`su4`, SAAS §4.1, §5): name, email, password (10 characters or
-  more, ACCESS §4) → email code → store name, web address, region, currency, language → phone
+  more, ACCESS §4) → email code → store name, web address and country, which sets the currency (languages are set later in Settings, decided on #290) → phone
   code → a real progress screen driven by the provisioning job. Open only while the partner is
   Live. Responds identically whether or not the email has an account.
 - **Store created by the partner**: the Owner gets an invitation, never a password.
@@ -409,7 +409,7 @@ and `unlockedBy`, the partner's cheapest live plan that allows it); every screen
 |---|---|---|
 | Brand and sign-in (`/api/auth/*`) | `brand` (public: look, words, sender, by hostname) | `signUpStart`, `verifySignupEmail`, `signUpStore`, `verifySignupPhone`, `signIn`, `verifySecondFactor`, `useBackupCode`, `enrolSecondFactor`, `requestPasswordReset`, `resetPassword`, `acceptInvitation`, `signOut` |
 | Shell | `me` (person, role, tier, store, plan facts, permissions), `myStores`, `navBadges`, `storeState` (trial, past due, suspended, provisioning, import job, support session) | `switchStore` |
-| | *Built on #290: `brand`, sign-in with 2-factor, invitations (`/accept-invite`, `/join`) and password reset under `/api/auth/*` (ACCESS §4), the Profile row (`profile`, `mySessions`, `myActivity` and its mutations, email confirmed at `/api/auth/confirm-email`), `me`, `myStores`, `storeState`, `switchStore`; `navBadges` comes with the tables it counts (SAPI 5's approvals, SAPI 11's orders), and `storeState`'s import job with SAPI 16* | |
+| | *Built on #290: `brand`, sign-up (SAAS §4.1, steps 1–3 of §5), sign-in with 2-factor, invitations (`/accept-invite`, `/join`) and password reset under `/api/auth/*` (ACCESS §4), the Profile row (`profile`, `mySessions`, `myActivity` and its mutations, email confirmed at `/api/auth/confirm-email`), `me`, `myStores`, `storeState`, `switchStore`; `navBadges` comes with the tables it counts (SAPI 5's approvals, SAPI 11's orders), and `storeState`'s import job with SAPI 16* | |
 | Profile | `profile`, `mySessions`, `myActivity` | `updateProfile`, `changeEmail`, `changePassword`, `setSecondFactor`, `regenerateBackupCodes`, `signOutOtherSessions` |
 | Home | `home` | |
 | Orders | `orders(filter)`, `order(id)`, `orderCounts` | `shipItems`, `bookLabel`, `addTracking`, `startReturn`, `receiveReturn`, `cancelReturn`, `refund` (with `override`), `cancelOrder`, `markPaid`, `addOrderNote`, `exportOrders` (job) |

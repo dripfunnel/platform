@@ -58,7 +58,7 @@ designs (ACCESS.md §4, §7.3, §7.5; PLATFORM-PROMPT §5.4): `return.started`,
 `supplier.removed` (with the products it hid), `two_factor.enabled`, `two_factor.disabled`,
 `two_factor.method_changed`, `backup_codes.generated`, `backup_code.used` (a sign-in entry's
 detail, never the code), `person.signed_in`, `person.signed_out`, `person.sign_in_refused`, `person.second_factor_refused` (the reason code, never the code typed), `person.locked`, `person.switched_store`, `person.invitation_accepted` (the store's own log, the role as its reason), `person.password_reset_requested`, `person.password_reset` (never the token or the password), `person.profile_updated`, `person.password_changed`, `person.email_change_requested`, `person.email_changed` (neither address in the entry) (#290), `sessions.others_ended`, `customer.consent_recorded`,
-`customer.exported`, `store.created`, `stores.exported`, `branding.file_uploaded` (the key and the kind),
+`customer.exported`, `store.created` (by the partner, or by the new Owner with the reason `signup`, #290), `stores.exported`, `branding.file_uploaded` (the key and the kind),
 `impersonation.started`, `impersonation.extended`, `impersonation.ended`,
 `staff_session.link_reissued` (never the link), `support_session.started`, `support_session.link_reissued`,
 `support_session.ended`, `partner_user.reauthenticated` (never the proof),

@@ -40,6 +40,7 @@ import {
 import { admit, admitted, type StoreAuthDeps } from './admission'
 import { brandName, checkTextedCode, countWrong, textCode } from './codes'
 import { confirmEmailChange } from './emailChange'
+import { sendSignupPhoneCode, signupCookieName, signupStore, startSignup, verifySignupEmail, verifySignupPhone } from './signup'
 import { acceptStoreInvitation, joinStore, lookUpStoreInvitation, requestStorePasswordReset, resetStorePassword } from './invitations'
 import { json, readBody, refuse, type Refusal } from './authHttp'
 
@@ -62,6 +63,11 @@ const paths = {
   requestReset: '/api/auth/request-password-reset',
   reset: '/api/auth/reset-password',
   confirmEmail: '/api/auth/confirm-email',
+  signUp: '/api/auth/sign-up',
+  signUpEmail: '/api/auth/sign-up/verify-email',
+  signUpStore: '/api/auth/sign-up/store',
+  signUpPhone: '/api/auth/sign-up/send-phone',
+  signUpVerifyPhone: '/api/auth/sign-up/verify-phone',
 }
 
 const isRefusal = (value: Refusal | Record<string, unknown>): value is Refusal => typeof value['code'] === 'string'
@@ -105,6 +111,12 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   if (url.pathname === paths.requestReset) return requestStorePasswordReset(request, deps, facts)
   if (url.pathname === paths.reset) return resetStorePassword(request, deps, facts)
   if (url.pathname === paths.confirmEmail) return confirmEmailChange(request, deps, facts)
+  const signup = readCookie(request.headers.get('cookie'), signupCookieName)
+  if (url.pathname === paths.signUp) return startSignup(request, deps)
+  if (url.pathname === paths.signUpEmail) return verifySignupEmail(request, deps, signup)
+  if (url.pathname === paths.signUpStore) return signupStore(request, deps, signup)
+  if (url.pathname === paths.signUpPhone) return sendSignupPhoneCode(request, deps, signup)
+  if (url.pathname === paths.signUpVerifyPhone) return verifySignupPhone(request, deps, facts, signup)
   return enrol(request, deps, facts, cookie)
 }
 

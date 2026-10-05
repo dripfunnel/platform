@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { mintInvitationToken, mintResetToken } from '#auth/partnerTokens'
 import { mintStaffInvitationToken } from '#auth/staffTokens'
 import { mintEmailChangeToken } from '#auth/emailChangeTokens'
+import { mintSignupEmailCode } from '#auth/signupCodes'
 import { mintStoreInvitationToken, mintUserResetToken } from '#auth/storeTokens'
 import { selectBranding } from '#db/scoped/branding'
 import type { ScopedSql } from '#db/scoped/index'
@@ -10,6 +11,7 @@ import { selectCataloguePlan } from '#db/scoped/partnerPlans'
 import { selectActivePartnerEmails, selectInvitedPartnerRole, selectLivePortalHost, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
 import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
 import { selectEmailChangeForEmail } from '#db/scoped/profile'
+import { selectSignupForEmail } from '#db/scoped/signup'
 import { selectStoreInvitationForEmail, selectUserResetPartner } from '#db/scoped/userInvitations'
 import { selectUserPartner } from '#db/scoped/userSignIn'
 import { senderLabel } from '#saas/domains/index'
@@ -54,6 +56,7 @@ const payloads = {
   'partner-user-locked': z.object({ partnerUserId: id, to: email, minutes: z.number().int().positive() }),
   'user-locked': z.object({ userId: id, to: email, minutes: z.number().int().positive() }),
   'user-email-change': z.object({ emailChangeId: id }),
+  'signup-code': z.object({ signupId: id }),
   'user-email-changing': z.object({ emailChangeId: id }),
   'partner-domain-live': z.object({ partnerId: id, domainId: id, kind: z.enum(['portal', 'preview', 'shops', 'email']) }),
   'partner-card-declined': z.object({ invoiceId: z.string().max(255) }),
@@ -221,6 +224,26 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if ((await selectRecordPartner(tx, 'user', p.partnerUserId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerUserLocked
       return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] }, true)
+    }
+    case 'signup-code': {
+      const p = parse(t)
+      const signup = await selectSignupForEmail(tx, p.signupId)
+      if (!signup || signup.stage !== 'email') return { send: false, reason: 'link_closed' }
+      if (signup.partner_id !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, signup.partner_id)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const brand = look.brand.name
+      // ACCESS.md §2: the page answered the same; only the mailbox's owner learns there is an account.
+      if (signup.has_account) {
+        const host = await selectLivePortalHost(tx, signup.partner_id)
+        if (!host) throw new NoPortalHost()
+        const w = en.signupHasAccount
+        return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(brand)], action: { label: w.action, url: `https://${host}/sign-in` }, note: w.note } }
+      }
+      const code = await mintSignupEmailCode(tx, p.signupId, now)
+      if (!code) return { send: false, reason: 'link_closed' }
+      const w = en.signupCode
+      return { send: true, accountSecurity: true, to: [signup.email], voice: look.voice, brand: look.brand, content: { subject: w.subject(brand), heading: w.heading, paragraphs: [w.body(code)], note: w.note } }
     }
     case 'user-email-change':
     case 'user-email-changing': {

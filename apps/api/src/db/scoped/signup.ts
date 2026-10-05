@@ -21,7 +21,6 @@ export interface SignupRow {
   phone_code_hash: string | null
   phone_code_expires_at: Date | null
   phone_code_attempts: number
-  phone_codes_sent: Date[]
   store_id: string | null
   expires_at: Date
 }
@@ -37,7 +36,17 @@ export const insertSignup = async (tx: ScopedSql, s: { partnerId: string; tokenH
 
 /** The live sign-up a cookie names under this partner, locked for the step that reads it. */
 export const selectSignup = async (tx: ScopedSql, partnerId: string, tokenHash: string, now: Date): Promise<SignupRow | null> =>
-  (await tx<SignupRow[]>`select * from signup where token_hash = ${tokenHash} and partner_id = ${partnerId} and expires_at > ${now} for update`)[0] ?? null
+  (
+    await tx<SignupRow[]>`
+      select id, partner_id, stage, name, email, password_hash, email_code_hash, email_code_expires_at, email_code_attempts, store_name, subdomain, country,
+        phone, phone_code_hash, phone_code_expires_at, phone_code_attempts, store_id, expires_at
+      from signup where token_hash = ${tokenHash} and partner_id = ${partnerId} and expires_at > ${now} for update
+    `
+  )[0] ?? null
+
+/** Texts sent to this sign-up since `since`: at most three in ten minutes (ACCESS.md §4). */
+export const countSignupTextsSince = async (tx: ScopedSql, signupId: string, since: Date): Promise<number> =>
+  (await tx<{ n: number }[]>`select count(*)::int as n from signup s, unnest(s.phone_codes_sent) as sent(at) where s.id = ${signupId} and sent.at > ${since}`)[0]?.n ?? 0
 
 /** For the code email's deliverer: a fresh code's hash and expiry; false once the sign-up has moved on. */
 export const setSignupEmailCode = async (tx: ScopedSql, signupId: string, codeHash: string, expiresAt: Date): Promise<boolean> =>

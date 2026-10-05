@@ -197,8 +197,14 @@ A merchant signs up on the partner's portal host, in its look, **or the partner 
 merchant** from the platform console and the Owner receives an invitation to set a password
 (never a password by email). Either way the store is provisioned automatically (§5). Sign-up
 is open only while the partner is Live. Signup answers live in a `signup` row between steps
-(a password encrypted at rest); nothing else exists until provisioning starts, and the row is
-deleted once the store exists. Signup, like every account endpoint, responds identically
+(the password kept as its hash, never reversible, decided on #290); nothing else exists until
+provisioning starts, and the row is deleted once the store exists, or by the cron a day after
+it was started. **Built on #290** (`apis/store/signup.ts`): name, email and password; a code
+emailed when the email is sent (an address that already has an account is emailed how to sign
+in instead, with no code); store name, web address and country (the partner's live plans'
+currencies decide which countries, the country decides the currency); a texted code; then
+steps 1–3. The store starts in Trial on the partner's cheapest live plan in that currency, for
+the plan's trial days or 14 when it sets none (decided on #290). Signup, like every account endpoint, responds identically
 whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 
 ### 4.2 States
@@ -266,7 +272,12 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 | 7 | **First build**: preview deploy (seconds, no catalogue), then the first live build, dispatched explicitly and **confirmed complete** from the deploy result, not assumed from a push (the first platform's gap at this step) | Nothing to undo; a failed first build leaves the store usable and shows "storefront build failed, retrying" |
 | 8 | **Done**: write `storefront.core_version` and the repo name, emit `store.provisioned`, send the welcome email through the outbox, delete the `signup` row | n/a |
 
-- Steps 1–3 make a usable store: the merchant can enter the portal once they finish. Steps
+- Steps 1–3 make a usable store: the merchant can enter the portal once they finish. **Built on
+  #290** (`saas/provisioning/provisionStore.ts`): all three are database writes today, so they
+  run in one transaction with the texted code that starts them, and a failure anywhere leaves
+  nothing (tested at each step); step 2's defaults arrive with each settings table's card, and
+  step 3's hostnames are the store's code under the partner's wildcards. INF 1 adds steps 4–8
+  as the `provision-store` Workflow, with their compensations. Steps
   4–8 make the storefront, and **are skipped for a store that uses its own frontend** (it gets
   a public store key and allowed origins instead; PLATFORM-PROMPT §5.6). A skipped storefront
   can be added later by running steps 3–8.
