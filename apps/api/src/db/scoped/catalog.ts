@@ -310,7 +310,7 @@ export const updateProduct = async (tx: ScopedSql, row: { storeId: string; id: s
     const { value, slug } = await withFreeSlug(tx, f.slug, async (slug, sp) => {
       const done = await sp`
         update product set name = ${f.name}, slug = ${slug}, description = ${f.description}, product_type = ${f.productType}, category = ${f.category},
-          ${row.visibilityChange ? sp`visibility = ${f.visibility},` : sp``}
+          ${row.visibilityChange ? sp`visibility = ${f.visibility}, ${shownFromSupplierHide(sp, f.visibility)},` : sp``}
           warranty_text = ${f.warrantyText}, returns_text = ${f.returnsText}, seo_title = ${f.seoTitle}, seo_description = ${f.seoDescription},
           updated_at = ${now}, revision = revision + 1
         where id = ${row.id} and store_id = ${row.storeId} and revision = ${row.revision} and deleted_at is null
@@ -324,12 +324,19 @@ export const updateProduct = async (tx: ScopedSql, row: { storeId: string; id: s
   }
 }
 
+/** Shown by the merchant, a product a supplier's suspension or removal hid is no longer that hide's to undo (ACCESS §7.5). */
+const shownFromSupplierHide = (tx: ScopedSql, visibility: string) =>
+  visibility === 'visible'
+    ? tx`hidden_by = case when hidden_by in ('seller_suspended', 'seller_removed') then null else hidden_by end, status_before_hide = case when hidden_by in ('seller_suspended', 'seller_removed') then null else status_before_hide end`
+    : tx`hidden_by = hidden_by`
+
 /** Paused by the plan, or waiting for the merchant's review: only the upgrade or the approval shows it. */
-export const heldBack = (tx: ScopedSql) => tx`(hidden_by is not distinct from 'plan' or approval_status in ('pending', 'sent_back'))`
+export const heldBack = (tx: ScopedSql) => tx`(hidden_by is not distinct from 'plan' or coalesce(approval_status in ('pending', 'sent_back'), false))`
 
 export const setProductsVisibility = (tx: ScopedSql, storeId: string, ids: readonly string[], visibility: 'visible' | 'hidden', now: Date): Promise<{ id: string; name: string }[]> =>
   tx<{ id: string; name: string }[]>`
-    update product set visibility = ${visibility}, updated_at = ${now}, revision = revision + 1
+    update product set visibility = ${visibility}, updated_at = ${now}, revision = revision + 1,
+      ${shownFromSupplierHide(tx, visibility)}
     where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null and visibility <> ${visibility}
       and (${visibility} = 'hidden' or not ${heldBack(tx)})
     returning id, name

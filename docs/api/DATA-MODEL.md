@@ -404,17 +404,19 @@ signup_text(id, partner_id, signup_id NULL, phone, sent_at)
             -- every sign-up text, kept a day: three per sign-up in ten minutes, three per number
             -- a day, 200 per partner an hour, so texts can't be pumped to other people's numbers
 
-seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
+seller      (id, store_id, name, access_level, shipping_mode, label_account, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)
-            -- status: invited | active | suspended | removed (0002 has no check yet; the
-            -- next migration adds it); the row survives removal so products stay marked
+            UNIQUE (store_id, lower(name)) WHERE status <> 'removed'
+            -- status: invited | active | suspended | removed (checked since 0048); invited until
+            -- its first user joins; the row survives removal so products stay marked
             -- as the removed supplier's (ACCESS.md §7.5); hide_products_while_suspended is
             -- the Owner's choice at suspension (decided 2026-10-02 on #186's review, recorded on #182)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
             -- decided 2026-10-02); copied onto order_part.shipping_mode at placement, and
-            -- an order follows the mode it was placed under, never the live seller row
+            -- an order follows the mode it was placed under, never the live seller row;
+            -- label_account: store | own, whose courier account books a to-shopper supplier's labels
 
 membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store

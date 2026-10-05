@@ -180,6 +180,14 @@ input FacetValueInput {
   name: String!
 }
 
+input InviteSupplierInput {
+  accessLevel: String!
+  email: String!
+  labelAccount: String
+  name: String!
+  shippingMode: String
+}
+
 type Me {
   acting: ActingStore
   email: String
@@ -242,11 +250,14 @@ type Mutation {
   deleteWarehouse(id: ID!): Boolean
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
+  inviteSupplier(input: InviteSupplierInput!): ID
   mergeFacetValues(from: [ID!]!, into: ID!): Int
   publishProductStory(productId: ID!, revision: Int!): ProductStory
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean
+  removeSupplier(id: ID!): Int
   resendInvitation(invitationId: ID!): Boolean
+  resumeSupplier(id: ID!): Int
   revokeInvitation(invitationId: ID!): Boolean
   saveBadge(id: ID, input: BadgeInput!): ID
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
@@ -262,8 +273,11 @@ type Mutation {
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setSupplierAccess(accessLevel: String!, id: ID!): Boolean
+  setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
   setTheme(theme: String!): Profile
   signOutOtherSessions: Int
+  suspendSupplier(hideProducts: Boolean!, id: ID!): Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
   updateProfile(name: String!, phone: String): Profile
@@ -615,6 +629,9 @@ type Query {
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  supplier(id: ID!): Supplier
+  supplierCounts: SupplierCounts
+  suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
   warehouses(after: String, before: String, first: Int): WarehousePage
 }
 
@@ -897,6 +914,31 @@ type StoryVideo {
 input StoryVideoInput {
   assetId: ID
   url: String
+}
+
+type Supplier {
+  accessLevel: String
+  createdAt: String
+  hideProductsWhileSuspended: Boolean
+  id: ID
+  labelAccount: String
+  name: String
+  products: Int
+  shippingMode: String
+  status: String
+  suspendedAt: String
+  users: Int
+}
+
+type SupplierCounts {
+  active: Int
+  all: Int
+  suspended: Int
+}
+
+type SupplierPage {
+  nodes: [Supplier!]
+  pageInfo: PageInfo
 }
 
 type SupportBanner {

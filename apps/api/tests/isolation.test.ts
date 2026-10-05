@@ -279,9 +279,12 @@ describe('the write path', () => {
 
   it('a supplier cannot raise its own access level', async () => {
     const supplier = storeCaller(t.partnerA, t.storeA1, { kind: 'seller', sellerId: t.sellerA1First })
-    await attempt(supplier, async (tx) => {
-      await tx`update seller set access_level = 'vendor-orders-fulfil' where id = ${t.sellerA1First}`
-    })
+    // app_supplier holds no write on seller (migration 0048).
+    await expect(
+      attempt(supplier, async (tx) => {
+        await tx`update seller set access_level = 'vendor-orders-fulfil' where id = ${t.sellerA1First}`
+      }),
+    ).rejects.toThrow(/permission denied/i)
     const [row] = await db.sql<{ access_level: string }[]>`select access_level from seller where id = ${t.sellerA1First}`
     expect(row?.access_level).toBe('vendor-stock')
   })

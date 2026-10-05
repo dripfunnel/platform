@@ -212,6 +212,8 @@ describe('the merchant side', () => {
     const { saved } = await create('owner', simple('Bulk candle'))
     expect((await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'owner', { ids: [saved?.id] })).data?.['updateProducts']).toBe(1)
     expect((await detail('owner', saved?.id ?? ''))?.visible).toBe(false)
+    expect((await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: true }) }`, 'owner', { ids: [saved?.id] })).data?.['updateProducts']).toBe(1)
+    await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'owner', { ids: [saved?.id] })
     const counts = (await gql('{ productCounts { all visible hidden } }', 'owner')).data?.['productCounts'] as { all: number; visible: number; hidden: number }
     expect(counts.all).toBe(counts.visible + counts.hidden)
     expect(counts.hidden).toBeGreaterThanOrEqual(2)

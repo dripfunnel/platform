@@ -9,6 +9,7 @@ import { registerShell } from './shell'
 import { registerStructure } from './structure'
 import { registerStory } from './story'
 import { registerInventory } from './inventory'
+import { registerSuppliers } from './suppliers'
 
 export type { StoreContext } from './access'
 
@@ -25,6 +26,7 @@ registerProducts(builder)
 registerStructure(builder)
 registerStory(builder)
 registerInventory(builder)
+registerSuppliers(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)
