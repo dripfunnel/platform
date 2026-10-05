@@ -47,9 +47,12 @@ describe('fetchPublic', () => {
   })
 
   it('knows the private ranges', () => {
-    expect(['10.0.0.1', '127.0.0.1', '169.254.169.254', '172.20.1.1', '192.168.1.1', '100.64.0.1', '0.0.0.0', '224.0.0.1'].every(isPrivateIpv4)).toBe(true)
+    for (const ip of ['10.0.0.1', '127.0.0.1', '169.254.169.254', '172.20.1.1', '192.168.1.1', '100.64.0.1', '0.0.0.0', '224.0.0.1', '192.0.0.8', '192.0.2.1', '198.51.100.7', '203.0.113.9']) expect(isPrivateIpv4(ip), ip).toBe(true)
     expect(['93.184.216.34', '8.8.8.8', '172.32.0.1'].some(isPrivateIpv4)).toBe(false)
-    expect(['::1', 'fe80::1', 'fd12::1', '::ffff:10.0.0.1', '2001:db8::1'].every(isPrivateIpv6)).toBe(true)
+    for (const ip of ['::1', 'fe80::1', 'fd12::1', '::ffff:10.0.0.1', '2001:db8::1', '2001:0:4136:e378:8000:63bf:3fff:fdd2', '2001::1']) expect(isPrivateIpv6(ip), ip).toBe(true)
+    // Neighbours of the ranges stay public.
+    expect(['192.0.3.1', '198.51.101.1', '203.0.114.1'].some(isPrivateIpv4)).toBe(false)
+    expect(isPrivateIpv6('2001:4860:4860::8888')).toBe(false)
     expect(isPrivateIpv6('2606:4700::1111')).toBe(false)
   })
 })

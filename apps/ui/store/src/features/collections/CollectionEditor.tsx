@@ -1,4 +1,3 @@
-import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, ErrorState, Icon, LoadingState } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
@@ -8,10 +7,11 @@ import type { Facet } from '../../api/productEditor'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
 import { blankDraft, draftOf, nameField, newRow, ruleFields, ruleInputs, slugOf, type CollectionDraft, type RuleRow } from './collectionDraft'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.collections.editor
 
-const refusalOf = (error: unknown): string => (isApiError(error) ? ((messages.collections.refused as Record<string, string>)[error.code] ?? messages.collections.refused.other) : messages.collections.refused.other)
+const refusalOf = refusalIn(messages.collections.refused)
 
 type Loaded = { kind: 'loading' } | { kind: 'failed' } | { kind: 'missing' } | { kind: 'ready'; slug: string | null; inMenu: boolean | null }
 type PreviewView = { kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; preview: Preview }

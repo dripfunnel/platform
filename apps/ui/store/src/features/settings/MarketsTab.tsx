@@ -7,6 +7,7 @@ import type { StoreLocale } from '../../api/settings'
 import { fill, formatList, locale, messages } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
 import { RadioCards } from '../common/RadioCards'
+import { refusalIn } from '../common/refusal'
 
 const words = messages.settings.markets
 
@@ -35,7 +36,8 @@ export interface MarketDraft {
   webMode: 'main' | 'path'
   pathPrefix: string
   products: 'all' | 'some'
-  excluded: { id: string; name: string }[]
+  /** `gone`: deleted since, shown so the merchant knows, and left out of the save (the API refuses an id it can't find). */
+  excluded: { id: string; name: string; gone?: boolean }[]
   duties: 'none' | 'by_code' | 'flat'
   dutyRate: string
   dutyThreshold: string
@@ -55,8 +57,11 @@ export const draftOfMarket = (m: Market): MarketDraft => ({
   webMode: m.webMode,
   pathPrefix: m.pathPrefix ?? '',
   products: m.products,
-  // Ids the API no longer names were products deleted since: kept, and shown as such, so a save drops none unseen.
-  excluded: m.excludedProductIds.map((pid) => ({ id: pid, name: m.excludedProducts.find((p) => p.id === pid)?.name ?? words.deletedProduct })),
+  // An id the API no longer names was a product deleted since: shown as such, and dropped by the save.
+  excluded: m.excludedProductIds.map((pid) => {
+    const named = m.excludedProducts.find((p) => p.id === pid)
+    return named ? { id: pid, name: named.name } : { id: pid, name: words.deletedProduct, gone: true }
+  }),
   duties: m.duties.mode,
   dutyRate: m.duties.rateBps === null ? '' : String(m.duties.rateBps / 100),
   dutyThreshold: m.duties.thresholdAmount ? moneyText({ amount: Number(m.duties.thresholdAmount), currency: m.currency }) : '',
@@ -87,14 +92,14 @@ const inputOf = (d: MarketDraft) => {
     webMode: d.webMode,
     pathPrefix: d.webMode === 'path' ? d.pathPrefix.trim() : null,
     products: d.products,
-    excludedProductIds: d.products === 'some' ? d.excluded.map((p) => p.id) : [],
+    excludedProductIds: d.products === 'some' ? d.excluded.filter((p) => !p.gone).map((p) => p.id) : [],
     dutiesMode: d.duties,
     dutiesRateBps: d.duties === 'flat' ? Math.round(Number(d.dutyRate) * 100) : null,
     dutiesThresholdAmount: typeof threshold === 'number' ? String(threshold) : null,
   }
 }
 
-const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
+const refusalOf = refusalIn(words.refused)
 
 export interface MarketsTabProps {
   markets: readonly Market[]

@@ -128,7 +128,7 @@ describe('markets', () => {
     expect(api.saveMarket).toHaveBeenLastCalledWith('us', 4, expect.objectContaining({ name: 'USA and territories' }))
   })
 
-  it('keep a left-out product deleted since, saying so, so a save never drops it unseen', async () => {
+  it('show a left-out product deleted since, saying the save drops it, and save the rest', async () => {
     api.loadAllMarkets.mockResolvedValue([india, { ...us, products: 'some', excludedProductIds: ['p1', 'p9'], excludedProducts: [{ id: 'p1', name: 'Silk scarf' }] }, gulf])
     await show()
     open('United States')
@@ -136,7 +136,8 @@ describe('markets', () => {
     fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'United States and Canada' } })
     save()
     await settle()
-    expect(api.saveMarket).toHaveBeenLastCalledWith('us', 3, expect.objectContaining({ excludedProductIds: ['p1', 'p9'] }))
+    // The API refuses an id it can't find, so the deleted one is dropped, as the screen said it would be.
+    expect(api.saveMarket).toHaveBeenLastCalledWith('us', 3, expect.objectContaining({ excludedProductIds: ['p1'] }))
   })
 
   it('list each with its countries, currency and state, open the primary, and say what a shopper there sees', async () => {

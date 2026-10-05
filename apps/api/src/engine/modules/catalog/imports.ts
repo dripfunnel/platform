@@ -18,6 +18,7 @@ import {
   selectManualCurrencies,
   selectOwnDefaultWarehouse,
   selectOwnSkus,
+  selectImporterSeat,
   selectOwnWarehouse,
   selectVersionIdsInOrder,
   startImportRun,
@@ -28,6 +29,7 @@ import { withScope, type ScopedSql } from '#db/scoped/index'
 import { setStockTargets } from '#db/scoped/inventory'
 import { selectLanguages } from '#db/scoped/translations'
 import { importLimits, planImport, type ImportPlan, type ImportProblem, type PlannedProduct, type ProblemCode } from './importFile'
+import { isMerchantRole, isSupplierRole, isSupplierTier, storeRoleHas } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
 import type { ProductInput, VersionInput } from './rules'
 import type { SaveResult } from './index'
@@ -69,6 +71,7 @@ export const problemWords: Record<ProblemCode, string> = {
   MATCHES_MANY: 'Its SKUs belong to more than one product here.',
   STOCK_REFUSED: 'Its stock couldn’t be set.',
   TRANSLATION_REFUSED: 'A translation couldn’t be saved.',
+  NOT_ALLOWED: 'You can no longer import into this store, so the rest wasn’t imported.',
   NAME_REQUIRED: 'Give the product a name.',
   INVALID_INPUT: 'Something in this row isn’t valid.',
   CATEGORY_REFUSED: 'Products like this can’t be sold here.',
@@ -138,7 +141,7 @@ const messageOf = (code: string): string => (problemWords as Record<string, stri
 
 const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: string | null }, shown: number): CatalogImportDto => {
   const problems = problemsOf(job.problems)
-  const unreadable = job.state === 'failed' && problems.some((p) => p.line === 0)
+  const unreadable = job.state === 'failed' && problems.some((p) => p.line === 0 && p.code !== 'NOT_ALLOWED')
   return {
     id: job.id,
     source: job.source,
@@ -455,10 +458,11 @@ export const problemsCsv = (file: string | null, plan: ImportPlan, problems: rea
   const said = new Map<number, string[]>()
   for (const p of problems) said.set(p.line, [...(said.get(p.line) ?? []), p.column ? `${p.column}: ${messageOf(p.code)}` : messageOf(p.code)])
   const lines = new Set(plan.refusedLines)
+  // Each line's product once, so a file with a problem on every row stays linear.
+  const productOf = new Map(plan.products.flatMap((x) => x.lines.map((l) => [l, x] as const)))
   for (const p of problems) {
     if (p.line < 2) continue
-    const product = plan.products.find((x) => x.lines.includes(p.line))
-    for (const l of product?.lines ?? [p.line]) lines.add(l)
+    for (const l of productOf.get(p.line)?.lines ?? [p.line]) lines.add(l)
   }
   const header = table[0] ?? []
   const fileWide = said.get(1)
@@ -467,6 +471,21 @@ export const problemsCsv = (file: string | null, plan: ImportPlan, problems: rea
     ...(fileWide ? [csvLine([...header.map(() => ''), fileWide.join(' ')])] : []),
     ...[...lines].sort((a, b) => a - b).map((l) => csvLine([...(table[l - 1] ?? []), (said.get(l) ?? []).join(' ')])),
   ].join('\n')
+}
+
+/**
+ * Whether the person who confirmed may still import here: an active member whose role (and, for a supplier, its
+ * active company's tier) holds `catalog.import`. The run is checked each chunk, since a seat can change meanwhile.
+ */
+const mayStillImport = async (tx: ScopedSql, context: TenantContext): Promise<boolean> => {
+  const c = context.caller
+  const userId = c.kind === 'person' || c.kind === 'impersonation' ? c.userId : null
+  if (!userId) return false
+  const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
+  const seat = await selectImporterSeat(tx, context.storeId, userId, sellerId)
+  if (!seat) return false
+  if (sellerId === null) return isMerchantRole(seat.role_key) && storeRoleHas({ side: 'merchant', role: seat.role_key }, 'catalog.import')
+  return seat.seller_status === 'active' && isSupplierRole(seat.role_key) && seat.access_level !== null && isSupplierTier(seat.access_level) && storeRoleHas({ side: 'supplier', role: seat.role_key, tier: seat.access_level }, 'catalog.import')
 }
 
 /**
@@ -480,6 +499,15 @@ export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: 
   const job = await withScope(d.sql, d.context, (tx) => selectCatalogImport(tx, storeId, jobId))
   const plan = job?.plan as ImportPlan | null | undefined
   if (!job || job.state !== 'running' || !plan) return
+  // Removed, suspended or moved to a tier without imports since confirming: the rest isn't imported, and it says so.
+  const allowed = await withScope(d.sql, d.context, (tx) => mayStillImport(tx, d.context))
+  if (!allowed) {
+    await withScope(d.sql, d.context, async (tx) => {
+      await addImportProblems(tx, jobId, [{ line: 0, column: null, code: 'NOT_ALLOWED' }])
+      await failImport(tx, jobId, d.now(), new Date(d.now().getTime() + catalogImportLifetimeMs))
+    })
+    return
+  }
   const payload = jobPayloadOf(d.context, jobId)
   const none = { created: 0, updated: 0, skipped: 0, failed: 0, photos: 0 }
   const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null

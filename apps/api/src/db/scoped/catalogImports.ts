@@ -178,3 +178,17 @@ export const addImportProblems = async (tx: ScopedSql, id: string, problems: unk
 /** A product's live versions in their order, as the save just wrote them. */
 export const selectVersionIdsInOrder = async (tx: ScopedSql, productId: string): Promise<string[]> =>
   (await tx<{ id: string }[]>`select id from product_version where product_id = ${productId} and deleted_at is null order by position, id`).map((r) => r.id)
+
+/** The importer's seat in the store now: its role, and for a supplier its tier and whether the company is active. */
+export const selectImporterSeat = async (
+  tx: ScopedSql,
+  storeId: string,
+  userId: string,
+  sellerId: string | null,
+): Promise<{ role_key: string; access_level: string | null; seller_status: string | null } | null> =>
+  (
+    await tx<{ role_key: string; access_level: string | null; seller_status: string | null }[]>`
+      select m.role_key, s.access_level, s.status as seller_status from membership m left join seller s on s.id = m.seller_id
+      where m.user_id = ${userId} and m.store_id = ${storeId} and m.seller_id is not distinct from ${sellerId} and m.status = 'active'
+    `
+  )[0] ?? null

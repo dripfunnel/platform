@@ -45,7 +45,7 @@ const people = [
   person({ id: 'i1', email: 'asha@example.com', kind: 'invitation', expiresAt: '2026-10-11T09:00:00Z' }),
 ]
 const supplier = (s: Partial<Supplier> & Pick<Supplier, 'id' | 'name'>): Supplier => ({ accessLevel: 'vendor-catalogue', shippingMode: 'to-store', labelAccount: 'store', status: 'active', users: 1, products: 4, ...s })
-const suppliers = [supplier({ id: 'v1', name: 'Northwind Textiles', users: 2, products: 14 }), supplier({ id: 'v3', name: 'Moradabad Brass', status: 'suspended', accessLevel: 'vendor-stock', products: 3 })]
+const suppliers = [supplier({ id: 'v1', name: 'Northwind Textiles', users: 2, products: 14, labelAccount: 'own' }), supplier({ id: 'v3', name: 'Moradabad Brass', status: 'suspended', accessLevel: 'vendor-stock', products: 3 })]
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
@@ -222,14 +222,14 @@ describe('suppliers', () => {
     confirm(w.save)
     await settle()
     expect(api.setShippingMode).toHaveBeenCalledWith('v1', 'to-shopper', 'own')
-    // To the store, who books labels isn't asked, so nothing is sent for it.
+    // To the store, who books labels isn't asked, so the stored choice goes back unchanged.
     open()
     pick('shipping')
     confirm(w.continue)
     pick('to-store')
     confirm(w.save)
     await settle()
-    expect(api.setShippingMode).toHaveBeenLastCalledWith('v1', 'to-store', null)
+    expect(api.setShippingMode).toHaveBeenLastCalledWith('v1', 'to-store', 'own')
   })
 
   it('suspends hiding products, reactivates, and removes saying how many products were hidden', async () => {

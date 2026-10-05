@@ -21,7 +21,7 @@ export const RadioCards = <V extends string>({ labelledBy, options, value, disab
           <input type="radio" name={name} value={o.value} checked={o.value === value} disabled={disabled} onChange={() => onChange(o.value)} />
           <span className="df-radio-card-text">
             <strong>{o.label}</strong>
-            {o.sub && <span>{o.sub}</span>}
+            {o.sub && <span className="df-radio-card-sub">{o.sub}</span>}
             {o.extra}
           </span>
         </label>

@@ -237,6 +237,16 @@ outbox rows ─▶ Queues ───────────▶ ┘   shop · hoo
   password reset and the Shop API.
 - Admin staff sign in with company SSO and 2-factor *(recommend Cloudflare Access in front
   of `admin.dripfunnel.com` as an extra gate)*.
+- **Fetching a URL a user gave us** (an import's image addresses, built on #301): https on a public
+  name only, every address it resolves to public (through DoH, before the request and again for
+  each redirect), a timeout, a size cap and bounded retries (`integrations/http/publicFetch.ts`).
+  A Worker's `fetch` takes a URL, not an address, so it can't connect to the address that was
+  checked: a name whose answer changes between the check and the request (DNS rebinding) is not
+  stopped by the Worker itself. What bounds it is this deployment: the Worker has no private
+  network attached (no Cloudflare Tunnel, VPC service or Hyperdrive to anything but Neon), and
+  nothing internal listens on an address it can reach. **Adding any private network to the
+  Worker makes this a real gap**: such a fetch would then have to connect to the checked
+  address itself (`connect()` from `cloudflare:sockets`) or move behind an egress proxy.
 
 ---
 
