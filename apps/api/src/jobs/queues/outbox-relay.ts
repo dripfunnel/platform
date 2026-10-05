@@ -44,7 +44,15 @@ export const defaultRelayOptions: RelayOptions = {
   batch: 50,
 }
 
-export type Outcome = 'delivered' | 'retry' | 'dead' | 'skipped'
+export type Outcome = 'delivered' | 'retry' | 'dead' | 'dropped' | 'skipped'
+
+/** Thrown by a deliverer that will never deliver this row: given up at once, under `code`, never retried. */
+export class GiveUp extends Error {
+  constructor(readonly code: string) {
+    super(`given up: ${code}`)
+    this.name = 'GiveUp'
+  }
+}
 
 /** Doubles per failed attempt, from the base to the cap. */
 export const backoffMs = (attempts: number, base: number, max: number): number =>
@@ -87,19 +95,20 @@ const settle = async (sql: postgres.Sql, row: OutboxRow, deliverer: Deliverer, o
   try {
     await withTimeout((signal) => deliverer.deliver(effectOf(row), signal), opts.timeoutMs)
   } catch (error) {
-    const dead = row.attempts >= opts.maxAttempts
+    const dropped = error instanceof GiveUp
+    const dead = dropped || row.attempts >= opts.maxAttempts
     const delay = backoffMs(row.attempts, opts.baseDelayMs, opts.maxDelayMs)
     await withSystemScope(sql, async (tx) => {
       await markAttemptFailed(tx, row.id, {
         // A code, never the error's words: a provider message can carry an address or a name.
-        error: error instanceof DeliveryTimeout ? 'timeout' : 'failed',
+        error: dropped ? error.code : error instanceof DeliveryTimeout ? 'timeout' : 'failed',
         nextAttemptAt: new Date(now.getTime() + delay),
         dead,
         now,
       })
       if (dead && deliverer.redact) await redactOutboxPayload(tx, row.id, deliverer.redact(row.payload))
     })
-    return dead ? 'dead' : 'retry'
+    return dropped ? 'dropped' : dead ? 'dead' : 'retry'
   }
   const first = await withSystemScope(sql, async (tx) => {
     const marked = await markDelivered(tx, row.id, opts.now())
@@ -114,7 +123,7 @@ const settle = async (sql: postgres.Sql, row: OutboxRow, deliverer: Deliverer, o
  * A per-row path fed by a queue message is added by the first effect that needs the latency.
  */
 export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: RelayOptions = defaultRelayOptions): Promise<Record<Outcome, number>> => {
-  const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, skipped: 0 }
+  const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, dropped: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
   // A hold is the declaring kind's only: `kind:template`, never a template name across kinds.

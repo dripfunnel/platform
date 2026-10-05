@@ -9,6 +9,9 @@ import { queueSideEffect } from '#saas/outbox/index'
 
 export const smsKind = 'sms'
 
+/** An order update unsent after this is news nobody needs, and its number and link leave the outbox. */
+export const orderTextMs = 3 * 24 * 60 * 60 * 1000
+
 export const smsMessages = ['code.second_factor', 'code.verify_phone', 'code.shopper_sign_in', 'order.confirmed', 'order.shipped', 'order.delivered'] as const
 export type SmsMessage = (typeof smsMessages)[number]
 

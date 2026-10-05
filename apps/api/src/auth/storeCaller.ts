@@ -1,4 +1,5 @@
 import type postgres from 'postgres'
+import { logEvent } from '#core/log'
 import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
@@ -130,7 +131,8 @@ export const resolveStoreStanding = async (
     if (!chosen) return { kind: 'supplier-required', person }
     const caller = callerOf(person, await hashSessionId(cookie), chosen)
     if (!caller) {
-      await recordCrossing(tx, person, asked, activity, facts)
+      // A held store with a role nobody can read is a data fault, not a crossing: refused, logged technically.
+      logEvent({ event: 'membership_unreadable', api: 'store', partnerId, storeId: chosen.store_id, code: chosen.role_key })
       return { kind: 'crossing', person }
     }
     return { kind: 'acting', person, caller }

@@ -4,7 +4,7 @@ import { withSystemScope } from '#db/scoped/index'
 import { expireUnsentSms } from '#db/scoped/outbox'
 import { smsDeliverer, type SmsSenders } from '#jobs/queues/deliverers/sms'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
-import { queueSms, type PartnerSmsAccount, type PartnerSmsAccounts, type SmsPayload } from '#saas/sms/index'
+import { orderTextMs, queueSms, type PartnerSmsAccount, type PartnerSmsAccounts, type SmsPayload } from '#saas/sms/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
 
@@ -57,6 +57,8 @@ const relay = (accounts: PartnerSmsAccounts, senders: SmsSenders) =>
 const msg91: PartnerSmsAccount = { provider: 'msg91', authKey: 'k', templates: { 'code.second_factor': 'tmpl-2fa' } }
 const twilio: PartnerSmsAccount = { provider: 'twilio', accountSid: 'AC1', authToken: 't', messagingServiceSid: 'MG1' }
 
+const sweep = (at: Date) => withSystemScope(db.sql, (tx) => expireUnsentSms(tx, at, defaultRelayOptions.leaseMs, orderTextMs))
+
 const pending = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = 'sms' and delivered_at is null and failed_at is null`)[0]?.n
 
 describe('texts through the outbox', () => {
@@ -101,8 +103,11 @@ describe('texts through the outbox', () => {
     await queue(t.partnerA, code('+919845022113', { message: 'code.verify_phone' }))
     const counts = await relay(accountsOf({ [t.partnerA]: [msg91] }), senders)
     expect(sent).toEqual([])
-    expect(counts.delivered).toBe(2)
+    expect(counts).toMatchObject({ delivered: 0, dropped: 2 })
     expect(await pending()).toBe(0)
+    const rows = await db.sql<{ last_error: string; delivered_at: Date | null }[]>`select last_error, delivered_at from outbox where kind = 'sms' and last_error in ('no_twilio_account', 'no_dlt_template')`
+    expect(rows.map((r) => r.last_error).sort()).toEqual(['no_dlt_template', 'no_twilio_account'])
+    expect(rows.every((r) => r.delivered_at === null)).toBe(true)
   })
 
   it('retries a provider outage with backoff, and drops a refusal', async () => {
@@ -114,7 +119,7 @@ describe('texts through the outbox', () => {
     expect(sent).toHaveLength(1)
     await queue(t.partnerA, code('+16145550199'))
     failNext(new SmsRefused('twilio_21211'))
-    expect((await relay(accountsOf({ [t.partnerA]: [twilio] }), senders)).delivered).toBe(1)
+    expect((await relay(accountsOf({ [t.partnerA]: [twilio] }), senders)).dropped).toBe(1)
     expect(sent).toHaveLength(1)
   })
 
@@ -131,10 +136,23 @@ describe('texts through the outbox', () => {
 
   it('gives up and redacts a code past its expiry that no deliverer took', async () => {
     const id = await queue(t.partnerB, code('+16145550144', { expiresAt: new Date(now.getTime() + 60_000).toISOString() }))
-    expect(await withSystemScope(db.sql, (tx) => expireUnsentSms(tx, now))).toBe(0)
-    expect(await withSystemScope(db.sql, (tx) => expireUnsentSms(tx, new Date(now.getTime() + 61_000)))).toBeGreaterThanOrEqual(1)
+    expect(await sweep(now)).toBe(0)
+    expect(await sweep(new Date(now.getTime() + 61_000))).toBeGreaterThanOrEqual(1)
     const [row] = await db.sql<{ payload: unknown; last_error: string }[]>`select payload, last_error from outbox where id = ${id ?? ''}`
     expect(row).toEqual({ payload: { message: 'code.second_factor', redacted: true }, last_error: 'expired' })
+  })
+
+  it('gives up an order update nobody sent within three days, and leaves a row the relay holds', async () => {
+    const shipped: SmsPayload = { message: 'order.shipped', to: '+16145550155', brand: 'Northstar', vars: { order: 'NS-1001', courier: 'USPS', link: 'https://shop.example/t/1' }, expiresAt: null }
+    const id = await queue(t.partnerB, shipped)
+    await db.sql`update outbox set created_at = ${now} where id = ${id ?? ''}`
+    expect(await sweep(new Date(now.getTime() + orderTextMs - 1000))).toBe(0)
+    await db.sql`update outbox set claimed_at = ${new Date(now.getTime() + orderTextMs)} where id = ${id ?? ''}`
+    expect(await sweep(new Date(now.getTime() + orderTextMs + 1000))).toBe(0)
+    await db.sql`update outbox set claimed_at = null where id = ${id ?? ''}`
+    expect(await sweep(new Date(now.getTime() + orderTextMs + 1000))).toBe(1)
+    const [row] = await db.sql<{ payload: unknown }[]>`select payload from outbox where id = ${id ?? ''}`
+    expect(row?.payload).toEqual({ message: 'order.shipped', redacted: true })
   })
 
   it('refuses to queue a text that isn’t one of its messages', async () => {
