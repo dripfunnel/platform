@@ -49,6 +49,10 @@ export const sampleLocale: StoreLocale | null = harness
         { currency: 'AED', perEuro: '4.00', publishedOn: '2026-10-05' },
         { currency: 'GBP', perEuro: '0.84', publishedOn: '2026-10-05' },
       ],
+      examples: [
+        { currency: 'USD', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+        { currency: 'AED', from: { amount: '10000', currency: 'INR' }, none: { amount: '400' }, nearest: { amount: '400' }, ends99: { amount: '499' } },
+      ],
     }
   : null
 

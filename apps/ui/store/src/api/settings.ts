@@ -56,6 +56,16 @@ const localeSchema = z.object({
   currencies: z.array(z.object({ code: z.string(), mode: z.enum(['convert', 'manual']), rounding: z.enum(['none', 'nearest', 'ends-99']), status: z.string() })),
   languages: z.array(z.object({ code: z.string(), status: z.string() })),
   rates: z.array(z.object({ currency: z.string(), perEuro: z.string(), publishedOn: z.string() })),
+  /** 100 of the pricing currency in each other one under each rounding, worked out by the API (minor units). */
+  examples: z.array(
+    z.object({
+      currency: z.string(),
+      from: z.object({ amount: z.string(), currency: z.string() }),
+      none: z.object({ amount: z.string() }).nullable(),
+      nearest: z.object({ amount: z.string() }).nullable(),
+      ends99: z.object({ amount: z.string() }).nullable(),
+    }),
+  ),
 })
 export type StoreLocale = z.infer<typeof localeSchema>
 
@@ -63,7 +73,7 @@ export type StoreLocale = z.infer<typeof localeSchema>
 export const loadLocale = async (): Promise<StoreLocale | null> =>
   (
     await query(
-      '{ storeLocale { pricingCurrency mainLanguage offeredLanguages currencies { code mode rounding status } languages { code status } rates { currency perEuro publishedOn } } }',
+      '{ storeLocale { pricingCurrency mainLanguage offeredLanguages currencies { code mode rounding status } languages { code status } rates { currency perEuro publishedOn } examples { currency from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }',
       z.object({ storeLocale: localeSchema.nullable() }),
     )
   ).storeLocale
