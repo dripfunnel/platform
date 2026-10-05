@@ -58,8 +58,7 @@ export const markUserSignedIn = async (tx: ScopedSql, userId: string, now: Date)
   await tx`update "user" set last_sign_in_at = ${now}, failed_code_count = 0, locked_until = null where id = ${userId}`
 }
 
-/** A good code clears the count; a TOTP step is kept so the same code can't be used again. */
-/** False when an authenticator step this new or newer was already spent, by this request's twin too. */
+/** Clears the wrong-code count and keeps the TOTP step; false when that step or a newer one was already spent. */
 export const recordUserGoodCode = async (tx: ScopedSql, userId: string, step: number | null, now: Date): Promise<boolean> =>
   (await tx`
     update "user" set failed_code_count = 0, locked_until = null, last_sign_in_at = ${now},
