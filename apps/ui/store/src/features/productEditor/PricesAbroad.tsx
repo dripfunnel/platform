@@ -13,9 +13,16 @@ const money = (p: Pick<CurrencyPrice, 'amount' | 'currency'>) => formatMoney({ a
  * "Shoppers abroad" for a product without choices: each currency the store converts shows the price it was saved
  * with; each it prices by hand takes a typed price, and says it isn't for sale there until one is typed.
  */
-export const PricesAbroad = ({ draft, update, disabled, currencies, converted, problems }: { draft: Draft; update: Update; disabled: boolean; currencies: readonly { code: string; mode: 'auto' | 'manual' }[]; converted: readonly CurrencyPrice[]; problems: readonly DraftProblem[] }) => {
+export const PricesAbroad = ({ draft, update, disabled, currencies, converted, problems, failed }: { draft: Draft; update: Update; disabled: boolean; currencies: readonly { code: string; mode: 'auto' | 'manual' }[]; converted: readonly CurrencyPrice[]; problems: readonly DraftProblem[]; failed: boolean }) => {
   const id = useId()
   const version = draft.versions[0]
+  if (version && failed)
+    return (
+      <div className="df-editor-abroad">
+        <h3>{words.abroad}</h3>
+        <p className="df-editor-problem" role="alert">{words.abroadFailed}</p>
+      </div>
+    )
   if (!version || currencies.length === 0) return null
   const set = (code: string, text: string) => update((d) => ({ ...d, versions: d.versions.map((v, i) => (i === 0 ? { ...v, manualPrices: { ...v.manualPrices, [code]: text } } : v)) }))
   return (

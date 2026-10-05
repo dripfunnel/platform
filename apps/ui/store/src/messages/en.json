@@ -1106,6 +1106,7 @@
       "loss": "You lose {amount} on each sale",
       "compareHelp": "Show a crossed-out price only when it was really sold for that before.",
       "abroad": "Shoppers abroad",
+      "abroadFailed": "Prices in your other currencies didn’t load, so they can’t be shown or changed here. Reload to try again.",
       "auto": "{price} · set automatically",
       "autoNone": "Set automatically once the price is saved",
       "autoNote": "Converted from your price at today’s rate, rounded as Settings › Markets says.",

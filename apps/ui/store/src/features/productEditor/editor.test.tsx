@@ -591,6 +591,18 @@ describe('the product editor', () => {
     expect(main.getAttribute('aria-selected')).toBe('true')
   })
 
+  it('says the prices in other currencies didn’t load, rather than showing none or unsaved ones', async () => {
+    api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'auto' }])
+    api.loadPricing.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    expect(screen.getByText(words.price.abroadFailed)).toBeTruthy()
+    expect(screen.queryByText(words.price.autoNone)).toBeNull()
+    cleanup()
+    api.loadStoreCurrencies.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
+    await show(owner)
+    expect(screen.getByText(words.price.abroadFailed)).toBeTruthy()
+  })
+
   it('prices each hand-priced currency, and shows the converted ones as saved', async () => {
     api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'auto' }, { code: 'AED', mode: 'manual' }])
     api.loadPricing.mockResolvedValue([{ versionId: 'ver-1', prices: [{ currency: 'USD', amount: '1599', compareAtAmount: null, source: 'converted' }], inMarket: null }])
@@ -602,5 +614,20 @@ describe('the product editor', () => {
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     expect((api.saveProduct.mock.calls[0]?.[2] as { versions: { prices: unknown }[] }).versions[0]?.prices).toEqual([{ currency: 'INR', amount: '129900' }, { currency: 'AED', amount: '5500' }])
+  })
+
+  it('leaves the product unchanged when a related product is picked and then removed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'related', enabled: true, inPlan: true }], badges: [] })
+    listApi.loadProducts.mockResolvedValue({ rows: [{ id: 'p2', name: 'Kurta' }], next: null, previous: null })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.related) }))
+    fireEvent.change(screen.getByLabelText(words.sections.relatedSearch), { target: { value: 'kur' } })
+    await act(async () => vi.advanceTimersByTimeAsync(350))
+    vi.useRealTimers()
+    fireEvent.click(screen.getByRole('button', { name: 'Kurta' }))
+    expect(screen.getByRole('region', { name: words.bar.unsaved })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Kurta' }))
+    expect(screen.queryByRole('region', { name: words.bar.unsaved })).toBeNull()
   })
 })

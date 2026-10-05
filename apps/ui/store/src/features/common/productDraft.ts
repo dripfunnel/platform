@@ -388,7 +388,9 @@ export const inputOf = (draft: Draft, currency: string, side: 'merchant' | 'supp
         ...v.otherPrices.filter((p) => v.manualPrices[p.currency] === undefined).map((p) => ({ currency: p.currency, amount: p.amount, ...(p.compareAtAmount ? { compareAtAmount: p.compareAtAmount } : {}) })),
         ...Object.entries(v.manualPrices).flatMap(([c, t]) => {
           const typed = amount(t, c)
-          return typed ? [{ currency: c, amount: typed }] : []
+          // The form edits the price only; a compare-at price stored for that currency stays.
+          const compareAt = v.otherPrices.find((p) => p.currency === c)?.compareAtAmount
+          return typed ? [{ currency: c, amount: typed, ...(compareAt ? { compareAtAmount: compareAt } : {}) }] : []
         }),
       ],
       ...(cost ? { cost: { currency, amount: cost } } : v.cost.trim() === '' && v.otherCost ? { cost: v.otherCost } : {}),

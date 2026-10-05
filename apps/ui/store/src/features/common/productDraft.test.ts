@@ -182,4 +182,12 @@ describe('the editor’s draft (CatEditor)', () => {
     expect(inputOf(emptied, 'INR', 'merchant').versions[0]?.prices.map((x) => x.currency)).toEqual(['INR', 'USD'])
     expect(problemsOf({ ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: 'abc' } })) }, 'INR')).toContain('manual')
   })
+
+  it('keeps a hand-priced currency’s stored compare-at price when its price is saved', () => {
+    const p = product({ versions: [{ ...product().versions[0], prices: [{ currency: 'INR', amount: '249900', compareAtAmount: null }, { currency: 'AED', amount: '10000', compareAtAmount: '15000' }] } as EditorProduct['versions'][number]] })
+    const d = draftOf(p, 'INR', { manualCurrencies: ['AED'] })
+    expect(inputOf(d, 'INR', 'merchant').versions[0]?.prices).toEqual([{ currency: 'INR', amount: '249900' }, { currency: 'AED', amount: '10000', compareAtAmount: '15000' }])
+    const typed = { ...d, versions: d.versions.map((v) => ({ ...v, manualPrices: { AED: '120' } })) }
+    expect(inputOf(typed, 'INR', 'merchant').versions[0]?.prices[1]).toEqual({ currency: 'AED', amount: '12000', compareAtAmount: '15000' })
+  })
 })
