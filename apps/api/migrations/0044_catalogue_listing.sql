@@ -152,16 +152,16 @@ create table product_compliance (
   foreign key (product_id, store_id) references product (id, store_id)
 );
 
--- "Where you sell" per product (fact 42); jsonb countries, as size_chart's lists.
 -- The product's sections are read and replaced by product on every save.
-create index product_badge_badge_idx on product_badge (store_id, badge_id);
-create index product_related_target_idx on product_related (related_product_id);
--- A removed filter value clears the specifications that mirror it (the set null foreign key).
-create index product_spec_filter_value_idx on product_spec (store_id, filter_value_id) where filter_value_id is not null;
 create index product_spec_product_idx on product_spec (product_id, position);
 create index product_highlight_product_idx on product_highlight (product_id, position);
 create index product_faq_product_idx on product_faq (product_id, position);
+-- Reached from the other side: a badge's change, a product's delete, a removed filter value (set null).
+create index product_badge_badge_idx on product_badge (store_id, badge_id);
+create index product_related_target_idx on product_related (related_product_id);
+create index product_spec_filter_value_idx on product_spec (store_id, filter_value_id) where filter_value_id is not null;
 
+-- "Where you sell" per product (fact 42); jsonb countries, as size_chart's lists.
 create table product_market_rule (
   product_id uuid primary key,
   store_id uuid not null,
