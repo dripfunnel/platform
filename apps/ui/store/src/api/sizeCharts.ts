@@ -9,22 +9,22 @@ const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string(
 const summarySchema = z.object({ id: z.string(), name: z.string(), unit: z.enum(['cm', 'in']), products: z.number().int(), supplierId: z.string().nullable() })
 export type SizeChartSummary = z.infer<typeof summarySchema>
 
-/** Every chart the caller reads: the merchant side the store's and its suppliers', a supplier its own. */
-export const loadSizeChartList = (): Promise<SizeChartSummary[]> =>
-  allPages(
-    async (after) =>
-      (
-        await query(
-          'query C($after: String) { sizeCharts(first: 50, after: $after) { nodes { id name unit products supplierId } pageInfo { hasNextPage endCursor } } }',
-          z.object({ sizeCharts: z.object({ nodes: z.array(summarySchema), pageInfo: pageInfoSchema }) }),
-          { after },
-        )
-      ).sizeCharts,
-  )
-
-/** How many charts an owner may have (the API's cap), for the meter and the Limit reached state. */
-export const loadSizeChartLimit = async (): Promise<number> =>
-  (await query('{ sizeCharts(first: 1) { limit } }', z.object({ sizeCharts: z.object({ limit: z.number().int() }) }))).sizeCharts.limit
+/** Every chart the caller reads (the merchant side the store's and its suppliers', a supplier its own), and the cap on an owner's charts, read with them. */
+export const loadSizeChartList = async (): Promise<{ charts: SizeChartSummary[]; limit: number }> => {
+  let limit = 0
+  const charts = await allPages(async (after) => {
+    const page = (
+      await query(
+        'query C($after: String) { sizeCharts(first: 50, after: $after) { limit nodes { id name unit products supplierId } pageInfo { hasNextPage endCursor } } }',
+        z.object({ sizeCharts: z.object({ limit: z.number().int(), nodes: z.array(summarySchema), pageInfo: pageInfoSchema }) }),
+        { after },
+      )
+    ).sizeCharts
+    limit = page.limit
+    return page
+  })
+  return { charts, limit }
+}
 
 const chartSchema = z.object({
   id: z.string(),
