@@ -31,7 +31,9 @@ export const handleBrandUpload = async (request: Request, deps: BrandUploadRoute
   if (!(brandFileKinds as readonly string[]).includes(kind ?? '')) return refuse(400, 'INVALID_KIND')
   if (!deps.store) return refuse(503, 'NOT_CONNECTED')
   if (Number(request.headers.get('content-length') ?? 0) > maxBrandFileBytes) return refuse(413, 'TOO_LARGE')
-  const bytes = await readCapped(request, maxBrandFileBytes)
+  const read = await readCapped(request, maxBrandFileBytes)
+  if (!read.ok) return refuse(413, 'TOO_LARGE')
+  const bytes = read.bytes
   const result = await uploadBrandFile({ sql: deps.sql, caller, facts: factsOf(request), activity: deps.activity, store: deps.store }, kind as BrandFileKind, bytes)
   if (result.ok) return json(200, result)
   return refuse(result.code === 'FORBIDDEN' ? 403 : result.code === 'TOO_LARGE' ? 413 : 415, result.code)
