@@ -12,6 +12,7 @@ export interface FacetRow {
   name: string
   position: number
   shopper_visible: boolean
+  revision: number
   /** Products tagged with each value, in the caller's scope: a supplier counts its own (ACCESS §7.1). */
   values: { id: string; name: string; position: number; products: number }[]
 }
@@ -28,7 +29,7 @@ export const selectFacets = (tx: ScopedSql, storeId: string, window: PageWindow)
   const backwards = window.before !== null && window.after === null
   return tx<FacetRow[]>`
     with page as (
-      select f.id, f.name, f.position, f.shopper_visible from filter f
+      select f.id, f.name, f.position, f.shopper_visible, f.revision from filter f
       where f.store_id = ${storeId}
         and ${window.after ? tx`(-f.position, f.id) < (${window.after.occurredAt.getTime()}, ${window.after.id})` : tx`true`}
         and ${window.before ? tx`(-f.position, f.id) > (${window.before.occurredAt.getTime()}, ${window.before.id})` : tx`true`}
@@ -41,7 +42,7 @@ export const selectFacets = (tx: ScopedSql, storeId: string, window: PageWindow)
       where v.filter_id in (select id from page)
       group by pfv.filter_value_id
     )
-    select page.id, page.name, page.position, page.shopper_visible,
+    select page.id, page.name, page.position, page.shopper_visible, page.revision,
       coalesce((select json_agg(json_build_object('id', v.id, 'name', v.name, 'position', v.position, 'products', coalesce(c.n, 0)) order by v.position)
         from filter_value v left join counts c on c.filter_value_id = v.id where v.filter_id = page.id), '[]'::json) as values
     from page
@@ -57,10 +58,18 @@ export interface FacetWrite {
   values: { id: string; name: string; position: number; kept: boolean }[]
 }
 
-/** The filter and its values as given: kept values renamed and reordered, new ones added, the rest removed. */
-export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, exists: boolean, now: Date): Promise<void> => {
+/**
+ * The filter and its values as given: kept values renamed and reordered, new ones added, the rest removed.
+ * With the revision it was read at, false (and nothing written) when another save came first.
+ */
+export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, exists: boolean, now: Date, readAt: number | null = null): Promise<boolean> => {
   if (exists) {
-    await tx`update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, updated_at = ${now} where id = ${facet.id} and store_id = ${storeId}`
+    const [saved] = await tx`
+      update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, revision = revision + 1, updated_at = ${now}
+      where id = ${facet.id} and store_id = ${storeId} and ${readAt === null ? tx`true` : tx`revision = ${readAt}`}
+      returning id
+    `
+    if (!saved) return false
     const kept = pgArray(facet.values.filter((v) => v.kept).map((v) => v.id))
     // A rule naming a value that goes would point at nothing: it goes with it, and the recompute follows.
     await tx`
@@ -79,11 +88,12 @@ export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWri
   if (added.length > 0) {
     await tx`insert into filter_value (id, filter_id, store_id, name, position) select x.id, ${facet.id}, ${storeId}, x.name, x.position from jsonb_to_recordset(${rowsOf(tx, added)}) as x(id uuid, name text, position int)`
   }
+  return true
 }
 
-export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string[] | null> => {
-  const [facet] = await tx<{ ids: string[] | null }[]>`select (select json_agg(v.id) from filter_value v where v.filter_id = f.id) as ids from filter f where f.id = ${facetId} and f.store_id = ${storeId}`
-  return facet ? (facet.ids ?? []) : null
+export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetId: string): Promise<{ ids: string[]; revision: number } | null> => {
+  const [facet] = await tx<{ ids: string[] | null; revision: number }[]>`select f.revision, (select json_agg(v.id) from filter_value v where v.filter_id = f.id) as ids from filter f where f.id = ${facetId} and f.store_id = ${storeId}`
+  return facet ? { ids: facet.ids ?? [], revision: facet.revision } : null
 }
 
 export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> => {
@@ -105,6 +115,8 @@ export const mergeFacetValues = async (tx: ScopedSql, storeId: string, targetId:
     from filter_value where store_id = ${storeId} and id = any(${pgArray([targetId, ...sourceIds])}::uuid[])
   `
   if (!same?.ok) return -1
+  // Its values change, so a save from an earlier read of the filter must not undo the merge.
+  await tx`update filter set revision = revision + 1 where store_id = ${storeId} and id = (select filter_id from filter_value where id = ${targetId})`
   await tx`
     insert into product_filter_value (product_id, version_id, filter_value_id, store_id)
     select product_id, version_id, ${targetId}, store_id from product_filter_value where store_id = ${storeId} and filter_value_id = any(${sources}::uuid[])

@@ -252,6 +252,8 @@ export interface FacetInput {
   name: string
   shopperVisible?: boolean | null | undefined
   position?: number | null | undefined
+  /** The revision read; left out, the save is made whatever came between. */
+  revision?: number | null | undefined
   values: readonly { id?: string | null | undefined; name: string }[]
 }
 
@@ -313,12 +315,14 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       if (id !== null && !isUuid(id)) throw new Refused('NOT_FOUND')
       const existing = id ? await selectFacetValueIds(tx, storeId, id) : null
       if (id !== null && existing === null) throw new Refused('NOT_FOUND')
+      // Said before the values are checked: a value named from an older read may be the very change missed.
+      if (existing && input.revision !== null && input.revision !== undefined && input.revision !== existing.revision) throw new Refused('STALE_REVISION')
       const seen = new Set<string>()
       const values = input.values.map((v, position) => {
         const valueName = name(v.name, 60)
         if (seen.has(valueName.toLowerCase())) throw new Refused('DUPLICATE_VALUE')
         seen.add(valueName.toLowerCase())
-        const kept = v.id ? (existing ?? []).includes(v.id) : false
+        const kept = v.id ? (existing?.ids ?? []).includes(v.id) : false
         if (v.id && !kept) throw new Refused('INVALID_INPUT')
         return { id: kept && v.id ? v.id : crypto.randomUUID(), name: valueName, position, kept }
       })
@@ -328,7 +332,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         if ((await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
       }
       const facetId = id ?? crypto.randomUUID()
-      await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())
+      if (!(await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now(), input.revision ?? null))) throw new Refused('STALE_REVISION')
       await activity.record(tx, entry(structureAudit.facetSaved, { type: 'filter', id: facetId, label: facetName }))
       // A value removed is a rule's target gone: the collections that used it shrink.
       await recompute(tx)
