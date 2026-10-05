@@ -543,6 +543,24 @@ describe('the product editor', () => {
     expect(api.saveProduct).not.toHaveBeenCalled()
   })
 
+  it('moves between the language tabs with the arrow keys, one tab stop, labelling the panel it shows', async () => {
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [], mainLanguage: 'en-IN', translationLanguages: ['hi-IN'] })
+    translationApi.loadProductTranslation.mockResolvedValue([])
+    await show(owner)
+    const list = screen.getByRole('tablist', { name: words.translate.tabs })
+    const [main, hindi] = screen.getAllByRole('tab') as [HTMLElement, HTMLElement]
+    expect([main.tabIndex, hindi.tabIndex]).toEqual([0, -1])
+    expect(screen.getByRole('tabpanel', { name: main.textContent ?? '' }).id).toBe(main.getAttribute('aria-controls'))
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+    await settle()
+    expect(hindi.getAttribute('aria-selected')).toBe('true')
+    expect(document.activeElement).toBe(hindi)
+    expect([main.tabIndex, hindi.tabIndex]).toEqual([-1, 0])
+    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(hindi.id)
+    fireEvent.keyDown(list, { key: 'ArrowRight' })
+    expect(main.getAttribute('aria-selected')).toBe('true')
+  })
+
   it('prices each hand-priced currency, and shows the converted ones as saved', async () => {
     api.loadStoreCurrencies.mockResolvedValue([{ code: 'USD', mode: 'auto' }, { code: 'AED', mode: 'manual' }])
     api.loadPricing.mockResolvedValue([{ versionId: 'ver-1', prices: [{ currency: 'USD', amount: '1599', compareAtAmount: null, source: 'converted' }], inMarket: null }])

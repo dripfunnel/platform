@@ -1,6 +1,6 @@
 import { formatMoney, minorOf } from '@dripfunnel/shared/format'
 import { useId, useState } from 'react'
-import { loadMarkets, loadPricing, type CurrencyPrice } from '../../api/productEditor'
+import { loadMarketPrices, loadMarkets, type CurrencyPrice } from '../../api/productEditor'
 import { fill, locale, messages } from '../../messages'
 import type { Draft, DraftProblem } from '../common/productDraft'
 import type { Update } from './EditorCards'
@@ -60,8 +60,11 @@ export const MarketPrices = ({ productId }: { productId: string }) => {
   const show = () => {
     setMarkets({ kind: 'loading' })
     void loadMarkets()
-      // One answer per market, each priced by the API with its currency, rounding and adjustment.
-      .then((list) => Promise.all(list.map(async (m) => ({ name: m.name, price: (await loadPricing(productId, m.id))[0]?.inMarket ?? null }))))
+      // Each priced by the API with its currency, rounding and adjustment.
+      .then(async (list) => {
+        const prices = await loadMarketPrices(productId, list.map((m) => m.id))
+        return list.map((m) => ({ name: m.name, price: prices.get(m.id) ?? null }))
+      })
       .then(
         (rows) => setMarkets({ kind: 'shown', rows }),
         () => setMarkets({ kind: 'failed' }),

@@ -997,6 +997,12 @@
   font-size: 13px;
 }
 
+.df-editor-languages [role='tablist'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .df-editor-languages button {
   display: inline-flex;
   align-items: center;

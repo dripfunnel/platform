@@ -3,7 +3,7 @@ import { ConfirmDialog, EmptyState, ErrorState, LoadingState, Toast, useScreenSt
 import '@dripfunnel/shared/ui/list.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link, useBlocker, useNavigate, useParams, useRouterState } from '@tanstack/react-router'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { loadApprovalRequired, loadFacets, loadPricing, loadStoreCurrencies, loadProduct, loadProductBasics, loadProductCollections, loadSizeCharts, loadTaxSetup, saveProduct, setProductCollections, uploadPhoto, type EditorProduct, type ProductBasics, type TaxSetup } from '../../api/productEditor'
 import { deleteProducts, loadHandPicked } from '../../api/products'
 import { adjustReasons, adjustStock, loadProductStock, loadStockHistory, loadWarehouses, setStock, type StockLevel, type Warehouse } from '../../api/stock'
@@ -16,7 +16,8 @@ import { BasicsCard, KindCard, PhotosCard, PriceCard, type PendingPhoto } from '
 import { EditorSections, SidePanel } from './EditorSections'
 import { CollectionsPart, ListingSections, type EditorExtras as Extras } from './ListingSections'
 import { signed, StockCard, type StockHistoryView } from './StockCard'
-import { languageName, todoCount, TranslationView } from './TranslationView'
+import { LanguageTabs, languageTabId } from './LanguageTabs'
+import { todoCount, TranslationView } from './TranslationView'
 import { MarketPrices, PricesAbroad } from './PricesAbroad'
 import { editorSample, editorStates } from './editorStates'
 import './editor.css'
@@ -111,6 +112,7 @@ export const ProductEditor = () => {
   const [toast, setToast] = useState<string | null>(null)
   const [history, setHistory] = useState<StockHistoryView>(closedHistory)
   const [language, setLanguage] = useState<string | null>(null)
+  const panelId = useId()
   const [todo, setTodo] = useState<Record<string, number>>({})
   const [translationDirty, setTranslationDirty] = useState(false)
   const countRows = useCallback((rows: Parameters<typeof todoCount>[0]) => {
@@ -196,6 +198,7 @@ export const ProductEditor = () => {
   const waitsForApproval = access.side === 'supplier' && (access.proposes || view.approvalRequired)
   const saveLabel = saving ? words.saving : !access.canEdit ? words.stock.saveStock : waitsForApproval ? words.submit : isNew ? words.saveNew : words.save
   const physical = draft.kind === 'physical'
+  const tabbed = !isNew && product !== null && Boolean(view.extras.languages.main) && view.extras.languages.others.length > 0
   const home = view.warehouses.find((w) => w.isDefault) ?? view.warehouses[0] ?? null
 
   const upload = (id: string, file: File) => {
@@ -416,30 +419,23 @@ export const ProductEditor = () => {
         </div>
       ))}
 
-      {!isNew && product && view.extras.languages.main && view.extras.languages.others.length > 0 && (
-        <div className="df-editor-languages" role="tablist" aria-label={words.translate.tabs}>
-          <span>{words.translate.tabs}</span>
-          {[null, ...view.extras.languages.others].map((code) => (
-            <button
-              key={code ?? 'main'}
-              type="button"
-              role="tab"
-              aria-selected={language === code}
-              disabled={translationDirty && language !== code}
-              onClick={() => {
-                setLanguage(code)
-                setTranslationDirty(false)
-              }}
-            >
-              {code === null ? fill(words.translate.main, { language: languageName(view.extras.languages.main ?? '') }) : languageName(code)}
-              {code !== null && todo[code] !== undefined && <span>{todo[code] === 0 ? words.translate.done : fill(plural(words.translate.todo, todo[code] ?? 0), { count: String(todo[code]) })}</span>}
-            </button>
-          ))}
-        </div>
+      {tabbed && (
+        <LanguageTabs
+          main={view.extras.languages.main ?? ''}
+          others={view.extras.languages.others}
+          selected={language}
+          todo={todo}
+          locked={translationDirty}
+          panelId={panelId}
+          onSelect={(code) => {
+            setLanguage(code)
+            setTranslationDirty(false)
+          }}
+        />
       )}
 
       <div className="df-editor-layout">
-        <div className="df-editor-main">
+        <div className="df-editor-main" {...(tabbed ? { id: panelId, role: 'tabpanel', 'aria-labelledby': languageTabId(panelId, language) } : {})}>
           {language && product && view.extras.languages.main ? (
             <TranslationView productId={product.id} language={language} mainLanguage={view.extras.languages.main} supplier={access.side === 'supplier'} disabled={!access.canEdit} onSaved={setToast} onRows={countRows} onDirty={setTranslationDirty} />
           ) : (
