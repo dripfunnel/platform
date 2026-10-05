@@ -358,9 +358,12 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       products: [...clean.productIds, ...ruled('productId')],
       versions: ruled('versionId'),
       values: ruled('valueId'),
+      images: clean.fields.imageAssetId ? [clean.fields.imageAssetId] : [],
     })
     if (clean.fields.parentId && (clean.fields.parentId === id || !known.collections.has(clean.fields.parentId))) throw new Refused('INVALID_PARENT')
     if (!clean.productIds.every((p) => known.products.has(p))) throw new Refused('INVALID_INPUT')
+    // A collection's picture is one of this store's photos (CATALOG H).
+    if (clean.fields.imageAssetId && !known.images.has(clean.fields.imageAssetId)) throw new Refused('INVALID_INPUT')
     if (!ruled('productId').every((p) => known.products.has(p)) || !ruled('versionId').every((v) => known.versions.has(v)) || !ruled('valueId').every((v) => known.values.has(v))) {
       throw new Refused('INVALID_RULE')
     }
@@ -413,7 +416,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
     run(async (tx) => {
       const rows = cleanMenu(items)
       const linked = rows.map((r) => r.collection_id).filter((c): c is string => c !== null)
-      const known = await knownCatalogueIds(tx, storeId, { collections: linked, products: [], versions: [], values: [] })
+      const known = await knownCatalogueIds(tx, storeId, { collections: linked, products: [], versions: [], values: [], images: [] })
       if (!linked.every((c) => known.collections.has(c))) throw new Refused('INVALID_LINK')
       const saved = await writeMenu(tx, storeId, revision, optional(menuName, 60) ?? 'Main menu', rows, now())
       if (saved === null) throw new Refused('STALE_REVISION')
