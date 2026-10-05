@@ -6,6 +6,7 @@ import { deleteMarket, saveMarket, setEverywhereElse, type Market } from '../../
 import type { StoreLocale } from '../../api/settings'
 import { fill, locale, messages } from '../../messages'
 import { ProductSearch } from '../common/ProductSearch'
+import { RadioCards } from '../common/RadioCards'
 
 const words = messages.settings.markets
 
@@ -393,13 +394,16 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
           <span className="df-set-label" id={`${id}-products`}>
             {words.productsTitle}
           </span>
-          <div className="df-team-chips" role="radiogroup" aria-labelledby={`${id}-products`}>
-            {(['all', 'some'] as const).map((k) => (
-              <button key={k} type="button" role="radio" aria-checked={draft.products === k} disabled={ro} onClick={() => set({ products: k })}>
-                {k === 'all' ? words.allProducts : words.allExcept}
-              </button>
-            ))}
-          </div>
+          <RadioCards
+            labelledBy={`${id}-products`}
+            value={draft.products}
+            disabled={ro}
+            onChange={(products) => set({ products })}
+            options={[
+              { value: 'all', label: words.allProducts },
+              { value: 'some', label: words.allExcept },
+            ]}
+          />
           {draft.products === 'some' && (
             <>
               <div className="df-mkt-excluded">
