@@ -251,16 +251,18 @@ export const registerProfile = (builder: StoreBuilder) => {
     }),
     changeEmail: t.field({
       type: 'Boolean',
-      args: { email: t.arg.string({ required: true }) },
+      args: { email: t.arg.string({ required: true }), password: t.arg.string({ required: true }) },
       extensions: { access: { ...session, audit: 'person.email_change_requested', whileReadOnly: true } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
         const email = args.email.trim()
         if (email.length > 320 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw refused('INVALID_EMAIL', 'That email doesn’t look right.')
         const now = ctx.now()
-        await withSystemScope(sqlOf(ctx), async (tx) => {
+        const refusal = await withSystemScope(sqlOf(ctx), async (tx): Promise<GraphQLError | null> => {
+          const proven = await provePassword(tx, ctx, person, args.password, now)
+          if (proven) return proven
           const profile = await readProfile(tx, person, now)
-          if (profile.email.toLowerCase() === email.toLowerCase()) return
+          if (profile.email.toLowerCase() === email.toLowerCase()) return null
           if ((await countEmailChangesSince(tx, person.id, new Date(now.getTime() - 24 * 60 * 60 * 1000))) >= maxEmailChangesPerDay) throw refused('RATE_LIMITED', 'Try again tomorrow.')
           // The same answer whether or not another account uses the address: the link then changes nothing.
           const changeId = await insertEmailChange(tx, userOf(person), email, new Date(now.getTime() + emailChangeValidMs), now)
@@ -268,7 +270,9 @@ export const registerProfile = (builder: StoreBuilder) => {
             await queueSideEffect(tx, { kind: 'email', idempotencyKey: `${template}:${changeId}`, payload: { template, emailChangeId: changeId }, partnerId: person.partnerId, storeId: null })
           }
           await record(ctx, tx, personEmailChangeRequested(userOf(person), ctx.facts))
+          return null
         })
+        if (refusal) throw refusal
         return true
       },
     }),
@@ -303,8 +307,8 @@ export const registerProfile = (builder: StoreBuilder) => {
         const outcome = await withSystemScope(sqlOf(ctx), async (tx): Promise<SecondFactorStep | GraphQLError> => {
           const profile = await readProfile(tx, person, now)
           const turningOn = profile.two_factor_method === null
-          // Turning off always needs the password; a switch needs it on the start, whose pending state the confirm needs.
-          if (!turningOn && (args.method === 'off' || code === null)) {
+          // Every start and every off needs the password; a confirm needs the pending state only a proven start stores.
+          if (args.method === 'off' || code === null) {
             const proven = await provePassword(tx, ctx, person, args.password, now)
             if (proven) return proven
           }
@@ -388,7 +392,7 @@ export const registerProfile = (builder: StoreBuilder) => {
       resolve: async (_, __, ctx) => {
         const person = personOf(ctx)
         return withSystemScope(sqlOf(ctx), async (tx) => {
-          const ended = await endOtherSessions(tx, person.id, person.sessionHash)
+          const ended = await endOtherSessions(tx, person.id, person.sessionHash, ctx.now())
           await record(ctx, tx, personOtherSessionsEnded(userOf(person), ctx.facts))
           return ended
         })

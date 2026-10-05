@@ -138,8 +138,8 @@ describe('changing my email', () => {
   it('changes it only from the link sent to the new address, telling the old one', async () => {
     const id = await person(t.partnerA, 'old.address@a.example')
     const cookie = await sessionFor(id)
-    expect((await gql('mutation { changeEmail(email: "not-an-email") }', cookie)).code).toBe('INVALID_EMAIL')
-    expect((await gql('mutation { changeEmail(email: "new.address@a.example") }', cookie)).data?.['changeEmail']).toBe(true)
+    expect((await gql(`mutation { changeEmail(email: "not-an-email", password: "${password}") }`, cookie)).code).toBe('INVALID_EMAIL')
+    expect((await gql(`mutation { changeEmail(email: "new.address@a.example", password: "${password}") }`, cookie)).data?.['changeEmail']).toBe(true)
     const emails = await db.sql<{ template: string }[]>`select payload->>'template' as template from outbox where kind = 'email' and payload->>'emailChangeId' is not null order by created_at`
     expect(emails.map((e) => e.template).sort()).toEqual(['user-email-change', 'user-email-changing'])
     expect(((await gql('{ profile { email pendingEmail } }', cookie)).data?.['profile'])).toEqual({ email: 'old.address@a.example', pendingEmail: 'new.address@a.example' })
@@ -156,7 +156,7 @@ describe('changing my email', () => {
     const id = await person(t.partnerA, 'wants.taken@a.example')
     await person(t.partnerA, 'taken@a.example')
     const cookie = await sessionFor(id)
-    expect((await gql('mutation { changeEmail(email: "taken@a.example") }', cookie)).data?.['changeEmail']).toBe(true)
+    expect((await gql(`mutation { changeEmail(email: "taken@a.example", password: "${password}") }`, cookie)).data?.['changeEmail']).toBe(true)
     const [change] = await db.sql<{ id: string }[]>`select id from user_email_change where user_id = ${id}`
     const token = (await withSystemScope(db.sql, (tx) => mintEmailChangeToken(tx, change?.id ?? '', now))) ?? ''
     expect(await confirm(token)).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
@@ -164,16 +164,32 @@ describe('changing my email', () => {
     expect(u?.email).toBe('wants.taken@a.example')
   })
 
+  it('needs the current password, and a password change or signing out elsewhere cancels a change in flight', async () => {
+    const id = await person(t.partnerA, 'guarded@a.example')
+    const cookie = await sessionFor(id)
+    expect((await gql('mutation { changeEmail(email: "thief@evil.example", password: "a guess") }', cookie)).code).toBe('INVALID_CREDENTIALS')
+    await gql(`mutation { changeEmail(email: "thief@evil.example", password: "${password}") }`, cookie)
+    const [change] = await db.sql<{ id: string }[]>`select id from user_email_change where user_id = ${id}`
+    const token = (await withSystemScope(db.sql, (tx) => mintEmailChangeToken(tx, change?.id ?? '', now))) ?? ''
+    await gql(`mutation { changePassword(current: "${password}", next: "a fresh passphrase here") }`, cookie)
+    expect(await confirm(token)).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
+    await gql('mutation { changeEmail(email: "again@evil.example", password: "a fresh passphrase here") }', cookie)
+    const [second] = await db.sql<{ id: string }[]>`select id from user_email_change where user_id = ${id} and used_at is null`
+    const again = (await withSystemScope(db.sql, (tx) => mintEmailChangeToken(tx, second?.id ?? '', now))) ?? ''
+    await gql('mutation { signOutOtherSessions }', cookie)
+    expect(await confirm(again)).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
+  })
+
   it('lets only the newest link work, and asks at most three times a day', async () => {
     const id = await person(t.partnerA, 'indecisive@a.example')
     const cookie = await sessionFor(id)
-    await gql('mutation { changeEmail(email: "first@a.example") }', cookie)
+    await gql(`mutation { changeEmail(email: "first@a.example", password: "${password}") }`, cookie)
     const [first] = await db.sql<{ id: string }[]>`select id from user_email_change where user_id = ${id} order by created_at limit 1`
     const firstToken = (await withSystemScope(db.sql, (tx) => mintEmailChangeToken(tx, first?.id ?? '', now))) ?? ''
-    await gql('mutation { changeEmail(email: "second@a.example") }', cookie)
+    await gql(`mutation { changeEmail(email: "second@a.example", password: "${password}") }`, cookie)
     expect(await confirm(firstToken)).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
-    await gql('mutation { changeEmail(email: "third@a.example") }', cookie)
-    expect((await gql('mutation { changeEmail(email: "fourth@a.example") }', cookie)).code).toBe('RATE_LIMITED')
+    await gql(`mutation { changeEmail(email: "third@a.example", password: "${password}") }`, cookie)
+    expect((await gql(`mutation { changeEmail(email: "fourth@a.example", password: "${password}") }`, cookie)).code).toBe('RATE_LIMITED')
   })
 })
 
@@ -216,12 +232,14 @@ describe('two-step sign-in', () => {
   it('turns on an authenticator, refusing a wrong code, and shows ten backup codes once', async () => {
     const id = await person(t.partnerA, 'app.user@a.example')
     const cookie = await sessionFor(id)
-    const start = await gql('mutation { setSecondFactor(method: "app") { secret uri } }', cookie)
+    expect((await gql('mutation { setSecondFactor(method: "app") { secret uri } }', cookie)).code).toBe('INVALID_CREDENTIALS')
+    const start = await gql(`mutation { setSecondFactor(method: "app", password: "${password}") { secret uri } }`, cookie)
     const { secret, uri } = start.data?.['setSecondFactor'] as { secret: string; uri: string }
     expect(uri).toContain('issuer=Partner%20A')
     expect((await gql('mutation { setSecondFactor(method: "app", code: "000000") { done } }', cookie)).code).toBe('WRONG_CODE')
     const [counted] = await db.sql<{ failed_code_count: number }[]>`select failed_code_count from "user" where id = ${id}`
-    expect(counted?.failed_code_count).toBe(1)
+    // The start without a password and the wrong code are one count, as sign-in's.
+    expect(counted?.failed_code_count).toBe(2)
     const done = await gql(`mutation { setSecondFactor(method: "app", code: "${await codeAt(secret, stepAt(now))}") { done backupCodes } }`, cookie)
     expect((done.data?.['setSecondFactor'] as { backupCodes: string[] }).backupCodes).toHaveLength(10)
     expect(((await gql('{ profile { twoFactor { method backupCodesLeft } } }', cookie)).data?.['profile'])).toEqual({ twoFactor: { method: 'app', backupCodesLeft: 10 } })

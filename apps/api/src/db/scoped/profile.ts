@@ -36,14 +36,17 @@ export const updateProfileDetails = async (tx: ScopedSql, userId: string, d: { n
   await tx`update "user" set name = ${d.name}, phone = ${d.phone}, theme = ${d.theme} where id = ${userId}`
 }
 
-/** The new password; every other session of the person ends on every host (ACCESS.md §4). */
+/** The new password; every other session ends on every host (ACCESS.md §4), and so does any email change in flight. */
 export const changeUserPassword = async (tx: ScopedSql, userId: string, passwordHash: string, keepSessionHash: string, now: Date): Promise<void> => {
   await tx`update "user" set password_hash = ${passwordHash}, password_changed_at = ${now} where id = ${userId}`
-  await tx`delete from user_session where user_id = ${userId} and id_hash <> ${keepSessionHash}`
+  await endOtherSessions(tx, userId, keepSessionHash, now)
 }
 
-export const endOtherSessions = async (tx: ScopedSql, userId: string, keepSessionHash: string): Promise<number> =>
-  (await tx`delete from user_session where user_id = ${userId} and id_hash <> ${keepSessionHash}`).count
+/** Securing the account: the other sessions end, and an open email change can no longer be confirmed. */
+export const endOtherSessions = async (tx: ScopedSql, userId: string, keepSessionHash: string, now: Date): Promise<number> => {
+  await tx`update user_email_change set used_at = ${now} where user_id = ${userId} and used_at is null`
+  return (await tx`delete from user_session where user_id = ${userId} and id_hash <> ${keepSessionHash}`).count
+}
 
 export interface SessionRow {
   current: boolean
