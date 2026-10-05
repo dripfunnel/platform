@@ -31,6 +31,7 @@ import {
 } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { slugFrom } from './rules'
+import { isUuid } from '#core/ids'
 
 // Collections, filters and menus (CATALOG-DESIGN H–J; FIRST-RELEASE §12): the merchant side's. An
 // automatic collection's products are recomputed after commit (fact 14), through `recompute`.
@@ -49,7 +50,6 @@ export const maxMenuItems = 100
 export const maxFacetValues = 200
 export const maxFacetPosition = 10_000
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type StructureRefusal =
   | 'NAME_REQUIRED'
@@ -103,7 +103,7 @@ export interface RuleInput {
 /** A rule as the recompute reads it (fact 11): filter choice, name contains, a product or version, a price range. */
 export const cleanRule = (r: RuleInput): RuleRow => {
   const id = (v: string | null | undefined) => {
-    if (!v || !uuid.test(v)) throw new Refused('INVALID_RULE')
+    if (!v || !isUuid(v)) throw new Refused('INVALID_RULE')
     return v.toLowerCase()
   }
   switch (r.kind) {
@@ -158,14 +158,14 @@ export const cleanCollection = (input: CollectionInput): { fields: CollectionFie
   const sort = input.sort ?? (input.kind === 'manual' ? 'manual' : 'newest')
   if (!sorts.includes(sort)) throw new Refused('INVALID_INPUT')
   const parentId = input.parentId ?? null
-  if (parentId !== null && !uuid.test(parentId)) throw new Refused('INVALID_PARENT')
+  if (parentId !== null && !isUuid(parentId)) throw new Refused('INVALID_PARENT')
   const imageAssetId = input.imageAssetId ?? null
-  if (imageAssetId !== null && !uuid.test(imageAssetId)) throw new Refused('INVALID_INPUT')
+  if (imageAssetId !== null && !isUuid(imageAssetId)) throw new Refused('INVALID_INPUT')
   const rules = input.kind === 'automatic' ? (input.rules ?? []) : []
   if (rules.length > maxRules) throw new Refused('TOO_MANY_RULES')
   const productIds = input.kind === 'manual' ? [...new Set((input.productIds ?? []).map((id) => id.toLowerCase()))] : []
   if (productIds.length > maxCollectionProducts) throw new Refused('TOO_MANY_PRODUCTS')
-  if (!productIds.every((id) => uuid.test(id))) throw new Refused('INVALID_INPUT')
+  if (!productIds.every((id) => isUuid(id))) throw new Refused('INVALID_INPUT')
   return {
     fields: {
       name: collectionName,
@@ -211,7 +211,7 @@ export const cleanMenu = (items: readonly MenuItemInput[]): Omit<MenuItemRow, 'p
     const label = name(item.label, 60)
     const id = crypto.randomUUID()
     if (item.kind === 'collection') {
-      if (!item.collectionId || !uuid.test(item.collectionId)) throw new Refused('INVALID_LINK')
+      if (!item.collectionId || !isUuid(item.collectionId)) throw new Refused('INVALID_LINK')
       rows.push({ id, parent_id: parent, label, kind: 'collection', collection_id: item.collectionId.toLowerCase(), url: null })
     } else if (item.kind === 'page') {
       const url = item.url?.trim() ?? ''
@@ -299,7 +299,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       if (!Number.isInteger(position) || position < 0 || position > maxFacetPosition) throw new Refused('INVALID_INPUT')
       if (input.values.length > maxFacetValues) throw new Refused('INVALID_INPUT')
       const id = input.id ?? null
-      if (id !== null && !uuid.test(id)) throw new Refused('NOT_FOUND')
+      if (id !== null && !isUuid(id)) throw new Refused('NOT_FOUND')
       const existing = id ? await selectFacetValueIds(tx, storeId, id) : null
       if (id !== null && existing === null) throw new Refused('NOT_FOUND')
       const seen = new Set<string>()
@@ -323,7 +323,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
 
   const removeFacet = (id: string) =>
     run(async (tx) => {
-      const gone = uuid.test(id) ? await deleteFacet(tx, storeId, id) : null
+      const gone = isUuid(id) ? await deleteFacet(tx, storeId, id) : null
       if (gone === null) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(structureAudit.facetDeleted, { type: 'filter', id, label: gone }))
       await recompute(tx)
@@ -333,7 +333,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
   const mergeValues = (targetId: string, sourceIds: readonly string[]) =>
     run(async (tx) => {
       const sources = [...new Set(sourceIds)].filter((s) => s !== targetId)
-      if (sources.length === 0 || sources.length > maxFacetValues || ![targetId, ...sources].every((v) => uuid.test(v))) throw new Refused('INVALID_INPUT')
+      if (sources.length === 0 || sources.length > maxFacetValues || ![targetId, ...sources].every((v) => isUuid(v))) throw new Refused('INVALID_INPUT')
       const merged = await mergeFacetValues(tx, storeId, targetId, sources)
       if (merged < 0) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(structureAudit.facetValuesMerged, { type: 'filter_value', id: targetId, label: String(merged) }))
@@ -395,7 +395,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
 
   const removeCollection = (id: string) =>
     run(async (tx) => {
-      const gone = uuid.test(id) ? await softDeleteCollection(tx, storeId, id, now()) : null
+      const gone = isUuid(id) ? await softDeleteCollection(tx, storeId, id, now()) : null
       if (!gone) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(structureAudit.collectionDeleted, { type: 'collection', id, label: gone.name }))
       // A child limited to this parent is now its own: its rules alone decide again.

@@ -9,6 +9,7 @@ import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
+import { isUuid } from '#core/ids'
 
 // Collections, filters (`facets`) and the main menu (FIRST-RELEASE §12, §19): the merchant side's, but
 // `facets`, which a supplier reads to tag its own products (DATA-MODEL §7.11's read-only branch).
@@ -36,7 +37,6 @@ const answered = <T>(result: StructureResult<T>): T => {
   throw new GraphQLError(words[result.reason], { extensions: { code: result.reason } })
 }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** The store's automatic collections recomputed after this transaction commits; a new key each time, since each change needs one. */
 export const recomputeFor =
@@ -211,7 +211,7 @@ export const registerStructure = (builder: StoreBuilder) => {
       nullable: true,
       args: { id: t.arg.id({ required: true }) },
       extensions: { access: read },
-      resolve: (_, args, ctx) => (uuid.test(String(args.id)) ? service(ctx).collection(String(args.id)) : null),
+      resolve: (_, args, ctx) => (isUuid(String(args.id)) ? service(ctx).collection(String(args.id)) : null),
     }),
     collectionProducts: t.field({
       type: MemberPage,
@@ -219,7 +219,7 @@ export const registerStructure = (builder: StoreBuilder) => {
       extensions: { access: read },
       resolve: async (_, args, ctx) => {
         const window = storePage(args)
-        if (!uuid.test(String(args.id))) return { nodes: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false } }
+        if (!isUuid(String(args.id))) return { nodes: [], pageInfo: { startCursor: null, endCursor: null, hasPreviousPage: false, hasNextPage: false } }
         const rows = await service(ctx).members(String(args.id), window)
         // The cursor's time is the negated position (catalogStructure.ts selectCollectionProducts).
         return pageOf(rows, window, (r) => ({ occurredAt: new Date(-r.position), id: r.id }))
@@ -250,7 +250,7 @@ export const registerStructure = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: structureAudit.collectionSaved } },
       resolve: async (_, args, ctx) => {
         const id = args.id === null || args.id === undefined ? null : String(args.id)
-        if (id !== null && !uuid.test(id)) throw new GraphQLError(words.NOT_FOUND, { extensions: { code: 'NOT_FOUND' } })
+        if (id !== null && !isUuid(id)) throw new GraphQLError(words.NOT_FOUND, { extensions: { code: 'NOT_FOUND' } })
         return answered(await service(ctx).saveCollection(id, args.revision ?? null, args.input))
       },
     }),

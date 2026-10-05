@@ -8,6 +8,7 @@ import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
 import { requireFeature } from './listing'
 import { recomputeFor } from './structure'
+import { isUuid } from '#core/ids'
 
 // Products (FIRST-RELEASE §11, §19; CATALOG-DESIGN §3): the merchant side reads and writes the store's
 // catalogue, a supplier its own products only (`store-seller`, RLS through SellerScope). Rules are the engine's.
@@ -44,11 +45,10 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
 
 const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info', 'low_stock']
 const maxBulk = 100
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const ids = (values: readonly (string | number)[]): string[] => {
   const list = [...new Set(values.map(String))]
-  if (list.length === 0 || list.length > maxBulk || !list.every((id) => uuid.test(id))) throw new GraphQLError(`Choose between 1 and ${maxBulk} products.`, { extensions: { code: 'INVALID_INPUT' } })
+  if (list.length === 0 || list.length > maxBulk || !list.every((id) => isUuid(id))) throw new GraphQLError(`Choose between 1 and ${maxBulk} products.`, { extensions: { code: 'INVALID_INPUT' } })
   return list
 }
 
@@ -381,7 +381,7 @@ export const registerProducts = (builder: StoreBuilder) => {
         const filter = filters.find((f) => f === (args.filter ?? 'all'))
         if (!filter) throw new GraphQLError('Choose a list to show.', { extensions: { code: 'INVALID_INPUT' } })
         const supplier = args.supplier ?? null
-        if (supplier !== null && supplier !== 'own' && !uuid.test(supplier)) throw new GraphQLError('Choose a supplier.', { extensions: { code: 'INVALID_INPUT' } })
+        if (supplier !== null && supplier !== 'own' && !isUuid(supplier)) throw new GraphQLError('Choose a supplier.', { extensions: { code: 'INVALID_INPUT' } })
         const search = args.search?.trim().slice(0, 200) || null
         const window = storePage(args)
         const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier }, window)
@@ -397,7 +397,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       extensions: { access: read },
       resolve: async (_, args, ctx) => {
         const id = String(args.id)
-        if (!uuid.test(id)) return null
+        if (!isUuid(id)) return null
         const { currency, product } = await service(ctx).get(id)
         return product ? { ...product, pricingCurrency: currency, viewerIsSupplier: actingCaller(ctx).seller !== null } : null
       },
@@ -418,7 +418,7 @@ export const registerProducts = (builder: StoreBuilder) => {
           return answered(ctx, await service(ctx).create(input))
         }
         const id = String(args.id)
-        if (!uuid.test(id) || typeof args.revision !== 'number') throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
+        if (!isUuid(id) || typeof args.revision !== 'number') throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
         if (chart && (await service(ctx).get(id)).product?.size_chart_id !== chart) await requireFeature(ctx, actingCaller(ctx), 'size_charts')
         return answered(ctx, await service(ctx).update(id, args.revision, input))
       },
@@ -429,7 +429,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: catalogAudit.duplicated } },
       resolve: async (_, args, ctx) => {
         const id = String(args.id)
-        if (!uuid.test(id)) throw new GraphQLError(words.NOT_FOUND, { extensions: { code: 'NOT_FOUND' } })
+        if (!isUuid(id)) throw new GraphQLError(words.NOT_FOUND, { extensions: { code: 'NOT_FOUND' } })
         // A copy is a new assignment: on a plan without size charts it is made without the chart.
         const keepSizeChart = ctx.sql ? (await planLimitFor(ctx.sql, actingCaller(ctx).context, { key: 'size_charts' }, ctx.now())) === null : false
         return answered(ctx, await service(ctx).duplicate(id, { keepSizeChart }))

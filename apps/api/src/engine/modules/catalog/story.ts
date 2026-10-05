@@ -19,8 +19,9 @@ import {
   updateStoryDraft,
   type StoryRow,
 } from '#db/scoped/catalogStory'
-import { withScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanStory, cleanStoryBlock, maxCopyTargets, StoryInvalid, storyGaps, type StoryBlockInput, type StoryGap, type StoryInput, type StoryModule } from './storyRules'
+import { isUuid } from '#core/ids'
 
 // A+ content (CATALOG Q): a draft saved apart from the live page and published on its own (Q9). A
 // supplier writes its own products' stories through its scope; brand stories are the merchant's (Q5).
@@ -54,7 +55,6 @@ export interface Story {
   updatedAt: Date | null
 }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 class Refused extends Error {
   constructor(readonly refusal: StoryRefusal) {
@@ -113,7 +113,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
   }
 
   const productName = async (tx: ScopedSql, productId: string): Promise<string> => {
-    if (!uuid.test(productId)) throw new Refused({ reason: 'NOT_FOUND' })
+    if (!isUuid(productId)) throw new Refused({ reason: 'NOT_FOUND' })
     const [row] = await tx<{ name: string }[]>`select name from product where id = ${productId} and store_id = ${storeId} and deleted_at is null`
     if (!row) throw new Refused({ reason: 'NOT_FOUND' })
     return row.name
@@ -122,7 +122,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
   /** Null when the caller can't read the product; a product with no story yet has an empty draft at revision 0. */
   const story = (productId: string) =>
     inScope(async (tx) => {
-      if (!uuid.test(productId) || (await readableProducts(tx, storeId, [productId])).length === 0) return null
+      if (!isUuid(productId) || (await readableProducts(tx, storeId, [productId])).length === 0) return null
       return storyOf(productId, await selectStory(tx, storeId, productId))
     })
 
@@ -154,7 +154,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
     run(async (tx) => {
       const name = await productName(tx, fromId)
       const targets = [...new Set(toIds.map((t) => t.toLowerCase()))].filter((t) => t !== fromId.toLowerCase())
-      if (targets.length === 0 || targets.length > maxCopyTargets || !targets.every((t) => uuid.test(t))) throw new Refused({ reason: 'INVALID_STORY', field: 'toProductIds' })
+      if (targets.length === 0 || targets.length > maxCopyTargets || !targets.every((t) => isUuid(t))) throw new Refused({ reason: 'INVALID_STORY', field: 'toProductIds' })
       if ((await readableProducts(tx, storeId, targets)).length !== targets.length) throw new Refused({ reason: 'NOT_FOUND' })
       const source = await selectStory(tx, storeId, fromId)
       if (!source || source.draft.length === 0) throw new Refused({ reason: 'NOT_FOUND' })
@@ -172,18 +172,19 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
 
   const blocks = (window: PageWindow) => inScope((tx) => selectStoryBlocks(tx, storeId, window))
 
-  const block = (id: string) => inScope((tx) => (uuid.test(id) ? selectStoryBlock(tx, storeId, id) : Promise.resolve(null)))
+  const block = (id: string) => inScope((tx) => (isUuid(id) ? selectStoryBlock(tx, storeId, id) : Promise.resolve(null)))
 
   const saveBlock = (id: string | null, revision: number | null, input: StoryBlockInput) =>
     run(async (tx) => {
       const clean = cleanStoryBlock(input)
       let blockId: string
       if (id === null) {
+        await serialise(tx, `story_block:${storeId}`)
         if ((await countStoryBlocks(tx, storeId)) >= maxStoryBlocks) throw new Refused({ reason: 'TOO_MANY_STORY_BLOCKS' })
         blockId = crypto.randomUUID()
         await insertStoryBlock(tx, storeId, blockId, clean.name, clean.content)
       } else {
-        if (!uuid.test(id) || revision === null) throw new Refused({ reason: 'NOT_FOUND' })
+        if (!isUuid(id) || revision === null) throw new Refused({ reason: 'NOT_FOUND' })
         if (!(await updateStoryBlock(tx, storeId, id, revision, clean.name, clean.content, now()))) {
           const current = await selectStoryBlock(tx, storeId, id)
           throw new Refused(current ? { reason: 'STALE_REVISION', revision: current.revision } : { reason: 'NOT_FOUND' })
@@ -196,7 +197,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
 
   const removeBlock = (id: string) =>
     run(async (tx) => {
-      const gone = uuid.test(id) ? await deleteStoryBlock(tx, storeId, id) : null
+      const gone = isUuid(id) ? await deleteStoryBlock(tx, storeId, id) : null
       if (gone === null) throw new Refused({ reason: 'NOT_FOUND' })
       if (gone === 'in_use') throw new Refused({ reason: 'STORY_BLOCK_IN_USE' })
       await activity.record(tx, entry(storyAudit.blockDeleted, { type: 'story_block', id, label: gone.name }))

@@ -1,9 +1,9 @@
 import { isVideoUrl } from './rules'
+import { isUuid } from '#core/ids'
 
 // A+ content before it is written (CATALOG Q): pure, as listing.ts. A draft may be unfinished (Q9);
 // `storyGaps` says what still stops it going live.
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const moduleId = /^[A-Za-z0-9_-]{1,40}$/
 
 export const storyKinds = ['banner', 'imageText', 'features', 'compare', 'gallery', 'box', 'specs', 'brand', 'faq', 'video'] as const
@@ -83,7 +83,7 @@ const text = (value: string | null | undefined, max: number, field: string): str
 const id = (value: string | null | undefined, field: string): string | null => {
   const trimmed = value?.trim().toLowerCase() ?? ''
   if (trimmed === '') return null
-  if (!uuid.test(trimmed)) throw new StoryInvalid(field)
+  if (!isUuid(trimmed)) throw new StoryInvalid(field)
   return trimmed
 }
 
