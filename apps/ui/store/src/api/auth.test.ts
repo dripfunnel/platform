@@ -65,6 +65,20 @@ describe('the auth routes', () => {
   })
 })
 
+describe('confirmEmailChangeOnce', () => {
+  it('spends a link once however often it is asked, and keeps a refusal as the answer', async () => {
+    const calls = answering({ ok: true })
+    const { confirmEmailChangeOnce } = await import('./auth')
+    const [a, b] = await Promise.all([confirmEmailChangeOnce('t1'), confirmEmailChangeOnce('t1')])
+    expect(a).toEqual({ ok: true })
+    expect(b).toBe(a)
+    expect(calls).toHaveLength(1)
+    answering({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
+    expect(await confirmEmailChangeOnce('t2')).toEqual({ ok: false, code: 'EMAIL_CHANGE_INVALID' })
+    expect(await confirmEmailChangeOnce('t1')).toEqual({ ok: true })
+  })
+})
+
 describe('subdomainFrom', () => {
   it('suggests lower-case words joined by hyphens', async () => {
     const { subdomainFrom } = await import('./auth')
