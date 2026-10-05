@@ -69,6 +69,18 @@ describe('texts through the outbox', () => {
     expect(sent.find((s) => s.provider === 'twilio')?.sms).toMatchObject({ to: '+16145550199', dlt: null })
   })
 
+  it('keeps no number or code in the outbox once a text is sent or dropped', async () => {
+    const { senders } = fakeSenders()
+    const sentId = await queue(t.partnerA, code('+16145550199'))
+    const expiredId = await queue(t.partnerA, code('+919845022113', { expiresAt: new Date(now.getTime() - 1000).toISOString() }))
+    await relay(accountsOf({ [t.partnerA]: [twilio] }), senders)
+    const rows = await db.sql<{ payload: Record<string, unknown> }[]>`select payload from outbox where id in ${db.sql([sentId ?? '', expiredId ?? ''])}`
+    expect(rows.map((r) => r.payload).sort((a, b) => String(a.outcome).localeCompare(String(b.outcome)))).toEqual([
+      { message: 'code.second_factor', redacted: true, outcome: 'expired' },
+      { message: 'code.second_factor', redacted: true, outcome: 'twilio' },
+    ])
+  })
+
   it('drops, never sends late, a code past its expiry, and logs no number or code', async () => {
     const { senders, sent } = fakeSenders()
     const logged = vi.spyOn(console, 'log').mockImplementation(() => undefined)

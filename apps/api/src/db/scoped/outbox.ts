@@ -109,3 +109,11 @@ export const markAttemptFailed = async (
     where id = ${id} and delivered_at is null
   `
 }
+
+/**
+ * Replaces a delivered or dropped row's payload with what's safe to keep: a text's code and number
+ * stay only until it is sent or given up (AGENTS.md "Data", #289).
+ */
+export const redactOutboxPayload = async (tx: ScopedSql, id: string, kept: Record<string, unknown>): Promise<void> => {
+  await tx`update outbox set payload = ${JSON.stringify(kept)}::text::jsonb where id = ${id}`
+}
