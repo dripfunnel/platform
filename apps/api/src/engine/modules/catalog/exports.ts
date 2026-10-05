@@ -127,11 +127,7 @@ export const stockCsv = (rows: readonly ExportStockRow[], truncatedAt: number | 
     ...(truncatedAt === null ? [] : [csvLine([`Only the first ${truncatedAt} rows are included; narrow the filter to see the rest.`])]),
   ].join('\n')
 
-/**
- * The file for a queued job, read page by page in whatever scope `tx` holds (the asker's). At most `max` rows,
- * whole products for the product file; the scan stops there too, so products without stock can't walk the
- * whole catalogue in one delivery.
- */
+/** The scan stops at the cap as well as the rows do, so products with no stock can't walk the whole catalogue in one delivery. */
 export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax): Promise<{ rows: number; truncated: boolean; csv: string }> => {
   const filter = catalogExportFilter.parse(job.filter)
   const currency = (await selectPricingCurrency(tx)) ?? 'USD'
