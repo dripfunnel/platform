@@ -66,17 +66,19 @@ export const priceInMarket = (prices: readonly TypedPrice[], market: { currency:
 
 export interface ConversionExample {
   currency: string
+  /** The day the rates it used were published (the older of the two); null where only the euro's fixed 1 was used. */
+  publishedOn: string | null
   from: Money
   /** What `from` comes to in `currency` under each rounding; null without a rate. */
   to: Record<PriceRounding, Money | null>
 }
 
 /** Settings' "₹100 → $1.99" (SetStore, O4–O5): 100 of the pricing currency through the same conversion and rounding as a price. */
-export const conversionExamples = (pricing: StorePricing, currencies: readonly string[]): ConversionExample[] => {
+export const conversionExamples = (pricing: StorePricing, currencies: readonly string[], publishedOn: ReadonlyMap<string, string> = new Map()): ConversionExample[] => {
   const from: Money = { amount: 100n * 10n ** BigInt(minorDigits(pricing.pricingCurrency)), currency: pricing.pricingCurrency }
   const at = (currency: string, rounding: PriceRounding) => {
     const amount = converted(from.amount, pricing, currency, rounding)
     return amount === null ? null : { amount, currency }
   }
-  return currencies.filter((c) => c !== pricing.pricingCurrency).map((currency) => ({ currency, from, to: { none: at(currency, 'none'), nearest: at(currency, 'nearest'), 'ends-99': at(currency, 'ends-99') } }))
+  return currencies.filter((c) => c !== pricing.pricingCurrency).map((currency) => ({ currency, publishedOn: [publishedOn.get(pricing.pricingCurrency), publishedOn.get(currency)].filter((d): d is string => d !== undefined).sort()[0] ?? null, from, to: { none: at(currency, 'none'), nearest: at(currency, 'nearest'), 'ends-99': at(currency, 'ends-99') } }))
 }

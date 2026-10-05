@@ -185,6 +185,22 @@ describe('size charts, the merchant’s', () => {
     expect((screen.getByLabelText(words.name) as HTMLInputElement).value).toBe('Jeans')
   })
 
+  it('keeps another chart open when a delete answers after it was picked', async () => {
+    const jeans = { ...tops, id: 'c5', name: 'Jeans', products: 0 }
+    charts.loadSizeChartList.mockResolvedValue([summary({ ...tops, products: 0 }), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    charts.loadSizeChart.mockImplementation((id: string) => Promise.resolve(id === 'c5' ? jeans : { ...tops, products: 0 }))
+    let answerDelete: (n: number) => void = () => undefined
+    charts.deleteSizeChart.mockReturnValueOnce(new Promise((resolve) => (answerDelete = resolve)))
+    await show(owner, merchant)
+    fireEvent.click(screen.getByRole('button', { name: words.delete }))
+    fireEvent.click(dialog().getByRole('button', { name: words.deleteConfirm }))
+    fireEvent.click(screen.getByRole('button', { name: /Jeans/ }))
+    await settle()
+    await act(async () => answerDelete(0))
+    await settle()
+    expect((screen.getByLabelText(words.name) as HTMLInputElement).value).toBe('Jeans')
+  })
+
   it('takes the limit from the API', async () => {
     charts.loadSizeChartLimit.mockResolvedValue(1)
     await show(owner, merchant)
@@ -270,5 +286,12 @@ describe('size charts, a supplier’s', () => {
     cleanup()
     await show({ ...supplier, permissions: [] }, '/products/size-charts')
     expect(screen.getByRole('heading', { name: words.denied.title })).toBeTruthy()
+  })
+
+  it('sends the merchant side to its own charts under Collections, never a supplier’s view of every chart', async () => {
+    const router = await show(owner, '/products/size-charts')
+    await settle()
+    expect(router.state.location.pathname).toBe('/collections')
+    expect(router.state.location.search).toMatchObject({ tab: 'sizeCharts' })
   })
 })

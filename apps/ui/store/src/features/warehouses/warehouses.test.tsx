@@ -30,7 +30,8 @@ const show = async (canEdit = true) => {
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 
 beforeEach(() => {
-  api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4 }), place({ id: 'w1', name: 'Workshop', isDefault: true, units: 30 })])
+  // A supplier's own locations carry its seller id, as the API answers them (inventory.ts supplierId).
+  api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4, supplierId: 'sup-1' }), place({ id: 'w1', name: 'Workshop', isDefault: true, units: 30, supplierId: 'sup-1' })])
 })
 
 afterEach(() => {

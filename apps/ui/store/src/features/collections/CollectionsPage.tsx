@@ -32,7 +32,7 @@ type MenuView = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; menu:
 
 /** "Gifts under ₹999" in the empty state: a round amount in the store's own currency, never a country assumed. */
 const giftPrice = (currency: string | null) =>
-  currency ? new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 }).format(currency === 'INR' ? 999 : 50) : ''
+  currency ? new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 }).format(currency === 'INR' ? 999 : 50) : null
 
 /** The Collections area (CatCollections, FIRST-RELEASE §12): its tabs, and the list or a collection being edited. ?state= per collectionsStates.ts. */
 export const CollectionsPage = () => {

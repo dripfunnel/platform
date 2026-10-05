@@ -231,7 +231,7 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       if (!store?.pricing_currency) return []
       const rows = await selectAllRates(tx)
       const perEuro = new Map(rows.map((r) => [r.currency, r.per_euro]))
-      return conversionExamples({ pricingCurrency: store.pricing_currency, currencies: [], perEuro }, ['EUR', ...rows.map((r) => r.currency)])
+      return conversionExamples({ pricingCurrency: store.pricing_currency, currencies: [], perEuro }, ['EUR', ...rows.map((r) => r.currency)], new Map(rows.map((r) => [r.currency, r.published_on])))
     })
 
   /**

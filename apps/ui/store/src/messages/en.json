@@ -1781,6 +1781,7 @@
     "empty": {
       "title": "Group your products",
       "body": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts under {price}”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
+      "bodyNoPrice": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
       "action": "Create your first collection"
     },
     "list": {
@@ -1856,6 +1857,7 @@
       "removeRule": "Remove rule {n}",
       "addRule": "+ Add a rule",
       "priceNote": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency ({currency}).",
+      "priceNoteNoCurrency": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency.",
       "kept": {
         "one": "1 more rule this screen doesn’t change is kept as it is.",
         "other": "{count} more rules this screen doesn’t change are kept as they are."
@@ -1909,8 +1911,7 @@
       },
       "deleteMenuMaybe": "If it’s in your menu, we’ll take it out and move anything nested under it up a level.",
       "slugPlaceholder": "your-collection",
-      "countPending": "…",
-      "priceNoteNoCurrency": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency."
+      "countPending": "…"
     },
     "refused": {
       "NAME_REQUIRED": "Give the collection a name.",
@@ -1985,6 +1986,7 @@
         "one": "1 product using {drop} will use “{keep}”.",
         "other": "{count} products using {drop} will use “{keep}”."
       },
+      "quoted": "“{value}”",
       "mergeConfirm": "Merge",
       "merged": {
         "one": "Merged — 1 product now uses “{keep}”",
@@ -2014,8 +2016,7 @@
         "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again."
       },
       "usesNone": "No products use it yet.",
-      "deleteNone": "Nothing uses it.",
-      "quoted": "“{value}”"
+      "deleteNone": "Nothing uses it."
     },
     "menus": {
       "title": "Main menu",
@@ -2302,6 +2303,7 @@
       "roundNearest": "To the nearest whole",
       "round99": "To end in .99",
       "rates": "{example} · reference rates from the European Central Bank, published {date}",
+      "ratesUndated": "{example} · reference rates from the European Central Bank",
       "noRate": "There’s no reference rate for this currency yet, so converted prices wait until one arrives.",
       "typedNote": "Products can’t be bought in {code} until you type a {code} price on them.",
       "stopTitle": "Stop converting {code} automatically?",
@@ -2705,7 +2707,8 @@
         "dutyRate": "12",
         "dutyThreshold": "0"
       },
-      "percent": "%"
+      "percent": "%",
+      "rowSub": "{countries} · {currency}"
     },
     "catalogue": {
       "sellTitle": "What do you mostly sell?",
