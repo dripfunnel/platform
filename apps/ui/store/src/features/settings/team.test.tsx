@@ -135,6 +135,24 @@ describe('people', () => {
     expect(api.removeMember).toHaveBeenCalledWith('m2')
   })
 
+  it('never lets a reload from one tab fill another opened since', async () => {
+    let finish: (people: Person[]) => void = () => undefined
+    await show('people')
+    api.loadPeople.mockReturnValueOnce(new Promise<Person[]>((resolve) => (finish = resolve)))
+    fireEvent.click(screen.getByRole('button', { name: 'Manage asha@example.com' }))
+    confirm(w.continue)
+    await settle()
+    // The People reload is still out when the Owner opens Supplier.
+    fireEvent.click(screen.getByRole('link', { name: messages.settings.tabs.supplier }))
+    await settle()
+    await settle()
+    expect(screen.getByRole('heading', { name: w.suppliersTitle })).toBeTruthy()
+    await act(async () => finish(people))
+    await settle()
+    expect(screen.getByRole('heading', { name: w.suppliersTitle })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: w.peopleTitle })).toBeNull()
+  })
+
   it('gives a read-only store no way to change anyone', async () => {
     await show('people', true)
     expect(screen.queryByRole('button', { name: w.invitePerson })).toBeNull()

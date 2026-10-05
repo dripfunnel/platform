@@ -2,7 +2,7 @@ import { DetailTabs, EmptyState, ErrorState, LoadingState, Toast, useScreenState
 import '@dripfunnel/shared/ui/detail.css'
 import '@dripfunnel/shared/ui/states.css'
 import { getRouteApi, Link } from '@tanstack/react-router'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { loadLocale, loadStoreInfo } from '../../api/settings'
 import { loadApproval, loadPeople, loadSuppliers } from '../../api/team'
 import { harnessEnabled } from '../../harness'
@@ -60,19 +60,18 @@ export const SettingsPage = () => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [toast, setToast] = useState<string | null>(null)
 
+  // Only the newest read may land: a reload a tab started must not fill another tab opened since.
+  const latest = useRef(0)
   const load = useCallback(() => {
+    const ask = ++latest.current
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
     if (!allowed) return
-    let live = true
     setView({ kind: 'loading' })
     void loaders(forced ? sampleReads : apiReads)[tab]().then(
-      (render) => live && setView({ kind: 'ready', render }),
-      () => live && setView({ kind: 'error' }),
+      (render) => ask === latest.current && setView({ kind: 'ready', render }),
+      () => ask === latest.current && setView({ kind: 'error' }),
     )
-    return () => {
-      live = false
-    }
   }, [forced, allowed, tab])
   useEffect(load, [load])
 
