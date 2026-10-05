@@ -266,7 +266,7 @@ type Mutation {
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
-  updateProfile(name: String!, phone: String, theme: String): Profile
+  updateProfile(name: String!, phone: String): Profile
 }
 
 type MyActivity {
