@@ -45,6 +45,28 @@ type BrandFiles {
   mark: String
 }
 
+type CatalogExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  kind: String
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input CatalogExportFilterInput {
+  filter: String
+  search: String
+  supplier: String
+}
+
+enum CatalogExportKind {
+  products
+  stock
+}
+
 type CatalogueFeature {
   enabled: Boolean
   inPlan: Boolean
@@ -365,6 +387,7 @@ type Mutation {
   removeMember(membershipId: ID!): Boolean
   removeSupplier(id: ID!): Int
   removeSupplierUser(membershipId: ID!): Boolean
+  requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
   resendInvitation(invitationId: ID!): Boolean
   resendSupplierInvitation(invitationId: ID!): ID
   resumeSupplier(id: ID!): Int
@@ -755,6 +778,8 @@ type Provisioning {
 
 type Query {
   brand: Brand
+  catalogExport(id: ID!): CatalogExport
+  catalogExports: [CatalogExport!]
   catalogueSettings: CatalogueSettings
   catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
   collection(id: ID!): Collection

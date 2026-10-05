@@ -45,6 +45,15 @@ export const fromMajor = (value: string, currency: string): Money | null => {
 
 export const toMinorString = (money: Money): string => money.amount.toString()
 
+/** Minor units as a major-unit decimal ("1299.50"), as a spreadsheet takes it (#301's exports); fromMajor reads it back. */
+export const toMajor = (money: Money): string => {
+  const digits = minorDigits(money.currency)
+  const negative = money.amount < 0n
+  const text = (negative ? -money.amount : money.amount).toString().padStart(digits + 1, '0')
+  const major = digits === 0 ? text : `${text.slice(0, -digits)}.${text.slice(-digits)}`
+  return negative ? `-${major}` : major
+}
+
 const same = (a: Money, b: Money) => {
   if (a.currency !== b.currency) throw new Error(`money: ${a.currency} and ${b.currency} don't add`)
 }

@@ -55,6 +55,19 @@ export { createSettingsService, settingsAudit, type SettingsRefusal, type Settin
 export { collectionsRecomputeKind, createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
 export { createTranslationService, translationAudit, type ProductTranslationInput, type SharedNameRow, type TextPatch, type TranslationResult, type TranslationRow } from './translations'
 export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalResult } from './approval'
+export {
+  buildCatalogExport,
+  catalogExportAudit,
+  catalogExportFilter,
+  catalogExportKind,
+  catalogExportLifetimeMs,
+  catalogExportPayload,
+  createCatalogExportService,
+  exportContextOf,
+  type CatalogExportDto,
+  type CatalogExportPayload,
+  type CatalogExportService,
+} from './exports'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'

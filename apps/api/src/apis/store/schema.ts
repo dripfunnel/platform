@@ -16,6 +16,7 @@ import { registerMarkets } from './markets'
 import { registerTranslations } from './translations'
 import { registerStoreInfo } from './storeInfo'
 import { registerTax } from './tax'
+import { registerCatalogExports } from './catalogExports'
 
 export type { StoreContext } from './access'
 
@@ -38,6 +39,7 @@ registerApproval(builder)
 registerMarkets(builder)
 registerTranslations(builder)
 registerStoreInfo(builder)
+registerCatalogExports(builder)
 registerTax(builder)
 registerListing(builder)
 

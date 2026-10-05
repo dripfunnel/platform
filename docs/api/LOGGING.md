@@ -212,6 +212,10 @@ every other tenant read.
   (the request itself stays in the log as `activity.exported`).
   A **report** export (built on #200) holds no log entries, only account-level totals, so every
   partner role may ask for one (ACCESS §5.3 `exports`); it is logged as `report.exported`.
+  A store's **product or stock export** (built on #301) is a `catalog_export` row (DATA-MODEL
+  §7.10) built the same way in the asker's scope, so a supplier's holds its own rows; it caps at
+  10,000 rows, its CSV is readable by the asker for 1 hour, and the request is logged as
+  `catalog.exported` with any search text replaced by `searched`.
 
 ---
 
