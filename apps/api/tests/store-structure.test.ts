@@ -1,11 +1,13 @@
 import { graphql, type GraphQLSchema } from 'graphql'
+import type postgres from 'postgres'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { withSystemScope } from '#db/scoped/index'
-import { collectionsRecomputeDeliverer, collectionsRecomputeKind } from '#jobs/queues/deliverers/collectionsRecompute'
+import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
+import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
 import { seedTenants, type Tenants } from './support/fixtures'
@@ -86,6 +88,24 @@ const drainRecompute = async () => {
 const members = async (collectionId: string) =>
   ((await gql('query C($id: ID!) { collectionProducts(id: $id, first: 50) { nodes { id source } } }', 'owner', { id: collectionId })).data?.['collectionProducts'] as { nodes: { id: string; source: string }[] }).nodes
 
+
+/** Runs `insert` in a transaction holding `key`'s lock, starts `attempt` while it's held, then commits: the attempt must wait and see it. */
+const racedBy = async <T>(key: string, insert: (tx: postgres.TransactionSql) => Promise<unknown>, attempt: () => Promise<T>): Promise<T> => {
+  let commit = () => {}
+  const held = new Promise<void>((resolve) => (commit = resolve))
+  const other = db.sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(hashtext(${key}))`
+    await insert(tx)
+    await held
+  })
+  await new Promise((r) => setTimeout(r, 100))
+  const result = attempt()
+  await new Promise((r) => setTimeout(r, 200))
+  commit()
+  await other
+  return result
+}
+
 describe('filters', () => {
   let fabric = ''
 
@@ -119,6 +139,13 @@ describe('filters', () => {
     expect(new Set(seen).size).toBe(200)
     expect(seen.slice(0, 2)).toEqual(['Bulk 1', 'Bulk 2'])
     await db.sql`delete from filter where store_id = ${t.storeB1} and name like 'Bulk %'`
+  })
+
+  it('holds the filter limit when two are made at the same moment', async () => {
+    await db.sql`insert into filter (store_id, name, position) select ${t.storeB1}, 'Race ' || n, n from generate_series(1, 199) as n`
+    const second = await racedBy(`filter:${t.storeB1}`, (tx) => tx`insert into filter (store_id, name, position) values (${t.storeB1}, 'Race 200', 200)`, () => saveFacet('bOwner', { name: 'Racing', values: [] }))
+    expect(second.code).toBe('TOO_MANY_FILTERS')
+    await db.sql`delete from filter where store_id = ${t.storeB1} and name like 'Race %'`
   })
 
   it('tag products and versions, each side counting only what it can see', async () => {
@@ -198,6 +225,29 @@ describe('collections', () => {
     expect((await members(any.saved?.id ?? '')).some((m) => m.id === linen.id)).toBe(true)
   })
 
+  it('forgets a removed version’s tags, so its facet and the rules on it stop counting the product', async () => {
+    const finish = await saveFacet('owner', { name: 'Finish', values: [{ name: 'Matte' }] })
+    const matte = (await facets('owner')).find((f) => f.id === finish.id)?.values[0]
+    const options = [{ name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }]
+    const versions = [{ choices: ['S'], prices: [{ currency: 'INR', amount: '50000' }] }, { choices: ['M'], prices: [{ currency: 'INR', amount: '50000' }] }]
+    const made = await product('owner', 'Matte mug', { options, versions, filterValues: [{ valueId: matte?.id, version: 1 }] })
+    const rule = await save({ name: 'Matte things', kind: 'automatic', rules: [{ kind: 'filter_value', valueId: matte?.id }] })
+    await drainRecompute()
+    expect((await members(rule.saved?.id ?? '')).map((m) => m.id)).toEqual([made.id])
+
+    const read = (await gql('query P($id: ID!) { product(id: $id) { revision versions { id } } }', 'owner', { id: made.id })).data?.['product'] as { revision: number; versions: { id: string }[] }
+    const kept = await gql('mutation S($id: ID, $revision: Int, $input: ProductInput!) { saveProduct(id: $id, revision: $revision, input: $input) { id } }', 'owner', {
+      id: made.id,
+      revision: read.revision,
+      input: { name: 'Matte mug', options: [{ name: 'Size', values: [{ name: 'S' }] }], versions: [{ id: read.versions[0]?.id, choices: ['S'], prices: [{ currency: 'INR', amount: '50000' }] }] },
+    })
+    expect(kept.code).toBeUndefined()
+    expect((await facets('owner')).find((f) => f.id === finish.id)?.values[0]?.products).toBe(0)
+    expect(((await gql('query P($id: ID!) { product(id: $id) { filterValues { valueId } } }', 'owner', { id: made.id })).data?.['product'] as { filterValues: unknown[] }).filterValues).toEqual([])
+    await drainRecompute()
+    expect(await members(rule.saved?.id ?? '')).toEqual([])
+  })
+
   it('pages a collection’s products in its own order', async () => {
     const ids = [(await product('owner', 'Page one')).id, (await product('owner', 'Page two')).id, (await product('owner', 'Page three')).id]
     const { saved } = await save({ name: 'Paged', kind: 'manual', productIds: [ids[2], ids[0], ids[1]] })
@@ -239,6 +289,17 @@ describe('collections', () => {
     const refused = await gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'bOwner', { input: { name: 'One more', kind: 'manual' } })
     expect(refused.code).toBe('TOO_MANY_COLLECTIONS')
     await db.sql`update collection set deleted_at = now() where store_id = ${t.storeB1} and slug like 'cap-%'`
+  })
+
+  it('holds the collection limit when two are made at the same moment', async () => {
+    await db.sql`insert into collection (store_id, name, slug, kind) select ${t.storeB1}, 'Race ' || n, 'race-' || n, 'manual' from generate_series(1, 499) as n`
+    const second = await racedBy(
+      `collection:${t.storeB1}`,
+      (tx) => tx`insert into collection (store_id, name, slug, kind) values (${t.storeB1}, 'Race 500', 'race-500', 'manual')`,
+      () => gql('mutation C($input: CollectionInput!) { saveCollection(input: $input) { id } }', 'bOwner', { input: { name: 'Racing', kind: 'manual' } }),
+    )
+    expect(second.code).toBe('TOO_MANY_COLLECTIONS')
+    await db.sql`update collection set deleted_at = now() where store_id = ${t.storeB1} and slug like 'race-%'`
   })
 
   it('shows an edited automatic collection as updating until its recompute lands', async () => {

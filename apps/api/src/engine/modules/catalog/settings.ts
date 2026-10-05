@@ -102,7 +102,10 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
     run(async (tx) => {
       const clean = cleanBadge(input)
       if (id !== null && !isUuid(id)) throw new Refused('NOT_FOUND')
-      if (id === null && (await countBadges(tx, storeId)) >= maxBadges) throw new Refused('TOO_MANY_BADGES')
+      if (id === null) {
+        await serialise(tx, `badge:${storeId}`)
+        if ((await countBadges(tx, storeId)) >= maxBadges) throw new Refused('TOO_MANY_BADGES')
+      }
       const badgeId = id ?? crypto.randomUUID()
       if (!(await upsertBadge(tx, storeId, { id: badgeId, ...clean }, id !== null))) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(settingsAudit.badgeSaved, { type: 'badge', id: badgeId, label: clean.label }))
