@@ -112,7 +112,7 @@ partner and merchant.
 - **Setting**: in the merchant's portal, *Settings › Support access*: "Allow [partner name]
   support to view my store: On / Off". **On by default**; the Owner can switch it off at any
   time. When it's off, support can only ask the merchant to switch it on.
-- **Sessions are read-only**, **time-limited** (30 minutes (decided 2026-10-05 on #337)), and need a
+- **Sessions are read-only**, **time-limited** (30 minutes, decided 2026-10-05 on #337), and need a
   **reason or ticket number** before they start. They can't change passwords, payment
   methods, payouts or ownership.
 - **Visible**: while a session is open, the merchant's portal shows a banner to everyone

@@ -10,7 +10,7 @@ depend on Stripe Connect, the Store API and the support-session handoff, none of
 so their API cards come after the others' (§16). The screens are specified here so the
 fixtures they are built on are honest about the contract.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 Rules that still apply in full: [README.md](README.md) (what the console is, roles, never-do
 list), [../README.md](../README.md) (how every SPA is built),
@@ -1147,6 +1147,7 @@ what is not drawn.
   SAAS.md §3.1 says the host serves a "not open yet" page (§4 item 10) *(decide)*.
 - How long an old portal host keeps redirecting after a change (§9.2; SAAS.md §3.5 *(ask)*).
 - How the support-session handoff reaches the merchant's portal host (api/README.md §2.1
-  *(decide)*), and who in the store may allow write elevation (ACCESS §8 *(confirm)*).
+  *(decide)*). ~~Who in the store may allow write elevation (ACCESS §8 *(confirm)*).~~ An
+  Owner or a Manager (decided 2026-10-05 on #337).
 - When the partner bills its merchants itself, how the platform learns a store's status
   (§11.4; SAAS §14).

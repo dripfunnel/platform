@@ -834,7 +834,7 @@ Partner console: store page → "Open support session"
    │          a reason or ticket number
    ▼
 support_session(store_id, partner_user_id, reason, access 'read',
-                started_at, expires_at = +30 min (confirm), ended_at)  + audit row
+                started_at, expires_at = +30 min, ended_at)  + audit row
    │  one-time handoff token, short-lived, single use
    ▼
 Browser → https://<store's portal host>/support/enter?token=…
