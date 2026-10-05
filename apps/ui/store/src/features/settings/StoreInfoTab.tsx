@@ -67,7 +67,9 @@ export const example = (to: string, rounding: Currency['rounding'], examples: St
   const e = examples.find((x) => x.currency === to)
   const result = e && (rounding === 'ends-99' ? e.ends99 : rounding === 'nearest' ? e.nearest : e.none)
   if (!e || !result) return null
-  return `${formatMoney({ amount: Number(e.from.amount), currency: e.from.currency }, locale)} → ${formatMoney({ amount: Number(result.amount), currency: to }, locale)}`
+  const shown = `${formatMoney({ amount: Number(e.from.amount), currency: e.from.currency }, locale)} → ${formatMoney({ amount: Number(result.amount), currency: to }, locale)}`
+  // Dated by the rates this example used, which the API sends with it.
+  return e.publishedOn ? fill(words.rates, { example: shown, date: e.publishedOn }) : fill(words.ratesUndated, { example: shown })
 }
 
 /** Currencies the store can add: every one with a reference rate (the API's examples), as converting needs a rate. */
@@ -337,7 +339,7 @@ export const StoreInfoTab = ({ info, locale: loc, canEdit, onSaved }: StoreInfoT
                     <option value="nearest">{words.roundNearest}</option>
                     <option value="ends-99">{words.round99}</option>
                   </select>
-                  <span>{shown ? fill(words.rates, { example: shown, date: loc.rates[0]?.publishedOn ?? '' }) : words.noRate}</span>
+                  <span>{shown ?? words.noRate}</span>
                 </div>
               ) : (
                 <p className="df-set-typed">{fill(words.typedNote, { code: c.code })}</p>

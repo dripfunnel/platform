@@ -174,6 +174,15 @@ describe('suppliers', () => {
     expect(within(screen.getByRole('list', { name: w.suppliersTitle })).getAllByRole('listitem')).toHaveLength(1)
   })
 
+  it('counts a supplier whose invite is still out under Active, as SetTeam does, its row saying the invite was sent', async () => {
+    api.loadSuppliers.mockResolvedValue([...suppliers, supplier({ id: 'v4', name: 'Kutch Weaves', status: 'invited', users: 0, products: 0 })])
+    await show('supplier')
+    fireEvent.click(screen.getByRole('button', { name: `${w.activeChip} · 2` }))
+    const listed = within(screen.getByRole('list', { name: w.suppliersTitle })).getAllByRole('listitem')
+    expect(listed).toHaveLength(2)
+    expect(row('Kutch Weaves').getByText(w.supplierStatus.invited)).toBeTruthy()
+  })
+
   it('invites a supplier in three steps: the company, its first user, what it can do', async () => {
     api.inviteSupplier.mockResolvedValue('v9')
     await show('supplier')
@@ -213,6 +222,14 @@ describe('suppliers', () => {
     confirm(w.save)
     await settle()
     expect(api.setShippingMode).toHaveBeenCalledWith('v1', 'to-shopper', 'own')
+    // To the store, who books labels isn't asked, so nothing is sent for it.
+    open()
+    pick('shipping')
+    confirm(w.continue)
+    pick('to-store')
+    confirm(w.save)
+    await settle()
+    expect(api.setShippingMode).toHaveBeenLastCalledWith('v1', 'to-store', null)
   })
 
   it('suspends hiding products, reactivates, and removes saying how many products were hidden', async () => {

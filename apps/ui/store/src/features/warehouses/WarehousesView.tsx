@@ -158,7 +158,9 @@ export const WarehousesView = ({ canEdit, supplierNames = null }: { canEdit: boo
     })
 
   // The merchant side also reads its suppliers' locations: listed apart and never changed here (SetOps, FIRST-RELEASE §15).
-  const places = view.places.filter((p) => p.supplierId === null).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
+  // With supplierNames (Settings, the merchant side) its suppliers' are listed apart; otherwise everything the caller
+  // reads is its own, a supplier's tab holding its own locations.
+  const places = view.places.filter((p) => !supplierNames || p.supplierId === null).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
   const theirs = supplierNames ? view.places.filter((p) => p.supplierId !== null) : []
   return (
     <div className="df-places">

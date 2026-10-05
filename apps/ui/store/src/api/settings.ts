@@ -60,6 +60,7 @@ const localeSchema = z.object({
   examples: z.array(
     z.object({
       currency: z.string(),
+      publishedOn: z.string().nullable(),
       from: z.object({ amount: z.string(), currency: z.string() }),
       none: z.object({ amount: z.string() }).nullable(),
       nearest: z.object({ amount: z.string() }).nullable(),
@@ -73,7 +74,7 @@ export type StoreLocale = z.infer<typeof localeSchema>
 export const loadLocale = async (): Promise<StoreLocale | null> =>
   (
     await query(
-      '{ storeLocale { pricingCurrency mainLanguage offeredLanguages currencies { code mode rounding status } languages { code status } rates { currency perEuro publishedOn } examples { currency from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }',
+      '{ storeLocale { pricingCurrency mainLanguage offeredLanguages currencies { code mode rounding status } languages { code status } rates { currency perEuro publishedOn } examples { currency publishedOn from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }',
       z.object({ storeLocale: localeSchema.nullable() }),
     )
   ).storeLocale
@@ -110,8 +111,7 @@ export const saveSections = async (features: { key: SectionKey; enabled: boolean
 export const badgeRules = ['new_30_days', 'top_5_this_month', 'below_compare_price', 'few_left', 'manual'] as const
 export type BadgeRule = (typeof badgeRules)[number]
 
-/** A new badge (no id), or a change to one; answers its id. */
-/** `position` keeps an edited badge where it is; a new one goes last. */
+/** A new badge (no id), or a change to one, answering its id; `position` keeps an edited one where it is. */
 export const saveBadge = async (id: string | null, input: { label: string; rule: BadgeRule; tone: 'ok' | 'peach' | 'neutral'; position: number }): Promise<string> =>
   (await query('mutation B($id: ID, $input: BadgeInput!) { saveBadge(id: $id, input: $input) }', z.object({ saveBadge: z.string() }), { id, input })).saveBadge
 
