@@ -25,9 +25,9 @@ const toneOf = (rule: BadgeRule): 'ok' | 'peach' | 'neutral' => (rule === 'new_3
 
 const refusalOf = refusalIn(words.refused)
 
-/** A section the plan no longer has reads as off, as the server treats it: a save never sends it on (P5). */
 const isKnown = (rule: string): rule is BadgeRule => (badgeRules as readonly string[]).includes(rule)
 
+/** A section the plan no longer has reads as off, as the server treats it: a save never sends it on (P5). */
 const sectionsOf = (basics: ProductBasics): Sections =>
   Object.fromEntries(sectionKeys.map((k) => {
     const f = basics.features.find((x) => x.key === k)
