@@ -8,7 +8,10 @@ export type Refusal =
   | { code: 'WRONG_CODE'; triesLeft?: number }
   | { code: 'LOCKED'; minutes: number }
   | { code: 'INVALID_PHONE' }
+  | { code: 'NAME_REQUIRED' | 'WEAK_PASSWORD' | 'RESET_INVALID' | 'INVITATION_USED' | 'INVITATION_REPLACED' | 'INVITATION_INVALID' }
+  // The prototype's expired screen asks the inviter by name (PortalAuth `inviteBad`).
+  | { code: 'INVITATION_EXPIRED'; invitedBy: string }
 
-const badRequest = new Set<Refusal['code']>(['INVALID_PHONE'])
+const badRequest = new Set<Refusal['code']>(['INVALID_PHONE', 'NAME_REQUIRED', 'WEAK_PASSWORD', 'RESET_INVALID', 'INVITATION_EXPIRED', 'INVITATION_USED', 'INVITATION_REPLACED', 'INVITATION_INVALID'])
 
 export const refuse = (refusal: Refusal): Response => refusalResponse(refusal, badRequest)

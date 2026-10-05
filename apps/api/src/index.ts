@@ -19,6 +19,7 @@ import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
 import { passwordResetRequestKind } from '#auth/partnerTokens'
+import { userPasswordResetRequestKind } from '#auth/storeTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
@@ -41,6 +42,7 @@ import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
+import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
 import { expireUnsentSms } from '#db/scoped/outbox'
@@ -103,6 +105,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
     'export.stores': storesExportDeliverer(sql),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
+    [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
   }
 }
 

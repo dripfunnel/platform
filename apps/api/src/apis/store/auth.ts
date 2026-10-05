@@ -1,4 +1,3 @@
-import type postgres from 'postgres'
 import { z } from 'zod'
 import {
   factsOf,
@@ -10,25 +9,21 @@ import {
   personSignedIn,
   personSignedOut,
   personSignInRefused,
-  type ActivityLog,
   type RequestFacts,
 } from '#auth/activity'
 import { originAllowed, readCookie } from '#auth/cookie'
 import { lockMs, maxCodeTries, minutesUntil } from '#auth/partnerCode'
 import { verifyPassword } from '#auth/password'
-import type { SecretBox } from '#auth/secretBox'
 import { hashBackupCode, hashSmsCode, maxSmsCodeAttempts, maxSmsCodesPer10Min, newBackupCodes, newSmsCode, phoneHint, smsCodeMs } from '#auth/storeCodes'
 import {
   clearStoreCookie,
   completeUserSession,
-  createUserSession,
   endUserSession,
   readPendingUserSession,
   setPendingEnrolment,
   setStoreCookie,
   storeCookieName,
   type PendingUserSession,
-  type UserSessionStage,
 } from '#auth/storeSession'
 import { checkCode, newTotpSecret, otpauthUri } from '#auth/totp'
 import { isE164 } from '#core/sms'
@@ -39,7 +34,6 @@ import {
   countCodesSince,
   insertVerificationCode,
   markCodeUsed,
-  markUserSignedIn,
   recordUserGoodCode,
   recordUserWrongCode,
   replaceBackupCodes,
@@ -51,24 +45,15 @@ import {
   type UserSecondFactor,
 } from '#db/scoped/userSignIn'
 import { queueSms } from '#saas/sms/index'
+import { admit, admitted, type StoreAuthDeps } from './admission'
+import { acceptStoreInvitation, joinStore, lookUpStoreInvitation, requestStorePasswordReset, resetStorePassword } from './invitations'
 import { json, readBody, refuse, type Refusal } from './authHttp'
+
+export type { StoreAuthDeps } from './admission'
 
 // Sign-in on a partner's portal host (ACCESS.md §2, §4; FIRST-RELEASE §4; #290): the same shape
 // as the partner console's (apis/platform/auth.ts), with SMS codes and backup codes besides an
 // authenticator app, and 2-factor required of every Owner.
-
-export interface StoreAuthDeps {
-  sql: postgres.Sql
-  activity: ActivityLog
-  /** The host's partner; every account and session here is that partner's. */
-  partnerId: string
-  host: string
-  /** The credential key (THIRD-PARTY-ACCESS §5); without it no second factor can be read or set. */
-  secrets: SecretBox | null
-  now: () => Date
-  /** False when this key has made too many attempts (ARCHITECTURE.md §7). */
-  allowAttempt: (key: string) => Promise<boolean>
-}
 
 const paths = {
   signIn: '/api/auth/sign-in',
@@ -77,6 +62,11 @@ const paths = {
   backupCode: '/api/auth/backup-code',
   enrol: '/api/auth/enrol-second-factor',
   signOut: '/api/auth/sign-out',
+  invitation: '/api/auth/invitation',
+  acceptInvitation: '/api/auth/accept-invitation',
+  join: '/api/auth/join',
+  requestReset: '/api/auth/request-password-reset',
+  reset: '/api/auth/reset-password',
 }
 
 const isRefusal = (value: Refusal | Record<string, unknown>): value is Refusal => typeof value['code'] === 'string'
@@ -120,6 +110,11 @@ export const handleStoreAuth = async (request: Request, deps: StoreAuthDeps): Pr
   if (url.pathname === paths.sendCode) return sendSignInCode(deps, facts, cookie)
   if (url.pathname === paths.secondFactor) return secondFactor(request, deps, facts, cookie)
   if (url.pathname === paths.backupCode) return backupCode(request, deps, facts, cookie)
+  if (url.pathname === paths.invitation) return lookUpStoreInvitation(request, deps)
+  if (url.pathname === paths.acceptInvitation) return acceptStoreInvitation(request, deps, facts)
+  if (url.pathname === paths.join) return joinStore(request, deps, facts, cookie)
+  if (url.pathname === paths.requestReset) return requestStorePasswordReset(request, deps, facts)
+  if (url.pathname === paths.reset) return resetStorePassword(request, deps, facts)
   return enrol(request, deps, facts, cookie)
 }
 
@@ -140,20 +135,12 @@ const signIn = async (request: Request, deps: StoreAuthDeps, facts: RequestFacts
       await deps.activity.record(tx, personSignInRefused(deps.partnerId, facts, 'locked'))
       return { refusal: { code: 'LOCKED', minutes: minutesUntil(candidate.locked_until, now) } as const }
     }
-    const user = { id: candidate.id, partnerId: candidate.partner_id }
-    const stage: UserSessionStage = candidate.two_factor_method ? 'second-factor' : candidate.is_owner ? 'enrol' : 'full'
-    if (stage === 'full') {
-      await markUserSignedIn(tx, user.id, now)
-      await deps.activity.record(tx, personSignedIn(user, facts))
-    }
-    const remember = input?.remember ?? false
-    const session = await createUserSession(tx, user, now, { stage, remember, userAgent: facts.userAgent })
-    return { session, stage, remember, method: candidate.two_factor_method }
+    return admit(tx, deps, facts, candidate, input?.remember ?? false, now)
   })
   if ('refusal' in outcome) return refuse(outcome.refusal)
-  const step = outcome.stage === 'full' ? 'done' : outcome.stage
-  return json(200, { ok: true, step, ...(outcome.stage === 'second-factor' ? { method: outcome.method } : {}) }, setStoreCookie(outcome.session, outcome.remember, outcome.stage))
+  return admitted(outcome)
 }
+
 
 /** A wrong code counts; the fifth locks sign-in for 15 minutes (ACCESS.md §4, as the partner console). */
 const wrongCode = async (tx: ScopedSql, deps: StoreAuthDeps, facts: RequestFacts, state: UserSecondFactor, now: Date): Promise<Refusal> => {

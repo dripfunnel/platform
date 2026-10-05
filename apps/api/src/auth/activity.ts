@@ -235,3 +235,14 @@ export const personSignInRefused = (partnerId: string, request: RequestFacts, re
   visibility: 'staff',
   ...request,
 })
+
+/** ACCESS.md §6.2: the store's own log shows who joined, as what; the token is never logged. */
+export const personJoinedStore = (user: { id: string; partnerId: string }, request: RequestFacts, store: { id: string; name: string }, sellerId: string | null, role: string): ActivityEntry => ({
+  ...personEntry('person.invitation_accepted', 'auth', user, request, role),
+  storeId: store.id,
+  sellerId,
+  target: { type: 'store', id: store.id, label: store.name },
+  visibility: 'store',
+})
+export const personPasswordResetRequested = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_reset_requested', 'security', user, request)
+export const personPasswordReset = (user: { id: string; partnerId: string }, request: RequestFacts) => personEntry('person.password_reset', 'security', user, request)

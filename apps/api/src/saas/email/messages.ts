@@ -32,6 +32,29 @@ export const en = {
     body: (partner: string, role: string) => `You’ve been invited to ${partner}’s partner console as ${role}. Accept the invitation to choose your password and turn on 2-factor.`,
     action: 'Accept and set your password',
   },
+  storeInvitation: {
+    subject: (store: string) => `You’re invited to ${store}`,
+    heading: (store: string) => `Join ${store}`,
+    // The prototype's invite screen words the role the same way (PortalAuth `invite`).
+    roles: {
+      owner: 'an Owner',
+      manager: 'a Manager',
+      staff: 'Staff',
+      supplier: (seller: string) => `a supplier for ${seller}`,
+    },
+    newPerson: (inviter: string, store: string, role: string) => `${inviter} invited you to ${store} as ${role}. Accept to choose your password and open the store.`,
+    existingPerson: (inviter: string, store: string, role: string) => `${inviter} invited you to ${store} as ${role}. Sign in with the account you already have to accept.`,
+    actionNew: 'Accept and set your password',
+    actionJoin: 'Sign in to accept',
+    note: 'The link works for 7 days. If you didn’t expect this email, you can ignore it.',
+  },
+  userPasswordReset: {
+    subject: (brand: string) => `Reset your ${brand} password`,
+    heading: 'Reset your password',
+    body: (brand: string) => `Someone asked to reset the password for your ${brand} account. Choose a new one with the link below; you’ll be signed out everywhere else.`,
+    action: 'Choose a new password',
+    note: 'The link works once, for 30 minutes. If you didn’t ask, ignore this email; your password stays the same.',
+  },
   partnerPasswordReset: {
     subject: 'Reset your DripFunnel password',
     heading: 'Reset your password',
