@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import type { SizeChart } from '../../api/sizeCharts'
+import { messages } from '../../messages'
 import { chartInput, chartProblem, draftOfChart, inUnit, isChartDirty, templates, withMeasurement, withoutColumn, withRow, withSystems } from './sizeChartDraft'
+
+const w = messages.collections.charts
 
 const chart: SizeChart = {
   id: 'c1',
@@ -32,16 +35,26 @@ describe('a size chart being edited', () => {
     const inches = inUnit(draftOfChart(chart), 'in')
     expect(inches.unit).toBe('in')
     expect(inches.rows[0]).toEqual({ size: 'M', values: ['10', '37.8–39.8', 'Slim'] })
-    expect(inUnit(inches, 'cm').rows[0]?.values[1]).toBe('96–101.1')
+    // Back to centimetres is what was typed, not 96–101.1: switching never drifts a saved chart's numbers.
+    const back = inUnit(inches, 'cm')
+    expect(back.rows).toEqual(draftOfChart(chart).rows)
+    expect(isChartDirty(back, draftOfChart(chart))).toBe(false)
+    expect(inUnit(inUnit(back, 'in'), 'cm').rows).toEqual(draftOfChart(chart).rows)
+  })
+
+  it('takes a value typed after a switch as the one to convert from', () => {
+    const inches = inUnit(draftOfChart(chart), 'in')
+    const typed = { ...inches, rows: inches.rows.map((r, i) => (i === 0 ? { ...r, values: ['10', '40', 'Slim'] } : r)) }
+    expect(inUnit(typed, 'cm').rows[0]?.values).toEqual(['10', '101.6', 'Slim'])
   })
 
   it('adds sizes, measurements and empty US/UK/EU columns, and removes a column with its cells', () => {
     const d = draftOfChart(chart)
     expect(withRow(d).rows.at(-1)).toEqual({ size: '', values: ['', '', ''] })
     expect(withMeasurement(d, 'Length').rows[0]?.values).toEqual(['10', '96–101', 'Slim', ''])
-    const systems = withSystems(d)
+    const systems = withSystems(d, ['US', 'UK', 'EU'])
     expect([systems?.systems, systems?.rows[0]?.values]).toEqual([['UK', 'US', 'EU'], ['10', '', '', '96–101', 'Slim']])
-    expect(withSystems({ ...d, systems: ['us', 'UK', 'EU'] })).toBeNull()
+    expect(withSystems({ ...d, systems: ['us', 'UK', 'EU'] }, ['US', 'UK', 'EU'])).toBeNull()
     expect(withoutColumn(d, 1)).toEqual(expect.objectContaining({ systems: ['UK'], measurements: ['Fit'], rows: [{ size: 'M', values: ['10', 'Slim'] }, { size: 'L', values: ['12', 'Slim'] }] }))
   })
 
@@ -57,11 +70,13 @@ describe('a size chart being edited', () => {
 
 describe('the templates', () => {
   it('start in the store’s unit, with kurtas only where it sells in India', () => {
-    expect(templates('cm', false).map((t) => t.key)).toEqual(['tops', 'women', 'jeans', 'shoes', 'blank'])
-    expect(templates('cm', true).map((t) => t.key)).toContain('kurta')
-    const tops = (unit: 'cm' | 'in') => templates(unit, false)[0]?.chart.rows[0]?.values
+    expect(templates('cm', false, w).map((t) => t.key)).toEqual(['tops', 'women', 'jeans', 'shoes', 'blank'])
+    expect(templates('cm', true, w).map((t) => t.key)).toContain('kurta')
+    const tops = (unit: 'cm' | 'in') => templates(unit, false, w)[0]?.chart.rows[0]?.values
     expect([tops('cm'), tops('in')]).toEqual([['86', '71', '68'], ['34', '28', '27']])
     // Every row has a value for each size system and measurement, as the API requires.
-    for (const t of templates('in', true)) for (const r of t.chart.rows) expect(r.values).toHaveLength(t.chart.systems.length + t.chart.measurements.length)
+    for (const t of templates('in', true, w)) for (const r of t.chart.rows) expect(r.values).toHaveLength(t.chart.systems.length + t.chart.measurements.length)
+    // Their column names are the portal's words, from messages.
+    expect(templates('cm', false, w)[0]?.chart.measurements).toEqual([w.columns.chest, w.columns.waist, w.columns.length])
   })
 })
