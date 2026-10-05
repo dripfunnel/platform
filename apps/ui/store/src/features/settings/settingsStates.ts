@@ -52,6 +52,8 @@ export const sampleLocale: StoreLocale | null = harness
       examples: [
         { currency: 'USD', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
         { currency: 'AED', from: { amount: '10000', currency: 'INR' }, none: { amount: '400' }, nearest: { amount: '400' }, ends99: { amount: '499' } },
+        { currency: 'EUR', from: { amount: '10000', currency: 'INR' }, none: { amount: '100' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+        { currency: 'GBP', from: { amount: '10000', currency: 'INR' }, none: { amount: '84' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
       ],
     }
   : null
@@ -142,8 +144,8 @@ export const sampleReads: SettingsReads = {
     translationLanguages: [],
     features: ['sizeCharts', 'specs', 'highlights', 'faqs', 'badges', 'related', 'aplus', 'video'].map((key) => ({ key, enabled: ['sizeCharts', 'specs', 'highlights', 'badges'].includes(key), inPlan: key !== 'video' })),
     badges: [
-      { id: 'b-new', label: 'New', rule: 'new_30_days', tone: 'ok' },
-      { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral' },
+      { id: 'b-new', label: 'New', rule: 'new_30_days', tone: 'ok', position: 0 },
+      { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral', position: 1 },
     ],
   }),
 }

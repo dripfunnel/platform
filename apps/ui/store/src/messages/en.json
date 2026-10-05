@@ -1909,7 +1909,8 @@
       },
       "deleteMenuMaybe": "If it’s in your menu, we’ll take it out and move anything nested under it up a level.",
       "slugPlaceholder": "your-collection",
-      "countPending": "…"
+      "countPending": "…",
+      "priceNoteNoCurrency": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency."
     },
     "refused": {
       "NAME_REQUIRED": "Give the collection a name.",
@@ -2013,7 +2014,8 @@
         "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again."
       },
       "usesNone": "No products use it yet.",
-      "deleteNone": "Nothing uses it."
+      "deleteNone": "Nothing uses it.",
+      "quoted": "“{value}”"
     },
     "menus": {
       "title": "Main menu",
@@ -2612,7 +2614,7 @@
       "name": "Market name",
       "namePlaceholder": "e.g. United Kingdom",
       "create": "Create",
-      "created": "Market started — pick its countries, then save",
+      "created": "{name} added — shoppers there see it within a minute",
       "selling": "Selling here",
       "notSelling": "Not selling here",
       "pickCountry": "Pick at least one country.",
@@ -2696,7 +2698,14 @@
         "FORBIDDEN": "Only the store owner can change markets.",
         "other": "That didn’t save. Try again."
       },
-      "subMarket": "Sub-market"
+      "subMarket": "Sub-market",
+      "placeholders": {
+        "adjust": "0",
+        "path": "uk",
+        "dutyRate": "12",
+        "dutyThreshold": "0"
+      },
+      "percent": "%"
     },
     "catalogue": {
       "sellTitle": "What do you mostly sell?",

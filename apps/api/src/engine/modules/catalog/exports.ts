@@ -51,7 +51,7 @@ const money = (amount: string | null, currency: string | null): string | null =>
  * One row a version, the product's own columns on its first row only (as Shopify's file does), then a
  * `name:hi`/`description:hi` pair a translation language and a `price:USD` column a manually priced currency (K10, K11).
  */
-export const productsCsv = (rows: readonly ExportProductRow[], o: { currency: string; languages: readonly string[]; truncatedAt: number | null }): string => {
+export const productsCsv = (rows: readonly ExportProductRow[], o: { currency: string | null; languages: readonly string[]; truncatedAt: number | null }): string => {
   const extra = [...new Set(rows.flatMap((p) => (p.versions ?? []).flatMap((v) => (v.prices ?? []).filter((x) => x.source === 'manual' && x.currency !== o.currency).map((x) => x.currency))))].sort()
   const header = [...productHeader, ...o.languages.flatMap((l) => [`name:${l}`, `description:${l}`]), ...extra.map((c) => `price:${c}`)]
   const lines = rows.flatMap((p) => {
@@ -60,7 +60,7 @@ export const productsCsv = (rows: readonly ExportProductRow[], o: { currency: st
     return versions.map((v, i) => {
       const first = i === 0
       const priced = (currency: string) => v?.prices?.find((x) => x.currency === currency)
-      const home = priced(o.currency)
+      const home = o.currency === null ? undefined : priced(o.currency)
       const options = [0, 1, 2].flatMap((n) => [first ? (p.options?.[n] ?? null) : null, v?.values?.[n] ?? null])
       return csvLine([
         p.slug,
@@ -101,7 +101,8 @@ export const stockCsv = (rows: readonly ExportStockRow[], truncatedAt: number | 
  */
 export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax): Promise<{ rows: number; truncated: boolean; csv: string }> => {
   const filter = catalogExportFilter.parse(job.filter)
-  const currency = (await selectPricingCurrency(tx)) ?? 'USD'
+  // A store with no currency has no prices to list; never one in a currency it didn't choose.
+  const currency = await selectPricingCurrency(tx)
   const products: ExportProductRow[] = []
   const stock: ExportStockRow[] = []
   const count = () => (job.kind === 'products' ? products.reduce((n, p) => n + Math.max(1, p.versions?.length ?? 0), 0) : stock.length)

@@ -119,8 +119,8 @@ const merchantExtras: EditorExtras = {
     collections: { handPicked: [{ id: 'c-summer', name: 'Summer edit' }, { id: 'c-gifts', name: 'Gifts under ₹3,000' }], automatic: [{ id: 'c-linen', name: 'All linen', kind: 'automatic' }] },
   },
   badges: [
-    { id: 'b-new', label: 'New', rule: 'new', tone: 'ok' },
-    { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral' },
+    { id: 'b-new', label: 'New', rule: 'new', tone: 'ok', position: 0 },
+    { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral', position: 1 },
   ],
   memberships: [{ id: 'c-summer', name: 'Summer edit', kind: 'manual' }, { id: 'c-linen', name: 'All linen', kind: 'automatic' }],
 }

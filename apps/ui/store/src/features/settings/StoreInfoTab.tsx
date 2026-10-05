@@ -70,8 +70,8 @@ export const example = (to: string, rounding: Currency['rounding'], examples: St
   return `${formatMoney({ amount: Number(e.from.amount), currency: e.from.currency }, locale)} → ${formatMoney({ amount: Number(result.amount), currency: to }, locale)}`
 }
 
-/** Currencies the store can add: the ones the reference rates cover, as converting needs a rate. */
-const addableCurrencies = (l: StoreLocale, list: readonly Currency[]) => ['EUR', ...l.rates.map((r) => r.currency)].filter((c, i, all) => all.indexOf(c) === i && c !== l.pricingCurrency && !list.some((x) => x.code === c)).sort()
+/** Currencies the store can add: every one with a reference rate (the API's examples), as converting needs a rate. */
+const addableCurrencies = (l: StoreLocale, list: readonly Currency[]) => l.examples.map((e) => e.currency).filter((c, i, all) => all.indexOf(c) === i && c !== l.pricingCurrency && !list.some((x) => x.code === c)).sort()
 
 export interface StoreInfoTabProps {
   info: StoreInfo
