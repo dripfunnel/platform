@@ -401,8 +401,9 @@ People lists the store's own people and invitations (#290 part 5's `people`); th
 company's access level (all four of ACCESS §5.2, where SetTeam draws three), how it ships and who buys its labels,
 suspend (hide or keep selling), reactivate and remove, and the approval switch.
 Warehouse lists the store's own locations to manage (the same view as a supplier's tab) and its suppliers'
-apart, named and read-only. Tax setup: how prices are typed, with an example at the default category's rate at
-home; switching only moves the flag (`setPricesIncludeTax`), so the ask says the numbers typed stay and what
+apart, named and read-only. Tax setup: how prices are typed, with what that means said in words naming the tax ("GST
+is part of it" or "worked out at checkout and added"), not a computed amount: the portal never works out money
+(ui/README §3); switching only moves the flag (`setPricesIncludeTax`), so the ask says the numbers typed stay and what
 shoppers pay changes, and doesn't offer the prototype's "keep what shoppers pay", which nothing in the API does.
 Categories show their rate in the home zone and change it there; "Add a rate" makes the category and its home
 rate; a US store's rates come from the shopper's state, so it adds none here. Other places' zones are listed;
