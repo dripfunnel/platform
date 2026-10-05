@@ -303,8 +303,8 @@ export const registerProfile = (builder: StoreBuilder) => {
         const outcome = await withSystemScope(sqlOf(ctx), async (tx): Promise<SecondFactorStep | GraphQLError> => {
           const profile = await readProfile(tx, person, now)
           const turningOn = profile.two_factor_method === null
-          // Switching or turning off an existing factor starts with the password (the confirm step reuses that proof).
-          if (!turningOn && code === null) {
+          // Turning off always needs the password; a switch needs it on the start, whose pending state the confirm needs.
+          if (!turningOn && (args.method === 'off' || code === null)) {
             const proven = await provePassword(tx, ctx, person, args.password, now)
             if (proven) return proven
           }
