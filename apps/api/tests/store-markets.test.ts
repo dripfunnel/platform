@@ -172,10 +172,19 @@ describe('markets', () => {
     expect((await markets()).filter((m) => m.everywhereElse).map((m) => m.id)).toEqual([europe])
     expect((await gql('mutation E($id: ID) { setEverywhereElse(marketId: $id) }', 'owner', { id: null })).data?.['setEverywhereElse']).toBe(true)
     expect((await markets()).some((m) => m.everywhereElse)).toBe(false)
+    // Each entry names the real market: the one that took it, then the one that stopped.
+    expect(await db.sql`select target_id, reason from activity_log where action = 'market.fallback_changed' and target_id = ${europe} order by occurred_at, id`).toEqual([
+      { target_id: europe, reason: 'on' },
+      { target_id: europe, reason: 'off' },
+    ])
   })
 
   it('moves markets off a currency or language no longer offered, and deleting a market lifts its sub-markets', async () => {
+    const before = (await markets()).find((m) => m.id === europe)
+    await save({ name: 'Europe', countries: ['DE', 'FR', 'NL'], currency: 'EUR', language: 'en-US', dutiesMode: 'flat', dutiesRateBps: 500, dutiesThresholdAmount: '15000' }, europe, before?.revision)
     expect((await saveCurrencies([{ code: 'USD', mode: 'convert' }])).data?.['saveCurrencies']).toBe(true)
+    // Its duty-free threshold was euros: in the new currency it needs setting again.
+    expect((await db.sql<{ duties_threshold_amount: string | null }[]>`select duties_threshold_amount::text from market where id = ${europe}`)[0]?.duties_threshold_amount).toBeNull()
     expect((await locale()).currencies.find((c) => c.code === 'EUR')?.status).toBe('removed')
     expect(new Set((await markets()).filter((m) => m.id === europe || m.id === germany).map((m) => m.currency))).toEqual(new Set(['INR']))
     expect((await gql('mutation D($id: ID!) { deleteMarket(id: $id) }', 'owner', { id: europe })).data?.['deleteMarket']).toBe(true)
