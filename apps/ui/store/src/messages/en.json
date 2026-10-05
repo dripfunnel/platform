@@ -755,5 +755,212 @@
       "other": "Something else ({action})",
       "someone": "someone"
     }
+  },
+  "products": {
+    "title": "Products",
+    "titleViewOnly": "Products (view only)",
+    "titleSupplier": "Your products",
+    "summary": {
+      "merchant": "{products} · {fromSuppliers}{outOfStock}",
+      "fromSuppliers": "{count} from suppliers · ",
+      "outOfStock": "{count} out of stock",
+      "supplier": "{products} · {waiting} waiting for approval · {sentBack} sent back",
+      "products": {
+        "one": "{count} product",
+        "other": "{count} products"
+      }
+    },
+    "add": "Add product",
+    "addFab": "+ Add product",
+    "importExport": "Import & export",
+    "search": {
+      "label": "Search products",
+      "placeholder": "Search by name or product code",
+      "clear": "Clear search"
+    },
+    "supplier": {
+      "label": "Supplier",
+      "all": "All suppliers",
+      "own": "Yours"
+    },
+    "sort": {
+      "label": "Sort",
+      "updated": "Recently updated",
+      "name": "Name A–Z",
+      "price_low": "Price, low to high",
+      "price_high": "Price, high to low",
+      "stock": "Stock, lowest first"
+    },
+    "chips": {
+      "label": "Show",
+      "all": "All",
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "pending": "Waiting for approval",
+      "sent_back": "Sent back",
+      "low_stock": "Low stock",
+      "missing_info": "Missing info"
+    },
+    "columns": {
+      "select": "Select this page",
+      "product": "Product",
+      "status": "Status",
+      "price": "Price",
+      "stock": "Stock",
+      "supplier": "Supplier",
+      "ready": "Ready to sell"
+    },
+    "status": {
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "pending": "Waiting for approval",
+      "sent_back": "Sent back"
+    },
+    "row": {
+      "select": "Select {name}",
+      "noPhoto": "No photo",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
+      "noChoices": "No choices",
+      "download": "Download",
+      "service": "Service",
+      "giftCard": "Gift card",
+      "removedSupplier": " · From {supplier}, removed",
+      "noPrice": "No price",
+      "notTracked": "Not tracked",
+      "outOfStock": "Out of stock",
+      "low": "Low: {count}",
+      "inStock": "{count} in stock",
+      "you": "You",
+      "ready": "Ready",
+      "readyAll": "Ready in all {count}",
+      "missing": {
+        "one": "{count} detail missing",
+        "other": "{count} details missing"
+      },
+      "someReady": "{ready} of {count} markets",
+      "review": "Review",
+      "close": "Close",
+      "open": "Open {name}"
+    },
+    "review": {
+      "title": "Review · from {supplier}",
+      "note": "You set the price and can change it after approving",
+      "photos": "Photo added",
+      "noPhoto": "No photo yet",
+      "priced": "Price filled in",
+      "noPrice": "No price yet",
+      "readyIn": "Ready to sell in {market}",
+      "notReadyIn": "Not ready in {market} — {missing} missing",
+      "edit": "Edit before approving",
+      "sendBack": "Send back",
+      "approve": "Approve & publish",
+      "approveShort": "Approve",
+      "approved": "“{name}” approved and live. {supplier} has been told.",
+      "approvedMany": "{count} products approved and live. Suppliers have been told.",
+      "sendBackTitle": "Send back to {supplier}",
+      "sendBackBody": "Say what needs changing. They’ll see exactly what you write.",
+      "reasonLabel": "What should they fix?",
+      "reasonPlaceholder": "e.g. The main photo is blurry — please upload a sharper one.",
+      "reasonMissing": "Add a reason so they know what to fix",
+      "sentBack": "Sent back to {supplier}"
+    },
+    "needs": {
+      "price": "price",
+      "fibre": "fibre content",
+      "origin": "country of origin",
+      "care": "care instructions",
+      "compare": "MRP"
+    },
+    "banner": {
+      "waiting": {
+        "one": "{count} supplier product is waiting for your approval.",
+        "other": "{count} supplier products are waiting for your approval."
+      },
+      "waitingBody": "They go live once you approve them.",
+      "waitingCta": "Review them"
+    },
+    "bulk": {
+      "selected": "{count} selected",
+      "allSelected": "All {count} on this page selected",
+      "approve": "Approve {count}",
+      "show": "Show on store",
+      "hide": "Hide",
+      "addToCollection": "Add to collection",
+      "taxClass": "Change tax category",
+      "delete": "Delete…",
+      "clear": "Clear",
+      "shown": {
+        "one": "{count} now visible",
+        "other": "{count} now visible"
+      },
+      "shownSkipped": " · products waiting for approval were skipped",
+      "hidden": {
+        "one": "{count} hidden from shoppers",
+        "other": "{count} hidden from shoppers"
+      },
+      "collectionTitle": "Add {count} to…",
+      "collectionBody": "Automatic collections fill themselves from their rules, so only hand-picked ones are listed.",
+      "collectionNone": "Create a hand-picked collection first",
+      "collectionAdded": "Added to {name}",
+      "taxTitle": "Tax category for {count}",
+      "taxBody": "Every version of each product takes it. Products keep their own prices.",
+      "taxApplied": "{count} now use “{name}”",
+      "deleteTitleOne": "Delete “{name}”?",
+      "deleteTitle": "Delete {count} products?",
+      "deleteBody": "They leave every collection. Past orders keep their record. If you might sell them again, hide them instead.",
+      "deleteConfirm": "Delete",
+      "hideInstead": "Hide instead",
+      "deleted": {
+        "one": "{count} deleted",
+        "other": "{count} deleted"
+      },
+      "collectionLabel": "Collection",
+      "collectionConfirm": "Add",
+      "taxLabel": "Tax category",
+      "taxConfirm": "Apply"
+    },
+    "noResults": {
+      "search": "No products match “{search}”",
+      "filters": "No products match these filters",
+      "body": "Check the spelling, or clear your search and filters.",
+      "clear": "Clear search and filters"
+    },
+    "pages": {
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next",
+      "label": "Pages"
+    },
+    "empty": {
+      "title": "Add your first product",
+      "body": "A photo, a name and a price is enough to start selling. You can add sizes, colours and the rest whenever you like.",
+      "add": "Add a product",
+      "importFile": "Import from a spreadsheet",
+      "checklist": "Get your shop ready",
+      "checkDone": "{done} of {count} done",
+      "storeDetails": "Set up your store details",
+      "addThree": "Add 3 products",
+      "addThreeCta": "{done} of 3",
+      "collection": "Group them into a collection",
+      "shipping": "Choose how you ship",
+      "setUp": "Set up",
+      "create": "Create",
+      "done": "Done"
+    },
+    "supplierEmpty": {
+      "title": "No products yet",
+      "body": "Add your first product. The store owner reviews it before it goes on sale."
+    },
+    "loading": "Loading products",
+    "error": {
+      "title": "We couldn’t load your products",
+      "body": "Your products are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "failed": "That didn’t save. Try again.",
+    "cancel": "Cancel"
   }
 }

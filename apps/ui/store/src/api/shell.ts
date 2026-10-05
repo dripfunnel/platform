@@ -1,7 +1,7 @@
 import { identityChanged } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { rememberActing } from '../acting'
-import { merchantRoles, supplierTiers, type Seat } from '../nav'
+import { merchantRoles, supplierTiers, type NavBadgeSource, type Seat } from '../nav'
 import { query } from './client'
 
 // The shell's reads (FIRST-RELEASE.md §3, §19; apps/api/schema/store.graphql): who is signed in and
@@ -82,6 +82,14 @@ export type StoreState = NonNullable<z.infer<typeof stateSchema>['storeState']>
 
 export const loadStoreState = async (): Promise<StoreState | null> =>
   (await query(`{ storeState { readOnly status trialEndsAt pastDueSince provisioning { state step } support { partnerName agentFirstName endsAt } } }`, stateSchema)).storeState
+
+const badgesSchema = z.object({ navBadges: z.object({ products: z.number().int().nullable() }).nullable() })
+
+/** The menu's counts (FIRST-RELEASE §19): products to approve now; orders to ship once SAPI 11 counts them. */
+export const loadNavBadges = async (): Promise<Record<NavBadgeSource, number>> => {
+  const { navBadges } = await query('{ navBadges { products } }', badgesSchema)
+  return { ordersToShip: 0, productsToApprove: navBadges?.products ?? 0 }
+}
 
 const switchSchema = z.object({ switchStore: choiceSchema })
 

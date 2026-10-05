@@ -2,7 +2,7 @@ import { redirect } from '@tanstack/react-router'
 import { actingStore, rememberActing } from '../../acting'
 import { isApiError } from '../../api/client'
 import { shellSample } from '../../api/sample'
-import { loadMe, loadMyStores, loadStoreState, seatOf, type Acting, type Me, type StoreChoice, type StoreState } from '../../api/shell'
+import { loadMe, loadMyStores, loadNavBadges, loadStoreState, seatOf, type Acting, type Me, type StoreChoice, type StoreState } from '../../api/shell'
 import type { NavBadgeSource, Seat } from '../../nav'
 
 export interface ShellSearch {
@@ -20,7 +20,7 @@ export interface ShellData {
   badges: Record<NavBadgeSource, number>
 }
 
-// Counted by navBadges once SAPI 5 and SAPI 11 build the tables (FIRST-RELEASE §19); nothing waits until then.
+// A badge is a hint: when its count fails the menu draws none rather than the screen failing.
 const noBadges: Record<NavBadgeSource, number> = { ordersToShip: 0, productsToApprove: 0 }
 
 /**
@@ -40,8 +40,8 @@ export const loadShell = async (search: ShellSearch, here: string): Promise<Shel
     throw redirect({ to: '/stores', search: { next: here } })
   }
   try {
-    const [stores, state] = await Promise.all([loadMyStores(), loadStoreState()])
-    return { me, acting: me.acting, seat, stores, state, badges: noBadges }
+    const [stores, state, badges] = await Promise.all([loadMyStores(), loadStoreState(), loadNavBadges().catch(() => noBadges)])
+    return { me, acting: me.acting, seat, stores, state, badges }
   } catch (error) {
     if (isApiError(error, 'FORBIDDEN')) {
       rememberActing(null)
