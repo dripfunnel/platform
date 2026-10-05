@@ -133,7 +133,7 @@ transfer not yet paid, or a paid order still being packed), and may ask for a re
 store's returns window closes, counted from delivery. The window is the store's own returns
 policy (CATALOG-DESIGN S8), never the theme's: 14 days in the India sample, 30 in the US one
 (`returnDays` in `shop-data.js`; download limits likewise, `downloads`). The rules are written
-in storefront ARCHITECTURE §2.1.
+in storefront ARCHITECTURE §2.1 as a *proposal* awaiting approval on #285 (its §12).
 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
