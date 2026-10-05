@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { ApiError } from '@dripfunnel/shared/graphql'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../api/stock'
 import { messages } from '../../messages'
@@ -19,8 +20,9 @@ const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDe
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
 const show = async (canEdit = true) => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
   await act(async () => {
-    render(<WarehousesView canEdit={canEdit} />)
+    render(<RouterProvider router={router} />)
   })
   await settle()
 }
