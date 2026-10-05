@@ -1,8 +1,7 @@
 import type { ScopedSql } from './index'
 
-// Accepting a store invitation and resetting a merchant's password on a portal host (ACCESS.md
-// §4, §6; #290). Sign-in's work: every function here runs in system scope, pinned to the host's
-// partner so a token never works on another partner's portal.
+// Store invitations and merchant password reset (ACCESS.md §4, §6): system scope, every read pinned
+// to the host's partner so a token never works on another partner's portal.
 
 export interface StoreInvitationByToken {
   id: string
