@@ -1853,6 +1853,7 @@
       "removeRule": "Remove rule {n}",
       "addRule": "+ Add a rule",
       "priceNote": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency ({currency}).",
+      "priceNoteNoCurrency": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency.",
       "kept": {
         "one": "1 more rule this screen doesn’t change is kept as it is.",
         "other": "{count} more rules this screen doesn’t change are kept as they are."
@@ -1981,6 +1982,7 @@
         "one": "1 product using {drop} will use “{keep}”.",
         "other": "{count} products using {drop} will use “{keep}”."
       },
+      "quoted": "“{value}”",
       "mergeConfirm": "Merge",
       "merged": {
         "one": "Merged — 1 product now uses “{keep}”",
