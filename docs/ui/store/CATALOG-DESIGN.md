@@ -124,7 +124,7 @@ indicative until the engine's data model is written.
 | **Product classification code**, named by region: HSN (India), HTS (US), CN / TARIC (EU), commodity code (UK), HS code (elsewhere) | Catalogue: nullable, neutral `hsCode` on the version (§3 fact 7) | "The international code for this kind of product, used for tax invoices, shipping and customs." Offer search by plain words. |
 | **Barcode** (GTIN / UPC / EAN / ISBN) | Catalogue: barcode on the version `(release: decide)` (§3 fact 44) | "The number under the barcode on the packaging. Needed to sell on Google Shopping and marketplaces." |
 | **Weight / size of the package** | Catalogue: weight and dimensions `(release: decide)` (§3 fact 12) | Shown in the store's units (kg · cm, or lb · in). §3 fact 39. |
-| **Product code (SKU)** | Catalogue: version SKU, unique per store | "Your own code to tell versions apart. We can make one for you." Auto-generate by default. |
+| **Product code (SKU)** | Catalogue: version SKU, unique per owner, the merchant's and each supplier's (decided on #293: a store-wide rule would tell a supplier which codes others use) | "Your own code to tell versions apart. We can make one for you." Auto-generate by default. |
 | **In stock / quantity** | Inventory: on hand per (version, warehouse) | One number for most sellers (§3 fact 9). |
 | **Reserved for orders** | Inventory: reserved per (version, warehouse) | "Sold but not shipped yet." |
 | **Warehouse** | Inventory: warehouse (per merchant and per vendor) | Already named this in Settings › Warehouse. |

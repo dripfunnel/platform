@@ -158,6 +158,19 @@ describe('the merchant side', () => {
     expect(moved.data?.['saveProduct']).toMatchObject({ slug: 'warm-wool-hat' })
   })
 
+  it('logs a bulk delete and a bulk hide as one entry per product', async () => {
+    const ids = [(await create('owner', simple('Bulk one'))).saved?.id, (await create('owner', simple('Bulk two'))).saved?.id]
+    await gql(`mutation U($ids: [ID!]!) { updateProducts(ids: $ids, patch: { visible: false }) }`, 'owner', { ids })
+    expect((await gql(`mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }`, 'owner', { ids })).data?.['deleteProducts']).toBe(2)
+    const entries = await db.sql<{ action: string; target_label: string }[]>`select action, target_label from activity_log where target_id = any(${`{${ids.join(',')}}`}::text[]) and action in ('product.deleted', 'product.hidden') order by action, target_label`
+    expect(entries).toEqual([
+      { action: 'product.deleted', target_label: 'Bulk one' },
+      { action: 'product.deleted', target_label: 'Bulk two' },
+      { action: 'product.hidden', target_label: 'Bulk one' },
+      { action: 'product.hidden', target_label: 'Bulk two' },
+    ])
+  })
+
   it('duplicates into a hidden copy with its prices and no product codes', async () => {
     const { saved } = await create('owner', simple('Silk scarf', { versions: [{ choices: [], sku: 'SCARF-1', prices: [price('250000')] }] }))
     const copy = (await gql(`mutation C($id: ID!) { duplicateProduct(id: $id) { id slug } }`, 'owner', { id: saved?.id })).data?.['duplicateProduct'] as { id: string; slug: string }
