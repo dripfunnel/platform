@@ -24,6 +24,29 @@ export const insertActivity = async (tx: ScopedSql, row: NewActivityRow): Promis
   return inserted.id
 }
 
+/** Many rows in one statement, as `insertActivity` writes one. */
+export const insertActivities = async (tx: ScopedSql, rows: readonly NewActivityRow[]): Promise<void> => {
+  if (rows.length === 0) return
+  await tx`
+    insert into activity_log (
+      occurred_at, category, action, result, actor_kind, actor_id, actor_label,
+      on_behalf_of_kind, on_behalf_of_id, on_behalf_of_label, access_kind, access_ref,
+      partner_id, store_id, seller_id, customer_id, target_type, target_id, target_label,
+      changes, reason, api, host, request_id, ip, user_agent, visibility
+    )
+    select coalesce(x.occurred_at, now()), x.category, x.action, x.result, x.actor_kind, x.actor_id, x.actor_label,
+      x.on_behalf_of_kind, x.on_behalf_of_id, x.on_behalf_of_label, x.access_kind, x.access_ref,
+      x.partner_id, x.store_id, x.seller_id, x.customer_id, x.target_type, x.target_id, x.target_label,
+      x.changes, x.reason, x.api, x.host, x.request_id, x.ip, x.user_agent, x.visibility
+    from jsonb_to_recordset(${tx.json(rows as unknown as Parameters<typeof tx.json>[0])}) as x(
+      occurred_at timestamptz, category text, action text, result text, actor_kind text, actor_id text, actor_label text,
+      on_behalf_of_kind text, on_behalf_of_id text, on_behalf_of_label text, access_kind text, access_ref text,
+      partner_id uuid, store_id uuid, seller_id uuid, customer_id uuid, target_type text, target_id text, target_label text,
+      changes jsonb, reason text, api text, host text, request_id text, ip text, user_agent text, visibility text
+    )
+  `
+}
+
 export interface ActivityQuery {
   actorKind?: ActorKind | undefined
   actorId?: string | undefined

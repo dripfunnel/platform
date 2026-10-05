@@ -312,7 +312,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
   const remove = (ids: readonly string[]) =>
     inScope(async (tx) => {
       const gone = await softDeleteProducts(tx, storeId, ids, now())
-      for (const g of gone) await activity.record(tx, entry(catalogAudit.deleted, { id: g.id, label: g.name }))
+      await activity.recordAll(tx, gone.map((g) => entry(catalogAudit.deleted, { id: g.id, label: g.name })))
       if (gone.length > 0) await recompute(tx)
       return gone.length
     })
@@ -322,7 +322,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     inScope(async (tx) => {
       if (sellerId !== null) throw new Error('catalogue: a supplier never sets visibility')
       const changed = await setProductsVisibility(tx, storeId, ids, visible ? 'visible' : 'hidden', now())
-      for (const c of changed) await activity.record(tx, entry(visible ? catalogAudit.shown : catalogAudit.hidden, { id: c.id, label: c.name }))
+      await activity.recordAll(tx, changed.map((c) => entry(visible ? catalogAudit.shown : catalogAudit.hidden, { id: c.id, label: c.name })))
       return changed.length
     })
 

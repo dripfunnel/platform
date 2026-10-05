@@ -294,6 +294,7 @@ describe('the sign-in routes', () => {
   it('rolls the sign-in back when the database fails inside it: no session, no entry, the unavailable state', async () => {
     const before = (await db.sql<{ n: number }[]>`select count(*)::int as n from staff_session where staff_user_id = ${active}`)[0]?.n ?? 0
     const failing = {
+      recordAll: async () => undefined,
       record: async () => {
         throw Object.assign(new Error('could not write activity_log at 10.0.0.9'), { name: 'PostgresError', code: 'XX000' })
       },
@@ -352,7 +353,7 @@ describe('the sign-in routes', () => {
 
   it('records why each refusal happened while telling the caller nothing', async () => {
     const seen: (string | null)[] = []
-    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason) }
+    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason), recordAll: async () => undefined }
     const cases = [
       [callback('good', { state: 'not-ours' }), 'state_mismatch'],
       [callback('good', { cookie: 'nothing=here' }), 'missing_handshake'],
@@ -375,6 +376,7 @@ describe('the sign-in routes', () => {
   it('refuses identically when recording the refusal fails', async () => {
     // Otherwise a caller who can push the database over can tell which refusals reach it.
     const failing = {
+      recordAll: async () => undefined,
       record: async () => {
         throw new Error('the database is down')
       },
@@ -478,7 +480,7 @@ describe('the sign-in routes', () => {
     // Otherwise any page could send a staff member's browser here and pick both the screen
     // they see and the reason written to the activity log.
     const seen: (string | null)[] = []
-    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason) }
+    const capturing = { record: async (_tx: ScopedSql, entry: ActivityEntry) => void seen.push(entry.reason), recordAll: async () => undefined }
     const forged = new Request(
       'https://admin.dripfunnel.com/api/auth/callback?error=invalid_grant&error_description=AADSTS53003',
     )

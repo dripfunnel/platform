@@ -40,6 +40,8 @@ export interface ActivityEntry {
 
 export interface ActivityLog {
   record: (tx: ScopedSql, entry: ActivityEntry) => Promise<void>
+  /** Many entries in one statement, for a bulk action's one entry per target (AGENTS.md "no N+1"). */
+  recordAll: (tx: ScopedSql, entries: readonly ActivityEntry[]) => Promise<void>
 }
 
 /** A staff session ended in the partner console: by the staff member, or by its user or partner going (ACCESS.md §8.1, §8.2). */
