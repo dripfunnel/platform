@@ -94,34 +94,44 @@ export const stockCsv = (rows: readonly ExportStockRow[], truncatedAt: number | 
     ...(truncatedAt === null ? [] : [csvLine([`Only the first ${truncatedAt} rows are included; narrow the filter to see the rest.`])]),
   ].join('\n')
 
-/** The file for a queued job, read page by page in whatever scope `tx` holds (the asker's). */
-export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow): Promise<{ rows: number; truncated: boolean; csv: string }> => {
+/**
+ * The file for a queued job, read page by page in whatever scope `tx` holds (the asker's). At most `max` rows,
+ * whole products for the product file; the scan stops there too, so products without stock can't walk the
+ * whole catalogue in one delivery.
+ */
+export const buildCatalogExport = async (tx: ScopedSql, job: CatalogExportRow, max = catalogExportMax): Promise<{ rows: number; truncated: boolean; csv: string }> => {
   const filter = catalogExportFilter.parse(job.filter)
   const currency = (await selectPricingCurrency(tx)) ?? 'USD'
   const products: ExportProductRow[] = []
   const stock: ExportStockRow[] = []
   const count = () => (job.kind === 'products' ? products.reduce((n, p) => n + Math.max(1, p.versions?.length ?? 0), 0) : stock.length)
   let after: { value: string; id: string } | null = null
-  while (count() <= catalogExportMax) {
+  let scanned = 0
+  let more = false
+  for (;;) {
     const page = await selectProducts(tx, job.store_id, { filter: filter.filter, search: filter.search, seller: filter.supplier, currency }, { limit: productPage, after, before: null })
     const ids = page.slice(0, productPage).map((p) => p.id)
+    scanned += ids.length
     if (job.kind === 'products') products.push(...(await selectExportProducts(tx, job.store_id, ids)))
     else stock.push(...(await selectExportStock(tx, job.store_id, ids)))
     const last = page[productPage - 1]
     if (page.length <= productPage || !last) break
+    if (count() > max || scanned >= max) {
+      more = true
+      break
+    }
     after = { value: last.sort_key ?? last.created_at.toISOString(), id: last.id }
   }
-  const total = count()
-  const truncated = total > catalogExportMax
+  const truncated = more || count() > max
   if (job.kind === 'stock') {
-    const kept = stock.slice(0, catalogExportMax)
+    const kept = stock.slice(0, max)
     return { rows: kept.length, truncated, csv: stockCsv(kept, truncated ? kept.length : null) }
   }
   const kept: ExportProductRow[] = []
   let rows = 0
   for (const p of products) {
     const size = Math.max(1, p.versions?.length ?? 0)
-    if (rows + size > catalogExportMax) break
+    if (rows + size > max) break
     kept.push(p)
     rows += size
   }

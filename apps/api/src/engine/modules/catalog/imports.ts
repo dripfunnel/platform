@@ -5,6 +5,7 @@ import { csvLine, parseCsv } from '#core/csv'
 import type { TenantContext } from '#core/tenancy'
 import { addProductPhoto, selectPricingCurrency, type ProductRow } from '#db/scoped/catalog'
 import {
+  addImportProblems,
   failImport,
   finishImport,
   insertCatalogImport,
@@ -18,6 +19,7 @@ import {
   selectOwnDefaultWarehouse,
   selectOwnSkus,
   selectOwnWarehouse,
+  selectVersionIdsInOrder,
   startImportRun,
   type CatalogImportRow,
   type CatalogImportSummary,
@@ -267,6 +269,9 @@ export const createCatalogImportService = (d: CatalogImportDeps) => {
 
 export type CatalogImportService = ReturnType<typeof createCatalogImportService>
 
+/** Work done in a product save's own transaction (catalog/index.ts `alongside`). */
+type Alongside = (tx: ScopedSql, productId: string) => Promise<void>
+
 /** What a run needs of the catalogue and translations, made by the job in the importer's scope. */
 export interface ImportJobDeps {
   sql: postgres.Sql
@@ -276,8 +281,8 @@ export interface ImportJobDeps {
   facts: RequestFacts
   now: () => Date
   catalog: {
-    create: (input: ProductInput) => Promise<SaveResult>
-    update: (id: string, revision: number, input: ProductInput) => Promise<SaveResult>
+    create: (input: ProductInput, proposal?: boolean, alongside?: Alongside) => Promise<SaveResult>
+    update: (id: string, revision: number, input: ProductInput, alongside?: Alongside) => Promise<SaveResult>
     get: (id: string) => Promise<{ product: ProductRow | null }>
   }
   saveTranslation: (productId: string, language: string, input: ProductTranslationInput) => Promise<TranslationResult<unknown>>
@@ -366,7 +371,7 @@ export const mergeForUpdate = (planned: ProductInput, existing: ProductRow): Pro
 
 type Outcome = { kind: 'created' | 'updated'; id: string } | { kind: 'skipped' } | { kind: 'failed'; code: ProblemCode }
 
-const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct): Promise<Outcome> => {
+const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, alongside: (kind: 'created' | 'updated') => Alongside): Promise<Outcome> => {
   const { storeId } = d.context
   const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null
   const matches = [...new Set((await withScope(d.sql, d.context, (tx) => selectOwnSkus(tx, storeId, sellerId, skusOf(p)))).map((r) => r.product_id))]
@@ -379,28 +384,30 @@ const importOne = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProd
     if (!product) return { kind: 'failed', code: 'NOT_FOUND' }
     const merged = mergeForUpdate(p.input, product)
     if (merged === 'OPTIONS_DIFFER') return { kind: 'failed', code: merged }
-    saved = await d.catalog.update(existingId, product.revision, merged)
-  } else saved = await d.catalog.create(p.input)
+    saved = await d.catalog.update(existingId, product.revision, merged, alongside('updated'))
+  } else saved = await d.catalog.create(p.input, false, alongside('created'))
   if (!saved.ok) return { kind: 'failed', code: saved.reason }
   return { kind: existingId ? 'updated' : 'created', id: saved.id }
 }
 
-/** Counts into the chosen location, a movement each marked `import`; versions by their place, as saved. */
-const importStock = async (d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, productId: string): Promise<boolean> => {
+/**
+ * Counts into the chosen location, a movement each marked `import`, versions by their place as just saved; inside
+ * the product's transaction, under a savepoint, so a refused count is reported without undoing the product.
+ */
+const importStock = async (tx: ScopedSql, d: ImportJobDeps, job: CatalogImportRow, p: PlannedProduct, productId: string): Promise<boolean> => {
   if (p.stock.every((s) => s === null)) return true
-  if (!job.warehouse_id) return false
   const warehouseId = job.warehouse_id
-  const { product } = await d.catalog.get(productId)
-  const versions = [...(product?.versions ?? [])].sort((a, b) => a.position - b.position)
+  if (!warehouseId) return false
+  const versions = await selectVersionIdsInOrder(tx, productId)
   const entries = p.stock.flatMap((target, i) => {
-    const version = versions[i]
-    return target === null || !version ? [] : [{ versionId: version.id, warehouseId, target }]
+    const versionId = versions[i]
+    return target === null || !versionId ? [] : [{ versionId, warehouseId, target }]
   })
   const entry = entryOf(d)
   try {
-    await withScope(d.sql, d.context, async (tx) => {
-      const done = await setStockTargets(tx, entries, 'import')
-      await d.activity.recordAll(tx, done.filter((x) => x.change !== 0).map((x) => entry('stock.adjusted', { type: 'product_version', id: x.version_id, label: `import ${x.change > 0 ? '+' : ''}${x.change} → ${x.quantity} at ${x.warehouse_id}` })))
+    await tx.savepoint(async (sp) => {
+      const done = await setStockTargets(sp, entries, 'import')
+      await d.activity.recordAll(sp, done.filter((x) => x.change !== 0).map((x) => entry('stock.adjusted', { type: 'product_version', id: x.version_id, label: `import ${x.change > 0 ? '+' : ''}${x.change} → ${x.quantity} at ${x.warehouse_id}` })))
     })
     return true
   } catch {
@@ -436,47 +443,48 @@ export const problemsCsv = (file: string | null, plan: ImportPlan, problems: rea
   ].join('\n')
 }
 
-/** A chunk of the run (K6): products in the file's order from where the last chunk stopped, then the next chunk. */
+/**
+ * A chunk of the run (K6): products in the file's order from where the last one stopped. Each product commits with
+ * its count, its photos' jobs and the import's place in the file, so a retry after any failure resumes after the
+ * last product saved and never makes one twice.
+ */
 export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: number): Promise<void> => {
   const { storeId } = d.context
   const started = Date.now()
   const job = await withScope(d.sql, d.context, (tx) => selectCatalogImport(tx, storeId, jobId))
   const plan = job?.plan as ImportPlan | null | undefined
   if (!job || job.state !== 'running' || !plan) return
-  const counts = { created: 0, updated: 0, skipped: 0, failed: 0 }
-  const problems: ImportProblem[] = []
-  const photos: { productId: string; line: number; position: number; url: string; alt: string | null }[] = []
+  const payload = jobPayloadOf(d.context, jobId)
+  const none = { created: 0, updated: 0, skipped: 0, failed: 0, photos: 0 }
   let at = job.done
   while (at < plan.products.length && at - job.done < chunkProducts && Date.now() - started < budgetMs) {
+    const done = at + 1
     const p = plan.products[at]
-    at++
+    at = done
     if (!p) continue
     const line = p.lines[0] ?? 0
-    const outcome = await importOne(d, job, p)
-    if (outcome.kind === 'failed') {
-      counts.failed++
-      problems.push({ line, column: null, code: outcome.code })
+    const alongside = (kind: 'created' | 'updated'): Alongside => async (tx, productId) => {
+      const problems: ImportProblem[] = (await importStock(tx, d, job, p, productId)) ? [] : [{ line, column: null, code: 'STOCK_REFUSED' }]
+      // Photos for a product the import made; one that was there keeps its own (and its approval, ACCESS §7.2).
+      const photos = kind === 'created' ? p.photos : []
+      if (payload) for (const [position, photo] of photos.entries()) await d.queue(tx, importPhotosKind, `${jobId}:photo:${productId}:${position}`, { ...payload, productId, position, ...photo })
+      await saveImportProgress(tx, jobId, { ...none, [kind]: 1, done, photos: photos.length, problems })
+    }
+    const outcome = await importOne(d, job, p, alongside)
+    if (outcome.kind === 'failed' || outcome.kind === 'skipped') {
+      const problems: ImportProblem[] = outcome.kind === 'failed' ? [{ line, column: null, code: outcome.code }] : []
+      await withScope(d.sql, d.context, (tx) => saveImportProgress(tx, jobId, { ...none, [outcome.kind]: 1, done, problems }))
       continue
     }
-    if (outcome.kind === 'skipped') {
-      counts.skipped++
-      continue
-    }
-    counts[outcome.kind]++
-    if (!(await importStock(d, job, p, outcome.id))) problems.push({ line, column: null, code: 'STOCK_REFUSED' })
+    const problems: ImportProblem[] = []
     for (const [language, text] of Object.entries(p.translations)) {
       const saved = await d.saveTranslation(outcome.id, language, text)
       if (!saved.ok) problems.push({ line, column: `name:${language}`, code: 'TRANSLATION_REFUSED' })
     }
-    // Photos for a product the import made; one that was there keeps its own (and its approval, ACCESS §7.2).
-    if (outcome.kind === 'created') photos.push(...p.photos.map((photo, position) => ({ productId: outcome.id, position, ...photo })))
+    await withScope(d.sql, d.context, (tx) => addImportProblems(tx, jobId, problems))
   }
   await withScope(d.sql, d.context, async (tx) => {
-    await saveImportProgress(tx, jobId, { done: at, ...counts, photos: photos.length, problems })
-    const payload = jobPayloadOf(d.context, jobId)
-    if (!payload) return
-    for (const p of photos) await d.queue(tx, importPhotosKind, `${jobId}:photo:${p.productId}:${p.position}`, { ...payload, ...p })
-    if (at < plan.products.length) await d.queue(tx, catalogImportKind, `${jobId}:run:${at}`, { ...payload, phase: 'run' })
+    if (payload && at < plan.products.length) await d.queue(tx, catalogImportKind, `${jobId}:run:${at}`, { ...payload, phase: 'run' })
     else await finishIfDone(tx, storeId, jobId, d.now())
   })
 }

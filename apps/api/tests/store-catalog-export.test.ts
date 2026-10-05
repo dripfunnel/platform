@@ -4,8 +4,10 @@ import type { StoreContext } from '#apis/store/access'
 import { storeSchema } from '#apis/store/schema'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
-import { deleteExpiredCatalogExports, failDeadCatalogExports } from '#db/scoped/catalogExports'
-import { withSystemScope } from '#db/scoped/index'
+import { deleteExpiredCatalogExports, failDeadCatalogExports, selectCatalogExport } from '#db/scoped/catalogExports'
+import { withScope, withSystemScope } from '#db/scoped/index'
+import { buildCatalogExport } from '#engine/modules/catalog/index'
+import type { TenantContext } from '#core/tenancy'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
@@ -35,13 +37,20 @@ const subscribe = async (storeId: string, partnerId: string) => {
 
 const sellerOf: Partial<Record<Who, () => string>> = { supplier: () => t.sellerA1First, otherSupplier: () => t.sellerA1Second }
 
-const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1) => {
+/** Acting as `who`'s person, but through a read-only support session (ACCESS §8), at the resolver itself. */
+const asSupport = (context: StoreContext): StoreContext => {
+  if (context.standing.kind !== 'acting') return context
+  const { caller } = context.standing
+  return { ...context, standing: { ...context.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' } } } } }
+}
+
+const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1, through: (c: StoreContext) => StoreContext = (c) => c) => {
   const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId, ...(seller ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const contextValue: StoreContext = through({ standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now })
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -155,6 +164,34 @@ describe('product exports', () => {
   })
 })
 
+describe('an export’s size', () => {
+  const ownerScope = (): TenantContext => ({ caller: { kind: 'person', userId: people.owner, sessionId: '' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' })
+
+  it('stops at its cap with whole products, and says where it was cut, for both files', async () => {
+    const { id: products } = await ask('owner', 'products')
+    const { id: stock } = await ask('owner', 'stock')
+    const built = await withScope(db.sql, ownerScope(), async (tx) => {
+      const job = (id: string | undefined) => selectCatalogExport(tx, t.storeA1, id ?? '').then((j) => j ?? Promise.reject(new Error('no job')))
+      return { products: await buildCatalogExport(tx, await job(products), 2), stock: await buildCatalogExport(tx, await job(stock), 1) }
+    })
+    expect(built.products).toMatchObject({ rows: 2, truncated: true })
+    const lines = built.products.csv.split('\n')
+    // Header, two rows, the note: newest first, and never half a product.
+    expect(lines).toHaveLength(4)
+    expect(lines.at(-1)).toBe('Only the first 2 rows are included; narrow the filter to see the rest.')
+    const cut = await withScope(db.sql, ownerScope(), async (tx) => {
+      const job = await selectCatalogExport(tx, t.storeA1, products ?? '')
+      if (!job) throw new Error('no job')
+      return buildCatalogExport(tx, job, 4)
+    })
+    // At four rows the next product is Kurta, whose two versions would make five: it's left out whole.
+    expect(cut.csv).not.toContain('KU-S')
+    expect(cut.rows).toBeLessThanOrEqual(4)
+    expect(built.stock).toMatchObject({ rows: 1, truncated: true })
+    expect(built.stock.csv.split('\n').at(-1)).toBe('Only the first 1 rows are included; narrow the filter to see the rest.')
+  })
+})
+
 describe('stock exports', () => {
   it('list every count in every location the caller reads, and none of another supplier’s', async () => {
     const all = await exported('owner', 'stock', { search: 'kurta' })
@@ -177,6 +214,17 @@ describe('who reads an export', () => {
     expect(mine.map((r) => r.id)).not.toContain(id)
     // Row security agrees: in the other supplier's scope the row isn't there at all.
     expect(await db.sql`select seller_id from catalog_export where id = ${id ?? ''}`).toEqual([{ seller_id: t.sellerA1First }])
+  })
+
+  it('is a read: allowed while the store is read-only, never for a read-only support session', async () => {
+    await db.sql`update store_subscription set status = 'cancelled' where store_id = ${t.storeA1}`
+    try {
+      expect((await ask('owner', 'products')).code).toBeUndefined()
+    } finally {
+      await db.sql`update store_subscription set status = 'active' where store_id = ${t.storeA1}`
+    }
+    const refused = await gql('mutation { requestCatalogExport(kind: products) }', 'owner', {}, t.storeA1, asSupport)
+    expect(refused.code).toBe('FORBIDDEN')
   })
 
   it('says expired after its hour, failed when the relay gives up, and is purged', async () => {

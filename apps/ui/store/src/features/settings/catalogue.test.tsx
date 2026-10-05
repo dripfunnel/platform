@@ -12,6 +12,7 @@ import { messages } from '../../messages'
 // Settings › Catalogue driven as the Owner would (CatSettings): sections by plan, presets, badges.
 
 const w = messages.settings.catalogue
+const page = messages.settings
 
 const settings = vi.hoisted(() => ({ saveSections: vi.fn(), saveBadge: vi.fn(), deleteBadge: vi.fn(), loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
 vi.mock('../../api/settings', async (actual) => ({ ...(await actual<typeof import('../../api/settings')>()), ...settings }))
@@ -38,9 +39,9 @@ const basics = (on: string[], notInPlan: string[] = []): ProductBasics => ({
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 
-const show = async (acting: Acting = owner) => {
+const show = async (acting: Acting = owner, readOnly = false) => {
   const root = createRootRoute({ component: Outlet })
-  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly: false } }), component: Outlet })
+  const app = createRoute({ getParentRoute: () => root, id: '_app', loader: () => ({ acting, state: { readOnly } }), component: Outlet })
   const page = createRoute({ getParentRoute: () => app, path: '/settings', validateSearch: z.looseObject({ tab: optionalParam(z.enum(['store', 'people', 'supplier', 'warehouse', 'tax', 'markets', 'catalogue'])) }), component: SettingsPage })
   const billing = createRoute({ getParentRoute: () => app, path: '/billing', component: () => <p>Billing</p> })
   const router = createRouter({ routeTree: root.addChildren([app.addChildren([page, billing])]), history: createMemoryHistory({ initialEntries: ['/settings?tab=catalogue'] }) })
@@ -113,6 +114,71 @@ describe('catalogue settings', () => {
     fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
     await settle()
     expect(screen.getByRole('alert').textContent).toBe(w.refused.DUPLICATE_LABEL)
+  })
+
+  it('say it’s loading, then show the error with a retry that reads the settings again', async () => {
+    let finish: (b: ProductBasics) => void = () => undefined
+    editor.loadProductBasics.mockReturnValueOnce(new Promise<ProductBasics>((resolve) => (finish = resolve)))
+    await show()
+    expect(screen.getByText(page.loading)).toBeTruthy()
+    await act(async () => finish(basics(['specs'])))
+    expect(toggle(w.sections.specs).getAttribute('aria-checked')).toBe('true')
+    cleanup()
+    editor.loadProductBasics.mockRejectedValueOnce(new Error('down'))
+    await show()
+    expect(screen.getByText(page.error.title)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: page.error.retry }))
+    await settle()
+    expect(toggle(w.sections.specs).getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('let a read-only store look without changing anything', async () => {
+    await show(owner, true)
+    expect((toggle(w.sections.specs) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: w.saveSections })).toBeNull()
+    expect(screen.queryByRole('button', { name: w.addBadge })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Edit “New”' })).toBeNull()
+    expect((screen.getByRole('button', { name: w.presets.clothing }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('say when there are no badges yet', async () => {
+    editor.loadProductBasics.mockResolvedValue({ ...basics(['badges']), badges: [] })
+    await show()
+    expect(screen.getByText(w.noBadges)).toBeTruthy()
+  })
+
+  it('keep the switches as set when a save is refused, so it can be tried again', async () => {
+    settings.saveSections.mockRejectedValueOnce(new ApiError('PLAN_LIMIT', 'plan'))
+    await show()
+    fireEvent.click(toggle(w.sections.faqs))
+    fireEvent.click(screen.getByRole('button', { name: w.saveSections }))
+    await settle()
+    expect(screen.getByRole('alert').textContent).toBe(w.refused.PLAN_LIMIT)
+    expect(toggle(w.sections.faqs).getAttribute('aria-checked')).toBe('true')
+    expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('check a badge’s text before sending it: some text, and 18 characters at most', async () => {
+    await show()
+    fireEvent.click(screen.getByRole('button', { name: w.addBadge }))
+    fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
+    expect(dialog().getByText(w.badgeMissing)).toBeTruthy()
+    fireEvent.change(dialog().getByLabelText(w.badgeText), { target: { value: 'Nineteen characters' } })
+    fireEvent.click(dialog().getByRole('button', { name: w.saveBadge }))
+    expect(dialog().getByText(w.badgeLong)).toBeTruthy()
+    expect(settings.saveBadge).not.toHaveBeenCalled()
+  })
+
+  it('read a section the plan no longer has as off, so saving the others never sends it on', async () => {
+    editor.loadProductBasics.mockResolvedValue(basics(['specs', 'video'], ['video']))
+    await show()
+    expect(toggle(w.sections.video).getAttribute('aria-checked')).toBe('false')
+    expect((screen.getByRole('button', { name: w.saveSections }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(toggle(w.sections.faqs))
+    fireEvent.click(screen.getByRole('button', { name: w.saveSections }))
+    await settle()
+    const sent = settings.saveSections.mock.calls[0]?.[0] as { key: string; enabled: boolean }[]
+    expect(sent.find((f) => f.key === 'video')?.enabled).toBe(false)
   })
 
   it('tell a seat that isn’t the owner to ask the owner, never offering plans', async () => {
