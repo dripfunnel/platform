@@ -28,7 +28,7 @@
       people: { name: 'Ananya Rao', email: 'ananya.rao@example.com', phone: '+91 98450 22113', addr: ['Ananya Rao', '14, 5th Cross, Indiranagar', 'Bengaluru, Karnataka 560038', 'India'] },
       service: { name: 'Block-printing workshop', base: 35, duration: '2 hours', where: 'Our Jaipur studio, MI Road', desc: 'Print your own cotton stole with our printers, using our wooden blocks and natural dyes. Materials and chai included.' },
       digital: { name: 'Block-print pattern pack', base: 9, file: 'PDF, 24 pages · 18 MB', desc: 'Twelve of our classic Sanganeri motifs as printable pattern sheets, with notes on colour and repeat.' },
-      sms: true, whatsapp: true, returnDays: 14
+      sms: true, whatsapp: true, returnDays: 14, downloads: { times: 5, days: 30 }
     },
     US: {
       key: 'US', store: 'Juniper & Co.', init: 'J', locale: 'en-US', cur: 'USD', incl: false, accent: '#2F5D50', accentInk: '#FFFFFF', tint: '#E3ECE8',
@@ -54,7 +54,7 @@
       people: { name: 'Maya Chen', email: 'maya.chen@example.com', phone: '+1 614 555 0199', addr: ['Maya Chen', '88 Neil Ave, Apt 4', 'Columbus, OH 43215', 'United States'] },
       service: { name: 'Alterations appointment', base: 25, duration: '30 minutes', where: 'Our Columbus studio, 410 Oak St', desc: 'Hemming, taking in or letting out anything you bought from us. Bring the piece; we pin, you approve.' },
       digital: { name: 'Mending guide', base: 9, file: 'PDF, 32 pages · 21 MB', desc: 'Visible mending for cotton, linen and wool: darning, patching and sashiko stitches, step by step.' },
-      sms: true, whatsapp: false, returnDays: 30
+      sms: true, whatsapp: false, returnDays: 30, downloads: { times: 5, days: 30 }
     }
   };
 
@@ -118,7 +118,7 @@
       { id: k === 'IN' ? 'KT-1031' : 'JC-1031', date: '2026-09-21', status: 'delivered', delivered: '2026-09-25', lines: [['p3', 'M', 1]], courier: k === 'IN' ? 'Shiprocket · Blue Dart' : 'UPS', awb: '1Z999AA10123456784', pay: k === 'IN' ? 'Cash on delivery' : 'PayPal', steps: [['Placed', '21 Sep, 18:02'], ['Paid', k === 'IN' ? '25 Sep, on delivery' : '21 Sep, 18:02'], ['Shipped', '22 Sep, 11:30'], ['Delivered', '25 Sep, 14:05']] },
       { id: k === 'IN' ? 'KT-1050' : 'JC-1050', date: '2026-10-04', status: 'awaiting', lines: [['p4', 'Rust', 1]], courier: '', awb: '', pay: 'Bank transfer', steps: [['Placed', '4 Oct, 20:41'], ['Paid', 'Waiting for your transfer'], ['Shipped', ''], ['Delivered', '']] },
       { id: k === 'IN' ? 'KT-1018' : 'JC-1018', date: '2026-08-28', status: 'delivered', delivered: '2026-09-01', lines: [['p6', '', 1]], courier: k === 'IN' ? 'Shiprocket · Delhivery' : 'USPS', awb: '14326201122', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [['Placed', '28 Aug, 12:40'], ['Paid', '28 Aug, 12:40'], ['Shipped', '29 Aug, 10:15'], ['Delivered', '1 Sep, 13:20']] },
-      { id: k === 'IN' ? 'KT-1022' : 'JC-1022', date: '2026-09-02', status: 'digital', lines: [['p11', '', 1]], courier: '', awb: '', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [] }
+      { id: k === 'IN' ? 'KT-1022' : 'JC-1022', date: '2026-09-20', status: 'digital', lines: [['p11', '', 1]], courier: '', awb: '', pay: k === 'IN' ? 'UPI · Razorpay' : 'Visa •••• 4242', steps: [] }
     ];
     return { R, products, collections, menu, posts, faqs, orders };
   }

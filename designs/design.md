@@ -132,8 +132,8 @@ and at any desktop width (breakpoints 640, 760 and 1080 px).
 transfer not yet paid, or a paid order still being packed), and may ask for a return until the
 store's returns window closes, counted from delivery. The window is the store's own returns
 policy (CATALOG-DESIGN S8), never the theme's: 14 days in the India sample, 30 in the US one
-(`returnDays` in `shop-data.js`). Both rules decided on #285; the Shop API carries the window
-with the store's policies.
+(`returnDays` in `shop-data.js`; download limits likewise, `downloads`). The rules are written
+in storefront ARCHITECTURE §2.1.
 
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
