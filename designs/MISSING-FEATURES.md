@@ -4,7 +4,7 @@ This compares the DF Store merchant portal, as designed in this folder, with **S
 **Wix eCommerce** and the **first DripFunnel platform**, which was built on a third-party
 commerce framework and has since been removed from the workspace.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 "Missing" means DF Store has no screen or flow for the feature at all. When something is
 started but not finished, it is in [INCOMPLETE-FEATURES.md](INCOMPLETE-FEATURES.md).
@@ -27,8 +27,10 @@ DF Store is already strong in these areas:
 
 Compared with Shopify and Wix, the biggest gaps are:
 
-1. **What the shopper sees.** There is no store-level design, pages or blog, no checkout
-   settings, and no customer accounts. The AI designer only edits the hero section.
+1. **What the shopper sees.** ~~There is no store-level design, pages or blog, no checkout
+   settings, and no customer accounts.~~ The shopper's pages, content pages, blog, checkout
+   and accounts are drawn in `DF Storefront Prototype` (#285, 2026-10-05). The merchant side
+   still lacks checkout settings, and the AI designer only edits the hero section.
 2. **Order operations after the sale.** There are no returns, no order editing, no draft or
    manual orders, and no shipping labels.
 3. **Customers and marketing.** There are no customer groups or segments, no email
@@ -76,7 +78,7 @@ shows what is needed.
 | Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Checkout settings: guest vs account, required fields, tipping, notes | ✓ | ✓ | ~ (guest-checkout strategy) | — |
-| Shopper accounts: sign-in, order history, addresses ⚑ | ✓ | ✓ | ✓ (template account pages) | — (guests are matched by email) |
+| Shopper accounts: sign-in, order history, addresses ⚑ | ✓ | ✓ | ✓ (template account pages) | ✓ shopper side in `DF Storefront Prototype` (#285); Settings › Customer accounts waits for SUI 1 |
 | Wishlist | ~ app | ✓ | — | — |
 | Product reviews and ratings | ~ app | ✓ | — | — |
 | Back-in-stock alerts | ~ app | ✓ | — | — |
