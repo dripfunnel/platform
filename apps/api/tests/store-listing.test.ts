@@ -283,6 +283,14 @@ describe('a product’s listing sections', () => {
     expect((await gql(save, 'owner', { id: made.id, revision: 2, input: { ...base, listing: { relatedIds: shown?.listing.relatedIds } } })).code).toBeUndefined()
   })
 
+  it('refuses a specification mirroring a filter value this store doesn’t have', async () => {
+    const foreign = (await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'bOwner', { input: { name: 'B fabric', values: [{ name: 'Wool' }] } })).data?.['saveFacet'] as string
+    const wool = ((await gql('{ facets(first: 50) { nodes { id values { id } } } }', 'bOwner')).data?.['facets'] as { nodes: { id: string; values: { id: string }[] }[] }).nodes.find((f) => f.id === foreign)?.values[0]?.id
+    for (const filterValueId of ['00000000-0000-4000-8000-0000000000ff', wool]) {
+      expect((await product('owner', 'Odd spec', { listing: { specs: [{ name: 'Fabric', value: 'Wool', filterValueId }] } })).code).toBe('INVALID_LISTING')
+    }
+  })
+
   it('keeps a specification when the filter value it mirrors is removed, without the link', async () => {
     const facet = (await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'owner', { input: { name: 'Fabric', values: [{ name: 'Cotton' }, { name: 'Silk' }] } })).data?.['saveFacet'] as string
     const values = ((await gql('{ facets(first: 50) { nodes { id values { id name } } } }', 'owner')).data?.['facets'] as { nodes: { id: string; values: { id: string; name: string }[] }[] }).nodes.find((f) => f.id === facet)?.values ?? []

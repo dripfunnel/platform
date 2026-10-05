@@ -209,6 +209,12 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
     if (clean.listing) {
       const { specs, ...rest } = clean.listing
+      // A specification mirrors a filter value of this store only, as a tag does.
+      const mirrored = (specs ?? []).flatMap((spec) => (spec.filterValueId ? [spec.filterValueId] : []))
+      if (mirrored.length > 0) {
+        const known = await knownFacetValues(tx, storeId, mirrored)
+        if (!mirrored.every((id) => known.has(id))) throw new Refused({ reason: 'INVALID_LISTING' })
+      }
       await setProductListing(tx, storeId, productId, { ...rest, ...(specs ? { specs: specs.map(({ version, ...spec }) => ({ ...spec, versionId: version === null ? null : (ids[version] ?? null) })) } : {}) })
     }
     if (clean.sizeChartId !== undefined) await setProductSizeChart(tx, storeId, productId, clean.sizeChartId)
