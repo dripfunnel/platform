@@ -79,7 +79,7 @@ shows what is needed.
 | Feature | Shopify | Wix | First DF platform | DF Store design |
 |---|---|---|---|---|
 | Checkout settings: guest vs account, required fields, tipping, notes | ✓ | ✓ | ~ (guest-checkout strategy) | — |
-| Shopper accounts: sign-in, order history, addresses ⚑ | ✓ | ✓ | ✓ (template account pages) | ✓ shopper side in `DF Storefront Prototype` (#285); Settings › Customer accounts waits for SUI 1 |
+| Shopper accounts: sign-in, order history, addresses ⚑ | ✓ | ✓ | ✓ (template account pages) | ✓ shopper side in `DF Storefront Prototype` (#285); Settings › Customer accounts drawn in `SetAccess` (SUI 1, #286) |
 | Wishlist | ~ app | ✓ | — | — |
 | Product reviews and ratings | ~ app | ✓ | — | — |
 | Back-in-stock alerts | ~ app | ✓ | — | — |

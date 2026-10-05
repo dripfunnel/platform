@@ -615,6 +615,7 @@ test (§11.2).
 - **App grants** are per store, with the scopes the merchant approved at install, revocable on
   uninstall; the app runs out of process and reaches the Store API like any other caller.
 - Creating, rotating and revoking keys, and installing and uninstalling apps, are audited.
+- **Webhook and key rules as drawn** (`SetDev`, #286; *proposed* for SAPI 20 to confirm): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
 
 ---
 
