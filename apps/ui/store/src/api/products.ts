@@ -89,7 +89,7 @@ export const loadSupplierChoices = (): Promise<{ id: string; name: string }[]> =
       z.object({ suppliers: z.object({ nodes: z.array(named), pageInfo: pageInfoSchema }) }),
       { after },
     )
-    return { nodes: suppliers.nodes, next: suppliers.pageInfo.hasNextPage ? suppliers.pageInfo.endCursor : null }
+    return suppliers
   })
 
 /** Every hand-picked collection, the ones "Add to collection" can fill; the API lists both kinds together. */
@@ -100,7 +100,7 @@ export const loadHandPicked = async (): Promise<{ id: string; name: string }[]> 
       z.object({ collections: z.object({ nodes: z.array(named.extend({ kind: z.string() })), pageInfo: pageInfoSchema }) }),
       { after },
     )
-    return { nodes: collections.nodes, next: collections.pageInfo.hasNextPage ? collections.pageInfo.endCursor : null }
+    return collections
   })
   return all.filter((c) => c.kind === 'manual').map(({ id, name }) => ({ id, name }))
 }
