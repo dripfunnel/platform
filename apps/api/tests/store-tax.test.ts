@@ -164,6 +164,19 @@ describe('a US store', () => {
     expect(asked).toMatchObject({ accountId: 'acct_columbus', currency: 'USD', inclusive: false, shipTo: { country: 'US', region: 'NY', postal: '10001' }, lines: [{ reference: mug.versionId, amount: 2000n, taxCode: 'txcd_99999999' }] })
     // An Indian address never goes to Stripe.
     expect((await service.quote([{ versionId: mug.versionId, quantity: 1 }], { country: 'IN', region: null, postal: null })).ok && asked).toMatchObject({ shipTo: { country: 'US' } })
+    // One line per version, as a cart holds them.
+    expect(await service.quote([{ versionId: mug.versionId, quantity: 1 }, { versionId: mug.versionId, quantity: 2 }], { country: 'US', region: 'NY', postal: null })).toEqual({ ok: false, reason: 'INVALID_INPUT' })
+    // Stripe down or refusing is a tax the cart can't know yet.
+    const down = createTaxService({
+      sql: db.sql,
+      context: owner,
+      actor: { id: people.us, partnerId: t.partnerA },
+      activity: activityLog,
+      facts: { requestId: 'r', ip: null, userAgent: null },
+      now: () => now,
+      stripe: { accountId: async () => 'acct_columbus', calculate: async () => Promise.reject(new Error('Stripe answered 503')) },
+    })
+    expect(await down.quote([{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'NY', postal: null })).toEqual({ ok: false, reason: 'TAX_UNAVAILABLE' })
   })
 })
 
@@ -187,6 +200,28 @@ describe('Tax setup', () => {
     expect((await saveClass({ name: 'Books', isDefault: true }, books)).code).toBeUndefined()
     expect((await quote('india', [{ versionId: before.versionId, quantity: 1 }], { country: 'IN', region: 'Rajasthan' })).quote?.lines[0]?.rateBps).toBe(1800)
     expect((await del(standard?.id)).code).toBe('CLASS_IN_USE')
+  })
+
+  it('never deletes a class a product save is putting a version on: the delete waits, then finds it in use', async () => {
+    const books = (await gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'india', { input: { name: 'Books race' } })).data?.['saveTaxClass'] as string
+    const { versionId } = await product('india', 'INR', '30000')
+    let deleting: Promise<{ code: string | undefined }> | null = null
+    // The save's side: the class held as validation holds it, a version put on it before commit.
+    await db.sql.begin(async (tx) => {
+      await tx`select id from tax_class where id = ${books} for share`
+      deleting = gql('mutation D($id: ID!) { deleteTaxClass(id: $id) }', 'india', { id: books })
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      await tx`update product_version set tax_class_id = ${books} where id = ${versionId}`
+    })
+    expect((await (deleting as unknown as Promise<{ code: string | undefined }>)).code).toBe('CLASS_IN_USE')
+    expect((await db.sql<{ deleted_at: Date | null }[]>`select deleted_at from tax_class where id = ${books}`)[0]?.deleted_at).toBeNull()
+  })
+
+  it('holds each store to 50 classes and 100 zones', async () => {
+    const count = (await setup('us')).classes.length
+    const saveClass = (name: string) => gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'us', { input: { name } })
+    for (let i = count; i < 50; i++) expect((await saveClass(`Class ${i}`)).code).toBeUndefined()
+    expect((await saveClass('One too many')).code).toBe('TOO_MANY')
   })
 
   it('saves invoice settings', async () => {

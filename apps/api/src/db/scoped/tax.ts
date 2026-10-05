@@ -70,21 +70,24 @@ export const makeDefaultTaxClass = async (tx: ScopedSql, storeId: string, id: st
   return true
 }
 
-export const selectTaxClass = async (tx: ScopedSql, storeId: string, id: string): Promise<{ id: string; name: string; is_default: boolean; versions: number } | null> =>
-  (
-    await tx<{ id: string; name: string; is_default: boolean; versions: number }[]>`
-      select c.id, c.name, c.is_default, (select count(*)::int from product_version v where v.tax_class_id = c.id and v.deleted_at is null) as versions
-      from tax_class c where c.id = ${id} and c.store_id = ${storeId} and c.deleted_at is null
-    `
-  )[0] ?? null
+/** The class, locked; its versions counted after the lock, so a save that held it is seen once it commits. */
+export const selectTaxClass = async (tx: ScopedSql, storeId: string, id: string): Promise<{ id: string; name: string; is_default: boolean; versions: number } | null> => {
+  const [found] = await tx<{ id: string; name: string; is_default: boolean }[]>`
+    select id, name, is_default from tax_class where id = ${id} and store_id = ${storeId} and deleted_at is null for update
+  `
+  if (!found) return null
+  const [counted] = await tx<{ n: number }[]>`select count(*)::int as n from product_version where tax_class_id = ${id} and deleted_at is null`
+  return { ...found, versions: counted?.n ?? 0 }
+}
 
 export const softDeleteTaxClass = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<void> => {
   await tx`delete from tax_rate where tax_class_id = ${id} and store_id = ${storeId}`
   await tx`update tax_class set deleted_at = ${now} where id = ${id} and store_id = ${storeId}`
 }
 
+/** How many of these are the store's live classes, each held `for share`, so a delete waits for the save that names it. */
 export const classesOfStore = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<number> =>
-  (await tx<{ n: number }[]>`select count(*)::int as n from tax_class where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids)}::uuid[])`)[0]?.n ?? 0
+  (await tx<{ id: string }[]>`select id from tax_class where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids)}::uuid[]) for share`).length
 
 export interface ZoneWrite {
   name: string

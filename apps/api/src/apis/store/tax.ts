@@ -14,6 +14,8 @@ const words: Record<Exclude<TaxResult<unknown>, { ok: true }>['reason'], string>
   DEFAULT_CLASS: 'Make another category the default first.',
   CLASS_IN_USE: 'Products use this category. Move them to another first.',
   PRICE_REQUIRED: 'A product here has no price yet.',
+  TOO_MANY: 'That’s as many as a store can have.',
+  TAX_UNAVAILABLE: 'We can’t work out the tax right now. Try again in a moment.',
 }
 
 const answered = <T>(result: TaxResult<T>): T => {
