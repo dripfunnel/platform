@@ -17,6 +17,7 @@ import { SizeChartsArea } from './SizeChartsArea'
 import { collectionsAccess } from './collectionDraft'
 import { collectionsStates, sampleChartReads, sampleCollections, sampleFilters, sampleMenu, sampleReads } from './collectionsStates'
 import { seasonalFor, type SeasonKey } from './seasonal'
+import '../common/pageTabs.css'
 import './collections.css'
 
 const words = messages.collections
@@ -144,7 +145,7 @@ export const CollectionsPage = () => {
 
   return (
     <div className="df-colls-page">
-      <div className="df-colls-tabs">
+      <div className="df-page-tabs">
         <DetailTabs
           label={words.tabs.label}
           tabs={collectionTabs}

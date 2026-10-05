@@ -1,0 +1,363 @@
+/* Settings (designs/PortalSettings.dc.html, SetStore.dc.html): cards up to 900 px wide, each saving on its own. */
+.df-settings {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.df-set-readonly {
+  max-width: 900px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 14px;
+}
+
+.df-set-store {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 900px;
+}
+
+.df-set-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-set-card h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.df-set-lede {
+  margin: -8px 0 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-set-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.df-set-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.df-set-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.df-set-field--wide {
+  grid-column: 1 / -1;
+}
+
+.df-set-field label,
+.df-set-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-set-help {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-set-field input,
+.df-set-field select,
+.df-set-foot select,
+.df-set-currency-round select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.df-set-field input[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-set-locked {
+  background: var(--df-color-page) !important;
+}
+
+.df-set-pair {
+  display: flex;
+  gap: 6px;
+}
+
+.df-set-pair input:first-child {
+  width: 80px;
+  flex: none;
+}
+
+.df-set-pair input:last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.df-set-mono {
+  font-family: var(--df-font-mono) !important;
+}
+
+.df-set-problem {
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-set-failure {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
+.df-set-logo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.df-set-logo > span:nth-child(2) {
+  flex: 1;
+  min-width: 180px;
+}
+
+.df-set-logo-image,
+.df-set-logo-initial {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+
+.df-set-logo-image {
+  border: 1px solid var(--df-color-border);
+  object-fit: cover;
+}
+
+.df-set-logo-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-family: var(--df-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.df-set-upload {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.df-set-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.df-set-upload:focus-within {
+  outline: 2px solid var(--df-color-focus);
+  outline-offset: 2px;
+}
+
+.df-set-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.df-set-foot select {
+  height: 38px;
+  color: var(--df-color-link);
+  font-size: 13px;
+}
+
+.df-set-currency {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-set-currency--main {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  background: var(--df-color-page);
+}
+
+.df-set-currency strong {
+  min-width: 52px;
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+}
+
+.df-set-currency--main span,
+.df-set-currency-head > span {
+  flex: 1;
+  min-width: 160px;
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-set-currency-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-set-currency-round {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.df-set-currency-round label,
+.df-set-currency-round span {
+  color: var(--df-color-muted);
+}
+
+.df-set-currency-round select {
+  height: 34px;
+  font-size: 13px;
+}
+
+.df-set-typed {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+  font-size: 13px;
+}
+
+.df-set-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-set-switch > span {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-set-switch > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--df-color-surface);
+  content: '';
+}
+
+.df-set-switch[aria-checked='true'] > span {
+  background: var(--df-color-success);
+}
+
+.df-set-switch[aria-checked='true'] > span::after {
+  left: 19px;
+}
+
+.df-set-link {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-set-languages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-set-languages li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-set-languages strong {
+  flex: 1;
+}
+
+.df-set-languages span {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .df-set-grid,
+  .df-set-grid--three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-set-card {
+    padding: 16px;
+  }
+
+  .df-set-switch,
+  .df-set-link,
+  .df-set-foot select,
+  .df-set-currency-round select {
+    min-height: 44px;
+  }
+}

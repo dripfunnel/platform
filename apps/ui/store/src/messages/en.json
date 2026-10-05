@@ -201,9 +201,6 @@
     "storefront": {
       "title": "Storefront"
     },
-    "settings": {
-      "title": "Settings"
-    },
     "billing": {
       "title": "Billing"
     },
@@ -2186,6 +2183,144 @@
       "denied": {
         "title": "You can’t see size charts",
         "body": "Ask your admin for access to the catalogue."
+      }
+    }
+  },
+  "settings": {
+    "tabs": {
+      "label": "Settings",
+      "store": "Store info",
+      "people": "People",
+      "supplier": "Supplier",
+      "warehouse": "Warehouse",
+      "tax": "Tax setup",
+      "markets": "Markets",
+      "catalogue": "Catalogue"
+    },
+    "title": "Settings",
+    "denied": {
+      "title": "Settings are the store owner’s",
+      "body": "Ask your store owner if something here needs changing."
+    },
+    "loading": "Loading your settings",
+    "error": {
+      "title": "Your settings didn’t load",
+      "body": "Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "readOnly": "Your store is read-only until the bill is paid. You can look, but changes wait until then.",
+    "store": {
+      "title": "Your store",
+      "name": "Store name",
+      "nameHelp": "Shoppers see this everywhere",
+      "nameMissing": "Your store needs a name",
+      "legal": "Legal name",
+      "legalHelp": "Printed on invoices only",
+      "description": "One-line description",
+      "descriptionHelp": "Used in search results and link previews · {count}/120",
+      "email": "Contact email",
+      "emailHelp": "Shoppers reply here",
+      "phone": "Phone",
+      "street": "Street address",
+      "streetHelp": "On every invoice",
+      "city": "City",
+      "countryLabel": "Country",
+      "countryHelp": "Set at sign-up. Selling abroad is set up in Markets.",
+      "country": {
+        "IN": {
+          "postal": "PIN code",
+          "region": "State",
+          "taxId": "GSTIN",
+          "taxHelp": "Your state decides CGST+SGST or IGST"
+        },
+        "US": {
+          "postal": "ZIP code",
+          "region": "State",
+          "taxId": "EIN or sales tax permit",
+          "taxHelp": "Printed on invoices"
+        },
+        "other": {
+          "postal": "Postal code",
+          "region": "Region",
+          "taxId": "VAT number",
+          "taxHelp": "Printed on invoices"
+        }
+      },
+      "timeZone": "Time zone",
+      "timeZoneHelp": "Offer schedules, reports and order times use this",
+      "units": "Units",
+      "unitsHelp": "For weights and sizes on products",
+      "metric": "Metric · kg, cm",
+      "imperial": "Imperial · lb, in",
+      "orders": "Order numbers",
+      "nextOrder": "Next order: {number}",
+      "prefix": "Prefix",
+      "nextNumber": "Next number",
+      "logoAlt": "Store logo",
+      "logoHelp": "Logo — square, at least 400px. PNG, JPG or WebP.",
+      "logoNew": "New logo — save to use it in your shop and emails",
+      "logoTooBig": "That image is {size} MB — the limit is 5 MB.",
+      "logoFailed": "That logo didn’t upload. Use a PNG, JPG or WebP under 5 MB and try again.",
+      "replace": "Replace",
+      "uploading": "Uploading…",
+      "savesCard": "Saves this card. Currencies and languages save on their own.",
+      "saveInfo": "Save store info",
+      "saving": "Saving…",
+      "savedInfo": "Store info saved",
+      "currencies": "Currencies",
+      "currenciesSub": "Each currency either converts from your main price automatically, or you type its prices yourself. Markets pick from this list.",
+      "mainCurrency": "Main currency · what you type on every product",
+      "converted": "Converted from {code} automatically",
+      "typed": "You type the price on each product",
+      "convert": "Convert automatically",
+      "remove": "Remove {name}",
+      "round": "Round prices",
+      "roundNone": "Don’t round",
+      "roundNearest": "To the nearest whole",
+      "round99": "To end in .99",
+      "rates": "{example} · reference rates from the European Central Bank, published {date}",
+      "noRate": "There’s no reference rate for this currency yet, so converted prices wait until one arrives.",
+      "typedNote": "Products can’t be bought in {code} until you type a {code} price on them.",
+      "stopTitle": "Stop converting {code} automatically?",
+      "stopBody": "You’ll type a {code} price on each product. Until you do, those products can’t be bought in {code}. Converted prices are kept as your starting prices.",
+      "stopConfirm": "Set prices myself",
+      "addCurrency": "+ Add a currency",
+      "saveCurrencies": "Save currencies",
+      "savedCurrencies": "Currencies saved — product price boxes show them now",
+      "mainFixed": "Your main currency ({code}) can’t change after the first order.",
+      "languages": "Languages",
+      "languagesSub": "You write products in your main language. Shoppers see it whenever a translation is missing.",
+      "mainLanguage": "Main language",
+      "translated": "{done} of {count} products translated",
+      "progressLoading": "Counting translations…",
+      "progressFailed": "Translations couldn’t be counted right now.",
+      "notYet": "Not saved yet — nothing translated",
+      "removeLanguageTitle": "Remove {name}?",
+      "removeLanguageBody": "Your translations are kept but won’t show. Add it back any time to show them again.",
+      "removeLanguage": "Remove",
+      "addLanguage": "+ Add a language",
+      "saveLanguages": "Save languages",
+      "savedLanguages": "Languages saved",
+      "cancel": "Cancel",
+      "planLimit": {
+        "currencies": "Your plan includes {count} currencies, your main one among them. Remove one, or see plans for more.",
+        "languages": "Your plan includes {count} languages, your main one among them. Remove one, or see plans for more."
+      },
+      "refused": {
+        "INVALID_INPUT": "Something here isn’t valid. Check the name (up to 80 characters), description (up to 120) and order prefix (letters, numbers and -, up to 6).",
+        "INVALID_EMAIL": "That contact email doesn’t look right.",
+        "INVALID_TIME_ZONE": "Pick a time zone from the list.",
+        "INVALID_TAX_ID": "That tax number isn’t in the right format for your country.",
+        "INVALID_LOGO": "Use one of your store’s images as the logo.",
+        "ORDER_NUMBER_DOWN": "The next order number can only go up, so no number is used twice.",
+        "INVALID_CURRENCY": "That isn’t a currency you can add here.",
+        "INVALID_LANGUAGE": "Choose from the languages offered.",
+        "MAIN_LANGUAGE_REQUIRED": "Your main language has to stay.",
+        "CURRENCY_REQUIRED": "Set your main currency first.",
+        "PLAN_LIMIT": "Your plan doesn’t include more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change settings.",
+        "other": "That didn’t save. Try again."
       }
     }
   }

@@ -390,6 +390,14 @@ skips the AI designer. Owner; Manager view only.
 | **Support access** | "Allow {partner} support to view my store: On / Off" (on by default), the support access log, and that DripFunnel staff can still sign in as a user (USERS-AND-DOMAINS §4.1–4.2) — drawn in `SetAccess` (#286) |
 | **Activity log** | The whole store's log, shoppers included, filter by person, every name a link, export for the **Owner only** (LOGGING §6–7, ACCESS §5.1 `activity.export`). A Manager, who has no Settings, reads the same log as **Store activity** in the user menu, without the export — drawn in `StoreActivity` (#286) |
 
+**Built on #300**: Settings is a screen (`/settings`, `?tab=` per tab), the Owner's (`settings`); anyone else is
+told so and nothing is read, and a read-only store shows every tab without saving. Only the tabs built so far
+are offered; each later card adds its own. Store info saves its card, its currencies and its languages
+separately, as SetStore does. Converted currencies show an example at the reference rate in use (ECB); a
+language shows how much is translated (`translationProgress`). **Your shop's web address and "Connect your own
+domain"** wait for the publishing cards (INF 1–2, SAPI 17), which give the API for them; the card isn't drawn
+until then rather than offering a button that does nothing.
+
 ## 16. Billing (`PortalBilling`, Owner only)
 
 The partner's plans with monthly or yearly prices and what each includes (from the Platform
