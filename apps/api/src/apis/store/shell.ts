@@ -56,7 +56,6 @@ const choiceOf = (row: MembershipChoiceRow): Choice | null => {
 const roleName = (role: StoreRole) => role.role
 const tierOf = (role: StoreRole) => (role.side === 'supplier' ? role.tier : null)
 
-
 /** What the support banner shows (0036): the partner, the agent's first name and when the session ends. */
 const bannerOf = (s: { partner_name: string; agent_name: string; expires_at: Date }) => ({ partnerName: s.partner_name, agentFirstName: s.agent_name.split(' ')[0] ?? s.agent_name, endsAt: s.expires_at.toISOString() })
 

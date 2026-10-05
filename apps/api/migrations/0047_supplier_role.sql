@@ -25,9 +25,8 @@ $$;
 
 grant usage on schema public to app_supplier;
 
--- The tables a supplier reaches (ACCESS §5.2, §7): its catalogue and stock, the settings it reads, its
--- own seller and team, and the log and outbox every write records in. app_request's grants on them are
--- copied as they stand, column by column where they are by column, and their policies extended.
+-- The tables a supplier reaches (ACCESS §5.2, §7; DATA-MODEL §5.3): app_request's grants copied, column
+-- by column where they are by column, and the policies extended; on the tables it only reads, select alone.
 do $$
 declare
   t text;
@@ -36,18 +35,22 @@ declare
   supplier_tables text[] := array[
     'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value',
     'version_price', 'price_history', 'asset', 'product_photo', 'product_video',
-    'filter', 'filter_value', 'product_filter_value', 'store_feature', 'badge', 'size_chart',
+    'product_filter_value', 'size_chart',
     'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag',
     'product_compliance', 'product_market_rule', 'product_story',
     'warehouse', 'stock_level', 'stock_movement',
-    'seller', 'membership', 'user', 'invitation',
-    'activity_log', 'outbox'
+    'activity_log', 'outbox',
+    'filter', 'filter_value', 'store_feature', 'badge',
+    'seller', 'membership', 'user', 'invitation'
   ];
+  -- The settings it reads and its own seller and team, whose writes are the merchant's (part 3 adds the team's).
+  read_only text[] := array['filter', 'filter_value', 'store_feature', 'badge', 'seller', 'membership', 'user', 'invitation'];
 begin
   foreach t in array supplier_tables loop
     for g in
       select privilege_type from information_schema.role_table_grants
       where grantee = 'app_request' and table_schema = 'public' and table_name = t
+        and (privilege_type = 'SELECT' or not t = any (read_only))
     loop
       execute format('grant %s on %I to app_supplier', g.privilege_type, t);
     end loop;
@@ -56,6 +59,7 @@ begin
       select c.privilege_type, string_agg(format('%I', c.column_name), ', ') as columns
       from information_schema.column_privileges c
       where c.grantee = 'app_request' and c.table_schema = 'public' and c.table_name = t
+        and (c.privilege_type = 'SELECT' or not t = any (read_only))
         and not exists (
           select 1 from information_schema.role_table_grants r
           where r.grantee = 'app_request' and r.table_schema = 'public' and r.table_name = t and r.privilege_type = c.privilege_type

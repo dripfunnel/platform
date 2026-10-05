@@ -954,8 +954,8 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   extension of 30 set on the row, one open per staff member at the index, the hashed one-time
   handoff (five minutes, a return mints a fresh one and the old stops working), and the
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
-  in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
-  (`SUPPLIER_NOT_SUPPORTED`). In the partner console, the exchange, the `impersonation` caller
+  in `access_ref`). Impersonating a supplier user is still refused
+  (`SUPPLIER_NOT_SUPPORTED`): `app_supplier` exists since #295, and the impersonation path for it isn't built. In the partner console, the exchange, the `impersonation` caller
   and the blocked list's structural test are built on #243 (§8.3). The store portal's half waits
   for the Store API.
 

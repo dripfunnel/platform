@@ -366,8 +366,8 @@ describe('isolation (ACCESS.md §11.1)', () => {
     await expect(as(merchant(a, storeA), (tx) => tx`update job set state = 'done' where store_id = ${storeA}`)).resolves.toHaveLength(0)
     await expect(as(merchant(a, storeA), (tx) => insertJob(tx, { storeId: storeA, state: 'done', steps: ['done'], step: 'done' }))).rejects.toThrow(/row-level security/i)
     await as(staff, (tx) => tx`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${storeA}, 'new-manager@juniper.example', 'manager', now() + interval '7 days', 'Anjali Nair')`)
-    const revoked = await as(supplier(a, storeA, sellerA), (tx) => tx`update invitation set revoked_at = now() where store_id = ${storeA} returning id`)
-    expect(revoked).toHaveLength(0)
+    // A supplier's team writes come with SAPI 5's supplier teams; until then it holds none (0047).
+    await expect(as(supplier(a, storeA, sellerA), (tx) => tx`update invitation set revoked_at = now() where store_id = ${storeA} returning id`)).rejects.toThrow(/permission denied/i)
     const [still] = await db.sql<{ revoked_at: Date | null }[]>`select revoked_at from invitation where store_id = ${storeA}`
     expect(still?.revoked_at).toBeNull()
   })
