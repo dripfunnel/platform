@@ -71,7 +71,7 @@ export const registerStructure = (builder: StoreBuilder) => {
     fields: (t) => ({ nodes: t.field({ type: [Facet], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
-  type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; products: number; computed_at: Date | null; created_at: Date }
+  type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; inherit_parent: boolean; match: string; rules: { kind: string; args: Record<string, unknown> }[]; products: number; computed_at: Date | null; created_at: Date }
   const CollectionSummaryType = builder.objectRef<CollectionSummary>('CollectionSummary').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -80,6 +80,10 @@ export const registerStructure = (builder: StoreBuilder) => {
       kind: t.exposeString('kind'),
       visible: t.boolean({ resolve: (c) => c.visibility === 'visible' }),
       parentId: t.exposeID('parent_id', { nullable: true }),
+      inheritParent: t.exposeBoolean('inherit_parent'),
+      match: t.exposeString('match'),
+      // The list says what each automatic collection holds in words (CatCollections), so its rules come with it.
+      rules: t.field({ type: [Rule], resolve: (c) => c.rules }),
       products: t.exposeInt('products'),
       // Null until an automatic collection's rules have first landed (fact 11: "Updating…").
       computedAt: t.string({ nullable: true, resolve: (c) => c.computed_at?.toISOString() ?? null }),

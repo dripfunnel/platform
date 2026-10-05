@@ -415,6 +415,9 @@ describe('collections', () => {
     await drainRecompute()
     expect((await members(both.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id].sort())
     expect((await members(either.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id, c.id].sort())
+    // The list carries each collection's rules, so it can say what it holds without a read per row.
+    const listed = ((await gql('{ collections(first: 50) { nodes { id match inheritParent rules { kind valueId } } } }', 'owner')).data?.['collections'] as { nodes: { id: string; match: string; inheritParent: boolean; rules: { kind: string; valueId: string }[] }[] }).nodes
+    expect(listed.find((n) => n.id === both.saved?.id)).toEqual({ id: both.saved?.id, match: 'all', inheritParent: false, rules: rules.map((r) => ({ kind: r.kind, valueId: r.valueId })) })
   })
 
   it('previews rules not saved yet the way the recompute will fill them, writing nothing', async () => {

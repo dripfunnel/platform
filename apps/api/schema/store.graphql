@@ -154,10 +154,13 @@ input CollectionRuleInput {
 type CollectionSummary {
   computedAt: String
   id: ID
+  inheritParent: Boolean
   kind: String
+  match: String
   name: String
   parentId: ID
   products: Int
+  rules: [CollectionRule!]
   slug: String
   visible: Boolean
 }
