@@ -634,7 +634,7 @@ describe('the backstop itself', () => {
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
-      'store_feature', 'user', 'version_price', 'warehouse',
+      'store_feature', 'store_language', 'translation', 'user', 'version_price', 'warehouse',
     ])
     // Writes only on its catalogue, stock and what every write records; price history and stock movements only through
     // their definer functions; its team's invitations and memberships by column (0049); the settings and its seller it only reads.
@@ -643,7 +643,7 @@ describe('the backstop itself', () => {
       'activity_log', 'asset', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
       'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related',
       'product_spec', 'product_story', 'product_version', 'product_version_option_value', 'product_video', 'size_chart', 'stock_level',
-      'version_price', 'warehouse',
+      'translation', 'version_price', 'warehouse',
     ])
     // By column only: the two a policy names (store) and a file check reads (story_block).
     expect(await tables(`select distinct table_name || '(' || column_name || ')' as t from information_schema.column_privileges where grantee = 'app_supplier' and table_name in ('store', 'story_block') order by 1`)).toEqual([
@@ -667,6 +667,7 @@ describe('the backstop itself', () => {
     `
     // A new one is a decision: add it here and to DATA-MODEL §5.3's app_definer row, with its filter.
     expect(owned.map((f) => f.proname)).toEqual([
+      'acting_store_main_language',
       'end_partner_user_sessions',
       'end_staff_user_sessions',
       'latest_job_of',

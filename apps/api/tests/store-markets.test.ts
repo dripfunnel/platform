@@ -211,9 +211,12 @@ describe('who reaches the settings', () => {
 
   it('holds the tables to the merchant side in the database too', async () => {
     const supplier: CallerContext = { caller: { kind: 'person', userId: people.supplier, sessionId: 's' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'seller', sellerId: t.sellerA1First }, subscription: 'active' }
-    for (const table of ['market', 'store_language', 'store_currency', 'market_excluded_product']) {
+    for (const table of ['market', 'store_currency', 'market_excluded_product']) {
       await expect(withScope(db.sql, supplier, (tx) => tx.unsafe(`select 1 from ${table}`))).rejects.toThrow(/permission denied/i)
     }
+    // It reads its store's languages, to translate its own products into (#296 part 3), and writes none.
+    expect(new Set((await withScope(db.sql, supplier, (tx) => tx<{ store_id: string }[]>`select store_id from store_language`)).map((r) => r.store_id))).toEqual(new Set([t.storeA1]))
+    await expect(withScope(db.sql, supplier, (tx) => tx`update store_language set position = 9`)).rejects.toThrow(/permission denied/i)
     const merchant: CallerContext = { ...supplier, caller: { kind: 'person', userId: people.owner, sessionId: 's' }, sellerScope: { kind: 'all' } }
     await expect(withScope(db.sql, merchant, (tx) => tx`select set_store_main_language('fr-FR')`)).rejects.toThrow(/one of the store's languages/)
     expect(await withScope(db.sql, merchant, async (tx) => (await tx`update market set name = 'Hijack' where store_id = ${t.storeB1}`).count)).toBe(0)

@@ -306,6 +306,8 @@ export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: s
   await tx`update menu_item set parent_id = null where store_id = ${storeId} and parent_id in (select mi.id from menu_item mi where mi.store_id = ${storeId} and mi.collection_id = ${id})`
   await tx`update menu set revision = revision + 1, updated_at = ${now} where store_id = ${storeId} and id in (select menu_id from menu_item where store_id = ${storeId} and collection_id = ${id})`
   await tx`delete from menu_item where store_id = ${storeId} and collection_id = ${id}`
+  // Its translated web addresses free up with it (DATA-MODEL §7.3).
+  await tx`delete from translation where store_id = ${storeId} and entity = 'collection' and entity_id = ${id} and field = 'slug'`
   return gone
 }
 

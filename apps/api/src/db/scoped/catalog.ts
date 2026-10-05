@@ -71,6 +71,8 @@ export interface ProductQuery {
   /** The merchant's supplier filter: a seller id, `own` for the store's own products, or null for all. */
   seller: string | null
   currency: string | null
+  /** Fact 19's "Not translated into German": a language the product has no name in yet, or null. */
+  untranslatedIn?: string | null
 }
 
 export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQuery, window: PageWindow): Promise<ProductListRow[]> => {
@@ -91,6 +93,7 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
     where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
       and ${filterOf(tx, query.filter)}
       and ${query.seller === 'own' ? tx`p.seller_id is null` : query.seller ? tx`p.seller_id = ${query.seller}::uuid` : tx`true`}
+      and ${query.untranslatedIn ? tx`not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${query.untranslatedIn})` : tx`true`}
       and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
       and ${window.after ? tx`(p.created_at, p.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
       and ${window.before ? tx`(p.created_at, p.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
@@ -349,7 +352,11 @@ export const softDeleteProducts = async (tx: ScopedSql, storeId: string, ids: re
     where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[]) and deleted_at is null
     returning id, name
   `
-  if (gone.length > 0) await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where store_id = ${storeId} and product_id = any(${pgArray(gone.map((g) => g.id))}::uuid[]) and deleted_at is null`
+  if (gone.length > 0) {
+    await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where store_id = ${storeId} and product_id = any(${pgArray(gone.map((g) => g.id))}::uuid[]) and deleted_at is null`
+    // Their translated web addresses free up with them (DATA-MODEL §7.3).
+    await tx`delete from translation where store_id = ${storeId} and entity = 'product' and field = 'slug' and entity_id = any(${pgArray(gone.map((g) => g.id))}::text[])`
+  }
   return gone
 }
 

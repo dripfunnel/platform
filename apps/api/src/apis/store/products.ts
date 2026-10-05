@@ -411,7 +411,7 @@ export const registerProducts = (builder: StoreBuilder) => {
   builder.queryFields((t) => ({
     products: t.field({
       type: SummaryPage,
-      args: { filter: t.arg.string(), search: t.arg.string(), supplier: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
+      args: { filter: t.arg.string(), search: t.arg.string(), supplier: t.arg.string(), untranslatedIn: t.arg.string(), first: t.arg.int(), after: t.arg.string(), before: t.arg.string() },
       extensions: { access: read },
       resolve: async (_, args, ctx) => {
         const filter = filters.find((f) => f === (args.filter ?? 'all'))
@@ -420,7 +420,8 @@ export const registerProducts = (builder: StoreBuilder) => {
         if (supplier !== null && supplier !== 'own' && !isUuid(supplier)) throw new GraphQLError('Choose a supplier.', { extensions: { code: 'INVALID_INPUT' } })
         const search = args.search?.trim().slice(0, 200) || null
         const window = storePage(args)
-        const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier }, window)
+        const untranslatedIn = args.untranslatedIn?.trim() || null
+        const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier, untranslatedIn }, window)
         const page = pageOf(rows, window, (r) => ({ occurredAt: r.created_at, id: r.id }))
         return { nodes: page.nodes.map((r) => summaryOf(r, currency)), pageInfo: page.pageInfo }
       },

@@ -50,6 +50,7 @@ export { assetsAudit, createAssetService, type AssetStore, type UploadResult } f
 export { maxCollectionProducts } from '#db/scoped/catalogStructure'
 export { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from './settings'
 export { collectionsRecomputeKind, createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
+export { createTranslationService, translationAudit, type ProductTranslationInput, type SharedNameRow, type TextPatch, type TranslationResult, type TranslationRow } from './translations'
 export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalResult } from './approval'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'

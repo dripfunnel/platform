@@ -324,6 +324,7 @@ type Mutation {
   revokeSupplierInvitation(invitationId: ID!): Boolean
   saveBadge(id: ID, input: BadgeInput!): ID
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
+  saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
   saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveFacet(input: FacetInput!): ID
@@ -332,6 +333,8 @@ type Mutation {
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
+  saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
+  saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
@@ -604,6 +607,14 @@ type ProductSupplier {
   name: String
 }
 
+input ProductTranslationInput {
+  description: String
+  name: String
+  names: [SharedNameTranslationInput!]
+  slug: String
+  versions: [VersionNameTranslationInput!]
+}
+
 type ProductVersion {
   barcode: String
   choices: [String!]
@@ -675,6 +686,7 @@ type Provisioning {
 type Query {
   brand: Brand
   catalogueSettings: CatalogueSettings
+  catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
   collection(id: ID!): Collection
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
@@ -695,8 +707,10 @@ type Query {
   productCounts: ProductCounts
   productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
   productStory(productId: ID!): ProductStory
-  products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
+  productTranslation(language: String!, productId: ID!): [Translation!]
+  products(after: String, before: String, filter: String, first: Int, search: String, supplier: String, untranslatedIn: String): ProductPage
   profile: Profile
+  sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
@@ -708,6 +722,7 @@ type Query {
   supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  translationProgress(language: String!): TranslationProgress
   warehouses(after: String, before: String, first: Int): WarehousePage
 }
 
@@ -748,6 +763,25 @@ type SecondFactorStep {
   hint: String
   secret: String
   uri: String
+}
+
+type SharedName {
+  kind: String
+  main: String
+  source: String
+  text: String
+  uses: Int
+}
+
+type SharedNamePage {
+  nodes: [SharedName!]
+  pageInfo: PageInfo
+}
+
+input SharedNameTranslationInput {
+  kind: String!
+  source: String!
+  text: String
 }
 
 type SignedInSession {
@@ -1081,10 +1115,35 @@ type SupportBanner {
   partnerName: String
 }
 
+type Translation {
+  entity: String
+  entityId: String
+  field: String
+  main: String
+  status: String
+  text: String
+}
+
+type TranslationProgress {
+  products: Int
+  untranslated: Int
+}
+
+input TranslationTextInput {
+  description: String
+  name: String
+  slug: String
+}
+
 type TwoFactor {
   backupCodesLeft: Int
   method: String
   required: Boolean
+}
+
+input VersionNameTranslationInput {
+  id: ID!
+  name: String
 }
 
 type VersionPrice {
