@@ -65,7 +65,8 @@ detail, never the code), `person.signed_in`, `person.signed_out`, `person.sign_i
 `partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
 `partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
 the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
-it). The two-factor and backup-code entries carry no secret, code or phone number. **The
+it: `name`, `price`, `photos`, or `resubmitted` and `A+ content`; #295), `product.approved`, `product.sent_back` (the reason
+the supplier sees), `catalogue.approval_changed` (on or off). The two-factor and backup-code entries carry no secret, code or phone number. **The
 entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
 its parts, filed under its `seller_id`) **carry no free text and no shopper field**: the store's
 full entry, with the reason, the note and the customer, is written with `seller_id` null and

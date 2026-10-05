@@ -11,6 +11,7 @@ import { registerStory } from './story'
 import { registerInventory } from './inventory'
 import { registerSuppliers } from './suppliers'
 import { registerSupplierTeam } from './supplierTeam'
+import { registerApproval } from './approval'
 
 export type { StoreContext } from './access'
 
@@ -29,6 +30,7 @@ registerStory(builder)
 registerInventory(builder)
 registerSuppliers(builder)
 registerSupplierTeam(builder)
+registerApproval(builder)
 registerListing(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

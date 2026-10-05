@@ -336,8 +336,15 @@ export const registerProducts = (builder: StoreBuilder) => {
     }),
   })
   const PatchInput = builder.inputType('ProductsPatch', { fields: (t) => ({ visible: t.boolean({ required: true }) }) })
-  const Saved = builder.objectRef<{ id: string; slug: string; revision: number }>('SavedProduct').implement({
-    fields: (t) => ({ id: t.exposeID('id'), slug: t.exposeString('slug'), revision: t.exposeInt('revision') }),
+  const Saved = builder.objectRef<{ id: string; slug: string; revision: number; approval: string | null; reviewed: string[] }>('SavedProduct').implement({
+    fields: (t) => ({
+      id: t.exposeID('id'),
+      slug: t.exposeString('slug'),
+      revision: t.exposeInt('revision'),
+      // approved | pending | sent_back, or null outside approval; `reviewed` names the change that needs it (CATALOG E3).
+      approval: t.exposeString('approval', { nullable: true }),
+      reviewed: t.exposeStringList('reviewed'),
+    }),
   })
 
   const read = { api: 'store', scope: 'store-seller', permission: 'catalog.read', target: 'none' } as const
@@ -362,7 +369,7 @@ export const registerProducts = (builder: StoreBuilder) => {
 
   /** The saved product, or the refusal as a stable code with its facts (FIRST-RELEASE §19). */
   const answered = async (ctx: StoreContext, result: SaveResult) => {
-    if (result.ok) return { id: result.id, slug: result.slug, revision: result.revision }
+    if (result.ok) return { id: result.id, slug: result.slug, revision: result.revision, approval: result.approval, reviewed: result.reviewed }
     // A supplier never reads the store's plan (§2 "masked"): it hears the store is full, not which plan or upgrade.
     if (result.reason === 'PLAN_LIMIT' && actingCaller(ctx).seller !== null) throw new GraphQLError('This store can’t take more products right now. Ask the store.', { extensions: { code: 'PLAN_LIMIT' } })
     if (result.reason === 'PLAN_LIMIT' && ctx.sql) {

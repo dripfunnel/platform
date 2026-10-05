@@ -423,3 +423,21 @@ describe('Another store', () => {
     expect((await gql('{ storyBlocks { nodes { id } } }', 'bOwner')).data?.['storyBlocks']).toEqual({ nodes: [] })
   })
 })
+
+describe('a supplier’s A+ under approval (CATALOG Q11)', () => {
+  it('sends the product back to the queue when the supplier publishes its story, and is shown again once approved', async () => {
+    const id = await product('supplier', 'Approval kurta')
+    await gql('mutation { setApproval(on: true) }', 'owner')
+    try {
+      await db.sql`update product set approval_status = 'approved', visibility = 'visible' where id = ${id}`
+      const saved = await saveStory('supplier', id, 0, [{ id: 'a', kind: 'specs' }])
+      expect((await db.sql<{ approval_status: string }[]>`select approval_status from product where id = ${id}`)[0]?.approval_status).toBe('approved')
+      expect((await publish('supplier', id, saved.story?.revision ?? 0)).code).toBeUndefined()
+      expect((await db.sql<{ approval_status: string; visibility: string }[]>`select approval_status, visibility from product where id = ${id}`)[0]).toEqual({ approval_status: 'pending', visibility: 'hidden' })
+      expect((await gql('mutation A($id: ID!) { approveProduct(id: $id) }', 'owner', { id })).data?.['approveProduct']).toBe(true)
+      expect((await db.sql<{ approval_status: string; visibility: string }[]>`select approval_status, visibility from product where id = ${id}`)[0]).toEqual({ approval_status: 'approved', visibility: 'visible' })
+    } finally {
+      await gql('mutation { setApproval(on: false) }', 'owner')
+    }
+  })
+})

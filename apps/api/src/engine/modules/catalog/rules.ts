@@ -443,3 +443,28 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     filterValues,
   }
 }
+
+/** What an approved supplier product had when its supplier last saved it, for `reviewedChanges`. */
+export interface ReviewedFields {
+  name: string
+  versions: readonly { id: string; prices: readonly { currency: string; amount: string; compare_at_amount: string | null }[] }[]
+  photos: readonly { asset_id: string }[]
+}
+
+const priceKey = (p: { currency: string; amount: string; compareAt: string | null }) => `${p.currency}:${BigInt(p.amount)}:${p.compareAt === null ? '' : BigInt(p.compareAt)}`
+
+/**
+ * ACCESS §7.2: a supplier's edit of an approved product waits for approval only when its name, a price (a new
+ * version brings one) or its photo set changed; order alone isn't a change. Answers which, for the save's wording.
+ */
+export const reviewedChanges = (before: ReviewedFields, after: Pick<CleanProduct, 'name' | 'versions' | 'photos'>): ('name' | 'price' | 'photos')[] => {
+  const changed: ('name' | 'price' | 'photos')[] = []
+  if (after.name !== before.name) changed.push('name')
+  const pricesOf = new Map(before.versions.map((v) => [v.id, v.prices.map((p) => priceKey({ currency: p.currency, amount: p.amount, compareAt: p.compare_at_amount })).sort().join('|')]))
+  if (after.versions.some((v) => v.id === null || pricesOf.get(v.id) !== v.prices.map(priceKey).sort().join('|'))) changed.push('price')
+  if (after.photos !== null) {
+    const set = (ids: readonly string[]) => [...new Set(ids)].sort().join('|')
+    if (set(after.photos.map((p) => p.assetId)) !== set(before.photos.map((p) => p.asset_id))) changed.push('photos')
+  }
+  return changed
+}

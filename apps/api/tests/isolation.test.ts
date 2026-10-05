@@ -668,6 +668,7 @@ describe('the backstop itself', () => {
       'partner_user_email_limit',
       'plan_entitlement_within_ceiling',
       'plan_first_version',
+      'set_store_vendor_approval',
       'spend_partner_reauth',
       'stock_change',
       'store_billing_status_own_billing',
@@ -675,6 +676,7 @@ describe('the backstop itself', () => {
       'store_invitee',
       'store_pricing_currency',
       'store_product_count',
+      'store_vendor_approval',
       'version_price_history',
     ])
     expect(owned.filter((f) => f.prosecdef && !f.pinned).map((f) => f.proname)).toEqual([])

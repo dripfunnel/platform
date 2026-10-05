@@ -238,6 +238,7 @@ input MoneyInput {
 type Mutation {
   addSupplierPerson(email: String!, id: ID!, role: String): ID
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  approveProduct(id: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
@@ -275,6 +276,8 @@ type Mutation {
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
   saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  sendBackProduct(id: ID!, reason: String!): Boolean
+  setApproval(on: Boolean!): Boolean
   setDefaultWarehouse(id: ID!): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
@@ -622,6 +625,7 @@ type Query {
   mySessions: [SignedInSession!]
   myStores(after: String, before: String, first: Int): StoreChoices
   mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
+  navBadges: StoreNavBadges
   people(after: String, before: String, filter: String, first: Int): StorePeople
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
@@ -637,6 +641,7 @@ type Query {
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
   supplier(id: ID!): Supplier
+  supplierApprovalRequired: Boolean
   supplierCounts: SupplierCounts
   suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
   warehouses(after: String, before: String, first: Int): WarehousePage
@@ -649,7 +654,9 @@ type SavedCollection {
 }
 
 type SavedProduct {
+  approval: String
   id: ID
+  reviewed: [String!]
   revision: Int
   slug: String
 }
@@ -800,6 +807,10 @@ type StoreChoice {
 type StoreChoices {
   nodes: [StoreChoice!]
   pageInfo: PageInfo
+}
+
+type StoreNavBadges {
+  products: Int
 }
 
 type StorePeople {
