@@ -31,6 +31,12 @@ describe('a size chart being edited', () => {
     expect(isChartDirty(d, draftOfChart(chart))).toBe(false)
   })
 
+  it('reads a size saved blank as blank, so a chart from the Blank template asks for its sizes', () => {
+    const blank = draftOfChart({ ...chart, rows: [{ size: '—', values: ['', '', ''] }] })
+    expect(blank.rows[0]?.size).toBe('')
+    expect(chartProblem(blank)).toBe('sizes')
+  })
+
   it('converts measurements and ranges to the other unit, never sizes, size systems or words', () => {
     const inches = inUnit(draftOfChart(chart), 'in')
     expect(inches.unit).toBe('in')

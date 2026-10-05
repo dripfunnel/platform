@@ -13,7 +13,8 @@ export interface CollectionListProps {
   facets: readonly Facet[]
   canEdit: boolean
   seasonal: readonly SeasonKey[]
-  giftPrice: string
+  /** The example's price in the store's currency, or null where it has none yet. */
+  giftPrice: string | null
   onCreate: (name?: string) => void
 }
 
@@ -60,7 +61,7 @@ export const CollectionList = ({ collections, facets, canEdit, seasonal, giftPri
       {collections.length === 0 ? (
         <section className="df-colls-empty" aria-labelledby="df-colls-empty-title">
           <h2 id="df-colls-empty-title">{words.empty.title}</h2>
-          <p>{fill(words.empty.body, { price: giftPrice })}</p>
+          <p>{giftPrice ? fill(words.empty.body, { price: giftPrice }) : words.empty.bodyNoPrice}</p>
           {canEdit && (
             <button type="button" className="df-button df-button--primary" onClick={() => onCreate()}>
               {words.empty.action}
