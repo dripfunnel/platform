@@ -176,6 +176,23 @@ describe('Connect Shopify', () => {
     expect((await gql('query J($id: ID!) { catalogImport(id: $id) { ready matched } }', 'owner', { id })).data?.['catalogImport']).toEqual({ ready: 30, matched: 2 })
   })
 
+  it('adds a page delivered twice to the import once', async () => {
+    await connect('owner', 'kesari')
+    const started = await gql('mutation { startShopifyImport(all: true) }', 'owner')
+    const id = started.data?.['startShopifyImport'] as string
+    const deliver = catalogImportDeliverer(db.sql, shop, secrets, () => now)
+    // The first page's job, delivered, then delivered again as a relay retry after a lost acknowledgement would.
+    const [first] = await db.sql<{ id: string; payload: unknown }[]>`
+      update outbox set delivered_at = now() where kind = 'import.catalog' and payload->>'jobId' = ${id} and delivered_at is null returning id, payload`
+    const effect = { id: first?.id ?? '', kind: 'import.catalog', idempotencyKey: 'k', payload: first?.payload, partnerId: t.partnerA, storeId: t.storeA1, attempt: 1 }
+    await deliver.deliver(effect, AbortSignal.timeout(5000))
+    await deliver.deliver(effect, AbortSignal.timeout(5000))
+    await relay()
+    expect((await gql('query J($id: ID!) { catalogImport(id: $id) { ready problemCount } }', 'owner', { id })).data?.['catalogImport']).toMatchObject({ ready: 30, problemCount: 0 })
+    const file = (await db.sql<{ n: number }[]>`select count(*)::int as n from catalog_import i, regexp_matches(i.plan::text, '"handle": "shop-item-30"', 'g') where i.id = ${id}`)[0]?.n
+    expect(file).toBe(1)
+  })
+
   it('says the connection expired when Shopify refuses its token, and that Shopify is away when it doesn’t answer', async () => {
     tokenToIssue = 'down'
     await connect('owner', 'kesari')

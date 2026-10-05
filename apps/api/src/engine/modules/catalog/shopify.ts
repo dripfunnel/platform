@@ -161,7 +161,7 @@ export const createShopifyService = (d: ShopifyDeps) => {
     const id = await inScope(async (tx) => {
       const made = await insertShopifyImport(tx, { storeId, sellerId, connectionId: c.row.id, selection: ids === null ? null : [...new Set(ids)], byId: actor.id, byLabel: actor.label })
       const payload = jobPayloadOf(context, made)
-      if (payload) await queue(tx, catalogImportKind, `${made}:fetch:start`, { ...payload, phase: 'fetch' })
+      if (payload) await queue(tx, catalogImportKind, `${made}:fetch:start`, { ...payload, phase: 'fetch', after: null })
       await activity.record(tx, entry(catalogImportAudit.started, { type: 'import', id: made, label: c.row.shop_domain }))
       return made
     })
@@ -191,7 +191,7 @@ const pickBatch = 50
  * One page of a connected import's products into its file (K7), then the next page, then the check. An expired
  * connection ends the import saying so; Shopify not answering throws, so the relay tries again later.
  */
-export const fetchShopPage = async (d: ShopFetchDeps, jobId: string): Promise<void> => {
+export const fetchShopPage = async (d: ShopFetchDeps, jobId: string, from: string | null): Promise<void> => {
   const { storeId } = d.context
   const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null
   const ended = async (tx: ScopedSql, code: 'SHOPIFY_EXPIRED' | 'NOT_AVAILABLE') => {
@@ -208,10 +208,10 @@ export const fetchShopPage = async (d: ShopFetchDeps, jobId: string): Promise<vo
   let page: { products: ShopProduct[]; next: string | null }
   try {
     if (picked) {
-      const at = Number(job.cursor ?? 0)
+      const at = Number(from ?? 0)
       const got = await d.shop.gateway.products(connection.shop_domain, token, { after: null, first: pickBatch, ids: picked.slice(at, at + pickBatch) })
       page = { products: got.products, next: at + pickBatch < picked.length ? String(at + pickBatch) : null }
-    } else page = await d.shop.gateway.products(connection.shop_domain, token, { after: job.cursor, first: pageSize })
+    } else page = await d.shop.gateway.products(connection.shop_domain, token, { after: from, first: pageSize })
   } catch (error) {
     if (!(error instanceof ShopUnauthorized)) throw error
     return withScope(d.sql, d.context, async (tx) => {
@@ -221,8 +221,9 @@ export const fetchShopPage = async (d: ShopFetchDeps, jobId: string): Promise<vo
   }
   await withScope(d.sql, d.context, async (tx) => {
     const rows = page.products.flatMap(shopifyRows)
-    const text = [...(job.file === '' ? [csvLine(shopifyHeader)] : []), ...rows].map((line) => `${line}\n`).join('')
-    await appendImportFile(tx, jobId, text, page.next)
+    const text = [...(from === null ? [csvLine(shopifyHeader)] : []), ...rows].map((line) => `${line}\n`).join('')
+    // Already added by an earlier delivery of this same page: nothing to add, and its next step is already queued.
+    if (!(await appendImportFile(tx, jobId, text, from, page.next ?? 'done'))) return
     // Read: the token has done its job and goes (THIRD-PARTY-ACCESS §3.4); another import connects again.
     if (page.next === null && (await deleteConnection(tx, storeId, sellerId))) {
       await d.activity.record(tx, {
@@ -243,6 +244,6 @@ export const fetchShopPage = async (d: ShopFetchDeps, jobId: string): Promise<vo
       })
     }
     const payload = jobPayloadOf(d.context, jobId)
-    if (payload) await d.queue(tx, catalogImportKind, `${jobId}:${page.next === null ? 'check' : `fetch:${page.next}`}`, { ...payload, phase: page.next === null ? 'check' : 'fetch' })
+    if (payload) await d.queue(tx, catalogImportKind, `${jobId}:${page.next === null ? 'check' : `fetch:${page.next}`}`, page.next === null ? { ...payload, phase: 'check' } : { ...payload, phase: 'fetch', after: page.next })
   })
 }

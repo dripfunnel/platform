@@ -62,10 +62,12 @@ export const insertShopifyImport = async (tx: ScopedSql, i: { storeId: string; s
   return id
 }
 
-/** A page of the shop's products added to the file, and where the next page starts (null when it was the last). */
-export const appendImportFile = async (tx: ScopedSql, id: string, rows: string, cursor: string | null): Promise<void> => {
-  await tx`update catalog_import set file = file || ${rows}, cursor = ${cursor} where id = ${id} and state = 'checking'`
-}
+/**
+ * A page of the shop's products added to the file, only if the file still ends where this page starts (`from`: null
+ * for the first page), so a page delivered twice is added once; `next` is where the next one starts, `done` after the last.
+ */
+export const appendImportFile = async (tx: ScopedSql, id: string, rows: string, from: string | null, next: string): Promise<boolean> =>
+  (await tx`update catalog_import set file = file || ${rows}, cursor = ${next} where id = ${id} and state = 'checking' and cursor is not distinct from ${from} returning id`).length === 1
 
 export const selectCatalogImport = async (tx: ScopedSql, storeId: string, id: string): Promise<CatalogImportRow | null> =>
   (await tx<CatalogImportRow[]>`select * from catalog_import where id = ${id} and store_id = ${storeId}`)[0] ?? null
