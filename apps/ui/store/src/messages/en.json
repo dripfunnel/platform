@@ -2298,7 +2298,7 @@
       "converted": "Converted from {code} automatically",
       "typed": "You type the price on each product",
       "convert": "Convert automatically",
-      "convertNamed": "Convert {code} automatically",
+      "convertNamed": "Convert automatically, {code}",
       "remove": "Remove {name}",
       "round": "Round prices",
       "roundNone": "Don’t round",
