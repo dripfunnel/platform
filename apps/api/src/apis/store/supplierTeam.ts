@@ -15,7 +15,7 @@ const words: Record<Exclude<SupplierTeamResult<unknown>, { ok: true }>['reason']
   INVALID_INPUT: 'Choose Supplier admin or Supplier member.',
   INVALID_EMAIL: 'Enter an email like name@example.com.',
   LAST_ADMIN: 'This is the last admin, so the role can’t change and they can’t be removed. Make someone else an admin first.',
-  ALREADY_MEMBER: 'They already work in this store.',
+  ALREADY_MEMBER: 'They’re already on your team.',
   RATE_LIMITED: 'Too many invitations for now. Try again later.',
 }
 

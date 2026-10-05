@@ -21,12 +21,14 @@ using (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('
 with check (app_setting_text('app.scope') = 'store' and store_id = app_setting_uuid('app.store_id')
   and seller_id = app_setting_uuid('app.seller_id') and role_key in ('supplier-admin', 'supplier-member'));
 
--- Only accepting an invitation makes a membership active, so a supplier never activates or restores one itself.
+-- Only accepting an invitation makes a membership active, so a supplier only removes one, or invites a
+-- removed person back; it never activates, restores or holds back someone who has joined.
 create function membership_supplier_status() returns trigger
 language plpgsql
 as $$
 begin
-  if current_user = 'app_supplier' and new.status is distinct from old.status and new.status not in ('invited', 'removed') then
+  if current_user = 'app_supplier' and new.status is distinct from old.status
+     and not (new.status = 'removed' or (old.status = 'removed' and new.status = 'invited')) then
     raise exception 'membership: a supplier only invites and removes';
   end if;
   return new;

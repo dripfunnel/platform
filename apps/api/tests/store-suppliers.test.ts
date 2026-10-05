@@ -303,9 +303,14 @@ describe('a supplier’s own team', () => {
     expect((await inviteUser(admin, 'boss@crew.example', 'owner')).code).toBe('INVALID_INPUT')
     expect((await inviteUser(admin, 'not an email', 'supplier-member')).code).toBe('INVALID_EMAIL')
     expect((await inviteUser(admin, 'HAND@crew.example', 'supplier-member')).code).toBe('ALREADY_MEMBER')
-    // Never both the merchant's staff and a supplier in one store (DATA-MODEL §3.3), and nothing written.
-    expect((await inviteUser(admin, 'manager@a.example', 'supplier-member')).code).toBe('ALREADY_MEMBER')
-    expect(await db.sql`select 1 from invitation where lower(email) = 'manager@a.example'`).toHaveLength(0)
+    // Never both the merchant's staff and a supplier in one store (DATA-MODEL §3.3), and a supplier can't tell:
+    // the merchant's manager is answered as a stranger is, with no seat held and no email sent.
+    const stranger = await inviteUser(admin, 'stranger@elsewhere.example', 'supplier-member')
+    const manager = await inviteUser(admin, 'manager@a.example', 'supplier-member')
+    expect({ code: manager.code, errors: manager.errors, answered: typeof manager.data?.['inviteSupplierUser'] }).toEqual({ code: stranger.code, errors: stranger.errors, answered: typeof stranger.data?.['inviteSupplierUser'] })
+    expect(await db.sql`select 1 from membership where user_id = ${people.manager} and seller_id is not null`).toHaveLength(0)
+    expect(await db.sql`select 1 from outbox where kind = 'email' and payload->>'to' = 'manager@a.example'`).toHaveLength(0)
+    expect((await team(admin)).filter((m) => m.kind === 'invitation').map((m) => m.email).sort()).toEqual(['manager@a.example', 'stranger@elsewhere.example'])
   })
 
   it('always keeps one admin', async () => {
@@ -320,7 +325,7 @@ describe('a supplier’s own team', () => {
     expect((await role(hand, 'supplier-member')).data?.['changeSupplierRole']).toBe(true)
     expect((await role(hand, 'supplier-owner')).code).toBe('INVALID_INPUT')
     expect((await remove(hand)).data?.['removeSupplierUser']).toBe(true)
-    expect((await team(admin)).map((m) => m.email)).toEqual(['lead@crew.example'])
+    expect((await team(admin)).filter((m) => m.kind === 'member').map((m) => m.email)).toEqual(['lead@crew.example'])
     expect(await db.sql`select 1 from activity_log where action = 'supplier_team.role_changed' and target_id = ${hand}`).toHaveLength(2)
   })
 
@@ -354,6 +359,8 @@ describe('a supplier’s own team', () => {
     await inviteUser(admin, 'waiting@crew.example', 'supplier-member')
     const [held] = await db.sql<{ id: string }[]>`select m.id from membership m join "user" u on u.id = m.user_id where u.email = 'waiting@crew.example'`
     await expect(withScope(db.sql, as, (tx) => tx`update membership set status = 'active' where id = ${held?.id ?? ''}`)).rejects.toThrow(/only invites and removes/)
+    const [lead] = await db.sql<{ id: string }[]>`select id from membership where seller_id = ${admin.seller} and status = 'active' limit 1`
+    await expect(withScope(db.sql, as, (tx) => tx`update membership set status = 'invited' where id = ${lead?.id ?? ''}`)).rejects.toThrow(/only invites and removes/)
     expect(await withScope(db.sql, as, async (tx) => (await tx`update membership set role_key = 'supplier-member' where seller_id = ${other.seller}`).count)).toBe(0)
   })
 })

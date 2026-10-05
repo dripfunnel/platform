@@ -820,7 +820,9 @@ another vendor holds (DESIGN-BRIEF fact 10).
   role, remove them. The invitation's `seller_id` comes from the inviter's membership. A
   supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one, by
   adding a person to the supplier as its Supplier admin (SetTeam "Add a person", which otherwise adds a
-  member; decided on #295). A person already on the merchant side gets "already in this store".
+  member; decided on #295). The Owner adding someone on the merchant side hears "already in this store"; a
+  Supplier admin inviting one is answered as for any address, with no seat held and no email, so a supplier
+  learns nothing of the store's staff.
 - **Change access level**: write `seller.access_level`. It applies to all of the supplier's
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a

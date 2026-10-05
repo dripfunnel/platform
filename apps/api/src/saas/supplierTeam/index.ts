@@ -30,7 +30,7 @@ export const supplierTeamAudit = {
   removed: 'supplier_team.removed',
 } as const
 
-export type SupplierTeamRefusal = { reason: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_EMAIL' | 'LAST_ADMIN' } | InvitationRefusal
+export type SupplierTeamRefusal = { reason: 'NOT_FOUND' | 'INVALID_INPUT' | 'INVALID_EMAIL' | 'LAST_ADMIN' | 'ALREADY_MEMBER' } | InvitationRefusal
 export type SupplierTeamResult<T> = { ok: true; value: T } | ({ ok: false } & SupplierTeamRefusal)
 
 class Refused extends Error {
