@@ -19,6 +19,10 @@ export const selectRates = async (tx: ScopedSql, currencies: readonly string[]):
   return new Map(rows.map((r) => [r.currency, r]))
 }
 
+/** Every rate held: the currencies a store can convert to (SetStore's "Add currency"). */
+export const selectAllRates = (tx: ScopedSql): Promise<RateRow[]> =>
+  tx<RateRow[]>`select currency::text as currency, per_euro::text as per_euro, published_on::text as published_on, fetched_at from exchange_rate order by currency`
+
 /** Each published rate, replacing the one held; a day older than the one held is ignored. */
 export const upsertRates = async (tx: ScopedSql, rates: { publishedOn: string; perEuro: Record<string, string> }, now: Date): Promise<number> =>
   (

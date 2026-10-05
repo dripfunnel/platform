@@ -102,7 +102,7 @@ export const registerMarkets = (builder: StoreBuilder) => {
       offeredLanguages: t.stringList({ resolve: () => [...offeredLanguages] }),
       // The rates its converted prices use (CATALOG O5): a currency missing here isn't for sale until one arrives.
       rates: t.field({ type: [Rate], resolve: (_, __, ctx) => service(ctx).rates() }),
-      // SetStore's "₹100 → $1.99" for each currency it can convert to, under each rounding (O4).
+      // SetStore's "₹100 → $1.99" for the euro and every currency with a rate, under each rounding (O4); also the list it can add from.
       examples: t.field({ type: [Example], resolve: (_, __, ctx) => service(ctx).examples() }),
     }),
   })
