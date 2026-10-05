@@ -191,6 +191,17 @@ describe('a product’s listing sections', () => {
     expect((await listingOf('owner', made.id))?.listing).toMatchObject({ specs: [{ name: 'Material' }], highlights: ['Soft only'], marketRule: null, relatedIds: [related.id] })
   })
 
+  it('keeps a specification when the filter value it mirrors is removed, without the link', async () => {
+    const facet = (await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'owner', { input: { name: 'Fabric', values: [{ name: 'Cotton' }, { name: 'Silk' }] } })).data?.['saveFacet'] as string
+    const values = ((await gql('{ facets(first: 50) { nodes { id values { id name } } } }', 'owner')).data?.['facets'] as { nodes: { id: string; values: { id: string; name: string }[] }[] }).nodes.find((f) => f.id === facet)?.values ?? []
+    const cotton = values.find((v) => v.name === 'Cotton')
+    const made = await product('owner', 'Mirrored spec', { listing: { specs: [{ name: 'Fabric', value: 'Cotton', filterValueId: cotton?.id }] } })
+    const silk = values.find((v) => v.name === 'Silk')
+    expect((await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'owner', { input: { id: facet, name: 'Fabric', values: [{ id: silk?.id, name: 'Silk' }] } })).code).toBeUndefined()
+    const spec = ((await gql('query P($id: ID!) { product(id: $id) { listing { specs { name value filterValueId } } } }', 'owner', { id: made.id })).data?.['product'] as { listing: { specs: unknown[] } }).listing.specs
+    expect(spec).toEqual([{ name: 'Fabric', value: 'Cotton', filterValueId: null }])
+  })
+
   it('relates only this store’s products, a supplier only its own, and picks only manual badges', async () => {
     const theirProduct = await product('bOwner', 'B product')
     expect((await product('owner', 'Cross relate', { listing: { relatedIds: [theirProduct.id] } })).code).toBe('LISTING_REFUSED')

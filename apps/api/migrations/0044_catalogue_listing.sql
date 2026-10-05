@@ -82,7 +82,8 @@ create table product_spec (
   position integer not null check (position >= 0),
   foreign key (product_id, store_id) references product (id, store_id),
   foreign key (version_id, store_id) references product_version (id, store_id),
-  foreign key (filter_value_id, store_id) references filter_value (id, store_id) on delete set null
+  -- Only the link clears when its value goes: the store column of a composite key must stay.
+  foreign key (filter_value_id, store_id) references filter_value (id, store_id) on delete set null (filter_value_id)
 );
 
 create table product_highlight (
