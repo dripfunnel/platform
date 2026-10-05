@@ -86,15 +86,30 @@ export interface SortWindow {
   before: { value: string; id: string } | null
 }
 
-const sortOf: Record<ProductSort, { value: string; type: string; descending: boolean }> = {
-  created: { value: 'created_at', type: 'timestamptz', descending: true },
-  updated: { value: 'updated_at', type: 'timestamptz', descending: true },
-  name: { value: 'lower(name)', type: 'text', descending: false },
+// Each sort's key from the product's own columns, or from one aggregate for price and stock, so a page
+// sorts and limits before the list's other per-row subqueries run (selectProducts).
+const minPrice = (tx: ScopedSql, currency: string | null) =>
+  tx`(select min(vp.amount) from version_price vp join product_version v on v.id = vp.version_id where v.product_id = p.id and v.deleted_at is null and vp.currency = ${currency})`
+const stockOf = (tx: ScopedSql, product: string) =>
+  tx`(select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = ${tx(product)}.id and v.deleted_at is null)`
+
+const maxBigint = 9223372036854775807n
+const maxInt = 2147483647n
+
+const sortOf: Record<ProductSort, { key: (tx: ScopedSql, currency: string | null) => postgres.PendingQuery<postgres.Row[]>; type: string; descending: boolean; fits: (value: string) => boolean }> = {
+  created: { key: (tx) => tx`p.created_at`, type: 'timestamptz', descending: true, fits: () => true },
+  updated: { key: (tx) => tx`p.updated_at`, type: 'timestamptz', descending: true, fits: () => true },
+  name: { key: (tx) => tx`lower(p.name)`, type: 'text', descending: false, fits: () => true },
   // Unpriced products come last either way.
-  price_low: { value: 'coalesce(min_amount::bigint, 9223372036854775807)', type: 'bigint', descending: false },
-  price_high: { value: 'coalesce(min_amount::bigint, -1)', type: 'bigint', descending: true },
-  stock: { value: 'stock', type: 'int', descending: false },
+  price_low: { key: (tx, currency) => tx`coalesce(${minPrice(tx, currency)}, ${String(maxBigint)}::bigint)`, type: 'bigint', descending: false, fits: (v) => integerWithin(v, -1n, maxBigint) },
+  price_high: { key: (tx, currency) => tx`coalesce(${minPrice(tx, currency)}, -1::bigint)`, type: 'bigint', descending: true, fits: (v) => integerWithin(v, -1n, maxBigint) },
+  stock: { key: (tx) => stockOf(tx, 'p'), type: 'int', descending: false, fits: (v) => integerWithin(v, -maxInt - 1n, maxInt) },
 }
+
+const integerWithin = (value: string, low: bigint, high: bigint): boolean => /^-?\d{1,19}$/.test(value) && BigInt(value) >= low && BigInt(value) <= high
+
+/** Whether a cursor's value is one this sort's key can hold, before it reaches a cast. */
+export const sortValueFits = (sort: ProductSort, value: string): boolean => sortOf[sort].fits(value)
 
 /** A row's sort value as text, for its cursor: the database's own for name, price and stock, so `lower()` and the cursor never differ. */
 export const sortValueOf = (row: ProductListRow, sort: ProductSort): string =>
@@ -110,32 +125,35 @@ export const selectProducts = (tx: ScopedSql, storeId: string, query: ProductQue
       : tx`(sort_value, id) > (${key.value}::${tx.unsafe(order.type)}, ${key.id}::uuid)`
   const direction = order.descending !== backwards ? tx`desc` : tx`asc`
   return tx<ProductListRow[]>`
-    with base as (
-      select p.id, p.name, p.slug, p.visibility, p.approval_status, p.product_type, p.seller_id, s.name as seller_name, s.status as seller_status,
-        p.created_at, p.updated_at,
-        (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
-        (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null and v.visibility = 'visible') as visible_versions,
-        (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
-           where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as min_amount,
-        (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
-           where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
-        (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
-        (select coalesce(sum(l.on_hand), 0)::int from stock_level l join product_version v on v.id = l.version_id join warehouse w on w.id = l.warehouse_id and w.deleted_at is null where v.product_id = p.id and v.deleted_at is null) as stock
+    with matching as (
+      select p.id, ${order.key(tx, query.currency)} as sort_value
       from product p
-      left join seller s on s.id = p.seller_id
       where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample
         and ${filterOf(tx, query.filter)}
         and ${query.seller === 'own' ? tx`p.seller_id is null` : query.seller ? tx`p.seller_id = ${query.seller}::uuid` : tx`true`}
         and ${query.untranslatedIn ? tx`not exists (select 1 from translation t where t.store_id = p.store_id and t.entity = 'product' and t.entity_id = p.id::text and t.field = 'name' and t.language = ${query.untranslatedIn})` : tx`true`}
         and ${query.search ? tx`(p.search @@ plainto_tsquery('simple', ${query.search}) or p.name ilike ${`%${query.search.replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`})` : tx`true`}
-    ), sorted as (
-      select base.*, ${tx.unsafe(order.value)} as sort_value, (${tx.unsafe(order.value)})::text as sort_key from base
+    ), page as (
+      select * from matching
+      where ${window.after ? beyond(window.after, true) : tx`true`}
+        and ${window.before ? beyond(window.before, false) : tx`true`}
+      order by sort_value ${direction}, id ${direction}
+      limit ${window.limit + 1}
     )
-    select * from sorted
-    where ${window.after ? beyond(window.after, true) : tx`true`}
-      and ${window.before ? beyond(window.before, false) : tx`true`}
-    order by sort_value ${direction}, id ${direction}
-    limit ${window.limit + 1}
+    select p.id, p.name, p.slug, p.visibility, p.approval_status, p.product_type, p.seller_id, s.name as seller_name, s.status as seller_status,
+      p.created_at, p.updated_at, page.sort_value::text as sort_key,
+      (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null) as versions,
+      (select count(*)::int from product_version v where v.product_id = p.id and v.deleted_at is null and v.visibility = 'visible') as visible_versions,
+      (select min(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
+         where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as min_amount,
+      (select max(vp.amount)::text from version_price vp join product_version v on v.id = vp.version_id
+         where v.product_id = p.id and v.deleted_at is null and vp.currency = ${query.currency}) as max_amount,
+      (select ph.asset_id from product_photo ph where ph.product_id = p.id order by ph.position limit 1) as photo_asset_id,
+      ${stockOf(tx, 'p')} as stock
+    from page
+    join product p on p.id = page.id
+    left join seller s on s.id = p.seller_id
+    order by page.sort_value ${direction}, page.id ${direction}
   `
 }
 
