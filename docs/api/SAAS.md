@@ -208,8 +208,8 @@ whether or not the email has an account ([ACCESS.md](ACCESS.md)).
 | **Active** | A paid subscription | Full use | Live |
 | **Past due** | A failed payment (billing webhook) | **Sign-in works, reads work, writes are blocked** with a clear notice and the way to pay (Owner) | **Keeps selling** as normal (decided 2026-10-05 on #284) |
 | **Suspended** | A person: Admin, or the partner (confirmed 2026-09-30: a partner's Owner and Admin may suspend and restore their own merchants, ACCESS §5.3), with a required reason; or dunning, **after 14 days past due** (decided 2026-10-05 on #284) | Sign-in shows why and whom to contact: **the partner's support, never DripFunnel's** (decided 2026-09-30), so white label holds; no writes | A degraded page served by an edge rule, without a rebuild. It tells shoppers to contact the store and carries no DripFunnel contact route |
-| **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Kept until period end *(ask)* |
-| **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept for the retention window, then deleted *(ask the window, §14)* |
+| **Cancelled** | The Owner, or the end of billing | Read-only until the period ends, then export only | Live until the paid period ends, then offline; kept 90 days (decided 2026-10-05 on #337) |
+| **Closed** | Staff or the partner, after export is offered | Gone | Gone; repo and assets kept **90 days**, then deleted (decided 2026-10-05 on #337) |
 
 The row keeps the facts of each state (DATA-MODEL.md §2.1, built on #32); a suspended store
 remembers the status it had, so Restore returns to it exactly (decided on #20).
@@ -270,9 +270,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
   a public store key and allowed origins instead; PLATFORM-PROMPT §5.6). A skipped storefront
   can be added later by running steps 3–8.
 - **A custom domain is not part of signup**; the merchant connects it whenever they like (§8).
-- Whether "under two minutes" includes the first live build or only a usable portal and
-  preview is a judgement to confirm *(ask)*; the live build is the step most likely to exceed
-  it.
+- "Under two minutes" means a **usable portal and preview**; the first live build may finish
+  later, shown as 'Publishing…' (decided 2026-10-05 on #337).
 - The test that matters: inject a failure at every step and assert nothing survives (archived
   ARCHITECTURE §12).
 
@@ -301,7 +300,8 @@ and the console offers **Retry** or **Undo and clean up** (CONSOLE-DESIGN K2).
 - **Who sets what**: the partner sets its plans and their entitlement values, including the
   monthly "Publish now" allowance, in the Platform API (USERS-AND-DOMAINS §4); Admin can set
   them on the partner's behalf, and sets the ceilings. The automatic publish interval is an
-  Admin setting with per-plan overrides (§9.2).
+  Admin setting with per-plan overrides; **a partner may set its own per plan, never more often
+  than hourly** (decided 2026-10-05 on #337).
 - **Per-store overrides**: a partner or Admin can raise or lower one store's entitlement
   (for example extra publishes this month), recorded and audited (`store_limit_override`,
   built on #212; the stored usage it is measured against is `store_usage`).
@@ -533,8 +533,8 @@ preview URL, outcome (approved, discarded, failed). It is the source for the AI 
 usage billing and the metrics in §12.
 
 ~~**Open**: where the agent executes~~ **GitHub Actions** (decided 2026-10-05 on #284). **Open**:
-whether the AI reads the store's catalogue (real product imagery) and what that costs per prompt
-(SAPI 17 asks).
+~~whether the AI reads the store's catalogue~~ **It reads a sample** (about 12 products: names,
+prices, one photo each), metered in `ai_run` (decided 2026-10-05 on #337).
 
 ---
 
@@ -554,13 +554,11 @@ one, not later.
   per rollout; per-store PR and CI status shown (L2). A rollout is a platform-level `job`.
 - **Majors** may change the theme contract and ship **upgrade notes**; an agent reconciles
   each theme against them, runs the gates and produces a preview and visual diff. Unchanged
-  visuals auto-merge; changed ones go to the merchant or to staff *(ask who approves)*.
+  visuals auto-merge; changed ones go to **the merchant**, who approves (decided 2026-10-05 on #337).
 - **Security fixes** can be forced to every store as a patch.
 - Without this, a checkout fix or a dependency CVE becomes 1,000 manual pull requests.
 
-Open: one template or several theme families (several multiply the bot's work); whether
-merchants ever get direct repo access (it would break the bot's assumptions; today they
-never see code).
+**One template**, and merchants **never get direct repo access** (decided 2026-10-05 on #337).
 
 ---
 
@@ -617,7 +615,7 @@ store (§5.5 there).
 | Look, words, email templates, email sender | | Own | Any |
 | Partner domains (portal host, wildcards) | | Own | Any; re-check |
 | Plans, prices, entitlement values, "Publish now" allowance | Read own plan and usage | **Edit own**, within ceilings | Any; set ceilings |
-| Automatic publish interval | Read next run | Read *(ask whether partners may override)* | Set default and per-plan overrides |
+| Automatic publish interval | Read next run | Set per plan, never more often than hourly (decided 2026-10-05 on #337) | Set default and per-plan overrides |
 | Merchant signup | Sign-up on the portal host | Create a merchant (invitation) | Create for any partner |
 | Store state: trial extension, suspend, restore, close | Owner: cancel own | Own stores, account level *(ask suspend)* | Any; move to another partner (second approver) |
 | Subscription and payment method | Owner: own | Own merchants, when it bills them | Finance: any |
@@ -656,20 +654,20 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
   (decided 2026-10-05 on #284).
 - What does past due mean for the store's vendors?
 - Promotions on plans for merchant signups.
-- May partners set their own automatic publish interval, within a platform minimum?
+- ~~May partners set their own automatic publish interval, within a platform minimum?~~ Yes, per plan, minimum hourly (decided 2026-10-05 on #337).
 
 **Provisioning, storefronts and fleet**
-- Does "under two minutes" include the first live build?
+- ~~Does "under two minutes" include the first live build?~~ No: the portal and preview (decided 2026-10-05 on #337).
 - ~~Cloudflare hosting model per store (Pages, Workers, Workers for Platforms).~~ A Pages project
   per store (decided 2026-10-05 on #284).
 - Wildcard custom hostnames, apex domains, and per-hostname limits and price (§8).
 - ~~Where the AI agent runs~~ (GitHub Actions, decided 2026-10-05 on #284); does the AI read the
   catalogue, and at what cost? (SAPI 17 asks)
-- Staging storefronts per store, or preview builds only?
-- One template, or several theme families?
-- Do merchants ever get direct repo access?
-- Who approves visual changes from a core major?
+- ~~Staging storefronts per store, or preview builds only?~~ Preview builds only (decided 2026-10-05 on #337).
+- ~~One template, or several theme families?~~ One template (decided 2026-10-05 on #337).
+- ~~Do merchants ever get direct repo access?~~ Never (decided 2026-10-05 on #337).
+- ~~Who approves visual changes from a core major?~~ The merchant (decided 2026-10-05 on #337).
 
 **Retention**
-- What happens to a store's repo, live site, assets and data on cancellation and on closure:
-  retention window and export path?
+- ~~What happens to a store's repo, live site, assets and data on cancellation and on closure:
+  retention window and export path?~~ Live to the end of the paid period, then everything kept 90 days with export, then deleted (decided 2026-10-05 on #337).

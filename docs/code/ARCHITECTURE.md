@@ -10,7 +10,7 @@ the SPAs in [../ui/README.md](../ui/README.md). Deployables and hostnames:
 
 **Status: skeleton.** Folders marked with a `.gitkeep` are empty placeholders.
 
-Last updated: 2026-09-29.
+Last updated: 2026-10-05.
 
 ---
 
@@ -87,8 +87,8 @@ Module details: `../storefront/ARCHITECTURE.md` §2.1. Its Shop API operations a
 
 **Access**
 - Store repos (in the `dripfunnel` org, created by provisioning) get read access to this
-  package only. **Verify that the GitHub API and the App's permissions let provisioning grant
-  package access per repository**; otherwise push a read-only token as a repo secret.
+  package only. Provisioning grants that through the **GitHub App, per repository**; only if
+  INF 0 finds that impossible does it push a read-only token as a repo secret (decided 2026-10-05 on #337).
 - Store repos' `.npmrc`: `@dripfunnel:registry=https://npm.pkg.github.com`, token from the
   environment, never committed.
 - Publishing only from the release workflow (`packages: write`), with artifact attestations.

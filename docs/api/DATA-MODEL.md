@@ -9,7 +9,7 @@ Rules behind this document: [ACCESS.md](ACCESS.md) (identities, roles, permissio
 [SAAS.md](SAAS.md) (partners and stores), [LOGGING.md](LOGGING.md) (activity log).
 Table and column names are *(proposed)* until each module's migration (§2.1 and §3 for what is built, §7 for the rest); the structure is decided.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 ---
 
@@ -673,17 +673,16 @@ lists every view and checks the filter is there.
 
 - ~~Confirm the names of the two supplier team roles, Supplier admin and Supplier member (§4.2).~~
   **Settled 2026-10-02**: those names. (No read-only team role: decided 2026-09-28.)
-- From §7 (2026-10-02, #187): when stock is reserved (cart, checkout or
-  payment, §7.4); whether a fixed product discount is per line or per unit, and whether codes
-  match case-insensitively (§7.7, OFFERS facts 4 and 6); whether a `to-shopper` supplier books
-  labels through the store's courier account or its own (§7.6); the version and option limits
-  per product (§7.3, CATALOG fact 4); whether A+ reusable blocks (`story_block`) ship; whether
-  `menu_item` may point at pages and URLs (CATALOG J4); one active shipping method at a time
-  or several (DESIGN-BRIEF flow 54); whether a **market may have its own domain** at all, which
-  needs several `custom_domain` rows per store while SAAS §8 and the built admin API assume one
-  *(ask)*; whether **store custom fields** (§7.3) are first release; whether product video is
-  supported (CATALOG F9); whether report schedules (the Custom reports note) are designed at
-  all, which #183 decides.
+- ~~From §7 (2026-10-02, #187)~~ **Settled 2026-10-05** (#284, #337): stock is reserved at
+  payment, cash on delivery and bank transfer at placement (§7.4); a fixed product discount
+  applies **per unit**, and codes match **case-insensitively** (§7.7); a `to-shopper` supplier
+  books labels through the store's courier account **or its own, the merchant choosing per
+  supplier** (§7.6); **3 options and 100 versions** per product (§7.3); A+ reusable blocks
+  (`story_block`) **ship**; `menu_item` **may** point at pages and URLs; **several** shipping
+  methods at once; **one domain per store**, never per market; store custom fields and product
+  video **ship**; offer targets resolve at pricing time, guests are recognised by email or
+  phone, a cancellation before fulfilment gives an offer use back (#337). Still open: whether
+  report schedules are designed at all (#183).
 
 ---
 
@@ -848,8 +847,7 @@ badge               (id, store_id, label, tone ('ok'|'peach'|'neutral'),
 shipping_zone       (id, store_id, name, countries text[], regions text[])
 shipping_method     (id, store_id, zone_id, name, kind ('free'|'fixed'|'free_over'|'courier_rate'),
                      amount, currency, threshold_amount, position, status)
-                    -- DESIGN-BRIEF flows 54–55; whether one active method at a time survives
-                    -- is (ask) and would be a partial unique index, not a column
+                    -- DESIGN-BRIEF flows 54–55; several methods may be active at once (§6)
 delivery_area       (store_id PK, mode ('everywhere'|'list'), postal_codes text[],
                      source_file_asset_id NULL)                 -- SetOps "Where you deliver"
 courier_account     (id, store_id, provider ('shiprocket'|'usps'|'ups'|'fedex'|'dhl'|'dpd'|'hermes'|…),
@@ -954,7 +952,7 @@ version_market_price(version_id, market_id, store_id, seller_id NULL, amount, cu
 product_photo       (id, product_id, version_id NULL, store_id, seller_id NULL, asset_id, position, alt)
                     -- alt per language in translation (fact 23, release: decide)
 product_video       (product_id, store_id, seller_id NULL, asset_id NULL, url NULL)
-                    -- CATALOG F9 (ask: supported at all) and S7 (hosted or linked)
+                    -- CATALOG F9 (supported, §6) and S7 (hosted or linked)
 product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries text[])
                     -- "Where you sell" per product (fact 42, release: decide)
 product_flag        (product_id, store_id, seller_id NULL, age_restricted boolean, hazardous boolean)  -- fact 43
@@ -991,7 +989,7 @@ product_filter_value(product_id, version_id NULL, filter_value_id, store_id, sel
 
 menu                (id, store_id, key ('main'), name)
 menu_item           (id, menu_id, store_id, parent_id NULL, label, kind ('collection'|'page'|'url'),
-                     collection_id NULL, url NULL, position)      -- J4 pages and URLs (ask)
+                     collection_id NULL, url NULL, position)      -- J4 pages and URLs (§6)
 
 product_story       (product_id PK, store_id, seller_id NULL, status ('draft'|'live'),
                      template, draft jsonb, live jsonb)
@@ -1030,7 +1028,7 @@ product_search      (product_id, store_id, language, document tsvector)
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
 product with no visible version is reported as "not buyable" (fact 8); a version with no price
 in a manual currency is not buyable in it (fact 26); the version count per product and the
-option count are limited by the engine (fact 4, limit *(decide)*); `collection_product` and
+option count are limited by the engine (fact 4: 3 options, 100 versions, §6); `collection_product` and
 `product_search` are rebuilt from outbox events, never in the request (fact 14).
 
 ### 7.4 Inventory
@@ -1050,8 +1048,8 @@ stock_level         (version_id, warehouse_id, store_id, seller_id NULL, on_hand
                     -- seller_id is the warehouse's; the trigger refuses a version whose
                     -- owner is neither the warehouse's nor the merchant (a Stock-only
                     -- supplier may hold the merchant's versions, ACCESS §7.1); reserved =
-                    -- sold, not yet fulfilled (PLATFORM-PROMPT §5.4, decided); when it is
-                    -- reserved (cart, checkout or payment) is (decide)
+                    -- sold, not yet fulfilled (PLATFORM-PROMPT §5.4, decided); reserved at
+                    -- payment, at placement for cash on delivery and bank transfer (§6)
 stock_movement      (id, store_id, seller_id NULL, version_id, warehouse_id, delta integer,
                      resulting_quantity integer, reason ('received'|'returned'|'damaged'|'counted'
                      |'typed'|'order'|'import'|'starting'|'transfer'), source_kind, source_id,
@@ -1302,24 +1300,23 @@ promotion_condition (id, promotion_id, store_id, operation, args jsonb, position
                     -- "repeat") is a condition too
 promotion_action    (id, promotion_id, store_id, operation, args jsonb, position)
                     -- fact 4's keys; per-currency amounts in args (fact 10); targets resolve
-                    -- at pricing time (fact 5, decide)
+                    -- at pricing time (fact 5, decided 2026-10-05 on #337)
 promotion_code_batch(id, promotion_id, store_id, prefix, length integer, count integer)
                     -- a bulk run of single-use codes (fact 6, H4), so the list shows the
                     -- batch and its used/unused counts
 promotion_code      (id, promotion_id, store_id, batch_id NULL, code, single_use boolean,
                      expires_at NULL, customer_id NULL, order_id NULL, used_at NULL,
                      used_by_customer_id NULL)
-                    UNIQUE (store_id, code)
+                    UNIQUE (store_id, lower(code))
                     -- one row for a shared code, many for bulk single-use codes (fact 6);
                     -- unique per store including spent and deleted ones (H2), so a receipt's
                     -- code never names another offer later; customer_id and order_id bind a
                     -- cart-reminder code to one shopper and cart, expires_at ends it (§7.6);
-                    -- whether matching is case-insensitive is open (§6); the UI upper-cases
-                    -- on save meanwhile, and a decision for insensitive adds lower(code)
+                    -- matching is case-insensitive (§6)
 promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_id,
                      customer_id NULL, customer_email, discount_amount, currency)
                     UNIQUE (promotion_id, order_id)
-                    -- counted from placed orders; guests recognised by email (fact 8, decide);
+                    -- counted from placed orders; guests recognised by email or phone (fact 8, decided 2026-10-05);
                     -- results (part P) aggregate this table
 ```
 
@@ -1613,8 +1610,8 @@ decide which columns and which tables each caller kind may select at all**. `app
   `customer_data_request` gets the same shape for a guest's own request: its `access_token_hash` and `request_token_matches(uuid)` against
   `app.request_token_hash` (§5.1), with the matrix row guest A vs guest B.
   **Read-only supplier branches, listed in the matrix**: a supplier editing its own products
-  reads `filter` and `filter_value` (it assigns values; CATALOG L9 keeps whether it may see
-  collections *(ask)*), `tax_class` (to pick one), `store_language` and `store_currency` (to
+  reads `filter` and `filter_value` (it assigns values; CATALOG L9: no collections, decided
+  2026-10-05 on #337), `tax_class` (to pick one), `store_language` and `store_currency` (to
   translate and price), `store_feature` and `badge` (to know which sections and manual badges
   exist), and `market` without its duties, domain and payment columns (to see which currencies
   a price is needed in); `app_supplier` has `select` on nothing else here.

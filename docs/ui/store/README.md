@@ -150,7 +150,7 @@ Products' approval chip and a Settings tab). Items a role can't use are **absent
   T), then Customer accounts (email, mobile or both for shopper sign-in, ACCESS.md §2.1),
   Developers, Apps, Support access and Activity log (new; FIRST-RELEASE.md §15). **My profile** is in the user menu, not
   Settings (`PortalProfile`).
-- Where vendors manage their own warehouses *(decide)*; the merchant sees them in the
+- Vendors manage their own warehouses in a **Warehouses tab inside "Your products"** (decided 2026-10-05 on #337); the merchant sees them in the
   Warehouse tab in a labelled group but can't rename or remove them.
 
 ---

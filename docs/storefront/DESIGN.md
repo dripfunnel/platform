@@ -8,7 +8,7 @@ work (`src/theme/**`); this one says *what good work there looks like*.
 same theme with different colours. The AI has full freedom over the look; the core package
 guarantees the commerce.
 
-Last updated: 2026-09-27.
+Last updated: 2026-10-05.
 
 ---
 
@@ -114,8 +114,7 @@ Design floors the gates check, whatever the look:
 ## 7. White label and brand rules
 
 - Stores under a white-label brand follow that brand's rules: whether "Powered by" shows,
-  default fonts or colours the brand requires *(ask whether brands may constrain store
-  designs at all)*, and the preview domain.
+  and the preview domain. Brands **may not** constrain fonts, colours or layouts (decided 2026-10-05 on #337).
 - The house brand (DripFunnel) sets no visual constraints beyond the floors in §5.
 
 ## 8. Preview vs live
@@ -126,10 +125,10 @@ Design floors the gates check, whatever the look:
 
 ## 9. Open questions
 
-- May a white-label brand constrain store designs (fonts, colours, layouts), or only the
-  "Powered by" line?
-- How many design directions does the AI propose at the start, and can the merchant upload
-  reference sites or screenshots?
-- Can merchants upload their own fonts, or only choose from the allowlist?
-- Content pages the AI may add without new core support (about, lookbook, FAQ, blog)?
-- Is there a merchant-facing "undo to any earlier version" beyond undoing the last change?
+- ~~May a white-label brand constrain store designs (fonts, colours, layouts), or only the
+  "Powered by" line?~~ Only the "Powered by" line (decided 2026-10-05 on #337).
+- ~~How many design directions does the AI propose at the start, and can the merchant upload
+  reference sites or screenshots?~~ Three, and the merchant may add reference screenshots (decided 2026-10-05 on #337).
+- ~~Can merchants upload their own fonts, or only choose from the allowlist?~~ The allowlist only (decided 2026-10-05 on #337).
+- ~~Content pages the AI may add without new core support (about, lookbook, FAQ, blog)?~~ About, FAQ, contact, lookbook and a blog (SAPI 24) (decided 2026-10-05 on #337).
+- ~~Is there a merchant-facing "undo to any earlier version" beyond undoing the last change?~~ Yes: any earlier published version (decided 2026-10-05 on #337).

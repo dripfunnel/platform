@@ -57,14 +57,14 @@ This covers hosting, the API, jobs, files, domains and edge security.
 | **Feature environments token** (dev account only) | The `feature-env` workflow: Workers, Pages, Hyperdrive, DNS and routes for `<slug>-*.dripfunnel.ai` | API token: *Account*: Workers Scripts Edit, Cloudflare Pages Edit, Hyperdrive Edit; *Zone `dripfunnel.ai`*: Zone Read, DNS Edit, Workers Routes Edit | GitHub environment `feature` secret `CLOUDFLARE_API_TOKEN` | 1 |
 | **Cloudflare Access on the dev account** | `*.dripfunnel.ai` for `@softobotics.com`, with a Bypass on `*-hooks.dripfunnel.ai` | Zero Trust org, one-time PIN login | Cloudflare | 1 |
 | **Custom hostnames token** (runtime) | Creating, checking and deleting Cloudflare for SaaS custom hostnames for partner portal hosts and merchant domains ([../api/SAAS.md](../api/SAAS.md) §8) | API token, scoped to *SSL and Certificates: Edit* and *Custom Hostnames: Edit* on the SaaS zone only | Worker secret | 4 (partner hosts), 6 (merchant domains) |
-| **Storefront deploy token** (runtime) | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token, scoped to *Pages: Edit* | Worker secret. **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
+| **Storefront deploy token** (runtime) | Publishing preview and live storefront builds to each store's **Cloudflare Pages project** (one per store, decided 2026-10-05 on #284; stores spread over a pool of Cloudflare accounts as one nears its project limit, staff alerted at 80% (decided 2026-10-05 on #337); [../api/PLATFORM-PROMPT.md](../api/PLATFORM-PROMPT.md) §5.6) | API token, scoped to *Pages: Edit* | Worker secret. **Never in a store repo**: the platform deploys the build's artifact itself (PLATFORM-PROMPT §5.6, the hand-off *(proposed, INF 2 confirms)*) | 6 |
 | **Cache purge token** (runtime) | Purging storefront caches after publish, the degraded-store edge rule, removing hidden products | API token, scoped to *Cache Purge* (plus *Zone Rulesets: Edit* if degraded pages are edge rules) | Worker secret | 6 |
 | **Cloudflare for SaaS** on the zone | Custom hostnames with automatic certificates for every partner and merchant host | Plan add-on | — | 4 |
 | — | Wildcard custom hostnames (`*.preview.<partnerdomain>`, `*.shops.<partnerdomain>`) may need **Enterprise**; per-hostname price at thousands of stores | **Verify** ([../USERS-AND-DOMAINS.md](../USERS-AND-DOMAINS.md) §5) | — | **Lead time**: contract |
 | ~~**Workers for Platforms**~~ | **Not used**: storefronts are a Pages project per store (decided 2026-10-05 on #284) | — | — | — |
 | **R2 buckets**, per environment | Assets, imports, exports, invoices, activity-log archive. **Assets wired on #219** as the `ASSETS` binding: `local` uses wrangler's local R2 (`dripfunnel-assets-local`); **create `dripfunnel-assets-dev` and `dripfunnel-assets`, then add the binding to `env.dev` and `env.prod`** (a binding to a missing bucket fails the deploy; until then brand uploads answer `NOT_CONNECTED`) | Worker binding (no key) | `wrangler.jsonc` | 5 |
 | **R2 S3 API keys** *(decide)* | Only if browsers upload directly with presigned URLs (large imports, photos); a binding can't sign URLs | Access key ID + secret, scoped to the named bucket | Worker secret | 5 |
-| **Cloudflare Images** or image resizing *(ask, PLATFORM-PROMPT §10)* | Product photo variants for the storefront and portal | Zone setting, or Images API token | Worker secret (Images only) | 6 |
+| **Cloudflare image resizing** (decided 2026-10-05 on #337) | Product photo variants for the storefront and portal, from originals in R2 through one core image component | Zone setting | — | 6 |
 | **Hyperdrive config**, per environment | Pooling to Neon; holds the Neon **pooled** connection string (§2.2) | Binding; the string is set once through `wrangler hyperdrive create` | Cloudflare | 3 |
 | **Rate-limit bindings and WAF rules** | Sign-in, signup, invites, password reset, send code, Shop API (ARCHITECTURE §7) | Config | `wrangler.jsonc` and zone | 3 |
 | **Turnstile** site key + secret *(proposed)* | Bot check on signup, send-code and password reset, on top of rate limits. Not in the specs yet | Site key (public), secret key | Secret in a Worker secret; site key in the SPA | 4 |
@@ -111,7 +111,7 @@ GitHub holds the code, the store repos, builds and the package.
 | — | Webhook events: `workflow_run`, `check_suite`, `pull_request`, `push`, delivered to `hooks.dripfunnel.com/github` | — | — | — |
 | **Claude GitHub App** (`github.com/apps/claude`), installed on `dripfunnel/platform` | **No longer needed by the review** (the `review` job in `ci.yml`) since #167's follow-up (2026-10-02): it runs the Claude Code CLI and comments with the workflow's own token ([WORKFLOW.md](WORKFLOW.md) §7). Kept installed for `@claude` mentions, if anyone uses them | App installation, no secret to keep | Installed by a repo admin; nothing stored | 1 |
 | **Release workflow token** | Publishing `@dripfunnel/storefront-core` to GitHub Packages with attestations | Built-in `GITHUB_TOKEN` with `packages: write`, `id-token: write` | Workflow permissions | 6 |
-| **Package read access for store repos** | `pnpm install` of `@dripfunnel/storefront-core` in each store's CI. **Verify** the App can grant per-repo package access; otherwise push a read-only token as a repo secret ([ARCHITECTURE.md](ARCHITECTURE.md) §5) | Package permission, or a fine-grained read-only token | Repo setting, or a store repo secret written by provisioning | 6 |
+| **Package read access for store repos** | `pnpm install` of `@dripfunnel/storefront-core` in each store's CI. The App grants per-repo package access; a read-only token as a repo secret only if INF 0 finds that impossible (decided 2026-10-05 on #337) ([ARCHITECTURE.md](ARCHITECTURE.md) §5) | Package permission, or a fine-grained read-only token | Repo setting, or a store repo secret written by provisioning | 6 |
 | **Actions minutes and storage** | Storefront builds, and possibly the AI designer sandbox (§2.6). Build minutes are a platform metric and a cost | Billing | — | 6, 9 |
 | Turborepo remote cache *(optional)* | Faster CI | Vercel token or a self-hosted cache | GitHub Actions secret | 1 |
 
@@ -226,8 +226,8 @@ Each row is an open question in the specs. Each needs an account and key once ch
 
 | Need | Where it's specified | Candidates | Credentials | Lead time |
 |---|---|---|---|---|
-| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1); **MSG91 (India) and Twilio (US)**, decided 2026-10-05 on #284 | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
-| **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
+| **SMS and WhatsApp one-time codes** — **each partner's own account** (decided 2026-10-04 on #272: the sender name is the partner's, and DLT and Meta verification are per business; credentials in §4) | Shoppers' order updates (confirmed, shipped, delivered) (decided 2026-10-05 on #337); Portal sign-up phone code and the SMS variant of two-step sign-in (ACCESS.md §2; the authenticator-app variant needs no provider); shoppers' mobile + code sign-in (ACCESS.md §2.1); **MSG91 (India) and Twilio (US)**, decided 2026-10-05 on #284 | Twilio Verify, MSG91, Gupshup, Vonage | Account ID + auth token or API key; sender IDs per country | **India: DLT registration** (entity ID, sender header, every template approved) takes weeks; US: A2P 10DLC or toll-free verification; EU: alphanumeric sender registration in some countries |
+| **WhatsApp messages** — **the partner's own WhatsApp Business account** (§4) | Abandoned-cart reminders in India (Carts prototype), shipping with email in the first release (decided 2026-10-05 on #337); WhatsApp codes (ACCESS §2.1) | Meta WhatsApp Cloud API directly, or a BSP (Gupshup, Twilio, MSG91) | Meta Business Manager, WhatsApp Business Account ID, phone number ID, **permanent system-user access token**, **app secret** (webhook signature) | **Meta business verification** and **per-template approval**; display name per sender. per partner (decided on #272) |
 | **Exchange rates** | Automatic currency conversion, "rates updated 2 hours ago" (CATALOG-DESIGN §3 fact 26, *(release: decide)*) | ECB reference rates (free, no key, EUR base, daily), Open Exchange Rates, Fixer, currencyapi | API key (none for ECB) | — |
 | **Duties and import taxes at checkout** | Business plan feature (Pricing, SetMarkets, designed 2026-10-02: from each product's classification code or a flat percentage of the basket, with a de-minimis threshold); the provider behind it is still to choose | Zonos, Avalara Cross-Border, Stripe Tax (limited) | API key | Contract |
 | **Search engine** (only if Postgres full-text isn't enough) | PLATFORM-PROMPT §5.4 "Typesense later" | Typesense Cloud | Admin key (server) + search-only scoped keys | later |
@@ -320,7 +320,7 @@ first (PLATFORM-PROMPT §5.4).
 | **Österreichische Post** | Platform prototype (DE partner) | API client ID + secret, customer number | — |
 
 The US carriers (USPS, UPS, FedEx) come **through one courier aggregator** (one aggregator decided
-on #184; EasyPost or Shippo, chosen on the shipping card, SAPI 23), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
+on #184; **EasyPost** (decided 2026-10-05 on #337)), and India uses **Shiprocket**. **Both are the partner's own accounts** (decided
 2026-10-04 on #272, §4), stored encrypted per partner, never a DripFunnel key; a merchant's own
 carrier account can be connected inside the partner's aggregator. The EU rows wait with the EU
 region.
@@ -345,7 +345,7 @@ prototype, Pricing, PortalBilling).
 
 ### 3.5 Storefront analytics and marketing IDs
 
-These are open questions (storefront/ARCHITECTURE §12 *(ask)*).
+**Google Analytics 4, Meta Pixel and Google Tag Manager** ship, each loaded only after consent (decided 2026-10-05 on #337). Server-side events and feeds stay out of the first release.
 
 | Item | Kind | Notes |
 |---|---|---|
@@ -377,7 +377,7 @@ never shown again once saved (**#275** builds the table, the APIs and both scree
 | Portal host, preview and shop wildcards, sender domain ([../api/SAAS.md](../api/SAAS.md) §3.5) | White-label hosts and email (DripFunnel's SES sends from it) | DNS records only; no credential | — |
 | **AI provider key** (Anthropic; optionally a second provider) | AI on the partner's plans that include it (§2.6); merchants on other plans bring their own (§3.3) | API key, with the partner's own spend limit | A DripFunnel platform key, which no longer exists |
 | **Shiprocket** (India) | Rates, labels, pickups and tracking for the partner's Indian stores (§3.2) | API user email + password | A key per merchant |
-| **US courier aggregator** (EasyPost or Shippo) | USPS, UPS and FedEx rates, labels and tracking (§3.2) | API key | A DripFunnel key |
+| **US courier aggregator** (**EasyPost**, #337) | USPS, UPS and FedEx rates, labels and tracking (§3.2) | API key | A DripFunnel key |
 | **SMS and WhatsApp sender** (MSG91, Twilio, Gupshup; WhatsApp Business) | Sign-up and two-step codes, shopper codes, WhatsApp reminders, in the partner's sender name (§2.8) | Account id + token or API key; sender ids, DLT entity and templates; WhatsApp phone-number id, system-user token and app secret | A DripFunnel sender |
 | **Google sign-in OAuth client** | "Continue with Google" on the partner's portal host, its name on the consent screen (§2.9) | Client id + client secret, redirect URI on the partner's host | One DripFunnel client |
 | **Support chat widget** (Intercom, Crisp, Zendesk, Help Scout) | Merchants chatting with their partner's support from the portal (§2.8) | Widget / app id (public) + identity-verification secret | A DripFunnel widget |
@@ -426,7 +426,7 @@ Start the lead-time items (**bold**) at the beginning, whichever slice uses them
 | 4. Signup, sign-in, invitations | **SES production access**, IAM send key, fallback sender domain; Google OAuth client; **SMS adapters: MSG91 (India) and Twilio (US)** (phone code, 2FA; decided 2026-10-05 on #284); Turnstile; custom hostnames token for the house partner's portal host |
 | 5. Catalogue, inventory, tax | R2 (and S3 keys if presigned uploads); exchange rates; Anthropic key for product helpers |
 | 6. Shop API, storefront, hosting, domains | **GitHub App**; package access; storefront deploy token; cache purge; **Cloudflare for SaaS (wildcard plan check)**; image resizing |
-| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** if shopper codes use it; **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
+| 7. Cart, checkout, payments, shipping, orders, emails | Merchant payment adapters in test mode (Stripe, PayPal, Razorpay, Cashfree, PhonePe; cash on delivery and bank transfer need no account); the house partner's **Shiprocket** and aggregator test accounts (§4); SES configuration set and SNS; **WhatsApp** through MSG91 for cart reminders (decided 2026-10-05 on #337); **Stripe Tax** in test mode for US checkouts, on each merchant's connected account (§2.7) |
 | 8. Offers | None new |
 | 9. AI designer, sync bot | Each partner's AI key and spend limit (the house partner's first, §4); designer sandbox in GitHub Actions (decided 2026-10-05 on #284) |
 | 10. Headless: API keys, webhooks, apps | Our own generated secrets only |
@@ -550,7 +550,7 @@ no variable name: the partner enters them in the partner console, or staff in a 
 |---|---|---|---|
 | AI provider key | AI on its plans that include AI | Anthropic Console → its own organisation → API keys, with a spend limit | AI runs (`ai_run`) |
 | Shiprocket API user | India rates, labels, tracking | Shiprocket → Settings → API → create an API user | Courier adapter |
-| US courier aggregator key | USPS, UPS, FedEx through EasyPost or Shippo | The aggregator's dashboard → API keys (production key) | Courier adapter |
+| US courier aggregator key | USPS, UPS, FedEx through **EasyPost** (#337) | The aggregator's dashboard → API keys (production key) | Courier adapter |
 | SMS / WhatsApp sender | Codes and WhatsApp reminders in its name | The provider's console; DLT registration (India) and Meta business verification first | Codes and reminders |
 | Google OAuth client | "Continue with Google" on its portal host | Google Cloud → APIs & Services → Credentials → OAuth client (web), redirect `https://<portal host>/api/auth/google/callback` | Portal sign-in |
 | Support chat widget | Its support chat in the portal | The chat tool's settings → install / identity verification | The portal's chat widget |

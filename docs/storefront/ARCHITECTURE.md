@@ -64,10 +64,10 @@ is (`account`, `authentication`, `cart`, `checkout`, `collections`, `currency`, 
 | `platform/render` | The render-mode adapter (§4): one interface for data loading that resolves at build time in live mode and at run time in preview mode. |
 | `platform/i18n` | Locale routing, message catalogues for core strings, `Intl` formatting, RTL direction. Themes add their own messages; core messages can be restyled, never removed. |
 | `platform/seo` | Metadata, canonical URLs, hreflang, Open Graph, structured data (Product, Offer, BreadcrumbList, Organization), sitemap and robots, noindex in preview. |
-| `platform/analytics` | Commerce events (view item, add to cart, begin checkout, purchase), consent-aware, provider adapters *(ask which)*. |
+| `platform/analytics` | Commerce events (view item, add to cart, begin checkout, purchase), consent-aware, provider adapters: **GA4, Meta Pixel and Google Tag Manager**, loaded only after consent (decided 2026-10-05 on #337). |
 | `platform/consent` | Cookie and tracking consent by region (EU/UK required). |
 | `cart` | The active order as the only cart state (the reference's rule), add, remove, adjust, apply and remove codes, optimistic UI with server reconciliation. |
-| `checkout` | The checkout state machine: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). Checkout may also hand off to the engine's hosted checkout *(ask, PLATFORM-PROMPT §5.6)*. |
+| `checkout` | The checkout state machine: contact → shipping address → delivery → payment → review, with the engine deciding what each step needs. Payment adapters (Stripe, Razorpay, Cashfree first), each loading its own provider SDK; asynchronous settlement with a "payment processing" state (the reference's `PaymentProcessingBanner` pattern). AI storefronts check out in the theme; own storefronts hand off to the engine's hosted checkout by default and may build their own (decided 2026-10-05 on #337). |
 | `products`, `collections`, `search` | Loaders and hooks for product detail (versions, options, selection rules, live price and stock), collection listings, search with filters (OR within a filter, AND across filters), sorting and pagination as URL state. |
 | `account`, `authentication`, `orders` | Sign-up, verification, sign-in, password reset, profile, addresses, order history, order detail and tracking. |
 | `pricing` | The price display component: currency always explicit (the reference's silent `USD` default is banned), tax label per region ("incl. VAT", "+ tax"), compare-at price only as the engine returns it. |
@@ -166,8 +166,7 @@ the theme, so a page is written once.
 ### 4.1 Preview (staging)
 
 - **Where**: the brand's preview subdomain, e.g. `{store}.preview.dripfunnel.com` or
-  `{store}.preview.{partner-domain}` for a white-label brand *(confirm the pattern with DF
-  Admin's brand settings)*.
+  **`{store}.preview.{partner-domain}`** on the partner's wildcard (decided 2026-10-05 on #337).
 - **How**: a client-rendered SPA with no SSR and no SSG. One `index.html` with client-side
   routing; every page loads its data from the Shop API at run time.
 - **Why**: builds contain no catalogue, so they take seconds and never go stale. A merchant
@@ -181,7 +180,7 @@ the theme, so a page is written once.
 ### 4.2 Live (production)
 
 - **Where**: the customer's custom domain via Cloudflare for SaaS. Until one is connected,
-  the brand's default live subdomain *(ask)*.
+  `{shop}.shops.<partnerdomain>` (SAAS §8).
 - **How**: a **static build (SSG)**. Catalogue pages (home, collections, products and their
   version URLs, content and policy pages, per locale) are prerendered at build time from the
   Shop API, with SEO data baked in.
@@ -240,8 +239,8 @@ From the reference's recorded decisions:
   version its own URL and page, canonicalised to the product.
 - Next.js static-export link prefetch requests files that don't exist. Default prefetch off
   in the two link wrappers until the upstream bug is fixed.
-- The image optimiser needs a server. Use Cloudflare image resizing (or the engine's image
-  variants) through a core image component instead of `unoptimized` originals *(ask)*.
+- The image optimiser needs a server. Use **Cloudflare image resizing** through a core image component instead of
+  `unoptimized` originals (decided 2026-10-05 on #337).
 - Trailing-slash URLs for static hosting, and a root redirect to the default locale.
 - Codegen schema pointer and runtime API URL are separate; generated types drift silently if
   they differ. The core package owns both.
@@ -303,7 +302,7 @@ merchant describes a change in the portal
   structured format (`.upgrades/changes/*.md`: intent, affected areas, invariants,
   integration guidance, verification). An AI agent reconciles each store's theme against the notes, runs the
   gates, and produces a preview and visual diff. Unchanged visuals auto-merge; changed ones
-  go to the merchant or to DripFunnel staff *(ask who approves)*.
+  go to **the merchant**, who approves (decided 2026-10-05 on #337).
 - DF Admin shows fleet core-version drift and rollout state (CONSOLE-DESIGN part L).
 - Security fixes can be pushed to every store as a forced patch.
 
@@ -367,16 +366,16 @@ for providers the store doesn't use.
 
 ## 12. Open questions
 
-- The preview hostname pattern per brand. ~~Whether previews are gated (signed link) or open but
-  `noindex`.~~ Gated by a signed link (decided 2026-10-05 on #284).
+- ~~The preview hostname pattern per brand. ~~Whether previews are gated (signed link) or open but
+  `noindex`.~~ Gated by a signed link (decided 2026-10-05 on #284).~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337).
 - ~~Can shoppers check out on the preview (test mode), or is checkout disabled there?~~ Test-mode
   checkout (decided 2026-10-05 on #284).
-- Before a custom domain is connected, where is the live site?
-- Hosted checkout (engine-served) vs in-theme checkout for AI storefronts: both, or one?
-- Image resizing: Cloudflare image resizing, or engine-generated variants?
-- Analytics providers to support in core (GA4, Meta Pixel, others), and per-brand defaults.
-- Who approves visual changes from a core major upgrade: the merchant, or DripFunnel staff?
-- Which content pages and sections may the theme add without new core support (blog, lookbook,
-  store locator)?
-- How store repos authenticate to GitHub Packages in CI (decided registry; see
-  `../code/ARCHITECTURE.md` §5 for the options).
+- ~~Before a custom domain is connected, where is the live site?~~ `{shop}.shops.<partnerdomain>` (SAAS §8).
+- ~~Hosted checkout (engine-served) vs in-theme checkout for AI storefronts: both, or one?~~ AI storefronts check out in the theme; own storefronts use the hosted checkout by default and may build their own (decided 2026-10-05 on #337).
+- ~~Image resizing: Cloudflare image resizing, or engine-generated variants?~~ Cloudflare image resizing (decided 2026-10-05 on #337).
+- ~~Analytics providers to support in core (GA4, Meta Pixel, others), and per-brand defaults.~~ GA4, Meta Pixel, Google Tag Manager, after consent (decided 2026-10-05 on #337).
+- ~~Who approves visual changes from a core major upgrade: the merchant, or DripFunnel staff?~~ The merchant (decided 2026-10-05 on #337).
+- ~~Which content pages and sections may the theme add without new core support (blog, lookbook,
+  store locator)?~~ About, FAQ, contact, lookbook **and a blog** (SAPI 24); no store locator (decided 2026-10-05 on #337).
+- ~~How store repos authenticate to GitHub Packages in CI (decided registry; see
+  `../code/ARCHITECTURE.md` §5 for the options).~~ The GitHub App's per-repo grant, a read-only token secret only if that's impossible (decided 2026-10-05 on #337).

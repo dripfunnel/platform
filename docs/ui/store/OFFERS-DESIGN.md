@@ -10,7 +10,7 @@ The vocabulary, principles, parts, scenarios, states, "never do" rules and open 
 carry over. Where this document disagrees with [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)
 or [docs/USERS-AND-DOMAINS.md](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 It is written for stores anywhere in the world, with region-driven tax, currency and pricing
 law (PLATFORM-PROMPT §2 item 9). It expands [DESIGN-BRIEF.md](DESIGN-BRIEF.md) §1 fact 11 and
@@ -132,13 +132,14 @@ promotions tests before relying on it.
      must make that loud ("This gives 10% off every order on your store, starting now").
    - The five questions of §1 are a presentation over this one record. In this model there
      is no draft state: an offer that is saved and **On** with no start date is **live
-     immediately**. So "Save" on a new offer defaults to *Off* or to a future start, or asks:
-     "Start now?" *(ask which; and whether the engine should have a draft state at all)*.
+     immediately**. So "Save" on a new offer asks **Start now / Schedule / Keep off**, and the
+     engine has **no draft state** (decided 2026-10-05 on #337).
 2. **Conditions combine with AND, and the engine also supports OR.** PLATFORM-PROMPT §5.4
    requires "conditions with AND/OR". AND stays the default and the plain reading of the
    form.
-   - Whether the portal exposes "either A or B" in one offer *(ask)*. Until it does, an offer
-     for "VIP customers **or** orders over $100" is two offers.
+   - The first release's form does **not** expose "either A or B" in one offer; the engine
+     still supports OR (decided 2026-10-05 on #337). An offer for "VIP customers **or** orders over $100" is
+     two offers.
    - Design the words so the combination is never ambiguous ("Orders over $50 **and**
      containing a Summer product").
 3. **Conditions** (these map to question 3, "What must they buy?", and 4, "Who is it
@@ -154,7 +155,7 @@ promotions tests before relying on it.
    | Buys X of these, gets Y of those | `buy_x_get_y` (pairs with the action below) | Engine provides (first release) | |
    | Buys from this collection | `contains_collection` | Engine provides (§5.4, §5.10) | Fact 5. |
    | First order only | `first_order` | `(release: decide)` | PLATFORM-PROMPT §3.3, §5.10. |
-   | Specific customers | `specific_customers` | `(release: decide)` | PLATFORM-PROMPT §3.3. Replaces the first platform's "hidden group" workaround *(ask whether it is still wanted)*. |
+   | Specific customers | `specific_customers` | `(release: decide)` | PLATFORM-PROMPT §3.3. Replaces the first platform's "hidden group" workaround. **Wanted**, with a customer picker (decided 2026-10-05 on #337). |
    | Shipping country / region | `shipping_country` | `(release: decide)` | PLATFORM-PROMPT §5.10. |
 
    Also engine requirements, all `(release: decide)`: a minimum *quantity* across the whole
@@ -168,10 +169,10 @@ promotions tests before relying on it.
    | $ off the whole order | `order_fixed_discount` | Engine provides (first release) | Capped at the order subtotal, so it never goes negative. Amount per currency (fact 10). |
    | % off chosen products | `products_percentage_discount` | Engine provides (first release) | Product targets: fact 5. |
    | % off products tagged … | `filter_value_discount` | Engine provides (first release) | Follows the catalogue's filter values, so new matching products are included. |
-   | $ off chosen products | `line_fixed_discount` | Engine provides (first release) | **Per cart line or per unit is ours to decide** *(decide)*: per line means 2 × T-shirt = one $5 off; per unit means $10. Word it exactly as built; the first platform's action was per line. |
+   | $ off chosen products | `line_fixed_discount` | Engine provides (first release) | **Per unit** (decided 2026-10-05 on #337): 2 × T-shirt at $5 off = $10 off. Word it exactly so; the first platform's action was per line. |
    | % or $ off a collection | `collection_discount` | Engine provides (§5.4, §5.10) | Fact 5. |
    | Free shipping | `free_shipping` | Engine provides (first release) | Removes **all** shipping on the order. |
-   | Y free when buying X | `buy_x_get_y` | Engine provides (first release) | **Which items are made free when several qualify (cheapest?) and whether it repeats are ours to decide** *(decide)*; state the rule in the summary. |
+   | Y free when buying X | `buy_x_get_y` | Engine provides (first release) | The **cheapest** qualifying item is made free, **repeating per qualifying set** unless "once per order" is set (decided 2026-10-05 on #337); state the rule in the summary. |
    | Tiered ("10% over $50, 15% over $100") | `tiered_discount` | `(release: decide)` | PLATFORM-PROMPT §3.3, §5.10. |
    | A cap on a % discount ("20% off, up to $30") | argument on the % actions | `(release: decide)` | PLATFORM-PROMPT §3.3. |
 
@@ -186,11 +187,8 @@ promotions tests before relying on it.
      sellers think in collections, so a collection is a first-class choice on the form, next
      to specific products and filter values ("Discount everything tagged Summer", linked to
      Catalogue › Filters).
-   - **Versions added later.** Whether picking a product means "all its versions, now and
-     later" (resolved when the cart is priced) or "the versions it has today" is ours to
-     decide *(decide; resolving at pricing time avoids the surprise)*. If it stores today's
-     versions, say so on the form ("Includes 6 versions. Versions you add later won't be
-     included").
+   - **Versions added later.** Picking a product means **all its versions, now and later**,
+     resolved when the cart is priced (decided 2026-10-05 on #337).
    - **Exclusions** ("everything except gift cards") are an engine requirement,
      `(release: decide)` (PLATFORM-PROMPT §3.3).
 6. **Coupon codes are unique per store** (PLATFORM-PROMPT §5.1: unique constraints are per
@@ -199,10 +197,10 @@ promotions tests before relying on it.
      with many codes, each with its own usage. The engine provides them (PLATFORM-PROMPT
      §5.4); release `(release: decide)`. Design the bulk generator.
    - **Case.** Shoppers type "summer20". The UI normalises codes to uppercase on save and says
-     so; the engine should match codes case-insensitively *(decide)*.
+     so; the engine matches codes **case-insensitively** (decided 2026-10-05 on #337).
    - **Clash on save**: "SUMMER20 is already used by another offer (Summer sale 2025)", with a
-     link. Whether a deleted offer still holds its code depends on how deletion works (fact
-     14) *(decide)*.
+     link. A deleted offer **keeps** its code: codes stay unique per store including
+     deleted ones (fact 14, settled on #188).
    - **Shopper-facing errors** come from the Shop API as distinct results: invalid, expired,
      limit reached (names to be fixed in the Shop API contract). Design the storefront copy
      for each (part O).
@@ -211,12 +209,13 @@ promotions tests before relying on it.
    stacks, in an order the merchant can't see" (the first platform's behaviour) is not the
    target.
    - The application order is fixed and documented by the engine (for example product
-     discounts before order discounts before shipping *(decide)*), and the same cart always
+     discounts, then order discounts, then shipping (decided 2026-10-05 on #337)), and the same cart always
      prices the same way. The portal can therefore explain it.
    - **Combination rules**, designed Shopify-style: this offer *combines with* product
      discounts · order discounts · shipping discounts · other codes. "This code can't be used
      with other codes", "doesn't combine with automatic discounts" and "one coupon per order"
-     are all expressions of these rules. What a new offer combines with by default *(ask)*.
+     are all expressions of these rules. A new offer combines with **nothing** by default; the
+     merchant opts in (decided 2026-10-05 on #337).
    - "Only the best discount applies" is an engine requirement, `(release: decide)`.
    - **The UX consequence is unchanged**: a 20% code plus a 30% sale is a common and
      expensive mistake. Whatever the rules allow, the portal **warns** when a new offer can
@@ -227,10 +226,10 @@ promotions tests before relying on it.
    - Total uses and uses per customer work for codes and for automatic offers. The engine's
      usage counting must survive concurrency (PLATFORM-PROMPT §5.4, §5.9): two shoppers
      placing orders at once can't both take the last use.
-   - "Per customer" only works once the shopper is known. How a **guest** is recognised (by
-     email, which a guest can change) is ours to decide *(decide)*. Say it in the helper text
-     once decided ("Shoppers checking out as guests are recognised by email").
-   - Whether a **cancelled or refunded order gives the use back** *(ask)*.
+   - "Per customer" only works once the shopper is known. A **guest** is recognised by email,
+     or by phone when that is how they checked out (decided 2026-10-05 on #337). Say it in the helper text
+     ("Shoppers checking out as guests are recognised by email or phone").
+   - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".
 9. **Status is derived, not stored.** The portal (or the Store API) computes it from
    `enabled`, `starts_at`, `ends_at` and usage:
@@ -256,10 +255,8 @@ promotions tests before relying on it.
       copy (PLATFORM-PROMPT §5.10). In a **multi-currency** store a fixed-amount offer carries
       one amount per currency the store sells in (10.00 USD, 9.00 EUR, 1,500 JPY), never the
       same integer read as different money.
-    - How the form collects them (every currency typed, or converted from the main currency
-      and then editable) and what happens if per-currency amounts are not in the first
-      release (refuse fixed-amount offers in multi-currency stores, or allow them in one
-      currency only) *(ask)*. Percentages are safe in every currency.
+    - The form shows **one value per currency, pre-filled by conversion from the main
+      currency and editable** (decided 2026-10-05 on #337). Percentages are safe in every currency.
 11. **Tax changes what "$10 off" and "over $50" mean.**
     - In a **tax-inclusive** store (EU, UK, India, Australia) the discount comes off the price
       the shopper sees, and the tax inside it shrinks with it.
@@ -534,7 +531,7 @@ Items marked `(release: decide)` are engine requirements whose release is open (
   extend.
 - K5. Recurring offers ("every Friday", "happy hour"): `(release: decide)`. Suggest duplicate
   instead.
-- K6. Countdown on the storefront ("Ends in 5 h"): storefront work *(ask)*.
+- K6. Countdown on the storefront ("Ends in 5 h"): **optional per offer** (decided 2026-10-05 on #337).
 
 ### L. How often (usage limits)
 
@@ -542,7 +539,7 @@ Items marked `(release: decide)` are engine requirements whose release is open (
 - L2. The guest caveat in helper text (§3 fact 8).
 - L3. Usage shown as a meter; "Used up" becomes a status (§3 fact 9).
 - L4. Raising a limit on a used-up offer brings it back to Live, and says so.
-- L5. Whether cancelled orders give the use back *(ask)*.
+- L5. An order cancelled before fulfilment gives the use back; refunds don't (decided 2026-10-05 on #337).
 - L6. "Once per order" for buy X get Y (F5).
 
 ### M. Combining offers
@@ -596,7 +593,7 @@ Items marked `(release: decide)` are engine requirements whose release is open (
 - P1. On each offer: uses, orders, discount given, sales with the offer, average order value,
   and a small chart by day (§3 fact 19). Never "revenue caused by".
 - P2. Orders list filtered by this offer.
-- P3. Top offers on Reports *(ask)*.
+- P3. Top offers **appear** on Reports (decided 2026-10-05 on #337).
 - P4. Export uses (orders, customer, code, discount) as CSV.
 
 ### Q. Shareable links
@@ -617,8 +614,8 @@ Items marked `(release: decide)` are engine requirements whose release is open (
   as fallback, same pattern as [CATALOG-DESIGN.md](CATALOG-DESIGN.md) part N.
 - S3. Coupon codes are the same in every language.
 - S4. Multi-currency: percentages work everywhere; fixed amounts and minimums carry one value
-  per currency (engine provides, §3 fact 10). Design the entry pattern and, if per-currency
-  amounts are not in the first release, the chosen fallback *(ask)*.
+  per currency (engine provides, §3 fact 10). Entered as one value per currency, pre-filled by
+  conversion and editable (decided 2026-10-05 on #337).
 
 ### T. Regions, tax and pricing law
 
@@ -634,12 +631,12 @@ Items marked `(release: decide)` are engine requirements whose release is open (
 
 ### U. Plans
 
-- U1. Offers may be plan-gated in number or type (e.g. bulk codes, tiered offers, results)
-  *(ask which)*, using the four states from [CATALOG-DESIGN.md](CATALOG-DESIGN.md) part P:
+- U1. The partner gates offers per plan through entitlements: the number of live offers,
+  bulk codes and tiered offers (decided 2026-10-05 on #337), using the four states from [CATALOG-DESIGN.md](CATALOG-DESIGN.md) part P:
   included and on, turned off, not in plan, at limit. Plans and entitlements are set by the
   partner and enforced by the server (PLATFORM-PROMPT §3.3, [SAAS.md](../../api/SAAS.md)).
 - U2. Only the Owner sees upgrade prompts. Vendors never see offers at all.
-- U3. Downgrade: live offers keep running until they end *(ask)*; creating more is blocked with
+- U3. Downgrade: live offers keep running until they end (decided 2026-10-05 on #337); creating more is blocked with
   the limit named.
 
 ### V. Recipes
@@ -700,35 +697,42 @@ Ready-made starting points that fill the form and leave the merchant to adjust:
 
 ## 9. Open questions: ask, don't assume
 
-- Does a new offer save as Off, or live immediately when it has no start date? Should the
-  engine have a draft state? (§3 fact 1)
-- Does the portal expose "any of" (OR) conditions, or keep one offer per alternative? (§3
-  fact 2, I2)
+- ~~Does a new offer save as Off, or live immediately when it has no start date? Should the
+  engine have a draft state? (§3 fact 1)~~ Save asks Start now / Schedule / Keep off; no draft
+  state (decided 2026-10-05 on #337).
+- ~~Does the portal expose "any of" (OR) conditions, or keep one offer per alternative? (§3
+  fact 2, I2)~~ One offer per alternative in the form; the engine keeps OR (decided 2026-10-05 on #337).
 - Which `(release: decide)` items are in the first release: exclusions, combination rules,
   "best discount wins", bulk codes, first order only, specific customers, shipping country,
   tiered discounts, discount caps, % off the "get" item, free gifts, internal names,
   per-currency amounts, segments, recurring offers, shareable links, results, the test cart?
   (§3 facts 3–7, 10, 12–13, 19–20; PLATFORM-PROMPT §10)
-- Are coupon codes matched case-insensitively, and does a deleted (or soft-deleted) offer
-  keep its code? (§3 facts 6, 14)
-- Is the fixed product discount per line or per unit? Which items does buy X get Y make free,
-  and does it repeat? (§3 fact 4, F3, F5)
-- Do product targets include versions added later? (§3 fact 5)
-- What is the engine's fixed application order, and what does a new offer combine with by
-  default? Is "one code per order" store-wide or per offer? (§3 fact 7, M4)
-- Do cancelled or refunded orders give a use back? How are guests recognised for
-  per-customer limits? (§3 fact 8)
+- ~~Are coupon codes matched case-insensitively, and does a deleted (or soft-deleted) offer
+  keep its code? (§3 facts 6, 14)~~ Case-insensitive; a deleted offer keeps its code (#188) (decided 2026-10-05 on #337).
+- ~~Is the fixed product discount per line or per unit? Which items does buy X get Y make free,
+  and does it repeat? (§3 fact 4, F3, F5)~~ Per unit; the cheapest, repeating per set unless
+  "once per order" (decided 2026-10-05 on #337).
+- ~~Do product targets include versions added later? (§3 fact 5)~~ Yes, resolved at pricing (decided 2026-10-05 on #337).
+- ~~What is the engine's fixed application order, and what does a new offer combine with by
+  default?~~ Product, then order, then shipping; combines with nothing by default (decided 2026-10-05 on #337).
+  Is "one code per order" store-wide or per offer? (§3 fact 7, M4)
+- ~~Do cancelled or refunded orders give a use back? How are guests recognised for
+  per-customer limits? (§3 fact 8)~~ Cancelled before fulfilment gives it back, refunds don't;
+  guests by email or phone (decided 2026-10-05 on #337).
 - ~~When does the store time-zone setting ship, and where in Settings does it live? (§3 fact 9)~~
   **Settled 2026-10-02**: first release, Settings › Store info.
-- Multi-currency stores: how are per-currency amounts entered, and what is the fallback if
-  they are not in the first release? (§3 fact 10)
+- ~~Multi-currency stores: how are per-currency amounts entered, and what is the fallback if
+  they are not in the first release? (§3 fact 10)~~ One value per currency, pre-filled by
+  conversion, editable (decided 2026-10-05 on #337).
 - Can Staff read offers? (§4)
 - Who pays for a discount on a vendor's product, and what does the vendor see in "Your
   sales"? (§3 fact 18)
 - Does the Shop API return discounted product prices, and does the storefront show sale
   badges, a code box, free-shipping progress, countdowns and `?code=` links? (§3 fact 17,
   O4, Q1, K6)
-- Which offer features are plan-gated, and what happens to live offers on downgrade? (part U)
+- ~~Which offer features are plan-gated, and what happens to live offers on downgrade? (part U)~~
+  The partner gates live-offer count, bulk codes and tiered offers per plan; live offers run
+  until they end (decided 2026-10-05 on #337).
 - Do live offers keep running when the subscription is past due? (§7)
 - Is change history exposed? (N7)
 - Changing a live offer's code: keep the old code working too? (H5)
