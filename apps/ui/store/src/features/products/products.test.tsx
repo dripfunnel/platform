@@ -241,4 +241,19 @@ describe('the Products list', () => {
     await show(owner)
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
   })
+
+  it('clears a supplier filter on a phone, which has no control to show or clear it', async () => {
+    const wide = { matches: false }
+    const listeners: (() => void)[] = []
+    vi.stubGlobal('matchMedia', () => ({ get matches() { return wide.matches }, addEventListener: (_: string, f: () => void) => listeners.push(f), removeEventListener: () => undefined }))
+    await show(owner)
+    fireEvent.change(screen.getByLabelText(words.supplier.label), { target: { value: 'v1' } })
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: 'v1' }), {})
+    wide.matches = true
+    act(() => listeners.forEach((f) => f()))
+    await settle()
+    expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: '' }), {})
+    vi.unstubAllGlobals()
+  })
 })
