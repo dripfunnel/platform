@@ -50,7 +50,7 @@ type Mutation {
   setTheme(theme: String!): Profile
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
-  updateProfile(name: String!, phone: String, theme: String): Profile
+  updateProfile(name: String!, phone: String): Profile
 }
 
 type MyActivity {

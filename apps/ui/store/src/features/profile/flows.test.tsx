@@ -96,7 +96,7 @@ describe('your details', () => {
     typeIn(words.details.password, 'wrong')
     fireEvent.click(screen.getByRole('button', { name: words.details.save }))
     await settle()
-    expect(updateProfile).toHaveBeenCalledWith({ name: 'Farhan A', phone: '+919845011234', theme: null })
+    expect(updateProfile).toHaveBeenCalledWith({ name: 'Farhan A', phone: '+919845011234' })
     expect(changeEmail).toHaveBeenCalledWith('farhan@new.example', 'wrong')
     expect(onSaved).toHaveBeenCalledWith(saved)
     expect(screen.getByRole('alert').textContent).toBe(words.twoStep.wrongPassword)
