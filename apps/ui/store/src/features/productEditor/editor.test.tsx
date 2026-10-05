@@ -350,7 +350,7 @@ describe('the product editor', () => {
     api.setProductCollections.mockResolvedValue([{ id: 'c2', name: 'Gifts', kind: 'manual' }])
     await show(owner)
     fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
-    fireEvent.click(screen.getByRole('button', { name: '✓ Summer edit' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Summer edit', pressed: true }))
     fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
     fireEvent.click(screen.getByRole('button', { name: 'Linen' }))
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
@@ -368,7 +368,7 @@ describe('the product editor', () => {
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     expect(screen.getByText(words.saveCollectionsFailed)).toBeTruthy()
-    expect(screen.getByRole('button', { name: '✓ Gifts' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Gifts', pressed: true })).toBeTruthy()
   })
 
   it('asks for the legal details a market says are missing, and gives a manual badge', async () => {
@@ -413,6 +413,9 @@ describe('the product editor', () => {
     expect(router.state.location.pathname).toBe('/products/p9')
     expect(screen.getByText(words.stock.newFailed)).toBeTruthy()
     expect(field('Stock at Jaipur studio').value).toBe('7')
+    // Carried by that one navigation, then gone: a reload or a later visit shows what is stored.
+    await settle()
+    expect(router.state.location.state.unsavedCounts).toBeUndefined()
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     expect(stockApi.setStock).toHaveBeenLastCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 7 }])
