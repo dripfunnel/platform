@@ -1,0 +1,407 @@
+/* PortalProfile (designs/PortalProfile.dc.html): a column of cards, 820px with its padding. */
+.df-profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+  max-width: 764px;
+}
+
+.df-profile-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-1);
+}
+
+.df-profile-head .df-page-title {
+  font-size: 26px;
+}
+
+.df-profile-head .df-page-lede {
+  font-size: 14px;
+}
+
+.df-profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+  padding: 20px 22px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-profile-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.df-profile-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 56ch;
+}
+
+.df-profile-card-title h2 {
+  margin: 0;
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.df-profile-card-title p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+}
+
+.df-profile-grid {
+  display: grid;
+  gap: var(--df-space-3);
+}
+
+.df-profile-grid--two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.df-profile-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.df-profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-1);
+}
+
+.df-profile-field label {
+  color: var(--df-color-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-profile-field input {
+  box-sizing: border-box;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  outline: none;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.df-profile-field input:focus {
+  border-color: var(--df-color-focus);
+  box-shadow: 0 0 0 3px var(--df-color-info-surface);
+}
+
+.df-profile-field input[readonly] {
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+}
+
+.df-profile-field--code input {
+  height: 44px;
+  font-family: var(--df-font-mono);
+  font-size: 18px;
+  letter-spacing: 0.3em;
+}
+
+.df-profile-help {
+  font-size: 12px;
+}
+
+.df-profile-help--muted {
+  color: var(--df-color-muted);
+}
+
+.df-profile-help--good {
+  color: var(--df-color-success);
+}
+
+.df-profile-narrow {
+  max-width: 260px;
+}
+
+.df-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--df-space-2);
+}
+
+.df-profile-primary,
+.df-profile-secondary {
+  height: 40px;
+  border-radius: var(--df-radius);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.df-profile-primary {
+  padding: 0 18px;
+  border: 0;
+  background: var(--df-color-brand);
+  color: var(--df-color-brand-contrast);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-profile-primary:hover:not(:disabled) {
+  background: var(--df-color-brand-hover);
+}
+
+/* PortalProfile greys Save details until something changed. */
+.df-profile-primary:disabled {
+  background: var(--df-color-neutral-border);
+  cursor: default;
+}
+
+.df-profile-secondary {
+  padding: 0 14px;
+  border: 1px solid var(--df-color-field-border);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font);
+}
+
+.df-profile-secondary--strong {
+  height: 36px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.df-profile-secondary:hover {
+  background: var(--df-color-hover);
+}
+
+.df-profile-secondary--small {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.df-profile-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-profile-alert {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-profile-note {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-profile-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3);
+}
+
+.df-profile-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--df-color-border);
+  border-radius: 10px;
+}
+
+.df-profile-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3);
+  padding: 12px 14px;
+}
+
+.df-profile-row + .df-profile-row {
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-profile-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 180px;
+}
+
+.df-profile-row-text strong {
+  color: var(--df-color-text);
+  font-size: 14px;
+}
+
+.df-profile-row-text span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-profile-row-text .df-profile-low {
+  color: var(--df-color-danger);
+}
+
+.df-profile-setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+  padding: var(--df-space-4);
+  border: 2px solid var(--df-color-focus);
+  border-radius: 10px;
+}
+
+.df-profile-setup-title {
+  color: var(--df-color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-profile-setup-sub {
+  margin: 0;
+  color: var(--df-color-text);
+  font-size: 13px;
+}
+
+.df-profile-methods {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+}
+
+.df-profile-method {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 10px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-profile-method[aria-checked='true'] {
+  padding: 10px 13px;
+  border: 2px solid var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-profile-method-dot {
+  box-sizing: border-box;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--df-color-muted);
+  border-radius: 50%;
+}
+
+.df-profile-method[aria-checked='true'] .df-profile-method-dot {
+  border: 5px solid var(--df-color-focus);
+}
+
+.df-profile-key {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-1);
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+
+.df-profile-key span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-profile-key code {
+  color: var(--df-color-text);
+  font-family: var(--df-font-mono);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+.df-profile-toggle {
+  display: flex;
+  align-self: flex-start;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+}
+
+.df-profile-toggle button {
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-profile-toggle button[aria-checked='true'] {
+  background: var(--df-color-heading);
+  color: var(--df-color-surface);
+}
+
+.df-profile-sessions,
+.df-profile-activity {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-profile-sessions li,
+.df-profile-activity li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-3);
+  padding: 10px 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-profile-active {
+  color: var(--df-color-success);
+  font-size: 12px;
+}
+
+@media (max-width: 639px) {
+  .df-profile-head .df-page-title {
+    font-size: 22px;
+  }
+
+  .df-profile-grid--two,
+  .df-profile-grid--three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

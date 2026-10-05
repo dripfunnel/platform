@@ -200,6 +200,11 @@ import banner waits for `storeState`'s import job (SAPI 16); support's Allow / D
   authenticator app at sign-in (SMS only); "Create another store", since sign-up starts only for a
   new account; and the web address's suffix, which needs the partner's storefront domain. Country
   is asked on the store step, where the API takes it.
+- **Built on #292, part 2** (`apps/ui/store/src/features/profile/`): My profile as `PortalProfile`
+  draws it, plus "Your activity" (own entries, a page at a time, in StoreActivity's rows). The API
+  asks for the password where the prototype doesn't: a new email, every two-step start or switch,
+  and turning it off. The sign-in number is read-only while SMS is the method, because #352 changes
+  it only by switching method; texting a new number before saving it is still open.
 - **My profile** (`PortalProfile`): name, email (changed through a link to the new address),
   mobile, password (signs out other devices), two-step sign-in (authenticator app or SMS; ten
   backup codes shown once; an Owner can switch method but never turn it off), appearance (light
