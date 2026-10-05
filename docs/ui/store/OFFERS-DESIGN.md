@@ -228,8 +228,9 @@ promotions tests before relying on it.
      placing orders at once can't both take the last use.
    - "Per customer" only works once the shopper is known. A **guest** is recognised by normalised
      email, or by phone only once proven by a code (mobile sign-in, ACCESS §2.1); a typed,
-     unproven phone never counts (decided 2026-10-05 on #337). Limits are best-effort for guests. Say it in the
-     helper text ("Shoppers checking out as guests are recognised by email").
+     unproven phone never counts (decided 2026-10-05 on #337). Limits are best-effort for guests. The form's helper
+     text (a `messages/` key) says so: guests are recognised by email, and shoppers who signed
+     in with a mobile code by their number.
    - An order **cancelled before fulfilment gives the use back**; a refund does not (decided 2026-10-05 on #337).
    - Show usage as "38 of 100 used".
 9. **Status is derived, not stored.** The portal (or the Store API) computes it from

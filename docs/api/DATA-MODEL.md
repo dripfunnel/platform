@@ -1316,8 +1316,10 @@ promotion_code      (id, promotion_id, store_id, batch_id NULL, code, single_use
 promotion_usage     (id, promotion_id, promotion_code_id NULL, store_id, order_id,
                      customer_id NULL, customer_email, discount_amount, currency)
                     UNIQUE (promotion_id, order_id)
-                    -- counted from placed orders; guests by normalised email, a phone only once proven (fact 8, #337);
-                    -- results (part P) aggregate this table
+                    -- a placed order's row; cancelling before fulfilment deletes it and lowers
+                    -- uses_count in one transaction (fact 8, #337); matched per customer_id
+                    -- (a proven phone resolves to one, ACCESS §2.1), else normalised
+                    -- customer_email; results (part P) aggregate this table
 ```
 
 ### 7.8 Storefront, publishing, design history and AI runs
