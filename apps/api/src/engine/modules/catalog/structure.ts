@@ -418,6 +418,8 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       const linked = rows.map((r) => r.collection_id).filter((c): c is string => c !== null)
       const known = await knownCatalogueIds(tx, storeId, { collections: linked, products: [], versions: [], values: [], images: [] })
       if (!linked.every((c) => known.collections.has(c))) throw new Refused('INVALID_LINK')
+      // One save at a time, so two at one revision, or two first saves, end with one STALE_REVISION.
+      await serialise(tx, `menu:${storeId}`)
       const saved = await writeMenu(tx, storeId, revision, optional(menuName, 60) ?? 'Main menu', rows, now())
       if (saved === null) throw new Refused('STALE_REVISION')
       await activity.record(tx, entry(structureAudit.menuSaved, { type: 'menu', id: 'main', label: String(rows.length) }))

@@ -419,7 +419,7 @@ export const writeMenu = async (tx: ScopedSql, storeId: string, revision: number
     if (existing.revision !== revision) return null
     menuId = existing.id
     next = existing.revision + 1
-    await tx`update menu set name = ${name}, updated_at = ${now}, revision = ${next} where id = ${menuId}`
+    if ((await tx`update menu set name = ${name}, updated_at = ${now}, revision = ${next} where id = ${menuId} and revision = ${existing.revision}`).count !== 1) return null
     await tx`delete from menu_item where menu_id = ${menuId}`
   }
   const withPositions = (parent: string | null) => items.filter((i) => i.parent_id === parent).map((i, position) => ({ ...i, position }))
