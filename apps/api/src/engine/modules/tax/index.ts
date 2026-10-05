@@ -16,6 +16,7 @@ import {
   selectTaxClass,
   selectTaxSetup,
   setTaxInclusive,
+  setZoneRate,
   setZoneRates,
   softDeleteTaxClass,
   taxClash,
@@ -36,6 +37,7 @@ export const taxAudit = {
   classSaved: 'tax_class.saved',
   classDeleted: 'tax_class.deleted',
   zoneSaved: 'tax_zone.saved',
+  rateSet: 'tax_rate.set',
   zoneDeleted: 'tax_zone.deleted',
   invoiceSettingsSaved: 'invoice_settings.saved',
 } as const
@@ -193,6 +195,23 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
       return saved
     })
 
+  /** One category's rate in one zone, under the same lock and overlap check as a zone save, its other rates left as they are. */
+  const setRate = (zoneId: string, taxClassId: string, rateBps: number) =>
+    run(async (tx) => {
+      const classId = taxClassId.toLowerCase()
+      if (!isUuid(zoneId) || !isUuid(classId) || !Number.isInteger(rateBps) || rateBps < 0 || rateBps > 10_000) throw new Refused('INVALID_INPUT')
+      if ((await classesOfStore(tx, storeId, [classId])) !== 1) throw new Refused('NOT_FOUND')
+      await serialise(tx, `tax_zone:${storeId}`)
+      const zones = (await selectTaxSetup(tx, storeId))?.zones ?? []
+      const zone = zones.find((z) => z.id === zoneId)
+      if (!zone) throw new Refused('NOT_FOUND')
+      const mine = { countries: zone.countries, regions: zone.regions, classIds: [...new Set([...zone.rates.map((r) => r.tax_class_id), classId])] }
+      if (zones.some((z) => z.id !== zoneId && zonesClash(mine, { countries: z.countries, regions: z.regions, classIds: z.rates.map((r) => r.tax_class_id) }))) throw new Refused('ZONE_OVERLAP')
+      await setZoneRate(tx, storeId, zoneId, { taxClassId: classId, rateBps })
+      await activity.record(tx, entry(taxAudit.rateSet, { type: 'tax_zone', id: zoneId, label: zone.name }, null))
+      return true
+    })
+
   const deleteZone = (id: string) =>
     run(async (tx) => {
       const setupRow = await selectTaxSetup(tx, storeId)
@@ -269,7 +288,7 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
     }
   }
 
-  return { setup, setInclusive, saveClass, deleteClass, saveZone, deleteZone, invoiceSettings, saveInvoice, quote }
+  return { setup, setInclusive, saveClass, deleteClass, saveZone, setRate, deleteZone, invoiceSettings, saveInvoice, quote }
 }
 
 const settingOf = (row: TaxSetupRow): TaxSetting => ({

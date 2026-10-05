@@ -320,8 +320,8 @@ export const SupplierTab = ({ suppliers, approval, canEdit, onChanged }: Supplie
             ],
             onConfirm: (_, __, chosen) => {
               const mode = chosen['mode'] === 'to-shopper' ? 'to-shopper' : 'to-store'
-              // Who books labels is asked only for to-shopper; to-store sends none, so a stored choice is never overwritten unseen.
-              const labels = mode === 'to-shopper' ? (chosen['labels'] === 'own' ? 'own' : 'store') : null
+              // Who books labels is asked only for to-shopper; to-store sends the stored one back, so it's never changed unseen.
+              const labels = mode === 'to-shopper' ? (chosen['labels'] === 'own' ? 'own' : 'store') : (s.labelAccount ?? 'store')
               void run(async () => (await setShippingMode(s.id, mode, labels), fill(words.shippingChanged, { name: s.name })))
             },
           })

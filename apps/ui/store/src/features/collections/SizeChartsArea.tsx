@@ -1,7 +1,7 @@
 import { ErrorState, LoadingState } from '@dripfunnel/shared/ui'
 import { useCallback, useEffect, useState } from 'react'
 import { loadProductBasics } from '../../api/productEditor'
-import { loadSizeChartLimit, loadSizeChartList, type SizeChart, type SizeChartSummary } from '../../api/sizeCharts'
+import { loadSizeChartList, type SizeChart, type SizeChartSummary } from '../../api/sizeCharts'
 import { messages } from '../../messages'
 import { SizeChartsTab } from './SizeChartsTab'
 
@@ -16,7 +16,7 @@ export interface ChartReads {
 }
 
 const apiList: ChartReads['list'] = async () => {
-  const [charts, limit, basics] = await Promise.all([loadSizeChartList(), loadSizeChartLimit(), loadProductBasics()])
+  const [{ charts, limit }, basics] = await Promise.all([loadSizeChartList(), loadProductBasics()])
   const f = basics.features.find((x) => x.key === 'sizeCharts')
   return { charts, limit, feature: { enabled: f?.enabled ?? false, inPlan: f?.inPlan ?? null }, unit: basics.unitSystem === 'imperial' ? 'in' : 'cm', india: basics.pricingCurrency === 'INR' }
 }
