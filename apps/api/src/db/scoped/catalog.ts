@@ -496,8 +496,10 @@ export const setVersionChoices = async (tx: ScopedSql, storeId: string, versionI
   `
 }
 
-/** The versions' prices, one per currency: changed ones updated (their history closes), missing ones removed. */
-/** `onlyCurrency` replaces that currency's prices alone: a supplier's save never touches the merchant's others (O10, O14). */
+/**
+ * The versions' prices, one per currency: changed ones updated (their history closes), missing ones removed.
+ * `onlyCurrency` replaces that currency's alone, so a supplier's save never touches the merchant's others (O10, O14).
+ */
 export const setVersionPrices = async (tx: ScopedSql, storeId: string, versionIds: readonly string[], rows: readonly { versionId: string; currency: string; amount: string; compareAt: string | null }[], onlyCurrency: string | null = null): Promise<void> => {
   if (versionIds.length === 0) return
   const json = rowsOf(tx, rows)

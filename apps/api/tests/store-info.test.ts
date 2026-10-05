@@ -170,4 +170,19 @@ describe('Settings › Store info', () => {
     expect((await save({ ...base, nextOrderNumber: 3000 })).code).toBeUndefined()
     expect((await info())?.nextOrderNumber).toBe('3000')
   })
+
+  it('keeps the home country’s other registrations: a US store’s EIN and its sales-tax permit', async () => {
+    await db.sql`update store set country = 'US' where id = ${t.storeA1}`
+    try {
+      await db.sql`insert into tax_registration (store_id, country, kind, number) values (${t.storeA1}, 'US', 'sales_tax_permit', 'OH-PERMIT-77')`
+      expect((await save({ ...base, nextOrderNumber: 3000, taxId: '12-3456789' })).code).toBeUndefined()
+      expect(await db.sql`select kind, number from tax_registration where store_id = ${t.storeA1} and country = 'US' order by kind`).toEqual([{ kind: 'ein', number: '12-3456789' }, { kind: 'sales_tax_permit', number: 'OH-PERMIT-77' }])
+      expect((await info())?.taxId).toBe('12-3456789')
+      // Clearing the field removes the one shown, the EIN; the permit stays and shows next.
+      expect((await save({ ...base, nextOrderNumber: 3000, taxId: '' })).code).toBeUndefined()
+      expect((await info())?.taxId).toBe('OH-PERMIT-77')
+    } finally {
+      await db.sql`update store set country = 'IN' where id = ${t.storeA1}`
+    }
+  })
 })

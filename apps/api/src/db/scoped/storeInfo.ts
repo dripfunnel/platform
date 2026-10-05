@@ -27,12 +27,15 @@ export interface StoreInfoRow {
   tax_id: string | null
 }
 
+// Store info shows one registration of the home country's: India's GSTIN, the US's EIN before a sales-tax permit.
+const shownFirst = (tx: ScopedSql) => tx`case r.kind when 'gst' then 0 when 'ein' then 1 when 'sales_tax_permit' then 2 else 3 end, r.created_at`
+
 export const selectStoreInfo = async (tx: ScopedSql, storeId: string): Promise<StoreInfoRow | null> =>
   (
     await tx<StoreInfoRow[]>`
       select s.name, s.description, s.logo_asset_id, s.address, s.contact_email, s.contact_phone, s.country, s.time_zone, s.unit_system,
         s.order_prefix, s.next_order_number::text as next_order_number, coalesce(i.legal_name, '') as legal_name,
-        (select r.number from tax_registration r where r.store_id = s.id and r.country = s.country order by r.created_at limit 1) as tax_id
+        (select r.number from tax_registration r where r.store_id = s.id and r.country = s.country order by ${shownFirst(tx)} limit 1) as tax_id
       from store s left join invoice_settings i on i.store_id = s.id
       where s.id = ${storeId}
     `
@@ -74,10 +77,21 @@ export const saveLegalName = async (tx: ScopedSql, storeId: string, legalName: s
   `
 }
 
-/** The home country's registration: replaced, or removed when cleared. */
+/**
+ * The home country's registration of the kind the id is (CATALOG fact 36 allows several, a US store's EIN and its
+ * sales-tax permit): that kind's row updated or added, the others kept; cleared, the one Store info shows goes.
+ */
 export const saveHomeTaxId = async (tx: ScopedSql, storeId: string, country: string, registration: { kind: 'gst' | 'ein' | 'sales_tax_permit' | 'vat'; number: string } | null): Promise<void> => {
-  await tx`delete from tax_registration where store_id = ${storeId} and country = ${country}`
-  if (registration) await tx`insert into tax_registration (store_id, country, kind, number) values (${storeId}, ${country}, ${registration.kind}, ${registration.number})`
+  if (registration) {
+    await tx`
+      insert into tax_registration (store_id, country, kind, number) values (${storeId}, ${country}, ${registration.kind}, ${registration.number})
+      on conflict (store_id, country, kind) do update set number = excluded.number
+    `
+    return
+  }
+  await tx`
+    delete from tax_registration where id = (select r.id from tax_registration r where r.store_id = ${storeId} and r.country = ${country} order by ${shownFirst(tx)} limit 1)
+  `
 }
 
 /** What save_store_info refused: a logo not the store's own image, or an order number lower than the next one. */
