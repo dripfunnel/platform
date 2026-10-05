@@ -30,6 +30,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   NOT_FOUND: 'That product isn’t here any more.',
   CURRENCY_REQUIRED: 'Choose the store’s currency first.',
   SUPPLIER_FIELD: 'Suppliers can’t set whether a product shows.',
+  NOT_SHOWABLE: 'This product is paused by your plan or waiting for approval, so it can’t be shown yet.',
   STALE_REVISION: 'Someone else saved this product. Reload to see their changes.',
   PLAN_LIMIT: 'Your plan has no room for more products.',
 }
