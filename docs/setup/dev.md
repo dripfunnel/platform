@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -139,6 +139,31 @@ Running it again is safe. The Worker's `/api/*` routes on those hosts come from 
 
 ---
 
+### 2.8 Store and storefront accounts (INF 0, #287)
+
+The Store strand needs these before its cards can run against real services. Each is created
+by a person (the account's owner signs the terms); the cards build against local adapters until
+then. Where each value is kept is THIRD-PARTY-ACCESS §8.
+
+1. **Cloudflare**: the Pages project limit on the dev account (Workers & Pages › the account
+   overview, or ask Cloudflare to raise it for the expected store count); whether Cloudflare for
+   SaaS serves `*.preview.<partner domain>` and `*.shops.<partner domain>` on the plan, and the
+   price per hostname. Record both, with the date, in THIRD-PARTY-ACCESS §2.1. Then a Pages-scoped
+   token per pool account → `CF_PAGES_POOL`.
+2. **GitHub**: the *DripFunnel Provisioning* App with THIRD-PARTY-ACCESS §2.3's permissions, and
+   whether its per-repo grant can give store repos read access to `@dripfunnel/storefront-core`
+   → `GITHUB_APP_*`.
+3. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
+   redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` *(proposed, SAPI 10 confirms)*: one fixed
+   address, because Stripe only returns to registered URLs and every partner's portal host differs; it
+   sends the merchant back to their own portal → `STRIPE_CONNECT_CLIENT_ID`.
+4. **SMS**: MSG91 and Twilio test accounts for the house partner, and India's DLT registration
+   started (templates for codes and order updates). These are partner credentials, entered in
+   the partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
+5. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
+   EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (§3).
+6. `openssl rand -base64 32` → `PREVIEW_LINK_KEY`.
+
 ## 3. The Worker's values
 
 Every value the Worker reads lives on the Worker itself, never in a file: Cloudflare dashboard
@@ -214,6 +239,7 @@ links point at production's admin console.
 - [ ] `dev-env:attach` (§2.7)
 - [ ] Every Worker value in §3
 - [ ] `/api/health` shows `db: "ok"` (§4)
+- [ ] Store and storefront accounts (§2.8), once the Store strand needs them
 
 ---
 

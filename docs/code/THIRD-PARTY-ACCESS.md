@@ -409,7 +409,7 @@ slice.
 | Merchant API key and app grant secrets | Shown once, stored hashed with a visible prefix (ACCESS.md §5.6) | 10 |
 | **Outbound webhook signing secret** per endpoint | Merchants verify our webhooks | 10 |
 | Public store key | Identifies a store to the Shop API; public, not a secret | 6 |
-| Preview link signing key (previews are gated by a signed link, decided 2026-10-05 on #284; storefront §4.1) | Signed preview URLs from the portal | 6 |
+| Preview link signing key, `PREVIEW_LINK_KEY` (previews are gated by a signed link, decided 2026-10-05 on #284; storefront §4.1) | Signed preview URLs from the portal | 6 |
 | Shopper session token signing (if not opaque) | Storefront shopper sessions (storefront §5) | 7 |
 
 ---
@@ -534,7 +534,10 @@ generation are in the section it cites.
 |---|---|---|---|---|
 | `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_WEBHOOK_SECRET` | Store repos through the provisioning App | Ids as Worker variables; key and webhook secret as Worker secrets | §2.3 | slice 6 |
 | `CF_CUSTOM_HOSTNAMES_TOKEN`, `CF_SAAS_ZONE_ID` | Partner and merchant custom hostnames | Worker secret; zone id as Worker variable | §2.1 | slice 4 |
-| `CF_STOREFRONT_DEPLOY_TOKEN`, `CF_CACHE_PURGE_TOKEN` | Publishing storefronts and purging their caches | Worker secrets | §2.1 | slice 6 |
+| `CF_PAGES_POOL` | The Cloudflare accounts storefronts' Pages projects spread over (#337): a JSON list of `{ "accountId", "token" }`, each token scoped to *Pages: Edit* on its own account, the first entry the main account. Replaces a single `CF_STOREFRONT_DEPLOY_TOKEN` (named on #287) | Worker secret | §2.1 | INF 1 |
+| `CF_CACHE_PURGE_TOKEN` | Purging storefront caches | Worker secret | §2.1 | INF 2 |
+| `STRIPE_CONNECT_CLIENT_ID` | Merchants connect their own Stripe account by Connect OAuth (#284): the platform's `ca_…` id, test mode outside prod (named on #287) | Worker variable | §2.7, §3.1 | SAPI 10 |
+| `PREVIEW_LINK_KEY` | Signs and checks the preview storefront's links (HMAC-SHA-256, expiry in the link; #284, storefront ARCHITECTURE §4.1). One per environment (named on #287) | Worker secret | §5 | ST 1a / INF 2 |
 | `STRIPE_CONNECT_WEBHOOK_SECRET` | **Not needed** *(proposed, SAPI 10 confirms)*: connected merchant accounts' events arrive on the existing `hooks.<host>/stripe` endpoint, which already listens on connected accounts (`STRIPE_WEBHOOK_SECRET`); only a separate merchant endpoint would need it | Worker secret | §2.7, §3.1 | SAPI 10 |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Stripe's hosted card and bank fields in Settings › Payout and payment | Build var (public) | §2.7 | when the Stripe account exists |
 | `AI_GATEWAY_TOKEN` | Cloudflare AI Gateway in front of every partner's AI calls *(optional)* | Worker secret | §2.6 | slice 9 |
