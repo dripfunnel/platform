@@ -5,7 +5,7 @@ Who uses the platform, where each of them signs in, and which hostnames exist. *
 "brand" they mean a **partner**'s white-label identity, and where they say "DF Admin" they
 mean the admin console at `admin.dripfunnel.com`.
 
-Last updated: 2026-09-30.
+Last updated: 2026-10-05.
 
 ---
 
@@ -112,15 +112,15 @@ partner and merchant.
 - **Setting**: in the merchant's portal, *Settings › Support access*: "Allow [partner name]
   support to view my store: On / Off". **On by default**; the Owner can switch it off at any
   time. When it's off, support can only ask the merchant to switch it on.
-- **Sessions are read-only**, **time-limited** (30 minutes by default *(confirm)*), and need a
+- **Sessions are read-only**, **time-limited** (30 minutes (decided 2026-10-05 on #337)), and need a
   **reason or ticket number** before they start. They can't change passwords, payment
   methods, payouts or ownership.
 - **Visible**: while a session is open, the merchant's portal shows a banner to everyone
   signed in to that store: "[Partner] support (Priya) is viewing your store. Read-only. Ends
   in 28 min."
 - **Logged**: every session appears in the merchant's *Support access log* (who, when, why,
-  how long) and in the platform audit log. The merchant is notified by email when a session
-  starts *(confirm)*.
+  how long) and in the platform audit log. The store's Owners are emailed when a session
+  starts (decided 2026-10-05 on #337).
 - **Changing anything** (for example fixing a product for the merchant) needs the merchant's
   approval for that one session: support requests write access, the merchant clicks
   "Allow" or "Deny", and the elevation is logged.

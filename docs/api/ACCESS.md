@@ -121,7 +121,7 @@ and **never** to a `TenantContext`, except through a support session.
 |---|---|---|---|---|---|
 | **Person** | Store API | Session cookie + acting store named on the request | The acting store, which must be in the membership set | From the membership's `seller_id` | The membership's `role_key` |
 | **Shopper** | Shop API | Public store key or storefront hostname, plus an optional customer session | The key's store | `all`, visibility-filtered to what shoppers may see | The fixed shopper set |
-| **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes, never more than its creator's role allows (§5.6) |
+| **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes: capped by its creator's role when created, and by the supplier's current tier on every request if vendor-bound (§5.6) |
 | **App grant** | Store API | The app's grant token | The grant's store | `all`: apps are always store-wide; only API keys may be supplier-bound (decided 2026-10-05 on #337) | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
 | **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The read-only support set; the write set only after the merchant allows it |
@@ -159,7 +159,7 @@ The properties that do the work (the first platform's ARCHITECTURE §4.1, PLATFO
   type error; every `{ kind: 'all' }` is a deliberate, greppable statement.
 - **Everything scoped hangs off the acting store, never off the user.** There is no "this
   user's `seller_id`" or "this user's permissions", only theirs *in this store*.
-- **No caller borrows another's power.** An API key can't do what its creator's role can't; a
+- **No caller borrows another's power.** An API key is created within its creator's role; a
   vendor-bound key can't see outside its `seller_id`; a support session can't do what the
   merchant hasn't allowed; a partner user or staff member has no store permissions at all
   outside a support session.
@@ -605,7 +605,9 @@ test (§11.2).
   secret is shown once, stored hashed, and carries a visible prefix for identification.
   Scopes can't exceed the creator's role when created; when its creator leaves or is demoted the key
   **keeps working** (it belongs to the store); the Owner is notified and the list shows the creator
-  as gone (decided 2026-10-05 on #337).
+  as gone (decided 2026-10-05 on #337). This is accepted because only an Owner creates keys and
+  a vendor-bound key is re-capped on every request to the supplier's current tier, so it never
+  outlives a narrowed tier, and stops with a removed or suspended supplier (§7.5).
 - **Vendors' own keys: later** (decided 2026-09-28). Until then only the merchant's Owner
   creates a vendor-bound key; when they come, a Supplier admin creates them within the
   supplier's access level.

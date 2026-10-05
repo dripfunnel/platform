@@ -804,8 +804,8 @@ custom_domain (+ columns) checks_until, removed_at
                     -- states (SAAS §8): "Add the record" = waiting, "We check it" =
                     -- verifying, "Security certificate" = issuing, "Live" = live; failed
                     -- shows the record looked for and checked_at. checks_until = first
-                    -- check + 3 days (every 15 minutes); one row per store today (§6 asks
-                    -- about a market's own domain)
+                    -- check + 3 days (every 15 minutes); one row per store: one domain per
+                    -- store, never per market (§6)
 
 market              (id, store_id, parent_id NULL, name, is_primary boolean, countries text[],
                      currency, language NULL, price_adjustment_bps, web_mode ('main'|'path'|'domain'),
@@ -1307,7 +1307,7 @@ promotion_code_batch(id, promotion_id, store_id, prefix, length integer, count i
 promotion_code      (id, promotion_id, store_id, batch_id NULL, code, single_use boolean,
                      expires_at NULL, customer_id NULL, order_id NULL, used_at NULL,
                      used_by_customer_id NULL)
-                    UNIQUE (store_id, lower(code))
+                    UNIQUE INDEX ON promotion_code (store_id, lower(code))
                     -- one row for a shared code, many for bulk single-use codes (fact 6);
                     -- unique per store including spent and deleted ones (H2), so a receipt's
                     -- code never names another offer later; customer_id and order_id bind a

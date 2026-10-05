@@ -366,8 +366,9 @@ for providers the store doesn't use.
 
 ## 12. Open questions
 
-- ~~The preview hostname pattern per brand. ~~Whether previews are gated (signed link) or open but
-  `noindex`.~~ Gated by a signed link (decided 2026-10-05 on #284).~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337).
+- ~~The preview hostname pattern per brand.~~ `{store}.preview.{partner-domain}` (decided 2026-10-05 on #337).
+- ~~Whether previews are gated (signed link) or open but `noindex`.~~ Gated by a signed link
+  (decided 2026-10-05 on #284).
 - ~~Can shoppers check out on the preview (test mode), or is checkout disabled there?~~ Test-mode
   checkout (decided 2026-10-05 on #284).
 - ~~Before a custom domain is connected, where is the live site?~~ `{shop}.shops.<partnerdomain>` (SAAS §8).
