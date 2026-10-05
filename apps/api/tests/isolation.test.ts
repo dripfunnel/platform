@@ -609,6 +609,37 @@ describe('the backstop itself', () => {
     expect(roles.filter((r) => r.rolcanlogin)).toEqual([])
   })
 
+  it('keeps app_definer to the functions DATA-MODEL §5.3 lists, each pinning its search path', async () => {
+    const owned = await db.sql<{ proname: string; prosecdef: boolean; pinned: boolean }[]>`
+      select p.proname, p.prosecdef, coalesce(array_to_string(p.proconfig, ',') like '%search_path=%', false) as pinned
+      from pg_proc p join pg_roles r on r.oid = p.proowner where r.rolname = 'app_definer' order by p.proname
+    `
+    // A new one is a decision: add it here and to DATA-MODEL §5.3's app_definer row, with its filter.
+    expect(owned.map((f) => f.proname)).toEqual([
+      'end_partner_user_sessions',
+      'end_staff_user_sessions',
+      'latest_job_of',
+      'membership_check_parents',
+      'open_support_banner',
+      'partner_domain_record_owner',
+      'partner_host_claimed',
+      'partner_may_add_owner',
+      'partner_move_subscription',
+      'partner_user_email_limit',
+      'plan_entitlement_within_ceiling',
+      'plan_first_version',
+      'spend_partner_reauth',
+      'stock_change',
+      'store_billing_status_own_billing',
+      'store_default_warehouse',
+      'store_invitee',
+      'store_pricing_currency',
+      'store_product_count',
+      'version_price_history',
+    ])
+    expect(owned.filter((f) => f.prosecdef && !f.pinned).map((f) => f.proname)).toEqual([])
+  })
+
   it('leaves no tenant table without a policy', async () => {
     const rows = await db.sql<{ relname: string }[]>`
       select c.relname from pg_class c
