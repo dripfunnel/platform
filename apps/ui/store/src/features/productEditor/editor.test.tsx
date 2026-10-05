@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EditorProduct } from '../../api/productEditor'
 import type { Acting } from '../../api/shell'
 import { messages } from '../../messages'
-import { editorAccessOf } from './access'
+import { editorAccessOf } from '../common/access'
 
 // CatEditor driven as each seat would (FIRST-RELEASE §11): what loads, what a save sends, what each refusal says.
 
@@ -311,6 +311,18 @@ describe('the product editor', () => {
     expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 30 }])
   })
 
+  it('saves no counts for a product that is no longer physical', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    await show(owner)
+    fireEvent.change(field('Stock at Jaipur studio'), { target: { value: 'many' } })
+    fireEvent.click(screen.getByRole('radio', { name: new RegExp(words.kind.digital) }))
+    api.loadProduct.mockResolvedValue(cushion({ productType: 'digital' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.saveProduct).toHaveBeenCalled()
+    expect(stockApi.setStock).not.toHaveBeenCalled()
+  })
+
   it('keeps the product saved and the counts typed when only the stock fails', async () => {
     api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
     stockApi.setStock.mockRejectedValue(new ApiError('NOT_CONNECTED', 'offline'))
@@ -426,6 +438,28 @@ describe('the product editor', () => {
     fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
     await settle()
     expect(stockApi.setStock).toHaveBeenLastCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 7 }])
+  })
+
+  it('carries a new product’s collection picks to its own page when only they fail, to save again there', async () => {
+    api.saveProduct.mockResolvedValue({ id: 'p9', revision: 1, approval: null })
+    api.loadProduct.mockResolvedValue(cushion({ id: 'p9', name: 'Kurta' }))
+    api.setProductCollections.mockRejectedValueOnce(new ApiError('NOT_CONNECTED', 'offline')).mockResolvedValue([{ id: 'c2', name: 'Gifts', kind: 'manual' }])
+    const router = await show(owner, '/products/new')
+    fireEvent.change(field(words.name.label), { target: { value: 'Kurta' } })
+    fireEvent.change(field(words.price.price), { target: { value: '1299' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.coll) }))
+    fireEvent.click(screen.getByRole('button', { name: 'Gifts' }))
+    fireEvent.click(screen.getAllByRole('button', { name: words.saveNew })[0] as HTMLElement)
+    await settle()
+    await settle()
+    expect(router.state.location.pathname).toBe('/products/p9')
+    expect(screen.getByText(words.saveCollectionsFailed)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Gifts', pressed: true })).toBeTruthy()
+    await settle()
+    expect(router.state.location.state.unsavedCollections).toBeUndefined()
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(api.setProductCollections).toHaveBeenLastCalledWith('p9', ['c2'])
   })
 
   it('changes only the location a reason names, leaving a count typed elsewhere as typed', async () => {
