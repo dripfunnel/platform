@@ -479,11 +479,13 @@ export const setVersionChoices = async (tx: ScopedSql, storeId: string, versionI
 }
 
 /** The versions' prices, one per currency: changed ones updated (their history closes), missing ones removed. */
-export const setVersionPrices = async (tx: ScopedSql, storeId: string, versionIds: readonly string[], rows: readonly { versionId: string; currency: string; amount: string; compareAt: string | null }[]): Promise<void> => {
+/** `onlyCurrency` replaces that currency's prices alone: a supplier's save never touches the merchant's others (O10, O14). */
+export const setVersionPrices = async (tx: ScopedSql, storeId: string, versionIds: readonly string[], rows: readonly { versionId: string; currency: string; amount: string; compareAt: string | null }[], onlyCurrency: string | null = null): Promise<void> => {
   if (versionIds.length === 0) return
   const json = rowsOf(tx, rows)
   await tx`
     delete from version_price vp where vp.version_id = any(${pgArray(versionIds)}::uuid[])
+      and ${onlyCurrency === null ? tx`true` : tx`vp.currency = ${onlyCurrency}`}
       and not exists (select 1 from jsonb_to_recordset(${json}) as x("versionId" uuid, currency text) where x."versionId" = vp.version_id and x.currency = vp.currency)
   `
   if (rows.length === 0) return

@@ -125,6 +125,10 @@ describe('a product’s price in each currency', () => {
     expect((await pricingOf(own))?.pricing).toHaveLength(1)
     expect((await saveProduct('supplier', [{ currency: 'INR', amount: '50000' }, { currency: 'EUR', amount: '600' }], own)).code).toBe('SUPPLIER_FIELD')
     expect((await pricingOf(own))?.pricing?.[0]?.prices.find((p) => p.currency === 'EUR')).toMatchObject({ source: 'converted' })
+    // The merchant types a USD price on the supplier's product; the supplier's next save leaves it (O10).
+    await saveProduct('owner', [{ currency: 'INR', amount: '50000' }, { currency: 'USD', amount: '699' }], own)
+    expect((await saveProduct('supplier', [{ currency: 'INR', amount: '55000' }], own)).code).toBeUndefined()
+    expect((await pricingOf(own))?.pricing?.[0]?.prices.filter((p) => p.currency !== 'EUR').map((p) => [p.currency, p.amount, p.source])).toEqual([['INR', '55000', 'typed'], ['USD', '699', 'typed']])
   })
 })
 
