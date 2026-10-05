@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { EditorProduct } from '../../api/productEditor'
-import { blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, type Draft } from './draft'
+import { blankDraft, boxOf, combinationsOf, draftOf, gramsOf, inputOf, isDirty, newVersionCount, priceRange, problemsOf, syncVersions, type Draft } from './productDraft'
 
 const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   id: 'p1',

@@ -2,7 +2,7 @@ import { formatMoney, minorOf } from '@dripfunnel/shared/format'
 import { useId, useRef, type ReactNode } from 'react'
 import { fill, locale, messages } from '../../messages'
 import { AssetImage } from '../common/AssetImage'
-import { productKinds, type Draft, type DraftProblem } from './draft'
+import { productKinds, type Draft, type DraftProblem } from '../common/productDraft'
 
 const words = messages.editor
 
