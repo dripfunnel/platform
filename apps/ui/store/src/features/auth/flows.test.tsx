@@ -171,4 +171,17 @@ describe('signing in', () => {
     await settle()
     expect(await screen.findByText(words.forgot.resent)).toBeTruthy()
   })
+
+  it('says a failed resend failed, not that it was asked too often', async () => {
+    serve({ 'request-password-reset': [{ ok: true }, offline] })
+    const { SignIn } = await import('./SignIn')
+    await show(<SignIn next={undefined} start="forgot" />)
+    fill(words.fields.email, 'farhan@gmail.com')
+    fireEvent.click(screen.getByRole('button', { name: words.forgot.primary }))
+    await settle()
+    fireEvent.click(await screen.findByRole('button', { name: words.forgot.again }))
+    await settle()
+    expect((await screen.findByRole('alert')).textContent).toBe(words.notConnected)
+    expect(screen.queryByText(words.rateLimited)).toBeNull()
+  })
 })
