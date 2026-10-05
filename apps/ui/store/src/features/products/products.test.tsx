@@ -40,6 +40,7 @@ const row = (r: Partial<ProductRow> & Pick<ProductRow, 'id' | 'name'>): ProductR
   maxPrice: { amount: '129900', currency: 'INR' },
   photoUrl: null,
   stock: 24,
+  lowStock: false,
   readiness: [{ marketName: 'India', ready: true, missing: [] }],
   ...r,
 })
@@ -255,5 +256,15 @@ describe('the Products list', () => {
     await settle()
     expect(api.loadProducts).toHaveBeenLastCalledWith(expect.objectContaining({ supplier: '' }), {})
     vi.unstubAllGlobals()
+  })
+
+  it('says there are no tax categories to choose instead of an empty choice', async () => {
+    api.loadTaxClasses.mockResolvedValue([])
+    await show(owner)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Mara Linen Shirt' }))
+    fireEvent.click(screen.getByRole('button', { name: words.bulk.taxClass }))
+    await settle()
+    expect(screen.getByText(words.bulk.taxNone)).toBeTruthy()
+    expect(document.querySelector('dialog')).toBeNull()
   })
 })
