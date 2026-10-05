@@ -103,7 +103,6 @@ export interface Facet {
   values: { id: string; name: string }[]
 }
 
-/** The store's filters and their values, which a product is filed under. */
 /** The store's filters for tagging a product: the Filters tab's own read (api/filters.ts), so the two can't drift. */
 export const loadFacets = (): Promise<Facet[]> => loadFilters()
 

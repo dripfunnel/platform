@@ -13,7 +13,7 @@ import { messages } from '../../messages'
 
 const words = messages.collections.charts
 
-const charts = vi.hoisted(() => ({ loadSizeChartList: vi.fn(), loadSizeChartLimit: vi.fn(), loadSizeChart: vi.fn(), saveSizeChart: vi.fn(), deleteSizeChart: vi.fn() }))
+const charts = vi.hoisted(() => ({ loadSizeChartList: vi.fn(), loadSizeChart: vi.fn(), saveSizeChart: vi.fn(), deleteSizeChart: vi.fn() }))
 vi.mock('../../api/sizeCharts', () => charts)
 const editorApi = vi.hoisted(() => ({ loadProductBasics: vi.fn() }))
 vi.mock('../../api/productEditor', () => editorApi)
@@ -68,8 +68,7 @@ const show = async (acting: Acting, path: string, readOnly = false) => {
 }
 
 beforeEach(() => {
-  charts.loadSizeChartList.mockResolvedValue([summary(tops), theirs])
-  charts.loadSizeChartLimit.mockResolvedValue(200)
+  charts.loadSizeChartList.mockResolvedValue({ charts: [summary(tops), theirs], limit: 200 })
   charts.loadSizeChart.mockResolvedValue(tops)
   charts.saveSizeChart.mockResolvedValue({ id: 'c1', revision: 3 })
   editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: true, inPlan: true }] })
@@ -135,7 +134,7 @@ describe('size charts, the merchant’s', () => {
 
   it('asks before leaving unsaved changes, says what can’t be saved, and deletes saying how many products lose it', async () => {
     charts.deleteSizeChart.mockResolvedValue(3)
-    charts.loadSizeChartList.mockResolvedValue([summary(tops), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    charts.loadSizeChartList.mockResolvedValue({ charts: [summary(tops), { ...summary(tops), id: 'c5', name: 'Jeans' }], limit: 200 })
     await show(owner, merchant)
     fireEvent.change(screen.getByLabelText(words.name), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: words.save }))
@@ -155,7 +154,7 @@ describe('size charts, the merchant’s', () => {
 
   it('shows the chart picked last, whichever read answers first', async () => {
     const jeans = { ...tops, id: 'c5', name: 'Jeans' }
-    charts.loadSizeChartList.mockResolvedValue([summary(tops), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    charts.loadSizeChartList.mockResolvedValue({ charts: [summary(tops), { ...summary(tops), id: 'c5', name: 'Jeans' }], limit: 200 })
     await show(owner, merchant)
     let answerTops: (c: typeof tops) => void = () => undefined
     charts.loadSizeChart.mockImplementation((id: string) => (id === 'c1' ? new Promise((resolve) => (answerTops = resolve)) : Promise.resolve(jeans)))
@@ -169,7 +168,7 @@ describe('size charts, the merchant’s', () => {
 
   it('keeps another chart open when a save answers after it was picked', async () => {
     const jeans = { ...tops, id: 'c5', name: 'Jeans', products: 0 }
-    charts.loadSizeChartList.mockResolvedValue([summary({ ...tops, products: 0 }), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    charts.loadSizeChartList.mockResolvedValue({ charts: [summary({ ...tops, products: 0 }), { ...summary(tops), id: 'c5', name: 'Jeans' }], limit: 200 })
     charts.loadSizeChart.mockImplementation((id: string) => Promise.resolve(id === 'c5' ? jeans : { ...tops, products: 0 }))
     let answerSave: (r: { id: string; revision: number }) => void = () => undefined
     charts.saveSizeChart.mockReturnValueOnce(new Promise((resolve) => (answerSave = resolve)))
@@ -187,7 +186,7 @@ describe('size charts, the merchant’s', () => {
 
   it('keeps another chart open when a delete answers after it was picked', async () => {
     const jeans = { ...tops, id: 'c5', name: 'Jeans', products: 0 }
-    charts.loadSizeChartList.mockResolvedValue([summary({ ...tops, products: 0 }), { ...summary(tops), id: 'c5', name: 'Jeans' }])
+    charts.loadSizeChartList.mockResolvedValue({ charts: [summary({ ...tops, products: 0 }), { ...summary(tops), id: 'c5', name: 'Jeans' }], limit: 200 })
     charts.loadSizeChart.mockImplementation((id: string) => Promise.resolve(id === 'c5' ? jeans : { ...tops, products: 0 }))
     let answerDelete: (n: number) => void = () => undefined
     charts.deleteSizeChart.mockReturnValueOnce(new Promise((resolve) => (answerDelete = resolve)))
@@ -202,7 +201,7 @@ describe('size charts, the merchant’s', () => {
   })
 
   it('takes the limit from the API', async () => {
-    charts.loadSizeChartLimit.mockResolvedValue(1)
+    charts.loadSizeChartList.mockResolvedValue({ charts: [summary(tops), theirs], limit: 1 })
     await show(owner, merchant)
     expect(screen.getByText('1 of 1')).toBeTruthy()
   })
@@ -291,7 +290,7 @@ describe('size charts, the merchant’s', () => {
 
 describe('size charts, a supplier’s', () => {
   it('sits under “Your products” with its tab current, and lists every chart it reads as its own', async () => {
-    charts.loadSizeChartList.mockResolvedValue([theirs])
+    charts.loadSizeChartList.mockResolvedValue({ charts: [theirs], limit: 200 })
     charts.loadSizeChart.mockResolvedValue({ ...tops, id: 'c9', name: 'Northwind tees', supplierId: 'v1' })
     editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: true, inPlan: null }] })
     await show(supplier, '/products/size-charts')
@@ -302,7 +301,7 @@ describe('size charts, a supplier’s', () => {
 
   it('says when the store hasn’t switched charts on, and tells a seat without the catalogue it can’t see them', async () => {
     editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'sizeCharts', enabled: false, inPlan: null }] })
-    charts.loadSizeChartList.mockResolvedValue([])
+    charts.loadSizeChartList.mockResolvedValue({ charts: [], limit: 200 })
     await show(supplier, '/products/size-charts')
     expect(screen.getByText(words.notInPlanSupplier)).toBeTruthy()
     expect(screen.queryByRole('button', { name: words.new })).toBeNull()

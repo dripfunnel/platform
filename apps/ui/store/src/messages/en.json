@@ -2034,6 +2034,7 @@
       "unnest": "Move {label} out",
       "remove": "Remove {label}",
       "firstNest": "The first item can’t be nested",
+      "nestHasKids": "An item with items under it can’t be nested — the menu goes one level deep. Move its items out first.",
       "note": "→ nests an item under the one above it. Hidden collections stay here but shoppers don’t see them.",
       "empty": "No items yet. Add a collection to start your menu.",
       "desktop": "How shoppers see it · desktop",
