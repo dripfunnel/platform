@@ -7,7 +7,8 @@ import { fill, messages } from '../../messages'
 import { sampleCodes, sampleEmail, sampleHint, signInStates, type SignInState } from './authStates'
 import { AuthFrame } from './AuthFrame'
 import { BackupCodes } from './BackupCodes'
-import { CodeField, Field, Foot, PasswordField, Primary, productName, Secondary, useResendWait } from './fields'
+import { CodeField, Field, Foot, PasswordField, Primary, Secondary, useResendWait } from './fields'
+import { productName } from '../common/productName'
 import { refusalText } from './refusals'
 
 const words = messages.auth

@@ -56,7 +56,7 @@ export const ProfileScreen = () => {
           <Details key={view.profile.email} profile={view.profile} onSaved={saved} onChanged={load} onToast={setToast} />
           <PasswordCard changedAt={view.profile.passwordChangedAt} onChanged={load} onToast={setToast} />
           <TwoStep key={forced ?? 'live'} profile={view.profile} onChanged={load} onToast={setToast} initialSetup={sample?.setup ?? null} />
-          <Appearance profile={view.profile} onSaved={saved} onFailed={() => setToast(messages.auth.notConnected)} />
+          <Appearance onSaved={saved} onFailed={() => setToast(messages.auth.notConnected)} />
           <Sessions sessions={view.sessions} onEnded={load} onToast={setToast} />
           <MyActivity storeNames={storeNames} sample={sample?.activity} />
         </>
