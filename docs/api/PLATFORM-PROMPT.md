@@ -522,7 +522,7 @@ or admin console (ACCESS.md §8), integrations and apps:
   deploys it to the store's Pages project (Pages direct upload) with its own token, so no deploy
   token ever reaches the repo.
 - **Cache purge** on catalogue change by tag or URL (check what the plan allows).
-- **Assets** on R2 with image resizing *(ask: Cloudflare Images vs our own variants)*.
+- **Assets** on R2, served through **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - Degraded storefront for past-due or suspended stores, served at the edge.
 - **A store may have no AI storefront at all.** A merchant using their own frontend gets a
   public store key, allowed origins (CORS), checkout and account URLs they control, and no
@@ -633,7 +633,8 @@ designed, don't restart:
     replay, failing-endpoint alerts);
   - **Apps**: browse, install with scope consent, configure, uninstall, and what an app can
     see;
-  - a vendor's own API key for their stock or catalogue integration, if allowed *(ask)*;
+  - a vendor-bound API key, created by the Owner for a supplier's stock or catalogue
+    integration (ACCESS §5.6) (decided 2026-10-05 on #337); a supplier creating its own stays later (DESIGN-BRIEF 78);
   - in DF Admin: app registrations and review, API usage and abuse limits per store.
   Write these for a non-technical merchant who needs to hand details to a developer, not for
   the developer.
@@ -697,10 +698,11 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - **Payment providers**: Stripe, PayPal (US); Razorpay, Cashfree, PhonePe, cash on delivery
   (India); bank transfer (both). **US sales tax**: Stripe Tax, on the merchant's own Stripe account
   through Connect (decided 2026-10-05 on #284).
-- **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator (EasyPost or
-  Shippo, chosen on the shipping card, SAPI 23).
+- **Couriers**: Shiprocket (India); USPS, UPS and FedEx through one aggregator, **EasyPost**
+  (decided 2026-10-05 on #337).
 - **Email**: Amazon SES for shopper and portal email, abandoned-cart reminders included.
-- **Deferred**: WhatsApp reminders (provider open), other regions (the prototype's DE pack
+- **WhatsApp reminders** ship with email in India, through MSG91 (decided 2026-10-05 on #337).
+- **Deferred**: other regions (the prototype's DE pack
   stays a demo control), in-platform supplier payouts (§5.4 Payments), Typesense (§5.4 Search).
 
 ---
@@ -725,8 +727,8 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~Is there **live data on the first platform** (the existing DripFunnel store, any tenant
   stores) that must be migrated, and is there a cut-over date?~~ **No: a fresh start** (decided
   2026-10-05 on #284).
-- Existing tenant storefront repos: rewrite their `core/` against the new API, or recreate
-  them?
+- ~~Existing tenant storefront repos: rewrite their `core/` against the new API, or recreate
+  them?~~ None: a fresh start (#284).
 - ~~Does anything else still depend on the first platform's backend?~~ **Settled
   2026-09-29**: its projects are removed from the workspace; nothing depends on them.
 
@@ -737,19 +739,19 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - One database for all brands and stores, or a shard or database per brand later?
 - ~~Cloudflare hosting model: Pages per store, Workers per store, or Workers for Platforms?~~
   **A Pages project per store** (decided 2026-10-05 on #284; limits checked on INF 0).
-- Cloudflare Images or our own image variants?
+- ~~Cloudflare Images or our own image variants?~~ **Cloudflare image resizing** (decided 2026-10-05 on #337).
 - ~~Where does the AI agent execute, and where do builds run?~~ **Both in GitHub Actions**
   (decided 2026-10-05 on #284).
 
 **Headless**
 - ~~Which of **API keys, webhooks and apps** ship in the first release?~~ **All three**, with the
   merchant's own storefront (decided 2026-10-04 on #184, §8).
-- Own storefronts: our hosted checkout, their own checkout on the Shop API, or both?
-- Can a store switch between an AI storefront and its own, and do plans differ?
+- ~~Own storefronts: our hosted checkout, their own checkout on the Shop API, or both?~~ **Both**: our hosted, partner-branded checkout by default, their own on the Shop API if they choose (decided 2026-10-05 on #337).
+- ~~Can a store switch between an AI storefront and its own, and do plans differ?~~ **Switch any time**; the partner decides per plan whether 'own' is included (decided 2026-10-05 on #337).
 - ~~Can vendors have their own API keys?~~ Later (ACCESS.md §5.6).
-- Apps: public marketplace or private per-store apps first? Embedded UI in the portal?
-- Developer docs and the SDK: branded per white-label brand, or always DripFunnel?
-- API rate limits and quotas per plan?
+- ~~Apps: public marketplace or private per-store apps first? Embedded UI in the portal?~~ **Private apps first**, shown as links to their own site, no embedded pages, no marketplace (decided 2026-10-05 on #337).
+- ~~Developer docs and the SDK: branded per white-label brand, or always DripFunnel?~~ **Always DripFunnel** for now (decided 2026-10-05 on #337).
+- ~~API rate limits and quotas per plan?~~ **Per plan from day one**, as entitlements (SAPI 19) enforced on API keys and the Shop API (SAPI 20) (decided 2026-10-05 on #337).
 
 **Commerce scope for the first release**
 - ~~Which regions at launch? Which payment providers and couriers?~~ ~~US sales tax?~~ **Decided
@@ -783,4 +785,4 @@ release is everything the Store prototype draws plus the designed-but-undrawn pa
 - ~~2-factor for Owners only, or everyone?~~ **Settled 2026-10-02**: required for Owners,
   optional for everyone else (ACCESS.md §2).
 - What happens to a past-due store's vendors? (Past due never blocks sign-in: §2 item 7.)
-- Retention and export on cancellation (SAAS-PLAN §15).
+- ~~Retention and export on cancellation (SAAS-PLAN §15).~~ The storefront stays live to the end of the paid period; data, assets and repo kept **90 days** with export offered, then deleted; orders and invoices as the law requires (decided 2026-10-05 on #337).

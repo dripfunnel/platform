@@ -9,7 +9,7 @@ new flows start at 70 in part L. Where this document disagrees with
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) or
 [`../../USERS-AND-DOMAINS.md`](../../USERS-AND-DOMAINS.md), those two win.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 Paste §1 to start a design session, then name a flow from §3.
 
@@ -328,9 +328,9 @@ Shipping, Warehouse, Tax setup, and custom domain (58). The new platform adds Se
 Developers (flow 76) and Settings › Support access (flow 78).
 
 54. **Shipping methods**: Owner. The archive allowed only one active method at a time, a
-    rule enforced by the old backend; confirm whether it survives now that the engine has
-    shipping zones *(ask)*. Whatever the rule, the interface has to make it visible rather
-    than surprising.
+    rule enforced by the old backend. It does **not** survive: a store may offer **several
+    shipping methods at once** (decided 2026-10-05 on #337). The interface makes which methods a shopper
+    will see visible rather than surprising.
 55. **Shipping charges**: Owner. Free, charged, or free above a threshold.
 56. **Payment methods**: Owner. The merchant's own provider credentials (the first release's
     seven: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer;
@@ -407,8 +407,8 @@ non-technical merchant who needs to hand details to a developer, not for the dev
     and never again, and the store key is the only credential safe to put in a browser.
 77. **Apps**: Owner. Browse, install with scope consent, configure, uninstall, and what an
     app can see; the consent screen must say in plain words what the app can read and
-    change, and uninstall must say what stops working *(ask: embedded pages or links
-    only, and where Apps sits in the nav)*.
+    change, and uninstall must say what stops working. Private apps only, shown as **links**
+    to their own site, under Settings › Apps (decided 2026-10-05 on #337).
 78. **Vendor's own API key** (*later*, decided 2026-09-28): Supplier admin. A key for their stock or
     catalogue integration, bound to their own `seller_id` and never more than their tier
     allows; the merchant must be able to see and revoke it.
@@ -471,7 +471,7 @@ will probably settle them; flag them when you hit one rather than assuming:
   rename or remove one, and supplier locations are never offered as the default for new
   products, because a supplier product is stocked by its supplier.
 - Whether stock can move between warehouses at all (flows 35, 73).
-- Whether the first platform's one-active-shipping-method rule survives (flow 54).
+- ~~Whether the first platform's one-active-shipping-method rule survives (flow 54).~~ No: several at once (decided 2026-10-05 on #337).
 - How the portal offers the AI-or-own storefront choice, and whether plans differ (flow 75;
   PLATFORM-PROMPT §5.6, §10).
 - ~~Whether vendors can have their own API keys~~: later (flow 78; ACCESS.md §5.6).

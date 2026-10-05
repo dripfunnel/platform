@@ -43,7 +43,7 @@ packs) is taken from the prototype as drawn.
 | Product kinds (PLATFORM-PROMPT §10) | **Physical, digital, services and gift cards** — the last three need a prototype design pass first (§20, card SUI 1) |
 | Regions and payment providers (PLATFORM-PROMPT §10) | **India and the US.** Stripe (US) and Razorpay (India), plus **PayPal** (US), **Cashfree and PhonePe** (India), **cash on delivery** (India) and **bank transfer** (both) |
 | US sales tax (PLATFORM-PROMPT §5.4, §10) | **Stripe Tax**, on the merchant's own Stripe account through Connect (decided 2026-10-05); India's GST from the store's own rates (CATALOG-DESIGN T) |
-| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (EasyPost or Shippo, chosen on the shipping card, SAPI 23) |
+| Couriers | **Shiprocket** (India); the US carriers (USPS, UPS, FedEx) **through one aggregator** (**EasyPost**, decided 2026-10-05 on #337) |
 | API keys, webhooks, apps, own storefront (PLATFORM-PROMPT §5.5, §10; DESIGN-BRIEF 75–77) | **All in**; none is drawn, so each needs the design pass first |
 | Settings › Support access, the store activity log, Settings › Customer accounts | **In, after a design pass** (they are designed in ACCESS §8, LOGGING §6 and ACCESS §2.1 but not drawn) |
 | Staff export (README §3) | **Yes**: products, orders and customers |
@@ -66,6 +66,25 @@ packs) is taken from the prototype as drawn.
 | `orders.mark_paid`, `offers.export` | **Owner and Manager** |
 | Past due | **The storefront keeps selling**, the portal is read-only; **suspended after 14 days** unpaid |
 | Build order | **Straight through**, area by area, as §20's build order lists |
+
+**Decided 2026-10-05 with Gaurav (#337), the cards' own questions** (each recorded in the
+document it belongs to, and in the card's "Decided" section):
+
+| Question | Answer |
+|---|---|
+| Content pages and blog | **In**: about, FAQ, contact, lookbook and a blog, managed in the portal (SAPI 24, SUI 17) |
+| WhatsApp cart reminders | **In**, in India, through MSG91 and the partner's WhatsApp Business account |
+| SMS | Also sends shoppers' order updates (confirmed, shipped, delivered) |
+| Gift cards | The merchant sets the expiry: at least 1 year in India, 5 years in the US |
+| Services | Sold like a product with no shipping; an optional duration and location, no booking |
+| Apps | Private apps only (an API grant with scopes), shown as links to their own site |
+| US aggregator | **EasyPost**; a store may offer several shipping methods at once |
+| A US store without Stripe | Enters its own state tax rates |
+| "Under two minutes" | The portal works and the preview opens; the live build may finish later |
+| Suppliers while the store is past due | Keep working, and aren't told about the store's billing |
+| Catalogue limits | 3 options and 100 versions; product video, A+ reusable blocks, custom fields ship |
+| Offers | Per-unit fixed discounts, case-insensitive codes, no draft state, combines with nothing by default (OFFERS-DESIGN §9) |
+| Catalogue details | CATALOG-DESIGN §9: English-only portal, en-IN/en-US/hi-IN, no right-to-left at launch, the refused categories |
 
 Decided on the way, from the prototype and the docs it follows (each recorded where it lives):
 the Store API is **GraphQL**, like the Platform and Admin APIs (§19); **stock is reserved when an
@@ -297,7 +316,8 @@ approval is on, its new and changed products wait for approval exactly as if edi
 Describe a change → the AI makes it on a preview → approve → publish, never straight to live;
 the live version, this month's AI tokens and build minutes, **history with "Go back to this"**
 (which never uses build minutes), "View live site". Catalogue **Publish now** and the publishing
-status (storefront ARCHITECTURE §4.2). **Choose the storefront: AI or own** (flow 75; SUI 1
+status (storefront ARCHITECTURE §4.2). **Content pages and the blog** (about, FAQ, contact,
+lookbook; SUI 17 on SAPI 24) (decided 2026-10-05 on #337). **Choose the storefront: AI or own** (flow 75; SUI 1
 draws it): a store on its own storefront gets its public store key and allowed origins and
 skips the AI designer. Owner; Manager view only.
 
@@ -314,7 +334,7 @@ skips the AI designer. Owner; Manager view only.
 | **Shipping** (`SetOps`) | What the shopper pays (courier's live rate, flat rate, collect in person with hours), when delivery is free, delivery partners (**Shiprocket**; USPS, UPS, FedEx through the aggregator) with pricing, standby, test and manage, where you deliver (everywhere, or uploaded postcodes) |
 | **Warehouse** (`SetOps`) | Locations with units, the default for new products, add, edit, delete; suppliers' locations in their own labelled group, read-only |
 | **Tax setup** (`SetOps`) | Prices include or exclude tax; tax categories and their rates (India) or **Stripe Tax** by state (US; on the merchant's own Stripe account); invoice settings |
-| **Markets** (`SetMarkets`) | Markets with countries, currency, language, price adjustment, fixed prices per product (Business), web address (main, path, or a market's own domain on Business), delivery charge, duties (Business), "everywhere else" |
+| **Markets** (`SetMarkets`) | Markets with countries, currency, language, price adjustment, fixed prices per product (Business), web address (main or path; one domain per store, never a market's own (decided 2026-10-05 on #337)), delivery charge, duties (Business), "everywhere else" |
 | **Catalogue** (`CatSettings`) | What you sell, product page sections by plan, badges (define; assign per product), legal details used on every product, what you're using against the plan |
 | **Customer accounts** | How shoppers sign in: email, mobile or both (ACCESS §2.1) — **SUI 1 draws it** |
 | **Developers** | Public store key, allowed origins, API keys (scopes, supplier binding, expiry, rotate, revoke, last used), webhooks (endpoints, events, delivery log, replay, auto-disable) — **SUI 1 draws it** |
@@ -359,7 +379,7 @@ for SUI 1 to resolve in the prototype, or asked; none is picked silently.
 | README §4's "To approve" and "Suppliers" menu rows | The prototype's: approval in Products, suppliers in Settings (§3.1) | behaviour, decided here |
 | Customers export is offered to Owner and Manager | Staff too (§1) | behaviour, decided |
 | No "Your sales", "Your team", Customer accounts, Developers, Apps, Support access, store activity log, services, gift cards or digital file upload | All in; SUI 1 draws them first | not drawn |
-| Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | Email only until WhatsApp's provider is chosen (§21) | open |
+| Abandoned-cart reminders by WhatsApp in India (MISSING-FEATURES) | WhatsApp reminders ship with email, through MSG91 (decided 2026-10-05 on #337) | scope, decided |
 | Payment setup offers PayPal and Klarna for Germany | The launch regions are India and the US (§1); the DE region stays a prototype control | scope |
 | The sandbox's stock-reason values | The list #183 settled is what DATA-MODEL stores | behaviour, decided |
 
@@ -442,9 +462,10 @@ queries are edge-cached per store, language and currency and purged by events (�
 
 ## 20. The strands that build this release
 
-**Build order (decided 2026-10-05, #284): 51 cards, created on the board as #285–#335, built
-straight through.** The table below describes the cards #184 drafted; the cards added on #284
-(D1, INF 0–2, SMS 1, SC 0–1, ST 1a–c replacing ST 1, L1–2) are described in their issues.
+**Build order (decided 2026-10-05, #284): 53 cards, created on the board as #285–#335, plus
+#338–#339 added on #337, built straight through.** The table below describes the cards #184 drafted; the cards added on #284
+(D1, INF 0–2, SMS 1, SC 0–1, ST 1a–c replacing ST 1, L1–2) and on #337 (SAPI 24, SUI 17)
+are described in their issues.
 
 - **0. Design and accounts:** #285 D1, #286 SUI 1, #287 INF 0
 - **1. Merchant identity:** #288 SAPI 1, #289 SMS 1, #290 SAPI 2, #291 SUI 2, #292 SUI 3
@@ -452,7 +473,7 @@ straight through.** The table below describes the cards #184 drafted; the cards 
 - **3. Storefront base:** #303 SC 0, #304 SC 1, #305 SAPI 23, #306 SAPI 8, #307 ST 1a
 - **4. Checkout and orders:** #308 SAPI 9, #309 SAPI 10, #310 SAPI 11, #311 SAPI 12, #312 SAPI 13, #313 ST 1b, #314 SUI 7, #315 SUI 8
 - **5. Publishing:** #316 INF 1, #317 INF 2, #318 SAPI 17, #319 SUI 11
-- **6. Growth:** #320 SAPI 14, #321 SAPI 15, #322 SAPI 18, #323 SAPI 22, #324 ST 1c, #325 SUI 9, #326 SUI 12, #327 SUI 15, #328 SUI 16
+- **6. Growth:** #320 SAPI 14, #321 SAPI 15, #322 SAPI 18, #323 SAPI 22, #324 ST 1c, #325 SUI 9, #326 SUI 12, #327 SUI 15, #328 SUI 16, #338 SAPI 24, #339 SUI 17
 - **7. Business and admin:** #329 SAPI 19, #330 SAPI 20, #331 SAPI 21, #332 SUI 13, #333 SUI 14
 - **8. Launch:** #334 L1, #335 L2
 
@@ -475,7 +496,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 
 | # | Card | Needs |
 |---|---|---|
-| SUI 1 | Draw the undrawn parts in the Store prototype: Support access with the banner's Allow/Deny, the store Activity log, Customer accounts, Developers (keys, webhooks), Apps, AI-or-own storefront, Your sales, Your team, services, gift cards, digital file upload; resolve §18's behaviour rows | #184 |
+| SUI 1 | Draw the undrawn parts in the Store prototype: Support access with the banner's Allow/Deny, the store Activity log, Customer accounts, Developers (keys, webhooks), Apps, AI-or-own storefront, Your sales, Your team, services, gift cards, digital file upload, the blog and content pages (#337); resolve §18's behaviour rows | #184 |
 
 **Store API (apps/api)**
 
@@ -486,16 +507,16 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SAPI 3 | Money, catalogue, versions, assets (R2 signed uploads), collections, facets, menus, size charts, sections, legal, badges, readiness per market | SAPI 1 |
 | SAPI 4 | Inventory: warehouses, stock per version and warehouse, the movement ledger with #183's reasons, reserved at payment; cash on delivery and bank transfer **pending §21** (proposed: at placement, PLATFORM-PROMPT §5.4) | SAPI 3 |
 | SAPI 5 | Suppliers: tiers, shipping modes, supplier teams, approval, `SellerScope` and the isolation matrix, including a supplier's masked `me` and `storeState` and seller-scoped `orderCounts` (§19); `mySupplierTeam` and the team mutations (Supplier admin only, never another supplier's team) | SAPI 4 |
-| SAPI 6 | Markets, currencies, languages, translations, per-market prices and domains | SAPI 3 |
-| SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; on the merchant's own account through Connect, decided 2026-10-05; what a PayPal-only US store uses is still open), invoices settings | SAPI 3 |
+| SAPI 6 | Markets, currencies, languages, translations, per-market prices and web addresses (one domain per store, #337) | SAPI 3 |
+| SAPI 7 | Tax: classes, rates (India), Stripe Tax (US; on the merchant's own account through Connect, decided 2026-10-05; a PayPal-only US store enters its own state rates, decided 2026-10-05 on #337), invoices settings | SAPI 3 |
 | SAPI 8 | Shop API catalogue and search, edge caching and purge; its isolation test: the tenant comes from the host or public key only, and the cache key carries store, language and currency, so store X's catalogue is never served on store Y's host | SAPI 3, SAPI 6 |
 | SAPI 9 | Cart and checkout, shopper accounts (Customer accounts setting); delivery priced by SAPI 23; the isolation matrix (caller kind × store × shopper, the guest order token included): a shopper reads only their own `order`, `orderHistory`, `account` and `addresses`, and a token opens one order of one store; `applyCode` and mobile sign-in codes rate-limited per host and IP, with one refusal for a wrong and a missing code; a guest's cart token opens only that cart in that store, with one refusal for an unknown or expired token | SAPI 7, SAPI 8, SAPI 23 |
 | SAPI 10 | Payments: Stripe, PayPal, Razorpay, Cashfree, PhonePe, cash on delivery, bank transfer; webhooks idempotent; stock reserved and re-checked at payment; cash on delivery, bank transfer, the unpaid-transfer release and "Mark as paid" **pending §21** (proposed in PLATFORM-PROMPT §5.4) | SAPI 9, SAPI 4 |
 | SAPI 11 | Orders: state machine, supplier parts, fulfilment, returns, refunds with override and the supplier ledger, cancellations; `exportOrders`, masked for suppliers as §13 says; isolation: store A can't read, ship, refund or mark paid store B's order, and a supplier reads, ships and refunds only its own lines; `mySales` (`sales.read`): supplier A never sees supplier B's lines, no order total, customer fields by shipping mode; a Stock only or Products-and-stock supplier is refused `exportOrders` (`exports.orders` needs `orders.read`) | SAPI 10, SAPI 5 |
 | SAPI 12 | Shipping after payment: labels, pickups and tracking sync, through SAPI 23's courier adapters | SAPI 11, SAPI 23 |
-| SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password); isolation: `customers`, `customer`, `customerGroups` and `exportCustomers` are store-scoped (no cross-store rows or counts) and refused to every supplier | SAPI 11 |
+| SAPI 13 | Customers: groups, tags, notes, consent, `exportCustomers` (never to a supplier); shopper emails through SES (order, shipping, password) and order updates by SMS (#337); isolation: `customers`, `customer`, `customerGroups` and `exportCustomers` are store-scoped (no cross-store rows or counts) and refused to every supplier | SAPI 11 |
 | SAPI 14 | Offers: the OFFERS-DESIGN engine, codes, combining, usage counting; `exportOfferCodes` with its isolation test; `checkCode` rate-limited per caller and store, with one answer for a wrong and a missing code | SAPI 9 |
-| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending, unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only; link lookups rate-limited per host and IP, with one refusal for a token that is unknown, expired or used; and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
+| SAPI 15 | Abandoned carts: detection, reminder jobs, single-use codes, SES sending and WhatsApp through MSG91 in India (#337), unsubscribe; isolation: a reminder link (`cart/r/{token}`) or unsubscribe token opens or changes one cart or one consent in one store only; link lookups rate-limited per host and IP, with one refusal for a token that is unknown, expired or used; and `abandonedCarts` is store-scoped, read-only for Staff and refused to suppliers | SAPI 13, SAPI 14 |
 | SAPI 16 | Import and export: CSV, Shopify, product and stock export jobs, supplier exports seller-scoped (§13); the Shopify connection and image fetches keep §19's outbound rules (SSRF-checked URLs, timeout, bounded retries), tested with a private and a metadata address; isolation: exports are store A's only, supplier A's never supplier B's, and a `to-store` supplier's export carries no customer field; a supplier's import writes only its own rows (`seller_id` from `SellerScope`, never the file), a row naming another supplier's or the store's product is rejected, and imported rows wait for approval while it's on | SAPI 5 |
 | SAPI 17 | Storefront: provisioning steps 4–8, AI designer runs, publish, revert, Publish now, own storefront and public keys | SAPI 2, SAPI 8 |
 | SAPI 18 | Reports and the custom report builder; `exportReport` with its isolation test (Staff and every supplier caller refused `report` and `exportReport`: suppliers have no Reports, only Your sales, `mySales`, §17); and `home`, store-scoped and refused to suppliers; `home` by role, withheld on the server: Staff get no sales, order-value or returning-customer figures (`reports.read`), and a Manager gets no Owner-only item (team requests, approval queue) | SAPI 11 |
@@ -503,7 +524,7 @@ and bearer tokens included); the rows name the cases easiest to miss.
 | SAPI 20 | Developers: API keys, webhooks from the outbox; Apps and grants; isolation: a key minted for store A never authenticates on, nor is listed or revoked from, store B; webhooks, deliveries and `replayDelivery` stay in their store; a key's secret is shown once and never returned again; a webhook URL is SSRF-checked when saved and on every delivery and `replayDelivery` (private, loopback, link-local and metadata hosts refused, tested), with a timeout and bounded backoff | SAPI 11 |
 | SAPI 21 | Support access setting, the elevation Allow/Deny, the store activity log and `exportActivity` (Owner only) with its isolation test; `activityLog` read by Owner and Manager under `activity.read`, never the Settings permission, and a Manager refused `exportActivity` | SAPI 2, #202 |
 | SAPI 22 | Product kinds: digital downloads, gift cards (issue, balance, redeem), services; isolation: a gift card code redeems or shows a balance in its own store only, and a download link serves one paid order's file, rate-limited, with one refusal for a link that is unknown, expired or used up; balance and redemption rate-limited per host and IP, with one refusal for a wrong and a missing code | SAPI 11, SUI 1 |
-| SAPI 23 | Shipping methods and charges, before checkout: flat rate, free over a threshold, collect in person, delivery areas, and the live-rate quote through the couriers (Shiprocket, and the US aggregator: EasyPost or Shippo, chosen here) | SAPI 3, SAPI 6 |
+| SAPI 23 | Shipping methods and charges, before checkout: flat rate, free over a threshold, collect in person, delivery areas, and the live-rate quote through the couriers (Shiprocket, and the US aggregator, EasyPost, decided 2026-10-05 on #337); several methods at once | SAPI 3, SAPI 6 |
 
 **Store UI (apps/ui/store)**
 
@@ -530,7 +551,8 @@ and bearer tokens included); the rows name the cases easiest to miss.
 
 ## 21. Open questions
 
-- **WhatsApp reminders** in India: which provider, and whether they ship with email (§18).
+- ~~**WhatsApp reminders** in India: which provider, and whether they ship with email (§18).~~
+  MSG91, with email (decided 2026-10-05 on #337).
 - ~~**Orders paid later reserve stock when placed**~~ **Decided 2026-10-05**: yes; a transfer unpaid after 3 days is cancelled. ~~*(proposed, PLATFORM-PROMPT §5.4)*: a cash-on-delivery
   or bank-transfer order reserves at placement after the usual re-check, and releases on
   cancellation or when a transfer stays unpaid past a limit *(decide: how long)*. Confirm, or say
@@ -539,14 +561,17 @@ and bearer tokens included); the rows name the cases easiest to miss.
   refunds, since it records money received (ACCESS §5.1) *(confirm)*.~~
 - ~~**May Staff export an offer's codes?**~~ **No: Owner and Manager** (decided 2026-10-05). ~~`offers.export` is proposed for Owner and Manager only
   (ACCESS §5.1, §13) *(confirm)*.~~
-- ~~**Stripe Tax for merchants' US checkouts**~~ **On the merchant's own account through Stripe Connect** (decided 2026-10-05); still open: what a US store taking payments only through PayPal uses (SAPI 7 asks). ~~*(decide)*: through the merchant's own connected Stripe
+- ~~**Stripe Tax for merchants' US checkouts**~~ **On the merchant's own account through Stripe Connect** (decided 2026-10-05); a US store taking payments only through PayPal enters its own state rates (decided 2026-10-05 on #337). ~~*(decide)*: through the merchant's own connected Stripe
   account or DripFunnel's (whose account is then the tax-calculation vendor, with its cost and
   nexus), and what a US store taking payments only through PayPal uses (THIRD-PARTY-ACCESS §2.7).~~
-- ~~What the storefront shows while the store is **past due** (SAAS §4.2 *(ask)*)~~ **It keeps selling** (decided 2026-10-05); still open: what past
-  due means for its suppliers (SAAS §14).
+- ~~What the storefront shows while the store is **past due** (SAAS §4.2 *(ask)*)~~ **It keeps selling** (decided 2026-10-05); its suppliers keep
+  working (decided 2026-10-05 on #337).
 - ~~**Dunning**: when past due becomes suspended (SAAS §7.3).~~ **After 14 days unpaid** (decided 2026-10-05).
-- **Gift cards**: expiry and liability rules per region, decided on SUI 1 with the design.
-- **Services**: booking with times, or a service sold like a product with no shipping — SUI 1.
-- Whether "under two minutes" includes the first live build (SAAS §5).
-- Apps: embedded pages or links only, and a public marketplace or private apps first
-  (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.
+- ~~**Gift cards**: expiry and liability rules per region, decided on SUI 1 with the design.~~
+  The merchant sets the expiry, at least 1 year in India and 5 in the US (decided 2026-10-05 on #337).
+- ~~**Services**: booking with times, or a service sold like a product with no shipping — SUI 1.~~
+  Like a product with no shipping, no booking (decided 2026-10-05 on #337).
+- ~~Whether "under two minutes" includes the first live build (SAAS §5).~~ No: the portal and
+  the preview (decided 2026-10-05 on #337).
+- ~~Apps: embedded pages or links only, and a public marketplace or private apps first
+  (PLATFORM-PROMPT §10) — SUI 1 draws the first answer.~~ Private apps, as links (decided 2026-10-05 on #337).

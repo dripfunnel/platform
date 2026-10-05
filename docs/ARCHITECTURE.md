@@ -47,7 +47,7 @@ Last updated: 2026-10-05.
 | `packages/storefront-core` | **Published package** (GitHub Packages) | The locked storefront core every store repo installs | none |
 | Store repos | GitHub repo per store, built by Actions | The store's storefront: preview SPA and live SSG on Cloudflare (`storefront/ARCHITECTURE.md` §4) | `{shop}.preview.<partnerdomain>`; `{shop}.shops.<partnerdomain>`; the merchant's own domain |
 | Postgres | **Neon**, via **Hyperdrive** | The system of record | none |
-| R2 buckets | **R2** | Assets, imports and exports, invoices | public assets through a custom domain with image resizing *(confirm)* |
+| R2 buckets | **R2** | Assets, imports and exports, invoices | public assets through a custom domain with Cloudflare image resizing (decided 2026-10-05 on #337) |
 
 **How the one Worker routes**, before any other code runs:
 

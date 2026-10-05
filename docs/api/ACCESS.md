@@ -86,14 +86,14 @@ Rules for the **people** pool:
 
 - **Each store chooses** how its shoppers register and sign in: **email + password**,
   **mobile + one-time code** (SMS or WhatsApp), or **both**. The setting lives in the
-  merchant portal (Settings › Customer accounts); the partner may limit the choices per
-  plan *(ask)*.
+  merchant portal (Settings › Customer accounts); the partner **may not** limit the choices per
+  plan (decided 2026-10-05 on #337).
 - `customer(id, store_id, email null, email_verified_at, phone null, phone_verified_at,
   password_hash null, ...)`, unique `(store_id, email)` and unique `(store_id, phone)` where
   set. Phone numbers are stored in E.164. At least one verified identifier is required.
 - With **both**, one customer may hold an email and a phone; adding the second one verifies
-  it. Whether a guest checkout with a phone later links to an account with that phone is
-  *(decide)*.
+  it. A guest checkout with a phone links to an account with that phone **once the shopper proves
+  the number with a code** at sign-in, never by number alone (decided 2026-10-05 on #337).
 - **The same email or mobile may register in any number of stores**: each store's account is
   separate, with its own password, addresses and orders, and no store can see another's.
 - Codes are hashed, short-lived, attempt-counted and rate-limited per number, per store and
@@ -121,8 +121,8 @@ and **never** to a `TenantContext`, except through a support session.
 |---|---|---|---|---|---|
 | **Person** | Store API | Session cookie + acting store named on the request | The acting store, which must be in the membership set | From the membership's `seller_id` | The membership's `role_key` |
 | **Shopper** | Shop API | Public store key or storefront hostname, plus an optional customer session | The key's store | `all`, visibility-filtered to what shoppers may see | The fixed shopper set |
-| **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes, never more than its creator's role allows (§5.6) |
-| **App grant** | Store API | The app's grant token | The grant's store | `all` *(ask whether apps can be vendor-bound)* | The scopes the merchant approved |
+| **API key** | Store API | `Authorization` header, key hashed and looked up | The key's store | `seller` if the key is vendor-bound, else `all` | The key's scopes: capped by its creator's role when created, and by the supplier's current tier on every request if vendor-bound (§5.6) |
+| **App grant** | Store API | The app's grant token | The grant's store | `all`: apps are always store-wide; only API keys may be supplier-bound (decided 2026-10-05 on #337) | The scopes the merchant approved |
 | **Staff impersonation** | Store API or Platform API, on the target's host | Impersonation cookie from a handoff (§8.1) | The target membership's store, or none for a partner user | From the target membership | The target's own permissions |
 | **Support session** | Store API, on the store's portal host | Support cookie from a support handoff (§8) | The one store the session was opened for | `all` | The read-only support set; the write set only after the merchant allows it |
 | **Staff setup session** | Platform API, on `platform.dripfunnel.com` | Setup cookie from a handoff (§8.2) | None: a `PartnerContext` for the one partner, with no partner user | none | The partner Owner's set, minus payment method, payout details and team ownership |
@@ -159,7 +159,7 @@ The properties that do the work (the first platform's ARCHITECTURE §4.1, PLATFO
   type error; every `{ kind: 'all' }` is a deliberate, greppable statement.
 - **Everything scoped hangs off the acting store, never off the user.** There is no "this
   user's `seller_id`" or "this user's permissions", only theirs *in this store*.
-- **No caller borrows another's power.** An API key can't do what its creator's role can't; a
+- **No caller borrows another's power.** An API key is created within its creator's role; a
   vendor-bound key can't see outside its `seller_id`; a support session can't do what the
   merchant hasn't allowed; a partner user or staff member has no store permissions at all
   outside a support session.
@@ -264,7 +264,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   tenant crossing. Answer 403, and log it with both store ids and the user, because it is a
   client bug or someone probing.
 - **Timings**: idle **2 h**, absolute **12 h**. "Remember me" extends the absolute bound
-  *(confirm by how much)* rather than removing it. Sessions are never year-long.
+  to **30 days** on that device, idle limit 7 days, with 2-factor still asked on a new device (decided 2026-10-05 on #337). Sessions are never year-long.
 - **The second factor** (decided 2026-10-02; the prototype's `PortalAuth` and `PortalProfile`
   decide the screens): after the password, a person with 2-factor on enters a 6-digit code
   from their authenticator app or texted to their own mobile number; a **backup code** (one of
@@ -379,6 +379,7 @@ decided on #184 (ui/store/FIRST-RELEASE.md §1).
 | `activity.read`: the whole store's activity log, shoppers included | ✓ | ✓ | |
 | `activity.export`: that log as a CSV, with LOGGING §6's cap and expiry | ✓ | | |
 | `payments.configure`, `shipping.configure`, `tax.configure` | ✓ | | |
+| `support.allow_write`: Allow or Deny a support agent's write request inside an open session (§8) (decided 2026-10-05 on #337) | ✓ | ✓ | |
 
 **Owner-only capabilities**, checked for the acting store; someone may be an Owner in one
 store and a vendor in another:
@@ -390,7 +391,7 @@ store and a vendor in another:
 | `approve` | The approval setting and queue (flows 18–19) |
 | `publish` | Storefront: describe, preview, approve, publish, undo (flows 48–52) and catalogue **Publish now**; a Manager sees the Storefront read-only |
 | `billing` | Plan, subscription, invoices, the subscription payment method (flows 59–64) |
-| `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access**, and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
+| `settings` | Store info, payment, shipping and tax setup, custom domain, **Support access** (the On/Off switch; Allow/Deny is `support.allow_write`), and **Settings › Developers** (public store key, allowed origins, API keys, webhooks) and app installs |
 
 A Manager reaching an Owner-only screen gets the designed permission-denied state (flow 67);
 the resolver refuses regardless of the screen.
@@ -603,8 +604,11 @@ test (§11.2).
   permissions, an optional vendor binding (the key then carries `SellerScope` `seller` and may
   hold only that vendor's tier permissions), an expiry, rotation, and a last-used time. The
   secret is shown once, stored hashed, and carries a visible prefix for identification.
-  Scopes can't exceed the creator's role when created; what happens to a key when its creator
-  leaves or is demoted is *(ask)*.
+  Scopes can't exceed the creator's role when created; when its creator leaves or is demoted the key
+  **keeps working** (it belongs to the store); the Owner is notified and the list shows the creator
+  as gone (decided 2026-10-05 on #337). This is accepted because only an Owner creates keys and
+  a vendor-bound key is re-capped on every request to the supplier's current tier, so it never
+  outlives a narrowed tier, and stops with a removed or suspended supplier (§7.5).
 - **Vendors' own keys: later** (decided 2026-09-28). Until then only the merchant's Owner
   creates a vendor-bound key; when they come, a Supplier admin creates them within the
   supplier's access level.
@@ -678,7 +682,8 @@ Accept: token + password (new) or token + signed-in session (existing)
   refused like any other), activates the member and signs them in. The last accepted Super
   admin can't be demoted or removed, checked under a lock so two demotions at once can't both
   pass (`LAST_SUPER_ADMIN`); removing a member ends their sessions.
-- **Expiry**: 7 days *(confirm)*; 7 days for staff (decided on #45). Pending invitations show their expiry; expired ones are
+- **Expiry**: 7 days for merchant and vendor invitations (decided 2026-10-05 on #337), the same as platform staff
+  invitations (#45). Pending invitations show their expiry; expired ones are
   obvious and offer resend (flow 10).
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.
@@ -713,8 +718,8 @@ stock totals (PLATFORM-PROMPT §2 item 5).
 - **A vendor may never change a product's `seller_id`** (§3.2).
 - Versions, stock and photos resolve ownership through their product; stock and warehouses
   carry `seller_id` of their own because warehouses are per owner.
-- How products come to belong to a **Stock only** vendor, who can't create them (does the
-  merchant assign ownership?), is *(ask)*.
+- A **Stock only** vendor may **propose** new products, which the merchant approves; it changes
+  nothing else, and the merchant may also assign products to it (decided 2026-10-05 on #337).
 
 ### 7.2 Approval is a per-store setting
 
@@ -831,7 +836,7 @@ Partner console: store page → "Open support session"
    │          a reason or ticket number
    ▼
 support_session(store_id, partner_user_id, reason, access 'read',
-                started_at, expires_at = +30 min (confirm), ended_at)  + audit row
+                started_at, expires_at = +30 min, ended_at)  + audit row
    │  one-time handoff token, short-lived, single use
    ▼
 Browser → https://<store's portal host>/support/enter?token=…
@@ -843,18 +848,19 @@ Browser → https://<store's portal host>/support/enter?token=…
 
 - **Read-only** by default: the support read set is the Owner's read permissions, minus
   anything credential-shaped (credentials are never readable anyway, §5.5).
-- **Time-limited**: 30 minutes by default *(confirm)*, no silent extension; a new session needs
+- **Time-limited**: 30 minutes (decided 2026-10-05 on #337), no silent extension; a new session needs
   a new reason.
 - **Visible**: while it is open, every person signed in to that store sees a banner: "[Partner]
   support (Priya) is viewing your store. Read-only. Ends in 28 min." The support agent sees an
   unremovable bar naming the store, their role and the time left (J3). Staff don't use
   support sessions; their impersonation banner says "Support", never "DripFunnel" (§8.1).
 - **Logged**: every session appears in the store's *Support access log* (who, when, why, how
-  long) and in the platform audit log; the merchant is emailed when one starts *(confirm)*.
+  long) and in the platform audit log; the store's Owners are emailed when one starts (decided 2026-10-05 on #337).
   Every read in the session is attributed to the real agent, not to the merchant.
 - **Write elevation**: support requests write access; the merchant clicks "Allow" or "Deny";
-  the elevation applies to that one session and is logged. Who in the store may allow it
-  (the Owner only, or anyone with the matching permission) is *(confirm)*.
+  the elevation applies to that one session and is logged. **An Owner or a Manager** may allow it
+  (`support.allow_write`, §5.1) (decided 2026-10-05 on #337). It only exists inside a session the Owner's On/Off
+  switch let start; a Manager's Allow emails the Owners like a session start does.
 - **Never, even elevated**: change passwords or sign-in methods, payment methods, payouts,
   ownership or roles; create API keys or install apps. A support session is not a person, so it
   can't act as one.
@@ -1275,29 +1281,28 @@ Carried from the first platform's AUTH-PLAN §11 and PLATFORM-PROMPT §10, plus 
   (#184).
 - ~~Can someone be a vendor and merchant staff in the same store?~~ **Settled 2026-09-28**: never
   both in the same store (DATA-MODEL §1, §7.5).
-- **Does a vendor see which other stores a product of theirs is in?** Products are per store,
-  so nothing leaks by default; a "sell this in my other store" feature needs its own design.
-- **Past due and vendors**: past due never locks the merchant out (decided); what happens to
-  that store's vendors, and does a suspended store allow sign-in at all? (§9 check 11)
+- ~~**Does a vendor see which other stores a product of theirs is in?**~~ **No** (decided 2026-10-05 on #337).
+- ~~**Past due and vendors**~~: vendors **keep working** while the store is past due, unaware of
+  its billing (decided 2026-10-05 on #337). Whether a suspended store allows sign-in at all stays open (§9 check 11).
 - ~~Can vendors have their own API keys?~~ Later (§5.6).
 
 **Raised by this port**
 - ~~A person with stores under two partners~~ **Settled 2026-09-28**: accounts are per
   partner, so each partner's portal is its own account in its own look (§2).
-- Shopper sign-in: may partners restrict the per-store choice by plan? Which SMS/WhatsApp
-  provider? (§2.1)
+- ~~Shopper sign-in: may partners restrict the per-store choice by plan? Which SMS/WhatsApp
+  provider?~~ No plan restriction; MSG91 (India) and Twilio (US) (#284, #337). (§2.1)
 - ~~**Partner roles**: confirm the proposed matrix (§5.3).~~ **Settled 2026-10-01** on #109
   (§5.3).
-- **Invitation expiry**: 7 days, carried from the first platform's default (§6.3).
+- ~~**Invitation expiry**~~: 7 days (decided 2026-10-05 on #337) (§6.3).
 - ~~**Manager permissions**: stock and warehouse writes; catalogue "Publish now" (§5.1).~~
   **Settled 2026-10-04** on #184 (§5.1): stock yes, warehouses and Publish now no.
-- **Stock only vendors**: how their products come to exist (§7.1).
-- **Support sessions**: default length; the email notice; who in the store may allow write
-  elevation (§8). The investigation exception and the staff banner's wording are moot: staff
+- ~~**Stock only vendors**: how their products come to exist~~: they propose, the merchant approves (decided 2026-10-05 on #337) (§7.1).
+- ~~**Support sessions**: default length; the email notice; who may allow write elevation~~:
+  30 minutes, Owners emailed, an Owner or Manager allows (decided 2026-10-05 on #337) (§8). The investigation exception and the staff banner's wording are moot: staff
   never open a support session (decided 2026-09-30), and §8.1 fixes their banner to "Support".
 - **Staff session bounds** and which actions need a second approver (§4, §5.4).
-- **API keys** when their creator leaves or is demoted; whether apps can be vendor-bound (§3,
-  §5.6).
+- ~~**API keys** when their creator leaves; whether apps can be vendor-bound~~: keys keep
+  working; apps never vendor-bound, keys may be (decided 2026-10-05 on #337) (§3, §5.6).
 - ~~**Password change** ending every other session on every host (§4).~~ **Settled 2026-10-02**:
   it does.
-- **Whether vendors see any audit entries** (§10).
+- ~~**Whether vendors see any audit entries**~~: their own team's actions on their own rows (decided 2026-10-05 on #337) (§10).
