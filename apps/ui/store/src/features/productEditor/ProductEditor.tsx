@@ -46,8 +46,8 @@ const loadExtras = async (basics: ProductBasics, merchant: boolean, productId: s
     shown.has('sizeCharts') ? orNone(loadSizeCharts(), 'sizeCharts') : Promise.resolve([]),
     merchant ? orNone(loadHandPicked(), 'collections') : Promise.resolve([]),
     merchant && productId ? orNone(loadProductCollections(productId), 'collections') : Promise.resolve([]),
-    merchant ? loadStoreCurrencies().catch(() => []) : Promise.resolve([]),
-    merchant && productId ? loadPricing(productId).catch(() => []) : Promise.resolve([]),
+    merchant ? orNone(loadStoreCurrencies(), 'prices') : Promise.resolve([]),
+    merchant && productId ? orNone(loadPricing(productId), 'prices') : Promise.resolve([]),
   ])
   return {
     languages: { main: basics.mainLanguage, others: basics.translationLanguages },
@@ -447,7 +447,7 @@ export const ProductEditor = () => {
           <BasicsCard draft={draft} update={update} disabled={disabled} problems={shownProblems} />
           {!made && (
                 <PriceCard draft={draft} update={update} disabled={disabled} currency={currency} problems={shownProblems} inclusive={tax ? tax.pricesIncludeTax : null} >
-                  <PricesAbroad draft={draft} update={update} disabled={disabled} currencies={view.extras.currencies} converted={view.extras.converted.get(product?.versions[0]?.id ?? '') ?? []} problems={shownProblems} />
+                  <PricesAbroad draft={draft} update={update} disabled={disabled} currencies={view.extras.currencies} converted={view.extras.converted.get(product?.versions[0]?.id ?? '') ?? []} problems={shownProblems} failed={view.extras.choices.unavailable.has('prices')} />
                   {product && access.storeFields && <MarketPrices productId={product.id} />}
                 </PriceCard>
               )}

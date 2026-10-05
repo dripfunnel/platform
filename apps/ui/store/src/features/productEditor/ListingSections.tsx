@@ -9,7 +9,7 @@ import { Field, Section } from './EditorSections'
 
 const words = messages.editor.sections
 
-export type UnavailableChoice = 'facets' | 'sizeCharts' | 'collections'
+export type UnavailableChoice = 'facets' | 'sizeCharts' | 'collections' | 'prices'
 
 export interface ListingChoices {
   /** Which listing sections the store has switched on (Settings › Catalogue), and filters, legal always. */
