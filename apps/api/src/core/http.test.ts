@@ -14,20 +14,40 @@ const streamed = (parts: number[], declared?: number) =>
     duplex: 'half',
   } as RequestInit)
 
+const read = async (request: Request, limit: number) => {
+  const answer = await readCapped(request, limit)
+  return answer.ok ? answer.bytes.byteLength : 'too large'
+}
+
 describe('readCapped', () => {
-  it('reads a declared body into one buffer of its size', async () => {
-    const bytes = await readCapped(streamed([3, 4], 7), 10)
-    expect(bytes.byteLength).toBe(7)
-    expect(bytes.buffer.byteLength).toBe(7)
+  it('reads a body to its size, the buffer exactly that size', async () => {
+    const answer = await readCapped(streamed([3, 4], 7), 10)
+    expect(answer.ok && [answer.bytes.byteLength, answer.bytes.buffer.byteLength]).toEqual([7, 7])
+    expect(await read(streamed([2, 3]), 10)).toBe(5)
+    expect(await read(streamed([2], 5), 10)).toBe(2)
   })
 
-  it('answers past the cap when a body runs longer than it declared, or than the cap', async () => {
-    expect((await readCapped(streamed([5, 5], 6), 10)).byteLength).toBe(11)
-    expect((await readCapped(streamed([6, 6]), 10)).byteLength).toBeGreaterThan(10)
+  it('refuses a body past the cap or past the length it declared, and a declared length over the cap before reading', async () => {
+    expect(await read(streamed([6, 6]), 10)).toBe('too large')
+    expect(await read(streamed([5, 5], 6), 10)).toBe('too large')
+    expect(await read(streamed([1], 11), 10)).toBe('too large')
   })
 
-  it('keeps what an undeclared or short body sent', async () => {
-    expect((await readCapped(streamed([2, 3]), 10)).byteLength).toBe(5)
-    expect((await readCapped(streamed([2], 5), 10)).byteLength).toBe(2)
+  it('holds nothing for a declared length the client never sends', async () => {
+    let pulled = 0
+    const stalled = new Request('https://x.example/', {
+      method: 'POST',
+      body: new ReadableStream({
+        pull(controller) {
+          pulled += 1
+          controller.close()
+        },
+      }),
+      headers: { 'content-length': String(30 * 1024 * 1024) },
+      duplex: 'half',
+    } as RequestInit)
+    const answer = await readCapped(stalled, 30 * 1024 * 1024)
+    expect(answer.ok && answer.bytes.buffer.byteLength).toBe(0)
+    expect(pulled).toBe(1)
   })
 })

@@ -53,7 +53,9 @@ export const handleAssets = async (request: Request, ctx: StoreContext, store: A
 
   const limit = Math.max(maxImageBytes, maxVideoBytes)
   if (Number(request.headers.get('content-length') ?? 0) > limit) return refuse(413, 'TOO_LARGE')
-  const result = await service.upload(await readCapped(request, limit))
+  const read = await readCapped(request, limit)
+  if (!read.ok) return refuse(413, 'TOO_LARGE')
+  const result = await service.upload(read.bytes)
   if (result.ok) return json(200, result)
   return refuse(result.code === 'TOO_LARGE' ? 413 : result.code === 'EMPTY' ? 400 : 415, result.code)
 }

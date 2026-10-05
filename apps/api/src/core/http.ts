@@ -16,47 +16,34 @@ export const readBody = async <T>(request: Request, schema: z.ZodType<T>): Promi
   }
 }
 
+export type CappedBody = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false }
+
 /**
- * At most `limit + 1` bytes, so a large body is refused without being held whole; with a declared
- * length the bytes go straight into one buffer, held once rather than as chunks and a copy.
+ * The body, or `{ ok: false }` once it passes `limit` or the length it declared. The buffer grows only as
+ * bytes arrive, so a declared length the client never sends holds nothing (a stalled upload pins no memory).
  */
-export const readCapped = async (request: Request, limit: number): Promise<Uint8Array<ArrayBuffer>> => {
-  const reader = request.body?.getReader()
-  if (!reader) return new Uint8Array()
+export const readCapped = async (request: Request, limit: number): Promise<CappedBody> => {
   const declared = Number(request.headers.get('content-length') ?? NaN)
-  if (Number.isInteger(declared) && declared >= 0 && declared <= limit) {
-    const bytes = new Uint8Array(declared)
-    let at = 0
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      // A body longer than it declared is cut at the cap, as an undeclared one is.
-      if (at + value.byteLength > declared) {
-        await reader.cancel()
-        return new Uint8Array(limit + 1)
-      }
-      bytes.set(value, at)
-      at += value.byteLength
-    }
-    return at === declared ? bytes : bytes.slice(0, at)
-  }
-  const chunks: Uint8Array[] = []
+  const cap = Number.isInteger(declared) && declared >= 0 ? Math.min(declared, limit) : limit
+  if (Number.isInteger(declared) && declared > limit) return { ok: false }
+  const reader = request.body?.getReader()
+  if (!reader) return { ok: true, bytes: new Uint8Array() }
+  let bytes = new Uint8Array(0)
   let size = 0
   for (;;) {
     const { done, value } = await reader.read()
     if (done) break
-    chunks.push(value)
-    size += value.byteLength
-    if (size > limit) {
+    if (size + value.byteLength > cap) {
       await reader.cancel()
-      break
+      return { ok: false }
     }
+    if (size + value.byteLength > bytes.byteLength) {
+      const grown = new Uint8Array(Math.min(cap, Math.max(size + value.byteLength, bytes.byteLength * 2, 64 * 1024)))
+      grown.set(bytes.subarray(0, size))
+      bytes = grown
+    }
+    bytes.set(value, size)
+    size += value.byteLength
   }
-  const bytes = new Uint8Array(size)
-  let at = 0
-  for (const chunk of chunks.splice(0)) {
-    bytes.set(chunk, at)
-    at += chunk.byteLength
-  }
-  return bytes
+  return { ok: true, bytes: size === bytes.byteLength ? bytes : bytes.slice(0, size) }
 }
