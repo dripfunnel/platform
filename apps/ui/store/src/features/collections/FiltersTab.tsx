@@ -3,7 +3,7 @@ import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
 import type { CollectionSummary } from '../../api/collections'
 import { mergeValues, saveFilter, type Filter } from '../../api/filters'
-import { fill, formatCount, messages, plural } from '../../messages'
+import { fill, formatCount, formatList, messages, plural } from '../../messages'
 
 const words = messages.collections.filters
 
@@ -130,7 +130,7 @@ export const FiltersTab = ({ filters, collections, canEdit, onChanged }: Filters
     const [keep, ...drop] = group
     if (!keep) return
     const count = f.values.filter((v) => drop.some((d) => d.id === v.id)).reduce((n, v) => n + v.products, 0)
-    const named = drop.map((d) => `“${d.name}”`).join(', ')
+    const named = formatList(drop.map((d) => fill(words.quoted, { value: d.name })))
     setAsk({
       title: fill(words.mergeTitle, { keep: keep.name }),
       target: keep.name,

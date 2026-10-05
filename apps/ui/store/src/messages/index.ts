@@ -15,4 +15,7 @@ export const formatWait = (seconds: number): string => formatDuration(seconds, l
 
 export const formatCount = (count: number): string => formatNumber(count, locale)
 
+/** “a, b and c” as the portal's language joins a list. */
+export const formatList = (items: readonly string[]): string => new Intl.ListFormat(locale, { type: 'conjunction' }).format(items)
+
 export const plural = (forms: { other: string } & Partial<Record<Intl.LDMLPluralRule, string>>, count: number): string => pluralForm(locale, forms, count)
