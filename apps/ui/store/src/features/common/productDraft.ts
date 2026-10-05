@@ -268,7 +268,7 @@ export const problemsOf = (draft: Draft, currency: string): DraftProblem[] => {
   if (combinationsOf(draft.options).length > maxVersions) problems.push('tooMany')
   if (gramsOf(draft.weight, draft.units) === 'invalid') problems.push('weight')
   if (boxOf(draft.box, draft.units) === 'invalid') problems.push('box')
-  if (live.some((v) => Object.values(draft.stock[keyOf(v.choices)] ?? {}).some((t) => quantityOf(t) === 'invalid'))) problems.push('stock')
+  if (draft.kind === 'physical' && live.some((v) => Object.values(draft.stock[keyOf(v.choices)] ?? {}).some((t) => quantityOf(t) === 'invalid'))) problems.push('stock')
   return problems
 }
 

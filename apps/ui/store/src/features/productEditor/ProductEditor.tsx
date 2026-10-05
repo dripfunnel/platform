@@ -175,9 +175,10 @@ export const ProductEditor = () => {
 
   /** Typed quantities after the product, once every version has its id; then what is stored, read back. */
   const saveStock = async (stored: EditorProduct, before: Draft) => {
+    if (stored.productType !== 'physical') return new Map<string, StockLevel[]>()
     const ids = idsOf(stored)
     await setStock(stockChangesOf(draft, before, (key) => ids.get(key)))
-    return stored.productType === 'physical' ? loadProductStock(stored.id) : new Map<string, StockLevel[]>()
+    return loadProductStock(stored.id)
   }
 
   const save = async () => {
@@ -214,7 +215,7 @@ export const ProductEditor = () => {
       stored = await loadProduct(done.id).catch(() => null)
       if (isNew) {
         // The new product's own page loads it fresh; its first counts go first, by the ids just read.
-        const counted = Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
+        const counted = draft.kind === 'physical' && Object.values(draft.stock).some((byPlace) => Object.values(byPlace).some((t) => t.trim() !== ''))
         const unsavedCounts = counted ? await (stored ? saveStock(stored, saved) : Promise.reject(new Error('not read back'))).then(() => undefined, () => draft.stock) : undefined
         leaving.current = true
         void navigate({ to: '/products/$productId', params: { productId: done.id }, replace: true, state: (prev) => ({ ...prev, unsavedCounts }) }).finally(() => (leaving.current = false))
