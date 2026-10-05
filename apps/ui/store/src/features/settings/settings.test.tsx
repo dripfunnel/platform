@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { StoreInfo, StoreLocale } from '../../api/settings'
 import type { Acting } from '../../api/shell'
-import { messages } from '../../messages'
+import { fill as fillWords, messages } from '../../messages'
 
 // Settings › Store info driven as the Owner would (SetStore): the store's details, currencies and languages.
 
@@ -217,8 +217,9 @@ describe('currencies', () => {
   it('ask before typing prices instead of converting, then save the list as it stands', async () => {
     await show()
     const c = card(w.currencies)
-    expect(c.getAllByRole('switch', { name: w.convert }).map((x) => x.getAttribute('aria-checked'))).toEqual(['true', 'false'])
-    fireEvent.click(c.getAllByRole('switch', { name: w.convert })[0] as HTMLElement)
+    // Each switch names its own currency, so a screen reader can tell them apart.
+    expect(['USD', 'AED'].map((code) => c.getByRole('switch', { name: fillWords(w.convertNamed, { code }) }).getAttribute('aria-checked'))).toEqual(['true', 'false'])
+    fireEvent.click(c.getByRole('switch', { name: fillWords(w.convertNamed, { code: 'USD' }) }))
     expect(dialog().getByText(/You’ll type a USD price on each product/)).toBeTruthy()
     fireEvent.click(dialog().getByRole('button', { name: w.stopConfirm }))
     fireEvent.click(c.getByRole('button', { name: 'Remove AED' }))
