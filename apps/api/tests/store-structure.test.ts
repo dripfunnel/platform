@@ -438,6 +438,31 @@ describe('collections', () => {
     expect((await preview('owner', [], 'some')).code).toBe('INVALID_INPUT')
   })
 
+  it('previews only the caller’s store, and agrees with the recompute on grouped values and a parent', async () => {
+    const all = await facets('owner')
+    const weave = all.find((f) => f.name === 'Weave')
+    const [khadi, chanderi] = ['Khadi', 'Chanderi'].map((n) => weave?.values.find((v) => v.name === n)?.id)
+    const wedding = all.find((f) => f.name === 'Occasion')?.values.find((v) => v.name === 'Wedding')?.id
+    const query = 'query P($m: String, $r: [CollectionRuleInput!]!, $p: ID, $i: Boolean) { collectionPreview(match: $m, rules: $r, parentId: $p, inheritParent: $i) { count products { name } } }'
+    const grouped = [{ kind: 'filter_value', valueId: khadi }, { kind: 'filter_value', valueId: chanderi }, { kind: 'filter_value', valueId: wedding }]
+    // Two values of one filter under "all", as the saved "Wedding weaves" holds after its recompute.
+    const shown = (await gql(query, 'owner', { m: 'all', r: grouped })).data?.['collectionPreview'] as { count: number; products: { name: string }[] }
+    expect(shown.products.map((p) => p.name).sort()).toEqual(['Chanderi lehenga', 'Khadi sherwani'])
+    // Inside a parent, as the recompute narrows a child: only what the parent holds.
+    const parent = await save({ name: 'Sherwanis only', kind: 'manual', productIds: [(await db.sql<{ id: string }[]>`select id from product where name = 'Khadi sherwani'`)[0]?.id] })
+    const narrowed = (await gql(query, 'owner', { m: 'all', r: grouped, p: parent.saved?.id, i: true })).data?.['collectionPreview']
+    expect(narrowed).toEqual({ count: 1, products: [{ name: 'Khadi sherwani' }] })
+    // Another store: its own same-named product and filter show only its own, and store A's collection can't be its parent.
+    const { id: bFacet } = await saveFacet('bOwner', { name: 'Weave', values: [{ name: 'Khadi' }] })
+    const bKhadi = (await facets('bOwner')).find((f) => f.id === bFacet)?.values[0]?.id
+    // Earlier tests filled store B's plan; this one needs a product of its own there.
+    await db.sql`update plan_entitlement set amount = 10000 where partner_id = ${t.partnerB} and key = 'products'`
+    expect((await product('bOwner', 'Khadi sherwani', { filterValues: [{ valueId: bKhadi }] })).code).toBeUndefined()
+    expect((await gql(query, 'bOwner', { m: 'all', r: [{ kind: 'filter_value', valueId: bKhadi }] })).data?.['collectionPreview']).toEqual({ count: 1, products: [{ name: 'Khadi sherwani' }] })
+    expect((await gql(query, 'bOwner', { m: 'any', r: [{ kind: 'name_contains', text: 'khadi' }] })).data?.['collectionPreview']).toEqual({ count: 1, products: [{ name: 'Khadi sherwani' }] })
+    expect((await gql(query, 'bOwner', { m: 'all', r: [{ kind: 'filter_value', valueId: bKhadi }], p: parent.saved?.id, i: true })).code).toBe('INVALID_PARENT')
+  })
+
   it('are refused to a supplier and invisible to another store', async () => {
     const { saved } = await save({ name: 'Private', kind: 'manual' })
     expect((await gql('{ collections { nodes { id } } }', 'supplier')).code).toBe('FORBIDDEN')
