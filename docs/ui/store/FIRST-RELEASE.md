@@ -334,7 +334,13 @@ tag beside its name. Deleting a whole filter isn't drawn, so it isn't offered. M
 change saves at once at the revision read, as the prototype's menu does. A top item moves with the
 items under it, an item under one moves among its siblings, and removing an item moves the ones under it
 up a level. Adding links to pages or addresses (J4) waits for a drawing; such items are kept and shown.
-Size charts follow in the same card.
+Size charts (`?tab=sizeCharts`, and a supplier's own under "Your products" at `/products/size-charts`, decided
+on #337): each side lists and changes its own charts, up to 200. A chart starts from a template in the
+store's unit (kurtas where it prices in rupees), converts cm ⇄ in, and sends an empty cell as "—", since the
+API needs a value in every cell. "Other size systems" adds empty US, UK and EU columns, not the prototype's
+made-up numbers. Saving a chart used on several products asks "change all" or "make a copy"; leaving one with
+unsaved changes asks first. "How to measure" notes and model info, which the prototype doesn't draw, are kept
+as they are.
 
 ## 13. Import and export (`CatImport`, CATALOG-DESIGN K)
 

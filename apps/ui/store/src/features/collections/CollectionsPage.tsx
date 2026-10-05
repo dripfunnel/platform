@@ -13,8 +13,9 @@ import { CollectionEditor } from './CollectionEditor'
 import { CollectionList } from './CollectionList'
 import { FiltersTab } from './FiltersTab'
 import { MenuTab } from './MenuTab'
+import { SizeChartsArea } from './SizeChartsArea'
 import { collectionsAccess } from './collectionDraft'
-import { collectionsStates, sampleCollections, sampleFilters, sampleMenu, sampleReads } from './collectionsStates'
+import { collectionsStates, sampleChartReads, sampleCollections, sampleFilters, sampleMenu, sampleReads } from './collectionsStates'
 import { seasonalFor, type SeasonKey } from './seasonal'
 import './collections.css'
 
@@ -22,7 +23,7 @@ const words = messages.collections
 const shellRoute = getRouteApi('/_app')
 const pageRoute = getRouteApi('/_app/collections')
 
-export const collectionTabs = ['collections', 'filters', 'menus'] as const
+export const collectionTabs = ['collections', 'filters', 'menus', 'sizeCharts'] as const
 export type CollectionTab = (typeof collectionTabs)[number]
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; collections: CollectionSummary[]; filters: Filter[]; currency: string | null; seasonal: SeasonKey[] }
@@ -81,6 +82,8 @@ export const CollectionsPage = () => {
 
   const body = () => {
     if (!access.canRead) return <EmptyState title={words.denied.title} body={words.denied.body} />
+    // Size charts read their own lists; they don't wait on the collections.
+    if (tab === 'sizeCharts') return <SizeChartsArea side="merchant" canEdit={access.canEdit} owner={acting.role === 'owner'} onToast={setToast} reads={forced ? sampleChartReads(forced) : undefined} />
     if (view.kind === 'loading') return <LoadingState label={words.loading} />
     if (view.kind === 'error') return <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />
     if (edit)
@@ -145,7 +148,7 @@ export const CollectionsPage = () => {
         <DetailTabs
           label={words.tabs.label}
           tabs={collectionTabs}
-          labels={{ collections: words.tabs.collections, filters: words.tabs.filters, menus: words.tabs.menus }}
+          labels={{ collections: words.tabs.collections, filters: words.tabs.filters, menus: words.tabs.menus, sizeCharts: words.tabs.sizeCharts }}
           current={tab}
           link={(target, props) => <Link to="/collections" search={target === 'collections' ? {} : { tab: target }} activeOptions={{ exact: true }} {...props} />}
         />

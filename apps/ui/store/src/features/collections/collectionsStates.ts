@@ -1,7 +1,9 @@
 import type { CollectionSummary } from '../../api/collections'
 import type { Filter } from '../../api/filters'
 import type { Menu } from '../../api/menu'
+import type { SizeChart } from '../../api/sizeCharts'
 import type { EditorReads } from './CollectionEditor'
+import type { ChartReads } from './SizeChartsArea'
 
 // The Collections area's states under ?state= (ui/README.md §6): loading, error, empty, list, staff (looks only),
 // readOnly (a store past due) and denied (a seat without the catalogue).
@@ -83,3 +85,34 @@ export const sampleReads: EditorReads = {
   },
   search: async (q) => sampleProducts.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).map(({ id, name, visible, approval }) => ({ id, name, visible, approval })),
 }
+
+const sampleCharts: SizeChart[] = harness
+  ? [
+      {
+        id: 'sc-tops',
+        name: 'Tops & shirts',
+        unit: 'cm',
+        systems: [],
+        measurements: ['Chest', 'Waist', 'Length'],
+        rows: ['S', 'M', 'L', 'XL'].map((size, i) => ({ size, values: [86 + i * 5, 71 + i * 5, 68 + i * 2].map(String) })),
+        howToMeasure: [],
+        fitNotes: 'Runs small — order one size up.',
+        modelInfo: null,
+        revision: 2,
+        products: 24,
+        supplierId: null,
+      },
+      { id: 'sc-kurta', name: 'Kurtas', unit: 'cm', systems: [], measurements: ['Chest', 'Length', 'Shoulder'], rows: [{ size: 'M', values: ['101', '109', '39'] }], howToMeasure: [], fitNotes: null, modelInfo: null, revision: 1, products: 1, supplierId: null },
+    ]
+  : []
+
+/** The size charts' reads under ?state=: two sample charts, or none for `empty`. */
+export const sampleChartReads = (state: CollectionsState): ChartReads => ({
+  list: async () => {
+    if (state === 'loading') return new Promise(() => undefined)
+    if (state === 'error') throw new Error('sample')
+    const charts = state === 'empty' ? [] : sampleCharts
+    return { charts: charts.map(({ id, name, unit, products, supplierId }) => ({ id, name, unit, products, supplierId })), feature: { enabled: true, inPlan: true }, unit: 'cm', india: true }
+  },
+  chart: async (id) => sampleCharts.find((c) => c.id === id) ?? null,
+})

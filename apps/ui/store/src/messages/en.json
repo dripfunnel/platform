@@ -1679,7 +1679,8 @@
     "tabs": {
       "label": "Your products",
       "products": "Products",
-      "warehouses": "Warehouses"
+      "warehouses": "Warehouses",
+      "sizeCharts": "Size charts"
     },
     "title": "Where your stock sits",
     "sub": "Stock is counted per location. New products start at your default one, and its address is on your labels.",
@@ -1750,7 +1751,8 @@
       "label": "Collections area",
       "collections": "Collections",
       "filters": "Filters",
-      "menus": "Menus"
+      "menus": "Menus",
+      "sizeCharts": "Size charts"
     },
     "title": "Collections",
     "sub": "Groups of products shown together on your store, like “Summer Sale” or “Men’s Shirts”.",
@@ -2048,6 +2050,142 @@
         "other": "That didn’t save. Try again."
       },
       "saved": "Menu saved"
+    },
+    "charts": {
+      "title": "Size charts",
+      "meter": "{count} of {limit}",
+      "new": "+ New",
+      "limit": "Limit reached",
+      "offNote": "Size charts are switched off in Settings › Catalogue, so they don’t show on products.",
+      "notInPlan": "Size charts aren’t in your store’s plan.",
+      "notInPlanOwner": "Size charts aren’t in your plan. See plans to add them.",
+      "seePlans": "See plans",
+      "notInPlanSupplier": "Size charts aren’t switched on in this store, so you can’t make one yet.",
+      "atLimit": "You have 200 size charts, the most there can be. Delete one to make another.",
+      "empty": "No size charts yet. Make one and use it on every product it fits — one “Tops” chart can cover 200 products.",
+      "pick": "Pick a chart on the left, or make a new one from a template.",
+      "listLabel": "Your size charts",
+      "sub": {
+        "one": "1 product · {unit}",
+        "other": "{count} products · {unit}"
+      },
+      "name": "Chart name",
+      "units": "Units",
+      "unitCm": "cm",
+      "unitIn": "in",
+      "converted": {
+        "cm": "Converted to centimetres",
+        "in": "Converted to inches"
+      },
+      "shopperView": "Shopper view",
+      "hideShopperView": "Hide shopper view",
+      "usedMany": "This chart is on {count} products. Changes show on all of them.",
+      "sizeHead": "Size",
+      "cell": "{size}, {column}",
+      "sizeCell": "Size {n}",
+      "headCell": "Column {n} name",
+      "removeColumn": "Remove column {name}",
+      "removeRow": "Remove size {size}",
+      "addSize": "+ Size",
+      "addMeasurement": "+ Measurement",
+      "measurement": "Measurement",
+      "addSystems": "+ Other size systems (US / UK / EU)",
+      "systemsAdded": "Added US, UK and EU columns — fill in their sizes",
+      "systemsThere": "Size systems already added",
+      "ranges": "Ranges like 38–40 are fine.",
+      "fitNote": "Fit note & how to measure",
+      "fitPlaceholder": "e.g. Runs small — order one size up. Chest: measure around the fullest part.",
+      "used": {
+        "one": "Used on 1 product. Assign it from a product’s “Size chart” box.",
+        "other": "Used on {count} products. Assign it from a product’s “Size chart” box."
+      },
+      "delete": "Delete",
+      "copy": "Make a copy",
+      "save": "Save chart",
+      "saving": "Saving…",
+      "problems": {
+        "name": "Give the chart a name",
+        "columns": "Name every column, and keep at least one measurement",
+        "duplicate": "Two measurements have the same name",
+        "sizes": "Give every row a size"
+      },
+      "saved": "“{name}” saved",
+      "savedOn": {
+        "one": "“{name}” saved — updated on 1 product",
+        "other": "“{name}” saved — updated on {count} products"
+      },
+      "changeAllTitle": "This changes the chart on {count} products",
+      "changeAllBody": "Every product using it will show the new numbers. Make a copy instead if only some should change.",
+      "changeAll": "Change all {count}",
+      "copyInstead": "Make a copy instead",
+      "how": "How to save",
+      "next": "Continue",
+      "copySuffix": "{name} (copy)",
+      "copied": "Copy made — it isn’t on any products yet",
+      "deleteTitle": "Delete “{name}”?",
+      "deleteBody": {
+        "one": "1 product will lose its size chart. You can pick another chart for it after.",
+        "other": "{count} products will lose their size chart. You can pick another chart for them after."
+      },
+      "deleteNone": "No products use it.",
+      "deleteConfirm": "Delete chart",
+      "deleted": "Size chart deleted",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "Your changes to this chart will be lost.",
+      "discard": "Discard changes",
+      "keep": "Keep editing",
+      "startTitle": "Start a size chart",
+      "startBody": "Numbers are in {unit} — you can switch.",
+      "create": "Create",
+      "created": "Chart created — change any number, then save",
+      "cancel": "Cancel",
+      "templates": {
+        "tops": "Tops & shirts",
+        "topsSub": "S · M · L · XL · XXL · chest, waist, length",
+        "women": "Women’s clothing (US · UK · EU)",
+        "womenSub": "Converts between size systems",
+        "jeans": "Jeans (W × L)",
+        "jeansSub": "Waist and leg length",
+        "shoes": "Footwear (US · UK · EU · JP)",
+        "shoesSub": "Foot length",
+        "kurta": "Kurtas",
+        "kurtaSub": "Chest, length, shoulder",
+        "blank": "Start blank",
+        "blankSub": "Your own sizes and measurements"
+      },
+      "newName": {
+        "tops": "Tops & shirts",
+        "women": "Women’s clothing",
+        "jeans": "Jeans",
+        "shoes": "Footwear",
+        "kurta": "Kurtas",
+        "blank": "New size chart"
+      },
+      "previewTitle": "Size chart · {name}",
+      "previewSwitch": "Shopper can switch {unit} ⇄ {other}",
+      "loading": "Loading your size charts",
+      "loadFailed": {
+        "title": "Your size charts didn’t load",
+        "body": "Check your connection and try again."
+      },
+      "chartFailed": "This chart didn’t load. Try again.",
+      "retry": "Try again",
+      "viewOnly": "You can look at size charts but not change them.",
+      "refused": {
+        "TOO_MANY_SIZE_CHARTS": "You have 200 size charts, the most there can be. Delete one first.",
+        "STALE_REVISION": "Someone else saved this chart first. Open it again to see their changes.",
+        "PLAN_LIMIT": "Size charts aren’t in your plan.",
+        "FEATURE_UNAVAILABLE": "Size charts aren’t switched on in this store.",
+        "INVALID_INPUT": "Something in the chart isn’t valid: up to 60 sizes, 12 measurements, 6 size systems, 20 characters a cell.",
+        "NOT_FOUND": "This chart isn’t here any more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "You can’t change size charts.",
+        "other": "That didn’t save. Try again."
+      },
+      "denied": {
+        "title": "You can’t see size charts",
+        "body": "Ask your admin for access to the catalogue."
+      }
     }
   }
 }
