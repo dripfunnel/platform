@@ -29,7 +29,7 @@ import {
   type MenuItemRow,
   type RuleRow,
 } from '#db/scoped/catalogStructure'
-import { serialise, withScope, type ScopedSql } from '#db/scoped/index'
+import { serialise, uniqueViolation, withScope, type ScopedSql } from '#db/scoped/index'
 import { slugFrom } from './rules'
 import { isUuid } from '#core/ids'
 
@@ -254,9 +254,6 @@ export interface StructureDeps {
   /** Asks, in the same transaction, for the store's automatic collections to be recomputed after commit. */
   recompute: (tx: ScopedSql) => Promise<unknown>
 }
-
-const uniqueViolation = (error: unknown, constraint: string): boolean =>
-  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint
 
 const invalidParent = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && error.message.includes("collection can't sit inside itself")
