@@ -82,6 +82,17 @@ const relay = async () => {
   }
 }
 
+/** An import confirmed and run to the point where its one photo job waits, taken off the outbox to deliver by hand. */
+const importWithPhotoQueued = async (who: Who, handle: string, url: string) => {
+  const { id } = await upload(who, `handle,name,price,image\n${handle},${handle},10,${url}\n`)
+  await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', who, { id })
+  for (let round = 0; round < 6; round++) await relayDue(db.sql, { 'import.catalog': catalogImportDeliverer(db.sql, () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+  const [row] = await db.sql<{ id: string; payload: unknown }[]>`
+    update outbox set delivered_at = now() where kind = 'import.photos' and payload->>'jobId' = ${id} and delivered_at is null returning id, payload`
+  const photo = { id: row?.id ?? '', kind: 'import.photos', idempotencyKey: 'k', payload: row?.payload, partnerId: t.partnerA, storeId: t.storeA1 }
+  return { id, photo }
+}
+
 type Problem = { line: number; column: string | null; code: string; message: string }
 type Job = { id: string; source: string; state: string; products: number; ready: number; matched: number; created: number; updated: number; skipped: number; failed: number; problemCount: number; problems: Problem[]; problemsCsv: string | null }
 const fields = 'id source state products ready matched created updated skipped failed problemCount problems { line column code message } problemsCsv'
@@ -309,6 +320,29 @@ describe('a supplier’s import', () => {
       expect(row?.problems.map((p) => p.code)).toContain('NOT_ALLOWED')
     } finally {
       await db.sql`update seller set status = 'active' where id = ${t.sellerA1First}`
+    }
+  })
+
+  it('reports a photo job that keeps failing on its line, and finishes the import', async () => {
+    const { id, photo } = await importWithPhotoQueued('owner', 'photo-fails', 'https://cdn.example/front.png')
+    const broken = { put: async () => Promise.reject(new Error('R2 is down')), get: async () => null }
+    await importPhotosDeliverer(db.sql, broken, lookup, () => now, fakeFetch).deliver({ ...photo, attempt: defaultRelayOptions.maxAttempts }, AbortSignal.timeout(5000))
+    const job = await read('owner', id)
+    expect(job).toMatchObject({ state: 'done', created: 1 })
+    expect(job?.problems.map((p) => p.code)).toEqual(['PHOTO_UNAVAILABLE'])
+  })
+
+  it('fetches nothing for an importer who can’t import any more, and still finishes the import', async () => {
+    const { id, photo } = await importWithPhotoQueued('owner', 'photo-revoked', 'https://cdn.example/front.png?revoked')
+    await db.sql`update membership set status = 'removed' where user_id = ${people.owner} and store_id = ${t.storeA1}`
+    try {
+      await importPhotosDeliverer(db.sql, r2, lookup, () => now, fakeFetch).deliver({ ...photo, attempt: 1 }, AbortSignal.timeout(5000))
+      expect(fetched.some((u) => u.endsWith('?revoked'))).toBe(false)
+      const [row] = await db.sql<{ state: string; problems: { code: string }[] }[]>`select state, problems from catalog_import where id = ${id}`
+      expect(row?.state).toBe('done')
+      expect(row?.problems.map((p) => p.code)).toEqual(['NOT_ALLOWED'])
+    } finally {
+      await db.sql`update membership set status = 'active' where user_id = ${people.owner} and store_id = ${t.storeA1}`
     }
   })
 

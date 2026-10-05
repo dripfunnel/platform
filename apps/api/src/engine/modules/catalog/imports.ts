@@ -555,6 +555,10 @@ export type PhotoFetch = (url: string) => Promise<{ ok: true; assetId: string } 
 /** One of a made product's photos, fetched and stored as the importer's file at its place; one that fails is reported (K6). */
 export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: z.infer<typeof importPhotoPayload>, fetchPhoto: PhotoFetch): Promise<void> => {
   const { storeId } = d.context
+  // Nothing fetched or stored for an import that ended, or an importer who can't import any more; the photo is reported.
+  const before = await withScope(d.sql, d.context, async (tx) => ({ job: await selectCatalogImport(tx, storeId, jobId), allowed: await mayStillImport(tx, d.context) }))
+  if (before.job?.state !== 'running') return
+  if (!before.allowed) return skipImportPhoto(d, jobId, photo, 'NOT_ALLOWED')
   const result = await fetchPhoto(photo.url)
   await withScope(d.sql, d.context, async (tx) => {
     const job = await lockCatalogImport(tx, storeId, jobId)
@@ -564,6 +568,15 @@ export const attachImportPhoto = async (d: ImportJobDeps, jobId: string, photo: 
     await finishIfDone(tx, storeId, jobId, d.now())
   })
 }
+
+/** A photo that won't be attached (its job gave up, or the importer can't import now): reported on its line, the run going on. */
+export const skipImportPhoto = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now'>, jobId: string, photo: Pick<z.infer<typeof importPhotoPayload>, 'line'>, code: ProblemCode = 'PHOTO_UNAVAILABLE'): Promise<void> =>
+  withScope(d.sql, d.context, async (tx) => {
+    const job = await lockCatalogImport(tx, d.context.storeId, jobId)
+    if (job?.state !== 'running') return
+    await saveImportPhotos(tx, jobId, [{ line: photo.line, column: 'image', code }])
+    await finishIfDone(tx, d.context.storeId, jobId, d.now())
+  })
 
 /** After the last attempt: the job says failed, so the banner stops waiting. */
 export const failCatalogImport = (d: Pick<ImportJobDeps, 'sql' | 'context' | 'now'>, jobId: string): Promise<void> =>
