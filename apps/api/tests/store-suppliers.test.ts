@@ -226,6 +226,30 @@ describe('changing a supplier', () => {
     expect((await invite('owner', { name: 'Gone Co', email: 'back@co.example', accessLevel: 'vendor-stock' })).code).toBeUndefined()
   })
 
+  it('refuses every change from another store’s Owner and from the supplier’s own admin, leaving the row and its products as they were', async () => {
+    const made = await invite('owner', { name: 'Guard Co', email: 'guard@co.example', accessLevel: 'vendor-catalogue' })
+    const id = made.id ?? ''
+    const supplier = { cookie: (await accept('guard@co.example')).cookie, seller: id }
+    const shown = await product(supplier, 'Guard lamp')
+    const rowOf = async () => (await db.sql`select access_level, shipping_mode, label_account, status, suspended_at, removed_at from seller where id = ${id}`)[0]
+    const before = { seller: await rowOf(), product: await visibility(shown) }
+    const changes = [
+      'mutation C($id: ID!) { setSupplierAccess(id: $id, accessLevel: "vendor-orders-fulfil") }',
+      'mutation C($id: ID!) { setSupplierShippingMode(id: $id, shippingMode: "to-shopper", labelAccount: "own") }',
+      'mutation C($id: ID!) { suspendSupplier(id: $id, hideProducts: true) }',
+      'mutation C($id: ID!) { resumeSupplier(id: $id) }',
+      'mutation C($id: ID!) { removeSupplier(id: $id) }',
+    ]
+    for (const change of changes) {
+      expect({ change, code: (await gql(change, 'bOwner', { id })).code }).toEqual({ change, code: 'NOT_FOUND' })
+      // Its own Supplier admin can't raise its tier, nor change anything else the merchant decides (ACCESS §5.2).
+      expect({ change, code: (await gql(change, supplier, { id })).code }).toEqual({ change, code: 'FORBIDDEN' })
+    }
+    expect((await gql('mutation I($input: InviteSupplierInput!) { inviteSupplier(input: $input) }', supplier, { input: { name: 'Sub Co', email: 'sub@co.example', accessLevel: 'vendor-stock' } })).code).toBe('FORBIDDEN')
+    expect((await gql('{ suppliers { nodes { id } } }', supplier)).code).toBe('FORBIDDEN')
+    expect({ seller: await rowOf(), product: await visibility(shown) }).toEqual(before)
+  })
+
   it('refuses an invitation into a suspended supplier', async () => {
     const made = await invite('owner', { name: 'Frozen Co', email: 'frozen@co.example', accessLevel: 'vendor-stock' })
     await gql('mutation S($id: ID!) { suspendSupplier(id: $id, hideProducts: false) }', 'owner', { id: made.id })
