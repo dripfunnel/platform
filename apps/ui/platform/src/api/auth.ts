@@ -1,4 +1,4 @@
-import { identityChanged } from '@dripfunnel/shared/ui'
+import { identityChanged, safeNext as sharedSafeNext } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { partnerRoles } from '../features/shell/partnerRoles'
 
@@ -126,14 +126,5 @@ export const signOut = (): void => {
 // The text key in groups of four, as authenticator apps print it.
 export const groupedKey = (secret: string): string => secret.replace(/(.{4})(?=.)/g, '$1 ')
 
-// The redirect after sign-in is same-origin only (ACCESS §4): a path on this host, never a
-// protocol-relative or absolute address, which the URL parser would send elsewhere.
-export const safeNext = (next: unknown, origin: string, fallback = '/dashboard'): string => {
-  if (typeof next !== 'string' || !next.startsWith('/') || next.startsWith('//')) return fallback
-  try {
-    const url = new URL(next, origin)
-    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : fallback
-  } catch {
-    return fallback
-  }
-}
+// Same-origin only (shared/ui safeNext); the console's landing page when there is nowhere to return to.
+export const safeNext = (next: unknown, origin: string, fallback = '/dashboard'): string => sharedSafeNext(next, origin, fallback)

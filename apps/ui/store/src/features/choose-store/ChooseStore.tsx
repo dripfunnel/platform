@@ -1,4 +1,4 @@
-import { Button, ErrorState, initials, LoadingState } from '@dripfunnel/shared/ui'
+import { Button, ErrorState, initials, LoadingState, safeNext } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/auth.css'
 import '@dripfunnel/shared/ui/shell.css'
 import '@dripfunnel/shared/ui/states.css'
@@ -23,8 +23,7 @@ export const chooserStep = (stores: readonly StoreChoice[]): { kind: 'none' } | 
   return stores.length === 1 ? { kind: 'open', choice: only } : { kind: 'pick' }
 }
 
-/** Only a path on this host, never another origin (ACCESS.md §4). */
-export const safeNext = (next: string | undefined): string => (next && next.startsWith('/') && !next.startsWith('//') ? next : '/home')
+
 
 // FIRST-RELEASE.md §4 "Choose a store": the portal never picks between several; one goes straight in,
 // none is refused rather than shown an empty portal. The last store is a convenience (ACCESS.md §4).
@@ -45,7 +44,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
       try {
         const confirmed = await switchStore(choice.store.id, choice.seller?.id ?? null)
         rememberActing({ storeId: confirmed.store.id, supplierId: confirmed.seller?.id ?? null })
-        await navigate({ to: safeNext(next) })
+        await navigate({ href: safeNext(next, window.location.origin, '/home') })
       } catch {
         setOpening(null)
         setView({ kind: 'error' })
@@ -80,10 +79,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
     void load()
   }, [load])
 
-  const leave = async () => {
-    await signOut()
-    await navigate({ to: '/sign-in' })
-  }
+  const leave = () => signOut()
 
   const last = actingStore()
   return (
@@ -98,7 +94,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
           <section className="df-sign-in-card">
             <h1>{words.none.title}</h1>
             <p>{words.none.body}</p>
-            <Button onClick={() => void leave()}>{words.none.signOut}</Button>
+            <Button onClick={leave}>{words.none.signOut}</Button>
           </section>
         )}
         {view.kind === 'pick' && (
@@ -126,7 +122,7 @@ export const ChooseStore = ({ next, as }: { next: string | undefined; as?: strin
             </ul>
             <p className="df-sign-in-footer">
               {words.notYou}{' '}
-              <button type="button" className="df-sign-in-link" onClick={() => void leave()}>
+              <button type="button" className="df-sign-in-link" onClick={leave}>
                 {words.signOut}
               </button>
             </p>

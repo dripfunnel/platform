@@ -82,3 +82,4 @@ export { adminConsoleUrlFor, productionAdminUrl, type AdminUrlEnv } from './admi
 export { ActivityFact, activityResultLook, type ActivityResult } from './ActivityFact'
 export { PersonFinder, type PersonFinderProps, type PersonFinderWords, type PersonOption } from './PersonFinder'
 export { reserveTab, type ReservedTab } from './reserveTab'
+export { safeNext } from './safeNext'

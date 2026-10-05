@@ -34,20 +34,17 @@ describe('loadMyStores and signOut', () => {
     vi.unstubAllGlobals()
   })
 
-  it('forgets the acting store before it signs out, and resolves only once the server answered', async () => {
+  it('forgets the acting store, then posts a form the browser follows to the server’s answer', async () => {
     const { vi } = await import('vitest')
     const items = new Map<string, string>([['df-store-acting', '{"storeId":"s1","supplierId":null}']])
     vi.stubGlobal('localStorage', { getItem: (k: string) => items.get(k) ?? null, setItem: (k: string, v: string) => void items.set(k, v), removeItem: (k: string) => void items.delete(k) })
-    let answered = false
-    vi.stubGlobal('fetch', async () => {
-      expect(items.has('df-store-acting')).toBe(false)
-      await new Promise((resolve) => setTimeout(resolve, 5))
-      answered = true
-      return new Response(null, { status: 302 })
-    })
+    const form = { method: '', action: '', submit: vi.fn(() => expect(items.has('df-store-acting')).toBe(false)) }
+    vi.stubGlobal('document', { createElement: () => form, body: { append: vi.fn() } })
     const { signOut } = await import('./shell')
-    await signOut()
-    expect(answered).toBe(true)
+    signOut()
+    expect(form).toMatchObject({ method: 'post', action: '/api/auth/sign-out' })
+    expect(form.submit).toHaveBeenCalledOnce()
     vi.unstubAllGlobals()
   })
+
 })

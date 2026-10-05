@@ -1,3 +1,4 @@
+import { identityChanged } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { rememberActing } from '../acting'
 import { merchantRoles, supplierTiers, type Seat } from '../nav'
@@ -87,14 +88,16 @@ export const switchStore = async (storeId: string, supplierId: string | null): P
   (await query(`mutation Switch($storeId: ID!, $supplierId: ID) { switchStore(storeId: $storeId, supplierId: $supplierId) { membershipId store { id name } role tier seller { id name } } }`, switchSchema, { storeId, supplierId })).switchStore
 
 /**
- * Ends the one session on this device, in every store (FIRST-RELEASE §3.2), and forgets the acting
- * store first, so the next person on a shared device starts with none. Resolves once the server answered.
+ * Ends the one session on this device, in every store (FIRST-RELEASE §3.2): the acting store is
+ * forgotten first, then a plain form post the browser follows, so the page that comes next is the
+ * server's answer and never one drawn while the cookie still works (as the partner console does).
  */
-export const signOut = async (): Promise<void> => {
+export const signOut = (): void => {
   rememberActing(null)
-  try {
-    await fetch('/api/auth/sign-out', { method: 'POST', credentials: 'same-origin' })
-  } catch {
-    // Signed out or not, the sign-in page follows; the session ends at its idle bound anyway.
-  }
+  identityChanged()
+  const form = document.createElement('form')
+  form.method = 'post'
+  form.action = '/api/auth/sign-out'
+  document.body.append(form)
+  form.submit()
 }
