@@ -138,6 +138,9 @@ describe('a US store', () => {
     const mug = await product('us', 'USD', '2000')
     expect((await quote('us', [{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'oh' })).quote).toMatchObject({ total: '115', lines: [{ rateBps: 575, tax: '115', components: [{ name: 'Tax', rateBps: 575, amount: '115' }] }] })
     expect((await quote('us', [{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'CA' })).quote?.total).toBe('20')
+    // Bounded before anything could reach Stripe.
+    expect((await quote('us', [{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'O'.repeat(101) })).code).toBe('INVALID_INPUT')
+    expect((await quote('us', [{ versionId: mug.versionId, quantity: 1 }], { country: 'US', region: 'OH', postal: '4'.repeat(21) })).code).toBe('INVALID_INPUT')
   })
 
   it('asks Stripe Tax on the store’s connected account once it has one', async () => {

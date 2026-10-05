@@ -112,13 +112,13 @@ export const registerTax = (builder: StoreBuilder) => {
       type: Quote,
       args: { lines: t.arg({ type: [CartLineInput], required: true }), shipTo: t.arg({ type: ShipToInput, required: true }) },
       extensions: { access: read },
-      resolve: async (_, args, ctx) =>
-        answered(
-          await service(ctx).quote(
-            args.lines.map((l) => ({ versionId: String(l.versionId), quantity: l.quantity })),
-            { country: args.shipTo.country.trim().toUpperCase(), region: args.shipTo.region?.trim() || null, postal: args.shipTo.postal?.trim() || null },
-          ),
-        ),
+      resolve: async (_, args, ctx) => {
+        // Bounded before anything goes to Stripe: a region is a state's name or code, a postal code short.
+        const region = args.shipTo.region?.trim() || null
+        const postal = args.shipTo.postal?.trim() || null
+        if (args.lines.length > 100 || args.shipTo.country.length > 2 || (region?.length ?? 0) > 100 || (postal?.length ?? 0) > 20) throw new GraphQLError(words.INVALID_INPUT, { extensions: { code: 'INVALID_INPUT' } })
+        return answered(await service(ctx).quote(args.lines.map((l) => ({ versionId: String(l.versionId), quantity: l.quantity })), { country: args.shipTo.country.trim().toUpperCase(), region, postal }))
+      },
     }),
   }))
 
