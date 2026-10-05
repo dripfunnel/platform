@@ -267,7 +267,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   removed supplier, an inactive membership and a closed store all count as not held.
 - **A request naming a store the session doesn't hold** is not a 404: it is an attempted
   tenant crossing. Answer 403, and log it with both store ids and the user, because it is a
-  client bug or someone probing.
+  client bug or someone probing. The same person naming the same store again within a minute is refused without a second entry, so a looping client can't flood the log (#288).
 - **Timings**: idle **2 h**, absolute **12 h**. "Remember me" extends the absolute bound
   to **30 days** on that device, idle limit 7 days, with 2-factor still asked on a new device (decided 2026-10-05 on #337). Sessions are never year-long.
 - **The second factor** (decided 2026-10-02; the prototype's `PortalAuth` and `PortalProfile`

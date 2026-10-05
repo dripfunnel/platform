@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { logEvent } from '#core/log'
 import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
+import { crossingLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
 import type { ActivityLog, RequestFacts } from './activity'
 import { readCookie } from './cookie'
 import { hashSessionId } from './session'
@@ -75,11 +75,19 @@ const callerOf = (person: StorePerson, sessionHash: string, row: MembershipRow):
   }
 }
 
+// The entry stays small however many stores the person holds, and a loop of one bad header writes one a minute.
+const heldInLabel = 3
+const crossingRepeatMs = 60_000
+
 // ACCESS.md §4: naming a store the session doesn't hold is an attempted tenant crossing, logged
 // with the store asked for, the stores held and the person.
-const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts) => {
-  const held = await selectHeldStoreIds(tx, person.id, person.partnerId)
+const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts, now: Date) => {
+  const target = asked.slice(0, 64)
+  if (await crossingLoggedSince(tx, person.id, target, new Date(now.getTime() - crossingRepeatMs))) return
+  const held = await selectHeldStoreIds(tx, person.id, person.partnerId, heldInLabel + 1)
+  const listed = held.slice(0, heldInLabel).join(', ') + (held.length > heldInLabel ? ' and more' : '')
   await activity.record(tx, {
+    occurredAt: now,
     category: 'security',
     action: 'store.crossing_refused',
     result: 'denied',
@@ -88,7 +96,7 @@ const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string,
     actorLabel: null,
     partnerId: person.partnerId,
     // The header is request input: kept short, and only ever compared, never trusted.
-    target: { type: 'store', id: asked.slice(0, 64), label: held.length ? `holds ${held.join(', ')}` : 'holds no store' },
+    target: { type: 'store', id: target, label: held.length ? `holds ${listed}` : 'holds no store' },
     reason: 'store_not_held',
     api: 'store',
     visibility: 'staff',
@@ -120,7 +128,7 @@ export const resolveStoreStanding = async (
     if (!asked) return { kind: 'no-store', person }
     const memberships = uuid.test(asked) ? await selectMemberships(tx, person.id, partnerId, asked) : []
     if (memberships.length === 0) {
-      await recordCrossing(tx, person, asked, activity, facts)
+      await recordCrossing(tx, person, asked, activity, facts, now)
       return { kind: 'crossing', person }
     }
     // A merchant-side member is never also a supplier there (membership_check_parents), so X-Supplier
