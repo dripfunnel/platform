@@ -163,7 +163,7 @@ export const TwoStep = ({ profile, onChanged, onToast, initialSetup = null }: Tw
                 </div>
               )}
               <div className="df-profile-narrow">
-                <Field label={words.code} variant="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" value={code} onValue={(v) => (setCode(v.replace(/\D/g, '').slice(0, 6)), setError(null))} />
+                <Field label={words.code} variant="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder={words.codePlaceholder} value={code} onValue={(v) => (setCode(v.replace(/\D/g, '').slice(0, 6)), setError(null))} />
               </div>
               <Alert text={error} />
               <div className="df-profile-actions">
