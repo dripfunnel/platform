@@ -42,7 +42,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   LISTING_REFUSED: 'A related product, badge or size chart isn’t one this product can use.',
 }
 
-const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info']
+const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info', 'low_stock']
 const maxBulk = 100
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -71,6 +71,7 @@ interface SummaryView {
   minPrice: Money | null
   maxPrice: Money | null
   photoUrl: string | null
+  stock: number
   createdAt: string
   updatedAt: string
 }
@@ -93,6 +94,7 @@ const summaryOf = (r: ProductListRow, currency: string | null): SummaryView => (
   minPrice: currency && r.min_amount !== null ? { amount: r.min_amount, currency } : null,
   maxPrice: currency && r.max_amount !== null ? { amount: r.max_amount, currency } : null,
   photoUrl: r.photo_asset_id ? assetUrl(r.photo_asset_id) : null,
+  stock: r.stock,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at.toISOString(),
 })
@@ -123,6 +125,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       minPrice: t.field({ type: MoneyType, nullable: true, resolve: (p) => p.minPrice }),
       maxPrice: t.field({ type: MoneyType, nullable: true, resolve: (p) => p.maxPrice }),
       photoUrl: t.exposeString('photoUrl', { nullable: true }),
+      // On hand in the caller's locations: a supplier never sees another owner's count (ACCESS §7.4).
+      stock: t.exposeInt('stock'),
       createdAt: t.exposeString('createdAt'),
       updatedAt: t.exposeString('updatedAt'),
     }),
@@ -130,7 +134,7 @@ export const registerProducts = (builder: StoreBuilder) => {
   const SummaryPage = builder.objectRef<{ nodes: SummaryView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('ProductPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Summary], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
-  const Counts = builder.objectRef<{ all: number; visible: number; hidden: number; pending: number; sentBack: number; missingInfo: number }>('ProductCounts').implement({
+  const Counts = builder.objectRef<{ all: number; visible: number; hidden: number; pending: number; sentBack: number; missingInfo: number; lowStock: number }>('ProductCounts').implement({
     fields: (t) => ({
       all: t.exposeInt('all'),
       visible: t.exposeInt('visible'),
@@ -138,6 +142,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       pending: t.exposeInt('pending'),
       sentBack: t.exposeInt('sentBack'),
       missingInfo: t.exposeInt('missingInfo'),
+      lowStock: t.exposeInt('lowStock'),
     }),
   })
 

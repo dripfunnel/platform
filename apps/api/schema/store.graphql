@@ -228,6 +228,7 @@ input MoneyInput {
 }
 
 type Mutation {
+  adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
@@ -238,6 +239,7 @@ type Mutation {
   deleteProducts(ids: [ID!]!): Int
   deleteSizeChart(id: ID!): Int
   deleteStoryBlock(id: ID!): Boolean
+  deleteWarehouse(id: ID!): Boolean
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
   mergeFacetValues(from: [ID!]!, into: ID!): Int
@@ -255,7 +257,11 @@ type Mutation {
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
   saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
   saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
+  saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  setDefaultWarehouse(id: ID!): Boolean
+  setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   signOutOtherSessions: Int
   switchStore(storeId: ID!, supplierId: ID): StoreChoice
   updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
@@ -337,6 +343,7 @@ input ProductComplianceInput {
 type ProductCounts {
   all: Int
   hidden: Int
+  lowStock: Int
   missingInfo: Int
   pending: Int
   sentBack: Int
@@ -499,6 +506,7 @@ type ProductSummary {
   photoUrl: String
   productType: String
   slug: String
+  stock: Int
   supplier: ProductSupplier
   supplierRemoved: Boolean
   updatedAt: String
@@ -596,14 +604,17 @@ type Query {
   peopleCounts: StorePeopleCounts
   product(id: ID!): Product
   productCounts: ProductCounts
+  productStock(productId: ID!): [StockLevel!]
   productStory(productId: ID!): ProductStory
   products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
+  stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  warehouses(after: String, before: String, first: Int): WarehousePage
 }
 
 type SavedCollection {
@@ -702,6 +713,46 @@ type SizeChartSummary {
   supplierId: ID
   unit: String
   updatedAt: String
+}
+
+type StockLevel {
+  isDefault: Boolean
+  lowStockThreshold: Int
+  onHand: Int
+  reserved: Int
+  versionId: ID
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovement {
+  actorKind: String
+  actorName: String
+  delta: Int
+  id: ID
+  occurredAt: String
+  reason: String
+  resultingQuantity: Int
+  versionId: ID
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovementPage {
+  nodes: [StockMovement!]
+  pageInfo: PageInfo
+}
+
+type StockQuantity {
+  quantity: Int
+  versionId: ID
+  warehouseId: ID
+}
+
+input StockQuantityInput {
+  quantity: Int!
+  versionId: ID!
+  warehouseId: ID!
 }
 
 type StoreChoice {
@@ -860,4 +911,42 @@ input VersionPriceInput {
   amount: String!
   compareAtAmount: String
   currency: String!
+}
+
+type Warehouse {
+  address: WarehouseAddress
+  id: ID
+  isDefault: Boolean
+  name: String
+  revision: Int
+  supplierId: ID
+  units: Int
+}
+
+type WarehouseAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseAddressInput {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseInput {
+  address: WarehouseAddressInput
+  name: String!
+}
+
+type WarehousePage {
+  nodes: [Warehouse!]
+  pageInfo: PageInfo
 }

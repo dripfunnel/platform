@@ -22,7 +22,7 @@ afterAll(async () => {
 })
 
 const storeCaller = (partnerId: string, storeId: string, sellerScope: SellerScope = { kind: 'all' }): CallerContext => ({
-  caller: { kind: 'person', userId: 'u', sessionId: 's' },
+  caller: { kind: 'person', userId: '00000000-0000-4000-8000-0000000000aa', sessionId: 's' },
   partnerId,
   storeId,
   sellerScope,
@@ -343,7 +343,7 @@ describe('the backstop itself', () => {
       'asset', 'product_photo', 'product_video',
       'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
       'store_feature', 'badge', 'size_chart', 'product_spec', 'product_highlight', 'product_faq', 'product_related', 'product_badge', 'product_flag', 'product_compliance', 'product_market_rule',
-      'product_story', 'story_block',
+      'product_story', 'story_block', 'warehouse', 'stock_level', 'stock_movement',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -518,6 +518,27 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json(compare(second))} where product_id = ${first}`)).rejects.toThrow(/compares a product it can't/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update product_story set draft = ${tx.json([{ id: 'b', kind: 'brand', blockId: block?.id ?? null }])} where product_id = ${first}`)).rejects.toThrow(/brand story it can't/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into story_block (store_id, name, content) values (${t.storeA1}, 'Supplier brand', '{}')`)).rejects.toThrow(/row-level security/)
+    // Stock: quantities move only through stock_change(), which writes the movement itself, so no caller
+    // sets a count, a reservation or a history row directly (migration 0046).
+    const [version] = await db.sql<{ id: string }[]>`select id from product_version where product_id = ${own} limit 1`
+    const [location] = await db.sql<{ id: string }[]>`select id from warehouse where store_id = ${t.storeA1} and seller_id is null and is_default`
+    await inStore(t.storeA1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 2, null, 'received')`)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set on_hand = 99 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set reserved = 1 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into stock_movement (store_id, version_id, warehouse_id, delta, resulting_quantity, reason, actor_kind) values (${t.storeA1}, ${version?.id ?? ''}, ${location?.id ?? ''}, 5, 5, 'received', 'system')`)).rejects.toThrow(/permission denied/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'order')`)).rejects.toThrow(/known reason/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
+    expect(await seen(t.storeA1, supplier, 'stock_movement')).toBe(0)
+    expect(await seen(t.storeA1, supplier, 'stock_level')).toBe(0)
+    expect(await seen(t.storeB1, { kind: 'all' }, 'stock_movement')).toBe(0)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, ${t.sellerA1First}, 'For them')`)).rejects.toThrow(/theirs to change/)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into warehouse (store_id, seller_id, name) values (${t.storeA1}, null, 'As merchant')`)).rejects.toThrow(/adds its own locations/)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/permission denied/)
+    for (const table of ['warehouse', 'stock_level', 'stock_movement']) {
+      await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
+      await expect(withScope(db.sql, staff, (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
+    }
     for (const table of ['product_story', 'story_block']) {
       await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)
       await expect(withScope(db.sql, staff, (tx) => tx.unsafe(`select count(*) from ${table}`))).rejects.toThrow(/permission denied/)

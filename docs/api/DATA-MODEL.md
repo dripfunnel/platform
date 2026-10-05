@@ -1137,6 +1137,17 @@ stock_movement      (id, store_id, seller_id NULL, version_id, warehouse_id, del
                     -- ships (release: decide)
 ```
 
+**Built** (migration 0046, #294): quantities change only through `stock_change()`, an `app_definer` function
+that checks the caller's scope (the merchant side counts its own locations, a supplier its own, of its own
+versions), refuses stock below zero, and writes the movement with the actor from the session, so
+`app_request` has no write on `on_hand`, `reserved` or `stock_movement` and history can't be forged. A
+location's first count of a version is `starting`. Every store gets the merchant's default location ("Main
+location") when it is created; an owner's first location is its default, a default or a location holding
+stock isn't deleted, and an owner holds up to 20. The merchant side reads a supplier's locations and never
+changes them. A version is low on stock when it is tracked and what it can still sell across the caller's
+locations is at most its threshold (the lowest a location sets, else 5). `reserved` is written by orders in
+system scope (SAPI 9, SAPI 11).
+
 ### 7.5 Customers
 
 Store-scoped customer accounts (§2: the Admin API's Customers menu reads them through a
