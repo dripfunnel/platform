@@ -434,7 +434,8 @@
       "invalid": "Type the email address you sign in with.",
       "sentTitle": "Check your email",
       "sentSub": "If {email} has an account, a link to reset the password is on its way. It works for 30 minutes.",
-      "again": "Send it again"
+      "again": "Send it again",
+      "resent": "We sent another link. It works for 30 minutes."
     },
     "reset": {
       "title": "Choose a new password",
@@ -474,7 +475,9 @@
       "terms": {
         "before": "By accepting you agree to the ",
         "after": "."
-      }
+      },
+      "retryTitle": "We couldn’t open this invitation",
+      "retry": "Try again"
     },
     "inviteBad": {
       "expired": {

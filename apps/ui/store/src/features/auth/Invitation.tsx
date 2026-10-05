@@ -1,18 +1,18 @@
 import { LoadingState, useScreenState } from '@dripfunnel/shared/ui'
 import { useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { acceptInvitation, isRefusal, joinOutcome, joinStoreOnce, lookUpInvitation, type AuthRefusal, type Invitation as InvitationFacts } from '../../api/auth'
+import { acceptInvitation, isPassing, isRefusal, joinOutcome, joinStoreOnce, lookUpInvitation, type AuthRefusal, type Invitation as InvitationFacts } from '../../api/auth'
 import { harnessEnabled } from '../../harness'
 import { fill, messages } from '../../messages'
 import { invitationStates, sampleInvitation } from './authStates'
 import { AuthFrame } from './AuthFrame'
-import { Field, Foot, NewPasswordField, Primary, productName, Terms } from './fields'
+import { Field, Foot, NewPasswordField, Primary, productName, Secondary, Terms } from './fields'
 import { badInvitationKey, refusalText, roleWords } from './refusals'
 
 const words = messages.auth
 const iv = words.invite
 
-type View = { kind: 'loading' } | { kind: 'bad'; refusal: AuthRefusal } | { kind: 'open'; facts: InvitationFacts } | { kind: 'joining'; facts: InvitationFacts }
+type View = { kind: 'loading' } | { kind: 'retry'; text: string } | { kind: 'bad'; refusal: AuthRefusal } | { kind: 'open'; facts: InvitationFacts } | { kind: 'joining'; facts: InvitationFacts }
 
 
 const BadInvitation = ({ refusal }: { refusal: AuthRefusal }) => {
@@ -37,12 +37,22 @@ export const Invitation = ({ token, path }: { token: string | undefined; path: '
 
   const forced = useScreenState(invitationStates, harnessEnabled)
 
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
-    const shown = (answer: Awaited<ReturnType<typeof lookUpInvitation>>) => setView(isRefusal(answer) ? { kind: 'bad', refusal: answer } : { kind: 'open', facts: answer.invitation })
+    // A failed request isn't a dead link: it offers to try again; only INVITATION_* codes are the link's.
+    const shown = (answer: Awaited<ReturnType<typeof lookUpInvitation>>) =>
+      setView(!isRefusal(answer) ? { kind: 'open', facts: answer.invitation } : isPassing(answer) ? { kind: 'retry', text: refusalText(answer) } : { kind: 'bad', refusal: answer })
     if (forced) return shown(sampleInvitation(forced))
     if (!token) return setView({ kind: 'bad', refusal: { ok: false, code: 'INVITATION_INVALID' } })
-    void lookUpInvitation(token).then(shown)
-  }, [token, forced])
+    let current = true
+    setView({ kind: 'loading' })
+    void lookUpInvitation(token).then((answer) => {
+      if (current) shown(answer)
+    })
+    return () => {
+      current = false
+    }
+  }, [token, forced, attempt])
 
   // An existing account joins once its own session is here: straight away, or after signing in.
   const join = useCallback(
@@ -74,6 +84,12 @@ export const Invitation = ({ token, path }: { token: string | undefined; path: '
 
   if (view.kind === 'loading') return <AuthFrame panel="in" title={iv.loading}><LoadingState label={iv.loading} /></AuthFrame>
   if (view.kind === 'bad') return <BadInvitation refusal={view.refusal} />
+  if (view.kind === 'retry')
+    return (
+      <AuthFrame panel="in" title={iv.retryTitle} sub={view.text} icon={{ name: 'alert', tone: 'warning' }}>
+        <Secondary onClick={() => setAttempt((n) => n + 1)}>{iv.retry}</Secondary>
+      </AuthFrame>
+    )
   const facts = view.facts
   const { role, can } = roleWords(facts)
   if (view.kind === 'joining') return <AuthFrame panel="in" title={fill(iv.joining, { store: facts.store })}><LoadingState label={fill(iv.joining, { store: facts.store })} /></AuthFrame>
