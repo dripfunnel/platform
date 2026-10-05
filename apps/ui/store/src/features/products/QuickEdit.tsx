@@ -58,8 +58,8 @@ export const QuickEdit = ({ productId, side, canPrice, canStock, onDone, onCance
 
   const save = async () => {
     if (changes === 0) return onCancel()
-    // Prices are checked only where they can be changed: counts alone never wait on a price.
-    if (canPrice && live.some((v) => { const p = minorOf(v.price, currency); return p === null || p === 'invalid' || p <= 0 })) return setProblem(words.priceMissing)
+    // Only a price typed here is checked: counts alone never wait on a price.
+    if (canPrice && draft.versions.some((v, i) => { if (v.removed || !priceChanged(i)) return false; const p = minorOf(v.price, currency); return p === null || p === 'invalid' || p <= 0 })) return setProblem(words.priceMissing)
     if (home && live.some((v) => quantityOf(stockText(versionKey(v.choices))) === 'invalid')) return setProblem(words.stockInvalid)
     setBusy(true)
     setProblem(null)
