@@ -77,7 +77,7 @@ export const acceptStoreInvitation = async (request: Request, deps: StoreAuthDep
     // The existing account's path is /join: a password here would change an account without its owner.
     if (found.user_status !== 'invited' || !found.user_id) return { code: 'INVITATION_INVALID' }
     const userId = found.user_id
-    await acceptAsNewPerson(tx, found, userId, name, passwordHash, now)
+    if (!(await acceptAsNewPerson(tx, found, userId, name, passwordHash, now))) return { code: 'INVITATION_INVALID' }
     await deps.activity.record(tx, personJoinedStore({ id: userId, partnerId: deps.partnerId }, facts, { id: found.store_id, name: found.store_name }, found.seller_id, found.role_key))
     const candidate = await selectSignInCandidate(tx, deps.partnerId, found.email)
     if (!candidate) return { code: 'INVITATION_INVALID' }
@@ -98,7 +98,7 @@ export const joinStore = async (request: Request, deps: StoreAuthDeps, facts: Re
     if (isRefusal(found)) return found
     // Someone else's link reads as any other bad link: it never says whose it is.
     if (found.user_id !== session.userId || found.user_status !== 'active') return { code: 'INVITATION_INVALID' }
-    await acceptAsExistingPerson(tx, found, session.userId, now)
+    if (!(await acceptAsExistingPerson(tx, found, session.userId, now))) return { code: 'INVITATION_INVALID' }
     await deps.activity.record(tx, personJoinedStore({ id: session.userId, partnerId: deps.partnerId }, facts, { id: found.store_id, name: found.store_name }, found.seller_id, found.role_key))
     const state = await selectUserSecondFactor(tx, session.userId)
     const enrol = !!state && state.is_owner && state.two_factor_method === null

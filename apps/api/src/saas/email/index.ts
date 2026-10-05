@@ -1,4 +1,4 @@
-export { NoPortalHost, prepareEmail } from './compose'
+export { prepareEmail } from './compose'
 export type { EmailHosts, Prepared, Template, Voice } from './compose'
 export { en } from './messages'
 export { renderEmail } from './render'

@@ -166,13 +166,13 @@ describe('email delivery', () => {
     const newId = await invite('fresh.person@shop.example', false)
     const outboxRow = async () => (await db.sql<{ attempts: number; delivered_at: Date | null; failed_at: Date | null }[]>`select attempts, delivered_at, failed_at from outbox where payload->>'invitationId' = ${newId}`)[0]
     const ses = fakeSes()
-    await relay(ses.api)
-    // No live portal host yet: retried, never dropped.
-    expect(await outboxRow()).toMatchObject({ attempts: 1, delivered_at: null, failed_at: null })
+    // No live portal host yet: it waits, however many sweeps pass, and is never given up.
+    for (let i = 0; i < 10; i += 1) await relay(ses.api, new Date(Date.now() + i * 2 * 3_600_000))
+    expect(await outboxRow()).toMatchObject({ attempts: 0, delivered_at: null, failed_at: null })
     expect(ses.sent.filter((m) => m.to.includes('fresh.person@shop.example'))).toEqual([])
     if (live.length) await db.sql`update partner_domain set status = 'live' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
     else await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${store.partnerId}, 'portal', ${portal}, 'live', 'CNAME', 'x')`
-    await relay(ses.api, new Date(Date.now() + 60_000))
+    await relay(ses.api, new Date(Date.now() + 21 * 3_600_000))
     expect((await outboxRow())?.delivered_at).not.toBeNull()
     const fresh = ses.sent.find((m) => m.to.includes('fresh.person@shop.example'))
     expect(fresh?.to).toEqual(['fresh.person@shop.example'])
@@ -183,7 +183,7 @@ describe('email delivery', () => {
     const [stored] = await db.sql<{ token_hash: string }[]>`select token_hash from invitation where id = ${newId}`
     expect(stored?.token_hash).toBe(await hashSessionId(tokenIn(fresh)))
     await invite('known.person@shop.example', true)
-    await relay(ses.api, new Date(Date.now() + 120_000))
+    await relay(ses.api, new Date(Date.now() + 22 * 3_600_000))
     expect(ses.sent.find((m) => m.to.includes('known.person@shop.example'))?.text).toContain(`https://${portal}/join?token=`)
   })
 

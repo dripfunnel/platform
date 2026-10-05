@@ -123,6 +123,17 @@ describe('sign-in', () => {
     expect(row?.hours).toBe(30 * 24)
   })
 
+  it('pauses sign-in after five wrong passwords, saying so only to the right one, and emails the person', async () => {
+    const id = await user(t.partnerA, 'typo@a.example', 'Typo Person')
+    await db.sql`insert into membership (user_id, store_id, role_key, status) values (${id}, ${t.storeA1}, 'staff', 'active')`
+    const answers = []
+    for (let i = 0; i < 6; i += 1) answers.push((await post('/api/auth/sign-in', { email: 'typo@a.example', password: 'wrong password!' })).body)
+    expect(answers.every((a) => a['code'] === 'INVALID_CREDENTIALS')).toBe(true)
+    expect((await post('/api/auth/sign-in', { email: 'typo@a.example', password })).body).toEqual({ ok: false, code: 'LOCKED', minutes: 15 })
+    const [mail] = await db.sql<{ payload: { template: string; to: string; minutes: number } }[]>`select payload from outbox where kind = 'email' and payload->>'userId' = ${id}`
+    expect(mail?.payload).toMatchObject({ template: 'user-locked', to: 'typo@a.example', minutes: 15 })
+  })
+
   it('refuses a request from another origin, and every attempt past the limit', async () => {
     const response = await handleStoreAuth(new Request(`https://${host}/api/auth/sign-in`, { method: 'POST', headers: { origin: 'https://evil.example' }, body: '{}' }), deps())
     expect(response.status).toBe(403)
@@ -286,6 +297,8 @@ describe('the shell', () => {
     const ok = await gql(`mutation { switchStore(storeId: "${t.storeA2}") { store { id } role } }`, staff)
     expect(ok.data?.['switchStore']).toEqual({ store: { id: t.storeA2 }, role: 'manager' })
     expect((await gql(`mutation { switchStore(storeId: "${t.storeB1}") { store { id } } }`, staff)).code).toBe('FORBIDDEN')
+    const [crossing] = await db.sql<{ target_id: string }[]>`select target_id from activity_log where action = 'store.crossing_refused' and actor_id = ${people.staff}`
+    expect(crossing?.target_id).toBe(t.storeB1)
     const [logged] = await db.sql<{ n: number }[]>`select count(*)::int as n from activity_log where action = 'person.switched_store' and actor_id = ${people.staff}`
     expect(logged?.n).toBe(1)
   })

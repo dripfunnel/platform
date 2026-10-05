@@ -1,7 +1,8 @@
 import type postgres from 'postgres'
 import type { OutboxRow } from '#db/schema/outbox'
 import { withSystemScope } from '#db/scoped/index'
-import { claimDue, markAttemptFailed, markDelivered, redactOutboxPayload } from '#db/scoped/outbox'
+import { claimDue, markAttemptFailed, markDelivered, markPostponed, redactOutboxPayload } from '#db/scoped/outbox'
+import { NotYet } from '#saas/outbox/index'
 
 export interface Effect {
   id: string
@@ -93,6 +94,10 @@ const settle = async (sql: postgres.Sql, row: OutboxRow, deliverer: Deliverer, o
   try {
     await withTimeout((signal) => deliverer.deliver(effectOf(row), signal), opts.timeoutMs)
   } catch (error) {
+    if (error instanceof NotYet) {
+      await withSystemScope(sql, (tx) => markPostponed(tx, row.id, { error: error.code, nextAttemptAt: new Date(now.getTime() + error.retryAfterMs) }))
+      return 'retry'
+    }
     const dropped = error instanceof GiveUp
     const dead = dropped || row.attempts >= opts.maxAttempts
     const delay = backoffMs(row.attempts, opts.baseDelayMs, opts.maxDelayMs)

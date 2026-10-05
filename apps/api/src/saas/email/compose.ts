@@ -9,7 +9,9 @@ import { selectCataloguePlan } from '#db/scoped/partnerPlans'
 import { selectActivePartnerEmails, selectInvitedPartnerRole, selectLivePortalHost, selectPartner, selectPartnerDomainById, selectPartnerHosts, selectRecordPartner } from '#db/scoped/partners'
 import { selectActiveStoreOwnerEmails, selectStore } from '#db/scoped/stores'
 import { selectStoreInvitationForEmail, selectUserResetPartner } from '#db/scoped/userInvitations'
+import { selectUserPartner } from '#db/scoped/userSignIn'
 import { senderLabel } from '#saas/domains/index'
+import { NotYet } from '#saas/outbox/index'
 import { en } from './messages'
 import type { Brand, EmailContent } from './render'
 
@@ -28,11 +30,10 @@ export type Prepared =
   /** Nothing to send: the link is no longer open, or nobody is left to tell. A code, never a name. */
   | { send: false; reason: 'link_closed' | 'no_recipient' | 'tenant_mismatch' }
 
-/** A merchant's link needs the partner's portal host; until it is live the email is retried, never dropped. */
-export class NoPortalHost extends Error {
+/** A merchant's link needs the partner's portal host: until one is live the email waits, checked hourly, never given up. */
+export class NoPortalHost extends NotYet {
   constructor() {
-    super('email: the partner has no live portal host yet')
-    this.name = 'NoPortalHost'
+    super('no_portal_host', 60 * 60 * 1000)
   }
 }
 
@@ -49,6 +50,7 @@ const payloads = {
   'store-owner-invitation': z.object({ invitationId: id, to: email, storeId: id }),
   'user-password-reset': z.object({ userPasswordResetId: id, to: email }),
   'partner-user-locked': z.object({ partnerUserId: id, to: email, minutes: z.number().int().positive() }),
+  'user-locked': z.object({ userId: id, to: email, minutes: z.number().int().positive() }),
   'partner-domain-live': z.object({ partnerId: id, domainId: id, kind: z.enum(['portal', 'preview', 'shops', 'email']) }),
   'partner-card-declined': z.object({ invoiceId: z.string().max(255) }),
   'partner-payout-account-failed': z.object({}),
@@ -215,6 +217,16 @@ export const prepareEmail = async (tx: ScopedSql, row: { payload: unknown; partn
       if ((await selectRecordPartner(tx, 'user', p.partnerUserId)) !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
       const w = en.partnerUserLocked
       return fromDripfunnel([p.to], { subject: w.subject, heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] }, true)
+    }
+    case 'user-locked': {
+      const p = parse(t)
+      const partnerId = await selectUserPartner(tx, p.userId)
+      if (!partnerId) return { send: false, reason: 'no_recipient' }
+      if (partnerId !== row.partnerId) return { send: false, reason: 'tenant_mismatch' }
+      const look = await partnerBrand(tx, partnerId)
+      if (!look) return { send: false, reason: 'no_recipient' }
+      const w = en.userLocked
+      return { send: true, accountSecurity: true, to: [p.to], voice: look.voice, brand: look.brand, content: { subject: w.subject(look.brand.name), heading: w.heading, paragraphs: [w.body(p.minutes), w.notYou] } }
     }
     case 'partner-domain-live': {
       const p = parse(t)

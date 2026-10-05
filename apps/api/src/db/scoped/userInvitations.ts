@@ -62,33 +62,38 @@ export const selectStoreInvitationForEmail = async (
     `
   )[0] ?? null
 
-/** ACCESS.md §6.2: the membership the invitation names becomes active, made if the inviter's step didn't. */
-const activateMembership = async (tx: ScopedSql, i: StoreInvitationByToken, userId: string): Promise<void> => {
-  const updated = await tx`
-    update membership set status = 'active', role_key = ${i.role_key}
-    where user_id = ${userId} and store_id = ${i.store_id} and seller_id is not distinct from ${i.seller_id}
+/**
+ * ACCESS.md §6.2: only an `invited` membership becomes active, made if the inviter's step didn't. False when
+ * the person already has a live or suspended one there: a link never restores a suspension or changes a role.
+ */
+const activateMembership = async (tx: ScopedSql, i: StoreInvitationByToken, userId: string): Promise<boolean> => {
+  const [existing] = await tx<{ status: string }[]>`
+    select status from membership where user_id = ${userId} and store_id = ${i.store_id} and seller_id is not distinct from ${i.seller_id} for update
   `
-  if (updated.count === 0) {
-    await tx`insert into membership (user_id, store_id, seller_id, role_key, status) values (${userId}, ${i.store_id}, ${i.seller_id}, ${i.role_key}, 'active')`
-  }
+  if (existing && existing.status !== 'invited') return false
+  if (existing) await tx`update membership set status = 'active', role_key = ${i.role_key} where user_id = ${userId} and store_id = ${i.store_id} and seller_id is not distinct from ${i.seller_id}`
+  else await tx`insert into membership (user_id, store_id, seller_id, role_key, status) values (${userId}, ${i.store_id}, ${i.seller_id}, ${i.role_key}, 'active')`
+  return true
 }
 
-/** A new person: their name and password, the address proven by the token, and the membership. */
-export const acceptAsNewPerson = async (tx: ScopedSql, i: StoreInvitationByToken, userId: string, name: string, passwordHash: string, now: Date): Promise<void> => {
+/** A new person: their name and password, the address proven by the token, and the membership; false as activateMembership. */
+export const acceptAsNewPerson = async (tx: ScopedSql, i: StoreInvitationByToken, userId: string, name: string, passwordHash: string, now: Date): Promise<boolean> => {
+  if (!(await activateMembership(tx, i, userId))) return false
   await tx`
     update "user" set name = ${name}, password_hash = ${passwordHash}, status = 'active', email_verified_at = ${now},
       two_factor_method = null, two_factor_secret_enc = null, two_factor_enrolled_at = null, last_code_step = null, failed_code_count = 0, locked_until = null
     where id = ${userId} and status = 'invited'
   `
-  await activateMembership(tx, i, userId)
   await tx`update invitation set accepted_at = ${now} where id = ${i.id}`
+  return true
 }
 
-/** An existing account joins without any change to it (ACCESS.md §6.2, the JOIN path). */
-export const acceptAsExistingPerson = async (tx: ScopedSql, i: StoreInvitationByToken, userId: string, now: Date): Promise<void> => {
+/** An existing account joins without any change to it (ACCESS.md §6.2, the JOIN path); false as activateMembership. */
+export const acceptAsExistingPerson = async (tx: ScopedSql, i: StoreInvitationByToken, userId: string, now: Date): Promise<boolean> => {
+  if (!(await activateMembership(tx, i, userId))) return false
   await tx`update "user" set email_verified_at = coalesce(email_verified_at, ${now}) where id = ${userId}`
-  await activateMembership(tx, i, userId)
   await tx`update invitation set accepted_at = ${now} where id = ${i.id}`
+  return true
 }
 
 /** At most one reset per request: the active person with this email under the host's partner, if any. */
@@ -126,8 +131,8 @@ export const selectUserResetByToken = async (tx: ScopedSql, partnerId: string, t
  * The new password: every reset of that person is spent, every session of theirs on every host ends
  * (ACCESS.md §4), and a sign-in pause lifts, as the locked screen promises.
  */
-export const resetUserPassword = async (tx: ScopedSql, userId: string, passwordHash: string, now: Date): Promise<number> => {
+export const resetUserPassword = async (tx: ScopedSql, userId: string, passwordHash: string, now: Date): Promise<void> => {
   await tx`update "user" set password_hash = ${passwordHash}, failed_code_count = 0, locked_until = null where id = ${userId}`
   await tx`update user_password_reset set used_at = ${now} where user_id = ${userId} and used_at is null`
-  return (await tx`delete from user_session where user_id = ${userId}`).count
+  await tx`delete from user_session where user_id = ${userId}`
 }
