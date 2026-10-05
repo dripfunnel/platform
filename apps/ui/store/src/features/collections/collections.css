@@ -1,0 +1,709 @@
+/* The Collections area (designs/CatCollections.dc.html): tabs, the list with nesting, and the editor beside its preview. */
+.df-colls-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.df-colls-tabs {
+  /* Edge to edge under the shell's own padding, as CatCollections draws the tab bar. */
+  --df-colls-bleed-top: var(--df-space-5);
+  --df-colls-bleed-side: var(--df-space-7);
+
+  margin: calc(-1 * var(--df-colls-bleed-top)) calc(-1 * var(--df-colls-bleed-side)) 22px;
+  padding: 0 var(--df-colls-bleed-side);
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-surface);
+}
+
+.df-colls-tabs .df-tabs ul {
+  display: flex;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+}
+
+.df-colls-tabs a.df-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 2px;
+  border-bottom: 3px solid transparent;
+  color: var(--df-color-muted);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.df-colls-tabs a.df-tab[aria-current='page'] {
+  border-bottom-color: var(--df-color-brand);
+  color: var(--df-color-heading);
+  font-weight: 700;
+}
+
+.df-colls-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-colls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-colls-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-4);
+}
+
+.df-colls-head .df-page-title {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.df-colls-head .df-page-lede {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-colls-seasonal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+  padding: 10px 14px;
+  border: 1px dashed var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-colls-seasonal > span {
+  color: var(--df-color-warning);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-colls-seasonal button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-colls-note,
+.df-coll-hint {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-colls-note {
+  font-size: 13px;
+}
+
+.df-colls-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  text-align: center;
+}
+
+.df-colls-empty h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.df-colls-empty p {
+  max-width: 50ch;
+  margin: 0 0 6px;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-colls-list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-colls-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-colls-list li:last-child .df-colls-row {
+  border-bottom: 0;
+}
+
+.df-colls-row:hover {
+  background: var(--df-color-hover);
+  text-decoration: none;
+}
+
+.df-colls-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.df-colls-name > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-colls-name strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-colls-name > span:last-child > span {
+  overflow: hidden;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-colls-thumb,
+.df-coll-tiles li > span {
+  flex: none;
+  background: repeating-linear-gradient(45deg, var(--df-color-page) 0 6px, var(--df-color-border) 6px 12px);
+}
+
+.df-colls-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--df-radius-small);
+}
+
+.df-colls-type,
+.df-colls-count,
+.df-colls-vis {
+  font-size: 13px;
+}
+
+.df-colls-type {
+  color: var(--df-color-text);
+}
+
+.df-colls-count {
+  color: var(--df-color-text);
+}
+
+.df-colls-count--updating {
+  color: var(--df-color-info);
+}
+
+.df-colls-vis {
+  color: var(--df-color-muted);
+}
+
+.df-colls-vis--on {
+  color: var(--df-color-success);
+}
+
+/* The editor */
+
+.df-coll-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.df-coll-edit-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-coll-edit-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-coll-edit-head h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-coll-failure {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
+.df-coll-card,
+.df-coll-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-coll-card h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.df-coll-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-coll-field label {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-coll-field label .df-coll-hint {
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.df-coll-field input,
+.df-coll-field textarea,
+.df-coll-card > select,
+.df-coll-picks input[type='search'] {
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+}
+
+.df-coll-field input {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 15px;
+}
+
+.df-coll-field input[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-coll-field textarea {
+  padding: 8px 12px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.df-coll-card > select {
+  height: 44px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.df-coll-problem {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-coll-kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.df-coll-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-coll-kind[aria-checked='true'] {
+  padding: 11px;
+  border: 2px solid var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-coll-kind strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-coll-kind span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-coll-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+
+.df-coll-match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.df-coll-match select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-focus);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-info);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-coll-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  font-size: 14px;
+}
+
+.df-coll-rule-join {
+  width: 40px;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-coll-rule select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-coll-rule input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-coll-chip {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-coll-chip[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-coll-chip[aria-pressed='true']::before {
+  content: '✓ ';
+}
+
+.df-coll-rule-remove {
+  min-width: 32px;
+  min-height: 32px;
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--df-color-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.df-coll-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-coll-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 12px;
+}
+
+.df-coll-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.df-coll-picks input[type='search'] {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.df-coll-picklist {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-coll-picklist > p {
+  padding: 8px 12px;
+}
+
+.df-coll-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.df-coll-pick > span:nth-child(2) {
+  flex: 1;
+}
+
+.df-coll-pick--on {
+  background: var(--df-color-info-surface);
+}
+
+.df-coll-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 14px;
+}
+
+.df-coll-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.df-coll-actions > span {
+  display: flex;
+  gap: 8px;
+}
+
+.df-coll-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.df-coll-switch > span {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-coll-switch > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--df-color-surface);
+  content: '';
+}
+
+.df-coll-switch[aria-checked='true'] > span {
+  background: var(--df-color-success);
+}
+
+.df-coll-switch[aria-checked='true'] > span::after {
+  left: 19px;
+}
+
+.df-coll-delete {
+  border-color: var(--df-color-danger-border);
+  color: var(--df-color-link);
+}
+
+.df-coll-preview {
+  padding: 16px;
+}
+
+.df-coll-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.df-coll-preview-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-coll-preview-head span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-coll-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-coll-tiles li {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-coll-tiles li > span {
+  display: block;
+  aspect-ratio: 1;
+}
+
+.df-coll-tiles strong {
+  display: block;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 1024px) {
+  .df-colls-tabs {
+    --df-colls-bleed-top: var(--df-space-4);
+    --df-colls-bleed-side: var(--df-space-5);
+  }
+}
+
+@media (max-width: 639px) {
+  .df-colls-tabs {
+    --df-colls-bleed-side: var(--df-space-4);
+  }
+}
+
+@media (max-width: 720px) {
+  .df-colls-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .df-colls-type,
+  .df-colls-vis {
+    display: none;
+  }
+
+  .df-coll-edit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

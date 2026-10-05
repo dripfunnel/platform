@@ -321,6 +321,14 @@ look-alikes, internal tags only the team sees), Menus (one main menu, nesting on
 and phone previews), Size charts (sizes × measurements, units, other size systems, fit note).
 Staff view only.
 
+**Built on #299**: Collections is a screen with its tabs (`/collections`; `?edit=` opens one, `new`
+starts one). The rule builder writes a filter's values as one sentence, sent as one rule per value,
+and the API reads them as alternatives under "all" (CATALOG H4). Rules the screen doesn't draw (a
+product, a version, a price range) are kept as they are on save. The live preview is
+`collectionPreview`. Seasonal ideas come from a dated table of occasions in the app, matched to the
+countries the store's markets sell to (CATALOG H13); if markets don't load, the ideas are left out
+and nothing else changes. Filters, Menus and Size charts follow in the same card.
+
 ## 13. Import and export (`CatImport`, CATALOG-DESIGN K)
 
 Choose → Check → Import → Done: a CSV or Excel file, a Shopify export, or **Connect Shopify**;

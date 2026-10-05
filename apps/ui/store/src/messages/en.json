@@ -198,9 +198,6 @@
     "products": {
       "title": "Products"
     },
-    "collections": {
-      "title": "Collections"
-    },
     "storefront": {
       "title": "Storefront"
     },
@@ -1747,5 +1744,179 @@
       "body": "Ask an admin for access to warehouses."
     },
     "manageButton": "Manage"
+  },
+  "collections": {
+    "tabs": {
+      "label": "Collections area",
+      "collections": "Collections"
+    },
+    "title": "Collections",
+    "sub": "Groups of products shown together on your store, like “Summer Sale” or “Men’s Shirts”.",
+    "create": "Create collection",
+    "seasonal": {
+      "label": "Coming up in your markets:",
+      "add": "+ {name}",
+      "names": {
+        "diwali": "Diwali",
+        "navratri": "Navratri",
+        "holi": "Holi",
+        "rakhi": "Raksha Bandhan",
+        "weddingSeason": "Wedding season",
+        "halloween": "Halloween",
+        "blackFriday": "Black Friday",
+        "holidayGifts": "Holiday gifts",
+        "christmas": "Christmas",
+        "advent": "Advent",
+        "oktoberfest": "Oktoberfest",
+        "backToSchool": "Back to school",
+        "ramadan": "Ramadan",
+        "eid": "Eid",
+        "singlesDay": "Singles’ Day"
+      }
+    },
+    "empty": {
+      "title": "Group your products",
+      "body": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts under {price}”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
+      "action": "Create your first collection"
+    },
+    "list": {
+      "label": "Your collections",
+      "inside": "Inside {name}",
+      "insideOnly": "Inside {name} · only products also there",
+      "picked": {
+        "one": "1 picked",
+        "other": "{count} picked"
+      },
+      "automatic": {
+        "one": "Automatic · 1 rule",
+        "other": "Automatic · {count} rules"
+      },
+      "handPicked": "Hand-picked",
+      "products": {
+        "one": "1 product",
+        "other": "{count} products"
+      },
+      "updating": "Updating… {count} so far",
+      "visible": "Visible",
+      "hidden": "Hidden · for offers",
+      "open": "Open {name}"
+    },
+    "sentence": {
+      "is": "is",
+      "or": "or",
+      "and": "and",
+      "orJoin": "or",
+      "nameContains": "name contains “{text}”",
+      "product": "a chosen product",
+      "version": "a chosen version",
+      "priceRange": "a price range"
+    },
+    "loading": "Loading your collections",
+    "error": {
+      "title": "Your collections didn’t load",
+      "body": "Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You can’t see collections",
+      "body": "Ask your store owner for access to the catalogue."
+    },
+    "viewOnly": "You can look at collections but not change them.",
+    "editor": {
+      "back": "← Collections",
+      "newTitle": "New collection",
+      "untitled": "Collection",
+      "name": "Name",
+      "namePlaceholder": "e.g. Wedding Guest",
+      "nameMissing": "Give the collection a name",
+      "addressNoDomain": "Shows at /collections/{slug}",
+      "description": "Description",
+      "descriptionHint": "Shown at the top of the collection page",
+      "fill": "How should it fill?",
+      "automatic": "Automatically",
+      "automaticSub": "Every product matching your rules — new ones join by themselves",
+      "manual": "I’ll pick them",
+      "manualSub": "You choose exactly which products",
+      "matchLead": "Show products that match",
+      "matchAll": "all of these rules",
+      "matchAny": "any of these rules",
+      "where": "Where",
+      "and": "and",
+      "or": "or",
+      "is": "is",
+      "nameContains": "Name contains",
+      "textPlaceholder": "e.g. shirt",
+      "field": "Rule {n}: what to match",
+      "value": "{value}",
+      "text": "Rule {n}: name contains",
+      "removeRule": "Remove rule {n}",
+      "addRule": "+ Add a rule",
+      "priceNote": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency ({currency}).",
+      "kept": {
+        "one": "1 more rule this screen doesn’t change is kept as it is.",
+        "other": "{count} more rules this screen doesn’t change are kept as they are."
+      },
+      "search": "Search products to add",
+      "searching": "Searching…",
+      "searchFailed": "Products didn’t load. Try again.",
+      "noProducts": "No products match “{query}”.",
+      "statusHidden": "Hidden",
+      "statusWaiting": "Waiting",
+      "parentTitle": "Inside another collection?",
+      "topLevel": "No — it’s a top-level collection",
+      "insideOption": "Inside {name}",
+      "inherit": "Only show products that are also in {name}",
+      "flow": "{parent} · {parentCount} → narrowed by your rules → {name} · {count}",
+      "visible": "Visible on your store",
+      "hidden": "Hidden — for offers or internal use",
+      "delete": "Delete",
+      "save": "Save collection",
+      "saving": "Saving…",
+      "preview": "Live preview",
+      "matching": {
+        "one": "1 product matches",
+        "other": "{count} products match"
+      },
+      "picked": {
+        "one": "1 product picked",
+        "other": "{count} products picked"
+      },
+      "noMatch": "No products match yet. Try “any of these rules”, or pick more values.",
+      "noPicks": "No products picked yet. Search above and tick the ones to add.",
+      "previewFailed": "The preview didn’t load. Your rules are kept; it tries again when you change one.",
+      "savedAuto": "“{name}” saved — filling in the background",
+      "saved": "“{name}” saved",
+      "deleteTitle": "Delete “{name}”?",
+      "deleteBody": {
+        "one": "The 1 product stays in your catalogue — only the group goes.",
+        "other": "The {count} products stay in your catalogue — only the group goes."
+      },
+      "deleteMenu": "It’s in your menu too; we’ll take it out and move anything nested under it up a level.",
+      "deleteConfirm": "Delete collection",
+      "deleted": "“{name}” deleted. Its products are untouched.",
+      "cancel": "Cancel",
+      "notFound": {
+        "title": "This collection isn’t here",
+        "body": "It may have been deleted. Go back to your collections."
+      },
+      "loadFailed": {
+        "title": "This collection didn’t load",
+        "body": "Check your connection and try again."
+      },
+      "deleteMenuMaybe": "If it’s in your menu, we’ll take it out and move anything nested under it up a level."
+    },
+    "refused": {
+      "NAME_REQUIRED": "Give the collection a name.",
+      "STALE_REVISION": "Someone else saved this collection first. Open it again to see their changes.",
+      "TOO_MANY_RULES": "A collection can have up to 20 rules.",
+      "INVALID_RULE": "A rule names a filter value that isn’t here any more. Remove it and save again.",
+      "TOO_MANY_PRODUCTS": "A collection can hold up to 1,000 hand-picked products.",
+      "INVALID_PARENT": "Choose another collection as the parent — never this one or one inside it.",
+      "TOO_MANY_COLLECTIONS": "Your store has 500 collections, the most it can have. Delete one first.",
+      "NOT_FOUND": "This collection isn’t here any more.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change collections.",
+      "other": "That didn’t save. Try again."
+    }
   }
 }
