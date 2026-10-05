@@ -188,6 +188,53 @@ input InviteSupplierInput {
   shippingMode: String
 }
 
+type Market {
+  active: Boolean
+  countries: [String!]
+  currency: String
+  duties: MarketDuties
+  everywhereElse: Boolean
+  excludedProductIds: [ID!]
+  id: ID
+  language: String
+  name: String
+  parentId: ID
+  pathPrefix: String
+  priceAdjustmentBps: Int
+  primary: Boolean
+  products: String
+  revision: Int
+  webMode: String
+}
+
+type MarketDuties {
+  mode: String
+  rateBps: Int
+  thresholdAmount: String
+}
+
+input MarketInput {
+  active: Boolean
+  countries: [String!]!
+  currency: String!
+  dutiesMode: String
+  dutiesRateBps: Int
+  dutiesThresholdAmount: String
+  excludedProductIds: [ID!]
+  language: String!
+  name: String!
+  parentId: ID
+  pathPrefix: String
+  priceAdjustmentBps: Int
+  products: String
+  webMode: String
+}
+
+type MarketPage {
+  nodes: [Market!]
+  pageInfo: PageInfo
+}
+
 type Me {
   acting: ActingStore
   email: String
@@ -247,6 +294,7 @@ type Mutation {
   deleteBadge(id: ID!): Boolean
   deleteCollection(id: ID!): Boolean
   deleteFacet(id: ID!): Boolean
+  deleteMarket(id: ID!): Boolean
   deleteProducts(ids: [ID!]!): Int
   deleteSizeChart(id: ID!): Int
   deleteStoryBlock(id: ID!): Boolean
@@ -270,7 +318,10 @@ type Mutation {
   saveBadge(id: ID, input: BadgeInput!): ID
   saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
   saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
   saveFacet(input: FacetInput!): ID
+  saveLanguages(languages: [String!]!, main: String!): Boolean
+  saveMarket(id: ID, input: MarketInput!, revision: Int): Market
   saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
@@ -280,6 +331,7 @@ type Mutation {
   sendBackProduct(id: ID!, reason: String!): Boolean
   setApproval(on: Boolean!): Boolean
   setDefaultWarehouse(id: ID!): Boolean
+  setEverywhereElse(marketId: ID): Boolean
   setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
@@ -620,6 +672,8 @@ type Query {
   collections(after: String, before: String, first: Int): CollectionPage
   facets(after: String, before: String, first: Int): FacetPage
   health: String
+  market(id: ID!): Market
+  markets(after: String, before: String, first: Int): MarketPage
   me: Me
   menu: Menu
   myActivity(after: String, before: String, first: Int): MyActivity
@@ -638,6 +692,7 @@ type Query {
   sizeChart(id: ID!): SizeChart
   sizeCharts(after: String, before: String, first: Int): SizeChartPage
   stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeLocale: StoreLocale
   storeState: StoreState
   storyBlock(id: ID!): StoryBlock
   storyBlocks(after: String, before: String, first: Int): StoryBlockPage
@@ -808,6 +863,32 @@ type StoreChoice {
 type StoreChoices {
   nodes: [StoreChoice!]
   pageInfo: PageInfo
+}
+
+type StoreCurrency {
+  code: String
+  mode: String
+  rounding: String
+  status: String
+}
+
+input StoreCurrencyInput {
+  code: String!
+  mode: String!
+  rounding: String
+}
+
+type StoreLanguage {
+  code: String
+  status: String
+}
+
+type StoreLocale {
+  currencies: [StoreCurrency!]
+  languages: [StoreLanguage!]
+  mainLanguage: String
+  offeredLanguages: [String!]
+  pricingCurrency: String
 }
 
 type StoreNavBadges {
