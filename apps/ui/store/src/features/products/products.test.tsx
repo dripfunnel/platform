@@ -280,6 +280,35 @@ describe('the Products list', () => {
     await show(owner)
     expect(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
+    // Nor to a seat that can't review it: a waiting product changes only through review.
+    cleanup()
+    await show({ ...owner, permissions: ['catalog.read', 'catalog.write'] })
+    expect(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
+    cleanup()
+    await show(supplier)
+    expect(screen.queryByRole('button', { name: 'Quick edit Handloom Dupatta' })).toBeNull()
+  })
+
+  it('saves a count alone in quick edit, even beside a version with no price yet', async () => {
+    const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [] })
+    editorApi.loadProduct.mockResolvedValue({
+      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null,  photos: [], options: [], readiness: [],
+      versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true }],
+    })
+    stockApi.loadWarehouses.mockResolvedValue([{ id: 'w1', name: 'Jaipur studio', isDefault: true }])
+    stockApi.loadProductStock.mockResolvedValue(new Map([['ver-1', [{ warehouseId: 'w1', warehouseName: 'Jaipur studio', isDefault: true, onHand: 4, reserved: 0 }]]]))
+    stockApi.setStock.mockResolvedValue(undefined)
+    await show(editable)
+    fireEvent.click(screen.getByRole('button', { name: 'Quick edit Mara Linen Shirt' }))
+    await settle()
+    const panel = within(screen.getByRole('region', { name: 'Quick edit · Mara Linen Shirt' }))
+    fireEvent.change(panel.getByLabelText('Stock of This product'), { target: { value: '9' } })
+    fireEvent.click(panel.getByRole('button', { name: 'Save 1 change' }))
+    await settle()
+    expect(editorApi.saveProduct).not.toHaveBeenCalled()
+    expect(stockApi.setStock).toHaveBeenCalledWith([{ versionId: 'ver-1', warehouseId: 'w1', quantity: 9 }])
   })
 
   it('clears a supplier filter on a phone, which has no control to show or clear it', async () => {
