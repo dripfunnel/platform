@@ -103,7 +103,7 @@ const marketColumns = (tx: ScopedSql) => tx`
   m.duties_mode, m.duties_rate_bps, m.duties_threshold_amount::text as duties_threshold_amount, m.status, m.revision, m.created_at
 `
 
-/** The primary market first, then by creation; sub-markets in the same list, each naming its parent. */
+/** By creation, oldest first: the primary market, made with the store, leads; sub-markets in the same list, each naming its parent. */
 export const selectMarkets = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<MarketRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<MarketRow[]>`
