@@ -214,7 +214,12 @@ const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; 
   const [search, setSearch] = useState<Search>({ kind: 'idle' })
   const ids = draft.listing.relatedIds
   const names = draft.listing.relatedNames
-  const setIds = (next: string[], named?: { id: string; name: string }) => update((d) => ({ ...d, listing: { ...d.listing, relatedIds: next, relatedNames: named ? { ...d.listing.relatedNames, [named.id]: named.name } : d.listing.relatedNames } }))
+  // Names only for the ids still picked: an add then a remove leaves the draft as it was, not dirty.
+  const setIds = (next: string[], named?: { id: string; name: string }) =>
+    update((d) => {
+      const known = named ? { ...d.listing.relatedNames, [named.id]: named.name } : d.listing.relatedNames
+      return { ...d, listing: { ...d.listing, relatedIds: next, relatedNames: Object.fromEntries(next.flatMap((id) => (known[id] === undefined ? [] : [[id, known[id]]]))) } }
+    })
   useEffect(() => {
     const q = query.trim()
     if (q.length < 2) return setSearch({ kind: 'idle' })
