@@ -257,6 +257,9 @@ export const slugFrom = (text: string): string =>
     .slice(0, 100)
     .replace(/-+$/, '')
 
+/** A supplier's web address carries a random suffix, so a clash never tells it what another supplier's is. */
+export const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
+
 /** A GTIN (EAN-8, UPC-A, EAN-13, GTIN-14) whose check digit holds (fact 44). */
 export const isBarcode = (value: string): boolean => {
   if (!/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(value)) return false

@@ -1,6 +1,6 @@
 import type postgres from 'postgres'
 import type { PageWindow } from '#core/paging'
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 // Translations (migration 0053; CATALOG facts 18–22, N): read beside the main-language text they translate,
 // each with its status, which compares the main text's md5 with the one it was translated from (N5).
@@ -44,10 +44,11 @@ export const selectProductTranslation = (tx: ScopedSql, storeId: string, product
       where v.product_id = ${productId} and v.store_id = ${storeId} and v.deleted_at is null and coalesce(v.name, '') <> ''
       union all
       select distinct on (lower(o.name)) 'option_name', lower(o.name), 'name', o.name, 1000 + o.position from product_option o
+      join product p on p.id = o.product_id and p.deleted_at is null
       where o.product_id = ${productId} and o.store_id = ${storeId}
       union all
       select distinct on (lower(ov.name)) 'choice_name', lower(ov.name), 'name', ov.name, 2000 + ov.position from product_option_value ov
-      join product_option o on o.id = ov.option_id
+      join product_option o on o.id = ov.option_id join product p on p.id = o.product_id and p.deleted_at is null
       where o.product_id = ${productId} and o.store_id = ${storeId}
     )
     select m.entity, m.entity_id, m.field, m.main, t.text, ${statusOf(tx)} as status
@@ -138,3 +139,13 @@ export const selectSharedNames = (tx: ScopedSql, storeId: string, kind: 'option_
     order by n.source limit ${window.limit + 1}
   `
 }
+
+/** Which of these names the catalogue's live products use, lowercased, for saveSharedNames' check. */
+export const existingSharedNames = async (tx: ScopedSql, storeId: string, kind: 'option_name' | 'choice_name', sources: readonly string[]): Promise<string[]> =>
+  (
+    await (kind === 'option_name'
+      ? tx<{ source: string }[]>`select distinct lower(o.name) as source from product_option o join product p on p.id = o.product_id and p.deleted_at is null
+          where o.store_id = ${storeId} and lower(o.name) = any(${pgArray(sources)}::text[])`
+      : tx<{ source: string }[]>`select distinct lower(ov.name) as source from product_option_value ov join product_option o on o.id = ov.option_id join product p on p.id = o.product_id and p.deleted_at is null
+          where o.store_id = ${storeId} and lower(ov.name) = any(${pgArray(sources)}::text[])`)
+  ).map((r) => r.source)

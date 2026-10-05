@@ -5,6 +5,7 @@ import { approvalAudit, catalogAudit, createCatalogService, type ProductFilter, 
 import { allowanceFor, planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
 import { marketsService } from './markets'
+import { translationService } from './translations'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
@@ -421,6 +422,11 @@ export const registerProducts = (builder: StoreBuilder) => {
         const search = args.search?.trim().slice(0, 200) || null
         const window = storePage(args)
         const untranslatedIn = args.untranslatedIn?.trim() || null
+        // The same languages translationProgress counts, so the list and the count can't disagree.
+        if (untranslatedIn) {
+          const checked = await translationService(ctx).checkLanguage(untranslatedIn)
+          if (!checked.ok) throw new GraphQLError('Choose one of your store’s other languages.', { extensions: { code: checked.reason } })
+        }
         const { currency, rows } = await service(ctx).list({ filter, search, seller: supplier, untranslatedIn }, window)
         const page = pageOf(rows, window, (r) => ({ occurredAt: r.created_at, id: r.id }))
         return { nodes: page.nodes.map((r) => summaryOf(r, currency)), pageInfo: page.pageInfo }

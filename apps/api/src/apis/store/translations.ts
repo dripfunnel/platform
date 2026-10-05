@@ -23,13 +23,16 @@ const answered = <T>(result: TranslationResult<T>): T => {
 
 const maxShared = 100
 
+/** The translation service for the acting caller; products.ts checks its list's language with it. */
+export const translationService = (ctx: StoreContext) => {
+  if (!ctx.sql) throw forbidden()
+  const caller = actingCaller(ctx)
+  return createTranslationService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
+}
+
 export const registerTranslations = (builder: StoreBuilder) => {
   const PageInfo = pageInfoType(builder)
-  const service = (ctx: StoreContext) => {
-    if (!ctx.sql) throw forbidden()
-    const caller = actingCaller(ctx)
-    return createTranslationService({ sql: ctx.sql, context: caller.context, actor: { id: caller.person.id, partnerId: caller.person.partnerId }, activity: ctx.activity, facts: ctx.facts, now: ctx.now })
-  }
+  const service = translationService
 
   const Translation = builder.objectRef<TranslationRow>('Translation').implement({
     fields: (t) => ({
@@ -147,7 +150,7 @@ export const registerTranslations = (builder: StoreBuilder) => {
     saveSharedNames: t.boolean({
       args: { language: t.arg.string({ required: true }), names: t.arg({ type: [SharedNameInput], required: true }) },
       extensions: { access: { ...merchantWrite, audit: translationAudit.shared } },
-      resolve: async (_, args, ctx) => answered(await service(ctx).saveSharedNames(args.language, args.names.slice(0, maxShared).map((n) => ({ kind: kindOf(n.kind), source: n.source, text: n.text ?? null })))),
+      resolve: async (_, args, ctx) => answered(await service(ctx).saveSharedNames(args.language, args.names.map((n) => ({ kind: kindOf(n.kind), source: n.source, text: n.text ?? null })))),
     }),
   }))
 }

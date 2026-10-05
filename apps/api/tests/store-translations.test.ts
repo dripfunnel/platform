@@ -208,6 +208,31 @@ describe('suppliers and other stores', () => {
     }
   })
 
+  it('never tells a supplier another supplier’s web address: its own get their random suffix', async () => {
+    const [theirs] = await db.sql<{ id: string }[]>`insert into product (store_id, seller_id, name, slug) values (${t.storeA1}, ${t.sellerA1Second}, 'Bhatia shawl', 'bhatia-shawl-x2y3z4') returning id`
+    await db.sql`insert into translation (store_id, entity, entity_id, field, language, text, source_hash) values (${t.storeA1}, 'product', ${theirs?.id ?? ''}, 'slug', 'en-IN', 'shared-shawl', md5('bhatia-shawl-x2y3z4'))`
+    const own = await create('supplier', { name: 'Anand shawl', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '50000' }] }] })
+    const saved = await translate('supplier', own, 'en-IN', { name: 'Anand shawl', slug: 'shared-shawl' })
+    expect(saved.code).toBeUndefined()
+    const slug = saved.rows?.find((r) => r.entity === 'product' && r.field === 'slug')?.text ?? ''
+    expect(slug).toMatch(/^shared-shawl-[a-z2-9]{6}$/)
+    // Saving the address it has keeps it as it is.
+    expect((await translate('supplier', own, 'en-IN', { slug })).rows?.find((r) => r.field === 'slug')?.text).toBe(slug)
+  })
+
+  it('refuses a shared name the catalogue doesn’t use, a list past its limit, an unoffered language in the list, and a deleted product', async () => {
+    const shared = (names: Record<string, unknown>[]) => gql('mutation S($n: [SharedNameTranslationInput!]!) { saveSharedNames(language: "hi-IN", names: $n) }', 'owner', { n: names })
+    expect((await shared([{ kind: 'choice_name', source: 'Nobody uses this', text: 'x' }])).code).toBe('NOT_FOUND')
+    expect((await shared(Array.from({ length: 101 }, () => ({ kind: 'choice_name', source: 'Red', text: 'लाल' })))).code).toBe('INVALID_INPUT')
+    expect(await db.sql`select 1 from translation where entity_id = 'nobody uses this'`).toHaveLength(0)
+    for (const language of ['fr-FR', 'en-US']) {
+      expect((await gql('query P($l: String) { products(untranslatedIn: $l) { nodes { id } } }', 'owner', { l: language })).code).toBe('NOT_A_TRANSLATION_LANGUAGE')
+    }
+    const gone = await create('owner', kurtaInput('Deleted kurta'))
+    await gql('mutation D($ids: [ID!]!) { deleteProducts(ids: $ids) }', 'owner', { ids: [gone] })
+    expect((await translationOf('owner', gone, 'hi-IN')).code).toBe('NOT_FOUND')
+  })
+
   it('keeps another store out, in the API and in the database', async () => {
     const kurta = ((await gql('{ products(search: "Linen") { nodes { id } } }', 'owner')).data?.['products'] as { nodes: { id: string }[] }).nodes[0]?.id ?? ''
     expect((await translationOf('bOwner', kurta, 'hi-IN')).code).toBe('NOT_FOUND')
