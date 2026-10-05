@@ -2,7 +2,7 @@ import type postgres from 'postgres'
 import { logEvent } from '#core/log'
 import type { Subscription, TenantContext } from '#core/tenancy'
 import { withSystemScope, type ScopedSql } from '#db/scoped/index'
-import { crossingLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
+import { crossingsLoggedSince, selectHeldStoreIds, selectMemberships, selectPortalPartner, selectStorePerson, type MembershipRow } from '#db/scoped/storeCaller'
 import type { ActivityLog, RequestFacts } from './activity'
 import { readCookie } from './cookie'
 import { hashSessionId } from './session'
@@ -75,15 +75,15 @@ const callerOf = (person: StorePerson, sessionHash: string, row: MembershipRow):
   }
 }
 
-// The entry stays small however many stores the person holds, and a loop of one bad header writes one a minute.
+// The entry stays small however many stores the person holds, and a looping client writes a few a minute at most.
 const heldInLabel = 3
-const crossingRepeatMs = 60_000
+const crossingsPerMinute = 5
 
 // ACCESS.md §4: naming a store the session doesn't hold is an attempted tenant crossing, logged
 // with the store asked for, the stores held and the person.
 const recordCrossing = async (tx: ScopedSql, person: StorePerson, asked: string, activity: ActivityLog, facts: RequestFacts, now: Date) => {
+  if ((await crossingsLoggedSince(tx, person.id, new Date(now.getTime() - 60_000), crossingsPerMinute)) >= crossingsPerMinute) return
   const target = asked.slice(0, 64)
-  if (await crossingLoggedSince(tx, person.id, target, new Date(now.getTime() - crossingRepeatMs))) return
   const held = await selectHeldStoreIds(tx, person.id, person.partnerId, heldInLabel + 1)
   const listed = held.slice(0, heldInLabel).join(', ') + (held.length > heldInLabel ? ' and more' : '')
   await activity.record(tx, {
