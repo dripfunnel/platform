@@ -114,6 +114,11 @@ describe('the collections list', () => {
     expect(screen.getByRole('heading', { name: words.empty.title })).toBeTruthy()
     expect(screen.getByText(/Gifts under ₹999/)).toBeTruthy()
     expect(screen.getByRole('button', { name: words.empty.action })).toBeTruthy()
+    // A store with no currency yet gets the example without a price, not one with a hole in it.
+    cleanup()
+    editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: null })
+    await show()
+    expect(screen.getByText(words.empty.bodyNoPrice)).toBeTruthy()
   })
 
   it('shows the error with a retry that loads again', async () => {
