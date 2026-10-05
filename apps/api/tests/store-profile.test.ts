@@ -114,13 +114,13 @@ describe('reading my profile', () => {
 })
 
 describe('changing my details', () => {
-  it('saves the name, a full number and the theme, and refuses what isn’t one', async () => {
+  it('saves the name and a full number, refuses what isn’t one, and leaves the theme alone', async () => {
     const id = await person(t.partnerA, 'details@a.example')
     const cookie = await sessionFor(id)
     expect((await gql('mutation { updateProfile(name: "  ") { name } }', cookie)).code).toBe('NAME_REQUIRED')
     expect((await gql('mutation { updateProfile(name: "Meera", phone: "98450 22113") { name } }', cookie)).code).toBe('INVALID_PHONE')
-    expect((await gql('mutation { updateProfile(name: "Meera", theme: "neon") { name } }', cookie)).code).toBe('INVALID_INPUT')
-    const ok = await gql('mutation { updateProfile(name: " Meera Iyer ", phone: "+919845022113", theme: "dark") { name phone theme } }', cookie)
+    await gql('mutation { setTheme(theme: "dark") { theme } }', cookie)
+    const ok = await gql('mutation { updateProfile(name: " Meera Iyer ", phone: "+919845022113") { name phone theme } }', cookie)
     expect(ok.data?.['updateProfile']).toEqual({ name: 'Meera Iyer', phone: '+919845022113', theme: 'dark' })
     expect(await actions(id)).toContain('person.profile_updated')
   })

@@ -227,7 +227,8 @@ export const registerProfile = (builder: StoreBuilder) => {
   builder.mutationFields((t) => ({
     updateProfile: t.field({
       type: ProfileType,
-      args: { name: t.arg.string({ required: true }), phone: t.arg.string(), theme: t.arg.string() },
+      // The theme is setTheme's alone, so saving details never undoes one set on another device.
+      args: { name: t.arg.string({ required: true }), phone: t.arg.string() },
       extensions: { access: { ...session, audit: 'person.profile_updated', whileReadOnly: true } },
       resolve: async (_, args, ctx) => {
         const person = personOf(ctx)
@@ -235,15 +236,13 @@ export const registerProfile = (builder: StoreBuilder) => {
         if (name === '' || name.length > 120) throw refused('NAME_REQUIRED', 'Add your name.')
         const phone = args.phone?.trim() ? args.phone.trim() : null
         if (phone !== null && !isE164(phone)) throw refused('INVALID_PHONE', 'Use the full number with the country code.')
-        if (args.theme != null && args.theme !== 'light' && args.theme !== 'dark') throw refused('INVALID_INPUT', 'Choose light or dark.')
-        const theme = args.theme === 'light' || args.theme === 'dark' ? args.theme : null
         const now = ctx.now()
         return profileOf(
           await withSystemScope(sqlOf(ctx), async (tx) => {
             const before = await readProfile(tx, person, now)
             // The number a sign-in code goes to changes only by proving it (setSecondFactor), never here.
             if (before.two_factor_method === 'sms' && phone !== before.phone) throw refused('PHONE_IN_USE_FOR_SIGN_IN', 'Change this number under Two-step sign-in, which texts it a code first.')
-            await updateProfileDetails(tx, person.id, { name, phone, theme })
+            await updateProfileDetails(tx, person.id, { name, phone })
             await record(ctx, tx, personProfileUpdated(userOf(person), ctx.facts))
             return readProfile(tx, person, now)
           }),
