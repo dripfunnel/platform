@@ -58,19 +58,8 @@ export interface OpenSupportRow {
   expires_at: Date
 }
 
-/**
- * The partner support session open on this store now, for the banner every person in it sees
- * (ACCESS.md §8). `system` scope until SAPI 21 gives the store side its own policy; held to the
- * acting store and its partner, and only the banner's three facts leave.
- */
-export const selectOpenSupportSession = async (tx: ScopedSql, storeId: string, partnerId: string, now: Date): Promise<OpenSupportRow | null> => {
-  const rows = await tx<OpenSupportRow[]>`
-    select pu.name as agent_name, p.name as partner_name, ss.expires_at
-    from support_session ss
-    join partner_user pu on pu.id = ss.partner_user_id
-    join partner p on p.id = ss.partner_id
-    where ss.store_id = ${storeId} and ss.partner_id = ${partnerId} and ss.ended_at is null and ss.expires_at > ${now}
-    order by ss.started_at desc limit 1
-  `
+/** The acting store's open support session, read in its own scope (migrations/0036 `open_support_banner`). */
+export const selectOpenSupportSession = async (tx: ScopedSql, now: Date): Promise<OpenSupportRow | null> => {
+  const rows = await tx<OpenSupportRow[]>`select partner_name, agent_name, expires_at from open_support_banner(${now})`
   return rows[0] ?? null
 }

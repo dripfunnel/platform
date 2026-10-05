@@ -272,7 +272,7 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   email; five wrong codes lock for 15 minutes. A texted code is 6 digits, hashed with its row, 10
   minutes, five tries, at most three texts per person in 10 minutes; the authenticator's issuer is
   the partner's brand name. An Owner without 2-factor gets a session good only for enrolling,
-  which ends with the ten backup codes shown once.
+  which ends with the ten backup codes shown once. `myStores` and `switchStore` read memberships in `system` scope, as the caller's own resolution does: they come before any acting store, so there is no `TenantContext` yet, and each read is pinned to the session's user and the host's partner. The support banner in `storeState` is read in the acting store's own scope (`open_support_banner`, migrations/0036).
 - **A request naming a store the session doesn't hold** is not a 404: it is an attempted
   tenant crossing. Answer 403, and log it with both store ids and the user, because it is a
   client bug or someone probing.

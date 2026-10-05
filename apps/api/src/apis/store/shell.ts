@@ -222,8 +222,10 @@ export const registerShell = (builder: StoreBuilder) => {
       resolve: async (_, __, ctx) => {
         const caller = actingCaller(ctx)
         const sql = sqlOf(ctx)
-        const row = await withScope(sql, caller.context, (tx) => selectStoreState(tx, caller.store.id))
-        const support = await withSystemScope(sql, (tx) => selectOpenSupportSession(tx, caller.store.id, caller.person.partnerId, ctx.now()))
+        const { row, support } = await withScope(sql, caller.context, async (tx) => ({
+          row: await selectStoreState(tx, caller.store.id),
+          support: await selectOpenSupportSession(tx, ctx.now()),
+        }))
         const status = row?.status ?? caller.store.status
         const merchant = caller.role.side === 'merchant'
         return {

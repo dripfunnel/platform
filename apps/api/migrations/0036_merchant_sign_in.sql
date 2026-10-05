@@ -75,8 +75,30 @@ $$;
 create policy user_backup_code_own on user_backup_code for select to app_request
 using (app_setting_text('app.scope') = 'store' and user_id = app_setting_uuid('app.user_id'));
 
--- The portal's support banner (ACCESS.md §8, FIRST-RELEASE §3.3) reads the open session on the
--- acting store; SAPI 21 adds the store side's own policy and the exchange. Read only, by column.
-grant select (id, partner_id, store_id, partner_user_id, started_at, expires_at, ended_at) on support_session to app_system;
-create policy support_session_system_read on support_session for select to app_system
-using (app_setting_text('app.scope') = 'system');
+-- The portal's support banner (ACCESS.md §8, FIRST-RELEASE §3.3): the open session on the acting
+-- store, read in that store's scope. The store and partner come from the transaction's settings, never
+-- an argument, so RLS's pins hold; the agent's and partner's names need no request grant.
+create function open_support_banner(at timestamptz) returns table (partner_name text, agent_name text, expires_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.name, pu.name, ss.expires_at
+  from support_session ss
+  join partner_user pu on pu.id = ss.partner_user_id
+  join partner p on p.id = ss.partner_id
+  where app_setting_text('app.scope') = 'store'
+    and ss.store_id = app_setting_uuid('app.store_id')
+    and ss.partner_id = app_setting_uuid('app.partner_id')
+    and ss.ended_at is null and ss.expires_at > at
+  order by ss.started_at desc
+  limit 1
+$$;
+
+grant select (id, partner_id, store_id, partner_user_id, started_at, expires_at, ended_at) on support_session to app_definer;
+grant select (id, name) on partner_user to app_definer;
+grant select (id, name) on partner to app_definer;
+alter function open_support_banner(timestamptz) owner to app_definer;
+revoke execute on function open_support_banner(timestamptz) from public;
+grant execute on function open_support_banner(timestamptz) to app_request;
