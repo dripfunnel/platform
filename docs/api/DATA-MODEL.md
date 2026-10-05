@@ -1032,7 +1032,7 @@ product_story       (product_id PK, store_id, seller_id NULL, status ('draft'|'l
 story_block         (id, store_id, kind ('brand_story'), content jsonb)
                     -- a reusable block shared by many products (Q5, release: decide)
 
-size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems text[],
+size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems jsonb,
                      rows jsonb, measurements jsonb, how_to_measure jsonb, fit_notes, model_info,
                      deleted_at)                                    -- CATALOG R
 size_chart_rule     (id, size_chart_id, store_id, seller_id NULL, kind ('collection'|'filter_value'|'category'),
@@ -1063,8 +1063,8 @@ option values, `version_price` and `price_history`, with `store.pricing_currency
 the caller can't read refuses the write. `product_supplier_guard` stops a supplier setting visibility,
 approval or a hide, and `version_price_history` (an `app_definer` trigger) writes the history. Two
 `app_definer` functions give a supplier only a number or a code it needs: `store_product_count()` for
-the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax), `size_chart_id`
-(with size charts), and the `shop` branches, which come with the Shop API.
+the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax), and the `shop` branches, which come with the Shop API;
+`size_chart_id` came with size charts (part 4).
 Web addresses stay unique per store, as the storefront needs, but a supplier's always ends in six random
 characters, so a clash with a product it can't see looks like no clash (ACCESS §7.1). An update keeps the
 stored address unless a new one is asked for, so a rename never breaks a live link (CATALOG fact 15).
