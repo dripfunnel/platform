@@ -27,8 +27,8 @@ export interface StoreInfoRow {
   tax_id: string | null
 }
 
-// Store info shows one registration of the home country's: India's GSTIN, the US's EIN before a sales-tax permit.
-const shownFirst = (tx: ScopedSql) => tx`case r.kind when 'gst' then 0 when 'ein' then 1 when 'sales_tax_permit' then 2 else 3 end, r.created_at`
+// Store info's one field shows the home country's registration saved last, so what was typed is what reads back.
+const shownFirst = (tx: ScopedSql) => tx`r.updated_at desc, r.created_at desc, r.id`
 
 export const selectStoreInfo = async (tx: ScopedSql, storeId: string): Promise<StoreInfoRow | null> =>
   (
@@ -84,8 +84,8 @@ export const saveLegalName = async (tx: ScopedSql, storeId: string, legalName: s
 export const saveHomeTaxId = async (tx: ScopedSql, storeId: string, country: string, registration: { kind: 'gst' | 'ein' | 'sales_tax_permit' | 'vat'; number: string } | null): Promise<void> => {
   if (registration) {
     await tx`
-      insert into tax_registration (store_id, country, kind, number) values (${storeId}, ${country}, ${registration.kind}, ${registration.number})
-      on conflict (store_id, country, kind) do update set number = excluded.number
+      insert into tax_registration (store_id, country, kind, number, updated_at) values (${storeId}, ${country}, ${registration.kind}, ${registration.number}, clock_timestamp())
+      on conflict (store_id, country, kind) do update set number = excluded.number, updated_at = excluded.updated_at
     `
     return
   }
