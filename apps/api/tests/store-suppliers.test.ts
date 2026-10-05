@@ -69,10 +69,11 @@ afterAll(async () => {
   await db?.drop()
 })
 
-const gql = async (source: string, who: Who | { cookie: string; seller: string }, variables: Record<string, unknown> = {}) => {
+type Acting = { cookie: string; seller: string; storeId?: string; partnerId?: string }
+const gql = async (source: string, who: Who | Acting, variables: Record<string, unknown> = {}) => {
   const b = who === 'bOwner'
-  const partnerId = b ? t.partnerB : t.partnerA
-  const storeId = b ? t.storeB1 : t.storeA1
+  const partnerId = typeof who === 'object' && who.partnerId ? who.partnerId : b ? t.partnerB : t.partnerA
+  const storeId = typeof who === 'object' && who.storeId ? who.storeId : b ? t.storeB1 : t.storeA1
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers: Record<string, string> =
     typeof who === 'string' ? { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId } : { cookie: `${storeCookieName}=${who.cookie}`, [storeHeader]: storeId, [supplierHeader]: who.seller }
@@ -302,7 +303,7 @@ describe('changing a supplier', () => {
 
 describe('a supplier’s own team', () => {
   type Member = { id: string; kind: string; email: string; role: string; you: boolean; lastAdmin: boolean }
-  const team = async (who: { cookie: string; seller: string }) =>
+  const team = async (who: Acting) =>
     ((await gql('{ mySupplierTeam(first: 50) { nodes { id kind email role you lastAdmin } } }', who)).data?.['mySupplierTeam'] as { nodes: Member[] } | undefined)?.nodes ?? []
   const join = async (email: string, seller: string) => ({ cookie: (await accept(email)).cookie, seller })
   const inviteUser = (who: { cookie: string; seller: string }, email: string, role: string) => gql('mutation I($email: String!, $role: String!) { inviteSupplierUser(email: $email, role: $role) }', who, { email, role })
@@ -398,6 +399,33 @@ describe('a supplier’s own team', () => {
     const [merchantInvite] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${t.storeA1}, 'clerk@a.example', 'staff', ${new Date(now.getTime() + 86_400_000)}, 'Olivia') returning id`
     expect((await gql('mutation R($id: ID!) { revokeSupplierInvitation(invitationId: $id) }', admin, { id: merchantInvite?.id })).code).toBe('NOT_FOUND')
     expect((await team(admin)).some((m) => m.email === 'lead@rival.example' || m.email === 'clerk@a.example')).toBe(false)
+  })
+
+  it('keeps another store’s Supplier admin, in this partner or another, out of this team', async () => {
+    const elsewhere = async (partnerId: string, storeId: string, sellerId: string, email: string): Promise<Acting> => {
+      const id = await user(partnerId, email, 'Elsewhere')
+      await db.sql`insert into membership (user_id, store_id, seller_id, role_key, status) values (${id}, ${storeId}, ${sellerId}, 'supplier-admin', 'active')`
+      return { cookie: await withSystemScope(db.sql, (tx) => createUserSession(tx, { id, partnerId }, now)), seller: sellerId, storeId, partnerId }
+    }
+    const [a2Seller] = await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${t.storeA2}, 'A2 Supply', 'vendor-catalogue', 'active') returning id`
+    await db.sql`update store set status = 'active' where id in (${t.storeA2}, ${t.storeB1})`
+    const outsiders = [await elsewhere(t.partnerA, t.storeA2, a2Seller?.id ?? '', 'admin@a2.example'), await elsewhere(t.partnerB, t.storeB1, t.sellerB1, 'admin@b1.example')]
+    const lead = await memberId(admin, 'lead@crew.example')
+    const invitation = (await inviteUser(admin, 'pending@crew.example', 'supplier-member')).data?.['inviteSupplierUser'] as string
+    for (const outsider of outsiders) {
+      const theirs = await gql('{ mySupplierTeam(first: 50) { nodes { email } } }', outsider)
+      expect(theirs.code).toBeUndefined()
+      expect((theirs.data?.['mySupplierTeam'] as { nodes: { email: string }[] }).nodes.some((m) => m.email.endsWith('@crew.example'))).toBe(false)
+      for (const change of [
+        gql('mutation C($id: ID!) { changeSupplierRole(membershipId: $id, role: "supplier-member") }', outsider, { id: lead }),
+        gql('mutation R($id: ID!) { removeSupplierUser(membershipId: $id) }', outsider, { id: lead }),
+        gql('mutation R($id: ID!) { resendSupplierInvitation(invitationId: $id) }', outsider, { id: invitation }),
+        gql('mutation R($id: ID!) { revokeSupplierInvitation(invitationId: $id) }', outsider, { id: invitation }),
+      ]) expect((await change).code).toBe('NOT_FOUND')
+      expect((await gql('mutation A($id: ID!) { addSupplierPerson(id: $id, email: "x@y.example") }', outsider, { id: admin.seller })).code).toBe('FORBIDDEN')
+    }
+    expect((await team(admin)).find((m) => m.email === 'lead@crew.example')).toMatchObject({ role: 'supplier-admin' })
+    expect((await team(admin)).some((m) => m.id === invitation)).toBe(true)
   })
 
   it('is held in the database too: only supplier roles, only its own supplier, and joining is the invitation’s', async () => {
