@@ -456,8 +456,12 @@ describe('the main menu', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Nest Summer edit under the item above' }))
     expect(m.saveMenu).not.toHaveBeenCalled()
     expect(screen.getByText(words.menus.firstNest)).toBeTruthy()
-    m.saveMenu.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    // Men has Shirts under it: the menu is one level deep, so it isn't nested, and nothing else moves.
     fireEvent.click(screen.getByRole('button', { name: 'Nest Men under the item above' }))
+    expect(m.saveMenu).not.toHaveBeenCalled()
+    expect(screen.getByText(words.menus.nestHasKids)).toBeTruthy()
+    m.saveMenu.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    fireEvent.click(screen.getByRole('button', { name: 'Nest Staff picks under the item above' }))
     await settle()
     expect(screen.getByText(words.menus.refused.STALE_REVISION)).toBeTruthy()
     expect(m.loadMenu).toHaveBeenCalledTimes(2)
