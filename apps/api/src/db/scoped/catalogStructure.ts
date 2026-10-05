@@ -1,0 +1,374 @@
+import type postgres from 'postgres'
+import type { PageWindow } from '#core/paging'
+import { pgArray, type ScopedSql } from './index'
+
+// Collections, filters and menus (DATA-MODEL §7.3, migration 0043): the merchant side writes them; a
+// supplier reads filters and tags its own products. Rows go as one jsonb parameter, as in catalog.ts.
+
+const rowsOf = (tx: ScopedSql, rows: readonly object[]) => tx.json(rows as unknown as postgres.JSONValue)
+
+const uniqueViolation = (error: unknown, constraint: string): boolean =>
+  typeof error === 'object' && error !== null && 'code' in error && error.code === '23505' && 'constraint_name' in error && error.constraint_name === constraint
+
+export interface FacetRow {
+  id: string
+  name: string
+  position: number
+  shopper_visible: boolean
+  /** Products tagged with each value, in the caller's scope: a supplier counts its own (ACCESS §7.1). */
+  values: { id: string; name: string; position: number; products: number }[]
+}
+
+export const maxFacets = 200
+
+export const selectFacets = (tx: ScopedSql, storeId: string): Promise<FacetRow[]> =>
+  tx<FacetRow[]>`
+    select f.id, f.name, f.position, f.shopper_visible,
+      coalesce((
+        select json_agg(json_build_object('id', v.id, 'name', v.name, 'position', v.position,
+          'products', (select count(distinct pfv.product_id) from product_filter_value pfv join product p on p.id = pfv.product_id
+                       where pfv.filter_value_id = v.id and p.deleted_at is null)) order by v.position)
+        from filter_value v where v.filter_id = f.id), '[]'::json) as values
+    from filter f where f.store_id = ${storeId}
+    order by f.position, f.name
+    limit ${maxFacets}
+  `
+
+export interface FacetWrite {
+  id: string
+  name: string
+  position: number
+  shopperVisible: boolean
+  values: { id: string; name: string; position: number; kept: boolean }[]
+}
+
+/** The filter and its values as given: kept values renamed and reordered, new ones added, the rest removed. */
+export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, exists: boolean, now: Date): Promise<void> => {
+  if (exists) {
+    await tx`update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, updated_at = ${now} where id = ${facet.id} and store_id = ${storeId}`
+    await tx`delete from filter_value where filter_id = ${facet.id} and not (id = any(${pgArray(facet.values.filter((v) => v.kept).map((v) => v.id))}::uuid[]))`
+  } else {
+    await tx`insert into filter (id, store_id, name, position, shopper_visible) values (${facet.id}, ${storeId}, ${facet.name}, ${facet.position}, ${facet.shopperVisible})`
+  }
+  const kept = facet.values.filter((v) => v.kept).map(({ id, name, position }) => ({ id, name, position }))
+  const added = facet.values.filter((v) => !v.kept).map(({ id, name, position }) => ({ id, name, position }))
+  if (kept.length > 0) {
+    await tx`update filter_value v set name = x.name, position = x.position from jsonb_to_recordset(${rowsOf(tx, kept)}) as x(id uuid, name text, position int) where v.id = x.id and v.filter_id = ${facet.id}`
+  }
+  if (added.length > 0) {
+    await tx`insert into filter_value (id, filter_id, store_id, name, position) select x.id, ${facet.id}, ${storeId}, x.name, x.position from jsonb_to_recordset(${rowsOf(tx, added)}) as x(id uuid, name text, position int)`
+  }
+}
+
+export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string[] | null> => {
+  const [facet] = await tx<{ ids: string[] | null }[]>`select (select json_agg(v.id) from filter_value v where v.filter_id = f.id) as ids from filter f where f.id = ${facetId} and f.store_id = ${storeId}`
+  return facet ? (facet.ids ?? []) : null
+}
+
+export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> =>
+  (await tx<{ name: string }[]>`delete from filter where id = ${facetId} and store_id = ${storeId} returning name`)[0]?.name ?? null
+
+/**
+ * Look-alike values merged into one (CatCollections "merge"): every product tagged with a source keeps
+ * the tag as the target, rules naming a source name the target, and the sources go. One filter only.
+ */
+export const mergeFacetValues = async (tx: ScopedSql, storeId: string, targetId: string, sourceIds: readonly string[]): Promise<number> => {
+  const sources = pgArray(sourceIds)
+  const [same] = await tx<{ ok: boolean }[]>`
+    select count(*) = ${sourceIds.length + 1} and count(distinct filter_id) = 1 as ok
+    from filter_value where store_id = ${storeId} and id = any(${pgArray([targetId, ...sourceIds])}::uuid[])
+  `
+  if (!same?.ok) return -1
+  await tx`
+    insert into product_filter_value (product_id, version_id, filter_value_id, store_id)
+    select product_id, version_id, ${targetId}, store_id from product_filter_value where store_id = ${storeId} and filter_value_id = any(${sources}::uuid[])
+    on conflict do nothing
+  `
+  await tx`
+    update collection_rule set args = jsonb_set(args, '{valueId}', to_jsonb(${targetId}::text))
+    where store_id = ${storeId} and kind = 'filter_value' and args->>'valueId' = any(${sources}::text[])
+  `
+  return (await tx`delete from filter_value where store_id = ${storeId} and id = any(${sources}::uuid[])`).count
+}
+
+/** A product's filter values, on the product or a version (fact 13), replacing what it had. */
+export const setProductFilterValues = async (tx: ScopedSql, storeId: string, productId: string, rows: readonly { valueId: string; versionId: string | null }[]): Promise<void> => {
+  await tx`delete from product_filter_value where product_id = ${productId}`
+  if (rows.length === 0) return
+  await tx`
+    insert into product_filter_value (product_id, version_id, filter_value_id, store_id)
+    select ${productId}, x."versionId", x."valueId", ${storeId} from jsonb_to_recordset(${rowsOf(tx, rows)}) as x("valueId" uuid, "versionId" uuid)
+  `
+}
+
+/** Of the given ids, those that are filter values of this store: a tag names only a value the store has. */
+export const knownFacetValues = async (tx: ScopedSql, storeId: string, ids: readonly string[]): Promise<Set<string>> =>
+  new Set((await tx<{ id: string }[]>`select id from filter_value where store_id = ${storeId} and id = any(${pgArray(ids)}::uuid[])`).map((r) => r.id))
+
+export interface CollectionListRow {
+  id: string
+  name: string
+  slug: string
+  kind: 'manual' | 'automatic'
+  visibility: 'visible' | 'hidden'
+  parent_id: string | null
+  products: number
+  computed_at: Date | null
+  updated_at: Date
+  created_at: Date
+}
+
+export const selectCollections = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<CollectionListRow[]> => {
+  const backwards = window.before !== null && window.after === null
+  return tx<CollectionListRow[]>`
+    select c.id, c.name, c.slug, c.kind, c.visibility, c.parent_id, c.computed_at, c.updated_at, c.created_at,
+      (select count(*)::int from collection_product cp join product p on p.id = cp.product_id where cp.collection_id = c.id and p.deleted_at is null) as products
+    from collection c
+    where c.store_id = ${storeId} and c.deleted_at is null
+      and ${window.after ? tx`(c.created_at, c.id) < (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
+      and ${window.before ? tx`(c.created_at, c.id) > (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
+    order by c.created_at ${backwards ? tx`asc` : tx`desc`}, c.id ${backwards ? tx`asc` : tx`desc`}
+    limit ${window.limit + 1}
+  `
+}
+
+export interface RuleRow {
+  kind: 'filter_value' | 'name_contains' | 'product' | 'version' | 'price_range'
+  args: Record<string, unknown>
+}
+
+export interface CollectionRow {
+  id: string
+  name: string
+  slug: string
+  description: string
+  kind: 'manual' | 'automatic'
+  match: 'all' | 'any'
+  parent_id: string | null
+  inherit_parent: boolean
+  visibility: 'visible' | 'hidden'
+  image_asset_id: string | null
+  sort: string
+  seo_title: string | null
+  seo_description: string | null
+  computed_at: Date | null
+  revision: number
+  rules: RuleRow[]
+  /** Hand-picked, in order; for an automatic collection, the rules' result so far. */
+  products: { id: string; name: string; source: 'manual' | 'rule' }[]
+}
+
+export const maxCollectionProducts = 1000
+
+export const selectCollection = async (tx: ScopedSql, storeId: string, id: string): Promise<CollectionRow | null> =>
+  (
+    await tx<CollectionRow[]>`
+      select c.id, c.name, c.slug, c.description, c.kind, c.match, c.parent_id, c.inherit_parent, c.visibility, c.image_asset_id, c.sort,
+        c.seo_title, c.seo_description, c.computed_at, c.revision,
+        coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
+        coalesce((select json_agg(x order by x.position) from (
+          select json_build_object('id', p.id, 'name', p.name, 'source', cp.source) as x, cp.position from collection_product cp join product p on p.id = cp.product_id
+          where cp.collection_id = c.id and p.deleted_at is null order by cp.position limit ${maxCollectionProducts}) as x), '[]'::json) as products
+      from collection c where c.id = ${id} and c.store_id = ${storeId} and c.deleted_at is null
+    `
+  )[0] ?? null
+
+export interface CollectionFields {
+  name: string
+  slug: string
+  description: string
+  kind: 'manual' | 'automatic'
+  match: 'all' | 'any'
+  parentId: string | null
+  inheritParent: boolean
+  visibility: 'visible' | 'hidden'
+  imageAssetId: string | null
+  sort: string
+  seoTitle: string | null
+  seoDescription: string | null
+}
+
+const slugFree = async <T>(tx: ScopedSql, base: string, write: (slug: string, sp: ScopedSql) => Promise<T>): Promise<{ value: T; slug: string }> => {
+  for (let n = 1; n <= 50; n += 1) {
+    const slug = n === 1 ? base : `${base.slice(0, 116)}-${n}`
+    try {
+      return { value: (await tx.savepoint((sp) => write(slug, sp))) as T, slug }
+    } catch (error) {
+      if (!uniqueViolation(error, 'collection_slug_key')) throw error
+    }
+  }
+  throw new Error('catalogue: no free collection address after 50 tries')
+}
+
+export const insertCollection = async (tx: ScopedSql, storeId: string, id: string, f: CollectionFields): Promise<string> =>
+  (
+    await slugFree(tx, f.slug, (slug, sp) => sp`
+      insert into collection (id, store_id, name, slug, description, kind, match, parent_id, inherit_parent, visibility, image_asset_id, sort, seo_title, seo_description)
+      values (${id}, ${storeId}, ${f.name}, ${slug}, ${f.description}, ${f.kind}, ${f.match}, ${f.parentId}, ${f.inheritParent}, ${f.visibility}, ${f.imageAssetId}, ${f.sort}, ${f.seoTitle}, ${f.seoDescription})
+    `)
+  ).slug
+
+/** At the revision the editor read; null when it was stale or isn't here. */
+export const updateCollection = async (tx: ScopedSql, storeId: string, id: string, revision: number, f: CollectionFields, now: Date): Promise<string | null> => {
+  const { value, slug } = await slugFree(tx, f.slug, async (slug, sp) =>
+    (
+      await sp`
+        update collection set name = ${f.name}, slug = ${slug}, description = ${f.description}, kind = ${f.kind}, match = ${f.match}, parent_id = ${f.parentId},
+          inherit_parent = ${f.inheritParent}, visibility = ${f.visibility}, image_asset_id = ${f.imageAssetId}, sort = ${f.sort}, seo_title = ${f.seoTitle},
+          seo_description = ${f.seoDescription}, updated_at = ${now}, revision = revision + 1
+        where id = ${id} and store_id = ${storeId} and revision = ${revision} and deleted_at is null
+      `
+    ).count,
+  )
+  return value === 1 ? slug : null
+}
+
+export const setCollectionRules = async (tx: ScopedSql, storeId: string, collectionId: string, rules: readonly RuleRow[]): Promise<void> => {
+  await tx`delete from collection_rule where collection_id = ${collectionId}`
+  if (rules.length === 0) return
+  await tx`
+    insert into collection_rule (collection_id, store_id, kind, args, position)
+    select ${collectionId}, ${storeId}, x.kind, x.args, x.position from jsonb_to_recordset(${rowsOf(tx, rules.map((r, position) => ({ ...r, position })))}) as x(kind text, args jsonb, position int)
+  `
+}
+
+/** A hand-picked collection's products in the order given, each one this store's; the rules' rows go. */
+export const setCollectionProducts = async (tx: ScopedSql, storeId: string, collectionId: string, productIds: readonly string[]): Promise<void> => {
+  await tx`delete from collection_product where collection_id = ${collectionId}`
+  if (productIds.length === 0) return
+  await tx`
+    insert into collection_product (collection_id, product_id, store_id, position, source)
+    select ${collectionId}, p.id, ${storeId}, x.position, 'manual'
+    from jsonb_to_recordset(${rowsOf(tx, productIds.map((id, position) => ({ id, position })))}) as x(id uuid, position int)
+    join product p on p.id = x.id and p.store_id = ${storeId} and p.deleted_at is null
+  `
+}
+
+/** Soft delete (§7.1); a child moves to the top level rather than pointing at a deleted parent. */
+export const softDeleteCollection = async (tx: ScopedSql, storeId: string, id: string, now: Date): Promise<{ name: string } | null> => {
+  const [gone] = await tx<{ name: string }[]>`update collection set deleted_at = ${now}, updated_at = ${now} where id = ${id} and store_id = ${storeId} and deleted_at is null returning name`
+  if (!gone) return null
+  await tx`update collection set parent_id = null, inherit_parent = false, updated_at = ${now} where parent_id = ${id} and store_id = ${storeId}`
+  return gone
+}
+
+/** The collections the store has and the products, of the given ids, that are its own: a rule or link names only these. */
+export const knownCatalogueIds = async (tx: ScopedSql, storeId: string, ids: { collections: readonly string[]; products: readonly string[]; versions: readonly string[]; values: readonly string[] }) => {
+  const [row] = await tx<{ collections: string[] | null; products: string[] | null; versions: string[] | null; values: string[] | null }[]>`
+    select
+      (select json_agg(id) from collection where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids.collections)}::uuid[])) as collections,
+      (select json_agg(id) from product where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids.products)}::uuid[])) as products,
+      (select json_agg(id) from product_version where store_id = ${storeId} and deleted_at is null and id = any(${pgArray(ids.versions)}::uuid[])) as versions,
+      (select json_agg(id) from filter_value where store_id = ${storeId} and id = any(${pgArray(ids.values)}::uuid[])) as values
+  `
+  return { collections: new Set(row?.collections ?? []), products: new Set(row?.products ?? []), versions: new Set(row?.versions ?? []), values: new Set(row?.values ?? []) }
+}
+
+const ruleSql = (tx: ScopedSql, rule: RuleRow) => {
+  const a = rule.args
+  switch (rule.kind) {
+    case 'filter_value':
+      return tx`exists (select 1 from product_filter_value pfv where pfv.product_id = p.id and pfv.filter_value_id = ${String(a['valueId'])}::uuid)`
+    case 'name_contains':
+      return tx`p.name ilike ${`%${String(a['text']).replaceAll(/[\\%_]/g, (c) => `\\${c}`)}%`}`
+    case 'product':
+      return tx`p.id = ${String(a['productId'])}::uuid`
+    case 'version':
+      return tx`exists (select 1 from product_version v where v.id = ${String(a['versionId'])}::uuid and v.product_id = p.id and v.deleted_at is null)`
+    case 'price_range':
+      return tx`exists (select 1 from version_price vp join product_version v on v.id = vp.version_id where v.product_id = p.id and v.deleted_at is null
+        and vp.currency = ${String(a['currency'])} and vp.amount between ${String(a['min'])}::bigint and ${String(a['max'])}::bigint)`
+  }
+}
+
+/**
+ * Every automatic collection's products from its rules (fact 11), parents first so a child limited to
+ * its parent reads the parent's new result. Run after commit, from the outbox, never in the request (fact 14).
+ */
+export const recomputeCollections = async (tx: ScopedSql, storeId: string, now: Date): Promise<number> => {
+  const collections = await tx<{ id: string; match: 'all' | 'any'; parent_id: string | null; inherit_parent: boolean; depth: number; rules: RuleRow[] }[]>`
+    with recursive tree as (
+      select id, parent_id, 0 as depth from collection where store_id = ${storeId} and deleted_at is null and parent_id is null
+      union all
+      select c.id, c.parent_id, tree.depth + 1 from collection c join tree on c.parent_id = tree.id where c.deleted_at is null
+    )
+    select c.id, c.match, c.parent_id, c.inherit_parent, tree.depth,
+      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules
+    from collection c join tree on tree.id = c.id
+    where c.kind = 'automatic'
+    order by tree.depth
+  `
+  for (const c of collections) {
+    const parts = c.rules.map((r) => ruleSql(tx, r))
+    const joined = parts.reduce((acc, part, i) => (i === 0 ? part : c.match === 'all' ? tx`${acc} and ${part}` : tx`${acc} or ${part}`), tx`false`)
+    const inParent = c.inherit_parent && c.parent_id ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${c.parent_id} and pp.product_id = p.id)` : tx``
+    await tx`
+      with matched as (
+        select p.id, row_number() over (order by p.created_at desc, p.id desc) - 1 as position
+        from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
+        limit ${maxCollectionProducts}
+      ), dropped as (
+        delete from collection_product cp where cp.collection_id = ${c.id} and not exists (select 1 from matched m where m.id = cp.product_id)
+      )
+      insert into collection_product (collection_id, product_id, store_id, position, source, computed_at)
+      select ${c.id}, m.id, ${storeId}, m.position, 'rule', ${now} from matched m
+      on conflict (collection_id, product_id) do update set position = excluded.position, source = 'rule', computed_at = excluded.computed_at
+    `
+    await tx`update collection set computed_at = ${now} where id = ${c.id}`
+  }
+  return collections.length
+}
+
+export interface MenuItemRow {
+  id: string
+  parent_id: string | null
+  label: string
+  kind: 'collection' | 'page' | 'url'
+  collection_id: string | null
+  url: string | null
+  position: number
+}
+
+export const selectMenu = async (tx: ScopedSql, storeId: string): Promise<{ id: string; name: string; revision: number; items: MenuItemRow[] } | null> =>
+  (
+    await tx<{ id: string; name: string; revision: number; items: MenuItemRow[] }[]>`
+      select m.id, m.name, m.revision,
+        coalesce((select json_agg(json_build_object('id', i.id, 'parent_id', i.parent_id, 'label', i.label, 'kind', i.kind, 'collection_id', i.collection_id, 'url', i.url, 'position', i.position)
+          order by i.parent_id nulls first, i.position) from menu_item i where i.menu_id = m.id), '[]'::json) as items
+      from menu m where m.store_id = ${storeId} and m.key = 'main'
+    `
+  )[0] ?? null
+
+/**
+ * The main menu as given (one level of nesting), at the revision the editor read, or made if the store
+ * has none yet; null when another save came first.
+ */
+export const writeMenu = async (tx: ScopedSql, storeId: string, revision: number | null, name: string, items: readonly Omit<MenuItemRow, 'position'>[], now: Date): Promise<number | null> => {
+  const existing = await selectMenu(tx, storeId)
+  let menuId: string
+  let next: number
+  if (!existing) {
+    if (revision !== null && revision !== 0) return null
+    menuId = crypto.randomUUID()
+    next = 1
+    await tx`insert into menu (id, store_id, key, name) values (${menuId}, ${storeId}, 'main', ${name})`
+  } else {
+    if (existing.revision !== revision) return null
+    menuId = existing.id
+    next = existing.revision + 1
+    await tx`update menu set name = ${name}, updated_at = ${now}, revision = ${next} where id = ${menuId}`
+    await tx`delete from menu_item where menu_id = ${menuId}`
+  }
+  const withPositions = (parent: string | null) => items.filter((i) => i.parent_id === parent).map((i, position) => ({ ...i, position }))
+  const top = withPositions(null)
+  const children = top.flatMap((t) => withPositions(t.id))
+  for (const level of [top, children]) {
+    if (level.length === 0) continue
+    await tx`
+      insert into menu_item (id, menu_id, store_id, parent_id, label, kind, collection_id, url, position)
+      select x.id, ${menuId}, ${storeId}, x.parent_id, x.label, x.kind, x.collection_id, x.url, x.position
+      from jsonb_to_recordset(${rowsOf(tx, level)}) as x(id uuid, parent_id uuid, label text, kind text, collection_id uuid, url text, position int)
+    `
+  }
+  return next
+}

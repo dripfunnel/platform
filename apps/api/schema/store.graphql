@@ -30,11 +30,149 @@ type BrandFiles {
   mark: String
 }
 
+type Collection {
+  computedAt: String
+  description: String
+  id: ID
+  imageAssetId: ID
+  inheritParent: Boolean
+  kind: String
+  match: String
+  name: String
+  parentId: ID
+  products: [CollectionMember!]
+  revision: Int
+  rules: [CollectionRule!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  visible: Boolean
+}
+
+input CollectionInput {
+  description: String
+  imageAssetId: String
+  inheritParent: Boolean
+  kind: String!
+  match: String
+  name: String!
+  parentId: String
+  productIds: [String!]
+  rules: [CollectionRuleInput!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  visible: Boolean
+}
+
+type CollectionMember {
+  id: ID
+  name: String
+  source: String
+}
+
+type CollectionPage {
+  nodes: [CollectionSummary!]
+  pageInfo: PageInfo
+}
+
+type CollectionRule {
+  currency: String
+  kind: String
+  max: String
+  min: String
+  productId: ID
+  text: String
+  valueId: ID
+  versionId: ID
+}
+
+input CollectionRuleInput {
+  currency: String
+  kind: String!
+  max: String
+  min: String
+  productId: String
+  text: String
+  valueId: String
+  versionId: String
+}
+
+type CollectionSummary {
+  computedAt: String
+  id: ID
+  kind: String
+  name: String
+  parentId: ID
+  products: Int
+  slug: String
+  visible: Boolean
+}
+
+type Facet {
+  id: ID
+  name: String
+  position: Int
+  shopperVisible: Boolean
+  values: [FacetValue!]
+}
+
+input FacetInput {
+  id: String
+  name: String!
+  position: Int
+  shopperVisible: Boolean
+  values: [FacetValueInput!]!
+}
+
+type FacetValue {
+  id: ID
+  name: String
+  products: Int
+}
+
+input FacetValueInput {
+  id: String
+  name: String!
+}
+
 type Me {
   acting: ActingStore
   email: String
   id: ID
   name: String
+}
+
+type Menu {
+  items: [MenuItem!]
+  name: String
+  revision: Int
+}
+
+input MenuChildInput {
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type MenuItem {
+  collectionId: ID
+  id: ID
+  kind: String
+  label: String
+  parentId: ID
+  url: String
+}
+
+input MenuItemInput {
+  children: [MenuChildInput!]
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
 }
 
 type Money {
@@ -51,13 +189,19 @@ type Mutation {
   changeEmail(email: String!, password: String!): Boolean
   changePassword(current: String!, next: String!): Boolean
   changeRole(membershipId: ID!, role: String!): Boolean
+  deleteCollection(id: ID!): Boolean
+  deleteFacet(id: ID!): Boolean
   deleteProducts(ids: [ID!]!): Int
   duplicateProduct(id: ID!): SavedProduct
   inviteMember(email: String!, role: String!): Boolean
+  mergeFacetValues(from: [ID!]!, into: ID!): Int
   regenerateBackupCodes: [String!]
   removeMember(membershipId: ID!): Boolean
   resendInvitation(invitationId: ID!): Boolean
   revokeInvitation(invitationId: ID!): Boolean
+  saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveFacet(input: FacetInput!): ID
+  saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
   saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
   setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
   signOutOtherSessions: Int
@@ -102,6 +246,7 @@ type Product {
   category: String
   createdAt: String
   description: String
+  filterValues: [ProductFilterValue!]
   id: ID
   name: String
   options: [ProductOption!]
@@ -132,9 +277,20 @@ type ProductCounts {
   visible: Int
 }
 
+type ProductFilterValue {
+  valueId: ID
+  versionId: ID
+}
+
+input ProductFilterValueInput {
+  valueId: String!
+  version: Int
+}
+
 input ProductInput {
   category: String
   description: String
+  filterValues: [ProductFilterValueInput!]
   name: String!
   options: [ProductOptionInput!]!
   photos: [ProductPhotoInput!]
@@ -285,8 +441,12 @@ type Provisioning {
 
 type Query {
   brand: Brand
+  collection(id: ID!): Collection
+  collections(after: String, before: String, first: Int): CollectionPage
+  facets: [Facet!]
   health: String
   me: Me
+  menu: Menu
   myActivity(after: String, before: String, first: Int): MyActivity
   mySessions: [SignedInSession!]
   myStores(after: String, before: String, first: Int): StoreChoices
@@ -297,6 +457,12 @@ type Query {
   products(after: String, before: String, filter: String, first: Int, search: String, supplier: String): ProductPage
   profile: Profile
   storeState: StoreState
+}
+
+type SavedCollection {
+  id: ID
+  revision: Int
+  slug: String
 }
 
 type SavedProduct {

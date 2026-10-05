@@ -1067,6 +1067,13 @@ the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax
 (a trigger refuses a supplier uploading as anyone else); linking it to a product makes it the product
 owner's, unless another owner's product already uses it, which is refused so their photo stays readable.
 A link names only a file the caller can read, because a foreign key alone would take another owner's id.
+**Part 3** (migration 0043): `filter`, `filter_value`, `product_filter_value`, `collection`, `collection_rule`,
+`collection_product`, `menu` and `menu_item`, in §7.11's classes. An automatic collection's
+`collection_product` rows are written by the `collections.recompute` outbox deliverer as `app_system`,
+parents first, after every change that can move them (a product saved or deleted, a collection, a filter, a
+merge). `collection.computed_at` is when that last landed. A menu nests one level, and a collection
+can't be its own ancestor, both enforced by triggers. The H6 "only products also in the parent" switch
+is `inherit_parent`.
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
 product with no visible version is reported as "not buyable" (fact 8); a version with no price

@@ -163,6 +163,7 @@ export interface ProductRow {
   versions: VersionRow[]
   photos: PhotoRow[]
   video: { asset_id: string | null; url: string | null } | null
+  filter_values: { value_id: string; version_id: string | null }[]
 }
 
 export interface PhotoRow {
@@ -199,7 +200,8 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
       coalesce((
         select json_agg(json_build_object('id', ph.id, 'asset_id', ph.asset_id, 'version_id', ph.version_id, 'alt', ph.alt, 'width', a.width, 'height', a.height) order by ph.position)
         from product_photo ph join asset a on a.id = ph.asset_id where ph.product_id = p.id), '[]'::json) as photos,
-      (select json_build_object('asset_id', pv.asset_id, 'url', pv.url) from product_video pv where pv.product_id = p.id) as video
+      (select json_build_object('asset_id', pv.asset_id, 'url', pv.url) from product_video pv where pv.product_id = p.id) as video,
+      coalesce((select json_agg(json_build_object('value_id', pfv.filter_value_id, 'version_id', pfv.version_id)) from product_filter_value pfv where pfv.product_id = p.id), '[]'::json) as filter_values
     from product p
     left join seller s on s.id = p.seller_id
     where p.id = ${productId} and p.store_id = ${storeId} and p.deleted_at is null

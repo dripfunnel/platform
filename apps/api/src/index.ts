@@ -35,6 +35,7 @@ import { stripeClient, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
+import { collectionsRecomputeDeliverer, collectionsRecomputeKind } from '#jobs/queues/deliverers/collectionsRecompute'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
@@ -98,6 +99,7 @@ const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
   const lookup = dohLookup()
   const ses = sesFor(config)
   return {
+    [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     'domain.recheck': domainRecheckDeliverer(sql, lookup),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),

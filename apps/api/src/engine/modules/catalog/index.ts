@@ -36,6 +36,7 @@ import {
   type ValueWrite,
   type VersionFields,
 } from '#db/scoped/catalog'
+import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStructure'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanProduct, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
 
@@ -72,6 +73,8 @@ export interface CatalogDeps {
   now: () => Date
   /** The plan's product allowance, read before the locked count (saas/entitlements `allowanceFor`). */
   productAllowance: () => Promise<number>
+  /** Asks, in the same transaction, for the store's automatic collections to be recomputed after commit (fact 14). */
+  recompute: (tx: ScopedSql) => Promise<unknown>
 }
 
 const fieldsOf = (clean: CleanProduct, visibility: 'visible' | 'hidden'): ProductFields => ({
@@ -110,7 +113,7 @@ class Refused extends Error {
   }
 }
 
-export const createCatalogService = ({ sql, context, actor, activity, facts, now, productAllowance }: CatalogDeps) => {
+export const createCatalogService = ({ sql, context, actor, activity, facts, now, productAllowance, recompute }: CatalogDeps) => {
   const { storeId } = context
   const sellerId = context.sellerScope.kind === 'seller' ? context.sellerScope.sellerId : null
   const inScope = <T>(work: (tx: ScopedSql) => Promise<T>) => withScope(sql, context, work)
@@ -185,6 +188,12 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       await setProductPhotos(tx, storeId, productId, clean.photos.map((p) => ({ assetId: p.assetId, alt: p.alt, versionId: p.version === null ? null : (ids[p.version] ?? null) })))
     }
     if (clean.video !== undefined) await setProductVideo(tx, storeId, productId, clean.video)
+    if (clean.filterValues !== null) {
+      const known = await knownFacetValues(tx, storeId, clean.filterValues.map((f) => f.valueId))
+      if (!clean.filterValues.every((f) => known.has(f.valueId))) throw new Refused({ reason: 'INVALID_FILTER' })
+      await setProductFilterValues(tx, storeId, productId, clean.filterValues.map((f) => ({ valueId: f.valueId, versionId: f.version === null ? null : (ids[f.version] ?? null) })))
+    }
+    await recompute(tx)
   }
 
   const run = async (work: (tx: ScopedSql) => Promise<SaveResult>): Promise<SaveResult> => {
@@ -282,6 +291,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
         // The same files, on the copy's own photos; the copy's versions are in the source's order.
         photos: source.photos.map((p) => ({ assetId: p.asset_id, alt: p.alt, version: p.version_id === null ? null : source.versions.findIndex((v) => v.id === p.version_id) })).map((p) => ({ ...p, version: p.version === -1 ? null : p.version })),
         video: source.video ? { assetId: source.video.asset_id, url: source.video.url } : null,
+        filterValues: source.filter_values.map((f) => ({ valueId: f.value_id, version: f.version_id === null ? null : source.versions.findIndex((v) => v.id === f.version_id) })).filter((f) => f.version !== -1),
       }
       // A supplier's copy stays the supplier's and is created as its products are (ACCESS §7.2).
       const made = await insertProduct(tx, { storeId, sellerId: source.seller_id, createdBy: actor.id, fields: fieldsOf(copy, sellerId !== null ? 'visible' : 'hidden') })
@@ -295,6 +305,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     inScope(async (tx) => {
       const gone = await softDeleteProducts(tx, storeId, ids, now())
       for (const g of gone) await activity.record(tx, entry(catalogAudit.deleted, { id: g.id, label: g.name }))
+      if (gone.length > 0) await recompute(tx)
       return gone.length
     })
 

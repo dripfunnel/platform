@@ -7,6 +7,7 @@ export const maxOptions = 3
 export const maxVersions = 100
 export const maxValuesPerOption = 100
 export const maxPhotos = 20
+export const maxFilterValues = 100
 
 /** Refused outright (decided on #337); alcohol is allowed and carries an age check. */
 export const refusedCategories = ['weapons', 'prescription_medicine', 'illegal_drugs', 'tobacco_vapes', 'adult', 'counterfeit'] as const
@@ -53,6 +54,12 @@ export interface PhotoInput {
   version?: number | null | undefined
 }
 
+export interface FilterValueInput {
+  valueId: string
+  /** The version it describes, by its place in `versions`; null for the product (fact 13). */
+  version?: number | null | undefined
+}
+
 export interface VideoInput {
   assetId?: string | null | undefined
   url?: string | null | undefined
@@ -75,6 +82,8 @@ export interface ProductInput {
   photos?: readonly PhotoInput[] | null | undefined
   /** Absent keeps the video; `{}` with neither removes it. */
   video?: VideoInput | null | undefined
+  /** Absent keeps the product's filter values. */
+  filterValues?: readonly FilterValueInput[] | null | undefined
 }
 
 export type CatalogRefusal =
@@ -96,6 +105,7 @@ export type CatalogRefusal =
   | 'TOO_MANY_PHOTOS'
   | 'INVALID_PHOTO'
   | 'INVALID_VIDEO'
+  | 'INVALID_FILTER'
 
 export interface CleanPrice {
   currency: string
@@ -151,6 +161,8 @@ export interface CleanProduct {
   photos: CleanPhoto[] | null
   /** Undefined leaves the video; null removes it. */
   video: { assetId: string | null; url: string | null } | null | undefined
+  /** Null leaves the product's filter values as they are. */
+  filterValues: { valueId: string; version: number | null }[] | null
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -356,6 +368,19 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
   if (typeof photos === 'string') return photos
   const video = cleanVideo(input.video)
   if (typeof video === 'string') return video
+  let filterValues: CleanProduct['filterValues'] = null
+  if (input.filterValues !== null && input.filterValues !== undefined) {
+    if (input.filterValues.length > maxFilterValues) return 'INVALID_INPUT'
+    const seen = new Set<string>()
+    filterValues = []
+    for (const f of input.filterValues) {
+      const version = f.version ?? null
+      const key = `${f.valueId.toLowerCase()}:${version ?? ''}`
+      if (!uuid.test(f.valueId) || seen.has(key) || (version !== null && (!Number.isInteger(version) || version < 0 || version >= versions.length))) return 'INVALID_FILTER'
+      seen.add(key)
+      filterValues.push({ valueId: f.valueId.toLowerCase(), version })
+    }
+  }
 
   const [warrantyText, returnsText, seoTitle, seoDescription] = extras as (string | null)[]
   return {
@@ -373,5 +398,6 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     versions,
     photos,
     video,
+    filterValues,
   }
 }

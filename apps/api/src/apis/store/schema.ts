@@ -5,6 +5,7 @@ import { registerPeople } from './people'
 import { registerProducts } from './products'
 import { registerProfile } from './profile'
 import { registerShell } from './shell'
+import { registerStructure } from './structure'
 
 export type { StoreContext } from './access'
 
@@ -18,5 +19,6 @@ registerShell(builder)
 registerProfile(builder)
 registerPeople(builder)
 registerProducts(builder)
+registerStructure(builder)
 
 export const storeSchema = secureSchema(builder.toSchema(), storePolicy)

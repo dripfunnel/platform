@@ -341,6 +341,7 @@ describe('the backstop itself', () => {
       'user_password_reset', 'user_email_change', 'signup', 'signup_text',
       'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
       'asset', 'product_photo', 'product_video',
+      'filter', 'filter_value', 'product_filter_value', 'collection', 'collection_rule', 'collection_product', 'menu', 'menu_item',
     ]
     const rows = await db.sql<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }[]>`
       select relname, relrowsecurity, relforcerowsecurity from pg_class
@@ -452,6 +453,21 @@ describe('the backstop itself', () => {
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from asset`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into asset (store_id, seller_id, r2_key, kind, mime, bytes, checksum) values (${t.storeA1}, null, ${`stores/${t.storeA1}/assets/00000000-0000-4000-8000-000000000009.png`}, 'image', 'image/png', 1, ${'0'.repeat(64)})`)).rejects.toThrow(/uploads as itself/)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_photo (product_id, store_id, asset_id, position) values (${first}, ${t.storeA1}, ${ownFile}, 0)`)).rejects.toThrow(/no such file/)
+    // Structure: a supplier reads filters but writes none, never sees a collection or menu, and tags only its own products.
+    const [filterRow] = await db.sql<{ id: string }[]>`insert into filter (store_id, name, position) values (${t.storeA1}, 'Iso filter', 0) returning id`
+    const [valueRow] = await db.sql<{ id: string }[]>`insert into filter_value (filter_id, store_id, name, position) values (${filterRow?.id ?? ''}, ${t.storeA1}, 'Iso value', 0) returning id`
+    await db.sql`insert into collection (store_id, name, slug, kind) values (${t.storeA1}, 'Iso', 'iso-collection', 'manual')`
+    await db.sql`insert into menu (store_id, key, name) values (${t.storeA1}, 'main', 'Main')`
+    expect(await seen(t.storeA1, supplier, 'filter')).toBe(1)
+    expect(await seen(t.storeA1, supplier, 'filter_value')).toBe(1)
+    for (const table of ['collection', 'menu']) expect({ [table]: await seen(t.storeA1, supplier, table) }).toEqual({ [table]: 0 })
+    for (const table of ['filter', 'collection', 'menu']) expect({ [table]: await seen(t.storeB1, { kind: 'all' }, table) }).toEqual({ [table]: 0 })
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into filter (store_id, name, position) values (${t.storeA1}, 'Supplier filter', 1)`)).rejects.toThrow(/row-level security/)
+    expect(await inStore(t.storeA1, supplier, async (tx) => (await tx`update filter set name = 'taken' where id = ${filterRow?.id ?? ''}`).count)).toBe(0)
+    await inStore(t.storeA1, supplier, (tx) => tx`insert into product_filter_value (product_id, filter_value_id, store_id) values (${first}, ${valueRow?.id ?? ''}, ${t.storeA1})`)
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_filter_value (product_id, filter_value_id, store_id) values (${second}, ${valueRow?.id ?? ''}, ${t.storeA1})`)).rejects.toThrow(/no such product/)
+    expect(await seen(t.storeA1, { kind: 'all' }, 'product_filter_value')).toBe(1)
+    await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from collection`)).rejects.toThrow(/permission denied/)
     // The plan count is the whole store's, a number only, whoever asks.
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select store_product_count()`)).rejects.toThrow(/permission denied/)

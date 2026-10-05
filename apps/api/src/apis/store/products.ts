@@ -6,6 +6,7 @@ import { forbidden } from '../graphql/scope'
 import { actingCaller, type StoreContext } from './access'
 import { pageInfoType, type StoreBuilder } from './builder'
 import { storePage } from './refusals'
+import { recomputeFor } from './structure'
 
 // Products (FIRST-RELEASE §11, §19; CATALOG-DESIGN §3): the merchant side reads and writes the store's
 // catalogue, a supplier its own products only (`store-seller`, RLS through SellerScope). Rules are the engine's.
@@ -35,6 +36,7 @@ const words: Record<Exclude<SaveResult, { ok: true }>['reason'], string> = {
   INVALID_PHOTO: 'A photo isn’t valid.',
   INVALID_VIDEO: 'Use an uploaded video or an https link, not both.',
   FILE_REFUSED: 'That file isn’t here, or belongs to another product owner.',
+  INVALID_FILTER: 'A filter value isn’t this store’s, or is listed twice.',
 }
 
 const filters: readonly ProductFilter[] = ['all', 'visible', 'hidden', 'pending', 'sent_back', 'missing_info']
@@ -161,6 +163,9 @@ export const registerProducts = (builder: StoreBuilder) => {
       uploaded: t.boolean({ resolve: (v) => v.asset_id !== null }),
     }),
   })
+  const FilterValueRef = builder.objectRef<ProductRow['filter_values'][number]>('ProductFilterValue').implement({
+    fields: (t) => ({ valueId: t.exposeID('value_id'), versionId: t.exposeID('version_id', { nullable: true }) }),
+  })
   type VersionView = ProductRow['versions'][number] & { choiceNames: string[] }
   const VersionType = builder.objectRef<VersionView>('ProductVersion').implement({
     fields: (t) => ({
@@ -210,6 +215,7 @@ export const registerProducts = (builder: StoreBuilder) => {
         resolve: (p) => p.versions.map((v) => ({ ...v, choiceNames: p.options.map((o) => o.values.find((value) => value.id === v.choices[o.id])?.name ?? '') })),
       }),
       photos: t.field({ type: [PhotoType], resolve: (p) => p.photos }),
+      filterValues: t.field({ type: [FilterValueRef], resolve: (p) => p.filter_values }),
       video: t.field({ type: VideoType, nullable: true, resolve: (p) => p.video }),
       createdAt: t.string({ resolve: (p) => p.created_at.toISOString() }),
       updatedAt: t.string({ resolve: (p) => p.updated_at.toISOString() }),
@@ -221,6 +227,10 @@ export const registerProducts = (builder: StoreBuilder) => {
     fields: (t) => ({ assetId: t.string({ required: true }), alt: t.string(), version: t.int() }),
   })
   const VideoInput = builder.inputType('ProductVideoInput', { fields: (t) => ({ assetId: t.string(), url: t.string() }) })
+  const FilterValueInput = builder.inputType('ProductFilterValueInput', {
+    // On the product, or one version by its place in `versions` (fact 13).
+    fields: (t) => ({ valueId: t.string({ required: true }), version: t.int() }),
+  })
 
   const PriceInput = builder.inputType('VersionPriceInput', {
     fields: (t) => ({ currency: t.string({ required: true }), amount: t.string({ required: true }), compareAtAmount: t.string() }),
@@ -267,6 +277,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       versions: t.field({ type: [VersionInput], required: true }),
       photos: t.field({ type: [PhotoInput] }),
       video: t.field({ type: VideoInput }),
+      filterValues: t.field({ type: [FilterValueInput] }),
     }),
   })
   const PatchInput = builder.inputType('ProductsPatch', { fields: (t) => ({ visible: t.boolean({ required: true }) }) })
@@ -290,6 +301,7 @@ export const registerProducts = (builder: StoreBuilder) => {
       facts: ctx.facts,
       now: ctx.now,
       productAllowance: () => allowanceFor(sql, caller.context, 'products', ctx.now()),
+      recompute: recomputeFor(caller),
     })
   }
 
