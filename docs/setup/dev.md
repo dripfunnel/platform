@@ -154,14 +154,13 @@ then. Where each value is kept is THIRD-PARTY-ACCESS §8.
    whether its per-repo grant can give store repos read access to `@dripfunnel/storefront-core`
    → `GITHUB_APP_*`.
 3. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
-   redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` *(proposed, SAPI 10 confirms)*: one fixed
-   address, because Stripe only returns to registered URLs and every partner's portal host differs; it
-   sends the merchant back to their own portal → `STRIPE_CONNECT_CLIENT_ID`.
+   redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
+   row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
 4. **SMS**: MSG91 and Twilio test accounts for the house partner, and India's DLT registration
    started (templates for codes and order updates). These are partner credentials, entered in
    the partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
 5. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
-   EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (§3).
+   EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
 6. `openssl rand -base64 32` → `PREVIEW_LINK_KEY`.
 
 ## 3. The Worker's values
@@ -186,6 +185,9 @@ Never reuse a value from local or production.
 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` | Secret | the sending IAM user, SES sandbox | THIRD-PARTY-ACCESS.md §2.4. In the sandbox only verified recipients receive mail: verify the team's addresses |
 | `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
+| `CF_PAGES_POOL` | Secret | the dev pool, JSON `[{ "accountId", "token" }]` | §2.8 item 1; each token scoped to *Pages: Edit* on its own account (THIRD-PARTY-ACCESS §8.2). Needed from INF 1 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Needed from SAPI 10 |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 6). Needed from ST 1a |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
