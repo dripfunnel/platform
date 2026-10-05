@@ -41,6 +41,7 @@ import { knownFacetValues, setProductFilterValues } from '#db/scoped/catalogStru
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanListing, ListingInvalid, type CleanListing } from './listing'
 import { cleanProduct, type CatalogRefusal, type CleanProduct, type CleanVersion, type ProductInput } from './rules'
+import { isUuid } from '#core/ids'
 
 export { maxOptions, maxPhotos, maxVersions, refusedCategories, slugFrom, type ProductInput } from './rules'
 export { assetsAudit, createAssetService, type AssetStore, type UploadResult } from './assets'
@@ -116,7 +117,6 @@ const versionFieldsOf = (v: CleanVersion, position: number): VersionFields => ({
 // (ACCESS §7.1): the store-wide uniqueness the storefront needs is never a signal about others.
 const supplierSlug = (base: string): string => `${base.slice(0, 112)}-${[...crypto.getRandomValues(new Uint8Array(6))].map((b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('')}`
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A product as the engine writes it: its own fields, then the listing sections and chart it was given. */
 type Cleaned = CleanProduct & { listing: CleanListing | null; sizeChartId: string | null | undefined }
@@ -238,7 +238,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     // Vendor input can't carry visibility (ACCESS §7.2): refused, not quietly dropped.
     if (sellerId !== null && result.visible !== null) throw new Refused({ reason: 'SUPPLIER_FIELD' })
     const sizeChartId = input.sizeChartId === undefined ? undefined : input.sizeChartId === null ? null : input.sizeChartId.toLowerCase()
-    if (sizeChartId && !uuid.test(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
+    if (sizeChartId && !isUuid(sizeChartId)) throw new Refused({ reason: 'INVALID_LISTING' })
     try {
       const listing = input.listing ? cleanListing(input.listing, result.versions.length, 'marketRule' in input.listing) : null
       return { ...result, listing, sizeChartId }

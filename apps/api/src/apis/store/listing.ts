@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import type { StoreCaller } from '#auth/storeCaller'
 import { pageOf } from '#core/paging'
+import { isUuid } from '#core/ids'
 import { createSettingsService, settingsAudit, type SettingsRefusal, type SettingsResult } from '#engine/modules/catalog/index'
 import { planLimitFor } from '#saas/entitlements/index'
 import { forbidden } from '../graphql/scope'
@@ -122,7 +123,6 @@ export const registerListing = (builder: StoreBuilder) => {
   const read = { api: 'store', scope: 'store-seller', permission: 'catalog.read', target: 'none' } as const
   const charts = { api: 'store', scope: 'store-seller', permission: 'catalog.write', target: 'none' } as const
   const settingsWrite = { api: 'store', scope: 'store', permission: 'settings', target: 'none' } as const
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   builder.queryFields((t) => ({
     catalogueSettings: t.field({
@@ -155,7 +155,7 @@ export const registerListing = (builder: StoreBuilder) => {
       nullable: true,
       args: { id: t.arg.id({ required: true }) },
       extensions: { access: read },
-      resolve: (_, args, ctx) => (uuid.test(String(args.id)) ? service(ctx).sizeChart(String(args.id)) : null),
+      resolve: (_, args, ctx) => (isUuid(String(args.id)) ? service(ctx).sizeChart(String(args.id)) : null),
     }),
   }))
 

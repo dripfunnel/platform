@@ -3,6 +3,7 @@ import { readCapped } from '#core/http'
 import { maxImageBytes, maxVideoBytes } from '#core/media'
 import { createAssetService, type AssetStore } from '#engine/modules/catalog/index'
 import { actingCaller, storePolicy, type StoreContext } from './access'
+import { isUuid } from '#core/ids'
 
 // `POST /api/assets` (the raw file as the body) and `GET /api/assets/{id}` on the portal host
 // (FIRST-RELEASE §19 `uploadAsset`): the session, the acting store and the role come first, as for
@@ -10,7 +11,6 @@ import { actingCaller, storePolicy, type StoreContext } from './access'
 
 export const assetsPath = '/api/assets'
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const json = (status: number, body: unknown): Response => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
 const refuse = (status: number, code: string) => json(status, { ok: false, code })
@@ -44,7 +44,7 @@ export const handleAssets = async (request: Request, ctx: StoreContext, store: A
 
   if (reading) {
     // Another store's or supplier's file is "not found", like one that never was (ACCESS §11).
-    const file = uuid.test(id) ? await service.open(id) : null
+    const file = isUuid(id) ? await service.open(id) : null
     if (!file) return new Response(null, { status: 404 })
     return new Response(file.body, {
       headers: { 'content-type': file.mime, 'content-length': String(file.bytes), 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'" },

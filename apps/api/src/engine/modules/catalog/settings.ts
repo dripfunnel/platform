@@ -22,6 +22,7 @@ import {
 } from '#db/scoped/catalogListing'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { cleanBadge, cleanSizeChart, ListingInvalid, type SizeChartInput } from './listing'
+import { isUuid } from '#core/ids'
 
 // Settings › Catalogue (CATALOG P1, S5) and size charts (R): the switches and badges are the merchant
 // side's; a supplier makes, edits and reads its own charts only (R13), through its scope.
@@ -37,7 +38,6 @@ export const settingsAudit = {
 export type SettingsRefusal = 'INVALID_INPUT' | 'NOT_FOUND' | 'STALE_REVISION' | 'DUPLICATE_LABEL' | 'TOO_MANY_BADGES' | 'TOO_MANY_SIZE_CHARTS'
 export type SettingsResult<T> = { ok: true; value: T } | { ok: false; reason: SettingsRefusal }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 class Refused extends Error {
   constructor(readonly reason: SettingsRefusal) {
@@ -101,7 +101,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
   const saveBadge = (id: string | null, input: { label: string; tone: string; rule: string; position?: number | null | undefined }) =>
     run(async (tx) => {
       const clean = cleanBadge(input)
-      if (id !== null && !uuid.test(id)) throw new Refused('NOT_FOUND')
+      if (id !== null && !isUuid(id)) throw new Refused('NOT_FOUND')
       if (id === null && (await countBadges(tx, storeId)) >= maxBadges) throw new Refused('TOO_MANY_BADGES')
       const badgeId = id ?? crypto.randomUUID()
       if (!(await upsertBadge(tx, storeId, { id: badgeId, ...clean }, id !== null))) throw new Refused('NOT_FOUND')
@@ -111,7 +111,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
 
   const removeBadge = (id: string) =>
     run(async (tx) => {
-      const gone = uuid.test(id) ? await deleteBadge(tx, storeId, id) : null
+      const gone = isUuid(id) ? await deleteBadge(tx, storeId, id) : null
       if (gone === null) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(settingsAudit.badgeDeleted, { type: 'badge', id, label: gone }))
       return true
@@ -132,7 +132,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
         await insertSizeChart(tx, storeId, sellerId, chartId, clean)
         next = 1
       } else {
-        if (!uuid.test(id) || revision === null) throw new Refused('NOT_FOUND')
+        if (!isUuid(id) || revision === null) throw new Refused('NOT_FOUND')
         if (!(await updateSizeChart(tx, storeId, id, revision, clean, now()))) throw new Refused((await selectSizeChart(tx, storeId, id)) ? 'STALE_REVISION' : 'NOT_FOUND')
         chartId = id
         next = revision + 1
@@ -143,7 +143,7 @@ export const createSettingsService = ({ sql, context, actor, activity, facts, no
 
   const removeSizeChart = (id: string) =>
     run(async (tx) => {
-      const gone = uuid.test(id) ? await softDeleteSizeChart(tx, storeId, id, now()) : null
+      const gone = isUuid(id) ? await softDeleteSizeChart(tx, storeId, id, now()) : null
       if (!gone) throw new Refused('NOT_FOUND')
       await activity.record(tx, entry(settingsAudit.sizeChartDeleted, { type: 'size_chart', id, label: gone.name }))
       return gone.products

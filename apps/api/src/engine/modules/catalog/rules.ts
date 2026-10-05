@@ -1,5 +1,6 @@
 import { isCurrency, parseMinor } from '#core/money'
 import type { ListingInput } from './listing'
+import { isUuid } from '#core/ids'
 
 // The catalogue's input rules (CATALOG-DESIGN §3 facts 1–5, 15; decided on #337): what a product must
 // be before it is written. Pure, so the API and imports share them.
@@ -13,8 +14,14 @@ export const maxFilterValues = 100
 /** Refused outright (decided on #337); alcohol is allowed and carries an age check. */
 export const refusedCategories = ['weapons', 'prescription_medicine', 'illegal_drugs', 'tobacco_vapes', 'adult', 'counterfeit'] as const
 
-// Any of these words in a category refuses it, however it is cased or joined, so "Tobacco" or "Fire-arms" can't pass.
-const refusedWords = new Set(['weapon', 'weapons', 'firearm', 'firearms', 'gun', 'guns', 'ammunition', 'prescription', 'narcotics', 'illegal', 'tobacco', 'vape', 'vapes', 'vaping', 'cigarette', 'cigarettes', 'adult', 'counterfeit', 'counterfeits', 'replica', 'replicas'])
+// A refused category is a phrase among a category's words, or the whole category on its own, so
+// "Tobacco" or "Fire-arms" can't pass while "Prescription glasses" or "Hot glue guns" can.
+const refusedPhrases = [
+  'weapon', 'weapons', 'firearm', 'firearms', 'ammunition', 'narcotics', 'tobacco', 'cigarette', 'cigarettes', 'vape', 'vapes', 'vaping',
+  'counterfeit', 'counterfeits', 'illegal drugs', 'prescription medicine', 'prescription medicines', 'prescription drugs', 'prescription medication',
+  'prescription medications', 'adult content', 'adult products', 'adult toys', 'sex toys',
+].map((phrase) => phrase.split(' '))
+const refusedAlone = new Set(['gun', 'guns', 'adult', 'prescription', 'drugs', 'replica', 'replicas'])
 
 /** A category in words, folded: lower case, accents gone, anything else a separator. */
 const categoryWords = (category: string): string[] =>
@@ -25,9 +32,17 @@ const categoryWords = (category: string): string[] =>
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
 
+const holds = (words: readonly string[], phrase: readonly string[]) => words.some((_, i) => phrase.every((p, j) => words[i + j] === p))
+
 export const isRefusedCategory = (category: string): boolean => {
   const words = categoryWords(category)
-  return refusedCategories.includes(words.join('_') as (typeof refusedCategories)[number]) || words.some((w) => refusedWords.has(w)) || words.join('').includes('firearm')
+  const joined = words.join('')
+  return (
+    refusedCategories.includes(words.join('_') as (typeof refusedCategories)[number]) ||
+    (words.length === 1 && refusedAlone.has(joined)) ||
+    refusedPhrases.some((phrase) => holds(words, phrase)) ||
+    joined.includes('firearm')
+  )
 }
 
 export const productTypes = ['physical', 'digital', 'service', 'gift_card'] as const
@@ -191,7 +206,6 @@ export interface CleanProduct {
   filterValues: { valueId: string; version: number | null }[] | null
 }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** A link to a video host: https, a host and a path, nothing to run (CATALOG S7). */
 export const isVideoUrl = (value: string): boolean => {
@@ -209,7 +223,7 @@ const cleanPhotos = (photos: readonly PhotoInput[], versionCount: number): Clean
   const seen = new Set<string>()
   const clean: CleanPhoto[] = []
   for (const p of photos) {
-    if (!uuid.test(p.assetId) || seen.has(p.assetId.toLowerCase())) return 'INVALID_PHOTO'
+    if (!isUuid(p.assetId) || seen.has(p.assetId.toLowerCase())) return 'INVALID_PHOTO'
     seen.add(p.assetId.toLowerCase())
     const alt = text(p.alt, 250)
     if (alt === false) return 'INVALID_PHOTO'
@@ -227,7 +241,7 @@ const cleanVideo = (video: VideoInput | null | undefined): CleanProduct['video']
   const url = video.url?.trim() || null
   if (assetId === null && url === null) return null
   if ((assetId !== null) === (url !== null)) return 'INVALID_VIDEO'
-  if (assetId !== null && !uuid.test(assetId)) return 'INVALID_VIDEO'
+  if (assetId !== null && !isUuid(assetId)) return 'INVALID_VIDEO'
   if (url !== null && !isVideoUrl(url)) return 'INVALID_VIDEO'
   return { assetId: assetId?.toLowerCase() ?? null, url }
 }
@@ -403,7 +417,7 @@ export const cleanProduct = (input: ProductInput, pricingCurrency: string): Clea
     for (const f of input.filterValues) {
       const version = f.version ?? null
       const key = `${f.valueId.toLowerCase()}:${version ?? ''}`
-      if (!uuid.test(f.valueId) || seen.has(key) || (version !== null && (!Number.isInteger(version) || version < 0 || version >= versions.length))) return 'INVALID_FILTER'
+      if (!isUuid(f.valueId) || seen.has(key) || (version !== null && (!Number.isInteger(version) || version < 0 || version >= versions.length))) return 'INVALID_FILTER'
       seen.add(key)
       filterValues.push({ valueId: f.valueId.toLowerCase(), version })
     }
