@@ -381,6 +381,11 @@ user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
             -- "user" gains two_factor_method, two_factor_enrolled_at, last_code_step,
             -- failed_code_count and locked_until; user_backup_code and verification_code
             -- (purposes sign_in, enrol_phone) are built, app_system alone reading a hash
+user_password_reset(id, request_id, partner_id, user_id, token_hash NULL UNIQUE,
+             expires_at NULL, used_at NULL, created_at)
+            -- built on #290 (0037), as partner_password_reset (§3.2) for a person on the
+            -- host's partner: one row per request at most, app_system alone; a reset spends
+            -- every open row of that person and deletes all their user_session rows
 
 seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)

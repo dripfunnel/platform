@@ -177,8 +177,9 @@ receives uses the partner of the store (or portal host) it concerns, never anoth
 - **Recipients.** Domain live: the Owner. Card declined and payout account failed: the Owner
   and every active Finance user. Store notices: the store's Owners.
 - **Links** are minted when the email is sent, in the transaction that sends it.
-- **Held:** the store owner invitation waits in the outbox until merchant sign-in can accept it
-  (the Store card that follows #274).
+- **Merchant links** (store invitations, password reset; #290) lead to the partner's live portal
+  host; until it has one, the email is retried, never dropped. An invitation to an account that
+  already has a password links to `/join`, any other to `/accept-invite` (ACCESS.md §6.2).
 - **Suppression.** An address SES reports as a permanent bounce or a complaint gets no merchant
   notice again. Account email (staff and partner invitations, password reset, lock notice) is
   still sent: it is asked for, and one that never arrives locks someone out; SES's own
