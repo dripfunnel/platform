@@ -44,9 +44,16 @@ export const selectSignup = async (tx: ScopedSql, partnerId: string, tokenHash: 
     `
   )[0] ?? null
 
-/** Texts sent to this sign-up since `since`: at most three in ten minutes (ACCESS.md §4). */
-export const countSignupTextsSince = async (tx: ScopedSql, signupId: string, since: Date): Promise<number> =>
-  (await tx<{ n: number }[]>`select count(*)::int as n from signup s, unnest(s.phone_codes_sent) as sent(at) where s.id = ${signupId} and sent.at > ${since}`)[0]?.n ?? 0
+/** Sign-up texts since `since`, for one sign-up, one number or the whole partner (the three limits in signup.ts). */
+export const countSignupTextsSince = async (tx: ScopedSql, partnerId: string, since: Date, by: { signupId?: string; phone?: string }): Promise<number> =>
+  (
+    await tx<{ n: number }[]>`
+      select count(*)::int as n from signup_text
+      where partner_id = ${partnerId} and sent_at > ${since}
+        and ${by.signupId ? tx`signup_id = ${by.signupId}` : tx`true`}
+        and ${by.phone ? tx`phone = ${by.phone}` : tx`true`}
+    `
+  )[0]?.n ?? 0
 
 /** For the code email's deliverer: a fresh code's hash and expiry; false once the sign-up has moved on. */
 export const setSignupEmailCode = async (tx: ScopedSql, signupId: string, codeHash: string, expiresAt: Date): Promise<boolean> =>
@@ -74,12 +81,9 @@ export const advanceSignup = async (tx: ScopedSql, signupId: string, stage: Sign
   `
 }
 
-export const setSignupPhoneCode = async (tx: ScopedSql, signupId: string, phone: string, codeHash: string, expiresAt: Date, sentAt: Date): Promise<void> => {
-  await tx`
-    update signup set phone = ${phone}, phone_code_hash = ${codeHash}, phone_code_expires_at = ${expiresAt}, phone_code_attempts = 0,
-      phone_codes_sent = (array_append(phone_codes_sent, ${sentAt}::timestamptz))[greatest(cardinality(phone_codes_sent) - 4, 1):]
-    where id = ${signupId}
-  `
+export const setSignupPhoneCode = async (tx: ScopedSql, s: { id: string; partnerId: string }, phone: string, codeHash: string, expiresAt: Date, sentAt: Date): Promise<void> => {
+  await tx`update signup set phone = ${phone}, phone_code_hash = ${codeHash}, phone_code_expires_at = ${expiresAt}, phone_code_attempts = 0 where id = ${s.id}`
+  await tx`insert into signup_text (partner_id, signup_id, phone, sent_at) values (${s.partnerId}, ${s.id}, ${phone}, ${sentAt})`
 }
 
 /** Whether the partner already has a store at this web address (store_code_key), or a sign-up holding it. */
@@ -158,6 +162,8 @@ export const deleteSignup = async (tx: ScopedSql, signupId: string): Promise<voi
   await tx`delete from signup where id = ${signupId}`
 }
 
-/** Sign-ups nobody finished, past their day: the cron clears them with their password hashes. */
-export const deleteExpiredSignups = async (tx: ScopedSql, now: Date, limit: number): Promise<number> =>
-  (await tx`delete from signup where id in (select id from signup where expires_at <= ${now} order by expires_at limit ${limit})`).count
+/** Sign-ups nobody finished, past their day, with their password hashes; and text records past theirs. */
+export const deleteExpiredSignups = async (tx: ScopedSql, now: Date, limit: number): Promise<number> => {
+  await tx`delete from signup_text where id in (select id from signup_text where sent_at <= ${new Date(now.getTime() - 24 * 60 * 60 * 1000)} order by sent_at limit ${limit})`
+  return (await tx`delete from signup where id in (select id from signup where expires_at <= ${now} order by expires_at limit ${limit})`).count
+}

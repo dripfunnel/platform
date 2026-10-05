@@ -393,11 +393,14 @@ user_email_change(id, partner_id, user_id, new_email, token_hash NULL UNIQUE, ex
             -- user.theme ('light' | 'dark') and user.password_changed_at
 signup(id, partner_id, token_hash UNIQUE, stage, name, email, password_hash, email_code_hash,
        email_code_expires_at, email_code_attempts, store_name, subdomain, country, phone,
-       phone_code_hash, phone_code_expires_at, phone_code_attempts, phone_codes_sent[],
-       store_id NULL, expires_at, created_at)
+       phone_code_hash, phone_code_expires_at, phone_code_attempts, store_id NULL, expires_at,
+       created_at)
             -- built on #290 (0039): a sign-up between its steps (SAAS.md §4.1), app_system
             -- alone; stage email | store | phone | provisioning; deleted once the store exists
-            -- or after its day; codes hashed with the row, five tries each, three texts in ten minutes
+            -- or after its day; codes hashed with the row, five tries each
+signup_text(id, partner_id, signup_id NULL, phone, sent_at)
+            -- every sign-up text, kept a day: three per sign-up in ten minutes, three per number
+            -- a day, 200 per partner an hour, so texts can't be pumped to other people's numbers
 
 seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)

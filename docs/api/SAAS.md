@@ -202,7 +202,7 @@ provisioning starts, and the row is deleted once the store exists, or by the cro
 it was started. **Built on #290** (`apis/store/signup.ts`): name, email and password; a code
 emailed when the email is sent (an address that already has an account is emailed how to sign
 in instead, with no code); store name, web address and country (the partner's live plans'
-currencies decide which countries, the country decides the currency); a texted code; then
+currencies decide which countries, the country decides the currency); a texted code (three per sign-up in ten minutes, three per number a day, 200 per partner an hour); then
 steps 1–3. The store starts in Trial on the partner's cheapest live plan in that currency, for
 the plan's trial days or 14 when it sets none (decided on #290). Signup, like every account endpoint, responds identically
 whether or not the email has an account ([ACCESS.md](ACCESS.md)).
