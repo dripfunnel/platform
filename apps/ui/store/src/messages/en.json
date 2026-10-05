@@ -1903,7 +1903,9 @@
         "title": "This collection didn’t load",
         "body": "Check your connection and try again."
       },
-      "deleteMenuMaybe": "If it’s in your menu, we’ll take it out and move anything nested under it up a level."
+      "deleteMenuMaybe": "If it’s in your menu, we’ll take it out and move anything nested under it up a level.",
+      "slugPlaceholder": "your-collection",
+      "countPending": "…"
     },
     "refused": {
       "NAME_REQUIRED": "Give the collection a name.",

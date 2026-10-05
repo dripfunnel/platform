@@ -103,7 +103,7 @@ describe('the collections list', () => {
     await settle()
     expect(router.state.location.search).toEqual({ edit: 'new', name: 'Diwali' })
     expect((screen.getByLabelText(e.name) as HTMLInputElement).value).toBe('Diwali')
-    expect(screen.getByRole('radio', { name: new RegExp(e.manual) }).getAttribute('aria-checked')).toBe('true')
+    expect((screen.getByRole('radio', { name: new RegExp(e.manual) }) as HTMLInputElement).checked).toBe(true)
   })
 
   it('explains collections when there are none, with an example in the store’s currency', async () => {
@@ -174,6 +174,16 @@ describe('a collection being made or changed', () => {
     expect(router.state.location.search).toEqual({})
     expect(screen.getByText('“Wedding linen” saved — filling in the background')).toBeTruthy()
     expect(api.loadCollections).toHaveBeenCalledTimes(2)
+  })
+
+  it('offers how it fills as one radio group, native inputs sharing a name, so the arrow keys move between them', async () => {
+    await show(owner, '/collections?edit=new')
+    const group = screen.getByRole('radiogroup', { name: e.fill })
+    const radios = within(group).getAllByRole('radio') as HTMLInputElement[]
+    expect(radios.map((r) => [r.type, r.checked])).toEqual([['radio', true], ['radio', false]])
+    expect(new Set(radios.map((r) => r.name)).size).toBe(1)
+    fireEvent.click(radios[1] as HTMLInputElement)
+    expect(screen.getByRole('searchbox', { name: e.search })).toBeTruthy()
   })
 
   it('says when the preview didn’t load, keeping the rules', async () => {
