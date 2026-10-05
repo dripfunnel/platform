@@ -11,8 +11,14 @@ export const maxPhotos = 20
 /** Refused outright (decided on #337); alcohol is allowed and carries an age check. */
 export const refusedCategories = ['weapons', 'prescription_medicine', 'illegal_drugs', 'tobacco_vapes', 'adult', 'counterfeit'] as const
 
-// Any of these words in a category refuses it, however it is cased or joined, so "Tobacco" or "Fire-arms" can't pass.
-const refusedWords = new Set(['weapon', 'weapons', 'firearm', 'firearms', 'gun', 'guns', 'ammunition', 'prescription', 'narcotics', 'illegal', 'tobacco', 'vape', 'vapes', 'vaping', 'cigarette', 'cigarettes', 'adult', 'counterfeit', 'counterfeits', 'replica', 'replicas'])
+// A refused category is a phrase among a category's words, or the whole category on its own, so
+// "Tobacco" or "Fire-arms" can't pass while "Prescription glasses" or "Hot glue guns" can.
+const refusedPhrases = [
+  'weapon', 'weapons', 'firearm', 'firearms', 'ammunition', 'narcotics', 'tobacco', 'cigarette', 'cigarettes', 'vape', 'vapes', 'vaping',
+  'counterfeit', 'counterfeits', 'illegal drugs', 'prescription medicine', 'prescription medicines', 'prescription drugs', 'prescription medication',
+  'prescription medications', 'adult content', 'adult products', 'adult toys', 'sex toys',
+].map((phrase) => phrase.split(' '))
+const refusedAlone = new Set(['gun', 'guns', 'adult', 'prescription', 'drugs', 'replica', 'replicas'])
 
 /** A category in words, folded: lower case, accents gone, anything else a separator. */
 const categoryWords = (category: string): string[] =>
@@ -23,9 +29,17 @@ const categoryWords = (category: string): string[] =>
     .split(/[^a-z0-9]+/)
     .filter(Boolean)
 
+const holds = (words: readonly string[], phrase: readonly string[]) => words.some((_, i) => phrase.every((p, j) => words[i + j] === p))
+
 export const isRefusedCategory = (category: string): boolean => {
   const words = categoryWords(category)
-  return refusedCategories.includes(words.join('_') as (typeof refusedCategories)[number]) || words.some((w) => refusedWords.has(w)) || words.join('').includes('firearm')
+  const joined = words.join('')
+  return (
+    refusedCategories.includes(words.join('_') as (typeof refusedCategories)[number]) ||
+    (words.length === 1 && refusedAlone.has(joined)) ||
+    refusedPhrases.some((phrase) => holds(words, phrase)) ||
+    joined.includes('firearm')
+  )
 }
 
 export const productTypes = ['physical', 'digital', 'service', 'gift_card'] as const
