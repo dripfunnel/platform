@@ -460,9 +460,11 @@ input ProductComplianceInput {
 
 type ProductCounts {
   all: Int
+  fromSuppliers: Int
   hidden: Int
   lowStock: Int
   missingInfo: Int
+  outOfStock: Int
   pending: Int
   sentBack: Int
   visible: Int

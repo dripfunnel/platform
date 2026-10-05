@@ -153,7 +153,7 @@ export const registerProducts = (builder: StoreBuilder) => {
   const SummaryPage = builder.objectRef<{ nodes: SummaryView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('ProductPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Summary], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
-  const Counts = builder.objectRef<{ all: number; visible: number; hidden: number; pending: number; sentBack: number; missingInfo: number; lowStock: number }>('ProductCounts').implement({
+  const Counts = builder.objectRef<{ all: number; visible: number; hidden: number; pending: number; sentBack: number; missingInfo: number; lowStock: number; fromSuppliers: number; outOfStock: number }>('ProductCounts').implement({
     fields: (t) => ({
       all: t.exposeInt('all'),
       visible: t.exposeInt('visible'),
@@ -162,6 +162,8 @@ export const registerProducts = (builder: StoreBuilder) => {
       sentBack: t.exposeInt('sentBack'),
       missingInfo: t.exposeInt('missingInfo'),
       lowStock: t.exposeInt('lowStock'),
+      fromSuppliers: t.exposeInt('fromSuppliers'),
+      outOfStock: t.exposeInt('outOfStock'),
     }),
   })
 
