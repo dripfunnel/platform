@@ -66,3 +66,32 @@ export const setStock = async (entries: { versionId: string; warehouseId: string
   if (entries.length === 0) return
   await query('mutation S($e: [StockQuantityInput!]!) { setStock(entries: $e) { versionId } }', z.object({ setStock: z.array(z.object({ versionId: z.string() })) }), { e: entries })
 }
+
+const addressSchema = z.object({ line1: z.string().nullable(), line2: z.string().nullable(), city: z.string().nullable(), region: z.string().nullable(), postalCode: z.string().nullable(), country: z.string().nullable() })
+export type WarehouseAddress = z.infer<typeof addressSchema>
+
+const placeSchema = z.object({ id: z.string(), name: z.string(), isDefault: z.boolean(), units: z.number().int(), revision: z.number().int(), address: addressSchema.nullable() })
+export type Place = z.infer<typeof placeSchema>
+
+/** The caller's locations in full, for the Warehouses list: the merchant's own, or a supplier's own (#337). */
+export const loadPlaces = (): Promise<Place[]> =>
+  allPages(async (after) => (await query('query W($after: String) { warehouses(first: 50, after: $after) { nodes { id name isDefault units revision address { line1 line2 city region postalCode country } } pageInfo { hasNextPage endCursor } } }', z.object({ warehouses: z.object({ nodes: z.array(placeSchema), pageInfo: pageInfoSchema }) }), { after })).warehouses)
+
+export interface PlaceInput {
+  name: string
+  address: { line1?: string; line2?: string; city?: string; region?: string; postalCode?: string; country?: string }
+}
+
+/** A new location (no id), or the next revision of one; answers its id. */
+export const savePlace = async (id: string | null, revision: number | null, input: PlaceInput): Promise<string> =>
+  (await query('mutation S($id: ID, $r: Int, $input: WarehouseInput!) { saveWarehouse(id: $id, revision: $r, input: $input) }', z.object({ saveWarehouse: z.string() }), { id, r: revision, input })).saveWarehouse
+
+/** New products start here; stock already elsewhere stays where it is. */
+export const makeDefaultPlace = async (id: string): Promise<void> => {
+  await query('mutation D($id: ID!) { setDefaultWarehouse(id: $id) }', z.object({ setDefaultWarehouse: z.boolean() }), { id })
+}
+
+/** Refused while it holds stock (WAREHOUSE_HOLDS_STOCK) or is the default (DEFAULT_WAREHOUSE). */
+export const deletePlace = async (id: string): Promise<void> => {
+  await query('mutation X($id: ID!) { deleteWarehouse(id: $id) }', z.object({ deleteWarehouse: z.boolean() }), { id })
+}

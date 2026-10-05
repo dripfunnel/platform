@@ -481,7 +481,7 @@ export const ProductEditor = () => {
         </div>
       )}
 
-      {ask && <ConfirmDialog {...(ask as Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>)} open cancelLabel={words.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
+      {ask && <ConfirmDialog key={`${ask.title}|${ask.target}`} {...(ask as Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>)} open cancelLabel={words.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   )

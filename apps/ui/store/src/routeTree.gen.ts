@@ -35,6 +35,7 @@ import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
+import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
 import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
 const AppRoute = AppRouteImport.update({
@@ -165,6 +166,11 @@ const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
   path: '/products/$productId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProductsWarehousesRoute = AppProductsWarehousesRouteImport.update({
+  id: '/products_/warehouses',
+  path: '/products/warehouses',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProductsProductIdStoryRoute =
   AppProductsProductIdStoryRouteImport.update({
     id: '/products_/$productId_/story',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/warehouses': typeof AppProductsWarehousesRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesByTo {
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/warehouses': typeof AppProductsWarehousesRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesById {
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/products_/$productId': typeof AppProductsProductIdRoute
+  '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
   '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRouteTypes {
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/products/$productId'
+    | '/products/warehouses'
     | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/products/$productId'
+    | '/products/warehouses'
     | '/products/$productId/story'
   id:
     | '__root__'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/impersonate/enter'
     | '/_app/'
     | '/_app/products_/$productId'
+    | '/_app/products_/warehouses'
     | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
 }
@@ -533,6 +545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/products_/warehouses': {
+      id: '/_app/products_/warehouses'
+      path: '/products/warehouses'
+      fullPath: '/products/warehouses'
+      preLoaderRoute: typeof AppProductsWarehousesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/products_/$productId_/story': {
       id: '/_app/products_/$productId_/story'
       path: '/products/$productId/story'
@@ -560,6 +579,7 @@ interface AppRouteChildren {
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+  AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
   AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
 
@@ -580,6 +600,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
+  AppProductsWarehousesRoute: AppProductsWarehousesRoute,
   AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }
 

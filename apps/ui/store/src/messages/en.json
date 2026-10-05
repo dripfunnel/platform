@@ -1673,5 +1673,70 @@
     "looking": "Looking…",
     "failed": "The search didn’t answer. Try again in a moment.",
     "none": "No products match “{query}”"
+  },
+  "warehouses": {
+    "tabs": {
+      "label": "Your products",
+      "products": "Products",
+      "warehouses": "Warehouses"
+    },
+    "title": "Where your stock sits",
+    "sub": "Stock is counted per location. New products start at your default one, and its address is on your labels.",
+    "add": "Add a location",
+    "default": "Default for new products",
+    "units": {
+      "one": "1 unit",
+      "other": "{count} units"
+    },
+    "manage": "Manage {name}",
+    "form": {
+      "addTitle": "Add a location",
+      "addBody": "Somewhere your stock sits. Adding it doesn’t move stock — it starts at zero.",
+      "editTitle": "Edit {name}",
+      "name": "Name",
+      "namePlaceholder": "e.g. Back room",
+      "line1": "Address",
+      "line2": "Address line 2",
+      "city": "City",
+      "region": "State or region",
+      "postalCode": "Postal code",
+      "country": "Country (2-letter code)",
+      "save": "Save",
+      "saveAdd": "Add location",
+      "cancel": "Cancel",
+      "nameMissing": "Give it a name",
+      "countryInvalid": "Use the 2-letter country code, like IN"
+    },
+    "makeDefault": "Make default",
+    "makeDefaultTitle": "Make {name} the default?",
+    "makeDefaultBody": "New products start here. Existing stock doesn’t move.",
+    "madeDefault": "{name} is now the default — existing stock doesn’t move",
+    "edit": "Rename or change address",
+    "delete": "Delete",
+    "deleteTitle": "Delete {name}?",
+    "deleteBody": "It disappears from stock counts and pick lists.",
+    "deleteConfirm": "Delete location",
+    "deleted": "{name} deleted",
+    "saved": "Saved — labels and pick lists use the new details",
+    "added": "{name} added",
+    "holdsStock": "{name} still holds {count} — set their stock to 0 or move them, then delete",
+    "empty": "No locations yet. Add the first one, where your stock sits.",
+    "refused": {
+      "TOO_MANY_WAREHOUSES": "You can have up to 20 locations. Remove one first.",
+      "DEFAULT_WAREHOUSE": "Make another location the default first.",
+      "WAREHOUSE_HOLDS_STOCK": "This location still holds stock. Set it to 0 or move it first.",
+      "STALE_REVISION": "Someone else changed this location. Reload to see their changes.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change locations.",
+      "other": "That didn’t save. Try again."
+    },
+    "loading": "Loading your locations",
+    "error": {
+      "title": "We couldn’t load your locations",
+      "body": "Nothing is lost. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "viewOnly": "You can see the locations but not change them.",
+    "manageButton": "Manage"
   }
 }

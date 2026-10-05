@@ -306,6 +306,12 @@ columns). Every panel exports. Locked below Growth. Owner and Manager.
   "Your store owner can also edit this product."
 - **Approval**: price, title or photo changes to an approved product wait again; other edits go
   live (ACCESS §7.2).
+- **Built on #298** (`apps/ui/store/src/features/products`, `productEditor`, `productStory`, `warehouses`): the
+  list with quick edit and approval, the editor (choices and versions, photos, stock with history, the
+  listing sections, translations, prices in other currencies and per market), A+ content at
+  `/products/$productId/story`, and a supplier's Warehouses tab at `/products/warehouses` (#337). Still to
+  come with their own cards: download files, service details and gift card amounts, a fixed price per
+  market, product video upload, and Import and Export (§13).
 
 ## 12. Collections, Filters, Menus, Size charts (`CatCollections`, `CatSizeCharts`)
 

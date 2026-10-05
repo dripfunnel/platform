@@ -30,6 +30,7 @@ import { fill, formatCount, messages, plural } from '../../messages'
 import { productListSample, productListStates, type ProductListState } from './productListStates'
 import { ProductCards, ProductTable } from './ProductRows'
 import { ProductsEmpty } from './ProductsEmpty'
+import { SupplierTabs } from './SupplierTabs'
 import { accessOf, summaryOf, type ProductAccess } from './productView'
 import './products.css'
 
@@ -254,6 +255,8 @@ export const ProductList = () => {
         </div>
         {access.canEdit && !phone && <div className="df-products-head-actions">{addLink}</div>}
       </div>
+
+      {access.supplier && <SupplierTabs current="products" />}
 
       {view.kind === 'loading' && <LoadingState label={words.loading} />}
       {view.kind === 'error' && <ErrorState title={words.error.title} body={words.error.body} retry={{ label: words.error.retry, onRetry: load }} />}

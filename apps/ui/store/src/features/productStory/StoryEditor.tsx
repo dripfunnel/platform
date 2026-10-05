@@ -293,7 +293,7 @@ export const StoryEditor = () => {
         )}
       </div>
 
-      {ask && <ConfirmDialog {...ask} open cancelLabel={words.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
+      {ask && <ConfirmDialog key={`${ask.title}|${ask.target}`} {...ask} open cancelLabel={words.cancel} onCancel={() => setAsk(null)} onConfirm={(...args) => { setAsk(null); ask.onConfirm(...args) }} />}
       <Toast message={toast} onDone={() => setToast(null)} />
     </div>
   )
