@@ -254,6 +254,21 @@ describe('a supplier', () => {
     expect(version?.seller_id).toBe(t.sellerA1First)
   })
 
+  it('pages products made in the same instant one at a time, every one once', async () => {
+    // One statement gives all three the same now(), the case a millisecond cursor would skip.
+    const made = (await db.sql<{ id: string }[]>`insert into product (store_id, name, slug) select ${t.storeB1}, 'Same instant ' || g, 'same-instant-' || g from generate_series(1, 3) g returning id`).map((r) => r.id)
+    const seen: string[] = []
+    let after: string | undefined
+    for (let page = 0; page < 10; page += 1) {
+      const answer = (await gql('query L($after: String) { products(first: 1, after: $after, search: "Same instant") { nodes { id } pageInfo { hasNextPage endCursor } } }', 'bOwner', { after })).data?.['products'] as { nodes: { id: string }[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } }
+      seen.push(...answer.nodes.map((n) => n.id))
+      if (!answer.pageInfo.hasNextPage) break
+      after = answer.pageInfo.endCursor ?? undefined
+    }
+    expect(seen.sort()).toEqual([...made].sort())
+    await db.sql`delete from product where store_id = ${t.storeB1} and slug like 'same-instant-%'`
+  })
+
   it('lists, counts and opens only its own products', async () => {
     expect((await listed('supplier')).map((n) => n.id)).toEqual([supplierProduct])
     expect((await gql('{ productCounts { all } }', 'supplier')).data?.['productCounts']).toEqual({ all: 1 })
