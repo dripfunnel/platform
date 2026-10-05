@@ -37,13 +37,20 @@ const subscribe = async (storeId: string, partnerId: string) => {
 
 const sellerOf: Partial<Record<Who, () => string>> = { supplier: () => t.sellerA1First, otherSupplier: () => t.sellerA1Second }
 
-const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1) => {
+/** Acting as `who`'s person through a read-only support session (ACCESS §8), at the resolver itself. */
+const asSupport = (context: StoreContext): StoreContext => {
+  if (context.standing.kind !== 'acting') return context
+  const { caller } = context.standing
+  return { ...context, standing: { ...context.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' } } } } }
+}
+
+const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1, through: (c: StoreContext) => StoreContext = (c) => c) => {
   const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const seller = sellerOf[who]?.()
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: storeId, ...(seller ? { [supplierHeader]: seller } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now }
+  const contextValue: StoreContext = through({ standing, partnerId, sql: db.sql, activity: activityLog, facts, now: () => now })
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -269,6 +276,40 @@ describe('a supplier’s import', () => {
     expect(((await gql('{ catalogImports { id } }', 'supplier')).data?.['catalogImports'] as { id: string }[]).map((i) => i.id)).toContain(id)
     expect((await gql('{ catalogImportTemplate }', 'supplier')).data?.['catalogImportTemplate']).toMatch(/^handle,name,description,type,option1 name/)
     expect((await gql('{ catalogImportTemplate }', 'owner')).data?.['catalogImportTemplate']).toMatch(/,name:hi-IN,description:hi-IN,price:USD\n/)
+  })
+
+  it('is a catalogue tier’s: a Stock-only supplier is refused everywhere, and a read-only support session can’t start or confirm', async () => {
+    await db.sql`update seller set access_level = 'vendor-stock' where id = ${t.sellerA1Second}`
+    try {
+      expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'otherSupplier')).code).toBe('FORBIDDEN')
+      expect((await gql('mutation { confirmCatalogImport(id: "00000000-0000-4000-8000-000000000000", matching: update) }', 'otherSupplier')).code).toBe('FORBIDDEN')
+      expect((await gql('{ catalogImports { id } }', 'otherSupplier')).code).toBe('FORBIDDEN')
+      expect((await gql('{ catalogImportTemplate }', 'otherSupplier')).code).toBe('FORBIDDEN')
+    } finally {
+      await db.sql`update seller set access_level = 'vendor-catalogue' where id = ${t.sellerA1Second}`
+    }
+    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner', {}, t.storeA1, asSupport)).code).toBe('FORBIDDEN')
+    const { id } = await upload('owner', 'handle,name,price\nsupport-try,Support try,1\n')
+    expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, asSupport)).code).toBe('FORBIDDEN')
+  })
+
+  it('stops a run whose importer can’t import any more, making nothing after', async () => {
+    const { id } = await upload('supplier', 'handle,name,price\nafter-suspend,After suspend,1\n')
+    await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'supplier', { id })
+    // Suspended between the confirm and the run.
+    await db.sql`update outbox set next_attempt_at = now() + interval '1 day' where kind = 'import.catalog' and payload->>'jobId' = ${id}`
+    await db.sql`update seller set status = 'suspended' where id = ${t.sellerA1First}`
+    try {
+      await db.sql`update outbox set next_attempt_at = now() where kind = 'import.catalog' and payload->>'jobId' = ${id}`
+      await relay()
+      expect(await productBySku('after-suspend')).toEqual([])
+      expect(await db.sql`select name from product where name = 'After suspend'`).toEqual([])
+      const [row] = await db.sql<{ state: string; problems: { code: string }[] }[]>`select state, problems from catalog_import where id = ${id}`
+      expect(row?.state).toBe('failed')
+      expect(row?.problems.map((p) => p.code)).toContain('NOT_ALLOWED')
+    } finally {
+      await db.sql`update seller set status = 'active' where id = ${t.sellerA1First}`
+    }
   })
 
   it('is purged after its day', async () => {

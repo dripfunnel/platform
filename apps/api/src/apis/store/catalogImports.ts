@@ -21,6 +21,13 @@ const refused = (reason: CatalogImportRefusal) => new GraphQLError(words[reason]
 
 const access = { api: 'store', scope: 'store-seller', permission: 'catalog.import', target: 'none' } as const
 
+/** A read-only support session looks at the store; it never brings products in (ACCESS §8). */
+const writer = (ctx: StoreContext) => {
+  const { caller } = actingCaller(ctx).context
+  if (caller.kind === 'support' && caller.access === 'read') throw forbidden()
+  return service(ctx)
+}
+
 const service = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
   const caller = actingCaller(ctx)
@@ -80,7 +87,7 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       args: { file: t.arg.string({ required: true }) },
       extensions: { access: { ...access, audit: catalogImportAudit.started } },
       resolve: async (_, { file }, ctx) => {
-        const result = await service(ctx).start(file)
+        const result = await writer(ctx).start(file)
         if (!result.ok) throw refused(result.reason)
         return result.value
       },
@@ -89,7 +96,7 @@ export const registerCatalogImports = (builder: StoreBuilder) => {
       args: { id: t.arg.id({ required: true }), matching: t.arg({ type: Matching, required: true }), warehouseId: t.arg.id() },
       extensions: { access: { ...access, audit: catalogImportAudit.confirmed } },
       resolve: async (_, { id, matching, warehouseId }, ctx) => {
-        const result = await service(ctx).confirm(String(id), matching, warehouseId === null || warehouseId === undefined ? null : String(warehouseId))
+        const result = await writer(ctx).confirm(String(id), matching, warehouseId === null || warehouseId === undefined ? null : String(warehouseId))
         if (!result.ok) throw refused(result.reason)
         return true
       },

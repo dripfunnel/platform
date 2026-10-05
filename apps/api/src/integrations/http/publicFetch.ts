@@ -3,8 +3,8 @@ import type { DnsLookup } from '../dns/doh'
 
 // A file from an address a user gave us (AGENTS.md "Security": SSRF, timeouts, bounded retries): https on a
 // public name only, every address it resolves to public, each redirect checked the same way, and a size cap.
-// The check and the Worker's own fetch both resolve through Cloudflare, and a Worker has no route to a private
-// network or metadata service, so an answer that changes in between still can't reach one (#408 review).
+// A name whose answer changes between the check and the fetch isn't stopped here; why that's bounded, and when it
+// stops being, is docs/ARCHITECTURE.md §7 ("Fetching a URL a user gave us").
 
 export type PublicFetchRefusal = 'BAD_URL' | 'PRIVATE_ADDRESS' | 'NOT_FOUND' | 'TOO_LARGE' | 'UNAVAILABLE'
 export type PublicFetchResult = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; code: PublicFetchRefusal }
@@ -23,14 +23,20 @@ const octets = (ip: string) => ip.split('.').map(Number)
 
 /** Loopback, private, link-local, shared, multicast and reserved IPv4 ranges. */
 export const isPrivateIpv4 = (ip: string): boolean => {
-  const [a = 0, b = 0] = octets(ip)
-  return a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19))
+  const [a = 0, b = 0, c = 0] = octets(ip)
+  return (
+    a === 0 || a === 10 || a === 127 || a >= 224 || (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) || (a === 198 && (b === 18 || b === 19)) ||
+    // IETF protocol assignments and the three documentation ranges (RFC 6890, RFC 5737).
+    (a === 192 && b === 0 && (c === 0 || c === 2)) || (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113)
+  )
 }
 
 /** Anything but a global unicast IPv6 address, mapped and translated IPv4 included. */
 export const isPrivateIpv6 = (ip: string): boolean => {
   const v = ip.toLowerCase()
-  return !/^[23][0-9a-f]{0,3}:/.test(v) || v.startsWith('2001:db8') || v.startsWith('2002:')
+  // Global unicast only; documentation, 6to4 and Teredo (2001::/32, which carries an IPv4 address) aren't.
+  return !/^[23][0-9a-f]{0,3}:/.test(v) || v.startsWith('2001:db8') || v.startsWith('2002:') || /^2001:0{0,4}:/.test(v)
 }
 
 const checkedUrl = async (raw: string, lookup: DnsLookup, signal: AbortSignal): Promise<URL | PublicFetchRefusal> => {

@@ -36,6 +36,7 @@ export type ProblemCode =
   | 'MATCHES_MANY'
   | 'STOCK_REFUSED'
   | 'TRANSLATION_REFUSED'
+  | 'NOT_ALLOWED'
 
 /** One problem, by the file's own line number (the header is line 1) and column, as K3 lists them. */
 export interface ImportProblem {
@@ -232,7 +233,9 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
       problems.push({ line, column: labelOf('handle') ?? labelOf('name'), code: 'HANDLE_REQUIRED' })
       return
     }
-    groups.set(handle, [...(groups.get(handle) ?? []), { line, cells }])
+    const group = groups.get(handle)
+    if (group) group.push({ line, cells })
+    else groups.set(handle, [{ line, cells }])
   })
   if (groups.size > importLimits.products) return 'TOO_MANY_PRODUCTS'
 

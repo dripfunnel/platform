@@ -537,6 +537,11 @@ describe('the backstop itself', () => {
     }
     await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
     await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
+    // `import` reaches no further than `received`: not another seller's location or version, not another store's, never read-only support.
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'import')`)).rejects.toThrow(/no such version or location/)
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'import')`)).rejects.toThrow(/no such version or location/)
+    const readOnlySupport: CallerContext = { caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    await expect(withScope(db.sql, readOnlySupport, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'import')`)).rejects.toThrow(/not in this scope/)
     expect(await seen(t.storeA1, supplier, 'stock_movement')).toBe(0)
     expect(await seen(t.storeA1, supplier, 'stock_level')).toBe(0)
     expect(await seen(t.storeB1, { kind: 'all' }, 'stock_movement')).toBe(0)
