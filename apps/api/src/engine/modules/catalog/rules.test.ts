@@ -47,7 +47,13 @@ describe('a product before it is written', () => {
     for (const category of ['Weapons', ' TOBACCO ', 'tobacco & vapes', 'Fire-arms', 'Prescription Medicine', 'counterfeit_goods', 'Adult content']) {
       expect({ [category]: cleanProduct(simple({ category }), 'INR') }).toEqual({ [category]: 'CATEGORY_REFUSED' })
     }
-    expect(cleanProduct(simple({ category: 'Medicine cabinets' }), 'INR')).toMatchObject({ category: 'Medicine cabinets' })
+    for (const category of ['Guns', 'Adult', 'Replicas', 'Prescription drugs', 'E-cigarettes', 'Illegal drugs', 'Sex toys']) {
+      expect({ [category]: cleanProduct(simple({ category }), 'INR') }).toEqual({ [category]: 'CATEGORY_REFUSED' })
+    }
+    // A refused word inside an ordinary category doesn't refuse it.
+    for (const category of ['Prescription glasses', 'Hot glue guns', 'Adult sizes', 'Adult clothing', 'Replica jerseys', 'Medicine cabinets']) {
+      expect({ [category]: cleanProduct(simple({ category }), 'INR') }).toMatchObject({ [category]: { category } })
+    }
     expect(cleanProduct(simple({ category: 'alcohol' }), 'INR')).toMatchObject({ category: 'alcohol' })
     const sizes = { name: 'Size', values: [{ name: 'S' }, { name: 'M' }] }
     expect(cleanProduct(simple({ options: [sizes], versions: [version(['S'], { sku: 'A-1' }), version(['M'], { sku: 'a-1' })] }), 'INR')).toBe('DUPLICATE_SKU')

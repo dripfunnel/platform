@@ -24,6 +24,7 @@ import {
 } from '#db/scoped/people'
 import { allowanceFor, planLimitFor, type PlanLimit } from '#saas/entitlements/index'
 import { queueSideEffect } from '#saas/outbox/index'
+import { isUuid } from '#core/ids'
 
 // Settings › People (ACCESS.md §6, SetTeam): the store's merchant side. Every write takes the store's
 // People lock, so a staff seat counted (SAAS.md §6.2) or an Owner kept is still so when it commits.
@@ -49,7 +50,6 @@ const day = 24 * 60 * 60 * 1000
 export const perInviterPerHour = 20
 export const perAddressPerDay = 3
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const merchantRoleOf = (value: string): MerchantRole | null => (value === 'owner' || value === 'manager' || value === 'staff' ? value : null)
 
@@ -140,7 +140,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
   }
 
   const resend = async (invitationId: string): Promise<PeopleResult> => {
-    if (!uuid.test(invitationId)) return { ok: false, reason: 'NOT_FOUND' }
+    if (!isUuid(invitationId)) return { ok: false, reason: 'NOT_FOUND' }
     return settle(
       await inStore(async (tx): Promise<Write> => {
         await lockStorePeople(tx, storeId)
@@ -156,7 +156,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
   }
 
   const revoke = async (invitationId: string): Promise<PeopleResult> => {
-    if (!uuid.test(invitationId)) return { ok: false, reason: 'NOT_FOUND' }
+    if (!isUuid(invitationId)) return { ok: false, reason: 'NOT_FOUND' }
     return settle(
       await inStore(async (tx): Promise<Write> => {
         await lockStorePeople(tx, storeId)
@@ -172,7 +172,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
   const changeRole = async (membershipId: string, rawRole: string): Promise<PeopleResult> => {
     const role = merchantRoleOf(rawRole)
     if (!role) return { ok: false, reason: 'INVALID_INPUT' }
-    if (!uuid.test(membershipId)) return { ok: false, reason: 'NOT_FOUND' }
+    if (!isUuid(membershipId)) return { ok: false, reason: 'NOT_FOUND' }
     const allowance = role === 'owner' ? null : await allowanceFor(sql, caller.context, 'staff', now())
     return settle(
       await inStore(async (tx): Promise<Write> => {
@@ -194,7 +194,7 @@ export const createStorePeopleService = ({ sql, caller, activity, facts, now }: 
   }
 
   const remove = async (membershipId: string): Promise<PeopleResult> => {
-    if (!uuid.test(membershipId)) return { ok: false, reason: 'NOT_FOUND' }
+    if (!isUuid(membershipId)) return { ok: false, reason: 'NOT_FOUND' }
     return settle(
       await inStore(async (tx): Promise<Write> => {
         await lockStorePeople(tx, storeId)
