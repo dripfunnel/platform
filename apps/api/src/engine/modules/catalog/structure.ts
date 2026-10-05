@@ -9,6 +9,7 @@ import {
   selectManualCollectionIds,
   selectProductName,
   selectProductCollections,
+  selectRulePreview,
   setProductManualCollections,
   countFacets,
   deleteFacet,
@@ -59,6 +60,8 @@ export const maxRules = 20
 export const maxMenuItems = 100
 export const maxFacetValues = 200
 export const maxFacetPosition = 10_000
+/** CatCollections' live preview shows six products. */
+export const previewSize = 6
 
 
 export type StructureRefusal =
@@ -377,6 +380,14 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
     }
   }
 
+  /** The live preview of an automatic collection being edited: its rules read as a save would check them, nothing written. */
+  const previewCollection = (input: Pick<CollectionInput, 'match' | 'rules' | 'parentId' | 'inheritParent'>) =>
+    run(async (tx) => {
+      const clean = cleanCollection({ ...input, name: 'preview', kind: 'automatic' })
+      await checkIds(tx, null, clean)
+      return selectRulePreview(tx, storeId, { match: clean.fields.match, rules: clean.rules, parentId: clean.fields.parentId, inheritParent: clean.fields.inheritParent }, previewSize)
+    })
+
   /** CatList's bulk "Add to collection": a hand-picked one only, as automatic ones fill from their rules. */
   const addToCollection = (collectionId: string, productIds: readonly string[]) =>
     run(async (tx) => {
@@ -470,5 +481,5 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       return saved
     })
 
-  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, addToCollection, productCollections, setProductCollections, saveCollection, removeCollection, menu, saveMenu }
+  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, addToCollection, productCollections, setProductCollections, previewCollection, saveCollection, removeCollection, menu, saveMenu }
 }

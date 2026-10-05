@@ -400,6 +400,41 @@ describe('collections', () => {
     expect((await members(child.saved?.id ?? '')).map((m) => m.id)).toEqual([a.id])
   })
 
+  it('reads values of one filter as alternatives under “all”, as the rule builder writes them (CATALOG H4)', async () => {
+    const { id: fabricId } = await saveFacet('owner', { name: 'Weave', values: [{ name: 'Khadi' }, { name: 'Chanderi' }] })
+    const { id: occasionId } = await saveFacet('owner', { name: 'Occasion', values: [{ name: 'Wedding' }, { name: 'Daily' }] })
+    const all = await facets('owner')
+    const value = (facetId: string | undefined, name: string) => all.find((f) => f.id === facetId)?.values.find((v) => v.name === name)?.id ?? ''
+    const [khadi, chanderi, wedding, daily] = [value(fabricId, 'Khadi'), value(fabricId, 'Chanderi'), value(occasionId, 'Wedding'), value(occasionId, 'Daily')]
+    const a = await product('owner', 'Khadi sherwani', { filterValues: [{ valueId: khadi }, { valueId: wedding }] })
+    const b = await product('owner', 'Chanderi lehenga', { filterValues: [{ valueId: chanderi }, { valueId: wedding }] })
+    const c = await product('owner', 'Khadi kurta', { filterValues: [{ valueId: khadi }, { valueId: daily }] })
+    const rules = [{ kind: 'filter_value', valueId: khadi }, { kind: 'filter_value', valueId: chanderi }, { kind: 'filter_value', valueId: wedding }]
+    const both = await save({ name: 'Wedding weaves', kind: 'automatic', match: 'all', rules })
+    const either = await save({ name: 'Weaves or weddings', kind: 'automatic', match: 'any', rules })
+    await drainRecompute()
+    expect((await members(both.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id].sort())
+    expect((await members(either.saved?.id ?? '')).map((m) => m.id).sort()).toEqual([a.id, b.id, c.id].sort())
+  })
+
+  it('previews rules not saved yet the way the recompute will fill them, writing nothing', async () => {
+    const all = await facets('owner')
+    const weave = all.find((f) => f.name === 'Weave')
+    const khadi = weave?.values.find((v) => v.name === 'Khadi')?.id
+    const outbox = async () => (await db.sql<{ n: number }[]>`select count(*)::int as n from outbox where kind = ${collectionsRecomputeKind}`)[0]?.n
+    const before = await outbox()
+    const preview = async (who: Who, rules: unknown[], match = 'all') => gql('query P($m: String, $r: [CollectionRuleInput!]!) { collectionPreview(match: $m, rules: $r) { count products { name } } }', who, { m: match, r: rules })
+    expect((await preview('owner', [{ kind: 'filter_value', valueId: khadi }])).data?.['collectionPreview']).toEqual({ count: 2, products: [{ name: 'Khadi kurta' }, { name: 'Khadi sherwani' }] })
+    expect((await preview('owner', [{ kind: 'filter_value', valueId: khadi }, { kind: 'name_contains', text: 'kurta' }])).data?.['collectionPreview']).toEqual({ count: 1, products: [{ name: 'Khadi kurta' }] })
+    expect((await preview('owner', [])).data?.['collectionPreview']).toEqual({ count: 0, products: [] })
+    expect(await outbox()).toBe(before)
+    // Refused as a save would be: a supplier, another store's value, a bad rule.
+    expect((await preview('supplier', [{ kind: 'filter_value', valueId: khadi }])).code).toBe('FORBIDDEN')
+    expect((await preview('bOwner', [{ kind: 'filter_value', valueId: khadi }])).code).toBe('INVALID_RULE')
+    expect((await preview('owner', [{ kind: 'name_contains', text: '' }])).code).toBe('INVALID_RULE')
+    expect((await preview('owner', [], 'some')).code).toBe('INVALID_INPUT')
+  })
+
   it('are refused to a supplier and invisible to another store', async () => {
     const { saved } = await save({ name: 'Private', kind: 'manual' })
     expect((await gql('{ collections { nodes { id } } }', 'supplier')).code).toBe('FORBIDDEN')

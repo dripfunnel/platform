@@ -119,6 +119,16 @@ type CollectionPage {
   pageInfo: PageInfo
 }
 
+type CollectionPreview {
+  count: Int
+  products: [CollectionPreviewProduct!]
+}
+
+type CollectionPreviewProduct {
+  id: ID
+  name: String
+}
+
 type CollectionRule {
   currency: String
   kind: String
@@ -737,6 +747,7 @@ type Query {
   catalogueSettings: CatalogueSettings
   catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
   collection(id: ID!): Collection
+  collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
   facets(after: String, before: String, first: Int): FacetPage

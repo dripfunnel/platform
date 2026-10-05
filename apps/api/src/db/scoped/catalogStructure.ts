@@ -404,6 +404,43 @@ const ruleSql = (tx: ScopedSql, rule: RuleRow) => {
 }
 
 /**
+ * A product matching a collection's rules (fact 11). Under "all", values of one filter are alternatives, so
+ * "Fabric is Cotton or Linen and Occasion is Wedding" reads as written (CATALOG H4); under "any" every rule is.
+ */
+const matchSql = (tx: ScopedSql, match: 'all' | 'any', rules: readonly RuleRow[]) => {
+  if (rules.length === 0) return tx`false`
+  if (match === 'any') return rules.map((r) => ruleSql(tx, r)).reduce((acc, part) => tx`${acc} or ${part}`)
+  const valueIds = rules.flatMap((r) => (r.kind === 'filter_value' ? [String(r.args['valueId'])] : []))
+  const parts = rules.filter((r) => r.kind !== 'filter_value').map((r) => ruleSql(tx, r))
+  if (valueIds.length > 0)
+    parts.push(tx`not exists (
+      select 1 from filter_value fv where fv.id = any(${pgArray(valueIds)}::uuid[])
+        and not exists (select 1 from product_filter_value pfv join filter_value pv on pv.id = pfv.filter_value_id
+          where pfv.product_id = p.id and pv.filter_id = fv.filter_id and pfv.filter_value_id = any(${pgArray(valueIds)}::uuid[]))
+    )`)
+  return parts.reduce((acc, part) => tx`${acc} and ${part}`)
+}
+
+/** What a collection's rules would hold, before it is saved: how many products and the newest few (CATALOG H4's live preview). */
+export const selectRulePreview = async (
+  tx: ScopedSql,
+  storeId: string,
+  draft: { match: 'all' | 'any'; rules: readonly RuleRow[]; parentId: string | null; inheritParent: boolean },
+  limit: number,
+): Promise<{ count: number; products: { id: string; name: string }[] }> => {
+  const joined = matchSql(tx, draft.match, draft.rules)
+  const inParent = draft.inheritParent && draft.parentId ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${draft.parentId} and pp.product_id = p.id)` : tx``
+  const [row] = await tx<{ count: number; products: { id: string; name: string }[] }[]>`
+    with matched as (
+      select p.id, p.name, p.created_at from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
+    )
+    select (select count(*)::int from matched) as count,
+      coalesce((select json_agg(json_build_object('id', m.id, 'name', m.name)) from (select id, name from matched order by created_at desc, id desc limit ${limit}) m), '[]'::json) as products
+  `
+  return row ?? { count: 0, products: [] }
+}
+
+/**
  * Every automatic collection's products from its rules (fact 11), parents first so a child limited to
  * its parent reads the parent's new result. Run after commit, from the outbox, never in the request (fact 14).
  */
@@ -421,8 +458,7 @@ export const recomputeCollections = async (tx: ScopedSql, storeId: string, now: 
     order by tree.depth
   `
   for (const c of collections) {
-    const parts = c.rules.map((r) => ruleSql(tx, r))
-    const joined = parts.reduce((acc, part, i) => (i === 0 ? part : c.match === 'all' ? tx`${acc} and ${part}` : tx`${acc} or ${part}`), tx`false`)
+    const joined = matchSql(tx, c.match, c.rules)
     const inParent = c.inherit_parent && c.parent_id ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${c.parent_id} and pp.product_id = p.id)` : tx``
     // Newest first, so which products a cut keeps is the same at every recompute.
     const [found] = await tx<{ n: number }[]>`
