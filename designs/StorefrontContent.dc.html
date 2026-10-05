@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <sc-if value="{{ listing }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;"><div><div style="font-family:Manrope,sans-serif;font-weight:700;font-size:17px;">{{ title }}</div><div style="font-size:13px;color:var(--muted,#5A6472);">{{ sub }}</div></div><button onClick="{{ a.add }}" disabled="{{ ro }}" style="{{ S.primary }}">{{ addLabel }}</button></div>
+    <sc-if value="{{ ro }}" hint-placeholder-val="{{ false }}"><div style="{{ S.info }}">You can look, but only the store owner can change these.</div></sc-if>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="{{ S.empty }}">{{ emptyText }}</div></sc-if>
+    <div style="{{ S.table }}">
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="4">
+        <button onClick="{{ r.open }}" style="width:100%;display:grid;grid-template-columns:{{ cols }};gap:4px 12px;padding:12px 16px;border:0;border-bottom:1px solid var(--border,#EDEAE5);background:none;text-align:left;cursor:pointer;align-items:center;font-size:13px;color:var(--text,#14181F);">
+          <span style="display:flex;flex-direction:column;min-width:0;"><strong>{{ r.title }}</strong><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted,#5A6472);">{{ r.path }}</span></span>
+          <span style="justify-self:start;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;background:{{ r.bg }};color:{{ r.fg }};">{{ r.status }}</span>
+          <span style="font-size:12px;color:var(--muted,#5A6472);">{{ r.meta }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <span style="font-size:12px;color:var(--muted,#5A6472);">{{ foot }}</span>
+  </sc-if>
+
+  <sc-if value="{{ editing }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ a.back }}" style="{{ S.link }}align-self:flex-start;">← {{ backLabel }}</button>
+    <div style="display:grid;grid-template-columns:{{ editCols }};gap:16px;align-items:start;">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+        <div style="{{ S.card }}">
+          <label style="{{ S.label }}">Title<input value="{{ e.title }}" onChange="{{ on.title }}" readOnly="{{ ro }}" style="{{ S.input }}font-size:16px;"><sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:var(--link,#B8541F);">{{ err }}</span></sc-if></label>
+          <label style="{{ S.label }}">Web address<span style="display:flex;align-items:center;gap:0;border:1px solid var(--field,#D7D3CD);border-radius:8px;overflow:hidden;font-weight:400;"><span style="padding:0 10px;height:40px;display:flex;align-items:center;background:var(--paper,#FDFAF7);color:var(--muted,#5A6472);font-size:13px;border-right:1px solid var(--field,#D7D3CD);white-space:nowrap;">{{ prefix }}</span><input value="{{ e.slug }}" onChange="{{ on.slug }}" readOnly="{{ ro }}" style="height:40px;border:0;padding:0 10px;font-size:14px;flex:1;min-width:0;background:var(--card,#FFFFFF);"></span></label>
+          <sc-if value="{{ isPost }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.cover }}" disabled="{{ ro }}" style="height:120px;border:2px dashed var(--field,#D7D3CD);border-radius:10px;background:{{ coverBg }};cursor:pointer;font-size:13px;color:var(--text2,#434A55);font-weight:600;">{{ coverLabel }}</button></sc-if>
+        </div>
+        <div style="{{ S.card }}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;"><strong style="font-family:Manrope,sans-serif;font-size:15px;">{{ bodyTitle }}</strong><span style="display:flex;gap:6px;flex-wrap:wrap;"><sc-for list="{{ tools }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" disabled="{{ ro }}" title="{{ t.title }}" style="height:30px;min-width:30px;padding:0 8px;border:1px solid var(--field,#D7D3CD);border-radius:6px;background:var(--card,#FFFFFF);font-size:12px;font-weight:700;cursor:pointer;">{{ t.label }}</button></sc-for></span></div>
+          <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="3">
+            <div style="border:1px solid var(--border,#E8E2DC);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted,#5A6472);">{{ b.kind }}</span><span style="display:flex;gap:4px;"><button onClick="{{ b.up }}" disabled="{{ b.noUp }}" aria-label="Move up" style="{{ S.mini }}">↑</button><button onClick="{{ b.down }}" disabled="{{ b.noDown }}" aria-label="Move down" style="{{ S.mini }}">↓</button><button onClick="{{ b.remove }}" disabled="{{ ro }}" aria-label="Remove block" style="{{ S.mini }}">✕</button></span></div>
+              <sc-if value="{{ b.isText }}" hint-placeholder-val="{{ true }}"><textarea value="{{ b.text }}" onChange="{{ b.onText }}" readOnly="{{ ro }}" rows="{{ b.rows }}" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:10px 12px;font-size:{{ b.fs }};font-weight:{{ b.fw }};resize:vertical;font-family:inherit;"></textarea></sc-if>
+              <sc-if value="{{ b.isImage }}" hint-placeholder-val="{{ false }}"><div style="height:120px;border-radius:8px;background:{{ b.bg }};display:flex;align-items:flex-end;padding:8px;"><input value="{{ b.alt }}" onChange="{{ b.onAlt }}" readOnly="{{ ro }}" placeholder="Describe the photo for people who can’t see it" aria-label="Photo description" style="width:100%;height:34px;border:0;border-radius:6px;padding:0 10px;font-size:13px;background:rgba(255,255,255,0.92);"></div></sc-if>
+              <sc-if value="{{ b.isFaq }}" hint-placeholder-val="{{ false }}"><sc-for list="{{ b.items }}" as="q" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:2px;font-size:13px;padding:6px 0;border-bottom:1px dashed var(--border,#E8E2DC);"><strong>{{ q.q }}</strong><span style="color:var(--text2,#434A55);">{{ q.a }}</span></div></sc-for><button onClick="{{ b.addQ }}" disabled="{{ ro }}" style="{{ S.link }}align-self:flex-start;">+ Add a question</button></sc-if>
+              <sc-if value="{{ b.isProducts }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;flex-wrap:wrap;"><sc-for list="{{ b.items }}" as="q" hint-placeholder-count="2"><span style="height:30px;padding:0 10px;border-radius:15px;background:var(--sunk,#F2F0EC);display:inline-flex;align-items:center;font-size:12px;font-weight:600;">{{ q.name }}</span></sc-for><button onClick="{{ b.addP }}" disabled="{{ ro }}" style="{{ S.link }}">+ Add a product</button></div><span style="font-size:12px;color:var(--muted,#5A6472);">Shown with their live price and stock. A sold-out product shows as sold out, never removed.</span></sc-if>
+              <sc-if value="{{ b.isForm }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--text2,#434A55);">Name, email, order number (optional) and message. Messages go to {{ contactEmail }} and a copy goes to the shopper.</span></sc-if>
+            </div>
+          </sc-for>
+        </div>
+        <div style="{{ S.card }}">
+          <strong style="font-family:Manrope,sans-serif;font-size:15px;">How it looks in search</strong>
+          <label style="{{ S.label }}">Description <span style="font-weight:400;color:var(--muted,#5A6472);">{{ seoCount }}</span><textarea value="{{ e.seo }}" onChange="{{ on.seo }}" readOnly="{{ ro }}" rows="2" maxLength="160" style="border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:10px 12px;font-size:14px;font-weight:400;resize:vertical;font-family:inherit;"></textarea></label>
+          <div style="padding:10px 12px;border-radius:8px;background:var(--paper,#FDFAF7);display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:var(--okfg,#1D6B47);">{{ seoUrl }}</span><span style="font-size:15px;color:#1A0DAB;">{{ seoTitle }}</span><span style="font-size:13px;color:var(--text2,#434A55);">{{ seoDesc }}</span></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;position:{{ sidePos }};top:16px;">
+        <div style="{{ S.card }}">
+          <strong style="font-family:Manrope,sans-serif;font-size:15px;">Publishing</strong>
+          <span style="font-size:13px;color:var(--text2,#434A55);">{{ statusLine }}</span>
+          <sc-if value="{{ isPost }}" hint-placeholder-val="{{ false }}"><label style="{{ S.label }}">Publish on<input type="date" value="{{ e.date }}" onChange="{{ on.date }}" readOnly="{{ ro }}" style="{{ S.input }}"><span style="font-weight:400;font-size:12px;color:var(--muted,#5A6472);">A future date schedules it.</span></label><label style="{{ S.label }}">Written by<input value="{{ e.author }}" onChange="{{ on.author }}" readOnly="{{ ro }}" style="{{ S.input }}"></label></sc-if>
+          <sc-if value="{{ isPage }}" hint-placeholder-val="{{ true }}"><label style="display:flex;gap:8px;align-items:center;font-size:13px;"><input type="checkbox" checked="{{ e.inMenu }}" onChange="{{ on.inMenu }}" disabled="{{ ro }}" style="width:18px;height:18px;">Show in the footer menu</label></sc-if>
+          <button onClick="{{ a.publish }}" disabled="{{ ro }}" style="{{ S.primary }}">{{ publishLabel }}</button>
+          <button onClick="{{ a.draft }}" disabled="{{ ro }}" style="{{ S.btn }}">Save as draft</button>
+          <button onClick="{{ a.preview }}" style="{{ S.btn }}">Preview</button>
+          <span style="font-size:12px;color:var(--muted,#5A6472);">Goes live with your shop’s next publish, about 2 minutes. Your storefront design decides how it looks.</span>
+          <sc-if value="{{ canDelete }}" hint-placeholder-val="{{ false }}"><button onClick="{{ a.remove }}" disabled="{{ ro }}" style="{{ S.link }}color:var(--bfg,#A1261B);align-self:flex-start;">{{ deleteLabel }}</button></sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { open: null, e: null, err: '' };
+  data(app, mode) {
+    const IN = app.R.key === 'IN'; const store = app.storeName;
+    const pages = app.st.contentPages || [
+      { id: 'about', title: 'About us', slug: 'about', status: 'published', edited: '12 Sep', inMenu: true, seo: 'The story of ' + store + '.', blocks: [['heading', 'Our story'], ['text', IN ? 'Our grandfather opened a printing table on the Sanganer road in 1962. We still print there, with many of his blocks.' : 'We started in 2019 with one T-shirt and a sewing machine in a Columbus garage.'], ['image', 'Printers at work in the studio'], ['text', 'Everything we sell is made in small batches and shipped from our own studio.']] },
+      { id: 'faq', title: 'Questions we get asked', slug: 'faq', status: 'published', edited: '30 Sep', inMenu: true, seo: 'Delivery, returns and care.', blocks: [['heading', 'Questions we get asked'], ['faq', [['How long does delivery take?', IN ? '3–5 working days anywhere in India.' : '3–5 business days in the US.'], ['Can I return something?', 'Yes, within 14 days of delivery.']]]] },
+      { id: 'contact', title: 'Contact', slug: 'contact', status: 'published', edited: '12 Sep', inMenu: true, seo: 'Get in touch with ' + store + '.', blocks: [['heading', 'Talk to us'], ['text', 'We reply within a working day.'], ['form', '']] },
+      { id: 'lookbook', title: IN ? 'Sangeet to pheras' : 'Fall, slowly', slug: 'lookbook', status: 'draft', edited: 'Yesterday', inMenu: false, seo: '', blocks: [['heading', IN ? 'Sangeet to pheras' : 'Fall, slowly'], ['image', 'Silk scarf and linen dress'], ['products', ['Silk Scarf', 'Linen Midi Dress']]] }
+    ];
+    const posts = app.st.journalPosts || [
+      { id: 'b1', title: IN ? 'How a block becomes a print' : 'Why we pre-wash every tee', slug: IN ? 'how-a-block-becomes-a-print' : 'why-we-pre-wash', status: 'published', date: '2026-09-28', author: 'Farhan Ali', cover: 12, seo: '', blocks: [['text', IN ? 'From teak block to finished stole: a morning with our printers in Sanganer.' : 'Shrinkage, softness and the 40 minutes that make a tee last.'], ['products', [IN ? 'Block-print Kurta' : 'Organic Cotton Tee']]] },
+      { id: 'b2', title: 'Caring for linen', slug: 'caring-for-linen', status: 'published', date: '2026-09-14', author: 'Priya Shah', cover: 150, seo: '', blocks: [['text', 'Wash cool, dry flat, and stop ironing.']] },
+      { id: 'b3', title: IN ? 'Dressing for a Jaipur wedding' : 'A capsule for fall', slug: IN ? 'jaipur-wedding' : 'fall-capsule', status: 'scheduled', date: '2026-10-12', author: 'Farhan Ali', cover: 340, seo: '', blocks: [['text', 'Five looks, three days, one suitcase.']] }
+    ];
+    return mode === 'journal' ? posts : pages;
+  }
+  renderVals() {
+    const app = this.props.app; if (!app) return { S: {}, a: {}, on: {} };
+    const mode = this.props.mode || 'pages'; const c = app.caps; const phone = app.phone; const s = this.state;
+    const ro = !c.isOwner || !!c.readOnly; const isPost = mode === 'journal';
+    const key = isPost ? 'journalPosts' : 'contentPages';
+    const list = this.data(app, mode);
+    const S = {
+      card: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;',
+      table: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;overflow:hidden;',
+      info: 'padding:12px 14px;border-radius:10px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);color:var(--ifg,#00325F);font-size:13px;',
+      empty: 'background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:28px;text-align:center;font-size:14px;color:var(--muted,#5A6472);',
+      btn: 'height:38px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);color:var(--text,#14181F);font-size:13px;font-weight:600;cursor:pointer;',
+      primary: 'height:40px;padding:0 16px;border:0;border-radius:8px;background:#EC844F;color:#4A1B0C;font-family:Manrope,sans-serif;font-weight:700;font-size:14px;cursor:pointer;',
+      link: 'border:0;background:none;padding:0;color:var(--link,#B8541F);font-size:13px;font-weight:600;cursor:pointer;',
+      mini: 'width:28px;height:28px;border:1px solid var(--border,#E8E2DC);border-radius:6px;background:var(--card,#FFFFFF);cursor:pointer;font-size:12px;',
+      input: 'height:40px;border:1px solid var(--field,#D7D3CD);border-radius:8px;padding:0 12px;font-size:14px;background:var(--card,#FFFFFF);font-weight:400;width:100%;',
+      label: 'display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;'
+    };
+    const stStyle = { published: ['Published', 'var(--okbg,#EEF7F2)', 'var(--okfg,#1D6B47)'], draft: ['Draft', 'var(--sunk,#F2F0EC)', 'var(--muted,#5A6472)'], scheduled: ['Scheduled', 'var(--ibg,#F4F8FB)', 'var(--ifg,#00325F)'] };
+    const dfmt = d => new Date(d).toLocaleDateString(app.R.locale, { day: 'numeric', month: 'short', year: 'numeric' });
+    const save = (item, status) => { const next = list.some(x => x.id === item.id) ? list.map(x => x.id === item.id ? { ...item, status, edited: 'Just now' } : x) : [{ ...item, status, edited: 'Just now' }, ...list]; app.set(key, next); };
+    if (!s.e) {
+      const rows = list.map(x => { const st = stStyle[x.status]; return { title: x.title, path: (isPost ? '/journal/' : '/pages/') + x.slug, status: st[0], bg: st[1], fg: st[2], meta: isPost ? (x.status === 'scheduled' ? 'Goes live ' : '') + dfmt(x.date) + ' · ' + x.author : 'Edited ' + x.edited + (x.inMenu ? ' · in the footer' : ''), open: () => this.setState({ e: JSON.parse(JSON.stringify(x)), err: '' }) }; });
+      return { S, ro, listing: true, editing: false, title: isPost ? 'Journal' : 'Pages', sub: isPost ? 'Posts for your shop’s blog, newest first. Shoppers find them under Journal.' : 'About, FAQ, contact and lookbook pages on your storefront.', addLabel: isPost ? 'Write a post' : 'Add a page', rows, empty: !rows.length, emptyText: isPost ? 'No posts yet. Write about how you make things, care tips or new arrivals.' : 'No pages yet.', cols: phone ? '1fr auto' : '2fr 0.8fr 1.4fr', foot: isPost ? 'Posts can mention products; shoppers see their live price.' : 'Your menus can link to these pages (Collections › Menus).',
+        a: { add: () => { if (ro) return; this.setState({ e: isPost ? { id: 'b' + Date.now(), title: '', slug: '', status: 'draft', date: '2026-10-05', author: 'Farhan Ali', cover: null, seo: '', blocks: [['text', '']] } : { id: 'p' + Date.now(), title: '', slug: '', status: 'draft', edited: 'Just now', inMenu: false, seo: '', blocks: [['heading', ''], ['text', '']], isNew: true }, err: '' }); } }, on: {} };
+    }
+    const e = s.e; const upd = patch => this.setState({ e: { ...e, ...patch }, err: '' });
+    const setBlock = (i, v) => upd({ blocks: e.blocks.map((b, j) => j === i ? [b[0], v] : b) });
+    const move = (i, d) => { const b = [...e.blocks]; const t = b[i]; b[i] = b[i + d]; b[i + d] = t; upd({ blocks: b }); };
+    const addBlock = k => upd({ blocks: [...e.blocks, [k, k === 'faq' || k === 'products' ? [] : '']] });
+    const kindName = { heading: 'Heading', text: 'Text', image: 'Photo', faq: 'Questions and answers', products: 'Products', form: 'Contact form' };
+    const blocks = e.blocks.map(([k, v], i) => ({ kind: kindName[k], isText: k === 'heading' || k === 'text', isImage: k === 'image', isFaq: k === 'faq', isProducts: k === 'products', isForm: k === 'form', text: typeof v === 'string' ? v : '', rows: k === 'heading' ? 1 : 4, fs: k === 'heading' ? '18px' : '14px', fw: k === 'heading' ? 700 : 400,
+      onText: ev => setBlock(i, ev.target.value), alt: typeof v === 'string' ? v : '', onAlt: ev => setBlock(i, ev.target.value), bg: 'linear-gradient(135deg,hsl(' + (30 + i * 40) + ',35%,82%),hsl(' + (50 + i * 40) + ',30%,66%))',
+      items: Array.isArray(v) ? v.map(q => Array.isArray(q) ? { q: q[0], a: q[1] } : { name: q }) : [], noUp: ro || i === 0, noDown: ro || i === e.blocks.length - 1, up: () => move(i, -1), down: () => move(i, 1), remove: () => upd({ blocks: e.blocks.filter((_, j) => j !== i) }),
+      addQ: () => app.modal({ title: 'Add a question', input: { label: 'Question', placeholder: 'e.g. Do you gift-wrap?', required: true }, confirm: 'Add', onConfirm: q => setBlock(i, [...v, [q, 'Write the answer here.']]) }),
+      addP: () => app.modal({ title: 'Add a product', choices: (app.products || []).slice(0, 6).map(p => ({ label: p.name, value: p.name })), confirm: 'Add', onConfirm: n => setBlock(i, [...v, n]) }) }));
+    const tools = [['H', 'heading', 'Add a heading'], ['¶', 'text', 'Add text'], ['▣', 'image', 'Add a photo'], ['?', 'faq', 'Add questions'], ['◫', 'products', 'Add products'], ...(isPost ? [] : [['✉', 'form', 'Add a contact form']])].map(([label, k, title]) => ({ label, title, onClick: () => addBlock(k) }));
+    const title = e.title || (isPost ? 'Untitled post' : 'Untitled page');
+    const future = isPost && e.date > '2026-10-05';
+    const finish = status => { if (!e.title.trim()) { this.setState({ err: 'Give it a title.' }); return; } const slug = e.slug || e.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''); if (list.some(x => x.id !== e.id && x.slug === slug)) { this.setState({ err: 'Another ' + (isPost ? 'post' : 'page') + ' already uses /' + slug + '. Change the web address.' }); return; } save({ ...e, slug }, status); this.setState({ e: null }); app.toast(status === 'draft' ? 'Saved as a draft — not on your shop yet' : status === 'scheduled' ? 'Scheduled for ' + dfmt(e.date) : 'Published. It’s live in about 2 minutes.'); };
+    const st = stStyle[e.status] || stStyle.draft;
+    return { S, ro, listing: false, editing: true, isPost, isPage: !isPost, backLabel: isPost ? 'All posts' : 'All pages', editCols: phone ? '1fr' : 'minmax(0,1fr) 280px', sidePos: phone ? 'static' : 'sticky', e, err: s.err, prefix: app.R.domain + (isPost ? '/journal/' : '/pages/'),
+      coverBg: e.cover !== null && e.cover !== undefined ? 'linear-gradient(135deg,hsl(' + e.cover + ',35%,82%),hsl(' + (e.cover + 24) + ',30%,66%))' : 'var(--paper,#FDFAF7)', coverLabel: e.cover !== null && e.cover !== undefined ? 'Change the cover photo' : 'Add a cover photo',
+      bodyTitle: isPost ? 'The post' : 'The page', tools, blocks, contactEmail: (app.data('storeInfo') || {}).email || 'your store email',
+      seoCount: (e.seo || '').length + ' of 160', seoUrl: app.R.domain + (isPost ? '/journal/' : '/pages/') + (e.slug || '…'), seoTitle: title + ' · ' + app.storeName, seoDesc: e.seo || 'Add a description so search engines show something better than the first line.',
+      statusLine: 'Now: ' + st[0] + (e.edited && !isPost ? ' · edited ' + e.edited : ''), publishLabel: future ? 'Schedule' : e.status === 'published' ? 'Update' : 'Publish', canDelete: !e.isNew && list.some(x => x.id === e.id), deleteLabel: isPost ? 'Delete post' : 'Delete page',
+      on: { title: ev => upd({ title: ev.target.value }), slug: ev => upd({ slug: ev.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') }), seo: ev => upd({ seo: ev.target.value }), date: ev => upd({ date: ev.target.value }), author: ev => upd({ author: ev.target.value }), inMenu: () => upd({ inMenu: !e.inMenu }) },
+      a: { back: () => this.setState({ e: null }), publish: () => finish(future ? 'scheduled' : 'published'), draft: () => finish('draft'), preview: () => app.preview({ kind: 'home' }), cover: () => upd({ cover: Math.floor(Math.random() * 360) }),
+        remove: () => app.modal({ title: (isPost ? 'Delete “' : 'Delete the page “') + title + '”?', body: 'It comes off your shop with the next publish. Links to it show “page not found”' + (e.inMenu ? ', and it leaves the footer menu.' : '.'), confirm: isPost ? 'Delete post' : 'Delete page', danger: true, onConfirm: () => { app.set(key, list.filter(x => x.id !== e.id)); this.setState({ e: null }); app.toast('Deleted'); } }) } };
+  }
+}
+</script>
+</body>
+</html>

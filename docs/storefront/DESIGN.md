@@ -74,7 +74,8 @@ can't, and offers what it can (for example, showing real stock when the store tr
    tokens, type pairing, header, home composition and product card. The merchant picks one,
    or mixes.
 3. **Baseline**: every direction is built on the template's **baseline theme** (ARCHITECTURE
-   §10), which already passes every contract test. The AI diverges from it as far as the
+   §10; drawn in `designs/DF Storefront Prototype`, #285), which already passes every contract
+   test. The AI diverges from it as far as the
    brief asks; it never starts from an empty folder.
 4. **Iteration**: the merchant keeps describing changes. Each one is a preview (ARCHITECTURE
    §6), and nothing reaches the live site without approval.

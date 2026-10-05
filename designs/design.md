@@ -3,7 +3,7 @@
 How the DripFunnel platform prototypes in this project are built, so a new
 screen can be added without re-reading 10,000 lines of source.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 ---
 
@@ -18,6 +18,7 @@ to a backend.
 | **Store** | A merchant running one shop, plus their staff and suppliers | Merchant portal | `DF Store Prototype.dc.html` |
 | **Platform** | A partner reselling DripFunnel under their own brand, e.g. *Northstar Shops* | Partner console | `DF Platform Prototype.dc.html` |
 | **Admin** | DripFunnel's own staff, running every partner and store | Admin console | `DF Admin Prototype.dc.html` |
+| **Shopper** | A store's customers, on its storefront | The baseline storefront theme (`templates/storefront`) | `DF Storefront Prototype.dc.html` |
 
 Plus two supporting files:
 
@@ -53,8 +54,13 @@ Every child receives a single `app` prop (see §3).
 | Collections / Filters / Menus | `CatCollections` | Three tabs of one destination; mounts `CatSizeCharts` |
 | Size charts | `CatSizeCharts` | Child of Collections |
 | Import & export | `CatImport` | CSV, Shopify import, match rules, progress, pause |
-| Storefront | `PortalStorefront` | AI "describe your shop", preview widths, publish |
-| Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets` |
+| Storefront | `PortalStorefront` | Tabs Design · Pages · Journal; how the storefront is built (AI or your own, #286); AI "describe your shop", preview widths, publish |
+| Pages and Journal | `StorefrontContent` | Content pages (about, FAQ, contact, lookbook) and blog posts: list, block editor, search preview, publish, schedule, delete (#286) |
+| Settings | `PortalSettings` | Tab host → `SetStore`, `SetTeam`, `SetOps`, `CatSettings`, `SetMarkets`, `SetAccess`, `SetDev`, `StoreActivity` |
+| Customer accounts, Support access | `SetAccess` | `mode=customers`: email, mobile or both, what shoppers see. `mode=support`: the On/Off switch, how a session works, the support access log (#286) |
+| Developers, Apps | `SetDev` | `mode=developers`: storefront key, allowed websites, API keys (scopes, supplier binding, expiry, shown once, rotate, revoke), webhooks (events, deliveries, send again, turned off after failures). `mode=apps`: private apps, install consent, open on the app's site, remove saying what stops (#286) |
+| Activity log, Store activity | `StoreActivity` | Settings tab for the Owner (with export); the Manager's *Store activity* from the user menu (export disabled with the reason) (#286) |
+| Your sales, Your team | `VendorViews` | Supplier screens: their own lines without totals; their team with the last-admin rule (#286) |
 | Billing | `PortalBilling` | Plan, card, invoices, downgrade, cancel |
 | Choose what to keep | `PortalKeep` | Trial-ended downgrade: pick which products stay live |
 | My profile | `PortalProfile` | Name, email, password, two-step sign-in, backup codes, appearance (light/dark) |
@@ -83,6 +89,57 @@ Provisioning, Impersonate, Activity log, Staff (Super admin only).
 #19, 2026-09-30): the checklist sits on the partner's Overview and the setup
 session starts from the header. See §8.
 
+### Storefront — single file
+
+`DF Storefront Prototype.dc.html` plus `shop-data.js` → `window.SHOP` (the
+Store prototype's two launch stores, Kesari Threads in India and Juniper &
+Co. in the US, as a shopper sees them). It is the **baseline theme** the AI
+designer starts from (storefront DESIGN §4): layout, states and wording are
+decided here; colours, type and composition are the AI's to change per store.
+Drawn on #285 (D1).
+
+Pages, one per core route (storefront ARCHITECTURE §3.1): Home, Collection
+(filters as a sidebar on wide screens and a drawer on narrow ones, sort,
+active-filter chips, empty result), Product (gallery with video, swatches and
+size buttons with sold-out versions, size chart, stock line, delivery check by
+PIN or ZIP, highlights, accordions with the legal fields, A+ modules, related
+products, a sticky buy bar on phones), the gift card, download and service
+product pages, Search (overlay with suggestions, results, no results), Cart
+(drawer and page, the automatic offer, codes, the free-delivery bar),
+Checkout (contact → address → delivery → payment → review, with the summary
+collapsible on phones), Order confirmation (paid, cash on delivery, bank
+transfer with its 3-day deadline, download, gift card, service), Sign in
+(email and password, or a mobile code), Register, Verify, Forgot and Reset,
+Account (orders with tracking, cancel and return, details, addresses, what we
+send you, gift card balance, downloads, download or delete my data), the five
+Policies, About, FAQ, Contact, Lookbook, Journal and a post, 404, and the
+suspended-shop page.
+
+Controls: Store (IN/US) · Device · Theme · Site (live or preview by signed
+link) · Shopper (guest or signed in) · Shopper sign-in (email, mobile or both,
+ACCESS §2.1) · Card gateway (India: Razorpay or Cashfree) · Page · Scenario
+(slow, won't load, offline, shop suspended, payment fails, payment slow to
+confirm) · Cookie choice · "Powered by" (shown or removed by plan) · Mark
+required parts. Every control also reads from the URL
+(`?region=US&device=phone&page=product&arg=p1`), so a state can be linked
+and captured.
+
+**Required components** carry `data-req` and show an orange dashed outline
+with **Mark required parts**: the price with its tax label, the payment
+element, legal and compliance notices, the consent banner, the preview
+banner, the "Powered by" line, and the checkout steps. The AI restyles them
+and never removes or rewords them (storefront DESIGN §3); everything else is
+the baseline the AI may change. The pages are styled with one stylesheet and
+container queries on the frame, so the same markup is right in the phone frame
+and at any desktop width (breakpoints 640, 760 and 1080 px).
+
+**Returns and cancelling, as drawn**: a shopper may cancel an order until it ships (a bank
+transfer not yet paid, or a paid order still being packed), and may ask for a return until the
+store's returns window closes, counted from delivery. The window is the store's own returns
+policy (CATALOG-DESIGN S8), never the theme's: 14 days in the India sample, 30 in the US one
+(`returnDays` in `shop-data.js`; download limits likewise, `downloads`). The rules are written
+in storefront ARCHITECTURE §2.1.
+
 `ImpBanner.dc.html` is the one shared child: the staff-session banner that
 the Platform and Store prototypes mount at the top of their frame (see §8).
 
@@ -97,7 +154,7 @@ design. Add a new state as a control option before adding UI to reach it.
 
 | Prototype | Controls |
 | --- | --- |
-| Store | Role · Region · Plan · Store (stocked / empty / signup) · Scenario · toggles (Languages, Currencies, Approval, Offline…) · Desktop/Phone · Reset data |
+| Store | Role · Region · Plan · Store (stocked / empty / signup) · Partner support (no session, open, asks to make changes, changes allowed) · Scenario · toggles (Languages, Currencies, Approval, Offline…) · Desktop/Phone · Reset data. URL parameters `region`, `role`, `plan`, `device`, `theme`, `screen`, `settingsTab`, `editId`, `support` and `sfTab` open a state directly (#286) |
 | Platform | Partner (Northstar live, Kaufladen draft / set up by DF / awaiting / sent back / just approved) · Role · Theme · Screen · Signed in · Invitation · Scenario |
 | Admin | Signed in as · Theme · Environment · Screen · Data · Sign-in |
 
@@ -176,7 +233,7 @@ Plan states in the control: `trial` (day 3, full Business), `trial9`
 | Owner | Home, Orders, Customers, Offers, Abandoned carts, Reports · *Catalogue:* Products, Collections · *Your shop:* Storefront · *Admin:* Settings, Billing |
 | Manager | Same minus the Admin group; Storefront is view only |
 | Staff | Home, Orders, Customers, Offers (view only), Abandoned carts (view only) · *Catalogue:* Products, Collections (view only) |
-| Supplier (catalogue) | Your products, To ship |
+| Supplier (catalogue) | Your products, To ship, Your sales, Your team (this supplier user is a Supplier admin) |
 | Supplier (stock only) | Your products (stock only) |
 
 Supplier roles exist only on Business and above; picking one on a lower

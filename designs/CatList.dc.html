@@ -269,9 +269,9 @@ class Component extends DCLogic {
         note: (qd[v.key + ':p'] !== undefined || qd[v.key + ':s'] !== undefined) ? 'Changed' : '',
         onPrice: e => this.setState({ quickDraft: { ...qd, [v.key + ':p']: e.target.value } }), onStock: e => this.setState({ quickDraft: { ...qd, [v.key + ':s']: e.target.value } }) }))
         : [{ name: 'This product', price: qd['_:p'] ?? String(p.price || ''), stock: qd['_:s'] ?? String(p.stock), note: '', onPrice: e => this.setState({ quickDraft: { ...qd, '_:p': e.target.value } }), onStock: e => this.setState({ quickDraft: { ...qd, '_:s': e.target.value } }) }]) : [];
-      const stockText = p.type === 'download' || p.track === false ? 'Not tracked' : tot === 0 ? 'Out of stock' : tot <= 5 ? 'Low: ' + tot : tot + ' in stock';
+      const stockText = (p.type && p.type !== 'physical') || p.track === false ? 'Not tracked' : tot === 0 ? 'Out of stock' : tot <= 5 ? 'Low: ' + tot : tot + ' in stock';
       return {
-        name: p.name + (p.sample ? ' ' : ''), sub: (p.sample ? 'Sample · ' : '') + (vs.length ? vs.length + ' versions' : (p.type === 'download' ? 'Download' : 'No choices')) + (p.removedSupplier ? ' · From ' + p.removedSupplier + ', removed' : ''),
+        name: p.name + (p.sample ? ' ' : ''), sub: (p.sample ? 'Sample · ' : '') + (vs.length ? vs.length + ' versions' : (p.type === 'download' ? 'Download' : p.type === 'service' ? 'Service' : p.type === 'giftcard' ? 'Gift card' : 'No choices')) + (p.removedSupplier ? ' · From ' + p.removedSupplier + ', removed' : ''),
         status: st[0], stBg: st[1], stBd: st[2], stFg: st[3], price: this.priceText(p, fmt), stock: stockText,
         stockFg: stockText === 'Out of stock' ? 'var(--link,#B8541F)' : /Low/.test(stockText) ? 'var(--wfg,#7A4B00)' : 'var(--text2,#434A55)', supplier: p.supplier,
         ready: m.length === 1 ? (m[0].ok ? 'Ready' : m[0].missing.length + ' detail' + (m[0].missing.length > 1 ? 's' : '') + ' missing') : (okCount === m.length ? 'Ready in all ' + m.length : okCount + ' of ' + m.length + ' countries'),
