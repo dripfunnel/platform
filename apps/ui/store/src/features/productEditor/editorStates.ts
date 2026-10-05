@@ -67,7 +67,7 @@ const shirt: EditorProduct | null =
         slug: 'mara-linen-shirt',
         seoTitle: null,
         seoDescription: null,
-        pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
+        pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
         photos: [],
         options: [
           { id: 'o-size', name: 'Size', values: ['S', 'M', 'L'].map((name) => ({ id: `v-${name}`, name })) },

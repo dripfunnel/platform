@@ -252,7 +252,7 @@ describe('the Products list', () => {
     const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
     editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [] })
     editorApi.loadProduct.mockResolvedValue({
-      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null,  photos: [], options: [], readiness: [],
+      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null,  photos: [], options: [], readiness: [],
       versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true, continueSelling: false }],
     })
     editorApi.saveProduct.mockResolvedValue({ id: 'p1', revision: 6, approval: null })
@@ -301,7 +301,7 @@ describe('the Products list', () => {
     const editable = { ...owner, permissions: [...owner.permissions, 'stock.write'] }
     editorApi.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [], badges: [] })
     editorApi.loadProduct.mockResolvedValue({
-      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null,  photos: [], options: [], readiness: [],
+      id: 'p1', revision: 5, name: 'Mara Linen Shirt', description: '', productType: 'physical', visible: true, approval: null, sentBackReason: null, supplier: null, slug: 'mara', seoTitle: null, seoDescription: null, pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null,  photos: [], options: [], readiness: [],
       versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true, continueSelling: false }],
     })
     editorApi.saveProduct.mockResolvedValue({ id: 'p1', revision: 6, approval: null })

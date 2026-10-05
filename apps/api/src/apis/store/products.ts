@@ -207,12 +207,14 @@ export const registerProducts = (builder: StoreBuilder) => {
     fields: (t) => ({ region: t.exposeString('region'), field: t.exposeString('field'), value: t.exposeString('value') }),
   })
   const MarketRule = builder.objectRef<{ mode: string; countries: string[] }>('ProductMarketRule').implement({ fields: (t) => ({ mode: t.exposeString('mode'), countries: t.exposeStringList('countries') }) })
+  const RelatedProduct = builder.objectRef<{ id: string; name: string }>('RelatedProduct').implement({ fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }) })
   const ListingType = builder.objectRef<ProductRow>('ProductListing').implement({
     fields: (t) => ({
       specs: t.field({ type: [Spec], resolve: (p) => p.specs }),
       highlights: t.stringList({ resolve: (p) => p.highlights }),
       faqs: t.field({ type: [Faq], resolve: (p) => p.faqs }),
       relatedIds: t.stringList({ resolve: (p) => p.related }),
+      related: t.field({ type: [RelatedProduct], resolve: (p) => p.related_names }),
       badgeIds: t.stringList({ resolve: (p) => p.badge_ids }),
       ageRestricted: t.boolean({ resolve: (p) => p.flags.ageRestricted }),
       hazardous: t.boolean({ resolve: (p) => p.flags.hazardous }),

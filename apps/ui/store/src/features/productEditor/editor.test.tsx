@@ -51,7 +51,7 @@ const cushion = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   slug: 'block-print-cushion',
   seoTitle: null,
   seoDescription: null,
-  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
   photos: [],
   options: [],
   versions: [{ id: 'ver-1', choices: [], name: null, sku: null, barcode: null, visible: true, prices: [{ currency: 'INR', amount: '129900', compareAtAmount: null }], cost: null, weightGrams: null, lengthMm: null, widthMm: null, heightMm: null, hsCode: null, taxClassId: null, trackStock: true, continueSelling: false }],
@@ -434,5 +434,28 @@ describe('the product editor', () => {
     expect(field('Stock at Jaipur studio').value).toBe('17')
     expect(field('Stock at Delhi godown').value).toBe('40')
     expect(screen.getByRole('region', { name: words.bar.unsaved })).toBeTruthy()
+  })
+
+  it('finds related products by name, saying when nothing matches or the search fails', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    api.loadProductBasics.mockResolvedValue({ pricingCurrency: 'INR', unitSystem: 'metric', features: [{ key: 'related', enabled: true }], badges: [] })
+    api.saveProduct.mockResolvedValue({ id: 'p1', revision: 3, approval: null })
+    listApi.loadProducts.mockResolvedValueOnce({ rows: [], next: null, previous: null }).mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({ rows: [{ id: 'p2', name: 'Kurta' }], next: null, previous: null })
+    await show(owner)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(words.sections.related) }))
+    const find = screen.getByLabelText(words.sections.relatedSearch)
+    for (const [typed, expected] of [['zz', 'No products match “zz”'], ['ku', words.sections.relatedFailed]] as const) {
+      fireEvent.change(find, { target: { value: typed } })
+      await act(async () => vi.advanceTimersByTimeAsync(350))
+      expect(screen.getByText(expected)).toBeTruthy()
+    }
+    fireEvent.change(find, { target: { value: 'kur' } })
+    await act(async () => vi.advanceTimersByTimeAsync(350))
+    fireEvent.click(screen.getByRole('button', { name: '+ Kurta' }))
+    expect(screen.getByText('Kurta')).toBeTruthy()
+    vi.useRealTimers()
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect((api.saveProduct.mock.calls[0]?.[2] as { listing: { relatedIds: unknown } }).listing.relatedIds).toEqual(['p2'])
   })
 })

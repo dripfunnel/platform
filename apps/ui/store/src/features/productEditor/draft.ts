@@ -92,6 +92,8 @@ export interface DraftListing {
   highlights: string[]
   faqs: { question: string; answer: string }[]
   relatedIds: string[]
+  /** Their names, from the listing and from the search that picked them. */
+  relatedNames: Record<string, string>
   badgeIds: string[]
   /** The details any country asks for, kept for every region (ALL) so they meet each market's need. */
   legal: Record<LegalField, string>
@@ -103,7 +105,7 @@ export interface DraftListing {
 export const legalFields = ['fibre', 'origin', 'care'] as const
 export type LegalField = (typeof legalFields)[number]
 
-const blankListing = (): DraftListing => ({ specs: [], versionSpecs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], legal: { fibre: '', origin: '', care: '' }, otherCompliance: [], ageRestricted: false, hazardous: false })
+const blankListing = (): DraftListing => ({ specs: [], versionSpecs: [], highlights: [], faqs: [], relatedIds: [], relatedNames: {}, badgeIds: [], legal: { fibre: '', origin: '', care: '' }, otherCompliance: [], ageRestricted: false, hazardous: false })
 
 const keyOf = (choices: readonly string[]) => choices.map((c) => c.toLowerCase()).join('\u0000')
 
@@ -268,6 +270,7 @@ const listingOf = (product: EditorProduct): DraftListing => {
     highlights: l.highlights,
     faqs: l.faqs,
     relatedIds: l.relatedIds,
+    relatedNames: Object.fromEntries(l.related.map((r) => [r.id, r.name])),
     badgeIds: l.badgeIds,
     legal,
     otherCompliance: l.compliance.filter((c) => !(c.region === 'ALL' && (legalFields as readonly string[]).includes(c.field))),

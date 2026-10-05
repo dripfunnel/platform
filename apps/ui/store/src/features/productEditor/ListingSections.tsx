@@ -1,6 +1,5 @@
-import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
-import { loadProduct, type EditorProduct, type Facet, type ProductBasics, type ProductCollection } from '../../api/productEditor'
+import type { EditorProduct, Facet, ProductBasics, ProductCollection } from '../../api/productEditor'
 import { loadProducts } from '../../api/products'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { legalFields, type Draft, type LegalField, type ListingSection } from './draft'
@@ -103,9 +102,6 @@ const SizeChartSection = ({ draft, update, disabled, charts }: { draft: Draft; u
           </select>
         )}
       </Field>
-      <Link className="df-editor-link" to="/collections">
-        {words.chartManage}
-      </Link>
     </Section>
   )
 }
@@ -200,28 +196,36 @@ const FaqsSection = ({ draft, update, disabled }: { draft: Draft; update: Update
   )
 }
 
-/** Related products: automatic from the same collection, or up to four picked by name. */
+type Search = { kind: 'idle' } | { kind: 'loading' } | { kind: 'failed' } | { kind: 'found'; rows: { id: string; name: string }[] }
+
+/** Related products: automatic from the same collection, or up to four found by name. */
 const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; update: Update; disabled: boolean; productId: string | null }) => {
   const [open, setOpen] = useState(false)
-  const [names, setNames] = useState<Record<string, string>>({})
-  const [search, setSearch] = useState('')
-  const [found, setFound] = useState<{ id: string; name: string }[]>([])
+  const [query, setQuery] = useState('')
+  const [search, setSearch] = useState<Search>({ kind: 'idle' })
   const ids = draft.listing.relatedIds
-  const setIds = (next: string[]) => update((d) => ({ ...d, listing: { ...d.listing, relatedIds: next } }))
+  const names = draft.listing.relatedNames
+  const setIds = (next: string[], named?: { id: string; name: string }) => update((d) => ({ ...d, listing: { ...d.listing, relatedIds: next, relatedNames: named ? { ...d.listing.relatedNames, [named.id]: named.name } : d.listing.relatedNames } }))
   useEffect(() => {
-    const unknown = ids.filter((id) => names[id] === undefined)
-    if (!open || unknown.length === 0) return
-    void Promise.all(unknown.map((id) => loadProduct(id).catch(() => null))).then((products) =>
-      setNames((n) => ({ ...n, ...Object.fromEntries(products.filter((p): p is EditorProduct => p !== null).map((p) => [p.id, p.name])) })),
+    const q = query.trim()
+    if (q.length < 2) return setSearch({ kind: 'idle' })
+    setSearch({ kind: 'loading' })
+    let live = true
+    const timer = setTimeout(
+      () =>
+        void loadProducts({ filter: 'all', search: q, supplier: '', sort: 'name' }).then(
+          (page) => live && setSearch({ kind: 'found', rows: page.rows.filter((r) => r.id !== productId).map((r) => ({ id: r.id, name: r.name })) }),
+          () => live && setSearch({ kind: 'failed' }),
+        ),
+      300,
     )
-  }, [open, ids, names])
-  useEffect(() => {
-    const q = search.trim()
-    if (q.length < 2) return setFound([])
-    const timer = setTimeout(() => void loadProducts({ filter: 'all', search: q, supplier: '', sort: 'name' }).then((page) => setFound(page.rows.filter((r) => r.id !== productId).map((r) => ({ id: r.id, name: r.name }))), () => setFound([])), 300)
-    return () => clearTimeout(timer)
-  }, [search, productId])
+    return () => {
+      live = false
+      clearTimeout(timer)
+    }
+  }, [query, productId])
   const summary = ids.length === 0 ? words.relatedSummaryAuto : fill(plural(words.relatedPicked, ids.length), { count: formatCount(ids.length) })
+  const choices = search.kind === 'found' ? search.rows.filter((p) => !ids.includes(p.id)).slice(0, 8) : []
   return (
     <Section title={words.related} summary={summary} open={open} onToggle={() => setOpen((o) => !o)} problem={false}>
       <label className="df-editor-switch">
@@ -232,9 +236,9 @@ const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; 
         <div className="df-editor-chips">
           {ids.map((id) => (
             <span key={id} className="df-editor-value">
-              {names[id] ?? '…'}
+              {names[id] ?? words.relatedGone}
               {!disabled && (
-                <button type="button" aria-label={fill(words.relatedRemove, { name: names[id] ?? '' })} onClick={() => setIds(ids.filter((x) => x !== id))}>
+                <button type="button" aria-label={fill(words.relatedRemove, { name: names[id] ?? words.relatedGone })} onClick={() => setIds(ids.filter((x) => x !== id))}>
                   ×
                 </button>
               )}
@@ -244,24 +248,16 @@ const RelatedSection = ({ draft, update, disabled, productId }: { draft: Draft; 
       )}
       {!disabled && ids.length < maxRelated && (
         <>
-          <input type="search" className="df-editor-versions-search" aria-label={words.relatedSearch} placeholder={words.relatedSearch} value={search} onChange={(e) => setSearch(e.target.value)} />
-          <div className="df-editor-chips">
-            {found
-              .filter((p) => !ids.includes(p.id))
-              .slice(0, 8)
-              .map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="df-editor-chip"
-                  onClick={() => {
-                    setNames((n) => ({ ...n, [p.id]: p.name }))
-                    setIds([...ids, p.id])
-                  }}
-                >
-                  + {p.name}
-                </button>
-              ))}
+          <input type="search" className="df-editor-versions-search" aria-label={words.relatedSearch} placeholder={words.relatedSearch} value={query} onChange={(e) => setQuery(e.target.value)} />
+          <div className="df-editor-chips" role="status">
+            {search.kind === 'loading' && <span className="df-editor-hint">{words.relatedSearching}</span>}
+            {search.kind === 'failed' && <span className="df-editor-problem">{words.relatedFailed}</span>}
+            {search.kind === 'found' && choices.length === 0 && <span className="df-editor-hint">{fill(words.relatedNone, { query: query.trim() })}</span>}
+            {choices.map((p) => (
+              <button key={p.id} type="button" className="df-editor-chip" onClick={() => setIds([...ids, p.id], p)}>
+                + {p.name}
+              </button>
+            ))}
           </div>
         </>
       )}

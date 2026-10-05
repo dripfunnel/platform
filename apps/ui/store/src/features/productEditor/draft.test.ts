@@ -15,7 +15,7 @@ const product = (p: Partial<EditorProduct> = {}): EditorProduct => ({
   slug: 'mara-linen-shirt',
   seoTitle: null,
   seoDescription: null,
-  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
+  pricingCurrency: 'INR', listing: { specs: [], highlights: [], faqs: [], relatedIds: [], related: [], badgeIds: [], compliance: [], ageRestricted: null, hazardous: null }, filterValues: [], sizeChartId: null, 
   photos: [{ id: 'ph1', assetId: 'a1', url: '/api/assets/a1', alt: 'Front', versionId: null }],
   options: [{ id: 'o1', name: 'Size', values: [{ id: 'v-s', name: 'S' }, { id: 'v-m', name: 'M' }] }],
   versions: [
@@ -131,6 +131,7 @@ describe('the editor’s draft (CatEditor)', () => {
         highlights: ['Pre-washed'],
         faqs: [{ question: 'Does it shrink?', answer: 'No.' }],
         relatedIds: ['p2'],
+        related: [{ id: 'p2', name: 'Kurta' }],
         badgeIds: ['b1'],
         compliance: [{ region: 'ALL', field: 'origin', value: 'India' }, { region: 'US', field: 'fibre', value: '100% linen' }],
         ageRestricted: null,

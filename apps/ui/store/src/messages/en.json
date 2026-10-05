@@ -1232,7 +1232,6 @@
       "chart": "Size chart",
       "chartNone": "No size chart",
       "chartEmpty": "Shoppers return fewer orders when there’s a size chart.",
-      "chartManage": "Manage size charts →",
       "specs": "Specifications & highlights",
       "specsOnly": "Specifications",
       "highlightsOnly": "Highlights",
@@ -1300,7 +1299,11 @@
       "age": "Ask shoppers to confirm their age",
       "ageSub": "For alcohol, knives and other age-restricted items",
       "hazard": "Hazardous to ship",
-      "hazardSub": "Couriers need to know before they pick it up"
+      "hazardSub": "Couriers need to know before they pick it up",
+      "relatedSearching": "Looking…",
+      "relatedFailed": "The search didn’t answer. Try again in a moment.",
+      "relatedNone": "No products match “{query}”",
+      "relatedGone": "A product no longer here"
     },
     "side": {
       "onStore": "On your store",
@@ -1431,8 +1434,7 @@
       "deltaUp": "+{count}",
       "deltaDown": "−{count}",
       "newFailed": "The product saved, but its stock didn’t. The counts you typed are below; save again to keep them."
-    }
-,
+    },
     "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again."
   }
 }

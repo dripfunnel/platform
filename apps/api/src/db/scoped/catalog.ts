@@ -258,6 +258,8 @@ export interface ProductRow {
   highlights: string[]
   faqs: { question: string; answer: string }[]
   related: string[]
+  /** The same related products by name, in the caller's scope, for the editor's chips. */
+  related_names: { id: string; name: string }[]
   badge_ids: string[]
   flags: { ageRestricted: boolean; hazardous: boolean }
   compliance: { region: string; field: string; value: string }[]
@@ -306,6 +308,7 @@ export const selectProduct = async (tx: ScopedSql, storeId: string, productId: s
       coalesce((select json_agg(json_build_object('question', x.question, 'answer', x.answer) order by x.position) from product_faq x where x.product_id = p.id), '[]'::json) as faqs,
       -- A trashed product drops out, so a copy or a re-save never names one the trigger refuses.
       coalesce((select json_agg(x.related_product_id order by x.position) from product_related x join product rp on rp.id = x.related_product_id and rp.deleted_at is null where x.product_id = p.id), '[]'::json) as related,
+      coalesce((select json_agg(json_build_object('id', rp.id, 'name', rp.name) order by x.position) from product_related x join product rp on rp.id = x.related_product_id and rp.deleted_at is null where x.product_id = p.id), '[]'::json) as related_names,
       coalesce((select json_agg(x.badge_id) from product_badge x where x.product_id = p.id), '[]'::json) as badge_ids,
       coalesce((select json_build_object('ageRestricted', x.age_restricted, 'hazardous', x.hazardous) from product_flag x where x.product_id = p.id), json_build_object('ageRestricted', false, 'hazardous', false)) as flags,
       coalesce((select json_agg(json_build_object('region', x.region, 'field', x.field, 'value', x.value) order by x.region, x.field) from product_compliance x where x.product_id = p.id), '[]'::json) as compliance,

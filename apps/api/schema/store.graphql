@@ -527,6 +527,7 @@ type ProductListing {
   hazardous: Boolean
   highlights: [String!]
   marketRule: ProductMarketRule
+  related: [RelatedProduct!]
   relatedIds: [String!]
   specs: [ProductSpec!]
 }
@@ -781,6 +782,11 @@ type ReferenceRate {
   fetchedAt: String
   perEuro: String
   publishedOn: String
+}
+
+type RelatedProduct {
+  id: ID
+  name: String
 }
 
 type SavedCollection {

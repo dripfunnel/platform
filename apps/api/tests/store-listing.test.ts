@@ -353,6 +353,9 @@ describe('a product’s listing sections', () => {
     // The merchant's own product may relate a supplier's: that row is the merchant's, never the supplier's to read.
     expect((await gql(save, 'owner', { id: merchant.id, revision: 1, input: { name: 'Merchant only', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing: { relatedIds: [own.id] } } })).code).toBeUndefined()
     expect((await product('supplier', 'Supplier relates own', { listing: { relatedIds: [own.id] } })).code).toBeUndefined()
+    // The editor names them from the listing itself, in order, never a read per product.
+    const named = await gql('query P($id: ID!) { product(id: $id) { listing { related { id name } } } }', 'owner', { id: merchant.id })
+    expect((named.data?.['product'] as { listing: { related: unknown } }).listing.related).toEqual([{ id: own.id, name: 'Supplier own' }])
     const auto = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'New in', tone: 'ok', rule: 'new_30_days' } })).data?.['saveBadge'] as string
     expect((await product('owner', 'Auto badge', { listing: { badgeIds: [auto] } })).code).toBe('LISTING_REFUSED')
     expect((await product('owner', 'Bad country', { listing: { marketRule: { mode: 'only', countries: ['ZZ'] } } })).code).toBe('INVALID_LISTING')

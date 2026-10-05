@@ -50,6 +50,7 @@ const productSchema = z.object({
     highlights: z.array(z.string()),
     faqs: z.array(z.object({ question: z.string(), answer: z.string() })),
     relatedIds: z.array(z.string()),
+    related: z.array(z.object({ id: z.string(), name: z.string() })),
     badgeIds: z.array(z.string()),
     compliance: z.array(z.object({ region: z.string(), field: z.string(), value: z.string() })),
     ageRestricted: z.boolean().nullable(),
@@ -68,7 +69,7 @@ const productFields = `id revision name description productType visible approval
   photos { id assetId url alt versionId }
   options { id name values { id name } }
   versions { id choices name sku barcode visible prices { amount compareAtAmount currency } cost { amount currency } weightGrams lengthMm widthMm heightMm hsCode taxClassId trackStock continueSelling }
-  listing { specs { name value versionId filterValueId } highlights faqs { question answer } relatedIds badgeIds compliance { region field value } ageRestricted hazardous }
+  listing { specs { name value versionId filterValueId } highlights faqs { question answer } relatedIds related { id name } badgeIds compliance { region field value } ageRestricted hazardous }
   filterValues { valueId versionId } sizeChartId
   readiness { marketId marketName ready missing }`
 

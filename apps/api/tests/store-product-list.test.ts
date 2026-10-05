@@ -242,6 +242,10 @@ describe('bulk actions', () => {
     expect((await set([auto?.id])).code).toBe('NOT_FOUND')
     expect((await set([b?.id], 'supplier')).code).toBe('FORBIDDEN')
     expect((await set([b?.id], 'bOwner')).code).toBe('NOT_FOUND')
+    // The tenancy case: store A's owner, with its own product, naming store B's collection.
+    const [theirs] = await db.sql<{ id: string }[]>`insert into collection (store_id, name, slug, kind) values (${t.storeB1}, 'Theirs', 'theirs', 'manual') returning id`
+    expect((await set([b?.id, theirs?.id])).code).toBe('NOT_FOUND')
+    expect(await db.sql`select 1 from collection_product where collection_id = ${theirs?.id ?? ''}`).toHaveLength(0)
     expect(((await gql('query C($p: ID!) { productCollections(productId: $p) { name } }', 'owner', { p: shirt?.id })).data?.['productCollections'] as { name: string }[]).map((c) => c.name)).toEqual(['Diwali', 'Everything'])
     expect((await gql('query C($p: ID!) { productCollections(productId: $p) { name } }', 'supplier', { p: shirt?.id })).code).toBe('FORBIDDEN')
     expect(await db.sql`select 1 from activity_log where action = 'product.collections_set' and target_id = ${shirt?.id ?? ''}`).toHaveLength(2)
