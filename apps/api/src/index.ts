@@ -7,10 +7,12 @@ import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
 import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
-import { storeSchema } from '#apis/store/schema'
+import { signedOutStoreContext } from '#apis/store/access'
+import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
+import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
@@ -56,7 +58,7 @@ import { resolveArea, type Area } from './router'
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
   platform: createServer<PlatformContext>(platformSchema, '/api'),
-  store: createServer(storeSchema, '/api'),
+  store: createServer<StoreContext>(storeSchema, '/api'),
   shop: createServer(shopSchema, '/shop-api'),
 }
 
@@ -269,6 +271,21 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   })
 }
 
+// A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
+// caller is the session's person acting in the store the request names (ACCESS.md §4).
+const handleStore = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+  if (!originAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
+  const hyperdrive = config.HYPERDRIVE
+  if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request)))
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const partnerId = await resolvePortalPartner(sql, url.hostname)
+    if (!partnerId) return notFound()
+    const facts = factsOf(request)
+    const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
+    return servers.store.fetch(request, { standing, sql, facts, now: () => new Date() })
+  })
+}
+
 // SNS signs with few certificates; one verifier per isolate fetches each once.
 let snsBuilt: SnsVerifier | undefined
 
@@ -310,6 +327,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
+  if (area === 'store') return { response: await handleStore(request, url, config, ctx), area }
   return { response: await servers[area].fetch(request), area }
 }
 

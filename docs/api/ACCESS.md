@@ -255,11 +255,16 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   offered as one button above the full list. The remembered store id is a client-side
   convenience only (the first platform's AUTH-PLAN §11, settled by the build).
 - **Every request** names its acting store, and for a person who works for more than one
-  supplier in that store the acting supplier, in a header (`X-Store`, name proposed). The
+  supplier in that store the acting supplier, in headers: **`X-Store`** and **`X-Supplier`** (built on #288,
+  `auth/storeCaller.ts`; without `X-Supplier` a person with one membership there acts as it, one with
+  two is asked, `SUPPLIER_REQUIRED`). The cookie is `__Host-portal_session`, the session a `user_session`
+  row read on the host's own partner only, so a cookie never works on another partner's host. The
   engine reads the session, checks the idle and absolute bounds, **looks up the membership
   row for (user, acting store, acting supplier)** and builds the `TenantContext` from it. Memberships and role
   permission sets are read per request (or from a cache invalidated by every membership
   write), so a role change, a vendor tier change or a removal applies on the next request.
+  **Built on #288**: memberships are read on every request, in `system` scope; a suspended or
+  removed supplier, an inactive membership and a closed store all count as not held.
 - **A request naming a store the session doesn't hold** is not a 404: it is an attempted
   tenant crossing. Answer 403, and log it with both store ids and the user, because it is a
   client bug or someone probing.

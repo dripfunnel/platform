@@ -396,7 +396,10 @@ the Store API at `/api` on the portal host, the Shop API at `/shop-api` on every
 through `db/scoped`, supplier rows through `SellerScope`. A store or seller id in an argument is
 never authority. **Lists are cursor-paged** with `after` and `before`, a maximum page size of
 50, **no totals** (as ui/admin/FIRST-RELEASE §12 decided); counts on chips come from their own
-query. **Refusals are stable codes** with their facts, worded by the portal; every screen renders
+query. **Refusals are stable codes** with their facts, worded by the portal (built on #288: `UNAUTHENTICATED`,
+`FORBIDDEN` — a store the session doesn't hold is refused and logged, never "not found" — `STORE_REQUIRED`,
+`SUPPLIER_REQUIRED`, `STORE_SUSPENDED`, `READ_ONLY`, `INVALID_CURSOR`, and `PLAN_LIMIT` with `key`, `limit`
+and `unlockedBy`, the partner's cheapest live plan that allows it); every screen renders
 `?state=loading|error|denied|readOnly|offline` from the harness (../README.md §6).
 
 | Area | Queries | Mutations |

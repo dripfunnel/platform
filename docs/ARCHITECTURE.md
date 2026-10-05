@@ -55,7 +55,7 @@ Last updated: 2026-10-05.
 |---|---|---|
 | `admin.dripfunnel.com/api/*` | Admin API (`src/apis/admin`) | 404 |
 | `platform.dripfunnel.com/api/*` | Platform API (`src/apis/platform`) | 404 |
-| A registered portal host `/api/*` | Store API (`src/apis/store`) | |
+| A registered portal host `/api/*` | Store API (`src/apis/store`); registered means a partner's `partner_domain` of kind `portal`, not waiting or failed, of a partner not closed (#288) | 404 |
 | A storefront host `/shop-api/*` | Shop API (`src/apis/shop`) | |
 | `hooks.dripfunnel.com/*` | Webhooks (`src/hooks`) | 404 |
 | Queue messages, Cron, Workflow steps | `src/jobs` | no HTTP route |
