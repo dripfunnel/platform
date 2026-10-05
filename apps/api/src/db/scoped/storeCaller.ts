@@ -69,13 +69,12 @@ export const selectHeldStoreIds = async (tx: ScopedSql, userId: string, partnerI
   return rows.map((r) => r.store_id)
 }
 
-/** Whether this person's crossing into this store was already logged since `since` (actor index). */
-export const crossingLoggedSince = async (tx: ScopedSql, userId: string, asked: string, since: Date): Promise<boolean> =>
+/** How many crossings this person has had logged since `since` (actor index), counting no further than `cap`. */
+export const crossingsLoggedSince = async (tx: ScopedSql, userId: string, since: Date, cap: number): Promise<number> =>
   (
     await tx`
       select 1 from activity_log
-      where actor_kind = 'person' and actor_id = ${userId} and occurred_at > ${since}
-        and action = 'store.crossing_refused' and target_id = ${asked}
-      limit 1
+      where actor_kind = 'person' and actor_id = ${userId} and occurred_at > ${since} and action = 'store.crossing_refused'
+      limit ${cap}
     `
-  ).length > 0
+  ).length
