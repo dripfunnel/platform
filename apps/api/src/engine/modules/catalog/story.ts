@@ -149,7 +149,7 @@ export const createStoryService = ({ sql, context, actor, activity, facts, now }
       if (!(await publishStoryDraft(tx, storeId, productId, revision, now()))) throw new Refused({ reason: 'STALE_REVISION', revision })
       await activity.record(tx, entry(storyAudit.published, { type: 'product', id: productId, label: name }))
       // Q11: a supplier's A+ is reviewed with its product, which waits for approval again while it's on.
-      if (sellerId !== null && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId))) {
+      if (sellerId !== null && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId, now()))) {
         await activity.record(tx, { ...entry(approvalAudit.sentBackForApproval, { type: 'product', id: productId, label: name }), reason: 'A+ content' })
       }
       return storyOf(productId, await selectStory(tx, storeId, productId))
