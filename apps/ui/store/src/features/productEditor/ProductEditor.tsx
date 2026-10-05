@@ -143,8 +143,13 @@ export const ProductEditor = () => {
   }
 
   const save = async () => {
-    if (problems.length > 0 || pending.some((p) => p.state === 'uploading')) {
+    if (problems.length > 0) {
       setShowProblems(true)
+      return
+    }
+    // A photo still on its way isn't in the product yet; saving now would leave it out.
+    if (pending.some((p) => p.state === 'uploading')) {
+      setToast(words.photos.waitUpload)
       return
     }
     setSaving(true)

@@ -1042,7 +1042,8 @@
         "FORBIDDEN": "You can’t add photos here.",
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "NOT_CONNECTED": "The photo didn’t upload. Check your connection and try again."
-      }
+      },
+      "waitUpload": "A photo is still uploading. Save again once it’s in."
     },
     "name": {
       "label": "Product name",

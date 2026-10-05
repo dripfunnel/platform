@@ -267,4 +267,15 @@ describe('the product editor', () => {
     await show(owner)
     expect(screen.getByRole('heading', { name: words.error.title })).toBeTruthy()
   })
+
+  it('says why it waits while a photo is still uploading', async () => {
+    api.uploadPhoto.mockReturnValue(new Promise(() => undefined))
+    await show(owner)
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [new File(['x'], 'a.png', { type: 'image/png' })] } })
+    fireEvent.change(field(words.name.label), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getAllByRole('button', { name: words.save })[0] as HTMLElement)
+    await settle()
+    expect(screen.getByText(words.photos.waitUpload)).toBeTruthy()
+    expect(api.saveProduct).not.toHaveBeenCalled()
+  })
 })
