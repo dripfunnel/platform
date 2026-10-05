@@ -148,3 +148,13 @@ export const selectOwnWarehouse = async (tx: ScopedSql, storeId: string, sellerI
 /** Currencies the store prices by hand (CATALOG K11); converted ones are never imported. */
 export const selectManualCurrencies = async (tx: ScopedSql, storeId: string): Promise<string[]> =>
   (await tx<{ currency: string }[]>`select trim(currency) as currency from store_currency where store_id = ${storeId} and mode = 'manual' and status = 'active' order by position`).map((r) => r.currency)
+
+/** Problems found after a product's own transaction (its translations), added to the list. */
+export const addImportProblems = async (tx: ScopedSql, id: string, problems: unknown[]): Promise<void> => {
+  if (problems.length === 0) return
+  await tx`update catalog_import set problems = problems || ${JSON.stringify(problems)}::text::jsonb where id = ${id} and state = 'running'`
+}
+
+/** A product's live versions in their order, as the save just wrote them. */
+export const selectVersionIdsInOrder = async (tx: ScopedSql, productId: string): Promise<string[]> =>
+  (await tx<{ id: string }[]>`select id from product_version where product_id = ${productId} and deleted_at is null order by position, id`).map((r) => r.id)

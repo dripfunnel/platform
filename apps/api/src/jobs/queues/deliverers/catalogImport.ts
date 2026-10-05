@@ -34,7 +34,8 @@ const maxPhotoBytes = 20 * 1024 * 1024
 const jobPayload = catalogJobPayload.extend({ phase: z.enum(['check', 'run']) }).strict()
 const photoPayload = catalogJobPayload.extend(importPhotoPayload.shape).strict()
 
-const depsFor = (sql: postgres.Sql, p: CatalogJobPayload, effect: Effect, now: () => Date): ImportJobDeps => {
+/** The run's catalogue, translations and outbox, in the importer's own scope. */
+export const catalogImportDeps = (sql: postgres.Sql, p: CatalogJobPayload, effect: Pick<Effect, 'id'>, now: () => Date): ImportJobDeps => {
   const context = jobContextOf(p)
   const actor = { id: p.caller.kind === 'support' ? p.caller.partnerUserId : p.caller.userId, partnerId: p.partnerId }
   const facts = { requestId: effect.id, ip: null, userAgent: null }
@@ -76,7 +77,7 @@ export const catalogImportDeliverer = (sql: postgres.Sql, now: () => Date = () =
     const parsed = jobPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.catalog: bad payload')
     const p = parsed.data
-    const deps = depsFor(sql, p, effect, now)
+    const deps = catalogImportDeps(sql, p, effect, now)
     await failingLast(sql, p, effect, now, () => (p.phase === 'check' ? checkImport(deps, p.jobId) : runImportChunk(deps, p.jobId, chunkBudgetMs)))
   },
 })
@@ -87,7 +88,7 @@ export const importPhotosDeliverer = (sql: postgres.Sql, assets: AssetStore | nu
     const parsed = photoPayload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('import.photos: bad payload')
     const p = parsed.data
-    const deps = depsFor(sql, p, effect, now)
+    const deps = catalogImportDeps(sql, p, effect, now)
     const fetchPhoto: PhotoFetch = async (url) => {
       if (!assets) return { ok: false, code: 'PHOTO_UNAVAILABLE' }
       const got = await fetchPublic(url, { lookup, maxBytes: maxPhotoBytes, timeoutMs: 3_500, tries: 2, ...(fetchImpl ? { fetchImpl } : {}) })

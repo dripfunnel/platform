@@ -7,7 +7,8 @@ import { createUserSession, storeCookieName } from '#auth/storeSession'
 import { deleteExpiredImports } from '#db/scoped/catalogImports'
 import { withSystemScope } from '#db/scoped/index'
 import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
-import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
+import { catalogImportDeliverer, catalogImportDeps, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
+import { runImportChunk } from '#engine/modules/catalog/index'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createTestDatabase, type TestDatabase } from './support/database'
@@ -188,6 +189,29 @@ describe('a spreadsheet import', () => {
     expect(done?.problems.map((p) => [p.line, p.code])).toEqual([[3, 'PHOTO_UNAVAILABLE'], [4, 'PHOTO_UNAVAILABLE']])
     // The private address was refused before any request went to it.
     expect(fetched.some((u) => u.includes('inside.example'))).toBe(false)
+  })
+
+  it('resumes after a failure part-way through a chunk without making any product twice', async () => {
+    const { id } = await upload('owner', 'handle,name,price,stock\nretry-a,Retry A,10,1\nretry-b,Retry B,10,2\nretry-c,Retry C,10,3\n')
+    await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id })
+    // The run's job, taken off the outbox so this test can deliver it with a failure on the second product.
+    const [row] = await db.sql<{ id: string; payload: { jobId: string; partnerId: string; storeId: string; caller: { kind: 'person'; userId: string }; sellerId: null; subscription: 'active'; phase: 'run' } }[]>`
+      update outbox set delivered_at = now() where kind = 'import.catalog' and payload->>'jobId' = ${id} and payload->>'phase' = 'run' and delivered_at is null returning id, payload`
+    if (!row) throw new Error('no run queued')
+    const deps = catalogImportDeps(db.sql, row.payload, { id: row.id }, () => now)
+    let saves = 0
+    const failing = { ...deps, catalog: { ...deps.catalog, create: async (...args: Parameters<typeof deps.catalog.create>) => (++saves === 2 ? Promise.reject(new Error('lost the database')) : deps.catalog.create(...args)) } }
+    await expect(runImportChunk(failing, id, 6_000)).rejects.toThrow('lost the database')
+    expect((await read('owner', id))?.created).toBe(1)
+    await runImportChunk(deps, id, 6_000)
+    await relay()
+    expect(await read('owner', id)).toMatchObject({ state: 'done', created: 3, failed: 0 })
+    expect(await db.sql`select name, count(*)::int as n from product where store_id = ${t.storeA1} and name like 'Retry %' and deleted_at is null group by name order by name`).toEqual([
+      { name: 'Retry A', n: 1 },
+      { name: 'Retry B', n: 1 },
+      { name: 'Retry C', n: 1 },
+    ])
+    expect(await db.sql`select v.sku, s.on_hand from stock_level s join product_version v on v.id = s.version_id join product p on p.id = v.product_id where p.name like 'Retry %' order by p.name`).toHaveLength(3)
   })
 
   it('says why a file can’t be read, and refuses a location that isn’t the importer’s', async () => {
