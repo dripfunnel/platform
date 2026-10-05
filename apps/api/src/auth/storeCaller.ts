@@ -8,6 +8,7 @@ import { readCookie } from './cookie'
 import { hashSessionId } from './session'
 import { readUserSession, storeCookieName } from './storeSession'
 import { isMerchantRole, isSupplierRole, isSupplierTier, type StoreRole } from './storePermissions'
+import { isUuid } from '#core/ids'
 
 // The acting store and, for a person working for more than one supplier in it, the acting
 // supplier (ACCESS.md §4).
@@ -45,7 +46,6 @@ export type StoreStanding =
   | { kind: 'crossing'; person: StorePerson }
   | { kind: 'acting'; person: StorePerson; caller: StoreCaller }
 
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** The partner whose portal host this is; null answers 404 (docs/ARCHITECTURE.md §2). */
 export const resolvePortalPartner = async (sql: postgres.Sql, host: string): Promise<string | null> =>
@@ -129,7 +129,7 @@ export const resolveStoreStanding = async (
     const person: StorePerson = { ...row, partnerId, sessionHash }
     const asked = request.headers.get(storeHeader)
     if (!asked) return { kind: 'no-store', person }
-    const memberships = uuid.test(asked) ? await selectMemberships(tx, person.id, partnerId, asked) : []
+    const memberships = isUuid(asked) ? await selectMemberships(tx, person.id, partnerId, asked) : []
     if (memberships.length === 0) {
       await recordCrossing(tx, person, asked, activity, facts, now)
       return { kind: 'crossing', person }

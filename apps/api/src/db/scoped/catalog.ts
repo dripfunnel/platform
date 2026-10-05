@@ -409,8 +409,11 @@ export const updateVersions = async (tx: ScopedSql, rows: readonly (VersionField
   `
 }
 
+/** A removed version's photos stay on the product as its own, never pointing at a version that's gone. */
 export const softDeleteVersions = async (tx: ScopedSql, ids: readonly string[], now: Date): Promise<void> => {
-  if (ids.length > 0) await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`
+  if (ids.length === 0) return
+  await tx`update product_version set deleted_at = ${now}, updated_at = ${now} where id = any(${pgArray(ids)}::uuid[]) and deleted_at is null`
+  await tx`update product_photo set version_id = null where version_id = any(${pgArray(ids)}::uuid[])`
 }
 
 /** Each version's choice for every option, replacing what those versions had. */
