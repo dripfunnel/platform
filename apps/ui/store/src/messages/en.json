@@ -1983,6 +1983,7 @@
         "one": "1 product using {drop} will use “{keep}”.",
         "other": "{count} products using {drop} will use “{keep}”."
       },
+      "quoted": "“{value}”",
       "mergeConfirm": "Merge",
       "merged": {
         "one": "Merged — 1 product now uses “{keep}”",
