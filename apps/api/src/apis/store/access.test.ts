@@ -49,6 +49,7 @@ builder.queryFields((t) => ({
 builder.mutationType({})
 builder.mutationFields((t) => ({
   saveThing: t.string({ extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.write', target: 'none', audit: 'thing.saved' } }, resolve: () => 'saved' }),
+  countStock: t.string({ extensions: { access: { api: 'store', scope: 'store-seller', permission: 'stock.write', target: 'none', audit: 'stock.adjusted' } }, resolve: () => 'counted' }),
   payNow: t.string({ extensions: { access: { api: 'store', scope: 'store', permission: 'billing', target: 'none', audit: 'billing.paid', whileReadOnly: true } }, resolve: () => 'paid' }),
 }))
 const schema = secureSchema(builder.toSchema(), storePolicy)
@@ -96,6 +97,11 @@ describe('the Store API access policy', () => {
       expect((await run('{ storeName }', acting(owner, status))).data).toEqual({ storeName: 'Kesari Threads' })
       expect((await run('mutation { payNow }', acting(owner, status))).data).toEqual({ payNow: 'paid' })
     }
+  })
+
+  it('lets a supplier keep working while the store is past due, never once it is cancelled (FIRST-RELEASE §1)', async () => {
+    expect((await run('mutation { countStock }', acting(stockSupplier, 'past_due'))).data).toEqual({ countStock: 'counted' })
+    expect((await run('mutation { countStock }', acting(stockSupplier, 'cancelled'))).code).toBe('READ_ONLY')
   })
 
   it('pages at most 50 and refuses a cursor it didn’t make', async () => {

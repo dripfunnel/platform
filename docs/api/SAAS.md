@@ -224,8 +224,10 @@ remembers the status it had, so Restore returns to it exactly (decided on #20).
 
 - **Past due blocks writes, never sign-in** (PLATFORM-PROMPT §2 item 7). The gate is applied
   once, in the Store API's resolver scope, from the subscription status cached on the
-  session and invalidated by the billing webhook. What past due means for the store's
-  vendors is open (§14).
+  session and invalidated by the billing webhook. The store's **suppliers keep working** while it
+  is past due (stock, shipping) and aren't told about its billing (decided 2026-10-05 on #337,
+  Store FIRST-RELEASE §1); built on #295 as `readOnlyFor` in the Store API's access policy. A
+  cancelled store is read-only for everyone.
 - **Past due, suspended, cancelled and closed are never confused** on any screen
   (CONSOLE-DESIGN §8). Suspended is a person's decision; past due is a billing fact.
 - Every state change writes an audit entry and an outbox event (email to the Owner, cache
@@ -665,7 +667,7 @@ The Platform API is GraphQL like the others (decided 2026-10-03 on #155;
 - ~~Dunning policy: when does past due become suspended, and what does a suspended or past-due
   storefront show?~~ After 14 days; past due keeps selling, suspended shows the unavailable page
   (decided 2026-10-05 on #284).
-- What does past due mean for the store's vendors?
+- ~~What does past due mean for the store's vendors?~~ They keep working and aren't told (decided 2026-10-05 on #337; §4.2).
 - Promotions on plans for merchant signups.
 - ~~May partners set their own automatic publish interval, within a platform minimum?~~ Yes, per plan, minimum hourly (decided 2026-10-05 on #337).
 
