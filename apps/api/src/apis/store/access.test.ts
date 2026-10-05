@@ -29,6 +29,7 @@ const acting = (role: StoreRole, status: Subscription = 'active'): StoreStanding
 const owner: StoreRole = { side: 'merchant', role: 'owner' }
 const staffRole: StoreRole = { side: 'merchant', role: 'staff' }
 const stockSupplier: StoreRole = { side: 'supplier', role: 'supplier-member', tier: 'vendor-stock' }
+const catalogueSupplier: StoreRole = { side: 'supplier', role: 'supplier-member', tier: 'vendor-catalogue' }
 
 const builder = createStoreBuilder()
 const PageInfo = pageInfoType(builder)
@@ -49,6 +50,7 @@ builder.queryFields((t) => ({
 builder.mutationType({})
 builder.mutationFields((t) => ({
   saveThing: t.string({ extensions: { access: { api: 'store', scope: 'store', permission: 'catalog.write', target: 'none', audit: 'thing.saved' } }, resolve: () => 'saved' }),
+  saveOwnProduct: t.string({ extensions: { access: { api: 'store', scope: 'store-seller', permission: 'catalog.write', target: 'none', audit: 'product.updated' } }, resolve: () => 'saved' }),
   countStock: t.string({ extensions: { access: { api: 'store', scope: 'store-seller', permission: 'stock.write', target: 'none', audit: 'stock.adjusted' } }, resolve: () => 'counted' }),
   payNow: t.string({ extensions: { access: { api: 'store', scope: 'store', permission: 'billing', target: 'none', audit: 'billing.paid', whileReadOnly: true } }, resolve: () => 'paid' }),
 }))
@@ -99,8 +101,10 @@ describe('the Store API access policy', () => {
     }
   })
 
-  it('lets a supplier keep working while the store is past due, never once it is cancelled (FIRST-RELEASE §1)', async () => {
+  it('lets a supplier keep its stock and shipping going while the store is past due, nothing else, and nothing once cancelled (FIRST-RELEASE §1)', async () => {
     expect((await run('mutation { countStock }', acting(stockSupplier, 'past_due'))).data).toEqual({ countStock: 'counted' })
+    expect((await run('mutation { saveOwnProduct }', acting(catalogueSupplier, 'past_due'))).code).toBe('READ_ONLY')
+    expect((await run('mutation { saveOwnProduct }', acting(catalogueSupplier))).data).toEqual({ saveOwnProduct: 'saved' })
     expect((await run('mutation { countStock }', acting(stockSupplier, 'cancelled'))).code).toBe('READ_ONLY')
   })
 
