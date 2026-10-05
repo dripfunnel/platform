@@ -60,6 +60,7 @@ const localeSchema = z.object({
   examples: z.array(
     z.object({
       currency: z.string(),
+      publishedOn: z.string().nullable(),
       from: z.object({ amount: z.string(), currency: z.string() }),
       none: z.object({ amount: z.string() }).nullable(),
       nearest: z.object({ amount: z.string() }).nullable(),
@@ -73,7 +74,7 @@ export type StoreLocale = z.infer<typeof localeSchema>
 export const loadLocale = async (): Promise<StoreLocale | null> =>
   (
     await query(
-      '{ storeLocale { pricingCurrency mainLanguage offeredLanguages currencies { code mode rounding status } languages { code status } rates { currency perEuro publishedOn } examples { currency from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }',
+      '{ storeLocale { pricingCurrency mainLanguage offeredLanguages currencies { code mode rounding status } languages { code status } rates { currency perEuro publishedOn } examples { currency publishedOn from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }',
       z.object({ storeLocale: localeSchema.nullable() }),
     )
   ).storeLocale
