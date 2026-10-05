@@ -498,6 +498,9 @@ describe('the backstop itself', () => {
     await inStore(t.storeA1, supplier, (tx) => tx`insert into product_highlight (product_id, store_id, text, position) values (${first}, ${t.storeA1}, 'Own', 0)`)
     await expect(inStore(t.storeA1, supplier, (tx) => tx`insert into product_highlight (product_id, store_id, text, position) values (${second}, ${t.storeA1}, 'Theirs', 0)`)).rejects.toThrow(/no such product/)
     expect(await seen(t.storeA1, supplier, 'product_highlight')).toBe(1)
+    // Even the merchant side can't relate another owner's product onto a supplier's, which the supplier reads.
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_related (product_id, related_product_id, store_id, position) values (${first}, ${own}, ${t.storeA1}, 0)`)).rejects.toThrow(/no such product to relate/)
+    await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into product_related (product_id, related_product_id, store_id, position) values (${first}, ${second}, ${t.storeA1}, 0)`)).rejects.toThrow(/no such product to relate/)
     await expect(withScope(db.sql, partnerCaller(t.partnerA), (tx) => tx`select count(*) from size_chart`)).rejects.toThrow(/permission denied/)
     // The plan count is the whole store's, a number only, whoever asks.
     expect(await inStore(t.storeA1, supplier, async (tx) => (await tx<{ n: number }[]>`select store_product_count() as n`)[0]?.n)).toBe(3)

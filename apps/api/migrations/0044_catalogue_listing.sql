@@ -165,7 +165,9 @@ create function product_related_check() returns trigger
 language plpgsql
 as $$
 begin
-  if not exists (select 1 from product p where p.id = new.related_product_id and p.store_id = new.store_id and p.deleted_at is null) then
+  -- On a supplier's product, only its own products, whoever saves it: the supplier reads these rows (S6).
+  if not exists (select 1 from product p where p.id = new.related_product_id and p.store_id = new.store_id and p.deleted_at is null
+                 and (new.seller_id is null or p.seller_id is not distinct from new.seller_id)) then
     raise exception 'catalogue: no such product to relate' using errcode = '23503';
   end if;
   return new;

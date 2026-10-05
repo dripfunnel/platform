@@ -232,6 +232,13 @@ describe('a product’s listing sections', () => {
     const merchant = await product('owner', 'Merchant only')
     expect((await product('supplier', 'Supplier relates', { listing: { relatedIds: [merchant.id] } })).code).toBe('LISTING_REFUSED')
     const own = await product('supplier', 'Supplier own')
+    // Nor can the merchant put another owner's product on the supplier's, where the supplier would see its id.
+    const otherOwners = await product('otherSupplier', 'Other supplier own')
+    for (const related of [merchant.id, otherOwners.id]) {
+      expect((await gql(save, 'owner', { id: own.id, revision: 1, input: { name: 'Supplier own', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing: { relatedIds: [related] } } })).code).toBe('LISTING_REFUSED')
+    }
+    // The merchant's own product may relate a supplier's: that row is the merchant's, never the supplier's to read.
+    expect((await gql(save, 'owner', { id: merchant.id, revision: 1, input: { name: 'Merchant only', options: [], versions: [{ choices: [], prices: [{ currency: 'INR', amount: '100' }] }], listing: { relatedIds: [own.id] } } })).code).toBeUndefined()
     expect((await product('supplier', 'Supplier relates own', { listing: { relatedIds: [own.id] } })).code).toBeUndefined()
     const auto = (await gql('mutation B($input: BadgeInput!) { saveBadge(input: $input) }', 'owner', { input: { label: 'New in', tone: 'ok', rule: 'new_30_days' } })).data?.['saveBadge'] as string
     expect((await product('owner', 'Auto badge', { listing: { badgeIds: [auto] } })).code).toBe('LISTING_REFUSED')
