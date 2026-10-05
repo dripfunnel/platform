@@ -68,13 +68,15 @@ export const recordUserGoodCode = async (tx: ScopedSql, userId: string, step: nu
 
 /** Counts a wrong code; the one that reaches `max` locks the person until `lockedUntil`. */
 export const recordUserWrongCode = async (tx: ScopedSql, userId: string, max: number, lockedUntil: Date): Promise<{ triesLeft: number; locked: boolean }> => {
-  const rows = await tx<{ failed_code_count: number }[]>`
-    update "user" set failed_code_count = failed_code_count + 1,
-      locked_until = case when failed_code_count + 1 >= ${max} then ${lockedUntil}::timestamptz else locked_until end
-    where id = ${userId} returning failed_code_count
+  // The lock starts the count again, as the partner console's does, so five fresh tries follow it.
+  const rows = await tx<{ locked: boolean; failed_code_count: number }[]>`
+    update "user" set
+      locked_until = case when failed_code_count + 1 >= ${max} then ${lockedUntil}::timestamptz else locked_until end,
+      failed_code_count = case when failed_code_count + 1 >= ${max} then 0 else failed_code_count + 1 end
+    where id = ${userId} returning failed_code_count, locked_until = ${lockedUntil}::timestamptz as locked
   `
-  const count = rows[0]?.failed_code_count ?? max
-  return count >= max ? { triesLeft: 0, locked: true } : { triesLeft: max - count, locked: false }
+  const row = rows[0]
+  return !row || row.locked ? { triesLeft: 0, locked: true } : { triesLeft: max - row.failed_code_count, locked: false }
 }
 
 /** Enrolment's end: the method, its secret or number, and the start of a fresh count. */

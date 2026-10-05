@@ -363,6 +363,17 @@ describe('codes that are wrong, late or used', () => {
     expect(answers[4]).toEqual({ ok: false, code: 'LOCKED', minutes: 15 })
   })
 
+  it('gives five fresh tries once a lock has passed', async () => {
+    await smsPerson('relocked@a.example', '+16145550188')
+    const res = await post('/api/auth/sign-in', { email: 'relocked@a.example', password })
+    await post('/api/auth/send-code', {}, res.cookie)
+    for (let i = 0; i < 5; i += 1) await post('/api/auth/second-factor', { code: '000000' }, res.cookie)
+    clock = new Date(clock.getTime() + 16 * 60_000)
+    const again = await post('/api/auth/sign-in', { email: 'relocked@a.example', password })
+    await post('/api/auth/send-code', {}, again.cookie)
+    expect((await post('/api/auth/second-factor', { code: '000000' }, again.cookie)).body).toEqual({ ok: false, code: 'WRONG_CODE', triesLeft: 4 })
+  })
+
   it('refuses a wrong or stale app code during enrolment, and sets no method', async () => {
     const owner = await user(t.partnerA, 'app.owner@a.example', 'App Owner')
     await db.sql`insert into membership (user_id, store_id, role_key, status) values (${owner}, ${t.storeA2}, 'owner', 'active')`
