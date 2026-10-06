@@ -35,6 +35,7 @@ import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
+import { Route as AppProductsImportRouteImport } from './routes/_app/products_.import'
 import { Route as AppProductsSizeChartsRouteImport } from './routes/_app/products_.size-charts'
 import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
 import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
@@ -167,6 +168,11 @@ const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
   path: '/products/$productId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProductsImportRoute = AppProductsImportRouteImport.update({
+  id: '/products_/import',
+  path: '/products/import',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProductsSizeChartsRoute = AppProductsSizeChartsRouteImport.update({
   id: '/products_/size-charts',
   path: '/products/size-charts',
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/import': typeof AppProductsImportRoute
   '/products/size-charts': typeof AppProductsSizeChartsRoute
   '/products/warehouses': typeof AppProductsWarehousesRoute
   '/products/$productId/story': typeof AppProductsProductIdStoryRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/products_/$productId': typeof AppProductsProductIdRoute
+  '/_app/products_/import': typeof AppProductsImportRoute
   '/_app/products_/size-charts': typeof AppProductsSizeChartsRoute
   '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
   '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
@@ -301,6 +310,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/products/$productId'
+    | '/products/import'
     | '/products/size-charts'
     | '/products/warehouses'
     | '/products/$productId/story'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/impersonate/enter'
     | '/products/$productId'
+    | '/products/import'
     | '/products/size-charts'
     | '/products/warehouses'
     | '/products/$productId/story'
@@ -361,6 +372,7 @@ export interface FileRouteTypes {
     | '/impersonate/enter'
     | '/_app/'
     | '/_app/products_/$productId'
+    | '/_app/products_/import'
     | '/_app/products_/size-charts'
     | '/_app/products_/warehouses'
     | '/_app/products_/$productId_/story'
@@ -557,6 +569,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/products_/import': {
+      id: '/_app/products_/import'
+      path: '/products/import'
+      fullPath: '/products/import'
+      preLoaderRoute: typeof AppProductsImportRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/products_/size-charts': {
       id: '/_app/products_/size-charts'
       path: '/products/size-charts'
@@ -598,6 +617,7 @@ interface AppRouteChildren {
   AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+  AppProductsImportRoute: typeof AppProductsImportRoute
   AppProductsSizeChartsRoute: typeof AppProductsSizeChartsRoute
   AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
   AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
@@ -620,6 +640,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
   AppProductsProductIdRoute: AppProductsProductIdRoute,
+  AppProductsImportRoute: AppProductsImportRoute,
   AppProductsSizeChartsRoute: AppProductsSizeChartsRoute,
   AppProductsWarehousesRoute: AppProductsWarehousesRoute,
   AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,

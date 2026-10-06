@@ -1,8 +1,7 @@
 import type { Money } from '@dripfunnel/shared/format'
-import { ApiError, type ExportJob } from '@dripfunnel/shared/graphql'
+import { ApiError, exportJobFields, exportJobSchema, readExportJob, type ExportJob } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
-import { exportJobFields, exportJobSchema, readExportJob } from './exportJob'
 
 // Reports on the Platform API (FIRST-RELEASE.md §10, §16). Every figure, bar and summary sentence
 // is the API's; the console draws them and computes nothing. Percentages arrive as basis points.
