@@ -2716,7 +2716,8 @@
       "deletedProduct": "A product deleted since — dropped when you save",
       "chipNote": "{country} · {note}",
       "notParents": "not in {name}",
-      "reread": "{refusal} The list now shows what’s saved."
+      "reread": "{refusal} The list now shows what’s saved.",
+      "pathUnset": "…"
     }
   }
 }

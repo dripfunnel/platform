@@ -151,7 +151,8 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
       },
     })
 
-  const run = async (work: () => Promise<string>) => {
+  /** `ofDraft`: the call was the open market's own save or delete, the only kind a refusal may reset the form for. */
+  const run = async (work: () => Promise<string>, ofDraft = true) => {
     setBusy(true)
     setFailure(null)
     try {
@@ -164,7 +165,8 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
           const fresh = await loadAllMarkets()
           setMarkets(fresh)
           // A market not saved yet keeps everything typed; a saved one shows what's stored now, or closes if it's gone.
-          if (opened !== null) {
+          // Another call's refusal (the "Everywhere else" select) refreshes the list and leaves the form as typed.
+          if (ofDraft && opened !== null) {
             const again = fresh.find((m) => m.id === opened)
             setDraft(again ? draftOfMarket(again) : null)
           }
@@ -213,7 +215,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
               await setEverywhereElse(chosen)
               setMarkets((list) => list.map((m) => ({ ...m, everywhereElse: m.id === chosen })))
               return words.elseSaved
-            })
+            }, false)
           }}>
           <option value="">{words.nobody}</option>
           {tops.map((m) => (
@@ -250,7 +252,7 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
           country: countryName(draft.countries[0] ?? ''),
           currency: draft.currency,
           language: languageName(draft.language),
-          where: draft.webMode === 'path' ? `/${draft.pathPrefix || '…'}` : words.mainAddress,
+          where: draft.webMode === 'path' ? `/${draft.pathPrefix || words.pathUnset}` : words.mainAddress,
         }) +
         (draft.adjust.trim() && Number(draft.adjust) !== 0 ? fill(words.previewAdjust, { adjust: `${Number(draft.adjust) > 0 ? '+' : ''}${draft.adjust}` }) : '') +
         (draft.products === 'some' && draft.excluded.length > 0 ? fill(words.previewExcluded, { count: String(draft.excluded.length) }) : '') +

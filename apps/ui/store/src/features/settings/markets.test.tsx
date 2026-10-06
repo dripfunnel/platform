@@ -114,6 +114,17 @@ describe('markets', () => {
     expect(screen.queryByRole('searchbox', { name: w.findProduct })).toBeNull()
   })
 
+  it('keep a market’s unsaved edits when the “Everywhere else” choice is refused as stale', async () => {
+    await show()
+    open('United States')
+    fireEvent.change(screen.getByLabelText(w.name), { target: { value: 'America' } })
+    api.setEverywhereElse.mockRejectedValueOnce(new ApiError('STALE_REVISION', 'stale'))
+    fireEvent.change(screen.getByLabelText(w.elseTitle), { target: { value: 'ae' } })
+    await settle()
+    expect(api.loadAllMarkets.mock.calls.length).toBeGreaterThan(1)
+    expect((screen.getByLabelText(w.name) as HTMLInputElement).value).toBe('America')
+  })
+
   it('keep a new market’s draft when its save is refused because something it named went meanwhile', async () => {
     await show()
     fireEvent.click(screen.getByRole('button', { name: w.add }))
