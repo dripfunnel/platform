@@ -1,15 +1,14 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import { actingName, agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
+import { agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { PlanStatus } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
-import { insertPlan, selectPlansFor, selectSetupItemsFor, upsertSetupItem } from '#db/scoped/partners'
-import { goLiveChecksFor } from '#saas/partners/index'
+import { insertPlan } from '#db/scoped/partners'
 import {
   lockLivePlans,
   scheduleSubscriptionMoves,
@@ -284,19 +283,6 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
 
   const pricesOf = (input: PlanInput): PlanVersionPrice[] => input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
 
-  // The checklist's plan item follows the go-live check (SAAS §3.2), written only when it changes so "done by" stays.
-  const syncPlanItem = async (tx: ScopedSql) => {
-    const plans = await selectPlansFor(tx, [partnerId])
-    const status = goLiveChecksFor([], [], plans, false).pricedPlan ? 'done' : plans.length > 0 ? 'progress' : 'missing'
-    if ((await selectSetupItemsFor(tx, [partnerId])).find((i) => i.item === 'plan')?.status === status) return
-    await upsertSetupItem(
-      tx,
-      status === 'done'
-        ? { partnerId, item: 'plan', status, detail: 'A live plan with a price', doneAt: now(), doneByKind: agentOf(caller).kind, doneByLabel: actingName(caller) }
-        : { partnerId, item: 'plan', status, detail: status === 'progress' ? 'No live plan with a price yet' : null },
-    )
-  }
-
   const createPlan = async (raw: unknown): Promise<Result> => {
     const refused = may('plans.write')
     if (!refused.allowed) return { ok: false, reason: refused.reason }
@@ -310,7 +296,6 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       if (bad) return { ok: false, reason: 'INVALID_CURRENCY', currency: bad }
       const id = await insertPlan(tx, { partnerId, name: input.name, description: input.description, status: 'draft', trialDays: input.trialDays, prices: pricesOf(input), entitlements: fromRows(input.entitlements) })
       await activity.record(tx, entry(planAudit.createPlan, { id, name: input.name }, null))
-      await syncPlanItem(tx)
       return { ok: true, id }
     })
   }
@@ -341,7 +326,6 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       const version = await insertPlanVersion(tx, { planId: id, partnerId, trialDays: input.trialDays, prices: pricesOf(input), entitlements: fromRows(input.entitlements), by })
       await activity.record(tx, entry(planAudit.updatePlan, { id, name: input.name }, applyTo === 'renewal' ? 'everyone at renewal' : applyTo === 'new' ? 'new signups only' : null))
       if (applyTo === 'renewal') await moveAtRenewal(tx, id, version)
-      await syncPlanItem(tx)
       return { ok: true, id }
     })
   }
@@ -376,7 +360,6 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       if (!prices.some((p) => p.monthly !== null)) return { ok: false, reason: 'UNPRICED_CURRENCY' }
       await updatePlanStatus(tx, id, partnerId, 'live', null)
       await activity.record(tx, entry(planAudit.makePlanLive, row, null))
-      await syncPlanItem(tx)
       return { ok: true, id }
     })
 
@@ -415,7 +398,6 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
         )
       }
       await activity.record(tx, entry(planAudit.retirePlan, row, input.keep ? 'stores keep it' : 'stores move on a date'))
-      await syncPlanItem(tx)
       return { ok: true, id }
     })
   }

@@ -269,22 +269,6 @@ describe('making live and retiring', () => {
     expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'UNPRICED_CURRENCY' })
   })
 
-  it('moves the checklist’s plan item with the plans: in progress for a priced draft, done once it is live', async () => {
-    const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Checklist Partner') returning id`
-    const partnerId = p?.id ?? ''
-    const owner = callerOf(partnerId, 'partner-owner')
-    const item = async () => (await db.sql<{ status: string; done_by_label: string | null }[]>`select status, done_by_label from partner_setup_item where partner_id = ${partnerId} and item = 'plan'`)[0]
-    const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
-    const draft = { ...input, name: 'First', entitlements: { ...input.entitlements, powered: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
-    const made = (await run<Outcome>(create, owner, { input: draft })).data?.createPlan
-    expect(await item()).toEqual({ status: 'progress', done_by_label: null })
-    expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: true })
-    expect(await item()).toEqual({ status: 'done', done_by_label: 'Maya Chen' })
-    // Another edit leaves who did it alone.
-    await run<Outcome>(update, callerOf(partnerId, 'partner-owner', 'Sam Lee'), { id: made?.id ?? '', input: { ...draft, name: 'First plan' }, applyTo: 'new' })
-    expect(await item()).toEqual({ status: 'done', done_by_label: 'Maya Chen' })
-  })
-
   it('makes a draft live only once every currency the partner sells in has a monthly price', async () => {
     const input = await inputFrom(ids.growth, callerOf(ids.ns, 'partner-owner'))
     const draft = { ...input, name: 'Scale', prices: [{ currency: 'USD', monthly: { amount: 19900, currency: 'USD' }, yearly: null }] }
