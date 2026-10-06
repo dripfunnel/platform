@@ -1,7 +1,7 @@
 import type { PartnerDomainRow, PartnerSetupItemRow, PlanRow } from '#db/schema/saas'
 
 /** SAAS.md §3.2 step 3, in the order the consoles list them. */
-export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages', 'testSignup'] as const
+export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages'] as const
 export type GoLiveCheck = (typeof goLiveChecks)[number]
 
 export type GoLiveChecks = Record<GoLiveCheck, boolean>
@@ -20,7 +20,6 @@ export const goLiveChecksFor = (
     emailDomain: live('email') || fallbackSenderAccepted,
     pricedPlan: plans.some((p) => p.status === 'live' && p.priced),
     legalPages: done('legal'),
-    testSignup: done('testSignup'),
   }
 }
 

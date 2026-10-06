@@ -259,7 +259,6 @@ type GoLiveChecks {
   legalPages: Boolean
   portalHost: Boolean
   pricedPlan: Boolean
-  testSignup: Boolean
 }
 
 type GrowthReport {

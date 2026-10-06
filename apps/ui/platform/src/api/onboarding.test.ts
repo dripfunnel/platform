@@ -27,7 +27,7 @@ describe('loadOnboarding', () => {
 
 describe('failingChecks', () => {
   it('lists the checks the API says fail, in order, and none once all pass', () => {
-    expect(failingChecks(sampleOnboarding())).toEqual(['portalHost', 'pricedPlan', 'legalPages', 'testSignup'])
+    expect(failingChecks(sampleOnboarding())).toEqual(['portalHost', 'pricedPlan', 'legalPages'])
     expect(failingChecks(sampleOnboarding({ checks: allChecksPass }))).toEqual([])
   })
 })

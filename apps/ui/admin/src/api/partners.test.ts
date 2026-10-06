@@ -17,7 +17,7 @@ const row = {
   owner: { name: 'Jonas', email: 'jonas@kaufladen.example', invitation: 'active', invitationSentAt: null },
   createdAt: '2026-09-08T00:00:00.000Z',
   submittedAt: '2026-09-26T00:00:00.000Z',
-  checks: { portalHost: true, emailDomain: false, pricedPlan: true, legalPages: true, testSignup: true },
+  checks: { portalHost: true, emailDomain: false, pricedPlan: true, legalPages: true },
   approval: { setUpBy: 'Priya Shah', rule: 'second', approvals: 0 },
 }
 

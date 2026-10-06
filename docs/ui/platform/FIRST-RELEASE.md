@@ -174,7 +174,6 @@ progress · To do with one line of detail, a link to its screen, and when done, 
 | 7 | Legal pages | Branding › Words | Terms, privacy and data-processing agreement set; **Impressum** too for a German partner |
 | 8 | Payment method | Settings › Payout and payment (§14.3) | The card DripFunnel charges for its invoices |
 | 9 | Payout details | Settings › Payout and payment | The bank account DripFunnel pays into, **verified** |
-| 10 | A test merchant signup | **Run test signup** on the item (Owner, Admin) | A test store created and removed; "ready in 1 min 38 s" |
 
 Items 8 and 9 are **the partner's own**: in a staff setup session they read "{partner} enters
 this itself" with a lock (ACCESS §8.2); to the Owner they read "Your turn"; to any other role
@@ -189,7 +188,7 @@ can." with "N steps left, plus payment method and payout details, which only you
 
 **Submit for approval** (Owner, Admin) runs the **go-live checks** first (SAAS §3.2 step 3):
 portal host live, email domain verified or the fallback sender accepted, at least one priced
-plan, legal pages set, a test signup completed. The button is disabled with "Finish the N
+plan, legal pages set (the test signup was dropped on #421). The button is disabled with "Finish the N
 items above first" until they pass. Confirmation: "DripFunnel reviews your contract, KYC and
 setup. That usually takes 2 business days. You can keep editing, but merchants can't sign up
 until you're approved."
@@ -756,7 +755,7 @@ api/README.md §2.1); a partner id in a request is not authority.
 |---|---|---|
 | Sign-in (`/api/auth/*` routes, like the admin console's) | | `acceptInvitation(token, name, password)`, `signIn(email, password)`, `verifySecondFactor(code)`, `enrolSecondFactor`, `skipSecondFactor` (refused when required), `requestPasswordReset(email)`, `resetPassword(token, password)`, `signOut` |
 | Header and shell | `me`, `search(query)`, `navBadges`, `partnerState` (state, contract term, grace, store limit, held payouts, declined card, broken domains: what §2.3's banners need) | |
-| Onboarding | `onboarding` (checklist with status and who did each item, go-live checks, the sent-back reason, submitted when and by whom) | `runTestSignup`, `submitForApproval` |
+| Onboarding | `onboarding` (checklist with status and who did each item, go-live checks, the sent-back reason, submitted when and by whom) | `submitForApproval` |
 | Dashboard | `dashboard(range)` | |
 | Stores | `stores(filter, after, before)`, `store(id)` (with the per-action permission block, §6.4) | `createStore`, `changeStorePlan(id, planId, when, reason)`, `extendTrial(id, days, reason)`, `addLimitOverride(id, limit, amount, duration, reason)`, `removeLimitOverride(id, overrideId, reason)`, `suspendStore(id, reason)`, `restoreStore(id, reason)`, `resendStoreOwnerInvite(id)`, `retryProvisioningStep(id)`, `setStoreBillingStatus(id, status)` (own billing only), `exportStores(filter)` (a job) |
 | Plans | `plans`, `plan(id)` (ceilings, wholesale fee, margin per currency), `planComparison`, `planPickerPreview`, `storeDefaults` (with the platform-allowed options) | `createPlan`, `updatePlan(id, …, applyTo)`, `makePlanLive(id)`, `retirePlan(id, keepOrMoveTo, date)`, `updateStoreDefaults` |

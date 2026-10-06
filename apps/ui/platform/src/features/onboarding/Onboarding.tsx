@@ -134,7 +134,6 @@ export const Onboarding = ({ me, state, onboarding, staffSetup, welcome }: Onboa
           role={me.role}
           partner={me.partner.name}
           staffSetup={staffSetup}
-          testSignupWhy={words.testUnavailable}
         />
         {state !== 'awaiting' && (
           <div className="df-checklist-row df-checklist-row--submit">

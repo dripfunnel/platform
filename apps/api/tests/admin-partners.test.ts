@@ -95,7 +95,7 @@ describe('declarations', () => {
 
 describe('partners(filter, after, before) (§4.1, §6)', () => {
   const list = `query($filter: PartnerFilter, $after: String, $first: Int) { partners(filter: $filter, after: $after, first: $first) {
-    items { id name state stores portalHost { host status } setup { done total } owner { name email invitation } submittedAt checks { portalHost emailDomain pricedPlan legalPages testSignup } approval { setUpBy rule approvals } }
+    items { id name state stores portalHost { host status } setup { done total } owner { name email invitation } submittedAt checks { portalHost emailDomain pricedPlan legalPages } approval { setUpBy rule approvals } }
     pageInfo { hasNextPage endCursor } create { allowed reason } } }`
 
   interface Page {
@@ -113,8 +113,8 @@ describe('partners(filter, after, before) (§4.1, §6)', () => {
     const capped = await run<Page>(list, as('staff-super-admin'), { first: 500 })
     expect(capped.data?.partners.items.length).toBeLessThanOrEqual(25)
     const kaufladen = capped.data?.partners.items.find((i) => i['name'] === 'Kaufladen Digital')
-    expect(kaufladen).toMatchObject({ state: 'awaiting', stores: 1, portalHost: { host: 'shop.kaufladen.example', status: 'live' }, setup: { done: 8, total: 10 }, owner: { invitation: 'active' } })
-    expect(kaufladen?.['checks']).toEqual({ portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true, testSignup: true })
+    expect(kaufladen).toMatchObject({ state: 'awaiting', stores: 1, portalHost: { host: 'shop.kaufladen.example', status: 'live' }, setup: { done: 7, total: 9 }, owner: { invitation: 'active' } })
+    expect(kaufladen?.['checks']).toEqual({ portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true })
     expect(kaufladen?.['approval']).toEqual({ setUpBy: 'Priya Shah', rule: 'second', approvals: 0 })
   })
 
@@ -149,7 +149,7 @@ describe('partner(id) (§4.2, §4.3)', () => {
     expect(p).toMatchObject({ name: 'Kaufladen Digital', country: 'DE', branding: { productName: 'Kaufladen Shops', poweredBy: 'on' } })
     expect((p?.['contacts'] as unknown[]).length).toBe(2)
     expect((p?.['history'] as { action: string }[]).map((h) => h.action)).toEqual(['partner.created', 'partner.set_up', 'partner.submitted', 'partner.sent_back', 'partner.submitted'])
-    expect((p?.['checklist'] as unknown[]).length).toBe(10)
+    expect((p?.['checklist'] as unknown[]).length).toBe(9)
     expect((p?.['domains'] as { kind: string; status: string }[]).find((d) => d.kind === 'email')).toMatchObject({ status: 'waiting', record: 'TXT' })
     expect((p?.['plans'] as { name: string; stores: number }[]).find((x) => x.name === 'Plus')?.stores).toBe(1)
     expect((p?.['team'] as unknown[]).length).toBe(2)
@@ -222,7 +222,7 @@ describe('approval (§4.3, two staff unless a Super admin counts for both)', () 
     const tallis = await partnerIdOf('Tallis Studio')
     const failing = (await run<Approved>(approve, as('staff-super-admin'), { id: tallis, reason: 'x' })).data?.approvePartner
     expect(failing).toMatchObject({ ok: false, code: 'GO_LIVE_CHECKS_FAILING' })
-    expect(failing?.failingChecks).toEqual(['portalHost', 'emailDomain', 'pricedPlan', 'legalPages', 'testSignup'])
+    expect(failing?.failingChecks).toEqual(['portalHost', 'emailDomain', 'pricedPlan', 'legalPages'])
   })
 
   it('a partner set up by a Partner manager needs a second, different staff member; the first approval is recorded, not applied', async () => {

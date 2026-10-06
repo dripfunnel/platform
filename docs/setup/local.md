@@ -310,14 +310,11 @@ it with the query.
    - **Branding** (`/branding`): product name, colours that pass the contrast check, font,
      support email, and the terms and privacy links (the legal pages).
      *Writes* `partner_branding` and the `branding` and `legal` setup items.
-   - **Test sign-up**: sign up a test store on `https://store.acme.localhost`, taking the email
-     and mobile codes from the terminal. Until #421 is built, sign-up stays closed before Live
-     and this check can't pass: the same on dev.
    ```sql
    select item, status from partner_setup_item i join partner p on p.id = i.partner_id where p.name = 'Acme Commerce' order by item;
    ```
 4. **Submit for approval**, in the partner console. The go-live checks run first: portal host
-   live, email domain live, a priced plan, legal pages, the test sign-up.
+   live, email domain live, a priced plan, legal pages.
 5. **Staff approve**, at `https://admin.localhost` › Partners › Acme Commerce › **Approve**, with a
    reason: a Super admin (`arjun@softobotics.example`), or the Partner manager assigned to the
    partner (assign one on the same page first). *Writes* `partner.state = 'live'` and the activity entries; merchant sign-up opens on

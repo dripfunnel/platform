@@ -19,7 +19,7 @@ export type SetupFilter = (typeof setupFilters)[number]
 export const invitationStatuses = ['active', 'sent', 'held'] as const
 export type InvitationStatus = (typeof invitationStatuses)[number]
 
-export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages', 'testSignup'] as const
+export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages'] as const
 export type GoLiveCheck = (typeof goLiveChecks)[number]
 
 // Who has to approve a submitted partner (FIRST-RELEASE.md §4.3): a Super admin who ran the
@@ -94,7 +94,7 @@ export interface PartnerPage {
 }
 
 // The ten setup items of DATA-MODEL.md §3.2, in the API's words.
-export const setupItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
+export const setupItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 export type SetupItem = (typeof setupItems)[number]
 
 export interface SetupRow {
@@ -266,7 +266,7 @@ const partnerSchema = z.object({
 
 const rowSelection = `id name house kind region state stores portalHost { host status } setup { done total }
   owner { name email invitation invitationSentAt } createdAt submittedAt
-  checks { portalHost emailDomain legalPages pricedPlan testSignup } approval { setUpBy rule approvals }`
+  checks { portalHost emailDomain legalPages pricedPlan } approval { setUpBy rule approvals }`
 
 const permissionSelection = `{ allowed reason failingChecks }`
 

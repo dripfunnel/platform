@@ -660,13 +660,8 @@
       "payoutDetails": {
         "label": "Payout details",
         "hint": "The bank account DripFunnel pays you into, verified"
-      },
-      "testSignup": {
-        "label": "A test merchant signup",
-        "hint": "Sign up as a merchant at your portal to check the whole flow"
       }
     },
-    "runTest": "Run test signup",
     "submit": "Submit for approval",
     "submitAgain": "Submit again",
     "submitDetail": "DripFunnel reviews your contract and KYC.",
@@ -677,8 +672,7 @@
       "portalHost": "the portal address is live",
       "emailDomain": "the email sender is verified or the fallback sender accepted",
       "pricedPlan": "at least one plan is priced",
-      "legalPages": "the legal pages are set",
-      "testSignup": "a test signup has completed"
+      "legalPages": "the legal pages are set"
     },
     "refused": {
       "OWNERS_AND_ADMINS_ONLY": "Your role can’t submit for approval. Owners and Admins can.",
@@ -693,8 +687,7 @@
       "note": "Payment method and payout details can come later.",
       "cancel": "Cancel"
     },
-    "fix": "Fix: {item}",
-    "testUnavailable": "Test signups aren’t available yet. They arrive with merchant sign-up."
+    "fix": "Fix: {item}"
   },
   "dashboard": {
     "title": "Dashboard",
