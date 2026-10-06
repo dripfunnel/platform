@@ -37,7 +37,7 @@ export const Onboarding = ({ me, state, onboarding, staffSetup, welcome }: Onboa
   const [refusal, setRefusal] = useState<string | null>(null)
   const [welcomeShown, setWelcomeShown] = useState(welcome)
   const left = failingChecks(onboarding).length
-  // Submit is the eleventh step and counts once the partner has submitted.
+  // Submit is the tenth step and counts once the partner has submitted.
   const done = onboarding.items.filter((x) => x.status === 'done').length + (state === 'awaiting' ? 1 : 0)
   const total = onboarding.items.length + 1
   const yours = onboarding.items.filter((x) => partnerOnlyItems.includes(x.key) && x.status !== 'done')

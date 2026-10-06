@@ -20,7 +20,7 @@ export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPa
 
 export type GoLiveCheck = (typeof goLiveChecks)[number]
 
-const consoleLinks = ['/settings', '/branding', '/domains', '/plans', '/dashboard'] as const
+const consoleLinks = ['/settings', '/branding', '/domains', '/plans'] as const
 
 const submitRefusals = ['OWNERS_AND_ADMINS_ONLY', 'ALREADY_SUBMITTED', 'ALREADY_APPROVED'] as const
 

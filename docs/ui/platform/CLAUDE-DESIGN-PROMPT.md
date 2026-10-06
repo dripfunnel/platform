@@ -188,7 +188,7 @@ emails its Owner an invitation; the Owner or an Admin invites the rest of the te
 While the partner is **Draft**, **Awaiting approval** or **Sent back**, the Dashboard is "Set
 up {product}" with "You can leave and come back; your progress is saved."
 
-- **The checklist**, ten items plus Submit ("4 of 11 done" and a progress bar), each Done · In
+- **The checklist**, nine items plus Submit ("4 of 10 done" and a progress bar), each Done · In
   progress · To do with one line of detail, a link to its screen, and when done, who did it:
   company details → branding → portal address → preview and shop addresses → email sender → at
   least one priced plan → legal pages → payment method → payout details.

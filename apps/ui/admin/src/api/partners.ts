@@ -93,7 +93,7 @@ export interface PartnerPage {
   create: ActionPermission
 }
 
-// The ten setup items of DATA-MODEL.md §3.2, in the API's words.
+// The nine setup items of DATA-MODEL.md §3.2, in the API's words.
 export const setupItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 export type SetupItem = (typeof setupItems)[number]
 

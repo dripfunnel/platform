@@ -160,7 +160,7 @@ The admin console's part E seen from the partner's side (CONSOLE-DESIGN E, SAAS.
 Home is "Set up {product}" while the partner is **Draft**, "Awaiting approval" or "Sent back
 by DripFunnel"; "You can leave and come back; your progress is saved."
 
-**The checklist**, ten items plus Submit ("4 of 11 done" and a progress bar), each Done · In
+**The checklist**, nine items plus Submit ("4 of 10 done" and a progress bar), each Done · In
 progress · To do with one line of detail, a link to its screen, and when done, who did it:
 
 | # | Item | Links to | Done when |
