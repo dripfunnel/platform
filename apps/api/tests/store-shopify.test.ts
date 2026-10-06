@@ -5,6 +5,7 @@ import { storeSchema } from '#apis/store/schema'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStoreStanding, storeHeader, supplierHeader } from '#auth/storeCaller'
 import { createUserSession, storeCookieName } from '#auth/storeSession'
+import { deleteReadConnection } from '#db/scoped/externalConnections'
 import { withSystemScope } from '#db/scoped/index'
 import { ShopUnauthorized, ShopUnavailable, type ShopProduct } from '#engine/modules/catalog/index'
 import { handleShopifyCallback } from '#hooks/shopify'
@@ -224,6 +225,27 @@ describe('Connect Shopify', () => {
     expect((await connection('owner')).status).toBe('none')
     await relay()
     for (const id of ids) expect((await gql('query J($id: ID!) { catalogImport(id: $id) { state } }', 'owner', { id })).data?.['catalogImport']).toEqual({ state: 'ready' })
+  })
+
+  it('removes the token when two imports read their last page at the same moment', async () => {
+    await connect('owner', 'kesari')
+    const start = async () => (await gql('mutation S($ids: [ID!]) { startShopifyImport(productIds: $ids) }', 'owner', { ids: ['gid://shopify/Product/1'] })).data?.['startShopifyImport'] as string
+    const [a, b] = [await start(), await start()]
+    const connectionId = (await db.sql<{ id: string }[]>`select id from external_connection where store_id = ${t.storeA1} and seller_id is null`)[0]?.id ?? ''
+    // Each marks its own import read, then decides; A holds its transaction open while B decides, as two last pages would.
+    const last = (id: string, hold: number) =>
+      withSystemScope(db.sql, async (tx) => {
+        await tx`update catalog_import set cursor = 'done' where id = ${id}`
+        const removed = await deleteReadConnection(tx, connectionId, id)
+        await new Promise((resolve) => setTimeout(resolve, hold))
+        return removed
+      })
+    const first = last(a, 300)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const outcomes = await Promise.all([first, last(b, 0)])
+    // B waits for A's lock, then sees A's 'done' committed and removes the token: one of the two always does.
+    expect(outcomes).toEqual([false, true])
+    expect(await db.sql`select 1 from external_connection where id = ${connectionId}`).toEqual([])
   })
 
   it('stops reading “all” once the shop passes an uploaded file’s limits, and says which', async () => {
