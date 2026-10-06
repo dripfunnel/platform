@@ -11,8 +11,6 @@ const words = messages.warehouses
 
 const api = vi.hoisted(() => ({ loadPlaces: vi.fn(), savePlace: vi.fn(), makeDefaultPlace: vi.fn(), deletePlace: vi.fn() }))
 vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('../../api/stock')>()), ...api }))
-const products = vi.hoisted(() => ({ loadSupplierChoices: vi.fn() }))
-vi.mock('../../api/products', async (actual) => ({ ...(await actual<typeof import('../../api/products')>()), ...products }))
 
 const { WarehousesPage } = await import('./WarehousesPage')
 
@@ -32,7 +30,7 @@ const show = async (acting: Acting, readOnly = false) => {
 }
 
 beforeEach(() => {
-  api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null }])
+  api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null, supplierName: null }])
 })
 
 afterEach(() => {
@@ -55,22 +53,14 @@ describe('the Warehouses page', () => {
     expect(screen.queryByRole('navigation', { name: words.tabs.label })).toBeNull()
   })
 
-  it('names a supplier’s location for a merchant who reads suppliers, and lists none nameless for one who can’t', async () => {
+  it('names a supplier’s location for every merchant seat that reads stock, from the API', async () => {
     api.loadPlaces.mockResolvedValue([
-      { id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null },
-      { id: 'w9', name: 'Anand’s depot', isDefault: true, units: 12, revision: 1, address: null, supplierId: 'v1' },
+      { id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null, supplierName: null },
+      { id: 'w9', name: 'Anand’s depot', isDefault: true, units: 12, revision: 1, address: null, supplierId: 'v1', supplierName: 'Northwind' },
     ])
-    products.loadSupplierChoices.mockResolvedValue([{ id: 'v1', name: 'Northwind' }])
-    await show({ ...owner, permissions: ['catalog.read', 'stock.read', 'warehouses.write', 'manage-vendors'] })
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
+    await show({ ...owner, role: 'manager', permissions: ['catalog.read', 'stock.read'] })
     expect(screen.getByRole('heading', { name: words.theirsTitle })).toBeTruthy()
-    expect(screen.getByText(/Northwind/)).toBeTruthy()
-    cleanup()
-    await show({ ...owner, role: 'manager', permissions: ['catalog.read', 'stock.read', 'warehouses.write'] })
-    expect(screen.queryByRole('heading', { name: words.theirsTitle })).toBeNull()
-    expect(screen.queryByText('Anand’s depot')).toBeNull()
-    expect(screen.getByText('Workshop')).toBeTruthy()
-    expect(products.loadSupplierChoices).toHaveBeenCalledTimes(1)
+    expect(screen.getByText(/Northwind · 12 units/)).toBeTruthy()
   })
 
   it('shows the list without changes to a read-only store or a seat without warehouses.write', async () => {
