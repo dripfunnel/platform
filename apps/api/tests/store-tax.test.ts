@@ -262,36 +262,25 @@ describe('Tax setup', () => {
     expect((await gql('mutation I($input: InvoiceSettingsInput!) { saveInvoiceSettings(input: $input) }', 'manager', { input: { taxPerLine: true, emailWithDispatch: true } })).code).toBe('FORBIDDEN')
   })
 
-  it('sets one category’s rate in a zone, so two people changing different categories both keep theirs', async () => {
-    const before = await setup('india')
-    const zone = before.zones.find((z) => z.rates.length >= 2)
-    const [a, b] = zone?.rates ?? []
-    const set = (who: Who, zoneId: string | undefined, taxClassId: string | undefined, rateBps: number) =>
-      gql('mutation R($z: ID!, $c: ID!, $r: Int!) { setTaxRate(zoneId: $z, taxClassId: $c, rateBps: $r) }', who, { z: zoneId, c: taxClassId, r: rateBps })
-    // Both read the same zone; each changes a different category at the same time.
-    const [first, second] = await Promise.all([set('india', zone?.id, a?.taxClassId, 123), set('india', zone?.id, b?.taxClassId, 456)])
+  it('sets a category’s rate in the home zone there is, keeping the others, refusing an overlap and another store’s category', async () => {
+    const home = (who: Who, taxClassId: string | undefined, rateBps: number) => gql('mutation H($c: ID!, $r: Int!, $h: String!) { setHomeTaxRate(taxClassId: $c, rateBps: $r, homeZoneName: $h) }', who, { c: taxClassId, r: rateBps, h: 'India' })
+    const before = (await setup('india')).zones.find((z) => z.countries.length === 1 && z.countries[0] === 'IN' && z.regions.length === 0)
+    const [a, b] = before?.rates ?? []
+    // Two people change different categories at the same moment: both keep theirs, the zone's other rates untouched.
+    const [first, second] = await Promise.all([home('india', a?.taxClassId, 123), home('india', b?.taxClassId, 456)])
     expect([first.code, second.code]).toEqual([undefined, undefined])
-    const after = (await setup('india')).zones.find((z) => z.id === zone?.id)
+    const after = (await setup('india')).zones.find((z) => z.id === before?.id)
     expect(after?.rates.find((r) => r.taxClassId === a?.taxClassId)?.rateBps).toBe(123)
     expect(after?.rates.find((r) => r.taxClassId === b?.taxClassId)?.rateBps).toBe(456)
-    expect(after?.rates).toHaveLength(zone?.rates.length ?? 0)
-    // Another store's zone or category is not there; a Manager reads tax but can't write it; a rate is a percentage.
-    expect((await set('other', zone?.id, a?.taxClassId, 100)).code).toBe('NOT_FOUND')
-    expect((await set('manager', zone?.id, a?.taxClassId, 100)).code).toBe('FORBIDDEN')
-    expect((await set('india', zone?.id, a?.taxClassId, 10_001)).code).toBe('INVALID_INPUT')
-  })
-
-  it('refuses a rate that would make its zone answer for the same place and category as another, and logs each rate set', async () => {
-    const set = (zoneId: string | undefined, taxClassId: string | undefined, rateBps: number) =>
-      gql('mutation R($z: ID!, $c: ID!, $r: Int!) { setTaxRate(zoneId: $z, taxClassId: $c, rateBps: $r) }', 'india', { z: zoneId, c: taxClassId, r: rateBps })
+    expect(after?.rates).toHaveLength(before?.rates.length ?? 0)
+    expect(await db.sql`select actor_id, target_id from activity_log where action = 'tax_rate.set' and target_id = ${before?.id ?? ''} order by occurred_at desc limit 1`).toEqual([{ actor_id: people.india, target_id: before?.id }])
+    // A category another zone already answers for in India: the home zone taking it would answer for the same place and category.
     const k = (await gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'india', { input: { name: 'Overlap test' } })).data?.['saveTaxClass'] as string
     await gql('mutation Z($input: TaxZoneInput!) { saveTaxZone(input: $input) }', 'india', { input: { name: 'India and UAE', countries: ['AE', 'IN'], rates: [{ taxClassId: k, rateBps: 500 }] } })
-    const home = (await setup('india')).zones.find((z) => z.countries.length === 1 && z.countries[0] === 'IN' && z.regions.length === 0)
-    // The country-wide India zone taking K would answer for India and K, as "India and UAE" already does.
-    expect((await set(home?.id, k, 700)).code).toBe('ZONE_OVERLAP')
-    const rate = home?.rates[0]
-    expect((await set(home?.id, rate?.taxClassId, 600)).code).toBeUndefined()
-    expect(await db.sql`select actor_id, target_id, target_label from activity_log where action = 'tax_rate.set' and target_id = ${home?.id ?? ''} order by occurred_at desc limit 1`).toEqual([{ actor_id: people.india, target_id: home?.id, target_label: home?.name }])
+    expect((await home('india', k, 700)).code).toBe('ZONE_OVERLAP')
+    // Another store's category isn't there; a rate is a percentage.
+    expect((await home('other', a?.taxClassId, 100)).code).toBe('NOT_FOUND')
+    expect((await home('india', a?.taxClassId, 10_001)).code).toBe('INVALID_INPUT')
   })
 
   it('adds a category with its rate at home in one go, and leaves nothing behind when refused', async () => {
@@ -320,6 +309,14 @@ describe('Tax setup', () => {
     expect(made?.rates.find((r) => r.taxClassId === usClass)?.rateBps).toBe(625)
     // Room for classes (an earlier test filled the US store to 50), so the next refusals come after the class is made.
     await db.sql`update tax_class set deleted_at = now() where store_id = ${stores.us} and name like 'Class %'`
+    // Two at once, with room for a class, on a store with no home zone: the lock lets the first make it and the second find it, so there's one.
+    await db.sql`delete from tax_zone where id = ${made?.id ?? ''}`
+    const raced = await Promise.all([home('us', usClass, 100), add('us', 'Raced', 200)])
+    expect(raced.map((r) => r.code)).toEqual([undefined, undefined])
+    const homes = (await setup('us')).zones.filter((z) => z.countries.length === 1 && z.countries[0] === 'US' && z.regions.length === 0)
+    expect(homes).toHaveLength(1)
+    expect(homes[0]?.rates).toHaveLength(2)
+    await db.sql`delete from tax_zone where id = ${homes[0]?.id ?? ''}`
     const classesBefore = (await setup('us')).classes.length
     expect(classesBefore).toBeLessThan(50)
     // At the zone limit with no home zone, a new category's rate can't be placed: the category itself is undone too.
