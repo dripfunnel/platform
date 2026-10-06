@@ -5,7 +5,7 @@ import { cleanProduct, maxOptions, maxPhotos, productTypes, slugFrom, type Catal
 // A spreadsheet of products as the import reads it (CATALOG K1–K3, K10, K11): our own export's columns or
 // Shopify's product CSV, rows grouped by handle into products, each checked as a save would check it.
 
-export const importLimits = { bytes: 5 * 1024 * 1024, rows: 20_000, products: 5_000, maxStock: 1_000_000 } as const
+export const importLimits = { bytes: 5 * 1024 * 1024, rows: 20_000, products: 5_000, maxStock: 1_000_000, photoUrl: 2048, photoAlt: 500 } as const
 
 export type ImportSource = 'csv' | 'shopify'
 
@@ -18,6 +18,7 @@ export type ProblemCode =
   | 'BAD_TYPE'
   | 'SKU_IN_FILE'
   | 'ONE_VERSION'
+  | 'PHOTO_TOO_LONG'
   | 'UNKNOWN_LANGUAGE'
   | 'NOT_MANUAL_CURRENCY'
   | 'SUPPLIER_CURRENCY'
@@ -326,7 +327,6 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
     const allPhotos = lines
       .filter((r) => /^https?:\/\//i.test(at(r, 'image')) && !seenPhotos.has(at(r, 'image')) && Boolean(seenPhotos.add(at(r, 'image'))))
       .map((r) => ({ url: at(r, 'image'), alt: at(r, 'imageAlt') || null, line: r.line }))
-    const photos = allPhotos.slice(0, maxPhotos)
     const translations = Object.fromEntries(
       [...languages].map(([language, columns]) => {
         const name = columns.name === undefined ? '' : (first.cells[columns.name]?.trim() ?? '')
@@ -339,10 +339,14 @@ export const planImport = (text: string, o: PlanOptions): ImportPlan | PlanRefus
       refusedLines.push(...lines.map((l) => l.line))
       continue
     }
+    // A photo the photo job couldn't carry is left out on its own line; the product still goes in (K6).
+    const fits = (p: (typeof allPhotos)[number]) => p.url.length <= importLimits.photoUrl && (p.alt?.length ?? 0) <= importLimits.photoAlt
+    for (const p of allPhotos.filter((x) => !fits(x))) flag(p.line, p.url.length > importLimits.photoUrl ? 'image' : 'imageAlt', 'PHOTO_TOO_LONG')
+    const carried = allPhotos.filter(fits)
     // The product comes in with its first photos; the ones past the limit are said, not dropped unseen.
-    const extra = allPhotos[maxPhotos]
+    const extra = carried[maxPhotos]
     if (extra) problems.push({ line: extra.line, column: labelOf('image'), code: 'TOO_MANY_PHOTOS' })
-    products.push({ handle, lines: lines.map((l) => l.line), input, stock, photos, translations })
+    products.push({ handle, lines: lines.map((l) => l.line), input, stock, photos: carried.slice(0, maxPhotos), translations })
   }
   return { source, products, problems, refused, refusedLines }
 }
