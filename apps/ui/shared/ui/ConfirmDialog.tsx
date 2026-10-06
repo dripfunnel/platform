@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react'
 import './states.css'
 
 export interface ConfirmChoice {
@@ -34,6 +34,10 @@ export interface ConfirmDialogProps {
   // Picks from short lists, such as a role, or a plan and when it applies (#116). `error` says why a pick won't do, or null.
   choices?: readonly ConfirmChoice[]
   danger?: boolean
+  // Fields of the caller's own, kept by the caller, shown above the reason (a partner's contract).
+  children?: ReactNode
+  // Why the last confirm failed, cleared by the caller as it confirms again: the dialog stays open with what was entered.
+  error?: string | null
   onConfirm: (reason: string | null, value: string | null, choices: Readonly<Record<string, string>>) => void
   onCancel: () => void
 }
@@ -51,6 +55,8 @@ export const ConfirmDialog = ({
   input,
   choices = [],
   danger = false,
+  children,
+  error = null,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) => {
@@ -98,6 +104,10 @@ export const ConfirmDialog = ({
     }
   }, [open])
 
+  useEffect(() => {
+    if (error !== null) setConfirmed(false)
+  }, [error])
+
   return (
     <dialog
       ref={dialogRef}
@@ -124,6 +134,7 @@ export const ConfirmDialog = ({
           </ul>
         )}
       </div>
+      {children}
       {reason && (
         <div className="df-field">
           <label htmlFor={reasonId}>{reason.label}</label>
@@ -206,6 +217,11 @@ export const ConfirmDialog = ({
             {typeToConfirm.hint}
           </p>
         </div>
+      )}
+      {error !== null && (
+        <p className="df-field-hint" role="alert">
+          {error}
+        </p>
       )}
       <div className="df-actions">
         <button ref={cancelRef} type="button" className="df-button" onClick={onCancel}>

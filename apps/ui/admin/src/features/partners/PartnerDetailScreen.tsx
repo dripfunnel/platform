@@ -34,6 +34,7 @@ export const PartnerDetailScreen = () => {
   const [pending, setPending] = useState<ConfirmedAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
   const [toast, setToast] = useState<string | null>(null)
   const [editingContract, setEditingContract] = useState(false)
+  const [contractError, setContractError] = useState<string | null>(null)
   const clearToast = useCallback(() => setToast(null), [])
 
   // The activity tab and the session flows still read the sample as this caller (#39, #40).
@@ -53,14 +54,20 @@ export const PartnerDetailScreen = () => {
       .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
   }
 
+  // A refused save keeps the dialog open with the edit and the reason, and says why.
   const onSaveContract = (target: Partner, contract: PartnerContract, reason: string) => {
-    setEditingContract(false)
+    setContractError(null)
     setPartnerContract(target.id, contract, reason)
       .then(() => {
+        setEditingContract(false)
         setToast(fill(messages.partner.contract.saved, { name: target.name }))
         return router.invalidate()
       })
-      .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
+      .catch((error: unknown) => setContractError(failureText(error, messages.partner.toasts.failed)))
+  }
+  const closeContract = () => {
+    setEditingContract(false)
+    setContractError(null)
   }
 
   const onRecheck = (domain: PartnerDomain) =>
@@ -117,7 +124,7 @@ export const PartnerDetailScreen = () => {
           onCancel={() => setPending(null)}
         />
       )}
-      <ContractDialog partner={editingContract ? partner : null} onSave={onSaveContract} onCancel={() => setEditingContract(false)} />
+      <ContractDialog partner={editingContract ? partner : null} error={contractError} onSave={onSaveContract} onCancel={closeContract} />
       <Toast message={toast} onDone={clearToast} />
       {sessions.element}
     </>

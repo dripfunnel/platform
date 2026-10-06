@@ -1,9 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { ConfirmDialog } from '@dripfunnel/shared/ui'
 import type { Partner, PartnerContract } from '../../api/partners'
 import { fill, messages } from '../../messages'
 import { ContractFields } from './ContractFields'
 import { currencyOfCountry } from './partnerCurrencies'
-import '@dripfunnel/shared/ui/states.css'
 
 const words = messages.partner.contract
 
@@ -13,75 +13,34 @@ export const startingContract = (partner: Pick<Partner, 'contract' | 'country'>)
 
 export interface ContractDialogProps {
   partner: Partner | null
+  // Why the last save was refused; the dialog stays open with the edit and the reason.
+  error: string | null
   onSave: (partner: Partner, contract: PartnerContract, reason: string) => void
   onCancel: () => void
 }
 
-// ConfirmDialog's look and behaviour (shared/ui), with the contract's fields, which it has no slot for.
-export const ContractDialog = ({ partner, onSave, onCancel }: ContractDialogProps) => {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const cancelRef = useRef<HTMLButtonElement>(null)
-  const triggerRef = useRef<HTMLElement | null>(null)
-  const titleId = useId()
-  const bodyId = useId()
-  const reasonId = useId()
-  const hintId = useId()
+export const ContractDialog = ({ partner, error, onSave, onCancel }: ContractDialogProps) => {
   const [contract, setContract] = useState<PartnerContract | null>(null)
-  const [reason, setReason] = useState('')
   const open = partner !== null
 
   useEffect(() => {
-    const dialog = dialogRef.current
-    if (!dialog) return
-    if (partner && !dialog.open) {
-      triggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
-      setContract(startingContract(partner))
-      setReason('')
-      dialog.showModal()
-      cancelRef.current?.focus()
-    } else if (!open && dialog.open) {
-      dialog.close()
-    }
+    if (partner) setContract(startingContract(partner))
   }, [open])
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="df-dialog"
-      aria-labelledby={titleId}
-      aria-describedby={bodyId}
-      onCancel={(event) => {
-        event.preventDefault()
-        onCancel()
-      }}
-      onClose={() => triggerRef.current?.focus()}
+    <ConfirmDialog
+      open={open}
+      title={fill(words.dialog.title, { name: partner?.name ?? '' })}
+      target={partner?.name ?? ''}
+      consequence={words.dialog.consequence}
+      confirmLabel={words.dialog.confirm}
+      cancelLabel={messages.partner.cancel}
+      reason={{ label: words.dialog.reason, hint: words.dialog.reasonHint }}
+      error={error}
+      onConfirm={(reason) => partner && contract && onSave(partner, contract, reason ?? '')}
+      onCancel={onCancel}
     >
-      <h2 id={titleId}>{fill(words.dialog.title, { name: partner?.name ?? '' })}</h2>
-      <div id={bodyId} className="df-dialog-body">
-        <p>{words.dialog.consequence}</p>
-      </div>
       {contract && <ContractFields value={contract} onChange={setContract} />}
-      <div className="df-field">
-        <label htmlFor={reasonId}>{words.dialog.reason}</label>
-        <textarea id={reasonId} required rows={3} aria-describedby={hintId} value={reason} onChange={(event) => setReason(event.target.value)} />
-        <p id={hintId} className="df-field-hint">
-          {words.dialog.reasonHint}
-        </p>
-      </div>
-      <div className="df-actions">
-        <button ref={cancelRef} type="button" className="df-button" onClick={onCancel}>
-          {messages.partner.cancel}
-        </button>
-        <button
-          type="button"
-          className="df-button df-button--primary"
-          disabled={reason.trim() === ''}
-          aria-describedby={reason.trim() === '' ? hintId : undefined}
-          onClick={() => partner && contract && onSave(partner, contract, reason.trim())}
-        >
-          {words.dialog.confirm}
-        </button>
-      </div>
-    </dialog>
+    </ConfirmDialog>
   )
 }
