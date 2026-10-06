@@ -32,6 +32,12 @@ export const selectDomainRecords = (tx: ScopedSql, domainId: string): Promise<Pa
     from partner_domain_record where domain_id = ${domainId} order by position
   `
 
+/** What a `*.localhost` record is expected to hold, for the local DNS stand-in (system scope; never another name). */
+export const selectLocalExpectedRecords = async (tx: ScopedSql, name: string, recordType: string): Promise<string[]> =>
+  name.endsWith('.localhost')
+    ? (await tx<{ expected: string }[]>`select expected from partner_domain_record where lower(name) = lower(${name}) and record_type = ${recordType} order by position`).map((r) => r.expected)
+    : []
+
 export interface NewPartnerAddress {
   partnerId: string
   kind: DomainKind

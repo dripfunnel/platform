@@ -208,8 +208,8 @@ request ─▶ router.ts (host, path) ─▶ apis/<api> Yoga server
 
 Side effects (emails, webhooks, search indexing, cache purges, builds) are never done in the
 request. They are outbox rows, delivered by `jobs/queues/outbox-relay.ts` after commit. A kind
-with no deliverer registered (email without SES values) waits unclaimed; a deliverer's
-`heldTemplates` (today the store owner invitation) wait the same way.
+with no deliverer registered (email without SES values, texts until #275 reads partners' SMS accounts) waits unclaimed. A
+deliverer that will never deliver a row throws `GiveUp` with a reason, and the row is given up, not delivered. One whose row can't go yet for a reason outside it (a partner with no live portal host) throws `NotYet`: the row is tried again later and the attempt isn't counted.
 
 ---
 
@@ -289,8 +289,8 @@ that fixes it, rather than failing on Postgres's bare "must be owner".
 (`src/db/scoped/index.ts`) issues `set local role` with what `roleFor`
 (`src/db/rls/settings.ts`) returns for the caller kind: staff on the Admin API run as
 `app_platform`; partner users and staff setup sessions run as `app_partner` (#155);
-merchant-side people, suppliers, shoppers and support sessions run as `app_request` until their
-own roles (`app_supplier`, `app_shop`) arrive;
+merchant-side people and support sessions run as `app_request`; supplier users as `app_supplier`
+(#295); shoppers as `app_request` until `app_shop` arrives;
 jobs run as `app_system` through `withSystemScope`. Every policy names the roles that may use
 it, and on every tenant table four restrictive policies (`request_scope`, `partner_scope`,
 `platform_scope`, `system_scope`) hold each role to its own values of `app.scope`, so a role never passes another

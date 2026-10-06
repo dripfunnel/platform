@@ -255,14 +255,27 @@ Browser ──(httpOnly cookie, host-only)──▶ /api on the same host ──
   offered as one button above the full list. The remembered store id is a client-side
   convenience only (the first platform's AUTH-PLAN §11, settled by the build).
 - **Every request** names its acting store, and for a person who works for more than one
-  supplier in that store the acting supplier, in a header (`X-Store`, name proposed). The
+  supplier in that store the acting supplier, in headers: **`X-Store`** and **`X-Supplier`** (built on #288,
+  `auth/storeCaller.ts`; without `X-Supplier` a person with one membership there acts as it, one with
+  two is asked, `SUPPLIER_REQUIRED`, as is one naming a supplier they don't work for in a store they hold, which is not a crossing; a merchant-side member, never also a supplier there, ignores the header). The cookie is `__Host-portal_session`, the session a `user_session`
+  row read on the host's own partner only, so a cookie never works on another partner's host. The
   engine reads the session, checks the idle and absolute bounds, **looks up the membership
   row for (user, acting store, acting supplier)** and builds the `TenantContext` from it. Memberships and role
   permission sets are read per request (or from a cache invalidated by every membership
   write), so a role change, a vendor tier change or a removal applies on the next request.
+  **Built on #288**: memberships are read on every request, in `system` scope; a suspended or
+  removed supplier, an inactive membership and a closed store all count as not held.
+- **Merchant sign-in, built on #290** (`apis/store/auth.ts`, on the portal host): `POST /api/auth/sign-in`
+  (with `remember`), `send-code`, `second-factor`, `backup-code`, `enrol-second-factor` (`app` or
+  `sms`), `sign-out`. As the partner console's: one password derivation, a decoy when there's no
+  account, `INVALID_CREDENTIALS` alike for both, rate-limited per host and address and per typed
+  email; five wrong passwords or codes, one count, lock for 15 minutes and queue the `user-locked` email to the person, while every wrong password still answers `INVALID_CREDENTIALS`; `switchStore` naming a store not held is logged as a crossing. A texted code is 6 digits, hashed with its row, 10
+  minutes, five tries, at most three texts per person in 10 minutes; the authenticator's issuer is
+  the partner's brand name. An Owner without 2-factor gets a session good only for enrolling,
+  which ends with the ten backup codes shown once. `myStores` and `switchStore` read memberships in `system` scope, as the caller's own resolution does: they come before any acting store, so there is no `TenantContext` yet, and each read is pinned to the session's user and the host's partner. The support banner in `storeState` is read in the acting store's own scope (`open_support_banner`, migrations/0036). **Invitations and reset, built on #290** (`apis/store/invitations.ts`): `POST /api/auth/invitation` reads a link by its token's hash on the host's partner only and says which path it takes (`new` or `join`); `accept-invitation` takes a name and a password of 10 characters or more for a new person, proves the address, activates the membership and opens the session as sign-in would (an Owner enrols first); `join` needs the invited account's own full session on this host, changes nothing on the account, and holds a new Owner without 2-factor at set-up. Refusals: `INVITATION_USED`, `INVITATION_REPLACED`, `INVITATION_EXPIRED` (with the inviter's name, for the prototype's "Ask Priya for a new invite"), else `INVITATION_INVALID`, including someone else's link. `request-password-reset` answers the same for any email and writes one outbox row; the relay finds at most the host partner's account; `reset-password` works once within 30 minutes, ends every session of that person, lifts a sign-in pause, and signs in here as far as 2-factor allows. The links are minted when the email is sent, to the partner's live portal host (an email waits until one is live, never given up). Only an `invited` membership is activated: a link never restores a suspended member or changes a live member's role (`INVITATION_INVALID`). **My profile, built on #290** (`apis/store/profile.ts`, scope `session`, system scope pinned to the session's user like `myStores`): `profile`, `mySessions` (the newest 50, this one marked, a device name rather than the header; no cursor, since one would carry a session hash), `myActivity` (own entries, never a staff-only one); `updateProfile` (name and full international number; the number a texted sign-in code goes to changes only through `setSecondFactor`, which texts it first), `setTheme` (light or dark alone, so a details save never undoes a theme set on another device; allowed while read-only, audited as `person.profile_updated`), `changeEmail` (the current password first; a link to the new address for 24 hours, a notice to the old, the newest request only, three a day; the same answer for an address in use, whose link then changes nothing; confirmed at `POST /api/auth/confirm-email`), `changePassword` (the current one first, counted with sign-in's wrong tries; every other session ends), `setSecondFactor` (`app` or `sms`, started without a code and confirmed with one; every start and every `off` needs the password, counted the same way, so a stolen session can neither swap nor plant a factor; ten backup codes when it is first turned on, kept on a switch; `off` for anyone but an Owner), `regenerateBackupCodes`, `signOutOtherSessions` (it and a password change also cancel an email change in flight). **Sign-up, built on #290** (`POST /api/auth/sign-up`, `…/sign-up/verify-email`, `…/sign-up/store`, `…/sign-up/send-phone`, `…/sign-up/verify-phone`, a `__Host-portal_signup` cookie for a day): the same answer whether or not the address has an account; open only while the partner is Live (`SIGNUP_CLOSED`); a sign-up never works on another partner's host; the new Owner is then held at 2-factor set-up, as at sign-in.
 - **A request naming a store the session doesn't hold** is not a 404: it is an attempted
   tenant crossing. Answer 403, and log it with both store ids and the user, because it is a
-  client bug or someone probing.
+  client bug or someone probing. At most five crossings a minute are logged per person, whatever stores they name; past that they are refused without an entry, so a looping client can't flood the log (#288).
 - **Timings**: idle **2 h**, absolute **12 h**. "Remember me" extends the absolute bound
   to **30 days** on that device, idle limit 7 days, with 2-factor still asked on a new device (decided 2026-10-05 on #337). Sessions are never year-long.
 - **The second factor** (decided 2026-10-02; the prototype's `PortalAuth` and `PortalProfile`
@@ -417,6 +430,7 @@ supplier who can look and not touch.
 |---|:--:|:--:|:--:|:--:|
 | `catalog.read` | ✓ | ✓ | ✓ | ✓ |
 | `catalog.write` | | ✓ | ✓ | ✓ |
+| `catalog.propose`: a new product that waits for the merchant's approval, never an edit (decided on #337, built on #295) | ✓ | | | |
 | `stock.read`, `stock.write`, `warehouses.write` | ✓ | ✓ | ✓ | ✓ |
 | `orders.read`: their own sub-orders | | | ✓ | ✓ |
 | `orders.fulfil`: their own sub-orders — ship to the shopper, or mark as sent to the store, by shipping mode | | | ✓ | |
@@ -431,7 +445,9 @@ supplier who can look and not touch.
 - **Stock only** is "they update quantities. Nothing else." Catalogue read is included because
   stock is meaningless without finding the version to count. It must never grant catalogue
   write; mapping it onto `vendor-catalogue` would let a supplier add and edit products while
-  the screen promised otherwise.
+  the screen promised otherwise. It may **propose** a new product (`proposeProduct`, with its
+  photos), which is created hidden and waiting for approval whatever the store's switch says, and
+  it changes no product row after that: migration 0050's guard holds both.
 - **Unlike the first platform, these ticks are the enforced boundary.** Because permissions apply per
   row, `catalog.write` for a vendor is "write my own products" at the engine, not only in the
   portal.
@@ -615,6 +631,7 @@ test (§11.2).
 - **App grants** are per store, with the scopes the merchant approved at install, revocable on
   uninstall; the app runs out of process and reaches the Store API like any other caller.
 - Creating, rotating and revoking keys, and installing and uninstalling apps, are audited.
+- **Webhook and key rules as drawn** (`SetDev`, #286; *proposed* for SAPI 20 to confirm): a rotated key's old secret keeps working for **24 hours**; an endpoint failing for **3 days** is disabled automatically and the Owner told; events for a disabled endpoint are kept **7 days** for replay.
 
 ---
 
@@ -670,9 +687,8 @@ Accept: token + password (new) or token + signed-in session (existing)
 ### 6.3 Lifecycle
 
 - **Resend** mints a fresh token; the previous one stops working.
-- **Revoke** sets the invitation `revoked`. An `invited` account with no other pending
-  invitation and no membership is deleted. **A partner team (built on #199)** keeps the row
-  instead and marks it `removed`, since the activity log names it; inviting the address again
+- **Revoke** sets the invitation `revoked`; the `invited` account is kept, never deleted
+  (a store's, built on #290, stays `invited`; **a partner team's, built on #199**, is marked `removed`), since the activity log names it; inviting the address again
   invites that account anew. Partner invitations and resends are throttled: 20 an hour per
   inviter and 3 a day per address (`RATE_LIMITED`).
 - **Staff invitations** (admin console) work the same way, except that accepting binds the
@@ -688,10 +704,22 @@ Accept: token + password (new) or token + signed-in session (existing)
 - **Already a member here** is the only error, and it reveals nothing the Owner can't already
   see in their own People list.
 - **Change role** writes the membership's `role_key`; it applies on the next request.
-- **Removing someone** (flow 12) removes the membership for this store only. The account
-  survives if they belong elsewhere and is deleted only when the last membership goes. Their
-  open requests in this store fail on the next request.
+- **Removing someone** (flow 12) removes the membership for this store only: it stays as a
+  `removed` row the activity log names (built on #290), and the account is never deleted by a
+  removal, whether or not they belong elsewhere (erasing a person is an erasure request's, LOGGING.md §8).
+  Their open requests in this store fail on the next request.
 - **Owner invariant**: refuse to remove or demote the last active Owner of a store.
+- **Merchant People, built on #290** (`apis/store/people.ts`, Settings › People, Owner only through
+  `invite`, every statement in the acting store's scope): `people` (active merchant members and open
+  invitations, cursor-paged; supplier users are SAPI 5's) and `peopleCounts`; `inviteMember` (Owner,
+  Manager or Staff; "already a member here" the only refusal about the person, checked first; the
+  account found or made `invited` by `store_invitee`, migrations/0040, the same call whether or not it
+  exists; the plan's `staff` limit counts Managers and Staff, active or invited, never an Owner);
+  `resendInvitation` (a new link revokes the old) and `revokeInvitation`; `changeRole` and
+  `removeMember`, the last Owner kept under a lock (`LAST_OWNER`). Invitations are capped at 20 an
+  hour per inviter and 3 a day per address in the store. A removed membership stays as `removed`
+  (requests never delete), and a revoked invitation's `invited` account is kept, as the partner team
+  keeps its rows (#199).
 
 ---
 
@@ -738,6 +766,11 @@ stock totals (PLATFORM-PROMPT §2 item 5).
   portal says which change needs approval. Accepted with the decision: a vendor can take its
   own product off sale by editing one of those fields, which the Owner sees in the queue and
   the activity log.
+- **Built on #295** (migration 0050's guard decides it, so no request skips the queue). Decided there: a product made
+  while approval was off counts as approved when it is next edited; any supplier save of a sent-back product resubmits
+  it, even after approval is switched off, so a sent-back product is never stranded; publishing a supplier's A+ content sends its product back to the queue (CATALOG Q11); turning approval off leaves
+  what is waiting in the queue, so nothing unreviewed goes live by a switch; approving shows the product unless something
+  else hides it (the plan, a suspension).
 
 ### 7.3 Orders: vendor sub-orders
 
@@ -793,7 +826,11 @@ another vendor holds (DESIGN-BRIEF fact 10).
   transaction (§6.2). That first user becomes its **Supplier admin**.
 - **Team** (Supplier admin): invite colleagues into its own supplier, change their team
   role, remove them. The invitation's `seller_id` comes from the inviter's membership. A
-  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one.
+  supplier always keeps one admin; if the last one leaves, the merchant's Owner appoints one, by
+  adding a person to the supplier as its Supplier admin (SetTeam "Add a person", which otherwise adds a
+  member; decided on #295). The Owner adding someone on the merchant side hears "already in this store"; a
+  Supplier admin inviting one is answered as for any address, with no seat held and no email, so a supplier
+  learns nothing of the store's staff.
 - **Change access level**: write `seller.access_level`. It applies to all of the supplier's
   users on the next request; there is
   no cache delay, so the portal can say it is immediate (this changes flow 16's "it can take a
@@ -929,8 +966,8 @@ Browser → target's host: the partner console (platform.dripfunnel.com) or the 
   extension of 30 set on the row, one open per staff member at the index, the hashed one-time
   handoff (five minutes, a return mints a fresh one and the old stops working), and the
   entries `impersonation.started`, `.extended`, `.ended` (staff as the actor, the impersonation
-  in `access_ref`). Supplier users wait for the Store strand's `app_supplier`
-  (`SUPPLIER_NOT_SUPPORTED`). In the partner console, the exchange, the `impersonation` caller
+  in `access_ref`). Impersonating a supplier user is still refused
+  (`SUPPLIER_NOT_SUPPORTED`): `app_supplier` exists since #295, and the impersonation path for it isn't built. In the partner console, the exchange, the `impersonation` caller
   and the blocked list's structural test are built on #243 (§8.3). The store portal's half waits
   for the Store API.
 
@@ -1155,8 +1192,9 @@ builds the table must ship:
 - a shopper reads only visible catalogue rows and never a cost, a stock movement, a refund,
   a ledger entry or a job (DATA-MODEL §7.11 shop branches);
 - a supplier reads only the labels it printed for its own parts, never an invoice or packing
-  slip (`order_document`); a partner or staff query on `import_job` or `export_job` returns
-  nothing (DATA-MODEL §7.10, §7.11);
+  slip (`order_document`); a partner or staff query on `catalog_import` or `catalog_export` returns
+  nothing, and a store-side query (merchant or supplier) on `export_job`, the partner's and staff's own exports
+  (DATA-MODEL §2.6), returns nothing (DATA-MODEL §7.10, §7.11);
 - a supplier reads the settings rows §7.11 names (`filter`, `filter_value`, `tax_class`,
   `store_language`, `store_currency`, `store_feature`, `badge`, `market` without duties and
   domain) and no other settings table, no `tax_rate`, and no `*_enc` column;

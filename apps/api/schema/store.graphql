@@ -1,3 +1,1519 @@
+type ActingStore {
+  permissions: [String!]
+  plan: Named
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type Badge {
+  id: ID
+  label: String
+  position: Int
+  rule: String
+  tone: String
+}
+
+input BadgeInput {
+  label: String!
+  position: Int
+  rule: String!
+  tone: String!
+}
+
+type Brand {
+  accentColor: String
+  background: String
+  corner: String
+  files: BrandFiles
+  font: String
+  helpUrl: String
+  poweredBy: Boolean
+  primaryColor: String
+  privacyUrl: String
+  productName: String
+  supportEmail: String
+  supportUrl: String
+  termsUrl: String
+}
+
+type BrandFiles {
+  favicon: String
+  logoDark: String
+  logoLight: String
+  mark: String
+}
+
+type CatalogExport {
+  csv: String
+  expiresAt: String
+  id: ID
+  kind: String
+  requestedAt: String
+  rows: Int
+  state: String
+  truncated: Boolean
+}
+
+input CatalogExportFilterInput {
+  filter: String
+  search: String
+  supplier: String
+}
+
+enum CatalogExportKind {
+  products
+  stock
+}
+
+type CatalogImport {
+  created: Int
+  done: Int
+  failed: Int
+  finishedAt: String
+  id: ID
+  matched: Int
+  photosPending: Int
+  problemCount: Int
+  problems: [CatalogImportProblem!]
+  problemsCsv: String
+  products: Int
+  ready: Int
+  requestedAt: String
+  skipped: Int
+  source: String
+  state: String
+  updated: Int
+}
+
+enum CatalogImportMatching {
+  skip
+  update
+}
+
+type CatalogImportProblem {
+  code: String
+  column: String
+  line: Int
+  message: String
+}
+
+type CatalogueFeature {
+  enabled: Boolean
+  inPlan: Boolean
+  key: String
+}
+
+input CatalogueFeatureInput {
+  enabled: Boolean!
+  key: String!
+}
+
+type CatalogueSettings {
+  badges: [Badge!]
+  features: [CatalogueFeature!]
+  mainLanguage: String
+  pricingCurrency: String
+  translationLanguages: [String!]
+  unitSystem: String
+}
+
+type Collection {
+  computedAt: String
+  description: String
+  id: ID
+  imageAssetId: ID
+  inheritParent: Boolean
+  kind: String
+  match: String
+  name: String
+  parentId: ID
+  revision: Int
+  ruleMatches: Int
+  rules: [CollectionRule!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  truncated: Boolean
+  visible: Boolean
+}
+
+input CollectionInput {
+  description: String
+  imageAssetId: String
+  inheritParent: Boolean
+  kind: String!
+  match: String
+  name: String!
+  parentId: String
+  productIds: [String!]
+  rules: [CollectionRuleInput!]
+  seoDescription: String
+  seoTitle: String
+  slug: String
+  sort: String
+  visible: Boolean
+}
+
+type CollectionMember {
+  id: ID
+  name: String
+  source: String
+}
+
+type CollectionMemberPage {
+  nodes: [CollectionMember!]
+  pageInfo: PageInfo
+}
+
+type CollectionPage {
+  nodes: [CollectionSummary!]
+  pageInfo: PageInfo
+}
+
+type CollectionPreview {
+  count: Int
+  products: [CollectionPreviewProduct!]
+}
+
+type CollectionPreviewProduct {
+  id: ID
+  name: String
+}
+
+type CollectionRule {
+  currency: String
+  kind: String
+  max: String
+  min: String
+  productId: ID
+  text: String
+  valueId: ID
+  versionId: ID
+}
+
+input CollectionRuleInput {
+  currency: String
+  kind: String!
+  max: String
+  min: String
+  productId: String
+  text: String
+  valueId: String
+  versionId: String
+}
+
+type CollectionSummary {
+  computedAt: String
+  id: ID
+  inheritParent: Boolean
+  kind: String
+  match: String
+  name: String
+  parentId: ID
+  products: Int
+  rules: [CollectionRule!]
+  slug: String
+  visible: Boolean
+}
+
+type ConversionExample {
+  currency: String
+  ends99: ConvertedAmount
+  from: ConvertedAmount
+  nearest: ConvertedAmount
+  none: ConvertedAmount
+  publishedOn: String
+}
+
+type ConvertedAmount {
+  amount: String
+  currency: String
+}
+
+type CurrencyPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+  source: String
+}
+
+type Facet {
+  id: ID
+  name: String
+  position: Int
+  revision: Int
+  shopperVisible: Boolean
+  values: [FacetValue!]
+}
+
+input FacetInput {
+  id: String
+  name: String!
+  position: Int
+  revision: Int
+  shopperVisible: Boolean
+  values: [FacetValueInput!]!
+}
+
+type FacetPage {
+  nodes: [Facet!]
+  pageInfo: PageInfo
+}
+
+type FacetValue {
+  id: ID
+  name: String
+  products: Int
+}
+
+input FacetValueInput {
+  id: String
+  name: String!
+}
+
+input InviteSupplierInput {
+  accessLevel: String!
+  email: String!
+  labelAccount: String
+  name: String!
+  shippingMode: String
+}
+
+type InvoiceSettings {
+  emailWithDispatch: Boolean
+  footer: String
+  legalName: String
+  taxPerLine: Boolean
+}
+
+input InvoiceSettingsInput {
+  emailWithDispatch: Boolean!
+  footer: String
+  taxPerLine: Boolean!
+}
+
+type Market {
+  active: Boolean
+  countries: [String!]
+  currency: String
+  duties: MarketDuties
+  everywhereElse: Boolean
+  excludedProductIds: [ID!]
+  excludedProducts: [MarketExcludedProduct!]
+  id: ID
+  language: String
+  name: String
+  parentId: ID
+  pathPrefix: String
+  priceAdjustmentBps: Int
+  primary: Boolean
+  products: String
+  revision: Int
+  webMode: String
+}
+
+type MarketDuties {
+  mode: String
+  rateBps: Int
+  thresholdAmount: String
+}
+
+type MarketExcludedProduct {
+  id: ID
+  name: String
+}
+
+input MarketInput {
+  active: Boolean
+  countries: [String!]!
+  currency: String!
+  dutiesMode: String
+  dutiesRateBps: Int
+  dutiesThresholdAmount: String
+  excludedProductIds: [ID!]
+  language: String!
+  name: String!
+  parentId: ID
+  pathPrefix: String
+  priceAdjustmentBps: Int
+  products: String
+  webMode: String
+}
+
+type MarketPage {
+  nodes: [Market!]
+  pageInfo: PageInfo
+}
+
+type MarketReadiness {
+  marketId: ID
+  marketName: String
+  missing: [String!]
+  ready: Boolean
+}
+
+type Me {
+  acting: ActingStore
+  email: String
+  id: ID
+  name: String
+}
+
+type Menu {
+  items: [MenuItem!]
+  name: String
+  revision: Int
+}
+
+input MenuChildInput {
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type MenuItem {
+  collectionId: ID
+  id: ID
+  kind: String
+  label: String
+  parentId: ID
+  url: String
+}
+
+input MenuItemInput {
+  children: [MenuChildInput!]
+  collectionId: String
+  kind: String!
+  label: String!
+  url: String
+}
+
+type Money {
+  amount: String
+  currency: String
+}
+
+input MoneyInput {
+  amount: String!
+  currency: String!
+}
+
+type Mutation {
+  addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
+  addSupplierPerson(email: String!, id: ID!, role: String): ID
+  addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
+  adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
+  approveProduct(id: ID!): Boolean
+  changeEmail(email: String!, password: String!): Boolean
+  changePassword(current: String!, next: String!): Boolean
+  changeRole(membershipId: ID!, role: String!): Boolean
+  changeSupplierRole(membershipId: ID!, role: String!): Boolean
+  confirmCatalogImport(id: ID!, matching: CatalogImportMatching!, warehouseId: ID): Boolean
+  connectShopify(shop: String!): String
+  copyProductStory(fromProductId: ID!, toProductIds: [ID!]!): Int
+  deleteBadge(id: ID!): Boolean
+  deleteCollection(id: ID!): Boolean
+  deleteFacet(id: ID!): Boolean
+  deleteMarket(id: ID!): Boolean
+  deleteProducts(ids: [ID!]!): Int
+  deleteSizeChart(id: ID!): Int
+  deleteStoryBlock(id: ID!): Boolean
+  deleteTaxClass(id: ID!): Boolean
+  deleteTaxZone(id: ID!): Boolean
+  deleteWarehouse(id: ID!): Boolean
+  disconnectShopify: Boolean
+  duplicateProduct(id: ID!): SavedProduct
+  finishShopifyConnect(key: String!): String
+  inviteMember(email: String!, role: String!): Boolean
+  inviteSupplier(input: InviteSupplierInput!): ID
+  inviteSupplierUser(email: String!, role: String!): ID
+  mergeFacetValues(from: [ID!]!, into: ID!): Int
+  proposeProduct(input: ProductInput!): SavedProduct
+  publishProductStory(productId: ID!, revision: Int!): ProductStory
+  regenerateBackupCodes: [String!]
+  removeMember(membershipId: ID!): Boolean
+  removeSupplier(id: ID!): Int
+  removeSupplierUser(membershipId: ID!): Boolean
+  requestCatalogExport(filter: CatalogExportFilterInput, kind: CatalogExportKind!): ID
+  resendInvitation(invitationId: ID!): Boolean
+  resendSupplierInvitation(invitationId: ID!): ID
+  resumeSupplier(id: ID!): Int
+  revokeInvitation(invitationId: ID!): Boolean
+  revokeSupplierInvitation(invitationId: ID!): Boolean
+  saveBadge(id: ID, input: BadgeInput!): ID
+  saveCatalogueSettings(features: [CatalogueFeatureInput!]!): [CatalogueFeature!]
+  saveCatalogueTranslation(entity: String!, id: ID!, input: TranslationTextInput!, language: String!): [Translation!]
+  saveCollection(id: ID, input: CollectionInput!, revision: Int): SavedCollection
+  saveCurrencies(currencies: [StoreCurrencyInput!]!): Boolean
+  saveFacet(input: FacetInput!): ID
+  saveInvoiceSettings(input: InvoiceSettingsInput!): Boolean
+  saveLanguages(languages: [String!]!, main: String!): Boolean
+  saveMarket(id: ID, input: MarketInput!, revision: Int): Market
+  saveMenu(items: [MenuItemInput!]!, name: String, revision: Int): Int
+  saveProduct(id: ID, input: ProductInput!, revision: Int): SavedProduct
+  saveProductStory(input: ProductStoryInput!, productId: ID!, revision: Int!): ProductStory
+  saveProductTranslation(input: ProductTranslationInput!, language: String!, productId: ID!): [Translation!]
+  saveSharedNames(language: String!, names: [SharedNameTranslationInput!]!): Boolean
+  saveSizeChart(id: ID, input: SizeChartInput!, revision: Int): SavedSizeChart
+  saveStoreInfo(input: StoreInfoInput!): Boolean
+  saveStoryBlock(id: ID, input: StoryBlockInput!, revision: Int): SavedStoryBlock
+  saveTaxClass(id: ID, input: TaxClassInput!): ID
+  saveTaxZone(id: ID, input: TaxZoneInput!): ID
+  saveWarehouse(id: ID, input: WarehouseInput!, revision: Int): ID
+  sendBackProduct(id: ID!, reason: String!): Boolean
+  setApproval(on: Boolean!): Boolean
+  setDefaultWarehouse(id: ID!): Boolean
+  setEverywhereElse(marketId: ID): Boolean
+  setHomeTaxRate(homeZoneName: String!, rateBps: Int!, taxClassId: ID!): Boolean
+  setLowStockThreshold(threshold: Int, versionId: ID!, warehouseId: ID!): Int
+  setPricesIncludeTax(included: Boolean!): Boolean
+  setProductCollections(collectionIds: [ID!]!, productId: ID!): [ProductCollection!]
+  setProductsTaxClass(ids: [ID!]!, taxClassId: ID): Int
+  setSecondFactor(code: String, method: String!, password: String): SecondFactorStep
+  setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
+  setSupplierAccess(accessLevel: String!, id: ID!): Boolean
+  setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
+  setTheme(theme: String!): Profile
+  signOutOtherSessions: Int
+  startCatalogImport(file: String!): ID
+  startShopifyImport(all: Boolean, productIds: [ID!]): ID
+  suspendSupplier(hideProducts: Boolean!, id: ID!): Int
+  switchStore(storeId: ID!, supplierId: ID): StoreChoice
+  updateProducts(ids: [ID!]!, patch: ProductsPatch!): Int
+  updateProfile(name: String!, phone: String): Profile
+}
+
+type MyActivity {
+  nodes: [MyActivityEntry!]
+  pageInfo: PageInfo
+}
+
+type MyActivityEntry {
+  action: String
+  id: ID
+  occurredAt: String
+  result: String
+  storeId: String
+  target: MyActivityTarget
+}
+
+type MyActivityTarget {
+  label: String
+  type: String
+}
+
+type Named {
+  id: ID
+  name: String
+}
+
+type PageInfo {
+  endCursor: String
+  hasNextPage: Boolean
+  hasPreviousPage: Boolean
+  startCursor: String
+}
+
+type Product {
+  approval: String
+  category: String
+  createdAt: String
+  description: String
+  filterValues: [ProductFilterValue!]
+  id: ID
+  listing: ProductListing
+  name: String
+  options: [ProductOption!]
+  photos: [ProductPhoto!]
+  pricing(marketId: ID): [VersionPricing!]
+  pricingCurrency: String
+  productType: String
+  readiness: [MarketReadiness!]
+  returnsText: String
+  revision: Int
+  sentBackReason: String
+  seoDescription: String
+  seoTitle: String
+  shared: Boolean
+  sizeChartId: ID
+  slug: String
+  supplier: ProductSupplier
+  updatedAt: String
+  versions: [ProductVersion!]
+  video: ProductVideo
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductCollection {
+  id: ID
+  kind: String
+  name: String
+}
+
+type ProductCompliance {
+  field: String
+  region: String
+  value: String
+}
+
+input ProductComplianceInput {
+  field: String!
+  region: String!
+  value: String!
+}
+
+type ProductCounts {
+  all: Int
+  fromSuppliers: Int
+  hidden: Int
+  lowStock: Int
+  missingInfo: Int
+  outOfStock: Int
+  pending: Int
+  sentBack: Int
+  visible: Int
+}
+
+type ProductFaq {
+  answer: String
+  question: String
+}
+
+input ProductFaqInput {
+  answer: String!
+  question: String!
+}
+
+type ProductFilterValue {
+  valueId: ID
+  versionId: ID
+}
+
+input ProductFilterValueInput {
+  valueId: String!
+  version: Int
+}
+
+input ProductInput {
+  category: String
+  description: String
+  filterValues: [ProductFilterValueInput!]
+  listing: ProductListingInput
+  name: String!
+  options: [ProductOptionInput!]!
+  photos: [ProductPhotoInput!]
+  productType: String
+  returnsText: String
+  seoDescription: String
+  seoTitle: String
+  sizeChartId: String
+  slug: String
+  versions: [ProductVersionInput!]!
+  video: ProductVideoInput
+  visible: Boolean
+  warrantyText: String
+}
+
+type ProductListing {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductCompliance!]
+  faqs: [ProductFaq!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRule
+  related: [RelatedProduct!]
+  relatedIds: [String!]
+  specs: [ProductSpec!]
+}
+
+input ProductListingInput {
+  ageRestricted: Boolean
+  badgeIds: [String!]
+  compliance: [ProductComplianceInput!]
+  faqs: [ProductFaqInput!]
+  hazardous: Boolean
+  highlights: [String!]
+  marketRule: ProductMarketRuleInput
+  relatedIds: [String!]
+  specs: [ProductSpecInput!]
+}
+
+type ProductMarketRule {
+  countries: [String!]
+  mode: String
+}
+
+input ProductMarketRuleInput {
+  countries: [String!]!
+  mode: String!
+}
+
+type ProductOption {
+  id: ID
+  name: String
+  values: [ProductOptionValue!]
+}
+
+input ProductOptionInput {
+  id: ID
+  name: String!
+  values: [ProductOptionValueInput!]!
+}
+
+type ProductOptionValue {
+  id: ID
+  name: String
+}
+
+input ProductOptionValueInput {
+  id: ID
+  name: String!
+}
+
+type ProductPage {
+  nodes: [ProductSummary!]
+  pageInfo: PageInfo
+}
+
+type ProductPhoto {
+  alt: String
+  assetId: ID
+  height: Int
+  id: ID
+  url: String
+  versionId: ID
+  width: Int
+}
+
+input ProductPhotoInput {
+  alt: String
+  assetId: String!
+  version: Int
+}
+
+type ProductSpec {
+  filterValueId: ID
+  name: String
+  value: String
+  versionId: ID
+}
+
+input ProductSpecInput {
+  filterValueId: String
+  name: String!
+  value: String!
+  version: Int
+}
+
+type ProductStory {
+  modules: [StoryModule!]
+  productId: ID
+  products: [StoryProduct!]
+  publishedAt: String
+  revision: Int
+  status: String
+  template: String
+}
+
+input ProductStoryInput {
+  modules: [StoryModuleInput!]!
+  template: String
+}
+
+type ProductSummary {
+  approval: String
+  buyable: Boolean
+  createdAt: String
+  id: ID
+  lowStock: Boolean
+  maxPrice: Money
+  minPrice: Money
+  name: String
+  photoUrl: String
+  productType: String
+  readiness: [MarketReadiness!]
+  slug: String
+  stock: Int
+  supplier: ProductSupplier
+  supplierRemoved: Boolean
+  updatedAt: String
+  versionCount: Int
+  visible: Boolean
+}
+
+type ProductSupplier {
+  id: ID
+  name: String
+}
+
+input ProductTranslationInput {
+  description: String
+  name: String
+  names: [SharedNameTranslationInput!]
+  slug: String
+  versions: [VersionNameTranslationInput!]
+}
+
+type ProductVersion {
+  barcode: String
+  choices: [String!]
+  continueSelling: Boolean
+  cost: Money
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPrice!]
+  sku: String
+  taxClassId: ID
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+input ProductVersionInput {
+  barcode: String
+  choices: [String!]!
+  continueSelling: Boolean
+  cost: MoneyInput
+  customsDescription: String
+  heightMm: Int
+  hsCode: String
+  id: ID
+  lengthMm: Int
+  name: String
+  prices: [VersionPriceInput!]!
+  sku: String
+  taxClassId: ID
+  trackStock: Boolean
+  visible: Boolean
+  weightGrams: Int
+  widthMm: Int
+}
+
+type ProductVideo {
+  assetId: ID
+  uploaded: Boolean
+  url: String
+}
+
+input ProductVideoInput {
+  assetId: String
+  url: String
+}
+
+input ProductsPatch {
+  visible: Boolean!
+}
+
+type Profile {
+  email: String
+  name: String
+  passwordChangedAt: String
+  pendingEmail: String
+  phone: String
+  theme: String
+  twoFactor: TwoFactor
+}
+
+type Provisioning {
+  state: String
+  step: String
+}
+
 type Query {
+  brand: Brand
+  catalogExport(id: ID!): CatalogExport
+  catalogExports: [CatalogExport!]
+  catalogImport(id: ID!): CatalogImport
+  catalogImportTemplate: String
+  catalogImports: [CatalogImport!]
+  catalogueSettings: CatalogueSettings
+  catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
+  collection(id: ID!): Collection
+  collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
+  collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
+  collections(after: String, before: String, first: Int): CollectionPage
+  facets(after: String, before: String, first: Int): FacetPage
   health: String
+  invoiceSettings: InvoiceSettings
+  market(id: ID!): Market
+  markets(after: String, before: String, first: Int): MarketPage
+  me: Me
+  menu: Menu
+  myActivity(after: String, before: String, first: Int): MyActivity
+  mySessions: [SignedInSession!]
+  myStores(after: String, before: String, first: Int): StoreChoices
+  mySupplierTeam(after: String, before: String, first: Int): SupplierTeam
+  navBadges: StoreNavBadges
+  people(after: String, before: String, filter: String, first: Int): StorePeople
+  peopleCounts: StorePeopleCounts
+  product(id: ID!): Product
+  productCollections(productId: ID!): [ProductCollection!]
+  productCounts: ProductCounts
+  productStock(after: String, before: String, first: Int, productId: ID!): StockVersionPage
+  productStory(productId: ID!): ProductStory
+  productTranslation(language: String!, productId: ID!): [Translation!]
+  products(after: String, before: String, filter: String, first: Int, search: String, sort: String, supplier: String, untranslatedIn: String): ProductPage
+  profile: Profile
+  sharedNames(after: String, first: Int, kind: String!, language: String!): SharedNamePage
+  shopifyConnection: ShopifyConnection
+  shopifyProducts(after: String, search: String): ShopifyProductPage
+  sizeChart(id: ID!): SizeChart
+  sizeCharts(after: String, before: String, first: Int): SizeChartPage
+  stockHistory(after: String, before: String, first: Int, productId: ID!, versionId: ID): StockMovementPage
+  storeInfo: StoreInfo
+  storeLocale: StoreLocale
+  storeState: StoreState
+  storyBlock(id: ID!): StoryBlock
+  storyBlocks(after: String, before: String, first: Int): StoryBlockPage
+  supplier(id: ID!): Supplier
+  supplierApprovalRequired: Boolean
+  supplierCounts: SupplierCounts
+  suppliers(after: String, before: String, filter: String, first: Int): SupplierPage
+  taxQuote(lines: [TaxQuoteLineInput!]!, shipTo: TaxShipToInput!): TaxQuote
+  taxSetup: TaxSetup
+  translationProgress(language: String!): TranslationProgress
+  warehouses(after: String, before: String, first: Int): WarehousePage
+}
+
+type ReferenceRate {
+  currency: String
+  fetchedAt: String
+  perEuro: String
+  publishedOn: String
+}
+
+type RelatedProduct {
+  id: ID
+  name: String
+}
+
+type SavedCollection {
+  id: ID
+  revision: Int
+  slug: String
+}
+
+type SavedProduct {
+  approval: String
+  id: ID
+  reviewed: [String!]
+  revision: Int
+  slug: String
+}
+
+type SavedSizeChart {
+  id: ID
+  revision: Int
+}
+
+type SavedStoryBlock {
+  id: ID
+  revision: Int
+}
+
+type SecondFactorStep {
+  backupCodes: [String!]
+  done: Boolean
+  hint: String
+  secret: String
+  uri: String
+}
+
+type SharedName {
+  kind: String
+  main: String
+  source: String
+  text: String
+  uses: Int
+}
+
+type SharedNamePage {
+  nodes: [SharedName!]
+  pageInfo: PageInfo
+}
+
+input SharedNameTranslationInput {
+  kind: String!
+  source: String!
+  text: String
+}
+
+type ShopifyConnection {
+  available: Boolean
+  shop: String
+  status: String
+}
+
+type ShopifyProduct {
+  id: ID
+  imageUrl: String
+  status: String
+  title: String
+  versions: Int
+}
+
+type ShopifyProductPage {
+  next: String
+  nodes: [ShopifyProduct!]
+}
+
+type SignedInSession {
+  createdAt: String
+  current: Boolean
+  device: String
+  lastUsedAt: String
+}
+
+type SizeChart {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNote!]
+  id: ID
+  measurements: [String!]
+  modelInfo: String
+  name: String
+  products: Int
+  revision: Int
+  rows: [SizeChartRow!]
+  supplierId: ID
+  systems: [String!]
+  unit: String
+  updatedAt: String
+}
+
+input SizeChartInput {
+  fitNotes: String
+  howToMeasure: [SizeChartMeasureNoteInput!]
+  measurements: [String!]!
+  modelInfo: String
+  name: String!
+  rows: [SizeChartRowInput!]!
+  systems: [String!]
+  unit: String!
+}
+
+type SizeChartMeasureNote {
+  measurement: String
+  text: String
+}
+
+input SizeChartMeasureNoteInput {
+  measurement: String!
+  text: String!
+}
+
+type SizeChartPage {
+  limit: Int
+  nodes: [SizeChartSummary!]
+  pageInfo: PageInfo
+}
+
+type SizeChartRow {
+  size: String
+  values: [String!]
+}
+
+input SizeChartRowInput {
+  size: String!
+  values: [String!]!
+}
+
+type SizeChartSummary {
+  id: ID
+  name: String
+  products: Int
+  supplierId: ID
+  unit: String
+  updatedAt: String
+}
+
+type StockLevel {
+  isDefault: Boolean
+  lowStockThreshold: Int
+  onHand: Int
+  reserved: Int
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovement {
+  actorKind: String
+  actorName: String
+  delta: Int
+  id: ID
+  occurredAt: String
+  reason: String
+  resultingQuantity: Int
+  versionId: ID
+  warehouseId: ID
+  warehouseName: String
+}
+
+type StockMovementPage {
+  nodes: [StockMovement!]
+  pageInfo: PageInfo
+}
+
+type StockQuantity {
+  quantity: Int
+  versionId: ID
+  warehouseId: ID
+}
+
+input StockQuantityInput {
+  quantity: Int!
+  versionId: ID!
+  warehouseId: ID!
+}
+
+type StockVersion {
+  levels: [StockLevel!]
+  versionId: ID
+}
+
+type StockVersionPage {
+  nodes: [StockVersion!]
+  pageInfo: PageInfo
+}
+
+type StoreAddress {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
+input StoreAddressInput {
+  city: String
+  postal: String
+  region: String
+  street: String
+}
+
+type StoreChoice {
+  membershipId: ID
+  role: String
+  seller: Named
+  store: Named
+  tier: String
+}
+
+type StoreChoices {
+  nodes: [StoreChoice!]
+  pageInfo: PageInfo
+}
+
+type StoreCurrency {
+  code: String
+  mode: String
+  rounding: String
+  status: String
+}
+
+input StoreCurrencyInput {
+  code: String!
+  mode: String!
+  rounding: String
+}
+
+type StoreInfo {
+  address: StoreAddress
+  contactEmail: String
+  contactPhone: String
+  country: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String
+  nextOrderNumber: String
+  orderPrefix: String
+  taxId: String
+  timeZone: String
+  unitSystem: String
+}
+
+input StoreInfoInput {
+  address: StoreAddressInput
+  contactEmail: String
+  contactPhone: String
+  description: String
+  legalName: String
+  logoAssetId: ID
+  name: String!
+  nextOrderNumber: Int!
+  orderPrefix: String
+  taxId: String
+  timeZone: String!
+  unitSystem: String!
+}
+
+type StoreLanguage {
+  code: String
+  status: String
+}
+
+type StoreLocale {
+  currencies: [StoreCurrency!]
+  examples: [ConversionExample!]
+  languages: [StoreLanguage!]
+  mainLanguage: String
+  offeredLanguages: [String!]
+  pricingCurrency: String
+  rates: [ReferenceRate!]
+}
+
+type StoreNavBadges {
+  products: Int
+}
+
+type StorePeople {
+  nodes: [StorePerson!]
+  pageInfo: PageInfo
+}
+
+type StorePeopleCounts {
+  staff: Int
+  waiting: Int
+}
+
+type StorePerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  name: String
+  role: String
+  since: String
+  you: Boolean
+}
+
+type StoreState {
+  pastDueSince: String
+  provisioning: Provisioning
+  readOnly: Boolean
+  status: String
+  support: SupportBanner
+  trialEndsAt: String
+}
+
+type StoryBlock {
+  body: String
+  id: ID
+  name: String
+  photo: StoryPhoto
+  products: Int
+  revision: Int
+  title: String
+  updatedAt: String
+}
+
+input StoryBlockInput {
+  body: String!
+  name: String!
+  photo: StoryPhotoInput
+  title: String!
+}
+
+type StoryBlockPage {
+  nodes: [StoryBlockSummary!]
+  pageInfo: PageInfo
+}
+
+type StoryBlockSummary {
+  id: ID
+  name: String
+  products: Int
+  updatedAt: String
+}
+
+type StoryItem {
+  photo: StoryPhoto
+  text: String
+  title: String
+}
+
+input StoryItemInput {
+  photo: StoryPhotoInput
+  text: String
+  title: String
+}
+
+type StoryModule {
+  blockId: ID
+  body: String
+  id: String
+  items: [StoryItem!]
+  kind: String
+  photo: StoryPhoto
+  photos: [StoryPhoto!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideo
+}
+
+input StoryModuleInput {
+  blockId: ID
+  body: String
+  id: String!
+  items: [StoryItemInput!]
+  kind: String!
+  photo: StoryPhotoInput
+  photos: [StoryPhotoInput!]
+  productIds: [ID!]
+  side: String
+  title: String
+  video: StoryVideoInput
+}
+
+type StoryPhoto {
+  alt: String
+  assetId: ID
+}
+
+input StoryPhotoInput {
+  alt: String
+  assetId: ID
+}
+
+type StoryProduct {
+  id: ID
+  name: String
+}
+
+type StoryVideo {
+  assetId: ID
+  url: String
+}
+
+input StoryVideoInput {
+  assetId: ID
+  url: String
+}
+
+type Supplier {
+  accessLevel: String
+  createdAt: String
+  hideProductsWhileSuspended: Boolean
+  id: ID
+  labelAccount: String
+  name: String
+  products: Int
+  shippingMode: String
+  status: String
+  suspendedAt: String
+  users: Int
+}
+
+type SupplierCounts {
+  active: Int
+  all: Int
+  suspended: Int
+}
+
+type SupplierPage {
+  nodes: [Supplier!]
+  pageInfo: PageInfo
+}
+
+type SupplierTeam {
+  nodes: [SupplierTeamPerson!]
+  pageInfo: PageInfo
+}
+
+type SupplierTeamPerson {
+  email: String
+  expired: Boolean
+  expiresAt: String
+  id: ID
+  kind: String
+  lastAdmin: Boolean
+  name: String
+  role: String
+  since: String
+  you: Boolean
+}
+
+type SupportBanner {
+  agentFirstName: String
+  endsAt: String
+  partnerName: String
+}
+
+type TaxClass {
+  id: ID
+  isDefault: Boolean
+  name: String
+  taxCode: String
+  versions: Int
+}
+
+input TaxClassInput {
+  isDefault: Boolean
+  name: String!
+  taxCode: String
+}
+
+type TaxComponent {
+  amount: String
+  name: String
+  rateBps: Int
+}
+
+type TaxQuote {
+  currency: String
+  lines: [TaxQuoteLine!]
+  pricesIncludeTax: Boolean
+  source: String
+  total: String
+}
+
+type TaxQuoteLine {
+  components: [TaxComponent!]
+  lineAmount: String
+  quantity: Int
+  rateBps: Int
+  tax: String
+  versionId: ID
+}
+
+input TaxQuoteLineInput {
+  quantity: Int!
+  versionId: ID!
+}
+
+type TaxRate {
+  rateBps: Int
+  taxClassId: ID
+}
+
+input TaxRateInput {
+  rateBps: Int!
+  taxClassId: ID!
+}
+
+type TaxSetup {
+  classes: [TaxClass!]
+  pricesIncludeTax: Boolean
+  zones: [TaxZone!]
+}
+
+input TaxShipToInput {
+  country: String!
+  postal: String
+  region: String
+}
+
+type TaxZone {
+  countries: [String!]
+  id: ID
+  name: String
+  rates: [TaxRate!]
+  regions: [String!]
+}
+
+input TaxZoneInput {
+  countries: [String!]!
+  name: String!
+  rates: [TaxRateInput!]!
+  regions: [String!]
+}
+
+type Translation {
+  entity: String
+  entityId: String
+  field: String
+  main: String
+  status: String
+  text: String
+}
+
+type TranslationProgress {
+  products: Int
+  untranslated: Int
+}
+
+input TranslationTextInput {
+  description: String
+  name: String
+  slug: String
+}
+
+type TwoFactor {
+  backupCodesLeft: Int
+  method: String
+  required: Boolean
+}
+
+input VersionNameTranslationInput {
+  id: ID!
+  name: String
+}
+
+type VersionPrice {
+  amount: String
+  compareAtAmount: String
+  currency: String
+}
+
+input VersionPriceInput {
+  amount: String!
+  compareAtAmount: String
+  currency: String!
+}
+
+type VersionPricing {
+  inMarket: CurrencyPrice
+  prices: [CurrencyPrice!]
+  versionId: ID
+}
+
+type Warehouse {
+  address: WarehouseAddress
+  id: ID
+  isDefault: Boolean
+  name: String
+  revision: Int
+  supplierId: ID
+  supplierName: String
+  units: Int
+}
+
+type WarehouseAddress {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseAddressInput {
+  city: String
+  country: String
+  line1: String
+  line2: String
+  postalCode: String
+  region: String
+}
+
+input WarehouseInput {
+  address: WarehouseAddressInput
+  name: String!
+}
+
+type WarehousePage {
+  nodes: [Warehouse!]
+  pageInfo: PageInfo
 }

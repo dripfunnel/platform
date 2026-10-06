@@ -3,7 +3,7 @@
 The shared, long-lived environment on `dripfunnel.ai` that every push to the `dev` branch
 redeploys. How to set it up once, how values get onto it, and how to deploy and check it.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-05.
 
 Why dev looks the way it does is decided in [ARCHITECTURE.md §6](../ARCHITECTURE.md). What
 each value is for and how to make it is in [THIRD-PARTY-ACCESS.md §8](../code/THIRD-PARTY-ACCESS.md).
@@ -137,6 +137,30 @@ pnpm --filter ./apps/api dev-env:attach
 
 Running it again is safe. The Worker's `/api/*` routes on those hosts come from `wrangler.jsonc`.
 
+### 2.8 Store and storefront accounts (INF 0, #287)
+
+The Store strand needs these before its cards can run against real services. Each is created
+by a person (the account's owner signs the terms); the cards build against local adapters until
+then. Where each value is kept is THIRD-PARTY-ACCESS §8.
+
+1. **Cloudflare**: the Pages project limit on the dev account (Workers & Pages › the account
+   overview, or ask Cloudflare to raise it for the expected store count); whether Cloudflare for
+   SaaS serves `*.preview.<partner domain>` and `*.shops.<partner domain>` on the plan, and the
+   price per hostname. Record both, with the date, in THIRD-PARTY-ACCESS §2.1. Then a Pages-scoped
+   token per pool account → `CF_PAGES_POOL`.
+2. **GitHub**: the *DripFunnel Provisioning* App with THIRD-PARTY-ACCESS §2.3's permissions, and
+   whether its per-repo grant can give store repos read access to `@dripfunnel/storefront-core`
+   → `GITHUB_APP_*`.
+3. **Stripe**: Connect (Standard, OAuth) enabled on DripFunnel's account in test mode, with the
+   redirect `https://dev-hooks.dripfunnel.ai/stripe/connect/callback` (THIRD-PARTY-ACCESS §3.1's Stripe
+   row says why it is one fixed address) → `STRIPE_CONNECT_CLIENT_ID`.
+4. **SMS**: MSG91 and Twilio test accounts for the house partner, and India's DLT registration
+   started (templates for codes and order updates). These are partner credentials, entered in
+   the partner console, never Worker values (THIRD-PARTY-ACCESS §8.3).
+5. **Sandboxes** for merchant testing: PayPal, Razorpay, Cashfree, PhonePe, Shiprocket and
+   EasyPost. Merchant credentials are entered in a store's Settings, never Worker values (THIRD-PARTY-ACCESS §3).
+6. `openssl rand -base64 32` → `PREVIEW_LINK_KEY`.
+
 ---
 
 ## 3. The Worker's values
@@ -163,6 +187,9 @@ Never reuse a value from local or production.
 | `SES_SENDER_DOMAIN` | Text | a domain verified in that SES account | SES › Identities › *Create identity* › Domain, then its DKIM records in DNS |
 | `EMAIL_SUPPRESSION_KEY` | Secret | a new key | `openssl rand -base64 32`; keys the suppression list's hashes. Email doesn't send without it |
 | `SES_EVENTS_TOPIC_ARN` | Secret | the dev bounce topic's ARN | SNS topic with `SignatureVersion` 2, the configuration set's event destination, subscribed to `https://dev-hooks.dripfunnel.ai/ses` (THIRD-PARTY-ACCESS.md §2.4) |
+| `CF_PAGES_POOL` | Secret | the dev pool, JSON `[{ "accountId", "token" }]` | §2.8 item 1; each token scoped to *Pages: Edit* on its own account (THIRD-PARTY-ACCESS §8.2). Needed from INF 1 |
+| `STRIPE_CONNECT_CLIENT_ID` | Text | the test-mode `ca_…` | §2.8 item 3. Needed from SAPI 10 |
+| `PREVIEW_LINK_KEY` | Secret | a new key | `openssl rand -base64 32` (§2.8 item 6). Needed from ST 1a |
 
 Leaving out a whole group (all of Entra, Stripe or SES) switches that feature off: it answers
 "not connected" instead of failing. Leaving out part of a group does the same, so set each
@@ -215,6 +242,7 @@ links point at production's admin console.
 - [ ] `dev-env:attach` (§2.7)
 - [ ] Every Worker value in §3
 - [ ] `/api/health` shows `db: "ok"` (§4)
+- [ ] Store and storefront accounts (§2.8), once the Store strand needs them
 
 ---
 

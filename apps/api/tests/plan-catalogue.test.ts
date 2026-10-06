@@ -158,8 +158,9 @@ describe('who reads what', () => {
   it('shows a supplier in the same store none of the plan', async () => {
     const [seller] = await db.sql<{ id: string }[]>`insert into seller (store_id, name, access_level, status) values (${ids.store}, 'Loom Supply', 'vendor-stock', 'active') returning id`
     const supplier = merchant(ids.ns, ids.store, seller?.id ?? '')
+    // The supplier role holds no grant on any of the plan (#295).
     for (const table of ['plan_version', 'plan_price', 'plan_entitlement']) {
-      expect({ [table]: await as(supplier, (tx) => tx.unsafe(`select plan_id from ${table}`)) }).toEqual({ [table]: [] })
+      await expect(as(supplier, (tx) => tx.unsafe(`select plan_id from ${table}`))).rejects.toThrow(/permission denied/i)
     }
   })
 

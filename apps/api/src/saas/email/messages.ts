@@ -32,6 +32,29 @@ export const en = {
     body: (partner: string, role: string) => `You’ve been invited to ${partner}’s partner console as ${role}. Accept the invitation to choose your password and turn on 2-factor.`,
     action: 'Accept and set your password',
   },
+  storeInvitation: {
+    subject: (store: string) => `You’re invited to ${store}`,
+    heading: (store: string) => `Join ${store}`,
+    // The prototype's invite screen words the role the same way (PortalAuth `invite`).
+    roles: {
+      owner: 'an Owner',
+      manager: 'a Manager',
+      staff: 'Staff',
+      supplier: (seller: string) => `a supplier for ${seller}`,
+    },
+    newPerson: (inviter: string, store: string, role: string) => `${inviter} invited you to ${store} as ${role}. Accept to choose your password and open the store.`,
+    existingPerson: (inviter: string, store: string, role: string) => `${inviter} invited you to ${store} as ${role}. Sign in with the account you already have to accept.`,
+    actionNew: 'Accept and set your password',
+    actionJoin: 'Sign in to accept',
+    note: 'The link works for 7 days. If you didn’t expect this email, you can ignore it.',
+  },
+  userPasswordReset: {
+    subject: (brand: string) => `Reset your ${brand} password`,
+    heading: 'Reset your password',
+    body: (brand: string) => `Someone asked to reset the password for your ${brand} account. Choose a new one with the link below; you’ll be signed out everywhere else.`,
+    action: 'Choose a new password',
+    note: 'The link works once, for 30 minutes. If you didn’t ask, ignore this email; your password stays the same.',
+  },
   partnerPasswordReset: {
     subject: 'Reset your DripFunnel password',
     heading: 'Reset your password',
@@ -44,6 +67,38 @@ export const en = {
     heading: 'Too many wrong codes',
     body: (minutes: number) => `Your partner console account is locked for ${minutes} minutes after too many wrong 2-factor codes. You can sign in again after that.`,
     notYou: 'If that wasn’t you, reset your password from the sign-in page once the lock ends.',
+  },
+  signupCode: {
+    subject: (brand: string) => `Your ${brand} sign-up code`,
+    heading: 'Check it’s you',
+    body: (code: string) => `Your code is ${code}. Type it on the sign-up page to carry on. It works for 10 minutes.`,
+    note: 'If you didn’t start a sign-up, ignore this email; nothing is made without the code.',
+  },
+  signupHasAccount: {
+    subject: (brand: string) => `You already have a ${brand} account`,
+    heading: 'You already have an account',
+    body: (brand: string) => `Someone started a new ${brand} sign-up with this address, which already has an account. Sign in instead; you can create another store from there.`,
+    action: 'Sign in',
+    note: 'If that wasn’t you, ignore this email; nothing has changed.',
+  },
+  userEmailChange: {
+    subject: (brand: string) => `Confirm your new ${brand} email`,
+    heading: 'Confirm your new email',
+    body: (brand: string) => `Someone asked to use this address for their ${brand} account. Confirm it with the link below and it becomes the address you sign in with.`,
+    action: 'Confirm this email',
+    note: 'The link works once, for 24 hours. If you didn’t ask, ignore this email; nothing changes.',
+  },
+  userEmailChanging: {
+    subject: (brand: string) => `Your ${brand} email is about to change`,
+    heading: 'Your email is about to change',
+    body: (brand: string) => `Someone asked to move your ${brand} account to a new address. It changes only when the link sent there is clicked.`,
+    notYou: 'If that wasn’t you, sign in, change your password and sign out everywhere else; the request then can’t be confirmed without the new mailbox.',
+  },
+  userLocked: {
+    subject: (brand: string) => `Sign-in to ${brand} is paused`,
+    heading: 'Sign-in is paused',
+    body: (minutes: number) => `There were five wrong passwords or codes in a row, so sign-in to your account is paused for ${minutes} minutes to keep your stores safe.`,
+    notYou: 'If that wasn’t you, reset your password from the sign-in page; it works straight away.',
   },
   partnerDomainLive: {
     subject: (host: string) => `${host} is live`,

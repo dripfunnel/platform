@@ -1,7 +1,6 @@
 {
   "home": {
-    "title": "Store",
-    "signIn": "Sign in",
+    "title": "Home",
     "account": "Your account",
     "accountSub": "What a staff session can’t change is turned off here, with the reason."
   },
@@ -44,6 +43,2987 @@
     "invalid": {
       "title": "This link no longer works",
       "body": "Staff session links work once, from the DripFunnel admin console. Start a new session there."
+    }
+  },
+  "shell": {
+    "skipToContent": "Skip to content",
+    "navLabel": "Store",
+    "openMenu": "Open the menu",
+    "closeMenu": "Close the menu",
+    "homeLink": "Store home",
+    "productLabel": "Store",
+    "logoAlt": "DripFunnel",
+    "help": "Help",
+    "helpUrl": "https://help.dripfunnel.com/store",
+    "opensInNewTab": "(opens in a new tab)",
+    "placeholder": "This screen arrives with its own card. The menu row is here so every row leads somewhere.",
+    "groups": {
+      "catalogue": "Catalogue",
+      "shop": "Your shop",
+      "admin": "Admin"
+    },
+    "roles": {
+      "owner": "Owner",
+      "manager": "Manager",
+      "staff": "Staff"
+    },
+    "badges": {
+      "ordersToShip": {
+        "one": "{count} order to ship",
+        "other": "{count} orders to ship"
+      },
+      "productsToApprove": {
+        "one": "{count} product waiting for approval",
+        "other": "{count} products waiting for approval"
+      }
+    },
+    "trialNote": {
+      "one": "{count} day left",
+      "other": "{count} days left"
+    },
+    "userMenu": {
+      "label": "Account: {name}, {role}",
+      "profile": "My profile",
+      "switchStore": "Switch store",
+      "signOut": "Sign out",
+      "signOutHint": "Signs you out of every store on this device",
+      "theme": {
+        "label": "Appearance",
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "switcher": {
+      "label": "Switch store: {store}",
+      "title": "Switch store",
+      "current": "Current store",
+      "failed": "That store couldn’t be opened. Choose it again, or pick another."
+    },
+    "environment": {
+      "dev": {
+        "name": "Dev",
+        "warning": "Test data. Nothing here reaches real shoppers"
+      },
+      "feature": {
+        "name": "Feature",
+        "warning": "Test data. Nothing here reaches real shoppers"
+      },
+      "local": {
+        "name": "Local",
+        "warning": "Test data. Nothing here reaches real shoppers"
+      }
+    },
+    "banners": {
+      "provisioning": {
+        "title": "Your store is being built —",
+        "body": "about a minute. Products work now; Storefront and Settings open when it’s ready."
+      },
+      "pastDue": {
+        "title": "Your store is view-only.",
+        "body": "Your last payment didn’t go through. Everything is safe — pay to start editing again.",
+        "action": "Go to billing"
+      },
+      "trial": {
+        "title": "Free trial · {days}.",
+        "body": "You have everything in {plan}. No card needed.",
+        "action": "Choose a plan"
+      },
+      "trialEnding": {
+        "title": "Your trial ends tomorrow.",
+        "body": "Choose a plan to keep everything, or pick what to keep on the free plan.",
+        "action": "Choose what to keep"
+      },
+      "suspended": {
+        "title": "This store is suspended.",
+        "body": "Nothing can be changed and the shop shows a notice. {contact}",
+        "contact": "Contact {support} to find out why.",
+        "noContact": "Contact your store’s provider to find out why."
+      },
+      "cancelled": {
+        "title": "This store is cancelled.",
+        "body": "You can look around and export until the paid period ends."
+      },
+      "support": {
+        "title": "{partner} support ({name}) is viewing your store.",
+        "body": "Read-only. Ends in {time}."
+      },
+      "offline": {
+        "title": "You’re offline.",
+        "body": "Changes are kept on this device and will save when you’re back."
+      }
+    },
+    "loadError": {
+      "title": "We couldn’t open your store",
+      "body": "The store service didn’t answer. Nothing was changed. Try again in a moment.",
+      "retry": "Try again"
+    }
+  },
+  "nav": {
+    "home": "Home",
+    "orders": "Orders",
+    "customers": "Customers",
+    "offers": "Offers",
+    "carts": "Abandoned carts",
+    "reports": "Reports",
+    "products": "Products",
+    "collections": "Collections",
+    "storefront": "Storefront",
+    "settings": "Settings",
+    "billing": "Billing",
+    "yourProducts": "Your products",
+    "toShip": "To ship",
+    "sales": "Your sales",
+    "team": "Your team"
+  },
+  "screens": {
+    "home": {
+      "title": "Home"
+    },
+    "orders": {
+      "title": "Orders"
+    },
+    "customers": {
+      "title": "Customers"
+    },
+    "offers": {
+      "title": "Offers"
+    },
+    "carts": {
+      "title": "Abandoned carts"
+    },
+    "reports": {
+      "title": "Reports"
+    },
+    "products": {
+      "title": "Products"
+    },
+    "storefront": {
+      "title": "Storefront"
+    },
+    "billing": {
+      "title": "Billing"
+    },
+    "yourProducts": {
+      "title": "Your products"
+    },
+    "toShip": {
+      "title": "To ship"
+    },
+    "sales": {
+      "title": "Your sales"
+    },
+    "team": {
+      "title": "Your team"
+    },
+    "profile": {
+      "title": "My profile"
+    }
+  },
+  "chooseStore": {
+    "title": "Choose a store",
+    "body": "Signed in as {email}. You belong to {count} — pick one to open.",
+    "stores": {
+      "one": "{count} store",
+      "other": "{count} stores"
+    },
+    "last": "Last opened",
+    "supplier": "Supplier · {seller}",
+    "loading": "Loading your stores",
+    "none": {
+      "title": "You don’t belong to a store here",
+      "body": "Your account isn’t a member of any store on this site. If you were invited, open the link in the invitation email.",
+      "signOut": "Sign out"
+    },
+    "error": {
+      "title": "We couldn’t load your stores",
+      "body": "The store service didn’t answer. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "notYou": "Not you?",
+    "signOut": "Sign out"
+  },
+  "states": {
+    "empty": {
+      "title": "Nothing here yet",
+      "body": "A new store is empty everywhere. What you add shows up here.",
+      "action": "Add the first one"
+    },
+    "loading": {
+      "label": "Loading"
+    },
+    "error": {
+      "title": "We couldn’t load this",
+      "body": "The store service didn’t answer in time. Nothing was changed. Try again in a moment.",
+      "detailsLabel": "Technical details",
+      "codeLabel": "Error code",
+      "code": "UNKNOWN",
+      "requestIdLabel": "Request id",
+      "requestId": "7f3a91c2",
+      "retry": "Try again"
+    },
+    "denied": {
+      "action": "Change settings",
+      "reason": "Only the store owner can change this."
+    },
+    "readonly": {
+      "title": "Your store is view-only",
+      "body": "Your last payment didn’t go through. Everything is safe — you can look around, and saving works again once it’s paid."
+    },
+    "confirm": {
+      "open": "Remove…",
+      "title": "Remove this?",
+      "target": "Mara Linen Shirt",
+      "consequence": "Removes Mara Linen Shirt from your store. Shoppers can’t find it after this.",
+      "notes": [
+        "Orders that include it keep their copy."
+      ],
+      "reason": "Reason",
+      "reasonHint": "Required.",
+      "typeLabel": "Type Mara Linen Shirt to confirm",
+      "typeHint": "Type the name exactly to confirm.",
+      "typeExpected": "Mara Linen Shirt",
+      "confirm": "Remove",
+      "cancel": "Cancel"
+    }
+  },
+  "auth": {
+    "logoAlt": "DripFunnel",
+    "productLabel": "Store",
+    "privacy": "Privacy",
+    "privacyUrl": "https://dripfunnel.com/privacy",
+    "help": "Help",
+    "helpUrl": "https://help.dripfunnel.com/store",
+    "termsUrl": "https://dripfunnel.com/terms",
+    "footBrand": "One sign-in for every store you belong to",
+    "opensInNewTab": "(opens in a new tab)",
+    "back": "Back",
+    "show": "Show",
+    "hide": "Hide",
+    "notConnected": "We couldn’t reach the store service. Nothing was changed. Try again in a moment.",
+    "rateLimited": "Too many tries in a short time. Wait a few minutes, then try again.",
+    "panels": {
+      "in": {
+        "tag": "Welcome back",
+        "title": "Your shop, right where you left it.",
+        "body": "Orders to pack, products to add, and your storefront — all in one place.",
+        "points": [
+          "Owners, staff and suppliers use the same door",
+          "One sign-in for every store you belong to",
+          "Signing out ends every session on this device"
+        ]
+      },
+      "up": {
+        "tag": "Free trial",
+        "title": "Start selling in minutes, not weeks.",
+        "body": "Add a photo, a name and a price — your shop is live. Everything else can come later.",
+        "points": [
+          "No card needed to start",
+          "Your own web address from day one",
+          "Taxes, currencies and shipping set up for your country"
+        ]
+      },
+      "reset": {
+        "tag": "Account help",
+        "title": "Locked out? It happens.",
+        "body": "We’ll email you a link to choose a new password. It works for 30 minutes.",
+        "points": [
+          "We never ask for your password by email or phone",
+          "Your stores and data aren’t affected",
+          "Need more help? Contact support"
+        ]
+      }
+    },
+    "fields": {
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "newPassword": "Password",
+      "newPasswordAgain": "Type it again",
+      "name": "Your name",
+      "namePlaceholder": "e.g. Farhan Ali",
+      "code": "Code",
+      "codePlaceholder": "• • • • • •",
+      "backupCode": "Backup code",
+      "backupPlaceholder": "XXXX-XXXX",
+      "phone": "Mobile number",
+      "phonePlaceholder": "+91 98450 11234",
+      "remember": "Keep me signed in on this device for 30 days"
+    },
+    "strength": [
+      "At least 10 characters.",
+      "Weak — add numbers or symbols.",
+      "Okay — a little longer is safer.",
+      "Good password.",
+      "Strong password."
+    ],
+    "sendAgain": "Send again",
+    "waitToResend": "Didn’t get it? You can ask again in {seconds}s.",
+    "signIn": {
+      "title": "Sign in",
+      "sub": "Welcome back. Sign in to manage your store.",
+      "forgot": "Forgot password?",
+      "primary": "Sign in",
+      "missing": "Type your email and password.",
+      "refused": "That email and password don’t match. Check them, or reset your password.",
+      "signedOut": "You’re signed out of every store on this device.",
+      "expired": "You were signed out after 12 hours without activity. Sign in to pick up where you left off.",
+      "foot": "New to {product}?",
+      "footLink": "Create a store"
+    },
+    "secondFactor": {
+      "title": "Two-step sign-in",
+      "app": "Type the 6-digit code from your authenticator app.",
+      "sms": "We texted a 6-digit code to the phone ending {hint}.",
+      "smsUnsent": "We’ll text a 6-digit code to the phone on your account.",
+      "primary": "Verify and sign in",
+      "backup": "Use a backup code instead",
+      "incomplete": "The code has 6 digits — check the text again.",
+      "wrong": "That code doesn’t match. {tries} left.",
+      "tries": {
+        "one": "{count} try",
+        "other": "{count} tries"
+      },
+      "expired": "That code has expired. Ask for a new one.",
+      "sent": "New code sent.",
+      "wrongPlain": "That code doesn’t match."
+    },
+    "backup": {
+      "title": "Use a backup code",
+      "sub": "One of the 10 codes you saved when you turned on two-step sign-in, like K4P2-9XQM. Each works once.",
+      "primary": "Sign in",
+      "lost": "Lost them too? Contact support",
+      "malformed": "That doesn’t look like a backup code — it’s 8 letters and numbers, like K4P2-9XQM.",
+      "left": "Signed in with a backup code — {count} left. Make new ones in My profile."
+    },
+    "enrol": {
+      "title": "Turn on two-step sign-in",
+      "sub": "Store owners need it before the store opens — it protects your payouts and your customers’ data. We’ll text you a code each time you sign in.",
+      "subSent": "Type the 6-digit code we texted to the number ending {hint}.",
+      "sendPrimary": "Text me a code",
+      "confirmPrimary": "Turn on and sign in",
+      "changeNumber": "Change number",
+      "invalidPhone": "Use the full number with its country code, like +91 98450 11234.",
+      "stale": "This step timed out. Sign in again to set up two-step sign-in."
+    },
+    "codes": {
+      "title": "Save your backup codes",
+      "sub": "If you lose your phone, each code signs you in once. We won’t show them again.",
+      "download": "Download codes",
+      "done": "I’ve saved them",
+      "fileName": "backup-codes.txt"
+    },
+    "locked": {
+      "title": "Sign-in is paused for {minutes} minutes",
+      "sub": "There were 5 wrong tries in a row, so we paused sign-in to keep your store safe. We’ve emailed the account owner. Reset your password to get back in now.",
+      "primary": "Reset my password",
+      "foot": "Wasn’t you?",
+      "footLink": "Contact support"
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "sub": "Type the email you sign in with. We’ll send you a link to choose a new password.",
+      "primary": "Send reset link",
+      "back": "Back to sign in",
+      "invalid": "Type the email address you sign in with.",
+      "sentTitle": "Check your email",
+      "sentSub": "If {email} has an account, a link to reset the password is on its way. It works for 30 minutes.",
+      "again": "Send it again",
+      "resent": "We sent another link. It works for 30 minutes."
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "sub": "You’ll be signed out everywhere else.",
+      "primary": "Save and sign in",
+      "mismatch": "The two passwords don’t match.",
+      "short": "Use at least 10 characters.",
+      "invalid": "This link no longer works. Reset links work once, for 30 minutes. Ask for a new one.",
+      "askAgain": "Ask for a new link",
+      "doneSignIn": "Password changed — sign in with your new password."
+    },
+    "invite": {
+      "title": "Join {store}",
+      "subNew": "{inviter} invited you as {role}. {can} Set a password to accept.",
+      "subJoin": "{inviter} invited you as {role}. {can} Sign in with the account you already have to accept.",
+      "emailHelp": "The invite was sent here, so it can’t be changed.",
+      "primary": "Accept and open the store",
+      "joinPrimary": "Sign in to accept",
+      "joining": "Joining {store}…",
+      "foot": "Already use {product}?",
+      "footLink": "Sign in to accept",
+      "roles": {
+        "owner": "an Owner",
+        "manager": "a Manager",
+        "staff": "Staff",
+        "supplier": "a supplier for {seller}"
+      },
+      "can": {
+        "owner": "You’ll be able to do everything, including billing.",
+        "manager": "You’ll see everything except Settings and Billing.",
+        "staff": "You’ll see orders, customers and products.",
+        "supplier": "You’ll add your products and see the orders that include them."
+      },
+      "nameRequired": "Add your name — your team sees it on orders you pack.",
+      "weak": "Use at least 10 characters for your password.",
+      "loading": "Checking your invitation…",
+      "terms": {
+        "before": "By accepting you agree to the ",
+        "after": "."
+      },
+      "retryTitle": "We couldn’t open this invitation",
+      "retry": "Try again"
+    },
+    "inviteBad": {
+      "expired": {
+        "title": "This invitation has expired",
+        "sub": "Invitations work for 7 days. Ask {inviter} for a new one — the link in it replaces this one."
+      },
+      "used": {
+        "title": "This invitation was already used",
+        "sub": "Sign in with the account that accepted it."
+      },
+      "replaced": {
+        "title": "A newer invitation replaced this one",
+        "sub": "Open the link in the most recent email."
+      },
+      "invalid": {
+        "title": "This invitation link doesn’t work",
+        "sub": "Check you opened the whole link, or ask for a new invitation."
+      },
+      "signIn": "Sign in"
+    },
+    "signup": {
+      "steps": [
+        "Step 1 of 4 · Your account",
+        "Step 2 of 4 · Verify email",
+        "Step 3 of 4 · Your store",
+        "Step 4 of 4 · Verify phone"
+      ],
+      "su1": {
+        "title": "Create your store",
+        "sub": "It takes about two minutes.",
+        "primary": "Continue",
+        "foot": "Already have an account?",
+        "footLink": "Sign in",
+        "nameMissing": "Add your name.",
+        "emailBad": "That email doesn’t look right — check for typos.",
+        "closed": "New stores can’t be created here right now.",
+        "weak": "Use at least 10 characters for your password."
+      },
+      "su2": {
+        "title": "Check your email",
+        "sub": "We sent a 6-digit code to {email}. It works for 10 minutes. If you already have an account, the email says how to sign in instead.",
+        "primary": "Verify email",
+        "back": "Change email"
+      },
+      "su3": {
+        "title": "Tell us about your store",
+        "sub": "Just the basics. You can change all of it later.",
+        "store": "Store name",
+        "storePlaceholder": "e.g. Juniper & Co.",
+        "storeHelp": "Shoppers see this everywhere.",
+        "sub2": "Web address",
+        "subPlaceholder": "juniper",
+        "subHelp": "You can connect your own domain later.",
+        "country": "Country",
+        "countryHelp": "Sets your currency and tax rules.",
+        "primary": "Continue",
+        "nameMissing": "Give your store a name.",
+        "subBad": "Use letters, numbers and hyphens.",
+        "taken": "That address is taken. Try {suggestions}.",
+        "takenNone": "That address is taken. Try another.",
+        "or": "or",
+        "countryNone": "Choose a country."
+      },
+      "su4": {
+        "title": "Last step: your phone",
+        "titleSent": "Enter the code we texted",
+        "sub": "We text you a code so nobody else can open a store in your name. We won’t call or share it.",
+        "subSent": "Sent to the number ending {hint}.",
+        "primarySend": "Text me a code",
+        "primaryVerify": "Verify and build my store",
+        "changeNumber": "Change number"
+      },
+      "building": {
+        "title": "Setting up {store}",
+        "label": "Almost there",
+        "sub": "Opening your portal…",
+        "yourStore": "your store"
+      },
+      "expired": "This sign-up timed out. Start again — it only takes a minute.",
+      "terms": {
+        "before": "By creating a store you agree to the ",
+        "after": ". No card needed."
+      }
+    },
+    "confirmEmail": {
+      "title": "Confirming your new email…",
+      "doneTitle": "Your email is changed",
+      "doneSub": "Sign in with your new address from now on.",
+      "badTitle": "This link no longer works",
+      "badSub": "Email change links work once, for 24 hours, and stop when you change your password. Ask for a new one in My profile.",
+      "signIn": "Sign in",
+      "retryTitle": "We couldn’t check this link",
+      "retry": "Try again"
+    },
+    "chooser": {
+      "lastUsed": "Last used"
+    },
+    "productName": "DF Store",
+    "terms": {
+      "terms": "Terms",
+      "middle": " and ",
+      "privacy": "Privacy policy"
+    }
+  },
+  "profile": {
+    "title": "My profile",
+    "lede": "One account for every store you belong to. Changes here apply everywhere you sign in.",
+    "loading": "Loading your profile",
+    "error": {
+      "title": "Your profile didn’t load",
+      "body": "Check your connection and try again. Nothing you typed was lost.",
+      "retry": "Try again"
+    },
+    "details": {
+      "title": "Your details",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Mobile number",
+      "phonePlaceholder": "Used only for sign-in codes",
+      "emailHelp": "Sign-in and notices go here",
+      "emailChanging": "We’ll send a link to the new address. It changes once you click it.",
+      "pending": "Waiting for you to click the link we sent to {email}.",
+      "password": "Current password",
+      "passwordHelp": "Changing your email needs your password.",
+      "phoneLocked": "This number gets your sign-in codes. To change it, switch to an authenticator app first.",
+      "save": "Save details",
+      "saved": "Details saved",
+      "sent": "We sent a link to {email} — your email changes once you click it",
+      "nameMissing": "Your name can’t be empty — your team sees it on everything you change.",
+      "emailBad": "That email doesn’t look right. Check for a typo.",
+      "phoneBad": "Use the full number with the country code, like +91 98450 11234.",
+      "passwordMissing": "Type your current password to change your email.",
+      "tooMany": "You’ve changed your email three times today. Try again tomorrow."
+    },
+    "password": {
+      "title": "Password",
+      "changedAt": "Changed {date}",
+      "never": "Never changed",
+      "open": "Change password",
+      "current": "Current password",
+      "next": "New password",
+      "again": "Type it again",
+      "hint": "At least 10 characters. A short sentence works well.",
+      "more": {
+        "one": "{count} more character",
+        "other": "{count} more characters"
+      },
+      "strong": "Strong enough",
+      "cancel": "Cancel",
+      "save": "Change password",
+      "note": "Changing it signs you out on every other device.",
+      "currentMissing": "Type your current password.",
+      "weak": "The new password needs at least 10 characters.",
+      "mismatch": "The two new passwords don’t match.",
+      "done": "Password changed — you’re signed out everywhere else"
+    },
+    "twoStep": {
+      "title": "Two-step sign-in",
+      "whyOwner": "Required for store owners — it protects your payouts and customer data. You can change how you get codes, but not turn it off.",
+      "whyOther": "Optional for your role, and strongly recommended. Each sign-in asks for a code as well as your password.",
+      "on": "On",
+      "needed": "Needs setting up",
+      "off": "Off",
+      "app": "Authenticator app",
+      "appSub": "Codes come from the app on your phone. Works without signal.",
+      "sms": "Text message",
+      "smsSub": "Codes are texted to the number ending {last4}.",
+      "useSms": "Use text messages",
+      "useApp": "Use an authenticator app",
+      "backup": "Backup codes",
+      "left": {
+        "one": "{count} of 10 backup codes left",
+        "other": "{count} of 10 backup codes left"
+      },
+      "low": " — make new ones soon",
+      "newCodes": "Make new codes",
+      "turnOn": "Turn on two-step sign-in",
+      "turnOff": "Turn off two-step sign-in",
+      "pick": "How do you want to get your codes?",
+      "appPick": "Recommended. Works without signal.",
+      "smsPick": "To the number ending {last4}",
+      "smsNoPhone": "Add a mobile number in Your details first",
+      "password": "Your password",
+      "passwordHelp": "We ask for it before changing how you sign in.",
+      "passwordMissing": "Type your password first.",
+      "cancel": "Cancel",
+      "next": "Next",
+      "verify": "Verify",
+      "appTitle": "Add {product} to your authenticator app, then type the code it shows",
+      "key": "Setup key — type it into Google Authenticator, 1Password, Authy or similar",
+      "smsTitle": "We texted a code to the number ending {last4}",
+      "code": "6-digit code",
+      "codeIncomplete": "Type all 6 digits.",
+      "codesTitle": "Save your backup codes",
+      "codesSub": "If you lose your phone, each code signs you in once. We won’t show them again.",
+      "download": "Download codes",
+      "saved": "I’ve saved them",
+      "nowOn": "Two-step sign-in is on",
+      "nowApp": "Codes now come from your authenticator app",
+      "nowSms": "Codes now come by text message",
+      "nowOff": "Two-step sign-in is off",
+      "newTitle": "Make new backup codes?",
+      "newBody": "Your old codes stop working straight away.",
+      "newConfirm": "Make new codes",
+      "offTitle": "Turn off two-step sign-in?",
+      "offBody": "Anyone with your password could then sign in as you.",
+      "offConfirm": "Turn it off",
+      "ownerKeeps": "Store owners keep two-step sign-in on.",
+      "needPhone": "Add your mobile number in Your details first.",
+      "expired": "That took too long. Start again to get a new code.",
+      "wrongPassword": "That isn’t your current password.",
+      "codesMade": "Your old backup codes no longer work",
+      "codePlaceholder": "123456"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "sub": "Only changes how the portal looks to you. Your shop doesn’t change.",
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark"
+    },
+    "sessions": {
+      "title": "Where you’re signed in",
+      "thisBrowser": "This browser",
+      "unknownDevice": "A browser",
+      "active": "Active now",
+      "lastUsed": "Last used {when}",
+      "signOutOthers": "Sign out everywhere else",
+      "ended": {
+        "one": "Signed out on {count} other device",
+        "other": "Signed out on {count} other devices"
+      },
+      "none": "Only this browser is signed in."
+    },
+    "activity": {
+      "title": "Your activity",
+      "sub": "Everything done under your name in this partner’s stores, newest first.",
+      "empty": "Nothing yet. What you change shows up here.",
+      "more": "Show older",
+      "loading": "Loading your activity",
+      "error": "Your activity didn’t load. Try again.",
+      "retry": "Try again",
+      "results": {
+        "success": "Done",
+        "denied": "Refused",
+        "failed": "Failed"
+      },
+      "actions": {
+        "person.signed_in": "Signed in",
+        "person.signed_out": "Signed out",
+        "person.sign_in_refused": "A sign-in was refused",
+        "person.second_factor_refused": "A sign-in code was refused",
+        "person.locked": "Sign-in was paused after too many tries",
+        "person.switched_store": "Opened {target}",
+        "person.profile_updated": "Updated your details",
+        "person.email_change_requested": "Asked to change your email",
+        "person.email_changed": "Changed your email",
+        "person.password_changed": "Changed your password",
+        "person.password_reset_requested": "Asked for a password reset",
+        "person.password_reset": "Reset your password",
+        "person.invitation_accepted": "Accepted an invitation to {target}",
+        "two_factor.enabled": "Turned on two-step sign-in",
+        "two_factor.disabled": "Turned off two-step sign-in",
+        "two_factor.method_changed": "Changed how you get sign-in codes",
+        "backup_codes.generated": "Made new backup codes",
+        "backup_code.used": "Signed in with a backup code",
+        "sessions.others_ended": "Signed out everywhere else",
+        "member.invited": "Invited {target}",
+        "member.removed": "Removed {target}",
+        "member.role_changed": "Changed {target}’s role",
+        "member.invitation_resent": "Sent {target}’s invitation again",
+        "member.invitation_revoked": "Withdrew {target}’s invitation",
+        "store.created": "Created {target}"
+      },
+      "other": "Something else ({action})",
+      "someone": "someone"
+    }
+  },
+  "products": {
+    "title": "Products",
+    "titleViewOnly": "Products (view only)",
+    "titleSupplier": "Your products",
+    "summary": {
+      "merchant": "{products} · {fromSuppliers}{outOfStock}",
+      "fromSuppliers": "{count} from suppliers · ",
+      "outOfStock": "{count} out of stock",
+      "supplier": "{products} · {waiting} waiting for approval · {sentBack} sent back",
+      "products": {
+        "one": "{count} product",
+        "other": "{count} products"
+      }
+    },
+    "add": "Add product",
+    "addFab": "+ Add product",
+    "importExport": "Import & export",
+    "search": {
+      "label": "Search products",
+      "placeholder": "Search by name or product code",
+      "clear": "Clear search"
+    },
+    "supplier": {
+      "label": "Supplier",
+      "all": "All suppliers",
+      "own": "Yours"
+    },
+    "sort": {
+      "label": "Sort",
+      "updated": "Recently updated",
+      "name": "Name A–Z",
+      "price_low": "Price, low to high",
+      "price_high": "Price, high to low",
+      "stock": "Stock, lowest first"
+    },
+    "chips": {
+      "label": "Show",
+      "all": "All",
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "pending": "Waiting for approval",
+      "sent_back": "Sent back",
+      "low_stock": "Low stock",
+      "missing_info": "Missing info"
+    },
+    "columns": {
+      "select": "Select this page",
+      "product": "Product",
+      "status": "Status",
+      "price": "Price",
+      "stock": "Stock",
+      "supplier": "Supplier",
+      "ready": "Ready to sell"
+    },
+    "status": {
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "pending": "Waiting for approval",
+      "sent_back": "Sent back"
+    },
+    "row": {
+      "select": "Select {name}",
+      "noPhoto": "No photo",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
+      "noChoices": "No choices",
+      "download": "Download",
+      "service": "Service",
+      "giftCard": "Gift card",
+      "removedSupplier": " · From {supplier}, removed",
+      "noPrice": "No price",
+      "notTracked": "Not tracked",
+      "outOfStock": "Out of stock",
+      "low": "Low: {count}",
+      "inStock": "{count} in stock",
+      "you": "You",
+      "ready": "Ready",
+      "readyAll": "Ready in all {count}",
+      "missing": {
+        "one": "{count} detail missing",
+        "other": "{count} details missing"
+      },
+      "someReady": "{ready} of {count} markets",
+      "review": "Review",
+      "close": "Close",
+      "open": "Open {name}"
+    },
+    "review": {
+      "title": "Review · from {supplier}",
+      "note": "You set the price and can change it after approving",
+      "photos": "Photo added",
+      "noPhoto": "No photo yet",
+      "priced": "Price filled in",
+      "noPrice": "No price yet",
+      "readyIn": "Ready to sell in {market}",
+      "notReadyIn": "Not ready in {market} — {missing} missing",
+      "edit": "Edit before approving",
+      "sendBack": "Send back",
+      "approve": "Approve & publish",
+      "approveShort": "Approve",
+      "approved": "“{name}” approved and live. {supplier} has been told.",
+      "approvedMany": "{count} products approved and live. Suppliers have been told.",
+      "sendBackTitle": "Send back to {supplier}",
+      "sendBackBody": "Say what needs changing. They’ll see exactly what you write.",
+      "reasonLabel": "What should they fix?",
+      "reasonPlaceholder": "e.g. The main photo is blurry — please upload a sharper one.",
+      "reasonMissing": "Add a reason so they know what to fix",
+      "sentBack": "Sent back to {supplier}",
+      "approvedSome": "{done} of {count} approved and live. The rest didn’t save. Try again."
+    },
+    "needs": {
+      "price": "price",
+      "fibre": "fibre content",
+      "origin": "country of origin",
+      "care": "care instructions",
+      "compare": "MRP"
+    },
+    "banner": {
+      "waiting": {
+        "one": "{count} supplier product is waiting for your approval.",
+        "other": "{count} supplier products are waiting for your approval."
+      },
+      "waitingBody": "They go live once you approve them.",
+      "waitingCta": "Review them"
+    },
+    "bulk": {
+      "selected": "{count} selected",
+      "allSelected": "All {count} on this page selected",
+      "approve": "Approve {count}",
+      "show": "Show on store",
+      "hide": "Hide",
+      "addToCollection": "Add to collection",
+      "taxClass": "Change tax category",
+      "delete": "Delete…",
+      "clear": "Clear",
+      "shown": {
+        "one": "{count} now visible",
+        "other": "{count} now visible"
+      },
+      "shownSkipped": " · products waiting for approval were skipped",
+      "hidden": {
+        "one": "{count} hidden from shoppers",
+        "other": "{count} hidden from shoppers"
+      },
+      "collectionTitle": "Add {count} to…",
+      "collectionBody": "Automatic collections fill themselves from their rules, so only hand-picked ones are listed.",
+      "collectionNone": "Create a hand-picked collection first",
+      "collectionAdded": "Added to {name}",
+      "taxTitle": "Tax category for {count}",
+      "taxBody": "Every version of each product takes it. Products keep their own prices.",
+      "taxApplied": "{count} now use “{name}”",
+      "deleteTitleOne": "Delete “{name}”?",
+      "deleteTitle": "Delete {count} products?",
+      "deleteBody": "They leave every collection. Past orders keep their record. If you might sell them again, hide them instead.",
+      "deleteConfirm": "Delete",
+      "hideInstead": "Hide instead",
+      "deleted": {
+        "one": "{count} deleted",
+        "other": "{count} deleted"
+      },
+      "collectionLabel": "Collection",
+      "collectionConfirm": "Add",
+      "taxLabel": "Tax category",
+      "taxConfirm": "Apply",
+      "taxNone": "Set up your tax categories in Settings › Tax first"
+    },
+    "noResults": {
+      "search": "No products match “{search}”",
+      "filters": "No products match these filters",
+      "body": "Check the spelling, or clear your search and filters.",
+      "clear": "Clear search and filters"
+    },
+    "pages": {
+      "showing": "Showing {from}–{to}",
+      "previous": "Previous",
+      "next": "Next",
+      "label": "Pages"
+    },
+    "empty": {
+      "title": "Add your first product",
+      "body": "A photo, a name and a price is enough to start selling. You can add sizes, colours and the rest whenever you like.",
+      "add": "Add a product",
+      "importFile": "Import from a spreadsheet",
+      "checklist": "Get your shop ready",
+      "checkDone": "{done} of {count} done",
+      "storeDetails": "Set up your store details",
+      "addThree": "Add 3 products",
+      "addThreeCta": "{done} of 3",
+      "collection": "Group them into a collection",
+      "shipping": "Choose how you ship",
+      "setUp": "Set up",
+      "create": "Create",
+      "done": "Done"
+    },
+    "supplierEmpty": {
+      "title": "No products yet",
+      "body": "Add your first product. The store owner reviews it before it goes on sale."
+    },
+    "loading": "Loading products",
+    "error": {
+      "title": "We couldn’t load your products",
+      "body": "Your products are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "failed": "That didn’t save. Try again.",
+    "cancel": "Cancel",
+    "quick": {
+      "open": "Quick edit",
+      "close": "Close",
+      "title": "Quick edit · {what}",
+      "priceAndStock": "price and stock",
+      "versions": {
+        "one": "1 version",
+        "other": "{count} versions"
+      },
+      "where": "Price in {currency} · stock in {warehouse}",
+      "whereNoStock": "Price in {currency}",
+      "thisProduct": "This product",
+      "price": "Price of {name}",
+      "stock": "Stock of {name}",
+      "changed": "Changed",
+      "save": "Save",
+      "saveN": {
+        "one": "Save 1 change",
+        "other": "Save {count} changes"
+      },
+      "cancel": "Cancel",
+      "loading": "Loading its versions",
+      "saved": {
+        "one": "Saved 1 change to {name}",
+        "other": "Saved {count} changes to {name}"
+      },
+      "priceMissing": "Add a price above zero so shoppers can buy this",
+      "stockInvalid": "Type a whole number of items, 0 or more",
+      "failed": "That didn’t save. Your changes are still here; try again.",
+      "stale": "Someone else saved this product. Close and open it again to see their changes.",
+      "stockFailed": "The prices are saved; the stock didn’t save. Try again.",
+      "countPlaceholder": "0"
+    }
+  },
+  "editor": {
+    "back": "← Products",
+    "backSupplier": "← Your products",
+    "newProduct": "New product",
+    "untitled": "Untitled",
+    "status": {
+      "new": "New",
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "pending": "Waiting for approval",
+      "sent_back": "Sent back"
+    },
+    "delete": "Delete",
+    "save": "Save",
+    "saveNew": "Save product",
+    "submit": "Submit for approval",
+    "saving": "Saving…",
+    "banner": {
+      "sentBack": "Sent back by your store owner:",
+      "sentBackBody": "“{reason}” Fix it and send it again.",
+      "theirs": "This is {supplier}’s product.",
+      "theirsBody": "They will see your changes. You decide the price and whether it shows on your store.",
+      "ownerToo": "Your store owner can also edit this product.",
+      "ownerTooApproval": "Changes to the price, name or photos wait for their approval.",
+      "stockOnly": "You can update stock.",
+      "stockOnlyBody": "Your store owner manages everything else about this product.",
+      "viewOnly": "You can view this product.",
+      "viewOnlyBody": "Editing is for owners and managers.",
+      "readOnly": "Your store is read-only until the bill is paid.",
+      "readOnlyBody": "You can look, but nothing can be changed.",
+      "fix": {
+        "one": "1 thing needs fixing before you save:",
+        "other": "{count} things need fixing before you save:"
+      },
+      "stale": "Someone else saved this product.",
+      "staleBody": "Reload to see their changes; yours are still on this page.",
+      "reload": "Reload",
+      "approval": "Your store owner approves this before it goes live.",
+      "approvalBody": "You’ll hear back either way.",
+      "ownerTooLive": "Changes you save go live straight away."
+    },
+    "kind": {
+      "title": "What are you selling?",
+      "physical": "A physical item",
+      "physicalSub": "You pack and ship it",
+      "digital": "A download",
+      "digitalSub": "A file or a licence key",
+      "service": "A service",
+      "serviceSub": "Arranged after the order",
+      "gift_card": "A gift card",
+      "gift_cardSub": "Sent by email",
+      "later": "Files, licence keys, service details and gift card amounts come with their own screens; the product saves now."
+    },
+    "photos": {
+      "title": "Photos",
+      "meter": "{count} of {limit} photos",
+      "main": "Main photo",
+      "makeMain": "Make main photo",
+      "remove": "Remove {name}",
+      "add": "Add a photo",
+      "addMore": "Add more",
+      "uploading": "Uploading…",
+      "failed": "Didn’t upload",
+      "retry": "Try again",
+      "dismiss": "Remove",
+      "altLabel": "Describe the main photo",
+      "altHint": "— helps blind shoppers and Google",
+      "help": "The first photo is the one shoppers see in lists. Square photos look best.",
+      "helpNone": "Products with a photo sell far better.",
+      "limit": "That’s the most photos a product can have.",
+      "refused": {
+        "TOO_LARGE": "That photo is too big. Use one under 10 MB.",
+        "UNSUPPORTED_TYPE": "Use a JPG, PNG, WebP or AVIF photo.",
+        "EMPTY": "That file is empty.",
+        "FORBIDDEN": "You can’t add photos here.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "NOT_CONNECTED": "The photo didn’t upload. Check your connection and try again."
+      },
+      "waitUpload": "A photo is still uploading. Save again once it’s in."
+    },
+    "name": {
+      "label": "Product name",
+      "placeholder": "What a shopper would type to find it, e.g. Organic Cotton Tee",
+      "missing": "Give the product a name"
+    },
+    "description": {
+      "label": "Description",
+      "optional": "(optional)",
+      "placeholder": "What makes it special? What’s it made of? How does it fit?"
+    },
+    "price": {
+      "title": "Price",
+      "price": "Price",
+      "compare": "Compare-at price",
+      "compareHint": "optional",
+      "cost": "What it costs you",
+      "costHint": "· only you see this",
+      "costPlaceholder": "optional",
+      "missing": "Add a price above zero so shoppers can buy this",
+      "compareLow": "The compare-at price has to be higher than the price",
+      "invalid": "Type a price like {example}",
+      "included": "Shopper pays {price} — tax included.",
+      "added": "Shopper pays {price} + tax at checkout.",
+      "none": "Type a price — it’s what the shopper pays.",
+      "profit": "You make {amount} per sale · {margin}% margin",
+      "loss": "You lose {amount} on each sale",
+      "compareHelp": "Show a crossed-out price only when it was really sold for that before.",
+      "abroad": "Shoppers abroad",
+      "abroadFailed": "Prices in your other currencies didn’t load, so they can’t be shown or changed here. Reload to try again.",
+      "auto": "{price} · set automatically",
+      "autoNone": "Set automatically once the price is saved",
+      "autoNote": "Converted from your price at today’s rate, rounded as Settings › Markets says.",
+      "manualLabel": "Price in {currency}",
+      "manualMissing": "Not for sale in {currency} until you add a price.",
+      "manualInvalid": "Type a price in {currency} above zero",
+      "perMarket": "Price per market",
+      "perMarketNote": "Each market’s price comes from your price, its currency and its adjustment. A fixed price per market comes later.",
+      "perMarketShow": "Show each market’s price",
+      "perMarketFailed": "We couldn’t work out the market prices. Try again in a moment.",
+      "perMarketNone": "No price yet"
+    },
+    "choices": {
+      "ask": "Does it come in different sizes, colours or other choices?",
+      "askSub": "e.g. Size: S, M, L · Colour: Sand, Ink. Each combination gets its own price.",
+      "add": "Add choices",
+      "title": "Choices",
+      "limits": "Up to 3 kinds · 100 versions",
+      "kindName": "Name of this kind of choice",
+      "remove": "Remove",
+      "removeKind": "Remove {name}",
+      "moveUp": "Move {name} up",
+      "valuePlaceholder": "Type a choice, press Enter",
+      "colourPlaceholder": "Type a colour, press Enter",
+      "removeValue": "Remove {name}",
+      "duplicate": "“{name}” is already a choice",
+      "addAnother": "Add another:",
+      "suggest": [
+        "Size",
+        "Colour",
+        "Material",
+        "Style",
+        "Pack of",
+        "Scent",
+        "Flavour"
+      ],
+      "custom": "Custom…",
+      "customTitle": "Name this kind of choice",
+      "customLabel": "e.g. Length, Finish, Engraving",
+      "makes": "{parts} makes {count} versions.",
+      "makesOne": "{parts} makes 1 version.",
+      "create": "Create {count} versions",
+      "createOne": "Create 1 version",
+      "update": "Update versions",
+      "newOnes": {
+        "one": "1 new version to create — pre-filled from the first one.",
+        "other": "{count} new versions to create — pre-filled from the first one."
+      },
+      "upToDate": "Versions are up to date.",
+      "tooMany": "That makes {count} versions — a product allows 100. Remove a few choices or split this into two products.",
+      "removeValueTitle": "Remove “{name}”?",
+      "removeValueBody": "{count} versions go with it. Past orders keep their record.",
+      "removeKindTitle": "Remove {name} from this product?",
+      "removeKindBody": "Its versions merge: each remaining combination keeps the first version’s price. Past orders keep their record."
+    },
+    "versions": {
+      "title": "Versions · {count}",
+      "setPrice": "Set price for all…",
+      "setPriceTitle": "Set the price of every version",
+      "setPriceLabel": "Price",
+      "search": "Find a version, e.g. Ink",
+      "photo": "Photo",
+      "version": "Version",
+      "price": "Price",
+      "code": "Code",
+      "onStore": "On store",
+      "visible": "Visible",
+      "hidden": "Hidden",
+      "notMade": "We don’t make this · Add back",
+      "priceOf": "Price of {name}",
+      "codeOf": "Code of {name}",
+      "hide": "Hide {name}",
+      "show": "Show {name}",
+      "notMakeTitle": "{name}",
+      "notMakeBody": "Hide it (you still sell the other versions), or say you don’t make this combination?",
+      "hideIt": "Hide it for now",
+      "notMake": "We don’t make this",
+      "allHidden": "That would hide every version. Hide the whole product instead.",
+      "help": "Tap “Visible” to hide one version. “We don’t make this” removes a combination — add it back any time.",
+      "manualOf": "{currency} price of {name}"
+    },
+    "sections": {
+      "open": "Open",
+      "close": "Close",
+      "ship": "Shipping",
+      "shipEmpty": "Couriers charge by weight and box size",
+      "weight": "Weight when packed",
+      "box": "Box size (L × W × H)",
+      "code": "HS code",
+      "codePlaceholder": "e.g. 6109",
+      "weightInvalid": "Type the weight like {example}",
+      "boxInvalid": "Type three sides, like {example}",
+      "tax": "Tax category",
+      "taxDefault": "{name} — your store’s usual",
+      "taxNote": "Every version takes it. The rate comes from your tax setup.",
+      "taxNone": "Your store’s usual",
+      "seo": "Search engine listing",
+      "seoSummary": "{title} — from the name and description",
+      "seoFilled": "Filled in for you",
+      "seoTitle": "Title",
+      "seoDescription": "Description",
+      "more": "More options",
+      "moreSummary": "Product code, web address, stock tracking, age check",
+      "sku": "Product code (SKU)",
+      "skuHint": "Your own code to tell products apart.",
+      "slug": "Web address",
+      "slugHint": "/products/{slug}",
+      "slugWarn": "This product is live — anyone with the old link will see “not found”.",
+      "units": {
+        "metric": {
+          "weight": "kg",
+          "box": "cm",
+          "weightPlaceholder": "0.4",
+          "boxPlaceholder": "25 × 20 × 3"
+        },
+        "imperial": {
+          "weight": "lb",
+          "box": "in",
+          "weightPlaceholder": "0.9",
+          "boxPlaceholder": "10 × 8 × 1"
+        }
+      },
+      "varies": "Different for each version — set it here for all",
+      "coll": "Collections & filters",
+      "collEmpty": "Group it with similar products so shoppers find it",
+      "collIn": "In {names}",
+      "collAlso": "Also in {names}",
+      "handPicked": "Hand-picked collections",
+      "handPickedNone": "No hand-picked collections yet — make one in Collections.",
+      "collFailed": "Your collections didn’t load, so they can’t be changed here. Reload to try again.",
+      "automaticAlso": "Also in: {names} (they fill from their rules)",
+      "filters": "Filters shoppers can use",
+      "filtersNone": "No filters yet — make them in Collections › Filters.",
+      "filtersFailed": "Filters didn’t load, so they can’t be changed here. Reload to try again.",
+      "internal": "only your team sees this",
+      "filtersHelp": "Choices are what shoppers pick when buying. Filters help them find the product. Internal tags are only for you.",
+      "toggleIn": "{name}, in",
+      "toggleOut": "{name}, not in",
+      "chart": "Size chart",
+      "chartNone": "No size chart",
+      "chartFailed": "Size charts didn’t load, so the chart can’t be changed here. Reload to try again.",
+      "chartEmpty": "Shoppers return fewer orders when there’s a size chart.",
+      "specs": "Specifications & highlights",
+      "specsOnly": "Specifications",
+      "highlightsOnly": "Highlights",
+      "specsSummary": "{specs} specs · {highlights} highlights",
+      "specsEmpty": "e.g. Material: Cotton · Care: Machine wash cold",
+      "specName": "Specification",
+      "specValue": "Value",
+      "specNamePlaceholder": "e.g. Material",
+      "specValuePlaceholder": "e.g. Cotton",
+      "specRemove": "Remove {name}",
+      "specAdd": "+ Add a specification",
+      "highlightsTitle": "Highlights · {count} of 5 · shown next to the price",
+      "highlightPlaceholder": "A short point, e.g. Pre-washed, no shrinking",
+      "highlightLabel": "Highlight {n}",
+      "highlightAdd": "+ Add a highlight",
+      "highlightRemove": "Remove highlight {n}",
+      "faqs": "FAQs",
+      "faqsSummary": {
+        "one": "1 question",
+        "other": "{count} questions"
+      },
+      "faqsEmpty": "Answer what shoppers ask before they buy",
+      "faqQuestion": "Question",
+      "faqAnswer": "Answer",
+      "faqRemove": "Remove this question",
+      "faqAdd": "+ Add a question",
+      "faqSuggest": [
+        "Does it shrink?",
+        "How does it fit?",
+        "How long does delivery take?",
+        "Can I return it?"
+      ],
+      "related": "Related products",
+      "relatedAuto": "Automatic — show products from the same collection",
+      "relatedSummaryAuto": "Automatic — from the same collection",
+      "relatedPicked": {
+        "one": "1 picked",
+        "other": "{count} picked"
+      },
+      "relatedSearch": "Find a product to show under this one",
+      "relatedHelp": "Pick up to 4. Shown as “You may also like”.",
+      "relatedMax": "Pick up to 4",
+      "relatedRemove": "Remove {name}",
+      "legal": "Legal & safety",
+      "legalTag": "never a paid feature",
+      "legalSummaryOk": "Nothing missing",
+      "legalSummaryMissing": "{markets} need more",
+      "legalHelp": "Only what the countries you sell in ask for. Missing details stop sales in that country only. Not legal advice.",
+      "legalFields": {
+        "fibre": "Fibre content",
+        "origin": "Country of origin",
+        "care": "Care instructions"
+      },
+      "legalPlaceholders": {
+        "fibre": "e.g. 100% cotton",
+        "origin": "e.g. India",
+        "care": "e.g. Machine wash cold"
+      },
+      "legalNeeded": "Needed for {markets}",
+      "legalOptional": "Some countries ask for this",
+      "track": "Track stock",
+      "trackSub": "Count down as orders come in",
+      "oversell": "Keep selling when out of stock",
+      "oversellSub": "Take orders and ship when you restock",
+      "age": "Ask shoppers to confirm their age",
+      "ageSub": "For alcohol, knives and other age-restricted items",
+      "hazard": "Hazardous to ship",
+      "hazardSub": "Couriers need to know before they pick it up",
+      "relatedGone": "A product no longer here",
+      "aplus": "A+ content · Product story",
+      "aplusOpen": "Edit A+ content",
+      "aplusStart": "Add A+ content",
+      "aplusSummary": "Big photos and feature blocks below your product",
+      "aplusSaveFirst": "Save the product first, then add its A+ content.",
+      "aplusPlan": "A+ content isn’t on your plan."
+    },
+    "side": {
+      "onStore": "On your store",
+      "visible": "Visible",
+      "visibleSub": "Shoppers can find and buy it",
+      "hidden": "Hidden",
+      "hiddenSub": "Only you and your team can see it",
+      "ready": "Ready to sell in",
+      "readyOk": "Ready",
+      "readyAdd": "Add: {missing}",
+      "readyNote": "Missing details only stop sales in that country.",
+      "readyAfterSave": "Shown once the product is saved.",
+      "preview": "Shopper sees",
+      "previewPhoto": "Your main photo",
+      "previewName": "Product name",
+      "inclTax": "incl. tax",
+      "plusTax": "+ tax at checkout",
+      "previewNote": "Tap a choice to see it as shoppers do.",
+      "badges": "Badges",
+      "badgesNote": "Automatic badges show by themselves. Make and edit badges in Settings › Catalogue.",
+      "badgeAuto": "{name} · auto"
+    },
+    "bar": {
+      "unsaved": "Unsaved changes",
+      "failed": "Couldn’t save — your changes are still here",
+      "discard": "Discard"
+    },
+    "deleteTitle": "Delete “{name}”?",
+    "deleteBody": "It leaves every collection. Past orders keep their record. If you might sell it again, hide it instead.",
+    "deleteConfirm": "Delete",
+    "deleted": "“{name}” deleted",
+    "saved": "Saved",
+    "savedNew": "“{name}” added",
+    "submitted": "Sent to your store owner for approval",
+    "leave": "You have unsaved changes. Leave without saving?",
+    "loading": "Loading the product",
+    "notFound": {
+      "title": "This product isn’t here",
+      "body": "It may have been deleted, or it belongs to someone else.",
+      "back": "Back to products"
+    },
+    "error": {
+      "title": "We couldn’t load this product",
+      "body": "Nothing is lost. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "cancel": "Cancel",
+    "apply": "Apply",
+    "refused": {
+      "NAME_REQUIRED": "Give the product a name.",
+      "TOO_MANY_OPTIONS": "A product can have up to 3 kinds of choice.",
+      "TOO_MANY_VERSIONS": "A product can have up to 100 versions.",
+      "OPTION_VALUES_REQUIRED": "Every kind of choice needs at least one value.",
+      "DUPLICATE_OPTION": "Two kinds of choice have the same name.",
+      "DUPLICATE_VALUE": "A kind of choice lists the same value twice.",
+      "VERSION_CHOICES": "Press “Update versions” so every version has one value for each kind of choice.",
+      "DUPLICATE_VERSION": "Two versions have the same choices.",
+      "PRICE_REQUIRED": "Every version needs a price.",
+      "INVALID_PRICE": "A price isn’t valid.",
+      "DUPLICATE_SKU": "You already use that product code on another product.",
+      "TOO_MANY_PHOTOS": "A product can have up to 20 photos.",
+      "INVALID_PHOTO": "A photo isn’t valid. Remove it and add it again.",
+      "FILE_REFUSED": "A photo isn’t here any more. Remove it and add it again.",
+      "PLAN_LIMIT": "Your plan has no room for more products.",
+      "PLAN_LIMIT_UNLOCK": "Your plan has no room for more products. {plan} has more.",
+      "SUPPLIER_FIELD": "That’s the store’s to set.",
+      "NOT_SHOWABLE": "This product is waiting for approval, so it can’t be shown yet.",
+      "STALE_REVISION": "Someone else saved this product. Reload to see their changes.",
+      "NOT_FOUND": "This product isn’t here any more.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change this product.",
+      "CURRENCY_REQUIRED": "Choose the store’s currency in Settings first.",
+      "other": "That didn’t save. Your changes are still here; try again.",
+      "BELOW_ZERO": "That would take stock below zero."
+    },
+    "stock": {
+      "title": "Stock",
+      "where": "Goes to {warehouse}, your default location",
+      "whereSplit": "Split across {count} locations",
+      "noWarehouse": "Add a location in Settings › Warehouses before counting stock.",
+      "label": "Stock at {warehouse}",
+      "less": "One less",
+      "more": "One more",
+      "help": "How many you have ready to sell. We count down as orders come in.",
+      "split": "Split across locations",
+      "unsplit": "Keep it all in one location",
+      "total": "Total {count}",
+      "reserved": {
+        "one": "1 reserved for orders · sold, not shipped yet. You can sell {free} more.",
+        "other": "{count} reserved for orders · sold, not shipped yet. You can sell {free} more."
+      },
+      "adjust": "Change with a reason…",
+      "adjustTitle": "Change stock with a reason",
+      "adjustBody": "Shown in the stock history, so everyone knows why the number moved.",
+      "adjustReason": "Why",
+      "adjustCount": "How many? Use − to remove, e.g. −2",
+      "adjustCountError": "Type a number like +20 or −2",
+      "adjustWhere": "Where",
+      "reasons": {
+        "received": "Received new stock",
+        "returned": "Returned by a shopper",
+        "damaged": "Damaged or lost",
+        "counted": "Counted again",
+        "typed": "Typed in",
+        "order": "Order",
+        "import": "Import",
+        "starting": "First count",
+        "transfer": "Moved between locations"
+      },
+      "adjusted": "Stock {delta} · {reason}",
+      "belowZero": "That would take stock below zero.",
+      "history": "Stock history",
+      "hideHistory": "Hide history",
+      "historyNone": "No changes yet.",
+      "historyMore": "Older changes are in the activity log.",
+      "historyNote": "Every change is kept — by hand, by orders, by suppliers and by imports.",
+      "by": "by {name}",
+      "bySystem": "automatically",
+      "now": "now {count}",
+      "invalid": "Type a whole number of items, 0 or more",
+      "stockOf": "Stock of {name}",
+      "versionsTotal": "{count} in stock across all versions",
+      "untracked": "Not tracked for this kind of product.",
+      "saveStock": "Save stock",
+      "failed": "The product saved, but the stock didn’t. Try saving again.",
+      "adjustPlaceholder": "+20",
+      "countPlaceholder": "0",
+      "deltaUp": "+{count}",
+      "deltaDown": "−{count}",
+      "newFailed": "The product saved, but its stock didn’t. The counts you typed are below; save again to keep them."
+    },
+    "saveCollectionsFailed": "The product saved, but its collections didn’t. Try saving again.",
+    "translate": {
+      "tabs": "Editing in",
+      "main": "{language} · main",
+      "todo": {
+        "one": "1 to do",
+        "other": "{count} to do"
+      },
+      "done": "done",
+      "title": "Translating into {language}",
+      "mainText": "{language}: {text}",
+      "empty": "(empty)",
+      "fields": {
+        "name": "Name",
+        "description": "Description",
+        "slug": "Web address"
+      },
+      "versions": "Versions",
+      "names": "Choice names",
+      "namesNote": "Translated once for every product that uses them.",
+      "namesSupplier": "Choice names are your store owner’s to translate.",
+      "status": {
+        "missing": "Not translated",
+        "translated": "Translated",
+        "changed": "Changed in {language} since"
+      },
+      "placeholder": "In {language}",
+      "slugNote": "Made from the translated name when left empty.",
+      "same": "Same in every language",
+      "sameBody": "Price, stock, photos and the tax category don’t change with the language.",
+      "notYet": "Not in {language} yet.",
+      "notYetBody": "Shoppers see the {main} text until you add it — nothing is broken.",
+      "save": "Save translation",
+      "saved": "{language} saved",
+      "clearHint": "Leave a field empty to show the {main} text.",
+      "loading": "Loading the translation",
+      "failed": "We couldn’t load this translation. Try again in a moment.",
+      "refused": {
+        "NOT_A_TRANSLATION_LANGUAGE": "That language isn’t one of your store’s.",
+        "DUPLICATE_SLUG": "Another product already uses that web address in this language.",
+        "INVALID_SLUG": "Use lowercase letters, numbers and hyphens in the web address.",
+        "SUPPLIER_FIELD": "Choice names are your store owner’s to translate.",
+        "other": "That didn’t save. Your text is still here; try again."
+      },
+      "saveProductFirst": "Save your changes to the product first, then translate it."
+    }
+  },
+  "story": {
+    "title": "A+ content",
+    "back": "← {name}",
+    "count": "{count} of {max} modules",
+    "state": {
+      "unsaved": "Unsaved changes",
+      "live": "Live on your store",
+      "changed": "Draft has changes · live page unchanged",
+      "draft": "Draft · not on your store yet"
+    },
+    "views": {
+      "label": "Preview as",
+      "desktop": "Desktop",
+      "phone": "Phone"
+    },
+    "saveDraft": "Save draft",
+    "publish": "Publish with product",
+    "submit": "Submit with product",
+    "saving": "Saving…",
+    "palette": "Add a module",
+    "kinds": {
+      "banner": "Large banner",
+      "imageText": "Image + text",
+      "features": "Features",
+      "compare": "Comparison chart",
+      "gallery": "Photo strip",
+      "box": "What’s in the box",
+      "specs": "Specifications",
+      "brand": "Brand story",
+      "faq": "FAQ",
+      "video": "Video"
+    },
+    "kindTags": {
+      "specs": "from product",
+      "faq": "from product",
+      "brand": "shared"
+    },
+    "sizes": {
+      "banner": "1464 × 600",
+      "imageText": "970 × 600",
+      "features": "300 × 225",
+      "gallery": "600 × 600",
+      "brand": "970 × 300",
+      "video": "1280 × 720"
+    },
+    "videoOff": "Video is switched off in Settings › Catalogue",
+    "videoPlan": "Video isn’t on your plan",
+    "startFrom": "Or start from",
+    "templates": {
+      "fashion": "Fashion",
+      "electronics": "Electronics",
+      "home": "Home",
+      "beauty": "Beauty"
+    },
+    "templateTitle": "Replace with the {name} template?",
+    "templateBody": "Your current modules will be swapped out. Nothing is published until you publish.",
+    "templateConfirm": "Replace",
+    "templateAdded": "{name} template added — fill in each module",
+    "copyFrom": "Copy from another product…",
+    "copySearch": "Find the product to copy from",
+    "copyTitle": "Copy A+ content from “{name}”?",
+    "copyBody": "This product’s draft is replaced with that one’s. Its live page doesn’t change until you publish.",
+    "copyConfirm": "Copy",
+    "copied": "Copied — change anything that’s different for this product",
+    "empty": "Add a module from the left, or start from a template. Shoppers see this below your product description.",
+    "tooMany": "{max} modules is the most a product can have — remove one to add another",
+    "up": "Move up",
+    "down": "Move down",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "removed": "Module removed",
+    "select": "Edit {name}",
+    "panel": {
+      "title": "Headline",
+      "titlePlaceholder": "A short headline",
+      "body": "Text",
+      "bodyPlaceholder": "2 or 3 sentences",
+      "side": "Photo on the",
+      "left": "Left",
+      "right": "Right",
+      "photo": "Photo · best at {size}",
+      "photoAdd": "Add a photo",
+      "photoReplace": "Replace",
+      "photoRemove": "Remove the photo",
+      "alt": "Describe the photo",
+      "altHint": "required — shoppers using screen readers hear this",
+      "altPlaceholder": "e.g. {name} on a wooden chair",
+      "items": "Features",
+      "itemTitle": "Feature {n}",
+      "itemText": "Its line",
+      "itemPhoto": "Its photo (optional)",
+      "itemAdd": "+ Add a feature",
+      "itemRemove": "Remove feature {n}",
+      "boxItem": "Item {n}",
+      "boxAdd": "+ Add an item",
+      "boxRemove": "Remove item {n}",
+      "gallery": "Photos · up to 8",
+      "galleryAdd": "Add photos",
+      "galleryAlt": "Describe photo {n}",
+      "galleryRemove": "Remove photo {n}",
+      "compare": "Products to compare · 2 to 5",
+      "compareSearch": "Find a product to compare",
+      "compareRemove": "Remove {name}",
+      "compareNote": "Rows come from each product’s Specifications — never retyped.",
+      "brand": "Brand story",
+      "brandNone": "Choose a brand story",
+      "brandEmpty": "No brand stories yet. They are made in Settings › Catalogue and shown on every product that uses them.",
+      "brandSupplier": "Brand stories are your store owner’s.",
+      "fromProduct": "Shows this product’s {what}, as they are in the editor.",
+      "fromSpecs": "specifications",
+      "fromFaqs": "questions",
+      "video": "Video link",
+      "videoPlaceholder": "https://www.youtube.com/watch?v=…",
+      "videoHint": "A YouTube or Vimeo link.",
+      "brandFailed": "We couldn’t load your brand stories. Try again in a moment.",
+      "compareGone": "A product no longer here"
+    },
+    "gaps": {
+      "one": "1 thing to fill in before publishing — it’s marked.",
+      "other": "{count} things to fill in before publishing — they’re marked."
+    },
+    "gapFields": {
+      "title": "Add a headline",
+      "body": "Add the text",
+      "photo": "Add a photo",
+      "alt": "Describe the photo",
+      "items": "Fill in every item",
+      "products": "Pick at least 2 products",
+      "block": "Choose a brand story",
+      "video": "Add a video link"
+    },
+    "saved": "Draft saved — your live page hasn’t changed",
+    "published": "A+ content is live on your product page",
+    "submitted": "Sent for approval with the product",
+    "refused": {
+      "STORY_REFUSED": "A photo, product or brand story here isn’t one this product can use.",
+      "STALE_REVISION": "Someone else saved this A+ content. Reload to see their changes.",
+      "INVALID_STORY": "Something in a module isn’t valid.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can look at A+ content but not change it.",
+      "other": "That didn’t save. Your changes are still here; try again."
+    },
+    "viewOnly": "You can look at A+ content but not change it.",
+    "readOnly": "Your store is read-only until the bill is paid — nothing can be published.",
+    "leave": "Your A+ changes aren’t saved. Leave without saving?",
+    "loading": "Loading the A+ content",
+    "error": {
+      "title": "We couldn’t load the A+ content",
+      "body": "Nothing is lost. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "notFound": {
+      "title": "This product isn’t here",
+      "body": "It may have been deleted, or it belongs to someone else.",
+      "back": "Back to products"
+    },
+    "cancel": "Cancel",
+    "placeholders": {
+      "banner": "Your headline",
+      "imageText": "Your headline",
+      "features": "Why it’s worth it",
+      "compare": "Compare",
+      "gallery": "In use",
+      "box": "What’s in the box",
+      "specs": "Specifications",
+      "faq": "Questions",
+      "video": "Video",
+      "text": "Your 2 or 3 sentences",
+      "item": "A feature"
+    }
+  },
+  "productSearch": {
+    "looking": "Looking…",
+    "failed": "The search didn’t answer. Try again in a moment.",
+    "none": "No products match “{query}”"
+  },
+  "warehouses": {
+    "tabs": {
+      "label": "Your products",
+      "products": "Products",
+      "warehouses": "Warehouses",
+      "sizeCharts": "Size charts"
+    },
+    "title": "Where your stock sits",
+    "sub": "Stock is counted per location. New products start at your default one, and its address is on your labels.",
+    "add": "Add a location",
+    "default": "Default for new products",
+    "units": {
+      "one": "1 unit",
+      "other": "{count} units"
+    },
+    "manage": "Manage {name}",
+    "form": {
+      "addTitle": "Add a location",
+      "addBody": "Somewhere your stock sits. Adding it doesn’t move stock — it starts at zero.",
+      "editTitle": "Edit {name}",
+      "name": "Name",
+      "namePlaceholder": "e.g. Back room",
+      "line1": "Address",
+      "line2": "Address line 2",
+      "city": "City",
+      "region": "State or region",
+      "postalCode": "Postal code",
+      "country": "Country (2-letter code)",
+      "save": "Save",
+      "saveAdd": "Add location",
+      "cancel": "Cancel",
+      "nameMissing": "Give it a name",
+      "countryInvalid": "Use the 2-letter country code, like IN"
+    },
+    "makeDefault": "Make default",
+    "makeDefaultBody": "New products start here. Existing stock doesn’t move.",
+    "editNext": "Change its name or address next.",
+    "deleteNext": "You’ll confirm before it’s deleted.",
+    "madeDefault": "{name} is now the default — existing stock doesn’t move",
+    "edit": "Rename or change address",
+    "delete": "Delete",
+    "deleteTitle": "Delete {name}?",
+    "deleteBody": "It disappears from stock counts and pick lists.",
+    "deleteConfirm": "Delete location",
+    "deleted": "{name} deleted",
+    "saved": "Saved — labels and pick lists use the new details",
+    "added": "{name} added",
+    "holdsStock": "{name} still holds {count} — set their stock to 0 or move them, then delete",
+    "empty": "No locations yet. Add the first one, where your stock sits.",
+    "refused": {
+      "TOO_MANY_WAREHOUSES": "You can have up to 20 locations. Remove one first.",
+      "DEFAULT_WAREHOUSE": "Make another location the default first.",
+      "WAREHOUSE_HOLDS_STOCK": "This location still holds stock. Set it to 0 or move it first.",
+      "STALE_REVISION": "Someone else changed this location first. It now shows their changes; edit it again to make yours.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change locations.",
+      "other": "That didn’t save. Try again."
+    },
+    "loading": "Loading your locations",
+    "error": {
+      "title": "We couldn’t load your locations",
+      "body": "Nothing is lost. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "viewOnly": "You can see the locations but not change them.",
+    "denied": {
+      "title": "You can’t see locations",
+      "body": "Ask an admin for access to warehouses."
+    },
+    "manageButton": "Manage",
+    "theirsTitle": "Supplier locations",
+    "theirsSub": "Suppliers add and count these themselves. They aren’t offered as your default.",
+    "supplierMark": "SU"
+  },
+  "imports": {
+    "title": "Import & export",
+    "lede": "Bring products in from a spreadsheet or Shopify. Nothing changes in your catalogue until you confirm.",
+    "back": "← Products",
+    "steps": {
+      "label": "Import steps",
+      "choose": "Choose",
+      "check": "Check",
+      "import": "Import",
+      "done": "Done",
+      "finished": "{step}, done",
+      "current": "{step}, current step"
+    },
+    "sources": {
+      "file": {
+        "title": "Import from a spreadsheet",
+        "body": "A CSV file, or Shopify’s product export. Our template has one example row.",
+        "cta": "Choose a file"
+      },
+      "shopify": {
+        "title": "Bring products from Shopify",
+        "body": "Connect your Shopify store and pick what to bring over — photos, choices and all.",
+        "cta": "Connect Shopify"
+      },
+      "template": {
+        "title": "Download the template",
+        "body": "Every column we read, with one example row: name, price, stock, product code, photos and the rest.",
+        "cta": "Download template.csv",
+        "file": "template.csv"
+      }
+    },
+    "fileErrors": {
+      "type": {
+        "title": "That file type can’t be imported",
+        "body": "{name} isn’t a CSV file. Save it as CSV (in Excel: File › Save a copy › CSV) and choose it again."
+      },
+      "big": {
+        "title": "That file is too big",
+        "body": "{name} is {size}; the limit is 5 MB. Split it into two files, or import from Shopify instead."
+      },
+      "empty": {
+        "title": "That file has no products in it",
+        "body": "{name} has a header row but nothing under it. Add at least one product, one per row."
+      },
+      "cols": {
+        "title": "Some columns we need are missing",
+        "body": "{name} has no “name” or “handle” column. Download the current template, or rename your columns to match it."
+      },
+      "other": {
+        "title": "That file can’t be imported"
+      },
+      "chooseAnother": "Choose another file",
+      "template": "Download the template",
+      "megabytes": "{size} MB"
+    },
+    "shopify": {
+      "title": "Connect your Shopify store",
+      "address": "Your Shopify store address",
+      "placeholder": "your-store",
+      "suffix": ".myshopify.com",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "again": "Connect again",
+      "note": "We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have a Shopify export file instead? Use “Import from a spreadsheet”.",
+      "expired": "Shopify stopped letting us in — the connection expired. Connect again to carry on.",
+      "failed": "Shopify didn’t finish connecting. Try again.",
+      "required": "Type your Shopify store address",
+      "connected": "Connected — Shopify approved read-only access",
+      "notFound": "We couldn’t find {shop}.myshopify.com. Check the address in your Shopify admin — it’s under Settings › Domains.",
+      "unavailable": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead, with “Import from a spreadsheet”.",
+      "away": "Shopify isn’t answering right now. Try again in a minute."
+    },
+    "pick": {
+      "title": "Connected to {shop} · pick products",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "allChosen": "Every product in your shop is chosen.",
+      "more": "Show more",
+      "loading": "Reading your shop…",
+      "back": "Back",
+      "check": {
+        "one": "Check {count} product",
+        "other": "Check {count} products"
+      },
+      "checkAll": "Check all products",
+      "none": "Pick at least one product",
+      "max": "You can pick up to 250. To bring more, choose “Select all”.",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
+      "draft": "Draft",
+      "archived": "Archived",
+      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want.",
+      "moreFailed": "Those products didn’t load. What you’ve ticked is kept; try again."
+    },
+    "checking": {
+      "file": "Checking your file…",
+      "shopify": "Reading your shop’s products…"
+    },
+    "check": {
+      "fileName": "{name} · {count}",
+      "rows": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "ready": "{count} ready",
+      "readyNote": "{new} new · {matched} you already have (matched by product code)",
+      "problemsLabel": "need fixing",
+      "problems": "{count} with problems",
+      "problemsBody": "Fix them in your file and upload again, or import the ready ones now.",
+      "existing": "Products you already have ({count})",
+      "update": "Update them with the file",
+      "skip": "Skip them, only add new ones",
+      "stockIn": "Put imported stock in",
+      "isDefault": "{name} (default)",
+      "fix": "What to fix",
+      "download": "Download file with a “Problems” column",
+      "row": "Row {line}",
+      "file": "file",
+      "moreProblems": {
+        "one": "{count} more is in the file.",
+        "other": "{count} more are in the file."
+      },
+      "restart": "Upload a fixed file",
+      "run": {
+        "one": "Import {count} product",
+        "other": "Import {count} products"
+      },
+      "problemsFile": "import-problems.csv"
+    },
+    "running": {
+      "title": {
+        "one": "Importing {count} product",
+        "other": "Importing {count} products"
+      },
+      "progress": "{done} of {total} done. You can leave this page — we’ll tell you when it’s finished.",
+      "progressLabel": "Import progress",
+      "pausedTitle": "Paused — you’re offline.",
+      "pausedBody": "Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect.",
+      "leave": "Go to Products while it runs"
+    },
+    "done": {
+      "title": "{added} added · {updated} updated",
+      "skipped": {
+        "one": "{count} product with problems was skipped.",
+        "other": "{count} products with problems were skipped."
+      },
+      "failed": {
+        "one": "{count} product couldn’t be saved.",
+        "other": "{count} products couldn’t be saved."
+      },
+      "photos": {
+        "one": "{count} photo is still coming in.",
+        "other": "{count} photos are still coming in."
+      },
+      "download": "Download what didn’t go in",
+      "view": "See your products",
+      "another": "Import another file"
+    },
+    "stopped": {
+      "title": "The import stopped",
+      "body": "Nothing more was changed. Try again, or import a file instead."
+    },
+    "export": {
+      "title": "Export",
+      "hidden": "Export hidden only",
+      "all": "Export all {count}",
+      "preparing": "Preparing your file… big exports run in the background.",
+      "row": "{label} · {count}",
+      "label": {
+        "products": "Products",
+        "stock": "Stock"
+      },
+      "count": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "download": "Download",
+      "expired": "Expired",
+      "failed": "Couldn’t be made",
+      "ready": "Your export is ready",
+      "file": "products-{date}.csv",
+      "counting": "…"
+    },
+    "banner": {
+      "title": "Importing products —",
+      "body": "{done} of {total} done. Keep working — we’ll tell you when it’s finished.",
+      "pausedTitle": "Import paused —",
+      "pausedBody": "you’re offline. It carries on by itself when you’re back.",
+      "view": "View",
+      "finished": "Import finished — {added} added, {updated} updated"
+    },
+    "readOnly": "Your store is view-only until billing is sorted, so nothing can be imported. Exports still work.",
+    "denied": {
+      "title": "You don’t have access to Import & export",
+      "body": "Ask the store owner if you need products brought in."
+    },
+    "error": {
+      "title": "This page didn’t load",
+      "body": "Your products are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "listExport": {
+      "button": "Export",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "{count} product is ready.",
+        "other": "{count} products are ready."
+      },
+      "truncated": "Only the first {count} products are in it; narrow the filter to see the rest.",
+      "download": "Download",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    }
+  },
+  "collections": {
+    "tabs": {
+      "label": "Collections area",
+      "collections": "Collections",
+      "filters": "Filters",
+      "menus": "Menus",
+      "sizeCharts": "Size charts"
+    },
+    "title": "Collections",
+    "sub": "Groups of products shown together on your store, like “Summer Sale” or “Men’s Shirts”.",
+    "create": "Create collection",
+    "seasonal": {
+      "label": "Coming up in your markets:",
+      "add": "+ {name}",
+      "names": {
+        "diwali": "Diwali",
+        "navratri": "Navratri",
+        "holi": "Holi",
+        "rakhi": "Raksha Bandhan",
+        "weddingSeason": "Wedding season",
+        "halloween": "Halloween",
+        "blackFriday": "Black Friday",
+        "holidayGifts": "Holiday gifts",
+        "christmas": "Christmas",
+        "advent": "Advent",
+        "oktoberfest": "Oktoberfest",
+        "backToSchool": "Back to school",
+        "ramadan": "Ramadan",
+        "eid": "Eid",
+        "singlesDay": "Singles’ Day"
+      }
+    },
+    "empty": {
+      "title": "Group your products",
+      "body": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts under {price}”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
+      "bodyNoPrice": "Collections become the pages and menu links of your shop — “Summer Sale”, “Gifts”, “Men’s Shirts”. Pick products by hand, or let them fill themselves.",
+      "action": "Create your first collection"
+    },
+    "list": {
+      "label": "Your collections",
+      "inside": "Inside {name}",
+      "insideOnly": "Inside {name} · only products also there",
+      "picked": {
+        "one": "1 picked",
+        "other": "{count} picked"
+      },
+      "automatic": {
+        "one": "Automatic · 1 rule",
+        "other": "Automatic · {count} rules"
+      },
+      "handPicked": "Hand-picked",
+      "products": {
+        "one": "1 product",
+        "other": "{count} products"
+      },
+      "updating": "Updating… {count} so far",
+      "visible": "Visible",
+      "hidden": "Hidden · for offers",
+      "open": "Open {name}"
+    },
+    "sentence": {
+      "is": "is",
+      "or": "or",
+      "and": "and",
+      "orJoin": "or",
+      "nameContains": "name contains “{text}”",
+      "product": "a chosen product",
+      "version": "a chosen version",
+      "priceRange": "a price range"
+    },
+    "loading": "Loading your collections",
+    "error": {
+      "title": "Your collections didn’t load",
+      "body": "Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "denied": {
+      "title": "You can’t see collections",
+      "body": "Ask your store owner for access to the catalogue."
+    },
+    "viewOnly": "You can look at collections but not change them.",
+    "editor": {
+      "back": "← Collections",
+      "newTitle": "New collection",
+      "untitled": "Collection",
+      "name": "Name",
+      "namePlaceholder": "e.g. Wedding Guest",
+      "nameMissing": "Give the collection a name",
+      "addressNoDomain": "Shows at /collections/{slug}",
+      "description": "Description",
+      "descriptionHint": "Shown at the top of the collection page",
+      "fill": "How should it fill?",
+      "automatic": "Automatically",
+      "automaticSub": "Every product matching your rules — new ones join by themselves",
+      "manual": "I’ll pick them",
+      "manualSub": "You choose exactly which products",
+      "matchLead": "Show products that match",
+      "matchAll": "all of these rules",
+      "matchAny": "any of these rules",
+      "where": "Where",
+      "and": "and",
+      "or": "or",
+      "is": "is",
+      "nameContains": "Name contains",
+      "textPlaceholder": "e.g. shirt",
+      "field": "Rule {n}: what to match",
+      "value": "{value}",
+      "text": "Rule {n}: name contains",
+      "removeRule": "Remove rule {n}",
+      "addRule": "+ Add a rule",
+      "priceNote": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency ({currency}).",
+      "priceNoteNoCurrency": "“Price is under …” isn’t possible yet. With several currencies it would use your pricing currency.",
+      "kept": {
+        "one": "1 more rule this screen doesn’t change is kept as it is.",
+        "other": "{count} more rules this screen doesn’t change are kept as they are."
+      },
+      "search": "Search products to add",
+      "searching": "Searching…",
+      "searchFailed": "Products didn’t load. Try again.",
+      "noProducts": "No products match “{query}”.",
+      "statusHidden": "Hidden",
+      "statusWaiting": "Waiting",
+      "parentTitle": "Inside another collection?",
+      "topLevel": "No — it’s a top-level collection",
+      "insideOption": "Inside {name}",
+      "inherit": "Only show products that are also in {name}",
+      "flow": "{parent} · {parentCount} → narrowed by your rules → {name} · {count}",
+      "visible": "Visible on your store",
+      "hidden": "Hidden — for offers or internal use",
+      "delete": "Delete",
+      "save": "Save collection",
+      "saving": "Saving…",
+      "preview": "Live preview",
+      "matching": {
+        "one": "1 product matches",
+        "other": "{count} products match"
+      },
+      "picked": {
+        "one": "1 product picked",
+        "other": "{count} products picked"
+      },
+      "noMatch": "No products match yet. Try “any of these rules”, or pick more values.",
+      "noPicks": "No products picked yet. Search above and tick the ones to add.",
+      "previewFailed": "The preview didn’t load. Your rules are kept; it tries again when you change one.",
+      "savedAuto": "“{name}” saved — filling in the background",
+      "saved": "“{name}” saved",
+      "deleteTitle": "Delete “{name}”?",
+      "deleteBody": {
+        "one": "The 1 product stays in your catalogue — only the group goes.",
+        "other": "The {count} products stay in your catalogue — only the group goes."
+      },
+      "deleteMenu": "It’s in your menu too; we’ll take it out and move anything nested under it up a level.",
+      "deleteConfirm": "Delete collection",
+      "deleted": "“{name}” deleted. Its products are untouched.",
+      "cancel": "Cancel",
+      "notFound": {
+        "title": "This collection isn’t here",
+        "body": "It may have been deleted. Go back to your collections."
+      },
+      "loadFailed": {
+        "title": "This collection didn’t load",
+        "body": "Check your connection and try again."
+      },
+      "deleteMenuMaybe": "If it’s in your menu, we’ll take it out and move anything nested under it up a level.",
+      "slugPlaceholder": "your-collection",
+      "countPending": "…"
+    },
+    "refused": {
+      "NAME_REQUIRED": "Give the collection a name.",
+      "STALE_REVISION": "Someone else saved this collection first. Open it again to see their changes.",
+      "TOO_MANY_RULES": "A collection can have up to 20 rules.",
+      "INVALID_RULE": "A rule names a filter value that isn’t here any more. Remove it and save again.",
+      "TOO_MANY_PRODUCTS": "A collection can hold up to 1,000 hand-picked products.",
+      "INVALID_PARENT": "Choose another collection as the parent — never this one or one inside it.",
+      "TOO_MANY_COLLECTIONS": "Your store has 500 collections, the most it can have. Delete one first.",
+      "NOT_FOUND": "This collection isn’t here any more.",
+      "READ_ONLY": "Your store is read-only until the bill is paid.",
+      "FORBIDDEN": "You can’t change collections.",
+      "other": "That didn’t save. Try again."
+    },
+    "filters": {
+      "title": "Filters",
+      "sub": "The checkboxes shoppers see on the left of your shop.",
+      "create": "Create filter",
+      "newTitle": "New filter",
+      "newBody": "Suggestions: Brand · Fabric · Occasion · Fit · Pattern",
+      "newName": "Name",
+      "newPlaceholder": "e.g. Fit",
+      "newMissing": "Give it a name",
+      "newConfirm": "Create",
+      "created": "“{name}” created — add its values",
+      "shopper": "Shoppers see this",
+      "internal": "Only you see these",
+      "makeInternal": "{name}: shoppers see this. Make it internal",
+      "makeShopper": "{name}: only you see these. Show it to shoppers",
+      "nowShopper": "{name} now shows to shoppers",
+      "nowInternal": "{name} is now internal — only you see it",
+      "usedBy": {
+        "one": "Used by 1 collection",
+        "other": "Used by {count} collections"
+      },
+      "add": "+ Add",
+      "addLabel": "Add a value to {name}",
+      "addTitle": "Add to {name}",
+      "addValue": "New value",
+      "addPlaceholder": "e.g. Bamboo",
+      "addMissing": "Type a value",
+      "addConfirm": "Add",
+      "added": "“{value}” added",
+      "manageTitle": "“{value}” in {name}",
+      "uses": {
+        "one": "1 product uses it. Renaming keeps it; deleting takes it off.",
+        "other": "{count} products use it. Renaming keeps them all; deleting takes it off them."
+      },
+      "rename": "Rename",
+      "delete": "Delete value",
+      "choose": "What to do with “{value}”",
+      "next": "Continue",
+      "renameTitle": "Rename “{value}”",
+      "renameTo": "Rename to",
+      "renameMissing": "Type a name",
+      "renameConfirm": "Save name",
+      "renamed": {
+        "one": "Renamed to “{value}” — 1 product updated",
+        "other": "Renamed to “{value}” — {count} products updated"
+      },
+      "deleteTitle": "Delete “{value}”?",
+      "deleteBody": {
+        "one": "1 product loses it, and automatic collections using it will shrink.",
+        "other": "{count} products lose it, and automatic collections using it will shrink."
+      },
+      "deleteConfirm": "Delete",
+      "deleted": "“{value}” deleted",
+      "lookAlike": "“{a}” and “{b}” look like the same thing.",
+      "merge": "Merge them",
+      "mergeTitle": "Merge into “{keep}”?",
+      "mergeBody": {
+        "one": "1 product using {drop} will use “{keep}”.",
+        "other": "{count} products using {drop} will use “{keep}”."
+      },
+      "quoted": "“{value}”",
+      "mergeConfirm": "Merge",
+      "merged": {
+        "one": "Merged — 1 product now uses “{keep}”",
+        "other": "Merged — {count} products now use “{keep}”"
+      },
+      "none": "No filters yet. Create one — Fabric, Occasion or Fit — and add its values.",
+      "noValues": "No values yet.",
+      "explainTitle": "Choices or filters?",
+      "choicesLabel": "Choices",
+      "choices": "the shopper picks one when buying, like Size M. Each has its own price and stock. Set them on the product.",
+      "filtersLabel": "Filters",
+      "filtersText": "the shopper ticks boxes to narrow down, like Fabric: Linen. Nothing to pick at checkout.",
+      "tagsLabel": "Internal tags",
+      "tags": "only you see them, like “Reorder soon”.",
+      "tip": "Tap a value to rename or delete it. Filters also power automatic collections.",
+      "cancel": "Cancel",
+      "refused": {
+        "NAME_REQUIRED": "Give it a name.",
+        "DUPLICATE_NAME": "Another filter already has that name.",
+        "DUPLICATE_VALUE": "This filter already has a value with that name.",
+        "TOO_MANY_FILTERS": "Your store has 200 filters, the most it can have. Merge or remove one first.",
+        "INVALID_INPUT": "Something here isn’t valid. Values can be up to 60 characters, and a filter up to 200 of them.",
+        "NOT_FOUND": "That isn’t here any more. It may have been changed elsewhere.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "You can’t change filters.",
+        "other": "That didn’t save. Try again.",
+        "STALE_REVISION": "Someone else changed this filter first. It now shows their changes; make yours again."
+      },
+      "usesNone": "No products use it yet.",
+      "deleteNone": "Nothing uses it."
+    },
+    "menus": {
+      "title": "Main menu",
+      "add": "+ Add a collection",
+      "addLabel": "Add a collection to the menu",
+      "added": "Added to the menu",
+      "removed": "Removed from the menu. The collection is still there.",
+      "products": {
+        "one": "1 product",
+        "other": "{count} products"
+      },
+      "hiddenNote": "Hidden — not shown to shoppers",
+      "gone": "Removed collection",
+      "link": "Link · {url}",
+      "up": "Move {label} up",
+      "down": "Move {label} down",
+      "nest": "Nest {label} under the item above",
+      "unnest": "Move {label} out",
+      "remove": "Remove {label}",
+      "firstNest": "The first item can’t be nested",
+      "nestHasKids": "An item with items under it can’t be nested — the menu goes one level deep. Move its items out first.",
+      "note": "→ nests an item under the one above it. Hidden collections stay here but shoppers don’t see them.",
+      "empty": "No items yet. Add a collection to start your menu.",
+      "desktop": "How shoppers see it · desktop",
+      "phone": "Phone menu",
+      "saving": "Saving…",
+      "loadFailed": {
+        "title": "Your menu didn’t load",
+        "body": "Check your connection and try again."
+      },
+      "refused": {
+        "STALE_REVISION": "Someone else changed the menu first. It now shows their version; make your change again.",
+        "TOO_MANY_ITEMS": "A menu can have up to 100 items.",
+        "TOO_DEEP": "A menu nests one level.",
+        "INVALID_LINK": "A menu item links a collection that isn’t here any more. Remove it and try again.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "You can’t change the menu.",
+        "other": "That didn’t save. Try again."
+      },
+      "saved": "Menu saved"
+    },
+    "charts": {
+      "title": "Size charts",
+      "meter": "{count} of {limit}",
+      "new": "+ New",
+      "limit": "Limit reached",
+      "offNote": "Size charts are switched off in Settings › Catalogue, so they don’t show on products.",
+      "notInPlan": "Size charts aren’t in your store’s plan.",
+      "notInPlanOwner": "Size charts aren’t in your plan. See plans to add them.",
+      "seePlans": "See plans",
+      "notInPlanSupplier": "Size charts aren’t switched on in this store, so you can’t make one yet.",
+      "atLimit": "You have 200 size charts, the most there can be. Delete one to make another.",
+      "empty": "No size charts yet. Make one and use it on every product it fits — one “Tops” chart can cover 200 products.",
+      "pick": "Pick a chart on the left, or make a new one from a template.",
+      "listLabel": "Your size charts",
+      "sub": {
+        "one": "1 product · {unit}",
+        "other": "{count} products · {unit}"
+      },
+      "name": "Chart name",
+      "units": "Units",
+      "unitCm": "cm",
+      "unitIn": "in",
+      "converted": {
+        "cm": "Converted to centimetres",
+        "in": "Converted to inches"
+      },
+      "shopperView": "Shopper view",
+      "hideShopperView": "Hide shopper view",
+      "usedMany": "This chart is on {count} products. Changes show on all of them.",
+      "sizeHead": "Size",
+      "cell": "{size}, {column}",
+      "sizeCell": "Size {n}",
+      "headCell": "Column {n} name",
+      "removeColumn": "Remove column {name}",
+      "removeRow": "Remove size {size}",
+      "addSize": "+ Size",
+      "addMeasurement": "+ Measurement",
+      "measurement": "Measurement",
+      "addSystems": "+ Other size systems (US / UK / EU)",
+      "systemsAdded": "Added US, UK and EU columns — fill in their sizes",
+      "systemsThere": "Size systems already added",
+      "ranges": "Ranges like 38–40 are fine.",
+      "fitNote": "Fit note & how to measure",
+      "fitPlaceholder": "e.g. Runs small — order one size up. Chest: measure around the fullest part.",
+      "used": {
+        "one": "Used on 1 product. Assign it from a product’s “Size chart” box.",
+        "other": "Used on {count} products. Assign it from a product’s “Size chart” box."
+      },
+      "delete": "Delete",
+      "copy": "Make a copy",
+      "save": "Save chart",
+      "saving": "Saving…",
+      "problems": {
+        "name": "Give the chart a name",
+        "columns": "Name every column, and keep at least one measurement",
+        "duplicate": "Two measurements have the same name",
+        "sizes": "Give every row a size"
+      },
+      "saved": "“{name}” saved",
+      "savedOn": {
+        "one": "“{name}” saved — updated on 1 product",
+        "other": "“{name}” saved — updated on {count} products"
+      },
+      "changeAllTitle": "This changes the chart on {count} products",
+      "changeAllBody": "Every product using it will show the new numbers. Make a copy instead if only some should change.",
+      "changeAll": "Change all {count}",
+      "copyInstead": "Make a copy instead",
+      "how": "How to save",
+      "next": "Continue",
+      "copySuffix": "{name} (copy)",
+      "copied": "Copy made — it isn’t on any products yet",
+      "deleteTitle": "Delete “{name}”?",
+      "deleteBody": {
+        "one": "1 product will lose its size chart. You can pick another chart for it after.",
+        "other": "{count} products will lose their size chart. You can pick another chart for them after."
+      },
+      "deleteNone": "No products use it.",
+      "deleteConfirm": "Delete chart",
+      "deleted": "Size chart deleted",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "Your changes to this chart will be lost.",
+      "discard": "Discard changes",
+      "keep": "Keep editing",
+      "startTitle": "Start a size chart",
+      "startBody": "Numbers are in {unit} — you can switch.",
+      "create": "Create",
+      "created": "Chart created — change any number, then save",
+      "cancel": "Cancel",
+      "templates": {
+        "tops": "Tops & shirts",
+        "topsSub": "S · M · L · XL · XXL · chest, waist, length",
+        "women": "Women’s clothing (US · UK · EU)",
+        "womenSub": "Converts between size systems",
+        "jeans": "Jeans (W × L)",
+        "jeansSub": "Waist and leg length",
+        "shoes": "Footwear (US · UK · EU · JP)",
+        "shoesSub": "Foot length",
+        "kurta": "Kurtas",
+        "kurtaSub": "Chest, length, shoulder",
+        "blank": "Start blank",
+        "blankSub": "Your own sizes and measurements"
+      },
+      "newName": {
+        "tops": "Tops & shirts",
+        "women": "Women’s clothing",
+        "jeans": "Jeans",
+        "shoes": "Footwear",
+        "kurta": "Kurtas",
+        "blank": "New size chart"
+      },
+      "previewTitle": "Size chart · {name}",
+      "previewSwitch": "Shopper can switch {unit} ⇄ {other}",
+      "loading": "Loading your size charts",
+      "loadFailed": {
+        "title": "Your size charts didn’t load",
+        "body": "Check your connection and try again."
+      },
+      "chartFailed": "This chart didn’t load. Try again.",
+      "retry": "Try again",
+      "viewOnly": "You can look at size charts but not change them.",
+      "refused": {
+        "TOO_MANY_SIZE_CHARTS": "You have 200 size charts, the most there can be. Delete one first.",
+        "STALE_REVISION": "Someone else saved this chart first. Open it again to see their changes.",
+        "PLAN_LIMIT": "Size charts aren’t in your plan.",
+        "FEATURE_UNAVAILABLE": "Size charts aren’t switched on in this store.",
+        "INVALID_INPUT": "Something in the chart isn’t valid: up to 60 sizes, 12 measurements, 6 size systems, 20 characters a cell.",
+        "NOT_FOUND": "This chart isn’t here any more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "You can’t change size charts.",
+        "other": "That didn’t save. Try again."
+      },
+      "denied": {
+        "title": "You can’t see size charts",
+        "body": "Ask your admin for access to the catalogue."
+      },
+      "columns": {
+        "chest": "Chest",
+        "waist": "Waist",
+        "length": "Length",
+        "bust": "Bust",
+        "foot": "Foot",
+        "shoulder": "Shoulder",
+        "leg": "Leg",
+        "measurement": "Measurement"
+      },
+      "systems": {
+        "us": "US",
+        "uk": "UK",
+        "eu": "EU",
+        "jp": "JP"
+      }
+    }
+  },
+  "settings": {
+    "tabs": {
+      "label": "Settings",
+      "store": "Store info",
+      "people": "People",
+      "supplier": "Supplier",
+      "warehouse": "Warehouse",
+      "tax": "Tax setup",
+      "markets": "Markets",
+      "catalogue": "Catalogue"
+    },
+    "title": "Settings",
+    "denied": {
+      "title": "Settings are the store owner’s",
+      "body": "Ask your store owner if something here needs changing."
+    },
+    "loading": "Loading your settings",
+    "error": {
+      "title": "Your settings didn’t load",
+      "body": "Check your connection and try again.",
+      "retry": "Try again"
+    },
+    "readOnly": "Your store is read-only until the bill is paid. You can look, but changes wait until then.",
+    "store": {
+      "title": "Your store",
+      "name": "Store name",
+      "nameHelp": "Shoppers see this everywhere",
+      "nameMissing": "Your store needs a name",
+      "legal": "Legal name",
+      "legalHelp": "Printed on invoices only",
+      "description": "One-line description",
+      "descriptionHelp": "Used in search results and link previews · {count}/120",
+      "email": "Contact email",
+      "emailHelp": "Shoppers reply here",
+      "phone": "Phone",
+      "street": "Street address",
+      "streetHelp": "On every invoice",
+      "city": "City",
+      "countryLabel": "Country",
+      "countryHelp": "Set at sign-up. Selling abroad is set up in Markets.",
+      "country": {
+        "IN": {
+          "postal": "PIN code",
+          "region": "State",
+          "taxId": "GSTIN",
+          "taxHelp": "Your state decides CGST+SGST or IGST"
+        },
+        "US": {
+          "postal": "ZIP code",
+          "region": "State",
+          "taxId": "EIN or sales tax permit",
+          "taxHelp": "Printed on invoices"
+        },
+        "other": {
+          "postal": "Postal code",
+          "region": "Region",
+          "taxId": "VAT number",
+          "taxHelp": "Printed on invoices"
+        }
+      },
+      "timeZone": "Time zone",
+      "timeZoneHelp": "Offer schedules, reports and order times use this",
+      "units": "Units",
+      "unitsHelp": "For weights and sizes on products",
+      "metric": "Metric · kg, cm",
+      "imperial": "Imperial · lb, in",
+      "orders": "Order numbers",
+      "nextOrder": "Next order: {number}",
+      "prefix": "Prefix",
+      "nextNumber": "Next number",
+      "logoAlt": "Store logo",
+      "logoHelp": "Logo — square, at least 400px. PNG, JPG or WebP.",
+      "logoNew": "New logo — save to use it in your shop and emails",
+      "logoTooBig": "That image is {size} MB — the limit is 5 MB.",
+      "logoFailed": "That logo didn’t upload. Use a PNG, JPG or WebP under 5 MB and try again.",
+      "replace": "Replace",
+      "uploading": "Uploading…",
+      "savesCard": "Saves this card. Currencies and languages save on their own.",
+      "saveInfo": "Save store info",
+      "saving": "Saving…",
+      "savedInfo": "Store info saved",
+      "currencies": "Currencies",
+      "currenciesSub": "Each currency either converts from your main price automatically, or you type its prices yourself. Markets pick from this list.",
+      "mainCurrency": "Main currency · what you type on every product",
+      "converted": "Converted from {code} automatically",
+      "typed": "You type the price on each product",
+      "convert": "Convert automatically",
+      "convertNamed": "Convert automatically, {code}",
+      "remove": "Remove {name}",
+      "round": "Round prices",
+      "roundNone": "Don’t round",
+      "roundNearest": "To the nearest whole",
+      "round99": "To end in .99",
+      "rates": "{example} · reference rates from the European Central Bank, published {date}",
+      "ratesUndated": "{example} · reference rates from the European Central Bank",
+      "noRate": "There’s no reference rate for this currency yet, so converted prices wait until one arrives.",
+      "typedNote": "Products can’t be bought in {code} until you type a {code} price on them.",
+      "stopTitle": "Stop converting {code} automatically?",
+      "stopBody": "You’ll type a {code} price on each product. Until you do, those products can’t be bought in {code}. Converted prices are kept as your starting prices.",
+      "stopConfirm": "Set prices myself",
+      "addCurrency": "+ Add a currency",
+      "saveCurrencies": "Save currencies",
+      "savedCurrencies": "Currencies saved — product price boxes show them now",
+      "mainFixed": "Your main currency ({code}) can’t change after the first order.",
+      "languages": "Languages",
+      "languagesSub": "You write products in your main language. Shoppers see it whenever a translation is missing.",
+      "mainLanguage": "Main language",
+      "translated": "{done} of {count} products translated",
+      "progressLoading": "Counting translations…",
+      "progressFailed": "Translations couldn’t be counted right now.",
+      "notYet": "Not saved yet — nothing translated",
+      "removeLanguageTitle": "Remove {name}?",
+      "removeLanguageBody": "Your translations are kept but won’t show. Add it back any time to show them again.",
+      "removeLanguage": "Remove",
+      "addLanguage": "+ Add a language",
+      "saveLanguages": "Save languages",
+      "savedLanguages": "Languages saved",
+      "cancel": "Cancel",
+      "planLimit": {
+        "currencies": "Your plan includes {count} currencies, your main one among them. Remove one, or see plans for more.",
+        "languages": "Your plan includes {count} languages, your main one among them. Remove one, or see plans for more."
+      },
+      "refused": {
+        "INVALID_INPUT": "Something here isn’t valid. Check the name (up to 80 characters), description (up to 120) and order prefix (letters, numbers and -, up to 6).",
+        "INVALID_EMAIL": "That contact email doesn’t look right.",
+        "INVALID_TIME_ZONE": "Pick a time zone from the list.",
+        "INVALID_TAX_ID": "That tax number isn’t in the right format for your country.",
+        "INVALID_LOGO": "Use one of your store’s images as the logo.",
+        "ORDER_NUMBER_DOWN": "The next order number can only go up, so no number is used twice.",
+        "INVALID_CURRENCY": "That isn’t a currency you can add here.",
+        "INVALID_LANGUAGE": "Choose from the languages offered.",
+        "MAIN_LANGUAGE_REQUIRED": "Your main language has to stay.",
+        "CURRENCY_REQUIRED": "Set your main currency first.",
+        "PLAN_LIMIT": "Your plan doesn’t include more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change settings.",
+        "other": "That didn’t save. Try again."
+      },
+      "nextMissing": "Type the next order number — 1 or more, and no lower than it is now."
+    },
+    "team": {
+      "roles": {
+        "owner": "Owner",
+        "manager": "Manager",
+        "staff": "Staff"
+      },
+      "roleSubs": {
+        "owner": "Everything, including Billing",
+        "manager": "Everything except Settings and Billing",
+        "staff": "Orders, customers, view products"
+      },
+      "peopleTitle": "Everyone in this store",
+      "peopleSub": "{active} active · {waiting} waiting to accept. Removing someone removes them from this store, not their account.",
+      "invitePerson": "Invite someone",
+      "inviteTitle": "Invite someone",
+      "inviteBody": "They get an email to join this store. If they already have an account, they simply join.",
+      "inviteNext": "Next: choose a role",
+      "theirEmail": "Their email",
+      "emailPlaceholder": "name@example.com",
+      "emailInvalid": "That doesn’t look like an email address",
+      "whatCanTheyDo": "What can {email} do?",
+      "roleNote": "You can change this later from their row.",
+      "role": "Role",
+      "sendInvite": "Send invite",
+      "inviteSent": "Invite sent to {email}",
+      "filterPeople": "Show",
+      "everyone": "Everyone",
+      "staff": "Staff",
+      "waiting": "Waiting",
+      "nobody": "Nobody here yet.",
+      "you": "you",
+      "invitedOn": "invited {when}",
+      "expiredShort": "Invite expired",
+      "waitingStatus": "Waiting",
+      "active": "Active",
+      "manage": "Manage {name}",
+      "whatNow": "What to do",
+      "continue": "Continue",
+      "cancel": "Cancel",
+      "expired": "This invitation has expired. Resend it to send a new link.",
+      "expires": "The link works until {when}.",
+      "resend": "Resend invite — the old link stops working",
+      "cancelInvite": "Cancel invite",
+      "resent": "New invite sent to {email} — the old link no longer works",
+      "inviteCancelled": "Invite cancelled",
+      "changeRole": "Change role",
+      "removeFromStore": "Remove from this store",
+      "roleTakesTime": "Role changes can take a few minutes to apply.",
+      "roleFor": "Role for {name}",
+      "roleChanged": "{name} is now {role} — it can take a few minutes to apply",
+      "removeTitle": "Remove {name}?",
+      "removeBody": "They lose access to this store straight away. Their account and other stores aren’t touched.",
+      "remove": "Remove",
+      "removed": "{name} removed from this store",
+      "peopleFoot": "Supplier users belong to their company: see them in the Supplier tab, where you add people to a company. Role changes can take a few minutes to apply.",
+      "suppliersTitle": "Your suppliers",
+      "suppliersSub": {
+        "one": "1 company, {products} of your products. Their products sell under your store’s name.",
+        "other": "{count} companies, {products} of your products. Their products sell under your store’s name."
+      },
+      "inviteSupplier": "Invite a supplier",
+      "inviteSupplierTitle": "Invite a supplier",
+      "inviteSupplierBody": "This creates their company and first user in one go.",
+      "step": "Step {n} of 3",
+      "next": "Next",
+      "companyName": "Company name",
+      "companyPlaceholder": "Their business name",
+      "companyMissing": "Type their company name",
+      "whoGetsInvite": "Who at {name} gets the invite?",
+      "firstUserBody": "They become the first user, a Supplier admin. They can add their own colleagues, and you can add more from the company’s row.",
+      "whatCanCompanyDo": "What can {name} do?",
+      "neverCustomers": "You can change this later from their row. They never see your customers’ names, emails or addresses.",
+      "sendTheInvite": "Send the invite",
+      "supplierInvited": "Invite sent to {email} at {name}",
+      "accessLabel": "What they can do",
+      "access": {
+        "vendor-stock": "Stock only",
+        "vendor-catalogue": "Products and stock",
+        "vendor-orders-read": "Products, stock and seeing their orders",
+        "vendor-orders-fulfil": "Products, stock and their orders"
+      },
+      "accessSubs": {
+        "vendor-stock": "They update quantities. Nothing else.",
+        "vendor-catalogue": "They add and edit their own products. The usual choice.",
+        "vendor-orders-read": "They also see the orders with their items.",
+        "vendor-orders-fulfil": "They also see and pack the orders with their items."
+      },
+      "users": {
+        "one": "1 user",
+        "other": "{count} users"
+      },
+      "products": {
+        "one": "1 product",
+        "other": "{count} products"
+      },
+      "supplierStatus": {
+        "invited": "Invite sent",
+        "active": "Active",
+        "suspended": "Suspended"
+      },
+      "approvalTitle": "Approve supplier products before they go live",
+      "approvalOnSub": "On — new supplier products, and changes to price, title or photos, wait for your approval in Products. Other edits go live straight away.",
+      "approvalOffSub": "Off — supplier products go live when they save them.",
+      "approvalOn": "Approval on — live products stay live; only new and edited ones wait",
+      "approvalOff": "Approval off — products already waiting stay in the queue",
+      "filterSuppliers": "Show",
+      "all": "All",
+      "activeChip": "Active",
+      "suspendedChip": "Suspended",
+      "noSuppliers": "No suppliers yet. Invite a company whose products you want to sell under your name.",
+      "noneHere": "No suppliers here.",
+      "addPerson": "Add a person",
+      "addPersonTitle": "Add a person at {name}",
+      "addPersonBody": "They can do the same as everyone else at {name}.",
+      "changeAccess": "Change what they can do",
+      "takesMinutes": "Access is set on the company — everyone there can do the same things. Changes take a few minutes.",
+      "save": "Save",
+      "accessChanged": "{name}: {access} — takes a few minutes to apply",
+      "changeShipping": "Change how they ship",
+      "shippingTitle": "How does {name} ship?",
+      "shippingBody": "Who sends their items, and on whose account the labels are bought.",
+      "shippingLabel": "Their items go",
+      "toStore": "To you, and you ship them on",
+      "toShopper": "Straight to the shopper",
+      "labelsLabel": "Labels bought on",
+      "labelsStore": "Your store’s courier account",
+      "labelsOwn": "Their own courier account",
+      "shippingChanged": "{name}’s shipping saved",
+      "suspend": "Suspend",
+      "resume": "Reactivate",
+      "suspendTitle": "Suspend {name}?",
+      "suspendBody": {
+        "one": "They can’t sign in to your store. Their 1 product is still in your catalogue.",
+        "other": "They can’t sign in to your store. Their {count} products are still in your catalogue."
+      },
+      "theirProducts": "Their products",
+      "hideProducts": "Hide their products too",
+      "keepSelling": "Keep selling their products",
+      "suspended": "{name} suspended",
+      "suspendedHidden": "{name} suspended and their products hidden",
+      "resumed": "{name} reactivated — what the suspension hid is back as it was",
+      "removeSupplier": "Remove supplier",
+      "removeSupplierTitle": "Remove {name}?",
+      "removeSupplierBody": {
+        "one": "Their users lose access straight away. Their 1 product is hidden from shoppers and still marked as theirs — show it if you want to keep selling it, or delete it.",
+        "other": "Their users lose access straight away. Their {count} products are hidden from shoppers and still marked as theirs — show any you want to keep selling, or delete them."
+      },
+      "supplierRemoved": {
+        "one": "{name} removed — 1 product hidden from shoppers",
+        "other": "{name} removed — {count} products hidden from shoppers"
+      },
+      "suppliersFoot": "Access is set on the company — everyone there can do the same things. Changes take a few minutes.",
+      "planLimit": "Your plan includes {count} — see plans for more.",
+      "refused": {
+        "ALREADY_MEMBER": "They’re already in this store.",
+        "NOT_FOUND": "That isn’t here any more. It may have changed elsewhere.",
+        "LAST_OWNER": "The last owner can’t be demoted or removed — make someone else an owner first.",
+        "INVALID_EMAIL": "That doesn’t look like an email address.",
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "RATE_LIMITED": "Too many invitations for now. Try again later.",
+        "PLAN_LIMIT": "Your plan doesn’t include more.",
+        "DUPLICATE_SUPPLIER": "That company is already one of your suppliers.",
+        "NOT_SUSPENDED": "That supplier isn’t suspended.",
+        "ALREADY_SUSPENDED": "That supplier is already suspended.",
+        "SUSPENDED": "Reactivate this supplier first.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change this.",
+        "other": "That didn’t save. Try again."
+      }
+    },
+    "tax": {
+      "names": {
+        "gst": "GST",
+        "salesTax": "sales tax",
+        "vat": "VAT"
+      },
+      "pricesTitle": "How you type prices",
+      "pricesUsualIn": "This decides what the number in every product’s price box means. Stores here usually include {name}.",
+      "pricesUsualOut": "This decides what the number in every product’s price box means. Stores here usually don’t include {name}.",
+      "include": "Prices include {name}",
+      "includeSub": "The price you type is what the shopper pays. Usual in the EU, UK, India and Australia.",
+      "exclude": "Prices don’t include {name}",
+      "excludeSub": "{name} is added on top at checkout. Usual in the US and Canada.",
+      "exampleIncluded": "The price you type is the price shoppers pay; {name} is part of it.",
+      "exampleExcluded": "{name} is worked out at checkout and added to the price you type.",
+      "includeTitle": "Prices include {name} from now on?",
+      "excludeTitle": "Prices exclude {name} from now on?",
+      "keepNumbers": "The numbers you typed on your products stay as they are, so what shoppers pay changes by the {name}. Change any price you want to keep the same for shoppers.",
+      "nowIncluded": "Prices now include {name} — the price box on every product says so",
+      "nowExcluded": "Prices now exclude {name} — it’s added at checkout",
+      "save": "Save",
+      "yours": "Your {what}",
+      "categories": "tax categories",
+      "categoriesRates": "tax rates",
+      "classesSub": "Name them whatever your country calls them. Each product version uses one.",
+      "classesSubUs": "Sales tax is worked out at checkout from the shopper’s state. You choose the category per product.",
+      "versions": {
+        "one": "1 product version",
+        "other": "{count} product versions"
+      },
+      "noRate": "No rate at home yet",
+      "byState": "Rate depends on the shopper’s state",
+      "default": "default for new products",
+      "manage": "Manage {name}",
+      "manageButton": "Manage",
+      "whatNow": "What to do",
+      "continue": "Continue",
+      "cancel": "Cancel",
+      "makeDefault": "Make default for new products",
+      "changeRate": "Change its rate",
+      "delete": "Delete",
+      "nowDefault": "{name} is the default for new products — existing products keep theirs",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "No product uses it, so nothing else changes.",
+      "deleted": "{name} deleted",
+      "rateTitle": "{name}: rate in {place}",
+      "rateBody": "Every product using this category charges the new rate from now on.",
+      "rateLabel": "Rate, %",
+      "ratePlaceholder": "5",
+      "rateInvalid": "Type a percentage from 0 to 100",
+      "rateSaved": "{name}’s rate saved",
+      "addTitle": "Add a rate",
+      "addBody": "A new category and its rate here. Products choose it in their tax box.",
+      "addLabel": "Name and percentage, e.g. “Books 7”",
+      "addPlaceholder": "Books 7",
+      "addInvalid": "Type a name and a percentage, e.g. “Books 7”",
+      "add": "Add",
+      "added": "{name} added",
+      "defaultNote": "Changing the default doesn’t touch products you’ve already priced.",
+      "otherPlaces": "Rates in other places",
+      "invoiceTitle": "On the invoice",
+      "invoiceTaxId": "Your tax number: {id}",
+      "invoiceNoTaxId": "Your tax number isn’t added yet — add it in Store info.",
+      "perLine": "Show {name} on each line, not just the total",
+      "emailInvoice": "Email the invoice with the dispatch note",
+      "invoiceNote": "New invoices follow new settings; issued ones are never rewritten.",
+      "saveInvoice": "Save invoice settings",
+      "invoiceSaved": "Invoice settings saved — the next invoice uses them",
+      "refused": {
+        "NOT_FOUND": "That isn’t here any more.",
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "DUPLICATE_NAME": "Another category already has that name.",
+        "DEFAULT_CLASS": "Make another category the default first.",
+        "CLASS_IN_USE": "Products use this category. Move them to another first.",
+        "ZONE_OVERLAP": "Another zone already sets a rate for this category in the same place.",
+        "TOO_MANY": "That’s as many as a store can have.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change tax.",
+        "NO_COUNTRY": "Your store has no country yet, so there’s no home to set a rate for. Add your address in Store info first.",
+        "other": "That didn’t save. Try again."
+      }
+    },
+    "markets": {
+      "title": "Markets",
+      "sub": "Groups of countries you sell to, each with its own currency, language and rules.",
+      "add": "Add market",
+      "primary": "Primary",
+      "off": "Off",
+      "active": "Active",
+      "elseTitle": "Everywhere else",
+      "elseSub": "Shoppers from a country that isn’t in any market get the settings of:",
+      "nobody": "Nobody — they can’t buy",
+      "elseSaved": "Saved",
+      "pickOne": "Pick a market on the left, or add one.",
+      "newTitle": "New market",
+      "newBody": "Name it after the place, e.g. “UK” or “Nordics”. You’ll pick countries next.",
+      "name": "Market name",
+      "namePlaceholder": "e.g. United Kingdom",
+      "create": "Create",
+      "created": "{name} added — shoppers there see it within a minute",
+      "selling": "Selling here",
+      "notSelling": "Not selling here",
+      "pickCountry": "Pick at least one country.",
+      "preview": "A shopper in {country} sees {currency}, {language}, at {where}",
+      "previewAdjust": ", prices {adjust}%",
+      "previewExcluded": ", {count} products not sold",
+      "previewDuties": ", duties paid at checkout",
+      "mainAddress": "your shop’s main address",
+      "countries": "Countries",
+      "inAnother": "in {name}",
+      "anotherCountry": "+ Another country",
+      "parent": "Part of a bigger market?",
+      "standsAlone": "No — it stands on its own",
+      "inside": "Inside {name} — copies its settings unless you change them here",
+      "parentCountries": "A market inside {name} sells only in {name}’s countries.",
+      "copied": "Copied {parent}’s currency and language — change any of them for {name}",
+      "rules": "Currency, language, prices and web address",
+      "currency": "Currency",
+      "mainCurrency": "Your main currency",
+      "convertedCurrency": "Converted automatically · set in Store info",
+      "typedCurrency": "You type prices for this one · set in Store info",
+      "language": "Language",
+      "languageHelp": "Add languages in Store info",
+      "adjust": "Price adjustment",
+      "adjustHelp": "e.g. +10 to cover higher costs abroad. Fixed prices per product wait for their plan.",
+      "web": "Web address",
+      "webHelp": "Where shoppers in this market land. One domain per store.",
+      "pathAddress": "A path on your shop’s address",
+      "path": "Path, e.g. uk",
+      "productsTitle": "Products sold here",
+      "allProducts": "All products",
+      "allExcept": "All except some",
+      "findProduct": "Find a product not to sell here",
+      "sellAgain": "Sell {name} here again",
+      "excludedHelp": "Crossed-out products show “Not available in your country” here.",
+      "duties": "Collect duties and import taxes at checkout",
+      "dutiesHelp": "Shoppers pay the full cost up front — no surprise bill at the door.",
+      "dutyMode": "How duties are worked out",
+      "byCode": "From each product’s customs code",
+      "flat": "A flat percentage of the basket",
+      "dutyRate": "Percentage",
+      "dutyMin": "Don’t charge below ({currency})",
+      "dutyMinHelp": "Many countries waive duty on small parcels",
+      "save": "Save market",
+      "saved": "{name} saved — shoppers there see it within a minute",
+      "delete": "Delete market",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "Shoppers in {countries} get your “Everywhere else” settings instead. Orders already placed aren’t affected.",
+      "theseCountries": "these countries",
+      "deleted": "{name} deleted",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "Your changes to this market will be lost.",
+      "discard": "Discard changes",
+      "cancel": "Cancel",
+      "problems": {
+        "name": "Give the market a name",
+        "countries": "Pick at least one country",
+        "adjust": "Type the adjustment as a percentage, e.g. 10 or -5",
+        "path": "Use a short path: lower-case letters, numbers and -, e.g. uk",
+        "dutyRate": "Type the duty percentage",
+        "dutyThreshold": "Type the amount below which no duty is charged",
+        "parentCountries": "A sub-market sells in its parent’s countries only. Take out the ones marked."
+      },
+      "refused": {
+        "INVALID_LANGUAGE": "Choose from your store’s languages.",
+        "INVALID_CURRENCY": "Choose from your store’s currencies.",
+        "INVALID_COUNTRY": "That isn’t a country we know.",
+        "COUNTRIES_REQUIRED": "Pick at least one country.",
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "NOT_FOUND": "That isn’t here any more.",
+        "STALE_REVISION": "Someone else changed this market first. Open it again to see their changes.",
+        "CURRENCY_REQUIRED": "Set your main currency first.",
+        "NOT_OFFERED": "Add that currency and language in Store info first.",
+        "PRIMARY_MARKET": "Your primary market can’t be switched off, moved or deleted.",
+        "COUNTRY_TAKEN": "A country can only be in one market.",
+        "NOT_PARENTS_COUNTRIES": "A market inside another sells only in its countries.",
+        "BAD_PARENT": "A market can sit inside a top-level market only.",
+        "DUPLICATE_NAME": "Another market already has that name.",
+        "DUPLICATE_PATH": "Another market already uses that web address.",
+        "PLAN_LIMIT": "Your plan doesn’t include more markets.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change markets.",
+        "other": "That didn’t save. Try again."
+      },
+      "subMarket": "Sub-market",
+      "placeholders": {
+        "adjust": "0",
+        "path": "uk",
+        "dutyRate": "12",
+        "dutyThreshold": "0"
+      },
+      "percent": "%",
+      "rowSub": "{countries} · {currency}",
+      "deletedProduct": "A product deleted since — dropped when you save",
+      "chipNote": "{country} · {note}",
+      "notParents": "not in {name}",
+      "reread": "{refusal} The list now shows what’s saved.",
+      "pathUnset": "…"
+    },
+    "catalogue": {
+      "sellTitle": "What do you mostly sell?",
+      "sellSub": "We’ll switch on the sections that fit. Change any of them below.",
+      "presets": {
+        "clothing": "Clothing",
+        "electronics": "Electronics",
+        "food": "Food & drink",
+        "beauty": "Beauty",
+        "handmade": "Handmade"
+      },
+      "presetApplied": "{name} sections switched on — press Save sections to keep them",
+      "sectionsTitle": "Product page sections",
+      "yourPlan": "Your plan: {plan}",
+      "sections": {
+        "sizeCharts": "Size charts",
+        "specs": "Specifications",
+        "highlights": "Highlights",
+        "faqs": "FAQs",
+        "badges": "Badges",
+        "related": "Related products",
+        "aplus": "A+ content · Product story",
+        "video": "Video"
+      },
+      "sectionHelp": {
+        "sizeCharts": "Helps shoppers pick the right size",
+        "specs": "Facts like Material: Cotton",
+        "highlights": "3–5 short points shoppers read first",
+        "faqs": "Questions and answers on the product",
+        "badges": "New, Bestseller, Handmade, Sale",
+        "related": "Frequently bought together",
+        "aplus": "Big photos and feature blocks",
+        "video": "Upload or link a YouTube video"
+      },
+      "included": "Included",
+      "seePlans": "See plans",
+      "askOwner": "Not in your plan — ask your store owner",
+      "offKeeps": "Turning a section off hides it on every product. What you’ve written is kept.",
+      "saveSections": "Save sections",
+      "sectionsSaved": "Sections saved — products now show what you switched on",
+      "badgesTitle": "Badges",
+      "badgesSub": "Small labels on product photos. Automatic ones come and go by themselves; manual ones you add on each product.",
+      "noBadges": "No badges yet. Add one, then pick it on a product or let it apply by itself.",
+      "addBadge": "Add a badge",
+      "editBadge": "Edit “{name}”",
+      "badgeBody": "Up to 18 characters. When it shows is the second choice below.",
+      "badgeText": "What it says",
+      "badgePlaceholder": "e.g. Organic",
+      "badgeMissing": "Type the badge text",
+      "badgeLong": "Keep it to 18 characters",
+      "when": "When it shows",
+      "saveBadge": "Save badge",
+      "rules": {
+        "new_30_days": "Added in the last 30 days",
+        "top_5_this_month": "Your 5 best sellers this month",
+        "below_compare_price": "Has a lower price than its compare price",
+        "few_left": "Only a few left",
+        "manual": "You choose the products"
+      },
+      "badgeSaved": "Badge saved",
+      "badgeAddedManual": "“{name}” added — pick it on any product under Badges",
+      "badgeAddedAuto": "“{name}” added — it applies by itself",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteBadgeTitle": "Delete “{name}”?",
+      "deleteBadgeBody": "It comes off every product straight away.",
+      "badgeDeleted": "Badge deleted",
+      "cancel": "Cancel",
+      "refused": {
+        "DUPLICATE_LABEL": "Another badge already says that.",
+        "TOO_MANY_BADGES": "A store can have up to 20 badges.",
+        "INVALID_INPUT": "Something here isn’t valid — a badge is up to 18 characters, and each automatic rule is on one badge only.",
+        "PLAN_LIMIT": "That section isn’t in your plan.",
+        "NOT_FOUND": "That badge isn’t here any more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change this.",
+        "other": "That didn’t save. Try again."
+      },
+      "ruleOptions": {
+        "new_30_days": "Added in the last 30 days — automatic",
+        "top_5_this_month": "Your 5 best sellers this month — automatic",
+        "below_compare_price": "Has a lower price than its compare price — automatic",
+        "few_left": "Only a few left — automatic",
+        "manual": "You choose the products — pick it on each product"
+      },
+      "ruleOther": "Shown by a rule set elsewhere",
+      "ruleKept": "Keep its current rule"
     }
   }
 }

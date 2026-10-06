@@ -14,6 +14,24 @@
   </div>
   <sc-if value="{{ readOnly }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:10px;background:var(--ibg,#F4F8FB);border:1px solid var(--ibd,#C9DAEC);font-size:13px;color:var(--ifg,#00325F);">You can look, but only the store owner can change the storefront. Ask Farhan if something needs changing.</div></sc-if>
 
+  <div style="display:flex;gap:20px;border-bottom:1px solid var(--border,#E8E2DC);overflow-x:auto;" role="tablist"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" role="tab" aria-selected="{{ t.on }}" style="height:44px;border:0;border-bottom:3px solid {{ t.bd }};background:none;font-family:Manrope,sans-serif;font-weight:{{ t.fw }};font-size:14px;color:{{ t.fg }};cursor:pointer;white-space:nowrap;padding:0 2px;">{{ t.label }}</button></sc-for></div>
+  <sc-if value="{{ tabDesign }}" hint-placeholder-val="{{ true }}">
+  <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;"><span style="font-family:Manrope,sans-serif;font-weight:700;font-size:15px;">How your storefront is built</span><span style="font-size:12px;color:var(--muted,#5A6472);">You can switch any time</span></div>
+    <div style="display:grid;grid-template-columns:{{ modeCols }};gap:8px;" role="radiogroup" aria-label="How your storefront is built"><sc-for list="{{ modes }}" as="m" hint-placeholder-count="2"><button onClick="{{ m.pick }}" role="radio" aria-checked="{{ m.on }}" style="border:{{ m.bd }};background:{{ m.bg }};border-radius:10px;padding:12px 14px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:2px;color:var(--text,#14181F);"><span style="display:flex;justify-content:space-between;gap:8px;"><strong style="font-family:Manrope,sans-serif;font-size:14px;">{{ m.label }}</strong><span style="font-size:11px;font-weight:600;color:{{ m.tagFg }};">{{ m.tag }}</span></span><span style="font-size:12px;color:var(--muted,#5A6472);">{{ m.sub }}</span></button></sc-for></div>
+  </div>
+  <sc-if value="{{ isOwn }}" hint-placeholder-val="{{ false }}">
+    <div style="background:var(--card,#FFFFFF);border:1px solid var(--border,#E8E2DC);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px;">
+      <span style="font-family:Manrope,sans-serif;font-weight:700;font-size:16px;">Your own storefront</span>
+      <span style="font-size:14px;color:var(--text2,#434A55);">Your developer builds the shop on our Shop API. We keep your products, prices, stock, offers and orders; their site shows them. The AI designer is switched off.</span>
+      <div style="display:grid;grid-template-columns:{{ modeCols }};gap:10px;font-size:13px;">
+        <div style="padding:12px;border-radius:10px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);display:flex;flex-direction:column;gap:4px;"><strong>Storefront key</strong><code style="font-family:'IBM Plex Mono',monospace;font-size:12px;word-break:break-all;">{{ pubKey }}</code><span style="color:var(--muted,#5A6472);">Public — give it to your developer.</span></div>
+        <div style="padding:12px;border-radius:10px;background:var(--paper,#FDFAF7);border:1px solid var(--border,#E8E2DC);display:flex;flex-direction:column;gap:4px;"><strong>Checkout</strong><span>Shoppers pay on our secure checkout in your colours, at {{ checkoutHost }}. Your developer can build their own instead.</span></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;"><button onClick="{{ a.toDevelopers }}" disabled="{{ readOnly }}" style="height:38px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;font-weight:600;cursor:pointer;">Allowed websites and API keys</button><button onClick="{{ a.devDocs }}" style="height:38px;padding:0 14px;border:1px solid var(--field,#D7D3CD);border-radius:8px;background:var(--card,#FFFFFF);font-size:13px;font-weight:600;cursor:pointer;">Developer docs ↗</button></div>
+    </div>
+  </sc-if>
+  <sc-if value="{{ isAI }}" hint-placeholder-val="{{ true }}">
   <div style="display:grid;grid-template-columns:{{ cols }};gap:16px;align-items:start;">
     <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
       <sc-if value="{{ canEdit }}" hint-placeholder-val="{{ true }}">
@@ -77,11 +95,15 @@
       </div>
     </div>
   </div>
+  </sc-if>
+  </sc-if>
+  <sc-if value="{{ tabPages }}" hint-placeholder-val="{{ false }}"><dc-import name="StorefrontContent" app="{{ app }}" mode="pages" hint-size="100%,700px"></dc-import></sc-if>
+  <sc-if value="{{ tabJournal }}" hint-placeholder-val="{{ false }}"><dc-import name="StorefrontContent" app="{{ app }}" mode="journal" hint-size="100%,700px"></dc-import></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
-  state = { prompt: '', busy: false, err: '', width: 'desktop', pub: 0 };
+  state = { prompt: '', busy: false, err: '', width: 'desktop', pub: 0, tab: new URLSearchParams(location.search).get('sfTab') || 'design' };
   heroOf(h, app) { if (h.hero) return h.hero; const base = this.site({}, app); return { 12: base, 11: { ...base, headline: 'Everyday clothes, made to last', sub: 'Free returns within 30 days — see the new footer.', cta: 'Shop the range', accent: '#1D6B47', bg: '#EEF2EC' }, 10: { ...base, headline: app.storeName, sub: 'Our first shop. Say hello.', cta: 'Browse', accent: '#5A6472', bg: '#FFFFFF' } }[h.v] || base; }
   site(sf, app) { return sf.site || { headline: 'New in: ' + app.storeName + ' autumn edit', sub: 'Made to last, sent from ' + app.R.city + '.', cta: 'Shop now', accent: '#0A2A4A', bg: '#F2EDE6', fg: '#14181F' }; }
   async ask() {
@@ -101,6 +123,15 @@ class Component extends DCLogic {
       this.setState({ busy: false, err: 'We couldn’t make that change just now — nothing on your site changed. Try again in a moment.' });
     }
   }
+  modeVals(app, c, canEdit) {
+    const s = this.state; const mode = app.st.storefrontMode || 'ai'; const ownOk = c.P.rank >= 2;
+    const store = (app.storeName || 'shop').toLowerCase().replace(/[^a-z]/g, '').slice(0, 10);
+    const pick = k => { if (!canEdit || k === mode) return; if (k === 'own' && !ownOk) { app.upgrade('Your own storefront', 'growth'); return; }
+      app.modal({ title: k === 'own' ? 'Switch to your own storefront?' : 'Go back to an AI-designed storefront?', body: k === 'own' ? 'The AI designer switches off and your developer’s site takes over at ' + app.R.domain + ' once they point it there. Your AI design is kept, so you can come back.' : 'We rebuild your last AI design and publish it at ' + app.R.domain + '. Your developer’s site stops getting shoppers there.', confirm: k === 'own' ? 'Use my own storefront' : 'Use the AI storefront', onConfirm: () => { app.set('storefrontMode', k); app.toast(k === 'own' ? 'Switched. Give your developer the storefront key.' : 'Switched back. Publishing your last AI design.'); } }); };
+    return { tabs: [['design', 'Design'], ['pages', 'Pages'], ['journal', 'Journal']].map(([k, l]) => ({ label: l, on: s.tab === k, bd: s.tab === k ? '#EC844F' : 'transparent', fg: s.tab === k ? 'var(--text,#14181F)' : 'var(--muted,#5A6472)', fw: s.tab === k ? 700 : 500, onClick: () => this.setState({ tab: k }) })),
+      tabDesign: s.tab === 'design', tabPages: s.tab === 'pages', tabJournal: s.tab === 'journal', isOwn: mode === 'own', isAI: mode !== 'own', modeCols: app.phone ? '1fr' : '1fr 1fr', pubKey: 'pk_live_' + store + '_7Hq2LmX9', checkoutHost: 'checkout.' + app.R.domain,
+      modes: [['ai', 'Designed with AI', 'Describe what you want; we build and host it.', ''], ['own', 'Your own storefront', 'A developer builds it on our Shop API.', ownOk ? '' : 'Growth and up']].map(([k, l, sub, tag]) => { const on = mode === k; return { label: l, sub, tag: on ? 'In use' : tag, tagFg: on ? 'var(--okfg,#1D6B47)' : 'var(--link,#B8541F)', on, bd: on ? '2px solid var(--focus,#00519F)' : '1px solid var(--field,#D7D3CD)', bg: on ? 'var(--ibg,#F4F8FB)' : 'var(--card,#FFFFFF)', pick: () => pick(k) }; }) };
+  }
   renderVals() {
     const app = this.props.app; if (!app) return {};
     const { caps: c, phone } = app; const s = this.state;
@@ -119,6 +150,7 @@ class Component extends DCLogic {
     };
     return {
       pad: phone ? '14px' : '22px 28px', h1: phone ? '22px' : '26px', cols: phone ? '1fr' : 'minmax(0,1.7fr) minmax(0,1fr)',
+      ...this.modeVals(app, c, canEdit),
       liveLine: `${app.R.domain} · version ${sf.live} is live`, readOnly: !canEdit, canEdit, prompt: s.prompt, busy: s.busy, err: s.err,
       promptsLeft: P.ai === 'key' ? (app.st.aiKey ? 'Runs on your own AI key' : 'Connect your own AI key to start — or get AI included on Growth Pro') : `AI tokens: ${app.aiLeft()} this month`, askLabel: s.busy ? 'Working on it…' : 'Make the change', askBg: s.busy || d ? '#9AA1AB' : '#EC844F',
       hasDraft: !!d, noDraft: !d, d: d || {}, store: app.storeName,
@@ -131,7 +163,7 @@ class Component extends DCLogic {
       history: sf.history.filter(h => (Date.now() - h.date) / 864e5 <= hist || h.v === sf.live).map(h => ({ v: String(h.v), label: h.label, by: h.by, date: new Date(h.date).toLocaleDateString(app.R.locale, { day: 'numeric', month: 'short' }), isLive: h.v === sf.live, canBack: canEdit && h.v !== sf.live,
         back: () => app.modal({ title: `Go back to version ${h.v}?`, body: `“${h.label}” goes live again. Your current version stays in history, so you can come back. No build minutes used.`, confirm: 'Go back', onConfirm: () => { const hero = this.heroOf(h, app); app.set('storefront', x => ({ ...x, live: h.v, site: hero })); app.toast(`Version ${h.v} is live again — headline now “${hero.headline}”`, 'View', () => app.preview({ kind: 'home' })); } }) })),
       on: { prompt: e => this.setState({ prompt: e.target.value, err: '' }) },
-      a: { ask: () => this.ask(), publish, discard: () => { app.set('storefront', x => ({ ...x, draft: null })); app.toast('Draft discarded — your live site didn’t change'); }, powered: () => app.upgrade('Removing “Powered by DripFunnel”', 'growth'), viewLive: () => app.preview({ kind: 'home' }) }
+      a: { toDevelopers: () => app.go('settings', { settingsTab: 'developers' }), devDocs: () => app.toast('Opens the Shop API docs in a new tab (prototype)'), ask: () => this.ask(), publish, discard: () => { app.set('storefront', x => ({ ...x, draft: null })); app.toast('Draft discarded — your live site didn’t change'); }, powered: () => app.upgrade('Removing “Powered by DripFunnel”', 'growth'), viewLive: () => app.preview({ kind: 'home' }) }
     };
   }
 }

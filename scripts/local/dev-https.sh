@@ -1,6 +1,6 @@
 #!/bin/sh
-# `pnpm dev:https`: `pnpm dev` behind Caddy on https://admin.localhost and
-# https://platform.localhost (docs/api/README.md §7).
+# `pnpm dev:https`: `pnpm dev` behind Caddy on https://admin.localhost, https://platform.localhost
+# and every partner's https://store.<partner>.localhost (docs/setup/local.md §6).
 set -eu
 cd "$(dirname "$0")/../.."
 config=scripts/local/Caddyfile
@@ -32,4 +32,5 @@ else
 fi
 
 echo "Admin console: https://admin.localhost   Partner console: https://platform.localhost"
+echo "Merchant portals: https://store.<partner>.localhost (https://store.northstar.localhost, …); emails and texts print here."
 pnpm dev

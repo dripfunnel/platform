@@ -26,7 +26,7 @@ export interface ConfirmDialogProps {
   // what is wrong with the value, or null once it will do.
   input?: {
     label: string
-    type: 'text' | 'date' | 'email'
+    type: 'text' | 'date' | 'email' | 'password'
     initial: string
     placeholder?: string
     error: (value: string) => string | null
@@ -147,6 +147,7 @@ export const ConfirmDialog = ({
           <input
             id={inputId}
             type={input.type}
+            autoComplete={input.type === 'password' ? 'current-password' : undefined}
             required
             placeholder={input.placeholder}
             aria-invalid={inputError !== null}

@@ -7,14 +7,20 @@ import { handlePlatformAuth, isPlatformAuthPath } from '#apis/platform/auth'
 import { brandUploadPath, handleBrandUpload } from '#apis/platform/uploads'
 import { platformSchema, type PlatformContext } from '#apis/platform/schema'
 import { shopSchema } from '#apis/shop/schema'
-import { storeSchema } from '#apis/store/schema'
+import { signedOutStoreContext } from '#apis/store/access'
+import { handleStoreAuth, isStoreAuthPath } from '#apis/store/auth'
+import { handleAssets, isAssetsPath } from '#apis/store/assets'
+import { brandFileOf, serveBrandFile } from '#apis/store/brandFiles'
+import { storeSchema, type StoreContext } from '#apis/store/schema'
 import { factsOf } from '#auth/activity'
 import { isAssigned } from '#auth/assignment'
 import { resolvePartner } from '#auth/partnerCaller'
+import { resolvePortalPartner, resolveStoreStanding } from '#auth/storeCaller'
 import { platformContextFor, signedOutContext } from '#apis/platform/context'
 import { partnerCookieName } from '#auth/partnerSession'
 import { staffPortalCookieName } from '#auth/staffPortal'
 import { passwordResetRequestKind } from '#auth/partnerTokens'
+import { userPasswordResetRequestKind } from '#auth/storeTokens'
 import { secretBox, type SecretBox } from '#auth/secretBox'
 import { resolveStaff } from '#auth/caller'
 import { originAllowed, readCookie } from '#auth/cookie'
@@ -24,25 +30,41 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
+import { localDns, localEmail, localSms } from '#integrations/local/index'
+import { smsDeliverer } from '#jobs/queues/deliverers/sms'
+import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
 import { stripeClient, type StripeApi } from '#integrations/stripe/index'
 import { handleStripeHook, stripeHookPath } from '#hooks/stripe'
 import { handleSesHook, sesHookPath } from '#hooks/ses'
+import { handleShopifyCallback, shopifyCallbackPath } from '#hooks/shopify'
+import { localShopify, shopifyApi, type ShopifyApi } from '#integrations/shopify/api'
+import { deleteAbandonedConnections, deleteStalePendingConnections } from '#db/scoped/externalConnections'
 import { sesClient, snsVerifier, type SesApi, type SnsVerifier } from '#integrations/ses/index'
+import { collectionsRecomputeKind } from '#engine/modules/catalog/index'
+import { collectionsRecomputeDeliverer } from '#jobs/queues/deliverers/collectionsRecompute'
+import { ratesRefreshDeliverer, ratesRefreshKind } from '#jobs/queues/deliverers/ratesRefresh'
 import { emailDeliverer } from '#jobs/queues/deliverers/email'
 import { customDomainRecheckDeliverer } from '#jobs/queues/deliverers/customDomainRecheck'
 import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
+import { catalogExportDeliverer } from '#jobs/queues/deliverers/catalogExport'
+import { catalogImportDeliverer, importPhotosDeliverer } from '#jobs/queues/deliverers/catalogImport'
+import { deleteExpiredImports, failDeadImports } from '#db/scoped/catalogImports'
+import { deleteExpiredCatalogExports, failDeadCatalogExports } from '#db/scoped/catalogExports'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
 import { cloudflareClient } from '#integrations/cloudflare/api'
 import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
+import { userPasswordResetDeliverer } from '#jobs/queues/deliverers/userPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
 import { withSystemScope } from '#db/scoped/index'
+import { deleteExpiredSignups } from '#db/scoped/signup'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
-import { relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
+import { queueRatesRefresh } from '#jobs/queues/ratesSchedule'
+import { defaultRelayOptions, relayDue, type Deliverers } from '#jobs/queues/outbox-relay'
 import { activityLog } from '#saas/activity/index'
 import { createStaffActivityService } from '#saas/staffActivity/index'
 import { createDashboardService } from '#saas/dashboard/index'
@@ -52,13 +74,14 @@ import { createStoresService } from '#saas/stores/index'
 import { createProvisioningService } from '#saas/provisioning/index'
 import { createStaffSessionsService } from '#saas/staffSessions/index'
 import { createCustomersService } from '#saas/customers/index'
+import { expireUnsentSms, smsKind, smsMessages, type PartnerSmsAccounts } from '#saas/sms/index'
 import { createStaffMembersService } from '#saas/staffMembers/index'
 import { resolveArea, type Area } from './router'
 
 const servers = {
   admin: createServer<AdminContext>(adminSchema, '/api'),
   platform: createServer<PlatformContext>(platformSchema, '/api'),
-  store: createServer(storeSchema, '/api'),
+  store: createServer<StoreContext>(storeSchema, '/api'),
   shop: createServer(shopSchema, '/shop-api'),
 }
 
@@ -86,21 +109,60 @@ const sesFor = (config: Config): { api: SesApi; senderDomain: string; suppressio
   return { api: sesBuilt.api, senderDomain, suppressionKey }
 }
 
-// The side effects the relay can deliver. `email` waits, unclaimed, until SES is configured (outbox-relay.ts).
-const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
-  const lookup = dohLookup()
-  const ses = sesFor(config)
-  const cloudflare = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
+// Connect Shopify's app (CATALOG K7): the real one where its secrets are set, the local stand-in where asked for.
+let shopifyBuilt: { key: string; api: ShopifyApi } | undefined
+const shopifyFor = (config: Config): { api: ShopifyApi; redirectUri: string } | null => {
+  const redirectUri = `https://${config.HOOKS_HOST}${shopifyCallbackPath}`
+  // Asked for, the stand-in wins (config refuses it anywhere but localhost), so a copied example never reaches Shopify.
+  if (config.SHOPIFY_LOCAL === '1') return { api: localShopify(), redirectUri }
+  const { SHOPIFY_CLIENT_ID: clientId, SHOPIFY_CLIENT_SECRET: clientSecret } = config
+  if (clientId && clientSecret) {
+    const key = `${clientId}:${clientSecret}`
+    if (shopifyBuilt?.key !== key) shopifyBuilt = { key, api: shopifyApi({ clientId, clientSecret }) }
+    return { api: shopifyBuilt.api, redirectUri }
+  }
+  return null
+}
+
+const shopConnectOf = (shopify: { api: ShopifyApi; redirectUri: string } | null) => (shopify ? { gateway: shopify.api, redirectUri: shopify.redirectUri } : null)
+
+// Locally (SMS_LOCAL) every partner has an account on each provider, whose texts the stand-in prints (#275 sets the real ones).
+const localSmsAccounts: PartnerSmsAccounts = {
+  forPartner: async (_, __, provider) =>
+    provider === 'msg91'
+      ? { provider, authKey: 'local', templates: Object.fromEntries(smsMessages.map((m) => [m, 'local'])) }
+      : { provider, accountSid: 'local', authToken: 'local', messagingServiceSid: 'local' },
+}
+
+// Asked for, the stand-in wins (EMAIL_LOCAL; config refuses it anywhere but localhost), as Shopify's does; else SES
+// where its values are set; else email waits in the outbox.
+const emailFor = (config: Config) => {
+  if (config.EMAIL_LOCAL === '1' && config.EMAIL_SUPPRESSION_KEY) return { api: localEmail(), senderDomain: config.SES_SENDER_DOMAIN ?? 'mail.localhost', suppressionKey: config.EMAIL_SUPPRESSION_KEY }
+  return sesFor(config)
+}
+
+// The side effects the relay can deliver. `email` waits, unclaimed, until SES (or locally its stand-in) is configured
+// (outbox-relay.ts); `sms` likewise until partners' accounts exist (#275), or locally SMS_LOCAL.
+const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null): Deliverers => {
+  const lookup = config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup()
+  const ses = emailFor(config)
   return {
+    [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
+    ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
+   'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'domain.remove': domainRemoveDeliverer(cloudflare),
-    'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
     'export.stores': storesExportDeliverer(sql),
+    'export.catalog': catalogExportDeliverer(sql),
+    'import.catalog': catalogImportDeliverer(sql, shopConnectOf(shopifyFor(config)), secrets),
+    'import.photos': importPhotosDeliverer(sql, assets, lookup),
     'export.staff_activity': staffActivityExportDeliverer(sql),
     [passwordResetRequestKind]: partnerPasswordResetDeliverer(sql),
+    [userPasswordResetRequestKind]: userPasswordResetDeliverer(sql),
+    [ratesRefreshKind]: ratesRefreshDeliverer(sql, ecbRates()),
   }
 }
 
@@ -198,7 +260,7 @@ const handleAdmin = async (
       isAssigned: assigned,
       staffActivity: caller ? createStaffActivityService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, now: () => new Date() }) : null,
       partners: caller
-        ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, now: () => new Date() })
+        ? createPartnersService({ sql, staff: caller.staff, reauthFresh: caller.reauthFresh, facts: factsOf(request), activity: activityLog, isAssigned: assigned, platformHost: config.PLATFORM_HOST, localHosts: config.DNS_LOCAL === '1', now: () => new Date() })
         : null,
       stores: caller ? createStoresService({ sql, staff: caller.staff, facts: factsOf(request), activity: activityLog, isAssigned: assigned, now: () => new Date() }) : null,
       provisioning: caller ? createProvisioningService({ sql, staff: caller.staff, now: () => new Date() }) : null,
@@ -269,7 +331,32 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), edgeZone: config.EDGE_ZONE, now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), edgeZone: config.EDGE_ZONE, localHosts: config.DNS_LOCAL === '1', now: () => new Date() }))
+  })
+}
+
+// A partner's portal host (docs/ARCHITECTURE.md §2): a host no partner holds answers 404, and the
+// caller is the session's person acting in the store the request names (ACCESS.md §4).
+const handleStore = async (request: Request, url: URL, config: Config, env: Env, ctx: ExecutionContext): Promise<Response> => {
+  if (!originAllowed(request, url.host)) return new Response('Bad origin', { status: 403 })
+  const hyperdrive = config.HYPERDRIVE
+  if (!hyperdrive) return servers.store.fetch(request, signedOutStoreContext(factsOf(request), activityLog))
+  const secrets = await secretsFor(config)
+  return withConnection(hyperdrive, ctx, async (sql) => {
+    const partnerId = await resolvePortalPartner(sql, url.hostname)
+    if (!partnerId) return notFound()
+    const brandFile = brandFileOf(url.pathname)
+    if (brandFile) return request.method === 'GET' ? serveBrandFile(sql, env.ASSETS ?? null, partnerId, brandFile, new Date()) : notFound()
+    if (isStoreAuthPath(url.pathname)) {
+      const limiter = env.SIGN_IN_RATE_LIMITER
+      if (!limiter) return misconfigured('SIGN_IN_RATE_LIMITER')
+      return handleStoreAuth(request, { sql, activity: activityLog, partnerId, host: url.host, secrets, now: () => new Date(), allowAttempt: async (key) => (await limiter.limit({ key })).success })
+    }
+    const facts = factsOf(request)
+    const standing = await resolveStoreStanding(sql, request, partnerId, new Date(), activityLog, facts)
+    const context = { standing, partnerId, sql, activity: activityLog, facts, secrets, host: url.host, shopify: shopConnectOf(shopifyFor(config)), now: () => new Date() }
+    if (isAssetsPath(url.pathname)) return handleAssets(request, context, env.ASSETS ?? null)
+    return servers.store.fetch(request, context)
   })
 }
 
@@ -279,6 +366,13 @@ let snsBuilt: SnsVerifier | undefined
 // hooks.dripfunnel.com: Stripe's billing events (SAAS §7.2) and SES's bounces and complaints
 // (THIRD-PARTY-ACCESS.md §2.4). A route whose values aren't set doesn't exist.
 const handleHooks = async (request: Request, url: URL, config: Config, ctx: ExecutionContext): Promise<Response> => {
+  if (url.pathname === shopifyCallbackPath) {
+    const shopify = shopifyFor(config)
+    const secrets = await secretsFor(config)
+    if (!shopify || !secrets) return notFound()
+    if (!config.HYPERDRIVE) return new Response(null, { status: 503 })
+    return withConnection(config.HYPERDRIVE, ctx, (sql) => handleShopifyCallback(request, { sql, api: shopify.api, secrets, activity: activityLog, now: () => new Date() }))
+  }
   if (url.pathname === sesHookPath) {
     const topicArn = config.SES_EVENTS_TOPIC_ARN
     const suppressionKey = config.EMAIL_SUPPRESSION_KEY
@@ -314,6 +408,7 @@ const route = async (request: Request, env: Env, ctx: ExecutionContext): Promise
   }
   if (area === 'admin') return { response: await handleAdmin(request, url, config, env, ctx), area }
   if (area === 'platform') return { response: await handlePlatform(request, url, config, env, ctx), area }
+  if (area === 'store') return { response: await handleStore(request, url, config, env, ctx), area }
   return { response: await servers[area].fetch(request), area }
 }
 
@@ -374,16 +469,32 @@ export default {
         return 0
       })
       if (due > 0) logEvent({ event: 'domain_checks_queued', api: 'system', code: 'scheduled', count: due })
+      await queueRatesRefresh(sql, new Date()).catch((error: unknown) => {
+        logEvent({ event: 'rates_refresh_queue_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
       const purged = await withSystemScope(sql, async (tx) => {
         const at = new Date()
         await failDeadExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
-        return deleteExpiredExports(tx, at)
+        await failDeadCatalogExports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+        await failDeadImports(tx, at, new Date(at.getTime() + exportLifetimeMs))
+        await deleteStalePendingConnections(tx, at)
+        await deleteAbandonedConnections(tx, at)
+        return (await deleteExpiredExports(tx, at)) + (await deleteExpiredCatalogExports(tx, at)) + (await deleteExpiredImports(tx, at))
       }).catch((error: unknown) => {
         logEvent({ event: 'exports_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
         return 0
       })
       if (purged > 0) logEvent({ event: 'exports_purged', api: 'system', code: 'expired', count: purged })
-      const counts = await relayDue(sql, deliverersFor(sql, config))
+      // Sign-ups nobody finished go after their day, with their password hashes (SAAS §4.1).
+      await withSystemScope(sql, (tx) => deleteExpiredSignups(tx, new Date(), 500)).catch((error: unknown) => {
+        logEvent({ event: 'signup_purge_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+      })
+      const expired = await withSystemScope(sql, (tx) => expireUnsentSms(tx, new Date(), defaultRelayOptions.leaseMs)).catch((error: unknown) => {
+        logEvent({ event: 'sms_expiry_failed', api: 'system', code: error instanceof Error ? error.name : 'unknown' })
+        return 0
+      })
+      if (expired > 0) logEvent({ event: 'sms_expired', api: 'system', code: 'expired', count: expired })
+      const counts = await relayDue(sql, deliverersFor(sql, config, env.ASSETS ?? null, await secretsFor(config)))
       for (const [outcome, count] of Object.entries(counts)) {
         if (count > 0) logEvent({ event: 'outbox_relay', api: 'system', code: outcome, count })
       }

@@ -1,7 +1,8 @@
 import type postgres from 'postgres'
 import type { OutboxRow } from '#db/schema/outbox'
 import { withSystemScope } from '#db/scoped/index'
-import { claimDue, markAttemptFailed, markDelivered } from '#db/scoped/outbox'
+import { claimDue, markAttemptFailed, markDelivered, markPostponed, redactOutboxPayload } from '#db/scoped/outbox'
+import { NotYet } from '#saas/outbox/index'
 
 export interface Effect {
   id: string
@@ -16,8 +17,8 @@ export interface Effect {
 
 export interface Deliverer {
   deliver: (effect: Effect, signal: AbortSignal) => Promise<void>
-  /** Payload templates this kind leaves unclaimed for now: they wait, untouched, for a later release. */
-  heldTemplates?: readonly string[]
+  /** What of the payload stays once the row is delivered or given up, written with that outcome. */
+  redact?: (payload: unknown) => Record<string, unknown>
 }
 
 export type Deliverers = Readonly<Record<string, Deliverer>>
@@ -42,7 +43,15 @@ export const defaultRelayOptions: RelayOptions = {
   batch: 50,
 }
 
-export type Outcome = 'delivered' | 'retry' | 'dead' | 'skipped'
+export type Outcome = 'delivered' | 'retry' | 'dead' | 'dropped' | 'skipped'
+
+/** Thrown by a deliverer that will never deliver this row: given up at once, under `code`, never retried. */
+export class GiveUp extends Error {
+  constructor(readonly code: string) {
+    super(`given up: ${code}`)
+    this.name = 'GiveUp'
+  }
+}
 
 /** Doubles per failed attempt, from the base to the cap. */
 export const backoffMs = (attempts: number, base: number, max: number): number =>
@@ -85,20 +94,30 @@ const settle = async (sql: postgres.Sql, row: OutboxRow, deliverer: Deliverer, o
   try {
     await withTimeout((signal) => deliverer.deliver(effectOf(row), signal), opts.timeoutMs)
   } catch (error) {
-    const dead = row.attempts >= opts.maxAttempts
+    if (error instanceof NotYet) {
+      await withSystemScope(sql, (tx) => markPostponed(tx, row.id, { error: error.code, nextAttemptAt: new Date(now.getTime() + error.retryAfterMs) }))
+      return 'retry'
+    }
+    const dropped = error instanceof GiveUp
+    const dead = dropped || row.attempts >= opts.maxAttempts
     const delay = backoffMs(row.attempts, opts.baseDelayMs, opts.maxDelayMs)
-    await withSystemScope(sql, (tx) =>
-      markAttemptFailed(tx, row.id, {
+    await withSystemScope(sql, async (tx) => {
+      await markAttemptFailed(tx, row.id, {
         // A code, never the error's words: a provider message can carry an address or a name.
-        error: error instanceof DeliveryTimeout ? 'timeout' : 'failed',
+        error: dropped ? error.code : error instanceof DeliveryTimeout ? 'timeout' : 'failed',
         nextAttemptAt: new Date(now.getTime() + delay),
         dead,
         now,
-      }),
-    )
-    return dead ? 'dead' : 'retry'
+      })
+      if (dead && deliverer.redact) await redactOutboxPayload(tx, row.id, deliverer.redact(row.payload))
+    })
+    return dropped ? 'dropped' : dead ? 'dead' : 'retry'
   }
-  const first = await withSystemScope(sql, (tx) => markDelivered(tx, row.id, opts.now()))
+  const first = await withSystemScope(sql, async (tx) => {
+    const marked = await markDelivered(tx, row.id, opts.now())
+    if (marked && deliverer.redact) await redactOutboxPayload(tx, row.id, deliverer.redact(row.payload))
+    return marked
+  })
   return first ? 'delivered' : 'skipped'
 }
 
@@ -107,12 +126,10 @@ const settle = async (sql: postgres.Sql, row: OutboxRow, deliverer: Deliverer, o
  * A per-row path fed by a queue message is added by the first effect that needs the latency.
  */
 export const relayDue = async (sql: postgres.Sql, deliverers: Deliverers, opts: RelayOptions = defaultRelayOptions): Promise<Record<Outcome, number>> => {
-  const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, skipped: 0 }
+  const counts: Record<Outcome, number> = { delivered: 0, retry: 0, dead: 0, dropped: 0, skipped: 0 }
   const kinds = Object.keys(deliverers)
   if (kinds.length === 0) return counts
-  // A hold is the declaring kind's only: `kind:template`, never a template name across kinds.
-  const held = Object.entries(deliverers).flatMap(([kind, d]) => (d.heldTemplates ?? []).map((template) => `${kind}:${template}`))
-  const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs, held))
+  const rows = await withSystemScope(sql, (tx) => claimDue(tx, kinds, opts.now(), opts.batch, opts.leaseMs))
   for (const row of rows) {
     const deliverer = deliverers[row.kind]
     if (deliverer) counts[await settle(sql, row, deliverer, opts)] += 1

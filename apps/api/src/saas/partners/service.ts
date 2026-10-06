@@ -205,6 +205,8 @@ export interface PartnersServiceDeps {
   isAssigned: (staffId: string, target: AccessTarget) => Promise<boolean>
   /** The partner console's host, where a setup session's handoff link opens (ACCESS.md §8.2). */
   platformHost: string
+  /** `*.localhost` partner domains, where the local DNS stand-in answers them (DNS_LOCAL). */
+  localHosts?: boolean
   now: () => Date
 }
 
@@ -603,7 +605,7 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const domain = await selectPartnerDomain(tx, id, kind as DomainKind)
       if (!domain) return { ok: false, code: 'NOT_FOUND' }
       // The stored host is checked again before it goes anywhere near a lookup.
-      if (!parseHostname(domain.host).ok) return { ok: false, code: 'INVALID_HOSTNAME' }
+      if (!parseHostname(domain.host, { localhost: deps.localHosts === true }).ok) return { ok: false, code: 'INVALID_HOSTNAME' }
       const at = now()
       // Once a minute at most per domain: the key folds requests within the same minute.
       await queueSideEffect(tx, {

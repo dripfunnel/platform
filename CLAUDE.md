@@ -16,8 +16,8 @@
   it too, then move it to `apps/ui/shared/` and say so.
 - **UI work opens `designs/` first.** Before building or changing any screen, component or
   style, read the app's prototype (`DF Store` → `apps/ui/store`, `DF Platform` →
-  `apps/ui/platform`, `DF Admin` → `apps/ui/admin`; `designs/design.md` maps every screen
-  to its file) and `DripFunnel Style Guide.dc.html` for anything touching colour, type,
+  `apps/ui/platform`, `DF Admin` → `apps/ui/admin`, `DF Storefront` → `templates/storefront`;
+  `designs/design.md` maps every screen to its file) and `DripFunnel Style Guide.dc.html` for anything touching colour, type,
   spacing, radius or a component's look. Check the screen in `designs/MISSING-FEATURES.md`
   and `designs/INCOMPLETE-FEATURES.md` so you don't build a dead end. The prototype decides
   **behaviour**; `docs/` decides **scope and rules** (docs/README.md §3). When they disagree

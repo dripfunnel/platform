@@ -13,6 +13,10 @@ const derive = async (password: string, salt: Uint8Array<ArrayBuffer>, rounds: n
   return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: rounds }, key, 256))
 }
 
+/** A deterministic slow hash for a short secret looked up by equality, salted by its owner (backup codes). */
+export const hashWithOwnerSalt = async (secret: string, owner: string): Promise<string> =>
+  toBase64(await derive(secret, encoder.encode(owner), iterations))
+
 export const hashPassword = async (password: string): Promise<string> => {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   return `pbkdf2-sha256$${iterations}$${toBase64(salt)}$${toBase64(await derive(password, salt, iterations))}`

@@ -87,7 +87,7 @@ describe('the shell’s banners', () => {
     ['sentback', 'danger'],
   ] as const)('words the %s strip from messages, never from the server', async (state, tone) => {
     const html = await banners({ state })
-    expect(html).toContain(`df-partner-strip--${tone}`)
+    expect(html).toContain(`df-strip--${tone}`)
     expect(textOf(html)).toContain(messages.shell.partnerState[state].text)
     expect(html).toContain('href="/dashboard"')
   })

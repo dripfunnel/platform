@@ -46,10 +46,12 @@ platform            no row: DripFunnel itself; staff act here
 | **Store (account level)** | `store_id` (and `store.partner_id`) | The store's people; its partner's users; Admin API | `store`, `store_subscription`, `store_limit_override`, `store_trial_extension`, `store_usage` (§2.4), `custom_domain`, `job`, `storefront`; **`membership`, `user` and `seller` at account level** — names, roles and status, for the owner, contacts, the Users tab and support sessions (ui/admin/FIRST-RELEASE.md §5.2, ui/platform/FIRST-RELEASE.md §6.3, §12.1; corrected on #32). A supplier still reads only its own `seller` row (ACCESS.md §5.5) |
 | **Store (inside the store)** | `store_id` | The store's people and callers only; **never** partner users, and staff only by impersonating | `invitation`, `order`, `return`, `collection`, `promotion`, `customer_group`, `badge`, `access_request`, `api_key`, `webhook_endpoint`: the full list is §7.11's second and third classes |
 | **Store (customer accounts)** | `store_id` | As inside the store, **plus a read-only `platform` branch** for the admin console's Customers menu (decided 2026-09-28); never a partner branch | `customer` |
-| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `import_job`, `export_job`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
+| **Store and seller** | `store_id`, `seller_id` null (null = the merchant's own) | As above, and a supplier only its own `seller_id` | `product` and its children, `warehouse`, `stock_level`, `stock_movement`, `order_line`, `order_part`, `fulfilment`, `return_line`, `refund`, `refund_line`, `supplier_ledger_entry`, `catalog_import`, `catalog_export`: the full list is §7.11's first class (a supplier reads only the refunds of its own lines, overrides against it included, and only its own ledger entries; never another supplier's, nor their counts) |
 | **Cross-scope, append-only** | `partner_id`, `store_id`, `seller_id`, `customer_id` where relevant | Per LOGGING.md §6; `outbox` is insert-only for requests and read by the relay alone; `billing_event` is written by the SaaS layer alone | `activity_log`, `outbox`, `billing_event` (§7.9), `email_suppression` (system only, no tenant; an HMAC of the address under `EMAIL_SUPPRESSION_KEY`, pseudonymous personal data kept to honour the person's own bounce or complaint) |
 
-- **Unique constraints are per scope**: SKU, web address and coupon code per store; customer
+- **Unique constraints are per scope**: web address and coupon code per store; a SKU per owner
+  in the store (the merchant's and each supplier's, #293), so anything that finds a version by SKU
+  (imports, stock, orders) names the owner too; customer
   email and phone per store; user email per partner. Never global.
 - **"Inside the store" vs "account level"** is what keeps partners and staff out of a
   merchant's catalogue, orders and customers (USERS-AND-DOMAINS §4): the RLS policy on
@@ -365,6 +367,7 @@ user        (id, partner_id, email, email_verified_at, password_hash NULL, name,
             -- locale and time_zone: the portal UI follows the person (CATALOG fact 40)
 user_backup_code (id, user_id, partner_id, code_hash, used_at NULL)
             -- ten per enrolment, shown once; making new ones deletes the old (ACCESS.md §4).
+            -- code_hash: PBKDF2 at the password's cost, salted by user_id (auth/storeCodes.ts).
             -- Policy: own rows only, in store scope, on user_id = app.user_id, plus system;
             -- NO partner branch (a partner user never reads a merchant's 2-factor state);
             -- code_hash readable by app_system alone (§2.1)
@@ -373,23 +376,53 @@ user_session(id_hash, user_id, partner_id, created_at, last_seen_at,
             -- idle 2 h from last_seen_at, absolute 12 h (ACCESS.md §4); "remember me"
             -- extends the absolute bound, never removes it; device_label and user_agent
             -- are what "Where you're signed in" lists. Policy as user_backup_code: own
-            -- rows on user_id = app.user_id in store scope, plus system; no partner branch
+            -- rows on user_id = app.user_id in store scope, plus system; no partner branch.
+            -- Built on #288 (0035): the hash readable by app_system alone, and a session
+            -- read only on its own partner's portal host. #290 (0036) adds stage,
+            -- pending_secret_enc and pending_phone for the step between password and code;
+            -- "user" gains two_factor_method, two_factor_enrolled_at, last_code_step,
+            -- failed_code_count and locked_until; user_backup_code and verification_code
+            -- (purposes sign_in, enrol_phone) are built, app_system alone reading a hash
+user_password_reset(id, request_id, partner_id, user_id, token_hash NULL UNIQUE,
+             expires_at NULL, used_at NULL, created_at)
+            -- built on #290 (0037), as partner_password_reset (§3.2) for a person on the
+            -- host's partner: one row per request at most, app_system alone; a reset spends
+            -- every open row of that person and deletes all their user_session rows
+user_email_change(id, partner_id, user_id, new_email, token_hash NULL UNIQUE, expires_at,
+             used_at NULL, created_at)
+            -- built on #290 (0038): a new address proven by a link sent there, 24 hours, the
+            -- newest request only (a new one spends the old), app_system alone. 0038 also adds
+            -- user.theme ('light' | 'dark') and user.password_changed_at
+signup(id, partner_id, token_hash UNIQUE, stage, name, email, password_hash, email_code_hash,
+       email_code_expires_at, email_code_attempts, store_name, subdomain, country, phone,
+       phone_code_hash, phone_code_expires_at, phone_code_attempts, store_id NULL, expires_at,
+       created_at)
+            -- built on #290 (0039): a sign-up between its steps (SAAS.md §4.1), app_system
+            -- alone; stage email | store | phone | provisioning; deleted once the store exists
+            -- or after its day; codes hashed with the row, five tries each
+signup_text(id, partner_id, signup_id NULL, phone, sent_at)
+            -- every sign-up text, kept a day: three per sign-up in ten minutes, three per number
+            -- a day, 200 per partner an hour, so texts can't be pumped to other people's numbers
 
-seller      (id, store_id, name, access_level, shipping_mode, status, suspended_at NULL,
+seller      (id, store_id, name, access_level, shipping_mode, label_account, status, suspended_at NULL,
              hide_products_while_suspended boolean NULL, removed_at NULL, created_at)
-            -- status: invited | active | suspended | removed (0002 has no check yet; the
-            -- next migration adds it); the row survives removal so products stay marked
+            UNIQUE (store_id, lower(name)) WHERE status <> 'removed'
+            -- status: invited | active | suspended | removed (checked since 0048); invited until
+            -- its first user joins; the row survives removal so products stay marked
             -- as the removed supplier's (ACCESS.md §7.5); hide_products_while_suspended is
             -- the Owner's choice at suspension (decided 2026-10-02 on #186's review, recorded on #182)
             -- access_level set by the merchant: vendor-stock | vendor-catalogue
             --                                    | vendor-orders-read | vendor-orders-fulfil
             -- shipping_mode set by the merchant: to-store | to-shopper (ACCESS.md §5.2, §7.3,
             -- decided 2026-10-02); copied onto order_part.shipping_mode at placement, and
-            -- an order follows the mode it was placed under, never the live seller row
+            -- an order follows the mode it was placed under, never the live seller row;
+            -- label_account: store | own, whose courier account books a to-shopper supplier's labels
 
 membership  (id, user_id, store_id, seller_id NULL, role_key, status, invited_by, created_at)
             UNIQUE (user_id, store_id) WHERE seller_id IS NULL     -- one merchant-side role per store
             UNIQUE (user_id, seller_id) WHERE seller_id IS NOT NULL -- one role per supplier
+            -- status: invited | active | suspended | removed (removed added on #290, 0040: a
+            -- removal keeps the row the activity log names)
             -- and no merchant-side and supplier-side membership for the same (user, store): trigger
             CHECK (seller_id IS NULL     AND role_key IN ('owner','manager','staff'))
                OR (seller_id IS NOT NULL AND role_key IN ('supplier-admin','supplier-member'))
@@ -633,7 +666,7 @@ row by column only, and a trigger lets it change `state` only from Draft to Awai
 #214), every
 other request as `app_request`, and `app_definer` exists (owning
 only 0007's membership trigger, which checks parents the caller may not see); the first
-supplier and shopper cards add `app_supplier` and `app_shop` the same way (api/README.md §7).
+shopper card adds `app_shop` the same way (api/README.md §7). **Built on #295**: supplier users run as `app_supplier` (migration 0047). It holds `app_request`'s grants on its catalogue and stock tables, the activity log and outbox, and `select` only on the settings it reads (filters, store features, badges) and on its own seller; on its team's `invitation` and `membership` rows it writes by column, held by 0049's policies to its own seller and the two supplier roles, and a trigger lets it only invite and remove (accepting an invitation makes a membership active); those tables' policies name it, and every other table refuses it by grant before any policy runs. The table row below is the target, met as each card adds its tables. Two column grants serve policies and checks, not reads: `store(id, partner_id)` and `story_block(id, asset_ids)`, of which it holds no rows. `tests/isolation.test.ts` freezes the list.
 Every tenant table carries a restrictive pin per role holding it to its own `app.scope`
 values (`request_scope`: `store`, `shop`; `partner_scope`; `platform_scope`; `system_scope`), so a policy shared by two roles never lets one use the other's branch.
 **Until #210** `app_request` also keeps every platform branch and `platform` in its pin: the
@@ -643,11 +676,11 @@ contract).
 | Role | Used by | Can |
 |---|---|---|
 | `app_request` | Merchant-side people (Owner, Manager, Staff) in store scope, and partner support sessions into a store (ACCESS §8) | DML under RLS; no `BYPASSRLS`; `select` and `insert` on `activity_log` (as 0006 grants; never update or delete) and `insert` on `outbox`; no `select` on credential columns (§2.1: password and 2-factor secret hashes, backup-code hashes, invitation token hashes; `"order".access_token_hash`; §7's `credentials_enc`, `webhook_secret_enc`, `secret_enc`, `token_enc` and `key_enc` on courier, payment, webhook, connection and AI-account rows) nor on `user.phone`, reached only through `own_phone()` and `set_own_phone()` (§2.1) |
-| `app_supplier` | Supplier users (store scope with `app.seller_id` set) | **Writes only what a supplier does** (ACCESS §5.2, §7.3), under the store-and-seller policies: DML on its own catalogue rows and their children (§7.3), `asset`, `warehouse`, `stock_level`, `stock_movement`, `size_chart`, `product_story`, `translation`, `import_job`, `export_job`; `insert` on `fulfilment` and `fulfilment_line` for its own parts and on `order_document` for its own labels; **its refunds only through `supplier_refund()`**, an `app_definer` function that checks, inside the database, that every line is the caller's, that the quantity does not exceed the line's refundable quantity and that the amount does not exceed the lines' value (`order_line_for_supplier`), then inserts the `refund` and `refund_line` rows: `app_supplier` has no direct `insert` on either, so the ceiling is a mechanism, not a promise; **`select` only, no write**, on `order_part`, `return_line`, `supplier_ledger_entry`, the refunds and documents the store wrote (its own refunds and labels it inserts, as above, and never updates), and on `order_line` **by column without any `*_amount`, tax rate or zone** (id, order and part ids, owner, version, product, name, version name, SKU, classification code, quantity, weight, the three fulfilled/returned/refunded quantities: what fulfilling needs); the money of its own lines it reads through `order_line_for_supplier` (§7.11), which carries the currency. The order's snapshot and a return's state are never a supplier's to change. **No `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
+| `app_supplier` | Supplier users (store scope with `app.seller_id` set) | **Writes only what a supplier does** (ACCESS §5.2, §7.3), under the store-and-seller policies: DML on its own catalogue rows and their children (§7.3), `asset`, `warehouse`, `stock_level`, `stock_movement`, `size_chart`, `product_story`, `translation`, `catalog_import`, `catalog_export`; `insert` on `fulfilment` and `fulfilment_line` for its own parts and on `order_document` for its own labels; **its refunds only through `supplier_refund()`**, an `app_definer` function that checks, inside the database, that every line is the caller's, that the quantity does not exceed the line's refundable quantity and that the amount does not exceed the lines' value (`order_line_for_supplier`), then inserts the `refund` and `refund_line` rows: `app_supplier` has no direct `insert` on either, so the ceiling is a mechanism, not a promise; **`select` only, no write**, on `order_part`, `return_line`, `supplier_ledger_entry`, the refunds and documents the store wrote (its own refunds and labels it inserts, as above, and never updates), and on `order_line` **by column without any `*_amount`, tax rate or zone** (id, order and part ids, owner, version, product, name, version name, SKU, classification code, quantity, weight, the three fulfilled/returned/refunded quantities: what fulfilling needs); the money of its own lines it reads through `order_line_for_supplier` (§7.11), which carries the currency. The order's snapshot and a return's state are never a supplier's to change. **No `select` on `"order"` or `"return"`**, which it reads through `order_for_supplier` and `return_for_supplier`; **no `select` on `refund.by_user_id`, `refund.note`, `supplier_ledger_entry.note`, `"return".note`**; `select` only on the settings tables §7.11 names; nothing on every other table |
 | `app_shop` | Shoppers and guests (shop scope) | `select` on the catalogue columns the Shop API serves, **never `product_version.cost_amount`, `cost_currency` or any `*_enc`**; `select` on the shop-readable settings §7.11 lists, by column (`store` and `market` public columns, languages, currencies, `store_policy`, `badge`, `shipping_zone`, `shipping_method`, and of `payment_provider_account` only `provider`, `mode` and `public_key`); its own `customer` row and children; its own `"order"` rows and children under the guest rule (§7.11), **by column** on the children (§7.11: no supplier ids, tax rates, zones or codes on lines; part state and mode only; the shopper-facing fulfilment columns of shopper-facing fulfilments only), and on `"order"` never `notes`, `cancel_reason`, `reminders_stopped_note`, `reminders_stopped_by_user_id`, `recovered_by_*`, `device`, `search` or `access_token_hash`. **Writes**: `insert` and `update` on its own `customer` and `customer_address` rows (never `status` or the credential columns); `insert` on `customer_data_request`; on `"order"` only the contact and checkout columns of its own **carts** (`email`, `phone`, `language`, the two addresses, `pickup`, `shopper_note`, `checkout_step`; on insert also `store_id`, `customer_id` and `access_token_hash`), under the write policy §7.11 states: `state = 'cart'` in both `USING` and `WITH CHECK`, `customer_id` equal to `app.customer_id` or null, the guest token rule for a guest. **Everything that prices the cart goes through engine functions owned by `app_definer`** (`cart_set_currency` and `cart_set_market`, which validate against `store_currency` and `market` and reprice every line; `cart_set_shipping_method`; `cart_add_line`, `cart_set_line_quantity`, `cart_apply_code`, `cart_place` and the like), which compute prices, discounts, tax, shipping and totals, write `order_line`, `order_adjustment`, `order_part`, `currency`, `market_id`, `shipping_method_id` and the `*_amount` and state columns, and run under the shopper's `app.*` settings; `app_shop` has no direct write on those tables or columns, so a shopper can never set a price, a total, a state or the currency the stored line amounts are in (PLATFORM-PROMPT §5.5 "the engine computes everything that matters") |
 | `app_partner` | Every partner-user request (partner scope): its own partner's tables and the account-level store tables | DML under RLS on the partner tables (§2); `select` on the account-level store tables (§2, §7.11) with the column rule of §7.11: never `design_version.prompt`, `summary`, `preview_asset_ids`, `ai_run.prompt` or `gate_results`; writes only what ACCESS §5.3 allows a partner (creating a store, built on #221: an invited `user`, an invited Owner `membership`, the store's first `job`, and a `store_subscription` at its plan's own price, each granted by column and held by a policy); the same credential exclusions as `app_request` |
 | `app_platform` | Every staff request (platform scope; the Admin API) | DML under RLS on the platform and partner tables and the account-level store tables; the read-only `platform` branch on `customer` (§2); **the same column rule as `app_partner` on the AI prompt columns** (staff see a merchant's content only by impersonating, ACCESS §8.1, which runs as the target's role); the same credential exclusions |
-| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `order_token_matches()`, `request_token_matches()`, `current_order_token_hash()`, `current_request_token_hash()`, the cart functions above and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). The structural test (§5.4) lists each with its filter |
+| `app_definer` | Nobody directly: owns the narrow views (`order_for_supplier`, `order_line_for_supplier`, `return_for_supplier`, the AI metering view), the token functions `order_token_matches()`, `request_token_matches()`, `current_order_token_hash()`, `current_request_token_hash()`, the cart functions above and `supplier_refund()` | `BYPASSRLS`, no login. Every view and function filters on the settings of the scope it serves and is `security barrier`, so none is wider than the policy it replaces: the two supplier views on `app.store_id` and `app.seller_id`; **the AI metering view by scope**: `store` → `store_id = app.store_id`, `partner` → `store.partner_id = app.partner_id` (joined through `store`), `platform` → every store, anything else → nothing; the token functions pin `search_path`, are executable by `app_shop` alone, and return false on an empty setting; the cart functions are executable by `app_shop` alone and write only the shopper's own cart (§7.11); `supplier_refund()` by `app_supplier` alone, enforcing the refund ceiling (§7.6); `current_order_token_hash()` returns the hash a guest's own insert must carry, and **null when the setting is empty**, so a tokenless insert fails the `WITH CHECK` comparison, which is never true against null (§7.11). **The catalogue and stock** (#293, #294): `store_product_count()` and `store_pricing_currency()` answer a number or a code for `app.store_id` in `store` scope only; `version_price_history()` (a trigger) writes the history of the price row being changed; `stock_change()` refuses anything but `store` scope outside read-only support, reaches only the caller's own locations (the merchant side's, or `app.seller_id`'s with its own versions) and writes the movement with the session's actor (§7.4); `store_default_warehouse()` (a trigger on `store`) inserts that new store's own default location and nothing else. **Approval** (#295, 0050): `store_vendor_approval()` answers the acting store's `vendor_products_require_approval` in `store` scope only, for a supplier too; `set_store_vendor_approval()` writes that one column for the acting store, merchant side only and never in a read-only support session. **Markets** (#296, 0051): `set_store_main_language()` writes `store.main_language` the same way, to one of the store's active languages; `store_default_market()` (a trigger on `store`) inserts that new store's main language and its primary Home market; `store_markets_follow_currency()` (a trigger on `store`) moves that store's markets selling in the old pricing currency to the new one; `acting_store_main_language()` answers the acting store's main language in `store` scope only, for a supplier too (0053); `save_store_info()` writes Store info's store columns for the acting store, merchant side only, its logo one of the store's own images, and `set_store_tax_inclusive()` the same for prices including tax (0054); `store_default_tax()` (a trigger on `store`) inserts that new store's tax classes, zone and rates (0055). **The product editor** (#298, 0056): `store_unit_system()` answers the acting store's metric or imperial in `store` scope only, for a supplier too, so a product's weight and box are typed in the store's units. The identity, partner, billing and provisioning helpers of migrations 0007–0040 keep the filters their migrations state. The structural test (§5.4, `tests/isolation.test.ts`) names every function the role owns and checks each `security definer` one pins its `search_path` |
 | `app_system` | Jobs, webhooks, retention | Named tables, under RLS with `app.scope = 'system'` |
 | `app_migrate` | Migrations only | DDL; owns the tables and the functions of §2.1; never used by the Worker at run time |
 
@@ -712,14 +745,14 @@ first is ui/store/FIRST-RELEASE.md's (written on #184: all of it is in the relea
   that creates it (a supplier's `sent_to_store` hand-off carries its id; the store's onward
   shipment of the same part carries null), so a to-store supplier never reads the shopper's
   tracking (§7.6, §7.11). `translation` carries the
-  owner of the entity it translates (null for a store-owned entity). `import_job`,
-  `export_job`, `size_chart`, `product_story` and `supplier_ledger_entry` carry the owner
+  owner of the entity it translates (null for a store-owned entity). `catalog_import`,
+  `catalog_export`, `size_chart`, `product_story` and `supplier_ledger_entry` carry the owner
   directly.
 - **Keys**: `id uuid` primary keys; `created_at`; `updated_at` and a `revision integer` on
   anything two people may edit at once, so a save can refuse a stale revision (CATALOG E4,
   OFFERS N6). **The blocks below omit `id`, `created_at`, `updated_at` and `revision` where
-  this rule implies them.** Unique constraints are per store (SKU, web address, coupon code,
-  group name), per language for web addresses, never global.
+  this rule implies them.** Unique constraints are per store (web address, coupon code, group
+  name), per owner for a SKU (#293), per language for web addresses, never global.
 - **Money**: every column named `amount` or `*_amount` is `bigint` in minor units with a
   `currency char(3)` on the same row, every time, whatever table it is in, subscriptions,
   invoices and every line included; the one allowed inheritance is the order's two children,
@@ -790,12 +823,28 @@ store (+ columns)   description, logo_asset_id NULL, address jsonb, contact_emai
                     -- storefront columns built on #32 are read-only mirrors of
                     -- store_subscription and storefront (§7.8, §7.9), written by the same
                     -- transaction that writes the owner row.
+                    -- Built on #296 (migration 0054): description, logo_asset_id, address,
+                    -- contact_email, contact_phone, time_zone, unit_system, order_prefix,
+                    -- next_order_number and tax_inclusive (country is home_country), written by
+                    -- the merchant side through save_store_info() and set_store_tax_inclusive()
+                    -- only; customer_care, pickup and the stock defaults come with their cards.
+                    -- logo_asset_id references the store's own asset (id, store_id); time_zone
+                    -- holds the IANA name in its canonical form, never an offset
 
 store_language      (store_id, language, status, position)   UNIQUE (store_id, language)
-                    -- offered on the storefront; main_language is one of them
+                    -- offered on the storefront; main_language is one of them; status active |
+                    -- removed (kept, hidden; CATALOG N13); BCP 47 tags, en-IN, en-US and hi-IN at
+                    -- launch (#337); built on #296
 store_currency      (store_id, currency, mode ('manual'|'convert'), rounding ('none'|'nearest'|'ends-99'),
                      rate_source, rate_updated_at)            UNIQUE (store_id, currency)
-                    -- CATALOG facts 25–26; converted prices (release: decide)
+                    -- CATALOG facts 25–26; converted prices (release: decide); built on #296 with
+                    -- status active | removed (prices kept, unused; O9) and position, the pricing
+                    -- currency not among the rows; the rate columns aren't per store: converted
+                    -- prices are computed when read from exchange_rate, never stored (#296)
+exchange_rate       (currency PK, per_euro numeric, source ('ecb'), published_on date, fetched_at)
+                    -- platform data, no tenant's (migration 0052): the ECB's daily euro reference
+                    -- rates, refreshed by the `rates.refresh` job every six hours, a day older than
+                    -- the one held ignored; every store reads it, only app_system writes it
 
 custom_domain (+ columns) checks_until, removed_at
                     -- as built on #32 (migration 0007): host, status ∈ waiting | verifying |
@@ -818,17 +867,33 @@ market              (id, store_id, parent_id NULL, name, is_primary boolean, cou
                     -- most one market" is a trigger over top-level markets only; duties per
                     -- CATALOG part T (duties_threshold_amount in the market's currency);
                     -- store.fallback_market_id is "Everywhere else"
+                    -- Built on #296 (migration 0051) without the domain columns (one domain per
+                    -- store, #337) or tax_registration_id (SAPI 7): "Everywhere else" is
+                    -- market.is_fallback instead of store.fallback_market_id, so the merchant
+                    -- side writes no store column; every store has one primary "Home" market
+                    -- (made with the store) that can't be switched off or deleted; markets are
+                    -- soft-deleted, their sub-markets lifted to the top level
 market_excluded_product (market_id, product_id, store_id)    -- products = 'some'
 market_payment_provider (market_id, payment_provider_account_id, store_id)
 
 tax_registration    (id, store_id, country, kind ('vat'|'oss'|'gst'|'sales_tax_permit'|'ein'|'abn'|…),
                      number, valid_from date)                  -- CATALOG fact 36
+                    -- built on #296 with gst | ein | sales_tax_permit | vat, one per country and
+                    -- kind; Store info's tax id is the home country's
 tax_class           (id, store_id, key, name, is_default)      -- Standard, Reduced, Zero, Exempt… (fact 37)
 tax_zone            (id, store_id, name, countries text[], regions text[])
 tax_rate            (id, store_id, tax_class_id, tax_zone_id, rate_bps, valid_from date)
                     UNIQUE (tax_class_id, tax_zone_id, valid_from)
                     -- class × zone (fact 37); US sales tax is Stripe Tax (decided on #184),
                     -- which adds tax_code on product_version and bypasses tax_rate for US zones
+                    -- Built on #297 (migration 0055): tax_code (Stripe's product tax code) is on
+                    -- tax_class, which a version names (product_version.tax_class_id, null for
+                    -- the store's default), so a category is picked once per version rather than
+                    -- a code; tax_class has is_default (one) and soft deletes, never while a
+                    -- version is on it; tax_zone's countries and regions are jsonb (regions a US
+                    -- state's code or an Indian state's name, none the whole country); each store
+                    -- starts with its country's classes (India's GST slabs and an India zone; the
+                    -- US's two Stripe codes; elsewhere Standard and Exempt) by store_default_tax()
 
 compliance_default  (store_id, region, field, value)           -- manufacturer, importer,
                     UNIQUE (store_id, region, field)            -- responsible person… (fact 34)
@@ -837,11 +902,12 @@ store_policy        (store_id, kind ('refund'|'privacy'|'terms'|'shipping'|'impr
                     -- the policies the Shop API serves (PLATFORM-PROMPT §5.5; storefront
                     -- ARCHITECTURE §2.1, §3.2); body per language in translation
 
-store_feature       (store_id, key, enabled boolean)           -- Settings › Catalogue switches
+store_feature       (store_id, key, enabled boolean, updated_at) -- Settings › Catalogue switches
                     UNIQUE (store_id, key)                      -- (CATALOG P1): aplus, size_charts,
                                                                 -- specs, faqs, badges, related…
 badge               (id, store_id, label, tone ('ok'|'peach'|'neutral'),
-                     rule ('new_30_days'|'top_5_this_month'|'below_compare_price'|'few_left'|'manual'))
+                     rule ('new_30_days'|'top_5_this_month'|'below_compare_price'|'few_left'|'manual'),
+                     position, created_at)
                     -- CATALOG S5; label ≤ 18 chars; tone is the prototype's colour set
 
 shipping_zone       (id, store_id, name, countries text[], regions text[])
@@ -868,7 +934,8 @@ payment_provider_account
 invoice_settings    (store_id PK, legal_name, address jsonb, tax_id NULL, tax_per_line boolean,
                      email_with_dispatch boolean, footer text)
                     -- SetOps "Save invoice settings" and the "from" block of a shopper's
-                    -- invoice; issued invoices never change (§7.6 order_document)
+                    -- invoice; issued invoices never change (§7.6 order_document); built on #296
+                    -- (Store info writes legal_name), the address being the store row's
 store_ai_account    (store_id PK, provider ('openai'|'anthropic'), key_enc, key_prefix,
                      connected_by, connected_at)
                     -- "connect your own AI account" on plans without AI included (Pricing,
@@ -898,7 +965,7 @@ asset               (id, store_id, seller_id NULL, r2_key, kind ('image'|'video'
                     -- supplier's to read, ACCESS §7.1); unlinked uploads are the uploader's
 
 product             (id, store_id, seller_id NULL, name, slug, description, product_type
-                     ('physical'|'digital'|'service'), category, visibility ('visible'|'hidden'),
+                     ('physical'|'digital'|'service'|'gift_card'), category, visibility ('visible'|'hidden'),
                      approval_status ('approved'|'pending'|'sent_back') NULL, sent_back_reason,
                      hidden_by ('seller_suspended'|'seller_removed'|'plan') NULL, status_before_hide,
                      publish_at NULL, size_chart_id NULL, related_mode ('manual'|'auto_collection'),
@@ -925,7 +992,8 @@ product_version     (id, product_id, store_id, seller_id NULL, sku, barcode, nam
                      height_mm, net_quantity NULL, net_quantity_unit NULL, unit_price_reference NULL,
                      cost_amount, cost_currency, track_stock boolean NULL, continue_selling boolean NULL,
                      position, deleted_at)
-                    UNIQUE (store_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL
+                    UNIQUE NULLS NOT DISTINCT (store_id, seller_id, sku) WHERE sku IS NOT NULL AND deleted_at IS NULL
+                    -- per owner (#293): a store-wide index would tell a supplier which codes others use
                     -- every product has at least one (fact 1); price, stock, SKU, code, tax
                     -- class and weight live here (fact 2); cost_amount and cost_currency are
                     -- never granted to app_shop (§5.3); nulls inherit the store default
@@ -953,7 +1021,7 @@ product_photo       (id, product_id, version_id NULL, store_id, seller_id NULL, 
                     -- alt per language in translation (fact 23, release: decide)
 product_video       (product_id, store_id, seller_id NULL, asset_id NULL, url NULL)
                     -- CATALOG F9 (supported, §6) and S7 (hosted or linked)
-product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries text[])
+product_market_rule (product_id, store_id, seller_id NULL, mode ('only'|'except'), countries jsonb)
                     -- "Where you sell" per product (fact 42, release: decide)
 product_flag        (product_id, store_id, seller_id NULL, age_restricted boolean, hazardous boolean)  -- fact 43
 product_compliance  (product_id, store_id, seller_id NULL, region, field, value)
@@ -991,18 +1059,19 @@ menu                (id, store_id, key ('main'), name)
 menu_item           (id, menu_id, store_id, parent_id NULL, label, kind ('collection'|'page'|'url'),
                      collection_id NULL, url NULL, position)      -- J4 pages and URLs (§6)
 
-product_story       (product_id PK, store_id, seller_id NULL, status ('draft'|'live'),
-                     template, draft jsonb, live jsonb)
+product_story       (product_id PK, store_id, seller_id NULL, template NULL, draft jsonb,
+                     live jsonb NULL, published_at NULL, asset_ids, product_ids, block_ids, revision)
                     -- A+ content (CATALOG Q): ordered modules as a document, draft separate
-                    -- from live (Q9); module kinds limited to what the store's core version
-                    -- renders (fact 28); text per language in translation, keyed by the
-                    -- module id inside the document (Q10)
-story_block         (id, store_id, kind ('brand_story'), content jsonb)
-                    -- a reusable block shared by many products (Q5, release: decide)
+                    -- from live (Q9); its status is derived: no live is a draft, a live equal to
+                    -- the draft is live, else changed; module kinds limited to what the store's
+                    -- core version renders (fact 28); text per language in translation, keyed
+                    -- by the module id inside the document (Q10)
+story_block         (id, store_id, kind ('brand_story'), name, content jsonb, asset_ids, revision)
+                    -- a reusable block shared by many products (Q5)
 
-size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems text[],
+size_chart          (id, store_id, seller_id NULL, name, unit ('cm'|'in'), systems jsonb,
                      rows jsonb, measurements jsonb, how_to_measure jsonb, fit_notes, model_info,
-                     deleted_at)                                    -- CATALOG R
+                     created_at, updated_at, revision, deleted_at)  -- CATALOG R
 size_chart_rule     (id, size_chart_id, store_id, seller_id NULL, kind ('collection'|'filter_value'|'category'),
                      target_id NULL, value NULL)                    -- R6 (release: decide)
 
@@ -1018,12 +1087,64 @@ translation         (store_id, seller_id NULL, entity, entity_id, field, languag
                     -- §7.1: seller_id is the translated entity's owner, denormalised; the
                     -- partial unique index is what makes a web address unique per language
                     -- (CATALOG fact 22); slug rows go when their entity is soft-deleted
+                    -- Built on #296 (migration 0053): entity ∈ product | version | collection |
+                    -- filter | filter_value | option_name | choice_name; entity_id is text, the
+                    -- id, or for option and choice names (shared by text across the catalogue,
+                    -- CATALOG N6) the main-language name lowercased; source_hash is md5 of the main
+                    -- text it translated, so "changed since translated" (N5) is a comparison;
+                    -- seller_id is set by a trigger from the entity; language references
+                    -- store_language, whose rows a supplier reads (it translates its own products)
 product_search      (product_id, store_id, language, document tsvector)
                     PRIMARY KEY (product_id, language)
                     -- the storefront's per-language index with main-language fallback
                     -- (facts 14, 19), written by the outbox consumer; visibility-scoped
                     -- reads only (§7.11)
 ```
+
+**Built on #293, part 1** (migration 0041): `product`, its options and values, `product_version`, their
+option values, `version_price` and `price_history`, with `store.pricing_currency` and `main_language` from
+§7.2. A child's `seller_id` is copied from its parent by a trigger that runs as the caller, so a parent
+the caller can't read refuses the write. `product_supplier_guard` stops a supplier setting visibility,
+approval or a hide, and `version_price_history` (an `app_definer` trigger) writes the history. Two
+`app_definer` functions give a supplier only a number or a code it needs: `store_product_count()` for
+the plan limit and `store_pricing_currency()`. Not yet: `tax_class_id` (with Tax), and the `shop` branches, which come with the Shop API;
+`size_chart_id` came with size charts (part 4).
+Web addresses stay unique per store, as the storefront needs, but a supplier's always ends in six random
+characters, so a clash with a product it can't see looks like no clash (ACCESS §7.1). An update keeps the
+stored address unless a new one is asked for, so a rename never breaks a live link (CATALOG fact 15).
+**Part 2** (migration 0042): `asset`, `product_photo` and `product_video`. An upload is its uploader's
+(a trigger refuses a supplier uploading as anyone else); linking it to a product makes it the product
+owner's, unless another owner's product already uses it, which is refused so their photo stays readable.
+A link names only a file the caller can read, because a foreign key alone would take another owner's id.
+**Part 3** (migration 0043): `filter`, `filter_value`, `product_filter_value`, `collection`, `collection_rule`,
+`collection_product`, `menu` and `menu_item`, in §7.11's classes. An automatic collection's
+`collection_product` rows are written by the `collections.recompute` outbox deliverer as `app_system`,
+parents first, after every change that can move them (a product saved or deleted, a collection, a filter, a
+merge). `collection.computed_at` is when that last landed, and `rule_matches` how many matched: an
+automatic collection holds the newest 1,000, and the portal says when it holds fewer than matched.
+An edit clears both until its recompute lands. A burst of changes queues a run each, and only the newest
+still queued does the work. A store holds at most 500 collections and 200 filters, and a filter value that
+goes takes the rules naming it. A menu nests one level, and a collection
+can't be its own ancestor, both enforced by triggers. The H6 "only products also in the parent" switch
+is `inherit_parent`.
+
+**Part 4** (migration 0044): `store_feature` and `badge` (§7.2, supplier read-only), `size_chart`, and a
+product's `product_spec`, `product_highlight`, `product_faq`, `product_related`, `product_badge`,
+`product_flag`, `product_compliance` and `product_market_rule`, plus `product.size_chart_id`. A store with no
+`store_feature` rows has the prototype's starting set (CatSettings). A product's chart is its own owner's,
+so a supplier never holds a chart it can't read. Each owner holds up to 200 charts, counted per owner so a
+supplier's count says nothing of others'. Only a manual badge is picked on a product, and a related
+product is one the caller can read. Lists are jsonb, not arrays (docs/api/README.md §7).
+
+**Part 5** (migration 0045): `product_story` (store-and-seller) and `story_block` (inside the store, the
+merchant side's only). A trigger keeps the `*_ids` columns from both documents, for "used on" counts and
+file ownership; nothing reads them back as arrays. Every id a story names must be one the caller reads in
+the store: files of the right kind, which move to the product's owner unless another owner already shows
+them (as photos do, §7.3 `asset`); a compared product the save adds is not trashed and, when the product is a
+supplier's, has its owner, whoever saves; brand stories only on the merchant's products. Up to 10 modules a story and 50
+brand stories a store; a brand story in use isn't deleted. Not yet: `size_chart_rule` (R6), custom fields,
+`translation`, readiness per market, which needs markets (SAPI 6), and the shop read branches, which come
+with the Shop API (SAPI 8).
 
 Rules the tables encode: visibility is on the product **and** on each version, and a visible
 product with no visible version is reported as "not buyable" (fact 8); a version with no price
@@ -1058,6 +1179,17 @@ stock_movement      (id, store_id, seller_id NULL, version_id, warehouse_id, del
                     -- by imports; seller_id is the warehouse's; 'transfer' only if flow 35
                     -- ships (release: decide)
 ```
+
+**Built** (migration 0046, #294): quantities change only through `stock_change()`, an `app_definer` function
+that checks the caller's scope (the merchant side counts its own locations, a supplier its own, of its own
+versions), refuses stock below zero, and writes the movement with the actor from the session, so
+`app_request` has no write on `on_hand`, `reserved` or `stock_movement` and history can't be forged. A
+location's first count of a version is `starting`. Every store gets the merchant's default location ("Main
+location") when it is created; an owner's first location is its default, a default or a location holding
+stock isn't deleted, and an owner holds up to 20. The merchant side reads a supplier's locations and never
+changes them. A version is low on stock when it is tracked and what it can still sell across the caller's
+locations is at most its threshold (the lowest a location sets, else 5). `reserved` is written by orders in
+system scope (SAPI 9, SAPI 11).
 
 ### 7.5 Customers
 
@@ -1477,29 +1609,38 @@ webhook_delivery    (id, endpoint_id, store_id, outbox_id, event, attempt, statu
                      |'delivered'|'failed'), response_code, error text NULL, delivered_at, next_attempt_at)
                     -- PLATFORM-PROMPT §5.5: delivered from the outbox, replayable, endpoint
                     -- disabled after repeated failure
-external_connection (id, store_id, provider ('shopify'), token_enc, shop_domain, status,
-                     connected_by, connected_at, expires_at)       -- CATALOG K7
-import_job          (id, store_id, seller_id NULL, kind ('csv'|'shopify'), state ('validating'
-                     |'ready'|'running'|'paused'|'done'|'failed'), source_asset_id NULL,
-                     connection_id NULL, selection jsonb NULL, warehouse_id,
-                     match_key ('sku'|'barcode'), match_mode ('update'|'skip'),
-                     total integer, done integer, imported integer, skipped integer,
-                     problems_asset_id NULL, started_by, started_at, finished_at)
-                    -- CATALOG K; selection is the external ids picked on a Shopify connect
-                    -- (K7); K4 keeps "matched by SKU (confirm)"; runs in the background and
-                    -- survives the page (CatImport); every imported row writes
-                    -- stock_movement 'import'
-export_job          (id, store_id, seller_id NULL, kind ('products'|'orders'|'customers'
-                     |'offer_uses'|'codes'|'report'|'store_data'), filter jsonb, columns text[],
-                     state ('queued'|'running'|'done'|'failed'), row_count, file_asset_id NULL,
-                     expires_at, started_by)
-                    -- every CSV the prototype downloads; a supplier's export is its own rows
-                    -- only; files expire (expires_at, days not weeks) and a deletion request
-                    -- purges earlier the ones that contain the person (§7.5)
-signup              (id, partner_id, email, password_enc, name, store_name, country, plan_id,
-                     storefront_kind, job_id NULL, expires_at)
-                    -- partner-scoped; SAAS §4.1's row between the signup steps, deleted by
-                    -- SAAS §5 step 8; password_enc readable by app_system only (§2.1)
+external_connection (id, store_id, seller_id NULL, provider ('shopify'), shop_domain, status
+                     ('pending'|'approved'|'connected'|'expired'), token_sealed NULL, state_hash NULL,
+                     finish_hash NULL,
+                     return_host NULL, connected_by, created_at, connected_at, expires_at)
+                    -- CATALOG K7, built on #301 (migration 0060): one an owner (the store, or a
+                    -- supplier its own); pending for ten minutes under the hash of the OAuth state,
+                    -- approved by hooks/shopify with a one-time finish key, connected only when the
+                    -- person who started it finishes in their own session; the token sealed with the credential key and
+                    -- deleted once an import has read the shop, or after a day unused
+catalog_import      (id, store_id, seller_id NULL, source ('csv'|'shopify'), state ('checking'
+                     |'ready'|'running'|'done'|'failed'), file text NULL, plan jsonb NULL,
+                     match_mode ('update'|'skip') NULL, warehouse_id NULL, products, ready,
+                     matched, problems jsonb, done, created, updated, skipped, failed,
+                     photos_pending, problems_csv NULL, requested_by_id, requested_by_label,
+                     created_at, started_at, finished_at, expires_at)
+                    -- built on #301 (migration 0059), CATALOG K: the file is checked into a plan
+                    -- (problems by line and column) and nothing is written until confirmed; the run
+                    -- goes a chunk at a time through the outbox in the importer's scope, matching by
+                    -- SKU among the importer's own products only (update or skip, K4); photos are
+                    -- fetched one by one from public addresses; every imported count writes
+                    -- stock_movement 'import'. The file and plan go when the run ends, the error file
+                    -- a day later. A connected import (K7) has connection_id, selection (the picked
+                    -- products, null for all) and cursor, and is read into the file before its check
+catalog_export      (id, store_id, seller_id NULL, kind ('products'|'stock'), filter jsonb,
+                     state ('queued'|'done'|'failed'), rows, truncated, csv text NULL,
+                     requested_by_id, requested_by_label, created_at, finished_at, expires_at)
+                    -- built on #301 (migration 0058): the store's CSV exports, named apart from
+                    -- the partner's export_job (§2.6); built through the outbox in the asker's
+                    -- scope, so a supplier's holds its own rows only; the file is on the row for
+                    -- an hour, then purged (LOGGING §6). Orders, customers and the other CSVs the
+                    -- prototype downloads add their kinds when their cards build them
+signup              §3.3 (built on #290)
 access_request      (id, store_id, by_user_id, kind ('feature'|'area'), what,
                      resolved_at NULL, resolution ('acted'|'dismissed') NULL, resolved_by NULL)
                     -- "Send request" from a Manager or Staff, shown on the Owner's Home
@@ -1527,7 +1668,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   `refund_line`, `supplier_ledger_entry`, `custom_field_value` (the owner of the entity it
   values), `order_document` (a supplier reads only the labels
   it printed for its own parts; invoices and packing slips carry a null owner and never reach
-  it), `import_job`, `export_job`. **No partner or platform branch** on any of them: a partner
+  it), `import_job`, `catalog_export`. **No partner or platform branch** on any of them: a partner
   never reads a supplier's import problems or a store's catalogue. `app_supplier` has no
   `select` on `refund.by_user_id`, `refund.note` or `supplier_ledger_entry.note` (§5.3).
   **Shop branches, explicit**: `product`, its children, `collection`, `collection_product`,
@@ -1539,8 +1680,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   branch is `EXISTS` a `product_photo`, `product_story`, `collection.image_asset_id`,
   `story_block` or `store.logo_asset_id` reference whose owner row passes that visibility
   rule, and **never** an asset referenced by `order_document`, `invoice.pdf_asset_id`,
-  `export_job`, `customer_data_request`, `import_job` or `delivery_area` (the matrix row: a
-  shopper selecting an invoice or export asset by id gets nothing); `order_line`, `order_part`
+  `customer_data_request`, `import_job` or `delivery_area` (the matrix row: a shopper selecting
+  an invoice asset by id gets nothing; a catalogue export keeps its file on its `catalog_export`
+  row, never as an asset); `order_line`, `order_part`
   and `fulfilment` get a `shop` read policy of `EXISTS (SELECT 1 FROM "order" o WHERE o.id =
   order_id)`, which carries the guest rule below through the order's own policy (and
   `order_adjustment`, an inside-the-store table, gets the same one: see the next class).

@@ -48,5 +48,6 @@ export const checkCode = async (secret: string, code: string, now: Date, lastUse
   return { ok: false, code: 'WRONG_CODE' }
 }
 
-export const otpauthUri = (secret: string, account: string): string =>
-  `otpauth://totp/${encodeURIComponent(`DripFunnel Partners:${account}`)}?secret=${secret}&issuer=${encodeURIComponent('DripFunnel Partners')}`
+/** The issuer is the brand the person signed in under: a partner's own on its portal host (#290). */
+export const otpauthUri = (secret: string, account: string, issuer = 'DripFunnel Partners'): string =>
+  `otpauth://totp/${encodeURIComponent(`${issuer}:${account}`)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}`

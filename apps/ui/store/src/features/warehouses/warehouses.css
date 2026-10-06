@@ -1,0 +1,164 @@
+/* Where stock sits (designs/SetOps.dc.html, "Warehouse"): a card of locations, the default marked, and the form. */
+.df-places-page,
+.df-places {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-places {
+  padding: 20px 22px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-places-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--df-space-3);
+}
+
+.df-places-head h2,
+.df-places-form h3 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+}
+
+.df-places-hint,
+.df-places-empty {
+  margin: 4px 0 0;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-places-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-places-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--df-space-3);
+  padding: 12px 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-places-mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text-strong);
+  font-family: var(--df-font-mono);
+  font-size: 12px;
+}
+
+.df-places-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.df-places-text span {
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-places-default {
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.df-places-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-3);
+  padding: 16px;
+  border: 1px solid var(--df-color-info-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+}
+
+.df-places-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--df-space-3);
+}
+
+.df-places-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.df-places-field label {
+  font-weight: 600;
+}
+
+.df-places-field input {
+  min-height: var(--df-control-height);
+  padding: 0 var(--df-space-3);
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  font: inherit;
+}
+
+.df-places-field input[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-places-problem {
+  color: var(--df-color-danger);
+  font-size: 12px;
+}
+
+.df-places-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--df-space-2);
+}
+
+@media (max-width: 639px) {
+  .df-places-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .df-places-list li {
+    flex-wrap: wrap;
+  }
+
+  .df-places-text {
+    flex-basis: calc(100% - 48px);
+  }
+
+  .df-places-default {
+    margin-left: 48px;
+  }
+}
+
+.df-places-mark--supplier {
+  border-radius: 4px;
+  background: var(--df-color-muted);
+  color: var(--df-color-surface);
+}

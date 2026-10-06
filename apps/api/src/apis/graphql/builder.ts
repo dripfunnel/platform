@@ -1,8 +1,8 @@
 import SchemaBuilder from '@pothos/core'
 import { secureSchema, type Api } from './scope'
 
-/** The Platform, Store and Shop APIs serve only `public` fields until their cards add a
- *  caller and a policy, so anything else fails the build. */
+/** An API with no caller yet (the Shop API, until SAPI 8) serves only `public` fields, so
+ *  anything else fails the build. */
 export const createSchema = (api: Api) => {
   const builder = new SchemaBuilder<object>({})
   builder.queryType({

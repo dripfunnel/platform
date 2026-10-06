@@ -1,4 +1,5 @@
-import { identityChanged } from '@dripfunnel/shared/ui'
+import { createAuthClient, type AuthRefusal as SharedAuthRefusal } from '@dripfunnel/shared/auth'
+import { identityChanged, safeNext as sharedSafeNext } from '@dripfunnel/shared/ui'
 import { z } from 'zod'
 import { partnerRoles } from '../features/shell/partnerRoles'
 
@@ -24,12 +25,7 @@ export const authCodes = [
 
 export type AuthCode = (typeof authCodes)[number]
 
-export interface AuthRefusal {
-  ok: false
-  code: AuthCode
-  triesLeft?: number | undefined
-  minutes?: number | undefined
-}
+export type AuthRefusal = SharedAuthRefusal<AuthCode>
 
 const invitationSchema = z.object({
   partner: z.string(),
@@ -42,40 +38,8 @@ const invitationSchema = z.object({
 
 export type Invitation = z.infer<typeof invitationSchema>
 
-const refusalSchema = z.object({ ok: z.literal(false), code: z.string(), triesLeft: z.number().int().optional(), minutes: z.number().int().optional() })
-
-// A code the API has never promised is not worded as if it had been.
-const refusalOf = (answer: z.infer<typeof refusalSchema>): AuthRefusal => {
-  const code = z.enum(authCodes).safeParse(answer.code)
-  return code.success ? { ok: false, code: code.data, triesLeft: answer.triesLeft, minutes: answer.minutes } : { ok: false, code: 'NOT_CONNECTED' }
-}
-
-const notConnected: AuthRefusal = { ok: false, code: 'NOT_CONNECTED' }
-const timeoutMs = 15_000
-
 // The routes that change who this browser is signed in as (sharedSessionReads.ts `identityChanged`).
-const signInRoutes = new Set(['sign-in', 'second-factor', 'accept-invitation', 'enrol-second-factor', 'skip-second-factor'])
-
-const post = async <Schema extends z.ZodType>(route: string, body: Record<string, unknown>, done: Schema): Promise<z.infer<Schema> | AuthRefusal> => {
-  try {
-    const response = await fetch(`/api/auth/${route}`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(timeoutMs),
-    })
-    const answer: unknown = await response.json()
-    const refused = refusalSchema.safeParse(answer)
-    if (refused.success) return refusalOf(refused.data)
-    const parsed = done.safeParse(answer)
-    if (!parsed.success) return notConnected
-    if (signInRoutes.has(route)) identityChanged()
-    return parsed.data as z.infer<Schema>
-  } catch {
-    return notConnected
-  }
-}
+const { post } = createAuthClient({ codes: authCodes, identityRoutes: new Set(['sign-in', 'second-factor', 'accept-invitation', 'enrol-second-factor', 'skip-second-factor']) })
 
 const ok = z.object({ ok: z.literal(true) })
 // What follows a password: the console, a code, or enrolling one the partner requires.
@@ -126,14 +90,5 @@ export const signOut = (): void => {
 // The text key in groups of four, as authenticator apps print it.
 export const groupedKey = (secret: string): string => secret.replace(/(.{4})(?=.)/g, '$1 ')
 
-// The redirect after sign-in is same-origin only (ACCESS §4): a path on this host, never a
-// protocol-relative or absolute address, which the URL parser would send elsewhere.
-export const safeNext = (next: unknown, origin: string, fallback = '/dashboard'): string => {
-  if (typeof next !== 'string' || !next.startsWith('/') || next.startsWith('//')) return fallback
-  try {
-    const url = new URL(next, origin)
-    return url.origin === origin ? `${url.pathname}${url.search}${url.hash}` : fallback
-  } catch {
-    return fallback
-  }
-}
+// Same-origin only (shared/ui safeNext); the console's landing page when there is nowhere to return to.
+export const safeNext = (next: unknown, origin: string, fallback = '/dashboard'): string => sharedSafeNext(next, origin, fallback)

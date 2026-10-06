@@ -184,8 +184,15 @@ The shared structure is in [../README.md](../README.md) §2. On top of it:
   including sign-in, sign-up, reset and invitation screens. No DripFunnel branding unless
   the partner's "Powered by" setting shows it.
 - **Acting store**: a store switcher in the shell; the chosen store id travels with every
-  Store API request and the server checks it against the session. It is remembered in
-  `localStorage` as a convenience only.
+  Store API request as `X-Store` (and `X-Supplier` for a supplier seat), read by the shared
+  client's `headers` option, and the server checks it against the session. It is remembered in
+  `localStorage` (`df-store-acting`) as a convenience only. Built on #291: the shell reads `me`,
+  `myStores` and `storeState` once before any screen; no acting store, or one no longer held,
+  opens the chooser at `/stores`, which refuses none, opens one and lists several.
+- **Partner look, built on #291**: the primary colour paints the header and side bar
+  (`--df-color-side`, white text) and the accent is the brand colour (`--df-color-brand`, dark
+  text), the pair the brand's publish checks (SAAS §3.3); the header shows the partner's initial
+  and product name where DripFunnel's logo would be.
 - **Role-shaped screens**: one screen, different views per role (a product list shows
   supplier attribution to the merchant and only own products to a vendor). The role comes
   from the session context the API returns, never from local state.

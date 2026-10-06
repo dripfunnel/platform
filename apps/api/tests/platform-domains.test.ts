@@ -7,6 +7,7 @@ import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import type { DnsLookup } from '#integrations/dns/doh'
+import { localDns } from '#integrations/local/index'
 import { activityLog } from '#saas/activity/index'
 import { emailRecords } from '#saas/domains/index'
 import { createPartnerDomainsService } from '#saas/partnerDomains/index'
@@ -27,8 +28,8 @@ const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
   partner: { id: partnerId, name: 'Northstar Commerce', product: 'Northstar Shops', host: null, state: 'live' },
 })
 
-const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
-  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone: 'dripfunnel.net', now: () => now })
+const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}, localHosts = false) => {
+  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone: 'dripfunnel.net', localHosts, now: () => now })
   const contextValue = { caller, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]
@@ -189,6 +190,23 @@ describe('checking', () => {
       token?.expected,
     ])
     expect((await db.sql`select 1 from outbox where payload->>'template' = 'partner-domain-live' and payload->>'domainId' = ${email?.id ?? ''}`).length).toBe(1)
+  })
+
+  it('takes *.localhost addresses only on a local Worker, where the DNS stand-in makes them live through the real check', async () => {
+    const [local] = await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Acme Local', 'draft') returning id`
+    const owner = callerOf(local?.id ?? '', 'partner-owner')
+    const hosts = { portal: 'store.acme.localhost', preview: 'preview.acme.localhost', shops: 'shops.acme.localhost', email: 'mail.acme.localhost' }
+    expect((await run<Added>(add, owner, { kind: 'portal', host: hosts.portal })).data?.addPartnerDomain.reason).toBe('NOT_A_HOSTNAME')
+    for (const [kind, host] of Object.entries(hosts)) expect((await run<Added>(add, owner, { kind, host }, true)).data?.addPartnerDomain, kind).toMatchObject({ ok: true })
+    // Nothing on the internet is asked about a .localhost name: the stand-in answers what each record expects.
+    const resolver = { resolve: async () => { throw new Error('asked the internet') } }
+    await relayDue(db.sql, { 'domain.recheck': domainRecheckDeliverer(db.sql, localDns(db.sql, resolver), () => now) }, { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) })
+    expect(await db.sql`select kind, host, status from partner_domain where partner_id = ${local?.id ?? ''} order by kind`).toEqual([
+      { kind: 'email', host: 'mail.acme.localhost', status: 'live' },
+      { kind: 'portal', host: 'store.acme.localhost', status: 'live' },
+      { kind: 'preview', host: '*.preview.acme.localhost', status: 'live' },
+      { kind: 'shops', host: '*.shops.acme.localhost', status: 'live' },
+    ])
   })
 
   it('lets a claim on a host wait without blocking its owner, and fails the claim that verifies second', async () => {

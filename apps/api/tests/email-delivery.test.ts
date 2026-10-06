@@ -3,7 +3,7 @@ import { factsOf } from '#auth/activity'
 import { hashSessionId } from '#auth/session'
 import type { StaffMember } from '#auth/staff'
 import { addressHash, suppressAll } from '#db/scoped/emailSuppression'
-import { withSystemScope } from '#db/scoped/index'
+import { pgArray, withSystemScope } from '#db/scoped/index'
 import { insertPasswordResets, selectResetByToken } from '#db/scoped/partnerInvitations'
 import { selectStaffInvitationByToken } from '#db/scoped/staffMembers'
 import { handleSesHook } from '#hooks/ses'
@@ -16,10 +16,11 @@ import { createStaffMembersService } from '#saas/staffMembers/index'
 import { seed } from '../scripts/seed/seed'
 import { createTestDatabase, type TestDatabase } from './support/database'
 
-// Card #274: the outbox's email through SES, the held template, suppression and the SNS hook.
+// Card #274: the outbox's email through SES, suppression and the SNS hook; #290: store invitations.
 
 let db: TestDatabase
-const now = new Date('2026-10-05T10:00:00Z')
+// The database's clock when the tests start, not a fixed date: the rows they read are stamped with its now().
+let now: Date
 const hosts = { adminHost: 'admin.dripfunnel.test', platformHost: 'platform.dripfunnel.test' }
 const senderDomain = 'mail.dripfunnel.test'
 const suppressionKey = btoa('k'.repeat(32))
@@ -41,8 +42,17 @@ const fakeSes = () => {
   return { api, sent, failNext: (n: number) => (failures = n) }
 }
 
-const relay = (ses: SesApi, at = new Date(Date.now() + 1000)) =>
-  relayDue(db.sql, { email: emailDeliverer(db.sql, ses, { hosts, senderDomain, suppressionKey, now: () => now }) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+/** The database's clock now: outbox rows are due by its now(), so the relay runs by it, `aheadMs` later. */
+const dbNow = async (): Promise<Date> => {
+  const [row] = await db.sql<{ now: Date }[]>`select now() as now`
+  if (!row) throw new Error('the test database gave no clock')
+  return row.now
+}
+
+const relay = async (ses: SesApi, aheadMs = 1000) => {
+  const at = new Date((await dbNow()).getTime() + aheadMs)
+  return relayDue(db.sql, { email: emailDeliverer(db.sql, ses, { hosts, senderDomain, suppressionKey, now: () => now }) }, { ...defaultRelayOptions, now: () => at, baseDelayMs: 0 })
+}
 
 const queue = (template: string, payload: Record<string, unknown>, ids: { partnerId: string | null; storeId: string | null }, key = crypto.randomUUID()) =>
   withSystemScope(db.sql, (tx) => queueSideEffect(tx, { kind: 'email', idempotencyKey: `${template}:${key}`, payload: { template, ...payload }, ...ids }))
@@ -54,6 +64,7 @@ let store: { id: string; partnerId: string; name: string; ownerEmail: string }
 
 beforeAll(async () => {
   db = await createTestDatabase()
+  now = await dbNow()
   await seed(db.url, now)
   const [p] = await db.sql<{ id: string; owner: string; finance: string }[]>`
     select p.id,
@@ -87,14 +98,14 @@ describe('email delivery', () => {
     const ses = fakeSes()
     ses.failNext(1)
     expect(await relay(ses.api)).toMatchObject({ retry: 1, delivered: 0 })
-    expect(await relay(ses.api, new Date(Date.now() + 60_000))).toMatchObject({ delivered: 1 })
+    expect(await relay(ses.api, 60_000)).toMatchObject({ delivered: 1 })
     expect(ses.sent).toHaveLength(1)
     const [mail] = ses.sent
     expect(mail).toMatchObject({ from: `"DripFunnel" <no-reply@${senderDomain}>`, to: ['new.hire@dripfunnel.example'] })
     expect(mail?.text).toContain(`https://${hosts.adminHost}/api/auth/accept-invitation?token=`)
     const invitation = await withSystemScope(db.sql, async (tx) => selectStaffInvitationByToken(tx, await hashSessionId(tokenIn(mail))))
     expect(invitation?.email).toBe('new.hire@dripfunnel.example')
-    expect(await relay(ses.api, new Date(Date.now() + 120_000))).toMatchObject({ delivered: 0 })
+    expect(await relay(ses.api, 120_000)).toMatchObject({ delivered: 0 })
     expect(ses.sent).toHaveLength(1)
   })
 
@@ -105,7 +116,7 @@ describe('email delivery', () => {
     const ses = fakeSes()
     await relay(ses.api)
     expect(ses.sent[0]?.text).toContain(`https://${hosts.platformHost}/reset-password?token=`)
-    const open = await withSystemScope(db.sql, async (tx) => selectResetByToken(tx, await hashSessionId(tokenIn(ses.sent[0])), new Date()))
+    const open = await withSystemScope(db.sql, async (tx) => selectResetByToken(tx, await hashSessionId(tokenIn(ses.sent[0])), now))
     expect(open?.id).toBe(reset.id)
   })
 
@@ -150,16 +161,64 @@ describe('email delivery', () => {
       expect.arrayContaining(['Your DripFunnel account is locked for now', 'Your payout account couldn’t be verified', `${store.name} is back`, `${store.name}’s plan has changed`]),
     )
     expect(ses.sent.find((m) => m.subject === `${store.name} is changing plan`)?.text).toContain('5 November 2026 (UTC)')
-    expect(await relay(ses.api, new Date(Date.now() + 60_000))).toMatchObject({ delivered: 0 })
+    expect(await relay(ses.api, 60_000)).toMatchObject({ delivered: 0 })
   })
 
-  it('leaves store owner invitations in the outbox, unclaimed', async () => {
-    await queue('store-owner-invitation', { invitationId: crypto.randomUUID(), to: 'owner@shop.example', storeId: store.id }, { partnerId: store.partnerId, storeId: store.id })
+  it('sends a store invitation in the partner’s voice to its portal host: set a password if new, sign in to join if not', async () => {
+    const live = await db.sql<{ id: string; host: string }[]>`select id, host from partner_domain where partner_id = ${store.partnerId} and kind = 'portal' and status = 'live'`
+    await db.sql`update partner_domain set status = 'verifying' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
+    const portal = live[0]?.host ?? 'store.invite-test.example'
+    const invite = async (email: string, withPassword: boolean) => {
+      await db.sql`insert into "user" (partner_id, email, name, status, password_hash) values (${store.partnerId}, ${email}, 'Invitee', ${withPassword ? 'active' : 'invited'}, ${withPassword ? 'pbkdf2-sha256$1$AA==$AA==' : null})`
+      const [row] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${store.id}, ${email}, 'manager', ${new Date(now.getTime() + 7 * 86_400_000)}, 'Priya Shah') returning id`
+      await queue('store-owner-invitation', { invitationId: row?.id, to: email, storeId: store.id }, { partnerId: store.partnerId, storeId: store.id })
+      return row?.id ?? ''
+    }
+    const newId = await invite('fresh.person@shop.example', false)
+    const outboxRow = async () => (await db.sql<{ attempts: number; delivered_at: Date | null; failed_at: Date | null }[]>`select attempts, delivered_at, failed_at from outbox where payload->>'invitationId' = ${newId}`)[0]
     const ses = fakeSes()
-    await relay(ses.api)
-    const [row] = await db.sql<{ attempts: number; delivered_at: Date | null }[]>`select attempts, delivered_at from outbox where payload->>'template' = 'store-owner-invitation'`
-    expect(row).toEqual({ attempts: 0, delivered_at: null })
-    expect(ses.sent).toEqual([])
+    // No live portal host yet: it waits, however many sweeps pass, and is never given up.
+    for (let i = 0; i < 10; i += 1) await relay(ses.api, i * 2 * 3_600_000)
+    expect(await outboxRow()).toMatchObject({ attempts: 0, delivered_at: null, failed_at: null })
+    expect(ses.sent.filter((m) => m.to.includes('fresh.person@shop.example'))).toEqual([])
+    if (live.length) await db.sql`update partner_domain set status = 'live' where id = any(${pgArray(live.map((d) => d.id))}::uuid[])`
+    else await db.sql`insert into partner_domain (partner_id, kind, host, status, record_type, expected) values (${store.partnerId}, 'portal', ${portal}, 'live', 'CNAME', 'x')`
+    await relay(ses.api, 21 * 3_600_000)
+    expect((await outboxRow())?.delivered_at).not.toBeNull()
+    const fresh = ses.sent.find((m) => m.to.includes('fresh.person@shop.example'))
+    expect(fresh?.to).toEqual(['fresh.person@shop.example'])
+    expect(fresh?.subject).toBe(`You’re invited to ${store.name}`)
+    expect(fresh?.text).toContain(`https://${portal}/accept-invite?token=`)
+    expect(fresh?.text).toContain('Priya Shah invited you')
+    expect(fresh?.text).not.toContain('DripFunnel partner console')
+    const [stored] = await db.sql<{ token_hash: string }[]>`select token_hash from invitation where id = ${newId}`
+    expect(stored?.token_hash).toBe(await hashSessionId(tokenIn(fresh)))
+    await invite('known.person@shop.example', true)
+    await relay(ses.api, 22 * 3_600_000)
+    expect(ses.sent.find((m) => m.to.includes('known.person@shop.example'))?.text).toContain(`https://${portal}/join?token=`)
+  })
+
+  it('sends an email change’s link to the new address only, and a notice without one to the old', async () => {
+    const [u] = await db.sql<{ id: string; email: string }[]>`select u.id, u.email from "user" u where u.partner_id = ${store.partnerId} and u.status = 'active' limit 1`
+    const [c] = await db.sql<{ id: string }[]>`insert into user_email_change (partner_id, user_id, new_email, expires_at) values (${store.partnerId}, ${u?.id ?? ''}, 'moved@shop.example', ${new Date(now.getTime() + 86_400_000)}) returning id`
+    for (const template of ['user-email-change', 'user-email-changing']) await queue(template, { emailChangeId: c?.id }, { partnerId: store.partnerId, storeId: null })
+    const ses = fakeSes()
+    await relay(ses.api, 23 * 3_600_000)
+    const link = ses.sent.find((m) => m.to.includes('moved@shop.example'))
+    const notice = ses.sent.find((m) => m.to.includes(u?.email ?? ''))
+    expect(link?.text).toMatch(/https:\/\/[^/]+\/confirm-email\?token=/)
+    expect(notice?.text).not.toContain('token=')
+    expect(notice?.subject).toContain('is about to change')
+  })
+
+  it('sends no invitation link once the invitation is revoked, and none filed under another partner', async () => {
+    const [row] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label, revoked_at) values (${store.id}, 'gone@shop.example', 'staff', ${new Date(now.getTime() + 86_400_000)}, 'Priya', ${now}) returning id`
+    await queue('store-owner-invitation', { invitationId: row?.id, to: 'gone@shop.example', storeId: store.id }, { partnerId: store.partnerId, storeId: store.id })
+    const [open] = await db.sql<{ id: string }[]>`insert into invitation (store_id, email, role_key, expires_at, invited_by_label) values (${store.id}, 'misfiled@shop.example', 'staff', ${new Date(now.getTime() + 86_400_000)}, 'Priya') returning id`
+    await queue('store-owner-invitation', { invitationId: open?.id, to: 'misfiled@shop.example', storeId: store.id }, { partnerId: northstar.id === store.partnerId ? crypto.randomUUID() : northstar.id, storeId: store.id })
+    const ses = fakeSes()
+    await relay(ses.api, 180_000)
+    expect(ses.sent.filter((m) => m.to.includes('gone@shop.example') || m.to.includes('misfiled@shop.example'))).toEqual([])
   })
 
   it("skips a suppressed address for a merchant notice, and keeps only a keyed hash of it", async () => {
@@ -221,22 +280,6 @@ describe('email delivery', () => {
     const ses = fakeSes()
     await relay(ses.api)
     expect(ses.sent.map((m) => m.to)).toEqual([['second.owner@northstar.example']])
-  })
-
-  it("holds a template only for the kind that declared it", async () => {
-    await withSystemScope(db.sql, (tx) =>
-      queueSideEffect(tx, { kind: 'test.other', idempotencyKey: 'held-elsewhere', payload: { template: 'store-owner-invitation' }, partnerId: null, storeId: null }),
-    )
-    const seen: string[] = []
-    const ses = fakeSes()
-    await relayDue(
-      db.sql,
-      { email: emailDeliverer(db.sql, ses.api, { hosts, senderDomain, suppressionKey, now: () => now }), 'test.other': { deliver: async (effect) => void seen.push(effect.kind) } },
-      { ...defaultRelayOptions, now: () => new Date(Date.now() + 1000) },
-    )
-    expect(seen).toEqual(['test.other'])
-    const [held] = await db.sql<{ attempts: number }[]>`select attempts from outbox where kind = 'email' and payload->>'template' = 'store-owner-invitation'`
-    expect(held?.attempts).toBe(0)
   })
 
   it('names at most 50 Owners on a store notice, the live ones first in line', async () => {

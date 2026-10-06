@@ -38,8 +38,30 @@ const configSchema = z.object({
     .optional(),
   // The SNS topic SES publishes bounces and complaints to; only its messages are read (hooks/ses.ts).
   SES_EVENTS_TOPIC_ARN: z.string().regex(/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]{1,256}$/, 'SES_EVENTS_TOPIC_ARN must be an SNS topic ARN').optional(),
+  // DripFunnel's Shopify app (CATALOG K7), Worker secrets. Absent, Connect Shopify says it isn't set up and the
+  // callback route doesn't exist; SHOPIFY_LOCAL=1 (local only) answers with an empty shop instead (docs/setup/local.md).
+  SHOPIFY_CLIENT_ID: z.string().regex(/^[0-9a-f]{32}$/, 'SHOPIFY_CLIENT_ID must be the app’s 32-character client id').optional(),
+  SHOPIFY_CLIENT_SECRET: z.string().min(1).optional(),
+  SHOPIFY_LOCAL: z.literal('1').optional(),
+  // Local stand-ins for the last step of email, SMS and DNS (docs/setup/local.md §6.1): the outbox, templates and checks
+  // run as on dev, and the message is printed, or the record answered, on this machine instead.
+  EMAIL_LOCAL: z.literal('1').optional(),
+  SMS_LOCAL: z.literal('1').optional(),
+  DNS_LOCAL: z.literal('1').optional(),
+})
+
+const localOnly = ['SHOPIFY_LOCAL', 'EMAIL_LOCAL', 'SMS_LOCAL', 'DNS_LOCAL'] as const
+
+// The stand-ins skip a provider's checks, so a Worker anywhere but on *.localhost refuses to start with one.
+const checkedConfig = configSchema.superRefine((c, ctx) => {
+  // The suppression list keys its hashes with it, stand-in or SES (db/scoped/emailSuppression.ts).
+  if (c.EMAIL_LOCAL !== undefined && c.EMAIL_SUPPRESSION_KEY === undefined) ctx.addIssue({ code: 'custom', message: 'EMAIL_LOCAL needs EMAIL_SUPPRESSION_KEY', path: ['EMAIL_SUPPRESSION_KEY'] })
+  if (/(^|\.)localhost$/.test(c.HOOKS_HOST)) return
+  for (const key of localOnly) {
+    if (c[key] !== undefined) ctx.addIssue({ code: 'custom', message: `${key} is for local development only (HOOKS_HOST on localhost)`, path: [key] })
+  }
 })
 
 export type Config = z.infer<typeof configSchema>
 
-export const parseConfig = (env: Record<string, unknown>): Config => configSchema.parse(env)
+export const parseConfig = (env: Record<string, unknown>): Config => checkedConfig.parse(env)

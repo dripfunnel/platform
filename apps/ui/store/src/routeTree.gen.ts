@@ -11,9 +11,34 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as StoresRouteImport } from './routes/stores'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppBillingRouteImport } from './routes/_app/billing'
+import { Route as AppCartsRouteImport } from './routes/_app/carts'
+import { Route as AppCollectionsRouteImport } from './routes/_app/collections'
+import { Route as AppCustomersRouteImport } from './routes/_app/customers'
+import { Route as AppHomeRouteImport } from './routes/_app/home'
+import { Route as AppOffersRouteImport } from './routes/_app/offers'
+import { Route as AppOrdersRouteImport } from './routes/_app/orders'
+import { Route as AppProductsRouteImport } from './routes/_app/products'
+import { Route as AppProfileRouteImport } from './routes/_app/profile'
+import { Route as AppReportsRouteImport } from './routes/_app/reports'
+import { Route as AppSalesRouteImport } from './routes/_app/sales'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppStorefrontRouteImport } from './routes/_app/storefront'
+import { Route as AppTeamRouteImport } from './routes/_app/team'
+import { Route as AuthAcceptInviteRouteImport } from './routes/_auth/accept-invite'
+import { Route as AuthConfirmEmailRouteImport } from './routes/_auth/confirm-email'
+import { Route as AuthJoinRouteImport } from './routes/_auth/join'
+import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AuthSignUpRouteImport } from './routes/_auth/sign-up'
 import { Route as ImpersonateEnterRouteImport } from './routes/impersonate.enter'
+import { Route as AppProductsProductIdRouteImport } from './routes/_app/products_.$productId'
+import { Route as AppProductsImportRouteImport } from './routes/_app/products_.import'
+import { Route as AppProductsSizeChartsRouteImport } from './routes/_app/products_.size-charts'
+import { Route as AppProductsWarehousesRouteImport } from './routes/_app/products_.warehouses'
+import { Route as AppProductsProductIdStoryRouteImport } from './routes/_app/products_.$productId_.story'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -23,14 +48,114 @@ const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StoresRoute = StoresRouteImport.update({
+  id: '/stores',
+  path: '/stores',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBillingRoute = AppBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCartsRoute = AppCartsRouteImport.update({
+  id: '/carts',
+  path: '/carts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCollectionsRoute = AppCollectionsRouteImport.update({
+  id: '/collections',
+  path: '/collections',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppCustomersRoute = AppCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHomeRoute = AppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOffersRoute = AppOffersRouteImport.update({
+  id: '/offers',
+  path: '/offers',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOrdersRoute = AppOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsRoute = AppProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProfileRoute = AppProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppReportsRoute = AppReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSalesRoute = AppSalesRouteImport.update({
+  id: '/sales',
+  path: '/sales',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStorefrontRoute = AppStorefrontRouteImport.update({
+  id: '/storefront',
+  path: '/storefront',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTeamRoute = AppTeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => AppRoute,
+} as any)
+const AuthAcceptInviteRoute = AuthAcceptInviteRouteImport.update({
+  id: '/accept-invite',
+  path: '/accept-invite',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthConfirmEmailRoute = AuthConfirmEmailRouteImport.update({
+  id: '/confirm-email',
+  path: '/confirm-email',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthJoinRoute = AuthJoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AuthRoute,
+} as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
   getParentRoute: () => AuthRoute,
 } as any)
 const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
@@ -38,42 +163,225 @@ const ImpersonateEnterRoute = ImpersonateEnterRouteImport.update({
   path: '/impersonate/enter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
+  id: '/products_/$productId',
+  path: '/products/$productId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsImportRoute = AppProductsImportRouteImport.update({
+  id: '/products_/import',
+  path: '/products/import',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsSizeChartsRoute = AppProductsSizeChartsRouteImport.update({
+  id: '/products_/size-charts',
+  path: '/products/size-charts',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsWarehousesRoute = AppProductsWarehousesRouteImport.update({
+  id: '/products_/warehouses',
+  path: '/products/warehouses',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProductsProductIdStoryRoute =
+  AppProductsProductIdStoryRouteImport.update({
+    id: '/products_/$productId_/story',
+    path: '/products/$productId/story',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/stores': typeof StoresRoute
+  '/billing': typeof AppBillingRoute
+  '/carts': typeof AppCartsRoute
+  '/collections': typeof AppCollectionsRoute
+  '/customers': typeof AppCustomersRoute
+  '/home': typeof AppHomeRoute
+  '/offers': typeof AppOffersRoute
+  '/orders': typeof AppOrdersRoute
+  '/products': typeof AppProductsRoute
+  '/profile': typeof AppProfileRoute
+  '/reports': typeof AppReportsRoute
+  '/sales': typeof AppSalesRoute
+  '/settings': typeof AppSettingsRoute
+  '/storefront': typeof AppStorefrontRoute
+  '/team': typeof AppTeamRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
+  '/confirm-email': typeof AuthConfirmEmailRoute
+  '/join': typeof AuthJoinRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/import': typeof AppProductsImportRoute
+  '/products/size-charts': typeof AppProductsSizeChartsRoute
+  '/products/warehouses': typeof AppProductsWarehousesRoute
+  '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/stores': typeof StoresRoute
+  '/billing': typeof AppBillingRoute
+  '/carts': typeof AppCartsRoute
+  '/collections': typeof AppCollectionsRoute
+  '/customers': typeof AppCustomersRoute
+  '/home': typeof AppHomeRoute
+  '/offers': typeof AppOffersRoute
+  '/orders': typeof AppOrdersRoute
+  '/products': typeof AppProductsRoute
+  '/profile': typeof AppProfileRoute
+  '/reports': typeof AppReportsRoute
+  '/sales': typeof AppSalesRoute
+  '/settings': typeof AppSettingsRoute
+  '/storefront': typeof AppStorefrontRoute
+  '/team': typeof AppTeamRoute
+  '/accept-invite': typeof AuthAcceptInviteRoute
+  '/confirm-email': typeof AuthConfirmEmailRoute
+  '/join': typeof AuthJoinRoute
+  '/reset-password': typeof AuthResetPasswordRoute
   '/sign-in': typeof AuthSignInRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
+  '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/import': typeof AppProductsImportRoute
+  '/products/size-charts': typeof AppProductsSizeChartsRoute
+  '/products/warehouses': typeof AppProductsWarehousesRoute
+  '/products/$productId/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/stores': typeof StoresRoute
+  '/_app/billing': typeof AppBillingRoute
+  '/_app/carts': typeof AppCartsRoute
+  '/_app/collections': typeof AppCollectionsRoute
+  '/_app/customers': typeof AppCustomersRoute
+  '/_app/home': typeof AppHomeRoute
+  '/_app/offers': typeof AppOffersRoute
+  '/_app/orders': typeof AppOrdersRoute
+  '/_app/products': typeof AppProductsRoute
+  '/_app/profile': typeof AppProfileRoute
+  '/_app/reports': typeof AppReportsRoute
+  '/_app/sales': typeof AppSalesRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/storefront': typeof AppStorefrontRoute
+  '/_app/team': typeof AppTeamRoute
+  '/_auth/accept-invite': typeof AuthAcceptInviteRoute
+  '/_auth/confirm-email': typeof AuthConfirmEmailRoute
+  '/_auth/join': typeof AuthJoinRoute
+  '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_auth/sign-in': typeof AuthSignInRoute
+  '/_auth/sign-up': typeof AuthSignUpRoute
   '/impersonate/enter': typeof ImpersonateEnterRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/products_/$productId': typeof AppProductsProductIdRoute
+  '/_app/products_/import': typeof AppProductsImportRoute
+  '/_app/products_/size-charts': typeof AppProductsSizeChartsRoute
+  '/_app/products_/warehouses': typeof AppProductsWarehousesRoute
+  '/_app/products_/$productId_/story': typeof AppProductsProductIdStoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/impersonate/enter'
+  fullPaths:
+    | '/'
+    | '/stores'
+    | '/billing'
+    | '/carts'
+    | '/collections'
+    | '/customers'
+    | '/home'
+    | '/offers'
+    | '/orders'
+    | '/products'
+    | '/profile'
+    | '/reports'
+    | '/sales'
+    | '/settings'
+    | '/storefront'
+    | '/team'
+    | '/accept-invite'
+    | '/confirm-email'
+    | '/join'
+    | '/reset-password'
+    | '/sign-in'
+    | '/sign-up'
+    | '/impersonate/enter'
+    | '/products/$productId'
+    | '/products/import'
+    | '/products/size-charts'
+    | '/products/warehouses'
+    | '/products/$productId/story'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/impersonate/enter'
+  to:
+    | '/'
+    | '/stores'
+    | '/billing'
+    | '/carts'
+    | '/collections'
+    | '/customers'
+    | '/home'
+    | '/offers'
+    | '/orders'
+    | '/products'
+    | '/profile'
+    | '/reports'
+    | '/sales'
+    | '/settings'
+    | '/storefront'
+    | '/team'
+    | '/accept-invite'
+    | '/confirm-email'
+    | '/join'
+    | '/reset-password'
+    | '/sign-in'
+    | '/sign-up'
+    | '/impersonate/enter'
+    | '/products/$productId'
+    | '/products/import'
+    | '/products/size-charts'
+    | '/products/warehouses'
+    | '/products/$productId/story'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/stores'
+    | '/_app/billing'
+    | '/_app/carts'
+    | '/_app/collections'
+    | '/_app/customers'
+    | '/_app/home'
+    | '/_app/offers'
+    | '/_app/orders'
+    | '/_app/products'
+    | '/_app/profile'
+    | '/_app/reports'
+    | '/_app/sales'
+    | '/_app/settings'
+    | '/_app/storefront'
+    | '/_app/team'
+    | '/_auth/accept-invite'
+    | '/_auth/confirm-email'
+    | '/_auth/join'
+    | '/_auth/reset-password'
     | '/_auth/sign-in'
+    | '/_auth/sign-up'
     | '/impersonate/enter'
     | '/_app/'
+    | '/_app/products_/$productId'
+    | '/_app/products_/import'
+    | '/_app/products_/size-charts'
+    | '/_app/products_/warehouses'
+    | '/_app/products_/$productId_/story'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  StoresRoute: typeof StoresRoute
   ImpersonateEnterRoute: typeof ImpersonateEnterRoute
 }
 
@@ -93,6 +401,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/stores': {
+      id: '/stores'
+      path: '/stores'
+      fullPath: '/stores'
+      preLoaderRoute: typeof StoresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/': {
       id: '/_app/'
       path: '/'
@@ -100,11 +415,144 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/billing': {
+      id: '/_app/billing'
+      path: '/billing'
+      fullPath: '/billing'
+      preLoaderRoute: typeof AppBillingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/carts': {
+      id: '/_app/carts'
+      path: '/carts'
+      fullPath: '/carts'
+      preLoaderRoute: typeof AppCartsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/collections': {
+      id: '/_app/collections'
+      path: '/collections'
+      fullPath: '/collections'
+      preLoaderRoute: typeof AppCollectionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/customers': {
+      id: '/_app/customers'
+      path: '/customers'
+      fullPath: '/customers'
+      preLoaderRoute: typeof AppCustomersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/home': {
+      id: '/_app/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AppHomeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/offers': {
+      id: '/_app/offers'
+      path: '/offers'
+      fullPath: '/offers'
+      preLoaderRoute: typeof AppOffersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/orders': {
+      id: '/_app/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof AppOrdersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products': {
+      id: '/_app/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof AppProductsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/profile': {
+      id: '/_app/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AppProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reports': {
+      id: '/_app/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/sales': {
+      id: '/_app/sales'
+      path: '/sales'
+      fullPath: '/sales'
+      preLoaderRoute: typeof AppSalesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/storefront': {
+      id: '/_app/storefront'
+      path: '/storefront'
+      fullPath: '/storefront'
+      preLoaderRoute: typeof AppStorefrontRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/team': {
+      id: '/_app/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof AppTeamRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_auth/accept-invite': {
+      id: '/_auth/accept-invite'
+      path: '/accept-invite'
+      fullPath: '/accept-invite'
+      preLoaderRoute: typeof AuthAcceptInviteRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/confirm-email': {
+      id: '/_auth/confirm-email'
+      path: '/confirm-email'
+      fullPath: '/confirm-email'
+      preLoaderRoute: typeof AuthConfirmEmailRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/join': {
+      id: '/_auth/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof AuthJoinRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/reset-password': {
+      id: '/_auth/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/sign-up': {
+      id: '/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
     }
     '/impersonate/enter': {
@@ -114,25 +562,108 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ImpersonateEnterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/products_/$productId': {
+      id: '/_app/products_/$productId'
+      path: '/products/$productId'
+      fullPath: '/products/$productId'
+      preLoaderRoute: typeof AppProductsProductIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products_/import': {
+      id: '/_app/products_/import'
+      path: '/products/import'
+      fullPath: '/products/import'
+      preLoaderRoute: typeof AppProductsImportRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products_/size-charts': {
+      id: '/_app/products_/size-charts'
+      path: '/products/size-charts'
+      fullPath: '/products/size-charts'
+      preLoaderRoute: typeof AppProductsSizeChartsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products_/warehouses': {
+      id: '/_app/products_/warehouses'
+      path: '/products/warehouses'
+      fullPath: '/products/warehouses'
+      preLoaderRoute: typeof AppProductsWarehousesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/products_/$productId_/story': {
+      id: '/_app/products_/$productId_/story'
+      path: '/products/$productId/story'
+      fullPath: '/products/$productId/story'
+      preLoaderRoute: typeof AppProductsProductIdStoryRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppBillingRoute: typeof AppBillingRoute
+  AppCartsRoute: typeof AppCartsRoute
+  AppCollectionsRoute: typeof AppCollectionsRoute
+  AppCustomersRoute: typeof AppCustomersRoute
+  AppHomeRoute: typeof AppHomeRoute
+  AppOffersRoute: typeof AppOffersRoute
+  AppOrdersRoute: typeof AppOrdersRoute
+  AppProductsRoute: typeof AppProductsRoute
+  AppProfileRoute: typeof AppProfileRoute
+  AppReportsRoute: typeof AppReportsRoute
+  AppSalesRoute: typeof AppSalesRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppStorefrontRoute: typeof AppStorefrontRoute
+  AppTeamRoute: typeof AppTeamRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+  AppProductsImportRoute: typeof AppProductsImportRoute
+  AppProductsSizeChartsRoute: typeof AppProductsSizeChartsRoute
+  AppProductsWarehousesRoute: typeof AppProductsWarehousesRoute
+  AppProductsProductIdStoryRoute: typeof AppProductsProductIdStoryRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppBillingRoute: AppBillingRoute,
+  AppCartsRoute: AppCartsRoute,
+  AppCollectionsRoute: AppCollectionsRoute,
+  AppCustomersRoute: AppCustomersRoute,
+  AppHomeRoute: AppHomeRoute,
+  AppOffersRoute: AppOffersRoute,
+  AppOrdersRoute: AppOrdersRoute,
+  AppProductsRoute: AppProductsRoute,
+  AppProfileRoute: AppProfileRoute,
+  AppReportsRoute: AppReportsRoute,
+  AppSalesRoute: AppSalesRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppStorefrontRoute: AppStorefrontRoute,
+  AppTeamRoute: AppTeamRoute,
   AppIndexRoute: AppIndexRoute,
+  AppProductsProductIdRoute: AppProductsProductIdRoute,
+  AppProductsImportRoute: AppProductsImportRoute,
+  AppProductsSizeChartsRoute: AppProductsSizeChartsRoute,
+  AppProductsWarehousesRoute: AppProductsWarehousesRoute,
+  AppProductsProductIdStoryRoute: AppProductsProductIdStoryRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
+  AuthAcceptInviteRoute: typeof AuthAcceptInviteRoute
+  AuthConfirmEmailRoute: typeof AuthConfirmEmailRoute
+  AuthJoinRoute: typeof AuthJoinRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthSignInRoute: typeof AuthSignInRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
+  AuthAcceptInviteRoute: AuthAcceptInviteRoute,
+  AuthConfirmEmailRoute: AuthConfirmEmailRoute,
+  AuthJoinRoute: AuthJoinRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthSignInRoute: AuthSignInRoute,
+  AuthSignUpRoute: AuthSignUpRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
@@ -140,6 +671,7 @@ const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  StoresRoute: StoresRoute,
   ImpersonateEnterRoute: ImpersonateEnterRoute,
 }
 export const routeTree = rootRouteImport

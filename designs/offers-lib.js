@@ -50,7 +50,7 @@
   function repeatWords(r) { const d = (r.days || []).slice().sort(); return (d.length === 7 ? 'every day' : 'every ' + d.map(x => DAYS[x]).join(', ')) + ', ' + r.from + '–' + r.to; }
   function genCode(len) { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < (len || 8); i++) s += A[Math.floor(Math.random() * A.length)]; return s; }
 
-  const isGift = p => p.type === 'download' || /gift card/i.test(p.name);
+  const isGift = p => p.type === 'giftcard' || /gift card/i.test(p.name);
   function matches(o, p) {
     if (o.exGift && isGift(p)) return false;
     if (o.exSale && p.compare) return false;

@@ -20,6 +20,11 @@
   <sc-if value="{{ is.tax }}" hint-placeholder-val="{{ false }}"><dc-import name="CatSettings" app="{{ app }}" tab="tax" hint-size="100%,400px"></dc-import><dc-import name="SetOps" app="{{ app }}" mode="tax" hint-size="100%,400px"></dc-import></sc-if>
   <sc-if value="{{ is.markets }}" hint-placeholder-val="{{ false }}"><dc-import name="SetMarkets" app="{{ app }}" hint-size="100%,700px"></dc-import></sc-if>
   <sc-if value="{{ is.catalogue }}" hint-placeholder-val="{{ false }}"><dc-import name="CatSettings" app="{{ app }}" tab="catalogue" hint-size="100%,700px"></dc-import></sc-if>
+  <sc-if value="{{ is.customers }}" hint-placeholder-val="{{ false }}"><dc-import name="SetAccess" app="{{ app }}" mode="customers" hint-size="100%,600px"></dc-import></sc-if>
+  <sc-if value="{{ is.developers }}" hint-placeholder-val="{{ false }}"><dc-import name="SetDev" app="{{ app }}" mode="developers" hint-size="100%,900px"></dc-import></sc-if>
+  <sc-if value="{{ is.apps }}" hint-placeholder-val="{{ false }}"><dc-import name="SetDev" app="{{ app }}" mode="apps" hint-size="100%,600px"></dc-import></sc-if>
+  <sc-if value="{{ is.support }}" hint-placeholder-val="{{ false }}"><dc-import name="SetAccess" app="{{ app }}" mode="support" hint-size="100%,700px"></dc-import></sc-if>
+  <sc-if value="{{ is.activity }}" hint-placeholder-val="{{ false }}"><dc-import name="StoreActivity" app="{{ app }}" hint-size="100%,800px"></dc-import></sc-if>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -29,10 +34,10 @@ class Component extends DCLogic {
     const app = this.props.app; if (!app) return {};
     const s = this.state;
     const ppl = app.data('people') || []; const sup = app.data('suppliers') || []; const cs = (app.data('shipping') || { couriers: [] }).couriers;
-    const defs = [['store', 'Store info'], ['people', 'People', String(ppl.length)], ['supplier', 'Supplier', String(sup.length)], ['payments', 'Payment setup'], ['shipping', 'Shipping', cs.some(x => x.status === 'failed') ? '!' : ''], ['warehouse', 'Warehouse', String((app.data('warehouses') || []).length)], ['tax', 'Tax setup'], ['markets', 'Markets', String((app.data('markets') || []).length)], ['catalogue', 'Catalogue']].filter(([k]) => k !== 'supplier' || app.caps.suppliersOn);
+    const defs = [['store', 'Store info'], ['people', 'People', String(ppl.length)], ['supplier', 'Supplier', String(sup.length)], ['payments', 'Payment setup'], ['shipping', 'Shipping', cs.some(x => x.status === 'failed') ? '!' : ''], ['warehouse', 'Warehouse', String((app.data('warehouses') || []).length)], ['tax', 'Tax setup'], ['markets', 'Markets', String((app.data('markets') || []).length)], ['catalogue', 'Catalogue'], ['customers', 'Customer accounts'], ['developers', 'Developers'], ['apps', 'Apps', String((app.data('devApps') || []).length || '')], ['support', 'Support access', app.st.support && app.st.support !== 'none' ? 'live' : ''], ['activity', 'Activity log']].filter(([k]) => k !== 'supplier' || app.caps.suppliersOn);
     const is = {}; defs.forEach(([k]) => { is[k] = s.tab === k; });
     return { app, is, padX: app.phone ? '14px' : '28px',
-      tabs: defs.map(([k, l, n]) => ({ label: l, count: n || '', cBg: n === '!' ? 'var(--pbg,#FDF0E8)' : 'var(--sunk,#F2F0EC)', cFg: n === '!' ? 'var(--link,#B8541F)' : 'var(--muted,#5A6472)', bd: s.tab === k ? '#EC844F' : 'transparent', fg: s.tab === k ? 'var(--text,#14181F)' : 'var(--muted,#5A6472)', fw: s.tab === k ? 700 : 500, onClick: () => this.setState({ tab: k }) })) };
+      tabs: defs.map(([k, l, n]) => ({ label: l, count: n || '', cBg: n === '!' || n === 'live' ? 'var(--pbg,#FDF0E8)' : 'var(--sunk,#F2F0EC)', cFg: n === '!' || n === 'live' ? 'var(--link,#B8541F)' : 'var(--muted,#5A6472)', bd: s.tab === k ? '#EC844F' : 'transparent', fg: s.tab === k ? 'var(--text,#14181F)' : 'var(--muted,#5A6472)', fw: s.tab === k ? 700 : 500, onClick: () => this.setState({ tab: k }) })) };
   }
 }
 </script>

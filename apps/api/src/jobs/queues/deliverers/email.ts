@@ -3,7 +3,7 @@ import { logEvent } from '#core/log'
 import { suppressedAmong } from '#db/scoped/emailSuppression'
 import { withSystemScope } from '#db/scoped/index'
 import { SesRefused, type SesApi } from '#integrations/ses/index'
-import { en, fromAddress, heldTemplates, prepareEmail, renderEmail, type EmailHosts } from '#saas/email/index'
+import { en, fromAddress, prepareEmail, renderEmail, type EmailHosts } from '#saas/email/index'
 import type { Deliverer } from '../outbox-relay'
 
 export interface EmailDelivererOptions {
@@ -22,7 +22,6 @@ export interface EmailDelivererOptions {
  * is marked delivered can send it twice, the outbox's at-least-once.
  */
 export const emailDeliverer = (sql: postgres.Sql, ses: SesApi, { hosts, senderDomain, suppressionKey, now = () => new Date() }: EmailDelivererOptions): Deliverer => ({
-  heldTemplates,
   deliver: async (effect, signal) => {
     await withSystemScope(sql, async (tx) => {
       const log = (event: string, code: string) => logEvent({ event, api: 'system', partnerId: effect.partnerId, storeId: effect.storeId, code })
