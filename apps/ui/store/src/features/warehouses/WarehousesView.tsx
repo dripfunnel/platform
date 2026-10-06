@@ -160,7 +160,8 @@ export const WarehousesView = ({ canEdit, side, supplierNames = null }: { canEdi
   // The merchant side also reads its suppliers' locations: listed apart and never changed here (SetOps, FIRST-RELEASE §15).
   const own = (p: Place) => side === 'supplier' || p.supplierId === null
   const places = view.places.filter(own).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
-  const theirs = view.places.filter((p) => !own(p))
+  // Never nameless: without the suppliers' names (a seat that can't read them), their locations aren't listed.
+  const theirs = supplierNames ? view.places.filter((p) => !own(p)) : []
   return (
     <div className="df-places">
       <div className="df-places-head">
