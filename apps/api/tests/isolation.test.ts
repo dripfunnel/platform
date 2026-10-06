@@ -339,7 +339,7 @@ describe('the backstop itself', () => {
       'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
       'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
       'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
-      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job', 'catalog_export', 'catalog_import',
+      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job', 'catalog_export', 'catalog_import', 'external_connection',
       'partner_password_reset', 'user_session', 'user_backup_code', 'verification_code',
       'user_password_reset', 'user_email_change', 'signup', 'signup_text',
       'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
