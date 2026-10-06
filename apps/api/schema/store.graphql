@@ -1424,6 +1424,7 @@ type Warehouse {
   name: String
   revision: Int
   supplierId: ID
+  supplierName: String
   units: Int
 }
 

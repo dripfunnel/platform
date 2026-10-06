@@ -68,8 +68,8 @@ beforeEach(() => {
   tax.addTaxCategory.mockResolvedValue('c-new')
   team.loadSuppliers.mockResolvedValue([{ id: 'v1', name: 'Northwind Textiles' }])
   stock.loadPlaces.mockResolvedValue([
-    { id: 'w1', name: 'Workshop', isDefault: true, units: 30, revision: 1, address: null, supplierId: null },
-    { id: 'w9', name: 'Northwind godown', isDefault: true, units: 12, revision: 1, address: null, supplierId: 'v1' },
+    { id: 'w1', name: 'Workshop', isDefault: true, units: 30, revision: 1, address: null, supplierId: null, supplierName: null },
+    { id: 'w9', name: 'Northwind godown', isDefault: true, units: 12, revision: 1, address: null, supplierId: 'v1', supplierName: 'Northwind Textiles' },
   ])
 })
 
@@ -88,21 +88,11 @@ describe('warehouse', () => {
     expect(screen.queryByRole('button', { name: 'Manage Northwind godown' })).toBeNull()
   })
 
-  it('lets a read-only store look without managing, and lists a location whose supplier isn’t named without a name', async () => {
-    team.loadSuppliers.mockResolvedValue([])
+  it('lets a read-only store look without managing, each supplier’s location named by the API, never from the supplier list', async () => {
     await show('warehouse', true)
     expect(screen.queryByRole('button', { name: 'Manage Workshop' })).toBeNull()
-    expect(region(wh.theirsTitle).getByText(/^12 units$/)).toBeTruthy()
-  })
-
-  it('shows the error with a retry when the suppliers don’t load', async () => {
-    team.loadSuppliers.mockRejectedValueOnce(new Error('offline'))
-    await show('warehouse')
-    expect(screen.getByText(messages.settings.error.title)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: messages.settings.error.retry }))
-    await settle()
-    await settle()
-    expect(screen.getByRole('button', { name: 'Manage Workshop' })).toBeTruthy()
+    expect(region(wh.theirsTitle).getByText(/Northwind Textiles · 12 units/)).toBeTruthy()
+    expect(team.loadSuppliers).not.toHaveBeenCalled()
   })
 })
 
