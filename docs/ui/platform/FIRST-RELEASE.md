@@ -180,7 +180,9 @@ this itself" with a lock (ACCESS §8.2); to the Owner they read "Your turn"; to 
 "Owner adds this". They are **not go-live checks** (SAAS §3.2 step 5): Submit says "Payment
 method and payout details can come later." Payouts wait for item 9.
 
-**Who completed it.** Items done in a staff setup session say "Done by DripFunnel"; the
+**Who completed it.** Items 3–6 name nobody: they are read from the domains and plans as they
+stand (the go-live checks), not from anyone's action, so they go back to In progress if a host
+breaks or the last priced plan is retired (#435). Items done in a staff setup session say "Done by DripFunnel"; the
 Owner's first sign-in after staff set things up shows a welcome card: "DripFunnel has set up
 most of {product} for you. Check what's done and finish the rest." — or, when staff already
 submitted, "…and submitted it for approval. While they review it, add the two things only you
