@@ -5,7 +5,8 @@ portal host in the partner's look, calling the Store API at `/api`. Guide:
 [docs/ui/store/](../../../docs/ui/store/README.md) (users, roles, navigation, design docs).
 
 ```bash
-pnpm --filter ./apps/ui/store dev   # http://localhost:5173, /api proxied to the local Worker
+pnpm dev:https   # every partner's portal at https://store.<partner>.localhost (docs/setup/local.md §7.3)
+pnpm --filter ./apps/ui/store dev   # http://localhost:5173: the sample harness below; /api reaches no partner here
 ```
 
 A staff impersonation (ACCESS.md §8.1) arrives at `/impersonate/enter?token=…` and shows the

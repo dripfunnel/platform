@@ -27,4 +27,12 @@ describe('parseHostname', () => {
       expect([input, parseHostname(input)]).toEqual([input, { ok: false, code }])
     }
   })
+
+  it('accepts a .localhost name only when asked, and never another local name or an address', () => {
+    expect(parseHostname('store.acme.localhost', { localhost: true })).toEqual({ ok: true, host: 'store.acme.localhost', wildcard: false })
+    expect(parseHostname('*.preview.acme.localhost', { localhost: true })).toEqual({ ok: true, host: '*.preview.acme.localhost', wildcard: true })
+    expect(parseHostname('store.acme.localhost')).toEqual({ ok: false, code: 'LOCAL_NAME' })
+    for (const host of ['printer.local', 'metadata.internal', '127.0.0.1']) expect(parseHostname(host, { localhost: true }).ok, host).toBe(false)
+  })
 })
+
