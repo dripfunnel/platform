@@ -5,6 +5,7 @@ import type { Partner } from '../../api/partners'
 import { createSampleServer, samplePartners } from '../../api/partnersSample'
 import { messages } from '../../messages'
 import { ContractDialog } from './ContractDialog'
+import { currencyName } from './partnerCurrencies'
 
 // The Set contract dialog (admin FIRST-RELEASE §4.3): the contract's fields, a required reason, and a refusal that keeps the edit.
 
@@ -30,6 +31,18 @@ describe('the contract dialog', () => {
     expect((save() as HTMLButtonElement).disabled).toBe(false)
     await act(async () => fireEvent.click(save()))
     expect(onSave).toHaveBeenCalledExactlyOnceWith(target, expect.objectContaining({ poweredBy: 'removable', currencies: [] }), 'Contract signed')
+  })
+
+  it('takes a new fee currency off the other currencies, ticked or not', async () => {
+    const onSave = vi.fn()
+    render(<ContractDialog partner={partner()} error={null} onSave={onSave} onCancel={() => undefined} />)
+    const euro = currencyName('EUR')
+    fireEvent.click(screen.getByRole('checkbox', { name: euro, hidden: true }))
+    fireEvent.change(screen.getByLabelText(words.feeCurrency), { target: { value: 'EUR' } })
+    expect(screen.queryByRole('checkbox', { name: euro, hidden: true })).toBeNull()
+    fireEvent.change(reason(), { target: { value: 'Fees in euros' } })
+    await act(async () => fireEvent.click(save()))
+    expect(onSave).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ feeCurrency: 'EUR', currencies: [] }), 'Fees in euros')
   })
 
   it('stays open after a refusal, says why, keeps the edit and the reason, and can save again', async () => {
