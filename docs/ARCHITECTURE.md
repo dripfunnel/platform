@@ -41,6 +41,7 @@ Last updated: 2026-10-05.
 | Deployable | Kind | Serves | Hostnames |
 |---|---|---|---|
 | `apps/api` | **Worker** (one) | Store API, Platform API, Admin API, Shop API, inbound webhooks; queue consumers, Workflows, Cron | `/api/*` on every portal host, on `platform.dripfunnel.com` and on `admin.dripfunnel.com`; `/shop-api/*` on every storefront host; `hooks.dripfunnel.com` |
+| `store-proxy` | **Worker** | Sits on the zone's `*/*` route in front of partner portal hosts, which reach us through Cloudflare for SaaS: `/api/*` to the API Worker, the rest to the store Pages project; our own hosts pass through (SAAS.md §8). Dev only so far | every partner portal host |
 | `apps/ui/store` | **Pages** (static SPA) | Merchant and vendor portal, in the partner's look | Each partner's portal host (e.g. `store.<partnerdomain>`), chosen by the partner |
 | `apps/ui/platform` | **Pages** (static SPA) | The platform console for **Partner** users | `platform.dripfunnel.com` |
 | `apps/ui/admin` | **Pages** (static SPA) | The admin console for **DripFunnel staff**, managing every partner and platform (older docs: DF Admin) | `admin.dripfunnel.com` |

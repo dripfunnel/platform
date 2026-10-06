@@ -41,11 +41,9 @@ export const isBareDomain = (host: string): boolean => host.split('.').length <=
 /** A wildcard is checked through a probe name under it, since DNS answers for names, not patterns. */
 export const nameToResolve = (host: string): string => (host.startsWith('*.') ? `df-probe.${host.slice(2)}` : host)
 
-export const edgeTargets = {
-  portal: 'portal.edge.dripfunnel.net',
-  preview: 'preview.edge.dripfunnel.net',
-  shops: 'shops.edge.dripfunnel.net',
-} as const
+/** The Cloudflare for SaaS fallback origins, on the environment's own zone (SAAS §8). */
+export const edgeTargets = (zone: string) =>
+  ({ portal: `portal.edge.${zone}`, preview: `preview.edge.${zone}`, shops: `shops.edge.${zone}` }) as const
 export const apexAddress: string | null = null
 export const emailRecords = {
   spf: 'v=spf1 include:spf.dripfunnel.net ~all',
@@ -74,14 +72,15 @@ export const recordMatches = (purpose: RecordPurpose, expected: string, found: s
 }
 
 /** Null for a root portal domain while there is no apex address to give. */
-export const recordsFor = (kind: DomainKind, host: string, apex: boolean): PlannedRecord[] | null => {
+export const recordsFor = (kind: DomainKind, host: string, apex: boolean, edgeZone: string): PlannedRecord[] | null => {
+  const targets = edgeTargets(edgeZone)
   switch (kind) {
     case 'portal':
-      if (!apex) return [{ purpose: 'pointer', recordType: 'CNAME', name: host, expected: edgeTargets.portal }]
+      if (!apex) return [{ purpose: 'pointer', recordType: 'CNAME', name: host, expected: targets.portal }]
       return apexAddress === null ? null : [{ purpose: 'pointer', recordType: 'A', name: host, expected: apexAddress }]
     case 'preview':
     case 'shops':
-      return [{ purpose: 'pointer', recordType: 'CNAME', name: nameToResolve(host), expected: edgeTargets[kind] }]
+      return [{ purpose: 'pointer', recordType: 'CNAME', name: nameToResolve(host), expected: targets[kind] }]
     case 'email':
       return [
         { purpose: 'spf', recordType: 'TXT', name: host, expected: emailRecords.spf },

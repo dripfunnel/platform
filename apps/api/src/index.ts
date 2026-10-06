@@ -35,6 +35,8 @@ import { activityExportDeliverer } from '#jobs/queues/deliverers/activityExport'
 import { reportExportDeliverer } from '#jobs/queues/deliverers/reportExport'
 import { storesExportDeliverer } from '#jobs/queues/deliverers/storesExport'
 import { staffActivityExportDeliverer } from '#jobs/queues/deliverers/staffActivityExport'
+import { cloudflareClient } from '#integrations/cloudflare/api'
+import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
 import { partnerPasswordResetDeliverer } from '#jobs/queues/deliverers/partnerPasswordReset'
 import { deleteExpiredExports, failDeadExports } from '#db/scoped/exportJobs'
@@ -88,9 +90,11 @@ const sesFor = (config: Config): { api: SesApi; senderDomain: string; suppressio
 const deliverersFor = (sql: postgres.Sql, config: Config): Deliverers => {
   const lookup = dohLookup()
   const ses = sesFor(config)
+  const cloudflare = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   return {
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
-    'domain.recheck': domainRecheckDeliverer(sql, lookup),
+    'domain.remove': domainRemoveDeliverer(cloudflare),
+    'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),
@@ -265,7 +269,7 @@ const handlePlatform = async (request: Request, url: URL, config: Config, env: E
   const secrets = await secretsFor(config)
   return withConnection(hyperdrive, ctx, async (sql) => {
     const caller = await resolvePartner(sql, request, new Date(), activityLog)
-    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), now: () => new Date() }))
+    return servers.platform.fetch(request, platformContextFor(caller, { sql, facts: factsOf(request), activity: activityLog, secrets, stripe: stripeFor(config), edgeZone: config.EDGE_ZONE, now: () => new Date() }))
   })
 }
 

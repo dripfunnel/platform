@@ -28,7 +28,7 @@ const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
 })
 
 const run = async <T>(source: string, caller: PartnerCaller, variables: Record<string, unknown> = {}) => {
-  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, now: () => now })
+  const domains = createPartnerDomainsService({ sql: db.sql, caller, facts, activity: activityLog, edgeZone: 'dripfunnel.net', now: () => now })
   const contextValue = { caller, console: null, plans: null, branding: null, stores: null, storeActions: null, dashboard: null, domains }
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   const error = result.errors?.[0]

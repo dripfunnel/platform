@@ -116,3 +116,9 @@ export const selectMerchantDomains = async (tx: ScopedSql, partnerId: string, pa
   `
   return backwards ? rows.reverse() : rows
 }
+
+/** The address and its records; the caller has already read it through the partner's scope. */
+export const deletePartnerAddress = async (tx: ScopedSql, domainId: string): Promise<void> => {
+  await tx`delete from partner_domain_record where domain_id = ${domainId}`
+  await tx`delete from partner_domain where id = ${domainId}`
+}

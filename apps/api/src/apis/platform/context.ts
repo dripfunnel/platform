@@ -23,6 +23,7 @@ export interface PlatformContextDeps {
   secrets: SecretBox | null
   // DripFunnel's Stripe account; null until its keys are Worker secrets (THIRD-PARTY-ACCESS §2.7).
   stripe: StripeApi | null
+  edgeZone: string
   now: () => Date
 }
 

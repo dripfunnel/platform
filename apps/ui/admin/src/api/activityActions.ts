@@ -89,6 +89,7 @@ export const activityActions = {
   'partner.ownership_transferred': { level: 'partner', category: 'write' },
   'partner.second_factor_policy_set': { level: 'partner', category: 'write' },
   'partner.domain_added': { level: 'partner', category: 'write' },
+  'partner.domain_removed': { level: 'partner', category: 'write' },
   'branding.published': { level: 'partner', category: 'write' },
   'branding.file_uploaded': { level: 'partner', category: 'write' },
   'plan.updated': { level: 'partner', category: 'write' },

@@ -147,6 +147,7 @@ moment you save.
 | Name | Type | Production value | How to get it |
 |---|---|---|---|
 | `ADMIN_HOST` | Text | `admin.dripfunnel.com` | fixed |
+| `EDGE_ZONE` | Text | `dripfunnel.com` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>`, SAAS.md §8); the CNAME targets partners are shown |
 | `PLATFORM_HOST` | Text | `platform.dripfunnel.com` | fixed |
 | `HOOKS_HOST` | Text | `hooks.dripfunnel.com` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | only once the binding exists (§3.4) |

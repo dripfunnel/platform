@@ -102,7 +102,7 @@ const current = async (cookie: string) => ((await (await post('staff-session', {
 const callerFor = (cookie: string) => resolvePartner(db.sql, new Request(`https://${host}/api`, { headers: { cookie } }), clock, activityLog)
 
 const platformRun = async <T>(source: string, caller: PartnerCaller | null, variables: Record<string, unknown> = {}) => {
-  const contextValue = platformContextFor(caller, { sql: db.sql, facts: factsOf(new Request(`https://${host}/api`)), activity: activityLog, secrets: null, stripe: null, now: () => clock })
+  const contextValue = platformContextFor(caller, { sql: db.sql, facts: factsOf(new Request(`https://${host}/api`)), activity: activityLog, secrets: null, stripe: null, edgeZone: 'dripfunnel.net', now: () => clock })
   const result = await graphql({ schema: platformSchema as GraphQLSchema, source, variableValues: variables, contextValue })
   return { data: result.data as T | null, code: result.errors?.[0]?.extensions['code'] as string | undefined }
 }

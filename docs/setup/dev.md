@@ -151,6 +151,7 @@ Never reuse a value from local or production.
 | Name | Type | Dev value | How to get it |
 |---|---|---|---|
 | `ADMIN_HOST` | Text | `dev-admin.dripfunnel.ai` | fixed |
+| `EDGE_ZONE` | Text | `dripfunnel.ai` | The zone holding the Cloudflare for SaaS fallback origins (`portal.edge.<zone>`, SAAS.md §8); the CNAME targets partners are shown |
 | `PLATFORM_HOST` | Text | `dev-platform.dripfunnel.ai` | fixed |
 | `HOOKS_HOST` | Text | `dev-hooks.dripfunnel.ai` | fixed |
 | `HYPERDRIVE_REQUIRED` | Text | `1` | fixed: the dev Worker has its binding |

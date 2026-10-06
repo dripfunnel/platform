@@ -47,7 +47,7 @@ jobs:
         run: |
           set -euo pipefail
           everything() {
-            for app in store platform admin api; do echo "$app=true" >> "$GITHUB_OUTPUT"; done
+            for app in store platform admin api proxy; do echo "$app=true" >> "$GITHUB_OUTPUT"; done
           }
 
           if [ -z "${BEFORE:-}" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
@@ -97,6 +97,11 @@ jobs:
             echo "api=true" >> "$GITHUB_OUTPUT"
           else
             echo "api=false" >> "$GITHUB_OUTPUT"
+          fi
+          if echo "$files" | grep -q '^store-proxy/'; then
+            echo "proxy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proxy=false" >> "$GITHUB_OUTPUT"
           fi
 
       # Gates and Migrations reuse the same host-guard code path with two different allowed
@@ -167,5 +172,15 @@ jobs:
         if: steps.changed.outputs.api == 'true'
         uses: ./.github/actions/worker-deploy
         with:
+          env-name: dev
+          message: ${{ github.sha }}
+
+      # After the API Worker: the proxy's service binding needs `dripfunnel-api-dev` to exist.
+      # It holds the zone's `*/*` route for partner portal hosts (SAAS.md §8).
+      - name: Store proxy Worker
+        if: steps.changed.outputs.proxy == 'true'
+        uses: ./.github/actions/worker-deploy
+        with:
+          directory: store-proxy
           env-name: dev
           message: ${{ github.sha }}

@@ -104,6 +104,12 @@ builder.mutationFields((t) => ({
     extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.write', target: 'none', audit: domainAudit.addPartnerDomain } },
     resolve: (_, { kind, host }, ctx) => signedIn(ctx.domains).addPartnerDomain({ kind, host }),
   }),
+  removePartnerDomain: t.field({
+    type: OutcomeType,
+    args: { kind: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'platform', scope: 'partner', permission: 'domains.write', target: 'none', audit: domainAudit.removePartnerDomain } },
+    resolve: (_, { kind }, ctx) => signedIn(ctx.domains).removePartnerDomain(kind),
+  }),
   recheckPartnerDomain: t.field({
     type: OutcomeType,
     args: { kind: t.arg.string({ required: true }) },

@@ -7,6 +7,7 @@ import { queueSideEffect } from '#saas/outbox/index'
 import type { DnsLookup } from '#integrations/dns/doh'
 import { activityLog } from '#saas/activity/index'
 import { checkRecords } from '#saas/domains/index'
+import { hostStatusOf, type CloudflareApi } from '#integrations/cloudflare/api'
 import type { Deliverer } from '../outbox-relay'
 
 const payload = z.object({ partnerId: z.guid(), domainId: z.guid() }).strict()
@@ -16,7 +17,7 @@ const payload = z.object({ partnerId: z.guid(), domainId: z.guid() }).strict()
  * timeout and retries, never inside the request that asked for it. The result is a row update
  * and a system entry the partner can see.
  */
-export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now: () => Date = () => new Date()): Deliverer => ({
+export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now: () => Date = () => new Date(), cloudflare: CloudflareApi | null = null): Deliverer => ({
   deliver: async (effect, signal) => {
     const parsed = payload.safeParse(effect.payload)
     if (!parsed.success) throw new Error('domain.recheck: bad payload')
@@ -25,6 +26,10 @@ export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now
     const records = await withSystemScope(sql, (tx) => selectDomainRecords(tx, domain.id))
     const check = await checkRecords(domain.status, records, lookup, signal)
     const at = now()
+    // Once DNS points at us, the portal host's state is Cloudflare's: verifying, issuing, live (SAAS §8).
+    if (domain.kind === 'portal' && check.status === 'live' && cloudflare) {
+      check.status = hostStatusOf(await cloudflare.ensureHostname(domain.host))
+    }
     await withSystemScope(sql, async (tx) => {
       // Locked, so two checks at once agree on what changed: one entry and one email per change.
       const current = await selectPartnerDomainForUpdate(tx, domain.id)
