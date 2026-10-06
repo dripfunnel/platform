@@ -172,18 +172,6 @@ export const upsertSetupItem = async (tx: ScopedSql, s: NewSetupItem): Promise<v
   `
 }
 
-/** Records who completed an item, unless it is already done (the first one keeps it). */
-export const markSetupItemDone = async (tx: ScopedSql, s: Omit<NewSetupItem, 'status'>): Promise<void> => {
-  await tx`
-    insert into partner_setup_item (partner_id, item, status, detail, done_by_kind, done_by_label, done_at)
-    values (${s.partnerId}, ${s.item}, 'done', ${s.detail ?? null}, ${s.doneByKind ?? null}, ${s.doneByLabel ?? null}, ${s.doneAt ?? null})
-    on conflict (partner_id, item) do update set
-      status = 'done', detail = excluded.detail, done_by_kind = excluded.done_by_kind,
-      done_by_label = excluded.done_by_label, done_at = excluded.done_at
-    where partner_setup_item.status <> 'done'
-  `
-}
-
 export interface NewPlan {
   partnerId: string
   name: string
@@ -250,16 +238,14 @@ export interface PartnerListRow extends PartnerRow {
   owner_invitation_sent_at: Date | null
 }
 
-// Every reader's checklist rows for the partners `partner` matches (`= p.id`, `= any(...)`). The plan item's
-// status is the pricedPlan check alone (SAAS §3.2); its stored row only keeps who made a priced plan live (#435).
+// Every reader's checklist rows for the partners `partner` matches (`= p.id`, `= any(...)`). Like the domain
+// items, the plan item is the pricedPlan check itself (SAAS §3.2), never its stored row, and names nobody (#435).
 const setupItems = (tx: ScopedSql, partner: ReturnType<ScopedSql>) => tx`
   select si.partner_id, si.item, si.status, si.detail, si.done_by_kind, si.done_by_label, si.done_at
   from partner_setup_item si where si.partner_id ${partner} and si.item not in ('testSignup', 'plan')
   union all
-  select sp.id, 'plan', d.status, case when d.status = sr.status then sr.detail end,
-    case when d.status = 'done' then sr.done_by_kind end, case when d.status = 'done' then sr.done_by_label end, case when d.status = 'done' then sr.done_at end
+  select sp.id, 'plan', d.status, null, null, null, null
   from partner sp
-  left join partner_setup_item sr on sr.partner_id = sp.id and sr.item = 'plan'
   cross join lateral (
     select case
       when exists (

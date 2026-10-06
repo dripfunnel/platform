@@ -270,7 +270,7 @@ describe('making live and retiring', () => {
     expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'UNPRICED_CURRENCY' })
   })
 
-  it('moves the checklist’s plan item with the plans: to do, in progress, done by who made a priced plan live, and back', async () => {
+  it('moves the checklist’s plan item with the plans: to do, in progress, done once a priced plan is live, and back', async () => {
     const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Checklist Partner') returning id`
     const partnerId = p?.id ?? ''
     // As Create partner leaves it: a checklist with its company item done.
@@ -290,10 +290,22 @@ describe('making live and retiring', () => {
     await db.sql`update plan set status = 'draft' where id = ${planId}`
     await db.sql`update plan_price set monthly_amount = 2900 where plan_id = ${planId}`
     expect((await run<Record<string, unknown>>(live, owner, { id: planId })).data?.['makePlanLive']).toMatchObject({ ok: true })
-    expect(await item()).toMatchObject({ status: 'done', done_by_label: 'Maya Chen' })
-    // It follows the plans both ways: retired, the item is back in progress and names nobody.
+    expect(await item()).toMatchObject({ status: 'done', done_by_label: null })
+    // It follows the plans both ways: retired, the item is back in progress.
     await db.sql`update plan set status = 'retired' where id = ${planId}`
     expect(await item()).toMatchObject({ status: 'progress', done_by_label: null })
+  })
+
+  it('gives a partner with no checklist no plan item, even once a priced plan is live', async () => {
+    const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('No Checklist Partner') returning id`
+    const partnerId = p?.id ?? ''
+    const owner = callerOf(partnerId, 'partner-owner')
+    const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
+    const draft = { ...input, name: 'Only', entitlements: { ...input.entitlements, powered: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
+    const made = (await run<Outcome>(create, owner, { input: draft })).data?.createPlan
+    expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: true })
+    expect(await withScope(db.sql, { caller: { kind: 'staff', staffId: 'st' } }, (tx) => selectSetupItemsFor(tx, [partnerId]))).toEqual([])
+    expect(await db.sql`select item from partner_setup_item where partner_id = ${partnerId}`).toEqual([])
   })
 
   it('makes a draft live only once every currency the partner sells in has a monthly price', async () => {

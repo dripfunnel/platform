@@ -1,14 +1,14 @@
 import type postgres from 'postgres'
 import { z } from 'zod'
 import type { ActivityEntry, ActivityLog, RequestFacts } from '#auth/activity'
-import { actingName, agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
+import { agentOf, type PartnerCaller, partnerContextOf } from '#auth/partnerCaller'
 import { partnerRoleHas } from '#auth/partnerPermissions'
 import { decodeCursor, encodeCursor } from '#core/cursor'
 import type { PlanStatus } from '#db/schema/saas'
 import { partnerEntry } from '#saas/activity/index'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { insertOutboxMany } from '#db/scoped/outbox'
-import { insertPlan, markSetupItemDone } from '#db/scoped/partners'
+import { insertPlan } from '#db/scoped/partners'
 import {
   lockLivePlans,
   scheduleSubscriptionMoves,
@@ -359,8 +359,6 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
       // Nothing to charge at all is never Live, contract or not.
       if (!prices.some((p) => p.monthly !== null)) return { ok: false, reason: 'UNPRICED_CURRENCY' }
       await updatePlanStatus(tx, id, partnerId, 'live', null)
-      // The checklist reads the plan item's status from the plans; this keeps who did it (#435).
-      await markSetupItemDone(tx, { partnerId, item: 'plan', detail: 'A live plan with a price', doneByKind: agentOf(caller).kind, doneByLabel: actingName(caller), doneAt: now() })
       await activity.record(tx, entry(planAudit.makePlanLive, row, null))
       return { ok: true, id }
     })
