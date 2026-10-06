@@ -42,7 +42,7 @@ export const taxAudit = {
   invoiceSettingsSaved: 'invoice_settings.saved',
 } as const
 
-export type TaxRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_NAME' | 'DEFAULT_CLASS' | 'CLASS_IN_USE' | 'PRICE_REQUIRED' | 'TOO_MANY' | 'TAX_UNAVAILABLE' | 'ZONE_OVERLAP'
+export type TaxRefusal = 'NOT_FOUND' | 'INVALID_INPUT' | 'DUPLICATE_NAME' | 'DEFAULT_CLASS' | 'CLASS_IN_USE' | 'PRICE_REQUIRED' | 'TOO_MANY' | 'TAX_UNAVAILABLE' | 'ZONE_OVERLAP' | 'NO_COUNTRY'
 export type TaxResult<T> = { ok: true; value: T } | { ok: false; reason: TaxRefusal }
 
 class Refused extends Error {
@@ -203,9 +203,9 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
     if (!Number.isInteger(rateBps) || rateBps < 0 || rateBps > 10_000 || zoneName === '' || zoneName.length > 60) throw new Refused('INVALID_INPUT')
     const now = await selectTaxSetup(tx, storeId)
     const country = now?.country ?? null
-    if (!now || !country) throw new Refused('INVALID_INPUT')
-    const home = now.zones.find((z) => z.countries.includes(country) && z.regions.length === 0)
-    const mine = { countries: home?.countries ?? [country], regions: [], classIds: [...new Set([...(home?.rates.map((r) => r.tax_class_id) ?? []), classId])] }
+    if (!now || !country) throw new Refused('NO_COUNTRY')
+    const home = now.zones.find((z) => z.countries.length === 1 && z.countries[0] === country && z.regions.length === 0)
+    const mine = { countries: [country], regions: [], classIds: [...new Set([...(home?.rates.map((r) => r.tax_class_id) ?? []), classId])] }
     if (now.zones.some((z) => z.id !== home?.id && zonesClash(mine, { countries: z.countries, regions: z.regions, classIds: z.rates.map((r) => r.tax_class_id) }))) throw new Refused('ZONE_OVERLAP')
     if (home) {
       await setZoneRate(tx, storeId, home.id, { taxClassId: classId, rateBps })
