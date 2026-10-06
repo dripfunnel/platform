@@ -194,7 +194,7 @@ impersonating one of its users. Say so on the Overview tab.
 ### 5.5 Approvals
 
 Partners awaiting approval, oldest first: partner, submitted, go-live checks (portal host
-live, email domain verified, at least one priced plan, legal pages set, test signup done)
+live, email domain verified, at least one priced plan, legal pages set)
 with pass/fail for each, reviewer. Opens the partner with Approve and Send back.
 
 ### 5.6 Provisioning

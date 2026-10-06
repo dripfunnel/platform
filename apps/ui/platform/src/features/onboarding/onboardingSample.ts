@@ -12,9 +12,8 @@ export const sampleOnboarding = (change: Partial<Onboarding> = {}): Onboarding =
     { key: 'legal', status: 'missing', detail: null, doneBy: null, to: '/branding' },
     { key: 'paymentMethod', status: 'missing', detail: null, doneBy: null, to: '/settings' },
     { key: 'payoutDetails', status: 'missing', detail: null, doneBy: null, to: '/settings' },
-    { key: 'testSignup', status: 'missing', detail: null, doneBy: null, to: '/dashboard' },
   ],
-  checks: { portalHost: false, emailDomain: true, pricedPlan: false, legalPages: false, testSignup: false },
+  checks: { portalHost: false, emailDomain: true, pricedPlan: false, legalPages: false },
   fallbackSenderAccepted: true,
   submittedAt: null,
   submittedBy: null,
@@ -24,4 +23,4 @@ export const sampleOnboarding = (change: Partial<Onboarding> = {}): Onboarding =
   ...change,
 })
 
-export const allChecksPass = { portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true, testSignup: true }
+export const allChecksPass = { portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true }

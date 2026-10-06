@@ -374,7 +374,7 @@ banner and marks the items staff completed. First release:
   until submitted, then **Awaiting approval**.
 - E2. Start from a copy of another brand's offer (usually DripFunnel's).
 - E3. Go-live checks: portal host live, email domain verified (or fallback accepted), at
-  least one priced plan, legal pages set, a test signup completed. Each failed check explains
+  least one priced plan, legal pages set (the test signup was dropped on #421). Each failed check explains
   itself and links to the fix. Approval also covers contract, KYC and billing.
 - E4. The go-live moment: "Northstar Shops is live at store.northstarcommerce.com. New
   signups there become Northstar stores."

@@ -71,7 +71,6 @@ const Checks = builder.objectRef<Onboarding['checks']>('GoLiveChecks').implement
     emailDomain: t.exposeBoolean('emailDomain'),
     pricedPlan: t.exposeBoolean('pricedPlan'),
     legalPages: t.exposeBoolean('legalPages'),
-    testSignup: t.exposeBoolean('testSignup'),
   }),
 })
 

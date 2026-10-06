@@ -103,7 +103,8 @@ Invite only (USERS-AND-DOMAINS §3); `platform.dripfunnel.com` has no sign-up:
    status. It can start from a copy of the house partner's offer (E2).
 3. It submits for approval. **Go-live checks** run first and each failure links to its fix
    (E3): portal host live, email domain verified (or the fallback sender accepted), at least
-   one priced plan, legal pages set, a test signup completed.
+   one priced plan, legal pages set. (A test signup was dropped from the checks on #421: sign-up
+   opens only once a partner is Live, so it could never pass.)
 4. **Admin approves** in the Admin API (Partner manager or Super admin), or sends it back with
    a reason. Approval moves the partner to Live and opens merchant sign-up on its portal host.
 5. **Staff-assisted onboarding** (decided 2026-09-29): Partner managers and Super admins can

@@ -20,11 +20,9 @@ export interface ChecklistProps {
   partner: string
   // True inside a DripFunnel setup session: the partner-only items are locked for staff.
   staffSetup: boolean
-  // Run test signup stays disabled with this reason until its API exists (#158 "Not in this item").
-  testSignupWhy: string
 }
 
-export const Checklist = ({ items, role, partner, staffSetup, testSignupWhy }: ChecklistProps) => (
+export const Checklist = ({ items, role, partner, staffSetup }: ChecklistProps) => (
   <ol className="df-checklist">
     {items.map((x, i) => {
       const own = partnerOnlyItems.includes(x.key)
@@ -42,19 +40,9 @@ export const Checklist = ({ items, role, partner, staffSetup, testSignupWhy }: C
             {i + 1}
           </span>
           <div className="df-checklist-body">
-            {x.key === 'testSignup' || locked ? <strong>{label}</strong> : <Link to={x.to}>{label}</Link>}
+            {locked ? <strong>{label}</strong> : <Link to={x.to}>{label}</Link>}
             <span className="df-checklist-detail">{locked ? fill(words.entersThisItself, { partner }) : (x.detail ?? words.items[x.key].hint)}</span>
             {x.doneBy && <span className={`df-checklist-by${x.doneBy === 'DripFunnel' ? ' df-checklist-by--staff' : ''}`}>{fill(words.doneBy, { who: x.doneBy })}</span>}
-            {x.key === 'testSignup' && x.status !== 'done' && (
-              <div className="df-checklist-action">
-                <button type="button" className="df-button" disabled aria-describedby="test-signup-why">
-                  {words.runTest}
-                </button>
-                <span id="test-signup-why" className="df-checklist-why">
-                  {testSignupWhy}
-                </span>
-              </div>
-            )}
           </div>
           <StatusPill tone={pill.tone} icon={pill.icon} label={pill.label} />
         </li>
