@@ -1025,7 +1025,7 @@ api/README.md §2.1); a partner id in a request is not authority.
   composed by the API from its own figures; `fresh` and "Reports fill in as your first
   merchants sign up." for a partner with nothing yet. Money is integer minor units with its
   currency (revenue and MRR in the contract's payout currency, other currencies converted at the
-  contract rate, minding each currency's minor digits, and marked approximate); percentages are basis points.
+  contract rate, minding each currency's minor digits, and marked approximate; MRR in a contract currency with no rate is left out and the currency note says so); percentages are basis points.
 - The figures: Growth counts stores created, setups finished, trials ended and converted,
   cancellations and stores at month end; Revenue sums `merchant_charge` per month (refunds
   subtract) with failed and recovered payments and MRR by plan from active subscriptions; Plans

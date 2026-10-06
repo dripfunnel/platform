@@ -225,12 +225,15 @@ const contractOf = (terms: ContractTerms): ContractDto | null =>
         poweredBy: terms.powered_by_removable ? 'removable' : terms.powered_by_note === 'firstYear' ? 'firstYear' : 'required',
       }
 
-const contractChanges = (before: ContractDto | null, after: ContractInput) => {
+// A currency taken off loses its stored rate, so the entry keeps it (LOGGING.md: before and after).
+const contractChanges = (before: ContractDto | null, after: ContractInput, rates: ContractTerms['rates'] = {}) => {
   const text = (c: { currencies: string[] } | null) => (c ? [...c.currencies].sort().join(', ') : null)
+  const dropped = Object.entries(rates).filter(([currency, rate]) => rate !== null && !after.currencies.includes(currency))
   return [
     { field: 'feeCurrency', before: before?.feeCurrency ?? null, after: after.feeCurrency },
     { field: 'currencies', before: text(before), after: text(after) },
     { field: 'poweredBy', before: before?.poweredBy ?? null, after: after.poweredBy },
+    ...dropped.map(([currency, rate]) => ({ field: `rate.${currency}`, before: rate, after: null })),
   ].filter((c) => c.before !== c.after)
 }
 
@@ -567,12 +570,13 @@ export const createPartnersService = (deps: PartnersServiceDeps) => {
       const partner = await selectPartnerForUpdate(tx, id)
       if (!partner) return { ok: false, code: 'NOT_FOUND' }
       if (partner.state === 'closed') return { ok: false, code: 'PARTNER_CLOSED' }
-      const before = contractOf(await selectContractTerms(tx, id))
+      const terms = await selectContractTerms(tx, id)
+      const before = contractOf(terms)
       // A plan's price in a currency taken off would fail its next save (badCurrency in partnerPlans).
       const named = new Set([parsed.data.feeCurrency, ...parsed.data.currencies])
       if ((await selectPricedCurrencies(tx, id)).some((c) => !named.has(c))) return { ok: false, code: 'CURRENCY_IN_USE' }
       if (!(await writeContract(tx, id, parsed.data))) return { ok: false, code: 'FEE_CURRENCY_IN_USE' }
-      await activity.record(tx, entry(partner, partnerAudit.setPartnerContract, parsedReason.data, { changes: contractChanges(before, parsed.data) }))
+      await activity.record(tx, entry(partner, partnerAudit.setPartnerContract, parsedReason.data, { changes: contractChanges(before, parsed.data, terms.rates) }))
       return { ok: true }
     })
   }

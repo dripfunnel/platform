@@ -556,8 +556,13 @@ describe('the contract (§4.2, §4.3)', () => {
     expect(await contractOf(id)).toEqual(terms)
     expect(await entriesFor(id, partnerAudit.setPartnerContract)).toMatchObject([{ reason: 'Contract signed 6 Oct', visibility: 'partner' }])
     // Any time, with a reason: a currency taken off goes, the fee currency changes while nothing is stated in it.
+    await db.sql`update partner_contract_rate set per_fee_unit = 0.86 where partner_id = ${id} and currency = 'GBP'`
     expect((await run<Out>(set, as('staff-super-admin'), { id, input: { feeCurrency: 'USD', currencies: ['EUR'], poweredBy: 'required' }, reason: 'Amended' })).data?.['setPartnerContract']).toMatchObject({ ok: true })
     expect(await contractOf(id)).toEqual({ feeCurrency: 'USD', currencies: ['EUR'], poweredBy: 'required' })
+    // The rate that went with GBP is kept in the entry, since the row is gone.
+    const [amended] = await db.sql<{ changes: { field: string; before: string | null; after: string | null }[] }[]>`
+      select changes from activity_log where partner_id = ${id} and action = ${partnerAudit.setPartnerContract} and reason = 'Amended'`
+    expect(amended?.changes.find((c) => c.field === 'rate.GBP')).toMatchObject({ before: '0.860000', after: null })
   })
 
   it('keeps a rate a currency already has, and refuses a new fee currency while fees are stated in the old one', async () => {
