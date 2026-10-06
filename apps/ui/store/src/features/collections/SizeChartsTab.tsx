@@ -1,17 +1,17 @@
+import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, Icon, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { Link } from '@tanstack/react-router'
 import { useEffect, useId, useRef, useState } from 'react'
 import { deleteSizeChart, loadSizeChart, saveSizeChart, type SizeChart, type SizeChartSummary } from '../../api/sizeCharts'
 import { fill, formatCount, messages, plural } from '../../messages'
 import { chartInput, chartProblem, draftOfChart, duplicateHeads, inUnit, withHead, isChartDirty, noValue, templates, withMeasurement, withoutColumn, withRow, withSystems, type ChartDraft, type TemplateKey } from './sizeChartDraft'
-import { refusalIn } from '../common/refusal'
 
 const words = messages.collections.charts
 
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'> & { cancelLabel?: string }
 type Selected = { kind: 'none' } | { kind: 'loading'; id: string } | { kind: 'failed'; id: string } | { kind: 'ready'; draft: ChartDraft; saved: ChartDraft; products: number }
 
-const refusalOf = refusalIn(words.refused)
+const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
 
 export interface SizeChartsTabProps {
   /** The caller's own charts. */

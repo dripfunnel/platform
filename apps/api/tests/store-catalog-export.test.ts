@@ -142,6 +142,16 @@ describe('product exports', () => {
     expect(done?.truncated).toBe(false)
   })
 
+  it('lists no price for a store that hasn’t chosen its currency, never one in a currency it didn’t pick', async () => {
+    await db.sql`update store set pricing_currency = null where id = ${t.storeA1}`
+    try {
+      const file = await exported('owner', 'products', { search: 'kurta' })
+      expect(file.lines[1]?.split(',')[13]).toBe('')
+    } finally {
+      await db.sql`update store set pricing_currency = 'INR' where id = ${t.storeA1}`
+    }
+  })
+
   it('export the list’s filter: hidden only, the store’s own, a search', async () => {
     const hidden = await exported('owner', 'products', { filter: 'hidden' })
     expect(hidden.lines.slice(1).map((l) => l.split(',')[0])).toEqual(['hidden-lamp'])

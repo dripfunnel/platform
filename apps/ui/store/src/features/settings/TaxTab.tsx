@@ -1,6 +1,6 @@
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
-import { addTaxCategory, deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, setTaxRate, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
+import { addTaxCategory, deleteTaxClass, setHomeTaxRate, saveInvoiceSettings, saveTaxClass, setPricesIncludeTax, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
 import { refusalIn } from '../common/refusal'
@@ -84,17 +84,8 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
     })
 
   const homeName = country ? (new Intl.DisplayNames([locale], { type: 'region' }).of(country) ?? country) : ''
-  /**
-   * A category's rate at home: that one rate in the home zone (others' changes kept), or the home zone made with it when
-   * there's none yet. The zones are read again first; a setup that doesn't come back is a failure, never "no zone".
-   */
-  const setHomeRate = async (classId: string, bps: number) => {
-    const fresh = await loadTax()
-    if (!fresh) throw new Error('tax setup unread')
-    const now = homeZone(fresh.zones, country)
-    if (now) return setTaxRate(now.id, classId, bps)
-    return saveTaxZone(null, { name: homeName, countries: country ? [country] : [], regions: [], rates: [{ taxClassId: classId, rateBps: bps }] })
-  }
+  // One call: the server finds the home zone, or makes it, under its lock, so two people can't both make one.
+  const setHomeRate = (classId: string, bps: number) => setHomeTaxRate(classId, bps, homeName)
   const usesRates = country !== 'US' && country !== null
 
   const addCategory = () =>
