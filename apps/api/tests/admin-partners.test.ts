@@ -183,6 +183,7 @@ describe('partner(id) (§4.2, §4.3)', () => {
     const names = async (setup: string) => (await run<Page>(list, as('staff-super-admin'), { first: 25, filter: { setup } })).data?.partners.items.map((i) => i.name)
     const counts = async () => (await run<Page>(list, as('staff-super-admin'), { first: 25 })).data?.partners.items.find((i) => i.name === 'Northstar Commerce')?.setup
     const [setup, complete, incomplete] = [await counts(), await names('complete'), await names('incomplete')]
+    const [row] = await db.sql`select status, done_at, done_by_kind, done_by_label from partner_setup_item where partner_id = ${id} and item = 'plan'`
     await db.sql`update partner_setup_item set status = 'missing', done_at = null, done_by_kind = null, done_by_label = null where partner_id = ${id} and item = 'plan'`
     try {
       expect(await counts()).toEqual(setup)
@@ -191,7 +192,7 @@ describe('partner(id) (§4.2, §4.3)', () => {
       const { data } = await run<Detail>(detail, as('staff-super-admin'), { id })
       expect((data?.partner?.['checklist'] as { item: string; status: string; by: unknown }[]).find((c) => c.item === 'plan')).toEqual({ item: 'plan', status: 'done', by: null })
     } finally {
-      await db.sql`update partner_setup_item set status = 'done', done_at = now(), done_by_kind = 'partner_user', done_by_label = 'Maya Chen' where partner_id = ${id} and item = 'plan'`
+      if (row) await db.sql`update partner_setup_item set ${db.sql(row, 'status', 'done_at', 'done_by_kind', 'done_by_label')} where partner_id = ${id} and item = 'plan'`
     }
   })
 

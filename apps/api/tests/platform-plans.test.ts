@@ -283,7 +283,7 @@ describe('making live and retiring', () => {
     expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'UNPRICED_CURRENCY' })
   })
 
-  it('moves the checklist’s plan item with the plans: to do, in progress, done by who made a priced plan live', async () => {
+  it('moves the checklist’s plan item with the plans: to do, in progress, done by who made a priced plan live, and back', async () => {
     const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Checklist Partner') returning id`
     const partnerId = p?.id ?? ''
     // As Create partner leaves it: a checklist with its company item done.
@@ -304,9 +304,9 @@ describe('making live and retiring', () => {
     await db.sql`update plan_price set monthly_amount = 2900 where plan_id = ${planId}`
     expect((await run<Record<string, unknown>>(live, owner, { id: planId })).data?.['makePlanLive']).toMatchObject({ ok: true })
     expect(await item()).toMatchObject({ status: 'done', done_by_label: 'Maya Chen' })
-    // Done stays done, with who did it, when the plan is later retired.
+    // It follows the plans both ways: retired, the item is back in progress and names nobody.
     await db.sql`update plan set status = 'retired' where id = ${planId}`
-    expect(await item()).toMatchObject({ status: 'done', done_by_label: 'Maya Chen' })
+    expect(await item()).toMatchObject({ status: 'progress', done_by_label: null })
   })
 
   it('makes a draft live only once every currency the partner sells in has a monthly price', async () => {
