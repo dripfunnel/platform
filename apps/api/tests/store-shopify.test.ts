@@ -206,6 +206,26 @@ describe('Connect Shopify', () => {
     expect((await connection('owner')).status).toBe('none')
   })
 
+  it('removes the connection when both imports have read their shop, even before either is checked', async () => {
+    await connect('owner', 'kesari')
+    const ids = [
+      (await gql('mutation S($ids: [ID!]) { startShopifyImport(productIds: $ids) }', 'owner', { ids: ['gid://shopify/Product/1'] })).data?.['startShopifyImport'] as string,
+      (await gql('mutation { startShopifyImport(all: true) }', 'owner')).data?.['startShopifyImport'] as string,
+    ]
+    // Only the page reads are delivered; both checks wait, so both imports are still 'checking' with nothing left to read.
+    const deliver = catalogImportDeliverer(db.sql, shop, secrets, () => now)
+    for (let round = 0; round < 10; round++) {
+      const fetches = await db.sql<{ id: string; payload: unknown }[]>`
+        update outbox set delivered_at = now() where kind = 'import.catalog' and delivered_at is null and payload->>'phase' = 'fetch' and payload->>'jobId' in ${db.sql(ids)} returning id, payload`
+      if (fetches.length === 0) break
+      for (const f of fetches) await deliver.deliver({ id: f.id, kind: 'import.catalog', idempotencyKey: f.id, payload: f.payload, partnerId: t.partnerA, storeId: t.storeA1, attempt: 1 }, AbortSignal.timeout(5000))
+    }
+    expect(await db.sql`select state, cursor from catalog_import where id in ${db.sql(ids)} order by cursor`).toEqual([{ state: 'checking', cursor: 'done' }, { state: 'checking', cursor: 'done' }])
+    expect((await connection('owner')).status).toBe('none')
+    await relay()
+    for (const id of ids) expect((await gql('query J($id: ID!) { catalogImport(id: $id) { state } }', 'owner', { id })).data?.['catalogImport']).toEqual({ state: 'ready' })
+  })
+
   it('stops reading “all” once the shop passes an uploaded file’s limits, and says which', async () => {
     const cases = [['shpat_heavy', 'FILE_TOO_LARGE', 3], ['shpat_wide', 'TOO_MANY_ROWS', 5], ['shpat_many', 'TOO_MANY_PRODUCTS', 6]] as const
     try {
