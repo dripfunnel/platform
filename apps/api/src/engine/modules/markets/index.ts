@@ -24,13 +24,13 @@ import {
   updateMarket,
   type LocaleRow,
 } from '#db/scoped/markets'
-import { selectRates, type RateRow } from '#db/scoped/rates'
-import { priceInMarket, pricesByCurrency, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
+import { selectAllRates, selectRates, type RateRow } from '#db/scoped/rates'
+import { conversionExamples, priceInMarket, pricesByCurrency, type ConversionExample, type CurrencyPrice, type StorePricing, type TypedPrice } from './pricing'
 import { missingFor, type ReadinessNeed } from './readiness'
 import { cleanCurrencies, cleanLanguages, cleanMarket, type CurrencyInput, type MarketInput, type MarketsRefusal } from './rules'
 
 export { offeredLanguages, type CurrencyInput, type MarketInput } from './rules'
-export type { CurrencyPrice } from './pricing'
+export type { ConversionExample, CurrencyPrice } from './pricing'
 export type { ReadinessNeed } from './readiness'
 
 export interface MarketReadiness {
@@ -222,6 +222,19 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
     })
 
   /**
+   * What 100 of the pricing currency comes to in the euro and every currency with a reference rate, under each
+   * rounding (O4): the currencies Settings can add, and the example for one added or switched but not yet saved.
+   */
+  const examples = () =>
+    inScope(async (tx): Promise<ConversionExample[]> => {
+      const store = await selectLocale(tx, storeId)
+      if (!store?.pricing_currency) return []
+      const rows = await selectAllRates(tx)
+      const perEuro = new Map(rows.map((r) => [r.currency, r.per_euro]))
+      return conversionExamples({ pricingCurrency: store.pricing_currency, currencies: [], perEuro }, ['EUR', ...rows.map((r) => r.currency)], new Map(rows.map((r) => [r.currency, r.published_on])))
+    })
+
+  /**
    * Each version's price in every currency the store sells in, and in a market when one is named (CATALOG O2;
    * the card's "a product priced per market is read back per market"). Null when the market isn't the store's.
    */
@@ -265,7 +278,7 @@ export const createMarketsService = ({ sql, context, actor, activity, facts, now
       return out
     })
 
-  return { locale, rates, pricing, readiness, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
+  return { locale, rates, examples, pricing, readiness, saveLanguages, saveCurrencies, markets, market, saveMarket, removeMarket, setFallback }
 }
 
 export type { MarketsRefusal }

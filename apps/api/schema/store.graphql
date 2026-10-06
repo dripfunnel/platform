@@ -119,6 +119,16 @@ type CollectionPage {
   pageInfo: PageInfo
 }
 
+type CollectionPreview {
+  count: Int
+  products: [CollectionPreviewProduct!]
+}
+
+type CollectionPreviewProduct {
+  id: ID
+  name: String
+}
+
 type CollectionRule {
   currency: String
   kind: String
@@ -144,12 +154,29 @@ input CollectionRuleInput {
 type CollectionSummary {
   computedAt: String
   id: ID
+  inheritParent: Boolean
   kind: String
+  match: String
   name: String
   parentId: ID
   products: Int
+  rules: [CollectionRule!]
   slug: String
   visible: Boolean
+}
+
+type ConversionExample {
+  currency: String
+  ends99: ConvertedAmount
+  from: ConvertedAmount
+  nearest: ConvertedAmount
+  none: ConvertedAmount
+  publishedOn: String
+}
+
+type ConvertedAmount {
+  amount: String
+  currency: String
 }
 
 type CurrencyPrice {
@@ -163,6 +190,7 @@ type Facet {
   id: ID
   name: String
   position: Int
+  revision: Int
   shopperVisible: Boolean
   values: [FacetValue!]
 }
@@ -171,6 +199,7 @@ input FacetInput {
   id: String
   name: String!
   position: Int
+  revision: Int
   shopperVisible: Boolean
   values: [FacetValueInput!]!
 }
@@ -737,6 +766,7 @@ type Query {
   catalogueSettings: CatalogueSettings
   catalogueTranslation(entity: String!, id: ID!, language: String!): [Translation!]
   collection(id: ID!): Collection
+  collectionPreview(inheritParent: Boolean, match: String, parentId: ID, rules: [CollectionRuleInput!]!): CollectionPreview
   collectionProducts(after: String, before: String, first: Int, id: ID!): CollectionMemberPage
   collections(after: String, before: String, first: Int): CollectionPage
   facets(after: String, before: String, first: Int): FacetPage
@@ -888,6 +918,7 @@ input SizeChartMeasureNoteInput {
 }
 
 type SizeChartPage {
+  limit: Int
   nodes: [SizeChartSummary!]
   pageInfo: PageInfo
 }
@@ -1038,6 +1069,7 @@ type StoreLanguage {
 
 type StoreLocale {
   currencies: [StoreCurrency!]
+  examples: [ConversionExample!]
   languages: [StoreLanguage!]
   mainLanguage: String
   offeredLanguages: [String!]

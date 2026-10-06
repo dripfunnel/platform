@@ -1,4 +1,4 @@
-import { applyBps, convert, roundPrice, type Money, type PriceRounding } from '#core/money'
+import { applyBps, convert, minorDigits, roundPrice, type Money, type PriceRounding } from '#core/money'
 
 // What a version costs in each of the store's currencies and in a market (CATALOG facts 25–26, O2, O10–O11):
 // a typed price always wins; a converted currency is computed from the pricing price at the reference rate,
@@ -62,4 +62,23 @@ export const priceInMarket = (prices: readonly TypedPrice[], market: { currency:
   const rounding = pricing.currencies.find((c) => c.currency === market.currency)?.rounding ?? 'none'
   const moved = (amount: bigint): bigint => roundPrice(applyBps({ amount, currency: market.currency } satisfies Money, 10_000 + market.price_adjustment_bps), rounding).amount
   return { ...base, amount: moved(base.amount), compareAt: base.compareAt === null ? null : moved(base.compareAt) }
+}
+
+export interface ConversionExample {
+  currency: string
+  /** The day the rates it used were published (the older of the two); null where only the euro's fixed 1 was used. */
+  publishedOn: string | null
+  from: Money
+  /** What `from` comes to in `currency` under each rounding; null without a rate. */
+  to: Record<PriceRounding, Money | null>
+}
+
+/** Settings' "₹100 → $1.99" (SetStore, O4–O5): 100 of the pricing currency through the same conversion and rounding as a price. */
+export const conversionExamples = (pricing: StorePricing, currencies: readonly string[], publishedOn: ReadonlyMap<string, string> = new Map()): ConversionExample[] => {
+  const from: Money = { amount: 100n * 10n ** BigInt(minorDigits(pricing.pricingCurrency)), currency: pricing.pricingCurrency }
+  const at = (currency: string, rounding: PriceRounding) => {
+    const amount = converted(from.amount, pricing, currency, rounding)
+    return amount === null ? null : { amount, currency }
+  }
+  return currencies.filter((c) => c !== pricing.pricingCurrency).map((currency) => ({ currency, publishedOn: [publishedOn.get(pricing.pricingCurrency), publishedOn.get(currency)].filter((d): d is string => d !== undefined).sort()[0] ?? null, from, to: { none: at(currency, 'none'), nearest: at(currency, 'nearest'), 'ends-99': at(currency, 'ends-99') } }))
 }

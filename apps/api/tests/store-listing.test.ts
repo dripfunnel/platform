@@ -215,6 +215,15 @@ describe('size charts', () => {
     expect((await saveChart('supplier', { ...chart, name: 'Still room' })).code).toBeUndefined()
     expect((await saveChart('owner', { ...chart, name: 'Owner room' })).code).toBeUndefined()
     await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id = ${t.sellerA1Second} and name like 'Cap %'`
+    // The store's own charts stop at 200 too; the list answers that cap to every seat, as the meter shows it.
+    const own = (await db.sql<{ n: number }[]>`select count(*)::int as n from size_chart where store_id = ${t.storeA1} and seller_id is null and deleted_at is null`)[0]?.n ?? 0
+    await db.sql`insert into size_chart (store_id, name, unit) select ${t.storeA1}, 'Store cap ' || n, 'cm' from generate_series(1, ${200 - own}) as n`
+    expect((await saveChart('owner', { ...chart, name: 'Store one too many' })).code).toBe('TOO_MANY_SIZE_CHARTS')
+    expect((await saveChart('supplier', { ...chart, name: 'Supplier still has room' })).code).toBeUndefined()
+    for (const who of ['owner', 'supplier'] as const) {
+      expect(((await gql('{ sizeCharts(first: 1) { limit } }', who)).data?.['sizeCharts'] as { limit: number }).limit, who).toBe(200)
+    }
+    await db.sql`update size_chart set deleted_at = now() where store_id = ${t.storeA1} and seller_id is null and name like 'Store cap %'`
   })
 
   it('page charts made in the same instant one at a time, every one once', async () => {
@@ -335,11 +344,12 @@ describe('a product’s listing sections', () => {
 
   it('keeps a specification when the filter value it mirrors is removed, without the link', async () => {
     const facet = (await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'owner', { input: { name: 'Fabric', values: [{ name: 'Cotton' }, { name: 'Silk' }] } })).data?.['saveFacet'] as string
-    const values = ((await gql('{ facets(first: 50) { nodes { id values { id name } } } }', 'owner')).data?.['facets'] as { nodes: { id: string; values: { id: string; name: string }[] }[] }).nodes.find((f) => f.id === facet)?.values ?? []
+    const read = ((await gql('{ facets(first: 50) { nodes { id revision values { id name } } } }', 'owner')).data?.['facets'] as { nodes: { id: string; revision: number; values: { id: string; name: string }[] }[] }).nodes.find((f) => f.id === facet)
+    const values = read?.values ?? []
     const cotton = values.find((v) => v.name === 'Cotton')
     const made = await product('owner', 'Mirrored spec', { listing: { specs: [{ name: 'Fabric', value: 'Cotton', filterValueId: cotton?.id }] } })
     const silk = values.find((v) => v.name === 'Silk')
-    expect((await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'owner', { input: { id: facet, name: 'Fabric', values: [{ id: silk?.id, name: 'Silk' }] } })).code).toBeUndefined()
+    expect((await gql('mutation F($input: FacetInput!) { saveFacet(input: $input) }', 'owner', { input: { id: facet, name: 'Fabric', revision: read?.revision, values: [{ id: silk?.id, name: 'Silk' }] } })).code).toBeUndefined()
     const spec = ((await gql('query P($id: ID!) { product(id: $id) { listing { specs { name value filterValueId } } } }', 'owner', { id: made.id })).data?.['product'] as { listing: { specs: unknown[] } }).listing.specs
     expect(spec).toEqual([{ name: 'Fabric', value: 'Cotton', filterValueId: null }])
   })

@@ -9,6 +9,7 @@ import {
   selectManualCollectionIds,
   selectProductName,
   selectProductCollections,
+  selectRulePreview,
   setProductManualCollections,
   countFacets,
   deleteFacet,
@@ -59,6 +60,8 @@ export const maxRules = 20
 export const maxMenuItems = 100
 export const maxFacetValues = 200
 export const maxFacetPosition = 10_000
+/** CatCollections' live preview shows six products. */
+export const previewSize = 6
 
 
 export type StructureRefusal =
@@ -249,6 +252,8 @@ export interface FacetInput {
   name: string
   shopperVisible?: boolean | null | undefined
   position?: number | null | undefined
+  /** The revision read; left out, the save is made whatever came between. */
+  revision?: number | null | undefined
   values: readonly { id?: string | null | undefined; name: string }[]
 }
 
@@ -310,12 +315,16 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       if (id !== null && !isUuid(id)) throw new Refused('NOT_FOUND')
       const existing = id ? await selectFacetValueIds(tx, storeId, id) : null
       if (id !== null && existing === null) throw new Refused('NOT_FOUND')
+      // An update names the revision it read, so no save from an old read can delete a value added since (0057).
+      if (existing && (input.revision === null || input.revision === undefined)) throw new Refused('INVALID_INPUT')
+      // Said before the values are checked: a value named from an older read may be the very change missed.
+      if (existing && input.revision !== existing.revision) throw new Refused('STALE_REVISION')
       const seen = new Set<string>()
       const values = input.values.map((v, position) => {
         const valueName = name(v.name, 60)
         if (seen.has(valueName.toLowerCase())) throw new Refused('DUPLICATE_VALUE')
         seen.add(valueName.toLowerCase())
-        const kept = v.id ? (existing ?? []).includes(v.id) : false
+        const kept = v.id ? (existing?.ids ?? []).includes(v.id) : false
         if (v.id && !kept) throw new Refused('INVALID_INPUT')
         return { id: kept && v.id ? v.id : crypto.randomUUID(), name: valueName, position, kept }
       })
@@ -325,7 +334,7 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
         if ((await countFacets(tx, storeId)) >= maxFacets) throw new Refused('TOO_MANY_FILTERS')
       }
       const facetId = id ?? crypto.randomUUID()
-      await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing !== null, now())
+      if (!(await writeFacet(tx, storeId, { id: facetId, name: facetName, position, shopperVisible: input.shopperVisible ?? true, values }, existing ? existing.revision : null, now()))) throw new Refused('STALE_REVISION')
       await activity.record(tx, entry(structureAudit.facetSaved, { type: 'filter', id: facetId, label: facetName }))
       // A value removed is a rule's target gone: the collections that used it shrink.
       await recompute(tx)
@@ -376,6 +385,14 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       throw new Refused('INVALID_RULE')
     }
   }
+
+  /** The live preview of an automatic collection being edited: its rules read as a save would check them, nothing written. */
+  const previewCollection = (input: Pick<CollectionInput, 'match' | 'rules' | 'parentId' | 'inheritParent'>) =>
+    run(async (tx) => {
+      const clean = cleanCollection({ ...input, name: 'preview', kind: 'automatic' })
+      await checkIds(tx, null, clean)
+      return selectRulePreview(tx, storeId, { match: clean.fields.match, rules: clean.rules, parentId: clean.fields.parentId, inheritParent: clean.fields.inheritParent }, previewSize)
+    })
 
   /** CatList's bulk "Add to collection": a hand-picked one only, as automatic ones fill from their rules. */
   const addToCollection = (collectionId: string, productIds: readonly string[]) =>
@@ -470,5 +487,5 @@ export const createStructureService = ({ sql, context, actor, activity, facts, n
       return saved
     })
 
-  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, addToCollection, productCollections, setProductCollections, saveCollection, removeCollection, menu, saveMenu }
+  return { facets, saveFacet, removeFacet, mergeValues, collections, collection, members, addToCollection, productCollections, setProductCollections, previewCollection, saveCollection, removeCollection, menu, saveMenu }
 }

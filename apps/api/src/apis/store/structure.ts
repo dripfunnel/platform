@@ -55,23 +55,24 @@ export const registerStructure = (builder: StoreBuilder) => {
   const FacetValue = builder.objectRef<{ id: string; name: string; products: number }>('FacetValue').implement({
     fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name'), products: t.exposeInt('products') }),
   })
-  const Facet = builder.objectRef<{ id: string; name: string; position: number; shopper_visible: boolean; values: { id: string; name: string; products: number }[] }>('Facet').implement({
+  const Facet = builder.objectRef<{ id: string; name: string; position: number; shopper_visible: boolean; revision: number; values: { id: string; name: string; products: number }[] }>('Facet').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
       name: t.exposeString('name'),
       position: t.exposeInt('position'),
+      revision: t.exposeInt('revision'),
       // An internal tag only the team sees (CATALOG I1).
       shopperVisible: t.exposeBoolean('shopper_visible'),
       values: t.field({ type: [FacetValue], resolve: (f) => f.values }),
     }),
   })
 
-  type FacetView = { id: string; name: string; position: number; shopper_visible: boolean; values: { id: string; name: string; products: number }[] }
+  type FacetView = { id: string; name: string; position: number; shopper_visible: boolean; revision: number; values: { id: string; name: string; products: number }[] }
   const FacetPage = builder.objectRef<{ nodes: FacetView[]; pageInfo: { startCursor: string | null; endCursor: string | null; hasPreviousPage: boolean; hasNextPage: boolean } }>('FacetPage').implement({
     fields: (t) => ({ nodes: t.field({ type: [Facet], resolve: (p) => p.nodes }), pageInfo: t.field({ type: PageInfo, resolve: (p) => p.pageInfo }) }),
   })
 
-  type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; products: number; computed_at: Date | null; created_at: Date }
+  type CollectionSummary = { id: string; name: string; slug: string; kind: string; visibility: string; parent_id: string | null; inherit_parent: boolean; match: string; rules: { kind: string; args: Record<string, unknown> }[]; products: number; computed_at: Date | null; created_at: Date }
   const CollectionSummaryType = builder.objectRef<CollectionSummary>('CollectionSummary').implement({
     fields: (t) => ({
       id: t.exposeID('id'),
@@ -80,6 +81,10 @@ export const registerStructure = (builder: StoreBuilder) => {
       kind: t.exposeString('kind'),
       visible: t.boolean({ resolve: (c) => c.visibility === 'visible' }),
       parentId: t.exposeID('parent_id', { nullable: true }),
+      inheritParent: t.exposeBoolean('inherit_parent'),
+      match: t.exposeString('match'),
+      // The list says what each automatic collection holds in words (CatCollections), so its rules come with it.
+      rules: t.field({ type: [Rule], resolve: (c) => c.rules }),
       products: t.exposeInt('products'),
       // Null until an automatic collection's rules have first landed (fact 11: "Updating…").
       computedAt: t.string({ nullable: true, resolve: (c) => c.computed_at?.toISOString() ?? null }),
@@ -149,7 +154,7 @@ export const registerStructure = (builder: StoreBuilder) => {
 
   const FacetValueInput = builder.inputType('FacetValueInput', { fields: (t) => ({ id: t.string(), name: t.string({ required: true }) }) })
   const FacetInput = builder.inputType('FacetInput', {
-    fields: (t) => ({ id: t.string(), name: t.string({ required: true }), shopperVisible: t.boolean(), position: t.int(), values: t.field({ type: [FacetValueInput], required: true }) }),
+    fields: (t) => ({ id: t.string(), name: t.string({ required: true }), shopperVisible: t.boolean(), position: t.int(), revision: t.int(), values: t.field({ type: [FacetValueInput], required: true }) }),
   })
   const RuleInput = builder.inputType('CollectionRuleInput', {
     fields: (t) => ({ kind: t.string({ required: true }), valueId: t.string(), text: t.string(), productId: t.string(), versionId: t.string(), currency: t.string(), min: t.string(), max: t.string() }),
@@ -181,6 +186,12 @@ export const registerStructure = (builder: StoreBuilder) => {
   })
 
   const read = { api: 'store', scope: 'store', permission: 'catalog.read', target: 'none' } as const
+  const MemberLite = builder.objectRef<{ id: string; name: string }>('CollectionPreviewProduct').implement({
+    fields: (t) => ({ id: t.exposeID('id'), name: t.exposeString('name') }),
+  })
+  const PreviewType = builder.objectRef<{ count: number; products: { id: string; name: string }[] }>('CollectionPreview').implement({
+    fields: (t) => ({ count: t.exposeInt('count'), products: t.field({ type: [MemberLite], resolve: (p) => p.products }) }),
+  })
   const write = { api: 'store', scope: 'store', permission: 'catalog.write', target: 'none' } as const
 
   const ProductCollection = builder.objectRef<{ id: string; name: string; kind: string }>('ProductCollection').implement({
@@ -236,6 +247,14 @@ export const registerStructure = (builder: StoreBuilder) => {
       },
     }),
     menu: t.field({ type: MenuType, nullable: true, extensions: { access: read }, resolve: (_, __, ctx) => service(ctx).menu() }),
+    // CatCollections' live preview of rules not saved yet; refused as a save of the same rules would be.
+    collectionPreview: t.field({
+      type: PreviewType,
+      args: { match: t.arg.string(), rules: t.arg({ type: [RuleInput], required: true }), parentId: t.arg.id(), inheritParent: t.arg.boolean() },
+      extensions: { access: read },
+      resolve: async (_, args, ctx) =>
+        answered(await service(ctx).previewCollection({ match: args.match, rules: args.rules, parentId: args.parentId === null || args.parentId === undefined ? null : String(args.parentId), inheritParent: args.inheritParent })),
+    }),
   }))
 
   builder.mutationFields((t) => ({

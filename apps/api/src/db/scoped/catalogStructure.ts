@@ -12,6 +12,7 @@ export interface FacetRow {
   name: string
   position: number
   shopper_visible: boolean
+  revision: number
   /** Products tagged with each value, in the caller's scope: a supplier counts its own (ACCESS §7.1). */
   values: { id: string; name: string; position: number; products: number }[]
 }
@@ -28,7 +29,7 @@ export const selectFacets = (tx: ScopedSql, storeId: string, window: PageWindow)
   const backwards = window.before !== null && window.after === null
   return tx<FacetRow[]>`
     with page as (
-      select f.id, f.name, f.position, f.shopper_visible from filter f
+      select f.id, f.name, f.position, f.shopper_visible, f.revision from filter f
       where f.store_id = ${storeId}
         and ${window.after ? tx`(-f.position, f.id) < (${window.after.occurredAt.getTime()}, ${window.after.id})` : tx`true`}
         and ${window.before ? tx`(-f.position, f.id) > (${window.before.occurredAt.getTime()}, ${window.before.id})` : tx`true`}
@@ -41,7 +42,7 @@ export const selectFacets = (tx: ScopedSql, storeId: string, window: PageWindow)
       where v.filter_id in (select id from page)
       group by pfv.filter_value_id
     )
-    select page.id, page.name, page.position, page.shopper_visible,
+    select page.id, page.name, page.position, page.shopper_visible, page.revision,
       coalesce((select json_agg(json_build_object('id', v.id, 'name', v.name, 'position', v.position, 'products', coalesce(c.n, 0)) order by v.position)
         from filter_value v left join counts c on c.filter_value_id = v.id where v.filter_id = page.id), '[]'::json) as values
     from page
@@ -57,10 +58,19 @@ export interface FacetWrite {
   values: { id: string; name: string; position: number; kept: boolean }[]
 }
 
-/** The filter and its values as given: kept values renamed and reordered, new ones added, the rest removed. */
-export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, exists: boolean, now: Date): Promise<void> => {
+/**
+ * The filter and its values as given: kept values renamed and reordered, new ones added, the rest removed.
+ * An update names the revision it was read at (null makes a new filter); false, nothing written, when another came first.
+ */
+export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWrite, readAt: number | null, now: Date): Promise<boolean> => {
+  const exists = readAt !== null
   if (exists) {
-    await tx`update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, updated_at = ${now} where id = ${facet.id} and store_id = ${storeId}`
+    const [saved] = await tx`
+      update filter set name = ${facet.name}, position = ${facet.position}, shopper_visible = ${facet.shopperVisible}, revision = revision + 1, updated_at = ${now}
+      where id = ${facet.id} and store_id = ${storeId} and revision = ${readAt}
+      returning id
+    `
+    if (!saved) return false
     const kept = pgArray(facet.values.filter((v) => v.kept).map((v) => v.id))
     // A rule naming a value that goes would point at nothing: it goes with it, and the recompute follows.
     await tx`
@@ -79,11 +89,12 @@ export const writeFacet = async (tx: ScopedSql, storeId: string, facet: FacetWri
   if (added.length > 0) {
     await tx`insert into filter_value (id, filter_id, store_id, name, position) select x.id, ${facet.id}, ${storeId}, x.name, x.position from jsonb_to_recordset(${rowsOf(tx, added)}) as x(id uuid, name text, position int)`
   }
+  return true
 }
 
-export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string[] | null> => {
-  const [facet] = await tx<{ ids: string[] | null }[]>`select (select json_agg(v.id) from filter_value v where v.filter_id = f.id) as ids from filter f where f.id = ${facetId} and f.store_id = ${storeId}`
-  return facet ? (facet.ids ?? []) : null
+export const selectFacetValueIds = async (tx: ScopedSql, storeId: string, facetId: string): Promise<{ ids: string[]; revision: number } | null> => {
+  const [facet] = await tx<{ ids: string[] | null; revision: number }[]>`select f.revision, (select json_agg(v.id) from filter_value v where v.filter_id = f.id) as ids from filter f where f.id = ${facetId} and f.store_id = ${storeId}`
+  return facet ? { ids: facet.ids ?? [], revision: facet.revision } : null
 }
 
 export const deleteFacet = async (tx: ScopedSql, storeId: string, facetId: string): Promise<string | null> => {
@@ -105,6 +116,8 @@ export const mergeFacetValues = async (tx: ScopedSql, storeId: string, targetId:
     from filter_value where store_id = ${storeId} and id = any(${pgArray([targetId, ...sourceIds])}::uuid[])
   `
   if (!same?.ok) return -1
+  // Its values change, so a save from an earlier read of the filter must not undo the merge.
+  await tx`update filter set revision = revision + 1 where store_id = ${storeId} and id = (select filter_id from filter_value where id = ${targetId})`
   await tx`
     insert into product_filter_value (product_id, version_id, filter_value_id, store_id)
     select product_id, version_id, ${targetId}, store_id from product_filter_value where store_id = ${storeId} and filter_value_id = any(${sources}::uuid[])
@@ -138,6 +151,9 @@ export interface CollectionListRow {
   kind: 'manual' | 'automatic'
   visibility: 'visible' | 'hidden'
   parent_id: string | null
+  inherit_parent: boolean
+  match: 'all' | 'any'
+  rules: RuleRow[]
   products: number
   computed_at: Date | null
   updated_at: Date
@@ -147,7 +163,8 @@ export interface CollectionListRow {
 export const selectCollections = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<CollectionListRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<CollectionListRow[]>`
-    select c.id, c.name, c.slug, c.kind, c.visibility, c.parent_id, c.computed_at, c.updated_at, c.created_at,
+    select c.id, c.name, c.slug, c.kind, c.visibility, c.parent_id, c.inherit_parent, c.match, c.computed_at, c.updated_at, c.created_at,
+      coalesce((select json_agg(json_build_object('kind', r.kind, 'args', r.args) order by r.position) from collection_rule r where r.collection_id = c.id), '[]'::json) as rules,
       (select count(*)::int from collection_product cp join product p on p.id = cp.product_id where cp.collection_id = c.id and p.deleted_at is null) as products
     from collection c
     where c.store_id = ${storeId} and c.deleted_at is null
@@ -404,6 +421,43 @@ const ruleSql = (tx: ScopedSql, rule: RuleRow) => {
 }
 
 /**
+ * A product matching a collection's rules (fact 11). Under "all", values of one filter are alternatives, so
+ * "Fabric is Cotton or Linen and Occasion is Wedding" reads as written (CATALOG H4); under "any" every rule is.
+ */
+const matchSql = (tx: ScopedSql, match: 'all' | 'any', rules: readonly RuleRow[]) => {
+  if (rules.length === 0) return tx`false`
+  if (match === 'any') return rules.map((r) => ruleSql(tx, r)).reduce((acc, part) => tx`${acc} or ${part}`)
+  const valueIds = rules.flatMap((r) => (r.kind === 'filter_value' ? [String(r.args['valueId'])] : []))
+  const parts = rules.filter((r) => r.kind !== 'filter_value').map((r) => ruleSql(tx, r))
+  if (valueIds.length > 0)
+    parts.push(tx`not exists (
+      select 1 from filter_value fv where fv.id = any(${pgArray(valueIds)}::uuid[])
+        and not exists (select 1 from product_filter_value pfv join filter_value pv on pv.id = pfv.filter_value_id
+          where pfv.product_id = p.id and pv.filter_id = fv.filter_id and pfv.filter_value_id = any(${pgArray(valueIds)}::uuid[]))
+    )`)
+  return parts.reduce((acc, part) => tx`${acc} and ${part}`)
+}
+
+/** What a collection's rules would hold, before it is saved: how many products and the newest few (CATALOG H4's live preview). */
+export const selectRulePreview = async (
+  tx: ScopedSql,
+  storeId: string,
+  draft: { match: 'all' | 'any'; rules: readonly RuleRow[]; parentId: string | null; inheritParent: boolean },
+  limit: number,
+): Promise<{ count: number; products: { id: string; name: string }[] }> => {
+  const joined = matchSql(tx, draft.match, draft.rules)
+  const inParent = draft.inheritParent && draft.parentId ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${draft.parentId} and pp.product_id = p.id)` : tx``
+  const [row] = await tx<{ count: number; products: { id: string; name: string }[] }[]>`
+    with matched as (
+      select p.id, p.name, p.created_at from product p where p.store_id = ${storeId} and p.deleted_at is null and not p.is_sample and (${joined}) ${inParent}
+    )
+    select (select count(*)::int from matched) as count,
+      coalesce((select json_agg(json_build_object('id', m.id, 'name', m.name)) from (select id, name from matched order by created_at desc, id desc limit ${limit}) m), '[]'::json) as products
+  `
+  return row ?? { count: 0, products: [] }
+}
+
+/**
  * Every automatic collection's products from its rules (fact 11), parents first so a child limited to
  * its parent reads the parent's new result. Run after commit, from the outbox, never in the request (fact 14).
  */
@@ -421,8 +475,7 @@ export const recomputeCollections = async (tx: ScopedSql, storeId: string, now: 
     order by tree.depth
   `
   for (const c of collections) {
-    const parts = c.rules.map((r) => ruleSql(tx, r))
-    const joined = parts.reduce((acc, part, i) => (i === 0 ? part : c.match === 'all' ? tx`${acc} and ${part}` : tx`${acc} or ${part}`), tx`false`)
+    const joined = matchSql(tx, c.match, c.rules)
     const inParent = c.inherit_parent && c.parent_id ? tx`and exists (select 1 from collection_product pp where pp.collection_id = ${c.parent_id} and pp.product_id = p.id)` : tx``
     // Newest first, so which products a cut keeps is the same at every recompute.
     const [found] = await tx<{ n: number }[]>`

@@ -132,6 +132,35 @@ describe('a product’s price in each currency', () => {
   })
 })
 
+describe('the conversion example in Settings', () => {
+  it('converts 100 of the pricing currency as a price is converted, under each rounding, in minor units', async () => {
+    // No currency saved: every one with a rate is still there, to add or to switch to converting before saving.
+    await gql('mutation C($c: [StoreCurrencyInput!]!) { saveCurrencies(currencies: $c) }', 'owner', { c: [] })
+    const examples = ((await gql('{ storeLocale { examples { currency publishedOn from { amount currency } none { amount } nearest { amount } ends99 { amount } } } }', 'owner')).data?.['storeLocale'] as { examples: unknown[] }).examples
+    // ₹100 at 90 to the euro and 1.08 dollars to the euro is $1.20 exactly; to the nearest whole $1, up to .99 $1.99.
+    expect(examples).toEqual([
+      { currency: 'EUR', publishedOn: '2026-10-02', from: { amount: '10000', currency: 'INR' }, none: { amount: '111' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+      { currency: 'USD', publishedOn: '2026-10-02', from: { amount: '10000', currency: 'INR' }, none: { amount: '120' }, nearest: { amount: '100' }, ends99: { amount: '199' } },
+    ])
+  })
+})
+
+describe('an example’s date', () => {
+  it('is the older of the two rates it used, the euro’s fixed 1 having none', async () => {
+    await db.sql`update exchange_rate set published_on = '2026-09-30' where currency = 'USD'`
+    try {
+      const examples = ((await gql('{ storeLocale { examples { currency publishedOn } } }', 'owner')).data?.['storeLocale'] as { examples: { currency: string; publishedOn: string | null }[] }).examples
+      // USD: INR's rate is from 2 October, USD's from 30 September, so 30 September. EUR: only INR's, 2 October.
+      expect(examples).toEqual([
+        { currency: 'EUR', publishedOn: '2026-10-02' },
+        { currency: 'USD', publishedOn: '2026-09-30' },
+      ])
+    } finally {
+      await db.sql`update exchange_rate set published_on = '2026-10-02' where currency = 'USD'`
+    }
+  })
+})
+
 describe('the reference rates', () => {
   it('replaces a rate with a newer day’s and ignores an older one', async () => {
     const deliver = (publishedOn: string, perEuro: Record<string, string>) =>

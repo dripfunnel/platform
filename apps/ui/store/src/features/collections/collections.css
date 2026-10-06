@@ -1,0 +1,1381 @@
+/* The Collections area (designs/CatCollections.dc.html): tabs, the list with nesting, and the editor beside its preview. */
+.df-colls-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.df-colls-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-colls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-colls-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--df-space-4);
+}
+
+.df-colls-head .df-page-title {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.df-colls-head .df-page-lede {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-colls-seasonal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--df-space-2);
+  padding: 10px 14px;
+  border: 1px dashed var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-colls-seasonal > span {
+  color: var(--df-color-warning);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-colls-seasonal button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-colls-note,
+.df-coll-hint {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-colls-note {
+  font-size: 13px;
+}
+
+.df-colls-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  text-align: center;
+}
+
+.df-colls-empty h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.df-colls-empty p {
+  max-width: 50ch;
+  margin: 0 0 6px;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-colls-list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-colls-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+  color: var(--df-color-text);
+  text-decoration: none;
+}
+
+.df-colls-list li:last-child .df-colls-row {
+  border-bottom: 0;
+}
+
+.df-colls-row:hover {
+  background: var(--df-color-hover);
+  text-decoration: none;
+}
+
+.df-colls-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  /* A collection inside another sits one step in for each level (--df-colls-depth, set per row). */
+  padding-inline-start: calc(var(--df-colls-depth, 0) * var(--df-space-7));
+}
+
+.df-colls-name > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-colls-name strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-colls-name > span:last-child > span {
+  overflow: hidden;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-colls-thumb,
+.df-coll-tiles li > span {
+  flex: none;
+  background: repeating-linear-gradient(45deg, var(--df-color-page) 0 6px, var(--df-color-border) 6px 12px);
+}
+
+.df-colls-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--df-radius-small);
+}
+
+.df-colls-type,
+.df-colls-count,
+.df-colls-vis {
+  font-size: 13px;
+}
+
+.df-colls-type {
+  color: var(--df-color-text);
+}
+
+.df-colls-count {
+  color: var(--df-color-text);
+}
+
+.df-colls-count--updating {
+  color: var(--df-color-info);
+}
+
+.df-colls-vis {
+  color: var(--df-color-muted);
+}
+
+.df-colls-vis--on {
+  color: var(--df-color-success);
+}
+
+/* The editor */
+
+.df-coll-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.df-coll-edit-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-coll-edit-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-coll-edit-head h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-coll-failure {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-danger-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-danger-surface);
+  color: var(--df-color-danger);
+  font-size: 14px;
+}
+
+.df-coll-card,
+.df-coll-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-coll-card h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.df-coll-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.df-coll-field label {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-coll-field label .df-coll-hint {
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.df-coll-field input,
+.df-coll-field textarea,
+.df-coll-card > select,
+.df-coll-picks input[type='search'] {
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+}
+
+.df-coll-field input {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 15px;
+}
+
+.df-coll-field input[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-coll-field textarea {
+  padding: 8px 12px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.df-coll-card > select {
+  height: 44px;
+  padding: 0 10px;
+  font-size: 14px;
+}
+
+.df-coll-problem {
+  margin: 0;
+  color: var(--df-color-danger);
+  font-size: 13px;
+}
+
+.df-coll-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+
+.df-coll-match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.df-coll-match select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-focus);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-info);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-coll-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  font-size: 14px;
+}
+
+.df-coll-rule-join {
+  width: 40px;
+  color: var(--df-color-muted);
+  font-size: 13px;
+}
+
+.df-coll-rule select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font-family: var(--df-font-heading);
+  font-weight: 700;
+}
+
+.df-coll-rule input {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-coll-chip {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-coll-chip[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-coll-chip[aria-pressed='true']::before {
+  content: '✓ ';
+}
+
+.df-coll-rule-remove {
+  min-width: 32px;
+  min-height: 32px;
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--df-color-muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.df-coll-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.df-coll-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 12px;
+}
+
+.df-coll-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.df-coll-picks input[type='search'] {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.df-coll-picklist {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-coll-picklist > p {
+  padding: 8px 12px;
+}
+
+.df-coll-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.df-coll-pick > span:nth-child(2) {
+  flex: 1;
+}
+
+.df-coll-pick--on {
+  background: var(--df-color-info-surface);
+}
+
+.df-coll-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 14px;
+}
+
+.df-coll-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.df-coll-actions > span {
+  display: flex;
+  gap: 8px;
+}
+
+.df-coll-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.df-coll-switch > span {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--df-color-neutral-border);
+}
+
+.df-coll-switch > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--df-color-surface);
+  content: '';
+}
+
+.df-coll-switch[aria-checked='true'] > span {
+  background: var(--df-color-success);
+}
+
+.df-coll-switch[aria-checked='true'] > span::after {
+  left: 19px;
+}
+
+.df-coll-delete {
+  border-color: var(--df-color-danger-border);
+  color: var(--df-color-link);
+}
+
+.df-coll-preview {
+  padding: 16px;
+}
+
+.df-coll-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.df-coll-preview-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-coll-preview-head span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-coll-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-coll-tiles li {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+}
+
+.df-coll-tiles li > span {
+  display: block;
+  aspect-ratio: 1;
+}
+
+.df-coll-tiles strong {
+  display: block;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+
+@media (max-width: 720px) {
+  .df-colls-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .df-colls-type,
+  .df-colls-vis {
+    display: none;
+  }
+
+  .df-coll-edit {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Filters */
+
+.df-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-filter--internal {
+  background: var(--df-color-page);
+}
+
+.df-filter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.df-filter-head h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.df-filter-head > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-filter-tag {
+  min-height: 32px;
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.df-filter-tag--internal {
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+}
+
+.df-filter-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-filter-value,
+.df-filter-add {
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-filter-value span {
+  color: var(--df-color-muted);
+}
+
+.df-filter-value--alike {
+  border-color: var(--df-color-warning-border);
+}
+
+.df-filter-add {
+  border: 1px dashed var(--df-color-info-border);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-filter-alike {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 13px;
+}
+
+.df-filter-alike button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.df-filter-explain {
+  padding: 18px;
+}
+
+.df-filter-explain h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-filter-explain p {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  font-size: 13px;
+}
+
+.df-filter-choices {
+  color: var(--df-color-info);
+}
+
+.df-filter-filters {
+  color: var(--df-color-success);
+}
+
+/* Menus */
+
+.df-menu {
+  gap: 8px;
+}
+
+.df-menu-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.df-menu-head h1 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.df-menu-head select {
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-menu-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-menu-row--kid {
+  margin-inline-start: var(--df-space-7);
+}
+
+.df-menu-row--hidden {
+  background: var(--df-color-page);
+}
+
+.df-menu-label {
+  flex: 1;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.df-menu-row--hidden .df-menu-label {
+  color: var(--df-color-muted);
+}
+
+.df-menu-note {
+  color: var(--df-color-muted);
+  font-size: 11px;
+}
+
+.df-menu-tools {
+  display: flex;
+  gap: 4px;
+}
+
+.df-menu-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-small);
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  cursor: pointer;
+}
+
+.df-menu-tools .df-menu-remove {
+  color: var(--df-color-link);
+}
+
+.df-menu-previews {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.df-menu-preview {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-menu-preview h2 {
+  margin: 0;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.df-menu-desktop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 18px;
+  font-size: 14px;
+}
+
+.df-menu-desktop strong {
+  font-family: var(--df-font-heading);
+  font-weight: 800;
+}
+
+.df-menu-desktop > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.df-menu-desktop > span > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 600;
+}
+
+.df-menu-desktop > span > span:last-child {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-menu-phone {
+  width: 240px;
+  max-width: 100%;
+}
+
+.df-menu-phone ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-menu-phone li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-menu-phone .df-menu-phone-kid {
+  padding-left: 30px;
+}
+
+.df-menu-phone li .df-icon {
+  color: var(--df-color-muted);
+}
+
+/* Touch: every control at least 44 px on a phone (the prototype's desktop sizes stay above). */
+@media (max-width: 720px) {
+  .df-colls-seasonal button,
+  .df-coll-chip,
+  .df-coll-rule select,
+  .df-coll-rule input,
+  .df-coll-rule-remove,
+  .df-coll-match select,
+  .df-filter-tag,
+  .df-filter-value,
+  .df-filter-add,
+  .df-filter-alike button,
+  .df-menu-head select,
+  .df-coll-check {
+    min-height: 44px;
+  }
+
+  .df-coll-rule-remove {
+    min-width: 44px;
+  }
+
+  .df-menu-tools button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Size charts (designs/CatSizeCharts.dc.html) */
+
+.df-charts-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--df-space-4);
+}
+
+.df-charts {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.df-charts-list {
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-charts-list ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-charts-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-charts-head strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 15px;
+}
+
+.df-charts-meter {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-charts-meter--full {
+  color: var(--df-color-warning);
+}
+
+.df-charts-off,
+.df-charts-empty {
+  margin: 0;
+  padding: 12px 16px;
+  font-size: 13px;
+}
+
+.df-charts-off {
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+}
+
+.df-charts-empty {
+  padding: 24px 16px;
+  color: var(--df-color-muted);
+  font-size: 14px;
+}
+
+.df-charts-item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 16px 12px 13px;
+  border: 0;
+  border-bottom: 1px solid var(--df-color-border);
+  border-left: 3px solid transparent;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-charts-item[aria-current='true'] {
+  border-left-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-charts-item strong {
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-charts-item span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-charts-pick {
+  margin: 0;
+  padding: 40px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.df-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.df-chart-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-chart-name {
+  flex: 1;
+  min-width: 180px;
+  height: 44px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--df-radius);
+  background: transparent;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.df-chart-name:focus,
+.df-chart-name[aria-invalid='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-surface);
+}
+
+.df-chart-name[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-chart-units {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+}
+
+.df-chart-units button {
+  min-width: 44px;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.df-chart-units button[aria-pressed='true'] {
+  background: var(--df-color-side);
+  color: var(--df-color-side-strong);
+}
+
+.df-chart-warn {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-warning);
+  font-size: 13px;
+}
+
+.df-chart-grid {
+  overflow: auto;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+}
+
+.df-chart-head,
+.df-chart-row {
+  display: grid;
+}
+
+.df-chart-head {
+  border-bottom: 1px solid var(--df-color-border);
+  background: var(--df-color-page);
+}
+
+.df-chart-head > span {
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--df-color-border);
+  font-family: var(--df-font-heading);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.df-chart-head > span:first-child {
+  padding: 0 10px;
+}
+
+.df-chart-head input,
+.df-chart-row input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-chart-head input {
+  font-weight: 700;
+}
+
+.df-chart-row {
+  border-bottom: 1px solid var(--df-color-border);
+}
+
+.df-chart-row > span {
+  display: flex;
+  border-right: 1px solid var(--df-color-border);
+}
+
+.df-chart-row > span:first-child {
+  background: var(--df-color-page);
+}
+
+.df-chart-row input {
+  font-variant-numeric: tabular-nums;
+}
+
+.df-chart-row input:focus {
+  box-shadow: inset 0 0 0 2px var(--df-color-focus);
+  outline: none;
+}
+
+.df-chart-row input[aria-invalid='true'] {
+  box-shadow: inset 0 0 0 2px var(--df-color-danger);
+}
+
+.df-chart-head button,
+.df-chart-row button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  border: 0;
+  background: none;
+  color: var(--df-color-muted);
+  cursor: pointer;
+}
+
+.df-chart-adds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.df-chart-adds button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--df-color-link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.df-chart-adds span {
+  color: var(--df-color-muted);
+}
+
+.df-chart-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.df-chart-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 460px;
+  padding: 18px;
+  border: 1px solid var(--df-color-border);
+  border-radius: 14px;
+  background: var(--df-color-surface);
+  box-shadow: var(--df-shadow-floating);
+}
+
+.df-chart-preview > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.df-chart-preview > div strong {
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.df-chart-preview > div span,
+.df-chart-preview p {
+  margin: 0;
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-chart-preview table {
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+
+.df-chart-preview th,
+.df-chart-preview td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--df-color-border);
+  text-align: left;
+}
+
+.df-chart-preview thead th {
+  border-top: 0;
+  background: var(--df-color-page);
+}
+
+.df-chart-start fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.df-chart-template {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  cursor: pointer;
+}
+
+.df-chart-template--on {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-chart-template > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.df-chart-template strong {
+  font-size: 14px;
+}
+
+.df-chart-template > span > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .df-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-chart-units button,
+  .df-chart-adds button {
+    min-height: 44px;
+  }
+
+  .df-chart-head button,
+  .df-chart-row button {
+    min-width: 44px;
+  }
+}
