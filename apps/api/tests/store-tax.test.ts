@@ -302,8 +302,13 @@ describe('Tax setup', () => {
     expect((await home('manager', (await setup('india')).classes[0]?.id, 100)).code).toBe('FORBIDDEN')
     // With the US store's country-wide zone gone, the first home rate makes one, named as given.
     await db.sql`delete from tax_zone where store_id = ${stores.us} and regions = '[]'::jsonb and countries = '["US"]'::jsonb`
-    const usClass = (await setup('us')).classes[0]?.id
+    const [usClass, otherClass] = (await setup('us')).classes.map((c) => c.id)
+    // A zone shared with Canada isn't home: changing a rate at home never moves Canada's.
+    const shared = (await db.sql<{ id: string }[]>`insert into tax_zone (store_id, name, countries) values (${stores.us}, 'North America', '["CA","US"]'::jsonb) returning id`)[0]?.id ?? ''
+    await db.sql`insert into tax_rate (store_id, tax_zone_id, tax_class_id, rate_bps) values (${stores.us}, ${shared}, ${otherClass ?? ''}, 500)`
     expect((await home('us', usClass, 625)).code).toBeUndefined()
+    expect((await setup('us')).zones.find((z) => z.id === shared)?.rates).toEqual([expect.objectContaining({ taxClassId: otherClass, rateBps: 500 })])
+    await db.sql`delete from tax_zone where id = ${shared}`
     const made = (await setup('us')).zones.find((z) => z.countries.length === 1 && z.countries[0] === 'US' && z.regions.length === 0)
     expect(made?.name).toBe('United States')
     expect(made?.rates.find((r) => r.taxClassId === usClass)?.rateBps).toBe(625)
@@ -333,7 +338,9 @@ describe('Tax setup', () => {
     // A store with no country has no home to put a rate in.
     await db.sql`update store set country = null where id = ${stores.us}`
     try {
-      expect((await add('us', 'Nowhere', 500)).code).toBe('INVALID_INPUT')
+      const nowhere = await add('us', 'Nowhere', 500)
+      expect(nowhere.code).toBe('NO_COUNTRY')
+      expect(nowhere.errors?.[0]?.message).toContain('Store info')
       expect((await setup('us')).classes).toHaveLength(classesBefore)
     } finally {
       await db.sql`update store set country = 'US' where id = ${stores.us}`

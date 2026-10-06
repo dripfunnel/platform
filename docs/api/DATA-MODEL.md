@@ -1668,7 +1668,7 @@ decide which columns and which tables each caller kind may select at all**. `app
   `refund_line`, `supplier_ledger_entry`, `custom_field_value` (the owner of the entity it
   values), `order_document` (a supplier reads only the labels
   it printed for its own parts; invoices and packing slips carry a null owner and never reach
-  it), `import_job`, `export_job`. **No partner or platform branch** on any of them: a partner
+  it), `import_job`, `catalog_export`. **No partner or platform branch** on any of them: a partner
   never reads a supplier's import problems or a store's catalogue. `app_supplier` has no
   `select` on `refund.by_user_id`, `refund.note` or `supplier_ledger_entry.note` (§5.3).
   **Shop branches, explicit**: `product`, its children, `collection`, `collection_product`,
@@ -1680,8 +1680,9 @@ decide which columns and which tables each caller kind may select at all**. `app
   branch is `EXISTS` a `product_photo`, `product_story`, `collection.image_asset_id`,
   `story_block` or `store.logo_asset_id` reference whose owner row passes that visibility
   rule, and **never** an asset referenced by `order_document`, `invoice.pdf_asset_id`,
-  `export_job`, `customer_data_request`, `import_job` or `delivery_area` (the matrix row: a
-  shopper selecting an invoice or export asset by id gets nothing); `order_line`, `order_part`
+  `customer_data_request`, `import_job` or `delivery_area` (the matrix row: a shopper selecting
+  an invoice asset by id gets nothing; a catalogue export keeps its file on its `catalog_export`
+  row, never as an asset); `order_line`, `order_part`
   and `fulfilment` get a `shop` read policy of `EXISTS (SELECT 1 FROM "order" o WHERE o.id =
   order_id)`, which carries the guest rule below through the order's own policy (and
   `order_adjustment`, an inside-the-store table, gets the same one: see the next class).
