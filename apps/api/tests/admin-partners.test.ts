@@ -176,6 +176,25 @@ describe('partner(id) (§4.2, §4.3)', () => {
     }
   })
 
+  it('reads the plan item from the plans, not a stale stored row: checklist, counts and the setup filter', async () => {
+    const list = `query($filter: PartnerFilter, $first: Int) { partners(filter: $filter, first: $first) { items { name setup { done total } } } }`
+    type Page = { partners: { items: { name: string; setup: { done: number; total: number } }[] } }
+    const id = await partnerIdOf('Northstar Commerce')
+    const names = async (setup: string) => (await run<Page>(list, as('staff-super-admin'), { first: 25, filter: { setup } })).data?.partners.items.map((i) => i.name)
+    const counts = async () => (await run<Page>(list, as('staff-super-admin'), { first: 25 })).data?.partners.items.find((i) => i.name === 'Northstar Commerce')?.setup
+    const [setup, complete, incomplete] = [await counts(), await names('complete'), await names('incomplete')]
+    await db.sql`update partner_setup_item set status = 'missing', done_at = null, done_by_kind = null, done_by_label = null where partner_id = ${id} and item = 'plan'`
+    try {
+      expect(await counts()).toEqual(setup)
+      expect(await names('complete')).toEqual(complete)
+      expect(await names('incomplete')).toEqual(incomplete)
+      const { data } = await run<Detail>(detail, as('staff-super-admin'), { id })
+      expect((data?.partner?.['checklist'] as { item: string; status: string; by: unknown }[]).find((c) => c.item === 'plan')).toEqual({ item: 'plan', status: 'done', by: null })
+    } finally {
+      await db.sql`update partner_setup_item set status = 'done', done_at = now(), done_by_kind = 'partner_user', done_by_label = 'Maya Chen' where partner_id = ${id} and item = 'plan'`
+    }
+  })
+
   it('the permission block depends on the role and the record', async () => {
     const kaufladen = await partnerIdOf('Kaufladen Digital')
     const house = await partnerIdOf('DripFunnel')

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import { scheduleSubscriptionMoves } from '#db/scoped/partnerPlans'
+import { selectSetupItemsFor } from '#db/scoped/partners'
 import type { PartnerRole } from '#auth/partnerPermissions'
 import { activityLog } from '#saas/activity/index'
 import { createPartnerConsoleService } from '#saas/partnerConsole/index'
@@ -267,6 +268,32 @@ describe('making live and retiring', () => {
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
     const made = (await run<Outcome>(create, owner, { input: { ...input, entitlements: { ...input.entitlements, powered: false }, prices: [] } })).data?.createPlan
     expect((await run<Record<string, unknown>>(live, owner, { id: made?.id ?? '' })).data?.['makePlanLive']).toMatchObject({ ok: false, reason: 'UNPRICED_CURRENCY' })
+  })
+
+  it('moves the checklist’s plan item with the plans: to do, in progress, done by who made a priced plan live', async () => {
+    const [p] = await db.sql<{ id: string }[]>`insert into partner (name) values ('Checklist Partner') returning id`
+    const partnerId = p?.id ?? ''
+    // As Create partner leaves it: a checklist with its company item done.
+    await db.sql`insert into partner_setup_item (partner_id, item, status, done_at, done_by_kind, done_by_label) values (${partnerId}, 'company', 'done', now(), 'staff', 'DripFunnel')`
+    const owner = callerOf(partnerId, 'partner-owner')
+    const item = async () => (await withScope(db.sql, { caller: { kind: 'staff', staffId: 'st' } }, (tx) => selectSetupItemsFor(tx, [partnerId]))).find((i) => i.item === 'plan')
+    expect(await item()).toMatchObject({ status: 'missing', done_by_label: null })
+    const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
+    const draft = { ...input, name: 'First', entitlements: { ...input.entitlements, powered: false }, prices: [{ currency: 'USD', monthly: { amount: 2900, currency: 'USD' }, yearly: null }] }
+    const made = (await run<Outcome>(create, owner, { input: draft })).data?.createPlan
+    const planId = made?.id ?? ''
+    expect(await item()).toMatchObject({ status: 'progress', done_by_label: null })
+    // A Live plan with no monthly price is not priced.
+    await db.sql`update plan set status = 'live' where id = ${planId}`
+    await db.sql`update plan_price set monthly_amount = null where plan_id = ${planId}`
+    expect(await item()).toMatchObject({ status: 'progress', done_by_label: null })
+    await db.sql`update plan set status = 'draft' where id = ${planId}`
+    await db.sql`update plan_price set monthly_amount = 2900 where plan_id = ${planId}`
+    expect((await run<Record<string, unknown>>(live, owner, { id: planId })).data?.['makePlanLive']).toMatchObject({ ok: true })
+    expect(await item()).toMatchObject({ status: 'done', done_by_label: 'Maya Chen' })
+    // Done stays done, with who did it, when the plan is later retired.
+    await db.sql`update plan set status = 'retired' where id = ${planId}`
+    expect(await item()).toMatchObject({ status: 'done', done_by_label: 'Maya Chen' })
   })
 
   it('makes a draft live only once every currency the partner sells in has a monthly price', async () => {

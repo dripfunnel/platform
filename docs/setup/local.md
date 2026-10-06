@@ -306,7 +306,8 @@ it with the query.
      ```
    - **Plans** (`/plans`): at least one plan with a price, made Live. Its limits must be within
      what DripFunnel's contract allows Acme (a new partner keeps "Powered by").
-     *Writes* `plan`, `plan_version`, `plan_price`, `plan_entitlement`.
+     *Writes* `plan`, `plan_version`, `plan_price`, `plan_entitlement`, and, on Make live, who did
+     it on the `plan` setup item. The checklist reads that item's status from the plans themselves.
    - **Branding** (`/branding`): product name, colours that pass the contrast check, font,
      support email, and the terms and privacy links (the legal pages).
      *Writes* `partner_branding` and the `branding` and `legal` setup items.

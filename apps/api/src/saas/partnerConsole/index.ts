@@ -143,7 +143,6 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
     const partner = await selectPartner(tx, partnerId)
     if (!partner) return null
     const [rows, domains, plans] = await Promise.all([selectSetupItemsFor(tx, [partnerId]), selectPartnerDomainsFor(tx, [partnerId]), selectPlansFor(tx, [partnerId])])
-    const pricedPlan = goLiveChecksFor([], [], plans, false).pricedPlan
     const items = checklistItems.map((key): OnboardingItem => {
       const kinds = domainItemKinds[key]
       if (kinds) {
@@ -151,8 +150,6 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
         const live = mine.length === kinds.length && mine.every((d) => d.status === 'live')
         return { key, status: live ? 'done' : mine.length > 0 ? 'progress' : 'missing', detail: null, doneBy: null, to: linkFor[key] }
       }
-      // Like the domain items, the plan item is the go-live check itself (SAAS §3.2), never a stored row.
-      if (key === 'plan') return { key, status: pricedPlan ? 'done' : plans.length > 0 ? 'progress' : 'missing', detail: null, doneBy: null, to: linkFor[key] }
       const row = rows.find((r) => r.item === key)
       // A payment item a staff session marked done reads as not done: only the partner enters them.
       const staffDidPartnerItem = row?.done_by_kind === 'staff' && partnerOnlyItems.includes(key)
