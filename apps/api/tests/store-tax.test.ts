@@ -262,6 +262,84 @@ describe('Tax setup', () => {
     expect((await gql('mutation I($input: InvoiceSettingsInput!) { saveInvoiceSettings(input: $input) }', 'manager', { input: { taxPerLine: true, emailWithDispatch: true } })).code).toBe('FORBIDDEN')
   })
 
+  it('sets a category’s rate in the home zone there is, keeping the others, refusing an overlap and another store’s category', async () => {
+    const home = (who: Who, taxClassId: string | undefined, rateBps: number) => gql('mutation H($c: ID!, $r: Int!, $h: String!) { setHomeTaxRate(taxClassId: $c, rateBps: $r, homeZoneName: $h) }', who, { c: taxClassId, r: rateBps, h: 'India' })
+    const before = (await setup('india')).zones.find((z) => z.countries.length === 1 && z.countries[0] === 'IN' && z.regions.length === 0)
+    const [a, b] = before?.rates ?? []
+    // Two people change different categories at the same moment: both keep theirs, the zone's other rates untouched.
+    const [first, second] = await Promise.all([home('india', a?.taxClassId, 123), home('india', b?.taxClassId, 456)])
+    expect([first.code, second.code]).toEqual([undefined, undefined])
+    const after = (await setup('india')).zones.find((z) => z.id === before?.id)
+    expect(after?.rates.find((r) => r.taxClassId === a?.taxClassId)?.rateBps).toBe(123)
+    expect(after?.rates.find((r) => r.taxClassId === b?.taxClassId)?.rateBps).toBe(456)
+    expect(after?.rates).toHaveLength(before?.rates.length ?? 0)
+    expect(await db.sql`select actor_id, target_id from activity_log where action = 'tax_rate.set' and target_id = ${before?.id ?? ''} order by occurred_at desc limit 1`).toEqual([{ actor_id: people.india, target_id: before?.id }])
+    // A category another zone already answers for in India: the home zone taking it would answer for the same place and category.
+    const k = (await gql('mutation C($input: TaxClassInput!) { saveTaxClass(input: $input) }', 'india', { input: { name: 'Overlap test' } })).data?.['saveTaxClass'] as string
+    await gql('mutation Z($input: TaxZoneInput!) { saveTaxZone(input: $input) }', 'india', { input: { name: 'India and UAE', countries: ['AE', 'IN'], rates: [{ taxClassId: k, rateBps: 500 }] } })
+    expect((await home('india', k, 700)).code).toBe('ZONE_OVERLAP')
+    // Another store's category isn't there; a rate is a percentage.
+    expect((await home('other', a?.taxClassId, 100)).code).toBe('NOT_FOUND')
+    expect((await home('india', a?.taxClassId, 10_001)).code).toBe('INVALID_INPUT')
+  })
+
+  it('adds a category with its rate at home in one go, and leaves nothing behind when refused', async () => {
+    const add = (name: string, rateBps: number) => gql('mutation A($n: String!, $r: Int!, $h: String!) { addTaxCategory(name: $n, rateBps: $r, homeZoneName: $h) }', 'india', { n: name, r: rateBps, h: 'India' })
+    const made = (await add('Stationery', 500)).data?.['addTaxCategory'] as string
+    const after = await setup('india')
+    expect(after.classes.some((c) => c.id === made && c.name === 'Stationery')).toBe(true)
+    expect(after.zones.find((z) => z.countries[0] === 'IN' && z.regions.length === 0)?.rates.find((r) => r.taxClassId === made)?.rateBps).toBe(500)
+    // Refused as a rate out of range, and as a name taken: no category is left either time.
+    expect((await add('Comics', 10_001)).code).toBe('INVALID_INPUT')
+    expect((await add('Stationery', 500)).code).toBe('DUPLICATE_NAME')
+    expect((await setup('india')).classes.filter((c) => c.name === 'Comics' || c.name === 'Stationery')).toHaveLength(1)
+  })
+
+  it('makes the home zone with a rate where there’s none, on the server, and rolls a category back when its rate is refused', async () => {
+    const add = (who: Who, name: string, rateBps: number) => gql('mutation A($n: String!, $r: Int!, $h: String!) { addTaxCategory(name: $n, rateBps: $r, homeZoneName: $h) }', who, { n: name, r: rateBps, h: 'United States' })
+    const home = (who: Who, taxClassId: string | undefined, rateBps: number) => gql('mutation H($c: ID!, $r: Int!, $h: String!) { setHomeTaxRate(taxClassId: $c, rateBps: $r, homeZoneName: $h) }', who, { c: taxClassId, r: rateBps, h: 'United States' })
+    expect((await add('manager', 'Nope', 100)).code).toBe('FORBIDDEN')
+    expect((await home('manager', (await setup('india')).classes[0]?.id, 100)).code).toBe('FORBIDDEN')
+    // With the US store's country-wide zone gone, the first home rate makes one, named as given.
+    await db.sql`delete from tax_zone where store_id = ${stores.us} and regions = '[]'::jsonb and countries = '["US"]'::jsonb`
+    const usClass = (await setup('us')).classes[0]?.id
+    expect((await home('us', usClass, 625)).code).toBeUndefined()
+    const made = (await setup('us')).zones.find((z) => z.countries.length === 1 && z.countries[0] === 'US' && z.regions.length === 0)
+    expect(made?.name).toBe('United States')
+    expect(made?.rates.find((r) => r.taxClassId === usClass)?.rateBps).toBe(625)
+    // Room for classes (an earlier test filled the US store to 50), so the next refusals come after the class is made.
+    await db.sql`update tax_class set deleted_at = now() where store_id = ${stores.us} and name like 'Class %'`
+    // Two at once, with room for a class, on a store with no home zone: the lock lets the first make it and the second find it, so there's one.
+    await db.sql`delete from tax_zone where id = ${made?.id ?? ''}`
+    const raced = await Promise.all([home('us', usClass, 100), add('us', 'Raced', 200)])
+    expect(raced.map((r) => r.code)).toEqual([undefined, undefined])
+    const homes = (await setup('us')).zones.filter((z) => z.countries.length === 1 && z.countries[0] === 'US' && z.regions.length === 0)
+    expect(homes).toHaveLength(1)
+    expect(homes[0]?.rates).toHaveLength(2)
+    await db.sql`delete from tax_zone where id = ${homes[0]?.id ?? ''}`
+    const classesBefore = (await setup('us')).classes.length
+    expect(classesBefore).toBeLessThan(50)
+    // At the zone limit with no home zone, a new category's rate can't be placed: the category itself is undone too.
+    await db.sql`delete from tax_rate where tax_zone_id = ${made?.id ?? ''}`
+    await db.sql`delete from tax_zone where id = ${made?.id ?? ''}`
+    const room = 100 - (await setup('us')).zones.length
+    await db.sql`insert into tax_zone (store_id, name, countries) select ${stores.us}, 'Filler ' || n, '["CA"]'::jsonb from generate_series(1, ${room}) n`
+    try {
+      expect((await add('us', 'Rolled back', 500)).code).toBe('TOO_MANY')
+      expect((await setup('us')).classes).toHaveLength(classesBefore)
+    } finally {
+      await db.sql`delete from tax_zone where store_id = ${stores.us} and name like 'Filler %'`
+    }
+    // A store with no country has no home to put a rate in.
+    await db.sql`update store set country = null where id = ${stores.us}`
+    try {
+      expect((await add('us', 'Nowhere', 500)).code).toBe('INVALID_INPUT')
+      expect((await setup('us')).classes).toHaveLength(classesBefore)
+    } finally {
+      await db.sql`update store set country = 'US' where id = ${stores.us}`
+    }
+  })
+
   it('keeps each store to its own classes, rates and versions', async () => {
     const theirs = (await setup('india')).classes[0]?.id
     expect((await gql('mutation Z($input: TaxZoneInput!) { saveTaxZone(input: $input) }', 'us', { input: { name: 'Borrowed', countries: ['US'], rates: [{ taxClassId: theirs, rateBps: 500 }] } })).code).toBe('NOT_FOUND')
