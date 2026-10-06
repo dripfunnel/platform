@@ -564,6 +564,14 @@ describe('the contract (§4.2, §4.3)', () => {
     const [amended] = await db.sql<{ changes: { field: string; before: string | null; after: string | null }[] }[]>`
       select changes from activity_log where partner_id = ${id} and action = ${partnerAudit.setPartnerContract} and reason = 'Amended'`
     expect(amended?.changes.find((c) => c.field === 'rate.GBP')).toMatchObject({ before: '0.860000', after: null })
+
+    // A rate is per unit of the fee currency: a new fee currency keeps EUR on the contract but not its rate.
+    await db.sql`update partner_contract_rate set per_fee_unit = 0.92 where partner_id = ${id} and currency = 'EUR'`
+    expect((await run<Out>(set, as('staff-super-admin'), { id, input: { feeCurrency: 'INR', currencies: ['EUR'], poweredBy: 'required' }, reason: 'Fees in rupees' })).data?.['setPartnerContract']).toMatchObject({ ok: true })
+    expect(await rates(id)).toEqual([{ currency: 'EUR', per_fee_unit: null }])
+    const [rebased] = await db.sql<{ changes: { field: string; before: string | null; after: string | null }[] }[]>`
+      select changes from activity_log where partner_id = ${id} and action = ${partnerAudit.setPartnerContract} and reason = 'Fees in rupees'`
+    expect(rebased?.changes.find((c) => c.field === 'rate.EUR')).toMatchObject({ before: '0.920000', after: null })
   })
 
   it('keeps a rate a currency already has, and refuses a new fee currency while fees are stated in the old one', async () => {

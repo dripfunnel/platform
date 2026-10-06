@@ -82,6 +82,11 @@ export interface PartnerContract {
 }
 
 export const setPartnerContract = async (tx: ScopedSql, c: PartnerContract): Promise<void> => {
+  // A rate is per unit of the fee currency, so a new fee currency leaves none standing.
+  await tx`
+    delete from partner_contract_rate r using partner_contract k
+    where r.partner_id = ${c.partnerId} and k.partner_id = r.partner_id and k.fee_currency <> ${c.feeCurrency}
+  `
   await tx`
     insert into partner_contract (partner_id, fee_currency, powered_by_removable, powered_by_note)
     values (${c.partnerId}, ${c.feeCurrency}, ${c.poweredByRemovable}, ${c.poweredByNote})

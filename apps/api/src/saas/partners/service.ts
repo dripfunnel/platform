@@ -225,10 +225,11 @@ const contractOf = (terms: ContractTerms): ContractDto | null =>
         poweredBy: terms.powered_by_removable ? 'removable' : terms.powered_by_note === 'firstYear' ? 'firstYear' : 'required',
       }
 
-// A currency taken off loses its stored rate, so the entry keeps it (LOGGING.md: before and after).
+// A currency taken off, or every currency when the fee currency changes, loses its stored rate, so the entry keeps it.
 const contractChanges = (before: ContractDto | null, after: ContractInput, rates: ContractTerms['rates'] = {}) => {
   const text = (c: { currencies: string[] } | null) => (c ? [...c.currencies].sort().join(', ') : null)
-  const dropped = Object.entries(rates).filter(([currency, rate]) => rate !== null && !after.currencies.includes(currency))
+  const feeChanged = before !== null && before.feeCurrency !== after.feeCurrency
+  const dropped = Object.entries(rates).filter(([currency, rate]) => rate !== null && (feeChanged || !after.currencies.includes(currency)))
   return [
     { field: 'feeCurrency', before: before?.feeCurrency ?? null, after: after.feeCurrency },
     { field: 'currencies', before: text(before), after: text(after) },
