@@ -238,6 +238,10 @@ export interface PartnerListRow extends PartnerRow {
   owner_invitation_sent_at: Date | null
 }
 
+// Priced: plan `pl`'s current version has a monthly price in some currency (DATA-MODEL §2.3). The go-live
+// check (via selectPlansFor) and the checklist's plan item read this one predicate.
+const priced = (tx: ScopedSql) => tx`exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null)`
+
 // Every reader's checklist rows for the partners `partner` matches (`= p.id`, `= any(...)`). Like the domain
 // items, the plan item is the pricedPlan check itself (SAAS §3.2), never its stored row, and names nobody (#435).
 const setupItems = (tx: ScopedSql, partner: ReturnType<ScopedSql>) => tx`
@@ -250,7 +254,7 @@ const setupItems = (tx: ScopedSql, partner: ReturnType<ScopedSql>) => tx`
     select case
       when exists (
         select 1 from plan pl where pl.partner_id = sp.id and pl.status = 'live'
-          and exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null)
+          and ${priced(tx)}
       ) then 'done'
       when exists (select 1 from plan pl where pl.partner_id = sp.id) then 'progress'
       else 'missing'
@@ -483,8 +487,7 @@ export const selectPlansFor = (tx: ScopedSql, ids: readonly string[]): Promise<(
   tx<(PlanRow & { store_count: number; priced: boolean })[]>`
     select * from (
       select pl.*, (select count(*)::int from store s where s.plan_id = pl.id) as store_count,
-        -- Priced: its current version has a monthly price in some currency (DATA-MODEL §2.3).
-        exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null) as priced,
+        ${priced(tx)} as priced,
         row_number() over (partition by pl.partner_id order by pl.created_at) as rn
       from plan pl where pl.partner_id = any(${pgArray(ids)}::uuid[])
     ) ranked where rn <= ${maxPageSize} order by created_at
