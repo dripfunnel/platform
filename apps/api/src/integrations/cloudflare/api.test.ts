@@ -38,9 +38,21 @@ describe('cloudflareClient', () => {
   })
 
   it('tells a refusal from an outage', async () => {
-    const refused = cloudflareClient({ token: 't', zoneId: 'z', fetchImpl: () => reply({ success: false }, 403) })
+    const refused = cloudflareClient({ token: 't', zoneId: 'z', fetchImpl: () => reply({ success: false }, 422) })
     await expect(refused.ensureHostname('a.example.com')).rejects.toBeInstanceOf(CloudflareRefused)
     const down = cloudflareClient({ token: 't', zoneId: 'z', fetchImpl: () => reply({}, 503) })
     await expect(down.ensureHostname('a.example.com')).rejects.toBeInstanceOf(CloudflareUnavailable)
+  })
+})
+
+describe('a configuration fault is not the partner’s', () => {
+  it.each([401, 403, 404])('treats a %s as unavailable, so the address is retried and not failed', async (status) => {
+    const api = cloudflareClient({ token: 't', zoneId: 'z', fetchImpl: () => reply({ success: false }, status) })
+    await expect(api.ensureHostname('a.example.com')).rejects.toBeInstanceOf(CloudflareUnavailable)
+  })
+
+  it('still refuses a host Cloudflare rejects', async () => {
+    const api = cloudflareClient({ token: 't', zoneId: 'z', fetchImpl: () => reply({ success: false }, 422) })
+    await expect(api.ensureHostname('a.example.com')).rejects.toBeInstanceOf(CloudflareRefused)
   })
 })

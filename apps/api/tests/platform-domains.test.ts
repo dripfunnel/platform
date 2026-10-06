@@ -185,21 +185,31 @@ describe('removing an address', () => {
     expect(await db.sql`select 1 from outbox where kind = 'domain.remove' and payload->>'host' = 'mail.removable.example'`).toEqual([])
   })
 
-  // A DELETE only reaches rows the SELECT policy shows, so this holds with partner_domain_delete or without it:
-  // it pins the outcome (0061 grants delete and adds that policy), not the policy alone.
-  it('never lets one partner delete another’s address or records at the database, and a role without domains.write may not remove at all', async () => {
-    const { withScope } = await import('#db/scoped/index')
-    const { deletePartnerAddress } = await import('#db/scoped/partnerDomains')
+  // 0061's delete, tried at the database. partner_domain_read carries the same partner_id predicate as the delete policy,
+  // so another partner never reaches the row either way; this pins the outcome, and the role without the grant.
+  it('lets only the owning partner delete an address at the database', async () => {
     const [theirs] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.ns} limit 1`
     const domainId = theirs?.id ?? ''
     expect(domainId).not.toBe('')
-    const records = await db.sql`select count(*)::int as n from partner_domain_record where domain_id = ${domainId}`
-    await withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.removal }, (tx) => deletePartnerAddress(tx, domainId))
+    const attempt = (role: string, scope: string, partnerId: string) =>
+      db.sql
+        .begin(async (tx) => {
+          await tx.unsafe(`set local role ${role}`)
+          await tx`select set_config('app.scope', ${scope}, true), set_config('app.partner_id', ${partnerId}, true)`
+          await tx`delete from partner_domain_record where domain_id = ${domainId}`
+          const gone = await tx`delete from partner_domain where id = ${domainId} returning id`
+          throw Object.assign(new Error('rollback'), { deleted: gone.length })
+        })
+        .catch((error: { deleted?: number; message: string }) => (error.deleted === undefined ? error.message : error.deleted))
+    expect(await attempt('app_request', 'store', ids.ns)).not.toBe(1)
+    expect(await attempt('app_partner', 'partner', ids.removal)).toBe(0)
+    expect(await attempt('app_partner', 'partner', ids.ns)).toBe(1)
     expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
-    expect(await db.sql`select count(*)::int as n from partner_domain_record where domain_id = ${domainId}`).toEqual(records)
-    const storeScope = withScope(db.sql, { caller: { kind: 'store-user', storeId: ids.removal, userId: 'u' }, storeId: ids.removal } as never, (tx) => deletePartnerAddress(tx, domainId))
-    await storeScope.catch(() => undefined)
-    expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
+  })
+
+  it('refuses a role without domains.write', async () => {
+    const [theirs] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.ns} limit 1`
+    const domainId = theirs?.id ?? ''
     expect((await run<Removed>(remove, callerOf(ids.ns, 'partner-support'), { kind: 'portal' })).code).toBe('FORBIDDEN')
     expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
   })
@@ -339,6 +349,17 @@ describe('the portal host and Cloudflare for SaaS', () => {
     const ghost = cloudflareWith(async () => hostnameOf('pending', 'initializing'))
     await recheck(id, lookupFor(() => run(`mutation { removePartnerDomain(kind: "portal") { ok } }`, owner(), {})), ghost)
     expect(ghost.ensured).toBe(0)
+  })
+
+  it('takes a host back out of Cloudflare when the address was removed during the registration', async () => {
+    const id = await addPortal('store.racing.example')
+    const removed: string[] = []
+    const racing: CloudflareApi = {
+      ensureHostname: async () => (await run(`mutation { removePartnerDomain(kind: "portal") { ok } }`, owner(), {}), hostnameOf('pending', 'initializing')),
+      removeHostname: async (host) => void removed.push(host),
+    }
+    await recheck(id, lookupFor(), racing)
+    expect(removed).toEqual(['store.racing.example'])
   })
 
   it('removes a removed host from Cloudflare and leaves one a partner has claimed since', async () => {

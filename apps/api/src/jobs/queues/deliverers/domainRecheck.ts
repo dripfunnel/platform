@@ -33,6 +33,11 @@ export const domainRecheckDeliverer = (sql: postgres.Sql, lookup: DnsLookup, now
       if (!stillThere) return
       try {
         check.status = hostStatusOf(await cloudflare.ensureHostname(domain.host))
+        // A removal can also commit between the check above and the registration, after domain.remove ran.
+        if (!(await withSystemScope(sql, (tx) => selectPartnerDomainById(tx, domain.id)))) {
+          await cloudflare.removeHostname(domain.host)
+          return
+        }
       } catch (error) {
         // A refusal (bad host, token) will not change by retrying; an outage throws and the relay retries.
         if (!(error instanceof CloudflareRefused)) throw error

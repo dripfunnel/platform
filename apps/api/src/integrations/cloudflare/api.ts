@@ -46,7 +46,8 @@ export const cloudflareClient = ({ token, zoneId, fetchImpl = fetch }: { token: 
     } catch {
       throw new CloudflareUnavailable('no answer')
     }
-    if (response.status >= 500 || response.status === 429) throw new CloudflareUnavailable(`answered ${response.status}`)
+    // A bad token (401, 403) or zone (404) is our configuration, not the partner's host: wait for a fix, do not fail the address.
+    if (response.status >= 500 || [401, 403, 404, 429].includes(response.status)) throw new CloudflareUnavailable(`answered ${response.status}`)
     if (!response.ok) throw new CloudflareRefused(`answered ${response.status}`)
     const parsed = schema.safeParse(await response.json().catch(() => null))
     if (!parsed.success) throw new CloudflareUnavailable('answered in a shape we do not read')

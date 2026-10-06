@@ -460,8 +460,8 @@ failed; a live hostname can become expiring or broken if its records change.
    for the record after commit, so a user's hostname never becomes a host the Worker connects
    to; it moves waiting → live, or failed, or broken once a live record changes. **Merchant
    domains the same way on #34** (`custom_domain.recheck`): the CNAME decides the status and
-   the ownership TXT is recorded for the certificate step. The certificate states (verifying,
-   issuing) arrive with the Cloudflare for SaaS integration (THIRD-PARTY-ACCESS §2.1).
+   the ownership TXT is recorded for the certificate step. For the portal host, once
+   DNS passes, the status is Cloudflare's own: verifying, issuing, live (`hostStatusOf`).
    **Edge routing (checked 2026-10-05, dev):** each environment's zone holds a proxied
    fallback-origin record, `portal.edge.<zone>` → the store Pages project, set as the zone's
    Cloudflare for SaaS fallback origin; `EDGE_ZONE` names the zone and so the CNAME targets
