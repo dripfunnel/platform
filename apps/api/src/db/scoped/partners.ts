@@ -172,6 +172,18 @@ export const upsertSetupItem = async (tx: ScopedSql, s: NewSetupItem): Promise<v
   `
 }
 
+/** Records who completed an item, unless it is already done (the first one keeps it). */
+export const markSetupItemDone = async (tx: ScopedSql, s: Omit<NewSetupItem, 'status'>): Promise<void> => {
+  await tx`
+    insert into partner_setup_item (partner_id, item, status, detail, done_by_kind, done_by_label, done_at)
+    values (${s.partnerId}, ${s.item}, 'done', ${s.detail ?? null}, ${s.doneByKind ?? null}, ${s.doneByLabel ?? null}, ${s.doneAt ?? null})
+    on conflict (partner_id, item) do update set
+      status = 'done', detail = excluded.detail, done_by_kind = excluded.done_by_kind,
+      done_by_label = excluded.done_by_label, done_at = excluded.done_at
+    where partner_setup_item.status <> 'done'
+  `
+}
+
 export interface NewPlan {
   partnerId: string
   name: string
@@ -238,14 +250,36 @@ export interface PartnerListRow extends PartnerRow {
   owner_invitation_sent_at: Date | null
 }
 
+// Every reader's checklist rows. The plan item is done once a priced plan was made live (its stored row,
+// with who did it) or one is Live now (SAAS §3.2), so a stale row can't hold it back (#435).
+const setupItems = (tx: ScopedSql) => tx`
+  select i.partner_id, i.item, i.status, i.detail, i.done_by_kind, i.done_by_label, i.done_at
+  from partner_setup_item i where i.item not in ('testSignup', 'plan')
+  union all
+  select p.id, 'plan', d.status, case when d.status = i.status then i.detail end,
+    case when i.status = 'done' then i.done_by_kind end, case when i.status = 'done' then i.done_by_label end, case when i.status = 'done' then i.done_at end
+  from partner p
+  left join partner_setup_item i on i.partner_id = p.id and i.item = 'plan'
+  cross join lateral (
+    select case
+      when i.status = 'done' or exists (
+        select 1 from plan pl where pl.partner_id = p.id and pl.status = 'live'
+          and exists (select 1 from plan_price pp where pp.plan_id = pl.id and pp.version = pl.version and pp.monthly_amount is not null)
+      ) then 'done'
+      when exists (select 1 from plan pl where pl.partner_id = p.id) then 'progress'
+      else 'missing'
+    end as status
+  ) d
+  where exists (select 1 from partner_setup_item c where c.partner_id = p.id and c.item <> 'testSignup')
+`
+
 // The list's projection, shared with the single-row read so the two can never disagree.
 const listProjection = (tx: ScopedSql) => tx`
   select p.*,
     (select count(*)::int from store s where s.partner_id = p.id) as store_count,
     pd.host as portal_host, pd.status as portal_status,
-    -- testSignup rows from before #421 dropped that item are kept and never counted.
-    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status = 'done') as setup_done,
-    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup') as setup_total,
+    (select count(*)::int from (${setupItems(tx)}) i where i.partner_id = p.id and i.status = 'done') as setup_done,
+    (select count(*)::int from (${setupItems(tx)}) i where i.partner_id = p.id) as setup_total,
     o.name as owner_name, o.email as owner_email,
     case
       when o.id is null then null
@@ -280,8 +314,8 @@ export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page:
     where true
       ${filter.state !== undefined ? tx`and p.state = ${filter.state}` : tx``}
       ${filter.assignedTo !== undefined ? tx`and exists (select 1 from staff_partner_assignment a where a.partner_id = p.id and a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
-      ${filter.setup === 'complete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup') and not exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status <> 'done')` : tx``}
-      ${filter.setup === 'incomplete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status <> 'done')` : tx``}
+      ${filter.setup === 'complete' ? tx`and not exists (select 1 from (${setupItems(tx)}) i where i.partner_id = p.id and i.status <> 'done')` : tx``}
+      ${filter.setup === 'incomplete' ? tx`and exists (select 1 from (${setupItems(tx)}) i where i.partner_id = p.id and i.status <> 'done')` : tx``}
       ${q !== null ? tx`and (p.name ilike ${q} or pd.host ilike ${q} or o.email ilike ${q})` : tx``}
       ${sort === 'oldestSubmitted' ? tx`and p.submitted_at is not null` : tx``}
       ${page.after !== undefined ? (sort === 'newest' ? tx`and (${key}, p.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx`and (${key}, p.id) > (${page.after.occurredAt}, ${page.after.id}::uuid)`) : tx``}
@@ -453,7 +487,7 @@ export const selectPartnerDomainsFor = (tx: ScopedSql, ids: readonly string[]): 
   tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = any(${pgArray(ids)}::uuid[]) order by kind`
 
 export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerSetupItemRow[]> =>
-  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[]) and item <> 'testSignup'`
+  tx<PartnerSetupItemRow[]>`select * from (${setupItems(tx)}) i where i.partner_id = any(${pgArray(ids)}::uuid[])`
 
 // Capped per partner, not per batch: a page of partners must never lose one partner's rows
 // to another's.
