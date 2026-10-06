@@ -30,7 +30,7 @@ const show = async (acting: Acting, readOnly = false) => {
 }
 
 beforeEach(() => {
-  api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null }])
+  api.loadPlaces.mockResolvedValue([{ id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null, supplierName: null }])
 })
 
 afterEach(() => {
@@ -51,6 +51,16 @@ describe('the Warehouses page', () => {
     await show(owner)
     expect(screen.getByRole('heading', { level: 1, name: words.tabs.warehouses })).toBeTruthy()
     expect(screen.queryByRole('navigation', { name: words.tabs.label })).toBeNull()
+  })
+
+  it('names a supplier’s location for every merchant seat that reads stock, from the API', async () => {
+    api.loadPlaces.mockResolvedValue([
+      { id: 'w1', name: 'Workshop', isDefault: true, units: 3, revision: 1, address: null, supplierId: null, supplierName: null },
+      { id: 'w9', name: 'Anand’s depot', isDefault: true, units: 12, revision: 1, address: null, supplierId: 'v1', supplierName: 'Northwind' },
+    ])
+    await show({ ...owner, role: 'manager', permissions: ['catalog.read', 'stock.read'] })
+    expect(screen.getByRole('heading', { name: words.theirsTitle })).toBeTruthy()
+    expect(screen.getByText(/Northwind · 12 units/)).toBeTruthy()
   })
 
   it('shows the list without changes to a read-only store or a seat without warehouses.write', async () => {

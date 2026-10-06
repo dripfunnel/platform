@@ -90,6 +90,8 @@ export interface MarketRow {
   path_prefix: string | null
   products: 'all' | 'some'
   excluded_product_ids: string[]
+  /** The same products, named, for Settings › Markets' list of what isn't sold there. */
+  excluded_products: { id: string; name: string }[]
   duties_mode: 'none' | 'by_code' | 'flat'
   duties_rate_bps: number | null
   duties_threshold_amount: string | null
@@ -102,6 +104,7 @@ const marketColumns = (tx: ScopedSql) => tx`
   m.id, m.parent_id, m.name, m.is_primary, m.is_fallback, m.countries, m.currency::text as currency, m.language, m.price_adjustment_bps,
   m.web_mode, m.path_prefix, m.products,
   coalesce((select json_agg(e.product_id order by e.product_id) from market_excluded_product e where e.market_id = m.id), '[]'::json) as excluded_product_ids,
+  coalesce((select json_agg(json_build_object('id', p.id, 'name', p.name) order by p.name, p.id) from market_excluded_product e join product p on p.id = e.product_id and p.deleted_at is null where e.market_id = m.id), '[]'::json) as excluded_products,
   m.duties_mode, m.duties_rate_bps, m.duties_threshold_amount::text as duties_threshold_amount, m.status, m.revision, m.created_at
 `
 

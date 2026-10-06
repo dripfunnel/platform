@@ -16,6 +16,7 @@ const words: Record<Exclude<TaxResult<unknown>, { ok: true }>['reason'], string>
   PRICE_REQUIRED: 'A product here has no price yet.',
   TOO_MANY: 'That’s as many as a store can have.',
   ZONE_OVERLAP: 'Another zone already sets a rate for this category in the same place. Change that zone, or choose other regions.',
+  NO_COUNTRY: 'Your store has no country yet, so there’s no home to set a rate for. Add your store’s address in Store info first.',
   TAX_UNAVAILABLE: 'We can’t work out the tax right now. Try again in a moment.',
 }
 
@@ -144,6 +145,18 @@ export const registerTax = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: taxAudit.zoneSaved } },
       resolve: async (_, args, ctx) =>
         answered(await service(ctx).saveZone(args.id ? String(args.id) : null, { ...args.input, rates: args.input.rates.map((r) => ({ taxClassId: String(r.taxClassId), rateBps: r.rateBps })) })),
+    }),
+    // An existing category's rate at home, the home zone made on the server when there's none (Tax setup's "Change rate").
+    setHomeTaxRate: t.boolean({
+      args: { taxClassId: t.arg.id({ required: true }), rateBps: t.arg.int({ required: true }), homeZoneName: t.arg.string({ required: true }) },
+      extensions: { access: { ...write, audit: taxAudit.rateSet } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).setHomeRate(String(args.taxClassId), args.rateBps, args.homeZoneName)),
+    }),
+    // A new category with its rate at home, the home zone made with it if there's none: one transaction, answering its id.
+    addTaxCategory: t.id({
+      args: { name: t.arg.string({ required: true }), rateBps: t.arg.int({ required: true }), homeZoneName: t.arg.string({ required: true }) },
+      extensions: { access: { ...write, audit: taxAudit.classSaved } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).addCategory({ name: args.name, rateBps: args.rateBps, homeZoneName: args.homeZoneName })),
     }),
     deleteTaxZone: t.boolean({
       args: { id: t.arg.id({ required: true }) },

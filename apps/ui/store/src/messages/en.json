@@ -1741,7 +1741,228 @@
       "title": "You can’t see locations",
       "body": "Ask an admin for access to warehouses."
     },
-    "manageButton": "Manage"
+    "manageButton": "Manage",
+    "theirsTitle": "Supplier locations",
+    "theirsSub": "Suppliers add and count these themselves. They aren’t offered as your default.",
+    "supplierMark": "SU"
+  },
+  "imports": {
+    "title": "Import & export",
+    "lede": "Bring products in from a spreadsheet or Shopify. Nothing changes in your catalogue until you confirm.",
+    "back": "← Products",
+    "steps": {
+      "label": "Import steps",
+      "choose": "Choose",
+      "check": "Check",
+      "import": "Import",
+      "done": "Done",
+      "finished": "{step}, done",
+      "current": "{step}, current step"
+    },
+    "sources": {
+      "file": {
+        "title": "Import from a spreadsheet",
+        "body": "A CSV file, or Shopify’s product export. Our template has one example row.",
+        "cta": "Choose a file"
+      },
+      "shopify": {
+        "title": "Bring products from Shopify",
+        "body": "Connect your Shopify store and pick what to bring over — photos, choices and all.",
+        "cta": "Connect Shopify"
+      },
+      "template": {
+        "title": "Download the template",
+        "body": "Every column we read, with one example row: name, price, stock, product code, photos and the rest.",
+        "cta": "Download template.csv",
+        "file": "template.csv"
+      }
+    },
+    "fileErrors": {
+      "type": {
+        "title": "That file type can’t be imported",
+        "body": "{name} isn’t a CSV file. Save it as CSV (in Excel: File › Save a copy › CSV) and choose it again."
+      },
+      "big": {
+        "title": "That file is too big",
+        "body": "{name} is {size}; the limit is 5 MB. Split it into two files, or import from Shopify instead."
+      },
+      "empty": {
+        "title": "That file has no products in it",
+        "body": "{name} has a header row but nothing under it. Add at least one product, one per row."
+      },
+      "cols": {
+        "title": "Some columns we need are missing",
+        "body": "{name} has no “name” or “handle” column. Download the current template, or rename your columns to match it."
+      },
+      "other": {
+        "title": "That file can’t be imported"
+      },
+      "chooseAnother": "Choose another file",
+      "template": "Download the template",
+      "megabytes": "{size} MB"
+    },
+    "shopify": {
+      "title": "Connect your Shopify store",
+      "address": "Your Shopify store address",
+      "placeholder": "your-store",
+      "suffix": ".myshopify.com",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "again": "Connect again",
+      "note": "We’ll open Shopify so you can approve read-only access, then bring you back here to choose products. Have a Shopify export file instead? Use “Import from a spreadsheet”.",
+      "expired": "Shopify stopped letting us in — the connection expired. Connect again to carry on.",
+      "failed": "Shopify didn’t finish connecting. Try again.",
+      "required": "Type your Shopify store address",
+      "connected": "Connected — Shopify approved read-only access",
+      "notFound": "We couldn’t find {shop}.myshopify.com. Check the address in your Shopify admin — it’s under Settings › Domains.",
+      "unavailable": "Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead, with “Import from a spreadsheet”.",
+      "away": "Shopify isn’t answering right now. Try again in a minute."
+    },
+    "pick": {
+      "title": "Connected to {shop} · pick products",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "allChosen": "Every product in your shop is chosen.",
+      "more": "Show more",
+      "loading": "Reading your shop…",
+      "back": "Back",
+      "check": {
+        "one": "Check {count} product",
+        "other": "Check {count} products"
+      },
+      "checkAll": "Check all products",
+      "none": "Pick at least one product",
+      "max": "You can pick up to 250. To bring more, choose “Select all”.",
+      "versions": {
+        "one": "{count} version",
+        "other": "{count} versions"
+      },
+      "draft": "Draft",
+      "archived": "Archived",
+      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want.",
+      "moreFailed": "Those products didn’t load. What you’ve ticked is kept; try again."
+    },
+    "checking": {
+      "file": "Checking your file…",
+      "shopify": "Reading your shop’s products…"
+    },
+    "check": {
+      "fileName": "{name} · {count}",
+      "rows": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "ready": "{count} ready",
+      "readyNote": "{new} new · {matched} you already have (matched by product code)",
+      "problemsLabel": "need fixing",
+      "problems": "{count} with problems",
+      "problemsBody": "Fix them in your file and upload again, or import the ready ones now.",
+      "existing": "Products you already have ({count})",
+      "update": "Update them with the file",
+      "skip": "Skip them, only add new ones",
+      "stockIn": "Put imported stock in",
+      "isDefault": "{name} (default)",
+      "fix": "What to fix",
+      "download": "Download file with a “Problems” column",
+      "row": "Row {line}",
+      "file": "file",
+      "moreProblems": {
+        "one": "{count} more is in the file.",
+        "other": "{count} more are in the file."
+      },
+      "restart": "Upload a fixed file",
+      "run": {
+        "one": "Import {count} product",
+        "other": "Import {count} products"
+      },
+      "problemsFile": "import-problems.csv"
+    },
+    "running": {
+      "title": {
+        "one": "Importing {count} product",
+        "other": "Importing {count} products"
+      },
+      "progress": "{done} of {total} done. You can leave this page — we’ll tell you when it’s finished.",
+      "progressLabel": "Import progress",
+      "pausedTitle": "Paused — you’re offline.",
+      "pausedBody": "Nothing is half-saved: the products done so far are in, and the rest carry on when you reconnect.",
+      "leave": "Go to Products while it runs"
+    },
+    "done": {
+      "title": "{added} added · {updated} updated",
+      "skipped": {
+        "one": "{count} product with problems was skipped.",
+        "other": "{count} products with problems were skipped."
+      },
+      "failed": {
+        "one": "{count} product couldn’t be saved.",
+        "other": "{count} products couldn’t be saved."
+      },
+      "photos": {
+        "one": "{count} photo is still coming in.",
+        "other": "{count} photos are still coming in."
+      },
+      "download": "Download what didn’t go in",
+      "view": "See your products",
+      "another": "Import another file"
+    },
+    "stopped": {
+      "title": "The import stopped",
+      "body": "Nothing more was changed. Try again, or import a file instead."
+    },
+    "export": {
+      "title": "Export",
+      "hidden": "Export hidden only",
+      "all": "Export all {count}",
+      "preparing": "Preparing your file… big exports run in the background.",
+      "row": "{label} · {count}",
+      "label": {
+        "products": "Products",
+        "stock": "Stock"
+      },
+      "count": {
+        "one": "{count} product",
+        "other": "{count} products"
+      },
+      "download": "Download",
+      "expired": "Expired",
+      "failed": "Couldn’t be made",
+      "ready": "Your export is ready",
+      "file": "products-{date}.csv",
+      "counting": "…"
+    },
+    "banner": {
+      "title": "Importing products —",
+      "body": "{done} of {total} done. Keep working — we’ll tell you when it’s finished.",
+      "pausedTitle": "Import paused —",
+      "pausedBody": "you’re offline. It carries on by itself when you’re back.",
+      "view": "View",
+      "finished": "Import finished — {added} added, {updated} updated"
+    },
+    "readOnly": "Your store is view-only until billing is sorted, so nothing can be imported. Exports still work.",
+    "denied": {
+      "title": "You don’t have access to Import & export",
+      "body": "Ask the store owner if you need products brought in."
+    },
+    "error": {
+      "title": "This page didn’t load",
+      "body": "Your products are safe. Try again in a moment.",
+      "retry": "Try again"
+    },
+    "listExport": {
+      "button": "Export",
+      "preparing": "Preparing your export…",
+      "ready": {
+        "one": "{count} product is ready.",
+        "other": "{count} products are ready."
+      },
+      "truncated": "Only the first {count} products are in it; narrow the filter to see the rest.",
+      "download": "Download",
+      "expires": "The link works until {time}.",
+      "expired": "That export’s link has expired. Export again.",
+      "tooLarge": "That export is too large. Narrow the filter and try again.",
+      "failed": "The export couldn’t be made. Try again."
+    }
   },
   "collections": {
     "tabs": {
@@ -2517,6 +2738,292 @@
         "FORBIDDEN": "Only the store owner can change this.",
         "other": "That didn’t save. Try again."
       }
+    },
+    "tax": {
+      "names": {
+        "gst": "GST",
+        "salesTax": "sales tax",
+        "vat": "VAT"
+      },
+      "pricesTitle": "How you type prices",
+      "pricesUsualIn": "This decides what the number in every product’s price box means. Stores here usually include {name}.",
+      "pricesUsualOut": "This decides what the number in every product’s price box means. Stores here usually don’t include {name}.",
+      "include": "Prices include {name}",
+      "includeSub": "The price you type is what the shopper pays. Usual in the EU, UK, India and Australia.",
+      "exclude": "Prices don’t include {name}",
+      "excludeSub": "{name} is added on top at checkout. Usual in the US and Canada.",
+      "exampleIncluded": "The price you type is the price shoppers pay; {name} is part of it.",
+      "exampleExcluded": "{name} is worked out at checkout and added to the price you type.",
+      "includeTitle": "Prices include {name} from now on?",
+      "excludeTitle": "Prices exclude {name} from now on?",
+      "keepNumbers": "The numbers you typed on your products stay as they are, so what shoppers pay changes by the {name}. Change any price you want to keep the same for shoppers.",
+      "nowIncluded": "Prices now include {name} — the price box on every product says so",
+      "nowExcluded": "Prices now exclude {name} — it’s added at checkout",
+      "save": "Save",
+      "yours": "Your {what}",
+      "categories": "tax categories",
+      "categoriesRates": "tax rates",
+      "classesSub": "Name them whatever your country calls them. Each product version uses one.",
+      "classesSubUs": "Sales tax is worked out at checkout from the shopper’s state. You choose the category per product.",
+      "versions": {
+        "one": "1 product version",
+        "other": "{count} product versions"
+      },
+      "noRate": "No rate at home yet",
+      "byState": "Rate depends on the shopper’s state",
+      "default": "default for new products",
+      "manage": "Manage {name}",
+      "manageButton": "Manage",
+      "whatNow": "What to do",
+      "continue": "Continue",
+      "cancel": "Cancel",
+      "makeDefault": "Make default for new products",
+      "changeRate": "Change its rate",
+      "delete": "Delete",
+      "nowDefault": "{name} is the default for new products — existing products keep theirs",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "No product uses it, so nothing else changes.",
+      "deleted": "{name} deleted",
+      "rateTitle": "{name}: rate in {place}",
+      "rateBody": "Every product using this category charges the new rate from now on.",
+      "rateLabel": "Rate, %",
+      "ratePlaceholder": "5",
+      "rateInvalid": "Type a percentage from 0 to 100",
+      "rateSaved": "{name}’s rate saved",
+      "addTitle": "Add a rate",
+      "addBody": "A new category and its rate here. Products choose it in their tax box.",
+      "addLabel": "Name and percentage, e.g. “Books 7”",
+      "addPlaceholder": "Books 7",
+      "addInvalid": "Type a name and a percentage, e.g. “Books 7”",
+      "add": "Add",
+      "added": "{name} added",
+      "defaultNote": "Changing the default doesn’t touch products you’ve already priced.",
+      "otherPlaces": "Rates in other places",
+      "invoiceTitle": "On the invoice",
+      "invoiceTaxId": "Your tax number: {id}",
+      "invoiceNoTaxId": "Your tax number isn’t added yet — add it in Store info.",
+      "perLine": "Show {name} on each line, not just the total",
+      "emailInvoice": "Email the invoice with the dispatch note",
+      "invoiceNote": "New invoices follow new settings; issued ones are never rewritten.",
+      "saveInvoice": "Save invoice settings",
+      "invoiceSaved": "Invoice settings saved — the next invoice uses them",
+      "refused": {
+        "NOT_FOUND": "That isn’t here any more.",
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "DUPLICATE_NAME": "Another category already has that name.",
+        "DEFAULT_CLASS": "Make another category the default first.",
+        "CLASS_IN_USE": "Products use this category. Move them to another first.",
+        "ZONE_OVERLAP": "Another zone already sets a rate for this category in the same place.",
+        "TOO_MANY": "That’s as many as a store can have.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change tax.",
+        "NO_COUNTRY": "Your store has no country yet, so there’s no home to set a rate for. Add your address in Store info first.",
+        "other": "That didn’t save. Try again."
+      }
+    },
+    "markets": {
+      "title": "Markets",
+      "sub": "Groups of countries you sell to, each with its own currency, language and rules.",
+      "add": "Add market",
+      "primary": "Primary",
+      "off": "Off",
+      "active": "Active",
+      "elseTitle": "Everywhere else",
+      "elseSub": "Shoppers from a country that isn’t in any market get the settings of:",
+      "nobody": "Nobody — they can’t buy",
+      "elseSaved": "Saved",
+      "pickOne": "Pick a market on the left, or add one.",
+      "newTitle": "New market",
+      "newBody": "Name it after the place, e.g. “UK” or “Nordics”. You’ll pick countries next.",
+      "name": "Market name",
+      "namePlaceholder": "e.g. United Kingdom",
+      "create": "Create",
+      "created": "{name} added — shoppers there see it within a minute",
+      "selling": "Selling here",
+      "notSelling": "Not selling here",
+      "pickCountry": "Pick at least one country.",
+      "preview": "A shopper in {country} sees {currency}, {language}, at {where}",
+      "previewAdjust": ", prices {adjust}%",
+      "previewExcluded": ", {count} products not sold",
+      "previewDuties": ", duties paid at checkout",
+      "mainAddress": "your shop’s main address",
+      "countries": "Countries",
+      "inAnother": "in {name}",
+      "anotherCountry": "+ Another country",
+      "parent": "Part of a bigger market?",
+      "standsAlone": "No — it stands on its own",
+      "inside": "Inside {name} — copies its settings unless you change them here",
+      "parentCountries": "A market inside {name} sells only in {name}’s countries.",
+      "copied": "Copied {parent}’s currency and language — change any of them for {name}",
+      "rules": "Currency, language, prices and web address",
+      "currency": "Currency",
+      "mainCurrency": "Your main currency",
+      "convertedCurrency": "Converted automatically · set in Store info",
+      "typedCurrency": "You type prices for this one · set in Store info",
+      "language": "Language",
+      "languageHelp": "Add languages in Store info",
+      "adjust": "Price adjustment",
+      "adjustHelp": "e.g. +10 to cover higher costs abroad. Fixed prices per product wait for their plan.",
+      "web": "Web address",
+      "webHelp": "Where shoppers in this market land. One domain per store.",
+      "pathAddress": "A path on your shop’s address",
+      "path": "Path, e.g. uk",
+      "productsTitle": "Products sold here",
+      "allProducts": "All products",
+      "allExcept": "All except some",
+      "findProduct": "Find a product not to sell here",
+      "sellAgain": "Sell {name} here again",
+      "excludedHelp": "Crossed-out products show “Not available in your country” here.",
+      "duties": "Collect duties and import taxes at checkout",
+      "dutiesHelp": "Shoppers pay the full cost up front — no surprise bill at the door.",
+      "dutyMode": "How duties are worked out",
+      "byCode": "From each product’s customs code",
+      "flat": "A flat percentage of the basket",
+      "dutyRate": "Percentage",
+      "dutyMin": "Don’t charge below ({currency})",
+      "dutyMinHelp": "Many countries waive duty on small parcels",
+      "save": "Save market",
+      "saved": "{name} saved — shoppers there see it within a minute",
+      "delete": "Delete market",
+      "deleteTitle": "Delete {name}?",
+      "deleteBody": "Shoppers in {countries} get your “Everywhere else” settings instead. Orders already placed aren’t affected.",
+      "theseCountries": "these countries",
+      "deleted": "{name} deleted",
+      "leaveTitle": "Leave without saving?",
+      "leaveBody": "Your changes to this market will be lost.",
+      "discard": "Discard changes",
+      "cancel": "Cancel",
+      "problems": {
+        "name": "Give the market a name",
+        "countries": "Pick at least one country",
+        "adjust": "Type the adjustment as a percentage, e.g. 10 or -5",
+        "path": "Use a short path: lower-case letters, numbers and -, e.g. uk",
+        "dutyRate": "Type the duty percentage",
+        "dutyThreshold": "Type the amount below which no duty is charged",
+        "parentCountries": "A sub-market sells in its parent’s countries only. Take out the ones marked."
+      },
+      "refused": {
+        "INVALID_LANGUAGE": "Choose from your store’s languages.",
+        "INVALID_CURRENCY": "Choose from your store’s currencies.",
+        "INVALID_COUNTRY": "That isn’t a country we know.",
+        "COUNTRIES_REQUIRED": "Pick at least one country.",
+        "INVALID_INPUT": "Something here isn’t valid.",
+        "NOT_FOUND": "That isn’t here any more.",
+        "STALE_REVISION": "Someone else changed this market first. Open it again to see their changes.",
+        "CURRENCY_REQUIRED": "Set your main currency first.",
+        "NOT_OFFERED": "Add that currency and language in Store info first.",
+        "PRIMARY_MARKET": "Your primary market can’t be switched off, moved or deleted.",
+        "COUNTRY_TAKEN": "A country can only be in one market.",
+        "NOT_PARENTS_COUNTRIES": "A market inside another sells only in its countries.",
+        "BAD_PARENT": "A market can sit inside a top-level market only.",
+        "DUPLICATE_NAME": "Another market already has that name.",
+        "DUPLICATE_PATH": "Another market already uses that web address.",
+        "PLAN_LIMIT": "Your plan doesn’t include more markets.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change markets.",
+        "other": "That didn’t save. Try again."
+      },
+      "subMarket": "Sub-market",
+      "placeholders": {
+        "adjust": "0",
+        "path": "uk",
+        "dutyRate": "12",
+        "dutyThreshold": "0"
+      },
+      "percent": "%",
+      "rowSub": "{countries} · {currency}",
+      "deletedProduct": "A product deleted since — dropped when you save",
+      "chipNote": "{country} · {note}",
+      "notParents": "not in {name}",
+      "reread": "{refusal} The list now shows what’s saved.",
+      "pathUnset": "…"
+    },
+    "catalogue": {
+      "sellTitle": "What do you mostly sell?",
+      "sellSub": "We’ll switch on the sections that fit. Change any of them below.",
+      "presets": {
+        "clothing": "Clothing",
+        "electronics": "Electronics",
+        "food": "Food & drink",
+        "beauty": "Beauty",
+        "handmade": "Handmade"
+      },
+      "presetApplied": "{name} sections switched on — press Save sections to keep them",
+      "sectionsTitle": "Product page sections",
+      "yourPlan": "Your plan: {plan}",
+      "sections": {
+        "sizeCharts": "Size charts",
+        "specs": "Specifications",
+        "highlights": "Highlights",
+        "faqs": "FAQs",
+        "badges": "Badges",
+        "related": "Related products",
+        "aplus": "A+ content · Product story",
+        "video": "Video"
+      },
+      "sectionHelp": {
+        "sizeCharts": "Helps shoppers pick the right size",
+        "specs": "Facts like Material: Cotton",
+        "highlights": "3–5 short points shoppers read first",
+        "faqs": "Questions and answers on the product",
+        "badges": "New, Bestseller, Handmade, Sale",
+        "related": "Frequently bought together",
+        "aplus": "Big photos and feature blocks",
+        "video": "Upload or link a YouTube video"
+      },
+      "included": "Included",
+      "seePlans": "See plans",
+      "askOwner": "Not in your plan — ask your store owner",
+      "offKeeps": "Turning a section off hides it on every product. What you’ve written is kept.",
+      "saveSections": "Save sections",
+      "sectionsSaved": "Sections saved — products now show what you switched on",
+      "badgesTitle": "Badges",
+      "badgesSub": "Small labels on product photos. Automatic ones come and go by themselves; manual ones you add on each product.",
+      "noBadges": "No badges yet. Add one, then pick it on a product or let it apply by itself.",
+      "addBadge": "Add a badge",
+      "editBadge": "Edit “{name}”",
+      "badgeBody": "Up to 18 characters. When it shows is the second choice below.",
+      "badgeText": "What it says",
+      "badgePlaceholder": "e.g. Organic",
+      "badgeMissing": "Type the badge text",
+      "badgeLong": "Keep it to 18 characters",
+      "when": "When it shows",
+      "saveBadge": "Save badge",
+      "rules": {
+        "new_30_days": "Added in the last 30 days",
+        "top_5_this_month": "Your 5 best sellers this month",
+        "below_compare_price": "Has a lower price than its compare price",
+        "few_left": "Only a few left",
+        "manual": "You choose the products"
+      },
+      "badgeSaved": "Badge saved",
+      "badgeAddedManual": "“{name}” added — pick it on any product under Badges",
+      "badgeAddedAuto": "“{name}” added — it applies by itself",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteBadgeTitle": "Delete “{name}”?",
+      "deleteBadgeBody": "It comes off every product straight away.",
+      "badgeDeleted": "Badge deleted",
+      "cancel": "Cancel",
+      "refused": {
+        "DUPLICATE_LABEL": "Another badge already says that.",
+        "TOO_MANY_BADGES": "A store can have up to 20 badges.",
+        "INVALID_INPUT": "Something here isn’t valid — a badge is up to 18 characters, and each automatic rule is on one badge only.",
+        "PLAN_LIMIT": "That section isn’t in your plan.",
+        "NOT_FOUND": "That badge isn’t here any more.",
+        "READ_ONLY": "Your store is read-only until the bill is paid.",
+        "FORBIDDEN": "Only the store owner can change this.",
+        "other": "That didn’t save. Try again."
+      },
+      "ruleOptions": {
+        "new_30_days": "Added in the last 30 days — automatic",
+        "top_5_this_month": "Your 5 best sellers this month — automatic",
+        "below_compare_price": "Has a lower price than its compare price — automatic",
+        "few_left": "Only a few left — automatic",
+        "manual": "You choose the products — pick it on each product"
+      },
+      "ruleOther": "Shown by a rule set elsewhere",
+      "ruleKept": "Keep its current rule"
     }
   }
 }

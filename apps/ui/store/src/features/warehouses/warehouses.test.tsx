@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from '@tanstack/react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Place } from '../../api/stock'
-import { messages } from '../../messages'
+import { fill as fillWords, messages } from '../../messages'
 
 // A supplier's Warehouses tab (#337): its own locations, added, made default, edited and deleted as SetOps draws them.
 
@@ -15,12 +15,12 @@ vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('
 
 const { WarehousesView, placeInputOf } = await import('./WarehousesView')
 
-const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
+const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, supplierId: null, supplierName: null, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
-const show = async (canEdit = true) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
+const show = async (canEdit = true, side: 'merchant' | 'supplier' = 'supplier') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} side={side} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -30,7 +30,8 @@ const show = async (canEdit = true) => {
 const dialog = () => within(document.querySelector('dialog') as HTMLElement)
 
 beforeEach(() => {
-  api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4 }), place({ id: 'w1', name: 'Workshop', isDefault: true, units: 30 })])
+  // A supplier's own locations carry its seller id, as the API answers them (inventory.ts supplierId).
+  api.loadPlaces.mockResolvedValue([place({ id: 'w2', name: 'Back room', units: 4, supplierId: 'sup-1' }), place({ id: 'w1', name: 'Workshop', isDefault: true, units: 30, supplierId: 'sup-1' })])
 })
 
 afterEach(() => {
@@ -41,6 +42,15 @@ afterEach(() => {
 describe('a supplier’s locations', () => {
   it('sends the name and only the address lines given, the country in capitals', () => {
     expect(placeInputOf({ id: null, revision: null, name: ' Shed ', line1: '', line2: '', city: 'Jaipur', region: '', postalCode: '', country: 'in' })).toEqual({ name: 'Shed', address: { city: 'Jaipur', country: 'IN' } })
+  })
+
+  it('on the merchant side, lists a supplier’s location apart with nothing to manage', async () => {
+    api.loadPlaces.mockResolvedValue([place({ id: 'w1', name: 'Store room', isDefault: true }), place({ id: 'w9', name: 'Northwind depot', supplierId: 'sup-1', supplierName: 'Northwind' })])
+    await show(true, 'merchant')
+    expect(screen.getByRole('button', { name: fillWords(words.manage, { name: 'Store room' }) })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: fillWords(words.manage, { name: 'Northwind depot' }) })).toBeNull()
+    expect(screen.getByRole('heading', { name: words.theirsTitle })).toBeTruthy()
+    expect(screen.getByText('Northwind depot')).toBeTruthy()
   })
 
   it('lists the default first, with each location’s units', async () => {

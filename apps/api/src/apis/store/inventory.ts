@@ -51,6 +51,8 @@ export const registerInventory = (builder: StoreBuilder) => {
       isDefault: t.exposeBoolean('is_default'),
       // A supplier's location, which the merchant side reads but doesn't change; null is the merchant's.
       supplierId: t.exposeID('seller_id', { nullable: true }),
+      // Its supplier's name, as the product list names a product's supplier, so the merchant side never lists one unnamed.
+      supplierName: t.exposeString('seller_name', { nullable: true }),
       units: t.exposeInt('units'),
       revision: t.exposeInt('revision'),
     }),

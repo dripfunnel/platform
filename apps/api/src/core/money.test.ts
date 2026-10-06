@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { add, applyBps, compare, convert, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMinorString } from './money'
+import { add, applyBps, compare, convert, fromMajor, isCurrency, minorDigits, parseMinor, roundPrice, toMajor, toMinorString } from './money'
 
 describe('money', () => {
   it('knows each currency’s minor unit, zero- and three-decimal ones included', () => {
@@ -26,6 +26,12 @@ describe('money', () => {
     expect(fromMajor('12.5', 'JPY')).toBeNull()
     expect(fromMajor('1.999', 'USD')).toBeNull()
     expect(fromMajor('abc', 'USD')).toBeNull()
+  })
+
+  it('writes minor units as a major-unit decimal in each currency’s digits, which fromMajor reads back', () => {
+    const cases: [bigint, string, string][] = [[129950n, 'USD', '1299.50'], [5n, 'USD', '0.05'], [0n, 'USD', '0.00'], [1299n, 'JPY', '1299'], [0n, 'JPY', '0'], [1234n, 'KWD', '1.234'], [7n, 'KWD', '0.007'], [-1250n, 'USD', '-12.50'], [-5n, 'JPY', '-5']]
+    for (const [amount, currency, text] of cases) expect(toMajor({ amount, currency }), `${amount} ${currency}`).toBe(text)
+    for (const [amount, currency, text] of cases.filter(([a]) => a >= 0n)) expect(fromMajor(text, currency)).toEqual({ amount, currency })
   })
 
   it('adds and compares only within one currency', () => {

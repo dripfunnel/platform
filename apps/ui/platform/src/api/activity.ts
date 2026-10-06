@@ -1,7 +1,6 @@
-import { ApiError, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
+import { ApiError, exportJobFields, exportJobSchema, readExportJob, type ExportJob, type PageInfo, type PageRequest } from '@dripfunnel/shared/graphql'
 import { z } from 'zod'
 import { query } from './client'
-import { exportJobFields, exportJobSchema, readExportJob } from './exportJob'
 
 // The Activity log on the Platform API (FIRST-RELEASE.md §13, §16): what the partner may read is
 // the log's own policy (LOGGING.md §6), never anything inside a store or a shopper; the console

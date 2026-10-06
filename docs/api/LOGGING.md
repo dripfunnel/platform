@@ -64,9 +64,9 @@ detail, never the code), `person.signed_in`, `person.signed_out`, `person.sign_i
 `support_session.ended`, `partner_user.reauthenticated` (never the proof),
 `partner_user.invitation_accepted`, `partner_user.password_reset_requested`,
 `partner_user.password_reset` (never the token or the password), `access_request.sent`, `access_request.resolved`, `stock.adjusted` (with
-the reason), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
+the reason), `catalog.import_started`, `catalog.imported` (the products and the matching chosen), `shopify.connect_started`, `shopify.connected`, `shopify.disconnected`, `shopify.approved` and `shopify.callback_rejected` (Shopify's own answer at the callback, logged as the `provider`, with `signature` or `exchange_failed`), `domain.status_changed`, `product.sent_back_for_approval` (the field that caused
 it: `name`, `price`, `photos`, or `resubmitted` and `A+ content`; #295), `product.proposed` (a Stock-only supplier's new product), `product.approved`, `product.sent_back` (the reason
-the supplier sees), `catalogue.approval_changed` (on or off), `store.languages_saved` (the list), `store.main_language_changed` (before and after), `store.currencies_saved` (each with its mode), `market.saved`, `market.deleted`, `market.fallback_changed`, `product.translated`, `catalogue.translated` (a collection's or filter's; each with the language), `catalogue.names_translated` (the shared option and choice names, with the language and how many), `store.info_saved` (the names of the fields that changed, legal name, address, contact and tax id among them, never their values) (#296), `tax.inclusive_changed` (included or added), `tax_class.saved` (default when made so), `tax_class.deleted`, `tax_zone.saved`, `tax_zone.deleted`, `invoice_settings.saved` (#297), `product.tax_class_changed` (one entry per product; #298), `product.collections_set` (the hand-picked collections the editor put it in, as a count; #298). The two-factor and backup-code entries carry no secret, code or phone number. **The
+the supplier sees), `catalogue.approval_changed` (on or off), `store.languages_saved` (the list), `store.main_language_changed` (before and after), `store.currencies_saved` (each with its mode), `market.saved`, `market.deleted`, `market.fallback_changed`, `product.translated`, `catalogue.translated` (a collection's or filter's; each with the language), `catalogue.names_translated` (the shared option and choice names, with the language and how many), `store.info_saved` (the names of the fields that changed, legal name, address, contact and tax id among them, never their values) (#296), `tax.inclusive_changed` (included or added), `tax_class.saved` (default when made so), `tax_class.deleted`, `tax_zone.saved`, `tax_zone.deleted`, `invoice_settings.saved` (#297), `tax_rate.set` (one category's rate in one zone; #300's review), `product.tax_class_changed` (one entry per product; #298), `product.collections_set` (the hand-picked collections the editor put it in, as a count; #298). The two-factor and backup-code entries carry no secret, code or phone number. **The
 entries a supplier may see** (its own refunds, overrides against it, returns and hand-offs on
 its parts, filed under its `seller_id`) **carry no free text and no shopper field**: the store's
 full entry, with the reason, the note and the customer, is written with `seller_id` null and
@@ -212,6 +212,10 @@ every other tenant read.
   (the request itself stays in the log as `activity.exported`).
   A **report** export (built on #200) holds no log entries, only account-level totals, so every
   partner role may ask for one (ACCESS §5.3 `exports`); it is logged as `report.exported`.
+  A store's **product or stock export** (built on #301) is a `catalog_export` row (DATA-MODEL
+  §7.10) built the same way in the asker's scope, so a supplier's holds its own rows; it caps at
+  10,000 rows, its CSV is readable by the asker for 1 hour, and the request is logged as
+  `catalog.exported` with any search text replaced by `searched`.
 
 ---
 

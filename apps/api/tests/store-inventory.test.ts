@@ -67,10 +67,11 @@ interface Place {
   name: string
   isDefault: boolean
   supplierId: string | null
+  supplierName: string | null
   units: number
   revision: number
 }
-const places = async (who: Who) => ((await gql('{ warehouses { nodes { id name isDefault supplierId units revision } } }', who)).data?.['warehouses'] as { nodes: Place[] } | undefined)?.nodes ?? []
+const places = async (who: Who) => ((await gql('{ warehouses { nodes { id name isDefault supplierId supplierName units revision } } }', who)).data?.['warehouses'] as { nodes: Place[] } | undefined)?.nodes ?? []
 const saveWarehouse = async (who: Who, input: Record<string, unknown>, id?: string, revision?: number) => {
   const result = await gql('mutation W($id: ID, $revision: Int, $input: WarehouseInput!) { saveWarehouse(id: $id, revision: $revision, input: $input) }', who, { id, revision, input })
   return { id: result.data?.['saveWarehouse'] as string | undefined, code: result.code }
@@ -165,7 +166,11 @@ describe('Stock locations', () => {
     const theirs = await saveWarehouse('supplier', { name: 'Anand godown' })
     expect((await places('supplier')).map((w) => [w.id, w.isDefault])).toEqual([[theirs.id, true]])
     expect(await places('otherSupplier')).toEqual([])
-    expect((await places('owner')).find((w) => w.id === theirs.id)).toMatchObject({ supplierId: t.sellerA1First })
+    const supplierName = (await db.sql<{ name: string }[]>`select name from seller where id = ${t.sellerA1First}`)[0]?.name
+    // Named by the server for every merchant seat that reads stock, a Manager included, as products name their supplier.
+    for (const who of ['owner', 'manager'] as const) expect((await places(who)).find((w) => w.id === theirs.id), who).toMatchObject({ supplierId: t.sellerA1First, supplierName })
+    expect((await places('supplier')).find((w) => w.id === theirs.id)).toMatchObject({ supplierName })
+    expect((await places('owner')).find((w) => w.supplierId === null)?.supplierName).toBeNull()
     expect((await saveWarehouse('owner', { name: 'Taken' }, theirs.id, 1)).code).toBe('NOT_FOUND')
     expect(await deleteWarehouse('owner', theirs.id ?? '')).toBe('NOT_FOUND')
     expect((await gql('mutation M($id: ID!) { setDefaultWarehouse(id: $id) }', 'owner', { id: theirs.id })).code).toBe('NOT_FOUND')

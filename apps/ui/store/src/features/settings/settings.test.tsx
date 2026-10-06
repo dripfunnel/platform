@@ -16,7 +16,7 @@ const w = words.store
 
 const api = vi.hoisted(() => ({ loadStoreInfo: vi.fn(), saveStoreInfo: vi.fn(), loadLocale: vi.fn(), saveCurrencies: vi.fn(), saveLanguages: vi.fn(), loadTranslationProgress: vi.fn() }))
 vi.mock('../../api/settings', () => api)
-const editorApi = vi.hoisted(() => ({ uploadPhoto: vi.fn() }))
+const editorApi = vi.hoisted(() => ({ uploadPhoto: vi.fn(), loadProductBasics: vi.fn() }))
 vi.mock('../../api/productEditor', () => editorApi)
 vi.mock('../../api/team', async (actual) => ({ ...(await actual<typeof import('../../api/team')>()), loadPeople: vi.fn(), loadSuppliers: vi.fn(), loadApproval: vi.fn() }))
 

@@ -281,15 +281,16 @@
   cursor: pointer;
 }
 
-.df-set-switch > span {
+.df-set-switch > span:first-child {
   position: relative;
+  flex: none;
   width: 38px;
   height: 22px;
   border-radius: 11px;
   background: var(--df-color-neutral-border);
 }
 
-.df-set-switch > span::after {
+.df-set-switch > span:first-child::after {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -300,11 +301,11 @@
   content: '';
 }
 
-.df-set-switch[aria-checked='true'] > span {
+.df-set-switch[aria-checked='true'] > span:first-child {
   background: var(--df-color-success);
 }
 
-.df-set-switch[aria-checked='true'] > span::after {
+.df-set-switch[aria-checked='true'] > span:first-child::after {
   left: 19px;
 }
 
@@ -474,7 +475,8 @@
   cursor: pointer;
 }
 
-.df-team-chips button[aria-pressed='true'] {
+.df-team-chips button[aria-pressed='true'],
+.df-team-chips button[aria-checked='true'] {
   border-color: var(--df-color-focus);
   background: var(--df-color-info-surface);
   color: var(--df-color-info);
@@ -606,4 +608,440 @@
   .df-team-chips button {
     min-height: 44px;
   }
+}
+
+/* Tax setup (designs/CatSettings.dc.html tax tab, SetOps.dc.html "tax") */
+
+.df-tax-example {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--df-color-surface);
+  color: var(--df-color-info);
+  font-size: 12px;
+}
+
+.df-tax-classes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-tax-classes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--df-color-border);
+  font-size: 14px;
+}
+
+.df-tax-classes li > span:first-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.df-tax-classes li > span:first-child > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-tax-rate {
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+  font-size: 12px;
+}
+
+.df-tax-rate--default {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-tax-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  font-size: 14px;
+}
+
+.df-places-theirs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-places-theirs h2 {
+  margin: 0;
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 16px;
+}
+
+@media (max-width: 720px) {
+  .df-tax-check {
+    min-height: 44px;
+  }
+}
+
+/* Markets (designs/SetMarkets.dc.html) */
+
+.df-mkt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.df-mkt-side,
+.df-mkt-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.df-mkt-list {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  list-style: none;
+}
+
+.df-mkt-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px 12px 11px;
+  border: 0;
+  border-bottom: 1px solid var(--df-color-border);
+  border-left: 3px solid transparent;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.df-mkt-item--sub {
+  padding-left: 29px;
+}
+
+.df-mkt-item[aria-current='true'] {
+  border-left-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+}
+
+.df-mkt-item > span:first-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.df-mkt-item strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-mkt-item > span:first-child > span {
+  overflow: hidden;
+  color: var(--df-color-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.df-mkt-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.df-mkt-tag--primary {
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-mkt-tag--on {
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-mkt-tag--off {
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-muted);
+}
+
+.df-mkt-else {
+  gap: 6px;
+  padding: 14px;
+}
+
+.df-mkt-else label {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.df-mkt-else select {
+  height: 38px;
+  padding: 0 8px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+  font: inherit;
+  font-size: 13px;
+}
+
+.df-mkt-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.df-mkt-name {
+  flex: 1;
+  min-width: 160px;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+  color: var(--df-color-heading);
+  font-family: var(--df-font-heading);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.df-mkt-name:focus {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-surface);
+}
+
+.df-mkt-name[aria-invalid='true'] {
+  border-color: var(--df-color-danger);
+}
+
+.df-set-pick {
+  margin: 0;
+  padding: 40px;
+  border: 1px dashed var(--df-color-field-border);
+  border-radius: var(--df-radius-card);
+  background: var(--df-color-surface);
+  color: var(--df-color-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.df-set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.df-set-delete {
+  border-color: var(--df-color-danger-border);
+  color: var(--df-color-link);
+}
+
+.df-mkt-preview {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--df-radius);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+  font-size: 13px;
+}
+
+.df-mkt-countries {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.df-mkt-chip {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.df-mkt-chip[aria-pressed='true'] {
+  border-color: var(--df-color-focus);
+  background: var(--df-color-info-surface);
+  color: var(--df-color-info);
+}
+
+.df-mkt-chip[aria-pressed='true']::before {
+  content: '✓ ';
+}
+
+.df-mkt-countries .df-mkt-chip:disabled {
+  background: var(--df-color-page);
+  color: var(--df-color-muted);
+  cursor: not-allowed;
+}
+
+.df-mkt-countries select {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: 16px;
+  background: var(--df-color-surface);
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 12px;
+}
+
+.df-mkt-suffix {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-field-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-surface);
+}
+
+.df-mkt-suffix input {
+  flex: 1;
+  min-width: 0;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent;
+}
+
+.df-mkt-suffix span {
+  color: var(--df-color-muted);
+}
+
+.df-mkt-excluded {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.df-mkt-off {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--df-color-warning-border);
+  border-radius: 14px;
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: line-through;
+  cursor: pointer;
+}
+
+.df-mkt-duty {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.df-mkt-duties {
+  padding: 12px;
+  border: 1px solid var(--df-color-border);
+  border-radius: var(--df-radius);
+  background: var(--df-color-page);
+}
+
+@media (max-width: 720px) {
+  .df-mkt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .df-mkt-chip,
+  .df-mkt-countries select,
+  .df-mkt-off {
+    min-height: 44px;
+  }
+}
+
+/* Catalogue (designs/CatSettings.dc.html "catalogue") */
+
+.df-cat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.df-cat-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--df-color-border);
+}
+
+.df-cat-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.df-cat-list strong {
+  font-family: var(--df-font-heading);
+  font-size: 14px;
+}
+
+.df-cat-text > span {
+  color: var(--df-color-muted);
+  font-size: 12px;
+}
+
+.df-cat-badge {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--df-color-neutral-border);
+  border-radius: 5px;
+  background: var(--df-color-neutral-surface);
+  color: var(--df-color-text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.df-cat-badge--ok {
+  border-color: var(--df-color-success-border);
+  background: var(--df-color-success-surface);
+  color: var(--df-color-success);
+}
+
+.df-cat-badge--peach {
+  border-color: var(--df-color-warning-border);
+  background: var(--df-color-warning-surface);
+  color: var(--df-color-link);
+}
+
+.df-cat-badge-tools {
+  display: flex;
+  gap: 12px;
 }

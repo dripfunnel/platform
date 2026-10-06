@@ -99,3 +99,23 @@ export const loadTranslationProgress = async (languages: readonly string[]): Pro
   const answer = await query(`query P(${params}) { ${fields} }`, z.record(z.string(), progressSchema), Object.fromEntries(languages.map((l, i) => [`l${i}`, l])))
   return new Map(languages.map((l, i) => [l, answer[`l${i}`] ?? null]))
 }
+
+export const sectionKeys = ['sizeCharts', 'specs', 'highlights', 'faqs', 'badges', 'related', 'aplus', 'video'] as const
+export type SectionKey = (typeof sectionKeys)[number]
+
+/** Which product page sections the store shows; one the plan lacks can't be switched on (PLAN_LIMIT, P5). */
+export const saveSections = async (features: { key: SectionKey; enabled: boolean }[]): Promise<void> => {
+  await query('mutation S($f: [CatalogueFeatureInput!]!) { saveCatalogueSettings(features: $f) { key } }', z.object({ saveCatalogueSettings: z.array(z.object({ key: z.string() })) }), { f: features })
+}
+
+export const badgeRules = ['new_30_days', 'top_5_this_month', 'below_compare_price', 'few_left', 'manual'] as const
+export type BadgeRule = (typeof badgeRules)[number]
+
+/** A new badge (no id), or a change to one, answering its id; `position` keeps an edited one where it is. */
+export const saveBadge = async (id: string | null, input: { label: string; rule: BadgeRule | (string & {}); tone: string; position: number }): Promise<string> =>
+  (await query('mutation B($id: ID, $input: BadgeInput!) { saveBadge(id: $id, input: $input) }', z.object({ saveBadge: z.string() }), { id, input })).saveBadge
+
+/** Off every product it was on, straight away. */
+export const deleteBadge = async (id: string): Promise<void> => {
+  await query('mutation D($id: ID!) { deleteBadge(id: $id) }', z.object({ deleteBadge: z.boolean() }), { id })
+}

@@ -90,6 +90,9 @@ export interface ProductAccess {
   /** Quick edit's two halves: prices (catalog.write) and the default location's counts (stock.write). */
   quickPrice: boolean
   quickStock: boolean
+  /** Import & export opens for an importer; exports as a job for anyone reading the catalogue but a Stock-only supplier (CatList). */
+  canImport: boolean
+  canExport: boolean
 }
 
 /** What the acting seat may do here (ACCESS.md §5); a read-only store (past due) does nothing but look. */
@@ -106,5 +109,7 @@ export const accessOf = (acting: { permissions: readonly string[]; seller: unkno
     viewOnly: !supplier && !has('catalog.write'),
     quickPrice: !readOnly && has('catalog.write'),
     quickStock: !readOnly && has('stock.write'),
+    canImport: has('catalog.import'),
+    canExport: has('catalog.read') && (!supplier || has('catalog.import')),
   }
 }

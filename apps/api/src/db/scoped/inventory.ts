@@ -21,6 +21,7 @@ export interface WarehouseAddress {
 export interface WarehouseRow {
   id: string
   seller_id: string | null
+  seller_name: string | null
   name: string
   address: WarehouseAddress
   is_default: boolean
@@ -30,11 +31,12 @@ export interface WarehouseRow {
 }
 
 const units = (tx: ScopedSql) => tx`(select coalesce(sum(l.on_hand), 0)::int from stock_level l where l.warehouse_id = w.id)`
+const sellerName = (tx: ScopedSql) => tx`(select s.name from seller s where s.id = w.seller_id)`
 
 export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWindow): Promise<WarehouseRow[]> => {
   const backwards = window.before !== null && window.after === null
   return tx<WarehouseRow[]>`
-    select w.id, w.seller_id, w.name, w.address, w.is_default, w.revision, w.created_at, ${units(tx)} as units
+    select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.is_default, w.revision, w.created_at, ${units(tx)} as units
     from warehouse w where w.store_id = ${storeId} and w.deleted_at is null
       and ${window.after ? tx`(w.created_at, w.id) > (${window.after.occurredAt}, ${window.after.id})` : tx`true`}
       and ${window.before ? tx`(w.created_at, w.id) < (${window.before.occurredAt}, ${window.before.id})` : tx`true`}
@@ -44,7 +46,7 @@ export const selectWarehouses = (tx: ScopedSql, storeId: string, window: PageWin
 }
 
 export const selectWarehouse = async (tx: ScopedSql, storeId: string, id: string): Promise<WarehouseRow | null> =>
-  (await tx<WarehouseRow[]>`select w.id, w.seller_id, w.name, w.address, w.is_default, w.revision, w.created_at, ${units(tx)} as units from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
+  (await tx<WarehouseRow[]>`select w.id, w.seller_id, ${sellerName(tx)} as seller_name, w.name, w.address, w.is_default, w.revision, w.created_at, ${units(tx)} as units from warehouse w where w.id = ${id} and w.store_id = ${storeId} and w.deleted_at is null`)[0] ?? null
 
 /** The caller's own locations, so a supplier's count says nothing of others'. */
 export const countWarehouses = async (tx: ScopedSql, storeId: string, sellerId: string | null): Promise<number> =>
@@ -147,10 +149,10 @@ export const changeStock = async (tx: ScopedSql, versionId: string, warehouseId:
 }
 
 /** Typed numbers for many (version, location) pairs in one call (migration 0046 `stock_change_many`). */
-export const setStockTargets = (tx: ScopedSql, entries: readonly { versionId: string; warehouseId: string; target: number }[]) =>
+export const setStockTargets = (tx: ScopedSql, entries: readonly { versionId: string; warehouseId: string; target: number }[], reason: 'typed' | 'import' = 'typed') =>
   tx<{ version_id: string; warehouse_id: string; quantity: number; change: number }[]>`
     select version_id, warehouse_id, quantity, change
-    from stock_change_many(${tx.json(entries.map((e) => ({ version_id: e.versionId, warehouse_id: e.warehouseId, target: e.target })) as unknown as postgres.JSONValue)}, 'typed')
+    from stock_change_many(${tx.json(entries.map((e) => ({ version_id: e.versionId, warehouse_id: e.warehouseId, target: e.target })) as unknown as postgres.JSONValue)}, ${reason})
   `
 
 /** False when the caller doesn't hold that version's stock in a location of its own. */

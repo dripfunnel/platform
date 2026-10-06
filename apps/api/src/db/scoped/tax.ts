@@ -115,6 +115,12 @@ export const setZoneRates = async (tx: ScopedSql, storeId: string, zoneId: strin
   `
 }
 
+/** One class's rate in one zone, the zone's other rates untouched (Settings' "Change rate"). */
+export const setZoneRate = async (tx: ScopedSql, storeId: string, zoneId: string, rate: { taxClassId: string; rateBps: number }): Promise<void> => {
+  await tx`delete from tax_rate where tax_zone_id = ${zoneId} and tax_class_id = ${rate.taxClassId} and store_id = ${storeId}`
+  await tx`insert into tax_rate (store_id, tax_class_id, tax_zone_id, rate_bps) values (${storeId}, ${rate.taxClassId}, ${zoneId}, ${rate.rateBps})`
+}
+
 export const deleteTaxZone = async (tx: ScopedSql, storeId: string, id: string): Promise<boolean> => (await tx`delete from tax_zone where id = ${id} and store_id = ${storeId}`).count > 0
 
 /** The versions a cart names, with the class and the price each is taxed at, in the caller's scope. */

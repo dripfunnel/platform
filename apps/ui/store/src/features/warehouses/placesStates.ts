@@ -11,8 +11,8 @@ const address = (city: string) => ({ line1: '12 Station Road', line2: null, city
 const places: Place[] =
   import.meta.env.DEV || import.meta.env.VITE_STATE_HARNESS === '1'
     ? [
-        { id: 'w-workshop', name: 'Workshop', isDefault: true, units: 312, revision: 2, address: address('Moradabad') },
-        { id: 'w-back', name: 'Back room', isDefault: false, units: 40, revision: 1, address: address('Moradabad') },
+        { id: 'w-workshop', name: 'Workshop', isDefault: true, units: 312, revision: 2, address: address('Moradabad'), supplierId: null, supplierName: null },
+        { id: 'w-back', name: 'Back room', isDefault: false, units: 40, revision: 1, address: address('Moradabad'), supplierId: null, supplierName: null },
       ]
     : []
 

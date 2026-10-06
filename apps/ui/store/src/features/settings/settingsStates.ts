@@ -1,9 +1,12 @@
 import type { StoreInfo, StoreLocale } from '../../api/settings'
+import type { Market } from '../../api/markets'
+import type { ProductBasics } from '../../api/productEditor'
+import type { InvoiceSettings, TaxSetupFull } from '../../api/tax'
 import type { Person, Supplier } from '../../api/team'
 
-// Settings' states under ?state= (ui/README.md §6): loading, error, ready, readOnly (a store past due: look only)
+// Settings' states under ?state= (ui/README.md §6): loading, error, list (the samples), readOnly (a store past due: look only)
 // and denied (anyone but the Owner).
-export const settingsStates = ['loading', 'error', 'ready', 'readOnly', 'denied'] as const
+export const settingsStates = ['loading', 'error', 'list', 'readOnly', 'denied'] as const
 
 export type SettingsState = (typeof settingsStates)[number]
 
@@ -79,7 +82,51 @@ export interface SettingsReads {
   people: () => Promise<Person[]>
   suppliers: () => Promise<Supplier[]>
   approval: () => Promise<boolean>
+  tax: () => Promise<TaxSetupFull | null>
+  invoice: () => Promise<InvoiceSettings | null>
+  markets: () => Promise<Market[]>
+  catalogue: () => Promise<ProductBasics>
 }
+
+const market = (m: Partial<Market> & Pick<Market, 'id' | 'name' | 'countries' | 'currency'>): Market => ({
+  parentId: null,
+  primary: false,
+  everywhereElse: false,
+  active: true,
+  language: 'en-IN',
+  priceAdjustmentBps: 0,
+  webMode: 'main',
+  pathPrefix: null,
+  products: 'all',
+  excludedProductIds: [],
+  excludedProducts: [],
+  duties: { mode: 'none', rateBps: null, thresholdAmount: null },
+  revision: 1,
+  ...m,
+})
+
+const sampleMarkets: Market[] = harness
+  ? [
+      market({ id: 'mk-in', name: 'India', countries: ['IN'], currency: 'INR', primary: true }),
+      market({ id: 'mk-us', name: 'United States', countries: ['US'], currency: 'USD', language: 'en-US', priceAdjustmentBps: 1000, webMode: 'path', pathPrefix: 'us', everywhereElse: true, duties: { mode: 'by_code', rateBps: null, thresholdAmount: '80000' } }),
+      market({ id: 'mk-ae', name: 'UAE', countries: ['AE'], currency: 'AED', active: false }),
+    ]
+  : []
+
+const sampleTax: TaxSetupFull | null = harness
+  ? {
+      pricesIncludeTax: true,
+      classes: [
+        { id: 't5', name: 'Clothing under ₹1,000', isDefault: false, taxCode: null, versions: 12 },
+        { id: 't12', name: 'Clothing', isDefault: true, taxCode: null, versions: 41 },
+        { id: 't18', name: 'Home décor', isDefault: false, taxCode: null, versions: 9 },
+      ],
+      zones: [
+        { id: 'z-in', name: 'India', countries: ['IN'], regions: [], rates: [{ taxClassId: 't5', rateBps: 500 }, { taxClassId: 't12', rateBps: 1200 }, { taxClassId: 't18', rateBps: 1800 }] },
+        { id: 'z-ae', name: 'UAE', countries: ['AE'], regions: [], rates: [{ taxClassId: 't12', rateBps: 500 }] },
+      ],
+    }
+  : null
 
 /** The tabs' reads under ?state=: the samples above. */
 export const sampleReads: SettingsReads = {
@@ -88,4 +135,18 @@ export const sampleReads: SettingsReads = {
   people: async () => samplePeople,
   suppliers: async () => sampleSuppliers,
   approval: async () => true,
+  tax: async () => sampleTax,
+  invoice: async () => ({ taxPerLine: true, emailWithDispatch: true, footer: null, legalName: 'Kesari Threads Pvt Ltd' }),
+  markets: async () => sampleMarkets,
+  catalogue: async () => ({
+    pricingCurrency: 'INR',
+    unitSystem: 'metric',
+    mainLanguage: 'en-IN',
+    translationLanguages: [],
+    features: ['sizeCharts', 'specs', 'highlights', 'faqs', 'badges', 'related', 'aplus', 'video'].map((key) => ({ key, enabled: ['sizeCharts', 'specs', 'highlights', 'badges'].includes(key), inPlan: key !== 'video' })),
+    badges: [
+      { id: 'b-new', label: 'New', rule: 'new_30_days', tone: 'ok', position: 0 },
+      { id: 'b-handmade', label: 'Handmade', rule: 'manual', tone: 'neutral', position: 1 },
+    ],
+  }),
 }

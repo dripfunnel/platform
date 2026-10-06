@@ -1,9 +1,11 @@
-import { NavDrawer, SideNav, useNow } from '@dripfunnel/shared/ui'
+import { ExportWatcher, exportJob, NavDrawer, SideNav, useNow } from '@dripfunnel/shared/ui'
 import '@dripfunnel/shared/ui/shell.css'
 import { getRouteApi, Outlet } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { loadCatalogExport } from '../../api/imports'
 import { currentBrand } from '../../brand/current'
 import { messages } from '../../messages'
+import { ImportWatcher } from '../imports/ImportWatcher'
 import { AppHeader } from './AppHeader'
 import { EnvironmentStrip } from './EnvironmentStrip'
 import { navRowsFor } from './navWords'
@@ -22,6 +24,9 @@ export const AppShell = () => {
   const rows = navRowsFor(seat, badges, owner && state?.status === 'trial' ? trialDaysLeft(state.trialEndsAt, now) : null)
   const current = stores.find((c) => c.store.id === acting.store.id && (c.seller?.id ?? null) === (acting.seller?.id ?? null)) ?? { membershipId: '', store: acting.store, role: acting.role, tier: acting.tier, seller: acting.seller }
   const words = messages.shell
+  const seatKey = `${acting.store.id}:${acting.seller?.id ?? ''}`
+  // An export started in one store or supplier seat is never shown in another.
+  useEffect(() => () => exportJob.set(null), [seatKey])
 
   return (
     <div className="df-shell df-store-shell">
@@ -41,6 +46,8 @@ export const AppShell = () => {
           </div>
         </main>
       </div>
+      {acting.permissions.includes('catalog.import') && <ImportWatcher key={seatKey} />}
+      {acting.permissions.includes('catalog.read') && <ExportWatcher load={loadCatalogExport} toast={messages.imports.export.ready} />}
       <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)} label={words.navLabel} closeLabel={words.closeMenu}>
         <SideNav rows={rows} variant="drawer" label={words.navLabel} footer={null} onNavigate={() => setMenuOpen(false)} />
       </NavDrawer>

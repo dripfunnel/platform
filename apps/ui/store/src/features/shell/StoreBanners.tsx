@@ -1,29 +1,14 @@
 import { Strip, useNow } from '@dripfunnel/shared/ui'
-import { Link } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { Link, useRouterState } from '@tanstack/react-router'
 import type { Brand } from '../../api/brand'
 import type { Acting, StoreState } from '../../api/shell'
 import { fill, formatCount, formatWait, messages, plural } from '../../messages'
 import type { Seat } from '../../nav'
+import { useOnline } from '../common/online'
+import { isRunning, useImportRun } from '../imports/importRun'
 import { trialDaysLeft } from './trial'
 
 const words = messages.shell.banners
-
-const useOnline = () => {
-  // Only an explicit `false` is offline: a browser without the flag is taken at its word that it works.
-  const [online, setOnline] = useState(() => typeof navigator === 'undefined' || navigator.onLine !== false)
-  useEffect(() => {
-    const on = () => setOnline(true)
-    const off = () => setOnline(false)
-    window.addEventListener('online', on)
-    window.addEventListener('offline', off)
-    return () => {
-      window.removeEventListener('online', on)
-      window.removeEventListener('offline', off)
-    }
-  }, [])
-  return online
-}
 
 const Said = ({ title, body }: { title: string; body: string }) => (
   <>
@@ -39,6 +24,9 @@ export const StoreBanners = ({ seat, acting, state, brand }: { seat: Seat; actin
   const owner = seat.side === 'merchant' && seat.role === 'owner'
   const days = state?.status === 'trial' ? trialDaysLeft(state.trialEndsAt, now) : null
   const support = brand?.supportEmail ?? brand?.supportUrl ?? null
+  const run = useImportRun()
+  const onImports = useRouterState({ select: (r) => r.location.pathname === '/products/import' })
+  const importing = isRunning(run) && !onImports ? run : null
   return (
     <>
       {state?.provisioning && (
@@ -77,6 +65,15 @@ export const StoreBanners = ({ seat, acting, state, brand }: { seat: Seat; actin
             title={fill(words.support.title, { partner: state.support.partnerName, name: state.support.agentFirstName })}
             body={fill(words.support.body, { time: formatWait(Math.max(0, Math.round((new Date(state.support.endsAt).getTime() - now.getTime()) / 1000))) })}
           />
+        </Strip>
+      )}
+      {importing && (
+        <Strip tone="info" action={<Link className="df-strip-button" to="/products/import">{messages.imports.banner.view}</Link>}>
+          {online ? (
+            <Said title={messages.imports.banner.title} body={fill(messages.imports.banner.body, { done: formatCount(importing.done), total: formatCount(importing.ready) })} />
+          ) : (
+            <Said title={messages.imports.banner.pausedTitle} body={messages.imports.banner.pausedBody} />
+          )}
         </Strip>
       )}
       {!online && (

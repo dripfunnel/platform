@@ -13,16 +13,23 @@ const steps = [
 ] as const
 
 /** A new store's first product: the hero and "Get your shop ready" (CatList, isEmpty). */
-export const ProductsEmpty = ({ canAdd }: { canAdd: boolean }) => (
+export const ProductsEmpty = ({ canAdd, canImport }: { canAdd: boolean; canImport: boolean }) => (
   <div className="df-products-empty">
     <section className="df-products-hero">
       <h2>{words.title}</h2>
       <p>{words.body}</p>
-      {canAdd && (
+      {(canAdd || canImport) && (
         <div className="df-products-hero-actions">
-          <Link className="df-button df-button--primary df-products-cta" to="/products/$productId" params={{ productId: 'new' }}>
-            {words.add}
-          </Link>
+          {canAdd && (
+            <Link className="df-button df-button--primary df-products-cta" to="/products/$productId" params={{ productId: 'new' }}>
+              {words.add}
+            </Link>
+          )}
+          {canImport && (
+            <Link className="df-button df-products-cta" to="/products/import">
+              {words.importFile}
+            </Link>
+          )}
         </div>
       )}
     </section>

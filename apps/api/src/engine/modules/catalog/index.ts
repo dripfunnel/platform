@@ -56,6 +56,50 @@ export { createSettingsService, settingsAudit, type SettingsRefusal, type Settin
 export { collectionsRecomputeKind, createStructureService, structureAudit, type StructureRefusal, type StructureResult } from './structure'
 export { createTranslationService, translationAudit, type ProductTranslationInput, type SharedNameRow, type TextPatch, type TranslationResult, type TranslationRow } from './translations'
 export { approvalAudit, createApprovalService, maxSendBackReason, type ApprovalResult } from './approval'
+export {
+  buildCatalogExport,
+  catalogExportAudit,
+  catalogExportFilter,
+  catalogExportKind,
+  catalogExportLifetimeMs,
+  createCatalogExportService,
+  type CatalogExportDto,
+  type CatalogExportService,
+} from './exports'
+export { catalogJobPayload, jobContextOf, type CatalogJobPayload } from './jobScope'
+export {
+  createShopifyService,
+  fetchShopPage,
+  maxPicked,
+  ShopUnauthorized,
+  ShopUnavailable,
+  shopifyAudit,
+  type ShopConnect,
+  type ShopFetchDeps,
+  type ShopGateway,
+  type ShopifyConnectionDto,
+  type ShopifyRefusal,
+  type ShopifyService,
+} from './shopify'
+export type { ShopProduct } from './shopifyFile'
+export {
+  attachImportPhoto,
+  catalogImportAudit,
+  catalogImportKind,
+  catalogImportLifetimeMs,
+  checkImport,
+  createCatalogImportService,
+  failCatalogImport,
+  importPhotoPayload,
+  importPhotosKind,
+  runImportChunk,
+  skipImportPhoto,
+  type CatalogImportDto,
+  type CatalogImportRefusal,
+  type CatalogImportService,
+  type ImportJobDeps,
+  type PhotoFetch,
+} from './imports'
 export { createStoryService, storyAudit, type Story, type StoryRefusal, type StoryResult } from './story'
 export { maxModules, storyKinds, type StoryModule, type StoryGap } from './storyRules'
 export type { ProductCounts, ProductFilter, ProductListRow, ProductRow, ProductSort, SortWindow } from '#db/scoped/catalog'
@@ -269,8 +313,11 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
     }
   }
 
-  /** A Stock-only supplier's proposal waits for the merchant whatever the switch says (decided on #337; 0050's guard). */
-  const create = async (input: ProductInput, proposal = false): Promise<SaveResult> => {
+  /**
+   * A Stock-only supplier's proposal waits for the merchant whatever the switch says (decided on #337; 0050's guard).
+   * `alongside` runs in the save's own transaction, so what it writes commits with the product or not at all (an import's progress).
+   */
+  const create = async (input: ProductInput, proposal = false, alongside?: (tx: ScopedSql, productId: string) => Promise<void>): Promise<SaveResult> => {
     const allowance = await productAllowance()
     return run(async (tx) => {
       const product = await clean(tx, input)
@@ -283,6 +330,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       await writeChildren(tx, made.id, product, null)
       await activity.record(tx, entry(proposal ? approvalAudit.proposed : catalogAudit.created, { id: made.id, label: product.name }))
       const pending = sellerId !== null && (proposal || (await approvalRequired(tx)))
+      await alongside?.(tx, made.id)
       return { ok: true, id: made.id, slug: made.slug, revision: 1, approval: pending ? 'pending' : null, reviewed: [] }
     })
   }
@@ -304,7 +352,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
 
   const propose = (input: ProductInput) => (sellerId === null ? Promise.reject(new Error('catalogue: only a supplier proposes')) : create(input, true))
 
-  const update = (id: string, revision: number, input: ProductInput): Promise<SaveResult> =>
+  const update = (id: string, revision: number, input: ProductInput, alongside?: (tx: ScopedSql, productId: string) => Promise<void>): Promise<SaveResult> =>
     run(async (tx) => {
       const existing = await selectProduct(tx, storeId, id)
       if (!existing) throw new Refused({ reason: 'NOT_FOUND' })
@@ -320,6 +368,7 @@ export const createCatalogService = ({ sql, context, actor, activity, facts, now
       await writeChildren(tx, id, product, existing)
       await activity.record(tx, entry(catalogAudit.updated, { id, label: product.name }))
       const review = await reviewAfterSave(tx, id, product, existing)
+      await alongside?.(tx, id)
       return { ok: true, id, slug: done.slug, revision: revision + 1, ...review }
     })
 

@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { actingHeaders } from '../acting'
 import { allPages } from './allPages'
 import { loadFilters } from './filters'
+import { loadAllMarkets } from './markets'
+import { loadTax } from './tax'
 import { query } from './client'
 
 // The product editor's reads and writes (FIRST-RELEASE §11, CatEditor; apps/api/schema/store.graphql,
@@ -83,7 +85,7 @@ const basicsSchema = z.object({
   unitSystem: z.enum(['metric', 'imperial']).catch('metric'),
   // inPlan is null for a supplier, which is never told the plan.
   features: z.array(z.object({ key: z.string(), enabled: z.boolean(), inPlan: z.boolean().nullable() })),
-  badges: z.array(z.object({ id: z.string(), label: z.string(), rule: z.string() })),
+  badges: z.array(z.object({ id: z.string(), label: z.string(), rule: z.string(), tone: z.string().catch('neutral'), position: z.number().int().catch(0) })),
   mainLanguage: z.string().nullable(),
   translationLanguages: z.array(z.string()),
 })
@@ -91,7 +93,7 @@ export type ProductBasics = z.infer<typeof basicsSchema>
 
 /** What a product is typed in and which sections it has: the store's currency, units, catalogue switches and badges. */
 export const loadProductBasics = async (): Promise<ProductBasics> =>
-  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled inPlan } badges { id label rule } mainLanguage translationLanguages } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
+  (await query('{ catalogueSettings { pricingCurrency unitSystem features { key enabled inPlan } badges { id label rule tone position } mainLanguage translationLanguages } }', z.object({ catalogueSettings: basicsSchema }))).catalogueSettings
 
 const pageInfoSchema = z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() })
 
@@ -196,11 +198,14 @@ export const uploadPhoto = async (file: Blob): Promise<{ ok: true; assetId: stri
   }
 }
 
-const taxSetupSchema = z.object({ taxSetup: z.object({ pricesIncludeTax: z.boolean(), classes: z.array(z.object({ id: z.string(), name: z.string(), isDefault: z.boolean() })) }).nullable() })
-export type TaxSetup = NonNullable<z.infer<typeof taxSetupSchema>['taxSetup']>
+/** What the editor needs of the tax setup; Settings › Tax setup reads the whole of it (api/tax.ts). */
+export interface TaxSetup {
+  pricesIncludeTax: boolean
+  classes: { id: string; name: string; isDefault: boolean }[]
+}
 
 /** The merchant side's tax categories and whether prices include tax; a supplier reads neither here. */
-export const loadTaxSetup = async (): Promise<TaxSetup | null> => (await query('{ taxSetup { pricesIncludeTax classes { id name isDefault } } }', taxSetupSchema)).taxSetup
+export const loadTaxSetup = (): Promise<TaxSetup | null> => loadTax()
 
 /** Whether a supplier's changes wait for the merchant (SAPI 5's approval switch). */
 export const loadApprovalRequired = async (): Promise<boolean> => (await query('{ supplierApprovalRequired }', z.object({ supplierApprovalRequired: z.boolean() }))).supplierApprovalRequired
@@ -241,12 +246,5 @@ export const loadStoreCurrencies = async (): Promise<{ code: string; mode: 'auto
 }
 
 /** The store's active markets, for each one's price. */
-export const loadMarkets = (): Promise<{ id: string; name: string; currency: string }[]> =>
-  allPages(async (after) => {
-    const { markets } = await query(
-      'query M($after: String) { markets(first: 50, after: $after) { nodes { id name currency active parentId } pageInfo { hasNextPage endCursor } } }',
-      z.object({ markets: z.object({ nodes: z.array(z.object({ id: z.string(), name: z.string(), currency: z.string(), active: z.boolean(), parentId: z.string().nullable() })), pageInfo: pageInfoSchema }) }),
-      { after },
-    )
-    return { nodes: markets.nodes.filter((m) => m.active && m.parentId === null).map(({ id, name, currency }) => ({ id, name, currency })), pageInfo: markets.pageInfo }
-  })
+export const loadMarkets = async (): Promise<{ id: string; name: string; currency: string }[]> =>
+  (await loadAllMarkets()).filter((m) => m.active && m.parentId === null).map(({ id, name, currency }) => ({ id, name, currency }))

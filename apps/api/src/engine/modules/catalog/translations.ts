@@ -148,39 +148,52 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       return rows
     })
 
-  const saveProductTranslation = (productId: string, language: string, input: ProductTranslationInput) =>
-    run(async (tx) => {
-      await translating(tx, language)
-      const rows = isUuid(productId) ? await selectProductTranslation(tx, storeId, productId, language) : []
-      const product = rows.find((r) => r.entity === 'product' && r.field === 'name')
-      if (!product) throw new Refused('NOT_FOUND')
-      // Shared names are the whole catalogue's, so the merchant side's (N6, N15).
-      if (sellerId !== null && input.names && input.names.length > 0) throw new Refused('SUPPLIER_FIELD')
-      const own = changesOf(rows, 'product', productId, input)
-      for (const v of input.versions ?? []) {
-        const id = v.id.toLowerCase()
-        if (!rows.some((r) => r.entity === 'version' && r.entity_id === id)) throw new Refused('NOT_FOUND')
-        const change = changesOf(rows, 'version', id, { name: v.name })
-        own.writes.push(...change.writes)
-        own.clears.push(...change.clears)
-      }
-      for (const n of input.names ?? []) {
-        const source = n.source.trim().toLowerCase()
-        if (!rows.some((r) => r.entity === n.kind && r.entity_id === source)) throw new Refused('NOT_FOUND')
-        const change = changesOf(rows, n.kind, source, { name: n.text })
-        own.writes.push(...change.writes.map((w) => ({ ...w, main: source })))
-        own.clears.push(...change.clears)
-      }
-      onceEach([...own.writes, ...own.clears])
-      await upsertTranslations(tx, storeId, language, own.writes, now())
-      await deleteTranslations(tx, storeId, language, own.clears)
-      await activity.record(tx, entry(translationAudit.product, { type: 'product', id: productId, label: product.main }, language))
-      // N16: a supplier's new translation waits for the merchant while approval is on.
-      if (sellerId !== null && own.writes.length > 0 && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId, now()))) {
-        await activity.record(tx, entry(approvalAudit.sentBackForApproval, { type: 'product', id: productId, label: product.main }, 'translation'))
-      }
-      return await selectProductTranslation(tx, storeId, productId, language)
-    })
+  const writeProductTranslation = async (tx: ScopedSql, productId: string, language: string, input: ProductTranslationInput) => {
+    await translating(tx, language)
+    const rows = isUuid(productId) ? await selectProductTranslation(tx, storeId, productId, language) : []
+    const product = rows.find((r) => r.entity === 'product' && r.field === 'name')
+    if (!product) throw new Refused('NOT_FOUND')
+    // Shared names are the whole catalogue's, so the merchant side's (N6, N15).
+    if (sellerId !== null && input.names && input.names.length > 0) throw new Refused('SUPPLIER_FIELD')
+    const own = changesOf(rows, 'product', productId, input)
+    for (const v of input.versions ?? []) {
+      const id = v.id.toLowerCase()
+      if (!rows.some((r) => r.entity === 'version' && r.entity_id === id)) throw new Refused('NOT_FOUND')
+      const change = changesOf(rows, 'version', id, { name: v.name })
+      own.writes.push(...change.writes)
+      own.clears.push(...change.clears)
+    }
+    for (const n of input.names ?? []) {
+      const source = n.source.trim().toLowerCase()
+      if (!rows.some((r) => r.entity === n.kind && r.entity_id === source)) throw new Refused('NOT_FOUND')
+      const change = changesOf(rows, n.kind, source, { name: n.text })
+      own.writes.push(...change.writes.map((w) => ({ ...w, main: source })))
+      own.clears.push(...change.clears)
+    }
+    onceEach([...own.writes, ...own.clears])
+    await upsertTranslations(tx, storeId, language, own.writes, now())
+    await deleteTranslations(tx, storeId, language, own.clears)
+    await activity.record(tx, entry(translationAudit.product, { type: 'product', id: productId, label: product.main }, language))
+    // N16: a supplier's new translation waits for the merchant while approval is on.
+    if (sellerId !== null && own.writes.length > 0 && (await approvalRequired(tx)) && (await submitForApproval(tx, storeId, productId, now()))) {
+      await activity.record(tx, entry(approvalAudit.sentBackForApproval, { type: 'product', id: productId, label: product.main }, 'translation'))
+    }
+    return await selectProductTranslation(tx, storeId, productId, language)
+  }
+
+  const saveProductTranslation = (productId: string, language: string, input: ProductTranslationInput) => run((tx) => writeProductTranslation(tx, productId, language, input))
+
+  /** The same, inside a caller's transaction (an import's product save), under a savepoint so a refusal undoes only itself. */
+  const saveProductTranslationIn = async (tx: ScopedSql, productId: string, language: string, input: ProductTranslationInput): Promise<TranslationResult<true>> => {
+    try {
+      await tx.savepoint((sp) => writeProductTranslation(sp, productId, language, input))
+      return { ok: true, value: true }
+    } catch (error) {
+      if (error instanceof Refused) return { ok: false, reason: error.reason }
+      if (slugClash(error)) return { ok: false, reason: 'DUPLICATE_SLUG' }
+      throw error
+    }
+  }
 
   /** N7: a collection's, filter's or filter choice's text, the merchant side's. */
   const saveEntityTranslation = (entity: 'collection' | 'filter' | 'filter_value', id: string, language: string, patch: TextPatch) =>
@@ -250,5 +263,5 @@ export const createTranslationService = ({ sql, context, actor, activity, facts,
       return countUntranslatedProducts(tx, storeId, language)
     })
 
-  return { productTranslation, saveProductTranslation, entityTranslation, saveEntityTranslation, sharedNames, saveSharedNames, counts, checkLanguage }
+  return { productTranslation, saveProductTranslation, saveProductTranslationIn, entityTranslation, saveEntityTranslation, sharedNames, saveSharedNames, counts, checkLanguage }
 }

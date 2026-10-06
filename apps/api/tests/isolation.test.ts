@@ -339,7 +339,7 @@ describe('the backstop itself', () => {
       'partner', 'store', 'seller', 'customer', 'activity_log', 'outbox',
       'partner_user', 'partner_invitation', 'partner_domain', 'partner_setup_item', 'plan',
       'custom_domain', 'user', 'membership', 'invitation', 'job', 'job_detail', 'store_note',
-      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job',
+      'merchant_charge', 'partner_payout', 'store_sales_month', 'partner_billing_feed', 'partner_domain_record', 'export_job', 'catalog_export', 'catalog_import', 'external_connection',
       'partner_password_reset', 'user_session', 'user_backup_code', 'verification_code',
       'user_password_reset', 'user_email_change', 'signup', 'signup_text',
       'product', 'product_option', 'product_option_value', 'product_version', 'product_version_option_value', 'version_price', 'price_history',
@@ -531,11 +531,17 @@ describe('the backstop itself', () => {
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set on_hand = 99 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`update stock_level set reserved = 1 where version_id = ${version?.id ?? ''}`)).rejects.toThrow(/permission denied/)
     await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`insert into stock_movement (store_id, version_id, warehouse_id, delta, resulting_quantity, reason, actor_kind) values (${t.storeA1}, ${version?.id ?? ''}, ${location?.id ?? ''}, 5, 5, 'received', 'system')`)).rejects.toThrow(/permission denied/)
-    for (const reason of ['order', 'import', 'starting', 'transfer']) {
+    // `import` is the importer's own (0059, #301), under the same location and owner checks as `received`.
+    for (const reason of ['order', 'starting', 'transfer']) {
       await expect(inStore(t.storeA1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, ${reason})`)).rejects.toThrow(/known reason/)
     }
     await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
     await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'received')`)).rejects.toThrow(/no such version or location/)
+    // `import` reaches no further than `received`: not another seller's location or version, not another store's, never read-only support.
+    await expect(inStore(t.storeA1, supplier, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'import')`)).rejects.toThrow(/no such version or location/)
+    await expect(inStore(t.storeB1, { kind: 'all' }, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'import')`)).rejects.toThrow(/no such version or location/)
+    const readOnlySupport: CallerContext = { caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' }, partnerId: t.partnerA, storeId: t.storeA1, sellerScope: { kind: 'all' }, subscription: 'active' }
+    await expect(withScope(db.sql, readOnlySupport, (tx) => tx`select stock_change(${version?.id ?? ''}, ${location?.id ?? ''}, 1, null, 'import')`)).rejects.toThrow(/not in this scope/)
     expect(await seen(t.storeA1, supplier, 'stock_movement')).toBe(0)
     expect(await seen(t.storeA1, supplier, 'stock_level')).toBe(0)
     expect(await seen(t.storeB1, { kind: 'all' }, 'stock_movement')).toBe(0)
@@ -630,17 +636,17 @@ describe('the backstop itself', () => {
     // A new one is a decision: add it to 0047's list and here, with what the supplier does with it.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier'
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and table_name not in ('store', 'story_block') order by 1`)).toEqual([
-      'activity_log', 'asset', 'badge', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
+      'activity_log', 'asset', 'badge', 'catalog_export', 'catalog_import', 'external_connection', 'filter', 'filter_value', 'invitation', 'membership', 'outbox', 'price_history',
       'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value', 'product_flag', 'product_highlight',
       'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related', 'product_spec', 'product_story',
       'product_version', 'product_version_option_value', 'product_video', 'seller', 'size_chart', 'stock_level', 'stock_movement',
       'store_feature', 'store_language', 'tax_class', 'translation', 'user', 'version_price', 'warehouse',
     ])
-    // Writes only on its catalogue, stock and what every write records; price history and stock movements only through
+    // Writes only on its catalogue, stock, its own exports (#301) and what every write records; price history and stock movements only through
     // their definer functions; its team's invitations and memberships by column (0049); the settings and its seller it only reads.
     expect(await tables(`select distinct table_name as t from information_schema.role_table_grants where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE', 'DELETE')
       union select distinct table_name from information_schema.column_privileges where grantee = 'app_supplier' and privilege_type in ('INSERT', 'UPDATE') order by 1`)).toEqual([
-      'activity_log', 'asset', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
+      'activity_log', 'asset', 'catalog_export', 'catalog_import', 'external_connection', 'invitation', 'membership', 'outbox', 'product', 'product_badge', 'product_compliance', 'product_faq', 'product_filter_value',
       'product_flag', 'product_highlight', 'product_market_rule', 'product_option', 'product_option_value', 'product_photo', 'product_related',
       'product_spec', 'product_story', 'product_version', 'product_version_option_value', 'product_video', 'size_chart', 'stock_level',
       'translation', 'version_price', 'warehouse',

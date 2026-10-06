@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { allPages } from './allPages'
+import { loadAllMarkets } from './markets'
 import { query } from './client'
 
 // Collections (CatCollections, FIRST-RELEASE §12): the merchant side's groups of products, by rules or by hand.
@@ -159,16 +160,4 @@ export const deleteCollection = async (id: string): Promise<void> => {
 }
 
 /** The countries the store's active markets sell to, for the seasonal ideas (CATALOG H13). */
-export const loadMarketCountries = async (): Promise<string[]> => {
-  const markets = await allPages(
-    async (after) =>
-      (
-        await query(
-          'query M($after: String) { markets(first: 50, after: $after) { nodes { active countries } pageInfo { hasNextPage endCursor } } }',
-          z.object({ markets: z.object({ nodes: z.array(z.object({ active: z.boolean(), countries: z.array(z.string()) })), pageInfo: pageInfoSchema }) }),
-          { after },
-        )
-      ).markets,
-  )
-  return [...new Set(markets.filter((m) => m.active).flatMap((m) => m.countries))]
-}
+export const loadMarketCountries = async (): Promise<string[]> => [...new Set((await loadAllMarkets()).filter((m) => m.active).flatMap((m) => m.countries))]
