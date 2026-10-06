@@ -474,13 +474,15 @@ failed; a live hostname can become expiring or broken if its records change.
    adding every partner host to the Pages project hits its per-project domain cap and cannot
    take wildcards. What works is a **Worker on a catch-all route** (`*/*` on the zone): it
    receives the partner host first, sends `/api/*` to the API Worker and the rest to Pages
-   (whose own URL gives it the right `Host`), and passes the partner host on in a header.
+   (whose own URL gives it the right `Host`), and keeps the partner's own `Host` on `/api/*`.
    Hosts on our own zone pass through untouched, and `dev-admin`, `dev-platform`, `dev-store`
-   and `dev-hooks` answered as before. The API Worker routes any other host's `/api/*` to the
-   Store API without checking the host is registered (`resolveArea`), so the proxy sends the
-   partner host in a header and the API looks it up in `partner_domain`, trusting the header
-   only on a call that arrives through the proxy's service binding. Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which
-   deletes the SaaS hostname after commit; the console has no Remove button yet.
+   and `dev-hooks` answered as before.
+   **Not built (#426):** the API Worker routes any other host's `/api/*` to the Store API
+   without checking the host is registered (`resolveArea`). The decided design is a
+   `PortalProxy` entrypoint reached only through the proxy's service binding, with the partner
+   found in `partner_domain` by host.
+   Removing a partner domain (`removePartnerDomain`) queues `domain.remove`, which deletes the
+   SaaS hostname after commit; the console has no Remove button yet.
 4. Once the certificate is issued the hostname is live and routed to the store's live site
    (merchant domain) or the portal (partner host).
    **The portal's four steps** (decided 2026-10-02, `SetStore`): *Add the record* → *We check

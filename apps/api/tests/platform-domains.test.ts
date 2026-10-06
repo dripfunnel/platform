@@ -185,13 +185,23 @@ describe('removing an address', () => {
     expect(await db.sql`select 1 from outbox where kind = 'domain.remove' and payload->>'host' = 'mail.removable.example'`).toEqual([])
   })
 
-  it('never removes another partner’s address, and a role without domains.write may not remove at all', async () => {
-    const before = await db.sql`select count(*)::int as n from partner_domain where partner_id = ${ids.ns}`
-    const intruder = callerOf(ids.removal, 'partner-owner')
-    expect((await run<Removed>(remove, intruder, { kind: 'portal' })).data?.removePartnerDomain).toEqual({ ok: false, reason: 'NOT_FOUND' })
-    expect(await db.sql`select count(*)::int as n from partner_domain where partner_id = ${ids.ns}`).toEqual(before)
+  // A DELETE only reaches rows the SELECT policy shows, so this holds with partner_domain_delete or without it:
+  // it pins the outcome (0061 grants delete and adds that policy), not the policy alone.
+  it('never lets one partner delete another’s address or records at the database, and a role without domains.write may not remove at all', async () => {
+    const { withScope } = await import('#db/scoped/index')
+    const { deletePartnerAddress } = await import('#db/scoped/partnerDomains')
+    const [theirs] = await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.ns} limit 1`
+    const domainId = theirs?.id ?? ''
+    expect(domainId).not.toBe('')
+    const records = await db.sql`select count(*)::int as n from partner_domain_record where domain_id = ${domainId}`
+    await withScope(db.sql, { caller: { kind: 'partner-user', partnerUserId: 'pu' }, partnerId: ids.removal }, (tx) => deletePartnerAddress(tx, domainId))
+    expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
+    expect(await db.sql`select count(*)::int as n from partner_domain_record where domain_id = ${domainId}`).toEqual(records)
+    const storeScope = withScope(db.sql, { caller: { kind: 'store-user', storeId: ids.removal, userId: 'u' }, storeId: ids.removal } as never, (tx) => deletePartnerAddress(tx, domainId))
+    await storeScope.catch(() => undefined)
+    expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
     expect((await run<Removed>(remove, callerOf(ids.ns, 'partner-support'), { kind: 'portal' })).code).toBe('FORBIDDEN')
-    expect(await db.sql`select count(*)::int as n from partner_domain where partner_id = ${ids.ns}`).toEqual(before)
+    expect(await db.sql`select 1 from partner_domain where id = ${domainId}`).toHaveLength(1)
   })
 })
 
