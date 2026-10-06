@@ -157,12 +157,6 @@ export const registerTax = (builder: StoreBuilder) => {
       extensions: { access: { ...write, audit: taxAudit.classSaved } },
       resolve: async (_, args, ctx) => answered(await service(ctx).addCategory({ name: args.name, rateBps: args.rateBps, homeZoneName: args.homeZoneName })),
     }),
-    // One category's rate in one zone, the zone's other rates left as they are (Settings › Tax setup's "Change rate").
-    setTaxRate: t.boolean({
-      args: { zoneId: t.arg.id({ required: true }), taxClassId: t.arg.id({ required: true }), rateBps: t.arg.int({ required: true }) },
-      extensions: { access: { ...write, audit: taxAudit.rateSet } },
-      resolve: async (_, args, ctx) => answered(await service(ctx).setRate(String(args.zoneId), String(args.taxClassId), args.rateBps)),
-    }),
     deleteTaxZone: t.boolean({
       args: { id: t.arg.id({ required: true }) },
       extensions: { access: { ...write, audit: taxAudit.zoneDeleted } },
