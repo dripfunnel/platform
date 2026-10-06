@@ -7,10 +7,11 @@ import type { TenantContext } from '#core/tenancy'
 import { appendImportFile, failImport, insertShopifyImport, saveImportCheck, selectCatalogImport } from '#db/scoped/catalogImports'
 import { deleteConnection, finishConnection, markConnectionExpired, savePendingConnection, selectConnection, type ConnectionRow } from '#db/scoped/externalConnections'
 import { withScope, type ScopedSql } from '#db/scoped/index'
+import { importLimits } from './importFile'
 import { catalogImportAudit, catalogImportKind, catalogImportLifetimeMs, type CatalogImportDeps } from './imports'
 import { jobPayloadOf } from './jobScope'
 import { shopifyHeader, shopifyRows, type ShopProduct } from './shopifyFile'
-import { csvLine } from '#core/csv'
+import { csvLine, parseCsv } from '#core/csv'
 
 // Connect Shopify (CATALOG K7): the owner's shop address, approval on Shopify, back to pick products, then the
 // import's own check and run. The engine names what it needs of Shopify; integrations/shopify provides it.
@@ -186,6 +187,14 @@ export interface ShopFetchDeps {
 
 const pickBatch = 50
 
+/** Stops a connected import at an uploaded file's limits, before its file grows past them (importLimits). */
+const pastLimits = (file: string): 'FILE_TOO_LARGE' | 'TOO_MANY_ROWS' | 'TOO_MANY_PRODUCTS' | null => {
+  if (new TextEncoder().encode(file).byteLength > importLimits.bytes) return 'FILE_TOO_LARGE'
+  const body = (parseCsv(file) ?? []).slice(1)
+  if (body.length > importLimits.rows) return 'TOO_MANY_ROWS'
+  return new Set(body.map((row) => row[0])).size > importLimits.products ? 'TOO_MANY_PRODUCTS' : null
+}
+
 /**
  * One page of a connected import's products into its file (K7), then the next page, then the check. An expired
  * connection ends the import saying so; Shopify not answering throws, so the relay tries again later.
@@ -193,7 +202,7 @@ const pickBatch = 50
 export const fetchShopPage = async (d: ShopFetchDeps, jobId: string, from: string | null): Promise<void> => {
   const { storeId } = d.context
   const sellerId = d.context.sellerScope.kind === 'seller' ? d.context.sellerScope.sellerId : null
-  const ended = async (tx: ScopedSql, code: 'SHOPIFY_EXPIRED' | 'NOT_AVAILABLE') => {
+  const ended = async (tx: ScopedSql, code: 'SHOPIFY_EXPIRED' | 'NOT_AVAILABLE' | 'FILE_TOO_LARGE' | 'TOO_MANY_ROWS' | 'TOO_MANY_PRODUCTS') => {
     const at = d.now()
     await saveImportCheck(tx, jobId, { source: 'shopify', plan: null, products: 0, ready: 0, matched: 0, problems: [{ line: 0, column: null, code }] })
     await failImport(tx, jobId, at, new Date(at.getTime() + catalogImportLifetimeMs))
@@ -218,9 +227,11 @@ export const fetchShopPage = async (d: ShopFetchDeps, jobId: string, from: strin
       await ended(tx, 'SHOPIFY_EXPIRED')
     })
   }
+  const rows = page.products.flatMap(shopifyRows)
+  const text = [...(from === null ? [csvLine(shopifyHeader)] : []), ...rows].map((line) => `${line}\n`).join('')
+  const over = pastLimits(job.file + text)
+  if (over) return withScope(d.sql, d.context, (tx) => ended(tx, over))
   await withScope(d.sql, d.context, async (tx) => {
-    const rows = page.products.flatMap(shopifyRows)
-    const text = [...(from === null ? [csvLine(shopifyHeader)] : []), ...rows].map((line) => `${line}\n`).join('')
     // Already added by an earlier delivery of this same page: nothing to add, and its next step is already queued.
     if (!(await appendImportFile(tx, jobId, text, from, page.next ?? 'done'))) return
     // Read: the token has done its job and goes (THIRD-PARTY-ACCESS §3.4); another import connects again.

@@ -40,6 +40,13 @@ const shopProducts = Array.from({ length: 30 }, (_, i) => product(30 - i))
 // One more variant than a product may have: the adapter reads 101 so the check can say so.
 const wide: ShopProduct = { ...product(999), options: ['Size', 'Colour'], variants: Array.from({ length: 101 }, (_, i) => ({ sku: `WIDE-${i}`, barcode: null, price: '10.00', compareAtPrice: null, cost: null, grams: null, quantity: null, values: [`S${i % 11}`, `C${Math.floor(i / 11)}`] })) }
 
+// Shops that never run out, each passing one of an import's limits after a few pages (importLimits).
+const endlessShops: Record<string, { perPage: number; make: (n: number) => ShopProduct }> = {
+  shpat_heavy: { perPage: 2, make: (n) => ({ ...product(n), handle: `heavy-${n}`, descriptionHtml: 'x'.repeat(1024 * 1024) }) },
+  shpat_wide: { perPage: 50, make: (n) => ({ ...product(n), handle: `wide-${n}`, options: ['Size'], variants: Array.from({ length: 100 }, (_, i) => ({ sku: `W-${n}-${i}`, barcode: null, price: '1.00', compareAtPrice: null, cost: null, grams: null, quantity: null, values: [`S${i}`] })) }) },
+  shpat_many: { perPage: 1000, make: (n) => ({ ...product(n), handle: `many-${n}` }) },
+}
+
 // What Shopify would do, per token: `shpat_good` reads the shop, `shpat_revoked` is refused, `down` doesn't answer.
 let tokenToIssue = 'shpat_good'
 const tokensSeen: string[] = []
@@ -52,6 +59,11 @@ const shopify: ShopifyApi = {
     if (token === 'shpat_revoked') throw new ShopUnauthorized('revoked')
     if (token === 'down') throw new ShopUnavailable('down')
     if (page.ids) return { products: [...shopProducts, wide].filter((p) => page.ids?.includes(p.id)), next: null }
+    const endless = endlessShops[token]
+    if (endless) {
+      const at = Number(page.after ?? 0)
+      return { products: Array.from({ length: endless.perPage }, (_, i) => endless.make(at + i)), next: String(at + endless.perPage) }
+    }
     const start = page.after ? Number(page.after) : 0
     const end = start + page.first
     return { products: shopProducts.slice(start, end), next: end < shopProducts.length ? String(end) : null }
@@ -176,6 +188,29 @@ describe('Connect Shopify', () => {
     await relay()
     const id = started.data?.['startShopifyImport'] as string
     expect((await gql('query J($id: ID!) { catalogImport(id: $id) { ready matched } }', 'owner', { id })).data?.['catalogImport']).toEqual({ ready: 30, matched: 2 })
+  })
+
+  it('stops reading “all” once the shop passes an uploaded file’s limits, and says which', async () => {
+    const cases = [['shpat_heavy', 'FILE_TOO_LARGE', 3], ['shpat_wide', 'TOO_MANY_ROWS', 5], ['shpat_many', 'TOO_MANY_PRODUCTS', 6]] as const
+    try {
+      for (const [token, code, pages] of cases) {
+        tokenToIssue = token
+        await connect('owner', 'kesari')
+        const before = tokensSeen.length
+        const id = (await gql('mutation { startShopifyImport(all: true) }', 'owner')).data?.['startShopifyImport'] as string
+        await relay()
+        const job = (await gql('query J($id: ID!) { catalogImport(id: $id) { state problems { code message } } }', 'owner', { id })).data?.['catalogImport'] as { state: string; problems: { code: string; message: string }[] }
+        expect(job.state, token).toBe('unreadable')
+        expect(job.problems.map((p) => p.code)).toEqual([code])
+        expect(job.problems[0]?.message).toContain('Pick the products')
+        // The page that passed the limit is the last one read, and none of it was kept.
+        expect(tokensSeen.slice(before).filter((t) => t === token)).toHaveLength(pages)
+        const kept = (await db.sql<{ n: number }[]>`select octet_length(file)::int as n from catalog_import where id = ${id}`)[0]?.n ?? 0
+        expect(kept).toBeLessThanOrEqual(5 * 1024 * 1024)
+      }
+    } finally {
+      tokenToIssue = 'shpat_good'
+    }
   })
 
   it('refuses a product with more variants than an import takes, naming it, rather than bringing part of it', async () => {

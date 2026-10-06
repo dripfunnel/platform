@@ -28,7 +28,7 @@ import {
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { setStockTargets } from '#db/scoped/inventory'
 import { selectLanguages } from '#db/scoped/translations'
-import { importLimits, planImport, type ImportPlan, type ImportProblem, type PlannedProduct, type ProblemCode } from './importFile'
+import { importLimits, planImport, type ImportPlan, type ImportProblem, type ImportSource, type PlannedProduct, type ProblemCode } from './importFile'
 import { isMerchantRole, isSupplierRole, isSupplierTier, storeRoleHas } from '#auth/storePermissions'
 import { jobPayloadOf } from './jobScope'
 import type { ProductInput, VersionInput } from './rules'
@@ -136,8 +136,12 @@ const problemsOf = (raw: unknown): ImportProblem[] => ((problemList.safeParse(ra
 const shopWords: Record<string, string> = {
   SHOPIFY_EXPIRED: 'Your Shopify connection has expired. Connect your shop again.',
   NOT_AVAILABLE: 'Connecting Shopify isn’t set up here. Import Shopify’s product CSV instead.',
+  FILE_TOO_LARGE: `Your shop’s products come to more than ${importLimits.bytes / 1024 / 1024} MB. Pick the products to bring instead.`,
+  TOO_MANY_ROWS: `Your shop’s products come to more than ${importLimits.rows.toLocaleString('en')} rows. Pick the products to bring instead.`,
+  TOO_MANY_PRODUCTS: `Your shop has more than ${importLimits.products.toLocaleString('en')} products. Pick the products to bring instead.`,
 }
-const messageOf = (code: string): string => (problemWords as Record<string, string>)[code] ?? (fileWords as Record<string, string>)[code] ?? shopWords[code] ?? 'This row couldn’t be imported.'
+const messageOf = (code: string, source: ImportSource | null = null): string =>
+  (source === 'shopify' ? shopWords[code] : undefined) ?? (problemWords as Record<string, string>)[code] ?? (fileWords as Record<string, string>)[code] ?? shopWords[code] ?? 'This row couldn’t be imported.'
 
 const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: string | null }, shown: number): CatalogImportDto => {
   const problems = problemsOf(job.problems)
@@ -156,7 +160,7 @@ const dtoOf = (job: CatalogImportSummary & { problems?: unknown; problems_csv?: 
     failed: job.failed,
     photosPending: job.photos_pending,
     problemCount: problems.length,
-    problems: problems.slice(0, shown).map((p) => ({ ...p, message: messageOf(p.code) })),
+    problems: problems.slice(0, shown).map((p) => ({ ...p, message: messageOf(p.code, p.line === 0 ? job.source : null) })),
     problemsCsv: job.problems_csv ?? null,
     requestedAt: job.created_at,
     finishedAt: job.finished_at,
