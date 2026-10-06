@@ -30,7 +30,7 @@ import { parseConfig, type Config } from '#core/config'
 import { failureCode, logEvent } from '#core/log'
 import { getClient } from '#db/client'
 import { dohLookup } from '#integrations/dns/doh'
-import { localDns, localEmail, localSms } from '#integrations/local/index'
+import { localCloudflare, localDns, localEmail, localSms } from '#integrations/local/index'
 import { smsDeliverer } from '#jobs/queues/deliverers/sms'
 import { ecbRates } from '#integrations/ecb/rates'
 import { entraProvider } from '#integrations/entra/provider'
@@ -146,7 +146,8 @@ const emailFor = (config: Config) => {
 const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null): Deliverers => {
   const lookup = config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup()
   const ses = emailFor(config)
-  const cloudflare = config.DNS_LOCAL !== '1' && config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
+  const client = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
+  const cloudflare = client && config.DNS_LOCAL === '1' ? localCloudflare(client) : client
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),

@@ -96,7 +96,7 @@ can use your own role and database names, as long as you put them in `.env.local
    | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `SES_SENDER_DOMAIN` | Left commented out unless you have the SES values (§8.1). Locally the email stand-in sends instead (`EMAIL_LOCAL`). |
    | `EMAIL_SUPPRESSION_KEY` | Keep it, or your own `openssl rand -base64 32`: SES and the email stand-in both need it. |
    | `SES_EVENTS_TOPIC_ARN` | **Delete.** Bounces arrive through SNS, which can't reach your machine. |
-   | `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL` | Keep `1`: the local stand-ins (§6.1). Emails and texts appear in the `pnpm dev` terminal and `apps/api/.local-mail/`, and a partner's `*.localhost` addresses verify. Each wins over the provider's real values, and the Worker refuses to start with them anywhere but localhost. |
+   | `EMAIL_LOCAL`, `SMS_LOCAL`, `DNS_LOCAL` | Keep `1`: the local stand-ins (§6.1). Emails and texts appear in the `pnpm dev` terminal and `apps/api/.local-mail/`, and a partner's `*.localhost` addresses verify without reaching Cloudflare, even with the `CF_*` values set. Each wins over the provider's real values, and the Worker refuses to start with them anywhere but localhost. |
    | `SEED_PASSWORD` | Optional, at least 10 characters: every seeded merchant, supplier and partner user gets this password at the next seed (§5). Without it, they sign in after **Forgot password**. |
    | `SHOPIFY_CLIENT_ID`, `SHOPIFY_CLIENT_SECRET` | Left commented out unless you have a Shopify app's values (and then remove `SHOPIFY_LOCAL`). Without them or `SHOPIFY_LOCAL`, Connect Shopify says it isn't set up. |
    | `SHOPIFY_LOCAL` | Keep `1` to try Connect Shopify without an app: approval comes straight back and the shop is empty, every call logged. It wins over the two values above, and the Worker refuses to start with it anywhere but localhost. |
@@ -189,8 +189,8 @@ job. Only the last call is local (`apps/api/src/integrations/local/`):
   ```
   They arrive within a minute: the relay runs once a minute, as on dev.
 - **DNS:** a `*.localhost` name answers with what its partner domain record expects, so a new
-  partner's addresses go from waiting to live through the real check. Every other name goes to
-  the real resolver.
+  partner's addresses go from waiting to live through the real check, and never reach Cloudflare
+  for SaaS. Every other name goes to the real resolver and, with the `CF_*` values, to Cloudflare.
 
 Check that it's up:
 
