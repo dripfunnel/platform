@@ -149,7 +149,7 @@ const ImportFlow = ({ readOnly, side, sample }: { readOnly: boolean; side: 'merc
     importRun.set({ ...job, state: 'running', done: 0 })
   }
 
-  const template = async () => downloadCsv(await loadImportTemplate(), 'template.csv')
+  const template = async () => downloadCsv(await loadImportTemplate(), words.sources.template.file)
 
   const mine = run && (job === null || run.id === job.id) ? run : null
   const step = mine ? (mine.state === 'running' ? 'running' : 'done') : job ? 'check' : picking ? 'pick' : 'start'

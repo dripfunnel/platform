@@ -46,4 +46,20 @@ describe('the import watcher', () => {
     await act(async () => vi.advanceTimersByTimeAsync(importPollMs * 2))
     expect(importRun.get()?.done).toBe(4)
   })
+
+  it('drops a run when the seat changes or the shell goes, and picks up the new seat’s own', async () => {
+    api.loadImports.mockResolvedValueOnce([job({ id: 'store-a' })]).mockResolvedValueOnce([job({ id: 'store-b', done: 1 })])
+    api.loadImport.mockReturnValue(new Promise(() => undefined))
+    const { rerender, unmount } = render(<ImportWatcher key="a" />)
+    await act(async () => undefined)
+    expect(importRun.get()?.id).toBe('store-a')
+    // The shell keys the watcher by store and supplier: store B never sees A's counts.
+    rerender(<ImportWatcher key="b" />)
+    expect(importRun.get()?.id).not.toBe('store-a')
+    await act(async () => undefined)
+    expect(importRun.get()?.id).toBe('store-b')
+    unmount()
+    expect(importRun.get()).toBeNull()
+  })
 })
+

@@ -1773,7 +1773,8 @@
       "template": {
         "title": "Download the template",
         "body": "Every column we read, with one example row: name, price, stock, product code, photos and the rest.",
-        "cta": "Download template.csv"
+        "cta": "Download template.csv",
+        "file": "template.csv"
       }
     },
     "fileErrors": {
@@ -1925,7 +1926,8 @@
       "expired": "Expired",
       "failed": "Couldn’t be made",
       "ready": "Your export is ready",
-      "file": "products-{date}.csv"
+      "file": "products-{date}.csv",
+      "counting": "…"
     },
     "banner": {
       "title": "Importing products —",

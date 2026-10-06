@@ -6,7 +6,7 @@ import { importRun, isRunning, useImportRun } from './importRun'
 
 export const importPollMs = 2000
 
-/** Mounted in the shell for an importer: finds a run still going after a reload, follows it on any screen, and says when it ends. */
+/** Mounted in the shell for an importer, keyed by the acting seat: finds the seat's run still going, follows it, and says when it ends. */
 export const ImportWatcher = () => {
   const run = useImportRun()
   const [toast, setToast] = useState<string | null>(null)
@@ -23,6 +23,8 @@ export const ImportWatcher = () => {
     )
     return () => {
       live = false
+      // The run belongs to the seat that started it: the shell remounts this per store and supplier, and on sign-out.
+      importRun.set(null)
     }
   }, [])
 

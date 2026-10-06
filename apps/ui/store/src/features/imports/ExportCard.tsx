@@ -67,7 +67,7 @@ export const ExportCard = () => {
         <ul className="df-import-export-rows">
           {exports.map((e) => (
             <li key={e.id}>
-              <span className="df-import-export-label">{fill(words.row, { label: words.label[e.kind], count: e.entries === null ? '…' : fill(plural(words.count, e.entries), { count: formatCount(e.entries) }) })}</span>
+              <span className="df-import-export-label">{fill(words.row, { label: words.label[e.kind], count: e.entries === null ? words.counting : fill(plural(words.count, e.entries), { count: formatCount(e.entries) }) })}</span>
               <span className="df-import-export-date">{formatTime(e.requestedAt)}</span>
               {e.state === 'ready' && e.url ? (
                 <a className="df-import-link" href={e.url} download={fill(words.file, { date: e.requestedAt.slice(0, 10) })}>
