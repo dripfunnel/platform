@@ -1,6 +1,6 @@
 import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, Icon, initials, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
-import { looksLikeEmail } from '../common/email'
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 import { useState } from 'react'
 import {
   accessLevels,

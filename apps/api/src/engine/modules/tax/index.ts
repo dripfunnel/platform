@@ -212,6 +212,37 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
       return true
     })
 
+  /**
+   * "Add a rate": a new category and its rate at home in one transaction, the home zone (the store's country, no regions)
+   * made with it when there's none, so a refusal leaves no category behind and a lost connection can't split the two.
+   */
+  const addCategory = (input: { name: string; rateBps: number; homeZoneName: string }) =>
+    run(async (tx) => {
+      const cleaned = cleanClass({ name: input.name })
+      const zoneName = input.homeZoneName.trim()
+      if (!Number.isInteger(input.rateBps) || input.rateBps < 0 || input.rateBps > 10_000 || zoneName === '' || zoneName.length > 60) throw new Refused('INVALID_INPUT')
+      await serialise(tx, `tax_zone:${storeId}`)
+      const before = await selectTaxSetup(tx, storeId)
+      const country = before?.country ?? null
+      if (!before || !country) throw new Refused('INVALID_INPUT')
+      if (before.classes.length >= maxTaxClasses) throw new Refused('TOO_MANY')
+      const classId = await insertTaxClass(tx, storeId, cleaned)
+      await activity.record(tx, entry(taxAudit.classSaved, { type: 'tax_class', id: classId, label: cleaned.name }, null))
+      const home = before.zones.find((z) => z.countries.includes(country) && z.regions.length === 0)
+      const mine = { countries: home?.countries ?? [country], regions: [], classIds: [...(home?.rates.map((r) => r.tax_class_id) ?? []), classId] }
+      if (before.zones.some((z) => z.id !== home?.id && zonesClash(mine, { countries: z.countries, regions: z.regions, classIds: z.rates.map((r) => r.tax_class_id) }))) throw new Refused('ZONE_OVERLAP')
+      if (home) {
+        await setZoneRate(tx, storeId, home.id, { taxClassId: classId, rateBps: input.rateBps })
+        await activity.record(tx, entry(taxAudit.rateSet, { type: 'tax_zone', id: home.id, label: home.name }, null))
+      } else {
+        if (before.zones.length >= maxTaxZones) throw new Refused('TOO_MANY')
+        const zoneId = await insertTaxZone(tx, storeId, { name: zoneName, countries: [country], regions: [], rates: [] })
+        await setZoneRates(tx, storeId, zoneId, [{ taxClassId: classId, rateBps: input.rateBps }])
+        await activity.record(tx, entry(taxAudit.zoneSaved, { type: 'tax_zone', id: zoneId, label: zoneName }, null))
+      }
+      return classId
+    })
+
   const deleteZone = (id: string) =>
     run(async (tx) => {
       const setupRow = await selectTaxSetup(tx, storeId)
@@ -288,7 +319,7 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
     }
   }
 
-  return { setup, setInclusive, saveClass, deleteClass, saveZone, setRate, deleteZone, invoiceSettings, saveInvoice, quote }
+  return { setup, setInclusive, saveClass, addCategory, deleteClass, saveZone, setRate, deleteZone, invoiceSettings, saveInvoice, quote }
 }
 
 const settingOf = (row: TaxSetupRow): TaxSetting => ({

@@ -164,8 +164,11 @@ export const MarketsTab = ({ markets: given, locale: loc, canEdit, onSaved }: Ma
         try {
           const fresh = await loadAllMarkets()
           setMarkets(fresh)
-          const again = fresh.find((m) => m.id === opened)
-          setDraft(again ? draftOfMarket(again) : null)
+          // A market not saved yet keeps everything typed; a saved one shows what's stored now, or closes if it's gone.
+          if (opened !== null) {
+            const again = fresh.find((m) => m.id === opened)
+            setDraft(again ? draftOfMarket(again) : null)
+          }
           setFailure(fill(words.reread, { refusal: refusalOf(error) }))
         } catch {
           setFailure(refusalOf(error))

@@ -38,10 +38,10 @@ const subscribe = async (storeId: string, partnerId: string) => {
 const sellerOf: Partial<Record<Who, () => string>> = { supplier: () => t.sellerA1First, otherSupplier: () => t.sellerA1Second }
 
 /** Acting as `who`'s person through a read-only support session (ACCESS §8), at the resolver itself. */
-const asSupport = (context: StoreContext): StoreContext => {
+const asSupport = (context: StoreContext, access: 'read' | 'write' = 'read'): StoreContext => {
   if (context.standing.kind !== 'acting') return context
   const { caller } = context.standing
-  return { ...context, standing: { ...context.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'read' } } } } }
+  return { ...context, standing: { ...context.standing, caller: { ...caller, context: { ...caller.context, caller: { kind: 'support', supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access } } } } }
 }
 
 const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, storeId = who === 'bOwner' ? t.storeB1 : t.storeA1, through: (c: StoreContext) => StoreContext = (c) => c) => {
@@ -302,6 +302,10 @@ describe('a supplier’s import', () => {
     expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner', {}, t.storeA1, asSupport)).code).toBe('FORBIDDEN')
     const { id } = await upload('owner', 'handle,name,price\nsupport-try,Support try,1\n')
     expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, asSupport)).code).toBe('FORBIDDEN')
+    // With write access too: the run checks a person's seat each chunk, so a support session isn't let start one it can't finish.
+    const asWriteSupport = (c: StoreContext) => asSupport(c, 'write')
+    expect((await gql('mutation { startCatalogImport(file: "handle,name,price\\na,A,1") }', 'owner', {}, t.storeA1, asWriteSupport)).code).toBe('FORBIDDEN')
+    expect((await gql('mutation C($id: ID!) { confirmCatalogImport(id: $id, matching: update) }', 'owner', { id }, t.storeA1, asWriteSupport)).code).toBe('FORBIDDEN')
   })
 
   it('stops a run whose importer can’t import any more, making nothing after', async () => {
