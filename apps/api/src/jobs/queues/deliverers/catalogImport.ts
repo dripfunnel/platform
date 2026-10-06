@@ -62,7 +62,7 @@ export const catalogImportDeps = (sql: postgres.Sql, p: CatalogJobPayload, effec
     facts,
     now,
     catalog,
-    saveTranslation: translations.saveProductTranslation,
+    saveTranslationIn: translations.saveProductTranslationIn,
     queue: (tx, kind, key, payload) => queueSideEffect(tx, { kind, idempotencyKey: key, payload, partnerId: p.partnerId, storeId: p.storeId }),
   }
 }

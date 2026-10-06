@@ -32,16 +32,13 @@ export const deleteTaxClass = async (id: string): Promise<void> => {
   await query('mutation D($id: ID!) { deleteTaxClass(id: $id) }', z.object({ deleteTaxClass: z.boolean() }), { id })
 }
 
-export const saveTaxZone = async (id: string | null, input: { name: string; countries: string[]; regions: string[]; rates: { taxClassId: string; rateBps: number }[] }): Promise<string> =>
-  (await query('mutation S($id: ID, $input: TaxZoneInput!) { saveTaxZone(id: $id, input: $input) }', z.object({ saveTaxZone: z.string() }), { id, input })).saveTaxZone
-
 /** A new category with its rate at home, in one go on the server; the home zone is made, named `homeZoneName`, when there's none. */
 export const addTaxCategory = async (name: string, rateBps: number, homeZoneName: string): Promise<string> =>
   (await query('mutation A($n: String!, $r: Int!, $h: String!) { addTaxCategory(name: $n, rateBps: $r, homeZoneName: $h) }', z.object({ addTaxCategory: z.string() }), { n: name, r: rateBps, h: homeZoneName })).addTaxCategory
 
-/** One category's rate in one zone; the zone's other rates stay as they are, whoever changed them. */
-export const setTaxRate = async (zoneId: string, taxClassId: string, rateBps: number): Promise<void> => {
-  await query('mutation R($z: ID!, $c: ID!, $r: Int!) { setTaxRate(zoneId: $z, taxClassId: $c, rateBps: $r) }', z.object({ setTaxRate: z.boolean() }), { z: zoneId, c: taxClassId, r: rateBps })
+/** An existing category's rate at home; the server makes the home zone, named `homeZoneName`, when there's none. */
+export const setHomeTaxRate = async (taxClassId: string, rateBps: number, homeZoneName: string): Promise<void> => {
+  await query('mutation H($c: ID!, $r: Int!, $h: String!) { setHomeTaxRate(taxClassId: $c, rateBps: $r, homeZoneName: $h) }', z.object({ setHomeTaxRate: z.boolean() }), { c: taxClassId, r: rateBps, h: homeZoneName })
 }
 
 const invoiceSchema = z.object({ taxPerLine: z.boolean(), emailWithDispatch: z.boolean(), footer: z.string().nullable(), legalName: z.string().nullable() })
