@@ -25,9 +25,11 @@ const answered = <T>(result: { ok: true; value: T } | { ok: false; reason: Shopi
 
 const access = { api: 'store', scope: 'store-seller', permission: 'catalog.import', target: 'none' } as const
 
+/** A support session never connects a shop or reads one with the merchant's token (ACCESS §8), as it never starts an import. */
 const service = (ctx: StoreContext) => {
   if (!ctx.sql) throw forbidden()
   const caller = actingCaller(ctx)
+  if (caller.context.caller.kind === 'support') throw new GraphQLError('A support session can’t connect Shopify. Someone in the store connects from their own account.', { extensions: { code: 'FORBIDDEN' } })
   return createShopifyService({
     sql: ctx.sql,
     context: caller.context,
@@ -71,7 +73,11 @@ export const registerShopify = (builder: StoreBuilder) => {
       type: Page,
       args: { after: t.arg.string(), search: t.arg.string() },
       extensions: { access },
-      resolve: async (_, { after, search }, ctx) => answered(await service(ctx).products(after ?? null, search?.trim().slice(0, 100) || null)),
+      resolve: async (_, { after, search }, ctx) => {
+        // Shopify's own cursor, passed back as it came: bounded like the job's (catalogImport.ts), never sent on at any size.
+        if (after !== null && after !== undefined && after.length > 2000) throw refused('INVALID_INPUT')
+        return answered(await service(ctx).products(after ?? null, search?.trim().slice(0, 100) || null))
+      },
     }),
   }))
 

@@ -53,7 +53,10 @@ const tokensSeen: string[] = []
 const shopify: ShopifyApi = {
   authorizeUrl: (shop, state, redirectUri) => `https://${shop}/admin/oauth/authorize?state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`,
   verifyCallback: async (query) => query.get('hmac') === 'signed',
-  exchange: async () => tokenToIssue,
+  exchange: async () => {
+    if (tokenToIssue === 'no-exchange') throw new ShopUnavailable('exchange')
+    return tokenToIssue
+  },
   products: async (_shop, token, page) => {
     tokensSeen.push(token)
     if (token === 'shpat_revoked') throw new ShopUnauthorized('revoked')
@@ -83,12 +86,13 @@ const subscribe = async (storeId: string, partnerId: string) => {
     values (${storeId}, ${partnerId}, ${plan?.id ?? ''}, 1, 'active', 'month', 'INR', 0, ${now}, ${new Date(now.getTime() + 30 * 86_400_000)})`
 }
 
-const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, o: { shopify?: typeof shop | null; storeId?: string } = {}) => {
+const gql = async (source: string, who: Who, variables: Record<string, unknown> = {}, o: { shopify?: typeof shop | null; storeId?: string; support?: boolean } = {}) => {
   const partnerId = who === 'bOwner' ? t.partnerB : t.partnerA
   const facts = { requestId: 'r', ip: null, userAgent: null }
   const headers: Record<string, string> = { cookie: `${storeCookieName}=${cookies[who]}`, [storeHeader]: o.storeId ?? (who === 'bOwner' ? t.storeB1 : t.storeA1), ...(who === 'supplier' ? { [supplierHeader]: t.sellerA1First } : {}) }
   const standing = await resolveStoreStanding(db.sql, new Request('https://store.example/api/', { headers }), partnerId, now, activityLog, facts)
-  const contextValue: StoreContext = { standing, partnerId, sql: db.sql, activity: activityLog, facts, secrets, host: 'kesari.portal.example', shopify: o.shopify === undefined ? shop : o.shopify, now: () => now }
+  const acting = o.support && standing.kind === 'acting' ? { ...standing, caller: { ...standing.caller, context: { ...standing.caller.context, caller: { kind: 'support' as const, supportSessionId: crypto.randomUUID(), partnerUserId: crypto.randomUUID(), access: 'write' as const } } } } : standing
+  const contextValue: StoreContext = { standing: acting, partnerId, sql: db.sql, activity: activityLog, facts, secrets, host: 'kesari.portal.example', shopify: o.shopify === undefined ? shop : o.shopify, now: () => now }
   const result = await graphql({ schema: storeSchema as GraphQLSchema, source, contextValue, variableValues: variables })
   return { data: result.data as Record<string, unknown> | null | undefined, code: result.errors?.[0]?.extensions['code'] as string | undefined, errors: result.errors }
 }
@@ -106,7 +110,7 @@ const connect = async (who: Who, shopName: string, back: Record<string, string> 
   const asked = await gql('mutation C($s: String!) { connectShopify(shop: $s) }', who, { s: shopName })
   const url = new URL((asked.data?.['connectShopify'] as string | undefined) ?? 'https://x.example')
   const query = new URLSearchParams({ code: 'c1', shop: url.hostname, state: url.searchParams.get('state') ?? '', hmac: 'signed', timestamp: '0', ...back })
-  const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, now: () => now })
+  const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, activity: activityLog, now: () => now })
   // Back on the portal, the person who started it finishes with the callback's one-time key.
   const key = new URL(response.headers.get('location') ?? 'https://x.example').searchParams.get('key')
   const finished = key ? await gql('mutation F($k: String!) { finishShopifyConnect(key: $k) }', who, { k: key }) : null
@@ -156,10 +160,10 @@ describe('Connect Shopify', () => {
     expect(row?.token_sealed).not.toContain('shpat_good')
     expect(row?.state_hash).toBeNull()
     // The state is used once: the same link again finds nothing to finish.
-    const again = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?state=${url.searchParams.get('state') ?? ''}&hmac=signed`), { sql: db.sql, api: shopify, secrets, now: () => now })
+    const again = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?state=${url.searchParams.get('state') ?? ''}&hmac=signed`), { sql: db.sql, api: shopify, secrets, activity: activityLog, now: () => now })
     expect(again.status).toBe(400)
     const logged = await db.sql<{ action: string }[]>`select action from activity_log where action like 'shopify.%' and store_id = ${t.storeA1} order by occurred_at`
-    expect(logged.map((l) => l.action)).toEqual(['shopify.connect_started', 'shopify.connected'])
+    expect(logged.map((l) => l.action)).toEqual(['shopify.connect_started', 'shopify.approved', 'shopify.connected'])
   })
 
   it('pages the shop’s products for the picker and imports the picked ones through the check', async () => {
@@ -256,7 +260,7 @@ describe('Connect Shopify', () => {
     const asked = await gql('mutation C($s: String!) { connectShopify(shop: $s) }', 'owner', { s: 'kesari' })
     const url = new URL(asked.data?.['connectShopify'] as string)
     const query = new URLSearchParams({ code: 'c1', shop: url.hostname, state: url.searchParams.get('state') ?? '', hmac: 'signed', timestamp: '0' })
-    const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, now: () => now })
+    const response = await handleShopifyCallback(new Request(`https://hooks.example/shopify/callback?${query}`), { sql: db.sql, api: shopify, secrets, activity: activityLog, now: () => now })
     const key = new URL(response.headers.get('location') ?? '').searchParams.get('key') ?? ''
     // Approved on Shopify but not yet connected: nothing reads the shop until the starter finishes.
     expect((await connection('owner')).status).toBe('pending')
@@ -276,6 +280,31 @@ describe('Connect Shopify', () => {
     expect((await connection('owner')).status).toBe('none')
     const otherShop = await connect('owner', 'kesari', { shop: 'other.myshopify.com' })
     expect(otherShop.response.headers.get('location')).toContain('shopify=failed')
+    tokenToIssue = 'no-exchange'
+    try {
+      expect((await connect('owner', 'kesari')).response.headers.get('location')).toContain('shopify=failed')
+    } finally {
+      tokenToIssue = 'shpat_good'
+    }
+    // Each rejection is on the store's activity as Shopify's, with why, never silently.
+    const rejected = await db.sql`select actor_kind, actor_id, result, reason from activity_log where action = 'shopify.callback_rejected' and store_id = ${t.storeA1} order by occurred_at desc limit 3`
+    expect(rejected).toEqual([
+      { actor_kind: 'provider', actor_id: 'shopify', result: 'failed', reason: 'exchange_failed' },
+      { actor_kind: 'provider', actor_id: 'shopify', result: 'failed', reason: 'signature' },
+      { actor_kind: 'provider', actor_id: 'shopify', result: 'failed', reason: 'signature' },
+    ])
+  })
+
+  it('never lets a support session connect, read or import from a shop with the merchant’s token', async () => {
+    await connect('owner', 'kesari')
+    for (const op of ['{ shopifyConnection { status } }', '{ shopifyProducts { next } }', 'mutation { connectShopify(shop: "kesari") }', 'mutation { finishShopifyConnect(key: "k") }', 'mutation { disconnectShopify }', 'mutation { startShopifyImport(all: true) }'])
+      expect((await gql(op, 'owner', {}, { support: true })).code, op).toBe('FORBIDDEN')
+    expect((await connection('owner')).status).toBe('connected')
+  })
+
+  it('refuses a picker cursor longer than any Shopify gives', async () => {
+    await connect('owner', 'kesari')
+    expect((await gql('query P($a: String) { shopifyProducts(after: $a) { next } }', 'owner', { a: 'x'.repeat(2001) })).code).toBe('INVALID_INPUT')
   })
 
   it('forgets a connection left unused for a day', async () => {
