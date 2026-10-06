@@ -1,5 +1,5 @@
 import { GraphQLError } from 'graphql'
-import { partnerAudit, type PartnerDto, type PartnerManager, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type Result, type SetupSessionDto } from '#saas/partners/index'
+import { partnerAudit, type ContractDto, type PartnerDto, type PartnerManager, type PartnerPage, type PartnerPermissions, type PartnerRowDto, type Result, type SetupSessionDto } from '#saas/partners/index'
 import { builder } from './builder'
 import { compact, HistoryEntryType, iso, PageInfoType, permission, PermissionType, signedIn, type Permission } from './types'
 
@@ -143,6 +143,14 @@ const Manager = builder.objectRef<PartnerManager>('PartnerManager').implement({
   }),
 })
 
+const Contract = builder.objectRef<ContractDto>('PartnerContract').implement({
+  fields: (t) => ({
+    feeCurrency: t.exposeString('feeCurrency'),
+    currencies: t.exposeStringList('currencies'),
+    poweredBy: t.exposeString('poweredBy'),
+  }),
+})
+
 const permissionOf = (p: PartnerPermissions[keyof PartnerPermissions]): Permission | null => (p ? permission(p) : null)
 
 // An action absent from the block is not offered in this state; one present and refused is
@@ -156,6 +164,7 @@ const Actions = builder.objectRef<PartnerPermissions>('PartnerActions').implemen
     setupSession: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.setupSession) }),
     sendInvite: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.sendInvite) }),
     resendInvite: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.resendInvite) }),
+    setContract: t.field({ type: PermissionType, nullable: true, resolve: (a) => permissionOf(a.setContract) }),
   }),
 })
 
@@ -190,6 +199,7 @@ const PartnerType = builder.objectRef<PartnerDto>('Partner').implement({
       extensions: { access: { api: 'admin', scope: 'platform', permission: 'setupSessions.read', target: 'none' } },
       resolve: (p) => p.setupSessions,
     }),
+    contract: t.field({ type: Contract, nullable: true, resolve: (p) => p.contract }),
     managers: t.field({ type: [Manager], resolve: (p) => p.managers }),
     actions: t.field({ type: Actions, resolve: (p) => p.actions }),
   }),
@@ -207,6 +217,14 @@ const Filter = builder.inputType('PartnerFilter', {
   fields: (t) => ({ state: t.string(), setup: t.string(), q: t.string(), sort: t.string() }),
 })
 
+const ContractInput = builder.inputType('PartnerContractInput', {
+  fields: (t) => ({
+    feeCurrency: t.string({ required: true }),
+    currencies: t.stringList({ required: true }),
+    poweredBy: t.string({ required: true }),
+  }),
+})
+
 const CreatePartnerInput = builder.inputType('CreatePartnerInput', {
   fields: (t) => ({
     name: t.string({ required: true }),
@@ -216,6 +234,7 @@ const CreatePartnerInput = builder.inputType('CreatePartnerInput', {
     kind: t.string(),
     region: t.string(),
     sendInvitation: t.boolean({ required: true }),
+    contract: t.field({ type: ContractInput }),
   }),
 })
 
@@ -363,6 +382,12 @@ builder.mutationFields((t) => ({
     args: { id: t.arg.id({ required: true }), kind: t.arg.string({ required: true }) },
     extensions: { access: { api: 'admin', scope: 'platform', permission: 'domains.recheck', target: byId, audit: partnerAudit.recheckDomain } },
     resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).recheckDomain(String(args.id), args.kind)),
+  }),
+  setPartnerContract: t.field({
+    type: OutcomeType,
+    args: { id: t.arg.id({ required: true }), input: t.arg({ type: ContractInput, required: true }), reason: t.arg.string({ required: true }) },
+    extensions: { access: { api: 'admin', scope: 'platform', permission: 'partners.approve', target: byId, audit: partnerAudit.setPartnerContract } },
+    resolve: async (_, args, ctx) => outcome(await signedIn(ctx.partners).setPartnerContract(String(args.id), args.input, args.reason)),
   }),
   assignPartnerManager: t.field({
     type: OutcomeType,

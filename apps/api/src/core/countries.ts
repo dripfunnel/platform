@@ -21,6 +21,9 @@ export const countryOf = (code: string): Country | null => {
   return currency ? { code, name: names.of(code) ?? code, currency } : null
 }
 
+/** The currencies of the countries above: what a partner's contract may name. */
+export const sellingCurrencies: readonly string[] = [...new Set(Object.values(currencyByCountry))].sort()
+
 /** Every country whose currency is one of `currencies`, by name. */
 export const countriesIn = (currencies: ReadonlySet<string>): Country[] =>
   Object.keys(currencyByCountry)

@@ -280,7 +280,7 @@ export const createPartnerPlansService = ({ sql, caller, facts, activity, now }:
   // Each amount is in its row's currency, and every row in a currency the contract states a fee in.
   const badCurrency = (input: PlanInput, terms: ContractTerms): string | null =>
     input.prices.find((p) => (p.monthly && p.monthly.currency !== p.currency) || (p.yearly && p.yearly.currency !== p.currency))?.currency ??
-    (terms.fee_currency ? (input.prices.find((p) => p.currency !== terms.fee_currency && !terms.rates[p.currency])?.currency ?? null) : null)
+    (terms.fee_currency ? (input.prices.find((p) => p.currency !== terms.fee_currency && !Object.hasOwn(terms.rates, p.currency))?.currency ?? null) : null)
 
   const pricesOf = (input: PlanInput): PlanVersionPrice[] => input.prices.map((p) => ({ currency: p.currency, monthly: p.monthly?.amount ?? null, yearly: p.yearly?.amount ?? null }))
 

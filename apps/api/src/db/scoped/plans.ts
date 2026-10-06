@@ -1,4 +1,4 @@
-import type { ScopedSql } from './index'
+import { pgArray, type ScopedSql } from './index'
 
 // The catalogue of migrations/0013 (SAAS.md §6.1, §6.3).
 export const switchKeys = ['custom_domain', 'offers', 'suppliers_enabled', 'powered_by_removal', 'aplus', 'size_charts'] as const
@@ -77,8 +77,8 @@ export interface PartnerContract {
   feeCurrency: string
   poweredByRemovable: boolean
   poweredByNote: 'contract' | 'firstYear' | null
-  /** Units of each other currency per unit of the fee currency, as a decimal string. */
-  rates: Record<string, string>
+  /** Each other currency the partner prices in: units per unit of the fee currency as a decimal string, or null for none. */
+  rates: Record<string, string | null>
 }
 
 export const setPartnerContract = async (tx: ScopedSql, c: PartnerContract): Promise<void> => {
@@ -88,10 +88,13 @@ export const setPartnerContract = async (tx: ScopedSql, c: PartnerContract): Pro
     on conflict (partner_id) do update set fee_currency = excluded.fee_currency,
       powered_by_removable = excluded.powered_by_removable, powered_by_note = excluded.powered_by_note
   `
-  for (const [currency, rate] of Object.entries(c.rates)) {
+  const others = Object.keys(c.rates).filter((currency) => currency !== c.feeCurrency)
+  await tx`delete from partner_contract_rate where partner_id = ${c.partnerId} and not (currency = any(${pgArray(others)}::text[]))`
+  for (const currency of others) {
+    // A currency named without a rate keeps the one it has (0062).
     await tx`
-      insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${c.partnerId}, ${currency}, ${rate}::numeric)
-      on conflict (partner_id, currency) do update set per_fee_unit = excluded.per_fee_unit
+      insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${c.partnerId}, ${currency}, ${c.rates[currency] ?? null}::numeric)
+      on conflict (partner_id, currency) do update set per_fee_unit = coalesce(excluded.per_fee_unit, partner_contract_rate.per_fee_unit)
     `
   }
 }

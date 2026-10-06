@@ -1,3 +1,5 @@
+import type { PartnerContract } from '../../api/partners'
+
 export const invitationChoices = ['send', 'hold'] as const
 export type InvitationChoice = (typeof invitationChoices)[number]
 
@@ -6,13 +8,14 @@ export interface PartnerDraft {
   ownerEmail: string
   country: string
   invitation: InvitationChoice
+  contract: PartnerContract
 }
 
 export type DraftField = 'name' | 'ownerEmail' | 'country'
 export type DraftError = 'nameRequired' | 'nameTooLong' | 'emailInvalid' | 'countryRequired' | 'NAME_TAKEN'
 export type DraftErrors = Partial<Record<DraftField, DraftError>>
 
-export const emptyDraft: PartnerDraft = { name: '', ownerEmail: '', country: '', invitation: 'send' }
+export const emptyDraft: PartnerDraft = { name: '', ownerEmail: '', country: '', invitation: 'send', contract: { feeCurrency: 'USD', currencies: [], poweredBy: 'required' } }
 
 // The fields in the order they're shown, so focus goes to the first one in error.
 export const draftFields: readonly DraftField[] = ['name', 'ownerEmail', 'country']

@@ -1,6 +1,6 @@
 import { getRouteApi, Link, useRouter, useRouterState } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
-import { partnerActions, recheckDomain, runPartnerAction, type Partner, type PartnerAction, type PartnerDomain } from '../../api/partners'
+import { partnerActions, recheckDomain, runPartnerAction, setPartnerContract, type Partner, type PartnerAction, type PartnerContract, type PartnerDomain } from '../../api/partners'
 import { fill, messages } from '../../messages'
 import { actionCodes } from '../../api/activityActions'
 import { ActivityTab } from '../common/ActivityTab'
@@ -10,6 +10,7 @@ import { failureText } from '../common/failure'
 import { callerFor } from '../common/harnessCaller'
 import { RouteError } from '../common/RouteError'
 import { actionDialog, actionToast, type ConfirmedAction } from './actionDialog'
+import { ContractDialog } from './ContractDialog'
 import { deniedPartner, partnerStates } from './partnerHarness'
 import { PartnerDetail, PartnerError } from './PartnerDetail'
 import { useImpersonateFrom } from '../impersonate/useImpersonateFrom'
@@ -32,6 +33,7 @@ export const PartnerDetailScreen = () => {
   const router = useRouter()
   const [pending, setPending] = useState<ConfirmedAction | null>(() => (forced === 'confirm' ? firstAllowed(partner) : null))
   const [toast, setToast] = useState<string | null>(null)
+  const [editingContract, setEditingContract] = useState(false)
   const clearToast = useCallback(() => setToast(null), [])
 
   // The activity tab and the session flows still read the sample as this caller (#39, #40).
@@ -46,6 +48,16 @@ export const PartnerDetailScreen = () => {
     runPartnerAction(target.id, action, reason)
       .then(() => {
         setToast(actionToast(action, target))
+        return router.invalidate()
+      })
+      .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
+  }
+
+  const onSaveContract = (target: Partner, contract: PartnerContract, reason: string) => {
+    setEditingContract(false)
+    setPartnerContract(target.id, contract, reason)
+      .then(() => {
+        setToast(fill(messages.partner.contract.saved, { name: target.name }))
         return router.invalidate()
       })
       .catch((error: unknown) => setToast(failureText(error, messages.partner.toasts.failed)))
@@ -69,6 +81,7 @@ export const PartnerDetailScreen = () => {
         readOnly={me.role === 'staff-read-only' || forced === 'readonly'}
         onAction={onAction}
         onRecheck={onRecheck}
+        onSetContract={() => setEditingContract(true)}
         onImpersonate={(id) => partner && sessions.impersonate(id, { email: partner.team.find((person) => person.id === id)?.email ?? '', partner: partner.id })}
         onReload={() => void router.invalidate()}
         activity={
@@ -104,6 +117,7 @@ export const PartnerDetailScreen = () => {
           onCancel={() => setPending(null)}
         />
       )}
+      <ContractDialog partner={editingContract ? partner : null} onSave={onSaveContract} onCancel={() => setEditingContract(false)} />
       <Toast message={toast} onDone={clearToast} />
       {sessions.element}
     </>

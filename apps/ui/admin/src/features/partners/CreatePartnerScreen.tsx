@@ -22,7 +22,7 @@ const harnessStart = (forced: CreatePartnerState | null): { draft: PartnerDraft;
     case 'invalid':
       return { draft: { ...emptyDraft, ownerEmail: 'owner@' }, errors: draftErrors({ ...emptyDraft, ownerEmail: 'owner@' }) }
     case 'refused':
-      return { draft: { name: 'Northstar Commerce', ownerEmail: 'owner@northstar.example', country: 'DE', invitation: 'send' }, errors: { name: 'NAME_TAKEN' } }
+      return { draft: { ...emptyDraft, name: 'Northstar Commerce', ownerEmail: 'owner@northstar.example', country: 'DE', contract: { ...emptyDraft.contract, feeCurrency: 'EUR' } }, errors: { name: 'NAME_TAKEN' } }
     default:
       return { draft: emptyDraft, errors: {} }
   }
@@ -48,7 +48,7 @@ export const CreatePartner = ({ permission, forced, onCreated }: CreatePartnerPr
   const onSubmit = (draft: PartnerDraft) => {
     setSubmitting(true)
     setFailure(null)
-    createPartner({ name: draft.name.trim(), ownerEmail: draft.ownerEmail.trim(), country: draft.country, sendInvitation: draft.invitation === 'send' })
+    createPartner({ name: draft.name.trim(), ownerEmail: draft.ownerEmail.trim(), country: draft.country, sendInvitation: draft.invitation === 'send', contract: draft.contract })
       .then(onCreated)
       .catch((error: unknown) => {
         setSubmitting(false)

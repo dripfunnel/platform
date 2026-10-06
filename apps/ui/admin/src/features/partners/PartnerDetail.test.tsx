@@ -7,6 +7,7 @@ import { staffRoles, type StaffRole } from '../shell/staffRoles'
 import { messages } from '../../messages'
 import { textOf } from '../../testing/textOf'
 import { actionDialog } from './actionDialog'
+import { startingContract } from './ContractDialog'
 import { PartnerDetail, type PartnerDetailProps } from './PartnerDetail'
 import { partnerTabs } from './PartnerTabs'
 
@@ -30,6 +31,7 @@ const render = async (props: Partial<PartnerDetailProps> = {}) => {
         readOnly={false}
         onAction={noop}
         onRecheck={() => Promise.resolve()}
+        onSetContract={noop}
         onImpersonate={noop}
         onReload={noop}
         activity={null}
@@ -61,6 +63,25 @@ describe('Partner detail', () => {
   it('shows Pause disabled with the reason to a Partner manager, and says why the house partner has none', async () => {
     expect(textOf(await render({ partner: partner('ns', 'staff-partner-manager') }))).toContain('Only a Super admin can pause a partner.')
     expect(textOf(await render({ partner: partner('df') }))).toContain('DripFunnel is the house partner and can’t be paused.')
+  })
+
+  it('shows the contract on Overview, or that there is none with Set contract, and the refusal to a role that may not set it', async () => {
+    const contract = words.contract
+    const kaufladen = textOf(await render())
+    expect(kaufladen).toContain('EUR · Euro')
+    expect(kaufladen).toContain(contract.poweredByTerms.firstYear)
+    expect(kaufladen).toContain(contract.change)
+
+    const bazaar = await render({ partner: partner('bz') })
+    expect(textOf(bazaar)).toContain(contract.none)
+    expect(bazaar).toMatch(/<button type="button" class="df-button df-button--primary">Set contract<\/button>/)
+    expect(textOf(await render({ partner: partner('bz', 'staff-support') }))).toContain('Only a Super admin or Partner manager can set contracts.')
+  })
+
+  it('starts a partner with no contract from its country’s currency, at the strictest terms', () => {
+    expect(startingContract({ contract: null, country: 'IN' })).toEqual({ feeCurrency: 'INR', currencies: [], poweredBy: 'required' })
+    expect(startingContract({ contract: null, country: null })).toEqual({ feeCurrency: 'USD', currencies: [], poweredBy: 'required' })
+    expect(startingContract(partner('ns'))).toEqual({ feeCurrency: 'USD', currencies: ['CAD'], poweredBy: 'removable' })
   })
 
   it('asks for a reason on all four state actions, Resume included, and never for the name typed', () => {

@@ -151,6 +151,17 @@ export interface PartnerUser {
   lastSignInAt: string | null
 }
 
+// What the partner's contract fixes (FIRST-RELEASE.md §4.3): the currency DripFunnel's fee is in,
+// the others its plans may be priced in, and whether a plan may remove "Powered by".
+export const poweredByTerms = ['required', 'firstYear', 'removable'] as const
+export type PoweredByTerm = (typeof poweredByTerms)[number]
+
+export interface PartnerContract {
+  feeCurrency: string
+  currencies: readonly string[]
+  poweredBy: PoweredByTerm
+}
+
 export interface Partner extends PartnerRow {
   country: string | null
   contacts: readonly { name: string; role: string; email: string }[]
@@ -164,6 +175,9 @@ export interface Partner extends PartnerRow {
   // API gives none until #40, so nothing is offered.
   impersonate: Readonly<Record<string, SessionPermission>>
   actions: PartnerPermissions
+  // None until staff set it; plans can't be priced before then.
+  contract: PartnerContract | null
+  contractAction: ActionPermission | null
 }
 
 const permission = permissionSchema(partnerRefusals)
@@ -253,6 +267,7 @@ const partnerSchema = z.object({
   ),
   plans: z.array(z.object({ id: z.string(), name: z.string(), status: z.enum(planStatuses), maxProducts: z.number().int().nullable(), maxStaff: z.number().int().nullable(), stores: z.number().int() })),
   team: z.array(teamMember),
+  contract: z.object({ feeCurrency: z.string(), currencies: z.array(z.string()), poweredBy: z.enum(poweredByTerms) }).nullable(),
   actions: z.object({
     approve: goLivePermission.nullable(),
     sendBack: permission.nullable(),
@@ -261,6 +276,7 @@ const partnerSchema = z.object({
     setupSession: permission.nullable(),
     sendInvite: permission.nullable(),
     resendInvite: permission.nullable(),
+    setContract: permission.nullable(),
   }),
 })
 
@@ -288,9 +304,10 @@ const partnerQuery = `query Partner($id: ID!) {
     domains { id kind host status record expected found checkedAt }
     plans { id name status maxProducts maxStaff stores }
     team { id name email role status lastSignInAt }
+    contract { feeCurrency currencies poweredBy }
     actions {
       approve ${permissionSelection} sendBack ${permissionSelection} pause ${permissionSelection} resume ${permissionSelection}
-      setupSession ${permissionSelection} sendInvite ${permissionSelection} resendInvite ${permissionSelection}
+      setupSession ${permissionSelection} sendInvite ${permissionSelection} resendInvite ${permissionSelection} setContract ${permissionSelection}
     }
   }
 }`
@@ -309,7 +326,19 @@ export const loadPartners = async (filter: PartnerFilter, page: PageRequest): Pr
 // with FORBIDDEN, which the route's error view words (ui/README.md §5).
 export const loadPartner = async (id: string): Promise<Partner | null> => {
   const { partner } = await query(partnerQuery, z.object({ partner: partnerSchema.nullable() }), { id })
-  return partner && { ...partner, impersonate: {}, actions: compactActions(partner.actions) }
+  if (!partner) return null
+  const { setContract, ...actions } = partner.actions
+  return { ...partner, impersonate: {}, actions: compactActions(actions), contractAction: setContract }
+}
+
+// Any time, with a reason (FIRST-RELEASE.md §4.3). FEE_CURRENCY_IN_USE arrives as an ApiError when
+// fees or charges are already stated in the old fee currency.
+export const setPartnerContract = async (id: string, contract: PartnerContract, reason: string): Promise<void> => {
+  await mutate('setPartnerContract', 'setPartnerContract(id: $id, input: $input, reason: $reason)', '($id: ID!, $input: PartnerContractInput!, $reason: String!)', {
+    id,
+    input: { feeCurrency: contract.feeCurrency, currencies: contract.currencies, poweredBy: contract.poweredBy },
+    reason,
+  })
 }
 
 // Every action but the invitations changes the partner's business, so the API refuses it
@@ -357,6 +386,7 @@ export interface NewPartner {
   country: string
   // False holds the Owner invitation until someone sends it from the partner's page (§4.3).
   sendInvitation: boolean
+  contract: PartnerContract
 }
 
 const createdSchema = z.object({ createPartner: z.object({ ok: z.boolean(), code: z.string().nullable(), id: z.string().nullable() }) })

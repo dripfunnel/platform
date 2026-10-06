@@ -211,6 +211,19 @@ describe('saving', () => {
     expect((await run<Outcome>(update, callerOf(ids.ns, 'partner-owner'), { id: ids.starter, input: euro, applyTo: 'new' })).data?.updatePlan).toMatchObject({ ok: false, reason: 'INVALID_CURRENCY', currency: 'EUR' })
   })
 
+  it('offers and accepts a currency the contract names without a rate, with no fee or margin in it', async () => {
+    await db.sql`insert into partner_contract_rate (partner_id, currency, per_fee_unit) values (${ids.ns}, 'EUR', null)`
+    try {
+      const editor = await run<{ planEditor: { currencies: string[] } }>(editorQuery, callerOf(ids.ns, 'partner-owner'), { id: ids.starter })
+      expect(editor.data?.planEditor.currencies.sort()).toEqual(['CAD', 'EUR', 'USD'])
+      const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
+      const euro = { ...input, name: 'Starter in euros', prices: [...input.prices, { currency: 'EUR', monthly: { amount: 2700, currency: 'EUR' }, yearly: null }] }
+      expect((await run<Outcome>(create, callerOf(ids.ns, 'partner-owner'), { input: euro })).data?.createPlan).toMatchObject({ ok: true })
+    } finally {
+      await db.sql`delete from partner_contract_rate where partner_id = ${ids.ns} and currency = 'EUR'`
+    }
+  })
+
   it('lets Finance change a price and nothing else; Support and Read-only nothing', async () => {
     const input = await inputFrom(ids.starter, callerOf(ids.ns, 'partner-owner'))
     const finance = callerOf(ids.ns, 'partner-finance', 'Alex Rivera')

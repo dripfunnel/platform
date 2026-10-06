@@ -85,7 +85,7 @@ describe('declarations', () => {
   it('every partner mutation declares the action the service records', () => {
     const recorded = new Set<string>(Object.values(partnerAudit))
     const mutations = adminSchema.getMutationType()?.getFields() ?? {}
-    const names = ['createPartner', 'approvePartner', 'sendBackPartner', 'pausePartner', 'resumePartner', 'sendPartnerOwnerInvite', 'resendPartnerOwnerInvite', 'startPartnerSetupSession', 'endStaffSession', 'recheckDomain', 'assignPartnerManager', 'unassignPartnerManager']
+    const names = ['createPartner', 'approvePartner', 'sendBackPartner', 'pausePartner', 'resumePartner', 'sendPartnerOwnerInvite', 'resendPartnerOwnerInvite', 'startPartnerSetupSession', 'endStaffSession', 'recheckDomain', 'assignPartnerManager', 'unassignPartnerManager', 'setPartnerContract']
     for (const name of names) {
       const audit = mutations[name]?.extensions.access?.audit
       expect([name, audit !== undefined && recorded.has(audit)]).toEqual([name, true])
@@ -502,6 +502,54 @@ describe('recheckDomain (SAAS.md §8; no lookup inside the request)', () => {
       await db.sql`update partner_domain set host = ${host} where partner_id = ${kaufladen} and kind = 'preview'`
       expect([host, (await run<Out>(recheck, as('staff-super-admin'), { id: kaufladen, kind: 'preview' })).data?.['recheckDomain']]).toEqual([host, { ok: false, code: 'INVALID_HOSTNAME', failingChecks: null, state: null, id: null, approvals: null }])
     }
+  })
+})
+
+describe('the contract (§4.2, §4.3)', () => {
+  const create = `mutation($input: CreatePartnerInput!) { createPartner(input: $input) { ${outcome} } }`
+  const set = `mutation($id: ID!, $input: PartnerContractInput!, $reason: String!) { setPartnerContract(id: $id, input: $input, reason: $reason) { ${outcome} } }`
+  const read = `query($id: ID!) { partner(id: $id) { contract { feeCurrency currencies poweredBy } actions { setContract { allowed reason } } } }`
+  type Out = Record<string, { ok: boolean; code: string | null; id: string | null }>
+  type Read = { partner: { contract: { feeCurrency: string; currencies: string[]; poweredBy: string } | null; actions: { setContract: { allowed: boolean; reason: string | null } | null } } }
+  const contractOf = async (id: string) => (await run<Read>(read, as('staff-super-admin'), { id })).data?.partner.contract
+  const rates = (id: string) => db.sql<{ currency: string; per_fee_unit: string | null }[]>`select currency, per_fee_unit::text from partner_contract_rate where partner_id = ${id} order by currency`
+
+  it('Create partner sets it, and a partner created without one has none until staff set it, with a reason', async () => {
+    const withTerms = { feeCurrency: 'INR', currencies: ['USD'], poweredBy: 'firstYear' }
+    const made = (await run<Out>(create, as('staff-super-admin'), { input: { name: 'Contract Partner', ownerEmail: 'o@contract.example', country: 'IN', sendInvitation: false, contract: withTerms } })).data?.['createPartner']
+    expect(await contractOf(made?.id ?? '')).toEqual(withTerms)
+    expect(await rates(made?.id ?? '')).toEqual([{ currency: 'USD', per_fee_unit: null }])
+
+    const bare = (await run<Out>(create, as('staff-super-admin'), { input: { name: 'Bare Partner', ownerEmail: 'o@bare.example', country: 'FR', sendInvitation: false } })).data?.['createPartner']
+    const id = bare?.id ?? ''
+    expect(await contractOf(id)).toBeNull()
+    expect((await run<Read>(read, as('staff-super-admin'), { id })).data?.partner.actions.setContract).toEqual({ allowed: true, reason: null })
+    expect((await run<Read>(read, as('staff-support'), { id })).data?.partner.actions.setContract).toEqual({ allowed: false, reason: 'PARTNER_ADMINS_ONLY' })
+
+    const terms = { feeCurrency: 'EUR', currencies: ['GBP', 'USD'], poweredBy: 'removable' }
+    expect((await run<Out>(set, as('staff-super-admin'), { id, input: terms, reason: ' ' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'REASON_REQUIRED' })
+    expect((await run(set, as('staff-support'), { id, input: terms, reason: 'Signed' })).code).toBe('FORBIDDEN')
+    expect((await run<Out>(set, as('staff-super-admin'), { id, input: { ...terms, currencies: ['EUR'] }, reason: 'Signed' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+    expect((await run<Out>(set, as('staff-super-admin'), { id, input: { ...terms, feeCurrency: 'XYZ' }, reason: 'Signed' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'INVALID_INPUT' })
+    expect(await entriesFor(id, partnerAudit.setPartnerContract)).toHaveLength(0)
+
+    expect((await run<Out>(set, as('staff-super-admin'), { id, input: terms, reason: 'Contract signed 6 Oct' })).data?.['setPartnerContract']).toMatchObject({ ok: true })
+    expect(await contractOf(id)).toEqual(terms)
+    expect(await entriesFor(id, partnerAudit.setPartnerContract)).toMatchObject([{ reason: 'Contract signed 6 Oct', visibility: 'partner' }])
+    // Any time, with a reason: a currency taken off goes, the fee currency changes while nothing is stated in it.
+    expect((await run<Out>(set, as('staff-super-admin'), { id, input: { feeCurrency: 'USD', currencies: ['EUR'], poweredBy: 'required' }, reason: 'Amended' })).data?.['setPartnerContract']).toMatchObject({ ok: true })
+    expect(await contractOf(id)).toEqual({ feeCurrency: 'USD', currencies: ['EUR'], poweredBy: 'required' })
+  })
+
+  it('keeps a rate a currency already has, and refuses a new fee currency while fees are stated in the old one', async () => {
+    const northstar = await partnerIdOf('Northstar Commerce')
+    expect((await run<Out>(set, as('staff-super-admin'), { id: northstar, input: { feeCurrency: 'USD', currencies: ['CAD', 'EUR'], poweredBy: 'removable' }, reason: 'EUR added' })).data?.['setPartnerContract']).toMatchObject({ ok: true })
+    expect(await rates(northstar)).toEqual([{ currency: 'CAD', per_fee_unit: '1.351351' }, { currency: 'EUR', per_fee_unit: null }])
+
+    const entries = (await entriesFor(northstar, partnerAudit.setPartnerContract)).length
+    expect((await run<Out>(set, as('staff-super-admin'), { id: northstar, input: { feeCurrency: 'EUR', currencies: [], poweredBy: 'removable' }, reason: 'Moving to EUR' })).data?.['setPartnerContract']).toMatchObject({ ok: false, code: 'FEE_CURRENCY_IN_USE' })
+    expect(await contractOf(northstar)).toEqual({ feeCurrency: 'USD', currencies: ['CAD', 'EUR'], poweredBy: 'removable' })
+    expect(await entriesFor(northstar, partnerAudit.setPartnerContract)).toHaveLength(entries)
   })
 })
 

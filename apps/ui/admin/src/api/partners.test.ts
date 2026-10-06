@@ -31,6 +31,7 @@ const partner = {
   domains: [{ id: 'd1', kind: 'email', host: 'mail.kaufladen.example', status: 'waiting', record: 'TXT', expected: 'v=spf1', found: null, checkedAt: null }],
   plans: [{ id: 'pl1', name: 'Basis', status: 'live', maxProducts: 500, maxStaff: 2, stores: 1 }],
   team: [{ id: 'u1', name: 'Jonas', email: 'jonas@kaufladen.example', role: 'partner-owner', status: 'active', lastSignInAt: null }],
+  contract: { feeCurrency: 'EUR', currencies: ['CHF'], poweredBy: 'firstYear' },
   actions: {
     approve: permission(false, 'GO_LIVE_CHECKS_FAILING', ['emailDomain']),
     sendBack: permission(true),
@@ -39,6 +40,7 @@ const partner = {
     setupSession: permission(true),
     sendInvite: null,
     resendInvite: null,
+    setContract: permission(false, 'PARTNER_ADMINS_ONLY'),
   },
 }
 
@@ -64,6 +66,8 @@ describe('loadPartner', () => {
       sendBack: { allowed: true },
       setupSession: { allowed: true },
     })
+    expect(loaded?.contract).toEqual({ feeCurrency: 'EUR', currencies: ['CHF'], poweredBy: 'firstYear' })
+    expect(loaded?.contractAction).toEqual({ allowed: false, reason: 'PARTNER_ADMINS_ONLY' })
     expect(loaded?.team[0]?.role).toBe('owner')
     expect(loaded?.impersonate).toEqual({})
     expect(loaded?.checklist[0]).toEqual({ item: 'payoutDetails', status: 'missing', detail: 'Add the bank account', by: null })

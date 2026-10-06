@@ -220,7 +220,8 @@
       "PARTNER_CLOSED": "This partner is closed. Nothing was changed.",
       "NOT_ON_TRIAL": "This store isn’t on a trial, so it has nothing to extend.",
       "NO_PENDING_INVITATION": "There’s no open owner invitation to resend.",
-      "BAD_RESPONSE": "The admin service answered in a shape this console doesn’t understand. Nothing was changed."
+      "BAD_RESPONSE": "The admin service answered in a shape this console doesn’t understand. Nothing was changed.",
+      "FEE_CURRENCY_IN_USE": "Fees or charges are already stated in the current fee currency, so it can’t change. Nothing was changed."
     }
   },
   "partners": {
@@ -306,7 +307,8 @@
       "resume": "resume a partner",
       "setupSession": "set up partners",
       "sendInvite": "send owner invitations",
-      "resendInvite": "resend owner invitations"
+      "resendInvite": "resend owner invitations",
+      "setContract": "set contracts"
     },
     "refusals": {
       "SUPER_ADMIN_ONLY": "Only a Super admin can {verb}.",
@@ -451,6 +453,7 @@
         "partner.invitation_resent": "Owner invitation resent by {by}",
         "partner.domain_recheck_requested": "Domain check requested by {by}",
         "partner.manager_assigned": "Partner manager assigned by {by}",
+        "partner.contract_set": "Contract set by {by}",
         "partner.manager_unassigned": "Partner manager unassigned by {by}",
         "setup_session.started": "Setup session started by {by}",
         "setup_session.ended": "Setup session ended by {by}",
@@ -543,6 +546,31 @@
       "nobody": "No one has joined yet. The owner joins when they accept the invitation.",
       "houseTeam": "DripFunnel’s own team are staff, and staff can’t be impersonated.",
       "noOwner": "No owner yet"
+    },
+    "contract": {
+      "title": "Contract",
+      "none": "No contract yet. The partner can’t price its plans until one is set.",
+      "set": "Set contract",
+      "change": "Change contract",
+      "feeCurrency": "Fee currency",
+      "feeCurrencyHint": "DripFunnel’s wholesale fee is stated and paid out in this currency. Plans are priced in it too.",
+      "currencies": "Other currencies plans may be priced in",
+      "currenciesHint": "No conversion: the partner sets its own price in each one.",
+      "noOtherCurrencies": "None",
+      "poweredBy": "“Powered by” line",
+      "poweredByTerms": {
+        "required": "Always shown",
+        "firstYear": "Always shown in the first contract year",
+        "removable": "A plan may remove it"
+      },
+      "dialog": {
+        "title": "Contract for {name}",
+        "consequence": "The partner’s plan editor offers a price in each of these currencies from the next time it opens.",
+        "reason": "Reason",
+        "reasonHint": "Kept in the activity log, which the partner can see.",
+        "confirm": "Save contract"
+      },
+      "saved": "Contract saved for {name}."
     },
     "placeholders": {
       "stores": "This partner’s stores appear here once the Stores list is built.",
@@ -1601,6 +1629,7 @@
       "staff.sign_in_refused": "Refused sign-in for {actor}",
       "staff.invitation_accepted": "{actor} accepted the staff invitation",
       "partner.manager_assigned": "{actor} assigned a partner manager to {target}",
+      "partner.contract_set": "{actor} set the contract of {target}",
       "partner.manager_unassigned": "{actor} removed a partner manager from {target}",
       "partner.invitation_sent": "{actor} sent the Owner invitation for {target}",
       "partner.invitation_resent": "{actor} resent the Owner invitation for {target}",
@@ -1710,6 +1739,7 @@
       "staff.sign_in_refused": "Sign-in refused",
       "staff.invitation_accepted": "Staff invitation accepted",
       "partner.manager_assigned": "Partner manager assigned",
+      "partner.contract_set": "Contract set",
       "partner.manager_unassigned": "Partner manager removed",
       "partner.invitation_sent": "Owner invitation sent",
       "partner.invitation_resent": "Owner invitation resent",
