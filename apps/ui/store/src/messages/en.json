@@ -1838,7 +1838,8 @@
         "other": "{count} versions"
       },
       "draft": "Draft",
-      "archived": "Archived"
+      "archived": "Archived",
+      "loadAll": "Every product in your shop is chosen. To leave some out, show every page first, or clear all and tick the ones you want."
     },
     "checking": {
       "file": "Checking your file…",

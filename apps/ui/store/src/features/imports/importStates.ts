@@ -67,8 +67,8 @@ const sampleApi = (state: ImportScreenState): ImportApi => ({
   loadCatalogExports: async () => exportsSample,
   requestProductExport: never,
   loadPlaces: async () => [
-    { id: 'w1', name: 'Main location', isDefault: true, units: 0, revision: 1, address: null, supplierId: null },
-    { id: 'w2', name: 'Shop floor', isDefault: false, units: 0, revision: 1, address: null, supplierId: null },
+    { id: 'w1', name: 'Main location', isDefault: true, units: 0, revision: 1, address: null, supplierId: null, supplierName: null },
+    { id: 'w2', name: 'Shop floor', isDefault: false, units: 0, revision: 1, address: null, supplierId: null, supplierName: null },
   ],
   loadProductCounts: async () => ({ all: 128, visible: 121, hidden: 7, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0 }),
 })

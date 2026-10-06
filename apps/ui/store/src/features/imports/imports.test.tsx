@@ -88,9 +88,9 @@ beforeEach(() => {
   api.confirmImport.mockResolvedValue(undefined)
   api.loadShopifyConnection.mockResolvedValue({ available: true, status: 'none', shop: null })
   stock.loadPlaces.mockResolvedValue([
-    { id: 'w1', name: 'Workshop', isDefault: true, units: 0, revision: 1, address: null, supplierId: null },
-    { id: 'w2', name: 'Shop floor', isDefault: false, units: 0, revision: 1, address: null, supplierId: null },
-    { id: 'w9', name: 'Anand’s depot', isDefault: true, units: 0, revision: 1, address: null, supplierId: 'v1' },
+    { id: 'w1', name: 'Workshop', isDefault: true, units: 0, revision: 1, address: null, supplierId: null, supplierName: null },
+    { id: 'w2', name: 'Shop floor', isDefault: false, units: 0, revision: 1, address: null, supplierId: null, supplierName: null },
+    { id: 'w9', name: 'Anand’s depot', isDefault: true, units: 0, revision: 1, address: null, supplierId: 'v1', supplierName: 'Anand' },
   ])
   products.loadProductCounts.mockResolvedValue({ all: 42, visible: 40, hidden: 2, pending: 0, sentBack: 0, lowStock: 0, missingInfo: 0, fromSuppliers: 0, outOfStock: 0 })
 })
@@ -294,6 +294,9 @@ describe('bringing products from Shopify', () => {
     await settle()
     fireEvent.click(screen.getByRole('button', { name: words.pick.selectAll }))
     expect(screen.getByText(words.pick.allChosen)).toBeTruthy()
+    // With more pages to come, unticking one would drop every product not loaded yet: it's refused, still "all".
+    fireEvent.click(screen.getByLabelText(/Cap/))
+    expect(screen.getByRole('alert').textContent).toBe(words.pick.loadAll)
     fireEvent.click(screen.getByRole('button', { name: words.pick.checkAll }))
     await settle()
     expect(api.startShopifyImport).toHaveBeenCalledWith(null)

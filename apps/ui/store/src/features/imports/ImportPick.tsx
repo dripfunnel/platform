@@ -34,6 +34,8 @@ export const ImportPick = ({ shop, checking, onBack, onCheck }: { shop: string; 
   useEffect(() => page(null), [page])
 
   const toggle = (id: string) => {
+    // "All" can't leave out what isn't loaded yet: the API takes picked ids or every product, nothing between.
+    if (pick.kind === 'all' && next !== null) return setNote(words.loadAll)
     const ids = new Set(pick.kind === 'some' ? pick.ids : rows.map((r) => r.id))
     if (!ids.delete(id)) ids.add(id)
     if (ids.size > maxPicked) return setNote(words.max)
