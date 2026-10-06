@@ -145,6 +145,12 @@ export const registerTax = (builder: StoreBuilder) => {
       resolve: async (_, args, ctx) =>
         answered(await service(ctx).saveZone(args.id ? String(args.id) : null, { ...args.input, rates: args.input.rates.map((r) => ({ taxClassId: String(r.taxClassId), rateBps: r.rateBps })) })),
     }),
+    // An existing category's rate at home, the home zone made on the server when there's none (Tax setup's "Change rate").
+    setHomeTaxRate: t.boolean({
+      args: { taxClassId: t.arg.id({ required: true }), rateBps: t.arg.int({ required: true }), homeZoneName: t.arg.string({ required: true }) },
+      extensions: { access: { ...write, audit: taxAudit.rateSet } },
+      resolve: async (_, args, ctx) => answered(await service(ctx).setHomeRate(String(args.taxClassId), args.rateBps, args.homeZoneName)),
+    }),
     // A new category with its rate at home, the home zone made with it if there's none: one transaction, answering its id.
     addTaxCategory: t.id({
       args: { name: t.arg.string({ required: true }), rateBps: t.arg.int({ required: true }), homeZoneName: t.arg.string({ required: true }) },
