@@ -15,12 +15,12 @@ vi.mock('../../api/stock', async (actual) => ({ ...(await actual<typeof import('
 
 const { WarehousesView, placeInputOf } = await import('./WarehousesView')
 
-const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, supplierId: null, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
+const place = (p: Partial<Place> & Pick<Place, 'id' | 'name'>): Place => ({ isDefault: false, units: 0, revision: 1, supplierId: null, supplierName: null, address: { line1: '12 High St', line2: null, city: 'Moradabad', region: 'UP', postalCode: '244001', country: 'IN' }, ...p })
 
 const settle = () => act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
 
-const show = async (canEdit = true, side: 'merchant' | 'supplier' = 'supplier', supplierNames: ReadonlyMap<string, string> | null = null) => {
-  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} side={side} supplierNames={supplierNames} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
+const show = async (canEdit = true, side: 'merchant' | 'supplier' = 'supplier') => {
+  const router = createRouter({ routeTree: createRootRoute({ component: () => <WarehousesView canEdit={canEdit} side={side} /> }), history: createMemoryHistory({ initialEntries: ['/products/warehouses'] }) })
   await act(async () => {
     render(<RouterProvider router={router} />)
   })
@@ -45,8 +45,8 @@ describe('a supplier’s locations', () => {
   })
 
   it('on the merchant side, lists a supplier’s location apart with nothing to manage', async () => {
-    api.loadPlaces.mockResolvedValue([place({ id: 'w1', name: 'Store room', isDefault: true }), place({ id: 'w9', name: 'Northwind depot', supplierId: 'sup-1' })])
-    await show(true, 'merchant', new Map([['sup-1', 'Northwind']]))
+    api.loadPlaces.mockResolvedValue([place({ id: 'w1', name: 'Store room', isDefault: true }), place({ id: 'w9', name: 'Northwind depot', supplierId: 'sup-1', supplierName: 'Northwind' })])
+    await show(true, 'merchant')
     expect(screen.getByRole('button', { name: fillWords(words.manage, { name: 'Store room' }) })).toBeTruthy()
     expect(screen.queryByRole('button', { name: fillWords(words.manage, { name: 'Northwind depot' }) })).toBeNull()
     expect(screen.getByRole('heading', { name: words.theirsTitle })).toBeTruthy()
