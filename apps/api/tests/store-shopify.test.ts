@@ -194,6 +194,18 @@ describe('Connect Shopify', () => {
     expect((await gql('query J($id: ID!) { catalogImport(id: $id) { ready matched } }', 'owner', { id })).data?.['catalogImport']).toEqual({ ready: 30, matched: 2 })
   })
 
+  it('keeps the connection while another import still reads through it, the last one to finish removing it', async () => {
+    await connect('owner', 'kesari')
+    const picked = (await gql('mutation S($ids: [ID!]) { startShopifyImport(productIds: $ids) }', 'owner', { ids: ['gid://shopify/Product/1'] })).data?.['startShopifyImport'] as string
+    const all = (await gql('mutation { startShopifyImport(all: true) }', 'owner')).data?.['startShopifyImport'] as string
+    await relay()
+    const read = async (id: string) => (await gql('query J($id: ID!) { catalogImport(id: $id) { state ready problems { code } } }', 'owner', { id })).data?.['catalogImport']
+    // The picked one finishes reading first; the other carries on through the same token, never told it expired.
+    expect(await read(picked)).toEqual({ state: 'ready', ready: 1, problems: [] })
+    expect(await read(all)).toMatchObject({ state: 'ready', ready: 30, problems: [] })
+    expect((await connection('owner')).status).toBe('none')
+  })
+
   it('stops reading “all” once the shop passes an uploaded file’s limits, and says which', async () => {
     const cases = [['shpat_heavy', 'FILE_TOO_LARGE', 3], ['shpat_wide', 'TOO_MANY_ROWS', 5], ['shpat_many', 'TOO_MANY_PRODUCTS', 6]] as const
     try {

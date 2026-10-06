@@ -32,6 +32,16 @@ export const savePendingConnection = async (tx: ScopedSql, c: { storeId: string;
 export const deleteConnection = async (tx: ScopedSql, storeId: string, sellerId: string | null): Promise<boolean> =>
   (await tx`delete from external_connection where store_id = ${storeId} and seller_id is not distinct from ${sellerId} and provider = 'shopify' returning id`).length === 1
 
+/** After an import has read its shop: the token goes unless another import is still reading through it, the last one then removing it. */
+export const deleteReadConnection = async (tx: ScopedSql, connectionId: string, jobId: string): Promise<boolean> =>
+  (
+    await tx`
+      delete from external_connection c where c.id = ${connectionId}
+        and not exists (select 1 from catalog_import i where i.connection_id = c.id and i.state = 'checking' and i.id <> ${jobId})
+      returning c.id
+    `
+  ).length === 1
+
 export const markConnectionExpired = async (tx: ScopedSql, id: string): Promise<void> => {
   await tx`update external_connection set status = 'expired', token_sealed = null where id = ${id} and status = 'connected'`
 }
