@@ -159,6 +159,25 @@ Run the gates before reporting a change as done.
    it pass.
 5. **The docs are the specification.** Follow what they decide. When they are wrong, fix
    the document in the same change and say so.
+6. **Build exactly what was asked; fix a bug with the smallest change.** Scope creep costs the
+   reviewer and the user more than it saves (#421: a one-line rule bug grew a table, a flow and a
+   screen, and was cut back to dropping the rule).
+   - **A bug card fixes the bug, nothing else.** No new tables, migrations, endpoints, jobs,
+     settings, screens or flows unless the bug cannot be fixed without them. Removing or
+     correcting the broken rule is a fix; building a feature that would make the rule work is not.
+   - **Before writing code, find the smallest fix** and say what it is. When the only fixes
+     change behaviour, contradict a document, or need any of the additions above, ask first
+     (rule 1), with the smallest option first and recommended, and each larger option naming
+     what it adds (the tables, endpoints, screens, migrations), so the size is visible.
+   - **Build what was chosen, as chosen.** Don't add extras on the way ("while I was there"),
+     even small ones. Something else found along the way (a related bug, a display issue, a
+     refactor, a better design) goes on its own card, reported in your reply, never into this
+     card's PR.
+   - **The same holds for tasks and features:** the card's Do list and Done-when are the scope.
+     A step that grows past them (a new table, an API the card didn't name, a second screen) is
+     a question for the user before it is code.
+   - **When the user narrows the scope,** take out everything beyond it, including work already
+     pushed, and say what was removed.
 
 ### Code
 
