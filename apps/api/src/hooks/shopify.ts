@@ -1,8 +1,9 @@
 import type postgres from 'postgres'
+import type { ActivityLog } from '#auth/activity'
 import type { SecretBox } from '#auth/secretBox'
 import { logEvent } from '#core/log'
 import { approveConnection, deleteConnection, selectPendingByState } from '#db/scoped/externalConnections'
-import { withSystemScope } from '#db/scoped/index'
+import { withSystemScope, type ScopedSql } from '#db/scoped/index'
 import { hashSessionId, newSessionId } from '#auth/session'
 import type { ShopifyApi } from '#integrations/shopify/api'
 
@@ -15,6 +16,7 @@ export interface ShopifyHookDeps {
   sql: postgres.Sql
   api: ShopifyApi
   secrets: SecretBox
+  activity: ActivityLog
   now: () => Date
 }
 
@@ -22,7 +24,7 @@ const back = (host: string, query: string) => Response.redirect(`https://${host}
 const finishMs = 10 * 60 * 1000
 const expired = () => new Response('This link has expired. Go back to your store and connect Shopify again.', { status: 400, headers: { 'content-type': 'text/plain; charset=utf-8' } })
 
-export const handleShopifyCallback = async (request: Request, { sql, api, secrets, now }: ShopifyHookDeps): Promise<Response> => {
+export const handleShopifyCallback = async (request: Request, { sql, api, secrets, activity, now }: ShopifyHookDeps): Promise<Response> => {
   if (request.method !== 'GET') return new Response(null, { status: 405, headers: { allow: 'GET' } })
   const query = new URL(request.url).searchParams
   const state = query.get('state') ?? ''
@@ -30,9 +32,33 @@ export const handleShopifyCallback = async (request: Request, { sql, api, secret
   const pending = await withSystemScope(sql, async (tx) => selectPendingByState(tx, await hashSessionId(state)))
   if (!pending || (pending.expires_at !== null && pending.expires_at < now()) || !pending.return_host) return expired()
   const host = pending.return_host
-  const forget = () => withSystemScope(sql, (tx) => deleteConnection(tx, pending.store_id, pending.seller_id))
+  // Shopify's answer is logged on the store's activity as the provider's, with what became of the connection (LOGGING §3).
+  const record = (tx: ScopedSql, action: 'shopify.callback_rejected' | 'shopify.approved', reason: 'signature' | 'exchange_failed' | null) =>
+    activity.record(tx, {
+      category: 'system',
+      action,
+      result: action === 'shopify.approved' ? 'success' : 'failed',
+      actorKind: 'provider',
+      actorId: 'shopify',
+      actorLabel: 'Shopify',
+      partnerId: pending.partner_id,
+      storeId: pending.store_id,
+      sellerId: pending.seller_id,
+      target: { type: 'connection', id: pending.id, label: pending.shop_domain },
+      reason,
+      api: 'system',
+      requestId: null,
+      ip: null,
+      userAgent: null,
+      visibility: 'store',
+    })
+  const forget = (reason: 'signature' | 'exchange_failed') =>
+    withSystemScope(sql, async (tx) => {
+      await deleteConnection(tx, pending.store_id, pending.seller_id)
+      await record(tx, 'shopify.callback_rejected', reason)
+    })
   if (!(await api.verifyCallback(query, now())) || query.get('shop') !== pending.shop_domain) {
-    await forget()
+    await forget('signature')
     return back(host, 'shopify=failed')
   }
   let token: string
@@ -40,11 +66,15 @@ export const handleShopifyCallback = async (request: Request, { sql, api, secret
     token = await api.exchange(pending.shop_domain, query.get('code') ?? '')
   } catch {
     logEvent({ event: 'shopify_exchange_failed', api: 'hooks', code: 'unavailable' })
-    await forget()
+    await forget('exchange_failed')
     return back(host, 'shopify=failed')
   }
   const sealed = await secrets.seal(token)
   const key = newSessionId()
-  const approved = await withSystemScope(sql, async (tx) => approveConnection(tx, pending.id, { tokenSealed: sealed, finishHash: await hashSessionId(key), expiresAt: new Date(now().getTime() + finishMs) }))
+  const approved = await withSystemScope(sql, async (tx) => {
+    const done = await approveConnection(tx, pending.id, { tokenSealed: sealed, finishHash: await hashSessionId(key), expiresAt: new Date(now().getTime() + finishMs) })
+    if (done) await record(tx, 'shopify.approved', null)
+    return done
+  })
   return back(host, approved ? `shopify=finish&key=${key}` : 'shopify=failed')
 }
