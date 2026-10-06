@@ -146,12 +146,13 @@ const emailFor = (config: Config) => {
 const deliverersFor = (sql: postgres.Sql, config: Config, assets: R2Bucket | null, secrets: SecretBox | null): Deliverers => {
   const lookup = config.DNS_LOCAL === '1' ? localDns(sql, dohLookup()) : dohLookup()
   const ses = emailFor(config)
+  const cloudflare = config.CF_CUSTOM_HOSTNAMES_TOKEN && config.CF_SAAS_ZONE_ID ? cloudflareClient({ token: config.CF_CUSTOM_HOSTNAMES_TOKEN, zoneId: config.CF_SAAS_ZONE_ID }) : null
   return {
     [collectionsRecomputeKind]: collectionsRecomputeDeliverer(sql),
     ...(ses ? { email: emailDeliverer(sql, ses.api, { hosts: { adminHost: config.ADMIN_HOST, platformHost: config.PLATFORM_HOST }, senderDomain: ses.senderDomain, suppressionKey: ses.suppressionKey }) } : {}),
     ...(config.SMS_LOCAL === '1' ? { [smsKind]: smsDeliverer(sql, localSmsAccounts, { msg91: localSms, twilio: localSms }) } : {}),
-   'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
-    'domain.remove': domainRemoveDeliverer(cloudflare),
+    'domain.recheck': domainRecheckDeliverer(sql, lookup, () => new Date(), cloudflare),
+    ...(cloudflare ? { 'domain.remove': domainRemoveDeliverer(sql, cloudflare) } : {}),
     'custom_domain.recheck': customDomainRecheckDeliverer(sql, lookup),
     'export.activity': activityExportDeliverer(sql),
     'export.report': reportExportDeliverer(sql),

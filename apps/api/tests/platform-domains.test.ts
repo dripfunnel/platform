@@ -4,6 +4,8 @@ import { platformSchema } from '#apis/platform/schema'
 import type { PartnerCaller } from '#auth/partnerCaller'
 import type { PartnerRole } from '#auth/partnerPermissions'
 import { domainRecheckDeliverer } from '#jobs/queues/deliverers/domainRecheck'
+import { domainRemoveDeliverer } from '#jobs/queues/deliverers/domainRemove'
+import { CloudflareRefused, CloudflareUnavailable, type CloudflareApi } from '#integrations/cloudflare/api'
 import { queueDueDomainChecks } from '#jobs/queues/domainSchedule'
 import { defaultRelayOptions, relayDue } from '#jobs/queues/outbox-relay'
 import type { DnsLookup } from '#integrations/dns/doh'
@@ -18,7 +20,7 @@ import { createTestDatabase, type TestDatabase } from './support/database'
 
 let db: TestDatabase
 const now = new Date('2026-10-03T09:00:00Z')
-const ids = { ns: '', kl: '', bz: '', fresh: '' }
+const ids = { ns: '', kl: '', bz: '', fresh: '', proxied: '', removal: '' }
 const facts = { requestId: 'r', ip: '203.0.113.9', userAgent: 'test' }
 
 const callerOf = (partnerId: string, role: PartnerRole): PartnerCaller => ({
@@ -61,6 +63,8 @@ beforeAll(async () => {
     ids[key] = (await db.sql<{ id: string }[]>`select id from partner where name = ${name}`)[0]?.id ?? ''
   }
   ids.fresh = (await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Fresh Partner', 'live') returning id`)[0]?.id ?? ''
+  ids.proxied = (await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Proxied Partner', 'live') returning id`)[0]?.id ?? ''
+  ids.removal = (await db.sql<{ id: string }[]>`insert into partner (name, state) values ('Removal Partner', 'live') returning id`)[0]?.id ?? ''
 }, 120_000)
 
 afterAll(async () => {
@@ -157,6 +161,40 @@ describe('adding an address', () => {
   })
 })
 
+describe('removing an address', () => {
+  const remove = `mutation($kind: String!) { removePartnerDomain(kind: $kind) { ok reason } }`
+  type Removed = { removePartnerDomain: { ok: boolean; reason: string | null } }
+
+  it('removes the address and its records, queues the Cloudflare removal for a portal host and logs it', async () => {
+    const owner = callerOf(ids.removal, 'partner-owner')
+    const added = (await run<Added>(add, owner, { kind: 'portal', host: 'store.removable.example' })).data?.addPartnerDomain
+    expect(added?.ok).toBe(true)
+    expect((await run<Removed>(remove, owner, { kind: 'portal' })).data?.removePartnerDomain).toEqual({ ok: true, reason: null })
+    expect(await db.sql`select 1 from partner_domain where id = ${added?.id ?? ''}`).toEqual([])
+    expect(await db.sql`select 1 from partner_domain_record where domain_id = ${added?.id ?? ''}`).toEqual([])
+    expect(await db.sql`select payload from outbox where kind = 'domain.remove' and payload->>'host' = 'store.removable.example'`).toHaveLength(1)
+    expect(await db.sql`select 1 from activity_log where action = 'partner.domain_removed' and partner_id = ${ids.removal}`).toHaveLength(1)
+  })
+
+  it('finds nothing to remove for an address the partner never added, and takes no Cloudflare action for another kind', async () => {
+    const owner = callerOf(ids.removal, 'partner-owner')
+    expect((await run<Removed>(remove, owner, { kind: 'portal' })).data?.removePartnerDomain).toEqual({ ok: false, reason: 'NOT_FOUND' })
+    expect((await run<Removed>(remove, owner, { kind: 'teleport' })).data?.removePartnerDomain.reason).toBe('INVALID_INPUT')
+    await run<Added>(add, owner, { kind: 'email', host: 'mail.removable.example' })
+    expect((await run<Removed>(remove, owner, { kind: 'email' })).data?.removePartnerDomain.ok).toBe(true)
+    expect(await db.sql`select 1 from outbox where kind = 'domain.remove' and payload->>'host' = 'mail.removable.example'`).toEqual([])
+  })
+
+  it('never removes another partner’s address, and a role without domains.write may not remove at all', async () => {
+    const before = await db.sql`select count(*)::int as n from partner_domain where partner_id = ${ids.ns}`
+    const intruder = callerOf(ids.removal, 'partner-owner')
+    expect((await run<Removed>(remove, intruder, { kind: 'portal' })).data?.removePartnerDomain).toEqual({ ok: false, reason: 'NOT_FOUND' })
+    expect(await db.sql`select count(*)::int as n from partner_domain where partner_id = ${ids.ns}`).toEqual(before)
+    expect((await run<Removed>(remove, callerOf(ids.ns, 'partner-support'), { kind: 'portal' })).code).toBe('FORBIDDEN')
+    expect(await db.sql`select count(*)::int as n from partner_domain where partner_id = ${ids.ns}`).toEqual(before)
+  })
+})
+
 describe('checking', () => {
   it('lets every role re-check its own address, queues it once a minute, and finds nothing of another partner’s', async () => {
     expect((await run<Record<string, unknown>>(recheck, callerOf(ids.ns, 'partner-support'), { kind: 'portal' })).data?.['recheckPartnerDomain']).toEqual({ ok: true, reason: null })
@@ -240,6 +278,68 @@ describe('checking', () => {
     expect(await queueDueDomainChecks(db.sql, at)).toBeGreaterThan(0)
     await queueDueDomainChecks(db.sql, new Date(at.getTime() + 1000))
     expect((await queued()).length).toBe(1)
+  })
+})
+
+describe('the portal host and Cloudflare for SaaS', () => {
+  const owner = () => callerOf(ids.proxied, 'partner-owner')
+  const lookupFor = (onResolve?: () => Promise<unknown>): DnsLookup => ({
+    resolve: async (host, type) => {
+      await onResolve?.()
+      if (!host.startsWith('_dripfunnel.')) return type === 'CNAME' ? ['portal.edge.dripfunnel.net'] : []
+      const [token] = await db.sql<{ expected: string }[]>`select expected from partner_domain_record where name = ${host} and purpose = 'ownership' and partner_id = ${ids.proxied}`
+      return [token?.expected ?? '']
+    },
+  })
+  const hostnameOf = (status: string, ssl: string) => ({ id: 'h1', hostname: 'x', status, ssl: { status: ssl } })
+  const cloudflareWith = (ensure: () => Promise<ReturnType<typeof hostnameOf>>): CloudflareApi & { ensured: number } => {
+    const api = { ensured: 0, ensureHostname: async () => (api.ensured++, ensure()), removeHostname: async () => undefined }
+    return api
+  }
+  const recheck = (domainId: string, lookup: DnsLookup, cloudflare: CloudflareApi | null) =>
+    domainRecheckDeliverer(db.sql, lookup, () => now, cloudflare).deliver({ payload: { partnerId: ids.proxied, domainId } } as never, new AbortController().signal)
+  const statusOf = async (id: string) => (await db.sql<{ status: string }[]>`select status from partner_domain where id = ${id}`)[0]?.status
+  const addPortal = async (host: string) => (await run<Added>(add, owner(), { kind: 'portal', host })).data?.addPartnerDomain.id ?? ''
+
+  it('takes the portal host’s state from Cloudflare once DNS passes, and registers nothing before', async () => {
+    const id = await addPortal('store.proxied.example')
+    const waiting = cloudflareWith(async () => hostnameOf('pending', 'initializing'))
+    await recheck(id, { resolve: async () => [] }, waiting)
+    expect(waiting.ensured).toBe(0)
+    await recheck(id, lookupFor(), waiting)
+    expect(await statusOf(id)).toBe('verifying')
+    await recheck(id, lookupFor(), cloudflareWith(async () => hostnameOf('active', 'pending_issuance')))
+    expect(await statusOf(id)).toBe('issuing')
+    await recheck(id, lookupFor(), cloudflareWith(async () => hostnameOf('active', 'active')))
+    expect(await statusOf(id)).toBe('live')
+  })
+
+  it('fails the address when Cloudflare refuses the host, and rethrows for a retry when Cloudflare is down', async () => {
+    const id = (await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.proxied} and kind = 'portal'`)[0]?.id ?? ''
+    await db.sql`update partner_domain set status = 'waiting' where id = ${id}`
+    await recheck(id, lookupFor(), cloudflareWith(async () => Promise.reject(new CloudflareRefused('answered 403'))))
+    expect(await statusOf(id)).toBe('failed')
+    await db.sql`update partner_domain set status = 'waiting' where id = ${id}`
+    await expect(recheck(id, lookupFor(), cloudflareWith(async () => Promise.reject(new CloudflareUnavailable('no answer'))))).rejects.toBeInstanceOf(CloudflareUnavailable)
+    expect(await statusOf(id)).toBe('waiting')
+  })
+
+  it('does not register a host a partner removed while its check was running', async () => {
+    const id = (await db.sql<{ id: string }[]>`select id from partner_domain where partner_id = ${ids.proxied} and kind = 'portal'`)[0]?.id ?? ''
+    const ghost = cloudflareWith(async () => hostnameOf('pending', 'initializing'))
+    await recheck(id, lookupFor(() => run(`mutation { removePartnerDomain(kind: "portal") { ok } }`, owner(), {})), ghost)
+    expect(ghost.ensured).toBe(0)
+  })
+
+  it('removes a removed host from Cloudflare and leaves one a partner has claimed since', async () => {
+    const removed: string[] = []
+    const cloudflare: CloudflareApi = { ensureHostname: async () => hostnameOf('active', 'active'), removeHostname: async (host) => void removed.push(host) }
+    const effect = (host: string) => domainRemoveDeliverer(db.sql, cloudflare).deliver({ payload: { host } } as never, new AbortController().signal)
+    await effect('store.gone.example')
+    expect(removed).toEqual(['store.gone.example'])
+    await addPortal('store.claimed.example')
+    await effect('store.claimed.example')
+    expect(removed).toEqual(['store.gone.example'])
   })
 })
 

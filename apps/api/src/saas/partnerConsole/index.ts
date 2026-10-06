@@ -149,8 +149,7 @@ export const createPartnerConsoleService = ({ sql, caller, facts, activity, now 
       if (kinds) {
         const mine = domains.filter((d) => kinds.includes(d.kind))
         const live = mine.length === kinds.length && mine.every((d) => d.status === 'live')
-        const waiting = mine.find((d) => d.status !== 'live')
-        return { key, status: live ? 'done' : mine.length > 0 ? 'progress' : 'missing', detail: live || !waiting ? null : `${waiting.host}: ${waiting.status === 'waiting' ? 'waiting for DNS' : waiting.status}`, doneBy: null, to: linkFor[key] }
+        return { key, status: live ? 'done' : mine.length > 0 ? 'progress' : 'missing', detail: null, doneBy: null, to: linkFor[key] }
       }
       const row = rows.find((r) => r.item === key)
       // A payment item a staff session marked done reads as not done: only the partner enters them.
