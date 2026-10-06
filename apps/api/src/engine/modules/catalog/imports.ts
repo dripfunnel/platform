@@ -57,7 +57,6 @@ export const problemWords: Record<ProblemCode, string> = {
   UNKNOWN_LANGUAGE: 'This column was left out: the language isn’t one of your store’s.',
   NOT_MANUAL_CURRENCY: 'This column was left out: only currencies you price by hand are imported.',
   SUPPLIER_CURRENCY: 'This column was left out: you price in the store’s currency only.',
-  SKIPPED: 'Skipped: a product with this SKU is already here.',
   OPTIONS_DIFFER: 'Its options differ from the product’s. Add every version, or change the options in the editor first.',
   PHOTO_UNAVAILABLE: 'This photo couldn’t be fetched from its address.',
   PHOTO_REFUSED: 'This photo isn’t a JPEG, PNG or WebP of up to 20 MB.',
@@ -486,11 +485,7 @@ const mayStillImport = async (tx: ScopedSql, context: TenantContext): Promise<bo
   return seat.seller_status === 'active' && isSupplierRole(seat.role_key) && seat.access_level !== null && isSupplierTier(seat.access_level) && storeRoleHas({ side: 'supplier', role: seat.role_key, tier: seat.access_level }, 'catalog.import')
 }
 
-/**
- * A chunk of the run (K6): products in the file's order from where the last one stopped. Each product commits with
- * its count, its photos' jobs and the import's place in the file, so a retry after any failure resumes after the
- * last product saved and never makes one twice.
- */
+/** A chunk of the run (K6), from where the last one stopped: each product commits with its place in the file, so a retry never makes one twice. */
 export const runImportChunk = async (d: ImportJobDeps, jobId: string, budgetMs: number): Promise<void> => {
   const { storeId } = d.context
   const started = Date.now()

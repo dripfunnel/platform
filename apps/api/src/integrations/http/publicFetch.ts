@@ -1,10 +1,8 @@
 import { parseHostname } from '#core/hostname'
 import type { DnsLookup } from '../dns/doh'
 
-// A file from an address a user gave us (AGENTS.md "Security": SSRF, timeouts, bounded retries): https on a
-// public name only, every address it resolves to public, each redirect checked the same way, and a size cap.
-// A name whose answer changes between the check and the fetch isn't stopped here; why that's bounded, and when it
-// stops being, is docs/ARCHITECTURE.md §7 ("Fetching a URL a user gave us").
+// A file from an address a user gave us: public https only, every redirect checked, a size cap. What it doesn't
+// stop (a name whose answer changes between check and fetch) is docs/ARCHITECTURE.md §7.
 
 export type PublicFetchRefusal = 'BAD_URL' | 'PRIVATE_ADDRESS' | 'NOT_FOUND' | 'TOO_LARGE' | 'UNAVAILABLE'
 export type PublicFetchResult = { ok: true; bytes: Uint8Array<ArrayBuffer> } | { ok: false; code: PublicFetchRefusal }
