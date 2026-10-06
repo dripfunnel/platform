@@ -1,6 +1,6 @@
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useId, useState } from 'react'
-import { deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, setTaxRate, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
+import { addTaxCategory, deleteTaxClass, loadTax, saveInvoiceSettings, saveTaxClass, saveTaxZone, setPricesIncludeTax, setTaxRate, type InvoiceSettings, type TaxClass, type TaxSetupFull, type TaxZone } from '../../api/tax'
 import { fill, formatCount, locale, messages, plural } from '../../messages'
 import { RadioCards } from '../common/RadioCards'
 import { refusalIn } from '../common/refusal'
@@ -106,19 +106,8 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
       input: { label: words.addLabel, type: 'text', initial: '', placeholder: words.addPlaceholder, error: (v) => (parseRate(v) ? null : words.addInvalid) },
       onConfirm: (_, value) => {
         const parsed = parseRate(value ?? '')
-        if (parsed)
-          void write('classes', async () => {
-            const classId = await saveTaxClass(null, { name: parsed.name, taxCode: null, isDefault: false })
-            try {
-              await setHomeRate(classId, parsed.bps)
-            } catch (error) {
-              // A category without its rate would sit there rate-less, and a retry would refuse its name: it goes again,
-              // and if that fails too the person is told it's there without a rate, to set with Manage.
-              if (!(await deleteTaxClass(classId).then(() => true, () => false))) return fill(words.addedNoRate, { name: parsed.name })
-              throw error
-            }
-            return fill(words.added, { name: parsed.name })
-          })
+        // The category and its rate are one server transaction: a refusal or a lost connection leaves no rate-less category.
+        if (parsed) void write('classes', async () => (await addTaxCategory(parsed.name, parsed.bps, homeName), fill(words.added, { name: parsed.name })))
       },
     })
 

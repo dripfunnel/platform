@@ -3,7 +3,7 @@ import { changeEmail, updateProfile, type Profile } from '../../api/profile'
 import { fill, messages } from '../../messages'
 import { Alert, Card, Field, Primary } from './parts'
 import { profileRefusal } from './profileWords'
-import { looksLikeEmail } from '../common/email'
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 
 const words = messages.profile.details
 

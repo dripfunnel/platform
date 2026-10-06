@@ -10,7 +10,7 @@ import { BackupCodes } from './BackupCodes'
 import { CodeField, Field, Foot, PasswordField, Primary, Secondary, useResendWait } from './fields'
 import { productName } from '../common/productName'
 import { refusalText } from './refusals'
-import { looksLikeEmail } from '../common/email'
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 
 const words = messages.auth
 

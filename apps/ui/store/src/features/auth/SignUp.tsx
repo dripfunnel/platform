@@ -8,7 +8,7 @@ import { sampleCountries, sampleEmail, sampleHint, sampleSuggestions, signUpStat
 import { AuthFrame } from './AuthFrame'
 import { CodeField, Field, Foot, NewPasswordField, Primary, Terms, useResendWait } from './fields'
 import { signupText } from './refusals'
-import { looksLikeEmail } from '../common/email'
+import { looksLikeEmail } from '@dripfunnel/shared/format'
 
 const words = messages.auth
 const su = words.signup
