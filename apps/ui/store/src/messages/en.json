@@ -2599,6 +2599,7 @@
         "TOO_MANY": "That’s as many as a store can have.",
         "READ_ONLY": "Your store is read-only until the bill is paid.",
         "FORBIDDEN": "Only the store owner can change tax.",
+        "NO_COUNTRY": "Your store has no country yet, so there’s no home to set a rate for. Add your address in Store info first.",
         "other": "That didn’t save. Try again."
       }
     },
