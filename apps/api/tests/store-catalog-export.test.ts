@@ -267,4 +267,19 @@ describe('who reads an export', () => {
     expect(await withSystemScope(db.sql, (tx) => deleteExpiredCatalogExports(tx, now))).toBeGreaterThan(0)
     expect(await db.sql`select 1 from catalog_export where id = ${done.id ?? ''}`).toEqual([])
   })
+
+  it('stays queued while the relay retries a failed build, and is failed with its expiry on the last attempt', async () => {
+    const { id } = await ask('owner', 'products')
+    // A stored filter the build refuses, so every delivery throws.
+    await db.sql`update catalog_export set filter = '{"filter":"nope"}'::jsonb where id = ${id ?? ''}`
+    const [row] = await db.sql<{ id: string; payload: unknown }[]>`
+      update outbox set delivered_at = now() where kind = 'export.catalog' and payload->>'jobId' = ${id ?? ''} and delivered_at is null returning id, payload`
+    const deliverer = catalogExportDeliverer(db.sql, () => now)
+    const effect = (attempt: number) => ({ id: row?.id ?? '', kind: 'export.catalog', idempotencyKey: 'k', payload: row?.payload, partnerId: t.partnerA, storeId: t.storeA1, attempt })
+    const state = async () => (await db.sql<{ state: string; expires_at: Date | null }[]>`select state, expires_at from catalog_export where id = ${id ?? ''}`)[0]
+    await expect(deliverer.deliver(effect(1), AbortSignal.timeout(5000))).rejects.toThrow()
+    expect(await state()).toEqual({ state: 'queued', expires_at: null })
+    await expect(deliverer.deliver(effect(defaultRelayOptions.maxAttempts), AbortSignal.timeout(5000))).rejects.toThrow()
+    expect(await state()).toEqual({ state: 'failed', expires_at: new Date(now.getTime() + 60 * 60 * 1000) })
+  })
 })
