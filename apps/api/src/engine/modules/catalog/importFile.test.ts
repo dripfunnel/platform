@@ -82,4 +82,15 @@ describe('planImport, Shopify’s product CSV', () => {
   it('turns HTML into text', () => {
     expect(textOfHtml('<h2>Care</h2><ul><li>Hand wash</li><li>Dry flat</li></ul>&lt;3')).toBe('Care\nHand wash\nDry flat\n<3')
   })
+
+  it('leaves out a photo too long for the photo job, on its own line, and still imports the product', () => {
+    const long = `https://cdn.example/${'a'.repeat(2048)}.jpg`
+    const p = plan(`handle,name,price,image,image alt\npot,Pot,10,${long},\npot,,,https://cdn.example/b.jpg,${'x'.repeat(501)}\npot,,,https://cdn.example/c.jpg,Side\n`)
+    expect(p.products.map((x) => x.photos.map((ph) => ph.url))).toEqual([['https://cdn.example/c.jpg']])
+    expect(p.problems).toEqual([
+      { line: 2, column: 'image', code: 'PHOTO_TOO_LONG' },
+      { line: 3, column: 'image alt', code: 'PHOTO_TOO_LONG' },
+    ])
+    expect(p.refused).toBe(0)
+  })
 })

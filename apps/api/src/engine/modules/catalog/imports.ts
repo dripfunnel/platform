@@ -61,6 +61,7 @@ export const problemWords: Record<ProblemCode, string> = {
   OPTIONS_DIFFER: 'Its options differ from the product’s. Add every version, or change the options in the editor first.',
   PHOTO_UNAVAILABLE: 'This photo couldn’t be fetched from its address.',
   PHOTO_REFUSED: 'This photo isn’t a JPEG, PNG or WebP of up to 20 MB.',
+  PHOTO_TOO_LONG: `This photo’s address is over ${importLimits.photoUrl.toLocaleString('en')} characters, or its description over ${importLimits.photoAlt}, so it was left out.`,
   NOT_FOUND: 'That product is no longer here.',
   CURRENCY_REQUIRED: 'Set your store’s currency first.',
   SUPPLIER_FIELD: 'Suppliers can’t set this.',
@@ -546,8 +547,8 @@ export const importPhotoPayload = z.object({
   productId: z.guid(),
   line: z.number().int(),
   position: z.number().int().min(0).max(19),
-  url: z.string().max(2048),
-  alt: z.string().max(500).nullable(),
+  url: z.string().max(importLimits.photoUrl),
+  alt: z.string().max(importLimits.photoAlt).nullable(),
 })
 
 export type PhotoFetch = (url: string) => Promise<{ ok: true; assetId: string } | { ok: false; code: 'PHOTO_UNAVAILABLE' | 'PHOTO_REFUSED' }>
