@@ -52,10 +52,7 @@ const loaders = (reads: SettingsReads): Record<SettingsTab, () => Promise<Render
     return (done, canEdit) => <SupplierTab suppliers={suppliers} approval={approval} canEdit={canEdit} onChanged={done.reload} />
   },
   // The store's locations, and its suppliers' named, read-only (SetOps "Warehouse").
-  warehouse: async () => {
-    const names = new Map((await reads.suppliers()).map((s) => [s.id, s.name]))
-    return (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" supplierNames={names} />
-  },
+  warehouse: async () => (_, canEdit) => <WarehousesView canEdit={canEdit} side="merchant" />,
   tax: async () => {
     const [tax, invoice, info] = await Promise.all([reads.tax(), reads.invoice(), reads.storeInfo()])
     if (!tax || !invoice) throw new Error('tax setup missing')

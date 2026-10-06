@@ -79,9 +79,9 @@ const PlaceForm = ({ form, set, busy, onSave, onCancel }: { form: Form; set: (f:
 
 /**
  * Where stock sits (SetOps "Warehouse"), the default first: a supplier's own inside "Your products" (#337), and the
- * merchant side's own with its suppliers' listed apart and read-only (`side`; names from `supplierNames` where given).
+ * merchant side's own with its suppliers' listed apart and read-only (`side`), each named by the API.
  */
-export const WarehousesView = ({ canEdit, side, supplierNames = null }: { canEdit: boolean; side: 'merchant' | 'supplier'; supplierNames?: ReadonlyMap<string, string> | null }) => {
+export const WarehousesView = ({ canEdit, side }: { canEdit: boolean; side: 'merchant' | 'supplier' }) => {
   const [view, setView] = useState<View>({ kind: 'loading' })
   const [form, setForm] = useState<Form | null>(null)
   const [busy, setBusy] = useState(false)
@@ -160,8 +160,7 @@ export const WarehousesView = ({ canEdit, side, supplierNames = null }: { canEdi
   // The merchant side also reads its suppliers' locations: listed apart and never changed here (SetOps, FIRST-RELEASE §15).
   const own = (p: Place) => side === 'supplier' || p.supplierId === null
   const places = view.places.filter(own).sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
-  // Never nameless: without the suppliers' names (a seat that can't read them), their locations aren't listed.
-  const theirs = supplierNames ? view.places.filter((p) => !own(p)) : []
+  const theirs = view.places.filter((p) => !own(p))
   return (
     <div className="df-places">
       <div className="df-places-head">
@@ -212,7 +211,7 @@ export const WarehousesView = ({ canEdit, side, supplierNames = null }: { canEdi
                 </span>
                 <span className="df-places-text">
                   <strong>{p.name}</strong>
-                  <span>{[supplierNames?.get(p.supplierId ?? '') ?? '', addressLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
+                  <span>{[p.supplierName ?? '', addressLine(p), fill(plural(words.units, p.units), { count: formatCount(p.units) })].filter(Boolean).join(' · ')}</span>
                 </span>
               </li>
             ))}
