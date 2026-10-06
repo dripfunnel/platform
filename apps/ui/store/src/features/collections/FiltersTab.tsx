@@ -1,15 +1,15 @@
+import { isApiError } from '@dripfunnel/shared/graphql'
 import { ConfirmDialog, type ConfirmDialogProps } from '@dripfunnel/shared/ui'
 import { useState } from 'react'
 import type { CollectionSummary } from '../../api/collections'
 import { mergeValues, saveFilter, type Filter } from '../../api/filters'
 import { fill, formatCount, formatList, messages, plural } from '../../messages'
-import { refusalIn } from '../common/refusal'
 
 const words = messages.collections.filters
 
 type Ask = Omit<ConfirmDialogProps, 'open' | 'onCancel' | 'cancelLabel'>
 
-const refusalOf = refusalIn(words.refused)
+const refusalOf = (error: unknown): string => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
 
 /** Values that differ only by case, spaces or punctuation ("Off-white", "Off white"): the first is kept. */
 export const lookAlikes = (values: readonly { id: string; name: string }[]): { id: string; name: string }[] | null => {

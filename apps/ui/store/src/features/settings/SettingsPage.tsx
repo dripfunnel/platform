@@ -89,17 +89,20 @@ export const SettingsPage = () => {
 
   // Only the newest read may land: a reload a tab started must not fill another tab opened since.
   const latest = useRef(0)
+  const planName = acting.plan?.name ?? null
+  const owner = acting.role === 'owner'
   const load = useCallback(() => {
     const ask = ++latest.current
     if (forced === 'loading') return setView({ kind: 'loading' })
     if (forced === 'error') return setView({ kind: 'error' })
     if (!allowed) return
     setView({ kind: 'loading' })
-    void loaders(forced ? sampleReads : apiReads, { planName: acting.plan?.name ?? null, owner: acting.role === 'owner' })[tab]().then(
+    void loaders(forced ? sampleReads : apiReads, { planName, owner })[tab]().then(
       (render) => ask === latest.current && setView({ kind: 'ready', render }),
       () => ask === latest.current && setView({ kind: 'error' }),
     )
-  }, [forced, allowed, tab, acting])
+    // The two values the loaders read, not the whole seat: a new `acting` object from the shell mustn't reload a tab.
+  }, [forced, allowed, tab, planName, owner])
   useEffect(load, [load])
 
   const done: Done = {

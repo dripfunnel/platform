@@ -14,7 +14,7 @@ import { messages } from '../../messages'
 const t = messages.settings.tax
 const wh = messages.warehouses
 
-const tax = vi.hoisted(() => ({ loadTax: vi.fn(), setPricesIncludeTax: vi.fn(), saveTaxClass: vi.fn(), deleteTaxClass: vi.fn(), saveTaxZone: vi.fn(), setTaxRate: vi.fn(), addTaxCategory: vi.fn(), loadInvoiceSettings: vi.fn(), saveInvoiceSettings: vi.fn() }))
+const tax = vi.hoisted(() => ({ loadTax: vi.fn(), setPricesIncludeTax: vi.fn(), saveTaxClass: vi.fn(), deleteTaxClass: vi.fn(), setHomeTaxRate: vi.fn(), addTaxCategory: vi.fn(), loadInvoiceSettings: vi.fn(), saveInvoiceSettings: vi.fn() }))
 vi.mock('../../api/tax', () => tax)
 const settings = vi.hoisted(() => ({ loadStoreInfo: vi.fn(), loadLocale: vi.fn() }))
 vi.mock('../../api/settings', () => settings)
@@ -63,10 +63,9 @@ beforeEach(() => {
   tax.loadInvoiceSettings.mockResolvedValue({ taxPerLine: true, emailWithDispatch: true, footer: 'Thank you', legalName: null })
   settings.loadStoreInfo.mockResolvedValue({ country: 'IN', taxId: '08ABCDE1234F1Z5' })
   settings.loadLocale.mockResolvedValue({ pricingCurrency: 'INR' })
-  for (const fn of [tax.setPricesIncludeTax, tax.deleteTaxClass, tax.saveInvoiceSettings, tax.setTaxRate]) fn.mockResolvedValue(undefined)
+  for (const fn of [tax.setPricesIncludeTax, tax.deleteTaxClass, tax.saveInvoiceSettings, tax.setHomeTaxRate]) fn.mockResolvedValue(undefined)
   tax.saveTaxClass.mockResolvedValue('c-new')
   tax.addTaxCategory.mockResolvedValue('c-new')
-  tax.saveTaxZone.mockResolvedValue('z-in')
   team.loadSuppliers.mockResolvedValue([{ id: 'v1', name: 'Northwind Textiles' }])
   stock.loadPlaces.mockResolvedValue([
     { id: 'w1', name: 'Workshop', isDefault: true, units: 30, revision: 1, address: null, supplierId: null },
@@ -143,14 +142,13 @@ describe('tax setup', () => {
     fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
     confirm(t.save)
     await settle()
-    expect(tax.setTaxRate).toHaveBeenLastCalledWith('z-in', 'c12', 500)
+    expect(tax.setHomeTaxRate).toHaveBeenLastCalledWith('c12', 500, 'India')
     fireEvent.click(screen.getByRole('button', { name: t.addTitle }))
     fireEvent.change(dialog().getByLabelText(t.addLabel), { target: { value: 'Books 7.5%' } })
     confirm(t.add)
     await settle()
     // The category and its home rate go as one call, the server making both or neither.
     expect(tax.addTaxCategory).toHaveBeenCalledWith('Books', 750, 'India')
-    expect(tax.saveTaxZone).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: 'Manage Exempt' }))
     fireEvent.change(dialog().getByRole('combobox'), { target: { value: 'delete' } })
     confirm(t.continue)
@@ -175,18 +173,7 @@ describe('tax setup', () => {
     expect(tax.loadTax.mock.calls.length).toBe(reads + 1)
   })
 
-  it('sets just that category’s rate, so someone else’s change to another rate stays', async () => {
-    await show('tax')
-    fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
-    confirm(t.continue)
-    fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
-    confirm(t.save)
-    await settle()
-    expect(tax.setTaxRate).toHaveBeenCalledWith('z-in', 'c12', 500)
-    expect(tax.saveTaxZone).not.toHaveBeenCalled()
-  })
-
-  it('makes the home zone with the rate where there’s none yet, but never when the setup didn’t read back', async () => {
+  it('changes a category’s rate at home in one call, the server finding or making the home zone', async () => {
     tax.loadTax.mockResolvedValue({ ...setup, zones: [setup.zones[1]] })
     await show('tax')
     fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
@@ -194,18 +181,7 @@ describe('tax setup', () => {
     fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '5' } })
     confirm(t.save)
     await settle()
-    expect(tax.saveTaxZone).toHaveBeenCalledWith(null, { name: 'India', countries: ['IN'], regions: [], rates: [{ taxClassId: 'c12', rateBps: 500 }] })
-    tax.saveTaxZone.mockClear()
-    // The re-read before writing answers nothing: that's a failure, not "no home zone", so no zone is made.
-    tax.loadTax.mockResolvedValueOnce(null)
-    fireEvent.click(screen.getByRole('button', { name: 'Manage Clothing' }))
-    confirm(t.continue)
-    fireEvent.change(dialog().getByLabelText(t.rateLabel), { target: { value: '6' } })
-    confirm(t.save)
-    await settle()
-    expect(tax.saveTaxZone).not.toHaveBeenCalled()
-    expect(tax.setTaxRate).not.toHaveBeenCalled()
-    expect(screen.getByText(t.refused.other)).toBeTruthy()
+    expect(tax.setHomeTaxRate).toHaveBeenCalledWith('c12', 500, 'India')
   })
 
   it('refuses a category and rate it can’t read before sending anything', async () => {

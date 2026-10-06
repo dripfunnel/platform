@@ -14,7 +14,6 @@ import { StoryPanel } from './StoryPanel'
 import { blankModule, duplicateModule, maxModules, moduleInput, modulesOf, moved, sameModules, storyKinds, storyTemplates, type DraftModule, type StoryKind, type StoryTemplate } from './storyDraft'
 import { storySample, storyStates } from './storyStates'
 import './story.css'
-import { refusalIn } from '../common/refusal'
 
 const words = messages.story
 const shellRoute = getRouteApi('/_app')
@@ -33,7 +32,7 @@ interface Loaded {
 
 type View = { kind: 'loading' } | { kind: 'error' } | { kind: 'notFound' } | ({ kind: 'ready' } & Loaded)
 
-const refusalOf = refusalIn(words.refused)
+const refusalOf = (error: unknown) => (isApiError(error) ? ((words.refused as Record<string, string>)[error.code] ?? words.refused.other) : words.refused.other)
 
 /** A product's A+ content (CatAPlus, FIRST-RELEASE §11): a draft built from modules, published with the product. */
 export const StoryEditor = () => {
