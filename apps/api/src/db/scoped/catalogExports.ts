@@ -91,7 +91,6 @@ export interface ExportProductRow {
   description: string
   product_type: string
   visibility: 'visible' | 'hidden'
-  approval_status: string | null
   options: string[] | null
   versions: ExportVersionRow[] | null
   translations: { language: string; field: 'name' | 'description'; text: string }[] | null
@@ -105,7 +104,7 @@ export const selectExportProducts = (tx: ScopedSql, storeId: string, ids: readon
   ids.length === 0
     ? Promise.resolve([])
     : tx<ExportProductRow[]>`
-        select p.id, p.slug, p.name, p.description, p.product_type, p.visibility, p.approval_status,
+        select p.id, p.slug, p.name, p.description, p.product_type, p.visibility,
           (select json_agg(o.name order by o.position) from product_option o where o.product_id = p.id) as options,
           (select json_agg(json_build_object(
               'sku', v.sku, 'barcode', v.barcode, 'name', v.name, 'weight', v.weight_grams, 'cost', v.cost_amount::text, 'cost_currency', v.cost_currency,
