@@ -195,23 +195,6 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
       return saved
     })
 
-  /** One category's rate in one zone, under the same lock and overlap check as a zone save, its other rates left as they are. */
-  const setRate = (zoneId: string, taxClassId: string, rateBps: number) =>
-    run(async (tx) => {
-      const classId = taxClassId.toLowerCase()
-      if (!isUuid(zoneId) || !isUuid(classId) || !Number.isInteger(rateBps) || rateBps < 0 || rateBps > 10_000) throw new Refused('INVALID_INPUT')
-      if ((await classesOfStore(tx, storeId, [classId])) !== 1) throw new Refused('NOT_FOUND')
-      await serialise(tx, `tax_zone:${storeId}`)
-      const zones = (await selectTaxSetup(tx, storeId))?.zones ?? []
-      const zone = zones.find((z) => z.id === zoneId)
-      if (!zone) throw new Refused('NOT_FOUND')
-      const mine = { countries: zone.countries, regions: zone.regions, classIds: [...new Set([...zone.rates.map((r) => r.tax_class_id), classId])] }
-      if (zones.some((z) => z.id !== zoneId && zonesClash(mine, { countries: z.countries, regions: z.regions, classIds: z.rates.map((r) => r.tax_class_id) }))) throw new Refused('ZONE_OVERLAP')
-      await setZoneRate(tx, storeId, zoneId, { taxClassId: classId, rateBps })
-      await activity.record(tx, entry(taxAudit.rateSet, { type: 'tax_zone', id: zoneId, label: zone.name }, null))
-      return true
-    })
-
   /**
    * A category's rate at home (the store's country, no regions), the home zone made with it when there's none: inside
    * the caller's transaction, under the tax lock, so two people can't both find no home zone and make one each.
@@ -334,7 +317,7 @@ export const createTaxService = ({ sql, context, actor, activity, facts, now, st
     }
   }
 
-  return { setup, setInclusive, saveClass, addCategory, deleteClass, saveZone, setRate, setHomeRate, deleteZone, invoiceSettings, saveInvoice, quote }
+  return { setup, setInclusive, saveClass, addCategory, deleteClass, saveZone, setHomeRate, deleteZone, invoiceSettings, saveInvoice, quote }
 }
 
 const settingOf = (row: TaxSetupRow): TaxSetting => ({

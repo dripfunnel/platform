@@ -477,7 +477,6 @@ type Mutation {
   setStock(entries: [StockQuantityInput!]!): [StockQuantity!]
   setSupplierAccess(accessLevel: String!, id: ID!): Boolean
   setSupplierShippingMode(id: ID!, labelAccount: String, shippingMode: String!): Boolean
-  setTaxRate(rateBps: Int!, taxClassId: ID!, zoneId: ID!): Boolean
   setTheme(theme: String!): Profile
   signOutOtherSessions: Int
   startCatalogImport(file: String!): ID

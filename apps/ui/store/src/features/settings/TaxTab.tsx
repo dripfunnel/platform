@@ -50,7 +50,7 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
   const [savedInvoice, setSavedInvoice] = useState({ perLine: invoice.taxPerLine, email: invoice.emailWithDispatch })
   const [ask, setAsk] = useState<Ask | null>(null)
   const [busy, setBusy] = useState(false)
-  const [failure, setFailure] = useState<{ card: 'prices' | 'invoice'; text: string } | null>(null)
+  const [failure, setFailure] = useState<{ card: 'prices' | 'classes' | 'invoice'; text: string } | null>(null)
   const t = taxWordsFor(country)
   const home = homeZone(tax.zones, country)
   const others = tax.zones.filter((z) => z !== home)
@@ -66,9 +66,8 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
       if (card === 'classes') onChanged(toast)
       else onSaved(toast)
     } catch (error) {
-      // A category change may have half happened: the tab reads the setup again, the refusal said in the toast.
-      if (card === 'classes') onChanged(refusalOf(error))
-      else setFailure({ card, text: refusalOf(error) })
+      // Every write is one transaction on the server, so a refusal changed nothing: said on its card, as an error.
+      setFailure({ card, text: refusalOf(error) })
     } finally {
       setBusy(false)
     }
@@ -170,6 +169,11 @@ export const TaxTab = ({ tax, invoice, country, taxId, canEdit, onSaved, onChang
       </section>
 
       <section className="df-set-card" aria-labelledby={`${id}-classes`}>
+        {failure?.card === 'classes' && (
+          <p className="df-set-failure" role="alert">
+            {failure.text}
+          </p>
+        )}
         <div className="df-set-foot">
           <h2 id={`${id}-classes`}>{fill(words.yours, { what: classWord })}</h2>
           {canEdit && usesRates && (
