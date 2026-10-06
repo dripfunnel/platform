@@ -97,7 +97,6 @@ const allDone = (by: string, portal: string, mail: string): SeedSetupItem[] => [
   { item: 'legal', status: 'done', detail: 'Terms, privacy and data-processing agreement added', by },
   { item: 'paymentMethod', status: 'done', detail: 'Card on file', by },
   { item: 'payoutDetails', status: 'done', detail: 'Bank account verified', by },
-  { item: 'testSignup', status: 'done', detail: 'Test store created and removed', by },
 ]
 
 
@@ -223,7 +222,6 @@ export const partners: readonly SeedPartner[] = [
       { item: 'legal', status: 'done', detail: 'Terms, privacy, Impressum and data-processing agreement added', by: 'Jonas Weber' },
       { item: 'paymentMethod', status: 'done', detail: 'Card on file', by: 'Jonas Weber' },
       { item: 'payoutDetails', status: 'missing', detail: 'Add the bank account DripFunnel pays you into' },
-      { item: 'testSignup', status: 'done', detail: 'Test store created and removed', by: 'Jonas Weber' },
     ],
     plans: [
       { name: 'Basis', status: 'live', maxProducts: 500, maxStaff: 2 },
@@ -293,7 +291,6 @@ export const partners: readonly SeedPartner[] = [
       { item: 'legal', status: 'missing', detail: 'Terms, privacy and data-processing agreement' },
       { item: 'paymentMethod', status: 'missing', detail: 'The card DripFunnel charges for its invoices' },
       { item: 'payoutDetails', status: 'missing', detail: 'Add the bank account DripFunnel pays you into' },
-      { item: 'testSignup', status: 'missing', detail: 'Sign up as a merchant at shops.tallis.example to check the whole flow' },
     ],
     plans: [],
     events: [{ daysAgo: 7, action: 'partner.created', by: 'Maya Ortiz' }],
@@ -329,7 +326,6 @@ export const partners: readonly SeedPartner[] = [
       { item: 'legal', status: 'missing', detail: 'Terms, privacy and data-processing agreement' },
       { item: 'paymentMethod', status: 'missing', detail: 'The card DripFunnel charges for its invoices' },
       { item: 'payoutDetails', status: 'missing', detail: 'Add the bank account DripFunnel pays you into' },
-      { item: 'testSignup', status: 'missing', detail: 'Sign up as a merchant at shops.nordlicht.example to check the whole flow' },
     ],
     plans: [],
     events: [

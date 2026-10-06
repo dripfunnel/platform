@@ -53,7 +53,7 @@ describe('Partners list', () => {
     const text = textOf(await render())
     expect(text).toContain(words.newestFirst)
     expect(text).not.toMatch(/\d+ partners/)
-    expect(text).toContain('8 of 10')
+    expect(text).toContain('7 of 9')
     expect(text).toContain(words.setupComplete)
     expect(text).toContain(words.hostStatus.waiting)
     expect(text).toContain(words.invitation.held)

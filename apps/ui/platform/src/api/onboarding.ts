@@ -4,7 +4,7 @@ import { query } from './client'
 
 // The checklist of FIRST-RELEASE.md §4 (SAAS §3.2 step 2), the go-live checks (step 3) and who
 // may submit, all the Platform API's: `onboarding` and `submitForApproval` (§16).
-export const checklistItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
+export const checklistItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 
 export type ChecklistItemKey = (typeof checklistItems)[number]
 
@@ -16,11 +16,11 @@ export type ItemStatus = (typeof itemStatuses)[number]
 // go-live check (SAAS §3.2 step 5). The API already reads one staff marked done as not done.
 export const partnerOnlyItems: readonly ChecklistItemKey[] = ['paymentMethod', 'payoutDetails']
 
-export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages', 'testSignup'] as const
+export const goLiveChecks = ['portalHost', 'emailDomain', 'pricedPlan', 'legalPages'] as const
 
 export type GoLiveCheck = (typeof goLiveChecks)[number]
 
-const consoleLinks = ['/settings', '/branding', '/domains', '/plans', '/dashboard'] as const
+const consoleLinks = ['/settings', '/branding', '/domains', '/plans'] as const
 
 const submitRefusals = ['OWNERS_AND_ADMINS_ONLY', 'ALREADY_SUBMITTED', 'ALREADY_APPROVED'] as const
 
@@ -37,7 +37,7 @@ const onboardingSchema = z.object({
           to: z.enum(consoleLinks),
         }),
       ),
-      checks: z.object({ portalHost: z.boolean(), emailDomain: z.boolean(), pricedPlan: z.boolean(), legalPages: z.boolean(), testSignup: z.boolean() }),
+      checks: z.object({ portalHost: z.boolean(), emailDomain: z.boolean(), pricedPlan: z.boolean(), legalPages: z.boolean() }),
       fallbackSenderAccepted: z.boolean(),
       submittedAt: z.string().nullable(),
       submittedBy: z.enum(['partner', 'DripFunnel']).nullable(),
@@ -55,7 +55,7 @@ export type ChecklistItem = Onboarding['items'][number]
 export const loadOnboarding = async (): Promise<Onboarding | null> =>
   (
     await query(
-      `{ onboarding { items { key status detail doneBy to } checks { portalHost emailDomain pricedPlan legalPages testSignup } fallbackSenderAccepted submittedAt submittedBy sentBackReason fixes { item to } canSubmit { allowed reason } } }`,
+      `{ onboarding { items { key status detail doneBy to } checks { portalHost emailDomain pricedPlan legalPages } fallbackSenderAccepted submittedAt submittedBy sentBackReason fixes { item to } canSubmit { allowed reason } } }`,
       onboardingSchema,
     )
   ).onboarding

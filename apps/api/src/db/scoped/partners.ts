@@ -243,8 +243,9 @@ const listProjection = (tx: ScopedSql) => tx`
   select p.*,
     (select count(*)::int from store s where s.partner_id = p.id) as store_count,
     pd.host as portal_host, pd.status as portal_status,
-    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.status = 'done') as setup_done,
-    (select count(*)::int from partner_setup_item i where i.partner_id = p.id) as setup_total,
+    -- testSignup rows from before #421 dropped that item are kept and never counted.
+    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status = 'done') as setup_done,
+    (select count(*)::int from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup') as setup_total,
     o.name as owner_name, o.email as owner_email,
     case
       when o.id is null then null
@@ -279,8 +280,8 @@ export const selectPartners = async (tx: ScopedSql, filter: PartnerFilter, page:
     where true
       ${filter.state !== undefined ? tx`and p.state = ${filter.state}` : tx``}
       ${filter.assignedTo !== undefined ? tx`and exists (select 1 from staff_partner_assignment a where a.partner_id = p.id and a.staff_user_id = ${filter.assignedTo} and a.removed_at is null)` : tx``}
-      ${filter.setup === 'complete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id) and not exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.status <> 'done')` : tx``}
-      ${filter.setup === 'incomplete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.status <> 'done')` : tx``}
+      ${filter.setup === 'complete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup') and not exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status <> 'done')` : tx``}
+      ${filter.setup === 'incomplete' ? tx`and exists (select 1 from partner_setup_item i where i.partner_id = p.id and i.item <> 'testSignup' and i.status <> 'done')` : tx``}
       ${q !== null ? tx`and (p.name ilike ${q} or pd.host ilike ${q} or o.email ilike ${q})` : tx``}
       ${sort === 'oldestSubmitted' ? tx`and p.submitted_at is not null` : tx``}
       ${page.after !== undefined ? (sort === 'newest' ? tx`and (${key}, p.id) < (${page.after.occurredAt}, ${page.after.id}::uuid)` : tx`and (${key}, p.id) > (${page.after.occurredAt}, ${page.after.id}::uuid)`) : tx``}
@@ -452,7 +453,7 @@ export const selectPartnerDomainsFor = (tx: ScopedSql, ids: readonly string[]): 
   tx<PartnerDomainRow[]>`select * from partner_domain where partner_id = any(${pgArray(ids)}::uuid[]) order by kind`
 
 export const selectSetupItemsFor = (tx: ScopedSql, ids: readonly string[]): Promise<PartnerSetupItemRow[]> =>
-  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[])`
+  tx<PartnerSetupItemRow[]>`select * from partner_setup_item where partner_id = any(${pgArray(ids)}::uuid[]) and item <> 'testSignup'`
 
 // Capped per partner, not per batch: a page of partners must never lose one partner's rows
 // to another's.

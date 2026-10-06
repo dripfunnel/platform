@@ -15,9 +15,9 @@ import { stuckAfterMinutes } from '#saas/provisioning/index'
 // The partner console's shell and Home until Live (ui/platform/FIRST-RELEASE.md §2, §4; card
 // #158). Every read runs as the caller's partner; nothing here takes a partner id from a request.
 
-export const checklistItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const
+export const checklistItems = ['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const
 export type ChecklistItem = (typeof checklistItems)[number]
-export type ConsoleLink = '/settings' | '/branding' | '/domains' | '/plans' | '/dashboard'
+export type ConsoleLink = '/settings' | '/branding' | '/domains' | '/plans'
 
 // Where each item is finished, which is also where a sent-back fix sends the partner.
 const linkFor: Record<ChecklistItem, ConsoleLink> = {
@@ -30,11 +30,10 @@ const linkFor: Record<ChecklistItem, ConsoleLink> = {
   legal: '/branding',
   paymentMethod: '/settings',
   payoutDetails: '/settings',
-  testSignup: '/dashboard',
 }
 
 // The item a failing go-live check is fixed on, which is what a sent-back partner is shown.
-const itemForCheck: Record<GoLiveCheck, ChecklistItem> = { portalHost: 'portalHost', emailDomain: 'emailSender', pricedPlan: 'plan', legalPages: 'legal', testSignup: 'testSignup' }
+const itemForCheck: Record<GoLiveCheck, ChecklistItem> = { portalHost: 'portalHost', emailDomain: 'emailSender', pricedPlan: 'plan', legalPages: 'legal' }
 
 // SAAS §3.2 step 5: the partner's own, never done by staff, never a go-live check.
 const partnerOnlyItems: readonly ChecklistItem[] = ['paymentMethod', 'payoutDetails']

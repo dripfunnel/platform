@@ -162,16 +162,16 @@ describe('search', () => {
 })
 
 describe('onboarding and submitForApproval', () => {
-  const onboardingQuery = '{ onboarding { items { key status doneBy to } checks { portalHost emailDomain pricedPlan legalPages testSignup } submittedBy sentBackReason fixes { item to } canSubmit { allowed reason } } }'
+  const onboardingQuery = '{ onboarding { items { key status doneBy to } checks { portalHost emailDomain pricedPlan legalPages } submittedBy sentBackReason fixes { item to } canSubmit { allowed reason } } }'
   const submit = 'mutation { submitForApproval { ok code check submittedAt } }'
   type Ob = { onboarding: { items: { key: string; status: string; doneBy: string | null }[]; checks: Record<string, boolean>; submittedBy: string | null; fixes: { item: string }[]; canSubmit: { allowed: boolean; reason: string | null } } }
   type Sub = { submitForApproval: { ok: boolean; code: string | null; check: string | null } }
 
-  it('lists the ten items, staff work as DripFunnel, and never a payment item done by staff', async () => {
+  it('lists the nine items, staff work as DripFunnel, and never a payment item done by staff', async () => {
     await db.sql`update partner_setup_item set status = 'done', done_at = now(), done_by_kind = 'staff', done_by_label = 'DripFunnel' where partner_id = ${ids.kl} and item = 'paymentMethod'`
     const { data } = await run<Ob>(onboardingQuery, callerOf(ids.kl, 'partner-owner'))
     const items = data?.onboarding.items ?? []
-    expect(items.map((i) => i.key)).toEqual(['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'])
+    expect(items.map((i) => i.key)).toEqual(['company', 'branding', 'portalHost', 'wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'])
     expect(items.find((i) => i.key === 'branding')?.doneBy).toBe('DripFunnel')
     expect(items.find((i) => i.key === 'company')?.doneBy).toBe('Jonas')
     expect(items.find((i) => i.key === 'paymentMethod')).toMatchObject({ status: 'missing', doneBy: null })

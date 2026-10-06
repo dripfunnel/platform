@@ -198,10 +198,9 @@ fonts the picker offers are loaded for the preview alone (designs/design.md §6)
 ## Onboarding
 
 `/dashboard` is the setup checklist until the partner is Live (`src/features/onboarding/`, #113;
-FIRST-RELEASE.md §4): the Platform API's `onboarding`, ten items with done · in progress · to do,
-the API's detail (or the item's own hint), who completed each and the screen it links to; Run
-test signup, disabled with its reason until its API exists; and Submit for approval as the
-eleventh step, disabled with the API's verdict (`canSubmit`) or with the go-live checks it says
+FIRST-RELEASE.md §4): the Platform API's `onboarding`, nine items with done · in progress · to do,
+the API's detail (or the item's own hint), who completed each and the screen it links to; and
+Submit for approval as the tenth step, disabled with the API's verdict (`canSubmit`) or with the go-live checks it says
 still fail. Payment method and payout details are the partner's own: locked
 with "{partner} enters this itself" in a staff setup session, "Your turn" to the Owner. Awaiting
 approval shows what happens next; Sent back shows DripFunnel's reason with the fix linked and

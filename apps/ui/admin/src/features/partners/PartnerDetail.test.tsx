@@ -91,7 +91,7 @@ describe('Partner detail', () => {
     expect(text).toContain('Done by Priya (DripFunnel)')
     expect(text).toContain('shop.kaufladen.de is live')
     expect(text).toContain('Add the bank account DripFunnel pays you into')
-    expect(text).toContain('8 of 10')
+    expect(text).toContain('7 of 9')
     expect(text).toContain('Sent back by Maya Ortiz: Legal pages missing an Impressum')
   })
 

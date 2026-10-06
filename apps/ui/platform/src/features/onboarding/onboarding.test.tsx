@@ -25,7 +25,7 @@ describe('the setup checklist', () => {
     for (const item of Object.values(words.items)) expect(text).toContain(item.label)
     for (const to of ['/settings', '/branding', '/domains', '/plans']) expect(html).toContain(`href="${to}"`)
     expect(text).toContain(words.submit)
-    expect(text).toContain('2 of 11 done')
+    expect(text).toContain('2 of 10 done')
   })
 
   it('shows the API’s detail, and the item’s own hint when the API has none', async () => {
@@ -34,16 +34,10 @@ describe('the setup checklist', () => {
     expect(text).toContain(words.items.legal.hint)
   })
 
-  it('keeps Run test signup disabled with its reason until its API exists', async () => {
-    const html = await render(<Onboarding me={me()} state="draft" onboarding={sampleOnboarding()} staffSetup={false} welcome={false} />)
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-describedby="test-signup-why"[^>]*>Run test signup/)
-    expect(textOf(html)).toContain(words.testUnavailable)
-  })
-
   it('disables Submit while the API’s go-live checks fail, counting those checks', async () => {
     const html = await render(<Onboarding me={me()} state="draft" onboarding={sampleOnboarding()} staffSetup={false} welcome={false} />)
     expect(html).toMatch(/<button[^>]*class="df-button df-button--primary"[^>]*disabled=""/)
-    expect(textOf(html)).toContain('Finish the 4 items above first. Payment method and payout details can come later.')
+    expect(textOf(html)).toContain('Finish the 3 items above first. Payment method and payout details can come later.')
     const enabled = await render(<Onboarding me={me()} state="draft" onboarding={sampleOnboarding({ checks: allChecksPass })} staffSetup={false} welcome={false} />)
     expect(enabled).not.toMatch(/<button[^>]*class="df-button df-button--primary"[^>]*disabled=""/)
     expect(textOf(enabled)).not.toContain('Finish the')
@@ -89,7 +83,7 @@ describe('the partner states', () => {
     expect(html).not.toContain('df-checklist-row--submit')
     expect(text).toContain(words.awaiting.title)
     expect(text).toContain('Submitted by DripFunnel on Sep 27, 2026.')
-    expect(text).toContain('9 of 11 done')
+    expect(text).toContain('8 of 10 done')
     for (const step of words.awaiting.next) expect(text).toContain(step.title)
     expect(text).toContain(words.awaiting.note)
   })

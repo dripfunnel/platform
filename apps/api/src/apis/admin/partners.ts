@@ -29,7 +29,6 @@ const Checks = builder.objectRef<PartnerRowDto['checks']>('GoLiveChecks').implem
     emailDomain: t.exposeBoolean('emailDomain'),
     pricedPlan: t.exposeBoolean('pricedPlan'),
     legalPages: t.exposeBoolean('legalPages'),
-    testSignup: t.exposeBoolean('testSignup'),
   }),
 })
 

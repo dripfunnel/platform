@@ -489,7 +489,7 @@ session; `partner.read` is what every role holds. **Built on #155** as fixed set
 | Permission | Screen (FIRST-RELEASE) | Owner | Admin | Support | Finance | Read-only |
 |---|---|:--:|:--:|:--:|:--:|:--:|
 | `partner.read`: dashboard, stores, plans, branding, domains, reports, activity log, settings | every screen | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `onboarding.submit` (submit, run the test signup) | §4 | ✓ | ✓ | | | |
+| `onboarding.submit` (submit for approval) | §4 | ✓ | ✓ | | | |
 | `branding.write` (look, words, emails, publish, schedule, roll back) | §8 | ✓ | ✓ | | | |
 | `domains.write` (add or change a hostname) | §9 | ✓ | ✓ | | | |
 | `domains.recheck` | §9, §6.3 | ✓ | ✓ | ✓ | ✓ | ✓ |

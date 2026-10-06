@@ -11,6 +11,12 @@
 - **Read narrowly**: start with `docs/README.md` and `docs/ARCHITECTURE.md`, then only the documents in the
   "Read first" table that the task touches, then only the source files it needs. Don't
   re-survey the whole repo for each task.
+- **Smallest change first** (AGENTS.md "Working with the user" rule 6): on a bug card, write
+  down the smallest fix before opening any file to change. In an AskUserQuestion about scope, the
+  smallest option comes first, marked "(Recommended)" unless it truly can't fix the problem, and
+  every bigger option's description lists what it adds (new tables or migrations, endpoints,
+  screens, jobs). Anything you notice along the way goes in your reply as a suggested card, not
+  into the diff.
 - **Right place first**: in `apps/api`, put a change in the lowest layer it belongs to
   (docs/api/README.md §4). In an SPA, keep it in that app unless the other SPA needs
   it too, then move it to `apps/ui/shared/` and say so.

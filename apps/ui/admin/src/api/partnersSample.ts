@@ -63,7 +63,7 @@ const user = (id: string, name: string, email: string, role: PartnerUser['role']
 
 const event = (at: string, action: string, by: string | null = null, note: string | null = null): HistoryEntry => ({ at, action, by, note })
 
-const passing: Record<GoLiveCheck, boolean> = { portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true, testSignup: true }
+const passing: Record<GoLiveCheck, boolean> = { portalHost: true, emailDomain: true, pricedPlan: true, legalPages: true }
 
 export const samplePartners: readonly SamplePartner[] = [
   {
@@ -198,7 +198,6 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'legal', ...done('Jonas', 'Kaufladen Digital') },
       { item: 'paymentMethod', ...done('Jonas', 'Kaufladen Digital') },
       { item: 'payoutDetails', ...missing('Add the bank account DripFunnel pays you into') },
-      { item: 'testSignup', ...done('Jonas', 'Kaufladen Digital') },
     ],
     branding: { productName: 'Kaufladen Shop', primaryColor: '#2A2F8F', accentColor: '#FFCC00', poweredBy: 'on' },
     domains: domainsFor('kaufladen.de', 'shop.kaufladen.de', ['email']),
@@ -253,13 +252,13 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'company', ...done('Maya', 'DripFunnel', 'Tallis Studio Pty Ltd, Melbourne') },
       { item: 'branding', ...missing('Logo, colours and font') },
       { item: 'portalHost', ...progress('shops.tallis.studio: waiting for DNS') },
-      ...(['wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const).map((item) => ({ item, ...missing('Not started') })),
+      ...(['wildcards', 'emailSender', 'plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Tallis Shops', primaryColor: '#3D5A40', accentColor: '#E3B23C', poweredBy: 'on' },
     domains: domainsFor('tallis.studio', 'shops.tallis.studio', ['portal', 'preview', 'shops', 'email']),
     plans: [],
     team: [],
-    checks: { portalHost: false, emailDomain: false, pricedPlan: false, legalPages: false, testSignup: false },
+    checks: { portalHost: false, emailDomain: false, pricedPlan: false, legalPages: false },
   },
   {
     id: 'nl',
@@ -280,13 +279,13 @@ export const samplePartners: readonly SamplePartner[] = [
       { item: 'portalHost', ...done('Priya', 'DripFunnel') },
       { item: 'wildcards', ...progress('*.preview.nordlicht.media: waiting for DNS') },
       { item: 'emailSender', ...progress('mail.nordlicht.media: verifying') },
-      ...(['plan', 'legal', 'paymentMethod', 'payoutDetails', 'testSignup'] as const).map((item) => ({ item, ...missing('Not started') })),
+      ...(['plan', 'legal', 'paymentMethod', 'payoutDetails'] as const).map((item) => ({ item, ...missing('Not started') })),
     ],
     branding: { productName: 'Nordlicht Shops', primaryColor: '#3B2F63', accentColor: '#7FD1C7', poweredBy: 'on' },
     domains: domainsFor('nordlicht.media', 'shops.nordlicht.media', ['preview', 'shops', 'email']),
     plans: [],
     team: [],
-    checks: { portalHost: true, emailDomain: false, pricedPlan: false, legalPages: false, testSignup: false },
+    checks: { portalHost: true, emailDomain: false, pricedPlan: false, legalPages: false },
   },
 ]
 
