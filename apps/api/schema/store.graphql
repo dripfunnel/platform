@@ -345,6 +345,7 @@ input MoneyInput {
 type Mutation {
   addProductsToCollection(collectionId: ID!, productIds: [ID!]!): Int
   addSupplierPerson(email: String!, id: ID!, role: String): ID
+  addTaxCategory(homeZoneName: String!, name: String!, rateBps: Int!): ID
   adjustStock(delta: Int!, reason: String!, versionId: ID!, warehouseId: ID!): Int
   approveProduct(id: ID!): Boolean
   changeEmail(email: String!, password: String!): Boolean
