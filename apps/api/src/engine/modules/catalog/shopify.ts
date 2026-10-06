@@ -5,7 +5,7 @@ import type { SecretBox } from '#auth/secretBox'
 import { hashSessionId, newSessionId } from '#auth/session'
 import type { TenantContext } from '#core/tenancy'
 import { appendImportFile, failImport, insertShopifyImport, saveImportCheck, selectCatalogImport } from '#db/scoped/catalogImports'
-import { deleteConnection, finishConnection, markConnectionExpired, savePendingConnection, selectConnection, type ConnectionRow } from '#db/scoped/externalConnections'
+import { deleteConnection, deleteReadConnection, finishConnection, markConnectionExpired, savePendingConnection, selectConnection, type ConnectionRow } from '#db/scoped/externalConnections'
 import { withScope, type ScopedSql } from '#db/scoped/index'
 import { importLimits } from './importFile'
 import { catalogImportAudit, catalogImportKind, catalogImportLifetimeMs, type CatalogImportDeps } from './imports'
@@ -234,8 +234,8 @@ export const fetchShopPage = async (d: ShopFetchDeps, jobId: string, from: strin
   await withScope(d.sql, d.context, async (tx) => {
     // Already added by an earlier delivery of this same page: nothing to add, and its next step is already queued.
     if (!(await appendImportFile(tx, jobId, text, from, page.next ?? 'done'))) return
-    // Read: the token has done its job and goes (THIRD-PARTY-ACCESS §3.4); another import connects again.
-    if (page.next === null && (await deleteConnection(tx, storeId, sellerId))) {
+    // Read: the token has done its job and goes (THIRD-PARTY-ACCESS §3.4), once no other import still reads through it.
+    if (page.next === null && (await deleteReadConnection(tx, connection.id, jobId))) {
       await d.activity.record(tx, {
         category: 'write',
         action: shopifyAudit.disconnected,
